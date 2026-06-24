@@ -16,7 +16,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); root.innerHTML = html; }
+  function setHTML(html){ if(window.Weaver&&Weaver.unmount)Weaver.unmount(); clearFigures(); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   function route(){
@@ -296,29 +296,25 @@
   }
 
   function launchWeaver(reco){
-    const p = new URLSearchParams({ embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) });
-    if(reco.skill) p.set('skill', reco.skill);
     setHTML(`
       <header class="appbar">
         <button class="linkbtn" id="back" style="margin-left:-2px">← exit practice</button>
         <span class="who">${Store.practiceLabel(reco.practiceKey)}</span>
       </header>
-      <div class="weaver-wrap">
-        <iframe class="weaver-frame" id="weaver" src="practice.html?${p.toString()}" title="Guided practice"></iframe>
-      </div>`);
-    $('#back').onclick = ()=>{ logSession(reco, false, true); app('today'); };
-    window._pendingReco = reco;
+      <div class="weaver-wrap"><div class="weaver-host" id="weaverhost"></div></div>`);
+    $('#back').onclick = ()=>{ logSession(reco, false, true); app('today'); };   // setHTML unmounts the engine
+    // mount the guided-practice engine natively (no iframe); it calls back on end
+    Weaver.mount($('#weaverhost'), {
+      practice: reco.practiceKey,
+      sense:    reco.sense || 'touch',
+      silence:  reco.silence || 8,
+      skill:    reco.skill || null,
+      autostart: true
+    }, {
+      onComplete: (minutes)=>{ logSession(reco, true, false, minutes); afterSession(reco, true); },
+      onExit:     (minutes)=>{ logSession(reco, false, true, minutes); }
+    });
   }
-
-  // weaver -> app messages
-  window.addEventListener('message', (e)=>{
-    const m = e.data || {};
-    if(m.type !== 'snb-weaver') return;
-    const reco = window._pendingReco;
-    if(!reco) return;
-    if(m.event === 'complete'){ logSession(reco, true, false, m.minutes); afterSession(reco, true); }
-    else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); }
-  });
   function logSession(reco, completed, endedEarly, minutes){
     if(window._sessionLogged) return; window._sessionLogged=true;
     Store.addSession({ practiceKey:reco.practiceKey, skill:reco.skill, sense:reco.sense, silence:reco.silence,
