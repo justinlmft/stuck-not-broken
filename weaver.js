@@ -507,10 +507,13 @@ window.Weaver={
     const $=id=>ROOT.getElementById(id);
     const _cleanup=[];
     function addEventListener(type,fn,o){ window.addEventListener(type,fn,o); _cleanup.push(function(){window.removeEventListener(type,fn,o);}); }
+    let _reported=false;
     function postToHost(event){
+      if(_reported)return; _reported=true;   // report a session's end exactly once
       const minutes=playStart?Math.max(1,Math.round((Date.now()-playStart)/60000)):null;
-      if(event==='complete'){ if(cbs.onComplete)cbs.onComplete(minutes); }
-      else if(event==='exit'){ if(cbs.onExit)cbs.onExit(minutes); }
+      let info=null; try{ if(cfg)info={practice:cfg.key,sense:cfg.sense,skill:cfg.skill,silence:cfg.silence,pack:cfg.pack||null}; }catch(e){}
+      if(event==='complete'){ if(cbs.onComplete)cbs.onComplete(minutes,info); }
+      else if(event==='exit'){ if(cbs.onExit)cbs.onExit(minutes,info); }
     }
     /* ===================== engine (scoped to this shadow root) ===================== */
 /* ====== audio location ======
@@ -1318,12 +1321,14 @@ function ringLoop(){
         if(opts.sense&&allSenses.indexOf(opts.sense)>=0)c.sense=opts.sense;
         if(opts.skill&&SKILLS.most&&SKILLS.most.some(function(x){return x[0]===opts.skill;}))c.skill=opts.skill;
         const sil=parseInt(opts.silence,10); if(!isNaN(sil))c.silence=sil;
-        practices=[c];active=0;picked=true;cfg=practices[active];
+        practices=[c];active=0;cfg=practices[active];
+        if(opts.picked)picked=true;   // true => land on the chosen practice with submenus; false => show the chooser list with it as default
       }
       renderSetup();
-      if(opts.autostart!==false){ try{fitRing();}catch(e){} startPlayer(); }
+      if(opts.autostart===true){ try{fitRing();}catch(e){} startPlayer(); }   // only autostart when explicitly asked; otherwise show v3's setup/customize screen
     })();
     _active={teardown:function(){
+      try{ if(started&&!finished)postToHost('exit'); }catch(e){}   // a started-but-unfinished session that's being torn down = ended early
       try{stopAll();}catch(e){}
       try{cancelAnimationFrame(rafId);}catch(e){}
       try{au.pause();au.removeAttribute('src');au.load();}catch(e){}

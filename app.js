@@ -295,24 +295,36 @@
     });
   }
 
+  // merge the practice the user actually ran (reported by the engine) over the entry recommendation
+  function actualReco(reco, info){
+    if(!info) return reco;
+    return Object.assign({}, reco, {
+      practiceKey: info.practice || reco.practiceKey,
+      sense:       (info.sense   != null ? info.sense   : reco.sense),
+      skill:       (info.skill   != null ? info.skill   : reco.skill),
+      silence:     (info.silence != null ? info.silence : reco.silence)
+    });
+  }
   function launchWeaver(reco){
     setHTML(`
       <header class="appbar">
         <button class="linkbtn" id="back" style="margin-left:-2px">← exit practice</button>
-        <span class="who">${Store.practiceLabel(reco.practiceKey)}</span>
+        <span class="who">guided practice</span>
       </header>
       <div class="weaver-wrap"><div class="weaver-host" id="weaverhost"></div></div>`);
-    $('#back').onclick = ()=>{ logSession(reco, false, true); app('today'); };   // setHTML unmounts the engine
-    // mount the guided-practice engine natively (no iframe); it calls back on end
+    // setHTML unmounts the engine; its teardown logs an exit only if a session actually started
+    $('#back').onclick = ()=>{ app('today'); };
+    // mount the engine in SETUP mode (no autostart): the user picks a practice, opens submenus,
+    // customizes, then taps Begin. The recommendation is carried in as the default.
     Weaver.mount($('#weaverhost'), {
       practice: reco.practiceKey,
       sense:    reco.sense || 'touch',
       silence:  reco.silence || 8,
       skill:    reco.skill || null,
-      autostart: true
+      autostart: false
     }, {
-      onComplete: (minutes)=>{ logSession(reco, true, false, minutes); afterSession(reco, true); },
-      onExit:     (minutes)=>{ logSession(reco, false, true, minutes); }
+      onComplete: (minutes, info)=>{ const r=actualReco(reco,info); logSession(r, true,  false, minutes); afterSession(r, true); },
+      onExit:     (minutes, info)=>{ logSession(actualReco(reco,info), false, true, minutes); }
     });
   }
   function logSession(reco, completed, endedEarly, minutes){
