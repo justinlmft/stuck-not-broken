@@ -963,7 +963,7 @@ $('surprise').onclick=()=>{
 let SEQ=[],PH=[],idx=-1,LOOP=false,LOOPFROM=0;
 let activePack=null;                 // loaded standalone pack, or null in woven mode
 const SEGSTATE={},GAPTIER={},PACKCACHE={};   // standalone: id→ring state / silence tier; fetched-pack cache
-let playing=false,paused=false,finished=false,started=false,closingNow=false;
+let playing=false,paused=false,finished=false,started=false,closingNow=false,playStart=0;
 let gapTimer=null,inGap=false,gapRemain=0,gapStart=0;
 
 function showScreen(id){if(id==='setup')picked=false;['setup','player'].forEach(s=>$(s).classList.toggle('hidden',s!==id));document.body.classList.toggle('playing',id==='player');}
@@ -1040,6 +1040,7 @@ $('contbtn').onclick=()=>{inBreak=false;$('player').classList.remove('breaking')
 
 function startPlayer(){
   if(cfg.standalone)return startStandalone();          // the "more meditations" path bypasses build()
+  playStart=Date.now();                                // embed: clock the session so the host can log its length
   activePack=null;                                      // woven mode — clear any standalone state
   const o=buildPlan();SEQ=o.seq;PH=o.phase;LOOP=o.loop;LOOPFROM=o.loopFrom;buildTrackSeq();
   $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','Pause');$('pause').style.display='';
@@ -1166,6 +1167,7 @@ function finish(){playing=false;finished=true;finishAt=performance.now();inGap=f
   capClear();$('starting').classList.remove('show');
   $('pause').style.display='none';
   clearTimeout(ctrlTimer);$('player').classList.add('finished');$('player').classList.remove('conn-trouble');
+  postToHost('complete');   // embed: tell the host the session reached its natural end
 }
 $('pause').onclick=()=>{
   if(!playing)return;
@@ -1192,7 +1194,7 @@ $('lesssil').onclick=()=>stepSil(-1);
 $('moresil').onclick=()=>stepSil(1);
 $('captoggle').onclick=()=>{capsOn=!capsOn;const t=$('captoggle');$('capstate').textContent=capsOn?'on':'off';t.classList.toggle('on',capsOn);t.setAttribute('aria-pressed',capsOn?'true':'false');$('player').classList.toggle('caps-on',capsOn);if(capsOn&&curFile){capStart(CAP[curFile]||'');}else{capClear();}};
 
-$('stopbtn').onclick=()=>{stopAll();finished=false;showScreen('setup');};   // immediate exit, no close
+$('stopbtn').onclick=()=>{stopAll();finished=false;postToHost('exit');showScreen('setup');};   // immediate exit, no close
 $('againbtn').onclick=()=>{startPlayer();};                                  // replay the same session from the top
 $('overbtn').onclick=()=>{stopAll();finished=false;$('player').classList.remove('finished','breaking','conn-trouble','rested');$('setup').classList.remove('choosing');showScreen('setup');};
 $('restbtn').onclick=()=>{$('player').classList.add('rested');};               // settle into a quiet close
@@ -1312,7 +1314,34 @@ function ringLoop(){
   const px=$('popoutx');if(px)px.onclick=()=>{$('popout').style.display='none';};
   const ix=$('installx');if(ix)ix.onclick=()=>{$('installhint').style.display='none';};
 })();
-renderSetup();
+
+/* ====== embed handshake ======
+   Lets the Stuck Not Broken host app (index.html) drive this player inside an
+   iframe: preselect a woven practice, hide standalone chrome, auto-start, and
+   report back how the session ended. Mirrors the contract app.js speaks:
+   practice.html?embed=1&autostart=1&practice=<key>&sense=<s>&silence=<n>&skill=<k>
+   -> postMessage({type:'snb-weaver',event:'complete'|'exit',minutes}). */
+function postToHost(event){
+  try{
+    if(window.parent===window)return;
+    const minutes=playStart?Math.max(1,Math.round((Date.now()-playStart)/60000)):null;
+    window.parent.postMessage({type:'snb-weaver',event,minutes},'*');
+  }catch(e){}
+}
+(function initEmbed(){
+  const q=new URLSearchParams(location.search);
+  if(q.get('embed')==='1')document.body.classList.add('embed');
+  const pk=q.get('practice');
+  if(pk&&EXP[pk]&&!EXP[pk].standalone){                 // host only drives the woven practices, never the packs
+    const c=fresh(pk);
+    const sense=q.get('sense'); if(sense&&allSenses.indexOf(sense)>=0)c.sense=sense;
+    const skill=q.get('skill'); if(skill&&SKILLS.most&&SKILLS.most.some(x=>x[0]===skill))c.skill=skill;
+    const sil=parseInt(q.get('silence'),10); if(!isNaN(sil))c.silence=sil;
+    practices=[c];active=0;picked=true;cfg=practices[active];
+  }
+  renderSetup();
+  if(q.get('autostart')==='1')startPlayer();
+})();
 </script>
 <script>
 if('serviceWorker' in navigator){
