@@ -63,25 +63,25 @@
       });
       return g;
     }
-    const gYR=grad('app-grad-yr',150,450), gRB=grad('app-grad-rb',450,750);
-    defs.appendChild(gYR);defs.appendChild(gRB);svg.appendChild(defs);
+    const gBR=grad('app-grad-br',150,450), gRY=grad('app-grad-ry',450,750);
+    defs.appendChild(gBR);defs.appendChild(gRY);svg.appendChild(defs);
 
     const flowG=el('g',{fill:'none','stroke-width':6,'stroke-linecap':'round'});
-    const xYR=[el('path',{d:'M 150,70 C 250,70 350,230 450,230',stroke:'url(#app-grad-yr)'}),
-               el('path',{d:'M 450,70 C 350,70 250,230 150,230',stroke:'url(#app-grad-yr)'})];
-    const xRB=[el('path',{d:'M 750,230 C 650,230 550,70 450,70',stroke:'url(#app-grad-rb)'}),
-               el('path',{d:'M 450,230 C 550,230 650,70 750,70',stroke:'url(#app-grad-rb)'})];
-    xYR.forEach(p=>{p.style.strokeDasharray='14 18';flowG.appendChild(p);});
-    xRB.forEach(p=>{p.style.strokeDasharray='14 18';flowG.appendChild(p);});
-    const cY=el('path',{d:'M 150,70 A 80 80 0 0 1 150,230 A 80 80 0 0 1 150,70',stroke:BASE.yellow});
+    const xBR=[el('path',{d:'M 150,70 C 250,70 350,230 450,230',stroke:'url(#app-grad-br)'}),
+               el('path',{d:'M 450,70 C 350,70 250,230 150,230',stroke:'url(#app-grad-br)'})];
+    const xRY=[el('path',{d:'M 750,230 C 650,230 550,70 450,70',stroke:'url(#app-grad-ry)'}),
+               el('path',{d:'M 450,230 C 550,230 650,70 750,70',stroke:'url(#app-grad-ry)'})];
+    xBR.forEach(p=>{p.style.strokeDasharray='14 18';flowG.appendChild(p);});
+    xRY.forEach(p=>{p.style.strokeDasharray='14 18';flowG.appendChild(p);});
+    const cB=el('path',{d:'M 150,70 A 80 80 0 0 1 150,230 A 80 80 0 0 1 150,70',stroke:BASE.blue});
     const cR=el('path',{d:'M 450,70 A 80 80 0 0 0 450,230 A 80 80 0 0 0 450,70',stroke:BASE.red});
-    const cB=el('path',{d:'M 750,70 A 80 80 0 0 1 750,230 A 80 80 0 0 1 750,70',stroke:BASE.blue});
+    const cY=el('path',{d:'M 750,70 A 80 80 0 0 1 750,230 A 80 80 0 0 1 750,70',stroke:BASE.yellow});
     [cY,cR,cB].forEach(c=>{c.style.strokeDasharray='14 18';flowG.appendChild(c);});
     svg.appendChild(flowG);
 
     if(showLabels){
       const lg=el('g',{'text-anchor':'middle'});
-      [['ventral',150],['sympathetic',450],['dorsal',750]].forEach(([t,x])=>{
+      [['dorsal',150],['sympathetic',450],['ventral',750]].forEach(([t,x])=>{
         const tx=el('text',{x,y:285});tx.textContent=t;
         tx.setAttribute('font-size','13');tx.setAttribute('letter-spacing','0.12em');
         tx.setAttribute('fill','#5E5A4E');tx.style.textTransform='uppercase';
@@ -91,21 +91,25 @@
     }
     mount.appendChild(svg);
 
-    // ---- flow animation (each circuit at its native pace) ----
+  // ---- shared animation epoch so all instances stay in phase ----
     const KF=[{strokeDashoffset:0},{strokeDashoffset:-32}];
     const OPTS={duration:1600,iterations:Infinity,easing:'linear'};
     const DUR={yellow:1600,red:550,blue:3600};
     let anims=null;
     if(wantFlow && cY.animate){
+      if(!global._pvEpoch) global._pvEpoch=performance.now();
+      const elapsed=performance.now()-global._pvEpoch;
+      function syncTime(a,realDur){a.currentTime=(elapsed%realDur)*(1600/realDur);}
       anims={
         y:cY.animate(KF,OPTS), r:cR.animate(KF,OPTS), b:cB.animate(KF,OPTS),
-        yr:xYR.map(p=>p.animate(KF,OPTS)), rb:xRB.map(p=>p.animate(KF,OPTS)),
+        br:xBR.map(p=>p.animate(KF,OPTS)), ry:xRY.map(p=>p.animate(KF,OPTS)),
       };
-      anims.y.updatePlaybackRate(1600/DUR.yellow);
-      anims.r.updatePlaybackRate(1600/DUR.red);
-      anims.b.updatePlaybackRate(1600/DUR.blue);
-      anims.yr.forEach(a=>a.updatePlaybackRate(1600/((DUR.yellow+DUR.red)/2)));
-      anims.rb.forEach(a=>a.updatePlaybackRate(1600/((DUR.red+DUR.blue)/2)));
+      anims.y.updatePlaybackRate(1600/DUR.yellow); syncTime(anims.y,DUR.yellow);
+      anims.r.updatePlaybackRate(1600/DUR.red);    syncTime(anims.r,DUR.red);
+      anims.b.updatePlaybackRate(1600/DUR.blue);   syncTime(anims.b,DUR.blue);
+      const brDur=(DUR.blue+DUR.red)/2, ryDur=(DUR.red+DUR.yellow)/2;
+      anims.br.forEach(a=>{a.updatePlaybackRate(1600/brDur);syncTime(a,brDur);});
+      anims.ry.forEach(a=>{a.updatePlaybackRate(1600/ryDur);syncTime(a,ryDur);});
     }
 
     // ---- state ----
@@ -126,11 +130,11 @@
       const rC=lerpColor(lerpColor(BASE.red,MIX.play,playMix),MIX.freeze,freezeMix);
       const bC=lerpColor(lerpColor(BASE.blue,MIX.stillness,stillMix),MIX.freeze,freezeMix);
       cY.style.stroke=yC;cR.style.stroke=rC;cB.style.stroke=bC;
-      setStops(gYR,yC,rC);setStops(gRB,rC,bC);
+      setStops(gBR,bC,rC);setStops(gRY,rC,yC);
       pres(cY,py,9.5);pres(cR,pr,8.5);pres(cB,pb,9.5);
-      const yrOp=lerp(0.18,1,Math.max(py,pr)), rbOp=lerp(0.18,1,Math.max(pr,pb));
-      xYR.forEach(e=>e.style.strokeOpacity=yrOp);
-      xRB.forEach(e=>e.style.strokeOpacity=rbOp);
+      const brOp=lerp(0.18,1,Math.max(pb,pr)), ryOp=lerp(0.18,1,Math.max(pr,py));
+      xBR.forEach(e=>e.style.strokeOpacity=brOp);
+      xRY.forEach(e=>e.style.strokeOpacity=ryOp);
       // dorsal "behind plexiglas" desaturation when shutdown dominates
       const shut=d*(1-v)*(1-s);
       flowG.style.filter=`saturate(${lerp(1,0.82,shut)})`;

@@ -5,7 +5,7 @@
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const root = $('#screen');
-  const MARK = '../assets/logo/snb-mark-ink.svg';
+  const MARK = 'assets/logo/snb-mark-ink.svg';
 
   const STATE_COLOR = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].color : '#D8D2C2');
   const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'settling');

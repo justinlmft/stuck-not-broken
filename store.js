@@ -197,6 +197,10 @@
   const PRACTICE_LABEL = { mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
 
+  // ---- name ----
+  function getName(){ try{ return localStorage.getItem('snb_name_'+(auth.user?auth.user.id:'anon'))||''; }catch(e){ return ''; } }
+  function setName(n){ try{ localStorage.setItem('snb_name_'+(auth.user?auth.user.id:'anon'), String(n||'').trim()); }catch(e){} }
+
   async function reset(){
     if(CLOUD && auth.user){
       try{ await sb.from('checkins').delete().eq('user_id', auth.user.id); await sb.from('sessions').delete().eq('user_id', auth.user.id); }catch(e){}
@@ -207,6 +211,6 @@
   global.Store = {
     init, signUp, signIn, signOut, user, cloud,
     addCheckin, checkins, lastCheckin, addSession, sessions,
-    learned, trend, recommend, practiceLabel, reset,
+    learned, trend, recommend, practiceLabel, reset, getName, setName,
   };
 })(window);
