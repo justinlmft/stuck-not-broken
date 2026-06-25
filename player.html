@@ -739,6 +739,18 @@ const au=$('au');
 const rand=a=>a[Math.floor(Math.random()*a.length)];
 const has=b=>MAN[b]&&MAN[b].length;
 const clipUrl=f=>BASE+f;            // resolve a clip filename to its full src
+/* ---- clip prefetch: warm the next clips so playback has no network gap.
+   Audio preloaders buffer every variant of the upcoming 1-2 blocks; whichever
+   the random pick lands on is then served from cache. Bounded to cap memory. */
+const _pf=new Map();
+function prefetch(url){
+  if(!url||_pf.has(url))return;
+  try{const a=new Audio();a.preload='auto';a.src=url;_pf.set(url,a);}catch(e){return;}
+  if(_pf.size>24){const k=_pf.keys().next().value;const old=_pf.get(k);try{old.src='';}catch(e){}_pf.delete(k);}
+}
+function prefetchAhead(){
+  try{for(let j=idx+1;j<=idx+2&&j<SEQ.length;j++){const arr=MAN[SEQ[j]];if(arr)arr.forEach(f=>prefetch(clipUrl(f)));}}catch(e){}
+}
 const SIL=[[4,'a little'],[8,'some'],[12,'a lot']];
 const GAPS=RULES.gaps;
 /* gap = the silence the weaver holds AFTER a clip, before the next one.
@@ -1166,7 +1178,8 @@ function playCurrent(){
   const b=SEQ[idx];
   const file=rand(MAN[b]);          // CAPTIONS: this is the chosen variant filename — caption key is CAP[file]
   curFile=file;capStart(CAP[file]||'');   // parse caption into phrases, reveal progressively (shown only when captions on)
-  try{au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
+  try{au.preload='auto';au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
+  prefetchAhead();
 }
 function advance(){
   if(!playing)return;
