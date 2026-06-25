@@ -102,119 +102,7 @@
   function breathKey(){ const n=new Date(); return 'snb_breath_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate(); }
   function breathDone(){ try{ return localStorage.getItem(breathKey())==='1'; }catch(e){ return false; } }
   function markBreath(){ try{ localStorage.setItem(breathKey(),'1'); }catch(e){} }
-  // ---- "From Justin" content library — state-keyed, reactive, no AI ----
-  // Pieces are chosen from the dominant state of today's last check-in
-  // (Store.lastCheckin().dom). Before the first check-in of the day we fall back
-  // to the gentle "neutral" set. promptPolicy is the capacity gate:
-  //   open    = show any type
-  //   sparing = mostly reminders/reflections, a journal prompt only occasionally
-  //   withhold= never auto-show a journal prompt in this state
-  // Source of truth: "Stuck Not Broken - From Justin (content + logic).md" / JSON v2.
-  const FROM_JUSTIN = {
-    safety: { label:"safe", promptPolicy:"open", pieces:[
-      {id:"safe-rem-1", type:"reminder", text:"Feeling present isn't the finish line. It's a place to rest, remind your system what safety actually feels like, and even challenge your system to grow capacity. Doing so makes it easier to find this experience again."},
-      {id:"safe-rem-2", type:"reminder", text:"Safety isn't the absence of hard things. It's having enough capacity inside to meet them."},
-      {id:"safe-ref-1", type:"reflection", text:"In a settled moment like this one, the same problems are still there; they just don't run the show. That steadiness is worth noticing instead of rushing past."},
-      {id:"safe-ref-2", type:"reflection", text:"A lot of people skip right over these good moments, already bracing for the next hard one. You're allowed to let this one be and marinate in it for a bit. No rush."},
-      {id:"safe-ref-3", type:"reflection", text:"You're present enough. Connected enough. Good job."},
-      {id:"safe-jp-1", type:"journal prompt", text:"What's one small thing that helped you feel a little more like yourself today?"},
-      {id:"safe-jp-2", type:"journal prompt", text:"When you feel present like this, what becomes possible that doesn't when you're not?"},
-      {id:"safe-jp-3", type:"journal prompt", text:"You've earned this level of safety. How do you feel about yourself?"},
-      {id:"safe-jp-4", type:"journal prompt", text:"Safety doesn't stay around forever. It'll come and go. Can you give your system permission to come in and out of safety?"},
-    ]},
-    play: { label:"regulated mobilization", promptPolicy:"open", pieces:[
-      {id:"regmob-rem-1", type:"reminder", text:"Energy with a sense of safety underneath it is a good place to be. This is the kind of drive that doesn't cost you later."},
-      {id:"regmob-rem-2", type:"reminder", text:"Not all activation is something to calm down. Some of it is just you, moving toward what matters."},
-      {id:"regmob-ref-1", type:"reflection", text:"On days like this it's easier to say the honest thing, set the limit, start the thing you've been putting off. The same energy that feels like too much when you're on edge feels like fuel when you're steady."},
-      {id:"regmob-ref-2", type:"reflection", text:"There's a kind of busy that drains you and a kind that fills you, isn't there? This is the second one. Worth knowing the difference in your own body. So, pause and take notice."},
-      {id:"regmob-jp-1", type:"journal prompt", text:"What do you most want to put this energy toward right now?"},
-      {id:"regmob-jp-2", type:"journal prompt", text:"Is there a boundary or a conversation that feels possible today that didn't last week?"},
-      {id:"regmob-jp-3", type:"journal prompt", text:"How are you feeling about yourself right now? Your potential?"},
-      {id:"regmob-jp-4", type:"journal prompt", text:"You've earned this, haven't you? Tell the truth."},
-    ]},
-    stillness: { label:"regulated immobilization", promptPolicy:"open", pieces:[
-      {id:"regimm-rem-1", type:"reminder", text:"Rest isn't just a reward you earn after everything's done. It's a necessity for restoring your system's balance."},
-      {id:"regimm-ref-1", type:"reflection", text:"Sink into the stillness within you and around you."},
-      {id:"regimm-ref-2", type:"reflection", text:"Being quiet and close to someone safe, or quiet and alone, can both feel like coming home. A lot of people don't get much of either. Notice it while it's here."},
-      {id:"regimm-jp-1", type:"journal prompt", text:"When it's this quiet inside, what's been waiting for your attention?"},
-      {id:"regimm-jp-2", type:"journal prompt", text:"What's something you understand now that you couldn't see when things were louder?"},
-      {id:"regimm-jp-3", type:"journal prompt", text:"If a younger version of you could feel this kind of calm, what would you want them to know?"},
-    ]},
-    fightflight: { label:"dysregulated mobilization", promptPolicy:"sparing", pieces:[
-      {id:"dysmob-rem-1", type:"reminder", text:"Yes, things are urgent and that's real. But not all of it is equal and you know this. You also know that you're at your best when you can breathe a bit more."},
-      {id:"dysmob-rem-2", type:"reminder", text:"Speeding up is the body trying to handle something. It isn't a flaw, even when it bumps into the people around you."},
-      {id:"dysmob-rem-3", type:"reminder", text:"Irritability and anxiousness are safety running low, not a reflection of your worth. It's something to understand, not to judge."},
-      {id:"dysmob-ref-1", type:"reflection", text:"Sometimes the mind races to stay ahead of a feeling it doesn't want to catch up with. And that makes it even harder to slow down."},
-      {id:"dysmob-ref-2", type:"reflection", text:"Being wired and worn out at the same time is something many people know well. You're not alone in that."},
-      {id:"dysmob-jp-1", type:"journal prompt", text:"What's one thing your body might need right now: to move, to rest, or to be heard?"},
-      {id:"dysmob-jp-2", type:"journal prompt", text:"What's your current emotion? And how does that emotion want to move?"},
-    ]},
-    shutdown: { label:"dysregulated immobilization", promptPolicy:"withhold", pieces:[
-      {id:"dysimm-rem-1", type:"reminder", text:"Collapsed isn't broken. It's a flavor of stuck. And stuck is temporary."},
-      {id:"dysimm-rem-2", type:"reminder", text:"Going quiet and heavy is one of the oldest ways the body protects you. It isn't weakness, even when it feels like nothing at all."},
-      {id:"dysimm-rem-3", type:"reminder", text:"On the heavy days, getting through is maybe enough. You don't owe anyone more than that today."},
-      {id:"dysimm-ref-1", type:"reflection", text:"Shutdown can feel like the lights dimming. Heavy, far away, hard to care. That's not you failing; that's an older part of you trying to get you through."},
-      {id:"dysimm-ref-2", type:"reflection", text:"When everything feels flat, it's easy to believe that's just who you are now. It isn't. It's a state, and states shift."},
-      {id:"dysimm-ref-3", type:"reflection", text:"Sometimes the day feels like it's happening behind glass. A lot of people know that feeling, and it does pass, even when it doesn't seem like it will."},
-      {id:"dysimm-jp-1", type:"journal prompt", text:"What's one sound you can effortlessly hear? Or is there silence?"},
-      {id:"dysimm-jp-2", type:"journal prompt", text:"What's one color catching your eye?"},
-      {id:"dysimm-jp-3", type:"journal prompt", text:"Where is one imaginary place you would go to be in stillness? A place you could breathe easy and be free from pressure?"},
-    ]},
-    freeze: { label:"freeze", promptPolicy:"sparing", pieces:[
-      {id:"freeze-rem-1", type:"reminder", text:"Feeling stuck in place isn't the same as nothing happening. Inside, a lot is, and it's working hard to keep you protected."},
-      {id:"freeze-rem-2", type:"reminder", text:"You don't have to force your way out of stuck. Sometimes the smallest movement is enough to remind the body it can move at all."},
-      {id:"freeze-rem-3", type:"reminder", text:"Being caught between wanting to move and not being able to is one of the most common places people get stuck. You're not the only one here."},
-      {id:"freeze-ref-1", type:"reflection", text:"Stuck can feel like holding your breath without meaning to. Like being ready and frozen at the same time."},
-      {id:"freeze-ref-2", type:"reflection", text:"Freeze might be the current state of your body. And maybe it's been that way for a long time. But not the permanent state of your body."},
-      {id:"freeze-jp-1", type:"journal prompt", text:"Can you wiggle your toes even while frozen?"},
-      {id:"freeze-jp-2", type:"journal prompt", text:"Can you roll your wrists even from freeze? If so, you opened a bit of mobility. Good job."},
-      {id:"freeze-jp-3", type:"journal prompt", text:"Can you roll your neck while in this freeze state?"},
-      {id:"freeze-jp-4", type:"journal prompt", text:"Can you acknowledge your emotion without rejecting it? If not, that's okay for now."},
-    ]},
-    neutral: { label:"settling", promptPolicy:"open", pieces:[
-      {id:"neutral-rem-1", type:"reminder", text:"Your current experience is an opportunity to reflect. Check in when (and if) you're ready."},
-      {id:"neutral-rem-2", type:"reminder", text:"You don't have to change how you feel to check in. Just notice it."},
-      {id:"neutral-ref-1", type:"reflection", text:"Some days you can connect with your body more than others. And that's okay. Progress, not perfection."},
-      {id:"neutral-jp-1", type:"journal prompt", text:"If you had to guess, what's one word for how today feels in your body?"},
-    ]},
-  };
-  const _fjLastId = {};      // per-state last shown id, for no-repeat
-  let _fjCache = null;       // {key, piece} — stable within a state until refreshed
-  let _fjPromptTick = 0;     // rotates the "sparing" prompt cadence
-
-  function fjStateKey(){
-    const last = Store.lastCheckin();
-    if(last && sameDay(last.t) && FROM_JUSTIN[last.dom]) return last.dom;
-    return 'neutral';   // before the first check-in of the day
-  }
-  function fjPick(key){
-    const st = FROM_JUSTIN[key] || FROM_JUSTIN.neutral;
-    let pieces = st.pieces.slice();
-    // capacity gate
-    if(st.promptPolicy==='withhold'){
-      pieces = pieces.filter(p=>p.type!=='journal prompt');
-    } else if(st.promptPolicy==='sparing'){
-      const allowPrompt = (_fjPromptTick++ % 4 === 0);  // a prompt ~1 in 4
-      if(!allowPrompt) pieces = pieces.filter(p=>p.type!=='journal prompt');
-    }
-    if(!pieces.length) pieces = st.pieces.slice();
-    // no-repeat: avoid the last id shown for this state
-    let pool = pieces.filter(p=>p.id!==_fjLastId[key]);
-    if(!pool.length) pool = pieces;
-    const piece = pool[Math.floor(Math.random()*pool.length)];
-    _fjLastId[key] = piece.id;
-    return piece;
-  }
-  // Returns {type,text} so the existing Today/reflection render stays unchanged.
-  function todayReflect(){
-    const key = fjStateKey();
-    if(_fjCache && _fjCache.key===key) return _fjCache.piece;
-    const p = fjPick(key);
-    _fjCache = { key, piece:{ type:p.type, text:p.text } };
-    return _fjCache.piece;
-  }
-  // Called on save so the slot reacts to the new check-in (picks a fresh piece).
-  function refreshFromJustin(){ _fjCache = null; }
+  // Daily note: state-reactive via FromJustin module
   function winsDone(){
     const last = Store.lastCheckin();
     const sess = Store.sessions();
@@ -339,88 +227,78 @@
     const breathHTML   = renderWin('breath',   {done:done.breath,   last, reco});
     const checkinHTML  = renderWin('checkin',  {done:done.checkin,  last, reco});
     const practiceHTML = renderWin('practice', {done:done.practice, last, reco});
-    const r = todayReflect();
+    const r = FromJustin.today();
     c.innerHTML = `<div class="view today">
       <div class="breath-zone">${breathHTML}</div>
-      <div class="bottom-cards">${checkinHTML}${practiceHTML}${r ? `<button class="reflect-row" id="open-refl"><span class="reflect-row-inner"><span class="wc-text"><span class="wc-kicker">${escapeHtml(r.type)}</span><span class="wc-title">where are you, and what helps</span></span><span class="reflect-chevron" aria-hidden="true">→</span></span></button>` : ''}</div>
+      <div class="bottom-cards">${checkinHTML}${practiceHTML}${r ? `<div class="from-justin"><p class="eyebrow" style="margin-bottom:8px">from Justin</p><p class="from-justin-text">${escapeHtml(r.text)}</p>${r.state !== 'neutral' ? '<button class="linkbtn from-justin-more" id="open-refl">learn more →</button>' : ''}</div>` : ''}</div>
     </div>`;
     const setBtn=document.querySelector('#set-btn'); if(setBtn) setBtn.onclick=screenSettings;
     const breathBtn  = c.querySelector('[data-win="breath"]');  if(breathBtn)  breathBtn.onclick  = winAction('breath', reco);
     const checkinBtn = c.querySelector('[data-win="checkin"]'); if(checkinBtn) checkinBtn.onclick = winAction('checkin', reco);
     const mainBtn    = c.querySelector('#practice-main-btn');   if(mainBtn)    mainBtn.onclick    = winAction('practice', reco);
     const simpleBtn  = c.querySelector('#practice-simple-btn'); if(simpleBtn)  simpleBtn.onclick  = ()=>launchWeaver({ practiceKey:'mindfulness', skill:null, sense:reco.sense||'touch', silence:8 });
-    const reflBtn = c.querySelector('#open-refl'); if(reflBtn) reflBtn.onclick = screenReflection;
+    const reflBtn = c.querySelector('#open-refl'); if(reflBtn) reflBtn.onclick = screenReflectionDeep;
   }
 
-  const REFL_SIZES   = [15,17,19,22,26];
-  const REFL_SPACING = [[1.5,'compact'],[1.7,'regular'],[2.1,'airy']];
-  const LOREM_REFL   = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.\n\nDuis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit.';
-  let reflPrefs = {size:2, spacing:1};
+  function screenReflectionDeep(){
+    const note = FromJustin.today();
+    const last = Store.lastCheckin();
+    const dom  = last ? last.dom : null;
+    const cs   = Store.checkins();
+    const paced = groupByDay(cs);
+    const tr   = cs.length >= 2 ? Store.trend() : null;
+    const dir  = tr ? tr.dir : null;
+    const dysregulated = ['fightflight','shutdown','freeze'].includes(dom);
 
-  function screenReflection(){
-    const r = todayReflect();
-    if(!r) return;
+    const streak = (()=>{
+      if(!dom || paced.length < 2) return 0;
+      let n=0;
+      for(let i=paced.length-1;i>=0;i--){
+        if(paced[i].dom===dom) n++; else break;
+      }
+      return n;
+    })();
 
-    const paras = r.text.split('\n\n')
-      .map(p=>`<p class="refl-p">${escapeHtml(p)}</p>`).join('');
+    const body     = dom ? FromJustin.deepBody(dom)              : '';
+    const change   = dir ? FromJustin.changeOverlay(dir)         : '';
+    const stuck    = streak>=3 ? FromJustin.stuckOverlay(streak) : '';
+    const wfKind   = dir==='rising' && !dysregulated ? 'improving' : null;
+    const watchFor = wfKind ? FromJustin.watchFor(wfKind)        : '';
+    const invite   = dom ? FromJustin.deepInvite(dom)            : '';
+    const stateLabel = dom ? FromJustin.label(dom)               : '';
+
+    const recentBars = paced.length >= 2 ? (()=>{
+      const recent = paced.slice(-10);
+      return `<div class="trendstrip" style="margin:14px 0 6px">${recent.map(c=>{
+        const h=16+Math.round(c.v*30);
+        return `<div class="bar" style="height:${h}px;background:${STATE_COLOR(c.dom)}"></div>`;
+      }).join('')}</div>`;
+    })() : '';
+
+    const P=(t,muted)=>t?`<p style="font-size:15px;line-height:1.7;color:var(--${muted?'muted':'ink-80'});text-wrap:pretty;margin:0">${escapeHtml(t)}</p>`:'';
 
     setHTML(`
-      <header class="appbar"></header>
+      <header class="appbar"><button class="backbtn" id="deep-back">today</button></header>
       <div class="scroll">
-        <div class="refl-page" id="refl-content">
-          <p class="eyebrow refl-eyebrow">${escapeHtml(r.type)}</p>
-          ${paras}
+        <div class="view" style="gap:20px">
+          ${note?`<div>
+            <p class="eyebrow" style="margin-bottom:10px">from Justin</p>
+            <p style="font-size:16px;line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0">${escapeHtml(note.text)}</p>
+          </div>`:''}
+          ${(recentBars||change)?`<div>${recentBars}${P(change,true)}</div>`:''}
+          ${stateLabel?`<p class="eyebrow" style="margin-bottom:0">${escapeHtml(stateLabel)}</p>`:''}
+          ${body?`<div style="display:flex;flex-direction:column;gap:16px">
+            ${P(body)}
+            ${stuck?P(stuck,true):''}
+            ${watchFor?P(watchFor,true):''}
+          </div>`:(!dom?P('Check in a few times and a more personal reflection will appear here.',true):'')}
+          ${invite?`<div style="border-top:1px solid var(--hairline);padding-top:18px">
+            <p class="eyebrow" style="margin-bottom:8px">one small thing</p>
+            ${P(invite)}
+          </div>`:''}
         </div>
-      </div>
-      <div class="refl-sheet" id="refl-sheet" aria-hidden="true">
-        <div class="refl-controlbar">
-          <div class="refl-adjstack">
-            <div class="refl-adj">
-              <span class="refl-adj-label">size</span>
-              <span class="refl-adj-stepper">
-                <button class="refl-step" id="refl-sz-dn" aria-label="Smaller">\u2212</button>
-                <span class="refl-sval" id="refl-szval"></span>
-                <button class="refl-step" id="refl-sz-up" aria-label="Larger">+</button>
-              </span>
-            </div>
-            <div class="refl-adj">
-              <span class="refl-adj-label">spacing</span>
-              <span class="refl-adj-stepper">
-                <button class="refl-step" id="refl-sp-dn" aria-label="Tighter">\u2212</button>
-                <span class="refl-sval" id="refl-spval"></span>
-                <button class="refl-step" id="refl-sp-up" aria-label="Looser">+</button>
-              </span>
-            </div>
-          </div>
-          <button class="refl-nav" id="refl-sheet-back"><span>today</span><span class="refl-nav-arrow"></span></button>
-        </div>
-      </div>
-`);
-
-    function applyPrefs(){
-      const el=$('#refl-content');
-      if(el){el.style.fontSize=REFL_SIZES[reflPrefs.size]+'px';el.style.lineHeight=REFL_SPACING[reflPrefs.spacing][0];}
-      const sv=document.getElementById('refl-szval'); if(sv) sv.textContent=REFL_SIZES[reflPrefs.size]+'px';
-      const pv=document.getElementById('refl-spval'); if(pv) pv.textContent=REFL_SPACING[reflPrefs.spacing][1];
-      const dn1=document.getElementById('refl-sz-dn'); if(dn1) dn1.disabled=reflPrefs.size===0;
-      const up1=document.getElementById('refl-sz-up'); if(up1) up1.disabled=reflPrefs.size===REFL_SIZES.length-1;
-      const dn2=document.getElementById('refl-sp-dn'); if(dn2) dn2.disabled=reflPrefs.spacing===0;
-      const up2=document.getElementById('refl-sp-up'); if(up2) up2.disabled=reflPrefs.spacing===REFL_SPACING.length-1;
-    }
-    let reflTimer=null;
-    function openSheet(){const s=document.getElementById('refl-sheet');if(s){s.classList.add('open');s.setAttribute('aria-hidden','false');}clearTimeout(reflTimer);reflTimer=setTimeout(closeSheet,4500);}
-    function closeSheet(){const s=document.getElementById('refl-sheet');if(s){s.classList.remove('open');s.setAttribute('aria-hidden','true');}clearTimeout(reflTimer);}
-    const scrollEl=document.querySelector('#screen .scroll');
-    if(scrollEl){scrollEl.addEventListener('pointerdown',()=>openSheet(),{passive:true});}
-    const sheetEl=document.getElementById('refl-sheet');
-    if(sheetEl){sheetEl.addEventListener('pointerenter',()=>clearTimeout(reflTimer));sheetEl.addEventListener('pointerleave',()=>{reflTimer=setTimeout(closeSheet,4500);});}
-
-    applyPrefs();
-    $('#refl-sheet-back').onclick=()=>app('today');
-    $('#refl-sz-dn').onclick=()=>{if(reflPrefs.size>0){reflPrefs.size--;applyPrefs();}};
-    $('#refl-sz-up').onclick=()=>{if(reflPrefs.size<REFL_SIZES.length-1){reflPrefs.size++;applyPrefs();}};
-    $('#refl-sp-dn').onclick=()=>{if(reflPrefs.spacing>0){reflPrefs.spacing--;applyPrefs();}};
-    $('#refl-sp-up').onclick=()=>{if(reflPrefs.spacing<REFL_SPACING.length-1){reflPrefs.spacing++;applyPrefs();}};
+      </div>`);
+    $('#deep-back').onclick = ()=>app('today');
   }
 
   function recoCardHTML(reco){
@@ -495,7 +373,7 @@
     refresh();
     $('#save').onclick = ()=>{
       Store.addCheckin({ v:v/100, sym:s/100, dor:d/100 });
-      refreshFromJustin();   // react to the new state in the "From Justin" slot
+      FromJustin.refresh();
       app('current');
     };
   }
