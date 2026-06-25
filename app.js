@@ -601,7 +601,7 @@
   function practiceShell(src, reco){
     currentTab = 'practice';
     setHTML(`
-      <div class="weaver-wrap"><iframe class="weaver-frame" id="weaver" src="${src}" title="Guided practice"></iframe></div>
+      <div class="weaver-wrap"><iframe class="weaver-frame" id="weaver" src="${src}" title="Guided practice" allow="autoplay"></iframe></div>
       <nav class="tabbar" id="tabs">
         ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`);

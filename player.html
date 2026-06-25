@@ -1153,11 +1153,20 @@ au.addEventListener('timeupdate',capTick);
 /* the opening "beginning" cue clears the moment real audio starts */
 au.addEventListener('playing',()=>{if(!started){started=true;const s=$('starting');if(s)s.classList.remove('show');}});
 
+/* Autoplay safety net: if au.play() is blocked (e.g. embedded with no in-frame
+   gesture yet), arm a one-time tap anywhere to start audio, so the session
+   never sits silently on 'beginning'. */
+let _tapArmed=false;
+function armTapToStart(){
+  if(_tapArmed)return;_tapArmed=true;
+  const go=()=>{_tapArmed=false;document.removeEventListener('pointerdown',go,true);try{const p=au.play();if(p&&p.catch)p.catch(()=>{});}catch(e){}};
+  document.addEventListener('pointerdown',go,true);
+}
 function playCurrent(){
   const b=SEQ[idx];
   const file=rand(MAN[b]);          // CAPTIONS: this is the chosen variant filename — caption key is CAP[file]
   curFile=file;capStart(CAP[file]||'');   // parse caption into phrases, reveal progressively (shown only when captions on)
-  try{au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{});}catch(e){}
+  try{au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
 }
 function advance(){
   if(!playing)return;
