@@ -736,20 +736,31 @@ DUR={"INTRO-01":11.1,
 /* ====== helpers ====== */
 const $=id=>document.getElementById(id);
 const au=$('au');
+au.preload='auto';
 const rand=a=>a[Math.floor(Math.random()*a.length)];
 const has=b=>MAN[b]&&MAN[b].length;
 const clipUrl=f=>BASE+f;            // resolve a clip filename to its full src
-/* ---- clip prefetch: warm the next clips so playback has no network gap.
-   Audio preloaders buffer every variant of the upcoming 1-2 blocks; whichever
-   the random pick lands on is then served from cache. Bounded to cap memory. */
-const _pf=new Map();
-function prefetch(url){
-  if(!url||_pf.has(url))return;
-  try{const a=new Audio();a.preload='auto';a.src=url;_pf.set(url,a);}catch(e){return;}
-  if(_pf.size>24){const k=_pf.keys().next().value;const old=_pf.get(k);try{old.src='';}catch(e){}_pf.delete(k);}
+/* ── prefetch: buffer next 1-2 segments' variants ahead of time to close network gaps ── */
+const _prefetched=new Set(),_prefetchers=[];
+function prefetch(file){
+  if(_prefetched.has(file))return;_prefetched.add(file);
+  if(_prefetchers.length>=24){const old=_prefetchers.shift();try{old.src='';}catch(e){}}
+  const a=new Audio();a.preload='auto';a.src=clipUrl(file);_prefetchers.push(a);
 }
 function prefetchAhead(){
-  try{for(let j=idx+1;j<=idx+2&&j<SEQ.length;j++){const arr=MAN[SEQ[j]];if(arr)arr.forEach(f=>prefetch(clipUrl(f)));}}catch(e){}
+  for(let i=1;i<=2;i++){const b=SEQ[idx+i];if(b&&MAN[b])MAN[b].forEach(prefetch);}
+}
+/* ── tap-to-start safety net: if the browser blocks autoplay, first tap anywhere resumes ── */
+let _tapArmed=false;
+function armTapToStart(){
+  if(_tapArmed)return;_tapArmed=true;
+  const _s=$('starting'); if(_s){_s.textContent='tap to start';_s.classList.add('show');}   // make the needed tap explicit, not a silent "preparing"
+  document.addEventListener('pointerdown',function _t(){
+    document.removeEventListener('pointerdown',_t);
+    _tapArmed=false;
+    const _s2=$('starting'); if(_s2)_s2.textContent='preparing your audio';
+    if(playing&&!paused){try{au.play();}catch(e){}}
+  },{once:true});
 }
 const SIL=[[4,'a little'],[8,'some'],[12,'a lot']];
 const GAPS=RULES.gaps;
@@ -1075,7 +1086,7 @@ function startPlayer(){
   $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','Pause');$('pause').style.display='';
   finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;
   showScreen('player');fitRing();renderTest();showSil();
-  started=false;const _st=$('starting');if(_st){_st.textContent='beginning';_st.classList.add('show');}
+  started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
   inBreak=false;$('player').classList.remove('finished','conn-trouble','breaking','rested','paused');revealControls();
   cancelAnimationFrame(rafId);ringLoop();
   advance();
@@ -1098,7 +1109,7 @@ function startStandalone(){
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','Pause');$('pause').style.display='';
     finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;
     showScreen('player');fitRing();renderTest();showSil();
-    started=false;const _st=$('starting');if(_st){_st.textContent='beginning';_st.classList.add('show');}
+    started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
     inBreak=false;$('player').classList.remove('finished','conn-trouble','breaking','rested','paused');revealControls();
     cancelAnimationFrame(rafId);ringLoop();
     advance();
@@ -1165,20 +1176,11 @@ au.addEventListener('timeupdate',capTick);
 /* the opening "beginning" cue clears the moment real audio starts */
 au.addEventListener('playing',()=>{if(!started){started=true;const s=$('starting');if(s)s.classList.remove('show');}});
 
-/* Autoplay safety net: if au.play() is blocked (e.g. embedded with no in-frame
-   gesture yet), arm a one-time tap anywhere to start audio, so the session
-   never sits silently on 'beginning'. */
-let _tapArmed=false;
-function armTapToStart(){
-  if(_tapArmed)return;_tapArmed=true;
-  const go=()=>{_tapArmed=false;document.removeEventListener('pointerdown',go,true);try{const p=au.play();if(p&&p.catch)p.catch(()=>{});}catch(e){}};
-  document.addEventListener('pointerdown',go,true);
-}
 function playCurrent(){
   const b=SEQ[idx];
   const file=rand(MAN[b]);          // CAPTIONS: this is the chosen variant filename — caption key is CAP[file]
   curFile=file;capStart(CAP[file]||'');   // parse caption into phrases, reveal progressively (shown only when captions on)
-  try{au.preload='auto';au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
+  try{au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
   prefetchAhead();
 }
 function advance(){
