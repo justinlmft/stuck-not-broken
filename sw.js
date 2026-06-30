@@ -1,16 +1,17 @@
 /* Service worker for the Stuck Not Broken app.
    SHELL: network-first (updates propagate; offline falls back to cache).
-   AUDIO (/clips, /packs — now same-origin): cache-on-play, RANGE-AWARE, kept in a
-   long-lived cache that survives shell updates. We fetch the full file once, cache it,
-   and serve real 206 range slices from it — iOS media playback requires 206 responses,
-   and cache-on-play keeps the footprint to only the practices actually played. */
-const SHELL_VERSION = 'snb-app-shell-v108';
+   AUDIO (/clips, /packs — same-origin): cache-on-play + optional bulk precache, RANGE-AWARE,
+   kept in a long-lived cache that survives shell updates. We fetch the full file once, cache it
+   (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
+   media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
+   to bulk-fill the same cache with progress + quota reporting. */
+const SHELL_VERSION = 'snb-app-shell-v109';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=27', './app.js?v=34', './icons.js', './current.js',
+  './', './index.html', './app.css?v=27', './app.js?v=35', './icons.js', './current.js',
   './config.js', './store.js?v=27', './from-justin.js', './player.html',
-  './manifest.webmanifest', './assets/logo/snb-mark-ink.svg'
+  './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 
 const SCOPE_PATH = new URL(self.registration.scope).pathname;
@@ -21,7 +22,11 @@ self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(SHELL_VERSION).then((c) => c.addAll(SHELL).catch(() => {})));
 });
 
-self.addEventListener('message', (e) => { if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting(); });
+self.addEventListener('message', (e) => {
+  const d = e.data || {};
+  if (d.type === 'SKIP_WAITING') { self.skipWaiting(); return; }
+  if (d.type === 'PRECACHE_AUDIO') { e.waitUntil(precacheAudio(d.urls || [], e.source)); return; }
+});
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
@@ -31,21 +36,46 @@ self.addEventListener('activate', (e) => {
   })());
 });
 
-async function audioResponse(req, url) {
+// bulk precache for the offline toggle — explicit quota handling + progress
+async function precacheAudio(urls, client) {
   const cache = await caches.open(AUDIO_CACHE);
-  const key = new Request(url.origin + url.pathname);   // URL-only key (range/query ignored)
-  let full = await cache.match(key);
-  if (!full) {
-    try {
-      full = await fetch(url.origin + url.pathname);     // plain GET (no Range) -> 200 full, cacheable
-      if (full && full.status === 200) await cache.put(key, full.clone());
-    } catch (err) {
-      const any = await cache.match(key);
-      if (any) full = any; else return new Response('', { status: 504, statusText: 'offline, not cached' });
+  const total = urls.length;
+  let done = 0, saved = 0, quota = false, i = 0;
+  const post = (type) => { try { client && client.postMessage({ type, done, total, saved, quota }); } catch (e) {} };
+  async function worker() {
+    while (i < urls.length && !quota) {
+      const u = urls[i++];
+      try {
+        if (await cache.match(u)) { saved++; }
+        else {
+          const res = await fetch(u);
+          if (res && res.status === 200) { await cache.put(u, res.clone()); saved++; }
+        }
+      } catch (err) {
+        if (err && (err.name === 'QuotaExceededError' || /quota|exceeded/i.test(String((err && err.message) || err)))) quota = true;
+        // else: transient network error on one clip — skip, keep going
+      }
+      done++; post('PRECACHE_PROGRESS');
     }
   }
+  await Promise.all([worker(), worker(), worker(), worker(), worker()]);
+  post('PRECACHE_DONE');
+}
+
+// audio: serve cache-first, range-aware; cache best-effort so quota never breaks playback
+async function audioResponse(req, url) {
+  const cache = await caches.open(AUDIO_CACHE);
+  const key = new Request(url.origin + url.pathname);
+  let full = await cache.match(key);
+  if (!full) {
+    let net;
+    try { net = await fetch(url.origin + url.pathname); }
+    catch (err) { return new Response('', { status: 504, statusText: 'offline, not cached' }); }
+    if (net && net.status === 200) { try { await cache.put(key, net.clone()); } catch (e) {} }
+    full = net;
+  }
   const range = req.headers.get('range');
-  if (!range) return full;
+  if (!range || !full || full.status !== 200) return full;
   const buf = await full.clone().arrayBuffer();
   const size = buf.byteLength;
   const m = /bytes=(\d*)-(\d*)/.exec(range) || [];
@@ -69,9 +99,9 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return;            // cross-origin: untouched
-  if (isAudio(url)) { e.respondWith(audioResponse(req, url)); return; }   // audio: cache-on-play, range-aware
-  if (!url.pathname.startsWith(SCOPE_PATH)) return;       // shell: in-scope only
+  if (url.origin !== location.origin) return;
+  if (isAudio(url)) { e.respondWith(audioResponse(req, url)); return; }
+  if (!url.pathname.startsWith(SCOPE_PATH)) return;
   e.respondWith((async () => {
     try {
       const fresh = await fetch(req);

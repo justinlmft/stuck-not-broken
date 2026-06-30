@@ -1551,6 +1551,32 @@
   }
 
   // ---------------------------------------------------------------- YOU
+  // ---- offline ("save all practices") — bulk precache into the existing snb-audio-v1 SW cache ----
+  const OFFLINE_FLAG = 'snb_offline_all';
+  async function offlineManifest(){
+    try{ const r = await fetch('./offline-manifest.json', {cache:'no-store'}); if(!r.ok) return [];
+      const arr = await r.json(); return (Array.isArray(arr)?arr:[]).map(p=>new URL(p, location.href).href); }
+    catch(e){ return []; }
+  }
+  async function offlineCachedCount(){
+    try{ const c = await caches.open('snb-audio-v1'); const keys = await c.keys();
+      return keys.filter(req=>/\/(clips|packs)\//.test(new URL(req.url).pathname)).length; }catch(e){ return 0; }
+  }
+  // post the clip list to the SW, which bulk-caches with progress; resolves when done
+  async function downloadOffline(urls, onProgress){
+    const reg = await navigator.serviceWorker.ready;
+    const sw = reg.active || navigator.serviceWorker.controller;
+    if(!sw) throw new Error('no active service worker');
+    return new Promise((resolve)=>{
+      const onMsg = (ev)=>{ const d = ev.data||{};
+        if(d.type==='PRECACHE_PROGRESS'){ try{ onProgress && onProgress(d); }catch(e){} }
+        else if(d.type==='PRECACHE_DONE'){ navigator.serviceWorker.removeEventListener('message', onMsg); resolve(d); } };
+      navigator.serviceWorker.addEventListener('message', onMsg);
+      sw.postMessage({ type:'PRECACHE_AUDIO', urls });
+    });
+  }
+  async function clearOffline(){ try{ await caches.delete('snb-audio-v1'); }catch(e){} }
+
   function screenSettings(){
     clearFigures(); document.body.classList.remove('in-practice');
     currentTab='current';
@@ -1566,6 +1592,7 @@
     const rm = (localStorage.getItem('snb_reduce_motion')==='1');
     const th = (localStorage.getItem('snb_theme')||'');
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
+    const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
     const ps = Store.prefSense(); const psil = Store.prefSilence();
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     $('#content').innerHTML = `
@@ -1624,6 +1651,15 @@
           <div class="set-row-inline" id="install-row">${installRowInner()}</div>
         </div>
 
+        <div class="set-group">
+          <p class="dash-prompt">offline</p>
+          <div class="set-seg" id="seg-offline">
+            ${segBtn('off','0','off',!offOn)}${segBtn('off','1','on',offOn)}
+          </div>
+          <p class="fineprint" id="offline-status" style="margin-top:8px">about 94 mb. best on wi-fi. lets every meditation play without a connection.</p>
+          <p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system may clear this if the app goes unused for a while. just turn it back on if that happens.</p>
+        </div>
+
         <div class="hr"></div>
 
         <div class="set-actions">
@@ -1658,6 +1694,37 @@
       segSil.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     });
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
+    // offline: bulk download / clear, with an honest iOS-eviction check on render
+    const segOff = $('#seg-offline'); const offStatus = $('#offline-status');
+    const setOff = (t)=>{ if(offStatus) offStatus.textContent = t; };
+    (async ()=>{
+      if(localStorage.getItem(OFFLINE_FLAG)==='1'){
+        const mani = await offlineManifest(); const have = await offlineCachedCount();
+        setOff(mani.length && have>=mani.length ? 'saved for offline ✓' : 'your device cleared the offline copy. turn on to download it again.');
+      }
+    })();
+    let offBusy = false;
+    if(segOff) segOff.querySelectorAll('[data-off]').forEach(b=>b.onclick=async ()=>{
+      if(offBusy) return;
+      const want = b.dataset.off==='1';
+      segOff.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      if(want){
+        offBusy = true; haptic('save'); setOff('preparing…');
+        const urls = await offlineManifest();
+        if(!urls.length){ setOff("couldn't read the practice list. try again."); offBusy=false; return; }
+        try{
+          const res = await downloadOffline(urls, d=>setOff('saving… '+d.done+'/'+d.total));
+          localStorage.setItem(OFFLINE_FLAG,'1');
+          try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
+          const have = await offlineCachedCount();
+          if(res.quota || have < urls.length) setOff("didn't all fit — saved "+have+" of "+urls.length+". free up space and turn on again.");
+          else setOff('saved for offline ✓');
+        }catch(e){ setOff('download failed. check your connection and try again.'); }
+        offBusy = false;
+      } else {
+        offBusy = true; await clearOffline(); localStorage.removeItem(OFFLINE_FLAG); setOff('offline copy removed.'); offBusy = false;
+      }
+    });
     $('#export').onclick = ()=>{
       const blob = new Blob([JSON.stringify(Store.checkins(),null,2)],{type:'application/json'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-checkins.json'; a.click();
