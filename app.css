@@ -20,6 +20,9 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
+/* iOS paints a dark rectangle over tapped elements by default — our buttons
+   carry their own press states, so the flash is just noise. */
+*{-webkit-tap-highlight-color:transparent}
 body{
   font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bone);color:var(--ink);
   font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
@@ -110,8 +113,8 @@ p{margin:0;text-wrap:pretty}
 .gate .mark{height:22px;margin-bottom:auto}
 .gate-body{margin:auto 0}
 /* T-1: the one-breath invitation on the sign-in gate */
-.gate-breath{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;background:none;border:0;cursor:pointer;padding:6px 0 4px;margin:0 0 22px;color:inherit}
-.gb-ring{width:62px;height:62px;border-radius:50%;border:1.5px solid var(--ink);opacity:.6;animation:t-breathe 9s var(--ease) infinite;will-change:transform,opacity}
+.gate-breath{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;background:none;border:0;cursor:pointer;padding:6px 0 4px;margin:0 0 22px;color:inherit}
+.gb-ring{width:104px;height:104px;border-radius:50%;border:1.5px solid var(--ink);opacity:.66;animation:t-breathe 9s var(--ease) infinite;will-change:transform,opacity}
 .gb-txt{font-size:13px;color:var(--muted)}
 .gate-breath:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:12px}
 @media (prefers-reduced-motion:reduce){.gb-ring{animation:none;opacity:.5}}

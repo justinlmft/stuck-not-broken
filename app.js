@@ -392,11 +392,28 @@
       screenNewPassword(null, true);
       Promise.resolve(Store.updatePassword(pw)).then(res=>{
         if(res && res.error) return screenNewPassword(res.error);
-        _recovery=false; showToast('password updated.'); currentTab='today'; route();
+        _recovery=false;
+        // reset links always open in the browser, never in the installed app
+        // (an iOS limitation) — so if we're not running standalone, close the
+        // loop with a pointer back home instead of quietly continuing here.
+        const standalone = (navigator.standalone===true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+        if(!standalone) return screenResetDone();
+        showToast('password updated.'); currentTab='today'; route();
       }).catch(e=>screenNewPassword(String((e&&e.message)||e)));
     };
     $('#npw-go').onclick=submit;
     $('#npw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+  }
+  // password saved from a browser tab (not the installed app): point them home.
+  function screenResetDone(){
+    setHTML(`
+      <div class="view gate"><div class="gate-body" style="text-align:center">
+        <p class="eyebrow">all set</p>
+        <h1 style="margin:12px 0 12px">password updated.</h1>
+        <p class="lede" style="margin-bottom:24px">you can close this tab. open the app from your home screen and sign in with your new password if it asks.</p>
+        <button class="btn block" id="reset-done-continue">or keep going here</button>
+      </div></div>`);
+    $('#reset-done-continue').onclick=()=>{ currentTab='today'; route(); };
   }
   // In-app reader for the create-account disclaimers. Back returns to the
   // create-account screen (authMode='up'), never into the main app.
