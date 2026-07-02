@@ -180,18 +180,41 @@
             auth.user = { id:session.user.id, email:session.user.email };
             if(was !== auth.user.id) loadCache();
             if(event==='SIGNED_IN' || event==='TOKEN_REFRESHED' || was !== auth.user.id) hydrate();
+            if(event==='SIGNED_IN') checkMembership();
           } else if(event==='SIGNED_OUT'){
             auth.user = null;
           }
         });
         const session = await ensureSession();           // live, refreshed-if-needed session — not a cached pointer
-        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email }; loadCache(); await hydrate(); }
+        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email }; loadCache(); await hydrate(); checkMembership(); }
       }catch(e){ console.warn('session check failed', e); }
     } else {
       const p = readProfile();
       if(p){ auth.user = p; loadCache(); }
     }
     cb && cb();
+  }
+  // ---- circle membership stamp ----
+  // fire-and-forget, at most once a day: asks the circle-membership edge
+  // function to check whether this account's email is an unstucking-academy
+  // co-regulation member, and stamp the entitlements table. Nothing in the
+  // app is gated on it yet; it keeps membership status current for when a
+  // paid tier exists.
+  function checkMembership(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      const cfg = global.SNB_CONFIG || {};
+      if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return;
+      const k='snb_ent_checked', last=+(localStorage.getItem(k)||0);
+      if(Date.now()-last < 864e5) return;
+      sb.auth.getSession().then(({ data:{ session } })=>{
+        if(!session) return;
+        fetch(cfg.SUPABASE_URL + '/functions/v1/circle-membership', {
+          method:'POST',
+          headers:{ Authorization:'Bearer ' + session.access_token, apikey: cfg.SUPABASE_ANON_KEY }
+        }).then(r=>{ if(r.ok){ try{ localStorage.setItem(k, String(Date.now())); }catch(e){} } }).catch(()=>{});
+      }).catch(()=>{});
+    }catch(e){}
   }
   function readProfile(){ try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch(e){ return null; } }
   function writeProfile(p){ try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch(e){} }
