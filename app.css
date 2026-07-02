@@ -12,8 +12,9 @@
   /* practice track colors: mindfulness = ink, connect-with-safety = sky/blue, self-regulation = amber */
   --track-mind:#1A1F2A; --track-safety:#5891C5; --track-self:#D29A4A;
   /* darker "ink" versions of the track colors for small text (the raw track
-     colors sit under 4.5:1 on bone; these hold contrast — same pair player.html uses) */
-  --track-safety-ink:#356291; --track-self-ink:#8C5E1C; --track-mind-ink:#1A1F2A;
+     colors sit under 4.5:1 on bone). self-ink is a burnt amber (#B45309, 4.77:1)
+     rather than the darker ochre — darkened amber reads brown; this stays warm. */
+  --track-safety-ink:#356291; --track-self-ink:#B45309; --track-mind-ink:#1A1F2A;
   --field:#fff; --knob:#fff; --danger:#9A3B3B; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
   --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1); --type-scale:1;
 }
