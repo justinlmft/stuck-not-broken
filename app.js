@@ -513,7 +513,9 @@
   function segOf(t){ const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; }
   function segLabel(seg){ return seg==='late'?'late night':seg; }
   function segPoss(seg){ return seg==='late'?'night':seg; }
-  function breathKey(){ const n=new Date(); return 'snb_breath_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate(); }
+  // per-user AND per-day: a new account on the same device must not inherit
+  // the previous account's "already breathed today" settled state
+  function breathKey(){ const n=new Date(); const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_breath_'+u+'_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate(); }
   function breathDone(){ try{ return localStorage.getItem(breathKey())==='1'; }catch(e){ return false; } }
   function markBreath(){ try{ localStorage.setItem(breathKey(),'1'); }catch(e){} }
   // Daily note: state-reactive via FromJustin module
@@ -1296,11 +1298,7 @@
         <div class="scr-head">
           <p class="eyebrow"></p>
           <h2 class="scr-h">${editRec?'change your check-in':'how is your system showing up this '+seg+'?'}</h2>
-          ${editRec?`<p class="ci-when">${relTime(editRec.t)}</p>`:(function(){
-            // first-week orienting line: a new user may not know what "system" means
-            let yng=false; try{ yng=(Store.tenure().days||0)<=7; }catch(e){}
-            return yng?'<p class="ci-orient">your system means your body and nervous system. no right answers, just noticing.</p>':'';
-          })()}
+          ${editRec?`<p class="ci-when">${relTime(editRec.t)}</p>`:''}
         </div>
 
         <div class="ci-block">
@@ -1484,12 +1482,18 @@
           <span class="map-text"><span class="map-name">${STATE_NAME(st)}</span><span class="map-sub">${ax.sub}</span></span>
         </div>`;
       }).join('');
-      c.innerHTML = `<div class="view"><div class="map-empty">
+      c.innerHTML = `<div class="view play-view">
+        <div class="filter-bar" style="justify-content:flex-end">
+          <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
+        </div>
+        <div class="map-empty">
         <p class="map-lede">your three nervous-system states.</p>
         <div class="map-rows">${teach}</div>
         <p class="map-foot">check in twice, and your patterns start to show here.</p>
         <button class="btn" id="goci">check in</button></div></div>`;
-      $('#goci').onclick = screenCheckin; return;
+      $('#goci').onclick = screenCheckin;
+      const sb0=$('#set-btn'); if(sb0) sb0.onclick = screenSettings;
+      return;
     }
 
     const avg = a => a.length ? a.reduce((s,v)=>s+v,0)/a.length : 0;
