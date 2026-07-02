@@ -222,6 +222,7 @@
   // ---------------------------------------------------------------- routing
   function route(){
     if(!Store.user()) return screenSignIn();
+    if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
     // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
     let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
     if(h==='checkin'){ app('today'); return screenCheckin(); }
@@ -232,6 +233,9 @@
   let currentTab = 'today';
   let authMode = 'in';
   let lastEmail = '';
+  // captured at load, before the hash is consumed anywhere; also set by the
+  // PASSWORD_RECOVERY auth event (registered near Store.init at the bottom)
+  let _recovery = /type=recovery/.test(location.hash||'');
 
   // ---------------------------------------------------------------- sign in / up
   function screenSignIn(err, busy){
@@ -247,13 +251,14 @@
           <p class="eyebrow">stuck not broken</p>
           <h1 style="margin:10px 0 12px">${up?'an app to guide you through emotional regulation.':'your nervous system, over time.'}</h1>
           <p class="lede" style="margin-bottom:24px">check in about your nervous system, get practices tuned to you, and watch your patterns become visible over time.</p>
-          <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"></div>
+          <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
           ${up ? '<div class="field"><label for="nm">your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`:''}
           <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
+          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">forgot your password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">on-device mode: your data stays on this device for now.</p>'}
         </div>
       </div>`);
@@ -264,8 +269,35 @@
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
       a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
     });
-    $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; });
+    $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; emailHint(); });
+    $('#em').addEventListener('blur', emailHint);
     $('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+    const fg=$('#forgot'); if(fg) fg.onclick = ()=>{
+      const email=$('#em').value.trim();
+      if(!email){ lastEmail=email; return screenSignIn('enter your email above first, then tap "forgot your password?"'); }
+      lastEmail=email;
+      screenSignIn(null, true);
+      Promise.resolve(Store.resetPassword(email)).then(res=>{
+        if(res && res.error) return screenSignIn(res.error);
+        screenResetSent(email);
+      }).catch(e=>screenSignIn(String((e&&e.message)||e)));
+    };
+    // gentle typo guard on the email domain (never blocks; a wrong email here
+    // means reset links and sign-ins on a new phone would quietly go nowhere)
+    function emailHint(){
+      const el=$('#em'), hint=$('#em-hint'); if(!el||!hint) return;
+      const v=el.value.trim(), at=v.lastIndexOf('@');
+      const fixes={ 'gmial.com':'gmail.com','gmal.com':'gmail.com','gamil.com':'gmail.com','gmail.co':'gmail.com','gmail.cm':'gmail.com','gnail.com':'gmail.com',
+                    'yaho.com':'yahoo.com','yahooo.com':'yahoo.com','yahoo.co':'yahoo.com','hotmial.com':'hotmail.com','hotmail.co':'hotmail.com',
+                    'outlok.com':'outlook.com','outlook.co':'outlook.com','iclod.com':'icloud.com','icloud.co':'icloud.com','icoud.com':'icloud.com' };
+      const dom = at>0 ? v.slice(at+1).toLowerCase() : '';
+      if(fixes[dom]){
+        hint.style.display='block';
+        hint.innerHTML='did you mean <button type="button" class="linkbtn" id="em-fix" style="font-size:inherit;padding:0">'+escapeHtml(v.slice(0,at+1)+fixes[dom])+'</button>?';
+        const fx=hint.querySelector('#em-fix');
+        if(fx) fx.onclick=()=>{ el.value=v.slice(0,at+1)+fixes[dom]; lastEmail=el.value; hint.style.display='none'; };
+      } else hint.style.display='none';
+    }
     function submit(){
       const email=$('#em').value.trim(), pw=$('#pw').value;
       if(!email || (Store.cloud() && !pw)){ lastEmail=email; screenSignIn('enter your email and a password.'); return; }
@@ -327,6 +359,44 @@
         <button class="btn block" id="back2">back to sign in</button>
       </div></div>`);
     $('#back2').onclick=()=>{ authMode='in'; screenSignIn(); };
+  }
+
+  // forgot password: confirmation that the reset email went out
+  function screenResetSent(email){
+    setHTML(`
+      <div class="view gate"><div class="gate-body" style="text-align:center">
+        <p class="eyebrow">reset link sent</p>
+        <h1 style="margin:12px 0 12px">check your email.</h1>
+        <p class="lede" style="margin-bottom:24px">we sent a password reset link to <b style="font-weight:500">${escapeHtml(email)}</b>. tap it and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
+        <button class="btn block" id="back3">back to sign in</button>
+      </div></div>`);
+    $('#back3').onclick=()=>{ authMode='in'; screenSignIn(); };
+  }
+
+  // landed here from the reset link in their email: already signed in,
+  // one job — choose a new password.
+  function screenNewPassword(err, busy){
+    setHTML(`
+      <div class="view gate"><div class="gate-body">
+        <p class="eyebrow">new password</p>
+        <h1 style="margin:12px 0 12px">choose a new password.</h1>
+        <p class="lede" style="margin-bottom:24px">you're signed in. pick a new password and you're done.</p>
+        <div class="field"><label for="npw">new password</label><input id="npw" type="password" autocomplete="new-password"></div>
+        ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
+        <button class="btn block" id="npw-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':'save password'}</button>
+      </div></div>`);
+    if(busy) return;
+    const submit=()=>{
+      const pw=$('#npw').value;
+      if(!pw || pw.length<6) return screenNewPassword('use at least six characters.');
+      screenNewPassword(null, true);
+      Promise.resolve(Store.updatePassword(pw)).then(res=>{
+        if(res && res.error) return screenNewPassword(res.error);
+        _recovery=false; showToast('password updated.'); currentTab='today'; route();
+      }).catch(e=>screenNewPassword(String((e&&e.message)||e)));
+    };
+    $('#npw-go').onclick=submit;
+    $('#npw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
   }
   // In-app reader for the create-account disclaimers. Back returns to the
   // create-account screen (authMode='up'), never into the main app.
@@ -2376,5 +2446,8 @@
     new MutationObserver((muts)=>{ for(const m of muts){ if(m.addedNodes){ for(const n of m.addedNodes){ if(n.nodeType===1 && (n.classList&&n.classList.contains('triglyph') || (n.querySelector&&n.querySelector('.triglyph')))){ _litTri(); return; } } } } }).observe(document.body,{childList:true,subtree:true});
   }catch(e){}
   try{ if(window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyPrefs); }catch(_){}
+  // reset-link arrivals: supabase fires PASSWORD_RECOVERY after it consumes the
+  // token from the URL; the hash check in _recovery covers the load-time race.
+  try{ if(Store.onPasswordRecovery) Store.onPasswordRecovery(()=>{ _recovery=true; if(Store.user()) screenNewPassword(); }); }catch(e){}
   Store.init(route);
 })();

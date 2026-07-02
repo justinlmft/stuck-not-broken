@@ -169,6 +169,12 @@
         // is what recovers the UI on iOS once the session plumbing settles.
         sb.auth.onAuthStateChange((event, session)=>{
           if(event==='INITIAL_SESSION') return;          // handled by the explicit load below
+          if(event==='PASSWORD_RECOVERY'){               // arrived via a reset-password email link
+            if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email }; loadCache(); }
+            recoveryPending = true;
+            if(typeof onRecovery==='function') onRecovery();
+            return;
+          }
           if(session && session.user){
             const was = auth.user && auth.user.id;
             auth.user = { id:session.user.id, email:session.user.email };
@@ -266,6 +272,23 @@
       return {};
     }
     return localEnter(email);
+  }
+  // ---- password reset (forgot password) ----
+  // resetPassword sends Supabase's recovery email; the link signs the person in
+  // and returns them to the app, where PASSWORD_RECOVERY fires and the app shows
+  // a set-new-password screen (which calls updatePassword).
+  let onRecovery = null, recoveryPending = false;
+  function onPasswordRecovery(fn){ onRecovery = fn; if(recoveryPending && typeof fn==='function') fn(); }
+  async function resetPassword(email){
+    if(!CLOUD) return {};
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/' });
+    return error ? { error: error.message } : {};
+  }
+  async function updatePassword(password){
+    if(!CLOUD) return {};
+    const { error } = await sb.auth.updateUser({ password });
+    if(!error) recoveryPending = false;
+    return error ? { error: error.message } : {};
   }
   function localEnter(email){
     auth.user = { id:'local:'+(email||'me'), email:email||'' };
@@ -739,6 +762,7 @@
 
   global.Store = {
     init, signUp, signIn, signOut, user, cloud, syncStatus,
+    resetPassword, updatePassword, onPasswordRecovery,
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
