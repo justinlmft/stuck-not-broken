@@ -355,7 +355,7 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">almost there</p>
         <h1 style="margin:12px 0 12px">check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">we sent a confirmation link to <b style="font-weight:500">${escapeHtml(email)}</b>. tap it, then come back here to sign in.</p>
+        <p class="lede" style="margin-bottom:24px">we sent a confirmation link to <b style="font-weight:500">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap it, then come back here to sign in.</p>
         <button class="btn block" id="back2">back to sign in</button>
       </div></div>`);
     $('#back2').onclick=()=>{ authMode='in'; screenSignIn(); };
@@ -367,7 +367,7 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">reset link sent</p>
         <h1 style="margin:12px 0 12px">check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">we sent a password reset link to <b style="font-weight:500">${escapeHtml(email)}</b>. tap it and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
+        <p class="lede" style="margin-bottom:24px">we sent a password reset link to <b style="font-weight:500">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap the link and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
         <button class="btn block" id="back3">back to sign in</button>
       </div></div>`);
     $('#back3').onclick=()=>{ authMode='in'; screenSignIn(); };
