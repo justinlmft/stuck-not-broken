@@ -727,6 +727,8 @@ body.in-practice .tabbar{display:none}
 .settings-view .hr{display:none}
 /* inside a card, the seg track needs its own tone (it was bone-deep = card color) */
 .set-card .set-seg{background:var(--press)}
+/* six sense options were too tight on one row: an even 3x2 grid, full width */
+#seg-sense{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 /* the dash lead-ins are redundant inside the visual card grouping */
 .set-card .dash-prompt::before{display:none}
 .set-card .dash-prompt{gap:0}
@@ -781,7 +783,10 @@ body.in-practice .tabbar{display:none}
 /* ---------- enlarged hit areas ---------- */
 /* the visible control is unchanged; only the touchable zone grows to ~44pt
    (HIG minimum). done with an invisible ::after so layout never shifts. */
-.p-chip,.period-pill,.panel-share,.set-gear,.p-surprise{position:relative}
+/* NOTE: .panel-share must NOT be in this list — it is position:absolute (top
+   right of the card) and a position:relative here silently overrode that,
+   dropping the button inline at the top left over the title. */
+.p-chip,.period-pill,.set-gear,.p-surprise{position:relative}
 .p-chip::after,.period-pill::after,.p-surprise::after{content:'';position:absolute;inset:-6px -2px;border-radius:999px}
 .panel-share::after{content:'';position:absolute;inset:-7px;border-radius:50%}
 .set-gear::after{content:'';position:absolute;inset:-3px;border-radius:50%}
@@ -1135,7 +1140,7 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 .today.tb.breathed .tb-ring{width:104px;height:104px;animation-duration:13s;opacity:.5}
 .today.tb.breathed .tb-halo{animation-duration:13s;opacity:.4}
 .today.tb.breathed .tb-below{opacity:0;max-height:0;min-height:0;margin:0}
-.today.tb.breathed .tb-foot{margin-top:30px}
+.today.tb.breathed .tb-foot{margin-top:8px}
 /* settled: the quieted ring hands its space to the two actions — roomier rows, larger text */
 .today.tb.breathed .tb-row{padding:22px 18px}
 .today.tb.breathed .tb-row-title{font-size:17px}
@@ -1148,9 +1153,10 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 .tb-esc{font-size:12px;color:var(--muted);opacity:0;transition:opacity .8s var(--ease);pointer-events:none;margin-top:4px}
 .today.tb.breathing .tb-esc{opacity:.6;transition-delay:2.2s}
 
-/* post-breath micro offer: sits BETWEEN the hero and the foot cards (outside the
-   hero, so the centered ring never shifts) and appears only once the ring settles */
-.tb-more{display:none;font:inherit;font-size:13.5px;color:var(--ink-80);background:none;border:1px solid var(--hairline);border-radius:999px;cursor:pointer;padding:10px 18px;margin:2px 0 0;align-self:center;transition:border-color .2s var(--ease),background .15s var(--ease)}
+/* post-breath micro offer: the SLOT always reserves its height between hero and
+   foot, so nothing shifts when the button appears — the ring never gets pushed */
+.tb-more-slot{min-height:50px;flex:none;display:flex;align-items:center;justify-content:center}
+.tb-more{display:none;font:inherit;font-size:13.5px;color:var(--ink-80);background:none;border:1px solid var(--hairline);border-radius:999px;cursor:pointer;padding:10px 18px;margin:0;transition:border-color .2s var(--ease),background .15s var(--ease)}
 .today.tb.breathed .tb-more{display:inline-flex;animation:tcRise .5s .3s var(--ease) both}
 @media(hover:hover){.tb-more:hover{border-color:var(--ink-80);color:var(--ink)}}
 .tb-more:active{background:var(--press)}

@@ -402,12 +402,20 @@
     const g = b.querySelector('.in-go'); if(g) g.onclick = promptInstall;
     const x = b.querySelector('.in-x'); if(x) x.onclick = ()=>{ try{ localStorage.setItem('snb_install_nudge','dismissed'); }catch(_){} b.remove(); };
   }
-  function tabIcon(t){ return ({
+  // active tab = FILLED symbol (the iOS convention: selection reads at a glance,
+  // not just by tint); inactive = outline.
+  function tabIcon(t, on){
+    if(on) return ({
+      today:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path fill="none" d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
+      practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
+      current:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
+    }[t]||'');
+    return ({
     today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
     practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
     current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
   }[t]||''); }
-  function tabBtn(t,label){ return `<button data-t="${t}" class="${currentTab===t?'on':''}" aria-label="${label}"><span class="ic" aria-hidden="true">${tabIcon(t)}</span><span class="lb">${label}</span></button>`; }
+  function tabBtn(t,label){ const on=currentTab===t; return `<button data-t="${t}" class="${on?'on':''}" aria-label="${label}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${label}</span></button>`; }
   const content = () => $('#content');
 
   // ---------------------------------------------------------------- TODAY
@@ -527,7 +535,7 @@
           <span class="tb-esc" aria-hidden="true">tap anywhere to end early</span>
         </button>
       </div>
-      <button class="tb-more" id="tb-more" type="button">two more minutes?</button>
+      <div class="tb-more-slot"><button class="tb-more" id="tb-more" type="button">two more minutes?</button></div>
       <div class="tb-foot">
         <button class="tb-row" id="tb-practice">
           <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
@@ -1340,14 +1348,16 @@
       x.strokeStyle='#D8D2C2'; x.lineWidth=3; x.strokeRect(48,48,W-96,H-96);
       ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(W/2-64+i*64,196,17,0,7); x.fill(); });
       x.fillStyle='#1A1F2A'; x.font='500 54px Inter, system-ui, sans-serif'; x.textAlign='center';
-      const body=String(txt).replace(/\.?\s*stuck not broken\s*$/i,'');
+      const body=String(txt).replace(/\.?\s*stuck not broken( · app\.stucknotbroken\.com)?\s*$/i,'');
       const words=body.split(/\s+/), lines=[]; let line='';
       words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-280&&line){ lines.push(line); line=w; } else line=t; });
       if(line) lines.push(line);
       const startY=H/2-(lines.length-1)*40;
       lines.slice(0,8).forEach((l,i)=>x.fillText(l,W/2,startY+i*80));
       x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
-      x.fillText('stuck not broken',W/2,H-150);
+      x.fillText('stuck not broken',W/2,H-176);
+      x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif';
+      x.fillText('app.stucknotbroken.com',W/2,H-130);
       const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
       if(!blob) return false;
       const file=new File([blob],'stuck-not-broken.png',{type:'image/png'});
@@ -1573,14 +1583,15 @@
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
+      const _sig = 'stuck not broken · app.stucknotbroken.com';
       const SHARE_TXT = {
-        safety:  `my nervous system is running at ${safetyPct}% safety lately${dir==='rising'?', and rising':''}. i'm learning its language. stuck not broken`,
-        mix:     `lately my system spends the most time in ${_topNm}. i'm mapping my nervous system, state by state. stuck not broken`,
-        comeback:`my nervous system knows the way back. after harder moments, i keep finding safety again. stuck not broken`,
-        day:     dir==='rising' ? `my safety is on the rise. the reps are adding up. stuck not broken`
-               : dir==='falling' ? `my safety is in a dip right now. dips come back, and i'm watching the whole pattern. stuck not broken`
-               : `my safety is holding steady, and i can see it. stuck not broken`,
-        practice:`i'm tracking whether practice actually moves my nervous system, and watching the answer show up in the data. stuck not broken`,
+        safety:  `my nervous system is running at ${safetyPct}% safety lately${dir==='rising'?', and rising':''}. i'm learning its language. ${_sig}`,
+        mix:     `lately my system spends the most time in ${_topNm}. i'm mapping my nervous system, state by state. ${_sig}`,
+        comeback:`my nervous system knows the way back. after harder moments, i keep finding safety again. ${_sig}`,
+        day:     dir==='rising' ? `my safety is on the rise. the reps are adding up. ${_sig}`
+               : dir==='falling' ? `my safety is in a dip right now. dips come back, and i'm watching the whole pattern. ${_sig}`
+               : `my safety is holding steady, and i can see it. ${_sig}`,
+        practice:`i'm tracking whether practice actually moves my nervous system, and watching the answer show up in the data. ${_sig}`,
       };
       c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); openShare(SHARE_TXT[b.dataset.share]||SHARE_TXT.safety); }));
       c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
@@ -2207,6 +2218,7 @@
           <div class="set-seg" id="seg-haptics">
             ${segBtn('hp','0','off',!hp)}${segBtn('hp','1','on',hp)}
           </div>
+          ${_hapIsIOS()?'<p class="fineprint" style="margin-top:8px">on iphone, the system limits haptics for web apps, so taps here may stay silent. everything else works the same.</p>':''}
         </div>
         <div class="set-group">
           <p class="dash-prompt">appearance</p>
@@ -2235,9 +2247,9 @@
 
         <div class="set-card">
         <p class="set-card-h">app</p>
-        <div class="set-group">
+        ${isStandalone()?'':`<div class="set-group">
           <div class="set-row-inline" id="install-row">${installRowInner()}</div>
-        </div>
+        </div>`}
 
         <div class="set-group">
           <p class="dash-prompt">offline</p>
@@ -2292,7 +2304,7 @@
     (async ()=>{
       if(localStorage.getItem(OFFLINE_FLAG)==='1'){
         const mani = await offlineManifest(); const have = await offlineCachedCount();
-        setOff(mani.length && have>=mani.length ? 'saved for offline ✓' : 'your device cleared the offline copy. turn on to download it again.');
+        setOff(mani.length && have>=mani.length ? (isStandalone()?'installed & saved for offline ✓':'saved for offline ✓') : 'your device cleared the offline copy. turn on to download it again.');
       }
     })();
     let offBusy = false;
@@ -2309,8 +2321,8 @@
           localStorage.setItem(OFFLINE_FLAG,'1');
           try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
           const have = await offlineCachedCount();
-          if(res.quota || have < urls.length) setOff("didn't all fit — saved "+have+" of "+urls.length+". free up space and turn on again.");
-          else setOff('saved for offline ✓');
+          if(res.quota || have < urls.length) setOff("didn't all fit, saved "+have+" of "+urls.length+". free up space and turn on again.");
+          else setOff(isStandalone()?'installed & saved for offline ✓':'saved for offline ✓');
         }catch(e){ setOff('download failed. check your connection and try again.'); }
         offBusy = false;
       } else {
