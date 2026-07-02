@@ -491,8 +491,10 @@
     const greet = todayGreet;
 
     // state readout doubles as the check-in control: outlined full-width when
-    // you've checked in today (shows your state), a filled CTA when you haven't.
-    const checkedIn = !!(last && sameDay(last.t));
+    // you've checked in THIS PART OF DAY (shows your state), a filled capsule CTA
+    // when you haven't — it reverts each segment (morning/afternoon/evening/late)
+    // so every new stretch of the day invites a fresh check-in.
+    const checkedIn = !!(last && sameDay(last.t) && segOf(last.t)===segOf(Date.now()));
     const dom  = checkedIn ? last.dom : null;
     const halo = checkedIn ? STATE_COLOR(dom) : 'var(--hairline)';
     const stateHTML = checkedIn
