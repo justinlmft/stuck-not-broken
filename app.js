@@ -113,10 +113,12 @@
 
   // The three brand marks ARE the three nervous-system axes. heart=safety,
   // bolt=fight-or-flight, x=shutdown. One vocabulary across check-in, you-tab, feedback.
+  // front-facing labels are FELT language (anyone can rate them, no theory needed);
+  // the state names appear in the readout below, where the app does the teaching.
   const AXIS_ICON = {
-    v:   { icon:'heart', state:'safety',      sub:'connected to self, others, & environment' },
-    sym: { icon:'bolt',  state:'fightflight', sub:'mobile, ready for movement' },
-    dor: { icon:'x',     state:'shutdown',    sub:'immobile, ready for collapse, numb, heavy' },
+    v:   { icon:'heart', state:'safety',      sub:'connected to yourself, others, & where you are' },
+    sym: { icon:'bolt',  state:'fightflight', sub:'restless, wound up, ready to move' },
+    dor: { icon:'x',     state:'shutdown',    sub:'numb, heavy, checked out' },
   };
   const ico = (k,o) => (window.iconSVG ? window.iconSVG(k,o) : '');
   // every state is one or two axes — so every state is one or two marks.
@@ -157,7 +159,6 @@
     return `<span class="st-marks${ax.length>1?' st-pair':''}">${marks}</span>`;
   }
   // "tuned to you" sparkle — marks the one practice we shaped for you (not the logo)
-  const SPARKLE = '<svg class="snb-spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1 C12.8 6.5 13.5 9.2 16 10 C18.5 10.8 20.5 11.2 23 12 C20.5 12.8 18.5 13.2 16 14 C13.5 14.8 12.8 17.5 12 23 C11.2 17.5 10.5 14.8 8 14 C5.5 13.2 3.5 12.8 1 12 C3.5 11.2 5.5 10.8 8 10 C10.5 9.2 11.2 6.5 12 1 Z"></path></svg>';
   function setIcoLvl(axis,val){
     const el = root.querySelector('.slider[data-axis="'+axis+'"] .slider-ico');
     if(el) el.style.setProperty('--lvl',(Math.max(0,Math.min(100,val))/100).toFixed(3));
@@ -170,6 +171,7 @@
     anchoring:   { cls:'safety', color:'var(--track-safety)' },
     most:        { cls:'self',   color:'var(--track-self)' },
     more:        { cls:'mind',   color:'var(--track-mind)' },
+    micro:       { cls:'mind',   color:'var(--track-mind)' },
   };
   const trackOf = (k) => TRACK[k] || TRACK.mindfulness;
   const SKILL_LABEL = { imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
@@ -187,7 +189,7 @@
     // axes already expressed by the dominant blend — don't name them again as a secondary
     const core = { safety:['v'], fightflight:['sym'], shutdown:['dor'],
                    play:['v','sym'], stillness:['v','dor'], freeze:['sym','dor'] }[dom.key] || [];
-    const sec = [['v',v,'safety'],['sym',sym,'sympathetic'],['dor',dor,'shutdown']]
+    const sec = [['v',v,'presence'],['sym',sym,'energy'],['dor',dor,'heaviness']]
       .filter(a=>!core.includes(a[0])).sort((a,b)=>b[1]-a[1])[0];
     let clause = '';
     if(sec && sec[1] > 0.18 && sec[1] > 0.33*peak){
@@ -220,6 +222,11 @@
   // ---------------------------------------------------------------- routing
   function route(){
     if(!Store.user()) return screenSignIn();
+    // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
+    let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+    if(h==='checkin'){ app('today'); return screenCheckin(); }
+    if(h==='practice'){ return app('practice'); }
+    if(h==='breath'){ return app('today'); }   // lands on the ring, ready to tap
     return app(currentTab);
   }
   let currentTab = 'today';
@@ -233,9 +240,13 @@
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
+          <button class="gate-breath" id="gate-breath" type="button" aria-label="take one breath, no account needed">
+            <span class="gb-ring" id="gb-ring" aria-hidden="true"></span>
+            <span class="gb-txt" id="gb-txt" aria-live="polite">take one breath first. no account needed.</span>
+          </button>
           <p class="eyebrow">stuck not broken</p>
           <h1 style="margin:10px 0 12px">${up?'an app to guide you through emotional regulation.':'your nervous system, over time.'}</h1>
-          <p class="lede" style="margin-bottom:24px">check in about your polyvagal states, get custom practices and guidance, watch your system build safety over time.</p>
+          <p class="lede" style="margin-bottom:24px">check in about your nervous system, get practices tuned to you, and watch your patterns become visible over time.</p>
           <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"></div>
           ${up ? '<div class="field"><label for="nm">your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
@@ -243,10 +254,11 @@
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`:''}
           <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
-          ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">on-device mode: your sign-in works locally now. cross-device sync turns on once Supabase keys are added in config.js.</p>'}
+          ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">on-device mode: your data stays on this device for now.</p>'}
         </div>
       </div>`);
     if(busy) return;
+    const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
     $('#toggle').onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); };
     $('#go').onclick = submit;
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
@@ -268,6 +280,44 @@
       }).catch(e=>screenSignIn(String((e&&e.message)||e)));
     }
   }
+  // T-1: one guided breath on the sign-in gate, no account needed — the app's
+  // best moment shouldn't be locked behind its most stressful one. Same in(4s)/
+  // out(6s) timing as the Today ring; reduced motion = text + opacity only.
+  let _gbRunning = false;
+  function gateBreath(){
+    if(_gbRunning) return; _gbRunning = true;
+    const ring=$('#gb-ring'), txt=$('#gb-txt');
+    const reduce = document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion:reduce)').matches;
+    try{ haptic('start'); }catch(_){}
+    const setTxt=(t)=>{ if(txt) txt.textContent=t; };
+    const done=()=>{
+      setTxt("that's the heart of it. come on in.");
+      setTimeout(()=>{
+        if(ring){ ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation=''; }
+        setTxt('take one breath first. no account needed.');
+        _gbRunning=false;
+      }, 3200);
+    };
+    if(ring){
+      ring.style.animation='none';
+      ring.style.transition = reduce ? 'opacity .3s ease' : 'transform .3s ease, opacity .3s ease';
+      ring.getBoundingClientRect();
+      if(!reduce) ring.style.transform='scale(.86)';
+      ring.style.opacity='.5';
+    }
+    setTimeout(()=>{
+      setTxt('in');
+      if(ring){ if(reduce){ ring.style.transition='opacity 4s'; ring.style.opacity='.85'; }
+        else{ ring.style.transition='transform 4s cubic-bezier(.4,0,.5,1), opacity 4s'; ring.style.transform='scale(1.22)'; ring.style.opacity='.85'; } }
+      setTimeout(()=>{
+        setTxt('out');
+        if(ring){ if(reduce){ ring.style.transition='opacity 6s'; ring.style.opacity='.45'; }
+          else{ ring.style.transition='transform 6s cubic-bezier(.4,0,.5,1), opacity 6s'; ring.style.transform='scale(.82)'; ring.style.opacity='.45'; } }
+      }, 4200);
+      setTimeout(done, 10400);
+    }, 350);
+  }
+
   function screenConfirm(email){
     setHTML(`
       <div class="view gate"><div class="gate-body" style="text-align:center">
@@ -291,12 +341,12 @@
       ['what we keep','this app keeps track of your email, in-app preferences and check-ins.'],
       ['why','so your account works, your history is here on every device you sign in from, to track progress, and make custom recommendations.'],
       ['who sees it',"only you. your data isn't sold or given away. no advertisers will see it. justin checks data averages or anonymized results to ensure the app is helpful and to improve it."],
-      ['your control','you can ask to delete your account and everything in it, any time. you can also choose to delete your data in your settings.']
+      ['your control','you can delete your data, or request deletion of your whole account, any time, right from settings (your data > delete my account).']
     ] : [
       ['what this is',"a tool for noticing your daily experiences through the lens of the nervous system and practicing your way back to safety. it isn't medical care, diagnosis, or therapy, nor should it replace any of those or other professional services."],
       ['in a crisis','if you’re in danger or thinking about harming yourself, contact the 988 Suicide &amp; Crisis Lifeline or your local emergency services. this app can’t help in an emergency.'],
       ['be gentle',"everyone is different. there's no failing here, and no streak to keep. use the app as you want and when you want. practice at your cadence."],
-      ['changes',"justin may (and will) update the app and these terms over time. it'll keep it working, and you'll be informed about changes through the app or through the email you used to log in."]
+      ['changes',"justin may (and will) update the app and these terms over time. updates keep the app working, and you'll hear about changes in the app or by email."]
     ];
     const PP=(t)=>`<p style="font-size:15px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${t}</p>`;
     setHTML(`
@@ -352,7 +402,12 @@
     const g = b.querySelector('.in-go'); if(g) g.onclick = promptInstall;
     const x = b.querySelector('.in-x'); if(x) x.onclick = ()=>{ try{ localStorage.setItem('snb_install_nudge','dismissed'); }catch(_){} b.remove(); };
   }
-  function tabBtn(t,label){ return `<button data-t="${t}" class="${currentTab===t?'on':''}"><span class="lb">${label}</span></button>`; }
+  function tabIcon(t){ return ({
+    today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
+    practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
+  }[t]||''); }
+  function tabBtn(t,label){ return `<button data-t="${t}" class="${currentTab===t?'on':''}" aria-label="${label}"><span class="ic" aria-hidden="true">${tabIcon(t)}</span><span class="lb">${label}</span></button>`; }
   const content = () => $('#content');
 
   // ---------------------------------------------------------------- TODAY
@@ -379,8 +434,10 @@
 
   let breathing = false;
   let todayGreet = null, todayGreetName = null;
-  function pickGreeting(seg, name){
-    const pool = name ? [
+  function pickGreeting(seg, name, quiet){
+    // a wide pool for variety; exclamation lines are skipped for shutdown/freeze
+    // arrivals (the quiet filter below), so keep plenty of soft lines in the mix.
+    let pool = name ? [
       `hi, ${name}.`,
       `hey again, ${name}.`,
       `${name}'s back!`,
@@ -391,7 +448,15 @@
       `hello again, ${name}.`,
       `you made it back, ${name}!`,
       `settle in, ${name}.`,
-      `you got this, ${name}.`
+      `you got this, ${name}.`,
+      `good to see you, ${name}.`,
+      `no rush today, ${name}.`,
+      `one breath at a time, ${name}.`,
+      `the ring's ready when you are, ${name}.`,
+      `take what you need, ${name}.`,
+      `here we are again, ${name}.`,
+      `you showed up, ${name}. that counts.`,
+      `this ${seg} is yours, ${name}.`
     ] : [
       `hi again.`,
       `welcome back.`,
@@ -399,8 +464,16 @@
       `there you are.`,
       `you made it back!`,
       `settle in.`,
-      `glad you're here.`
+      `glad you're here.`,
+      `good to see you.`,
+      `no rush today.`,
+      `one breath at a time.`,
+      `the ring's ready when you are.`,
+      `take what you need.`,
+      `here we are again.`
     ];
+    // shutdown/freeze arrivals get the quiet lines only — no exclamation energy
+    if(quiet) pool = pool.filter(t=>t.indexOf('!')===-1);
     let last=-1; try{ var v=parseInt(localStorage.getItem('snb_greet_i'),10); if(!isNaN(v)) last=v; }catch(e){}
     let i=Math.floor(Math.random()*pool.length);
     if(pool.length>1){ while(i===last){ i=Math.floor(Math.random()*pool.length); } }
@@ -414,7 +487,7 @@
     const done = winsDone();
     const nm = Store.getName();
     const seg = segOf(Date.now());
-    if(todayGreet===null || todayGreetName!==nm){ todayGreet = pickGreeting(segLabel(seg), nm ? escapeHtml(nm) : ''); todayGreetName = nm; }
+    if(todayGreet===null || todayGreetName!==nm){ const _q = !!(last && (last.dom==='shutdown'||last.dom==='freeze')); todayGreet = pickGreeting(segLabel(seg), nm ? escapeHtml(nm) : '', _q); todayGreetName = nm; }
     const greet = todayGreet;
 
     // state readout doubles as the check-in control: outlined full-width when
@@ -433,8 +506,10 @@
     const td = (Store.today ? Store.today() : null);
     const dotsHTML = (td && td.n>=1) ? momentDots(td.moments) : '';
     const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
+    // first-week accounts keep a faint affordance hint under the settled ring
+    let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
 
-    c.innerHTML = `<div class="view today tb${settled?' breathed':''}">
+    c.innerHTML = `<div class="view today tb${settled?' breathed':''}${young?' young':''}">
       <div class="tb-head"><h2 class="tb-greet">${greet}</h2></div>
       <div class="tb-cluster">${stateHTML}</div>
       <div class="tb-hero">
@@ -447,17 +522,21 @@
             <span class="tb-txt"><span class="tb-line">take a breath</span><span class="tb-hint">tap the ring to breathe</span></span>
             <span class="tb-phase" id="tb-phase" aria-live="polite"></span>
           </span>
+          <span class="tb-esc" aria-hidden="true">tap anywhere to end early</span>
         </button>
       </div>
+      <button class="tb-more" id="tb-more" type="button">two more minutes?</button>
       <div class="tb-foot">
         <button class="tb-row" id="tb-practice">
+          <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
           <span class="tb-row-text">
             <span class="tb-row-title">recommended practice</span>
-            <span class="tb-row-sub">${pracName}</span>
+            <span class="tb-row-sub tb-prac track-${trackOf(reco.practiceKey).cls}">${pracName}</span>
             ${pracReason ? `<span class="tb-reason">${pracReason}</span>` : ''}
           </span><span class="wc-go">${CHEV}</span>
         </button>
         ${reflText ? `<button class="tb-row" id="tb-refl">
+          <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
           <span class="tb-row-text">
             <span class="tb-row-title">your reflections</span>
             <span class="tb-refl">${reflText}</span>${dotsHTML}
@@ -468,13 +547,22 @@
 
     const stateBtn  = c.querySelector('#tb-state');    if(stateBtn)  stateBtn.onclick  = screenCheckin;
     const breathBtn = c.querySelector('#tb-breath');   if(breathBtn) breathBtn.onclick = runBreath;
-    const pracBtn   = c.querySelector('#tb-practice');  if(pracBtn)   pracBtn.onclick   = ()=>renderPlan(reco);
+    // post-breath offer: one tap into the ~2.5-min micro practice
+    const moreBtn = c.querySelector('#tb-more'); if(moreBtn) moreBtn.onclick = ()=>{
+      let sn = 'touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2});
+    };
+    const pracBtn   = c.querySelector('#tb-practice');  if(pracBtn)   pracBtn.onclick   = ()=>renderPlan(reco,'today');
     const reflBtn   = c.querySelector('#tb-refl');      if(reflBtn)   reflBtn.onclick   = screenReflectionDeep;
   }
 
   // Breath engine for the redesigned Today. On tap the ring becomes the whole
   // screen (everything else + the tab bar fade) with "in / out" beneath it; when
   // it settles the instruction is gone, the ring quiets, and the cards open up.
+  // A tap anywhere during the breath ends it gently (no lock-in); the breath only
+  // counts as done when a full cycle completes. With reduced motion the SAME
+  // in(4s)/out(6s) timing runs, carried by the phase text + a soft opacity shift
+  // instead of scale — motion is never the only signal.
   function runBreath(){
     if(breathing) return;
     const view  = content().querySelector('.today.tb');
@@ -486,35 +574,52 @@
     view.classList.remove('breathed');
     view.classList.add('breathing');
     document.body.classList.add('breathing');
-    const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
-    const finish = ()=>{
-      try{ markBreath(); }catch(_){}
+    const reduce = document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const timers = [];
+    const later  = (fn,ms)=>{ timers.push(setTimeout(fn,ms)); };
+    let done = false;
+    const cleanup = (settle)=>{
+      if(done) return; done = true;
+      timers.forEach(clearTimeout);
+      document.removeEventListener('pointerdown', onCancel, true);
       if(phase){ phase.classList.remove('show'); setTimeout(()=>{ if(phase) phase.textContent=''; }, 700); }
-      ring.style.transition = 'transform 1.6s ease, opacity 1.6s';
+      ring.style.transition = 'transform 1.2s ease, opacity 1.2s';
       ring.style.transform  = 'scale(.96)'; ring.style.opacity = '.55';
       setTimeout(()=>{
         ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation='';
         document.body.classList.remove('breathing');
-        view.classList.remove('breathing'); view.classList.add('breathed');
+        view.classList.remove('breathing');
+        if(settle) view.classList.add('breathed');
         breathing = false;
-      }, 1200);
+      }, settle ? 1200 : 500);
     };
+    const finish = ()=>{ try{ markBreath(); }catch(_){} cleanup(true); };
+    // cancel: any tap once the breath is underway ends it; the screen settles
+    // only if a full breath was already completed earlier today.
+    const onCancel = ()=>{ cleanup(breathDone()); };
+    later(()=>{ if(!done) document.addEventListener('pointerdown', onCancel, true); }, 600);
     // stop the ambient animation, glide to rest, then inhale / exhale
     ring.style.animation = 'none';
-    ring.style.transition = 'transform .35s ease, opacity .35s ease';
+    ring.style.transition = reduce ? 'opacity .35s ease' : 'transform .35s ease, opacity .35s ease';
     ring.getBoundingClientRect();
-    ring.style.transform = 'scale(.86)'; ring.style.opacity = '.5';
-    setTimeout(()=>{
-      if(reduce){ if(phase){ phase.textContent='in'; phase.classList.add('show'); } setTimeout(finish, 1200); return; }
-      ring.style.transition = 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
-      ring.style.transform = 'scale(1.28)'; ring.style.opacity = '.8';
+    if(!reduce) ring.style.transform = 'scale(.86)';
+    ring.style.opacity = '.5';
+    later(()=>{
       if(phase){ phase.textContent='in'; phase.classList.add('show'); }
-      setTimeout(()=>{
+      if(reduce){ ring.style.transition = 'opacity 4s'; ring.style.opacity = '.85'; }
+      else{
+        ring.style.transition = 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
+        ring.style.transform = 'scale(1.28)'; ring.style.opacity = '.8';
+      }
+      later(()=>{
         if(phase) phase.textContent='out';
-        ring.style.transition = 'transform 6s cubic-bezier(.4,0,.5,1), opacity 6s';
-        ring.style.transform  = 'scale(.78)'; ring.style.opacity = '.4';
+        if(reduce){ ring.style.transition = 'opacity 6s'; ring.style.opacity = '.45'; }
+        else{
+          ring.style.transition = 'transform 6s cubic-bezier(.4,0,.5,1), opacity 6s';
+          ring.style.transform  = 'scale(.78)'; ring.style.opacity = '.4';
+        }
       }, 4300);
-      setTimeout(finish, 10600);
+      later(finish, 10600);
     }, 380);
   }
 
@@ -631,7 +736,7 @@
     const dailyNote = FromJustin.daily ? FromJustin.daily(td||undefined) : null;
     const todayBlock = (td && td.n>=1) ? `
       <section style="margin:0 0 4px">
-        <p class="eyebrow" style="margin:0 0 8px">today, so far</p>
+        <h2 class="read-h2">Today, so far</h2>
         ${dailyNote ? `<p style="font-size:16px;line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px">${escapeHtml(dailyNote.text)}</p>` : ''}
         ${momentTimeline(td.moments, td.sessions)}
       </section>
@@ -675,10 +780,13 @@
         const jump = b.jumpId ? ` <a href="#${b.jumpId}" style="color:var(--link);text-decoration:none;white-space:nowrap;font-size:12.5px">${escapeHtml(b.jumpLabel)} ↓</a>` : '';
         return `<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}${jump}</li>`;
       }).join('');
+      // the "what to expect" section's landing line is the issue's most quotable
+      // sentence — set it as a pull-quote (reader-beauty pass)
+      const PQ = (t)=> t ? `<blockquote class="read-pq">${escapeHtml(t)}</blockquote>` : '';
       const sectionsHTML = issue.sections.map(sec=>`
         <section style="margin-top:22px">
           <h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${escapeHtml(sec.heading)}</h3>
-          ${sec.paras.map(P).join('')}
+          ${sec.paras.map((t,i)=> (sec.id==='blog-4' && i===sec.paras.length-1) ? PQ(t) : P(t)).join('')}
           ${sectionViz(sec.id, vizCtx)}
         </section>`).join('');
       bodyHTML = `
@@ -694,11 +802,15 @@
 
     const hasArchive = (Store.mints && Store.mints().length > 0);
     const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">past reflections →</button>` : '';
+    // quiet read-time line (HIG: set expectations; a reluctant reader wants the size of the ask)
+    const _rtWords = String(todayBlock+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
+    const _rtMins = Math.max(1, Math.round(_rtWords/200));
     setHTML(`
-      <header class="appbar"><button class="backbtn" id="deep-back">today</button></header>
+      <header class="appbar"><button class="backbtn" id="deep-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <p class="eyebrow" style="margin-bottom:10px">for you</p>
+          <h1 class="read-h1">Your Reflections</h1>
+          <p class="read-time">${_rtMins} min read · from your real check-ins</p>
           ${todayBlock}
           ${bodyHTML}
           ${archiveLink}
@@ -706,6 +818,17 @@
       </div>`);
     $('#deep-back').onclick = ()=>app('today');
     const ab = $('#open-arch'); if(ab) ab.onclick = screenArchive;
+    // sections breathe in as you reach them (scoped by .read-anim so content is
+    // always visible if anything here fails; reduced motion = everything static)
+    try{
+      const rv = root.querySelector('.view.read');
+      const calm = matchMedia('(prefers-reduced-motion:reduce)').matches || document.body.classList.contains('reduce-motion');
+      if(rv && !calm && 'IntersectionObserver' in window){
+        rv.classList.add('read-anim');
+        const io = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('sec-in'); io.unobserve(e.target); } }), { rootMargin:'0px 0px -8% 0px' });
+        rv.querySelectorAll('section').forEach(s=>io.observe(s));
+      }
+    }catch(e){}
   }
 
   // ---- reflections archive (minted past reflections) -------------------------
@@ -897,8 +1020,9 @@
   // render a frozen weekly issue (short version + sections) like the live for-you reader
   function renderIssue(issue){
     const P=(t)=> t?`<p style="font-size:15px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px">${escapeHtml(t)}</p>`:'';
+    const PQ=(t)=> t?`<blockquote class="read-pq">${escapeHtml(t)}</blockquote>`:'';
     const bulletsHTML = (issue.bullets||[]).map(b=>{ const jump=b.jumpId?` <a href="#${b.jumpId}" style="color:var(--link);text-decoration:none;white-space:nowrap;font-size:12.5px">${escapeHtml(b.jumpLabel)} ↓</a>`:''; return `<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}${jump}</li>`; }).join('');
-    const sectionsHTML = (issue.sections||[]).map(sec=>`<section style="margin-top:22px"><h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${escapeHtml(sec.heading)}</h3>${(sec.paras||[]).map(P).join('')}</section>`).join('');
+    const sectionsHTML = (issue.sections||[]).map(sec=>`<section style="margin-top:22px"><h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${escapeHtml(sec.heading)}</h3>${(sec.paras||[]).map((t,i)=>(sec.id==='blog-4'&&i===(sec.paras.length-1))?PQ(t):P(t)).join('')}</section>`).join('');
     return `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${bulletsHTML}</ul></div>${sectionsHTML}`;
   }
 
@@ -915,10 +1039,10 @@
         }).join('')
       : `<p style="font-size:15px;line-height:1.6;color:var(--muted);margin:8px 0 0">your reflections will collect here as each day and week closes.</p>`;
     setHTML(`
-      <header class="appbar"><button class="backbtn" id="arch-back">for you</button></header>
+      <header class="appbar"><button class="backbtn" id="arch-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <p class="eyebrow" style="margin-bottom:14px">past reflections</p>
+          <h1 class="read-h1">Past Reflections</h1>
           ${rows}
         </div>
       </div>`);
@@ -931,10 +1055,10 @@
     if(m.tier==='weekly' && m.data && m.data.issue){
       const card = m.data.card || {};
       setHTML(`
-        <header class="appbar"><button class="backbtn" id="me-back">past reflections</button></header>
+        <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
         <div class="scroll">
           <div class="view read" style="gap:0">
-            <p class="eyebrow" style="margin-bottom:12px">${escapeHtml(card.dateLabel || fmtMintDate(m.dateMs))}</p>
+            <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(card.dateLabel || fmtMintDate(m.dateMs))}</p>
             ${shareCardHTML(card)}
             ${renderIssue(m.data.issue)}
           </div>
@@ -946,10 +1070,10 @@
     if(m.tier==='monthly' || m.tier==='quarterly'){
       const label = (m.data && m.data.label) || fmtMintDate(m.dateMs);
       setHTML(`
-        <header class="appbar"><button class="backbtn" id="me-back">past reflections</button></header>
+        <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
         <div class="scroll">
           <div class="view read" style="gap:0">
-            <p class="eyebrow" style="margin-bottom:10px">${escapeHtml(label)}</p>
+            <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(label)}</p>
             <p style="font-size:16px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${escapeHtml(m.text)}</p>
           </div>
         </div>`);
@@ -959,10 +1083,10 @@
     const ctx = Store.dayArc ? Store.dayArc(m.dateMs) : null;
     const tl = (ctx && ctx.n >= 1) ? momentTimeline(ctx.moments, ctx.sessions) : '';
     setHTML(`
-      <header class="appbar"><button class="backbtn" id="me-back">past reflections</button></header>
+      <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <p class="eyebrow" style="margin-bottom:8px">${escapeHtml(fmtMintDate(m.dateMs))}</p>
+          <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(fmtMintDate(m.dateMs))}</p>
           <p style="font-size:16px;line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 16px">${escapeHtml(m.text)}</p>
           ${tl}
         </div>
@@ -970,37 +1094,8 @@
     $('#me-back').onclick = screenArchive;
   }
 
-  function recoCardHTML(reco){
-    const label = Store.practiceLabel(reco.practiceKey);
-    const extra = [reco.skill, reco.practiceKey!=='mindfulness'?reco.sense:null].filter(Boolean).join(' · ');
-    return `
-      <div class="reco">
-        <div class="head">
-          <h3>${label}</h3>
-          ${reco.adapted ? '<span class="adapt">tuned to you</span>' : ''}
-        </div>
-        ${extra?`<p class="meta">${extra}</p>`:''}
-        <p class="why">${escapeHtml(reco.reason)}</p>
-        <button class="btn" id="startreco">begin this practice</button>
-      </div>`;
-  }
-  function wireReco(reco){ const b=$('#startreco'); if(b) b.onclick=()=>launchWeaver(reco); }
-
-  function trendHTML(){
-    const cs = Store.checkins();
-    if(cs.length < 2) return '';
-    const recent = cs.slice(-10);
-    const bars = recent.map(c=>{
-      const h = 16 + Math.round(c.v*30); // height reads "safety present"
-      return `<div class="bar" style="height:${h}px;background:${STATE_COLOR(c.dom)}"></div>`;
-    }).join('');
-    const tr = Store.trend();
-    const dirTxt = tr.dir==='rising' ? 'safety has been rising lately.' : tr.dir==='falling' ? 'safety has dipped lately. worth being gentle with yourself.' : 'fairly steady lately.';
-    return `
-      <p class="eyebrow section-label">lately</p>
-      <div class="trendstrip">${bars}</div>
-      <p class="trend-cap">${dirTxt} <button class="linkbtn" id="seeall" style="font-size:13px">see your states over time →</button></p>`;
-  }
+  // (recoCardHTML / wireReco / trendHTML — old today-card renderers — were dead
+  // code with no callers; removed in the 2026-07-02 housekeeping pass.)
 
 // ---------------------------------------------------------------- CHECK-IN
   // Challenge appetite levels for the check-in (mirror Store.CHALLENGE_LEVELS), each
@@ -1055,7 +1150,8 @@
   }
 
   // manage logged practices: remove a session you didn't mean to keep (e.g. a test run)
-  function _fbShort(k){ return ({ more:'felt more present', same:'about the same', less:'less connected', struggle:'struggled', unsure:'not sure' })[k] || ''; }
+  function _fbShort(k){ return ({ more:'felt more present', same:'about the same', less:'less connected', struggle:'struggled', unsure:'not sure',
+    'exit-hard':'too hard right now', 'exit-easy':'too easy', 'exit-distracted':'got pulled away', 'exit-enough':'got what they needed' })[k] || ''; }
   function screenManagePractices(){
     const recent = Store.sessions().slice(-8).reverse();
     clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
@@ -1093,6 +1189,9 @@
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
     let v=18, s=14, d=12, ch=0.65;
+    // default the challenge level to the person's own recent appetite, not a fixed
+    // "beginner defense" — a shutdown-leaning user shouldn't land on defense by default
+    try{ const ca=Store.learned().challengeAvg; if(ca!=null){ ch=CH_LEVELS.reduce((b,l)=>Math.abs(l.v-ca)<Math.abs(b.v-ca)?l:b, CH_LEVELS[2]).v; } }catch(e){}
     if(editRec){ v=Math.round((editRec.v||0)*100); s=Math.round((editRec.sym||0)*100); d=Math.round((editRec.dor||0)*100); if(typeof editRec.challenge==='number') ch=editRec.challenge; }
     const seg = segPoss(segOf(editRec?editRec.t:Date.now()));
     $('#content').innerHTML = `<div class="view checkin2">
@@ -1100,14 +1199,18 @@
         <div class="scr-head">
           <p class="eyebrow"></p>
           <h2 class="scr-h">${editRec?'change your check-in':'how is your system showing up this '+seg+'?'}</h2>
-          ${editRec?`<p class="ci-when">${relTime(editRec.t)}</p>`:''}
+          ${editRec?`<p class="ci-when">${relTime(editRec.t)}</p>`:(function(){
+            // first-week orienting line: a new user may not know what "system" means
+            let yng=false; try{ yng=(Store.tenure().days||0)<=7; }catch(e){}
+            return yng?'<p class="ci-orient">your system means your body and nervous system. no right answers, just noticing.</p>':'';
+          })()}
         </div>
 
         <div class="ci-block">
           <div class="sliders">
-            ${sliderHTML('v','safety','connected to self, others, & environment','r-v',v)}
-            ${sliderHTML('sym','flight/fight','mobile, ready for movement','r-sym',s)}
-            ${sliderHTML('dor','shutdown','immobile, ready for collapse, numb, heavy','r-dor',d)}
+            ${sliderHTML('v','feeling present','connected to yourself, others, & where you are','r-v',v)}
+            ${sliderHTML('sym','feeling energized','restless, wound up, ready to move','r-sym',s)}
+            ${sliderHTML('dor','feeling drained','numb, heavy, checked out','r-dor',d)}
           </div>
           <p class="ci-readout" id="ci-readout"></p>
         </div>
@@ -1135,7 +1238,7 @@
         const active = core.length>1 && core.includes(ax);
         el.style.setProperty('--rail', active ? STATE_COLOR(dom.key) : own[ax]); });
       if(readout){ const r = readoutPhrase(v/100, s/100, d/100);
-        readout.innerHTML = `<span class="ci-readtext">you're reporting ${r.html}.</span>`; }
+        readout.innerHTML = `<span class="ci-readtext">you're noticing ${r.html}.</span>`; }
     }
     bindSlider('v', val=>{v=val;refresh();});
     bindSlider('sym', val=>{s=val;refresh();});
@@ -1152,12 +1255,15 @@
     });
 
     $('#save').onclick = ()=>{
-      const vals = { v:v/100, sym:s/100, dor:d/100, challenge:ch };
+      const vals = { v:v/100, sym:s/100, dor:d/100, challenge:ch, source:(window._ciSource||null) };
+      window._ciSource = null;
       if(editRec){ Store.updateCheckin(editRec.t, vals); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
       haptic('save');
       FromJustin.refresh();
-      app('current');
+      // T-2: the FIRST check-in lands back on Today, where the halo has just taken
+      // their state color — a visible payoff, not the You tab's "check in twice" nag
+      app(Store.checkins().length >= 2 ? 'current' : 'today');
       actionSnack('checked in', 'change', ()=>screenCheckin(rec));
     };
   }
@@ -1176,7 +1282,7 @@
 
   // ---------------------------------------------------------------- CURRENT OVER TIME
   let playTimer=null;
-  const PERIODS=[{key:'7',label:'7d',days:7},{key:'30',label:'30d',days:30},{key:'90',label:'90d',days:90},{key:'all',label:'all',days:null}];
+  const PERIODS=[{key:'7',label:'week',days:7},{key:'30',label:'month',days:30},{key:'90',label:'90 days',days:90},{key:'all',label:'all',days:null}];
   let activePeriod='all';
   let chartMode='safety';
   function filterByPeriod(cs,days){ if(!days) return cs; const cut=Date.now()-days*864e5; return cs.filter(c=>c.t>=cut); }
@@ -1221,7 +1327,36 @@
     const gain = mode==='safety' && N>=2 && (B[N-1].avg - B[0].avg) > 0.04;   // a real safety rise -> the line draws itself as a payoff
     return `<div class="arc-readout" id="chart-readout">${readoutTxt}</div><svg viewBox="0 0 ${W} ${H}" class="chart${gain?' draw-gain':''}" preserveAspectRatio="xMidYMid meet">${defs}${lineSvg}${dots}${labs.join('')}</svg>${footer}`;
   }
+  // N-4: share as the designed card — a branded 1080×1080 image (bone, state dots,
+  // the line, wordmark) via the system share sheet when file-sharing is supported;
+  // falls back to the text path below otherwise.
+  async function shareCardImage(txt){
+    try{
+      const W=1080,H=1080,cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+      const x=cv.getContext('2d'); if(!x) return false;
+      x.fillStyle='#FAF9F5'; x.fillRect(0,0,W,H);
+      x.strokeStyle='#D8D2C2'; x.lineWidth=3; x.strokeRect(48,48,W-96,H-96);
+      ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(W/2-64+i*64,196,17,0,7); x.fill(); });
+      x.fillStyle='#1A1F2A'; x.font='500 54px Inter, system-ui, sans-serif'; x.textAlign='center';
+      const body=String(txt).replace(/\.?\s*stuck not broken\s*$/i,'');
+      const words=body.split(/\s+/), lines=[]; let line='';
+      words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-280&&line){ lines.push(line); line=w; } else line=t; });
+      if(line) lines.push(line);
+      const startY=H/2-(lines.length-1)*40;
+      lines.slice(0,8).forEach((l,i)=>x.fillText(l,W/2,startY+i*80));
+      x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
+      x.fillText('stuck not broken',W/2,H-150);
+      const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+      if(!blob) return false;
+      const file=new File([blob],'stuck-not-broken.png',{type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], text:txt}); return true; }
+    }catch(e){ if(e && e.name==='AbortError') return true; }   // user closed the sheet: done
+    return false;
+  }
   function openShare(txt){
+    shareCardImage(txt).then(ok=>{ if(!ok) _openShareText(txt); });
+  }
+  function _openShareText(txt){
     const url=location.href;
     if(navigator.share){ navigator.share({title:'stuck not broken', text:txt, url}).catch(()=>{}); return; }
     const enc=encodeURIComponent(txt);
@@ -1251,9 +1386,9 @@
         </div>`;
       }).join('');
       c.innerHTML = `<div class="view"><div class="map-empty">
-        <p class="map-lede">your three autonomic states.</p>
+        <p class="map-lede">your three nervous-system states.</p>
         <div class="map-rows">${teach}</div>
-        <p class="map-foot">check in twice to start seeing your autonomic patterns.</p>
+        <p class="map-foot">check in twice, and your patterns start to show here.</p>
         <button class="btn" id="goci">check in</button></div></div>`;
       $('#goci').onclick = screenCheckin; return;
     }
@@ -1270,6 +1405,9 @@
       const paced = groupByDay(cs);
       const sess = filterByPeriod(Store.sessions(), days);
       const periodTxt = PERIODS.find(p=>p.key===activePeriod)?.label||'all time';
+      // full phrase for card subtitles ("7d" would read as "during the last 7d";
+      // "all" used to render as "during the last all" — a live grammar bug)
+      const periodPhrase = ({'7':'the last 7 days','30':'the last 30 days','90':'the last 90 days','all':'all time'})[activePeriod] || 'all time';
 
       // ---- safety hero + trend over the window ----
       const safetyPct = Math.round(avg(cs.map(x=>x.v))*100);
@@ -1349,12 +1487,15 @@
           const k=Math.max(2,Math.floor(allCs.length/4));
           const startV=avg(allCs.slice(0,k).map(x=>x.v)), recentV=avg(allCs.slice(-k).map(x=>x.v));
           const g=Math.round((recentV-startV)*100), up=g>=3, down=g<=-3;
-          const cap=up?'higher than when you started. your practice reps add up!':down?"safety comes and goes for everyone. this is a dip. it'll come back.":'about steady since you started.';
-          growthHead=`<p class="growth-head"><span class="growth-num ${up?'up':down?'down':'flat'}">${g>0?'+':''}${g} pts</span><span class="growth-cap">${cap}</span></p>`;
+          // a dip is never the headline here — that conversation lives in the reader
+          if(!down){
+            const cap=up?'higher than when you started. your practice reps add up!':'about steady since you started.';
+            growthHead=`<p class="growth-head"><span class="growth-num ${up?'up':'flat'}">${g>0?'+':''}${g} pts</span><span class="growth-cap">${cap}</span></p>`;
+          }
         }
       })();
       const SHARE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg>';
-      const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="Share this card">${SHARE_ICON}</button>`;
+      const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="share this card">${SHARE_ICON}</button>`;
       c.innerHTML=`
         <div class="view play-view">
           <div class="filter-bar">
@@ -1363,67 +1504,83 @@
             <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
           </div>
 
-          <div class="carousel" id="carousel">
-            <section class="panel">
-              ${shareBtn('safety')}<p class="panel-title">your safety</p>
-              <p class="panel-sub">the average level of safety in your system during the last ${periodTxt}</p>
+          <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="your patterns \u2014 swipe or use the dots below">${(function(){
+            // slides assemble dynamically, wins first. a safety DIP is never
+            // animated or headlined here (it lives, gently worded, in the reader).
+            const slides = [];
+            slides.push(['your safety', `
+              ${shareBtn('safety')}<h2 class="panel-title">your safety</h2>
+              <p class="panel-sub">the average level of safety in your system over ${periodPhrase}</p>
               <div class="safety-wrap${rising?' rising':''}" id="safety-wrap">
                 <div class="safety-num"><span class="safety-num-val">${safetyPct}</span><span class="pct">%</span></div>
-                <div class="safety-trend ${dir}">${dir==='rising'?'and rising \u2191':dir==='falling'?'and dipping \u2193':'and steady'}</div>
+                ${dir==='falling'?'':`<div class="safety-trend ${dir}">${dir==='rising'?'and rising \u2191':'and steady'}</div>`}
               </div>
               <div class="safety-meter"><span class="safety-meter-fill" style="width:${safetyPct}%"></span></div>
-              ${topState?`<div class="safety-foot"><span class="tg-host">${triGlyph(topState)}</span><span class="sf-txt">your typical safety type is <b>${({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState)}</b></span></div>`:''}
-              ${rising?'<p class="bloom-line">your system is finding more safety.</p>':''}
-            </section>
-
-            <section class="panel">
-              ${shareBtn('mix')}<p class="panel-title">your state mix</p>
-              <p class="panel-sub">${periodTxt==='all time'?'your state averages, all time':'your check-in averages, over '+periodTxt}</p>
-              <div class="dist-bars">${mixHTML}</div>
-            </section>
-
-            <section class="panel">
-              ${shareBtn('day')}<p class="panel-title">your safety changes</p>
+              ${topState?`<div class="safety-foot"><span class="tg-host">${triGlyph(topState)}</span><span class="sf-txt">your safety usually looks like <b>${({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState)}</b></span></div>`:''}
+              ${rising?'<p class="bloom-line">your system is finding more safety.</p>':''}`]);
+            const rec = (Store.recovery ? Store.recovery() : null);
+            if(rec){
+              const phrase = rec.avg<=1.5 ? 'a check-in or two' : 'about '+Math.round(rec.avg)+' check-ins';
+              slides.push(['how you come back', `
+              ${shareBtn('comeback')}<h2 class="panel-title">how you come back</h2>
+              <p class="panel-sub">what tends to happen after your harder moments</p>
+              <div class="cb-viz" aria-hidden="true"><span class="cb-dot" style="background:${STATE_COLOR('fightflight')}"></span><span class="cb-path"></span><span class="cb-dot cb-end" style="background:${STATE_COLOR('safety')}"></span></div>
+              <p class="cb-line">when your body drops into defense, you usually find your way back within <b>${phrase}</b>. you've already done it ${rec.n} times.</p>`]);
+            }
+            slides.push(['your state mix', `
+              ${shareBtn('mix')}<h2 class="panel-title">your state mix</h2>
+              <p class="panel-sub">${activePeriod==='all'?'your state averages, all time':'your check-in averages, over '+periodPhrase}</p>
+              <div class="dist-bars">${mixHTML}</div>`]);
+            slides.push(['your safety changes', `
+              ${shareBtn('day')}<h2 class="panel-title">your safety changes</h2>
               <p class="panel-sub">your safety state over time, and how far you've come since you started.</p>
-              ${growthHead}${dayByDay}
-            </section>
-
-            <section class="panel">
-              ${shareBtn('practice')}<p class="panel-title">is practice helping?</p>
+              ${growthHead}${dayByDay}`]);
+            slides.push(['is practice helping?', `
+              ${shareBtn('practice')}<h2 class="panel-title">is practice helping?</h2>
               <p class="panel-sub">your average safety after you practice vs. not</p>
-              ${helpHTML}
-            </section>
-          </div>
+              ${helpHTML}`]);
+            window._youSlides = slides.map(s=>s[0]);
+            return slides.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${s[0]}, card ${i+1} of ${slides.length}">${s[1]}</section>`).join('');
+          })()}</div>
 
-          <div class="dots" id="dots">${[0,1,2,3].map(i=>`<span class="dot-i${i===0?' on':''}"></span>`).join('')}</div>
+          <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${lb}"></button>`).join('')}</div>
 
           <div class="deep">
             <div class="deep-block">
-              <p class="deep-h">time of day</p>
+              <h3 class="deep-h">time of day</h3>
               ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); return `<div class="deep-row"><span class="deep-lbl">${segLabel(seg)}</span><span class="deep-val">${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
-              <p class="deep-h">at a glance</p>
-              <div class="deep-row"><span class="deep-lbl">most often</span><span class="deep-val">${topState?`<span class="deep-tap" data-state-detail="${topState}" style="cursor:pointer">${stateMarks(topState)}</span>`:'\u2014'}</span></div>
-              <div class="deep-row"><span class="deep-lbl">avg safety</span><span class="deep-val">${safetyPct}%</span></div>
+              <h3 class="deep-h">how you practice</h3>
               <div class="deep-row"><span class="deep-lbl">challenge level</span><span class="deep-val">${(function(){const ca=Store.learned().challengeAvg;return ca!=null?Store.challengeLabel(ca):'\u2014';})()}</span></div>
-              <div class="deep-row"><span class="deep-lbl">trend</span><span class="deep-val">${dir}</span></div>
               ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">you return to</span><span class="deep-val">${Store.practiceLabel(L.favPractice)}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">anchored through</span><span class="deep-val">${L.favSense}</span></div>`;return h;})()}
             </div>
           </div>
-          <p class="deep-hint" style="font-size:11px;opacity:.5;text-align:center;margin:6px 0 2px">tap a symbol to learn more</p>
           <button class="change-link" id="change-ci" type="button">change a recent check-in</button>
           ${Store.sessions().length ? '<button class="change-link" id="manage-pr" type="button">manage your practices</button>' : ''}
         </div>`;
 
       function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; } const p=$('#ot-play'); if(p) p.innerHTML='<svg viewBox="0 0 24 24"><path d="M8 6 L18 12 L8 18 Z"/></svg>'; }
 
-      c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ stopPlay(); const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const i=Math.round(sl/(nv.clientWidth||1)); c.querySelectorAll('#dots .dot-i').forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
+      // panels peek (see CSS): one snap unit = a panel's width + the 14px gap
+      const snapUnit = (cv)=>{ const p=cv&&cv.firstElementChild; return p ? p.offsetWidth+14 : (cv?cv.clientWidth:1)||1; };
+      c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ stopPlay(); const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const _dd=c.querySelectorAll('#dots .dot-i'); const i=Math.max(0,Math.min(_dd.length-1,Math.round(sl/snapUnit(nv)))); _dd.forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
       const setBtn=$('#set-btn'); if(setBtn) setBtn.onclick=screenSettings;
       const chgBtn=$('#change-ci'); if(chgBtn) chgBtn.onclick=screenChangeCheckin;
       const mpBtn=$('#manage-pr'); if(mpBtn) mpBtn.onclick=screenManagePractices;
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
-      c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); openShare(`my nervous system, lately, ${safetyPct}% safe-and-social, most often in ${STATE_NAME(topState||'safety')}. stuck not broken`); }));
+      // per-card share text — each card shares what IT shows, in a hopeful register
+      const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
+      const SHARE_TXT = {
+        safety:  `my nervous system is running at ${safetyPct}% safety lately${dir==='rising'?', and rising':''}. i'm learning its language. stuck not broken`,
+        mix:     `lately my system spends the most time in ${_topNm}. i'm mapping my nervous system, state by state. stuck not broken`,
+        comeback:`my nervous system knows the way back. after harder moments, i keep finding safety again. stuck not broken`,
+        day:     dir==='rising' ? `my safety is on the rise. the reps are adding up. stuck not broken`
+               : dir==='falling' ? `my safety is in a dip right now. dips come back, and i'm watching the whole pattern. stuck not broken`
+               : `my safety is holding steady, and i can see it. stuck not broken`,
+        practice:`i'm tracking whether practice actually moves my nervous system, and watching the answer show up in the data. stuck not broken`,
+      };
+      c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); openShare(SHARE_TXT[b.dataset.share]||SHARE_TXT.safety); }));
       c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
 
@@ -1435,7 +1592,12 @@
       }
 
       const carousel=$('#carousel'); const dots=c.querySelectorAll('#dots .dot-i');
-      if(carousel){ carousel.addEventListener('scroll',()=>{ const i=Math.round(carousel.scrollLeft/carousel.clientWidth); dots.forEach((d,j)=>d.classList.toggle('on',j===i)); },{passive:true}); }
+      if(carousel){ carousel.addEventListener('scroll',()=>{ const i=Math.max(0,Math.min(dots.length-1,Math.round(carousel.scrollLeft/snapUnit(carousel)))); dots.forEach((d,j)=>d.classList.toggle('on',j===i)); },{passive:true}); }
+      // the dots are real controls: tap one to go to that card (keyboard/switch reachable too)
+      dots.forEach((d,j)=>d.addEventListener('click',()=>{ if(!carousel) return;
+        const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
+        carousel.scrollTo({left:j*snapUnit(carousel), behavior:calm?'auto':'smooth'});
+      }));
 
       // gentle count-up to the safety figure — the card's one breath of life,
       // and only the first time it's shown per page load (not on every period/tab switch).
@@ -1462,7 +1624,7 @@
   }
   const STATE_DETAIL = {
     safety:      { headline:'safety',        color:'#F4D58D', about:"Safety is your nervous system open and online, not braced for anything. It spends its energy on rest, connection, and repair instead of defense. Safety isn't the absence of hard emotions. It's having enough capacity inside to meet them.", whenDrops: null },
-    fightflight: { headline:'flight/fight',color:'#E89B9B', about:"Flight/fight is sympathetic energy without enough safety yet. Your body picked up danger and mobilized to handle it. Flight first, the urge to escape, anxiety. Then fight, the urge to push back, anger. It's protection, not a flaw, even when it spills onto people you care about.", whenDrops:"Move a little on purpose, a short walk, shake out your hands, push your palms against a wall. Give the energy somewhere to go, then name the feeling under it. A long, slow exhale helps too.", practice:{practiceKey:'anchoring',sense:'movement',silence:8} },
+    fightflight: { headline:'flight/fight',color:'#E89B9B', about:"Flight/fight is mobilizing energy without enough safety yet. Your body picked up danger and mobilized to handle it. Flight first, the urge to escape, anxiety. Then fight, the urge to push back, anger. It's protection, not a flaw, even when it spills onto people you care about.", whenDrops:"Move a little on purpose, a short walk, shake out your hands, push your palms against a wall. Give the energy somewhere to go, then name the feeling under it. A long, slow exhale helps too.", practice:{practiceKey:'anchoring',sense:'movement',silence:8} },
     shutdown:    { headline:'shutdown',       color:'#A3C0DD', about:"Shutdown is the oldest brake your body has, heavy, flat, far away. Your system powered down to protect you when things got to be too much. A lot of what gets called depression is the body in shutdown. It isn't weakness, and it isn't who you are.", whenDrops:"Very small, very low demand. One sip of water, a dimmer light, one thing you can see or hear right now. You don't force your way out of shutdown. You add a little safety, and the body lets some energy come back.", practice:{practiceKey:'mindfulness',sense:'touch',silence:8} },
     play:        { headline:'play/motivation', sub:'regulated mobilization', color:'#E8A871', about:"Play is safety and energy at the same time, the social, mobilized kind shared with people you trust. On your own, the same drive shows up as motivation. It's the same fuel as flight/fight, with safety mixed in, so it runs as creativity and drive instead of defense.", whenDrops:"If the safety thins and the energy stays, watch for the tip toward flight/fight. Keep a little safety in the mix, slow down enough to feel it, and aim the energy at one thing that matters.", practice:{practiceKey:'anchoring',sense:'touch',silence:8} },
     stillness:   { headline:'stillness/intimacy', sub:'regulated immobilization', color:'#9FC498', about:"Stillness is the body slowed and quiet, without fear. The same powering-down as shutdown, but with safety mixed in, so it restores instead of collapses. On your own it's stillness; shared with someone safe, it's intimacy. A deeply regulated state.", whenDrops:"If the quiet starts to feel flat or heavy or scared instead of restful, that's the cue to add a small bit of safety, not to force yourself up and out.", practice:{practiceKey:'anchoring',sense:'sound',silence:8} },
@@ -1473,12 +1635,12 @@
     const d = STATE_DETAIL[key] || STATE_DETAIL.safety;
     clearFigures(); document.body.classList.remove('in-practice');
     root.innerHTML = `
-      <header class="appbar">
-      </header>
+      <header class="appbar"><button class="backbtn" id="sd-back">back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
         ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
+    $('#sd-back').onclick = ()=>app('current');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     $('#content').innerHTML = `<div class="view read sd-view">
         <div class="scr-head sd-head">
@@ -1574,19 +1736,34 @@
     haptic('start');               // soft tap as the practice begins (Begin tap = user gesture)
     currentTab = 'practice';
     setHTML(`
-      <div class="weaver-wrap"><iframe class="weaver-frame" id="weaver" src="${src}" title="Guided practice" allow="autoplay"></iframe></div>
+      <div class="weaver-wrap">
+        <div class="weaver-loading" id="weaver-loading" aria-live="polite"><span class="wl-ring" aria-hidden="true"></span><span class="wl-txt">preparing your practice</span></div>
+        <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay"></iframe>
+      </div>
       <nav class="tabbar" id="tabs">
         ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`);
+    // quiet placeholder until the player document has loaded (it then shows its
+    // own "preparing your audio" line) — never a blank screen after "begin".
+    // N-5: if it hasn't loaded after ~10s, say so instead of waiting forever.
+    const _wf=$('#weaver'), _wl=$('#weaver-loading');
+    let _wlDone=false;
+    const _wlTimeout=setTimeout(()=>{
+      if(_wlDone||!_wl) return;
+      _wl.innerHTML='<span class="wl-txt">can’t load the practice right now. check your connection and try again.</span><button class="set-quiet actionbar-aux" id="wl-back" style="margin-top:14px">back</button>';
+      const b=document.getElementById('wl-back'); if(b) b.onclick=()=>app('practice');
+    }, 10000);
+    if(_wf&&_wl) _wf.addEventListener('load',()=>{ _wlDone=true; clearTimeout(_wlTimeout); _wl.classList.add('gone'); setTimeout(()=>{ try{_wl.remove();}catch(e){} },600); });
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     window._pendingReco = reco || Store.recommend();   // so a completed session still shows the “you came back” screen
   }
   // ---------------------------------------------------------------- PRACTICE CHOOSER DATA
   const P_OPTS=[
-    {key:'mindfulness',title:'Simple mindfulness',       sub:'the gentlest, a calm place to start'},
-    {key:'anchoring',  title:'Connect with safety',      sub:'settling into safety through your senses'},
-    {key:'most',       title:'Practice self-regulation', sub:'the deepest, meeting what is hard'},
-    {key:'more',       title:'More meditations',         sub:'standalone guided sessions'},
+    {key:'micro',      title:'a tiny practice',          sub:'about two minutes, one sense, done'},
+    {key:'mindfulness',title:'simple mindfulness',       sub:'the gentlest, a calm place to start'},
+    {key:'anchoring',  title:'connect with safety',      sub:'settling in through your senses'},
+    {key:'most',       title:'practice self-regulation', sub:'the deepest, meeting what is hard'},
+    {key:'more',       title:'more meditations',         sub:'standalone guided sessions'},
   ];
   const P_SENSES=['touch','sound','sight','movement','imagination'];
   const P_SKILLS=[['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']];
@@ -1605,63 +1782,28 @@
   function tabPractice(){
     const reco = Store.recommend();
     pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null };
-    renderPracticeChooser();
+    renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
-  function practiceContextLine(last){
-    const nm = Store.getName();
-    if(!last || !sameDay(last.t)){
-      return nm ? 'something simple before your first check-in, '+escapeHtml(nm)+'.' : 'something simple before your first check-in.';
-    }
-    const map = {
-      safety:      "you checked in with safety. here's what to do next.",
-      play:        "your body has safety and mobility. let's see if we can connect with those. remain open to what else is within you.",
-      stillness:   "you're okay with simply being as you are and where you are. let's deepen that potential with this practice. be open to what the moment brings you.",
-      fightflight: "energy within. let's see if you can also connect with safety.",
-      shutdown:    "things feel heavy right now. we don't reject it. but we also see if there is potential to connect to the present.",
-      freeze:      "sounds like some tension currently. good job noticing honestly and calling it as it is. let's see what happens when we connect to the present.",
-    };
-    return map[last.dom] || 'a practice for you in this moment.';
-  }
+  // (the old "for you" pre-screen \u2014 renderForYou/practiceContextLine \u2014 was dead
+  // code since the chooser became the practice tab's landing view; removed.)
 
-  function renderForYou(){
-    const c = content();
-    const reco = Store.recommend();
-    const last = Store.lastCheckin();
-    const tk = trackOf(reco.practiceKey);
-    const chLabel = reco.challenge!=null ? Store.challengeLabel(reco.challenge) : null;
-    const meta = [reco.skill ? skillLabel(reco.skill) : null,
-                  reco.practiceKey!=='mindfulness' ? reco.sense : null,
-                  chLabel ? chLabel : null].filter(Boolean).join('  \u00b7  ');
-    c.innerHTML = `<div class="view fy-view">
-      <div class="scr-head">
-        <p class="eyebrow"></p>
-        <h2 class="scr-h">${practiceContextLine(last)}</h2>
-      </div>
-      <button class="foryou-card track-${tk.cls}" id="foryou">
-        <span class="fy-rail"></span>
-        <span class="fy-body">
-          <span class="fy-kicker">${reco.adapted ? 'tuned to you' : 'a place to start'}</span>
-          <span class="fy-title">${Store.practiceLabel(reco.practiceKey)}</span>
-          <span class="fy-reason">${escapeHtml(reco.reason)}</span>
-          ${meta ? `<span class="fy-meta">${escapeHtml(meta)}</span>` : ''}
-          <span class="fy-cta">see your practice \u2192</span>
-        </span>
-      </button>
-      <button class="navlink fy-other" id="fy-other">or choose another way</button>
-    </div>`;
-    const fc = c.querySelector('#foryou'); if(fc) fc.onclick = ()=>renderPlan(reco);
-    const ot = c.querySelector('#fy-other'); if(ot) ot.onclick = ()=>{
-      pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null };
-      renderPracticeChooser();
-    };
+  // Estimated session length in minutes, by practice + chosen silence. Derived
+  // from the player's own clip durations + gap rules (DUR/build/gapAfter in
+  // player.html), computed offline; midpoints across senses/skills.
+  const PRACTICE_EST = { micro:{4:2,8:2,12:2}, mindfulness:{4:6,8:7,12:8}, anchoring:{4:8,8:9,12:11}, most:{4:11,8:13,12:15} };
+  function estMinutes(key, sil){
+    const t = PRACTICE_EST[key]; if(!t) return null;
+    const s = [4,8,12].reduce((b,x)=>Math.abs(x-(sil||8))<Math.abs(b-(sil||8))?x:b, 8);
+    return t[s] || null;
   }
 
   // Plan reader: a calm, full read of the recommended practice before it starts —
   // what it is, its shape, why it was chosen — with Begin / change.
   // sentence-case a lowercase advisor string for the blog-styled plan screen
   function properCase(s){ return String(s==null?'':s).replace(/(^|[.!?]\s+)([a-z])/g,(m,p,c)=>p+c.toUpperCase()).replace(/\bi\b/g,'I').replace(/\bi(['’])/g,'I$1'); }
-  function renderPlan(reco){
+  function renderPlan(reco, from){
+    from = from || 'practice';   // where "back" returns to: the chooser, or today's row
     clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
     currentTab = 'practice';
     const tk = trackOf(reco.practiceKey);
@@ -1671,20 +1813,23 @@
     // the customized items used to be a separate key/value list; they now live inside
     // "what to expect" as track-colored tokens woven into the sentence.
     const hl = (s)=>`<span class="plan-hl">${escapeHtml(String(s))}</span>`;
+    const planEst = estMinutes(reco.practiceKey, reco.silence);
     const shapeBits = [
       (reco.practiceKey!=='mindfulness' && reco.sense) ? `anchored through ${hl(reco.sense)}` : null,
       reco.skill ? `practicing ${hl(skillLabel(reco.skill))}` : null,
       `with ${hl(silLabel(reco.silence))} silence between guidance`,
       chLabel ? `challenge level at ${hl(chLabel)}` : null,
+      planEst ? `about ${hl(planEst+' minutes')} in all` : null,
     ].filter(Boolean);
     const joinList = (a)=> a.length<=1 ? (a[0]||'') : a.slice(0,-1).join(', ')+' and '+a[a.length-1];
     const shapedSentence = shapeBits.length ? `Tuned for you, ${joinList(shapeBits)}.` : '';
     root.innerHTML = `
-      <header class="appbar"></header>
+      <header class="appbar"><button class="backbtn" id="plan-back">back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
         ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
+    $('#plan-back').onclick = ()=>app(from);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     $('#content').innerHTML = `<div class="view plan-view track-${tk.cls}">
       <div class="plan-head">
@@ -1721,8 +1866,20 @@
     const c=content();
     const {key,sense,skill,silence,med}=pState;
 
+    // per-practice icons: the breath ring for mindfulness, the brand heart for
+    // safety, the brand bolt for self-regulation (matching the player's tinting),
+    // headphones for the session library — each in its track's ink color.
+    const P_ICO = {
+      micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
+      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+      anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
+      // self-regulation meets BOTH defenses, so it carries both marks (bolt + x)
+      most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
+      more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    };
     const selCard=(o,dataAttr,selected)=>`
       <button class="wincard p-opt${selected?' p-sel':''}" ${dataAttr}>
+        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
         <span class="wc-text">
           <span class="wc-title">${escapeHtml(o.title)}</span>
           <span class="wc-reason">${escapeHtml(o.sub)}</span>
@@ -1733,20 +1890,32 @@
     const chip=(lbl,val,attr,on)=>
       `<button class="p-chip${on?' on':''}" data-${attr}="${escapeHtml(String(val))}">${escapeHtml(lbl)}</button>`;
 
+    // plain-language gloss for each skill name, shown under the chips (the names
+    // come from justin's self-regulation system; the caption teaches them in place)
+    const SKILL_CAP = {
+      imagery:    'give a challenging feeling a shape in your mind and invite it in, a little at a time.',
+      obstacles:  'notice what gets in the way of feeling safe, and meet it with some kindness.',
+      balancing:  'hold something pleasant and something challenging at the same time, giving each some room.',
+      pendulation:'move gently back and forth between a pleasant feeling and a more challenging one, so your body learns the way back.',
+    };
+    // micro keeps decisions tiny: three senses only (movement & imagination need
+    // the full anchoring ladder), no silence question (fixed short gaps)
+    const senseList = key==='micro' ? ['touch','sound','sight'] : P_SENSES;
     const refineHTML=(key&&key!=='more')?`
       <div class="p-refine">
         ${key!=='mindfulness'?`<div class="p-rgroup">
           <p class="dash-prompt">what would you like to anchor with?</p>
-          <div class="p-chips">${P_SENSES.map(s=>chip(s,s,'sense',s===sense)).join('')}</div>
+          <div class="p-chips">${senseList.map(s=>chip(s,s,'sense',s===sense)).join('')}</div>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup">
           <p class="dash-prompt">which skill do you want to practice?</p>
           <div class="p-chips">${P_SKILLS.map(([v,l])=>chip(l,v,'skill',v===skill)).join('')}</div>
+          <p class="ch-cap" id="skill-cap">${SKILL_CAP[skill]||''}</p>
         </div>`:''}
-        <div class="p-rgroup">
+        ${key!=='micro'?`<div class="p-rgroup">
           <p class="dash-prompt">how much silence between guidance?</p>
           <div class="p-chips">${P_SILENCE.map(([v,l])=>chip(l,v,'sil',v===silence)).join('')}</div>
-        </div>
+        </div>`:''}
         ${key==='most'?'<button class="p-surprise" id="p-surprise">surprise me</button>':''}
       </div>`:'';
 
@@ -1764,17 +1933,20 @@
     const tk = trackOf(reco.practiceKey);
     const tunedNm = Store.getName();
     const tunedHeading = tunedNm ? `${escapeHtml(tunedNm)}'s custom practice` : 'your custom practice';
+    const _tEst = estMinutes(reco.practiceKey, reco.silence);
     const tunedCard = `
-      <button class="wincard tuned-card track-${tk.cls}" id="foryou">
-        <span class="tuned-badge" aria-hidden="true">${SPARKLE}</span>
+      <button class="wincard tuned-card track-${tk.cls}${animateIn?' tc-in':''}" id="foryou">
         <span class="wc-text">
+          <span class="tuned-kicker">made for you</span>
           <span class="wc-title">${tunedHeading}</span>
+          <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
           <span class="wc-reason">${escapeHtml(reco.reason)}</span>
+          ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
 
-    const heading = !key ? 'choose your practice.'
+    const heading = !key ? 'your practice, or choose another.'
       : (key==='more' ? 'choose a session.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(Store.practiceLabel(key))}</span> practice.`);
 
@@ -1789,7 +1961,7 @@
           : `${refineHTML}${medsHTML}`}
       </div>
       ${key?`<div class="actionbar">
-        <button class="set-quiet actionbar-aux" id="p-cancel">cancel</button>
+        <button class="set-quiet actionbar-aux" id="p-cancel">back</button>
         <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>begin</button>
       </div>`:''}
     </div>`;
@@ -1808,6 +1980,7 @@
     c.querySelectorAll('[data-skill]').forEach(b=>b.onclick=()=>{
       pState.skill=b.dataset.skill;
       c.querySelectorAll('[data-skill]').forEach(r=>r.classList.toggle('on',r.dataset.skill===pState.skill));
+      const sc=$('#skill-cap'); if(sc) sc.textContent=SKILL_CAP[pState.skill]||'';
     });
     c.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
       pState.silence=+b.dataset.sil;
@@ -1833,11 +2006,12 @@
       if(key==='more'){
         src='player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(med);
       }else{
-        const ps={embed:'1',autostart:'1',practice:key,sense,silence:String(silence)};
+        const sil = key==='micro' ? 2 : silence;   // micro runs on fixed short gaps
+        const ps={embed:'1',autostart:'1',practice:key,sense,silence:String(sil)};
         if(key==='most')ps.skill=skill;
         src='player.html?'+new URLSearchParams(ps).toString();
       }
-      practiceShell(src,{practiceKey:key,sense,skill,silence});
+      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence)});
     };
   }
 
@@ -1857,7 +2031,7 @@
     const reco = window._pendingReco;
     if(!reco) return;
     if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); renderFeedback(reco); }
-    else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); app('today'); }
+    else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); renderExitReason(); }
   });
   function logSession(reco, completed, endedEarly, minutes){
     if(window._sessionLogged) return; window._sessionLogged=true;
@@ -1865,10 +2039,37 @@
       completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
+  // Early exit: an optional one-tap read on WHY — too hard, too easy, pulled away —
+  // logged onto the session like completion feedback. No guilt, fully skippable,
+  // then lands back on the practice tab.
+  const EXIT_OPTS = [
+    { key:'exit-hard',       label:'it was too hard right now' },
+    { key:'exit-easy',       label:'it was too easy' },
+    { key:'exit-distracted', label:'i got pulled away' },
+    { key:'exit-enough',     label:'i got what i needed' },
+  ];
+  function renderExitReason(){
+    setHTML(`
+      <header class="appbar"></header>
+      <div class="scroll"><div class="view fb-view">
+        <div class="scr-head">
+          <p class="eyebrow">ended early</p>
+          <h1 class="scr-h">no problem. want to say why?</h1>
+          <p class="scr-lede">totally optional. it helps tune your next practice.</p>
+        </div>
+        <div class="fb-opts">
+          ${EXIT_OPTS.map(o=>`<button class="fb-opt" data-fb="${o.key}">${o.label}</button>`).join('')}
+        </div>
+        <button class="navlink" id="fb-skip" style="align-self:center;margin-top:18px">skip</button>
+      </div></div>`);
+    root.querySelectorAll('.fb-opt').forEach(b=>b.onclick=()=>{ try{ Store.noteFeedback(b.dataset.fb); }catch(e){} haptic('save'); app('practice'); });
+    const sk=$('#fb-skip'); if(sk) sk.onclick=()=>app('practice');
+  }
+
   // Post-practice: a gentle read of how the body landed. Logged onto the session
   // (feeds the advisor over time), then a soft hand-off to a check-in or back home.
   const FB_OPTS = [
-    { key:'more',    label:'more connection & presence' },
+    { key:'more',    label:'more connected and present' },
     { key:'same',    label:'about the same' },
     { key:'less',    label:'less connected and present' },
     { key:'struggle',label:'struggled with this one' },
@@ -1896,7 +2097,7 @@
     const CLOSE = {
       more:    { h:'something shifted toward connection.', s:"that's worth a small pat on your nervous system's back." },
       same:    { h:'no major change, but you showed up.',  s:"that's a solid rep and your system thanks you for it." },
-      less:    { h:'you stayed with it.',                  s:"that's not nothing. imperfect practice is still practice. it's a chance to learn, adjust, and give yourself kudos for the effort. adjust for the next one. maybe take it easier and work your way back to more challenge. don't rush it." },
+      less:    { h:'you stayed with it.',                  s:"that's not nothing. imperfect practice is still practice. take the next one easier and work your way back. don't rush it." },
       struggle:{ h:'hard ones are still practice.',        s:"you're still here. you showed up. struggling with practices is very normal. come back to it when you're ready, but maybe focus on an easier skill. customize the next practice to your content." },
       unsure:  { h:'not knowing is allowed.',             s:'you still showed up. well done. stay curious and open for the next one.' },
     };
@@ -1915,12 +2116,14 @@
         </div>
         <p class="settle-note">safety doesn't erase the rest. it just holds them.</p>
         <div class="fb-after">
-          <button class="btn block" id="fb-checkin">do a post-practice check-in</button>
+          <button class="btn block" id="fb-checkin">check in now</button>
           <button class="navlink" id="fb-home" style="align-self:center">back to today</button>
         </div>
       </div></div>`);
     requestAnimationFrame(()=>{ const s=root.querySelector('.settle'); if(s) s.classList.add('on'); });
-    $('#fb-checkin').onclick = screenCheckin;
+    // N-7: a check-in started from here is tagged post-practice, so "is practice
+    // helping?" can use clean before/after pairs instead of day-level inference
+    $('#fb-checkin').onclick = ()=>{ window._ciSource='post-practice'; screenCheckin(); };
     $('#fb-home').onclick = ()=>app('today');
   }
 
@@ -1976,13 +2179,15 @@
           <h2 class="scr-h">settings</h2>
         </div>
 
+        <div class="set-card">
         <div class="set-rows">
-          <div class="row"><span class="k">name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="add your name for a custom feel"></div>
+          <div class="row"><span class="k">name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="so the app can greet you by name"></div>
           <div class="row"><span class="k">account</span><span class="val" style="font-weight:400">${escapeHtml(u.email||'on this device')}</span></div>
         </div>
+        </div>
 
-        <div class="hr"></div>
-
+        <div class="set-card">
+        <p class="set-card-h">display</p>
         <div class="set-group">
           <p class="dash-prompt">text size</p>
           <div class="set-seg" id="seg-text">
@@ -2007,8 +2212,12 @@
             ${segBtn('th','','auto',th==='')}${segBtn('th','light','light',th==='light')}${segBtn('th','dark','dark',th==='dark')}
           </div>
         </div>
+        </div>
+
+        <div class="set-card">
+        <p class="set-card-h">practice defaults</p>
         <div class="set-group">
-          <p class="dash-prompt">anchoring</p>
+          <p class="dash-prompt">anchoring sense</p>
           <div class="set-seg" id="seg-sense" style="flex-wrap:wrap">
             ${segBtn('sense','','auto',!ps)}${P_SENSES.map(s=>segBtn('sense',s,s,ps===s)).join('')}
           </div>
@@ -2020,8 +2229,11 @@
           </div>
         </div>
 
+        </div>
+
+        <div class="set-card">
+        <p class="set-card-h">app</p>
         <div class="set-group">
-          <p class="dash-prompt">app</p>
           <div class="set-row-inline" id="install-row">${installRowInner()}</div>
         </div>
 
@@ -2034,12 +2246,16 @@
           <p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system may clear this if the app goes unused for a while. just turn it back on if that happens.</p>
         </div>
 
-        <div class="hr"></div>
+        </div>
 
+        <div class="set-card">
+        <p class="set-card-h">your data</p>
         <div class="set-actions">
           <button class="set-quiet" id="export">export your check-ins</button>
           <button class="set-quiet" id="signout">sign out</button>
           <button class="set-quiet" id="reset">reset my data</button>
+          <button class="set-quiet" id="delacct">delete my account</button>
+        </div>
         </div>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
@@ -2105,6 +2321,15 @@
     };
     $('#signout').onclick = async ()=>{ await Store.signOut(); currentTab='today'; route(); };
     $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practices?')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
+    // T-3: in-app initiation of full account deletion (the privacy policy promises
+    // it). Full deletion runs server-side; this opens a prefilled request email.
+    // TODO(Justin): confirm the support address — placeholder below.
+    $('#delacct').onclick = ()=>{
+      const em = (Store.user()&&Store.user().email)||'';
+      if(confirm('Request deletion of your account and all its data? This opens an email request; deletion is permanent and usually completes within a few days.')){
+        location.href = 'mailto:justin@stucknotbroken.com?subject='+encodeURIComponent('delete my account')+'&body='+encodeURIComponent('please permanently delete the account for '+em+' and all of its data.');
+      }
+    };
   }
 
   // ---------------------------------------------------------------- delegated nav (trend "see all")

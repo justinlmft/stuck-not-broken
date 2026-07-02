@@ -154,7 +154,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .refine{display:flex;flex-direction:column;gap:clamp(11px,2vh,18px);flex:none}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{
-  font:inherit;font-size:14px;cursor:pointer;text-transform:capitalize;white-space:nowrap;
+  font:inherit;font-size:14px;cursor:pointer;white-space:nowrap;
   background:transparent;color:var(--muted);border:1px solid var(--hairline);
   border-radius:999px;padding:7px 15px;transition:border-color var(--ease) .2s,color var(--ease) .2s,font-weight var(--ease) .2s;
 }
@@ -278,7 +278,8 @@ body.playing .brand{display:none}
 /* ── endings: encouraged graceful close + quiet escape ── */
 .endings{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%}
 .endings .endbtn{width:100%}
-.endnow{background:none;border:0;font:inherit;font-size:12.5px;letter-spacing:.1em;text-transform:lowercase;color:var(--muted);cursor:pointer;padding:4px 10px;transition:color var(--ease) .2s}
+.endnow{position:relative;background:none;border:0;font:inherit;font-size:12.5px;letter-spacing:.1em;text-transform:lowercase;color:var(--muted);cursor:pointer;padding:4px 10px;transition:color var(--ease) .2s}
+.endnow::after{content:'';position:absolute;inset:-10px -6px}
 .endnow:hover{color:var(--ink);font-weight:600}
 .endnow:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 
@@ -483,12 +484,12 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
         </div>
         <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc">CC</span><span class="cc-state" id="capstate">off</span></button>
         </div>
-      <button class="transport" id="pause" aria-label="Pause"><svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="2.2"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="2.2"></rect></svg><svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
+      <button class="transport" id="pause" aria-label="pause"><svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="2.2"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="2.2"></rect></svg><svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
       </div>
       <!-- endings: graceful close, and a quiet escape -->
       <div class="endings">
         <button class="btn quiet endbtn" id="endbtn">begin ease out</button>
-        <button class="endnow" id="stopbtn" aria-label="End now">end now</button>
+        <button class="endnow" id="stopbtn" aria-label="end now">end now</button>
       </div>
     </div>
     <!-- gentle completion state -->
@@ -504,7 +505,7 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
     <!-- a rest between stacked meditations: waits for play -->
     <div class="brk" id="brk">
       <p class="brk-line" id="brkline"></p>
-      <button class="iconbtn" id="contbtn" aria-label="Continue"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
+      <button class="iconbtn" id="contbtn" aria-label="continue"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
     </div>
     <!-- shown only if clips can't load -->
     <p class="conn" id="conn">having trouble connecting. hang on…</p>
@@ -810,6 +811,8 @@ const SKILLS={
   most:[['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']]
 };
 const EXP={
+ micro:{key:'micro',t:'A tiny practice',cue:'about two minutes, one sense, done',d:"",sense:'touch',silence:2,gentle:true,mind:false,tier:0,
+   sum:"The smallest practice there is. Arrive, one breath, one sense, done. About two minutes."},
  mindfulness:{key:'mindfulness',t:'Practice simple mindfulness',cue:'the simplest. a calm place to start',d:"",sense:'touch',silence:8,gentle:true,mind:true,tier:0,
    sum:"A super simple practice to connect with the present moment as it is through the senses and the breath. No pressure. Just presence."},
  anchoring:{key:'anchoring',t:'Connect with safety',cue:'a step in — settling into safety',d:'',sense:'touch',silence:8,gentle:true,mind:false,tier:1,
@@ -839,6 +842,16 @@ function anchorBlock(c,add){
 function build(c){
   const raw=[],ph=[]; const add=(b,p)=>{if(has(b)){raw.push(b);ph.push(p);}};
   let loopBase=null;
+  // micro: the tiny practice (Justin, 2026-07-02: "skip to how's your body
+  // breathing" — no intro, no arriving; straight in). one sense (touch/sound/
+  // sight only — movement & imagination need the full ladder), short gaps,
+  // single close. MIND-02 (breath) -> sense -> CLOSE-01 -> OUTRO. ~1.8 min.
+  if(c.key==='micro'){
+    add('MIND-02','the breath');
+    add(({sound:'MIND-03',sight:'MIND-06'})[c.sense]||'MIND-05', ({sound:'sound',sight:'sight'})[c.sense]||'touch');
+    add('CLOSE-01','closing');add('OUTRO','closing');
+    return {seq:raw,phase:ph,loopBase:null};
+  }
   add('INTRO-01','opening');
   if(c.mind){
     add('MIND-01','arriving');add('MIND-02','the breath');loopBase='MIND-02';
@@ -1073,6 +1086,14 @@ $('player').addEventListener('pointerdown',()=>{if(playing||finished)revealContr
 
 /* safeguard: if this page is hidden (another tab/frame is in front), pause so audio never plays in the background */
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing&&!paused){$('pause').click();}});
+/* if the OS pauses the audio element itself (headphones unplugged, bluetooth route
+   change), sync the UI into the honest paused state instead of pretending to play.
+   debounced: clip-ends and src swaps also fire 'pause' — only a pause that STICKS
+   (still paused 350ms later, not ended, not in a gap) counts as external. */
+au.addEventListener('pause',()=>{
+  if(au.ended) return;
+  setTimeout(()=>{ if(playing&&!paused&&!inGap&&!finished&&!inBreak&&au.paused&&!au.ended){ try{$('pause').click();}catch(e){} } }, 350);
+});
 
 /* connection trouble: additive listeners (do not touch the timing engine). If clips keep failing,
    say so gently instead of leaving the listener in unexplained silence. Clears on the next clip that plays. */
@@ -1105,7 +1126,7 @@ function startPlayer(){
   playStart=Date.now();                                // embed: clock the session so the host can log its length
   activePack=null;                                      // woven mode — clear any standalone state
   const o=buildPlan();SEQ=o.seq;PH=o.phase;LOOP=o.loop;LOOPFROM=o.loopFrom;buildTrackSeq();
-  $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','Pause');$('pause').style.display='';
+  $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');$('pause').style.display='';
   finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;
   showScreen('player');fitRing();renderTest();showSil();
   started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
@@ -1128,7 +1149,7 @@ function startStandalone(){
   const id=cfg.pack;if(!id)return;                                           // Begin with no session chosen → no-op
   const begin=pack=>{
     applyPack(pack);buildTrackSeq();
-    $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','Pause');$('pause').style.display='';
+    $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');$('pause').style.display='';
     finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;
     showScreen('player');fitRing();renderTest();showSil();
     started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
@@ -1253,13 +1274,13 @@ $('pause').onclick=()=>{
     paused=false;
     if(inGap){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
     else{try{au.play();}catch(e){}}
-    $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','Pause');
+    $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
     $('player').classList.remove('paused');revealControls();
   }else{ // pause
     paused=true;
     if(inGap){clearTimeout(gapTimer);gapRemain=Math.max(0,gapRemain-(performance.now()-gapStart));}
     else{try{au.pause();}catch(e){}}
-    $('pause').classList.add('is-paused');$('pause').setAttribute('aria-label','Resume');
+    $('pause').classList.add('is-paused');$('pause').setAttribute('aria-label','resume');
     $('player').classList.add('paused','show-controls');clearTimeout(ctrlTimer);$('starting').classList.remove('show');
   }
 };
@@ -1282,7 +1303,7 @@ $('endbtn').onclick=()=>{
   if(finished){stopAll();showScreen('setup');return;}
   closingNow=true;   // ease-out: the circle returns to black, confirming the close has begun
   clearTimeout(gapTimer);inGap=false;playing=true;paused=false;LOOP=false;
-  $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','Pause');
+  $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
   $('player').classList.remove('paused');
   // is there another meditation queued after this point? (a practice boundary further along)
   let nextStart=-1;for(let i=idx+1;i<PH.length;i++){if(PH[i-1]==='closing'&&PH[i]!=='closing'){nextStart=i;break;}}

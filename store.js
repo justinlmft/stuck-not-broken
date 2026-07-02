@@ -285,7 +285,8 @@
     // time and fed to the recommender. NOTE: not yet a cloud column — it lives in the
     // on-device record/cache; add a `challenge` column + map it in checkinToRow to sync it.
     const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, fr:c.freeze||0, note:c.note||'', dom:dom.key,
-                  challenge:(typeof c.challenge==='number'?c.challenge:null) };
+                  challenge:(typeof c.challenge==='number'?c.challenge:null),
+                  source:(c.source||null) };   // e.g. 'post-practice' — lets practiceEffect use clean before/after pairs
     data.checkins.push(rec);
     if(CLOUD && auth.user){ outbox.checkins.push(rec); setSync('syncing'); }
     saveCache(); if(CLOUD) flush();
@@ -394,9 +395,14 @@
     const chs = data.checkins.map(c=>c.challenge).filter(v=>typeof v==='number');
     const recentCh = chs.slice(-8);
     const challengeAvg = recentCh.length ? recentCh.reduce((s,v)=>s+v,0)/recentCh.length : null;
+    // if the MOST RECENT session ended early with a stated reason (exit-hard /
+    // exit-easy / exit-distracted / exit-enough), surface it — the advisor nudges
+    // the very next practice off it, then it naturally expires with the next session.
+    const lastS = data.sessions[data.sessions.length-1] || null;
+    const lastExit = (lastS && lastS.endedEarly && /^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null;
     return { favSense: top(count(done,'sense')), favSkill: top(count(done,'skill')), favPractice: top(count(done,'practiceKey')),
              sessionsDone: done.length, endsEarlyOften: earlyRate >= 0.4 && data.sessions.length >= 3,
-             challengeAvg, challengeN: chs.length };
+             challengeAvg, challengeN: chs.length, lastExit };
   }
 
   // ---- trend ----
@@ -645,6 +651,9 @@
     const _tn = tenure();
     const early = (_tn.stage==='start' || _tn.stage==='early') && !(typeof last.challenge==='number' && last.challenge>=0.78);
     if(early) want = Math.min(want, 0.55);
+    // one-session nudge from the last early-exit reason (expires once a new session logs)
+    if(L.lastExit==='exit-hard') want = Math.min(want, 0.4);
+    else if(L.lastExit==='exit-easy') want = Math.min(0.95, want + 0.15);
     const dom = last.dom;
     const sense = prefSense() || L.favSense || 'touch';
     const moreSilence = L.endsEarlyOften ? 12 : 8;
@@ -680,7 +689,12 @@
 
     function cfg(practiceKey, skill, sense, silence, reason, tag){
       const pSil = prefSilence();
-      return { practiceKey, skill, sense, silence: (pSil!=null?pSil:silence), reason, tag,
+      let sil = (pSil!=null?pSil:silence);
+      // fold in what the last early exit told us, and say so plainly
+      if(L.lastExit==='exit-distracted'){ sil = Math.min(sil, 4); reason += " shorter silences this time, so it's easier to stay with."; }
+      else if(L.lastExit==='exit-hard'){ reason += " last one was a lot, so we're keeping this one easier."; }
+      else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
+      return { practiceKey, skill, sense, silence: sil, reason, tag,
                adapted: (L.sessionsDone>0 || L.challengeN>0), domBefore: last?last.dom:null, challenge: want };
     }
   }
@@ -701,7 +715,7 @@
   // post-practice: stamp how the body felt afterward onto the last session
   function noteFeedback(val){ const s=data.sessions[data.sessions.length-1]; if(s){ s.feedback=val; saveCache(); } }
 
-  const PRACTICE_LABEL = { mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
+  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
 
   // ---- name ----
