@@ -176,6 +176,14 @@
   const trackOf = (k) => TRACK[k] || TRACK.mindfulness;
   const SKILL_LABEL = { imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
   const skillLabel = (k) => SKILL_LABEL[k] || k;
+  // plain-language gloss for each skill name — used by the builder's live
+  // "what to expect" paragraph and anywhere else a skill needs explaining
+  const SKILL_CAP = {
+    imagery:    'give a challenging feeling a shape in your mind and invite it in, a little at a time.',
+    obstacles:  'notice what gets in the way of feeling safe, and meet it with some kindness.',
+    balancing:  'hold something pleasant and something challenging at the same time, giving each some room.',
+    pendulation:'move gently back and forth between a pleasant feeling and a more challenging one, so your body learns the way back.',
+  };
   const silLabel = (n) => n<=4 ? 'a little' : n>=12 ? 'a lot' : 'some';
 
   // Check-in copy: one fixed stem ("right now, how easy would it be to…") with a
@@ -255,13 +263,34 @@
   const MARK_GLYPH = "<svg viewBox=\"4 44 462 371\" fill=\"currentColor\"><path d=\"M 228.6626430999995,414.99967965948633 C 193.0931878499996,414.99967965948633 159.69623824999962,401.15528090948635 134.56332974999987,376.0223724094866 L 42.977307250000194,284.43634990948647 C 17.844398749999527,259.30344140948625 4.0,225.86389365948654 4.0,190.3370365594864 C 4.0,154.76758130948647 17.844398750000437,121.3706317094865 42.977307250000194,96.23772320948629 C 68.11021574999995,71.10481470948653 101.54976350000015,57.26041595948655 137.07662059999984,57.260415959486096 C 171.45332764999966,57.260415959486096 203.82792165000046,70.21025355948623 228.6626430999995,93.76703050948609 C 280.7175823999996,44.35317650948619 363.2727970999995,45.20513950948626 414.34797894999974,96.23772320948629 C 466.23252564999984,148.1222699094864 466.23252564999984,232.5518032094864 414.34797894999974,284.47894805948624 L 322.76195644999916,376.06497055948637 C 297.6290479499994,401.1978790594861 264.1895001999992,415.0422778094861 228.6626430999995,415.0422778094861 L 228.6626430999995,414.99967965948633 M 137.11921875000007,109.86913120948648 C 115.60715299999993,109.86913120948648 95.41562990000057,118.21836860948625 80.20809035000002,133.42590815948634 C 48.813253799999075,164.82074470948638 48.813253799999075,215.8533284094864 80.20809035000002,247.24816495948645 L 171.7941128499997,338.83418745948654 C 187.00165239999933,354.0417270094862 207.1931754999996,362.3909644094864 228.70524124999974,362.3909644094864 C 250.2173069999999,362.3909644094864 270.40883009999925,354.0417270094862 285.6163696499989,338.83418745948654 L 377.20239214999947,247.24816495948645 C 408.5546305500002,215.89592655948618 408.5546305500002,164.82074470948638 377.20239214999947,133.42590815948634 C 345.80755560000034,102.0310716094863 294.7749719000003,102.0310716094863 263.3801353500003,133.42590815948634 L 228.70524124999974,168.10080225948641 L 194.03034714999922,133.42590815948634 C 178.82280759999958,118.21836860948625 158.6312844999993,109.86913120948648 137.11921875000007,109.86913120948648\"/></svg>";
   const GEAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
   // Plain-language "what to expect" so a newcomer knows what each practice is.
+  // ONE source of truth: the plan screen (custom practice) and the builder's live
+  // paragraph both read from here. Copy approved by Justin 2026-07-02.
   const PRACTICE_ABOUT = {
-    mindfulness: ()=>'a gentle, guided sit. a calm voice helps you arrive, follow your breath, and move slowly through your senses. nothing to fix, nowhere to be, the simplest way back to yourself.',
-    anchoring: (sense)=>`you'll use your ${sense||'senses'} as an anchor and let it lead your system toward a felt sense of safety, then rest there a while. good when things feel charged or heavy.`,
-    most: ()=>'the deepest practice. you\u2019ll gently turn toward something hard while staying connected to safety, building the capacity to meet it without being pulled under. best when there is safety to spare.',
+    mindfulness: ()=>"a calm voice helps you connect to the present moment using your senses and your body's natural breathing rhythm. no pressure, just presence. can be used anywhere, even when moving.",
+    anchoring: (sense)=>`you'll bring your attention to ${sense||'your senses'} and connect with the present moment, identifying how safety feels in the body and spending time with it. good for moments to practice feeling safety or where your system is drifting into defense. best if done in an environment with less distraction. feel free to move or not.`,
+    most: ()=>"you'll intentionally and compassionately turn your attention toward an emotion that is more challenging while staying connected to the present moment and anchored in safety. best done in an environment free of distraction and more comfort.",
+    micro: ()=>'a very short present-moment connection practice, built for the middle of a busy day. use this anywhere and doing anything.',
     more: ()=>'a full, standalone guided session, played start to finish.',
   };
   const aboutOf = (k, sense) => { const f = PRACTICE_ABOUT[k]; return f ? f(sense) : ''; };
+  // the builder's dynamic "what to expect": assembled from the SAME slots the plan
+  // screen uses (practice body, skill gloss, silence vocab, estMinutes) so the two
+  // screens always describe the same practice the same way. sense line appears only
+  // when the body doesn't already name the anchor (anchoring's body does).
+  function expectText(key, sense, skill, silence){
+    if(!key || key==='more') return '';
+    const est = estMinutes(key, key==='micro' ? 2 : silence);
+    const lbl = Store.practiceLabel(key);
+    const head = /^a /.test(lbl) ? lbl : `a guided ${lbl} practice`;   // micro's label is already "a tiny practice"
+    const bits = [
+      `${head}${est ? ', about '+est+' minutes' : ''}.`,
+      aboutOf(key, sense),
+    ];
+    if((key==='most'||key==='micro') && sense) bits.push(`your anchor is ${sense}.`);
+    if(key==='most' && skill && SKILL_CAP[skill]) bits.push(SKILL_CAP[skill]);
+    if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
+    return bits.filter(Boolean).join(' ');
+  }
 
   const fmtDay = (t) => new Date(t).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
   const fmtTime = (t) => new Date(t).toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
@@ -1373,6 +1402,7 @@
               <div class="ci-ovr-chips">
                 ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
               </div>
+              <p class="ci-ovr-about" id="ci-ovr-about"></p>
               <button class="set-quiet ci-ovr-clear" id="ci-ovr-clear" type="button">match my answers</button>
             </div>
           </div>`:''}
@@ -1419,7 +1449,12 @@
     const ovrLink = $('#ci-ovr-link');
     if(ovrLink){
       const panel = $('#ci-ovr-panel');
-      const paint = ()=>root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.classList.toggle('on', b.dataset.ovr===ovr));
+      // the selected state teaches itself in place: the SAME copy as the state pages
+      // reached from the You-tab stats (STATE_DETAIL), never a second vocabulary
+      const paint = ()=>{
+        root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.classList.toggle('on', b.dataset.ovr===ovr));
+        const ab = $('#ci-ovr-about'); if(ab) ab.textContent = (ovr && STATE_DETAIL[ovr]) ? STATE_DETAIL[ovr].about : '';
+      };
       ovrLink.onclick = ()=>{
         panel.hidden = !panel.hidden;
         if(!panel.hidden){ if(!ovr && editRec.dom){ ovr = editRec.dom; } }        // open: start from what it counts as now
@@ -1568,12 +1603,15 @@
     if(ab) ab.innerHTML='';
     const allCs = Store.checkins();
     if(allCs.length < 2){
+      // each teach row opens the full state page (STATE_DETAIL) — the state info was
+      // only reachable through the stats glyphs before; this is the front door now
       const teach = ['safety','fightflight','shutdown'].map(st=>{
         const ax = AXIS_ICON[{safety:'v',fightflight:'sym',shutdown:'dor'}[st]];
-        return `<div class="map-row">
+        return `<button class="map-row" type="button" data-state-detail="${st}">
           <span class="map-ico">${ico(ax.icon,{color:STATE_COLOR(st)})}</span>
           <span class="map-text"><span class="map-name">${STATE_NAME(st)}</span><span class="map-sub">${ax.sub}</span></span>
-        </div>`;
+          <span class="wc-go">${CHEV}</span>
+        </button>`;
       }).join('');
       c.innerHTML = `<div class="view play-view">
         <div class="filter-bar" style="justify-content:flex-end">
@@ -1586,6 +1624,7 @@
         <button class="btn" id="goci">check in</button></div></div>`;
       $('#goci').onclick = screenCheckin;
       const sb0=$('#set-btn'); if(sb0) sb0.onclick = screenSettings;
+      c.querySelectorAll('[data-state-detail]').forEach(b=>b.onclick=()=>screenStateDetail(b.dataset.stateDetail));
       return;
     }
 
@@ -2087,14 +2126,6 @@
     const chip=(lbl,val,attr,on)=>
       `<button class="p-chip${on?' on':''}" data-${attr}="${escapeHtml(String(val))}">${escapeHtml(lbl)}</button>`;
 
-    // plain-language gloss for each skill name, shown under the chips (the names
-    // come from justin's self-regulation system; the caption teaches them in place)
-    const SKILL_CAP = {
-      imagery:    'give a challenging feeling a shape in your mind and invite it in, a little at a time.',
-      obstacles:  'notice what gets in the way of feeling safe, and meet it with some kindness.',
-      balancing:  'hold something pleasant and something challenging at the same time, giving each some room.',
-      pendulation:'move gently back and forth between a pleasant feeling and a more challenging one, so your body learns the way back.',
-    };
     // micro keeps decisions tiny: three senses only (movement & imagination need
     // the full anchoring ladder), no silence question (fixed short gaps)
     const senseList = key==='micro' ? ['touch','sound','sight'] : P_SENSES;
@@ -2107,12 +2138,12 @@
         ${key==='most'?`<div class="p-rgroup">
           <p class="dash-prompt">which skill do you want to practice?</p>
           <div class="p-chips">${P_SKILLS.map(([v,l])=>chip(l,v,'skill',v===skill)).join('')}</div>
-          <p class="ch-cap" id="skill-cap">${SKILL_CAP[skill]||''}</p>
         </div>`:''}
         ${key!=='micro'?`<div class="p-rgroup">
           <p class="dash-prompt">how much silence between guidance?</p>
           <div class="p-chips">${P_SILENCE.map(([v,l])=>chip(l,v,'sil',v===silence)).join('')}</div>
         </div>`:''}
+        <p class="ch-cap p-expect" id="p-expect">${expectText(key, sense, skill, silence)}</p>
         ${key==='most'?'<button class="p-surprise" id="p-surprise">surprise me</button>':''}
       </div>`:'';
 
@@ -2171,18 +2202,23 @@
       c.querySelectorAll('[data-pmed]').forEach(r=>r.classList.toggle('on',r.dataset.pmed===pState.med));
       const bb=$('#p-begin'); if(bb){bb.disabled=false;bb.removeAttribute('disabled');}
     });
+    // the live "what to expect" paragraph rebuilds (with a soft crossfade) on every chip tap
+    const updExpect=()=>{ const el=$('#p-expect'); if(el){ el.classList.remove('cap-in'); void el.offsetWidth;
+      el.textContent=expectText(pState.key, pState.sense, pState.skill, pState.silence); el.classList.add('cap-in'); } };
     c.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
       pState.sense=b.dataset.sense;
       c.querySelectorAll('[data-sense]').forEach(r=>r.classList.toggle('on',r.dataset.sense===pState.sense));
+      updExpect();
     });
     c.querySelectorAll('[data-skill]').forEach(b=>b.onclick=()=>{
       pState.skill=b.dataset.skill;
       c.querySelectorAll('[data-skill]').forEach(r=>r.classList.toggle('on',r.dataset.skill===pState.skill));
-      const sc=$('#skill-cap'); if(sc){ sc.classList.remove('cap-in'); void sc.offsetWidth; sc.textContent=SKILL_CAP[pState.skill]||''; sc.classList.add('cap-in'); }
+      updExpect();
     });
     c.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
       pState.silence=+b.dataset.sil;
       c.querySelectorAll('[data-sil]').forEach(r=>r.classList.toggle('on',r.dataset.sil===String(pState.silence)));
+      updExpect();
     });
 
     const surpriseBtn=$('#p-surprise');
