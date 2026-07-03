@@ -100,7 +100,7 @@
   function updateInstallUI(){
     const row = document.getElementById('install-row');
     if(row){ row.innerHTML = installRowInner(); const g = row.querySelector('.in-go'); if(g) g.onclick = promptInstall; }
-    if(isStandalone() || !canInstall()){ const n = document.getElementById('install-nudge'); if(n) n.remove(); }
+    if(isStandalone() || !(canInstall() || isiOS())){ const n = document.getElementById('install-nudge'); if(n) n.remove(); }
     else if(currentTab === 'today') maybeInstallNudge();
   }
   // long-press on chrome shouldn't pop the browser menu; inline text links keep theirs
@@ -563,10 +563,14 @@
     return '<span class="ios-hint">to install: open your browser menu and choose install or add to home screen.</span>';
   }
   function maybeInstallNudge(){
-    try{ if(isStandalone() || !canInstall()) return; if(localStorage.getItem('snb_install_nudge') === 'dismissed') return; }catch(_){ return; }
+    // android/chrome: native install button (beforeinstallprompt). iOS never fires
+    // that event, so there the nudge carries the add-to-home-screen instruction.
+    try{ if(isStandalone() || !(canInstall() || isiOS())) return; if(localStorage.getItem('snb_install_nudge') === 'dismissed') return; }catch(_){ return; }
     const c = content(); if(!c || document.getElementById('install-nudge')) return;
     const b = document.createElement('div'); b.className = 'install-nudge'; b.id = 'install-nudge';
-    b.innerHTML = '<span class="in-txt">install the SNB app.</span><span class="in-actions"><button type="button" class="in-go">install</button><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>';
+    b.innerHTML = canInstall()
+      ? '<span class="in-txt">install the SNB app.</span><span class="in-actions"><button type="button" class="in-go">install</button><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>'
+      : '<span class="in-txt">install the app: tap the share icon, then <b>add to home screen</b>.</span><span class="in-actions"><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>';
     c.insertBefore(b, c.firstChild);
     const g = b.querySelector('.in-go'); if(g) g.onclick = promptInstall;
     const x = b.querySelector('.in-x'); if(x) x.onclick = ()=>{ try{ localStorage.setItem('snb_install_nudge','dismissed'); }catch(_){} b.remove(); };
@@ -905,6 +909,28 @@
     // trend-arc (blog-3) + fork (blog-4) removed per Justin; helpers kept for possible reuse.
     return '';
   }
+  // a section heading is {pre, state, post}: color just the state word in its own palette
+  // color (no fragile text-matching). Falls back to a plain string for mints saved before
+  // this change existed (those are frozen and will never carry the new shape).
+  function renderHeading(dom, h){
+    if(!h) return '';
+    if(typeof h === 'string') return escapeHtml(h);
+    const pre = escapeHtml(h.pre||''), post = escapeHtml(h.post||'');
+    const state = h.state ? `<span style="color:${STATE_COLOR(dom)}">${escapeHtml(h.state)}</span>` : '';
+    return pre + state + post;
+  }
+  // a real table of contents from the essay's own sections, replacing the old inline
+  // "-> [label] ↓" jump arrows on the TL;DR bullets.
+  function readerTOC(issue){
+    if(!issue || !issue.sections || issue.sections.length < 2) return '';
+    const rows = issue.sections.map(sec =>
+      `<li style="margin:0 0 8px;line-height:1.5"><a href="#${sec.id}" style="color:var(--link);text-decoration:none">${renderHeading(issue.dom, sec.heading)}</a></li>`
+    ).join('');
+    return `<nav aria-label="contents" style="margin-top:14px">
+      <p class="sec-h" style="margin:0 0 8px">in this reflection</p>
+      <ul style="margin:0;padding-left:0;list-style:none">${rows}</ul>
+    </nav>`;
+  }
 
   function screenReflectionDeep(){
     const note = FromJustin.today();
@@ -957,17 +983,14 @@
 
     let bodyHTML;
     if(issue){
-      const bulletsHTML = issue.bullets.map(b=>{
-        const jump = b.jumpId ? ` <a href="#${b.jumpId}" style="color:var(--link);text-decoration:none;white-space:nowrap;font-size:12.5px">${escapeHtml(b.jumpLabel)} ↓</a>` : '';
-        return `<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}${jump}</li>`;
-      }).join('');
-      // the "what to expect" section's landing line is the issue's most quotable
-      // sentence — set it as a pull-quote (reader-beauty pass)
+      const bulletsHTML = issue.bullets.map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}</li>`).join('');
+      // the closing section's landing line is the issue's most quotable sentence — set it
+      // as a pull-quote (reader-beauty pass)
       const PQ = (t)=> t ? `<blockquote class="read-pq">${escapeHtml(t)}</blockquote>` : '';
       const sectionsHTML = issue.sections.map(sec=>`
         <section style="margin-top:22px">
-          <h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${escapeHtml(sec.heading)}</h3>
-          ${sec.paras.map((t,i)=> (sec.id==='blog-4' && i===sec.paras.length-1) ? PQ(t) : P(t)).join('')}
+          <h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>
+          ${sec.paras.map((t,i)=> (sec.id==='blog-6' && i===sec.paras.length-1) ? PQ(t) : P(t)).join('')}
           ${sectionViz(sec.id, vizCtx)}
         </section>`).join('');
       bodyHTML = `
@@ -976,6 +999,7 @@
           <p class="sec-h" style="margin:0 0 10px">the short version</p>
           <ul style="margin:0;padding-left:18px">${bulletsHTML}</ul>
         </div>
+        ${readerTOC(issue)}
         ${sectionsHTML}`;
     } else {
       bodyHTML = `${lead}${P('Check in a few times, and a more personal summary will show up here.')}`;
@@ -986,13 +1010,14 @@
     // quiet read-time line (HIG: set expectations; a reluctant reader wants the size of the ask)
     const _rtWords = String(todayBlock+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
     const _rtMins = Math.max(1, Math.round(_rtWords/200));
+    const _uname = (Store.getName && Store.getName()) || '';
     setHTML(`
       <header class="appbar"><button class="backbtn" id="deep-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
           <div class="scr-head read-head">
             <h1 class="read-h1">Your Reflections</h1>
-            <p class="read-time">${_rtMins} min read · from your real check-ins</p>
+            <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
           </div>
           ${todayBlock}
           ${bodyHTML}
@@ -1072,7 +1097,7 @@
     // lines (transitions/time-of-day/recovery/payoff) with empty overrides so the snapshot
     // never borrows current data.
     const issue = FromJustin.blog({ dom, share, dir, variance, count:n, mix,
-      trans:{}, tod:{}, recovery:{}, practiceEffect:{}, stage:'week', tenure:{stage:'week',days:7,returning:false} });
+      trans:{}, tod:{}, recovery:{}, practiceEffect:{}, practiceInsights:[], stage:'week', tenure:{stage:'week',days:7,returning:false} });
     if(!issue) return null;
     const doms = Object.keys(freq).sort((a,b)=>freq[b]-freq[a]);     // doms[0] = the week's dominant state (lights the triGlyph)
     const traj = dir==='rising' ? 'leaned toward safe' : dir==='falling' ? 'kept showing up all week' : 'stayed with it all week';
@@ -1204,9 +1229,9 @@
   function renderIssue(issue){
     const P=(t)=> t?`<p style="font-size:15px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px">${escapeHtml(t)}</p>`:'';
     const PQ=(t)=> t?`<blockquote class="read-pq">${escapeHtml(t)}</blockquote>`:'';
-    const bulletsHTML = (issue.bullets||[]).map(b=>{ const jump=b.jumpId?` <a href="#${b.jumpId}" style="color:var(--link);text-decoration:none;white-space:nowrap;font-size:12.5px">${escapeHtml(b.jumpLabel)} ↓</a>`:''; return `<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}${jump}</li>`; }).join('');
-    const sectionsHTML = (issue.sections||[]).map(sec=>`<section style="margin-top:22px"><h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${escapeHtml(sec.heading)}</h3>${(sec.paras||[]).map((t,i)=>(sec.id==='blog-4'&&i===(sec.paras.length-1))?PQ(t):P(t)).join('')}</section>`).join('');
-    return `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${bulletsHTML}</ul></div>${sectionsHTML}`;
+    const bulletsHTML = (issue.bullets||[]).map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}</li>`).join('');
+    const sectionsHTML = (issue.sections||[]).map(sec=>`<section style="margin-top:22px"><h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>${(sec.paras||[]).map((t,i)=>(sec.id==='blog-6'&&i===(sec.paras.length-1))?PQ(t):P(t)).join('')}</section>`).join('');
+    return `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${bulletsHTML}</ul></div>${readerTOC(issue)}${sectionsHTML}`;
   }
 
   function screenArchive(){
