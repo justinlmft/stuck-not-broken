@@ -768,10 +768,12 @@
   function _essayBaseline(ctx){
     const b = ctx.baseline;
     if(!b || !b.dir || b.dir==='new') return '';
-    const lead = 'Zoom out for a second. This week\'s ' + _feltName(ctx.dom) + ' is a moment. Your baseline is the longer story, and ';
-    if(b.dir==='up')   return lead + 'it has been climbing over the past few weeks.';
-    if(b.dir==='down') return lead + 'it has dipped lately. Gentle is the right speed for now.';
-    return lead + 'it has been holding steady over the past few weeks.';
+    // Moments are literal moments (a single check-in, a brief experience); a week is
+    // neither a Moment nor a baseline. Baselines form over a month or more.
+    const lead = 'Zoom out for a second. A week of ' + _feltName(ctx.dom) + ' is not your baseline. Baselines form over a month or more, and yours ';
+    if(b.dir==='up')   return lead + 'has been climbing.';
+    if(b.dir==='down') return lead + 'has dipped lately. Gentle is the right speed for now.';
+    return lead + 'has been holding steady.';
   }
   const ESSAYS = {
     freeze: function(ctx){
