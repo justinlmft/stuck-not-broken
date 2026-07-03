@@ -205,7 +205,7 @@
     try{
       const cfg = global.SNB_CONFIG || {};
       if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return;
-      const k='snb_ent_checked', last=+(localStorage.getItem(k)||0);
+      const k='snb_ent_checked_'+auth.user.id, last=+(localStorage.getItem(k)||0);   // per-user: two accounts on one device check independently
       if(Date.now()-last < 864e5) return;
       sb.auth.getSession().then(({ data:{ session } })=>{
         if(!session) return;
