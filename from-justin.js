@@ -515,8 +515,42 @@
   function watchFor(kind){ return cycle('watch:'+kind, DEEP.overlays.watchFor[kind] || []); }
 
   // ---- custom blog: the "for you" reader, assembled from the user's signals ----
-  const RUNDOWNS = {"shutdown":{"label_precise":"Dysregulated immobilization","label_felt":"shutdown","tldr":["The heavy, far-away, hard-to-move moments are shutdown. That's not you failing, and it's not who you are. It's one of the oldest ways your body protects you when things get to be too much. It's a state, and states move.","Numb, flat, like you're living behind glass. That's shutdown. Your body pulled its oldest brake to get you through. Stuck, not broken. And stuck is temporary.","If everything feels heavy and far away, your body has powered down to protect you. That's shutdown. It kept you safe when things were too much, and, like every state, it has the potential to come and go... even if it's been around a very long time.","Shutdown is the lights dimming, not the power going out. Heavy, slow, hard to care. A protective response, not a flaw. It doesn't have to be permanent, even though it feels like it. And yeah, it's maybe been that way for a very long time."],"what_this_is":["Shutdown is the oldest brake your body has. (The theory behind this app calls it dorsal vagal.) A limp collapse when things are way too much. Through this lens, a lot of what gets called depression is the body in shutdown. This isn't a weakness, and it isn't who you are. It's protection.","This isn't the cartoon, one-dimensional version of 'shut down.' Think of it more like a gradient. You might be 70% getting-through-the-day and 30% in a heavy, far-off place. Both are true at once. Shutdown is that heavy, powered-down part. The collapse. The oldest protection your body has. But it's not all-or-nothing, even if it feels that way."],"why_your_body":"When danger is too much, and you can't escape or fight it, your body survives by conserving its resources through powering down. That's not a malfunction, and it's not a character flaw. It's a deep, ancient biological protective response, the kind that takes over when nothing else can. Your thoughts change along with your state, resulting in more pessimism and hopelessness.","how_it_shows_up":"In the body, it's cold, heavy, drained, hollow, numb. The body's impulse is to immobilize, to isolate, to disappear, to be alone in the quiet or the dark. The feeling runs numb and unmotivated, helpless, alone, and often carries shame, guilt, and sadness. And the thinking goes with it: hopeless, slow, clouded, \"what's the point.\" Deeper emotions like shame and hopelessness feel like stone-carved truths. But they're not. They're coming from the state, not from the facts. This is exactly the place you might call yourself broken or lazy, and it's exactly where that word is wrong.","one_thing_that_helps":["Very small, very low demand. One sip of tea. A dimmer light. One thing you can see or hear right now. You don't climb out of shutdown by forcing it. You offer your body a small cue of safety, and it may start to allow a little more energy back in.","Don't fight the state, use it. Shutdown isn't good for starting a big project, but it's really good for being alone, for quiet, for small movements, for rest. Let yourself have the quiet you're being pulled toward, in doses. The way out is through.","Get to know it a little, the way you'd get to know a new acquaintance, not by demanding everything at once. How heavy are your arms right now? Where's the numbness, exactly? You don't have to fix anything. Just notice, little by little.","Later, when the energy starts to return, it can manifest as irritability. That's not a setback. That's the mobilized system coming back online, which is a potential great sign. Getting a little 'fed up' is often the first step out of shutdown immobility.","In the heavy moments, getting through is enough. You don't owe anyone more than that today, including yourself. Showing up here and checking in honestly already counts as a step. If that's the best you can do, then well done."],"door_inward":"When you've got a little more capacity, the practice tab has a gentle one built for exactly these moments, low demand, just a bit of safety to settle into. No rush. It'll be there when you are."},"safety":{"label_precise":"Safety","label_felt":"safety","tldr":["Safety is your body open to the world, maybe calm enough to connect, maybe playful enough to dance, and with enough capacity to meet what's usually a challenge. Safety is not the absence of problems. It's the presence of enough emotional capacity to handle them.","The settled, present, room-to-breathe feelings are safety. It's biology, not a mood you have to earn. Notice it while it's here, because that noticing is what makes it easier to find next time.","Safety is when your system stops spending everything on defense and gets to rest, connect, and grow instead. It comes, and it goes. That's normal, and that's how it's supposed to work. Soak it up while it's there, but be prepared for it to depart. It'll return again.","Calm, connected, curious, and a little more emotional space inside. That's safety. It can feel unfamiliar at first, even a little uncomfortable. That's normal. Let it be here anyway."],"what_this_is":["Safety is the newest part of the nervous system, the one that wires your heart, face, and voice together. (The theory calls it ventral vagal.) When it's online, your body isn't braced for anything. It spends its resources on health, connection, and repair rather than on defense. Safety has the wonderful ability to allow difficult emotions and can even repurpose them for positivity.","Safety is not the absence of hard emotions. It's having enough capacity inside to meet them. You can be in safety and still have a hard moment. The difference is that there's enough capacity to handle it without spiraling into defense."],"why_your_body":"Your body has detected enough cues of safety that the ventral vagal pathways come online. If they stay online, it can calm defense and even allow the body to release pains it's held onto for a very long time.","how_it_shows_up":"In the body, it's warm, open, spacious, light. It can be energized or calm. Safety loves connection: with others, the self, or the environment. Notice that impulse when it's there and act on it while you can. Your thinking opens up, allowing curiosity, empathy, and reasoning. Safety ebbs and flows, increases and decreases.","one_thing_that_helps":["Notice it on purpose. A cue of safety only becomes an anchor when you pay attention to how it affects your body. That's a safety rep, and it's what makes safety easier to find next time. Where do you feel the settledness, exactly?","Don't grab it too tight. Safety comes and goes, it's supposed to. Can you let it be here without needing it to stay? Giving your system permission to move in and out of safety is part of how the brake gets stronger.","Use it for the thing that needs a little safety mixed in. If there's a harder feeling you've been keeping at arm's length, this is the state with room to glance at it, in a dose, then come back.","If it feels weird, that's okay. Safety can feel unfamiliar, even unsafe, oddly. (But it usually makes sense based on one's life context.) Just notice that too, no judgment. You don't have to trust it yet to let it be here."],"door_inward":"Use this safety for a rep that builds the brake directly. The practice tab has one for exactly that: touch a little of the harder stuff while you're anchored, then come back. Small and repeatable."},"play":{"label_precise":"Regulated mobilization","label_felt":"play & motivation","tldr":["Energized, driven, with safety mixed in. That's regulated mobilization, the good kind of busy. It shows up as play with people you trust, and as motivation when you're on your own.","That fire in your belly, but it's not chasing or running from anything. It's pointed at something. Same fuel as flight/fight, just with safety mixed in. This is the kind of drive that doesn't cost you later.","The 'let's go, I've got this' moments are regulated mobilization. Activation that you don't need to calm down, because this is just you moving toward what matters.","Playful with others, motivated on your own, energized either way, and still grounded in your body and the present moment. That's safety plus your get-up-and-go, online at the same time. Good company to keep."],"what_this_is":["This is safety plus mobilizing energy, the exact same fuel that powers flight/fight. The energy was never the problem. Whether safety is mixed in is the whole difference. With safety, that fuel runs as play and motivation. Without it, the same fuel runs the flight/fight response. It comes in two settings: play is the mobilized, social kind, shared with people you trust, and motivation is the solo version, that same drive aimed at something you want to get done.","Not all activation is something to fix. You might have been taught to 'calm down,' like every bit of energy is a problem. It isn't. Some of it is just you, moving toward what matters, with enough safety mixed in to enjoy the ride. There's a kind of busy that drains you and a kind that fills you. This is the second one."],"why_your_body":"Your system has enough safety to point its mobilizing energy at something, instead of away from a threat. That's a major shift. The energy found a direction because there was finally enough safety to give it one.","how_it_shows_up":"The body is energized, bouncy, flowing, open. Look at the impulse, it's the tell: to make, to imagine, to start, to take turns, to share. With safe others, that shows up as play. On your own, it shows up as motivation, like the pull to start the thing, build the thing, go after the thing. The feeling is excited, fun, a little sassy when it's social, focused and driven when it's solo. The thinking turns curious, inventive, collaborative, big-picture. Same signature either way: high energy whose impulse is creative, not defensive.","one_thing_that_helps":["Aim it before it scatters. Pick the one thing that matters most and point the energy there. You don't need to finish whatever it is. Just spend ten minutes on it. (Or more, or less.) The point is to use the safe energy while it's there, but do so mindfully.","You don't necessarily need to slow down. Just keep mindfulness attached to the movement, the energy, the creativity, the laughter, and the smiles.","If it's the social kind, spend it on people. Reach out to someone you trust, do something together, even if it's simple. Playing (or working) with a safe other allows your energy to move, while also reinforcing the safety piece.","Let yourself move, but do so intentionally and consciously. Slow down enough to actually feel the movement, like a stretch or the resistance of a light dumbbell weight. Notice it and embrace it for a second. The energy settles or gets used when you stop rejecting it."],"door_inward":"To bank some of this, the practice tab has a session that uses a state like this to build capacity, so the drive stays drive and doesn't cost you on the back end."},"stillness":{"label_precise":"Regulated immobilization","label_felt":"stillness & intimacy","tldr":["Quiet, settled, slowed down, and not afraid. That's regulated immobilization, stillness on your own, intimacy when it's shared with someone safe. The same slowing as shutdown, but with safety mixed in, so it restores instead of collapsing.","The 'I can just be here' kind of quiet. Rest that actually rests you. Notice it while it's here.","Settled and still, alone without being lonely, or close and easy with a safe other. That's a deeply regulated state, the state where the body recovers, and the deeper work gets done.","Slowed all the way down, soft, calm, no fear in it. That's stillness. It's not you shutting down. It's your body safe enough to rest."],"what_this_is":["This is safety plus immobility. You are slow and quiet, but without fear. It's the same slowing you'd feel in shutdown, only with safety mixed in and repurposing it, which changes everything. Immobility without fear is stillness. Immobility with flight/fight trapped under it is freeze. Stillness is the quiet you settle into on your own; intimacy is that same settled quiet shared with a safe other.","Rest isn't a reward you earn after everything's done. It's a necessity; it's how your system restores its balance. This is the state behind real sleep, sitting still without crawling out of your skin, and easy closeness with someone safe."],"why_your_body":"There's enough safety for your system to rest and restore instead of brace and collapse. Your body recognized it's safe enough to stop. And stopping is doing something here in stillness, not nothing.","how_it_shows_up":"The body settles, soft, still, releasing, light. The impulse is quiet and inward, to breathe, to reflect, to take in, to let biology do its thing. On your own, that's stillness. With a safe other close, the same settledness becomes intimacy, quiet shared without needing to perform or fix anything. The feeling is calm, peaceful, restful, and sometimes a little awe. The thinking goes contemplative, reflective, and wondering. Here's the contrast to hold: shutdown's pull is to isolate and disconnect. But stillness/intimacy's pull is to rest and connect. Same quiet body, opposite direction, because one has safety mixed in and one doesn't.","one_thing_that_helps":["You don't have to deserve this through overworking. In stillness, sink into it and follow your system where it wants to take you.","If a safe person (or pet) is near, connect with them. You don't have to talk or do anything. Quiet, close, easy. That's stillness and connection, and it's about as regulating as it gets.","Use it for quiet inner work when you have the room. This settled state is good ground for gently turning toward something, in a dose.","Notice the difference between this and collapse. If the quiet starts feeling flat or heavy, or even scared, instead of restful, that's the cue to reach for a little safety, not to force yourself up and out."],"door_inward":"The practice tab has a quiet, low-demand session that fits a state like this, a place to settle deeper, or to do a little gentle inner work while you've got the calm to hold it."},"fightflight":{"label_precise":"Dysregulated mobilization","label_felt":"flight/fight","tldr":["Wired, urgent, can't-settle, anxious, or irritable, or both. That's flight/fight, mobilizing energy without enough safety mixed in yet. Same biology as motivation and play, just no safety online yet, so the body's using it for defense.","Everything feels urgent even when it maybe isn't. That's a mobilized state talking, not the facts. Your body picked up danger and got you ready to handle it. That's protection, not a flaw, even when it bumps into the people around you. And maybe this danger state has been around for a long time.","The racing, jittery, on-edge feelings are flight/fight. Anxiety is the urge to run that hasn't run. Anger is the urge to fight that hasn't fought. It's energy looking for somewhere to go.","Hot, fast, tense, ready. That's mobilizing energy without enough safety yet. The good news is this is the exact same fuel that, with a little safety, turns into motivation and play."],"what_this_is":["This is mobilizing energy without enough safety mixed in yet. Flight tends to come first: the legs, escape, distance, anxiety; then fight: the upper body, push, boundaries, anger. It's the same energy as play and motivation. The only thing missing is safety, so the body spends it on defense instead of drive.","Anger and anxiety aren't the enemy. Anxiety is your body warning you about something. Anger gives you power and motivation. They're uncomfortable and can get out of hand when they're stuck, but they're not bad or random. They're a mobilized body doing its job."],"why_your_body":"Your body's threat radar picked up danger, real or remembered, and it mobilized to handle it. That's protection, not a malfunction, even when it spills onto people you care about. Your thoughts follow the state of your body. So, the thoughts that feel like hard facts right now, the blame, the worst-case thinking, are the brain's story of a revved-up state, not the truth about your life.","how_it_shows_up":"The body runs hot, tight, clenched, jittery, burning, under pressure. The impulse is to run, to escape, to push back, to fight. The feeling is anxious, nervous, irritable, angry, and resentful. An emotion is the conscious experience of an impulse you haven't acted on. Anxiety is the run that hasn't run. Anger is the fight that hasn't been fought. The thinking gets judgmental, blaming, polarized, magnifying, and stuck in the past or future. When you're revved up like this, everything feels urgent even when it isn't, and the body can't tell the difference until you slow down enough to sort it out. (To slow down, you need a bit more safety.)","one_thing_that_helps":["Move a little, on purpose. Two minutes, a quick walk, shake out your hands, push your palms against a wall. Give the energy somewhere to go, then name the feeling underneath it. Naming it is a solid first step to letting it move through instead of running you.","Lengthen the exhale. Breathe in like normal, then let the air out slowly. The long exhale is one of the few direct lines you've got to the brake. Breathing won't cure your flight/fight activation, but it can offer a brief pause. Use that small moment to make a small movement, like pushing into your palms or one squat.","Point it, don't just cope with it through actions you'll regret later on. This energy is power looking for a direction. Is there something that actually matters you could aim it at, even a small thing? Energy with a target is motivation.","The urgent, worst-case scenario thoughts are maybe just the state talking, not the facts. You don't have to argue with them. It's okay to acknowledge them during a long exhale.","Find a little safety before you try to slow down. White-knuckling rarely works. A cue of safety, a hand on your chest, a familiar voice, one safe thing in the room, gives the energy a reason to settle."],"door_inward":"The practice tab has a session built for a charged state like this, settle some of the energy first, find a little safety, then it's easier to work with what's underneath."},"freeze":{"label_precise":"Freeze","label_felt":"freeze","tldr":["Ready for action yet can't move... at the same time! Braced, holding your breath without meaning to, a lot is moving inside while nothing moves outside. That's freeze, flight/fight energy held down by shutdown. Gas and brake at once.","The trapped, can't-move-can't-rest feeling is freeze. It's one of the most uncomfortable states to be in. There's nothing wrong with you for being here.","Freeze is not the same as shutdown. It's a mixed state combining shutdown immobility with flight/fight mobility. It's both pedals down at once, accelerator and brake together. A lot is happening in there, even when it looks like nothing on the outside.","Panicked and stuck, or enraged and stuck. That's freeze, the urge to move, and the inability to do so at the same time. The way out isn't force or fake rest through phone binges. It's a little mindfulness per day. Small safety practices. And small movements on purpose."],"what_this_is":["Freeze is a mixed state, flight/fight energy frozen in place by shutdown. Gas and brake pressed at the same time. This one's easy to get wrong. Freeze is not a deeper shutdown. Shutdown is brake only. Freeze is both pedals down at once. That's why it can feel ready to move but unable to in the same breath.","The mobilized energy, the flight/fight, got frozen in place by the shutdown brake. To get unstuck, you thaw the frozen part first, with safety, and then the once-frozen energy can finally discharge. Thaw, then move. Not force."],"why_your_body":"Your body mobilized to act and then couldn't, so the energy got frozen in place. That's a braced, protective state, not nothing, and not weakness. A lot is happening inside, even if that's not obvious to someone on the outside.","how_it_shows_up":"Because it's a mixed state, the body carries the charge and the brake at once, paralyzed and jittery, clenched, knotted, constricted, holding its breath. The impulse splits too, to be invisible, to endure, and underneath all of it, to release. The feeling runs high: panic, fear, rage, overwhelm. Remember the mechanics: panic is the urge to flee that can't move, rage is the urge to fight that can't move. The thinking gets scattered, all-or-nothing, sometimes flooded. That 'release' pull underneath is the stuck energy that hasn't had anywhere to go.","one_thing_that_helps":["The smallest movement, plus a cue of safety. Let your eyes go wherever they want, then wiggle your toes or roll your wrists, slow. A tiny movement reminds the body it can move at all, and safety is what lets a little of the stuck energy begin to shift.","Don't force it. Pushing hard adds gas to a system that already has the brake slammed on, and that can lock freeze in tighter or tip it toward shutdown. Focus on small, simple, predictable, and repeatable.","In doses, not all at once. You're not going to fully thaw freeze in one sitting. Use simple mindfulness. Stretch a little. Take an intentional breath. Stretch again. Little by little.","Prioritize safety, whether a safe person, a pet, a sensory input, or getting outdoors. Freeze thaws through increased safety, so whatever brings you a cue of it, use it. Safety thaws the freeze slowly, in doses, over time."],"door_inward":"The practice tab has a session made for exactly this, pendulation, gently moving your attention between a little discomfort and a little safety, so the freeze can thaw at a pace your body can handle."}};
+  const RUNDOWNS = {"shutdown":{"label_precise":"Dysregulated immobilization","label_felt":"shutdown","tldr":["The heavy, far-away, hard-to-move moments are shutdown. That's not you failing, and it's not who you are. It's one of the oldest ways your body protects you when things get to be too much. It's a state, and states move.","Numb, flat, like you're living behind glass. That's shutdown. Your body pulled its oldest brake to get you through. Stuck, not broken. And stuck is temporary.","If everything feels heavy and far away, your body has powered down to protect you. That's shutdown. It kept you safe when things were too much, and, like every state, it has the potential to come and go... even if it's been around a very long time.","Shutdown is the lights dimming, not the power going out. Heavy, slow, hard to care. A protective response, not a flaw. It doesn't have to be permanent, even though it feels like it. And yeah, it's maybe been that way for a very long time."],"what_this_is":["Shutdown is the oldest brake your body has. (The theory behind this app calls it dorsal vagal.) A limp collapse when things are way too much. Through this lens, a lot of what gets called depression is the body in shutdown. This isn't a weakness, and it isn't who you are. It's protection.","This isn't the cartoon, one-dimensional version of 'shut down.' Think of it more like a gradient. You might be 70% getting-through-the-day and 30% in a heavy, far-off place. Both are true at once. Shutdown is that heavy, powered-down part. The collapse. The oldest protection your body has. But it's not all-or-nothing, even if it feels that way."],"why_your_body":"When danger is too much, and you can't escape or fight it, your body survives by conserving its resources through powering down. That's not a malfunction, and it's not a character flaw. It's a deep, ancient biological protective response, the kind that takes over when nothing else can. Your thoughts change along with your state, resulting in more pessimism and hopelessness.","how_it_shows_up":"In the body, it's cold, heavy, drained, hollow, numb. The body's impulse is to immobilize, to isolate, to disappear, to be alone in the quiet or the dark. The feeling runs numb and unmotivated, helpless, alone, and often carries shame, guilt, and sadness. And the thinking goes with it: hopeless, slow, clouded, \"what's the point.\" Deeper emotions like shame and hopelessness feel like stone-carved truths. But they're not. They're coming from the state, not from the facts. This is exactly the place you might call yourself broken or lazy, and it's exactly where that word is wrong.","one_thing_that_helps":["Very small, very low demand. One sip of tea. A dimmer light. One thing you can see or hear right now. You don't climb out of shutdown by forcing it. You offer your body a small cue of safety, and it may start to allow a little more energy back in.","Don't fight the state, use it. Shutdown isn't good for starting a big project, but it's really good for being alone, for quiet, for small movements, for rest. Let yourself have the quiet you're being pulled toward, in doses. The way out is through.","Get to know it a little, the way you'd get to know a new acquaintance, not by demanding everything at once. How heavy are your arms right now? Where's the numbness, exactly? You don't have to fix anything. Just notice, little by little.","Later, when the energy starts to return, it can manifest as irritability. That's not a setback. That's the mobilized system coming back online, which is a potential great sign. Getting a little 'fed up' is often the first step out of shutdown immobility.","In the heavy moments, getting through is enough. You don't owe anyone more than that today, including yourself. Showing up here and checking in honestly already counts as a step. If that's the best you can do, then well done."],"door_inward":"When you've got a little more capacity, the practice tab has a gentle one built for exactly these moments, low demand, just a bit of safety to settle into. No rush. It'll be there when you are."},"safety":{"label_precise":"Safety","label_felt":"safety","tldr":["Safety is your body open to the world, maybe calm enough to connect, maybe playful enough to dance, and with enough capacity to meet what's usually a challenge. Safety is not the absence of problems. It's the presence of enough emotional capacity to handle them.","The settled, present, room-to-breathe feelings are safety. It's biology, not a mood you have to earn. Notice it while it's here, because that noticing is what makes it easier to find next time.","Safety is when your system stops spending everything on defense and gets to rest, connect, and grow instead. It comes, and it goes. That's normal, and that's how it's supposed to work. Soak it up while it's there, but be prepared for it to depart. It'll return again.","Calm, connected, curious, and a little more emotional space inside. That's safety. It can feel unfamiliar at first, even a little uncomfortable. That's normal. Let it be here anyway."],"what_this_is":["Safety is the newest part of the nervous system, the one that wires your heart, face, and voice together. (The theory calls it ventral vagal.) When it's online, your body isn't braced for anything. It spends its resources on health, connection, and repair rather than on defense. Safety has the wonderful ability to allow difficult emotions and can even repurpose them for positivity.","Safety is not the absence of hard emotions. It's having enough capacity inside to meet them. You can be in safety and still have a hard moment. The difference is that there's enough capacity to handle it without spiraling into defense."],"why_your_body":"Your body has detected enough cues of safety that the ventral vagal pathways come online. If they stay online, it can calm defense and even allow the body to release pains it's held onto for a very long time.","how_it_shows_up":"In the body, it's warm, open, spacious, light. It can be energized or calm. Safety loves connection: with others, the self, or the environment. Notice that impulse when it's there and act on it while you can. Your thinking opens up, allowing curiosity, empathy, and reasoning. Safety ebbs and flows, increases and decreases.","one_thing_that_helps":["Notice it on purpose. A cue of safety only becomes an anchor when you pay attention to how it affects your body. That's a safety rep, and it's what makes safety easier to find next time. Where do you feel the settledness, exactly?","Don't grab it too tight. Safety comes and goes, it's supposed to. Can you let it be here without needing it to stay? Giving your system permission to move in and out of safety is part of how the brake gets stronger.","Use it for the thing that needs a little safety mixed in. If there's a harder feeling you've been keeping at arm's length, this is the state with room to glance at it, in a dose, then come back.","If it feels weird, that's okay. Safety can feel unfamiliar, even unsafe, oddly. (But it usually makes sense based on one's life context.) Just notice that too, no judgment. You don't have to trust it yet to let it be here."],"door_inward":"Use this safety for a rep that builds the brake directly. The practice tab has one for exactly that: touch a little of the harder stuff while you're anchored, then come back. Small and repeatable."},"play":{"label_precise":"Regulated mobilization","label_felt":"play & motivation","tldr":["Energized, driven, with safety mixed in. That's regulated mobilization, the good kind of busy. It shows up as play with people you trust, and as motivation when you're on your own.","That fire in your belly, but it's not chasing or running from anything. It's pointed at something. Same fuel as flight/fight, just with safety mixed in. This is the kind of drive that doesn't cost you later.","The 'let's go, I've got this' moments are regulated mobilization. Activation that you don't need to calm down, because this is just you moving toward what matters.","Playful with others, motivated on your own, energized either way, and still grounded in your body and the present moment. That's safety plus your get-up-and-go, online at the same time. Good company to keep."],"what_this_is":["This is safety plus mobilizing energy, the exact same fuel that powers flight/fight. The energy was never the problem. Whether safety is mixed in is the whole difference. With safety, that fuel runs as play and motivation. Without it, the same fuel runs the flight/fight response. It comes in two settings: play is the mobilized, social kind, shared with people you trust, and motivation is the solo version, that same drive aimed at something you want to get done.","Not all activation is something to fix. You might have been taught to 'calm down,' like every bit of energy is a problem. It isn't. Some of it is just you, moving toward what matters, with enough safety mixed in to enjoy the ride. There's a kind of busy that drains you and a kind that fills you. This is the second one."],"why_your_body":"Your system has enough safety to point its mobilizing energy at something, instead of away from a threat. That's a major shift. The energy found a direction because there was finally enough safety to give it one.","how_it_shows_up":"The body is energized, bouncy, flowing, open. Look at the impulse, it's the tell: to make, to imagine, to start, to take turns, to share. With safe others, that shows up as play. On your own, it shows up as motivation, like the pull to start the thing, build the thing, go after the thing. The feeling is excited, fun, a little sassy when it's social, focused and driven when it's solo. The thinking turns curious, inventive, collaborative, big-picture. Same signature either way: high energy whose impulse is creative, not defensive.","one_thing_that_helps":["Aim it before it scatters. Pick the one thing that matters most and point the energy there. You don't need to finish whatever it is. Just spend ten minutes on it. (Or more, or less.) The point is to use the safe energy while it's there, but do so mindfully.","You don't necessarily need to slow down. Just keep mindfulness attached to the movement, the energy, the creativity, the laughter, and the smiles.","If it's the social kind, spend it on people. Reach out to someone you trust, do something together, even if it's simple. Playing (or working) with a safe other allows your energy to move, while also reinforcing the safety piece.","Let yourself move, but do so intentionally and consciously. Slow down enough to actually feel the movement, like a stretch or the resistance of a light dumbbell weight. Notice it and embrace it for a second. The energy settles or gets used when you stop rejecting it."],"door_inward":"To bank some of this, the practice tab has a session that uses a state like this to build capacity, so the drive stays drive and doesn't cost you on the back end."},"stillness":{"label_precise":"Regulated immobilization","label_felt":"stillness & intimacy","tldr":["Quiet, settled, slowed down, and not afraid. That's regulated immobilization, stillness on your own, intimacy when it's shared with someone safe. The same slowing as shutdown, but with safety mixed in, so it restores instead of collapsing.","The 'I can just be here' kind of quiet. Rest that actually rests you. Notice it while it's here.","Settled and still, alone without being lonely, or close and easy with a safe other. That's a deeply regulated state, the state where the body recovers, and the deeper work gets done.","Slowed all the way down, soft, calm, no fear in it. That's stillness. It's not you shutting down. It's your body safe enough to rest."],"what_this_is":["This is safety plus immobility. You are slow and quiet, but without fear. It's the same slowing you'd feel in shutdown, only with safety mixed in and repurposing it, which changes everything. Immobility without fear is stillness. Immobility with flight/fight trapped under it is freeze. Stillness is the quiet you settle into on your own; intimacy is that same settled quiet shared with a safe other.","Rest isn't a reward you earn after everything's done. It's a necessity; it's how your system restores its balance. This is the state behind real sleep, sitting still without crawling out of your skin, and easy closeness with someone safe."],"why_your_body":"There's enough safety for your system to rest and restore instead of brace and collapse. Your body recognized it's safe enough to stop. And stopping is doing something here in stillness, not nothing.","how_it_shows_up":"The body settles, soft, still, releasing, light. The impulse is quiet and inward, to breathe, to reflect, to take in, to let biology do its thing. On your own, that's stillness. With a safe other close, the same settledness becomes intimacy, quiet shared without needing to perform or fix anything. The feeling is calm, peaceful, restful, and sometimes a little awe. The thinking goes contemplative, reflective, and wondering. Here's the contrast to hold: shutdown's pull is to isolate and disconnect. But stillness/intimacy's pull is to rest and connect. Same quiet body, opposite direction, because one has safety mixed in and one doesn't.","one_thing_that_helps":["You don't have to deserve this through overworking. In stillness, sink into it and follow your system where it wants to take you.","If a safe person (or pet) is near, connect with them. You don't have to talk or do anything. Quiet, close, easy. That's stillness and connection, and it's about as regulating as it gets.","Use it for quiet inner work when you have the room. This settled state is good ground for gently turning toward something, in a dose.","Notice the difference between this and collapse. If the quiet starts feeling flat or heavy, or even scared, instead of restful, that's the cue to reach for a little safety, not to force yourself up and out."],"door_inward":"The practice tab has a quiet, low-demand session that fits a state like this, a place to settle deeper, or to do a little gentle inner work while you've got the calm to hold it."},"fightflight":{"label_precise":"Dysregulated mobilization","label_felt":"flight/fight","tldr":["Wired, urgent, can't-settle, anxious, or irritable, or both. That's flight/fight, mobilizing energy without enough safety mixed in yet. Same biology as motivation and play, just no safety online yet, so the body's using it for defense.","Everything feels urgent even when it maybe isn't. That's a mobilized state talking, not the facts. Your body picked up danger and got you ready to handle it. That's protection, not a flaw, even when it bumps into the people around you. And maybe this danger state has been around for a long time.","The racing, jittery, on-edge feelings are flight/fight. Anxiety is the urge to run that hasn't run. Anger is the urge to fight that hasn't fought. It's energy looking for somewhere to go.","Hot, fast, tense, ready. That's mobilizing energy without enough safety yet. The good news is this is the exact same fuel that, with a little safety, turns into motivation and play."],"what_this_is":["This is mobilizing energy without enough safety mixed in yet. Flight tends to come first: the legs, escape, distance, anxiety; then fight: the upper body, push, boundaries, anger. It's the same energy as play and motivation. The only thing missing is safety, so the body spends it on defense instead of drive.","Anger and anxiety aren't the enemy. Anxiety is your body warning you about something. Anger gives you power and motivation. They're uncomfortable and can get out of hand when they're stuck, but they're not bad or random. They're a mobilized body doing its job."],"why_your_body":"Your body's threat radar picked up danger, real or remembered, and it mobilized to handle it. That's protection, not a malfunction, even when it spills onto people you care about. Your thoughts follow the state of your body. So, the thoughts that feel like hard facts right now, the blame, the worst-case thinking, are the brain's story of a revved-up state, not the truth about your life.","how_it_shows_up":"The body runs hot, tight, clenched, jittery, burning, under pressure. The impulse is to run, to escape, to push back, to fight. The feeling is anxious, nervous, irritable, angry, and resentful. An emotion is the conscious experience of an impulse you haven't acted on. Anxiety is the run that hasn't run. Anger is the fight that hasn't been fought. The thinking gets judgmental, blaming, polarized, magnifying, and stuck in the past or future. When you're revved up like this, everything feels urgent even when it isn't, and the body can't tell the difference until you slow down enough to sort it out. (To slow down, you need a bit more safety.)","one_thing_that_helps":["Move a little, on purpose. Two minutes, a quick walk, shake out your hands, push your palms against a wall. Give the energy somewhere to go, then name the feeling underneath it. Naming it is a solid first step to letting it move through instead of running you.","Lengthen the exhale. Breathe in like normal, then let the air out slowly. The long exhale is one of the few direct lines you've got to the brake. Breathing won't cure your flight/fight activation, but it can offer a brief pause. Use that small moment to make a small movement, like pushing into your palms or one squat.","Point it, don't just cope with it through actions you'll regret later on. This energy is power looking for a direction. Is there something that actually matters you could aim it at, even a small thing? Energy with a target is motivation.","The urgent, worst-case scenario thoughts are maybe just the state talking, not the facts. You don't have to argue with them. It's okay to acknowledge them during a long exhale.","Find a little safety before you try to slow down. White-knuckling rarely works. A cue of safety, a hand on your chest, a familiar voice, one safe thing in the room, gives the energy a reason to settle."],"door_inward":"The practice tab has a session built for a charged state like this, settle some of the energy first, find a little safety, then it's easier to work with what's underneath."},"freeze":{"label_precise":"Freeze","label_felt":"freeze","tldr":["Ready for action yet can't move... at the same time! Braced, holding your breath without meaning to, a lot is moving inside while nothing moves outside. That's freeze, flight/fight energy held down by shutdown. Gas and brake at once.","The trapped, can't-move-can't-rest feeling is freeze. It's one of the most uncomfortable states to be in. There's nothing wrong with you for being here.","Freeze is not the same as shutdown. It's a mixed state combining shutdown immobility with flight/fight mobility. It's both pedals down at once, accelerator and brake together. A lot is happening in there, even when it looks like nothing on the outside.","Panicked and stuck, or enraged and stuck. That's freeze, the urge to move, and the inability to do so at the same time. The way out isn't force or fake rest through phone binges. It's a little mindfulness per day. Small safety practices. And small movements on purpose."],"what_this_is":["Freeze is a mixed state, flight/fight energy frozen in place by shutdown. Gas and brake pressed at the same time. This one's easy to get wrong. Freeze is not a deeper shutdown. Shutdown is brake only. Freeze is both pedals down at once. That's why it can feel ready to move but unable to in the same breath.","The mobilized energy, the flight/fight, got frozen in place by the shutdown brake. To get unstuck, you thaw the frozen part first, with safety, and then the once-frozen energy can finally discharge. Thaw, then move. Not force."],"why_your_body":"Your body mobilized to act and then couldn't, so the energy got frozen in place. That's a braced, protective state, not nothing, and not weakness. A lot is happening inside, even if that's not obvious to someone on the outside.","how_it_shows_up":"Because it's a mixed state, the body carries the charge and the brake at once, paralyzed and jittery, clenched, knotted, constricted, holding its breath. The impulse splits too, to be invisible, to endure, and underneath all of it, to release. The feeling runs high: panic, fear, rage, overwhelm. Remember the mechanics: panic is the urge to flee that can't move, rage is the urge to fight that can't move. The thinking gets scattered, all-or-nothing, sometimes flooded. That 'release' pull underneath is the stuck energy that hasn't had anywhere to go.","one_thing_that_helps":["The smallest movement, plus a cue of safety. Let your eyes go wherever they want, then wiggle your toes or roll your wrists, slow. A tiny movement reminds the body it can move at all, and safety is what lets a little of the stuck energy begin to shift.","Don't force it. Pushing hard adds gas to a system that already has the brake slammed on, and that can lock freeze in tighter or tip it toward shutdown. Focus on small, simple, predictable, and repeatable.","In doses, not all at once. You're not going to fully thaw freeze in one sitting. Use simple mindfulness. Stretch a little. Take an intentional breath. Stretch again. Little by little.","Prioritize safety, whether a safe person, a pet, a sensory input, or getting outdoors. Freeze thaws through increased safety, so whatever brings you a cue of it, use it. Safety thaws the freeze slowly, in doses, over time."],"door_inward":"The practice tab has something shaped for exactly this: anchoring into a bit of safety, in small doses. Once anchored, connecting with the defense side becomes possible."}};
   const BLOG = {"tldr_bullets":{"where":["You spent most of this week in {STATE}. → [your main state](#1)","This week leaned mostly into {STATE}. → [your main state](#1)","{SHARE} of your check-ins this week were {STATE}. → [your main state](#1)"],"direction":{"rising":["Your safety has been rising across the week. → [what the data shows](#3)"],"falling":["Your safety dipped a little (and that's okay). → [what the data shows](#3)"],"steady":["Your safety held pretty level this week. → [what the data shows](#3)"]},"variance":{"shifts":["Your state moved around a lot. → [what the data shows](#3)"],"consistent":["Your states remained constant this week. → [what the data shows](#3)"]},"fork":["Things can generally go in one of two ways. → [what to expect](#4)","Two potential directions to keep an eye out for. → [what to expect](#4)"],"helps":["One small thing worth trying. → [what helps](#5)","A small practice to try. → [what helps](#5)"]},"section1_where":["Most of your check-ins this week landed in {STATE}. That's the state your system kept coming back to.","This week leaned mostly into {STATE}, {SHARE} of your check-ins. Not every moment, but the state your system returned to most.","Where you've been this week, mostly: {STATE}. Think of it as the home base your system kept circling back to, at least these past seven days.","{SHARE} of this week landed in {STATE}. So that's the state we'll look at, because it's where you actually spent your time."],"section3_movement":{"direction":{"rising":["Your safety sits higher at the end of this week than at the start. That's something to take note of and keep an eye on, and maybe look for ways to maximize this potential.","The trend this week points up. One week isn't the whole story, but it's a real sign of movement toward more safety. Worth leaning into where you can."],"falling":["Your safety sits a little lower at the end of this week than at the start. Safety comes and goes, and that's completely normal for anyone. Be a little gentler with yourself over the next few days.","Safety dipped a bit this week. It's not good or bad. It just is. Noticing it honestly is a solid step."],"steady":["Your safety held pretty level this week. A calm stretch is a solid sign of maintaining safety. To give it a boost, look for small ways to invite safety mindfully.","Not much swing in your safety this week; it stayed in a similar range. A flat stretch is still a stretch you showed up for."]},"variance":{"shifts":["This week moved around a lot rather than sitting in one place. Not good or bad. Nor right nor wrong. It just is. We just pay attention.","You moved through a few different states this week. That's not good or bad, it's just something to notice for now and keep collecting check-ins about. Let's keep an eye on what practices move your system more toward safety and tolerable defense."],"consistent":["Your check-ins clustered in a similar place this week.","Things stayed in about the same place all week. If that place feels okay, keep doing whatever you're doing. If not, try out a different practice. There's a lot to customize."]},"transitions":{"framing":["This is the part of your week that's just yours, the order your states tend to move in.","Your system has a pattern to how it moves, and it's starting to show."],"template":"One shape in your week: you tend to move toward {STATE_B} after {STATE_A}. Not a forever rule, but a pattern from this past week's collection of moments.","_note":"renders only when the transition signal is computed"},"timeofday":{"framing":["There's a time-of-day shape to it, too.","And your check-ins have a rhythm to when they tend to land."],"template":"Your {SEG} tends to lean more toward {STATE}, more often than not."}},"section4_fork":{"safety":{"toward_regulated":"If you keep noticing safety and using it the way you have been, it stops being a visitor and starts becoming a baseline. That's what the reps do. Over time, your body's brake gets stronger, and a stronger brake means you can meet harder things and recover faster. You won't stop leaving safety (that was never the goal), and you're never going to feel complete safety all the time (also not the goal). If anything, the goal is to build enough safety to move freely amongst all of your body's states without getting stuck or dysregulated.","if_reps_drop":"If safety stops getting your attention, it tends to stay a visitor. Nothing breaks. You just lean back toward whatever your older home was, and safety gets harder to find again, not because you lost it, but because it didn't get practiced. That isn't failure. It's how a skill works.","landing":"Either way, you've shown your system can find this place. That's the part worth trusting."},"play":{"toward_regulated":"Keep a little safety mixed into this energy, and it stays fuel instead of turning into a fire. Over time, the safety state gets stronger, which lets you mobilize in productivity yet be able to settle into stillness in the same day. You get to use your drive without it costing you on the back end.","if_reps_drop":"If the safety thins out and the pace keeps climbing, the same energy can tip the other way, toward the dysregulated version: anxious and irritable, snapping at people you didn't mean to. It's the exact same energy. The only thing that changed is whether safety was mixed in. Slowing down with some mindfulness is an option, but it's not the only one. Maybe just adding mindfulness to your energy and where it wants to go.","landing":"None of this is a warning. It's just how the body works. Whether you're mobile or immobile, change is always close."},"stillness":{"toward_regulated":"If you let this rest actually restore you, it does more than feel good. Immobile with safety mixed in is where the body recovers and where the deeper work gets done. Keep practicing it, and stillness stays stillness: quiet you can sink into without disappearing.","if_reps_drop":"If the safety thins out, this same quiet can drift toward its harder twin. Stillness without safety mixed in is shutdown, the same slowed-down body, only heavy instead of restful. You'll know the difference by the flatness or the numbness. If rest starts to feel like a fatigued collapse, that's the cue to reach for a little safety through mindfulness of the present moment, not to force yourself up and out.","landing":"Collapsed, still, or somewhere in between, the body can move again."},"fightflight":{"toward_regulated":"Every small cue of safety you offer gives this energy somewhere to go. Over time, mobilization with safety mixed in becomes motivation and play instead of flight/fight. Same internal energy, but with or without the regulation of safety. As this mobility mixes more with safety, it turns into getting stuff done, but more effectively.","if_reps_drop":"If this pace just keeps going with no safety added, the body runs until it can't, and then it tends to drop, into shutdown or freeze. That's a normal, expected outcome when there's nothing left, not a character defect. So, the next move is probably not to white-knuckle through. It's to slip in small reps of safety now, before the crash picks the time for you.","landing":"You're not broken, and you're not too much. You're mobilized, but not enough safety has been mixed in yet. Yet!"},"shutdown":{"toward_regulated":"In the heavy moments, this is hard to believe, so just hold it lightly. Every small, low-demand safety cue you can manage helps the system come back online. Over time, shutdown shifts toward stillness. It's a similar internal quiet, but more peaceful than numb. As energy returns from stillness, it might show up as motivation. But it might also show up as irritability. Either of those is good news. It means things are moving again. Small is enough in this moment. Shutdown likes small and simple.","if_reps_drop":"Shutdown can stick around long enough to feel like just who you are. (Maybe you can relate.) The heaviness is real, and it makes sense as a response to too many life obstacles. But feeling permanent isn't the same as being permanent. From the inside, shutdown makes everything look fixed and hopeless. That's the state, not the facts. It can shift, even if it hasn't in a long time.","landing":"You're not broken. You're stuck, and stuck is something that moves with simple mindfulness and small safety practices."},"freeze":{"toward_regulated":"The way out of freeze isn't force. It's a small safety cue plus the smallest movement. The small safety cue removes the brake of shutdown immobility. And the small movement allows once-frozen flight/fight to move. Small means practical and sustainable. And then repeat. Freeze thaws and stays thawed from repeatable, small practices.","if_reps_drop":"Two things backfire when trying to deal with freeze: 1) forcing your way through it, only to collapse at the end of the day, and then repeat the next day. And 2) faking rest. Faux-rest is when you cope by doing something that numbs your internal experience, like doom-scrolling. It looks like rest, but it's not real rest. Instead, give yourself actual rest, even for short bursts, like one intentional breath at work while looking out a window. Or, plop face-first onto the bed when the demands are done and give yourself five minutes of no-distraction silence. Add in small movements as well, like an ankle roll or pushing into your hands here and there to help your system move.","landing":"Freeze is where your body is right now. In this moment. And yeah, maybe for a long time. But we focus on the present moment as much as we can. Our states have the potential to change all the time. So, we pay attention here and now."}},"section5_helps":{"frame":["You've got the rundown above for what tends to help in {STATE}. Pick one small thing from it and actually try it. Just one. And make it practical. Progress, not perfection. Would you rather end the day knowing you did one small thing or that you did nothing because you assumed it wasn't enough?","What helps here is in the {STATE} rundown, small and low-demand. Choose one and let it be enough for now. People tend to assume they need to do more. Go deeper. But small is usually enough to get something going. And then you do it again later.","No big plan needed. Take one line from the {STATE} rundown's 'what helps' and give it a real try."],"practice_door":["And the practice tab has a session shaped for {STATE}, your guided rep made just for you and your wonderful nervous system.","Your practice for this is waiting in the practice tab; it'll walk you through it."]},"section6_note":["{N} check-ins in, and you're seeing your system taking shape and shifting. These aren't grades. Not good and bad marks. You're getting to know yourself through honest and simple check-ins. Keep showing up the way you have been.","You checked in honestly this week. Not a performance, not a test. Just you, getting a clearer picture of you. That counts more than it feels like it does.","However, this week went by, and you honestly showed up to take stock of every present-moment check-in. Stuck, not broken, but already in motion.","You gave honest reflections this week. A small step, sure. But it's a step, and a sign that you're taking yourself and your wellness seriously.","Nice job on the check-ins this week. Let's put this small act into perspective. Who else in your life is paying attention like this? Probably not many people. (Probably zero people.) And yet... who needs to? Here you are, paying attention. Well done.","Past all the numbers, here's what's true: you're a work in progress, just like anyone else. Not done, not failing, just trying. Your next one will be ready in a week."]};
+  // ---- why it stays: the maintenance-loop explanation, one per state. New section (the
+  // reader used to skip straight from "how it shows up" to "what helps" with nothing in
+  // between explaining why the state holds on). Not gated by data depth: this is teaching,
+  // not a claim about the person's personal trend, so it's safe to show from check-in one. ----
+  const WHY_STAYS = {
+    safety: "Safety holds when your body keeps getting small, real signals that things are okay right now: enough rest, a face or voice it trusts, a moment with nothing urgent in it. It doesn't need those signals nonstop, just often enough. Safety fading on its own is normal too, not a failure. It's not something you keep by holding still and hoping. It's something you keep by noticing it while it's here and going back to whatever brought it, again and again.",
+    play: "This kind of energy holds together as long as safety keeps riding along with it. The drive comes from mobilization, the ease comes from safety, and the two are doing this at the same time, not one after the other. That's why it feels different from just being busy: there's still room to notice your body, still room to stop if you want to. Check in with it along the way, and it tends to stay what it is.",
+    stillness: "Stillness holds as long as your body still trusts it's allowed to stop. That trust comes from safety mixed into the slowdown, which is the whole difference between resting and just going quiet. As long as that trust is there, the quiet keeps doing its job: restoring you instead of flattening you.",
+    fightflight: "Flight/fight keeps running because the body hasn't gotten enough of a safety signal to stand down yet. It's not stubbornness, and it's not a bad habit. It's a system still on alert. It tends to stay revved when the urgency gets treated as fact instead of as a feeling, and when the energy has no small outlet in the meantime. It eases the same way it built: in small doses of safety, not all at once.",
+    shutdown: "Shutdown stays because the body doesn't have enough energy yet to come back online, and pushing against it, forcing yourself up and out, tends to spend what little energy there is and deepen the collapse instead. It also stays because the mind starts telling a story that matches the state: that this is just who you are now, that nothing will help. That story is the shutdown talking, not a fact. What actually moves it is small, low-demand cues of safety, repeated, not effort.",
+    freeze: "Freeze stays because two things are happening at once: mobilized energy with nowhere to go, held down by a brake that hasn't lifted. Pushing hard on the mobilized part just presses harder into the brake, which can lock it tighter or tip the whole thing toward shutdown. The brake lifts with safety, in doses small enough for the body to actually take in. Once it lifts even a little, the energy underneath finally has somewhere to go."
+  };
+  // fill in the missing "what to watch for" signals so every state has one (previously only
+  // fightflight/shutdown/improving existed, and none of this was ever wired into the reader).
+  // Regulated states (safety/play/stillness) get a "thinning out" signal instead of a
+  // "deepening" one, since more of a regulated state isn't a risk the way more of a
+  // dysregulated one is.
+  DEEP.overlays.watchFor.safety = [
+    "Safety that goes unnoticed tends to fade quietly, not because anything went wrong, just because it didn't get a rep. If it's been a while since you paused to notice it, that's worth doing before the next hard thing shows up.",
+    "It's easy to spend safety without noticing you had it. If the last few days felt easier and you can't quite say why, that's worth a second look."
+  ];
+  DEEP.overlays.watchFor.play = [
+    "If the pace keeps climbing and the safety underneath it doesn't keep up, this same energy can tip into flight/fight: wired and edgy instead of driven. Irritability creeping into what started as motivation is the tell.",
+    "Good energy can outrun the safety holding it up. Snapping at people you didn't mean to, or the fun starting to feel like pressure, is the sign to watch for."
+  ];
+  DEEP.overlays.watchFor.stillness = [
+    "The same quiet that restores you in stillness can tip into shutdown if the safety underneath it thins out. The tell is whether it still feels restful, or is starting to feel flat and far away instead.",
+    "If this quiet starts feeling heavier than restful, or harder to come back from, that's the cue to reach for a little safety, not to force yourself up and out."
+  ];
+  DEEP.overlays.watchFor.freeze = [
+    "Long stretches in freeze can tempt you to push harder to get out. That usually backfires, it tends to lock things tighter or tip toward shutdown instead. Small and slow beats hard and fast here.",
+    "The longer freeze holds, the more it can feel like there's no way through. There is. It just takes safety in small, repeatable doses, not one big push."
+  ];
+
   // ---- onboarding daily-card notes (felt, proper case, no first person, no state name) ----
   const ONBOARD_START = ["You can check in as often or as little as you like. The app tracks morning, afternoon, evening, and late night. So, to get the best results, check in throughout the day and learn how your system shifts over the span of a day, a week, and beyond."];
   // ---- tenure-aware framing for the for-you blog (additive; layered on top of BLOG) ----
@@ -529,7 +563,9 @@
   const BLOG_SIGNALS = {"secondary":["Close behind it, {SECOND}.","{SECOND} showed up close behind."],"balance":{"regulated":["And most of your check-ins this week included safety."],"dysregulated":["And most of your check-ins this week were in {DEFENSE_STATES}. Safety is still there to come back to."],"even":["Your check-ins this week are split about evenly between safety and {DEFENSE_STATES}, with plenty of safety in the mix."]},"recovery":{"framing":["And there's a pattern in how you come back.","There's also a pattern in how you get out of defense."],"template":"When your body drops into defense, it tends to get back to safety within {N}. You've done it before, more than once."},"practice_effect":["The check-ins right after a practice session tend to have a little more safety in them, about {PCT}% of the time.","About {PCT}% of the time, the check-in right after a practice session has a little more safety in it."]};
   const STATE_NAMES = { safety:'safety', play:'regulated mobilization (play and motivation)', stillness:'regulated immobilization (stillness and intimacy)', fightflight:'flight/fight', shutdown:'shutdown', freeze:'freeze' };
   function _fill(t, ctx){ return String(t==null?'':t).replace(/\{STATE\}/g, ctx.stateName||'').replace(/\{SHARE\}/g, ctx.share!=null?ctx.share+'%':'').replace(/\{N\}/g, ctx.count!=null?String(ctx.count):''); }
-  function _bullet(raw, ctx){ const m=String(raw).match(/^(.*?)\s*\u2192\s*\[([^\]]+)\]\(#([^)]+)\)\s*$/); if(m) return { text:_fill(m[1].trim(),ctx), jumpLabel:m[2], jumpId:'blog-'+m[3] }; return { text:_fill(raw,ctx) }; }
+  // plain text only now \u2014 the old inline "-> [label](#id) \u2193" jump arrows are stripped rather
+  // than rendered; a real table of contents (built by the caller from `sections`) replaced them.
+  function _bullet(raw, ctx){ const m=String(raw).match(/^(.*?)\s*\u2192\s*\[([^\]]+)\]\(#([^)]+)\)\s*$/); return { text:_fill(m?m[1].trim():raw, ctx) }; }
   // short felt name for in-sentence use (transitions / time-of-day), e.g. "flight/fight", "play & motivation"
   function _feltName(k){ return (RUNDOWNS[k] && RUNDOWNS[k].label_felt) || STATE_NAMES[k] || k; }
   function _fillTrans(t, tr){ return String(t==null?'':t).replace(/\{STATE_A\}/g, _feltName(tr.a)).replace(/\{STATE_B\}/g, _feltName(tr.b)); }
@@ -542,7 +578,24 @@
   function _fillDefense(t, mix){ return String(t==null?'':t).replace(/\{DEFENSE_STATES\}/g, _joinFelt(mix.defenseStates)); }
   function _fillPct(t, pe){ return String(t==null?'':t).replace(/\{PCT\}/g, String(Math.round(pe.rate*20)*5)); } // nearest 5%
   function rundown(dom){ const r=RUNDOWNS[dom]; if(!r) return null; return { label_precise:r.label_precise, label_felt:r.label_felt, short:cycle('rd-tldr:'+dom,r.tldr), what:cycle('rd-what:'+dom,r.what_this_is), why:(r.why_your_body&&r.why_your_body[0])||'', how:r.how_it_shows_up||'', helps:cycle('rd-helps:'+dom,r.one_thing_that_helps), practice:r.door_inward||'' }; }
-  function blog(ctx0){
+  // one specific practice, named, for a specific state and time of day, by how much it's
+  // actually tended to help lately (Store.practiceInsights(), self-gated on sample size).
+  // Trend data, plainly stated — never a diagnosis, prognosis, or promise.
+  function _practiceLine(pi){
+    if(!pi) return '';
+    const label = (global.Store && Store.practiceLabel) ? Store.practiceLabel(pi.practiceKey) : pi.practiceKey;
+    const segPhrase = SEG_PHRASE[pi.seg] || pi.seg;
+    const pct = Math.round(pi.rate*20)*5; // nearest 5%, same rounding as the general practice-effect line
+    return 'Lately, in the '+segPhrase+', '+label+' has tended to leave you steadier afterward, about '+pct+'% of the time.';
+  }
+  // heading builder: {pre, state, post} instead of a flat string, so the renderer can color
+  // just the state word in the state's own palette color without any fragile text-matching.
+  // state is '' for headings that don't reference a state name (the renderer treats that as
+  // "render pre as plain text").
+  function _heading(dom, pre, withState, post){ return { pre:pre||'', state: withState ? _feltName(dom) : '', post:post||'' }; }
+  // superseded 2026-07-03 by the essay-model blog() below (reader rework);
+  // kept only so very old code paths can't break. Not exported.
+  function _legacyBlog(ctx0){
     ctx0 = ctx0 || {};
     const dom = ctx0.dom || ((global.Store&&Store.lastCheckin)?(Store.lastCheckin()||{}).dom:null);
     if(!dom || dom==='neutral' || !RUNDOWNS[dom]) return null;
@@ -556,99 +609,385 @@
     const P  = (slot,arr)=> cycle('blog-'+slot, arr||[]);
     const PS = (slot,arr)=> cycle('blog-'+slot+':'+stage, arr||[]);
     const stageOr = (slot, stageArr, baseArr)=> (stageArr&&stageArr.length) ? PS(slot, stageArr) : P(slot, baseArr);
+    const rd = RUNDOWNS[dom], fk = BLOG.section4_fork[dom];
+    const H = (pre, withState, post) => _heading(dom, pre, withState, post);
+    const sec = [];
 
-    // ---- start: an orientation read, not a data summary (no pattern/trend claims) ----
-    if(stage==='start'){
-      const r0=RUNDOWNS[dom], s0=[];
-      s0.push({ id:'blog-2', heading:"About your state", paras:[ cycle('s2what:'+dom, r0.what_this_is), r0.how_it_shows_up ]});
-      const fk0=BLOG.section4_fork[dom];
-      if(fk0) s0.push({ id:'blog-4', heading:"What to expect", paras:[ cycle('forkintro:start', BLOG_STAGE.fork_intro), fk0.toward_regulated, fk0.if_reps_drop, fk0.landing ].filter(Boolean) });
-      s0.push({ id:'blog-5', heading:"What tends to help", paras:[ _fill(P('s5', BLOG.section5_helps.frame), ctx), _fill(P('s5d', BLOG.section5_helps.practice_door), ctx) ]});
-      s0.push({ id:'blog-6', heading:"One last thing", paras:[ _fill(PS('s6', BLOG_STAGE.section6_note.start), ctx) ]});
-      return { stateName: ctx.stateName, stage:stage, bullets:[ _bullet(PS('orient', BLOG_STAGE.orientation), ctx) ], sections:s0 };
-    }
-
-    const bullets=[];
-    bullets.push(_bullet(stageOr('where', BLOG_STAGE.where_bullet[stage], BLOG.tldr_bullets.where), ctx));
-    if(wk && ctx.dir && BLOG.tldr_bullets.direction[ctx.dir]) bullets.push(_bullet(P('dirb', BLOG.tldr_bullets.direction[ctx.dir]), ctx));
-    if(wk && ctx.variance && BLOG.tldr_bullets.variance[ctx.variance]) bullets.push(_bullet(P('varb', BLOG.tldr_bullets.variance[ctx.variance]), ctx));
-    if(wk) bullets.push(_bullet(P('forkb', BLOG.tldr_bullets.fork), ctx));
-    bullets.push(_bullet(P('helpsb', BLOG.tldr_bullets.helps), ctx));
-
-    const rd = RUNDOWNS[dom], sec=[];
-    const s1paras = [ _fill(stageOr('s1', BLOG_STAGE.section1_where[stage], BLOG.section1_where), ctx) ];
-    // secondary state + safety:defense balance — week+ only, so "this week" is honest, and weekMix self-gates >=6 in-window.
-    if(stage==='week' || stage==='established'){
-      const mix = ctx0.mix || ((global.Store&&Store.weekMix)?Store.weekMix():null);
-      if(mix){
-        if(mix.second && mix.second!==dom && mix.secondShare>=25 && RUNDOWNS[mix.second])
-          s1paras.push(_fillSecond(P('s1second', BLOG_SIGNALS.secondary), mix));
-        if(mix.lean==='regulated' && dom!=='safety')
-          s1paras.push(P('s1balreg', BLOG_SIGNALS.balance.regulated));                       // safety side; skip when dom is already safety (no new info)
-        else if(mix.lean==='dysregulated' && mix.defenseStates && mix.defenseStates.length>=2)
-          s1paras.push(_fillDefense(P('s1baldys', BLOG_SIGNALS.balance.dysregulated), mix));  // name the actual states; skip if only one (dom already said it)
-        else if(mix.lean==='even' && mix.defenseStates && mix.defenseStates.length)
-          s1paras.push(_fillDefense(P('s1baleven', BLOG_SIGNALS.balance.even), mix));
-      }
-    }
-    sec.push({ id:'blog-1', heading:"Your main state", paras:s1paras });
-    sec.push({ id:'blog-2', heading:"About your state", paras:[ cycle('s2what:'+dom, rd.what_this_is), rd.how_it_shows_up ]});
-
-    // movement: suppressed on thin data; 'building' uses lighter "lately" copy; week+ uses the approved copy.
-    const mv=[];
-    if(!thin){
-      const dirSrc = (stage==='building') ? BLOG_STAGE.movement_building.direction : BLOG.section3_movement.direction;
-      const varSrc = (stage==='building') ? BLOG_STAGE.movement_building.variance : BLOG.section3_movement.variance;
-      if(ctx.dir && dirSrc[ctx.dir]) mv.push(cycle('s3dir:'+stage, dirSrc[ctx.dir]));
-      if(ctx.variance && varSrc[ctx.variance]) mv.push(cycle('s3var:'+stage, varSrc[ctx.variance]));
-      // transitions + time-of-day: the part only the user's own sequence can write (already gated >=6 check-ins).
-      const tr = ctx0.trans || ((global.Store&&Store.transitions)?Store.transitions():null);
-      if(tr && tr.a && tr.b && RUNDOWNS[tr.a] && RUNDOWNS[tr.b]){
-        mv.push(P('s3trframe', BLOG.section3_movement.transitions.framing));
-        mv.push(_fillTrans(BLOG.section3_movement.transitions.template, tr));
-      }
-      const tod = ctx0.tod || ((global.Store&&Store.timeOfDay)?Store.timeOfDay():null);
-      if(tod && tod.seg && tod.dom && RUNDOWNS[tod.dom]){
-        mv.push(P('s3todframe', BLOG.section3_movement.timeofday.framing));
-        mv.push(_fillTod(BLOG.section3_movement.timeofday.template, tod));
-      }
-      // recovery speed: the hope signal. Only at 'established', where there's real round-trip history.
-      if(stage==='established'){
-        const rec = ctx0.recovery || ((global.Store&&Store.recovery)?Store.recovery():null);
-        if(rec && rec.avg!=null){
-          mv.push(P('s3recframe', BLOG_SIGNALS.recovery.framing));
-          mv.push(_fillRecovery(BLOG_SIGNALS.recovery.template, rec));
+    // ---- S1: where you are. No pattern to place yet on the very first check-in, so this
+    // whole section is skipped rather than forced (nothing here reads as "a summary of one thing"). ----
+    if(stage !== 'start'){
+      const s1paras = [ _fill(stageOr('s1', BLOG_STAGE.section1_where[stage], BLOG.section1_where), ctx) ];
+      // secondary state + safety:defense balance — week+ only, so "this week" is honest, and weekMix self-gates >=6 in-window.
+      if(stage==='week' || stage==='established'){
+        const mix = ctx0.mix || ((global.Store&&Store.weekMix)?Store.weekMix():null);
+        if(mix){
+          if(mix.second && mix.second!==dom && mix.secondShare>=25 && RUNDOWNS[mix.second])
+            s1paras.push(_fillSecond(P('s1second', BLOG_SIGNALS.secondary), mix));
+          if(mix.lean==='regulated' && dom!=='safety')
+            s1paras.push(P('s1balreg', BLOG_SIGNALS.balance.regulated));                       // safety side; skip when dom is already safety (no new info)
+          else if(mix.lean==='dysregulated' && mix.defenseStates && mix.defenseStates.length>=2)
+            s1paras.push(_fillDefense(P('s1baldys', BLOG_SIGNALS.balance.dysregulated), mix));  // name the actual states; skip if only one (dom already said it)
+          else if(mix.lean==='even' && mix.defenseStates && mix.defenseStates.length)
+            s1paras.push(_fillDefense(P('s1baleven', BLOG_SIGNALS.balance.even), mix));
         }
       }
-    }
-    if(mv.length) sec.push({ id:'blog-3', heading:"What the data shows", paras:mv });
-
-    // fork always shows; on thin data it opens with a soft, forward-looking lead-in.
-    const fk = BLOG.section4_fork[dom];
-    if(fk){
-      const fkParas = thin
-        ? [ cycle('forkintro:'+stage, BLOG_STAGE.fork_intro), fk.toward_regulated, fk.if_reps_drop, fk.landing ]
-        : [ fk.toward_regulated, fk.if_reps_drop, fk.landing ];
-      sec.push({ id:'blog-4', heading:"What to expect", paras:fkParas.filter(Boolean) });
+      sec.push({ id:'blog-1', heading:H('Where you\'ve been', false), paras:s1paras });
     }
 
+    // ---- S2: what {state} is. One built idea: name it -> the mechanism -> why your body
+    // does this -> what it actually feels like. (Previously only 2 of these 3 ingredients
+    // ever got used; why_your_body was written and never shown.) ----
+    const labelIntro = (rd.label_precise.toLowerCase() !== rd.label_felt.toLowerCase())
+      ? 'The fuller name for this is ' + rd.label_precise.toLowerCase() + '. You don\'t need to remember that; ' + rd.label_felt + ' is the word that matters.'
+      : '';
+    sec.push({ id:'blog-2', heading:H('What ', true, ' is'),
+      paras: [ labelIntro, cycle('s2what:'+dom, rd.what_this_is), rd.why_your_body, rd.how_it_shows_up ].filter(Boolean) });
+
+    // ---- S3: why {state} stays. New section — the maintenance loop, explained. Not gated by
+    // data depth (it's teaching a mechanism, not claiming a personal trend), so it's safe from
+    // the very first check-in. Closes with the same "if you stop paying attention" fact that
+    // used to be buried, disconnected, inside the old fork section. ----
+    sec.push({ id:'blog-3', heading:H('Why ', true, ' stays'), paras:[ WHY_STAYS[dom], fk ? fk.if_reps_drop : '' ].filter(Boolean) });
+
+    // ---- S4: what to watch for. Exactly two developed beats, never a pile: (1) how to tell
+    // it's easing, personalized when there's real trend data to say so; (2) the specific tell
+    // for this state, worsening for a dysregulated one, thinning-out for a regulated one. ----
+    const watch = [];
+    if(!thin) watch.push(ctx.dir === 'rising' ? changeOverlay('rising') : watchFor('improving'));
+    const _dysreg = { fightflight:1, shutdown:1, freeze:1 };
+    let caution = DEEP.overlays.watchFor[dom] ? watchFor(dom) : '';
+    if((ctx.streak||0) >= 3 && _dysreg[dom]) caution = (stuckOverlay(ctx.streak) + ' ' + caution).trim();
+    if(caution) watch.push(caution);
+    if(watch.length) sec.push({ id:'blog-4', heading:H('What to watch for', false), paras:watch });
+
+    // ---- S5: what helps with {state}. The one small thing, plus — when the data backs it —
+    // a specific practice named for this state and time of day, by how much it's tended to help. ----
     const s5paras = [ _fill(P('s5', BLOG.section5_helps.frame), ctx), _fill(P('s5d', BLOG.section5_helps.practice_door), ctx) ];
-    // practice payoff: lead with the user's own evidence when the practice has been moving the needle.
     if(stage!=='start' && stage!=='early'){
       const pe = ctx0.practiceEffect || ((global.Store&&Store.practiceEffect)?Store.practiceEffect():null);
       if(pe && pe.rate>=0.5) s5paras.unshift(_fillPct(P('s5pe', BLOG_SIGNALS.practice_effect), pe));
+      const piRaw = ctx0.practiceInsights || ((global.Store&&Store.practiceInsights)?Store.practiceInsights():[]);
+      const pi = Array.isArray(piRaw) ? piRaw : [];
+      const bestPi = pi.filter(x => x && x.dom===dom).sort((a,b)=> b.total-a.total || b.rate-a.rate)[0];
+      if(bestPi) s5paras.push(_practiceLine(bestPi));
     }
-    sec.push({ id:'blog-5', heading:"What tends to help", paras:s5paras });
+    sec.push({ id:'blog-5', heading:H('What helps with ', true, ''), paras:s5paras });
 
-    // one last thing: returning > day-7 milestone > stage note > approved week copy.
-    let s6arr;
-    if(returning) s6arr = BLOG_STAGE.section6_note.returning;
-    else if(stage==='week' && tn.days!=null && tn.days>=7 && tn.days<=8) s6arr = BLOG_STAGE.section6_note.milestone;
-    else if(BLOG_STAGE.section6_note[stage]) s6arr = BLOG_STAGE.section6_note[stage];
-    else s6arr = BLOG.section6_note;
-    sec.push({ id:'blog-6', heading:"One last thing", paras:[ _fill(cycle('blog-s6:'+stage+(returning?'-r':''), s6arr), ctx) ]});
+    // ---- S6: where this can go. The close: the hopeful trajectory, landing on the most
+    // quotable line (the renderer pull-quotes the last paragraph of this section). ----
+    if(fk){
+      const landParas = thin
+        ? [ cycle('forkintro:'+stage, BLOG_STAGE.fork_intro), fk.toward_regulated, fk.landing ]
+        : [ fk.toward_regulated, fk.landing ];
+      sec.push({ id:'blog-6', heading:H('Where this can go', false), paras:landParas.filter(Boolean) });
+    }
 
-    return { stateName: ctx.stateName, stage:stage, bullets:bullets, sections:sec };
+    // ---- bullets: the short version, at a glance. Plain text, no inline jump arrows — the
+    // caller builds a real table of contents from `sections` for navigation instead. ----
+    const bullets = [];
+    if(stage==='start'){
+      bullets.push(_bullet(PS('orient', BLOG_STAGE.orientation), ctx));
+    } else {
+      bullets.push(_bullet(stageOr('where', BLOG_STAGE.where_bullet[stage], BLOG.tldr_bullets.where), ctx));
+      if(wk && ctx.dir && BLOG.tldr_bullets.direction[ctx.dir]) bullets.push(_bullet(P('dirb', BLOG.tldr_bullets.direction[ctx.dir]), ctx));
+      if(wk && ctx.variance && BLOG.tldr_bullets.variance[ctx.variance]) bullets.push(_bullet(P('varb', BLOG.tldr_bullets.variance[ctx.variance]), ctx));
+      bullets.push(_bullet(P('helpsb', BLOG.tldr_bullets.helps), ctx));
+    }
+
+    return { stateName: ctx.stateName, dom:dom, stage:stage, bullets:bullets, sections:sec };
+  }
+
+  // ============================================================================
+  // THE FOR-YOU ESSAYS (reader rework, 2026-07-03).
+  // One authored essay per state, developed start to finish. Deterministic: the
+  // same data always renders the same words, so the copy is stable and stays
+  // Justin-editable. Live numbers appear inside sentences as evidence, never as
+  // a stats block. Source of truth: App Designer/Reader-Rework/*-essay.md.
+  // ctx signals (all optional, self-gating): name, nState, nTotal, streak (days),
+  // dir ('rising'|'falling'|'steady'), f2s (freeze->shutdown transitions this
+  // week), pi (best practice insight for this state), defDom (dominant
+  // non-safety state from history), baseline (Store.baselineDelta over ~28d).
+  // ============================================================================
+  const ESSAY_DEK = {
+    freeze:      'What freeze is, why it stays, and how it thaws.',
+    shutdown:    'What shutdown is, why it stays, and how energy comes back.',
+    fightflight: 'What flight/fight is, why it stays, and where the charge wants to go.',
+    play:        'What play and motivation are, why they hold together, and how to spend the energy well.',
+    stillness:   'What stillness is, why it isn\'t shutdown, and how to let it restore you.',
+    safety:      'What safety is, why it comes and goes, and how to make it easier to find.'
+  };
+  const ESSAY_TAIL = {
+    freeze:      'So, this is all about what freeze is, and why it isn\'t what it looks like from the outside.',
+    shutdown:    'So, this is all about what shutdown is, and why the heaviness isn\'t who you are.',
+    fightflight: 'So, this is all about that wired, on-edge state, and what the charge is actually for.',
+    play:        'So, this is all about that energized, connected state, and how to keep it working for you.',
+    stillness:   'So, this is all about the quiet kind of regulation, and why it\'s not the same as shutting down.',
+    safety:      'So, this is all about what safety is, and why it\'s worth your attention while it\'s here.'
+  };
+  const ESSAY_ENCOURAGE = {
+    freeze:      'Take note and give yourself a pat on the back.',
+    shutdown:    'Give yourself some honest credit, nothing forced.',
+    fightflight: 'That\'s a rep. Count it.',
+    play:        'Throw yourself a little celebratory party in your imagination. (No one will know.)',
+    stillness:   'Worth a quiet nod to yourself.',
+    safety:      'Give yourself a kudos.'
+  };
+  // practice doors follow the Safety Spectrum ladder (practice-decision-matrix.md)
+  const ESSAY_DOOR = {
+    freeze:      'The practice tab has something shaped for where you are right now. In freeze, the place to start is safety, built in small doses. Anchor into a bit of safety first. Once anchored, connecting with the defense side becomes possible.',
+    shutdown:    'The practice tab has something shaped for where you are right now. In shutdown, that means the smallest doses: simple mindfulness and safety building, nothing that asks for effort you don\'t have.',
+    fightflight: 'The practice tab has something shaped for where you are right now. With this much charge, the order matters: settle a little of the energy first, find some safety, and then it\'s easier to work with what\'s underneath.',
+    play:        'The practice tab has something shaped for a state like this: using the energy while you have it, in a way that builds capacity instead of spending it all at once.',
+    stillness:   'The practice tab has something shaped for a settled state like this. This kind of quiet is good ground for gentle inner work, in doses, while you have the calm to hold it.',
+    safety:      'This is the state with the most capacity available, which makes it the right time for the harder practices: anchoring into safety, then connecting with a little of the harder stuff in a dose, then coming back. The practice tab has that work waiting when you want it.'
+  };
+  const DEFENSE_TELL = {
+    freeze:      'that braced, held-breath feeling',
+    fightflight: 'anxiousness or irritability',
+    shutdown:    'the flat, far-off heaviness'
+  };
+  function _essayOpen(ctx){
+    const felt = _feltName(ctx.dom);
+    let body;
+    if(ctx.nState!=null && ctx.nTotal!=null && ctx.nTotal>=3){
+      body = ctx.nState + ' of your ' + ctx.nTotal + ' check-ins this week landed in ' + felt + '. ' + ESSAY_TAIL[ctx.dom];
+    } else {
+      body = 'your last check-in landed in ' + felt + '. ' + ESSAY_TAIL[ctx.dom];
+    }
+    if(ctx.name) return ctx.name + ', ' + body;
+    return body.charAt(0).toUpperCase() + body.slice(1);
+  }
+  function _essayInsight(ctx){
+    const pi = ctx.pi; if(!pi) return ESSAY_DOOR[ctx.dom];
+    const label = (global.Store && Store.practiceLabel) ? Store.practiceLabel(pi.practiceKey) : pi.practiceKey;
+    const pct = Math.round(pi.rate*20)*5;
+    return 'Lately, in the ' + (SEG_PHRASE[pi.seg]||pi.seg) + ', ' + label + ' has tended to help you connect more with safety afterward, about ' + pct + '% of the time. ' + ESSAY_ENCOURAGE[ctx.dom];
+  }
+  // Moments & Baseline (Justin's Safety Spectrum): the zoom-out near the close.
+  // DRAFT copy pending Justin's word pass — see Reader-Rework/baseline-moment-para.md.
+  function _essayBaseline(ctx){
+    const b = ctx.baseline;
+    if(!b || !b.dir || b.dir==='new') return '';
+    const lead = 'Zoom out for a second. This week\'s ' + _feltName(ctx.dom) + ' is a moment. Your baseline is the longer story, and ';
+    if(b.dir==='up')   return lead + 'it has been climbing over the past few weeks.';
+    if(b.dir==='down') return lead + 'it has dipped lately. Gentle is the right speed for now.';
+    return lead + 'it has been holding steady over the past few weeks.';
+  }
+  const ESSAYS = {
+    freeze: function(ctx){
+      const H=(p,w,s)=>_heading('freeze',p,w,s);
+      const sec=[];
+      sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
+        _essayOpen(ctx),
+        'From the outside, freeze looks like nothing happening. But you know better. It\'s the held breath with tension in your chest you weren\'t aware of. It\'s being ready to move but unable to, like your body pressing the gas and the brake at the same time. The gas is flight/fight energy (jittery, activated, readiness) and the brake is shutdown (numb and distant). Mobility + Immobility.',
+        'That\'s why freeze feels the way it does. Panic is the urge to run that can\'t run. Rage is the urge to fight that can\'t fight. It also shows up as fear, stress, and overwhelm. The energy is real, and it has nowhere to go yet. The way out is not through force; that\'s just more gas against a locked brake. The brake lifts with safety, a little at a time.'
+      ]});
+      const why=[
+        'Freeze holds because both pedals stay pressed. The energy underneath doesn\'t drain on its own, and the brake doesn\'t lift until your body gets enough cues of safety. Until then, the state keeps itself going.',
+        'Two coping habits keep it pressed longer. The first is forcing through the day and collapsing at the end of it, then doing the same thing tomorrow. Force reads to your body as more threat, so the brake holds tighter. The second is faking rest. Doom-scrolling looks like rest, but it numbs the experience instead of letting your system settle. It\'s coping, and coping is fine. It just won\'t lift the brake.',
+        'Your thinking plays a part here too. Freeze thinking runs scattered and all-or-nothing: everything feels impossible, or it all has to happen right now. Those thoughts stem from the state, and they feed it back, because a mind insisting on all-or-nothing keeps the body braced. You don\'t have to argue with the thoughts. When a little safety comes in and the state thaws, the thinking loosens with it.'
+      ];
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around freeze for '+ctx.streak+' days now. Long stretches in one place are common; that\'s basically what stuck means. It doesn\'t mean you\'ve stalled, and it isn\'t evidence that this is who you are. It\'s a state. States shift, even the ones that have been around a long time.');
+      sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
+      const shift=[
+        'Thawing doesn\'t announce itself. It shows up small. A breath that goes deeper on its own. A stretch that happens without deciding to. The urge to move starting to feel more like wanting to than having to.',
+        'But what about the other direction? If the tension leaves but you\'re just left feeling flat, numb, empty, and distant, that\'s not a thaw. That\'s more like shutdown. That\'s the brake aspect of a freeze becoming more dominant and the entire system slipping into collapse. And yes, it\'s very possible that a system can fluctuate between freeze and shutdown.'
+      ];
+      if(ctx.dir==='rising') shift.push('Your data is already showing some evidence of a thaw happening. You\'re reporting more safety in your check-ins toward the end of this week than you were at the start. It\'s small, sure. But it\'s real.');
+      if((ctx.f2s||0)>=2) shift.push('Your check-ins this week suggest more of the shutdown flavor of things. This is by no means a failure. A system in freeze tends to do better with small, regular doses of practice primarily focusing on simple mindfulness and safety.');
+      sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
+      sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
+        'One thing, and keep it small: a cue of safety plus the smallest movement. Let your eyes go wherever they want in the room. Then roll your wrists or wiggle your toes, slow. The safety asks the brake to ease, and the movement reminds your body it can move at all. That\'s one rep. In freeze, reps count for more than size.',
+        _essayInsight(ctx)
+      ]});
+      sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
+        'The energy locked up in freeze isn\'t the enemy. It\'s the same fuel that runs motivation and play once safety is mixed in. As the brake learns it can lift, that fuel comes back to you. First as small movements, then as wanting things again.',
+        _essayBaseline(ctx),
+        'Freeze is where your body is right now. Maybe it\'s been here a long time. It\'s not where your body stays.',
+        'Stuck, not broken. And stuck is temporary.'
+      ].filter(Boolean)});
+      return sec;
+    },
+    shutdown: function(ctx){
+      const H=(p,w,s)=>_heading('shutdown',p,w,s);
+      const sec=[];
+      sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
+        _essayOpen(ctx),
+        'Shutdown is the oldest brake your body has. (The theory behind this app calls it dorsal vagal.) When danger is too much and you can\'t escape it or fight it, your body survives by powering down and conserving what\'s left. It feels cold, heavy, drained, numb, far away. Through this lens, a lot of what gets called depression is the body in shutdown.'
+      ]});
+      const why=[
+        'Shutdown stays because the body doesn\'t have enough energy yet to come back online. Pushing against it, forcing yourself up and out, spends what little energy there is and deepens the collapse instead.',
+        'It also stays because the mind starts telling a story that matches the state: that this is just who you are now, that nothing will help. The hopelessness feels like stone-carved truth. It isn\'t. Thoughts follow states, and that story is the shutdown talking, not the facts.'
+      ];
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around shutdown for '+ctx.streak+' days now. Long stretches here are common, and they\'re exactly when the "this is just me now" story gets loudest. It\'s a state. States shift, even the slow ones.');
+      sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
+      const shift=[
+        'The first signs of energy returning are small and easy to miss. Caring a little about one thing. Noticing you\'re hungry. A window you actually wanted open.',
+        'Something that people mistake all the time is that irritability is a bad thing. But it\'s potentially a very strong sign of coming out of shutdown. It\'s a signal that the immobilization is easing, and mobilization is returning to the system. So, as you add safety and the body tries to regulate, irritability may surface. If enough safety is in the system, shutdown beautifully merges with it to form stillness.',
+        'Another potential of shutdown shifting is an increase in freeze. As mobilization comes into the system, it\'s possible the shutdown does not ease, and instead co-exists with the re-emerged flight/fight activation. That combination makes freeze. Freeze is immobile like shutdown, but it\'s tense, not collapsed.'
+      ];
+      if(ctx.dir==='rising') shift.push('Your data is already showing more safety coming in. You\'re reporting more of it in your check-ins toward the end of this week than you were at the start. It\'s a small shift. In shutdown, small shifts are the whole game.');
+      sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
+      sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
+        'Very small, very low demand. One sip of tea. A dimmer light. One thing you can hear without trying. You don\'t climb out of shutdown by forcing it. You offer your body a small cue of safety, and it may allow a little more energy back in. Pay close attention to a breath that wants to be bigger, an ankle that wants to stretch, or a bit of motivation to do the thing you\'ve wanted to do forever.',
+        'In the heavy moments, getting through is enough. You don\'t owe anyone more than that today, including yourself. Showing up here and checking in honestly already counts.',
+        _essayInsight(ctx)
+      ]});
+      sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
+        'Hold this lightly if it\'s hard to believe right now. Small, low-demand safety cues, repeated, shift shutdown toward stillness. A similar internal quiet, but peaceful instead of numb. As energy returns, it might show up as motivation. It might also show up as irritability. Either one is good news, because it means things are moving again.',
+        _essayBaseline(ctx),
+        'Feeling permanent isn\'t the same as being permanent.',
+        'You\'re not broken. You\'re stuck, and stuck is something that moves.'
+      ].filter(Boolean)});
+      return sec;
+    },
+    fightflight: function(ctx){
+      const H=(p,w,s)=>_heading('fightflight',p,w,s);
+      const sec=[];
+      sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
+        _essayOpen(ctx),
+        'Flight/fight is mobilizing energy without enough safety mixed in yet. Your body\'s threat radar picked up danger (real or remembered) and got you ready to handle it. Flight tends to come first: the legs, escape, distance, anxiety. Then fight: the upper body, push, boundaries, anger.',
+        'An emotion is the conscious experience of an impulse you haven\'t acted on. Anxiety is the run that hasn\'t run. Anger is the fight that hasn\'t been fought. Neither one is the enemy. They\'re a mobilized body doing its job, even when it bumps into the people around you.'
+      ]});
+      sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:[
+        'Flight/fight keeps running because the body hasn\'t gotten enough of a safety signal to stand down yet. It\'s not stubbornness, and it\'s not a bad habit. It\'s a system still on alert. It stays revved when the urgency gets treated as fact instead of as a feeling, and when the energy has no small outlet in the meantime.',
+        'Your thinking reinforces your state as well. No, it\'s not just a matter of changing how you think since your thoughts also stem from your state. So, the blame, the worst-case thinking, the everything-is-urgent feeling. That\'s the brain narrating a revved-up body, not the truth about your life. When your state shifts more toward safety, your thinking will change on its own.'
+      ]});
+      const shift=[
+        'As mobilized flight/fight combines with safety, the urgency settles more and more. Some things that are actually urgent still get your urgent attention, but with more patience. And the other stuff... it can wait without everything falling apart. With safety, your mobilization turns into motivation to create and get stuff done. With others, you\'re more likely to play and share in fun.',
+        'But what if there isn\'t enough safety in the system? If not, then flight/fight continues to be anxious and angry. Over time, it will lean more toward shutdown or possibly freeze. No, it\'s not a character defect. It\'s just a system that needs more safety.'
+      ];
+      if(ctx.dir==='rising') shift.push('You\'re reporting more safety in your check-ins toward the end of this week than you were at the start. Not a big drop in charge, but a real one.');
+      sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
+      sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
+        'Move a little, on purpose. Thirty seconds of shaking out your hands, a quick walk, palms pushed against a wall. Give the energy somewhere to go, then name the feeling underneath it. Naming it is a solid first step to letting it move through instead of running you.',
+        'And try taking one intentional breath and lengthening the exhale. It\'s not a cure for your activation, but it might open the potential for a bit of settling or open a path for mindful movement.',
+        _essayInsight(ctx)
+      ]});
+      sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
+        'Every small cue of safety gives this energy somewhere to go. Over time, mobilization with safety mixed in becomes motivation and play. Same fuel, different mix. The energy was never the problem.',
+        _essayBaseline(ctx),
+        'You\'re not broken, and you\'re not too much. You\'re mobilized, but not enough safety has been mixed in yet. Yet.'
+      ].filter(Boolean)});
+      return sec;
+    },
+    play: function(ctx){
+      const H=(p,w,s)=>_heading('play',p,w,s);
+      const sec=[];
+      sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
+        _essayOpen(ctx),
+        'This is energy with safety mixed in. This is the exact same inner fuel that runs flight/fight activation, but regulated and directed at something. With people you trust, it shows up as play. On your own, it shows up as motivation (to create, produce, exercise, dance, etc.). The energy was never the problem. Whether safety is mixed in is the whole difference.',
+        'There\'s a kind of busy that drains you and a kind that fills you. This is the second one. You can tell because there\'s still room to notice your body, still room to stop if you want to.'
+      ]});
+      sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:[
+        'This state holds together as long as safety keeps riding along with the energy. The drive comes from mobilization, the ease comes from safety, and they\'re happening at the same time, not one after the other.',
+        'That\'s also why you don\'t have to be taught to "calm down" here. Not all activation is something to fix. Some of it is just you, moving toward what matters, with enough safety mixed in to enjoy the ride. Check in with it along the way and it tends to stay what it is.',
+        'Your thinking joins in here too. In this state, thoughts turn curious, inventive, big-picture. Ideas connect easier. That kind of thinking feeds the state right back, which is part of why a good creative run can carry itself for hours. Notice it, and it tends to keep rolling.'
+      ]});
+      const shift=[
+        'One tell is anxiousness or irritability creeping into what started as motivation. Keep an eye out for it and try to notice it when it\'s small. If not, safety tends to slip away and then you\'re in more flight/fight activation without the safety to direct it. Behaviorally, you might snap at people, fun becomes loud competition, and creativity becomes perfectionism.',
+        'That\'s not a reason to hold back, though. It\'s just worth knowing where the edge is. The energy is good. The safety is what keeps it good.'
+      ];
+      if(ctx.dir==='rising') shift.push('And your check-ins say the mix is holding. You\'re reporting more safety toward the end of this week than you were at the start. Keep spending the energy the way you have been.');
+      sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
+      sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
+        'Aim it before it scatters. Pick the one thing that matters most and give it ten minutes. You don\'t have to finish it, just begin. Keep a little mindfulness attached to the movement while you do, enough to actually feel it.',
+        'If it\'s the social kind, spend it on people. Reach out to someone who\'s earned your trust and do something together, even something simple. Play with a safe other is about as regulating as it gets.',
+        _essayInsight(ctx)
+      ]});
+      sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
+        'Keep a little safety mixed into this energy, and it stays fuel instead of turning into a fire. Over time, you get to mobilize during the day and still settle into stillness in the evening, and the drive stops costing you on the back end.',
+        _essayBaseline(ctx),
+        'It\'s just how the body works. Whether you\'re mobile or immobile, change is always close.'
+      ].filter(Boolean)});
+      return sec;
+    },
+    stillness: function(ctx){
+      const H=(p,w,s)=>_heading('stillness',p,w,s);
+      const sec=[];
+      sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
+        _essayOpen(ctx),
+        'Stillness is your body slowed all the way down with safety mixed in. It\'s the same slowing you\'d feel in shutdown, but the safety changes everything. Immobility without fear is stillness. Immobility with fear underneath it is a different state entirely. On your own, this shows up as rest and reflection. Shared with someone safe, the same settledness becomes intimacy. (A pet counts, but we don\'t need to call it "intimacy.")',
+        'Rest isn\'t a reward you earn after everything\'s done. It\'s how your system restores its balance. This is the state behind real sleep, sitting still without crawling out of your skin, and easy closeness with someone safe.'
+      ]});
+      sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:[
+        'Stillness holds as long as your body trusts it\'s allowed to stop. That trust is the safety mixed into the slowdown, and it\'s the whole difference between resting and just going quiet.',
+        'As long as that trust is there, the quiet keeps doing its job: restoring you instead of flattening you. Stopping is doing something here. It\'s not nothing.',
+        'Thinking has its own quality here too. In stillness, thoughts go contemplative and reflective, more wondering than working. That kind of thinking deepens the quiet instead of disturbing it. If planning and problem-solving start crowding back in, that\'s fine. It\'s just worth noticing which one your body is actually asking for.'
+      ]});
+      const shift=[
+        'Ask yourself if the immobility within you is restful and comfortable... or not. If it starts feeling flat, heavy, or far away instead, that\'s the safety thinning out and stillness drifting toward its harder twin, shutdown. Same slowed-down body, opposite experience. Shutdown\'s pull is to isolate and disconnect. Stillness\'s pull is to rest and connect.',
+        'If you notice that drift, the move isn\'t to force yourself up and out. It\'s to reach for a little safety: a familiar voice, a safe person nearby, one thing in the room that feels good to look at.'
+      ];
+      if(ctx.dir==='rising') shift.push('Your check-ins back the restful reading. You\'re reporting more safety toward the end of this week than you were at the start. Slow and quiet, which suits this state.');
+      sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
+      sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
+        'You don\'t have to deserve this through overworking. Sink into it and follow your system where it wants to take you. Five minutes with no task and no phone counts.',
+        'If a safe person or pet is near, be quiet near them. No talking required. Quiet, close, easy. That\'s stillness and connection at the same time, and it\'s about as regulating as it gets.',
+        _essayInsight(ctx)
+      ]});
+      sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
+        'Let this rest actually restore you and it does more than feel good. Immobile with safety mixed in is where the body recovers and where the deeper work gets done. Keep practicing it, and stillness stays stillness: quiet you can sink into without disappearing.',
+        _essayBaseline(ctx),
+        'Collapsed, still, or somewhere in between, the body can move again.'
+      ].filter(Boolean)});
+      return sec;
+    },
+    safety: function(ctx){
+      const H=(p,w,s)=>_heading('safety',p,w,s);
+      const sec=[];
+      sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
+        _essayOpen(ctx),
+        'Safety is your body open to the world. Calm enough to connect, maybe playful enough to laugh easily, with enough room inside to meet what\'s usually a challenge. (The theory behind this app calls it ventral vagal.) When it\'s online, your body isn\'t braced for anything, so its resources go to health, connection, and repair instead of defense.',
+        'Safety is not the absence of hard emotions. It\'s having enough capacity inside to meet them. You can be in safety and still have a hard moment. The difference is there\'s enough room to handle it without spiraling into defense.'
+      ]});
+      sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:[
+        'Safety holds when your body keeps getting small, real signals that things are okay right now: enough rest, a face or voice it trusts, a moment with nothing urgent in it. It doesn\'t need those signals nonstop, just often enough.',
+        'And safety fading on its own is normal, not a failure. It comes and goes for everyone. That\'s how it\'s supposed to work. You don\'t keep it by holding still and hoping. You keep it by noticing it while it\'s here and going back to whatever brought it, again and again.',
+        'Thinking runs differently here too. In safety, thoughts open up: more curiosity, more empathy, more room to reason things through. And it works in both directions. Open thinking feeds the state that made it possible. Worth noticing what kinds of thoughts feel available right now that don\'t always.'
+      ]});
+      const shift=[
+        'Safety that goes unnoticed tends to fade quietly. Nothing went wrong; it just didn\'t get a rep. If the last few days felt easier and you can\'t quite say why, that\'s worth a second look, because naming what helped is what makes safety easier to find next time.',
+        'But what about the early signs of it thinning out? Your patience might get thinner. You might feel a bit more anxious or irritable. Maybe more distant. It really depends mostly on what your dominant non-safety state is. As safety recedes, your dominant underlying state comes more to the surface. It\'s not good or bad. It\'s maybe an indication of your safety state\'s strength. Frustrating? Maybe. But also encouraging? Hopefully.'
+      ];
+      if(ctx.defDom && DEFENSE_TELL[ctx.defDom]) shift.push('For you, lately, that underlying state has been ' + _feltName(ctx.defDom) + '. So the early tell to watch for is ' + DEFENSE_TELL[ctx.defDom] + ' creeping back in.');
+      if(ctx.dir==='rising') shift.push('Your data says this state is getting stronger. You\'re reporting more safety in your check-ins toward the end of this week than you were at the start. Safety adds a little at a time and keeps building. Keep it up.');
+      sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
+      sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
+        'Notice it on purpose. Where exactly do you feel... settled or calm? Playful or motivated? Those emotions are a great sign of safety, but pay attention. If you can notice what safety feels like in your body, then you\'re anchored into it and deepening the experience. As best you can, look inward and really feel the safety within you. How does your body breathe in safety? What\'s your posture like? Are you more likely to smile? To hug someone?',
+        'And don\'t grab it too tight. Can you let it be here without needing it to stay? Giving your system permission to move in and out of safety is part of how the capacity grows.',
+        _essayInsight(ctx)
+      ]});
+      sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
+        'Keep noticing safety and using it the way you have been, and it stops being a visitor and starts becoming a baseline. That\'s what the practice reps do over time. The goal was never to feel safe all the time. It\'s to build enough safety to move freely among all of your body\'s states without getting stuck.',
+        _essayBaseline(ctx),
+        'Either way, you\'ve proven your system can find safety. It might be worth trusting your body a bit more.'
+      ].filter(Boolean)});
+      return sec;
+    }
+  };
+  function blog(ctx0){
+    ctx0 = ctx0 || {};
+    const dom = ctx0.dom || ((global.Store&&Store.lastCheckin)?(Store.lastCheckin()||{}).dom:null);
+    if(!dom || dom==='neutral' || !ESSAYS[dom]) return null;
+    const tn = ctx0.tenure || ((global.Store&&Store.tenure)?Store.tenure():null) || { stage:'week', returning:false };
+    const stage = ctx0.stage || tn.stage || 'week';
+    const ctx = Object.assign({}, ctx0, { dom:dom, stateName: STATE_NAMES[dom]||dom, stage:stage });
+    if(ctx.name==null && global.Store && Store.getName) ctx.name = Store.getName() || '';
+    if(ctx.pi===undefined && global.Store && Store.practiceInsights){
+      const pis = (Store.practiceInsights()||[]).filter(x=>x&&x.dom===dom);
+      ctx.pi = pis.length ? pis.sort((a,b)=>b.total-a.total||b.rate-a.rate)[0] : null;
+    }
+    if(ctx.baseline===undefined && global.Store && Store.baselineDelta){
+      const _n = Date.now(); ctx.baseline = Store.baselineDelta(_n-28*864e5, _n);
+    }
+    // thin data: no trend/streak/baseline claims (honesty gate, same as before)
+    const thin = (stage==='start' || stage==='early' || tn.returning);
+    if(thin){ ctx.dir=null; ctx.streak=0; ctx.f2s=0; ctx.baseline=null; }
+    const dek = ESSAY_DEK[dom];
+    return { stateName: ctx.stateName, dom:dom, stage:stage, dek:dek,
+             bullets:[{ text:dek }],                    // back-compat: weekly mint summary + old renderers
+             sections: ESSAYS[dom](ctx) };
   }
 
   // ---- monthly + quarterly reflections (the long-range altitudes) ------------

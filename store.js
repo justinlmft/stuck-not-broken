@@ -513,13 +513,15 @@
   }
 
   // ---- time-of-day: a daypart that skews toward one state vs the overall baseline ----
+  // _segOf is shared: timeOfDay() (below) and practiceInsights() both bucket by the same
+  // four dayparts, so a check-in and a practice session land in the same "evening" etc.
+  function _segOf(t){ const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; }
   // Returns {seg,dom,n} for the daypart most over-represented by a single state, or null.
   function timeOfDay(){
     const cs = data.checkins;
     if(cs.length < 6) return null;
-    const seg = t => { const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; };
     const bySeg = {}, overall = {}; let N=0;
-    cs.forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const s=seg(c.t); (bySeg[s]=bySeg[s]||{})[c.dom]=(bySeg[s][c.dom]||0)+1; overall[c.dom]=(overall[c.dom]||0)+1; N++; });
+    cs.forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const s=_segOf(c.t); (bySeg[s]=bySeg[s]||{})[c.dom]=(bySeg[s][c.dom]||0)+1; overall[c.dom]=(overall[c.dom]||0)+1; N++; });
     if(N < 6) return null;
     let best=null;
     for(const s in bySeg){
@@ -617,6 +619,30 @@
     return { moved, total, rate: moved/total };
   }
 
+  // practiceInsights: the same read->practice->steadier loop as practiceEffect(), sliced finer
+  // so the reader can name a specific practice for a specific state and time of day instead of
+  // just an overall rate. Self-gated per slice (min sample size) so it never claims more than a
+  // handful of paired observations can support. Trend data, not a diagnosis or a promise.
+  const _INSIGHT_MIN_N = 4;
+  function practiceInsights(){
+    const ss = data.sessions.filter(s => s.practiceKey && s.domBefore && _RANK[s.domBefore] != null);
+    if(!ss.length) return [];
+    const cs = data.checkins;
+    const groups = {};
+    ss.forEach(s => {
+      const next = cs.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
+      if(!next) return;
+      const key = s.practiceKey + '|' + s.domBefore + '|' + _segOf(s.t);
+      const g = groups[key] || (groups[key] = { practiceKey:s.practiceKey, dom:s.domBefore, seg:_segOf(s.t), moved:0, total:0 });
+      g.total++;
+      if(_RANK[next.dom] > _RANK[s.domBefore]) g.moved++;
+    });
+    return Object.keys(groups).map(k => groups[k])
+      .filter(g => g.total >= _INSIGHT_MIN_N)
+      .map(g => Object.assign(g, { rate: g.moved / g.total }))
+      .sort((a,b) => b.total - a.total || b.rate - a.rate);
+  }
+
   // dayArc: any one calendar day's moments as an arc — the atom of the reflections
   // system. Returns that day's check-ins in order, within-day direction (by
   // safety/ventral), that day's sessions, and any practice deltas (a session
@@ -710,7 +736,8 @@
   }
 
   // ---- recommender (simulated AI) ----
-  function recommend(){
+  // superseded 2026-07-03 by the Safety Spectrum recommend() below; kept for reference.
+  function _legacyRecommend(){
     const last = lastCheckin();
     const L = learned();
     const tr = trend();
@@ -774,6 +801,118 @@
     }
   }
 
+  // ---- Safety Spectrum (Justin's model, 2026-07-03) ---------------------------
+  // Baseline = predictable safety activation over weeks (Point 1 minimal, 2 mild,
+  // 3 moderate, 4 strong), estimated from history. Moment = the current check-in,
+  // which slides the working point up or down. The working point sets the practice
+  // ceiling; the state only flavors the session.
+  // Matrix: App Designer/Reader-Rework/practice-decision-matrix.md.
+  function spectrum(){
+    const now = Date.now();
+    const st = periodStats(now - 28*864e5, now);
+    const L = learned();
+    const last = lastCheckin();
+    let baseline = 2, confidence = 'low';                 // thin data: benefit of the doubt, gentle default
+    if(st && st.n >= 8){
+      confidence = 'ok';
+      const pe = practiceEffect(), rec = recovery();
+      baseline = 1;
+      if(st.regShare >= 0.25) baseline = 2;
+      if(st.regShare >= 0.5 && L.sessionsDone >= 3 && (rec != null || (pe && pe.rate >= 0.5))) baseline = 3;
+      if(st.regShare >= 0.75 && L.sessionsDone >= 8) baseline = 4;
+    }
+    let working = baseline;
+    if(last){
+      if(_REG[last.dom] && last.v >= 0.6) working = Math.min(4, baseline + 1);        // strong safety Moment
+      else if(_DYS[last.dom] && last.v <= 0.25) working = Math.max(1, baseline - 1);   // deep defense Moment
+    }
+    return { baseline, working, moment: last ? { dom:last.dom, v:last.v } : null, confidence };
+  }
+
+  // ---- recommender (Safety Spectrum model, 2026-07-03) ------------------------
+  // The working Spectrum point sets the ceiling; appetite chooses within it, never
+  // above it. Pendulation gate: Point 3+, advanced-defense appetite, and a few
+  // completed self-regulation sessions.
+  function recommend(){
+    const last = lastCheckin();
+    const L = learned();
+    const tr = trend();
+    const sp = spectrum();
+    let want = (last && typeof last.challenge==='number') ? last.challenge
+               : (L.challengeAvg!=null ? L.challengeAvg : 0.55);
+    if(!last){
+      return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
+        'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
+    }
+    const _tn = tenure();
+    const early = (_tn.stage==='start' || _tn.stage==='early') && !(typeof last.challenge==='number' && last.challenge>=0.78);
+    if(early) want = Math.min(want, 0.55);
+    if(L.lastExit==='exit-hard') want = Math.min(want, 0.4);
+    else if(L.lastExit==='exit-easy') want = Math.min(0.95, want + 0.15);
+    const dom = last.dom;
+    const sense = prefSense() || L.favSense || 'touch';
+    const sil = L.endsEarlyOften ? 12 : 8;
+    const P = early ? Math.min(sp.working, 2) : sp.working;   // first days stay gentle
+    const wantPoint = want>=0.78 ? 4 : want>=0.53 ? 3 : want>=0.26 ? 2 : 1;
+    const level = Math.min(P, wantPoint);
+    const dys = _DYS[dom];
+    const falling = !!(tr && tr.dir==='falling');
+
+    // level 1 — the smallest doses, whatever the state.
+    if(level <= 1){
+      let reason = dom==='shutdown' ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
+                 : dom==='freeze' ? "a lot is frozen within. we'll keep this small: settle first, then look for a bit of safety."
+                 : dys ? "a lot of energy within. we'll slow down and let some of it settle before anything else."
+                 : "let's keep it simple and connect with the present moment.";
+      if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
+      return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
+    }
+    // level 2 — safety cueing: settle the charge first, or gently connect with safety.
+    if(level === 2){
+      if(dom==='fightflight'){
+        const r2 = falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
+                 : "a lot of energy within. we'll slow down and let some of it settle before anything else.";
+        return cfg('mindfulness', null, sense, sil, r2, 'settle the charge');
+      }
+      let reason = dom==='shutdown' ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
+                 : dom==='freeze' ? "a lot is frozen within. let's practice through settling, then look for safety."
+                 : dom==='play' ? "there's safety with some energy within. a good opportunity to practice noticing."
+                 : "you have real safety here. let's connect more deeply with calm.";
+      if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
+      return cfg('anchoring', null, sense, sil, reason, 'connect with safety');
+    }
+    // level 3+ — anchoring is real; defense in a dose when asked. pendulation gated.
+    const mostDone = data.sessions.filter(s=>s.completed && s.practiceKey==='most').length;
+    const wantsDefense = want >= 0.53;
+    if(!wantsDefense || falling){
+      const reason = falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
+                   : dys ? "your history shows real safety to draw on, even in a harder moment. we'll anchor into it and let that be enough today."
+                   : "you have real safety, and you asked to keep it gentle. let's connect more deeply with calm.";
+      return cfg('anchoring', null, sense, sil, reason, dys ? 'meet you where you are' : 'stay gentle');
+    }
+    const pend = want>=0.78 && mostDone>=3 && !dys;
+    const skill = pend ? 'pendulation' : (L.favSkill || 'imagery');
+    let reason = dys
+      ? "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose."
+      : "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
+    if(!dys && want>=0.78) reason = pend
+      ? "you have safety, practice reps behind you, and you asked for more. safety, a little defense, and back."
+      : "you have safety, and you asked for more challenge. let's use that capacity to connect with non-safety.";
+    else if(!dys && L.sessionsDone>=3 && L.favPractice==='most') reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
+    return cfg('most', skill, sense, want>=0.78?4:(L.endsEarlyOften?8:6), reason, 'room to go deeper');
+
+    function cfg(practiceKey, skill, sense, silence, reason, tag){
+      const pSil = prefSilence();
+      let sil2 = (pSil!=null?pSil:silence);
+      if(L.lastExit==='exit-distracted'){ sil2 = Math.min(sil2, 4); reason += " shorter silences this time, so it's easier to stay with."; }
+      else if(L.lastExit==='exit-hard'){ reason += " last one was a lot, so we're keeping this one easier."; }
+      else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
+      return { practiceKey, skill, sense, silence: sil2, reason, tag,
+               adapted: (L.sessionsDone>0 || L.challengeN>0), domBefore: last?last.dom:null, challenge: want,
+               spectrum: { baseline: sp.baseline, working: sp.working } };
+    }
+  }
+
   // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
   const CHALLENGE_LEVELS = [
     { v:0.12, key:'settle',  label:'simple mindfulness' },
@@ -816,7 +955,7 @@
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
-    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, recommend, practiceLabel, reset, getName, setName,
+    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, recommend, spectrum, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, CHALLENGE_LEVELS,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
   };

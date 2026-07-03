@@ -967,7 +967,18 @@
     }
     if(dom && paced.length>=2){ for(let i=paced.length-1;i>=0;i--){ if(paced[i].dom===dom) streak++; else break; } }
 
-    const issue = (dom && FromJustin.blog) ? FromJustin.blog({ dom:dom, share:share, dir:dir, variance:variance, count:base.length, streak:streak }) : null;
+    // essay-model signals (reader rework 2026-07-03): counts woven into sentences,
+    // freeze->shutdown drift, and the dominant non-safety state for the safety essay.
+    let f2s = 0; const _wkSorted = base.slice().sort((a,b)=>a.t-b.t);
+    for(let i=1;i<_wkSorted.length;i++){ if(_wkSorted[i-1].dom==='freeze' && _wkSorted[i].dom==='shutdown') f2s++; }
+    const _DYSD = { fightflight:1, shutdown:1, freeze:1 };
+    const _defCnt = {}; cs.forEach(c=>{ if(c && _DYSD[c.dom]) _defCnt[c.dom]=(_defCnt[c.dom]||0)+1; });
+    const defDom = Object.keys(_defCnt).sort((a,b)=>_defCnt[b]-_defCnt[a])[0] || null;
+    const issue = (dom && FromJustin.blog) ? FromJustin.blog({
+      dom:dom, dir:dir, count:base.length, streak:streak,
+      nState:base.filter(c=>c.dom===dom).length, nTotal:base.length,
+      f2s:f2s, defDom:defDom, name:((Store.getName&&Store.getName())||'')
+    }) : null;
 
     // per-section visuals: computed from the reader's own recent signals so each picture
     // illustrates the words of its section (mix bar, state glyph, trend line, personal fork).
@@ -983,7 +994,9 @@
 
     let bodyHTML;
     if(issue){
-      const bulletsHTML = issue.bullets.map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}</li>`).join('');
+      // dek (one-line subtitle) replaces the old "short version" bullets — the
+      // TL;DR list re-fragmented exactly what the essay model fixes.
+      const dekHTML = issue.dek ? `<p style="font-size:16px;line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0">${escapeHtml(issue.dek)}</p>` : '';
       // the closing section's landing line is the issue's most quotable sentence — set it
       // as a pull-quote (reader-beauty pass)
       const PQ = (t)=> t ? `<blockquote class="read-pq">${escapeHtml(t)}</blockquote>` : '';
@@ -995,10 +1008,7 @@
         </section>`).join('');
       bodyHTML = `
         ${lead}
-        <div style="margin-top:14px">
-          <p class="sec-h" style="margin:0 0 10px">the short version</p>
-          <ul style="margin:0;padding-left:18px">${bulletsHTML}</ul>
-        </div>
+        ${dekHTML}
         ${readerTOC(issue)}
         ${sectionsHTML}`;
     } else {
@@ -1096,8 +1106,10 @@
     // force the full-week framing (it IS a complete week) + suppress the from-now secondary
     // lines (transitions/time-of-day/recovery/payoff) with empty overrides so the snapshot
     // never borrows current data.
-    const issue = FromJustin.blog({ dom, share, dir, variance, count:n, mix,
-      trans:{}, tod:{}, recovery:{}, practiceEffect:{}, practiceInsights:[], stage:'week', tenure:{stage:'week',days:7,returning:false} });
+    // essay-model weekly snapshot: pass explicit window counts; null the live-borrowing
+    // signals (pi/baseline/defDom) so a frozen week never reads current data.
+    const issue = FromJustin.blog({ dom, dir, count:n, streak:0, nState:bestN, nTotal:n,
+      f2s:0, defDom:null, pi:null, baseline:null, stage:'week', tenure:{stage:'week',days:7,returning:false} });
     if(!issue) return null;
     const doms = Object.keys(freq).sort((a,b)=>freq[b]-freq[a]);     // doms[0] = the week's dominant state (lights the triGlyph)
     const traj = dir==='rising' ? 'leaned toward safe' : dir==='falling' ? 'kept showing up all week' : 'stayed with it all week';
@@ -1105,7 +1117,7 @@
       dateLabel: 'week of ' + new Date(ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}),
       n: n, dir: dir, traj: traj, doms: doms
     };
-    const summary = (issue.bullets && issue.bullets[0]) ? issue.bullets[0].text : (n + ' check-ins this week.');
+    const summary = issue.dek || ((issue.bullets && issue.bullets[0]) ? issue.bullets[0].text : (n + ' check-ins this week.'));
     return { issue, card, summary };
   }
   function mintWeeks(){
@@ -1229,9 +1241,12 @@
   function renderIssue(issue){
     const P=(t)=> t?`<p style="font-size:15px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px">${escapeHtml(t)}</p>`:'';
     const PQ=(t)=> t?`<blockquote class="read-pq">${escapeHtml(t)}</blockquote>`:'';
-    const bulletsHTML = (issue.bullets||[]).map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}</li>`).join('');
     const sectionsHTML = (issue.sections||[]).map(sec=>`<section style="margin-top:22px"><h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>${(sec.paras||[]).map((t,i)=>(sec.id==='blog-6'&&i===(sec.paras.length-1))?PQ(t):P(t)).join('')}</section>`).join('');
-    return `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${bulletsHTML}</ul></div>${readerTOC(issue)}${sectionsHTML}`;
+    // new essay issues carry a dek; frozen pre-rework mints still carry bullets
+    const headHTML = issue.dek
+      ? `<p style="font-size:16px;line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0">${escapeHtml(issue.dek)}</p>`
+      : `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${(issue.bullets||[]).map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}</li>`).join('')}</ul></div>`;
+    return `${headHTML}${readerTOC(issue)}${sectionsHTML}`;
   }
 
   function screenArchive(){
@@ -1889,7 +1904,7 @@
     shutdown:    { headline:'shutdown',       color:'#A3C0DD', about:"Shutdown is the oldest brake your body has, heavy, flat, far away. Your system powered down to protect you when things got to be too much. A lot of what gets called depression is the body in shutdown. It isn't weakness, and it isn't who you are.", whenDrops:"Very small, very low demand. One sip of water, a dimmer light, one thing you can see or hear right now. You don't force your way out of shutdown. You add a little safety, and the body lets some energy come back.", practice:{practiceKey:'mindfulness',sense:'touch',silence:8} },
     play:        { headline:'play/motivation', sub:'regulated mobilization', color:'#E8A871', about:"Play is safety and energy at the same time, the social, mobilized kind shared with people you trust. On your own, the same drive shows up as motivation. It's the same fuel as flight/fight, with safety mixed in, so it runs as creativity and drive instead of defense.", whenDrops:"If the safety thins and the energy stays, watch for the tip toward flight/fight. Keep a little safety in the mix, slow down enough to feel it, and aim the energy at one thing that matters.", practice:{practiceKey:'anchoring',sense:'touch',silence:8} },
     stillness:   { headline:'stillness/intimacy', sub:'regulated immobilization', color:'#9FC498', about:"Stillness is the body slowed and quiet, without fear. The same powering-down as shutdown, but with safety mixed in, so it restores instead of collapses. On your own it's stillness; shared with someone safe, it's intimacy. A deeply regulated state.", whenDrops:"If the quiet starts to feel flat or heavy or scared instead of restful, that's the cue to add a small bit of safety, not to force yourself up and out.", practice:{practiceKey:'anchoring',sense:'sound',silence:8} },
-    freeze:      { headline:'freeze',         color:'#B89AC4', about:"Freeze is a mixed state, flight/fight energy held down by shutdown. Gas and brake at once. It isn't a deeper shutdown, it's both pedals down, which is why it can feel panicked and paralyzed at the same time. A braced, protective state, not nothing.", whenDrops:"The smallest movement, plus a cue of safety. Let your eyes go where they want, then wiggle your toes or roll your wrists, slow. Don't force it, that adds gas to a slammed brake. Get smaller and safer.", practice:{practiceKey:'most',skill:'pendulation',sense:'touch',silence:8} },
+    freeze:      { headline:'freeze',         color:'#B89AC4', about:"Freeze is a mixed state, flight/fight energy held down by shutdown. Gas and brake at once. It isn't a deeper shutdown, it's both pedals down, which is why it can feel panicked and paralyzed at the same time. A braced, protective state, not nothing.", whenDrops:"The smallest movement, plus a cue of safety. Let your eyes go where they want, then wiggle your toes or roll your wrists, slow. Don't force it, that adds gas to a slammed brake. Get smaller and safer.", practice:{practiceKey:'anchoring',sense:'touch',silence:10} },   // spectrum fix 2026-07-03: freeze starts at safety, never pendulation
   };
 
   function screenStateDetail(key){
