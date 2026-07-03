@@ -1351,9 +1351,9 @@
     $('#content').innerHTML = `<div class="view checkin2">
 
         <div class="scr-head">
-          <p class="eyebrow">${editRec?'change your check-in':'checking in this '+seg}</p>
+          <p class="eyebrow">${editRec?`changing ${fmtDay(editRec.t)} · ${fmtTime(editRec.t)}`:'checking in this '+seg}</p>
           <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
-          ${editRec?`<p class="ci-when">${relTime(editRec.t)}</p>`:'<p class="ci-sub">no right answers. just notice.</p>'}
+          ${editRec?'':'<p class="ci-sub">no right answers. just notice.</p>'}
         </div>
 
         <div class="ci-block">
