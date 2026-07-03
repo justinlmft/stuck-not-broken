@@ -23,6 +23,7 @@
   --btn-hover:#2A3040;--rbtn:10px;--rcard:14px;
   --ease:cubic-bezier(.2,.6,.2,1);
   --gentle:cubic-bezier(.25,.46,.3,1);   /* softer, slower easing for menu transitions */
+  --type-scale:1;                        /* set from snb_textscale at boot (same-origin localStorage) */
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bone)}
@@ -91,7 +92,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 
 /* ───── primary choices: radio rows ───── */
 /* first-run orientation — only on the calm, unchosen view */
-.welcome{font-size:16px;line-height:1.5;color:var(--ink-80);margin:0 0 2px;max-width:23em;text-wrap:pretty}
+.welcome{font-size:calc(16px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:0 0 2px;max-width:23em;text-wrap:pretty}
 .chooser.picked .welcome{display:none}
 .block{margin:0}
 .block>.eyebrow{display:block;margin-bottom:11px}
@@ -115,7 +116,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .opt.track-amber.on{border-color:var(--amber)}
 .opt:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .opt-text{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
-.opt .t{display:block;flex:none;min-width:0;font-size:18px;line-height:1.3;font-weight:400;transition:font-weight var(--ease) .2s}
+.opt .t{display:block;flex:none;min-width:0;font-size:calc(18px * var(--type-scale));line-height:1.3;font-weight:400;transition:font-weight var(--ease) .2s}
 .opt .sub{font-size:13px;line-height:1.3;color:var(--muted);font-weight:400}
 .chooser.picked .sub{display:none}
 /* a clear way back once a practice is chosen */
@@ -132,7 +133,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .medrow:hover{border-color:var(--ink-80);color:var(--ink)}
 .medrow.on{border-color:var(--ink);color:var(--ink);font-weight:500}
 .medrow .mt{display:flex;flex-direction:column;gap:2px;min-width:0}
-.medrow .mttl{font-size:16px;line-height:1.3}
+.medrow .mttl{font-size:calc(16px * var(--type-scale));line-height:1.3}
 .medrow .mest{font-size:12px;color:var(--muted)}
 .medrow .ma{flex:none;width:8px;height:8px;border-right:1.5px solid var(--muted);border-top:1.5px solid var(--muted);transform:rotate(45deg)}
 /* tap affordance — right chevron to choose, rotates down on the chosen one (tap to change) */
@@ -179,7 +180,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 
 /* ───── summary + begin (pinned low) ───── */
 .foot{display:flex;flex-direction:column;gap:14px;flex:none;padding-top:clamp(16px,3vh,26px)}
-.summary{font-size:15px;color:var(--ink-80);margin:0;min-height:1.4em;text-wrap:pretty}
+.summary{font-size:calc(15px * var(--type-scale));color:var(--ink-80);margin:0;min-height:1.4em;text-wrap:pretty}
 .summary b{font-weight:500;color:var(--ink)}
 .begin-help{font-size:13px;color:var(--muted);margin:0;text-align:left;text-wrap:pretty}
 .btn{
@@ -214,7 +215,7 @@ body.playing .brand{display:none}
 .starting.show{opacity:1;animation:startpulse 1.9s ease-in-out infinite}
 @keyframes startpulse{0%,100%{opacity:.4}50%{opacity:.85}}
 @media (prefers-reduced-motion:reduce){.starting.show{animation:none;opacity:.7}}
-.caption{display:flex;align-items:center;justify-content:flex-start;height:5em;font-size:17px;line-height:1.65;color:var(--ink-80);max-width:none;width:100%;margin:0 0 18px;text-align:left;text-wrap:pretty;padding:0}
+.caption{display:flex;align-items:center;justify-content:flex-start;height:5em;font-size:calc(17px * var(--type-scale));line-height:1.65;color:var(--ink-80);max-width:none;width:100%;margin:0 0 18px;text-align:left;text-wrap:pretty;padding:0}
 #player:not(.caps-on) .caption{display:none}
 /* paused: the whole field dims to read as resting (not frozen); only the resume button stays full */
 #player .ringwrap,#player .caption,#player .starting,#player .controlbar,#player .endings{transition:opacity .45s var(--ease)}
@@ -380,7 +381,9 @@ body.embed .btn.primary{font-size:16px;padding:16px 30px;border-radius:12px}
 body.embed .welcome{font-size:15px}
 body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 </style>
-<script>/* sync embed detection — set class on <html> before first paint */(function(){var q=new URLSearchParams(location.search);if(q.get('embed')==='1')document.documentElement.classList.add('embed');if(q.get('autostart')==='1')document.documentElement.classList.add('autostart');})();</script>
+<script>/* sync embed detection — set class on <html> before first paint */(function(){var q=new URLSearchParams(location.search);if(q.get('embed')==='1')document.documentElement.classList.add('embed');if(q.get('autostart')==='1')document.documentElement.classList.add('autostart');
+/* text-size setting follows the user into the player (same-origin localStorage) */
+try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-scale',String(ts));}catch(e){}})();</script>
 </head>
 <body>
 <div class="page">

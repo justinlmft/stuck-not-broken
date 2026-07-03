@@ -695,12 +695,15 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .plan-rail{position:absolute;left:-14px;top:1px;bottom:1px;width:3px;border-radius:3px;background:var(--track-mind)}
 .plan-view.track-safety .plan-rail{background:var(--track-safety)}
 .plan-view.track-self   .plan-rail{background:var(--track-self)}
-.plan-title{font-size:calc(22px * var(--type-scale));font-weight:500;line-height:1.24;letter-spacing:-.01em;color:var(--ink);margin:0;text-wrap:pretty}
-.plan-sec{margin-bottom:20px}
+/* plan (custom practice) reads like the blog reader: read-h1-size title, sec-h section
+   headings, reader body register (Justin 2026-07-03) */
+.plan-title{font-size:calc(23px * var(--type-scale));font-weight:500;line-height:1.2;letter-spacing:-.01em;color:var(--ink);margin:0;text-wrap:pretty}
+.plan-sec{margin-bottom:22px}
+.plan-sec .sec-h{margin:0 0 8px}
 .plan-sec .dash-prompt{margin:0 0 10px}
 .plan-sec .dash-prompt::before{display:none}
-.plan-why{font-size:calc(15px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0}
-.plan-about{font-size:calc(15px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0}
+.plan-why{font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0}
+.plan-about{font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0}
 .plan-shaped{margin-top:10px}
 .plan-hl{color:var(--ink);font-weight:500}
 .plan-view.track-safety .plan-hl{color:var(--track-safety)}
@@ -835,7 +838,9 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
    secondary/subheadline = 15px, footnote = 13-14px. Everything here also follows
    the text-size setting, whose top step is now 1.25. */
 .scr-lede,.lede{font-size:calc(16px * var(--type-scale))}
-.plan-why,.plan-about,.sd-body{font-size:calc(17px * var(--type-scale))}
+.sd-body{font-size:calc(17px * var(--type-scale))}
+/* plan-why/plan-about removed from this 17px group: the plan screen now uses the
+   reader's 15px body register (see .plan-why/.plan-about below) */
 .wc-reason,.wc-fj-text{font-size:calc(14px * var(--type-scale))}
 .ci-readout,.map-sub,.map-foot,.panel-sub,.panel-empty,
 .deep-val,.deep-lbl,.ch-cap,.trend-cap,.settle-note,.set-quiet{font-size:calc(15px * var(--type-scale))}
@@ -1133,8 +1138,18 @@ body.reduce-motion .tg-m{transition:none}
 .read-h2{font-size:calc(17px * var(--type-scale));font-weight:600;line-height:1.3;color:var(--ink);margin:0 0 9px}
 .read-date{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:0 0 10px}
 .read-time{font-size:calc(12px * var(--type-scale));color:var(--muted);margin:-8px 0 16px}
-/* reader-beauty pass: pull-quote + minted seal (watermark cut per Justin) */
-.read-pq{margin:18px 0 14px;padding:3px 0 3px 16px;border-left:3px solid #C9A24B;font-size:calc(18px * var(--type-scale));line-height:1.55;font-weight:500;color:var(--ink);text-wrap:pretty;font-style:normal}
+/* reader-beauty pass: pull-quote (gold rail cut per Justin 2026-07-03) + minted seal (watermark cut) */
+.read-pq{margin:18px 0 14px;padding:3px 0;border-left:none;font-size:calc(18px * var(--type-scale));line-height:1.55;font-weight:500;color:var(--ink);text-wrap:pretty;font-style:normal}
+/* reader body copy — classes so the text-size setting reaches it (was inline px in app.js) */
+.read-p{font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
+.read-lead{font-size:calc(16px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
+.read-dek{font-size:calc(16px * var(--type-scale));line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0}
+/* reader TOC: ink text with a quiet ">" marker, inset like a list (blue links cut per Justin) */
+.read-toc{margin:0;padding-left:14px;list-style:none}
+.read-toc li{margin:0 0 8px;line-height:1.5;font-size:calc(15px * var(--type-scale))}
+.read-toc li::before{content:">";color:var(--muted);margin-right:9px}
+.read-toc a{color:var(--ink);text-decoration:none}
+.arch-link{color:var(--ink);text-decoration-color:var(--muted)}
 .mint-seal{display:inline-block;border:1.5px solid var(--hairline);border-radius:6px;padding:2px 8px;margin-right:9px;font-size:10.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transform:rotate(-2.5deg);animation:sealIn .5s .15s var(--ease) both}
 @keyframes sealIn{from{opacity:0;transform:rotate(-2.5deg) scale(1.3)}to{opacity:1;transform:rotate(-2.5deg) scale(1)}}
 @media (prefers-reduced-motion:reduce){.mint-seal{animation:none}}

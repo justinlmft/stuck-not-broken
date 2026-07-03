@@ -763,17 +763,35 @@
     const pct = Math.round(pi.rate*20)*5;
     return 'Lately, in the ' + (SEG_PHRASE[pi.seg]||pi.seg) + ', ' + label + ' has tended to help you connect more with safety afterward, about ' + pct + '% of the time. ' + ESSAY_ENCOURAGE[ctx.dom];
   }
-  // Moments & Baseline (Justin's Safety Spectrum): the zoom-out near the close.
-  // DRAFT copy pending Justin's word pass — see Reader-Rework/baseline-moment-para.md.
+  // Moments & Baseline (Justin's spec, 2026-07-03): Baselines form over a month or
+  // more. Under ~4 weeks of history: name the week, promise the Baseline. Month+:
+  // compare each week against the formed Baseline, adjusted weekly. The monthly
+  // reflection carries the Baseline update (see MONTHLY.baseline).
   function _essayBaseline(ctx){
-    const b = ctx.baseline;
-    if(!b || !b.dir || b.dir==='new') return '';
-    // Moments are literal moments (a single check-in, a brief experience); a week is
-    // neither a Moment nor a baseline. Baselines form over a month or more.
-    const lead = 'Zoom out for a second. A week of ' + _feltName(ctx.dom) + ' is not your baseline. Baselines form over a month or more, and yours ';
-    if(b.dir==='up')   return lead + 'has been climbing.';
-    if(b.dir==='down') return lead + 'has dipped lately. Gentle is the right speed for now.';
-    return lead + 'has been holding steady.';
+    if(!(global.Store && Store.periodStats && Store.tenure)) return '';
+    const now = Date.now();
+    const wk = (ctx.weekStats !== undefined) ? ctx.weekStats : Store.periodStats(now - 7*864e5, now);
+    if(!wk || wk.n < 3) return '';
+    const wkPct = Math.round(wk.regShare*100);
+    const days = (ctx.histDays != null) ? ctx.histDays : ((Store.tenure()||{}).days || 0);
+    const felt = _feltName(ctx.dom);
+    // pre-Baseline: too early to call it
+    if(days < 28){
+      const weekLine = ctx.dom === 'safety'
+        ? 'You\'re reporting a week of mostly safety, ' + wkPct + '% of your check-ins.'
+        : 'You\'re reporting a week of mostly ' + felt + ', with safety showing up in ' + wkPct + '% of your check-ins.';
+      return 'Zoom out for a second. ' + weekLine + ' It\'s too early to call this a Baseline, we\'ll keep an eye on it via your check-ins for another few weeks. By then, we should see some solid patterns and a clearer Baseline forming.';
+    }
+    // Baseline formed (month+): this week vs the Baseline
+    const base = Store.periodStats(now - 28*864e5, now);
+    if(!base || base.n < 8) return '';
+    const basePct = Math.round(base.regShare*100);
+    const d = wkPct - basePct;
+    const rel = d >= 5 ? 'a step above it' : d <= -5 ? 'a bit below it' : 'right at it';
+    const close = d >= 5 ? 'That\'s how Baselines move: one week at a time.'
+                : d <= -5 ? 'A week below Baseline is a moment in the bigger picture, not a slide. Gentle is fine for now.'
+                : 'Holding steady at your Baseline is solid ground.';
+    return 'Zoom out for a second. Your Baseline over the past month is ' + basePct + '% safety. This week came in at ' + wkPct + '%, ' + rel + '. ' + close;
   }
   const ESSAYS = {
     freeze: function(ctx){
@@ -980,12 +998,9 @@
       const pis = (Store.practiceInsights()||[]).filter(x=>x&&x.dom===dom);
       ctx.pi = pis.length ? pis.sort((a,b)=>b.total-a.total||b.rate-a.rate)[0] : null;
     }
-    if(ctx.baseline===undefined && global.Store && Store.baselineDelta){
-      const _n = Date.now(); ctx.baseline = Store.baselineDelta(_n-28*864e5, _n);
-    }
     // thin data: no trend/streak/baseline claims (honesty gate, same as before)
     const thin = (stage==='start' || stage==='early' || tn.returning);
-    if(thin){ ctx.dir=null; ctx.streak=0; ctx.f2s=0; ctx.baseline=null; }
+    if(thin){ ctx.dir=null; ctx.streak=0; ctx.f2s=0; ctx.weekStats=null; }
     const dek = ESSAY_DEK[dom];
     return { stateName: ctx.stateName, dom:dom, stage:stage, dek:dek,
              bullets:[{ text:dek }],                    // back-compat: weekly mint summary + old renderers
@@ -1007,9 +1022,9 @@
     opener: ["A month of moments now.","A whole month of check-ins behind you.","You've shown up for around thirtyish days, and we have enough data to see the patterns of your nervous system."],
     where: ["Most of your check-ins reflect {DOM} about {PCT}%.","About {PCT}% of this month's check-ins leaned mostly toward {DOM}."],
     baseline: {
-      up: ["Your safety state level is higher now than at the start of the month, up about {PCT}%. This is a meaningful shift worth celebrating and leaning a bit more into.","Across the month, safety showed up more than it had been. That climb is yours."],
-      down: ["You're reporting safety a little less often than earlier in the month. (It tends to come and go.) Go easy, keep doing the basics, and sneak in a safety practice or two.","A quieter month for safety than the one before. Not a setback, just a season. Small steady reps are how it returns."],
-      flat: ["Your safety state stayed pretty steady across the month. This is solid grounding to work from."]
+      up: ["Baseline update: your safety Baseline sits about {PCT}% higher than last month. This is the kind of shift only a month can show, and it's yours.","Baseline update: across the month, your Baseline climbed about {PCT}%. Worth celebrating and leaning a bit more into."],
+      down: ["Baseline update: your safety Baseline is running about {PCT}% lower than last month. Baselines dip with life context, and they come back the same way they formed: small, steady reps. Go easy.","Baseline update: a quieter month, with your Baseline down about {PCT}%. Not a setback, just a season. Keep the basics going."],
+      flat: ["Baseline update: your safety Baseline held steady across the month. Stable is something you can build on."]
     },
     rhythm_dow: ["Looks like your {DAY} tend to carry a bit more safety state than other days. Worth noticing what's different about them, so you can do more of it.","Your {DAY} come in a little steadier than the rest, more often than not. A small clue about what's working for you."],
     recovery: ["There's also a pattern in how your system rebounds after a dip into defense. It tends to return to safety within {N}. It knows the way back. Now you pay attention and follow its lead.","After an energized stretch, you usually find your way to more safety within {N}. That shows capacity building."],

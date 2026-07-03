@@ -517,7 +517,7 @@
       ['be gentle',"everyone is different. there's no failing here, and no streak to keep. use the app as you want and when you want. practice at your cadence."],
       ['changes',"justin may (and will) update the app and these terms over time. updates keep the app working, and you'll hear about changes in the app or by email."]
     ];
-    const PP=(t)=>`<p style="font-size:15px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${t}</p>`;
+    const PP=(t)=>`<p style="font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${t}</p>`;
     setHTML(`
       <header class="appbar"><button class="backbtn" id="policy-back">back</button></header>
       <div class="scroll">
@@ -915,20 +915,19 @@
   function renderHeading(dom, h){
     if(!h) return '';
     if(typeof h === 'string') return escapeHtml(h);
-    const pre = escapeHtml(h.pre||''), post = escapeHtml(h.post||'');
-    const state = h.state ? `<span style="color:${STATE_COLOR(dom)}">${escapeHtml(h.state)}</span>` : '';
-    return pre + state + post;
+    // state-color in headings cut per Justin (2026-07-03): plain ink throughout
+    return escapeHtml((h.pre||'') + (h.state||'') + (h.post||''));
   }
   // a real table of contents from the essay's own sections, replacing the old inline
   // "-> [label] ↓" jump arrows on the TL;DR bullets.
   function readerTOC(issue){
     if(!issue || !issue.sections || issue.sections.length < 2) return '';
     const rows = issue.sections.map(sec =>
-      `<li style="margin:0 0 8px;line-height:1.5"><a href="#${sec.id}" style="color:var(--link);text-decoration:none">${renderHeading(issue.dom, sec.heading)}</a></li>`
+      `<li><a href="#${sec.id}">${renderHeading(issue.dom, sec.heading)}</a></li>`
     ).join('');
     return `<nav aria-label="contents" style="margin-top:14px">
       <p class="sec-h" style="margin:0 0 8px">in this reflection</p>
-      <ul style="margin:0;padding-left:0;list-style:none">${rows}</ul>
+      <ul class="read-toc">${rows}</ul>
     </nav>`;
   }
 
@@ -944,7 +943,7 @@
     const todayBlock = (td && td.n>=1) ? `
       <section style="margin:0 0 4px">
         <h2 class="read-h2">Today, so far</h2>
-        ${dailyNote ? `<p style="font-size:16px;line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px">${escapeHtml(dailyNote.text)}</p>` : ''}
+        ${dailyNote ? `<p class="read-lead">${escapeHtml(dailyNote.text)}</p>` : ''}
         ${momentTimeline(td.moments, td.sessions)}
       </section>
       <hr style="border:none;border-top:0.5px solid var(--hairline);margin:18px 0 20px">` : '';
@@ -987,16 +986,16 @@
     for(let i=13;i>=0;i--){ const d=new Date(_now - i*864e5); d.setHours(0,0,0,0); const a=Store.dayArc?Store.dayArc(d.getTime()):null; if(a && a.n) dayV.push({ x:(13-i), v:a.moments.reduce((s,m)=>s+m.v,0)/a.n }); }
     const _ps = Store.periodStats ? Store.periodStats(_now-7*864e5, _now) : null;
     const vizCtx = { dom:dom, dayV:dayV, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null };
-    const P = (t)=> t ? `<p style="font-size:15px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px">${escapeHtml(t)}</p>` : '';
+    const P = (t)=> t ? `<p class="read-p">${escapeHtml(t)}</p>` : '';
     // the daily note now lives in the today block above; only fall back to a lead
     // paragraph when there are no moments today (todayBlock empty).
-    const lead = (!todayBlock && dailyNote) ? `<p style="font-size:16px;line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 4px">${escapeHtml(dailyNote.text)}</p>` : '';
+    const lead = (!todayBlock && dailyNote) ? `<p class="read-lead" style="margin:0 0 4px">${escapeHtml(dailyNote.text)}</p>` : '';
 
     let bodyHTML;
     if(issue){
       // dek (one-line subtitle) replaces the old "short version" bullets — the
       // TL;DR list re-fragmented exactly what the essay model fixes.
-      const dekHTML = issue.dek ? `<p style="font-size:16px;line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0">${escapeHtml(issue.dek)}</p>` : '';
+      const dekHTML = issue.dek ? `<p class="read-dek">${escapeHtml(issue.dek)}</p>` : '';
       // the closing section's landing line is the issue's most quotable sentence — set it
       // as a pull-quote (reader-beauty pass)
       const PQ = (t)=> t ? `<blockquote class="read-pq">${escapeHtml(t)}</blockquote>` : '';
@@ -1239,13 +1238,13 @@
   }
   // render a frozen weekly issue (short version + sections) like the live for-you reader
   function renderIssue(issue){
-    const P=(t)=> t?`<p style="font-size:15px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px">${escapeHtml(t)}</p>`:'';
+    const P=(t)=> t?`<p class="read-p">${escapeHtml(t)}</p>`:'';
     const PQ=(t)=> t?`<blockquote class="read-pq">${escapeHtml(t)}</blockquote>`:'';
     const sectionsHTML = (issue.sections||[]).map(sec=>`<section style="margin-top:22px"><h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>${(sec.paras||[]).map((t,i)=>(sec.id==='blog-6'&&i===(sec.paras.length-1))?PQ(t):P(t)).join('')}</section>`).join('');
     // new essay issues carry a dek; frozen pre-rework mints still carry bullets
     const headHTML = issue.dek
-      ? `<p style="font-size:16px;line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0">${escapeHtml(issue.dek)}</p>`
-      : `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${(issue.bullets||[]).map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80)">${escapeHtml(b.text)}</li>`).join('')}</ul></div>`;
+      ? `<p class="read-dek">${escapeHtml(issue.dek)}</p>`
+      : `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${(issue.bullets||[]).map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80);font-size:calc(15px * var(--type-scale))">${escapeHtml(b.text)}</li>`).join('')}</ul></div>`;
     return `${headHTML}${readerTOC(issue)}${sectionsHTML}`;
   }
 
@@ -1260,7 +1259,7 @@
           const snip = String(m.text||'').split('. ')[0];
           return `<button class="arch-row" data-id="${escapeHtml(m.id)}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span><span class="arch-snip">${escapeHtml(snip)}.</span></span><span class="wc-go">${CHEV}</span></button>`;
         }).join('')
-      : `<p style="font-size:15px;line-height:1.6;color:var(--muted);margin:8px 0 0">your reflections will collect here as each day and week closes.</p>`;
+      : `<p style="font-size:calc(15px * var(--type-scale));line-height:1.6;color:var(--muted);margin:8px 0 0">your reflections will collect here as each day and week closes.</p>`;
     setHTML(`
       <header class="appbar"><button class="backbtn" id="arch-back">back</button></header>
       <div class="scroll">
@@ -1297,7 +1296,7 @@
         <div class="scroll">
           <div class="view read" style="gap:0">
             <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(label)}</p>
-            <p style="font-size:16px;line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${escapeHtml(m.text)}</p>
+            <p style="font-size:calc(16px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${escapeHtml(m.text)}</p>
           </div>
         </div>`);
       $('#me-back').onclick = screenArchive;
@@ -1310,7 +1309,7 @@
       <div class="scroll">
         <div class="view read" style="gap:0">
           <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(fmtMintDate(m.dateMs))}</p>
-          <p style="font-size:16px;line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 16px">${escapeHtml(m.text)}</p>
+          <p style="font-size:calc(16px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 16px">${escapeHtml(m.text)}</p>
           ${tl}
         </div>
       </div>`);
@@ -1923,7 +1922,7 @@
           <span class="sd-marks">${triGlyph(key)}</span>
           <h2 class="scr-h">${escapeHtml(d.headline)}</h2>
         </div>
-        ${d.sub ? `<p class="sd-sub" style="font-size:13px;opacity:.55;margin:-2px 0 14px;letter-spacing:.02em">${escapeHtml(d.sub)}</p>` : ''}
+        ${d.sub ? `<p class="sd-sub" style="font-size:calc(13px * var(--type-scale));opacity:.55;margin:-2px 0 14px;letter-spacing:.02em">${escapeHtml(d.sub)}</p>` : ''}
         <p class="sd-body">${escapeHtml(d.about)}</p>
         ${d.whenDrops ? `<div class="sd-when">
           <p class="sd-when-label">when safety drops</p>
@@ -2116,11 +2115,11 @@
         </div>
       </div>
       <div class="plan-sec">
-        <p class="dash-prompt">Why this practice was chosen for you</p>
+        <p class="sec-h">Why this practice was chosen for you</p>
         <p class="plan-why">${escapeHtml(properCase(reco.reason))}</p>
       </div>
       <div class="plan-sec">
-        <p class="dash-prompt">What to expect in your custom practice</p>
+        <p class="sec-h">What to expect in your custom practice</p>
         <p class="plan-about">${escapeHtml(properCase(aboutOf(reco.practiceKey, reco.sense)))}</p>
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
       </div>
