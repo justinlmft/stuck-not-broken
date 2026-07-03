@@ -2174,9 +2174,12 @@
         <span class="wc-go">${CHEV}</span>
       </button>`;
 
+    // heading-friendly short names: "adjust your safety practice", never
+    // "adjust your connect with safety practice" / "your a tiny practice practice"
+    const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
     const heading = !key ? 'your practice, or choose another.'
       : (key==='more' ? 'choose a session.'
-      : `adjust your <span class="p-adjust-name">${escapeHtml(Store.practiceLabel(key))}</span> practice.`);
+      : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
 
     c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
       <div class="scr-head">

@@ -547,7 +547,7 @@ body.in-practice .tabbar{display:none}
    (hairline border, bone surface). its one distinction: a hand-drawn pencil
    underline beneath the title, in the track's ink — someone wrote this for you */
 .tuned-card{position:relative;overflow:visible;margin-bottom:18px;--tc:var(--track-mind);--tc-ink:var(--track-mind-ink);
-  background:var(--bone);border:1px solid var(--hairline);padding:19px 18px}
+  background:var(--bone);border:2px solid var(--tc);padding:18px 17px}
 @media(hover:hover){.tuned-card:hover{border-color:var(--ink-80)}}
 .tuned-card.track-safety{--tc:var(--track-safety);--tc-ink:var(--track-safety-ink)}
 .tuned-card.track-self{--tc:var(--track-self);--tc-ink:var(--track-self-ink)}
@@ -574,11 +574,11 @@ body.in-practice .tabbar{display:none}
 }
 /* option cards: today-row scale + collapse animation */
 .p-opts{display:flex;flex-direction:column;gap:0;margin-bottom:8px}
-.p-opt-ico{flex:none;width:22px;display:flex;align-items:center;justify-content:center;color:var(--ink-80);align-self:flex-start;margin-top:1px}
-.p-opt-ico svg{width:20px;height:20px;display:block}
+.p-opt-ico{flex:none;width:30px;display:flex;align-items:center;justify-content:center;color:var(--ink-80);align-self:flex-start;margin:1px 4px 0 0}
+.p-opt-ico svg{width:26px;height:26px;display:block}
 /* the bolt + x pair (self-regulation): two smaller marks side by side */
 .p-ico-pair{display:inline-flex;align-items:center;gap:1px}
-.p-opt-ico .p-ico-pair svg{width:13px;height:13px}
+.p-opt-ico .p-ico-pair svg{width:16px;height:16px}
 .p-opt{max-height:130px;overflow:hidden;margin-bottom:12px;padding:17px 18px;
   transition:max-height .35s var(--ease),margin .3s var(--ease),opacity .28s var(--ease),padding .28s var(--ease),border-color .2s var(--ease)}
 .p-opt .wc-title{font-size:calc(17px * var(--type-scale))}
