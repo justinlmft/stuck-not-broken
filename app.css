@@ -580,7 +580,7 @@ body.in-practice .tabbar{display:none}
 .p-ico-pair{display:inline-flex;align-items:center;gap:1px}
 /* on the practice cards the two-mark pair stacks vertically, matching the single icons' footprint */
 .p-opt-ico .p-ico-pair{flex-direction:column;gap:1px}
-.p-opt-ico .p-ico-pair svg{width:15px;height:15px}
+.p-opt-ico .p-ico-pair svg{width:26px;height:26px}
 .p-opt{max-height:130px;overflow:hidden;margin-bottom:12px;padding:17px 18px;
   transition:max-height .35s var(--ease),margin .3s var(--ease),opacity .28s var(--ease),padding .28s var(--ease),border-color .2s var(--ease)}
 .p-opt .wc-title{font-size:calc(17px * var(--type-scale))}
