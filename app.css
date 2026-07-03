@@ -86,8 +86,13 @@ p{margin:0;text-wrap:pretty}
    holds still while the screen rubber-bands) and its content fades as you scroll
    into the page — JS sets --hfade from scrollTop (scroll-driven animations aren't
    on all cohort iOS versions yet). */
-.scroll .scr-head{position:sticky;top:0;z-index:6}
-.scroll .scr-head>*{opacity:var(--hfade,1)}
+.scroll .scr-head{position:sticky;top:0;z-index:6;background:var(--bone);opacity:var(--hfade,1)}
+/* the sticky strip spans the full screen width (cancels the .view side padding) so
+   content slides cleanly under it instead of peeking through the gutters */
+.scroll .scr-head{margin-left:-22px;margin-right:-22px;padding:0 22px 6px}
+/* reader header keeps its own rhythm inside the shared sticky block */
+.read .scr-head{margin-bottom:0}
+.read .scr-head .read-time{margin-bottom:10px}
 .scr-h{font-size:calc(22px * var(--type-scale));font-weight:500;line-height:1.24;letter-spacing:-.01em;color:var(--ink);margin:0;text-wrap:pretty}
 .scr-lede{font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:11px 0 0;text-wrap:pretty}
 

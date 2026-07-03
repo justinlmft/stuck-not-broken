@@ -961,8 +961,10 @@
       <header class="appbar"><button class="backbtn" id="deep-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <h1 class="read-h1">Your Reflections</h1>
-          <p class="read-time">${_rtMins} min read · from your real check-ins</p>
+          <div class="scr-head read-head">
+            <h1 class="read-h1">Your Reflections</h1>
+            <p class="read-time">${_rtMins} min read · from your real check-ins</p>
+          </div>
           ${todayBlock}
           ${bodyHTML}
           ${archiveLink}
