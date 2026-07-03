@@ -1364,6 +1364,16 @@
           </div>
           <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
           <p class="ci-readout" id="ci-readout"></p>
+          ${editRec?`<div class="ci-ovr">
+            <button class="set-quiet ci-ovr-link" id="ci-ovr-link" type="button">know your states? set it yourself</button>
+            <div class="ci-ovr-panel" id="ci-ovr-panel" hidden>
+              <p class="ci-ovr-note">your answers stay as they are — this only changes which state this check-in counts as.</p>
+              <div class="ci-ovr-chips">
+                ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
+              </div>
+              <button class="set-quiet ci-ovr-clear" id="ci-ovr-clear" type="button">match my answers</button>
+            </div>
+          </div>`:''}
         </div>
 
         <div class="ci-block ci-challenge">
@@ -1401,6 +1411,22 @@
         const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
       });
     };
+    // expert override (edit only): a deliberate, tucked-away way to overrule the
+    // inferred state. Answers stay untouched; only the stored state key changes.
+    let ovr = null;
+    const ovrLink = $('#ci-ovr-link');
+    if(ovrLink){
+      const panel = $('#ci-ovr-panel');
+      const paint = ()=>root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.classList.toggle('on', b.dataset.ovr===ovr));
+      ovrLink.onclick = ()=>{
+        panel.hidden = !panel.hidden;
+        if(!panel.hidden){ if(!ovr && editRec.dom){ ovr = editRec.dom; } }        // open: start from what it counts as now
+        else { ovr = null; }                                                      // close via the link = never mind
+        paint();
+      };
+      root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{ ovr = b.dataset.ovr; paint(); });
+      $('#ci-ovr-clear').onclick = ()=>{ ovr = null; paint(); panel.hidden = true; };
+    }
 
     const cap = $('#ch-cap');
     function setCap(key){ if(cap) cap.textContent = CH_CAP[key] || ''; }
@@ -1413,6 +1439,7 @@
 
     $('#save').onclick = ()=>{
       const vals = { v:v/100, sym:s/100, dor:d/100, challenge:ch, source:(window._ciSource||null) };
+      if(typeof ovr==='string' && ovr) vals.dom = ovr;   // expert override rides along (edit only)
       window._ciSource = null;
       if(editRec){ Store.updateCheckin(editRec.t, vals); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
@@ -2122,6 +2149,7 @@
       <div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">${heading}</h2>
+        ${key&&key!=='more'?`<svg class="p-adjust-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`:''}
       </div>
       <div class="p-bottom">
         ${!key
@@ -2148,7 +2176,7 @@
     c.querySelectorAll('[data-skill]').forEach(b=>b.onclick=()=>{
       pState.skill=b.dataset.skill;
       c.querySelectorAll('[data-skill]').forEach(r=>r.classList.toggle('on',r.dataset.skill===pState.skill));
-      const sc=$('#skill-cap'); if(sc) sc.textContent=SKILL_CAP[pState.skill]||'';
+      const sc=$('#skill-cap'); if(sc){ sc.classList.remove('cap-in'); void sc.offsetWidth; sc.textContent=SKILL_CAP[pState.skill]||''; sc.classList.add('cap-in'); }
     });
     c.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
       pState.silence=+b.dataset.sil;
@@ -2359,7 +2387,7 @@
         <div class="set-group">
           <p class="dash-prompt">text size</p>
           <div class="set-seg" id="seg-text">
-            ${segBtn('ts','0.92','smaller',ts==='0.92')}${segBtn('ts','1','default',ts==='1')}${segBtn('ts','1.12','larger',ts==='1.12')}
+            ${segBtn('ts','0.92','smaller',ts==='0.92')}${segBtn('ts','1','default',ts==='1')}${segBtn('ts','1.12','larger',ts==='1.12')}${segBtn('ts','1.25','largest',ts==='1.25')}
           </div>
         </div>
         <div class="set-group">

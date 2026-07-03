@@ -352,7 +352,9 @@
 
   // ---- check-ins ----
   function addCheckin(c){
-    const dom = PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // expert override: an explicit, valid state key wins over the inferred one
+    // (set from the edit-check-in screen; raw v/sym/dor stay untouched)
+    const dom = (c.dom && PVCurrent.STATES[c.dom]) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
     // time and fed to the recommender. NOTE: not yet a cloud column — it lives in the
     // on-device record/cache; add a `challenge` column + map it in checkinToRow to sync it.
@@ -369,7 +371,8 @@
     const i = data.checkins.findIndex(x=>x.t===t);
     if(i<0) return null;
     const old = data.checkins[i];
-    const dom = PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // expert override: an explicit, valid state key wins over the inferred one
+    const dom = (c.dom && PVCurrent.STATES[c.dom]) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     const rec = Object.assign({}, old, { v:c.v, sym:c.sym, dor:c.dor, fr:(c.freeze!=null?c.freeze:old.fr)||0, dom:dom.key,
                 challenge:(typeof c.challenge==='number'?c.challenge:old.challenge) });
     data.checkins[i] = rec;

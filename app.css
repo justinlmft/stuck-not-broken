@@ -346,7 +346,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .cb-dot{width:15px;height:15px;border-radius:50%;flex:none}
 .cb-path{flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,#E89B9B,#F4D58D);transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
 .cb-end{animation:cbPop .4s 1.6s var(--ease) both}
-.cb-line{font-size:calc(14.5px * var(--type-scale));line-height:1.6;color:var(--ink-80);text-wrap:pretty;margin:0}
+.cb-line{font-size:calc(15.5px * var(--type-scale));line-height:1.6;color:var(--ink-80);text-wrap:pretty;margin:0}
 .cb-line b{font-weight:600;color:var(--ink)}
 @keyframes cbDraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes cbPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
@@ -565,8 +565,8 @@ body.in-practice .tabbar{display:none}
 .p-opt-ico .p-ico-pair svg{width:13px;height:13px}
 .p-opt{max-height:130px;overflow:hidden;margin-bottom:12px;padding:17px 18px;
   transition:max-height .35s var(--ease),margin .3s var(--ease),opacity .28s var(--ease),padding .28s var(--ease),border-color .2s var(--ease)}
-.p-opt .wc-title{font-size:16px}
-.p-opt .wc-reason{font-size:13px;margin-top:5px}
+.p-opt .wc-title{font-size:calc(17px * var(--type-scale))}
+.p-opt .wc-reason{font-size:calc(14px * var(--type-scale));margin-top:5px}
 .p-opts.has-sel .p-opt:not(.p-sel){
   opacity:0;max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-color:transparent;pointer-events:none}
 /* on selection, color is earned sparingly: ONLY the chosen option's title carries the
@@ -586,6 +586,34 @@ body.in-practice .tabbar{display:none}
 @keyframes refineIn{from{transform:translateY(7px)}to{transform:none}}
 .p-refine{display:flex;flex-direction:column;gap:18px;margin-top:18px;animation:refineIn .28s .1s var(--ease) both}
 .p-rgroup{display:flex;flex-direction:column;gap:0}
+/* the builder reads like the reflections pages: reader-weight section headings,
+   reader body rhythm, and the same breathe-in entrance the reader sections use.
+   the drawn underline under the heading is the "made for you" line, in track color. */
+.p-view.track-mind{--tc:var(--track-mind);--tc-ink:var(--track-mind-ink)}
+.p-view.track-safety{--tc:var(--track-safety);--tc-ink:var(--track-safety-ink)}
+.p-view.track-self{--tc:var(--track-self);--tc-ink:var(--track-self-ink)}
+.p-adjust-line{display:block;width:86px;height:6px;margin:10px 0 0;color:var(--tc-ink,var(--ink-80))}
+.p-adjust-line path{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;animation:tcLine .55s .35s var(--ease) forwards}
+.p-refine .dash-prompt{font-size:calc(16px * var(--type-scale));font-weight:600;color:var(--ink)}
+.p-refine .dash-prompt::before{display:none}
+.p-refine .p-rgroup,.p-refine .p-surprise{opacity:0;transform:translateY(9px);animation:secRise .6s var(--ease) both}
+.p-refine .p-rgroup:nth-child(1){animation-delay:.08s}
+.p-refine .p-rgroup:nth-child(2){animation-delay:.2s}
+.p-refine .p-rgroup:nth-child(3){animation-delay:.32s}
+.p-refine .p-surprise{animation-delay:.44s}
+@keyframes secRise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+/* the skill gloss reads like the reader's pull-quote, in the track color */
+.p-refine .ch-cap{border-left:3px solid var(--tc-ink,#C9A24B);padding:2px 0 2px 14px;font-size:calc(15px * var(--type-scale));line-height:1.55;margin-top:14px}
+.ch-cap.cap-in{animation:capFade .35s var(--ease) both}
+@keyframes capFade{from{opacity:0}to{opacity:1}}
+body.reduce-motion .p-refine .p-rgroup,body.reduce-motion .p-refine .p-surprise{animation:none;opacity:1;transform:none}
+body.reduce-motion .p-adjust-line path{animation:none;stroke-dasharray:none;stroke-dashoffset:0}
+body.reduce-motion .ch-cap.cap-in{animation:none}
+@media (prefers-reduced-motion:reduce){
+  .p-refine .p-rgroup,.p-refine .p-surprise{animation:none;opacity:1;transform:none}
+  .p-adjust-line path{animation:none;stroke-dasharray:none;stroke-dashoffset:0}
+  .ch-cap.cap-in{animation:none}
+}
 /* practice builder section labels now use the shared .dash-prompt style */
 .p-chips{display:flex;flex-wrap:wrap;gap:8px}
 /* true 44pt-tall chips (was 34px visual + invisible extension) */
@@ -606,7 +634,7 @@ body.in-practice .tabbar{display:none}
 .p-med-meta{font-size:12.5px;color:var(--muted)}
 .p-med-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 /* surprise me — thin pill button */
-.p-surprise{font:inherit;font-size:13px;color:var(--ink-80);background:none;border:1px solid var(--hairline);border-radius:999px;cursor:pointer;padding:12px 20px;text-align:center;align-self:flex-start;transition:border-color .2s var(--ease),color .2s var(--ease)}
+.p-surprise{font:inherit;font-size:calc(14px * var(--type-scale));color:var(--ink-80);background:none;border:1px solid var(--hairline);border-radius:999px;cursor:pointer;padding:12px 20px;text-align:center;align-self:flex-start;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .p-surprise:hover{border-color:var(--ink-80);color:var(--ink)}
 .p-surprise:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:999px}
 /* check-in screen layout — figure breathes, controls hug the bottom */
@@ -710,8 +738,17 @@ body.in-practice .tabbar{display:none}
 .ci-sub{font-size:13px;color:var(--muted);margin:4px 0 0}
 .checkin2 .slider .q{font-size:14.5px;font-weight:500;line-height:1.35;margin:0;color:var(--ink)}
 .slider .anchors{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);letter-spacing:.03em;margin-top:-1px}
-.ci-shuffle{align-self:flex-start;font:inherit;font-size:13px;color:var(--muted);background:none;border:none;padding:4px 0 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline)}
+.ci-shuffle{align-self:flex-start;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--muted);background:none;border:none;padding:4px 0 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline)}
 .ci-shuffle:hover{color:var(--ink)}
+/* expert state override (edit-check-in only): quiet link -> chip panel */
+.ci-ovr{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.ci-ovr-link,.ci-ovr-clear{align-self:flex-start}
+.ci-ovr-note{font-size:calc(13.5px * var(--type-scale));line-height:1.5;color:var(--muted);margin:0;text-wrap:pretty}
+.ci-ovr-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ci-ovr-opt{display:inline-flex;align-items:center;gap:7px;width:auto;font:inherit;font-size:calc(14px * var(--type-scale));background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:999px;padding:10px 15px;cursor:pointer;transition:border-color .2s var(--ease),color .2s var(--ease)}
+.ci-ovr-opt:hover{border-color:var(--ink-80)}
+.ci-ovr-opt.on{border-color:var(--ink);border-width:1px;padding:10px 15px;color:var(--ink);font-weight:500}
+.ci-ovr-opt .st-marks{display:inline-flex}
 /* challenge appetite — set apart in a soft recessed panel so it reads as its own
    decision, not a continuation of the sliders above */
 .ci-challenge{gap:0;margin-top:18px;border:1px solid var(--hairline);border-radius:16px;padding:16px 16px 18px}
@@ -747,12 +784,12 @@ body.in-practice .tabbar{display:none}
 .set-card .dash-prompt{gap:0}
 
 /* first-week orienting line under the check-in heading */
-.ci-orient{font-size:calc(13.5px * var(--type-scale));line-height:1.5;color:var(--muted);margin:8px 0 0;text-wrap:pretty}
+.ci-orient{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--muted);margin:8px 0 0;text-wrap:pretty}
 .set-group:last-of-type{margin-bottom:0}
 .set-group .dash-prompt{margin:0 0 10px}
 /* on-system segmented control (matches the stats playground filter) */
 .set-seg{display:flex;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px}
-.set-seg button{flex:1;border:0;border-radius:8px;padding:9px 0;font:inherit;font-size:13px;color:var(--muted);background:transparent;cursor:pointer;white-space:nowrap;transition:color .15s var(--ease)}
+.set-seg button{flex:1;border:0;border-radius:8px;padding:9px 0;font:inherit;font-size:14px;color:var(--muted);background:transparent;cursor:pointer;white-space:nowrap;transition:color .15s var(--ease)}
 .set-seg button.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .set-seg button:hover{color:var(--ink-80)}
 .set-seg button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
@@ -774,24 +811,35 @@ body.in-practice .tabbar{display:none}
 /* text-size scales the reading copy across screens; headings and tight UI labels
    (slider names, segmented controls, tab bar) stay fixed so the mobile layout and
    cross-screen heading alignment never shift. */
-.scr-lede,.lede{font-size:calc(15px * var(--type-scale))}
-.plan-why,.plan-about,.sd-body{font-size:calc(16px * var(--type-scale))}
-.wc-reason,.wc-fj-text{font-size:calc(13px * var(--type-scale))}
-.ci-readtext,.map-lede,.map-sub,.map-foot,.panel-sub,.panel-empty,
-.deep-val,.deep-lbl,.ch-cap,.trend-cap,.settle-note,.set-quiet{font-size:calc(14px * var(--type-scale))}
-.map-lede{font-size:calc(16px * var(--type-scale))}
-.ci-readtext{font-size:calc(14.5px * var(--type-scale))}
+/* HIG-aligned bases (2026-07-02 audit vs Apple Music): body reading = 17px,
+   secondary/subheadline = 15px, footnote = 13-14px. Everything here also follows
+   the text-size setting, whose top step is now 1.25. */
+.scr-lede,.lede{font-size:calc(16px * var(--type-scale))}
+.plan-why,.plan-about,.sd-body{font-size:calc(17px * var(--type-scale))}
+.wc-reason,.wc-fj-text{font-size:calc(14px * var(--type-scale))}
+.ci-readout,.map-sub,.map-foot,.panel-sub,.panel-empty,
+.deep-val,.deep-lbl,.ch-cap,.trend-cap,.settle-note,.set-quiet{font-size:calc(15px * var(--type-scale))}
+.map-lede{font-size:calc(17px * var(--type-scale))}
+.dash-prompt{font-size:calc(15px * var(--type-scale))}
+.wc-title{font-size:calc(17px * var(--type-scale))}
+.p-chip,.ch-opt{font-size:calc(15px * var(--type-scale))}
+.btn.block{font-size:calc(17px * var(--type-scale))}
+.checkin2 .slider .q{font-size:calc(15.5px * var(--type-scale))}
+.ci-sub{font-size:calc(14px * var(--type-scale))}
+.read-h1{font-size:calc(23px * var(--type-scale))}
+.read-h2{font-size:calc(17.5px * var(--type-scale))}
+.sec-h{font-size:calc(16px * var(--type-scale))}
 /* today tab reading text follows the setting too (headings/labels stay fixed) */
-.tb-hint{font-size:calc(13px * var(--type-scale))}
-.tb-row-sub{font-size:calc(13.5px * var(--type-scale))}
-.tb-refl,.tb-reason{font-size:calc(14px * var(--type-scale))}
+.tb-hint{font-size:calc(14px * var(--type-scale))}
+.tb-row-sub{font-size:calc(14.5px * var(--type-scale))}
+.tb-refl,.tb-reason{font-size:calc(15px * var(--type-scale))}
 /* you tab reading text — fuller coverage (this screen has the most reading) */
-.help-lbl,.growth-cap,.bloom-line,.safety-foot,.safety-trend{font-size:calc(13.5px * var(--type-scale))}
-.help-verdict{font-size:calc(14px * var(--type-scale))}
-.distrow-name{font-size:calc(14.5px * var(--type-scale))}
-.distrow-pct,.help-pct{font-size:calc(13px * var(--type-scale))}
-.arc-readout{font-size:calc(12.5px * var(--type-scale))}
-.lg-it{font-size:calc(12px * var(--type-scale))}
+.help-lbl,.growth-cap,.bloom-line,.safety-foot,.safety-trend{font-size:calc(14px * var(--type-scale))}
+.help-verdict{font-size:calc(14.5px * var(--type-scale))}
+.distrow-name{font-size:calc(15px * var(--type-scale))}
+.distrow-pct,.help-pct{font-size:calc(13.5px * var(--type-scale))}
+.arc-readout{font-size:calc(13px * var(--type-scale))}
+.lg-it{font-size:calc(12.5px * var(--type-scale))}
 
 /* ---------- enlarged hit areas ---------- */
 /* the visible control is unchanged; only the touchable zone grows to ~44pt
