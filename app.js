@@ -2426,15 +2426,43 @@
     };
     $('#signout').onclick = async ()=>{ await Store.signOut(); currentTab='today'; route(); };
     $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practices?')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
-    // T-3: in-app initiation of full account deletion (the privacy policy promises
-    // it). Full deletion runs server-side; this opens a prefilled request email.
-    // TODO(Justin): confirm the support address — placeholder below.
-    $('#delacct').onclick = ()=>{
-      const em = (Store.user()&&Store.user().email)||'';
-      if(confirm('Request deletion of your account and all its data? This opens an email request; deletion is permanent and usually completes within a few days.')){
-        location.href = 'mailto:justin@stucknotbroken.com?subject='+encodeURIComponent('delete my account')+'&body='+encodeURIComponent('please permanently delete the account for '+em+' and all of its data.');
-      }
+    // full in-app account deletion (the privacy policy promises it): a clear
+    // confirm screen, then the delete-account edge function erases everything
+    // server-side, instantly. 🖊 copy below is a draft for Justin to own.
+    $('#delacct').onclick = ()=>screenDeleteAccount();
+  }
+
+  function screenDeleteAccount(err, busy){
+    setHTML(`
+      <div class="view gate"><div class="gate-body">
+        <p class="eyebrow">delete my account</p>
+        <h1 style="margin:12px 0 12px">before you go, here's exactly what happens.</h1>
+        <p class="lede" style="margin-bottom:14px">deleting your account erases everything, immediately and for good: your account, your check-ins, your practice history, and your reflections. nothing is kept on our side, and there is no undo.</p>
+        <p class="lede" style="margin-bottom:24px">your reasons are your own, and no explanation is needed. if it ever feels right to come back, you're welcome any time. a fresh start takes about a minute.</p>
+        ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
+        <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>keep my account</button>
+        <p class="fineprint" style="margin-top:12px;text-align:center"><button class="linkbtn" id="del-go" style="font-size:inherit;padding:2px"${busy?' disabled':''}>${busy?'deleting…':'delete my account and all of my data'}</button></p>
+      </div></div>`);
+    $('#del-keep').onclick = ()=>{ if(!busy) screenSettings(); };
+    if(busy) return;
+    $('#del-go').onclick = ()=>{
+      screenDeleteAccount(null, true);
+      Promise.resolve(Store.deleteAccount()).then(res=>{
+        if(res && res.error) return screenDeleteAccount(res.error);
+        screenDeleted();
+      }).catch(e=>screenDeleteAccount(String((e&&e.message)||e)));
     };
+  }
+
+  function screenDeleted(){
+    setHTML(`
+      <div class="view gate"><div class="gate-body" style="text-align:center">
+        <p class="eyebrow">done</p>
+        <h1 style="margin:12px 0 12px">your account is gone.</h1>
+        <p class="lede" style="margin-bottom:24px">everything was erased. thank you for spending some time here. if you ever want to return, the door is open.</p>
+        <button class="btn block" id="del-done">okay</button>
+      </div></div>`);
+    $('#del-done').onclick = ()=>{ authMode='in'; lastEmail=''; currentTab='today'; route(); };
   }
 
   // ---------------------------------------------------------------- delegated nav (trend "see all")

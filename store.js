@@ -317,6 +317,30 @@
     auth.user = { id:'local:'+(email||'me'), email:email||'' };
     writeProfile(auth.user); loadCache(); return {};
   }
+  // full self-serve account deletion: the delete-account edge function removes
+  // the caller's rows + auth user server-side, then we clear everything local.
+  async function deleteAccount(){
+    if(!auth.user) return { error:'not signed in' };
+    try{
+      if(CLOUD){
+        const cfg = global.SNB_CONFIG || {};
+        const { data:{ session } } = await sb.auth.getSession();
+        if(!session) return { error:'not signed in' };
+        const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/delete-account', {
+          method:'POST',
+          headers:{ Authorization:'Bearer ' + session.access_token, apikey: cfg.SUPABASE_ANON_KEY }
+        });
+        if(!r.ok){
+          let m='could not delete the account right now. please try again in a moment.';
+          try{ const b=await r.json(); if(b && b.error && b.error!=='not signed in') m=b.error; }catch(e){}
+          return { error:m };
+        }
+      }
+      await signOut();   // clears in-memory data; server session is already gone
+      try{ Object.keys(localStorage).filter(k=>k.indexOf('snb_')===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+      return {};
+    }catch(e){ return { error:String((e&&e.message)||e) }; }
+  }
   async function signOut(){
     if(CLOUD){ try{ await sb.auth.signOut(); }catch(e){} } else { clearProfile(); }
     auth.user = null; data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] };
@@ -785,7 +809,7 @@
 
   global.Store = {
     init, signUp, signIn, signOut, user, cloud, syncStatus,
-    resetPassword, updatePassword, onPasswordRecovery,
+    resetPassword, updatePassword, onPasswordRecovery, deleteAccount,
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
