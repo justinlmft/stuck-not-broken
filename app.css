@@ -54,6 +54,9 @@ button{font:inherit;color:inherit}
 @media (prefers-reduced-motion:reduce){.boot-ring{animation:bootShow .5s .6s var(--ease) forwards}}
 
 .scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* app-like: content scrolls but never shows a scrollbar rail (matches the carousel) */
+.scroll,.today,.gate{scrollbar-width:none}
+.scroll::-webkit-scrollbar,.today::-webkit-scrollbar,.gate::-webkit-scrollbar{display:none}
 .view{min-height:100%;display:flex;flex-direction:column;padding:22px 22px 26px}
 /* reading screens keep a deliberately generous, book-like side margin */
 .view.read{padding-left:30px;padding-right:30px}
@@ -702,6 +705,13 @@ body.in-practice .tabbar{display:none}
 .checkin2 .slider{gap:6px}
 .ci-label{font-size:11.5px;font-weight:500;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin:0}
 .ci-block .sliders{margin:0}
+/* fixed-stem check-in: header carries "how easy would it be to…", each slider shows
+   only its rotating scenario; anchors are constant (hard→easy) on every rail */
+.ci-sub{font-size:13px;color:var(--muted);margin:4px 0 0}
+.checkin2 .slider .q{font-size:14.5px;font-weight:500;line-height:1.35;margin:0;color:var(--ink)}
+.slider .anchors{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);letter-spacing:.03em;margin-top:-1px}
+.ci-shuffle{align-self:flex-start;font:inherit;font-size:13px;color:var(--muted);background:none;border:none;padding:4px 0 0;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline)}
+.ci-shuffle:hover{color:var(--ink)}
 /* challenge appetite — set apart in a soft recessed panel so it reads as its own
    decision, not a continuation of the sliders above */
 .ci-challenge{gap:0;margin-top:18px;border:1px solid var(--hairline);border-radius:16px;padding:16px 16px 18px}

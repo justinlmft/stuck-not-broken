@@ -178,25 +178,78 @@
   const skillLabel = (k) => SKILL_LABEL[k] || k;
   const silLabel = (n) => n<=4 ? 'a little' : n>=12 ? 'a lot' : 'some';
 
-  // Check-in readout: turn the three raw signals (v / sym / dor, 0..1) into a qualified
-  // phrase — degree + dominant state, plus an optional "with a {hint|bit} of {axis}" when
-  // a non-core axis is notably present. e.g. "mostly safety with a bit of sympathetic".
-  function readoutPhrase(v, sym, dor){
-    const dom = window.PVCurrent.dominantOf(v, sym, dor);
-    const primary = dom.name || 'settling';
-    const peak = Math.max(v, sym, dor);
-    const degree = peak < 0.28 ? 'a little' : peak < 0.55 ? 'some' : 'mostly';
-    // axes already expressed by the dominant blend — don't name them again as a secondary
-    const core = { safety:['v'], fightflight:['sym'], shutdown:['dor'],
-                   play:['v','sym'], stillness:['v','dor'], freeze:['sym','dor'] }[dom.key] || [];
-    const sec = [['v',v,'presence'],['sym',sym,'energy'],['dor',dor,'heaviness']]
-      .filter(a=>!core.includes(a[0])).sort((a,b)=>b[1]-a[1])[0];
-    let clause = '';
-    if(sec && sec[1] > 0.18 && sec[1] > 0.33*peak){
-      clause = ` with ${sec[1] < 0.34 ? 'a hint of' : 'a bit of'} <b>${sec[2]}</b>`;
-    }
-    return { html:`${degree} <b style="color:${dom.color}">${primary}</b>${clause}`, color: dom.color };
-  }
+  // Check-in copy: one fixed stem ("right now, how easy would it be to…") with a
+  // rotating scenario per axis — concrete, observable questions instead of felt-sense
+  // words nobody can verify. All sliders read hard→easy; heart ease maps straight to
+  // connection, while bolt/x ease INVERT to energy/weight amounts before anything
+  // downstream (dominantOf, storage) sees them — stored v/sym/dor keep their meaning.
+  // Freeze-safety rule for authoring: bolt scenarios probe settling INTERNAL energy
+  // (breath, thoughts, jaw) and never staying still; x scenarios probe capacity to
+  // act. A frozen system (revved inside + can't move) then reads high on BOTH axes
+  // and the existing blend logic names it. Copy is Justin-owned (approved 2026-07-02).
+  const CI_BANK = {
+    v: [
+      'pick up a call from a friend?',
+      'sit quietly with someone you like?',
+      'laugh at something silly?',
+      "tell someone how you're really doing?",
+      'make eye contact and mean it?',
+      'enjoy a song you love?',
+      'let someone help you with something?',
+      "be curious about a stranger's story?",
+      'say yes to a last-minute invitation?',
+      "give someone your full attention for a minute?",
+      'accept a compliment without deflecting?',
+      "feel glad someone's nearby?",
+    ],
+    sym: [
+      'relax your shoulders and keep them relaxed?',
+      'take one slow breath?',
+      'slow your thoughts down?',
+      'unclench your jaw?',
+      'wait in a slow line without getting annoyed?',
+      'set the to-do list aside for ten minutes?',
+      'leave a small worry alone for now?',
+      'be okay with having nothing to do?',
+      'read a full page without skimming?',
+      'let someone finish their sentence without jumping in?',
+      'leave your phone alone for a while?',
+      'do one thing at a time?',
+    ],
+    dor: [
+      'get up and cross the room?',
+      'answer a question with your full attention?',
+      'start the next small thing on your list?',
+      'step outside for a minute?',
+      "reply to a text that's been waiting?",
+      'make a small decision, like what to eat?',
+      'stand up and stretch?',
+      "look around and notice what's in the room?",
+      'say what you need right now?',
+      'get yourself a glass of water?',
+      'care about how the rest of the day goes?',
+      'look forward to something tomorrow?',
+    ],
+  };
+  // Mirror readout: play the person's own report back in plain speech — no state
+  // names, no verdicts. The app is not a person: "you're reporting", never "I".
+  const CI_MIRROR = {
+    v:   ['connecting feels very hard right now','connecting takes effort','connecting is doable','connecting feels easy right now'],
+    sym: ['your body is calm','a little extra energy in your body','a lot of energy in your body','your body is very revved up'],
+    dor: ['you have energy to do things','your energy for doing things is a little low','not much energy left for doing things','almost no energy to do anything'],
+  };
+  const ciBucket = x => x < 0.18 ? 0 : x < 0.45 ? 1 : x < 0.72 ? 2 : 3;
+  const ciMirror = (v, sym, dor) =>
+    `you're reporting: ${CI_MIRROR.v[ciBucket(v)]}, ${CI_MIRROR.sym[ciBucket(sym)]}, and ${CI_MIRROR.dor[ciBucket(dor)]}.`;
+  function ciRand(ax, not){ const n = CI_BANK[ax].length; let i = Math.floor(Math.random()*n); if(n > 1 && i === not) i = (i+1)%n; return i; }
+  // Which scenario each check-in asked (local-only, keyed by check-in timestamp) so
+  // editing a check-in shows the questions that were actually answered. Kept out of
+  // store.js records — no cloud column, no sync coupling; prunes to the newest 60.
+  const CI_QKEY = 'snb-ci-questions';
+  function ciSaveQ(t, q){ try{ const m = JSON.parse(localStorage.getItem(CI_QKEY)||'{}'); m[t] = q;
+    Object.keys(m).sort((a,b)=>b-a).slice(60).forEach(k=>delete m[k]);
+    localStorage.setItem(CI_QKEY, JSON.stringify(m)); }catch(e){} }
+  function ciLoadQ(t){ try{ return JSON.parse(localStorage.getItem(CI_QKEY)||'{}')[t] || null; }catch(e){ return null; } }
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
   // "tuned to you" badge: the brand mark (recolors to white via currentColor)
   const MARK_GLYPH = "<svg viewBox=\"4 44 462 371\" fill=\"currentColor\"><path d=\"M 228.6626430999995,414.99967965948633 C 193.0931878499996,414.99967965948633 159.69623824999962,401.15528090948635 134.56332974999987,376.0223724094866 L 42.977307250000194,284.43634990948647 C 17.844398749999527,259.30344140948625 4.0,225.86389365948654 4.0,190.3370365594864 C 4.0,154.76758130948647 17.844398750000437,121.3706317094865 42.977307250000194,96.23772320948629 C 68.11021574999995,71.10481470948653 101.54976350000015,57.26041595948655 137.07662059999984,57.260415959486096 C 171.45332764999966,57.260415959486096 203.82792165000046,70.21025355948623 228.6626430999995,93.76703050948609 C 280.7175823999996,44.35317650948619 363.2727970999995,45.20513950948626 414.34797894999974,96.23772320948629 C 466.23252564999984,148.1222699094864 466.23252564999984,232.5518032094864 414.34797894999974,284.47894805948624 L 322.76195644999916,376.06497055948637 C 297.6290479499994,401.1978790594861 264.1895001999992,415.0422778094861 228.6626430999995,415.0422778094861 L 228.6626430999995,414.99967965948633 M 137.11921875000007,109.86913120948648 C 115.60715299999993,109.86913120948648 95.41562990000057,118.21836860948625 80.20809035000002,133.42590815948634 C 48.813253799999075,164.82074470948638 48.813253799999075,215.8533284094864 80.20809035000002,247.24816495948645 L 171.7941128499997,338.83418745948654 C 187.00165239999933,354.0417270094862 207.1931754999996,362.3909644094864 228.70524124999974,362.3909644094864 C 250.2173069999999,362.3909644094864 270.40883009999925,354.0417270094862 285.6163696499989,338.83418745948654 L 377.20239214999947,247.24816495948645 C 408.5546305500002,215.89592655948618 408.5546305500002,164.82074470948638 377.20239214999947,133.42590815948634 C 345.80755560000034,102.0310716094863 294.7749719000003,102.0310716094863 263.3801353500003,133.42590815948634 L 228.70524124999974,168.10080225948641 L 194.03034714999922,133.42590815948634 C 178.82280759999958,118.21836860948625 158.6312844999993,109.86913120948648 137.11921875000007,109.86913120948648\"/></svg>";
@@ -1287,26 +1340,29 @@
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
-    let v=18, s=14, d=12, ch=0.65;
+    let v=18, s=14, d=12, ch=0.65;   // axis amounts 0..100: v=connection, s=energy, d=weight
     // default the challenge level to the person's own recent appetite, not a fixed
     // "beginner defense" — a shutdown-leaning user shouldn't land on defense by default
     try{ const ca=Store.learned().challengeAvg; if(ca!=null){ ch=CH_LEVELS.reduce((b,l)=>Math.abs(l.v-ca)<Math.abs(b.v-ca)?l:b, CH_LEVELS[2]).v; } }catch(e){}
     if(editRec){ v=Math.round((editRec.v||0)*100); s=Math.round((editRec.sym||0)*100); d=Math.round((editRec.dor||0)*100); if(typeof editRec.challenge==='number') ch=editRec.challenge; }
+    // scenarios: on edit, restore the questions that were actually answered; else roll fresh
+    const qIdx = (editRec && ciLoadQ(editRec.t)) || { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
     const seg = segPoss(segOf(editRec?editRec.t:Date.now()));
     $('#content').innerHTML = `<div class="view checkin2">
 
         <div class="scr-head">
-          <p class="eyebrow"></p>
-          <h2 class="scr-h">${editRec?'change your check-in':'how is your system showing up this '+seg+'?'}</h2>
-          ${editRec?`<p class="ci-when">${relTime(editRec.t)}</p>`:''}
+          <p class="eyebrow">${editRec?'change your check-in':'checking in this '+seg}</p>
+          <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
+          ${editRec?`<p class="ci-when">${relTime(editRec.t)}</p>`:'<p class="ci-sub">no right answers. just notice.</p>'}
         </div>
 
         <div class="ci-block">
           <div class="sliders">
-            ${sliderHTML('v','feeling present','connected to yourself, others, & where you are','r-v',v)}
-            ${sliderHTML('sym','feeling energized','restless, wound up, ready to move','r-sym',s)}
-            ${sliderHTML('dor','feeling drained','numb, heavy, checked out','r-dor',d)}
+            ${sliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
+            ${sliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
+            ${sliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
+          <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
           <p class="ci-readout" id="ci-readout"></p>
         </div>
 
@@ -1321,7 +1377,6 @@
         <div class="actionbar"><button class="btn block" id="save">${editRec?'save changes':'save check-in'}</button></div>
       </div>`;
 
-    const amt = x => x<12?'barely':x<35?'a little':x<65?'some':x<88?'a lot':'fully';
     const readout = $('#ci-readout');
     function refresh(){
       setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
@@ -1332,13 +1387,20 @@
       ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
         const active = core.length>1 && core.includes(ax);
         el.style.setProperty('--rail', active ? STATE_COLOR(dom.key) : own[ax]); });
-      if(readout){ const r = readoutPhrase(v/100, s/100, d/100);
-        readout.innerHTML = `<span class="ci-readtext">you're noticing ${r.html}.</span>`; }
+      if(readout){ readout.textContent = ciMirror(v/100, s/100, d/100); }
     }
+    // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert
     bindSlider('v', val=>{v=val;refresh();});
-    bindSlider('sym', val=>{s=val;refresh();});
-    bindSlider('dor', val=>{d=val;refresh();});
+    bindSlider('sym', val=>{s=100-val;refresh();});
+    bindSlider('dor', val=>{d=100-val;refresh();});
     refresh();
+    $('#ci-shuffle').onclick = ()=>{
+      ['v','sym','dor'].forEach(ax=>{
+        qIdx[ax] = ciRand(ax, qIdx[ax]);
+        const q = root.querySelector('#q-'+ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
+        const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
+      });
+    };
 
     const cap = $('#ch-cap');
     function setCap(key){ if(cap) cap.textContent = CH_CAP[key] || ''; }
@@ -1352,8 +1414,9 @@
     $('#save').onclick = ()=>{
       const vals = { v:v/100, sym:s/100, dor:d/100, challenge:ch, source:(window._ciSource||null) };
       window._ciSource = null;
-      if(editRec){ Store.updateCheckin(editRec.t, vals); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
+      if(editRec){ Store.updateCheckin(editRec.t, vals); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
+      ciSaveQ(rec.t, qIdx);
       haptic('save');
       FromJustin.refresh();
       // T-2: the FIRST check-in lands back on Today, where the halo has just taken
@@ -1362,14 +1425,15 @@
       actionSnack('checked in', 'change', ()=>screenCheckin(rec));
     };
   }
-  function sliderHTML(key,name,sub,cls,val){
+  function sliderHTML(key,scenario,cls,val){
     const ax = AXIS_ICON[key] || {};
     const icon = ax.icon ? ico(ax.icon,{cls:'slider-ico', color:STATE_COLOR(ax.state)}) : '';
     return `<div class="slider" data-axis="${key}">
       <span class="slider-ico-wrap">${icon}</span>
       <div class="slider-main">
-        <div class="top"><span class="nm">${name}:</span><span class="sub">${sub}</span></div>
-        <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}">
+        <p class="q" id="q-${key}">${scenario}</p>
+        <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
+        <div class="anchors" aria-hidden="true"><span>hard</span><span>easy</span></div>
       </div>
     </div>`;
   }
