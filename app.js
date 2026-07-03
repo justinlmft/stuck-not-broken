@@ -2560,6 +2560,18 @@
   // ---------------------------------------------------------------- delegated nav (trend "see all")
   document.addEventListener('click',(e)=>{ if(e.target && e.target.id==='seeall'){ app('current'); } });
 
+  // apple-style large title: heading holds still during rubber-band (position:sticky
+  // in css) and fades over the first ~70px of scroll. Delegated capture listener so
+  // it survives every re-render without per-screen wiring.
+  document.addEventListener('scroll',(e)=>{
+    const sc = e.target;
+    if(!(sc instanceof Element) || !sc.classList || !sc.classList.contains('scroll')) return;
+    const head = sc.querySelector('.scr-head');
+    if(!head) return;
+    const f = Math.max(0, Math.min(1, 1 - sc.scrollTop/70));
+    head.style.setProperty('--hfade', f.toFixed(3));
+  }, true);
+
   // ---------------------------------------------------------------- utils
   function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
   // user display preferences (text size + motion), persisted and applied app-wide

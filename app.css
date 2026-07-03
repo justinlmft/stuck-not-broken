@@ -82,6 +82,12 @@ p{margin:0;text-wrap:pretty}
    one heading size, one lede. Same left edge, same rhythm, top-aligned everywhere. */
 .scr-head{display:flex;flex-direction:column;margin:0 0 22px}
 .scr-head .eyebrow{min-height:13px;margin:0 0 11px}
+/* apple-style large title: the heading pins at the top of the scroller (so it
+   holds still while the screen rubber-bands) and its content fades as you scroll
+   into the page — JS sets --hfade from scrollTop (scroll-driven animations aren't
+   on all cohort iOS versions yet). */
+.scroll .scr-head{position:sticky;top:0;z-index:6}
+.scroll .scr-head>*{opacity:var(--hfade,1)}
 .scr-h{font-size:calc(22px * var(--type-scale));font-weight:500;line-height:1.24;letter-spacing:-.01em;color:var(--ink);margin:0;text-wrap:pretty}
 .scr-lede{font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:11px 0 0;text-wrap:pretty}
 
