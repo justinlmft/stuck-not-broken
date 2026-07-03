@@ -12,9 +12,11 @@
   /* practice track colors: mindfulness = ink, connect-with-safety = sky/blue, self-regulation = amber */
   --track-mind:#1A1F2A; --track-safety:#5891C5; --track-self:#D29A4A;
   /* darker "ink" versions of the track colors for small text (the raw track
-     colors sit under 4.5:1 on bone). self-ink is a burnt amber (#B45309, 4.77:1)
+     colors sit under 4.5:1 on bone). 2026-07-02, Justin's call: the darker ink
+     ambers/blues read as unpleasant — light mode now uses the raw track colors
+     for ink too (he judges them still legible at these sizes).
      rather than the darker ochre — darkened amber reads brown; this stays warm. */
-  --track-safety-ink:#356291; --track-self-ink:#B45309; --track-mind-ink:#1A1F2A;
+  --track-safety-ink:#5891C5; --track-self-ink:#D29A4A; --track-mind-ink:#1A1F2A;
   --field:#fff; --knob:#fff; --danger:#9A3B3B; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
   --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1); --type-scale:1;
 }
@@ -598,7 +600,7 @@ body.in-practice .tabbar{display:none}
 @media(hover:hover){.p-opt.p-sel:hover .wc-go{transform:rotate(90deg) translateY(2px);color:var(--ink-80)}}
 /* refinement area */
 @keyframes refineIn{from{transform:translateY(7px)}to{transform:none}}
-.p-refine{display:flex;flex-direction:column;gap:18px;margin-top:18px;animation:refineIn .28s .1s var(--ease) both}
+.p-refine{display:flex;flex-direction:column;gap:18px;margin:18px 0 30px;animation:refineIn .28s .1s var(--ease) both}
 .p-rgroup{display:flex;flex-direction:column;gap:0}
 /* the builder reads like the reflections pages: reader-weight section headings,
    reader body rhythm, and the same breathe-in entrance the reader sections use.

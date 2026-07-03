@@ -925,7 +925,7 @@ function renderSetup(){
   const mk=document.querySelector('.mark');
   if(mk){mk.classList.remove('mark-sky','mark-amber','mark-ink');mk.classList.add('mark-'+_trk);}
   $('chooser').style.setProperty('--trk','var(--'+_trk+')');
-  $('chooser').style.setProperty('--trk-ink',_trk==='amber'?'#8C5E1C':_trk==='ink'?'#3A3F4A':'#356291');
+  $('chooser').style.setProperty('--trk-ink',_trk==='amber'?'#D29A4A':_trk==='ink'?'#3A3F4A':'#5891C5');
   $('beginhelp').style.display='none';   // orientation now lives in the welcome line + per-option subtitles
   // experience options — built ONCE and then updated in place, so the collapse (on pick) and the
   // expand (on 'back') are the same CSS transition played in reverse, not a jerky DOM rebuild.
