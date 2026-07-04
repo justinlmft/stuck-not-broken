@@ -1103,15 +1103,12 @@ body.reduce-motion .tg-m{transition:none}
 
 /* ---- weekly share card + archive weekly tag ---- */
 .arch-tag{display:inline-block;margin-left:8px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border:0.5px solid var(--hairline);border-radius:999px;padding:1px 7px;vertical-align:middle}
-.share-card{background:var(--ink);border-radius:16px;padding:18px;margin:2px 0 14px}
-.sc-eyebrow{font-size:10px;letter-spacing:.12em;color:#B9B09A;margin-bottom:12px}
-.sc-line{font-size:18px;line-height:1.4;color:#F4F1E8}
-.sc-foot{display:flex;align-items:center;margin-top:18px}
-.sc-attrib{display:flex;align-items:center;gap:9px}
-.sc-attrib .triglyph{height:26px;width:auto}
-.sc-name{font-size:14px;font-weight:500;color:#F4F1E8}
-.sc-brand{margin-left:auto;font-size:11px;color:#B9B09A}
-.sc-share{margin:0 0 6px}
+/* in-app share-card preview removed (Justin QA 2026-07-05) — the dark branded
+   card lives only in the shared canvas image now */
+.me-head{position:relative;display:flex;align-items:center;min-height:34px;margin:0 0 14px;padding-right:44px}
+.me-share{top:50%;right:0;transform:translateY(-50%)}
+.me-share:hover{transform:translateY(calc(-50% - 1px))}
+.me-share:active{transform:translateY(-50%) scale(.9)}
 
 /* ---- change-a-check-in row: tappable edit + a remove button ---- */
 .ci-row{display:flex;align-items:center;gap:8px;border-top:0.5px solid var(--hairline)}
@@ -1165,6 +1162,15 @@ body.reduce-motion .tg-m{transition:none}
 .wr-chip:active{background:var(--press)}
 .wr-chip.on{background:var(--bone-deep);border-color:var(--ink-30,var(--muted));font-weight:500}
 .wr-foot{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin:14px 0 0}
+
+/* archive entry from the reader's large title (Justin QA: easier to find) */
+.read-arch{position:absolute;top:4px;right:0;width:34px;height:34px;border-radius:50%;border:1px solid var(--hairline);background:var(--bone);color:var(--muted);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;transition:color .18s,border-color .18s}
+.read-arch::after{content:"";position:absolute;inset:-6px}
+.read-arch svg{width:16px;height:16px}
+.read-arch:hover{color:var(--ink);border-color:var(--ink-80)}
+.read-arch:active{transform:scale(.92)}
+.read-head .read-h1{padding-right:48px}
+.arch-snip{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 
 /* ---- past reflections: pruned shelf, quiet groups, the quarter-turn fade ---- */
 .arch-eyeb{font-size:calc(11px * var(--type-scale));letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:18px 0 8px}

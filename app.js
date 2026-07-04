@@ -819,7 +819,9 @@
     sessions = (sessions||[]).filter(s=>s&&typeof s.t==='number').slice().sort((a,b)=>a.t-b.t);
     if(!moments.length) return '';
     const W=320,H=148,padL=24,padR=14,padT=16,padB=26;
-    const d0=new Date(); d0.setHours(0,0,0,0); const t0=d0.getTime(); const span=864e5;
+    // anchor the day to the MOMENTS' own date, not today's — archived days were
+    // clamping every dot to the left edge (Justin's QA, 2026-07-05)
+    const d0=new Date(moments[0].t); d0.setHours(0,0,0,0); const t0=d0.getTime(); const span=864e5;
     const cl=x=>x<0?0:x>1?1:x;
     const fx=t=>padL + cl((t-t0)/span)*(W-padL-padR);
     const fy=v=>padT + (1-cl(v))*(H-padT-padB);
@@ -1156,6 +1158,7 @@
           <div class="scr-head read-head">
             <h1 class="read-h1">Your Reflections</h1>
             <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
+            ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="past reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
           </div>
           ${todayBlock}
           ${visit.html}
@@ -1166,6 +1169,7 @@
     $('#deep-back').onclick = ()=>app('today');
     if(visit.wire) visit.wire();
     const ab = $('#open-arch'); if(ab) ab.onclick = screenArchive;
+    const at = $('#open-arch-top'); if(at) at.onclick = screenArchive;
     // sections breathe in as you reach them (scoped by .read-anim so content is
     // always visible if anything here fails; reduced motion = everything static)
     try{
@@ -1328,14 +1332,10 @@
     const paths = TRI_ORDER.map(m=>`<path d="${(I[m]&&I[m].d)||''}" fill="${active.indexOf(m)>=0?col:dimCol}"/>`).join('');
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${TRI_VB}">${paths}</svg>`;
   }
-  function shareCardHTML(card){
-    const name = (Store.getName && Store.getName()) || '';
-    const dom = (card.doms && card.doms[0]) || 'safety';
-    const nameTag = name ? `<span class="sc-name">${escapeHtml(name)}</span>` : '';
-    // name + triGlyph sit at the bottom, like an attribution under a quote.
-    return `<div class="share-card"><div class="sc-eyebrow">${escapeHtml(String(card.dateLabel||'').toUpperCase())}</div><div class="sc-line">${escapeHtml(_cardLine(card))}</div><div class="sc-foot"><span class="sc-attrib">${triGlyph(dom)}${nameTag}</span><span class="sc-brand">stuck not broken</span></div></div>
-      <button class="btn block sc-share" id="sc-share" type="button">share this</button>`;
-  }
+  // shareCardHTML (the in-app dark preview card + block button) removed 2026-07-05
+  // per Justin's QA: too heavy in the archive. The branded dark card still exists
+  // as the SHARED image (shareWeekCard canvas); in-app entry is now a quiet
+  // panel-share icon matching the You-tab cards.
   function _wrapText(g, text, x, y, maxW, lh){ const words=String(text).split(' '); let line='', yy=y; for(const w of words){ const test=line?line+' '+w:w; if(g.measureText(test).width>maxW && line){ g.fillText(line,x,yy); line=w; yy+=lh; } else line=test; } if(line) g.fillText(line,x,yy); return yy; }
   async function shareWeekCard(card){
     try{
@@ -1390,8 +1390,10 @@
     const label = (m.tier==='weekly') ? ((m.data&&m.data.card&&m.data.card.dateLabel) || fmtMintDate(m.dateMs))
                 : (m.data&&m.data.label) ? m.data.label : fmtMintDate(m.dateMs);
     const tag = tierLabel ? `<span class="arch-tag">${tierLabel}</span>` : '';
-    const snip = sub ? '' : String(m.text||'').split('. ')[0];
-    const body = sub ? `<span class="arch-sub">${escapeHtml(sub)}</span>` : `<span class="arch-snip">${escapeHtml(snip)}.</span>`;
+    // mock-parity (Justin's QA): weekly/monthly/quarterly rows are label-only —
+    // the date IS the information; only dailies keep a one-line memory cue
+    const snip = (sub || m.tier!=='daily') ? '' : String(m.text||'').split('. ')[0];
+    const body = sub ? `<span class="arch-sub">${escapeHtml(sub)}</span>` : (snip ? `<span class="arch-snip">${escapeHtml(snip)}.</span>` : '');
     return `<button class="arch-row${extraClass?' '+extraClass:''}" data-id="${escapeHtml(m.id)}" data-ms="${m.dateMs}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span>${body}</span><span class="wc-go">${CHEV}</span></button>`;
   }
   function screenArchive(){
@@ -1494,13 +1496,15 @@
         <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
         <div class="scroll">
           <div class="view read" style="gap:0">
-            <p class="read-date">${escapeHtml(card.dateLabel || fmtMintDate(m.dateMs))}</p>
-            ${shareCardHTML(card)}
+            <div class="me-head">
+              <p class="read-date" style="margin:0">${escapeHtml(card.dateLabel || fmtMintDate(m.dateMs))}</p>
+              <button class="panel-share me-share" type="button" id="me-share" aria-label="share this week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg></button>
+            </div>
             ${renderIssue(m.data.issue)}
           </div>
         </div>`);
       $('#me-back').onclick = screenArchive;
-      const sb = $('#sc-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
+      const sb = $('#me-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
       return;
     }
     if(m.tier==='monthly' || m.tier==='quarterly'){
