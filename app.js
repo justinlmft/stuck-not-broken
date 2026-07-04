@@ -1332,10 +1332,19 @@
     const paths = TRI_ORDER.map(m=>`<path d="${(I[m]&&I[m].d)||''}" fill="${active.indexOf(m)>=0?col:dimCol}"/>`).join('');
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${TRI_VB}">${paths}</svg>`;
   }
-  // shareCardHTML (the in-app dark preview card + block button) removed 2026-07-05
-  // per Justin's QA: too heavy in the archive. The branded dark card still exists
-  // as the SHARED image (shareWeekCard canvas); in-app entry is now a quiet
-  // panel-share icon matching the You-tab cards.
+  // week win card (Justin, 2026-07-05): the mint entry's celebration moment, in
+  // the wincard family (bone paper + hairline border) instead of the old dark
+  // preview. The dark branded card still exists as the SHARED canvas image.
+  function weekWinCardHTML(card){
+    const name = (Store.getName && Store.getName()) || '';
+    const dom = (card.doms && card.doms[0]) || 'safety';
+    return `<div class="week-win">
+      <button class="panel-share ww-share" type="button" id="me-share" aria-label="share this week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg></button>
+      <p class="ww-eyeb">${escapeHtml(String(card.dateLabel||'').toUpperCase())}</p>
+      <p class="ww-line">${escapeHtml(_cardLine(card))}</p>
+      <div class="ww-foot">${triGlyph(dom)}${name?`<span class="ww-name">${escapeHtml(name)}</span>`:''}</div>
+    </div>`;
+  }
   function _wrapText(g, text, x, y, maxW, lh){ const words=String(text).split(' '); let line='', yy=y; for(const w of words){ const test=line?line+' '+w:w; if(g.measureText(test).width>maxW && line){ g.fillText(line,x,yy); line=w; yy+=lh; } else line=test; } if(line) g.fillText(line,x,yy); return yy; }
   async function shareWeekCard(card){
     try{
@@ -1496,10 +1505,7 @@
         <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
         <div class="scroll">
           <div class="view read" style="gap:0">
-            <div class="me-head">
-              <p class="read-date" style="margin:0">${escapeHtml(card.dateLabel || fmtMintDate(m.dateMs))}</p>
-              <button class="panel-share me-share" type="button" id="me-share" aria-label="share this week"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg></button>
-            </div>
+            ${weekWinCardHTML(card)}
             ${renderIssue(m.data.issue)}
           </div>
         </div>`);

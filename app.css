@@ -1086,8 +1086,10 @@ body.reduce-motion .tg-m{transition:none}
 
 /* ---- reflections archive (past minted reflections) ---- */
 .arch-link{font-size:calc(13.5px * var(--type-scale));color:var(--link);align-self:flex-start}
-.arch-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;border-top:0.5px solid var(--hairline);padding:15px 2px;cursor:pointer;color:var(--ink)}
-.arch-row:first-of-type{border-top:none}
+/* shelf rows: FILLED (card grammar: filled = place to go), not divider lines —
+   little bound volumes on the shelf; a filled row also fades like an object */
+.arch-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--bone-deep);border:none;border-radius:12px;padding:13px 14px;margin:0 0 7px;cursor:pointer;color:var(--ink);transition:background .18s var(--ease)}
+.arch-row:active{background:var(--press)}
 .arch-row-main{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
 .arch-date{font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink)}
 .arch-snip{font-size:calc(13.5px * var(--type-scale));line-height:1.45;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
@@ -1105,10 +1107,16 @@ body.reduce-motion .tg-m{transition:none}
 .arch-tag{display:inline-block;margin-left:8px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border:0.5px solid var(--hairline);border-radius:999px;padding:1px 7px;vertical-align:middle}
 /* in-app share-card preview removed (Justin QA 2026-07-05) — the dark branded
    card lives only in the shared canvas image now */
-.me-head{position:relative;display:flex;align-items:center;min-height:34px;margin:0 0 14px;padding-right:44px}
-.me-share{top:50%;right:0;transform:translateY(-50%)}
-.me-share:hover{transform:translateY(calc(-50% - 1px))}
-.me-share:active{transform:translateY(-50%) scale(.9)}
+.week-win{position:relative;border:1px solid var(--hairline);border-radius:14px;padding:17px 18px 15px;margin:2px 0 18px}
+.ww-eyeb{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0 0 10px}
+.ww-line{font-size:calc(17px * var(--type-scale));line-height:1.45;font-weight:500;color:var(--ink);margin:0;padding-right:40px;text-wrap:pretty}
+.ww-foot{display:flex;align-items:center;gap:9px;margin-top:14px}
+.ww-foot .triglyph{height:24px;width:auto;animation:wwIn .55s .15s var(--ease) both}
+.ww-name{font-size:calc(13.5px * var(--type-scale));font-weight:500;color:var(--muted)}
+.ww-share{top:12px;right:12px}
+@keyframes wwIn{from{opacity:0;transform:scale(1.28)}to{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.ww-foot .triglyph{animation:none}}
+body.reduce-motion .ww-foot .triglyph{animation:none}
 
 /* ---- change-a-check-in row: tappable edit + a remove button ---- */
 .ci-row{display:flex;align-items:center;gap:8px;border-top:0.5px solid var(--hairline)}
