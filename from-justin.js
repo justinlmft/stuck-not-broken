@@ -750,7 +750,8 @@
     const felt = _feltName(ctx.dom);
     let body;
     if(ctx.nState!=null && ctx.nTotal!=null && ctx.nTotal>=3){
-      body = ctx.nState + ' of your ' + ctx.nTotal + ' check-ins this week landed in ' + felt + '. ' + ESSAY_TAIL[ctx.dom];
+      // percentages, never "X of N" (Justin, 2026-07-04: counting fractions is cognitive load)
+      body = 'about ' + Math.round(ctx.nState/ctx.nTotal*100) + '% of your check-ins this week landed in ' + felt + '. ' + ESSAY_TAIL[ctx.dom];
     } else {
       body = 'your last check-in landed in ' + felt + '. ' + ESSAY_TAIL[ctx.dom];
     }
@@ -1086,10 +1087,159 @@
     return { text: parts.join(' '), stats: st, mark: mark };
   }
 
+  // ---- Sunday week-in-review + period (quarter/year) sections ----------------
+  // Copy approved by Justin 2026-07-04 (Reader-Rework/week-in-review.md +
+  // period-sections.md v2). Rules: percentages never "X of N" (plain counts OK);
+  // low-data transparency wins over every variant; insights close with
+  // reflection prompts. One answerable prompt per section (context chips) —
+  // the chipQ; the rest are journal-only.
+  const WR_FOOT = 'Reflections stay here for the season, then close into your quarter.'; // 🖊
+  function weekReview(ctx){
+    ctx = ctx || {};
+    const out = { heading:'Your week', eyebrow:ctx.rangeLabel||'', paras:[], bullets:[], chipQ:null, variant:null, footer:WR_FOOT };
+    const n = ctx.n||0;
+    if(n < 5){
+      out.variant = 'lowdata';
+      out.paras.push('Only ' + n + ' check-in' + (n===1?'':'s') + ' throughout the entire week, so it\'s tough to give you substantial trends. That\'s not a problem, just a limit of the data. The more moments you capture, the more these reflections have to work with. A few honest seconds a day is plenty.');
+      return out;
+    }
+    const P = ctx.pct!=null ? Math.round(ctx.pct) : null;
+    if(ctx.shiftDir === 'safety'){
+      out.variant = 'shift-safety';
+      out.paras.push('Last week leaned ' + _feltName(ctx.prevDom) + '. This week, ' + _feltName(ctx.dom) + ' took the lead, about ' + P + '% of your check-ins. That\'s evidence of more safety. And it didn\'t happen by accident. This is worth reflecting on now through journaling or just thinking about while you sip a tea. Ask yourself:');
+      out.bullets = [
+        'What do you know you did to connect with safety more?',
+        'Did something in your life context change that led to more safety?',
+        'How are the people or places in your life adding safety?',
+        'What can you keep doing that\'s working, and what minor tweaks can you make?'
+      ];
+      out.chipQ = 'What most contributed to this increase in safety?';
+      return out;
+    }
+    if(ctx.shiftDir === 'defense'){
+      out.variant = 'shift-defense';
+      const K = ctx.practicesK||0;
+      const cheer = 'So, tell yourself "Good job, self," for the ' + n + ' check-ins' + (K>0 ? ' and the ' + K + ' practice' + (K===1?'':'s') : '') + ' this week. (Most people don\'t do that.)';
+      out.paras.push('Last week leaned ' + _feltName(ctx.prevDom) + '. This week, ' + _feltName(ctx.dom) + ' took the lead, about ' + P + '% of your check-ins. Weeks like this happen, and they usually make sense in context. A system that shifts into defense under load is working, not failing. ' + cheer + ' Then grab a blanket, plop on the couch, and reflect on this week:');
+      out.bullets = [
+        'What did this week ask of you that last week didn\'t?',
+        'Did something in your life context change that pulled on your system?',
+        'What is one small way you could have snuck in a bit more mindfulness this week? Or a practice?',
+        'What\'s one small thing that could give your system more to work with next week?'
+      ];
+      out.chipQ = 'What pulled you toward defense this week?';
+      return out;
+    }
+    if(ctx.recoveryDay && ctx.defenseState){
+      out.variant = 'recovery';
+      out.paras.push('The week had a dip in the middle: ' + _feltName(ctx.defenseState) + ' showed up and stayed for a stretch. Here\'s the part worth keeping: you came back. By ' + ctx.recoveryDay + ', safety was back in the mix. This is evidence that your system knows how to return to safety. Dips will happen. That\'s completely normal. We just want to navigate it as regulated as possible. Reflect while it\'s fresh:');
+      out.bullets = [
+        'What helped you find your way back?',
+        'Did a person, a place, or a practice make the difference?',
+        'What did the dip need from you that it eventually got?',
+        'What is the first indication that a dip is happening? What is one thing you can do to compassionately connect with that dip without rejecting the emotions?'
+      ];
+      out.chipQ = 'What helped your system recover?';
+      return out;
+    }
+    if(ctx.payoffK){
+      out.variant = 'payoff';
+      out.paras.push('You practiced ' + ctx.payoffK + ' times this week, and the check-ins that followed carried more safety than the ones before. That\'s not magic. That\'s practice reps doing what practice reps do.');
+      return out;
+    }
+    if(ctx.weekPct!=null && ctx.basePct!=null && Math.abs(ctx.weekPct-ctx.basePct)>=5){
+      const W = Math.round(ctx.weekPct), B = Math.round(ctx.basePct);
+      out.variant = W>B ? 'baseline-above' : 'baseline-below';
+      out.paras.push(W>B
+        ? 'Your week came in above your Baseline: ' + W + '% safety against ' + B + '%. One week doesn\'t move a Baseline much, but stacked weeks do. This is how the long story gets written, seven days at a time.'
+        : 'Your week came in below your Baseline: ' + W + '% safety against ' + B + '%. One week doesn\'t move a Baseline, and it doesn\'t need explaining away either. Look at the context, keep the practices small, and let next week be next week.');
+      return out;
+    }
+    out.variant = 'showup';
+    out.paras.push(n + ' check-ins this week. Honest ones, from wherever you actually were. That\'s the whole assignment. Everything below only exists because you keep doing this.');
+    return out;
+  }
+
+  // quarter / year close sections (period-sections.md v2)
+  function periodSection(ctx){
+    ctx = ctx || {};
+    const yr = ctx.mark === 'year';
+    const out = { heading: yr?'Your year':'Your quarter', eyebrow:ctx.rangeLabel||'', paras:[], bullets:[], chipQ:null, variant:null, footer:null };
+    const n = ctx.n||0, MIN = yr?60:20;
+    if(n < MIN){
+      out.variant = 'lowdata';
+      out.paras.push(yr
+        ? 'Only ' + n + ' check-ins across the whole year, so the long trends here are rough sketches at best. That\'s okay. Every check-in you add sharpens the picture. A few honest seconds a day is plenty.'
+        : 'Only ' + n + ' check-ins across the whole quarter, so it\'s tough to give you substantial trends over a stretch this long. Nothing wrong with that. The more moments you capture, the more a season like this has to say. A few honest seconds a day is plenty.');
+      return out;
+    }
+    out.paras.push(yr
+      ? 'A full year of check-ins is behind you. Whatever else this year held, you kept coming back to look at yourself honestly. Start there.'
+      : 'Three months of check-ins are behind you. That\'s long enough for the noise to cancel out and the real shape of your system to show.');
+    const b1 = ctx.b1!=null?Math.round(ctx.b1):null, b2 = ctx.b2!=null?Math.round(ctx.b2):null;
+    if(b1!=null && b2!=null){
+      const d = b2-b1;
+      if(d>=5){
+        out.variant='up';
+        out.paras.push(yr
+          ? 'A year ago, your Baseline sat around ' + b1 + '% safety. Today it\'s ' + b2 + '%. A year is long enough that this isn\'t a mood or a season. This is your nervous system, rebuilt a little, by you. That deserves real reflection. Journal on it, or just sit with it over a tea. Ask yourself:'
+          : 'When the quarter began, your Baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. That climb is slow, which is exactly what makes it trustworthy. That\'s evidence of more safety, and over three months it didn\'t happen by accident. This is worth reflecting on properly. Journal on it, or just think it through while you sip a tea. Ask yourself:');
+        out.bullets = yr ? [
+          'What do you know you did this year that connected you with safety?',
+          'What changed in your life, people, places, routines, that added safety?',
+          'What did you stop doing that used to pull on your system?',
+          'What\'s working well enough to protect, and what minor tweaks would you make for the year ahead?'
+        ] : [
+          'What did you do this season that connected you with safety more?',
+          'Did something in your life context change that led to more safety?',
+          'How are the people or places in your life adding safety?',
+          'What\'s worth carrying into the next three months, and what minor tweaks can you make?'
+        ];
+        out.chipQ = yr ? 'What most contributed to the safety in your year?' : 'What most contributed to the safety in this season?';
+      } else if(d<=-5){
+        out.variant='down';
+        out.paras.push(yr
+          ? 'A year ago, your Baseline sat around ' + b1 + '% safety. Today it\'s ' + b2 + '%. Some years take more than they give. The Baseline will rebuild the way it always forms: a month at a time, on small, repeatable practices. You already know how, because you\'ve already done it. Worth reflecting on gently, without a verdict. Ask yourself:'
+          : 'When the quarter began, your Baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. It\'s been a heavier season, and your Baseline felt it. Baselines dip with context, and they rebuild the same way they formed. Small, steady, repeatable. Worth some honest reflection, journaling or just thinking it over. Ask yourself:');
+        out.bullets = yr ? [
+          'What did this year ask of you?',
+          'What changed in your life context that pulled on your system?',
+          'Which people, places, or practices still added safety, even in a hard year?',
+          'What\'s one small, repeatable thing to start the new year with?'
+        ] : [
+          'What did this season ask of you?',
+          'Did something in your life context change that pulled on your system?',
+          'Were there people or places that still added safety, even in a heavier stretch?',
+          'What\'s one small, repeatable thing you could give your system next quarter?'
+        ];
+        out.chipQ = yr ? 'What pulled you toward defense this year?' : 'What pulled you toward defense this season?';
+      } else {
+        out.variant='flat';
+        out.paras.push(yr
+          ? 'Your Baseline held around ' + b1 + '% safety across the year. A steady year is a real result, especially if the year itself wasn\'t steady.'
+          : 'Your Baseline held around ' + b1 + '% safety across the quarter. Holding a Baseline through three months of real life is not nothing. Stable is a foundation, and foundations get built on.');
+      }
+    }
+    if(ctx.dom && ctx.firstDom){
+      const reg = { safety:1, play:1, stillness:1 };
+      let tail;
+      if(ctx.dom!==ctx.firstDom && reg[ctx.dom] && !reg[ctx.firstDom]) tail = 'That trade is the whole project, happening.';
+      else if(!reg[ctx.dom] && !reg[ctx.firstDom]) tail = yr ? 'Same neighborhood as where you started, and that\'s honest data, not a verdict.' : 'Same neighborhood as where you started, and that\'s honest data, not a verdict. Quarters like this are where the reps matter most.';
+      else tail = 'Consistency at this end of the spectrum is the quiet kind of win.';
+      out.paras.push((yr
+        ? 'The state that showed up most this year was ' + _feltName(ctx.dom) + '. Back at the start, it was ' + _feltName(ctx.firstDom) + '. '
+        : 'Your most common state this quarter was ' + _feltName(ctx.dom) + '. Back at the start, it was ' + _feltName(ctx.firstDom) + '. ') + tail);
+    }
+    out.paras.push(yr
+      ? 'You\'re not who you were a year ago. The data just says what you\'ve been living.'
+      : 'A quarter of paying attention to your own nervous system. Most people never do this once.');
+    return out;
+  }
+
   global.FromJustin = {
     today, daily, monthly, quarterly, refresh, pick, label,
     deepBody, deepInvite, changeOverlay, stuckOverlay, watchFor,
-    rundown, blog,
+    rundown, blog, weekReview, periodSection,
     LIBRARY, DEEP
   };
 })(window);

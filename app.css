@@ -1150,9 +1150,37 @@ body.reduce-motion .tg-m{transition:none}
 .read-toc li::before{content:">";color:var(--muted);margin-right:9px}
 .read-toc a{color:var(--ink);text-decoration:none}
 .arch-link{color:var(--ink);text-decoration-color:var(--muted)}
-.mint-seal{display:inline-block;border:1.5px solid var(--hairline);border-radius:6px;padding:2px 8px;margin-right:9px;font-size:10.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transform:rotate(-2.5deg);animation:sealIn .5s .15s var(--ease) both}
-@keyframes sealIn{from{opacity:0;transform:rotate(-2.5deg) scale(1.3)}to{opacity:1;transform:rotate(-2.5deg) scale(1)}}
-@media (prefers-reduced-motion:reduce){.mint-seal{animation:none}}
+/* mint-seal removed (Justin 2026-07-04: "minted" won't make sense to the reader;
+   the stamp was visually foreign to the app) */
+
+/* ---- visiting reader sections: week-in-review + quarter/year (2026-07-04) ---- */
+.wr-eyeb{font-size:calc(11px * var(--type-scale));letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0 0 6px}
+.wr-list{margin:2px 0 12px;padding-left:17px}
+.wr-list li{margin:0 0 7px;line-height:1.6;color:var(--ink-80);font-size:calc(15px * var(--type-scale))}
+.wr-ctx{margin:14px 0 4px}
+.wr-ctx-q{font-size:calc(14px * var(--type-scale));color:var(--muted);margin:0 0 9px}
+.wr-chiprow{display:flex;flex-wrap:wrap;gap:7px}
+.wr-chip{position:relative;border:0.5px solid var(--hairline);border-radius:999px;background:none;padding:8px 13px;font:inherit;font-size:calc(13px * var(--type-scale));color:var(--ink-80);cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease)}
+.wr-chip::after{content:"";position:absolute;inset:-6px}   /* ~44pt hit area */
+.wr-chip:active{background:var(--press)}
+.wr-chip.on{background:var(--bone-deep);border-color:var(--ink-30,var(--muted));font-weight:500}
+.wr-foot{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin:14px 0 0}
+
+/* ---- past reflections: pruned shelf, quiet groups, the quarter-turn fade ---- */
+.arch-eyeb{font-size:calc(11px * var(--type-scale));letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:18px 0 8px}
+.arch-eyeb:first-of-type{margin-top:4px}
+.arch-sub{display:block;font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:3px}
+.arch-note{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:0 0 12px}
+/* ghosts: ink fading on paper — no dialogs, no undo; witnessing it is a bonus */
+.arch-ghost{transition:opacity 1.6s var(--ease),transform 1.6s var(--ease)}
+.arch-ghost.gone{opacity:.06;transform:translateY(4px)}
+.arch-ghost.fold{overflow:hidden;max-height:0 !important;margin:0;padding-top:0;padding-bottom:0;border-width:0;opacity:0;transition:all .8s var(--ease)}
+/* the new quarterly settles in FIRST (arrival before departure) */
+.arch-in{overflow:hidden;max-height:0;opacity:0}
+.arch-in.here{opacity:1;transition:max-height 1.1s var(--ease),opacity 1.1s var(--ease)}
+@media (prefers-reduced-motion:reduce){
+  .arch-ghost,.arch-in{transition:none}
+}
 /* reader sections breathe in on scroll (only when .read-anim is set by JS) */
 .read-anim section{opacity:0;transform:translateY(9px);transition:opacity .65s var(--ease),transform .65s var(--ease)}
 .read-anim section.sec-in{opacity:1;transform:none}

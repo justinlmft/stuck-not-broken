@@ -240,6 +240,8 @@
       saveCache();
       setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', (cs.error||ss.error)||null);
       if(changed) notify();                          // re-render once fresh data lands (post-init / post-refresh)
+      migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
+
     }catch(e){ console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
   }
 
@@ -944,9 +946,51 @@
 
   async function reset(){
     if(CLOUD && auth.user){
-      try{ await sb.from('checkins').delete().eq('user_id', auth.user.id); await sb.from('sessions').delete().eq('user_id', auth.user.id); }catch(e){}
+      try{ await sb.from('checkins').delete().eq('user_id', auth.user.id); await sb.from('sessions').delete().eq('user_id', auth.user.id); await sb.from('contexts').delete().eq('user_id', auth.user.id); }catch(e){}
     }
     data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] }; saveCache();
+  }
+
+  // ---- contexts (answerable prompt chips, 2026-07-04) ------------------------
+  // localStorage 'snb-contexts' is the write-through cache (app.js renders from it);
+  // rows upsert to public.contexts keyed (user_id, period_key) so the data follows
+  // the account and feeds the analytics mirror. Fire-and-forget, like membership.
+  const CTX_LS = 'snb-contexts';
+  function _ctxAll(){ try{ return JSON.parse(localStorage.getItem(CTX_LS))||{}; }catch(e){ return {}; } }
+  function _ctxWrite(m){ try{ localStorage.setItem(CTX_LS, JSON.stringify(m)); }catch(e){} }
+  function saveContexts(periodKey, question, labels){
+    labels = (labels||[]).slice();
+    const m=_ctxAll(); m[periodKey]=labels; _ctxWrite(m);
+    if(!CLOUD || !auth.user) return;
+    try{
+      sb.from('contexts').upsert(
+        { user_id:auth.user.id, period_key:periodKey, question:question||null, labels:labels, updated_at:new Date().toISOString() },
+        { onConflict:'user_id,period_key' }
+      ).then(function(){}, function(){});
+    }catch(e){}
+  }
+  async function pullContexts(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      const { data:rows, error } = await sb.from('contexts').select('period_key,labels');
+      if(error || !rows) return;
+      const m=_ctxAll(); let changed=false;
+      rows.forEach(r=>{ if(r && r.period_key && !(r.period_key in m)){ m[r.period_key]=r.labels||[]; changed=true; } });
+      if(changed) _ctxWrite(m);
+    }catch(e){}
+  }
+  // one-time: lift any pre-cloud local answers up (never overwrites cloud rows)
+  function migrateContexts(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      const flag='snb-ctx-migrated';
+      if(localStorage.getItem(flag)===auth.user.id) return;
+      const m=_ctxAll(), keys=Object.keys(m);
+      if(!keys.length){ localStorage.setItem(flag, auth.user.id); return; }
+      const rows=keys.map(k=>({ user_id:auth.user.id, period_key:k, labels:m[k]||[] }));
+      sb.from('contexts').upsert(rows, { onConflict:'user_id,period_key', ignoreDuplicates:true })
+        .then(function(){ try{ localStorage.setItem(flag, auth.user.id); }catch(e){} }, function(){});
+    }catch(e){}
   }
 
   global.Store = {
@@ -958,5 +1002,6 @@
     learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, recommend, spectrum, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, CHALLENGE_LEVELS,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
+    saveContexts,
   };
 })(window);

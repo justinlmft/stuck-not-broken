@@ -338,7 +338,8 @@
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
-          ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`:''}
+          ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
+          <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
           <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">forgot your password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">on-device mode: your data stays on this device for now.</p>'}
@@ -509,8 +510,10 @@
     const sections = isPriv ? [
       ['what we keep','this app keeps track of your email, in-app preferences and check-ins.'],
       ['why','so your account works, your history is here on every device you sign in from, to track progress, and make custom recommendations.'],
-      ['who sees it',"only you. your data isn't sold or given away. no advertisers will see it. justin checks data averages or anonymized results to ensure the app is helpful and to improve it."],
-      ['your control','you can delete your data, or request deletion of your whole account, any time, right from settings (your data > delete my account).']
+      ['what stays anonymous','an anonymous copy of check-ins and practice data also exists, with no name, no email, and none of your written notes. it cannot be traced back to you, even by us.'],
+      ['what the anonymous copy is for','two things, and only these: learning whether this app actually helps people, and sharing de-identified examples of what progress can look like (for instance, "one member\'s reported safety rose from 20% to 60% over six months"). never advertising, never sold.'],
+      ['who sees it',"your identified data: only you. it isn't sold or given away, and no advertisers see it. justin works with the anonymous copy to study whether the app helps and to improve it."],
+      ['your control','you can delete your data, or your whole account, any time from settings (your data > delete my account). deleting removes everything that identifies you, permanently. the anonymous copy stays, unlinked, forever.']
     ] : [
       ['what this is',"a tool for noticing your daily experiences through the lens of the nervous system and practicing your way back to safety. it isn't medical care, diagnosis, or therapy, nor should it replace any of those or other professional services."],
       ['in a crisis','if you’re in danger or thinking about harming yourself, contact the 988 Suicide &amp; Crisis Lifeline or your local emergency services. this app can’t help in an emergency.'],
@@ -931,6 +934,130 @@
     </nav>`;
   }
 
+  // ---- visiting sections: Sunday week-in-review + quarter/year closes ---------
+  // (Justin-approved 2026-07-04; Reader-Rework/week-in-review.md + period-sections.md.)
+  // Only ever ONE visiting section at a time, in the slot between "Today, so far"
+  // and the essay. Weekly shows Sunday+Monday; a closing quarter/year takes the
+  // slot on the first Sun–Mon on/after the close.
+  const _REGDOMS = { safety:1, play:1, stillness:1 };
+  // answerable context prompt (context-prompts.md): one tappable question per
+  // section, multi-select, skippable. LOCAL-ONLY for now — cloud column waits for
+  // the next Supabase round (do not sync from here).
+  const CTX_OPTS = ['work','family','friends','partner','spiritual','nature','body & movement','rest','practice','something else']; // 🖊
+  function _ctxLoad(){ try{ return JSON.parse(localStorage.getItem('snb-contexts'))||{}; }catch(e){ return {}; } }
+  function _ctxSave(m){ try{ localStorage.setItem('snb-contexts', JSON.stringify(m)); }catch(e){} }
+  function _ctxChipsHTML(q, key){
+    const sel = _ctxLoad()[key]||[];
+    return `<div class="wr-ctx" data-key="${escapeHtml(key)}">
+      <p class="wr-ctx-q">${escapeHtml(q)}</p>
+      <div class="wr-chiprow">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${sel.indexOf(o)>=0?' on':''}" data-ctx="${escapeHtml(o)}" aria-pressed="${sel.indexOf(o)>=0?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+    </div>`;
+  }
+  function _wireCtxChips(key){
+    document.querySelectorAll('.wr-ctx .wr-chip').forEach(b=>{
+      b.onclick = ()=>{
+        const m=_ctxLoad(); const a=m[key]=(m[key]||[]); const o=b.dataset.ctx; const i=a.indexOf(o);
+        if(i>=0) a.splice(i,1); else a.push(o);
+        _ctxSave(m);
+        // cloud sync (public.contexts) — Store handles upsert + the analytics mirror follows
+        try{ if(window.Store && Store.saveContexts){ const qEl=document.querySelector('.wr-ctx-q'); Store.saveContexts(key, qEl?qEl.textContent:'', a); } }catch(e){}
+        b.classList.toggle('on', i<0); b.setAttribute('aria-pressed', i<0?'true':'false');
+      };
+    });
+  }
+  function _fmtRange(a, b){
+    const f = t=>new Date(t).toLocaleDateString(undefined,{month:'long',day:'numeric'});
+    return f(a)+' to '+f(b);
+  }
+  // a dip in the middle with a comeback: >=2 consecutive defense check-ins, then safety
+  function _recoverySignal(cs){
+    let dipStart=-1, run=0;
+    for(let i=0;i<cs.length;i++){
+      if(!_REGDOMS[cs[i].dom]){ run++; if(run===2 && dipStart<0) dipStart=i-1; }
+      else { if(dipStart>0) return { day:new Date(cs[i].t).toLocaleDateString(undefined,{weekday:'long'}), def:cs[dipStart].dom }; run=0; }
+    }
+    return null;
+  }
+  // practice payoff: check-ins within 3h after sessions carry more safety than the 3h before
+  function _payoffSignal(cs, sess){
+    if(!sess.length) return 0;
+    const b=[], a=[];
+    sess.forEach(s=>{ cs.forEach(c=>{ const d=c.t-s.t; if(d>0&&d<=3*36e5) a.push(c.v); else if(d<0&&d>=-3*36e5) b.push(c.v); }); });
+    const avg = x=>x.reduce((p,q)=>p+q,0)/x.length;
+    return (a.length>=2 && b.length>=2 && avg(a)>avg(b)+0.05) ? sess.length : 0;
+  }
+  // a personal quarter/year just closed (anchored to first check-in, same math as
+  // mintQuarters): section shows through the first Sun–Mon window on/after the close
+  function _periodVisit(now){
+    const first = Store.firstCheckinT ? Store.firstCheckinT() : null; if(!first) return null;
+    let end=null, idx=0;
+    for(let i=1;i<=40;i++){ const e=_addMonths(first,i*3); if(e<=now){ end=e; idx=i; } else break; }
+    if(!end) return null;
+    const winStart = _sundayStart(end) + ((new Date(end).getDay()<=1) ? 0 : WEEK_MS);
+    if(now < winStart || now >= winStart + 2*864e5) return null;
+    const start = _addMonths(first,(idx-1)*3);
+    const mark = (idx%4===0)?'year':'q';
+    const st = Store.periodStats(start, end); if(!st) return null;
+    const D28 = 28*864e5;
+    const b1s = Store.periodStats(start, Math.min(start+D28,end));
+    const b2s = Store.periodStats(Math.max(end-D28,start), end);
+    const mn = t=>new Date(t).toLocaleDateString(undefined,{month:'long'});
+    const my = t=>new Date(t).toLocaleDateString(undefined,{month:'long',year:'numeric'});
+    const rangeLabel = mark==='year' ? my(start)+' to '+my(end-1) : mn(start)+' to '+mn(end-1);
+    return { key:(mark==='year'?'y':'q')+new Date(start).toISOString().slice(0,10),
+      ctx: { mark, n:st.n, dom:st.dom, firstDom:st.firstDom,
+             b1:(b1s&&b1s.n>=8)?b1s.regShare*100:null, b2:(b2s&&b2s.n>=8)?b2s.regShare*100:null,
+             rangeLabel } };
+  }
+  function _visitSectionHTML(sec, key){
+    if(!sec) return { html:'', wire:null };
+    const P=(t)=>t?`<p class="read-p">${escapeHtml(t)}</p>`:'';
+    const bullets = (sec.bullets&&sec.bullets.length) ? `<ul class="wr-list">${sec.bullets.map(b=>`<li>${escapeHtml(b)}</li>`).join('')}</ul>` : '';
+    const chips = sec.chipQ ? _ctxChipsHTML(sec.chipQ, key) : '';
+    const foot = sec.footer ? `<p class="wr-foot">${escapeHtml(sec.footer)}</p>` : '';
+    const html = `
+      <section class="wr" style="margin:0 0 4px">
+        ${sec.eyebrow?`<p class="wr-eyeb">${escapeHtml(sec.eyebrow)}</p>`:''}
+        <h2 class="read-h2">${escapeHtml(sec.heading)}</h2>
+        ${sec.paras.map(P).join('')}
+        ${bullets}
+        ${chips}
+        ${foot}
+      </section>
+      <hr style="border:none;border-top:0.5px solid var(--hairline);margin:18px 0 20px">`;
+    return { html, wire: sec.chipQ ? ()=>_wireCtxChips(key) : null };
+  }
+  function buildVisitSection(){
+    try{
+      if(!(window.FromJustin && FromJustin.weekReview && Store.periodStats)) return { html:'', wire:null };
+      const now = Date.now(), dow = new Date(now).getDay();
+      const pv = _periodVisit(now);
+      if(pv && FromJustin.periodSection) return _visitSectionHTML(FromJustin.periodSection(pv.ctx), pv.key);
+      if(dow!==0 && dow!==1) return { html:'', wire:null };
+      const ws = _sundayStart(now) - WEEK_MS, we = ws + WEEK_MS;
+      const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);
+      if(!cs.length) return { html:'', wire:null };
+      const st = Store.periodStats(ws, we), prev = Store.periodStats(ws-WEEK_MS, ws);
+      let shiftDir=null;
+      if(st && prev && prev.n>=3 && st.dom!==prev.dom){
+        if(_REGDOMS[st.dom] && !_REGDOMS[prev.dom]) shiftDir='safety';
+        else if(!_REGDOMS[st.dom] && _REGDOMS[prev.dom]) shiftDir='defense';
+      }
+      const rec = _recoverySignal(cs);
+      const sess = (Store.sessions?Store.sessions():[]).filter(s=>s&&typeof s.t==='number'&&s.t>=ws&&s.t<we);
+      const tn = Store.tenure ? Store.tenure() : null;
+      const base = (tn && tn.days>=28) ? Store.periodStats(ws-28*864e5, ws) : null;
+      const ctx = {
+        n:cs.length, pct:st?st.domShare:null, dom:st?st.dom:null, prevDom:prev?prev.dom:null, shiftDir,
+        recoveryDay:rec?rec.day:null, defenseState:rec?rec.def:null,
+        practicesK:sess.length, payoffK:_payoffSignal(cs, sess),
+        weekPct: st?st.regShare*100:null, basePct: (base&&base.n>=8)?base.regShare*100:null,
+        rangeLabel:_fmtRange(ws, we-1)
+      };
+      return _visitSectionHTML(FromJustin.weekReview(ctx), 'w'+new Date(ws).toISOString().slice(0,10));
+    }catch(e){ return { html:'', wire:null }; }
+  }
+
   function screenReflectionDeep(){
     const note = FromJustin.today();
     const last = Store.lastCheckin();
@@ -1014,10 +1141,12 @@
       bodyHTML = `${lead}${P('Check in a few times, and a more personal summary will show up here.')}`;
     }
 
+    // the visiting section (week / quarter / year) — one at a time, above the essay
+    const visit = buildVisitSection();
     const hasArchive = (Store.mints && Store.mints().length > 0);
     const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">past reflections →</button>` : '';
     // quiet read-time line (HIG: set expectations; a reluctant reader wants the size of the ask)
-    const _rtWords = String(todayBlock+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
+    const _rtWords = String(todayBlock+visit.html+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
     const _rtMins = Math.max(1, Math.round(_rtWords/200));
     const _uname = (Store.getName && Store.getName()) || '';
     setHTML(`
@@ -1029,11 +1158,13 @@
             <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
           </div>
           ${todayBlock}
+          ${visit.html}
           ${bodyHTML}
           ${archiveLink}
         </div>
       </div>`);
     $('#deep-back').onclick = ()=>app('today');
+    if(visit.wire) visit.wire();
     const ab = $('#open-arch'); if(ab) ab.onclick = screenArchive;
     // sections breathe in as you reach them (scoped by .read-anim so content is
     // always visible if anything here fails; reduced motion = everything static)
@@ -1248,28 +1379,111 @@
     return `${headHTML}${readerTOC(issue)}${sectionsHTML}`;
   }
 
+  // Past Reflections — wabi-sabi shelf (Justin, 2026-07-04). The shelf is always
+  // COMPUTED from today's date, never from what was last seen, so nothing piles up
+  // even after a year away: this week's dailies, this quarter's weeklies+monthlies,
+  // one remaining week from the last quarter (why-line under it), the last 3
+  // quarterlies, and the latest annual. Mints are never deleted — the shelf just
+  // shows less (render-level prune, data intact).
+  function _archRow(m, extraClass, sub){
+    const tierLabel = { weekly:'weekly', monthly:'monthly', quarterly:'quarterly' }[m.tier] || '';
+    const label = (m.tier==='weekly') ? ((m.data&&m.data.card&&m.data.card.dateLabel) || fmtMintDate(m.dateMs))
+                : (m.data&&m.data.label) ? m.data.label : fmtMintDate(m.dateMs);
+    const tag = tierLabel ? `<span class="arch-tag">${tierLabel}</span>` : '';
+    const snip = sub ? '' : String(m.text||'').split('. ')[0];
+    const body = sub ? `<span class="arch-sub">${escapeHtml(sub)}</span>` : `<span class="arch-snip">${escapeHtml(snip)}.</span>`;
+    return `<button class="arch-row${extraClass?' '+extraClass:''}" data-id="${escapeHtml(m.id)}" data-ms="${m.dateMs}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span>${body}</span><span class="wc-go">${CHEV}</span></button>`;
+  }
   function screenArchive(){
-    const list = Store.mints ? Store.mints() : [];
-    const rows = list.length
-      ? list.map(m => {
-          const tierLabel = { weekly:'weekly', monthly:'monthly', quarterly:'quarterly' }[m.tier] || '';
-          const label = (m.tier==='weekly') ? ((m.data&&m.data.card&&m.data.card.dateLabel) || fmtMintDate(m.dateMs))
-                      : (m.data&&m.data.label) ? m.data.label : fmtMintDate(m.dateMs);
-          const tag = tierLabel ? `<span class="arch-tag">${tierLabel}</span>` : '';
-          const snip = String(m.text||'').split('. ')[0];
-          return `<button class="arch-row" data-id="${escapeHtml(m.id)}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span><span class="arch-snip">${escapeHtml(snip)}.</span></span><span class="wc-go">${CHEV}</span></button>`;
-        }).join('')
+    const all = Store.mints ? Store.mints() : [];   // sorted newest-first
+    const now = Date.now();
+    const first = Store.firstCheckinT ? Store.firstCheckinT() : null;
+    let closedQ = 0;
+    if(first){ for(let i=1;i<=40;i++){ if(_addMonths(first,i*3)<=now) closedQ=i; else break; } }
+    const curQStart  = first ? _addMonths(first, closedQ*3) : 0;
+    const prevQStart = (first && closedQ>0) ? _addMonths(first,(closedQ-1)*3) : null;
+    const weekStart  = _sundayStart(now);
+
+    // pinned week: the best week of the last closed quarter simply remains — no
+    // stamp, no "kept" label; the sub-line says why it's still here. 🖊
+    let pinned=null, pinnedSub='';
+    if(prevQStart!=null){
+      let best=-1;
+      all.forEach(m=>{
+        if(m.tier!=='weekly' || m.dateMs<prevQStart || m.dateMs>=curQStart) return;
+        const st = Store.periodStats(m.dateMs, m.dateMs+WEEK_MS);
+        const share = st?st.regShare:0;
+        if(share>best){ best=share; pinned=m; }
+      });
+      if(pinned){
+        const qst = Store.periodStats(prevQStart, curQStart);
+        pinnedSub = (qst && qst.lean==='dysregulated') ? 'the week you found your way back' : 'the most safety of your quarter';
+      }
+    }
+    const dailies    = all.filter(m=>m.tier==='daily'   && m.dateMs>=weekStart);
+    const currents   = all.filter(m=>(m.tier==='weekly'||m.tier==='monthly') && m.dateMs>=curQStart);
+    const qAll       = all.filter(m=>m.tier==='quarterly' && !(m.data&&m.data.mark==='year'));
+    const quarterlies= qAll.slice(0,3);
+    const annual     = all.find(m=>m.tier==='quarterly' && m.data && m.data.mark==='year') || null;
+
+    // quarter turn since last visit? caption always; animation only for exactly one
+    // turn (away longer = no theater, the shelf simply is its current state), and
+    // never under calm/reduced motion. HIG: the caption does the explaining, the
+    // motion is garnish. Arrival before departure: the quarterly settles in first.
+    const qKey = String(curQStart||0);
+    let seen=null; try{ seen=localStorage.getItem('snb-arch-q'); }catch(e){}
+    const turned  = seen!=null && seen!==qKey && closedQ>0;
+    const oneTurn = turned && prevQStart!=null && seen===String(prevQStart);
+    const calm = matchMedia('(prefers-reduced-motion:reduce)').matches || document.body.classList.contains('reduce-motion');
+    const animate = oneTurn && !calm;
+    try{ localStorage.setItem('snb-arch-q', qKey); }catch(e){}
+
+    // ghosts: the just-expired rows, shown once and folded away (only while animating)
+    let ghosts=[], arriving=null, dropQ=null;
+    if(animate){
+      ghosts = all.filter(m=>(m.tier==='weekly'||m.tier==='monthly') && m.dateMs>=prevQStart && m.dateMs<curQStart && (!pinned || m.id!==pinned.id));
+      arriving = quarterlies.find(m=>m.dateMs>=prevQStart) || null;
+      dropQ = qAll[3] || null;
+    }
+    const caption = turned ? `<p class="arch-note">this quarter has closed into a single reflection</p>` : ''; // 🖊
+    const EYEB = t=>`<p class="arch-eyeb">${t}</p>`;
+    const G = m=>_archRow(m,'arch-ghost');
+    const ghostsHTML = ghosts.sort((a,b)=>b.dateMs-a.dateMs).map(G).join('');
+    const parts = [];
+    if(dailies.length)  parts.push(EYEB('this week') + dailies.map(m=>_archRow(m)).join(''));
+    if(currents.length || ghosts.length) parts.push(EYEB('this quarter') + currents.map(m=>_archRow(m)).join('') + ghostsHTML);
+    if(pinned || quarterlies.length || dropQ){
+      parts.push(EYEB('quarters')
+        + (pinned ? _archRow(pinned,'',pinnedSub) : '')
+        + quarterlies.map(m=>_archRow(m, (arriving&&m.id===arriving.id)?'arch-in':'')).join('')
+        + (dropQ ? _archRow(dropQ,'arch-ghost') : ''));
+    }
+    if(annual) parts.push(EYEB('your year') + _archRow(annual));
+    const rows = parts.length ? parts.join('')
       : `<p style="font-size:calc(15px * var(--type-scale));line-height:1.6;color:var(--muted);margin:8px 0 0">your reflections will collect here as each day and week closes.</p>`;
     setHTML(`
       <header class="appbar"><button class="backbtn" id="arch-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
           <h1 class="read-h1">Past Reflections</h1>
+          ${caption}
           ${rows}
         </div>
       </div>`);
     $('#arch-back').onclick = screenReflectionDeep;
     document.querySelectorAll('.arch-row').forEach(b => b.onclick = ()=>screenMintedEntry(b.dataset.id));
+    if(animate){
+      try{
+        const inEl = arriving ? root.querySelector('.arch-in') : null;
+        if(inEl) requestAnimationFrame(()=>{ inEl.style.maxHeight = Math.max(inEl.scrollHeight,90)+'px'; inEl.classList.add('here'); });
+        const gs = Array.prototype.slice.call(root.querySelectorAll('.arch-ghost'))
+          .sort((a,b)=>(+a.dataset.ms)-(+b.dataset.ms));           // oldest fades first
+        gs.forEach((el,i)=>{
+          setTimeout(()=>el.classList.add('gone'), (inEl?1500:400) + i*350);
+          setTimeout(()=>{ el.style.maxHeight = el.scrollHeight+'px'; requestAnimationFrame(()=>el.classList.add('fold')); }, (inEl?1500:400) + i*350 + 1500);
+        });
+      }catch(e){}
+    }
   }
   function screenMintedEntry(id){
     const m = (Store.mints ? Store.mints() : []).find(x => x.id===id);
@@ -1280,7 +1494,7 @@
         <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
         <div class="scroll">
           <div class="view read" style="gap:0">
-            <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(card.dateLabel || fmtMintDate(m.dateMs))}</p>
+            <p class="read-date">${escapeHtml(card.dateLabel || fmtMintDate(m.dateMs))}</p>
             ${shareCardHTML(card)}
             ${renderIssue(m.data.issue)}
           </div>
@@ -1295,7 +1509,7 @@
         <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
         <div class="scroll">
           <div class="view read" style="gap:0">
-            <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(label)}</p>
+            <p class="read-date">${escapeHtml(label)}</p>
             <p style="font-size:calc(16px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${escapeHtml(m.text)}</p>
           </div>
         </div>`);
@@ -1308,7 +1522,7 @@
       <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <p class="read-date"><span class="mint-seal">minted</span>${escapeHtml(fmtMintDate(m.dateMs))}</p>
+          <p class="read-date">${escapeHtml(fmtMintDate(m.dateMs))}</p>
           <p style="font-size:calc(16px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 16px">${escapeHtml(m.text)}</p>
           ${tl}
         </div>
@@ -2609,7 +2823,8 @@
       <div class="view gate"><div class="gate-body">
         <p class="eyebrow">delete my account</p>
         <h1 style="margin:12px 0 12px">before you go, here's exactly what happens.</h1>
-        <p class="lede" style="margin-bottom:14px">deleting your account erases everything, immediately and for good: your account, your check-ins, your practice history, and your reflections. nothing is kept on our side, and there is no undo.</p>
+        <p class="lede" style="margin-bottom:14px">deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. there is no undo.</p>
+        <p class="lede" style="margin-bottom:14px">what stays: an anonymous copy of check-ins and practice data. no name, no email, no notes. once your account is gone, it can never be connected to you, even by us. it helps us learn whether this app helps people.</p>
         <p class="lede" style="margin-bottom:24px">your reasons are your own, and no explanation is needed. if it ever feels right to come back, you're welcome any time. a fresh start takes about a minute.</p>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
         <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>keep my account</button>
@@ -2631,7 +2846,7 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">done</p>
         <h1 style="margin:12px 0 12px">your account is gone.</h1>
-        <p class="lede" style="margin-bottom:24px">everything was erased. thank you for spending some time here. if you ever want to return, the door is open.</p>
+        <p class="lede" style="margin-bottom:24px">everything that identifies you was erased. thank you for spending some time here. if you ever want to return, the door is open.</p>
         <button class="btn block" id="del-done">okay</button>
       </div></div>`);
     $('#del-done').onclick = ()=>{ authMode='in'; lastEmail=''; currentTab='today'; route(); };
