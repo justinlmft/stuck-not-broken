@@ -1679,20 +1679,35 @@
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
-    let v=18, s=14, d=12, ch=0.65;   // axis amounts 0..100: v=connection, s=energy, d=weight
-    // default the challenge level to the person's own recent appetite, not a fixed
-    // "beginner defense" — a shutdown-leaning user shouldn't land on defense by default
-    try{ const ca=Store.learned().challengeAvg; if(ca!=null){ ch=CH_LEVELS.reduce((b,l)=>Math.abs(l.v-ca)<Math.abs(b.v-ca)?l:b, CH_LEVELS[2]).v; } }catch(e){}
+    // fresh check-ins start with every slider at the midpoint (Justin 2026-07-05):
+    // symmetric, no suggested answer — the old defaults quietly encoded a state
+    let v=50, s=50, d=50;
+    // challenge: null = "whatever you recommend" (the default — no one should feel
+    // trapped into picking a level; the recommender uses their learned appetite)
+    let ch=null;
     if(editRec){ v=Math.round((editRec.v||0)*100); s=Math.round((editRec.sym||0)*100); d=Math.round((editRec.dor||0)*100); if(typeof editRec.challenge==='number') ch=editRec.challenge; }
     // scenarios: on edit, restore the questions that were actually answered; else roll fresh
     const qIdx = (editRec && ciLoadQ(editRec.t)) || { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
     const seg = segPoss(segOf(editRec?editRec.t:Date.now()));
+    // "{name}'s {time} check-in", counting returns within the same daypart
+    // ("sam's 2nd afternoon check-in") — the eyebrow becomes theirs
+    const _ciEyebrow = (function(){
+      if(editRec) return `changing ${fmtDay(editRec.t)} · ${fmtTime(editRec.t)}`;
+      const who = (Store.getName && Store.getName()) ? Store.getName()+"'s" : 'your';
+      const nth = Store.checkins().filter(c=>sameDay(c.t)&&segOf(c.t)===segOf(Date.now())).length + 1;
+      const ord = nth===2?'2nd ':nth===3?'3rd ':nth>3?nth+'th ':'';
+      return `${who} ${ord}${seg} check-in`;
+    })();
+    // day-keyed context chips (2026-07-05): context can ride along with ANY check-in,
+    // not just the weekly reader question. keyed to the LOCAL day, merged on save,
+    // synced through the same Store.saveContexts -> public.contexts -> mirror path.
+    const _ciDayKey = (function(){ const d=new Date(editRec?editRec.t:Date.now()); return 'd'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+    const ctxSel = new Set(_ctxLoad()[_ciDayKey]||[]);
     $('#content').innerHTML = `<div class="view checkin2">
 
         <div class="scr-head">
-          <p class="eyebrow">${editRec?`changing ${fmtDay(editRec.t)} · ${fmtTime(editRec.t)}`:'checking in this '+seg}</p>
+          <p class="eyebrow">${escapeHtml(_ciEyebrow)}</p>
           <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
-          ${editRec?'':'<p class="ci-sub">no right answers. just notice.</p>'}
         </div>
 
         <div class="ci-block">
@@ -1716,8 +1731,14 @@
           </div>`:''}
         </div>
 
+        <div class="ci-block ci-ctx">
+          <p class="dash-prompt">what's around right now? <span class="ci-ctx-opt">optional</span></p>
+          <div class="wr-chiprow" id="ci-ctx-row">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSel.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" aria-pressed="${ctxSel.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+        </div>
+
         <div class="ci-block ci-challenge">
           <p class="dash-prompt">what practice level would you like next?</p>
+          <button class="ch-opt ch-auto${ch==null?' on':''}" id="ch-auto" type="button">whatever you recommend</button>
           <div class="ch-seg" id="ch-seg">
             ${CH_LEVELS.map(l=>`<button class="ch-opt${l.v===ch?' on':''}" type="button" data-ch="${l.v}" data-chkey="${l.key}">${CH_SHORT[l.key]||l.label}</button>`).join('')}
           </div>
@@ -1773,19 +1794,41 @@
       $('#ci-ovr-clear').onclick = ()=>{ ovr = null; paint(); panel.hidden = true; };
     }
 
+    // context chips: tap to toggle; saved with the check-in (day-keyed)
+    root.querySelectorAll('#ci-ctx-row .wr-chip').forEach(b=>b.onclick=()=>{
+      const o=b.dataset.ctx;
+      if(ctxSel.has(o)) ctxSel.delete(o); else ctxSel.add(o);
+      b.classList.toggle('on', ctxSel.has(o)); b.setAttribute('aria-pressed', ctxSel.has(o)?'true':'false');
+    });
+
     const cap = $('#ch-cap');
-    function setCap(key){ if(cap) cap.textContent = CH_CAP[key] || ''; }
-    setCap((CH_LEVELS.find(l=>l.v===ch)||{key:'meet'}).key);
+    const AUTO_CAP = 'a new practice designed for you will arrive after you save your check-in.';
+    function setCap(key){ if(cap) cap.textContent = key==='auto' ? AUTO_CAP : (CH_CAP[key] || ''); }
+    const chAuto = $('#ch-auto');
+    setCap(ch==null ? 'auto' : (CH_LEVELS.find(l=>l.v===ch)||{key:'meet'}).key);
+    if(chAuto) chAuto.onclick = ()=>{
+      ch = null;
+      chAuto.classList.add('on');
+      $('#ch-seg').querySelectorAll('.ch-opt').forEach(x=>x.classList.remove('on'));
+      setCap('auto');
+    };
     $('#ch-seg').querySelectorAll('.ch-opt').forEach(b=>b.onclick=()=>{
       ch = +b.dataset.ch;
+      if(chAuto) chAuto.classList.remove('on');
       $('#ch-seg').querySelectorAll('.ch-opt').forEach(x=>x.classList.toggle('on', x===b));
       setCap(b.dataset.chkey);
     });
 
     $('#save').onclick = ()=>{
-      const vals = { v:v/100, sym:s/100, dor:d/100, challenge:ch, source:(window._ciSource||null) };
+      const vals = { v:v/100, sym:s/100, dor:d/100, source:(window._ciSource||null) };
+      if(ch!=null) vals.challenge = ch;                  // null = "whatever you recommend": let the recommender decide
       if(typeof ovr==='string' && ovr) vals.dom = ovr;   // expert override rides along (edit only)
       window._ciSource = null;
+      // context rides with the check-in: replace this day's tags with the selection
+      try{
+        const m=_ctxLoad(); m[_ciDayKey]=Array.from(ctxSel); _ctxSave(m);
+        if(window.Store && Store.saveContexts) Store.saveContexts(_ciDayKey, "what's around right now?", Array.from(ctxSel));
+      }catch(e){}
       if(editRec){ Store.updateCheckin(editRec.t, vals); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
       ciSaveQ(rec.t, qIdx);
@@ -2107,7 +2150,20 @@
   // attribution guardrail: only ever rendered WITH the practice effect beside it.
   function _contextEffect(){
     const m=_ctxLoad();
-    const tagged=Object.keys(m).filter(k=>k[0]==='w'&&(m[k]||[]).length);
+    // 'w' keys = the weekly reader question; 'd' keys = tags saved with a check-in.
+    // day tags fold into their containing week so the correlation stays one honest unit
+    const wkTags={};
+    Object.keys(m).forEach(k=>{
+      if(!(m[k]||[]).length) return;
+      const p=k.slice(1).split('-').map(Number);            // local date parts
+      if(p.length<3||p.some(isNaN)) return;
+      const t=new Date(p[0],p[1]-1,p[2]).getTime();
+      const ws = k[0]==='w' ? t : k[0]==='d' ? _sundayStart(t) : null;
+      if(ws==null) return;
+      const set=wkTags[ws]=wkTags[ws]||{};
+      m[k].forEach(lb=>{ set[lb]=1; });
+    });
+    const tagged=Object.keys(wkTags);
     if(tagged.length<2) return null;
     const weeks={};
     Store.checkins().forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });
@@ -2116,11 +2172,9 @@
     if(all.length<3) return null;
     const typPct=Math.round(all.reduce((s,v)=>s+v,0)/all.length*100);
     const byLabel={};
-    tagged.forEach(k=>{
-      const p=k.slice(1).split('-').map(Number);            // local-midnight sunday, matching _sundayStart
-      const ws=new Date(p[0],p[1]-1,p[2]).getTime();
-      const v=share(ws); if(v==null) return;
-      (m[k]||[]).forEach(lb=>{ (byLabel[lb]=byLabel[lb]||[]).push(v); });
+    tagged.forEach(ws=>{
+      const v=share(+ws); if(v==null) return;
+      Object.keys(wkTags[ws]).forEach(lb=>{ (byLabel[lb]=byLabel[lb]||[]).push(v); });
     });
     let best=null;
     Object.keys(byLabel).forEach(lb=>{ const a=byLabel[lb];
@@ -3201,7 +3255,11 @@
       const blob = new Blob([JSON.stringify(Store.checkins(),null,2)],{type:'application/json'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-checkins.json'; a.click();
     };
-    $('#signout').onclick = async ()=>{ await Store.signOut(); currentTab='today'; route(); };
+    $('#signout').onclick = async ()=>{
+      // one accidental tap used to sign you straight out (Justin, 2026-07-05)
+      if(!confirm('Sign out? Your check-ins are saved to your account and will be here when you sign back in.')) return;
+      await Store.signOut(); currentTab='today'; route();
+    };
     $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practices?')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
     // full in-app account deletion (the privacy policy promises it): a clear
     // confirm screen, then the delete-account edge function erases everything
