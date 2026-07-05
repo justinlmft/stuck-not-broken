@@ -1771,25 +1771,42 @@
           </div>`:''}
         </div>
 
-        <div class="ci-block ci-challenge ci-ctx">
-          <p class="dash-prompt">context lately <span class="ci-ctx-opt">optional</span></p>
-          <div class="set-seg ci-ctx-seg" role="tablist" aria-label="context direction">
-            <button type="button" class="on" data-ctxdir="more" role="tab" aria-selected="true">i've had more of</button>
-            <button type="button" data-ctxdir="less" role="tab" aria-selected="false">i've had less of</button>
+        ${(function(){
+          // progressive disclosure (2026-07-05): sliders + save IS a complete
+          // check-in. the two optional asks fold into quiet one-row links —
+          // the screen's hierarchy now tells the truth about what's required.
+          // context sits directly above save (Justin 2026-07-05). no readouts
+          // on the collapsed rows (Justin 2026-07-05): the opened panel's
+          // highlighted option is the state.
+          return `
+        <div class="ci-block ci-challenge ci-fold" id="fold-ch">
+          <button class="ci-fold-btn" id="fold-ch-btn" type="button" aria-expanded="false" aria-controls="fold-ch-body">
+            <span class="ci-fold-lk">choose your next practice</span><span class="stats-tog-icon">+</span>
+          </button>
+          <div class="stats-body" id="fold-ch-body">
+            <button class="ch-opt ch-auto${ch==null?' on':''}" id="ch-auto" type="button">whatever you recommend</button>
+            <div class="ch-seg" id="ch-seg">
+              ${CH_LEVELS.map(l=>`<button class="ch-opt${l.v===ch?' on':''}" type="button" data-ch="${l.v}" data-chkey="${l.key}">${CH_SHORT[l.key]||l.label}</button>`).join('')}
+            </div>
+            <p class="ch-cap" id="ch-cap"></p>
           </div>
-          <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-more" role="tabpanel">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelMore.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="more" aria-pressed="${ctxSelMore.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
-          <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-less" role="tabpanel" hidden>${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelLess.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="less" aria-pressed="${ctxSelLess.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
-          <p class="ch-cap ci-ctx-cap">helps track what's adding to — or taking from — the states you feel over time. shows up later in your patterns.</p>
         </div>
 
-        <div class="ci-block ci-challenge">
-          <p class="dash-prompt">what practice level would you like next?</p>
-          <button class="ch-opt ch-auto${ch==null?' on':''}" id="ch-auto" type="button">whatever you recommend</button>
-          <div class="ch-seg" id="ch-seg">
-            ${CH_LEVELS.map(l=>`<button class="ch-opt${l.v===ch?' on':''}" type="button" data-ch="${l.v}" data-chkey="${l.key}">${CH_SHORT[l.key]||l.label}</button>`).join('')}
+        <div class="ci-block ci-challenge ci-ctx ci-fold" id="fold-ctx">
+          <button class="ci-fold-btn" id="fold-ctx-btn" type="button" aria-expanded="false" aria-controls="fold-ctx-body">
+            <span class="ci-fold-lk">add context to this check-in</span><span class="stats-tog-icon">+</span>
+          </button>
+          <div class="stats-body" id="fold-ctx-body">
+            <div class="set-seg ci-ctx-seg" role="tablist" aria-label="context direction">
+              <button type="button" class="on" data-ctxdir="more" role="tab" aria-selected="true">i've had more of</button>
+              <button type="button" data-ctxdir="less" role="tab" aria-selected="false">i've had less of</button>
+            </div>
+            <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-more" role="tabpanel">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelMore.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="more" aria-pressed="${ctxSelMore.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+            <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-less" role="tabpanel" hidden>${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelLess.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="less" aria-pressed="${ctxSelLess.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+            <p class="ch-cap ci-ctx-cap">helps track what's adding to — or taking from — the states you feel over time. shows up later in your patterns.</p>
           </div>
-          <p class="ch-cap" id="ch-cap"></p>
-        </div>
+        </div>`;
+        })()}
 
         <div class="actionbar"><button class="btn block" id="save">${editRec?'save changes':'save check-in'}</button></div>
       </div>`;
@@ -1865,6 +1882,15 @@
       if(more) more.hidden = ctxDir!=='more';
       if(less) less.hidden = ctxDir!=='less';
     });
+    // fold rows: tap to open, tap to tuck away.
+    const _bindFold = id => { const b=$('#'+id); if(!b) return; b.onclick=()=>{
+      const body=$('#'+b.getAttribute('aria-controls'));
+      const open=b.getAttribute('aria-expanded')==='true';
+      b.setAttribute('aria-expanded', open?'false':'true');
+      if(body) body.classList.toggle('open', !open);
+    }; };
+    _bindFold('fold-ch-btn'); _bindFold('fold-ctx-btn');
+
     const _ctxSetOf = d => d==='less' ? ctxSelLess : ctxSelMore;
     ['ci-ctx-row-more','ci-ctx-row-less'].forEach(id=>{
       root.querySelectorAll('#'+id+' .wr-chip').forEach(b=>b.onclick=()=>{
@@ -2530,7 +2556,7 @@
             // slides assemble dynamically, wins first. a safety DIP is never
             // animated or headlined here (it lives, gently worded, in the reader).
             const slides = [];
-            slides.push(['your safety', `
+            slides.push(['safety','your safety', `
               ${shareBtn('safety')}<h2 class="panel-title">your safety</h2>
               <p class="panel-sub">the average level of safety in your system over ${periodPhrase}.</p>
               <div class="safety-wrap${rising?' rising':''}" id="safety-wrap">
@@ -2545,14 +2571,14 @@
               const from = dip || 'fightflight';
               const rtLine = (rt && rt.dir==='faster') ? `<p class="cb-line">and lately, that trip has been getting <b>shorter</b>.</p>` : '';
               const dipLine = dip ? `<p class="cb-line">your most common dip is into <b>${STATE_NAME(dip)}</b>.</p>` : '';
-              slides.push(['getting back to safety', `
+              slides.push(['comeback','getting back to safety', `
               ${shareBtn('comeback')}<h2 class="panel-title">getting back to safety</h2>
               <div class="cb-viz cb-glyphs" aria-hidden="true"><span class="cb-g">${stateMarks(from)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(from)},${STATE_COLOR('safety')})"></span><span class="cb-g">${stateMarks('safety')}</span></div>
               <p class="cb-line">when your body drops into defense, safety usually returns within <b>${phrase}</b>. you've made that trip ${rec.n} times.</p>
               ${dipLine}${rtLine}`]);
             }
             if(bl){
-              slides.push(['your safety baseline', `
+              slides.push(['baseline','your safety baseline', `
               ${shareBtn('baseline')}<h2 class="panel-title">your safety baseline</h2>
               <p class="panel-sub">the level of safety consistently in your system over the past month.</p>
               <div class="safety-wrap"><div class="safety-num"><span>${bl.basePct}</span><span class="pct">%</span></div></div>
@@ -2561,7 +2587,7 @@
             }
             if(wd || dp){
               const strip = wd ? `<div class="wk-strip" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===wd.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>` : '';
-              slides.push(['your most regulated times', `
+              slides.push(['times','your most regulated times', `
               ${shareBtn('times')}<h2 class="panel-title">your most regulated times</h2>
               <p class="panel-sub">when your check-ins have safety most often, over ${periodPhrase}.</p>
               ${strip}
@@ -2570,26 +2596,26 @@
             }
             if(trn){
               const nm = k => ({play:'regulated mobility',stillness:'regulated immobility'}[k])||STATE_NAME(k);
-              slides.push(['your most common shift', `
+              slides.push(['shift','your most common shift', `
               ${shareBtn('shift')}<h2 class="panel-title">your most common shift</h2>
               <div class="cb-viz cb-glyphs" aria-hidden="true"><span class="cb-g">${stateMarks(trn.a)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(trn.a)},${STATE_COLOR(trn.b)})"></span><span class="cb-g">${stateMarks(trn.b)}</span></div>
               <p class="cb-line">your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>. ${trn.count} times so far.</p>`]);
             }
             if(pr){
               const fcTxt = pr.fastest ? (pr.fastest.steps<=1?'back in one check-in':'back in '+pr.fastest.steps+' check-ins') : '';
-              slides.push(['your records', `
+              slides.push(['records','your records', `
               ${shareBtn('records')}<h2 class="panel-title">your records</h2>
               <p class="panel-sub">personal bests, from your real check-ins.</p>
               ${pr.bestWeek?`<div class="safety-meter" style="margin:12px 0 16px"><span class="safety-meter-fill" style="width:${pr.bestWeek.pct}%"></span></div>`:''}
               ${pr.bestWeek?`<p class="cb-line">your most regulated week yet: the week of <b>${pr.bestWeek.label}</b>, when <b>${pr.bestWeek.pct}%</b> of your check-ins had safety in them.</p>`:''}
               ${pr.fastest?`<p class="cb-line">your fastest comeback: a dip into <b>${STATE_NAME(pr.fastest.dom)}</b>, <b>${fcTxt}</b>.</p>`:''}`]);
             }
-            slides.push(['your state mix', `
+            slides.push(['mix','your state mix', `
               ${shareBtn('mix')}<h2 class="panel-title">your state mix</h2>
               <p class="panel-sub">${activePeriod==='all'?'your state averages, all time.':'your check-in averages, over '+periodPhrase+'.'}</p>
               <div class="dist-bars">${mixHTML}</div>`]);
             if(fl){
-              slides.push(['your flavors of safety', `
+              slides.push(['flavors','your flavors of safety', `
               ${shareBtn('flavors')}<h2 class="panel-title">your flavors of safety</h2>
               <p class="panel-sub">this is what your safety looks like over ${periodPhrase}.</p>
               <div class="help-bars">${fl.map(r=>`<div class="help-row"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
@@ -2604,27 +2630,41 @@
               const links = csl ? `
               ${csl.safe?`<p class="cb-line"${ce?' style="margin-top:16px"':''}>tagged most around your safe check-ins: <b>${escapeHtml(csl.safe.label)}</b>.</p>`:''}
               ${csl.def?`<p class="cb-line">tagged most around defense: <b>${escapeHtml(csl.def.label)}</b>.</p>`:''}` : '';
-              slides.push(['your top context', `
+              slides.push(['context','your top context', `
               ${shareBtn('context')}<h2 class="panel-title">your top context</h2>
               ${bars}${links}
               ${pe?`<p class="ctx-practice">practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
-            slides.push(['your safety changes', `
+            slides.push(['changes','your safety changes', `
               ${shareBtn('day')}<h2 class="panel-title">your safety changes</h2>
               <p class="panel-sub">your safety state over time, and how far you've come since you started.</p>
               ${growthHead}${dayByDay}`]);
             if(arcBuckets){
-              slides.push(['your states over time', `
+              slides.push(['states','your states over time', `
               ${shareBtn('states')}<h2 class="panel-title">your states over time</h2>
               <p class="panel-sub">the state each stretch of time leaned toward.</p>
               <div class="chart-wrap" data-cmode="states">${chartInner('states', arcBuckets, safetyColor)}</div>`]);
             }
-            slides.push(['is practice helping?', `
+            slides.push(['practice','is practice helping?', `
               ${shareBtn('practice')}<h2 class="panel-title">is practice helping?</h2>
               <p class="panel-sub">your average safety after you practice vs. not.</p>
               ${helpHTML}`]);
-            window._youSlides = slides.map(s=>s[0]);
-            return slides.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${s[0]}, card ${i+1} of ${slides.length}">${s[1]}</section>`).join('');
+            // capacity-aware carousel (2026-07-05): AT MOST 4 cards, chosen for
+            // what the data supports and what the person has room for right now.
+            // when recent check-ins lean defensive, the cards that say "dips end"
+            // lead (comeback, regulated times, records, practice) and the
+            // percentage hero steps back — same honest data, kinder sequence.
+            // when steady or rising, the safety story leads as before.
+            const _recent = allCs.slice(-6);
+            const _defN = _recent.filter(x=>x.dom && x.dom!=='neutral' && !_REGDOMS[x.dom]).length;
+            const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
+            const _ORDER = _tender
+              ? ['comeback','times','records','practice','flavors','baseline','mix','context','changes','states','shift','safety']
+              : ['safety','comeback','changes','baseline','times','shift','records','mix','flavors','context','states','practice'];
+            const _rank = k=>{ const i=_ORDER.indexOf(k); return i<0?99:i; };
+            const picked = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0])).slice(0,4);
+            window._youSlides = picked.map(s=>s[1]);
+            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${s[1]}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
 
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${lb}"></button>`).join('')}</div>

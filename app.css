@@ -811,6 +811,18 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .ci-ctx .ch-cap{min-height:0}
 .ci-ctx-cap{color:var(--muted)}
 .ci-ctx-opt{font-size:calc(11px * var(--type-scale));color:var(--muted);font-weight:400;margin-left:4px}
+/* check-in fold rows (2026-07-05): optional sections tucked behind quiet
+   one-row links — sliders + save reads as the whole ask. link text sits
+   left (like "ask me differently"); the + sits at the row's right edge
+   and rotates to x when open. no readouts on the collapsed rows. */
+.ci-fold{gap:0}
+.ci-fold-btn{display:flex;align-items:center;justify-content:space-between;gap:7px;width:100%;background:none;border:0;cursor:pointer;font:inherit;padding:8px 0;color:inherit;white-space:nowrap;min-width:0;position:relative;text-align:left}
+.ci-fold-btn::before{content:'';position:absolute;inset:-6px -4px}
+.ci-fold-btn .stats-tog-icon{flex:none}
+.ci-fold-btn[aria-expanded="true"] .stats-tog-icon{transform:rotate(45deg)}
+.ci-fold-lk{font-size:calc(14px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-decoration-color:rgba(58,63,74,.4);text-underline-offset:3px;transition:color .15s var(--ease),text-decoration-color .15s var(--ease)}
+.ci-fold-btn:hover .ci-fold-lk{color:var(--ink);text-decoration-color:var(--ink)}
+.ci-fold .stats-body.open{padding:6px 0 4px}
 .ci-readout-idle{color:var(--muted);font-style:normal}
 .ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .ch-opt:hover{border-color:var(--ink-80)}
