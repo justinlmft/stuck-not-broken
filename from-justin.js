@@ -1013,7 +1013,7 @@
       const up = p.context.tagPct >= p.context.typPct;
       let s = 'The weeks you tagged “' + p.context.label + '” carried ' + (up?'more':'less') + ' safety: ' + p.context.tagPct + '% of check-ins, against ' + p.context.typPct + '% in a typical week.';
       s += (p.context.peRate!=null)
-        ? ' Practice runs alongside too: whenever you next check in after a practice, even if it\'s hours later, that check-in carries more safety about ' + p.context.peRate + '% of the time.'
+        ? ' Practice runs alongside too: when a check-in comes within a few hours of a practice, it carries more safety about ' + p.context.peRate + '% of the time.'
         : ' Worth noticing what those weeks held.';
       parts.push(s);
     }

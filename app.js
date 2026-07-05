@@ -268,7 +268,7 @@
   // softened for the midpoint-start sliders (the old "a lot of energy" overclaimed at 50).
   const CI_MIRROR = {
     v:   ['connecting feels very hard right now','connecting takes effort','connecting is doable','connecting feels easy right now'],
-    sym: ['your body is calm','your body is a little revved up','your body is fairly revved up','your body is very revved up'],
+    sym: ['your body is calm','a little extra energy in your body','a good amount of energy in your body','your body is very revved up'],
     dor: ['doing things feels within reach','doing things takes a little extra push','doing things takes real effort right now','doing much of anything feels out of reach'],
   };
   const ciBucket = x => x < 0.18 ? 0 : x < 0.45 ? 1 : x < 0.72 ? 2 : 3;
@@ -1148,7 +1148,7 @@
         const rtR=recR?_recoveryTrend():null;
         const prR=_personalRecords(cs);
         const ceR=_contextEffect();
-        const peR=(ceR&&Store.practiceEffect)?Store.practiceEffect():null;
+        const peR=ceR?_peWindowed():null;
         return {
           day:wdR, seg:dpR,
           shift:trnR?{a:trnR.a,b:trnR.b,count:trnR.count}:null,
@@ -1239,10 +1239,10 @@
       root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
         const which=b.dataset.shareSec;
         if(which==='blog-pats' && patterns){
-          if(patterns.day){ openShare(`${patterns.day.pct}% of my ${patterns.day.label} check-ins have safety in them. i'm learning my nervous system's patterns. ${_sig}`, { kind:'days', idx:patterns.day.idx }); return; }
-          if(patterns.shift){ openShare(`when my state changes, it most often shifts from ${STATE_NAME(patterns.shift.a)} to ${STATE_NAME(patterns.shift.b)}. i can see the pattern now. ${_sig}`, { kind:'path', a:patterns.shift.a, b:patterns.shift.b }); return; }
+          if(patterns.day){ openShare(`${patterns.day.pct}% of my ${patterns.day.label} check-ins have safety in them. ${_sig}`, { kind:'days', idx:patterns.day.idx }); return; }
+          if(patterns.shift){ openShare(`my nervous system's most common shift: ${STATE_NAME(patterns.shift.a)} to ${STATE_NAME(patterns.shift.b)}. i can see the pattern now. ${_sig}`, { kind:'path', a:patterns.shift.a, b:patterns.shift.b }); return; }
         }
-        if(which==='blog-zoom' && vizCtx.zoomPct!=null){ openShare(`my safety baseline this month: ${vizCtx.zoomPct}%. i'm watching it move. ${_sig}`, { kind:'meter', pct:vizCtx.zoomPct }); return; }
+        if(which==='blog-zoom' && vizCtx.zoomPct!=null){ openShare(`my safety baseline this month. ${_sig}`, { kind:'meter', pct:vizCtx.zoomPct }); return; }
       }));
     })();
     if(visit.wire) visit.wire();
@@ -1972,21 +1972,26 @@
       x.fillStyle=color; x.fill(new Path2D(icn.d)); x.restore(); return true;
     }catch(e){ return false; }
   }
-  // draws a card's visual onto the share canvas; returns the y where text may begin
+  // draws a card's visual onto the share canvas; returns the y where text may begin.
+  // everything left-aligned at the shared margin, like the app (Justin 2026-07-05)
+  const _SHL = 120;   // share-card left margin
   function _shareViz(x, W, viz){
+    const L=_SHL;
     const rr=(bx,by,bw,bh,r)=>{ x.beginPath(); x.moveTo(bx+r,by); x.arcTo(bx+bw,by,bx+bw,by+bh,r); x.arcTo(bx+bw,by+bh,bx,by+bh,r); x.arcTo(bx,by+bh,bx,by,r); x.arcTo(bx,by,bx+bw,by,r); x.closePath(); };
     if(viz.kind==='meter'){
-      x.fillStyle='#1A1F2A'; x.font='500 170px Inter, system-ui, sans-serif'; x.textAlign='center';
-      x.fillText(viz.pct+'%', W/2, 430);
-      const bw=W-460, bx=(W-bw)/2, by=470;
-      x.fillStyle='#F0EEE7'; rr(bx,by,bw,28,14); x.fill();
-      x.fillStyle='#F4D58D'; rr(bx,by,Math.max(28,bw*viz.pct/100),28,14); x.fill();
-      return 600;
+      x.fillStyle='#1A1F2A'; x.font='500 170px Inter, system-ui, sans-serif'; x.textAlign='left';
+      x.fillText(viz.big || (viz.pct+'%'), L, 430);
+      if(viz.pct!=null){
+        const bw=W-2*L, by=470;
+        x.fillStyle='#F0EEE7'; rr(L,by,bw,28,14); x.fill();
+        x.fillStyle='#F4D58D'; rr(L,by,Math.max(28,bw*viz.pct/100),28,14); x.fill();
+        return 600;
+      }
+      return 520;
     }
     if(viz.kind==='path'){
       // a/b are STATE KEYS: endpoints render ONLY the state's own active marks
-      // (the full lockup reads too heavy at bar scale — Justin 2026-07-05)
-      const y=400, x1=W/2-300, x2=W/2+300;
+      const y=400, x1=L+90, x2=W-L-90;
       const ca=STATE_COLOR(viz.a), cb=STATE_COLOR(viz.b);
       const g=x.createLinearGradient(x1,0,x2,0); g.addColorStop(0,ca); g.addColorStop(1,cb);
       x.strokeStyle=g; x.lineWidth=7; x.beginPath(); x.moveTo(x1+100,y); x.lineTo(x2-100,y); x.stroke();
@@ -2000,7 +2005,7 @@
       return 560;
     }
     if(viz.kind==='days'){
-      const lbs=['s','m','t','w','t','f','s'], y=400, gap=110, x0=W/2-3*gap;
+      const lbs=['s','m','t','w','t','f','s'], y=400, gap=112, x0=L+30;
       lbs.forEach((lb,i)=>{
         const on=i===viz.idx;
         if(on){ if(!_cnvMark(x,'heart','#F4D58D',x0+i*gap,y,64)){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,34,0,7); x.fill(); } }
@@ -2011,17 +2016,17 @@
       return 580;
     }
     if(viz.kind==='streak'){
-      const y=400, gap=64, x0=W/2-(viz.n-1)*gap/2;
+      const y=400, gap=64, x0=L+22;
       for(let i=0;i<viz.n;i++){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,22,0,7); x.fill(); }
       return 540;
     }
     if(viz.kind==='bars'){
-      const bw=W-460, bx=(W-bw)/2; let by=330;
+      const bw=W-2*L-110; let by=330;
       viz.rows.slice(0,3).forEach(r=>{
-        x.fillStyle='#F0EEE7'; rr(bx,by,bw,26,13); x.fill();
-        x.fillStyle=r.color; rr(bx,by,Math.max(26,bw*r.pct/100),26,13); x.fill();
+        x.fillStyle='#F0EEE7'; rr(L,by,bw,26,13); x.fill();
+        x.fillStyle=r.color; rr(L,by,Math.max(26,bw*r.pct/100),26,13); x.fill();
         x.fillStyle='#5E5A4E'; x.font='400 28px Inter, system-ui, sans-serif'; x.textAlign='left';
-        x.fillText(r.pct+'%', bx+bw+18, by+23);
+        x.fillText(r.pct+'%', L+bw+18, by+23);
         by+=72;
       });
       return by+60;
@@ -2037,31 +2042,32 @@
       const x=cv.getContext('2d'); if(!x) return false;
       x.fillStyle='#FAF9F5'; x.fillRect(0,0,W,H);
       x.strokeStyle='#D8D2C2'; x.lineWidth=3; x.strokeRect(48,48,W-96,H-96);
-      // header: the user's own state glyph (their most frequent state) — their mark,
-      // on every card they send. optional via settings; falls back to the brand dots.
+      // header: the user's own state glyph, small, top-left — a signature, not a
+      // billboard (Justin 2026-07-05). optional via settings; falls back to brand dots.
+      const L=_SHL;
       let drewGlyph=false;
       try{
         if(localStorage.getItem('snb_share_glyph')!=='0'){
           const m={}; Store.checkins().forEach(c=>{ if(c.dom&&c.dom!=='neutral') m[c.dom]=(m[c.dom]||0)+1; });
           const idKey=Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
-          if(idKey) drewGlyph=_cnvGlyph(x, idKey, W/2, 180, 96);
+          if(idKey){ const vb=String(TRI_VB).split(/\s+/).map(Number); const gw=52*vb[2]/vb[3]; drewGlyph=_cnvGlyph(x, idKey, L+gw/2, 150, 52); }
         }
       }catch(e){}
-      if(!drewGlyph) ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(W/2-64+i*64,196,17,0,7); x.fill(); });
+      if(!drewGlyph) ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(L+12+i*36,150,11,0,7); x.fill(); });
       const vizBottom = viz ? _shareViz(x, W, viz) : null;
-      // adaptive text block (2026-07-05 rework): shrink type until the whole message
-      // fits between the visual and the footer — lines can never collide or run over.
-      x.fillStyle='#1A1F2A'; x.textAlign='center';
+      // adaptive text block: left-aligned like the app; shrink type until the whole
+      // message fits between the visual and the footer — lines never collide.
+      x.fillStyle='#1A1F2A'; x.textAlign='left';
       const body=String(txt).replace(/\.?\s*stuck not broken( · app\.stucknotbroken\.com)?\s*$/i,'');
       const wrap=(fs)=>{
         x.font='500 '+fs+'px Inter, system-ui, sans-serif';
         const words=body.split(/\s+/), out=[]; let line='';
-        words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-280&&line){ out.push(line); line=w; } else line=t; });
+        words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-2*L&&line){ out.push(line); line=w; } else line=t; });
         if(line) out.push(line);
         return out;
       };
       const top = vizBottom ? vizBottom+56 : 300;
-      const bottomLimit = H-230;                          // footer starts at H-176; keep clear air above it
+      const bottomLimit = H-240;                          // footer block starts ~H-186; keep clear air
       let fs=54, lh=Math.round(54*1.42), lines=wrap(fs);
       while(lines.length*lh > (bottomLimit-top) && fs>34){ fs-=4; lh=Math.round(fs*1.42); lines=wrap(fs); }
       const maxL=Math.max(1, Math.floor((bottomLimit-top)/lh));
@@ -2069,11 +2075,12 @@
       const blockH=lines.length*lh;
       const startY = (vizBottom ? top : Math.max(top,(bottomLimit+top-blockH)/2)) + Math.round(lh*0.75);
       x.font='500 '+fs+'px Inter, system-ui, sans-serif';
-      lines.forEach((l,i)=>x.fillText(l,W/2,startY+i*lh));
+      lines.forEach((l,i)=>x.fillText(l,L,startY+i*lh));
+      x.textAlign='left';
       x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
-      x.fillText('stuck not broken',W/2,H-176);
+      x.fillText('the Stuck Not Broken app',L,H-186);
       x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif';
-      x.fillText('app.stucknotbroken.com',W/2,H-130);
+      x.fillText('download at app.stucknotbroken.com',L,H-138);
       const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
       if(!blob) return false;
       const file=new File([blob],'stuck-not-broken.png',{type:'image/png'});
@@ -2247,6 +2254,39 @@
     return (best && Math.abs(best.tagPct-typPct)>=5) ? { label:best.label, tagPct:best.tagPct, typPct } : null;
   }
 
+  // windowed practice effect (2026-07-05, Justin): a check-in a week later says
+  // nothing about the practice — only pairs within 12 hours count, so the stat
+  // never claims a correlation the timing can't support. computed from raw data;
+  // store.js untouched.
+  const _PE_WIN = 12*36e5;
+  const _PE_RANK = { shutdown:0, freeze:0, fightflight:1, play:2, stillness:2, safety:3 };
+  function _peWindowed(){
+    const ss = Store.sessions().filter(s=>s&&s.domBefore&&_PE_RANK[s.domBefore]!=null);
+    if(!ss.length) return null;
+    const cs = Store.checkins();
+    let moved=0, total=0;
+    ss.forEach(s=>{
+      const next = cs.find(c=>c.t>s.t && c.t-s.t<=_PE_WIN && c.dom && _PE_RANK[c.dom]!=null);
+      if(!next) return;
+      total++;
+      if(_PE_RANK[next.dom]>_PE_RANK[s.domBefore]) moved++;
+    });
+    return total>=6 ? { moved, total, rate:moved/total } : null;
+  }
+  function _peInsightsWindowed(){
+    const ss = Store.sessions().filter(s=>s&&s.practiceKey&&s.domBefore&&_PE_RANK[s.domBefore]!=null);
+    if(!ss.length) return [];
+    const cs = Store.checkins(), g={};
+    ss.forEach(s=>{
+      const next = cs.find(c=>c.t>s.t && c.t-s.t<=_PE_WIN && c.dom && _PE_RANK[c.dom]!=null);
+      if(!next) return;
+      const k=s.practiceKey+'|'+s.domBefore+'|'+segOf(s.t);
+      const o=g[k]||(g[k]={practiceKey:s.practiceKey,dom:s.domBefore,seg:segOf(s.t),moved:0,total:0});
+      o.total++;
+      if(_PE_RANK[next.dom]>_PE_RANK[s.domBefore]) o.moved++;
+    });
+    return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4).map(o=>Object.assign(o,{rate:o.moved/o.total})).sort((a,b)=>b.total-a.total||b.rate-a.rate);
+  }
   // context ↔ state link: which tag gets named most around safe check-ins, and which
   // around defense. only per-check-in ('c') tags carry a state, so only they count.
   function _contextStateLink(){
@@ -2372,8 +2412,8 @@
         helpHTML=`<p class="panel-empty">practice a few times, checking in around it, and we'll show you whether it moves your safety.</p>`;
       } else {
         const onP=Math.round(avg(on)*100), offP=Math.round(avg(off)*100);
-        const _pe = Store.practiceEffect ? Store.practiceEffect() : null;
-        const _pis = Store.practiceInsights ? Store.practiceInsights() : [];
+        const _pe = _peWindowed();
+        const _pis = _peInsightsWindowed();
         const _pi = _pis && _pis.length ? _pis[0] : null;
         const _segPhrase = s => s==='late' ? 'late at night' : 'in the '+segLabel(s);
         helpHTML=`
@@ -2381,7 +2421,7 @@
             <div class="help-row"><span class="help-lbl">practice days</span><span class="help-track"><span class="help-fill" style="width:${onP}%;background:var(--s-safety)"></span></span><span class="help-pct">${onP}%</span></div>
             <div class="help-row"><span class="help-lbl">other days</span><span class="help-track"><span class="help-fill" style="width:${offP}%;background:var(--hairline)"></span></span><span class="help-pct">${offP}%</span></div>
           </div>
-          ${_pe?`<p class="cb-line" style="margin-top:16px">after practicing, your next check-in shows more safety about <b>${Math.round(_pe.rate*20)*5}%</b> of the time.</p>`:''}
+          ${_pe?`<p class="cb-line" style="margin-top:16px">when you check in within a few hours of practicing, it shows more safety about <b>${Math.round(_pe.rate*20)*5}%</b> of the time.</p>`:''}
           ${_pi?`<p class="cb-line" style="margin-top:10px">your most reliable combo so far: <b>${Store.practiceLabel(_pi.practiceKey)}</b> ${_segPhrase(_pi.seg)}, safety follows about <b>${Math.round(_pi.rate*20)*5}%</b> of the time.</p>`:''}`;
       }
 
@@ -2413,7 +2453,7 @@
       const pr  = _personalRecords(allCs);
       const fl  = _safetyFlavors(cs);
       const ce  = _contextEffect();
-      const pe  = ce && Store.practiceEffect ? Store.practiceEffect() : null;
+      const pe  = ce ? _peWindowed() : null;
       const csl = _contextStateLink();
       c.innerHTML=`
         <div class="view play-view">
@@ -2504,7 +2544,7 @@
               slides.push(['your top context', `
               ${shareBtn('context')}<h2 class="panel-title">your top context</h2>
               ${bars}${links}
-              ${pe?`<p class="ctx-practice">after practicing: your next check-in has safety more often, about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
+              ${pe?`<p class="ctx-practice">practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
             slides.push(['your safety changes', `
               ${shareBtn('day')}<h2 class="panel-title">your safety changes</h2>
@@ -2561,27 +2601,28 @@
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
       const _sig = 'stuck not broken · app.stucknotbroken.com';
+      // share copy never repeats the number the visual already shows (Justin 2026-07-05:
+      // "redundant"). when the baseline ROSE this month, the card celebrates the rise.
+      const bd = bl ? (function(){ try{ const n=Date.now(); return Store.baselineDelta ? Store.baselineDelta(n-28*864e5, n) : null; }catch(e){ return null; } })() : null;
       const SHARE_TXT = {
-        safety:  `my nervous system is running at ${safetyPct}% safety lately${dir==='rising'?', and rising':''}. i'm learning its language. ${_sig}`,
-        mix:     `lately my system spends the most time in ${_topNm}. i'm mapping my nervous system, state by state. ${_sig}`,
-        comeback:`my nervous system knows the way back. after harder moments, i keep finding safety again. ${_sig}`,
-        day:     dir==='rising' ? `my safety is on the rise. the reps are adding up. ${_sig}`
-               : dir==='falling' ? `my safety is in a dip right now. dips come back, and i'm watching the whole pattern. ${_sig}`
-               : `my safety is holding steady, and i can see it. ${_sig}`,
-        practice:`i'm tracking whether practice actually moves my nervous system, and watching the answer show up in the data. ${_sig}`,
-        baseline:bl?`my safety baseline this month: ${bl.basePct}%. i'm watching it move. ${_sig}`:'',
-        times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. i know my most regulated times now. ${_sig}`:'',
-        shift:   trn?`when my state changes, it most often shifts from ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
-        records: (pr&&pr.bestWeek)?`my most regulated week yet: ${pr.bestWeek.pct}% of my check-ins had safety in them. ${_sig}`:(pr&&pr.fastest)?`my fastest comeback yet: a dip, and back in ${pr.fastest.steps<=1?'one check-in':pr.fastest.steps+' check-ins'}. ${_sig}`:'',
-        flavors: (fl&&fl.length)?`my safety has flavors. lately it's mostly ${fl[0].label}, ${fl[0].pct}% of the time. ${_sig}`:'',
-        context: ce?`my safest weeks have something in common: “${ce.label}”. ${_sig}`:'',
+        safety:  `my average level of safety lately. i'm learning my nervous system's language. ${_sig}`,
+        mix:     `my state mix lately. i'm mapping my nervous system, state by state. ${_sig}`,
+        comeback:`after a dip, my nervous system finds its way back to safety. ${_sig}`,
+        day:     `my safety over time, and how far it's come since i started. ${_sig}`,
+        practice:`i'm tracking whether practice actually moves my nervous system. the data is answering. ${_sig}`,
+        baseline:(bd&&bd.dir==='up')?`my safety baseline increased this much this month! ${_sig}`:`my safety baseline this month. ${_sig}`,
+        times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
+        shift:   trn?`my nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
+        records: (pr&&pr.bestWeek)?`my most regulated week yet. ${_sig}`:(pr&&pr.fastest)?`my fastest comeback yet: a dip, and back in ${pr.fastest.steps<=1?'one check-in':pr.fastest.steps+' check-ins'}. ${_sig}`:'',
+        flavors: (fl&&fl.length)?`my safety comes in flavors. lately it's mostly ${fl[0].label}. ${_sig}`:'',
+        context: ce?`safety in my weeks tagged “${ce.label}”, next to a typical week. ${_sig}`:'',
       };
       // each share image carries the card's visual, not just words
       const SHARE_VIZ = {
         safety:  { kind:'meter', pct:safetyPct },
         day:     { kind:'meter', pct:safetyPct },
         comeback:rec?{ kind:'path', a:(dip||'fightflight'), b:'safety' }:null,
-        baseline:bl?{ kind:'meter', pct:bl.basePct }:null,
+        baseline:(bd&&bd.dir==='up')?{ kind:'meter', big:'+'+Math.abs(bd.deltaPct)+'%', pct:null }:(bl?{ kind:'meter', pct:bl.basePct }:null),
         times:   wd?{ kind:'days', idx:wd.idx }:null,
         shift:   trn?{ kind:'path', a:trn.a, b:trn.b }:null,
         records: (pr&&pr.bestWeek)?{ kind:'meter', pct:pr.bestWeek.pct }:(pr&&pr.fastest)?{ kind:'path', a:pr.fastest.dom, b:'safety' }:null,
