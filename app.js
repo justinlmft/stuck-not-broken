@@ -66,6 +66,27 @@
     Store.checkins=()=>cs.slice();
     Store.sessions=()=>ss.slice();
     try{ const _rn=Store.getName(); Store.getName=()=>_rn||'Sam'; }catch(e){}   // demo name in-memory only; never persisted
+    // demo must feed the DERIVED reads too (2026-07-05 fix): the internal store stays
+    // empty in demo, so every function that reads data.checkins directly returned null —
+    // gated You-tab cards vanished and the reader crashed on trend().dir. These overrides
+    // recompute the same signals from the demo arrays. In-memory only, review-only.
+    const REG={safety:1,play:1,stillness:1}, RANK={shutdown:0,freeze:0,fightflight:1,play:2,stillness:2,safety:3};
+    const _sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime();};
+    const _segD=t=>{const h=new Date(t).getHours();return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late';};
+    Store.firstCheckinT=()=>cs.length?cs[0].t:null;
+    Store.tenure=()=>{const days=Math.round((_sod(Date.now())-_sod(cs[0].t))/864e5);const wc=cs.filter(c=>Date.now()-c.t<=7*864e5).length;return {count:cs.length,days:days,windowCount:wc,sinceLast:0,returning:false,stage:'established'};};
+    Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'rising':d<-0.12?'falling':'steady',n:a.length};};
+    Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};w.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/w.length*100));let reg=0;w.forEach(c=>{if(REG[c.dom])reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};a.forEach(x=>c2[x.dom]=(c2[x.dom]||0)+1);return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
+      return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:w.length-reg,regShare:reg/w.length,lean:reg/w.length>=0.6?'regulated':reg/w.length<=0.4?'dysregulated':'even',avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>!REG[d]),regStates:order.filter(d=>REG[d])};};
+    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',deltaPct:0,cur:cur.avgV};const d=cur.avgV-prev.avgV;return {dir:d>0.05?'up':d<-0.05?'down':'flat',deltaPct:Math.round(d*100),cur:cur.avgV,prev:prev.avgV};};
+    Store.recovery=()=>{if(cs.length<12)return null;const gaps=[];let i=0;while(i<cs.length){if(!REG[cs[i].dom]){let j=i,st=0,f=false;while(j<cs.length){if(REG[cs[j].dom]){f=true;break;}j++;st++;}if(f)gaps.push(st);i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length}:null;};
+    Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
+    Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
+    Store.timeOfDay=()=>null;
+    Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
+    Store.today=()=>{const d=new Date();d.setHours(0,0,0,0);return Store.dayArc(d.getTime());};
+    Store.practiceEffect=()=>{const t=ss.filter(s=>s.domBefore);if(t.length<6)return null;let moved=0,tot=0;t.forEach(s=>{const nx=cs.find(c=>c.t>s.t);if(!nx)return;tot++;if(RANK[nx.dom]>RANK[s.domBefore])moved++;});return tot>=6?{moved:moved,total:tot,rate:moved/tot}:null;};
+    Store.practiceInsights=()=>{const g={};ss.forEach(s=>{if(!s.practiceKey||!s.domBefore)return;const nx=cs.find(c=>c.t>s.t);if(!nx)return;const k=s.practiceKey+'|'+s.domBefore+'|'+_segD(s.t);const o=g[k]||(g[k]={practiceKey:s.practiceKey,dom:s.domBefore,seg:_segD(s.t),moved:0,total:0});o.total++;if(RANK[nx.dom]>RANK[s.domBefore])o.moved++;});return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4).map(o=>Object.assign(o,{rate:o.moved/o.total})).sort((a,b)=>b.total-a.total||b.rate-a.rate);};
   })();
 
   // ── audio autoplay unlock ─────────────────────────────────────────
@@ -1087,7 +1108,7 @@
       share = Math.round((freq[dom]||0)/base.length*100);
     }
     if(!dom && last) dom = last.dom;
-    if(cs.length>=2) dir = Store.trend().dir;
+    if(cs.length>=2){ const _tr=Store.trend(); dir=_tr?_tr.dir:null; }   // null-safe: never crash the reader
     if(base.length>=3){
       const avgV=base.reduce((s,c)=>s+c.v,0)/base.length;
       const sd=Math.sqrt(base.reduce((s,c)=>s+(c.v-avgV)*(c.v-avgV),0)/base.length);
@@ -1102,10 +1123,31 @@
     const _DYSD = { fightflight:1, shutdown:1, freeze:1 };
     const _defCnt = {}; cs.forEach(c=>{ if(c && _DYSD[c.dom]) _defCnt[c.dom]=(_defCnt[c.dom]||0)+1; });
     const defDom = Object.keys(_defCnt).sort((a,b)=>_defCnt[b]-_defCnt[a])[0] || null;
+    // patterns: the written version of the You-tab stats (same helpers, full history).
+    // each self-gates; the section only appears when >=2 signals are real.
+    const patterns = (function(){
+      try{
+        const wdR=_weekdayPattern(cs), dpR=_daypartPattern(cs);
+        const trnR=Store.transitions?Store.transitions():null;
+        const recR=Store.recovery?Store.recovery():null;
+        const rtR=recR?_recoveryTrend():null;
+        const prR=_personalRecords(cs);
+        const ceR=_contextEffect();
+        const peR=(ceR&&Store.practiceEffect)?Store.practiceEffect():null;
+        return {
+          day:wdR, seg:dpR,
+          shift:trnR?{a:trnR.a,b:trnR.b,count:trnR.count}:null,
+          comeback:recR?{phrase:(recR.avg<=1.5?'a check-in or two':'about '+Math.round(recR.avg)+' check-ins'), n:recR.n, faster:!!(rtR&&rtR.dir==='faster')}:null,
+          record:(prR&&prR.bestWeek)?prR.bestWeek:null,
+          context:ceR?{label:ceR.label,tagPct:ceR.tagPct,typPct:ceR.typPct,peRate:peR?Math.round(peR.rate*20)*5:null}:null
+        };
+      }catch(e){ return null; }
+    })();
     const issue = (dom && FromJustin.blog) ? FromJustin.blog({
       dom:dom, dir:dir, count:base.length, streak:streak,
       nState:base.filter(c=>c.dom===dom).length, nTotal:base.length,
-      f2s:f2s, defDom:defDom, name:((Store.getName&&Store.getName())||'')
+      f2s:f2s, defDom:defDom, name:((Store.getName&&Store.getName())||''),
+      patterns:patterns
     }) : null;
 
     // per-section visuals: computed from the reader's own recent signals so each picture
@@ -1128,8 +1170,11 @@
       // the closing section's landing line is the issue's most quotable sentence — set it
       // as a pull-quote (reader-beauty pass)
       const PQ = (t)=> t ? `<blockquote class="read-pq">${escapeHtml(t)}</blockquote>` : '';
+      // fresh (data-driven) sections get the highlight treatment: an accent hairline in
+      // the issue's state color + a quiet eyebrow, so what's NEW is scannable at a glance
       const sectionsHTML = issue.sections.map(sec=>`
-        <section style="margin-top:22px">
+        <section${sec.fresh?` class="sec-fresh" style="margin-top:22px;--fresh-col:${STATE_COLOR(issue.dom)}"`:` style="margin-top:22px"`}>
+          ${sec.fresh?'<p class="fresh-eyeb">from your check-ins · updates as you do</p>':''}
           <h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>
           ${sec.paras.map((t,i)=> (sec.id==='blog-6' && i===sec.paras.length-1) ? PQ(t) : P(t)).join('')}
           ${sectionViz(sec.id, vizCtx)}

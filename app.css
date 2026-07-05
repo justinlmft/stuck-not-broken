@@ -1170,6 +1170,10 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .read-pq{margin:18px 0 14px;padding:3px 0;border-left:none;font-size:calc(18px * var(--type-scale));line-height:1.55;font-weight:500;color:var(--ink);text-wrap:pretty;font-style:normal}
 /* reader body copy — classes so the text-size setting reaches it (was inline px in app.js) */
 .read-p{font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
+/* fresh (data-driven) reader sections: accent hairline in the issue's state color +
+   quiet eyebrow — the "what's new this week" scent trail (2026-07-05) */
+.sec-fresh{border-left:2px solid var(--fresh-col,var(--s-safety));border-radius:0;padding-left:14px}
+.fresh-eyeb{font-size:calc(10.5px * var(--type-scale));text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 6px}
 .read-lead{font-size:calc(16px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
 .read-dek{font-size:calc(16px * var(--type-scale));line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0}
 /* reader TOC: ink text with a quiet ">" marker, inset like a list (blue links cut per Justin) */

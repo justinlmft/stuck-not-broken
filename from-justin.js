@@ -586,7 +586,7 @@
     const label = (global.Store && Store.practiceLabel) ? Store.practiceLabel(pi.practiceKey) : pi.practiceKey;
     const segPhrase = SEG_PHRASE[pi.seg] || pi.seg;
     const pct = Math.round(pi.rate*20)*5; // nearest 5%, same rounding as the general practice-effect line
-    return 'Lately, in the '+segPhrase+', '+label+' has tended to leave you steadier afterward, about '+pct+'% of the time.';
+    return 'Lately, in the '+segPhrase+', '+label+' has tended to leave you with more safety afterward, about '+pct+'% of the time.';
   }
   // heading builder: {pre, state, post} instead of a flat string, so the renderer can color
   // just the state word in the state's own palette color without any fragile text-matching.
@@ -987,6 +987,50 @@
       return sec;
     }
   };
+  // ---- "What your patterns show" (2026-07-05): the written version of the You-tab
+  // stats. DRAFT copy in Justin's voice — pending his word-review. Every sentence
+  // self-gates on a real signal (ctx.patterns, computed by the reader from the same
+  // helpers as the You tab), so the section only exists when the data says something.
+  // Lessons and meaning BELONG here (they were cut from the stat cards on purpose).
+  // Frozen weekly mints never pass ctx.patterns, so archived weeks never borrow live data.
+  function _essayPatterns(ctx){
+    const p = ctx.patterns; if(!p) return null;
+    const parts = [];
+    if(p.day){
+      let s = 'Your most regulated day keeps being ' + p.day.label.charAt(0).toUpperCase()+p.day.label.slice(1) + 's: ' + p.day.pct + '% of those check-ins have safety in them.';
+      if(p.seg) s += ' By time of day, your ' + p.seg.seg + 's carry the most safety, at ' + p.seg.pct + '%.';
+      s += ' Days like that are worth studying, because whatever they hold and whatever you\'re doing, your system likes it.';
+      // the context inputs can name a candidate for "whatever you're doing"
+      if(p.context && p.context.tagPct >= p.context.typPct) s += ' Your tags already point to one candidate: “' + p.context.label + '.”';
+      parts.push(s);
+    }
+    if(p.shift){
+      parts.push('When your state changes, its most worn path is ' + _feltName(p.shift.a) + ' to ' + _feltName(p.shift.b) + '. That shift has shown up ' + p.shift.count + ' times. A path your body travels this often usually has a trigger sitting in front of it, and spotting the trigger is how the path starts to soften.');
+    }
+    if(p.comeback){
+      let s = 'After a dip into defense, safety usually returns within ' + p.comeback.phrase + '. You\'ve made that trip ' + p.comeback.n + ' times';
+      s += p.comeback.faster ? ', and lately the trips are getting shorter. That\'s your safety state showing signs of strengthening and increased regulation.' : '. Your system knows the way back.';
+      parts.push(s);
+    }
+    if(p.record){
+      parts.push('The week of ' + p.record.label + ' is still your most regulated week yet, with ' + p.record.pct + '% of its check-ins carrying safety. That week is proof of capacity. Your system has done it, which means it can do it again.');
+    }
+    if(p.context){
+      const up = p.context.tagPct >= p.context.typPct;
+      let s = 'The weeks you tagged “' + p.context.label + '” carried ' + (up?'more':'less') + ' safety: ' + p.context.tagPct + '% of check-ins, against ' + p.context.typPct + '% in a typical week.';
+      s += (p.context.peRate!=null)
+        ? ' Practice runs alongside too, with more safety in your next check-in about ' + p.context.peRate + '% of the time after practicing.'
+        : ' Worth noticing what those weeks held.';
+      parts.push(s);
+    }
+    if(parts.length < 2) return null;                    // one lonely fact isn't a section
+    parts.unshift(cycle('pats-lead', [
+      'Your check-ins have been quietly building a map. A few landmarks worth naming this week.',
+      'Zoom in on your own patterns for a moment, because they\'re getting distinct.'
+    ]));
+    return { id:'blog-pats', heading:_heading(ctx.dom,'What your patterns show',false), paras:parts, fresh:true };
+  }
+
   function blog(ctx0){
     ctx0 = ctx0 || {};
     const dom = ctx0.dom || ((global.Store&&Store.lastCheckin)?(Store.lastCheckin()||{}).dom:null);
@@ -1001,11 +1045,14 @@
     }
     // thin data: no trend/streak/baseline claims (honesty gate, same as before)
     const thin = (stage==='start' || stage==='early' || tn.returning);
-    if(thin){ ctx.dir=null; ctx.streak=0; ctx.f2s=0; ctx.weekStats=null; }
+    if(thin){ ctx.dir=null; ctx.streak=0; ctx.f2s=0; ctx.weekStats=null; ctx.patterns=null; }
     const dek = ESSAY_DEK[dom];
+    const secs = ESSAYS[dom](ctx);
+    const pats = _essayPatterns(ctx);
+    if(pats) secs.splice(1, 0, pats);                    // fresh data early: right after "What X is"
     return { stateName: ctx.stateName, dom:dom, stage:stage, dek:dek,
              bullets:[{ text:dek }],                    // back-compat: weekly mint summary + old renderers
-             sections: ESSAYS[dom](ctx) };
+             sections: secs };
   }
 
   // ---- monthly + quarterly reflections (the long-range altitudes) ------------
@@ -1027,7 +1074,7 @@
       down: ["Baseline update: your safety Baseline is running about {PCT}% lower than last month. Baselines dip with life context, and they come back the same way they formed: small, steady reps. Go easy.","Baseline update: a quieter month, with your Baseline down about {PCT}%. Not a setback, just a season. Keep the basics going."],
       flat: ["Baseline update: your safety Baseline held steady across the month. Stable is something you can build on."]
     },
-    rhythm_dow: ["Looks like your {DAY} tend to carry a bit more safety state than other days. Worth noticing what's different about them, so you can do more of it.","Your {DAY} come in a little steadier than the rest, more often than not. A small clue about what's working for you."],
+    rhythm_dow: ["Looks like your {DAY} tend to carry a bit more safety state than other days. Worth noticing what's different about them, so you can do more of it.","Your {DAY} carry a little more safety than the rest, more often than not. A small clue about what's working for you."],
     recovery: ["There's also a pattern in how your system rebounds after a dip into defense. It tends to return to safety within {N}. It knows the way back. Now you pay attention and follow its lead.","After an energized stretch, you usually find your way to more safety within {N}. That shows capacity building."],
     close: ["No grades here. Just a month of getting to know your nervous system, one honest moment at a time. Keep going.","A month in, and this picture is yours now. It gets clearer the longer you stay with it.","Whatever this month held, you showed up for it. That's the part that compounds."]
   };
