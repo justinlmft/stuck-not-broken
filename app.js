@@ -1791,12 +1791,16 @@
     function refresh(){
       setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
       const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
-      // tint the sliders to the current state: a blend colors only its active axes
+      // tint the sliders to the current state: a blend colors only its active axes.
+      // the blend tint only applies once ALL THREE are set — a dominant computed
+      // from untouched midpoints isn't a real read, so partial input shows each
+      // axis its own color. untouched rails sit in faded ink: present, not "done".
       const core = STATE_CORE[dom.key] || [];
       const own = AXIS_OWN();
+      const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
       ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
-        const active = core.length>1 && core.includes(ax);
-        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink)'); });
+        const active = allTouched && core.length>1 && core.includes(ax);
+        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink-faded)'); });
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
         readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
@@ -1980,18 +1984,18 @@
     const rr=(bx,by,bw,bh,r)=>{ x.beginPath(); x.moveTo(bx+r,by); x.arcTo(bx+bw,by,bx+bw,by+bh,r); x.arcTo(bx+bw,by+bh,bx,by+bh,r); x.arcTo(bx,by+bh,bx,by,r); x.arcTo(bx,by,bx+bw,by,r); x.closePath(); };
     if(viz.kind==='meter'){
       x.fillStyle='#1A1F2A'; x.font='500 170px Inter, system-ui, sans-serif'; x.textAlign='left';
-      x.fillText(viz.big || (viz.pct+'%'), L, 430);
+      x.fillText(viz.big || (viz.pct+'%'), L, 320);
       if(viz.pct!=null){
-        const bw=W-2*L, by=470;
+        const bw=W-2*L, by=360;
         x.fillStyle='#F0EEE7'; rr(L,by,bw,28,14); x.fill();
         x.fillStyle='#F4D58D'; rr(L,by,Math.max(28,bw*viz.pct/100),28,14); x.fill();
-        return 600;
+        return 490;
       }
-      return 520;
+      return 400;
     }
     if(viz.kind==='path'){
       // a/b are STATE KEYS: endpoints render ONLY the state's own active marks
-      const y=400, x1=L+90, x2=W-L-90;
+      const y=300, x1=L+90, x2=W-L-90;
       const ca=STATE_COLOR(viz.a), cb=STATE_COLOR(viz.b);
       const g=x.createLinearGradient(x1,0,x2,0); g.addColorStop(0,ca); g.addColorStop(1,cb);
       x.strokeStyle=g; x.lineWidth=7; x.beginPath(); x.moveTo(x1+100,y); x.lineTo(x2-100,y); x.stroke();
@@ -2002,10 +2006,10 @@
         if(!ok){ x.fillStyle=STATE_COLOR(k); x.beginPath(); x.arc(cx,y,34,0,7); x.fill(); }
       };
       marks(viz.a,x1); marks(viz.b,x2);
-      return 560;
+      return 460;
     }
     if(viz.kind==='days'){
-      const lbs=['s','m','t','w','t','f','s'], y=400, gap=112, x0=L+30;
+      const lbs=['s','m','t','w','t','f','s'], y=300, gap=112, x0=L+30;
       lbs.forEach((lb,i)=>{
         const on=i===viz.idx;
         if(on){ if(!_cnvMark(x,'heart','#F4D58D',x0+i*gap,y,64)){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,34,0,7); x.fill(); } }
@@ -2013,15 +2017,15 @@
         x.fillStyle='#5E5A4E'; x.font='400 30px Inter, system-ui, sans-serif'; x.textAlign='center';
         x.fillText(lb, x0+i*gap, y+92);
       });
-      return 580;
+      return 480;
     }
     if(viz.kind==='streak'){
-      const y=400, gap=64, x0=L+22;
+      const y=300, gap=64, x0=L+22;
       for(let i=0;i<viz.n;i++){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,22,0,7); x.fill(); }
-      return 540;
+      return 380;
     }
     if(viz.kind==='bars'){
-      const bw=W-2*L-110; let by=330;
+      const bw=W-2*L-110; let by=260;
       viz.rows.slice(0,3).forEach(r=>{
         x.fillStyle='#F0EEE7'; rr(L,by,bw,26,13); x.fill();
         x.fillStyle=r.color; rr(L,by,Math.max(26,bw*r.pct/100),26,13); x.fill();
@@ -2042,23 +2046,14 @@
       const x=cv.getContext('2d'); if(!x) return false;
       x.fillStyle='#FAF9F5'; x.fillRect(0,0,W,H);
       x.strokeStyle='#D8D2C2'; x.lineWidth=3; x.strokeRect(48,48,W-96,H-96);
-      // header: the user's own state glyph, small, top-left — a signature, not a
-      // billboard (Justin 2026-07-05). optional via settings; falls back to brand dots.
       const L=_SHL;
-      let drewGlyph=false;
-      try{
-        if(localStorage.getItem('snb_share_glyph')!=='0'){
-          const m={}; Store.checkins().forEach(c=>{ if(c.dom&&c.dom!=='neutral') m[c.dom]=(m[c.dom]||0)+1; });
-          const idKey=Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
-          if(idKey){ const vb=String(TRI_VB).split(/\s+/).map(Number); const gw=52*vb[2]/vb[3]; drewGlyph=_cnvGlyph(x, idKey, L+gw/2, 150, 52); }
-        }
-      }catch(e){}
-      if(!drewGlyph) ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(L+12+i*36,150,11,0,7); x.fill(); });
       const vizBottom = viz ? _shareViz(x, W, viz) : null;
       // adaptive text block: left-aligned like the app; shrink type until the whole
-      // message fits between the visual and the footer — lines never collide.
+      // message fits above the signature + footer — lines never collide.
+      // NOTE the regex must NOT eat the sentence's final period (that was the
+      // missing-period bug on shared cards, Justin 2026-07-05).
       x.fillStyle='#1A1F2A'; x.textAlign='left';
-      const body=String(txt).replace(/\.?\s*stuck not broken( · app\.stucknotbroken\.com)?\s*$/i,'');
+      const body=String(txt).replace(/\s*stuck not broken( · app\.stucknotbroken\.com)?\s*$/i,'').trim();
       const wrap=(fs)=>{
         x.font='500 '+fs+'px Inter, system-ui, sans-serif';
         const words=body.split(/\s+/), out=[]; let line='';
@@ -2066,8 +2061,8 @@
         if(line) out.push(line);
         return out;
       };
-      const top = vizBottom ? vizBottom+56 : 300;
-      const bottomLimit = H-240;                          // footer block starts ~H-186; keep clear air
+      const top = vizBottom ? vizBottom+56 : 260;
+      const bottomLimit = H-330;                          // room for the glyph signature + footer below
       let fs=54, lh=Math.round(54*1.42), lines=wrap(fs);
       while(lines.length*lh > (bottomLimit-top) && fs>34){ fs-=4; lh=Math.round(fs*1.42); lines=wrap(fs); }
       const maxL=Math.max(1, Math.floor((bottomLimit-top)/lh));
@@ -2076,6 +2071,18 @@
       const startY = (vizBottom ? top : Math.max(top,(bottomLimit+top-blockH)/2)) + Math.round(lh*0.75);
       x.font='500 '+fs+'px Inter, system-ui, sans-serif';
       lines.forEach((l,i)=>x.fillText(l,L,startY+i*lh));
+      // the user's state glyph sits UNDER the declaration — a signature (Justin
+      // 2026-07-05). optional via settings; falls back to the small brand dots.
+      const sigY = startY - Math.round(lh*0.75) + blockH + 58;
+      let drewGlyph=false;
+      try{
+        if(localStorage.getItem('snb_share_glyph')!=='0'){
+          const m={}; Store.checkins().forEach(c=>{ if(c.dom&&c.dom!=='neutral') m[c.dom]=(m[c.dom]||0)+1; });
+          const idKey=Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
+          if(idKey){ const vb=String(TRI_VB).split(/\s+/).map(Number); const gw=52*vb[2]/vb[3]; drewGlyph=_cnvGlyph(x, idKey, L+gw/2, sigY, 52); }
+        }
+      }catch(e){}
+      if(!drewGlyph) ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(L+12+i*36,sigY,11,0,7); x.fill(); });
       x.textAlign='left';
       x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
       x.fillText('the Stuck Not Broken app',L,H-186);
@@ -2372,7 +2379,7 @@
       const mixHTML=ranked.map(([key,n])=>{
         const pct=Math.round(n/total*100);
         return `<button class="distrow" data-state-detail="${key}">
-          <span class="distrow-top"><span class="distrow-name">${stateMarks(key)}${({play:'regulated mobility',stillness:'regulated immobility'}[key])||STATE_NAME(key)}</span><span class="distrow-pct">${pct}%</span></span>
+          <span class="distrow-top"><span class="distrow-name">${stateMarks(key)}${({play:'play/motivation',stillness:'stillness'}[key])||STATE_NAME(key)}</span><span class="distrow-pct">${pct}%</span></span>
           <span class="distrow-track"><span class="distrow-fill" style="width:${Math.max(pct,2)}%;background:${STATE_COLOR(key)}"></span></span>
         </button>`;
       }).join('');
@@ -2398,7 +2405,9 @@
         const bmap=new Map();
         paced.forEach(p=>{ const k=keyOf(p.t); if(!bmap.has(k)) bmap.set(k,{t:p.t,vs:[],dom:{}}); const bb=bmap.get(k); bb.vs.push(p.v); bb.dom[p.dom]=(bb.dom[p.dom]||0)+1; });
         arcBuckets=[...bmap.values()].sort((a,b)=>a.t-b.t).map(b=>({t:b.t, label:labOf(b.t), avg:b.vs.reduce((s,v)=>s+v,0)/b.vs.length, dom:Object.entries(b.dom).sort((x,y)=>y[1]-x[1])[0][0]}));
-        dayByDay=`<div class="chart-toggle"><button class="ct-btn${chartMode==='safety'?' on':''}" type="button" data-mode="safety">safety</button><button class="ct-btn${chartMode==='states'?' on':''}" type="button" data-mode="states">all states</button></div><div id="chart-host">${chartInner(chartMode, arcBuckets, safetyColor)}</div>`;
+        // two charts, two cards (Justin 2026-07-05): the safety line and the states
+        // view were two different stories crammed behind a toggle — separated.
+        dayByDay=`<div class="chart-wrap" data-cmode="safety">${chartInner('safety', arcBuckets, safetyColor)}</div>`;
       }
 
       // ---- does practice help: safety on practice days vs other days ----
@@ -2469,7 +2478,7 @@
             const slides = [];
             slides.push(['your safety', `
               ${shareBtn('safety')}<h2 class="panel-title">your safety</h2>
-              <p class="panel-sub">the average level of safety in your system over ${periodPhrase}</p>
+              <p class="panel-sub">the average level of safety in your system over ${periodPhrase}.</p>
               <div class="safety-wrap${rising?' rising':''}" id="safety-wrap">
                 <div class="safety-num"><span class="safety-num-val">${safetyPct}</span><span class="pct">%</span></div>
                 ${dir==='falling'?'':`<div class="safety-trend ${dir}">${dir==='rising'?'and rising \u2191':'and steady'}</div>`}
@@ -2491,7 +2500,7 @@
             if(bl){
               slides.push(['your safety baseline', `
               ${shareBtn('baseline')}<h2 class="panel-title">your safety baseline</h2>
-              <p class="panel-sub">the level of safety consistently in your system over the past month</p>
+              <p class="panel-sub">the level of safety consistently in your system over the past month.</p>
               <div class="safety-wrap"><div class="safety-num"><span>${bl.basePct}</span><span class="pct">%</span></div></div>
               <div class="safety-meter"><span class="safety-meter-fill" style="width:${bl.basePct}%"></span></div>
               ${(bl.wkPct!=null&&bl.wkPct>=bl.basePct+3)?`<p class="cb-line">(but this week you're even higher, at <b>${bl.wkPct}%</b>.)</p>`:''}`]);
@@ -2500,7 +2509,7 @@
               const strip = wd ? `<div class="wk-strip" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===wd.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>` : '';
               slides.push(['your most regulated times', `
               ${shareBtn('times')}<h2 class="panel-title">your most regulated times</h2>
-              <p class="panel-sub">when your check-ins have safety most often, over ${periodPhrase}</p>
+              <p class="panel-sub">when your check-ins have safety most often, over ${periodPhrase}.</p>
               ${strip}
               ${wd?`<p class="cb-line">${wd.pct}% of your <b>${wd.label}</b> check-ins have safety in them.</p>`:''}
               ${dp?`<p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them.</p>`:''}`]);
@@ -2516,28 +2525,28 @@
               const fcTxt = pr.fastest ? (pr.fastest.steps<=1?'back in one check-in':'back in '+pr.fastest.steps+' check-ins') : '';
               slides.push(['your records', `
               ${shareBtn('records')}<h2 class="panel-title">your records</h2>
-              <p class="panel-sub">personal bests, from your real check-ins</p>
+              <p class="panel-sub">personal bests, from your real check-ins.</p>
               ${pr.bestWeek?`<div class="safety-meter" style="margin:12px 0 16px"><span class="safety-meter-fill" style="width:${pr.bestWeek.pct}%"></span></div>`:''}
               ${pr.bestWeek?`<p class="cb-line">your most regulated week yet: the week of <b>${pr.bestWeek.label}</b>, when <b>${pr.bestWeek.pct}%</b> of your check-ins had safety in them.</p>`:''}
               ${pr.fastest?`<p class="cb-line">your fastest comeback: a dip into <b>${STATE_NAME(pr.fastest.dom)}</b>, <b>${fcTxt}</b>.</p>`:''}`]);
             }
             slides.push(['your state mix', `
               ${shareBtn('mix')}<h2 class="panel-title">your state mix</h2>
-              <p class="panel-sub">${activePeriod==='all'?'your state averages, all time':'your check-in averages, over '+periodPhrase}</p>
+              <p class="panel-sub">${activePeriod==='all'?'your state averages, all time.':'your check-in averages, over '+periodPhrase+'.'}</p>
               <div class="dist-bars">${mixHTML}</div>`]);
             if(fl){
               slides.push(['your flavors of safety', `
               ${shareBtn('flavors')}<h2 class="panel-title">your flavors of safety</h2>
-              <p class="panel-sub">this is what your safety looks like over ${periodPhrase}</p>
+              <p class="panel-sub">this is what your safety looks like over ${periodPhrase}.</p>
               <div class="help-bars">${fl.map(r=>`<div class="help-row"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
             }
             if(ce || csl){
               const bars = ce ? `
-              <p class="panel-sub">safety in the weeks you tagged “${escapeHtml(ce.label)}”, next to a typical week</p>
+              <p class="panel-sub">safety in the weeks you tagged “${escapeHtml(ce.label)}”, next to a typical week.</p>
               <div class="help-bars">
                 <div class="help-row"><span class="help-lbl">tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
                 <div class="help-row"><span class="help-lbl">typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
-              </div>` : `<p class="panel-sub">what you tag as having the biggest impact, by the state you were in</p>`;
+              </div>` : `<p class="panel-sub">what you tag as having the biggest impact, by the state you were in.</p>`;
               const links = csl ? `
               ${csl.safe?`<p class="cb-line"${ce?' style="margin-top:16px"':''}>tagged most around your safe check-ins: <b>${escapeHtml(csl.safe.label)}</b>.</p>`:''}
               ${csl.def?`<p class="cb-line">tagged most around defense: <b>${escapeHtml(csl.def.label)}</b>.</p>`:''}` : '';
@@ -2550,9 +2559,15 @@
               ${shareBtn('day')}<h2 class="panel-title">your safety changes</h2>
               <p class="panel-sub">your safety state over time, and how far you've come since you started.</p>
               ${growthHead}${dayByDay}`]);
+            if(arcBuckets){
+              slides.push(['your states over time', `
+              ${shareBtn('states')}<h2 class="panel-title">your states over time</h2>
+              <p class="panel-sub">the state each stretch of time leaned toward.</p>
+              <div class="chart-wrap" data-cmode="states">${chartInner('states', arcBuckets, safetyColor)}</div>`]);
+            }
             slides.push(['is practice helping?', `
               ${shareBtn('practice')}<h2 class="panel-title">is practice helping?</h2>
-              <p class="panel-sub">your average safety after you practice vs. not</p>
+              <p class="panel-sub">your average safety after you practice vs. not.</p>
               ${helpHTML}`]);
             window._youSlides = slides.map(s=>s[0]);
             return slides.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${s[0]}, card ${i+1} of ${slides.length}">${s[1]}</section>`).join('');
@@ -2610,6 +2625,7 @@
         comeback:`after a dip, my nervous system finds its way back to safety. ${_sig}`,
         day:     `my safety over time, and how far it's come since i started. ${_sig}`,
         practice:`i'm tracking whether practice actually moves my nervous system. the data is answering. ${_sig}`,
+        states:  `my states over time, stretch by stretch. ${_sig}`,
         baseline:(bd&&bd.dir==='up')?`my safety baseline increased this much this month! ${_sig}`:`my safety baseline this month. ${_sig}`,
         times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
         shift:   trn?`my nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
@@ -2629,16 +2645,17 @@
         flavors: fl?{ kind:'bars', rows:fl.map(r=>({ color:STATE_COLOR(r.key), pct:r.pct })) }:null,
         context: ce?{ kind:'bars', rows:[{ color:STATE_COLOR('safety'), pct:ce.tagPct },{ color:'#D8D2C2', pct:ce.typPct }] }:null,
         mix:     { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
+        states:  { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
       };
       c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); const k=b.dataset.share; openShare(SHARE_TXT[k]||SHARE_TXT.safety, SHARE_VIZ[k]||null); }));
       c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
 
-      const chartHost=$('#chart-host');
-      if(chartHost && arcBuckets){
-        const bindPts=()=>{ chartHost.querySelectorAll('.cpt').forEach(el=>el.addEventListener('click',()=>{ const i=+el.dataset.i, b=arcBuckets[i], r=$('#chart-readout'); if(b&&r) r.textContent = chartMode==='safety'?`${b.label} \u00b7 ${Math.round(b.avg*100)}% safety`:`${b.label} \u00b7 ${STATE_NAME(b.dom)}`; })); };
-        bindPts();
-        c.querySelectorAll('.ct-btn').forEach(btn=>btn.addEventListener('click',()=>{ chartMode=btn.dataset.mode; c.querySelectorAll('.ct-btn').forEach(x=>x.classList.toggle('on',x===btn)); chartHost.innerHTML=chartInner(chartMode, arcBuckets, safetyColor); bindPts(); }));
+      if(arcBuckets){
+        c.querySelectorAll('.chart-wrap').forEach(wrap=>{
+          const mode=wrap.dataset.cmode;
+          wrap.querySelectorAll('.cpt').forEach(el=>el.addEventListener('click',()=>{ const i=+el.dataset.i, b=arcBuckets[i], r=wrap.querySelector('.arc-readout'); if(b&&r) r.textContent = mode==='safety'?`${b.label} \u00b7 ${Math.round(b.avg*100)}% safety`:`${b.label} \u00b7 ${STATE_NAME(b.dom)}`; }));
+        });
       }
 
       const carousel=$('#carousel'); const dots=c.querySelectorAll('#dots .dot-i');

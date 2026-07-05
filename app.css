@@ -19,6 +19,7 @@
   --track-safety-ink:#5891C5; --track-self-ink:#D29A4A; --track-mind-ink:#1A1F2A;
   --field:#fff; --knob:#fff; --danger:#9A3B3B; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
   --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1); --type-scale:1;
+  --ink-faded:rgba(26,31,42,.25);   /* untouched check-in rails: present, clearly not "done" */
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
@@ -378,7 +379,10 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 /* deep stats (scroll) */
 .deep{display:flex;flex-direction:column;gap:6px;margin-top:10px;border-top:1px solid var(--hairline);padding-top:18px}
 .deep-block{padding:2px 0 10px}
-.deep-h{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 8px}
+/* proper section subheads, not caps eyebrows (Justin 2026-07-05; HIG: content
+   sections get real headers — eyebrows are for metadata, not structure) */
+.deep-h{font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);text-transform:lowercase;letter-spacing:0;margin:0 0 8px}
+.deep-block{padding:8px 0 14px}
 .deep-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--bone-deep)}
 .deep-row:last-child{border-bottom:0}
 .deep-lbl{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);text-transform:lowercase}
@@ -1035,6 +1039,7 @@ body.reduce-motion .settle-ico{transition:none}
   }
 }
 :root.theme-dark{
+  --ink-faded:rgba(236,234,227,.25);
   --bone:#1B1C1E; --bone-deep:#24262A; --hairline:#3A3C42; --ink:#ECEAE3;
   --ink-80:#C5C3BC; --muted:#928F87; --link:#8FB6EE;
   --btn-hover:#D7D5CE;
