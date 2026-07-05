@@ -263,12 +263,12 @@
   // Mirror readout: play the person's own report back in plain speech — no state
   // names, no verdicts. The app is not a person: "you're reporting", never "I".
   // 🖊 sym and dor no longer share the word "energy" (Justin 2026-07-05: "a little
-  // extra energy" + "energy a little low" read as a contradiction). sym = charge in
-  // the body; dor = how reachable doing things feels. band 2 softened for the
-  // midpoint-start sliders (the old "a lot of energy" overclaimed at 50).
+  // extra energy" + "energy a little low" read as a contradiction). sym = how revved
+  // the body is (his approved word); dor = how reachable doing things feels. band 2
+  // softened for the midpoint-start sliders (the old "a lot of energy" overclaimed at 50).
   const CI_MIRROR = {
     v:   ['connecting feels very hard right now','connecting takes effort','connecting is doable','connecting feels easy right now'],
-    sym: ['your body is calm','a little charge in your body','a fair amount of charge in your body','your body is very revved up'],
+    sym: ['your body is calm','your body is a little revved up','your body is fairly revved up','your body is very revved up'],
     dor: ['doing things feels within reach','doing things takes a little extra push','doing things takes real effort right now','doing much of anything feels out of reach'],
   };
   const ciBucket = x => x < 0.18 ? 0 : x < 0.45 ? 1 : x < 0.72 ? 2 : 3;
