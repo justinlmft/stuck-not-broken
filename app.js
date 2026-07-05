@@ -1816,20 +1816,111 @@
   // N-4: share as the designed card — a branded 1080×1080 image (bone, state dots,
   // the line, wordmark) via the system share sheet when file-sharing is supported;
   // falls back to the text path below otherwise.
-  async function shareCardImage(txt){
+  // brand glyphs on canvas: the tri-lockup (active marks in state color) + single marks.
+  // Path2D consumes the same SVG path data icons.js renders in-app.
+  function _cnvGlyph(x, key, cx, cy, h){
+    try{
+      const I=window.SNB_ICONS||{}; const vb=String(TRI_VB).split(/\s+/).map(Number);
+      const s=h/vb[3], w=vb[2]*s;
+      const active=(STATE_AXES[key]||[]).map(a=>a[0]);
+      x.save(); x.translate(cx-w/2, cy-h/2); x.scale(s,s); x.translate(-vb[0],-vb[1]);
+      TRI_ORDER.forEach(m=>{ const icn=I[m]; if(!icn) return;
+        x.fillStyle = active.indexOf(m)>=0 ? STATE_COLOR(key) : '#E3DFD2';
+        x.fill(new Path2D(icn.d));
+      });
+      x.restore(); return true;
+    }catch(e){ return false; }
+  }
+  function _cnvMark(x, m, color, cx, cy, h){
+    try{
+      const icn=(window.SNB_ICONS||{})[m]; if(!icn) return false;
+      const vb=icn.vb.split(/\s+/).map(Number); const s=h/vb[3], w=vb[2]*s;
+      x.save(); x.translate(cx-w/2, cy-h/2); x.scale(s,s); x.translate(-vb[0],-vb[1]);
+      x.fillStyle=color; x.fill(new Path2D(icn.d)); x.restore(); return true;
+    }catch(e){ return false; }
+  }
+  // draws a card's visual onto the share canvas; returns the y where text may begin
+  function _shareViz(x, W, viz){
+    const rr=(bx,by,bw,bh,r)=>{ x.beginPath(); x.moveTo(bx+r,by); x.arcTo(bx+bw,by,bx+bw,by+bh,r); x.arcTo(bx+bw,by+bh,bx,by+bh,r); x.arcTo(bx,by+bh,bx,by,r); x.arcTo(bx,by,bx+bw,by,r); x.closePath(); };
+    if(viz.kind==='meter'){
+      x.fillStyle='#1A1F2A'; x.font='500 170px Inter, system-ui, sans-serif'; x.textAlign='center';
+      x.fillText(viz.pct+'%', W/2, 430);
+      const bw=W-460, bx=(W-bw)/2, by=470;
+      x.fillStyle='#F0EEE7'; rr(bx,by,bw,28,14); x.fill();
+      x.fillStyle='#F4D58D'; rr(bx,by,Math.max(28,bw*viz.pct/100),28,14); x.fill();
+      return 600;
+    }
+    if(viz.kind==='path'){
+      // a/b are STATE KEYS: endpoints render ONLY the state's own active marks
+      // (the full lockup reads too heavy at bar scale — Justin 2026-07-05)
+      const y=400, x1=W/2-300, x2=W/2+300;
+      const ca=STATE_COLOR(viz.a), cb=STATE_COLOR(viz.b);
+      const g=x.createLinearGradient(x1,0,x2,0); g.addColorStop(0,ca); g.addColorStop(1,cb);
+      x.strokeStyle=g; x.lineWidth=7; x.beginPath(); x.moveTo(x1+100,y); x.lineTo(x2-100,y); x.stroke();
+      const marks=(k,cx)=>{ const ax=(STATE_AXES[k]||[]).map(a=>a[0]); const h=72, gap=14;
+        let tw=0; const ws=ax.map(m=>{ const vb=(window.SNB_ICONS[m].vb).split(/\s+/).map(Number); const w=h*vb[2]/vb[3]; tw+=w; return w; }); tw+=gap*(ax.length-1);
+        let px=cx-tw/2;
+        const ok=ax.every((m,i)=>{ const r=_cnvMark(x,m,STATE_COLOR(k),px+ws[i]/2,y,h); px+=ws[i]+gap; return r; });
+        if(!ok){ x.fillStyle=STATE_COLOR(k); x.beginPath(); x.arc(cx,y,34,0,7); x.fill(); }
+      };
+      marks(viz.a,x1); marks(viz.b,x2);
+      return 560;
+    }
+    if(viz.kind==='days'){
+      const lbs=['s','m','t','w','t','f','s'], y=400, gap=110, x0=W/2-3*gap;
+      lbs.forEach((lb,i)=>{
+        const on=i===viz.idx;
+        if(on){ if(!_cnvMark(x,'heart','#F4D58D',x0+i*gap,y,64)){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,34,0,7); x.fill(); } }
+        else { x.fillStyle='#F0EEE7'; x.beginPath(); x.arc(x0+i*gap,y,22,0,7); x.fill(); }
+        x.fillStyle='#5E5A4E'; x.font='400 30px Inter, system-ui, sans-serif'; x.textAlign='center';
+        x.fillText(lb, x0+i*gap, y+92);
+      });
+      return 580;
+    }
+    if(viz.kind==='streak'){
+      const y=400, gap=64, x0=W/2-(viz.n-1)*gap/2;
+      for(let i=0;i<viz.n;i++){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,22,0,7); x.fill(); }
+      return 540;
+    }
+    if(viz.kind==='bars'){
+      const bw=W-460, bx=(W-bw)/2; let by=330;
+      viz.rows.slice(0,3).forEach(r=>{
+        x.fillStyle='#F0EEE7'; rr(bx,by,bw,26,13); x.fill();
+        x.fillStyle=r.color; rr(bx,by,Math.max(26,bw*r.pct/100),26,13); x.fill();
+        x.fillStyle='#5E5A4E'; x.font='400 28px Inter, system-ui, sans-serif'; x.textAlign='left';
+        x.fillText(r.pct+'%', bx+bw+18, by+23);
+        by+=72;
+      });
+      return by+60;
+    }
+    return null;
+  }
+  async function shareCardImage(txt, viz){
     try{
       const W=1080,H=1080,cv=document.createElement('canvas'); cv.width=W; cv.height=H;
       const x=cv.getContext('2d'); if(!x) return false;
       x.fillStyle='#FAF9F5'; x.fillRect(0,0,W,H);
       x.strokeStyle='#D8D2C2'; x.lineWidth=3; x.strokeRect(48,48,W-96,H-96);
-      ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(W/2-64+i*64,196,17,0,7); x.fill(); });
+      // header: the user's own state glyph (their most frequent state) — their mark,
+      // on every card they send. optional via settings; falls back to the brand dots.
+      let drewGlyph=false;
+      try{
+        if(localStorage.getItem('snb_share_glyph')!=='0'){
+          const m={}; Store.checkins().forEach(c=>{ if(c.dom&&c.dom!=='neutral') m[c.dom]=(m[c.dom]||0)+1; });
+          const idKey=Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
+          if(idKey) drewGlyph=_cnvGlyph(x, idKey, W/2, 180, 96);
+        }
+      }catch(e){}
+      if(!drewGlyph) ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(W/2-64+i*64,196,17,0,7); x.fill(); });
+      const vizBottom = viz ? _shareViz(x, W, viz) : null;
       x.fillStyle='#1A1F2A'; x.font='500 54px Inter, system-ui, sans-serif'; x.textAlign='center';
       const body=String(txt).replace(/\.?\s*stuck not broken( · app\.stucknotbroken\.com)?\s*$/i,'');
       const words=body.split(/\s+/), lines=[]; let line='';
       words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-280&&line){ lines.push(line); line=w; } else line=t; });
       if(line) lines.push(line);
-      const startY=H/2-(lines.length-1)*40;
-      lines.slice(0,8).forEach((l,i)=>x.fillText(l,W/2,startY+i*80));
+      const maxL = vizBottom ? 4 : 8;
+      const startY = vizBottom ? vizBottom+90 : H/2-(lines.length-1)*40;
+      lines.slice(0,maxL).forEach((l,i)=>x.fillText(l,W/2,startY+i*80));
       x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
       x.fillText('stuck not broken',W/2,H-176);
       x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif';
@@ -1841,8 +1932,8 @@
     }catch(e){ if(e && e.name==='AbortError') return true; }   // user closed the sheet: done
     return false;
   }
-  function openShare(txt){
-    shareCardImage(txt).then(ok=>{ if(!ok) _openShareText(txt); });
+  function openShare(txt, viz){
+    shareCardImage(txt, viz).then(ok=>{ if(!ok) _openShareText(txt); });
   }
   function _openShareText(txt){
     const url=location.href;
@@ -1860,6 +1951,138 @@
     s.querySelector('[data-copy]').onclick=()=>{ try{ navigator.clipboard&&navigator.clipboard.writeText(txt); }catch(_){} showToast('copied'); close(); };
     s.querySelectorAll('a.ss-opt').forEach(a=>a.addEventListener('click',()=>setTimeout(close,80)));
   }
+  // ---- you-tab pattern & progress stats (2026-07-05) -------------------------
+  // all derived + read-only (no new stored fields, so nothing new to mirror);
+  // every one self-gates on data. the reader picks these up next round.
+  // ONE metric across all pattern cards (clarity + consistency, Justin 2026-07-05):
+  // "the share of check-ins that land in a safe state" — countable, plain to an
+  // outside reader, and usable by a professional. Every card names its own metric.
+  function _safeShare(arr){ if(!arr.length) return null; let r=0; arr.forEach(c=>{ if(_REGDOMS[c.dom]) r++; }); return Math.round(r/arr.length*100); }
+  function _weekdayPattern(cs){
+    if(cs.length < 14) return null;
+    const by={};
+    cs.forEach(c=>{ const d=new Date(c.t).getDay(); (by[d]=by[d]||[]).push(c); });
+    let best=null;
+    Object.keys(by).forEach(d=>{ const a=by[d]; if(a.length>=3){ const p=_safeShare(a); if(best==null||p>best.pct) best={ day:+d, pct:p }; } });
+    if(!best) return null;
+    const names=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    return { label:names[best.day], idx:best.day, pct:best.pct };
+  }
+  // flavors of safety: among the check-ins that carry safety, which safe state they land in
+  function _safetyFlavors(cs){
+    const safe=cs.filter(c=>_REGDOMS[c.dom]);
+    if(safe.length<6) return null;
+    const cnt={}; safe.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);
+    const rows=[['safety','safety'],['play','play'],['stillness','stillness']]
+      .filter(r=>cnt[r[0]])
+      .map(r=>({ key:r[0], label:r[1], pct:Math.round(cnt[r[0]]/safe.length*100) }))
+      .sort((a,b)=>b.pct-a.pct);
+    return rows.length>=2 ? rows : null;
+  }
+  function _daypartPattern(cs){
+    if(cs.length < 12) return null;
+    const by={};
+    cs.forEach(c=>{ const s=segOf(c.t); (by[s]=by[s]||[]).push(c); });
+    let best=null;
+    Object.keys(by).forEach(s=>{ const a=by[s]; if(a.length>=3){ const p=_safeShare(a); if(best==null||p>best.pct) best={ seg:s, pct:p }; } });
+    if(!best) return null;
+    const names={ morning:'morning', afternoon:'afternoon', evening:'evening', late:'late night' };
+    return { seg:names[best.seg]||best.seg, pct:best.pct };
+  }
+  // per-daypart share of safe check-ins, for the deep "time of day" rows (null when thin)
+  function _daypartPct(cs, seg){
+    const a=cs.filter(x=>segOf(x.t)===seg);
+    if(a.length<3) return null;
+    return _safeShare(a);
+  }
+  // which defense state the dips most often start in — colors + glyphs the comeback card
+  function _topDipState(){
+    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');
+    const cnt={}; let inDip=false;
+    cs.forEach(c=>{ if(!_REGDOMS[c.dom]){ if(!inDip){ cnt[c.dom]=(cnt[c.dom]||0)+1; inDip=true; } } else inDip=false; });
+    const e=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
+    return (e&&e[1]>=3)?e[0]:null;
+  }
+  // recovery trend over full history: early episodes vs recent episodes.
+  // a slowing never headlines (copy rule: dips live in the reader, gently).
+  function _recoveryTrend(){
+    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');
+    if(cs.length<12) return null;
+    const eps=[]; let i=0;
+    while(i<cs.length){
+      if(!_REGDOMS[cs[i].dom]){ let j=i, steps=0, found=false;
+        while(j<cs.length){ if(_REGDOMS[cs[j].dom]){ found=true; break; } j++; steps++; }
+        if(found) eps.push(steps); i=j;
+      } else i++;
+    }
+    if(eps.length<6) return null;
+    const h=Math.floor(eps.length/2), avg=a=>a.reduce((s,v)=>s+v,0)/a.length;
+    const early=avg(eps.slice(0,h)), late=avg(eps.slice(-h));
+    return { dir: late<=early-0.75?'faster' : late>=early+0.75?'slower' : 'steady', n:eps.length };
+  }
+  // personal records: high-water marks ONLY — a record can be improved but never
+  // lost, so there's nothing to "break" (no streaks: chain logic teaches that a
+  // dip is a failure, which is the opposite of the app's teaching — Justin 2026-07-05).
+  function _personalRecords(allCs){
+    const cs = allCs.filter(c=>c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);
+    if(cs.length<12) return null;
+    const wk={}; cs.forEach(c=>{ const ws=_sundayStart(c.t); (wk[ws]=wk[ws]||[]).push(c); });
+    const curWs=_sundayStart(Date.now());
+    let bw=null;
+    Object.keys(wk).forEach(ws=>{ if(+ws===curWs) return; const a=wk[ws];
+      if(a.length>=4){ const reg=a.filter(c=>_REGDOMS[c.dom]).length/a.length; if(!bw||reg>bw.share) bw={ ws:+ws, share:reg }; } });
+    const bestWeek = bw ? { label:new Date(bw.ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}), pct:Math.round(bw.share*100) } : null;
+    // fastest comeback: the shortest completed dip->safety trip (a recovery record)
+    let fastest=null, n=0, i=0;
+    while(i<cs.length){
+      if(!_REGDOMS[cs[i].dom]){ let j=i, steps=0, found=false;
+        while(j<cs.length){ if(_REGDOMS[cs[j].dom]){ found=true; break; } j++; steps++; }
+        if(found){ n++; if(!fastest||steps<fastest.steps) fastest={ steps, dom:cs[i].dom }; }
+        i=j;
+      } else i++;
+    }
+    if(n<3) fastest=null;                                    // needs several real comebacks to call one a record
+    if(!bestWeek && !fastest) return null;
+    return { bestWeek, fastest };
+  }
+  // the visible 28-day Baseline (same math as the reader's zoom-out section)
+  function _baselineCard(){
+    if(!(Store.tenure&&Store.periodStats)) return null;
+    const tn=Store.tenure(); if(!tn||tn.days<28) return null;
+    const now=Date.now();
+    const base=Store.periodStats(now-28*864e5, now); if(!base||base.n<8) return null;
+    const wk=Store.periodStats(now-7*864e5, now);
+    // LEVEL, not share (Justin 2026-07-05): "the level of safety consistently in
+    // your system" — average safety, unified with the hero card's metric. the
+    // reader's Baseline sections still use share; unify there in the reader round.
+    return { basePct: Math.round(base.avgV*100), wkPct: (wk&&wk.n>=3)?Math.round(wk.avgV*100):null };
+  }
+  // context effect: the tagged label whose weeks differ most from a typical week.
+  // returns BOTH percentages (never a "points" delta — Justin 2026-07-05: confusing).
+  // attribution guardrail: only ever rendered WITH the practice effect beside it.
+  function _contextEffect(){
+    const m=_ctxLoad();
+    const tagged=Object.keys(m).filter(k=>k[0]==='w'&&(m[k]||[]).length);
+    if(tagged.length<2) return null;
+    const weeks={};
+    Store.checkins().forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });
+    const share=ws=>{ const a=weeks[ws]; if(!a||a.length<3) return null; return a.filter(c=>_REGDOMS[c.dom]).length/a.length; };
+    const all=Object.keys(weeks).map(ws=>share(+ws)).filter(v=>v!=null);
+    if(all.length<3) return null;
+    const typPct=Math.round(all.reduce((s,v)=>s+v,0)/all.length*100);
+    const byLabel={};
+    tagged.forEach(k=>{
+      const p=k.slice(1).split('-').map(Number);            // local-midnight sunday, matching _sundayStart
+      const ws=new Date(p[0],p[1]-1,p[2]).getTime();
+      const v=share(ws); if(v==null) return;
+      (m[k]||[]).forEach(lb=>{ (byLabel[lb]=byLabel[lb]||[]).push(v); });
+    });
+    let best=null;
+    Object.keys(byLabel).forEach(lb=>{ const a=byLabel[lb];
+      if(a.length>=2){ const p=Math.round(a.reduce((s,v)=>s+v,0)/a.length*100); if(!best||Math.abs(p-typPct)>Math.abs(best.tagPct-typPct)) best={ label:lb, tagPct:p, n:a.length }; } });
+    return (best && Math.abs(best.tagPct-typPct)>=5) ? { label:best.label, tagPct:best.tagPct, typPct } : null;
+  }
+
   function tabCurrent(){
     const c = content();
     const ab=document.querySelector('.appbar');
@@ -1961,20 +2184,24 @@
       const pDays=new Set(sess.map(s=>new Date(s.t).toDateString()));
       const on=[],off=[];
       cs.forEach(x=>{ (pDays.has(new Date(x.t).toDateString())?on:off).push(x.v); });
+      // data-only, three layers deep (Justin 2026-07-05): the bars, the loop rate,
+      // and the personal best-combo insight. no editorial verdicts.
       let helpHTML;
       if(sess.length<2 || !on.length || !off.length){
         helpHTML=`<p class="panel-empty">practice a few times, checking in around it, and we'll show you whether it moves your safety.</p>`;
       } else {
-        const onP=Math.round(avg(on)*100), offP=Math.round(avg(off)*100), diff=onP-offP;
-        let verdict, good=false;
-        if(diff>=4){ good=true; verdict=`yes, your safety runs ${diff} points higher after you practice.`; }
-        else if(diff<=-4){ verdict=`you tend to reach for practice on your harder days, that's a good thing, not a setback.`; }
-        else { verdict=`about even so far. keep going, the pattern takes time to show.`; }
+        const onP=Math.round(avg(on)*100), offP=Math.round(avg(off)*100);
+        const _pe = Store.practiceEffect ? Store.practiceEffect() : null;
+        const _pis = Store.practiceInsights ? Store.practiceInsights() : [];
+        const _pi = _pis && _pis.length ? _pis[0] : null;
+        const _segPhrase = s => s==='late' ? 'late at night' : 'in the '+segLabel(s);
         helpHTML=`
           <div class="help-bars">
             <div class="help-row"><span class="help-lbl">practice days</span><span class="help-track"><span class="help-fill" style="width:${onP}%;background:var(--s-safety)"></span></span><span class="help-pct">${onP}%</span></div>
             <div class="help-row"><span class="help-lbl">other days</span><span class="help-track"><span class="help-fill" style="width:${offP}%;background:var(--hairline)"></span></span><span class="help-pct">${offP}%</span></div>
-          </div>`;
+          </div>
+          ${_pe?`<p class="cb-line" style="margin-top:16px">after practicing, your next check-in shows more safety about <b>${Math.round(_pe.rate*20)*5}%</b> of the time.</p>`:''}
+          ${_pi?`<p class="cb-line" style="margin-top:10px">your most reliable combo so far: <b>${Store.practiceLabel(_pi.practiceKey)}</b> ${_segPhrase(_pi.seg)}, safety follows about <b>${Math.round(_pi.rate*20)*5}%</b> of the time.</p>`:''}`;
       }
 
       // ---- growth headline: safety now vs when you started (all-time, not period-filtered) ----
@@ -1985,15 +2212,27 @@
           const k=Math.max(2,Math.floor(allCs.length/4));
           const startV=avg(allCs.slice(0,k).map(x=>x.v)), recentV=avg(allCs.slice(-k).map(x=>x.v));
           const g=Math.round((recentV-startV)*100), up=g>=3, down=g<=-3;
-          // a dip is never the headline here — that conversation lives in the reader
+          // a dip is never the headline here — that conversation lives in the reader.
+          // two plain percentages, never a "pts" delta (Justin 2026-07-05)
           if(!down){
-            const cap=up?'higher than when you started. your practice reps add up!':'about steady since you started.';
-            growthHead=`<p class="growth-head"><span class="growth-num ${up?'up':'flat'}">${g>0?'+':''}${g} pts</span><span class="growth-cap">${cap}</span></p>`;
+            const cap=up?'average safety, when you started vs now. the reps add up!':'average safety, about steady since you started.';
+            growthHead=`<p class="growth-head"><span class="growth-num ${up?'up':'flat'}">${Math.round(startV*100)}% → ${Math.round(recentV*100)}%</span><span class="growth-cap">${cap}</span></p>`;
           }
         }
       })();
       const SHARE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg>';
       const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="share this card">${SHARE_ICON}</button>`;
+      // hoisted card signals (slides render them; the share cards draw them)
+      const rec = (Store.recovery ? Store.recovery() : null);
+      const rt  = rec ? _recoveryTrend() : null;
+      const dip = _topDipState();
+      const bl  = _baselineCard();
+      const wd  = _weekdayPattern(cs), dp = _daypartPattern(cs);
+      const trn = (Store.transitions ? Store.transitions() : null);
+      const pr  = _personalRecords(allCs);
+      const fl  = _safetyFlavors(cs);
+      const ce  = _contextEffect();
+      const pe  = ce && Store.practiceEffect ? Store.practiceEffect() : null;
       c.innerHTML=`
         <div class="view play-view">
           <div class="filter-bar">
@@ -2014,21 +2253,72 @@
                 ${dir==='falling'?'':`<div class="safety-trend ${dir}">${dir==='rising'?'and rising \u2191':'and steady'}</div>`}
               </div>
               <div class="safety-meter"><span class="safety-meter-fill" style="width:${safetyPct}%"></span></div>
-              ${topState?`<div class="safety-foot"><span class="tg-host">${triGlyph(topState)}</span><span class="sf-txt">your safety usually looks like <b>${({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState)}</b></span></div>`:''}
+              ${(topState==='play'||topState==='stillness')?`<div class="safety-foot"><span class="tg-host">${triGlyph(topState)}</span><span class="sf-txt">your safety usually looks like <b>${topState==='play'?'playfulness and motivation':'stillness'}</b></span></div>`:''}
               ${rising?'<p class="bloom-line">your system is finding more safety.</p>':''}`]);
-            const rec = (Store.recovery ? Store.recovery() : null);
             if(rec){
               const phrase = rec.avg<=1.5 ? 'a check-in or two' : 'about '+Math.round(rec.avg)+' check-ins';
-              slides.push(['how you come back', `
-              ${shareBtn('comeback')}<h2 class="panel-title">how you come back</h2>
-              <p class="panel-sub">what tends to happen after your harder moments</p>
-              <div class="cb-viz" aria-hidden="true"><span class="cb-dot" style="background:${STATE_COLOR('fightflight')}"></span><span class="cb-path"></span><span class="cb-dot cb-end" style="background:${STATE_COLOR('safety')}"></span></div>
-              <p class="cb-line">when your body drops into defense, you usually find your way back within <b>${phrase}</b>. you've already done it ${rec.n} times.</p>`]);
+              const from = dip || 'fightflight';
+              const rtLine = (rt && rt.dir==='faster') ? `<p class="cb-line">and lately, that trip has been getting <b>shorter</b>.</p>` : '';
+              const dipLine = dip ? `<p class="cb-line">your most common dip is into <b>${STATE_NAME(dip)}</b>.</p>` : '';
+              slides.push(['getting back to safety', `
+              ${shareBtn('comeback')}<h2 class="panel-title">getting back to safety</h2>
+              <div class="cb-viz cb-glyphs" aria-hidden="true"><span class="cb-g">${stateMarks(from)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(from)},${STATE_COLOR('safety')})"></span><span class="cb-g">${stateMarks('safety')}</span></div>
+              <p class="cb-line">when your body drops into defense, safety usually returns within <b>${phrase}</b>. you've made that trip ${rec.n} times.</p>
+              ${dipLine}${rtLine}`]);
+            }
+            if(bl){
+              slides.push(['your safety baseline', `
+              ${shareBtn('baseline')}<h2 class="panel-title">your safety baseline</h2>
+              <p class="panel-sub">the level of safety consistently in your system over the past month</p>
+              <div class="safety-wrap"><div class="safety-num"><span>${bl.basePct}</span><span class="pct">%</span></div></div>
+              <div class="safety-meter"><span class="safety-meter-fill" style="width:${bl.basePct}%"></span></div>
+              ${(bl.wkPct!=null&&bl.wkPct>=bl.basePct+3)?`<p class="cb-line">(but this week you're even higher, at <b>${bl.wkPct}%</b>.)</p>`:''}`]);
+            }
+            if(wd || dp){
+              const strip = wd ? `<div class="wk-strip" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===wd.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>` : '';
+              slides.push(['your most regulated times', `
+              ${shareBtn('times')}<h2 class="panel-title">your most regulated times</h2>
+              <p class="panel-sub">when your check-ins have safety most often, over ${periodPhrase}</p>
+              ${strip}
+              ${wd?`<p class="cb-line">${wd.pct}% of your <b>${wd.label}</b> check-ins have safety in them.</p>`:''}
+              ${dp?`<p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them.</p>`:''}`]);
+            }
+            if(trn){
+              const nm = k => ({play:'regulated mobility',stillness:'regulated immobility'}[k])||STATE_NAME(k);
+              slides.push(['your most common shift', `
+              ${shareBtn('shift')}<h2 class="panel-title">your most common shift</h2>
+              <div class="cb-viz cb-glyphs" aria-hidden="true"><span class="cb-g">${stateMarks(trn.a)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(trn.a)},${STATE_COLOR(trn.b)})"></span><span class="cb-g">${stateMarks(trn.b)}</span></div>
+              <p class="cb-line">your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>. ${trn.count} times so far.</p>`]);
+            }
+            if(pr){
+              const fcTxt = pr.fastest ? (pr.fastest.steps<=1?'back in one check-in':'back in '+pr.fastest.steps+' check-ins') : '';
+              slides.push(['your records', `
+              ${shareBtn('records')}<h2 class="panel-title">your records</h2>
+              <p class="panel-sub">personal bests, from your real check-ins</p>
+              ${pr.bestWeek?`<div class="safety-meter" style="margin:12px 0 16px"><span class="safety-meter-fill" style="width:${pr.bestWeek.pct}%"></span></div>`:''}
+              ${pr.bestWeek?`<p class="cb-line">your most regulated week yet: the week of <b>${pr.bestWeek.label}</b>, when <b>${pr.bestWeek.pct}%</b> of your check-ins had safety in them.</p>`:''}
+              ${pr.fastest?`<p class="cb-line">your fastest comeback: a dip into <b>${STATE_NAME(pr.fastest.dom)}</b>, <b>${fcTxt}</b>.</p>`:''}`]);
             }
             slides.push(['your state mix', `
               ${shareBtn('mix')}<h2 class="panel-title">your state mix</h2>
               <p class="panel-sub">${activePeriod==='all'?'your state averages, all time':'your check-in averages, over '+periodPhrase}</p>
               <div class="dist-bars">${mixHTML}</div>`]);
+            if(fl){
+              slides.push(['your flavors of safety', `
+              ${shareBtn('flavors')}<h2 class="panel-title">your flavors of safety</h2>
+              <p class="panel-sub">this is what your safety looks like over ${periodPhrase}</p>
+              <div class="help-bars">${fl.map(r=>`<div class="help-row"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
+            }
+            if(ce){
+              slides.push(['your top context', `
+              ${shareBtn('context')}<h2 class="panel-title">your top context</h2>
+              <p class="panel-sub">safety in the weeks you tagged “${escapeHtml(ce.label)}”, next to a typical week</p>
+              <div class="help-bars">
+                <div class="help-row"><span class="help-lbl">tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
+                <div class="help-row"><span class="help-lbl">typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
+              </div>
+              ${pe?`<p class="ctx-practice">after practicing: your next check-in has safety more often, about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
+            }
             slides.push(['your safety changes', `
               ${shareBtn('day')}<h2 class="panel-title">your safety changes</h2>
               <p class="panel-sub">your safety state over time, and how far you've come since you started.</p>
@@ -2046,12 +2336,26 @@
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); return `<div class="deep-row"><span class="deep-lbl">${segLabel(seg)}</span><span class="deep-val">${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row"><span class="deep-lbl">${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+            </div>
+            <div class="deep-block">
+              <h3 class="deep-h">day by day</h3>
+              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              <p class="deep-foot">% = check-ins where a safe state leads.</p>
+            </div>
+            <div class="deep-block">
+              <h3 class="deep-h">your numbers</h3>
+              <div class="deep-row"><span class="deep-lbl">days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'\u2014'}</span></div>
+              <div class="deep-row"><span class="deep-lbl">check-ins</span><span class="deep-val">${allCs.length}</span></div>
+              ${(function(){const n=Store.sessions().filter(s=>s&&s.completed).length;return n?`<div class="deep-row"><span class="deep-lbl">practices completed</span><span class="deep-val">${n}</span></div>`:'';})()}
+              ${rec?`<div class="deep-row"><span class="deep-lbl">comebacks made</span><span class="deep-val">${rec.n}</span></div>`:''}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">how you practice</h3>
               <div class="deep-row"><span class="deep-lbl">challenge level</span><span class="deep-val">${(function(){const ca=Store.learned().challengeAvg;return ca!=null?Store.challengeLabel(ca):'\u2014';})()}</span></div>
               ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">you return to</span><span class="deep-val">${Store.practiceLabel(L.favPractice)}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">anchored through</span><span class="deep-val">${L.favSense}</span></div>`;return h;})()}
+              ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
+              ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">best time for it</span><span class="deep-val">${s==='late'?'late at night':segLabel(s)}</span></div>`;})()}
             </div>
           </div>
           <button class="change-link" id="change-ci" type="button">change a recent check-in</button>
@@ -2078,8 +2382,27 @@
                : dir==='falling' ? `my safety is in a dip right now. dips come back, and i'm watching the whole pattern. ${_sig}`
                : `my safety is holding steady, and i can see it. ${_sig}`,
         practice:`i'm tracking whether practice actually moves my nervous system, and watching the answer show up in the data. ${_sig}`,
+        baseline:bl?`my safety baseline this month: ${bl.basePct}%. i'm watching it move. ${_sig}`:'',
+        times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. i know my most regulated times now. ${_sig}`:'',
+        shift:   trn?`when my state changes, it most often shifts from ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
+        records: (pr&&pr.bestWeek)?`my most regulated week yet: ${pr.bestWeek.pct}% of my check-ins had safety in them. ${_sig}`:(pr&&pr.fastest)?`my fastest comeback yet: a dip, and back in ${pr.fastest.steps<=1?'one check-in':pr.fastest.steps+' check-ins'}. ${_sig}`:'',
+        flavors: (fl&&fl.length)?`my safety has flavors. lately it's mostly ${fl[0].label}, ${fl[0].pct}% of the time. ${_sig}`:'',
+        context: ce?`my safest weeks have something in common: “${ce.label}”. ${_sig}`:'',
       };
-      c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); openShare(SHARE_TXT[b.dataset.share]||SHARE_TXT.safety); }));
+      // each share image carries the card's visual, not just words
+      const SHARE_VIZ = {
+        safety:  { kind:'meter', pct:safetyPct },
+        day:     { kind:'meter', pct:safetyPct },
+        comeback:rec?{ kind:'path', a:(dip||'fightflight'), b:'safety' }:null,
+        baseline:bl?{ kind:'meter', pct:bl.basePct }:null,
+        times:   wd?{ kind:'days', idx:wd.idx }:null,
+        shift:   trn?{ kind:'path', a:trn.a, b:trn.b }:null,
+        records: (pr&&pr.bestWeek)?{ kind:'meter', pct:pr.bestWeek.pct }:(pr&&pr.fastest)?{ kind:'path', a:pr.fastest.dom, b:'safety' }:null,
+        flavors: fl?{ kind:'bars', rows:fl.map(r=>({ color:STATE_COLOR(r.key), pct:r.pct })) }:null,
+        context: ce?{ kind:'bars', rows:[{ color:STATE_COLOR('safety'), pct:ce.tagPct },{ color:'#D8D2C2', pct:ce.typPct }] }:null,
+        mix:     { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
+      };
+      c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); const k=b.dataset.share; openShare(SHARE_TXT[k]||SHARE_TXT.safety, SHARE_VIZ[k]||null); }));
       c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
 
@@ -2670,6 +2993,7 @@
     const th = (localStorage.getItem('snb_theme')||'');
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
+    const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
     const ps = Store.prefSense(); const psil = Store.prefSilence();
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     $('#content').innerHTML = `
@@ -2747,6 +3071,14 @@
           <p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system may clear this if the app goes unused for a while. just turn it back on if that happens.</p>
         </div>
 
+        <div class="set-group">
+          <p class="dash-prompt">your glyph on shared images</p>
+          <div class="set-seg" id="seg-glyph">
+            ${segBtn('gl','0','off',gl==='0')}${segBtn('gl','1','on',gl!=='0')}
+          </div>
+          <p class="fineprint" style="margin-top:8px">adds your most frequent state's logo marks to the picture cards you share.</p>
+        </div>
+
         </div>
 
         <div class="set-card">
@@ -2775,6 +3107,10 @@
     const segHp=$('#seg-haptics'); if(segHp) segHp.querySelectorAll('[data-hp]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_haptics', b.dataset.hp); haptic('save');
       segHp.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+    });
+    const segGl=$('#seg-glyph'); if(segGl) segGl.querySelectorAll('[data-gl]').forEach(b=>b.onclick=()=>{
+      localStorage.setItem('snb_share_glyph', b.dataset.gl);
+      segGl.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     });
     const segSense=$('#seg-sense'); if(segSense) segSense.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
       Store.setPrefSense(b.dataset.sense);

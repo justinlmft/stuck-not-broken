@@ -384,6 +384,25 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .deep-lbl{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);text-transform:lowercase}
 .deep-val{font-size:calc(13.5px * var(--type-scale));color:var(--ink);display:flex;align-items:center;gap:7px;text-transform:lowercase}
 .deep-none{color:var(--hairline)}
+.deep-pct{font-size:calc(12px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
+.deep-foot{font-size:calc(12px * var(--type-scale));color:var(--muted);margin:8px 0 0;text-transform:lowercase}
+/* you-tab card visuals (2026-07-05): week strip + streak dots */
+.wk-strip{display:flex;gap:8px;align-items:flex-end;margin:12px 0 16px}
+.wk-cell{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;min-height:34px;justify-content:flex-end}
+.wk-dot{width:13px;height:13px;border-radius:50%;background:var(--bone-deep)}
+.wk-dot.on{width:20px;height:20px;background:var(--s-safety)}
+.wk-lb{font-size:calc(10.5px * var(--type-scale));color:var(--muted)}
+.streak{display:flex;gap:9px;align-items:center;margin:12px 0 16px;flex-wrap:wrap}
+.streak-dot{width:14px;height:14px;border-radius:50%;background:var(--s-safety)}
+.streak-more{font-size:calc(12px * var(--type-scale));color:var(--muted)}
+.cb-glyphs .cb-g{flex:none;display:inline-flex}
+.cb-glyphs .st-marks{display:inline-flex;gap:3px;align-items:center}
+.cb-glyphs .st-mark{width:24px;height:24px}
+.wk-mark{display:inline-flex;align-items:center;justify-content:center;height:20px}
+.wk-mark .snb-ico{height:19px;width:auto;display:block}
+.help-lbl .st-marks{display:inline-flex;gap:2px;vertical-align:-2px;margin-right:6px}
+.help-lbl .st-mark{width:12px;height:12px}
+.ctx-practice{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:14px 0 0;text-wrap:pretty}
 .dist-bars{display:flex;flex-direction:column;gap:14px}
 .distrow{display:flex;flex-direction:column;gap:7px;width:100%;background:none;border:0;padding:2px 0;cursor:pointer;color:inherit;font:inherit;text-align:left}
 .distrow-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
@@ -469,11 +488,15 @@ body.show-fab .fab{display:flex}
 @keyframes growx{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes riseIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
 @keyframes numRise{from{transform:translateY(6px)}to{transform:translateY(0)}}
+@keyframes popIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:no-preference){
   .safety-meter-fill,.distrow-fill,.help-fill{transform-origin:left center;animation:growx .9s var(--ease)}
   .safety-num{animation:numRise .6s var(--ease)}
   .safety-foot,.safety-range,.bloom-line{animation:riseIn .7s var(--ease)}
   .distrow{animation:riseIn .55s var(--ease)}
+  .wk-cell{animation:riseIn .5s var(--ease) both}
+  .wk-mark{animation:popIn .6s var(--ease) both;animation-delay:.35s}
+  .streak-dot{animation:popIn .5s var(--ease) both}
 }
 .ot-bar:active{opacity:1}
 /* stats collapsible */
