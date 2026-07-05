@@ -1731,12 +1731,18 @@
       const ord = nth===2?'2nd ':nth===3?'3rd ':nth>3?nth+'th ':'';
       return `${who} ${ord}${seg} check-in`;
     })();
-    // per-check-in context (2026-07-05 v2): "what's having the biggest impact right
-    // now?" — keyed to THIS check-in ('c'+t), so each tag is tied to the state it was
-    // felt in. that's what makes safety-context vs defense-context data possible.
-    // synced through the same Store.saveContexts -> public.contexts -> mirror path.
-    // fresh check-ins start untagged (impact is moment-specific, never prefilled).
-    const ctxSel = new Set(editRec ? (_ctxLoad()['c'+editRec.t]||[]) : []);
+    // per-check-in context (2026-07-06 v3): two tabs, "i've had more of" / "i've had
+    // less of", each an independent set of tags. keyed 'c'+t+'+' and 'c'+t+'-' so each
+    // check-in carries two context signals tied to the state it was felt in — powers
+    // downstream attribution ("more of X correlated with better regulation", "less of Y
+    // correlated with more shutdown"). synced through Store.saveContexts -> public.contexts
+    // -> analytics mirror path (no schema change; just varies period_key).
+    // legacy 'c'+t rows (pre-v3) alias to "more of" on read; fresh check-ins start untagged.
+    const _ctxAll_e = editRec ? _ctxLoad() : {};
+    const _legacyC  = editRec ? (_ctxAll_e['c'+editRec.t]||null) : null;
+    const ctxSelMore = new Set(editRec ? (_ctxAll_e['c'+editRec.t+'+'] || _legacyC || []) : []);
+    const ctxSelLess = new Set(editRec ? (_ctxAll_e['c'+editRec.t+'-'] || []) : []);
+    let ctxDir = 'more';   // active tab
     $('#content').innerHTML = `<div class="view checkin2">
 
         <div class="scr-head">
@@ -1766,9 +1772,14 @@
         </div>
 
         <div class="ci-block ci-challenge ci-ctx">
-          <p class="dash-prompt">what's having the biggest impact right now? <span class="ci-ctx-opt">optional</span></p>
-          <div class="wr-chiprow" id="ci-ctx-row">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSel.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" aria-pressed="${ctxSel.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
-          <p class="ch-cap ci-ctx-cap">ties this moment to what's driving it. shows up later in your patterns, on the you tab and in your reflections.</p>
+          <p class="dash-prompt">context lately <span class="ci-ctx-opt">optional</span></p>
+          <div class="set-seg ci-ctx-seg" role="tablist" aria-label="context direction">
+            <button type="button" class="on" data-ctxdir="more" role="tab" aria-selected="true">i've had more of</button>
+            <button type="button" data-ctxdir="less" role="tab" aria-selected="false">i've had less of</button>
+          </div>
+          <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-more" role="tabpanel">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelMore.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="more" aria-pressed="${ctxSelMore.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+          <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-less" role="tabpanel" hidden>${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelLess.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="less" aria-pressed="${ctxSelLess.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+          <p class="ch-cap ci-ctx-cap">helps track what's adding to — or taking from — the states you feel over time. shows up later in your patterns.</p>
         </div>
 
         <div class="ci-block ci-challenge">
@@ -1842,11 +1853,25 @@
       $('#ci-ovr-clear').onclick = ()=>{ ovr = null; paint(); panel.hidden = true; };
     }
 
-    // context chips: tap to toggle; saved with the check-in (day-keyed)
-    root.querySelectorAll('#ci-ctx-row .wr-chip').forEach(b=>b.onclick=()=>{
-      const o=b.dataset.ctx;
-      if(ctxSel.has(o)) ctxSel.delete(o); else ctxSel.add(o);
-      b.classList.toggle('on', ctxSel.has(o)); b.setAttribute('aria-pressed', ctxSel.has(o)?'true':'false');
+    // context tabs + chips: switch direction, then tap tags to toggle in the active set
+    root.querySelectorAll('.ci-ctx-seg button').forEach(b=>b.onclick=()=>{
+      ctxDir = b.dataset.ctxdir;
+      root.querySelectorAll('.ci-ctx-seg button').forEach(x=>{
+        const on = x===b;
+        x.classList.toggle('on', on);
+        x.setAttribute('aria-selected', on?'true':'false');
+      });
+      const more = root.querySelector('#ci-ctx-row-more'), less = root.querySelector('#ci-ctx-row-less');
+      if(more) more.hidden = ctxDir!=='more';
+      if(less) less.hidden = ctxDir!=='less';
+    });
+    const _ctxSetOf = d => d==='less' ? ctxSelLess : ctxSelMore;
+    ['ci-ctx-row-more','ci-ctx-row-less'].forEach(id=>{
+      root.querySelectorAll('#'+id+' .wr-chip').forEach(b=>b.onclick=()=>{
+        const set = _ctxSetOf(b.dataset.ctxdir), o = b.dataset.ctx;
+        if(set.has(o)) set.delete(o); else set.add(o);
+        b.classList.toggle('on', set.has(o)); b.setAttribute('aria-pressed', set.has(o)?'true':'false');
+      });
     });
 
     const cap = $('#ch-cap');
@@ -1872,10 +1897,20 @@
       if(ch!=null) vals.challenge = ch;                  // null = "whatever you recommend": let the recommender decide
       if(typeof ovr==='string' && ovr) vals.dom = ovr;   // expert override rides along (edit only)
       window._ciSource = null;
-      // context is saved keyed to the exact check-in (after add, so we know its t)
+      // context is saved keyed to the exact check-in, split by direction:
+      //   c{t}+ = "i've had more of"   c{t}- = "i've had less of"
+      // legacy c{t} (pre-v3) is aliased to "more of" for read paths; on save we
+      // additionally overwrite legacy c{t} with the "more of" set so the old key
+      // stays consistent if any older code path still reads it.
       const _saveCtx = (t)=>{ try{
-        const k='c'+t, m=_ctxLoad(); m[k]=Array.from(ctxSel); _ctxSave(m);
-        if(window.Store && Store.saveContexts) Store.saveContexts(k, "what's having the biggest impact right now?", Array.from(ctxSel));
+        const kMore='c'+t+'+', kLess='c'+t+'-', m=_ctxLoad();
+        const arrMore=Array.from(ctxSelMore), arrLess=Array.from(ctxSelLess);
+        m[kMore]=arrMore; m[kLess]=arrLess; m['c'+t]=arrMore;   // legacy alias
+        _ctxSave(m);
+        if(window.Store && Store.saveContexts){
+          Store.saveContexts(kMore, "i've had more of", arrMore);
+          Store.saveContexts(kLess, "i've had less of", arrLess);
+        }
       }catch(e){} };
       if(editRec){ Store.updateCheckin(editRec.t, vals); _saveCtx(editRec.t); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
@@ -2225,13 +2260,27 @@
   // attribution guardrail: only ever rendered WITH the practice effect beside it.
   function _contextEffect(){
     const m=_ctxLoad();
-    // 'w' keys = the weekly reader question; 'd' keys = tags saved with a check-in.
-    // day tags fold into their containing week so the correlation stays one honest unit
+    // key shapes:
+    //   c{t}+  = "i've had more of" for check-in t (v3)
+    //   c{t}-  = "i've had less of" for check-in t (v3)
+    //   c{t}   = legacy pre-v3 tag (aliased to "more of" on read; also carried by save)
+    //   w{YYYY-MM-DD} = weekly reader question   d{...} = daily reader question
+    // per-check-in tags fold into their containing week; labels prefixed with the
+    // direction so "more of X" and "less of X" are separate signals downstream.
+    // legacy c{t} would double-count with new c{t}+; we skip legacy when the
+    // suffixed key exists for the same check-in.
     const wkTags={};
     Object.keys(m).forEach(k=>{
       if(!(m[k]||[]).length) return;
-      let ws=null;
-      if(k[0]==='c'){ const t=Number(k.slice(1)); if(isFinite(t)) ws=_sundayStart(t); }   // per-check-in tag
+      let ws=null, prefix='';
+      if(k[0]==='c'){
+        const mm=/^c(\d+)([+-]?)$/.exec(k); if(!mm) return;
+        const t=Number(mm[1]); if(!isFinite(t)) return;
+        // legacy no-suffix: skip if the '+' key already carries this check-in
+        if(mm[2]==='' && ('c'+t+'+') in m) return;
+        ws=_sundayStart(t);
+        prefix = mm[2]==='-' ? 'less of ' : 'more of ';
+      }
       else if(k[0]==='w'||k[0]==='d'){
         const p=k.slice(1).split('-').map(Number);          // local date parts
         if(p.length<3||p.some(isNaN)) return;
@@ -2240,7 +2289,7 @@
       }
       if(ws==null) return;
       const set=wkTags[ws]=wkTags[ws]||{};
-      m[k].forEach(lb=>{ set[lb]=1; });
+      m[k].forEach(lb=>{ set[prefix+lb]=1; });
     });
     const tagged=Object.keys(wkTags);
     if(tagged.length<2) return null;
@@ -2302,9 +2351,14 @@
     const safe={}, def={};
     Object.keys(m).forEach(k=>{
       if(k[0]!=='c'||!(m[k]||[]).length) return;
-      const dom=byT[Number(k.slice(1))]; if(!dom) return;
+      const mm=/^c(\d+)([+-]?)$/.exec(k); if(!mm) return;
+      const t=Number(mm[1]);
+      // legacy no-suffix: skip if we already have a '+' row for the same check-in
+      if(mm[2]==='' && ('c'+t+'+') in m) return;
+      const dom=byT[t]; if(!dom) return;
+      const prefix = mm[2]==='-' ? 'less of ' : 'more of ';
       const tgt=_REGDOMS[dom]?safe:def;
-      m[k].forEach(lb=>{ tgt[lb]=(tgt[lb]||0)+1; });
+      m[k].forEach(lb=>{ tgt[prefix+lb]=(tgt[prefix+lb]||0)+1; });
     });
     const top=o=>{ const e=Object.entries(o).sort((a,b)=>b[1]-a[1])[0]; return (e&&e[1]>=2)?{label:e[0],n:e[1]}:null; };
     const s=top(safe), d=top(def);
