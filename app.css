@@ -807,6 +807,7 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .ci-ctx .ch-cap{min-height:0}
 .ci-ctx-cap{color:var(--muted)}
 .ci-ctx-opt{font-size:calc(11px * var(--type-scale));color:var(--muted);font-weight:400;margin-left:4px}
+.ci-readout-idle{color:var(--muted);font-style:normal}
 .ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .ch-opt:hover{border-color:var(--ink-80)}
 .ch-opt.on{border-color:var(--ink);border-width:2px;padding:12px 7px;color:var(--ink);font-weight:500}

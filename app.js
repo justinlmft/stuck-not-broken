@@ -262,10 +262,14 @@
   };
   // Mirror readout: play the person's own report back in plain speech — no state
   // names, no verdicts. The app is not a person: "you're reporting", never "I".
+  // 🖊 sym and dor no longer share the word "energy" (Justin 2026-07-05: "a little
+  // extra energy" + "energy a little low" read as a contradiction). sym = charge in
+  // the body; dor = how reachable doing things feels. band 2 softened for the
+  // midpoint-start sliders (the old "a lot of energy" overclaimed at 50).
   const CI_MIRROR = {
     v:   ['connecting feels very hard right now','connecting takes effort','connecting is doable','connecting feels easy right now'],
-    sym: ['your body is calm','a little extra energy in your body','a lot of energy in your body','your body is very revved up'],
-    dor: ['you have energy to do things','your energy for doing things is a little low','not much energy left for doing things','almost no energy to do anything'],
+    sym: ['your body is calm','a little charge in your body','a fair amount of charge in your body','your body is very revved up'],
+    dor: ['doing things feels within reach','doing things takes a little extra push','doing things takes real effort right now','doing much of anything feels out of reach'],
   };
   const ciBucket = x => x < 0.18 ? 0 : x < 0.45 ? 1 : x < 0.72 ? 2 : 3;
   const ciMirror = (v, sym, dor) =>
@@ -1780,6 +1784,10 @@
       </div>`;
 
     const readout = $('#ci-readout');
+    // fresh check-ins start neutral (Justin 2026-07-05): rails sit in ink and the
+    // mirror stays quiet until a slider actually moves — color and words respond
+    // to what the person SET, never to defaults. edits show everything at once.
+    const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
     function refresh(){
       setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
       const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
@@ -1788,13 +1796,18 @@
       const own = AXIS_OWN();
       ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
         const active = core.length>1 && core.includes(ax);
-        el.style.setProperty('--rail', active ? STATE_COLOR(dom.key) : own[ax]); });
-      if(readout){ readout.textContent = ciMirror(v/100, s/100, d/100); }
+        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink)'); });
+      if(readout){
+        const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
+        readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
+          : 'move the sliders, and this line will mirror what you set.';   // 🖊
+        readout.classList.toggle('ci-readout-idle', !anyTouched);
+      }
     }
     // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert
-    bindSlider('v', val=>{v=val;refresh();});
-    bindSlider('sym', val=>{s=100-val;refresh();});
-    bindSlider('dor', val=>{d=100-val;refresh();});
+    bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
+    bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
+    bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
     refresh();
     $('#ci-shuffle').onclick = ()=>{
       ['v','sym','dor'].forEach(ax=>{
@@ -2017,6 +2030,9 @@
   }
   async function shareCardImage(txt, viz){
     try{
+      // the canvas only uses Inter if it's actually loaded — otherwise it silently
+      // falls back and the card "loses the styling" (Justin 2026-07-05). load first.
+      try{ if(document.fonts && document.fonts.load){ await Promise.all(['500 54px Inter','500 170px Inter','400 30px Inter','400 26px Inter','500 34px Inter'].map(f=>document.fonts.load(f))); } }catch(_){}
       const W=1080,H=1080,cv=document.createElement('canvas'); cv.width=W; cv.height=H;
       const x=cv.getContext('2d'); if(!x) return false;
       x.fillStyle='#FAF9F5'; x.fillRect(0,0,W,H);
@@ -2033,14 +2049,27 @@
       }catch(e){}
       if(!drewGlyph) ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(W/2-64+i*64,196,17,0,7); x.fill(); });
       const vizBottom = viz ? _shareViz(x, W, viz) : null;
-      x.fillStyle='#1A1F2A'; x.font='500 54px Inter, system-ui, sans-serif'; x.textAlign='center';
+      // adaptive text block (2026-07-05 rework): shrink type until the whole message
+      // fits between the visual and the footer — lines can never collide or run over.
+      x.fillStyle='#1A1F2A'; x.textAlign='center';
       const body=String(txt).replace(/\.?\s*stuck not broken( · app\.stucknotbroken\.com)?\s*$/i,'');
-      const words=body.split(/\s+/), lines=[]; let line='';
-      words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-280&&line){ lines.push(line); line=w; } else line=t; });
-      if(line) lines.push(line);
-      const maxL = vizBottom ? 4 : 8;
-      const startY = vizBottom ? vizBottom+90 : H/2-(lines.length-1)*40;
-      lines.slice(0,maxL).forEach((l,i)=>x.fillText(l,W/2,startY+i*80));
+      const wrap=(fs)=>{
+        x.font='500 '+fs+'px Inter, system-ui, sans-serif';
+        const words=body.split(/\s+/), out=[]; let line='';
+        words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-280&&line){ out.push(line); line=w; } else line=t; });
+        if(line) out.push(line);
+        return out;
+      };
+      const top = vizBottom ? vizBottom+56 : 300;
+      const bottomLimit = H-230;                          // footer starts at H-176; keep clear air above it
+      let fs=54, lh=Math.round(54*1.42), lines=wrap(fs);
+      while(lines.length*lh > (bottomLimit-top) && fs>34){ fs-=4; lh=Math.round(fs*1.42); lines=wrap(fs); }
+      const maxL=Math.max(1, Math.floor((bottomLimit-top)/lh));
+      if(lines.length>maxL){ lines=lines.slice(0,maxL); lines[maxL-1]=lines[maxL-1].replace(/\s+\S*$/,'')+'…'; }
+      const blockH=lines.length*lh;
+      const startY = (vizBottom ? top : Math.max(top,(bottomLimit+top-blockH)/2)) + Math.round(lh*0.75);
+      x.font='500 '+fs+'px Inter, system-ui, sans-serif';
+      lines.forEach((l,i)=>x.fillText(l,W/2,startY+i*lh));
       x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
       x.fillText('stuck not broken',W/2,H-176);
       x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif';

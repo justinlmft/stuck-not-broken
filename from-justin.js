@@ -791,7 +791,7 @@
     const rel = d >= 5 ? 'a step above it' : d <= -5 ? 'a bit below it' : 'right at it';
     const close = d >= 5 ? 'That\'s how Baselines move: one week at a time.'
                 : d <= -5 ? 'A week below Baseline is a moment in the bigger picture, not a slide. Gentle is fine for now.'
-                : 'Holding steady at your Baseline is solid ground.';
+                : 'Nothing wrong with staying at your Baseline. It shows a solid foundation, at the least.';
     return 'Zoom out for a second. Your Baseline over the past month is ' + basePct + '% safety. This week came in at ' + wkPct + '%, ' + rel + '. ' + close;
   }
   const ESSAYS = {
@@ -999,11 +999,11 @@
       parts.push(s);
     }
     if(p.shift){
-      parts.push('When your state changes, its most worn path is ' + _feltName(p.shift.a) + ' to ' + _feltName(p.shift.b) + '. That shift has shown up ' + p.shift.count + ' times. A path your body travels this often usually has a trigger sitting in front of it, and spotting the trigger is how the path starts to soften.');
+      parts.push('When your state changes, it\'s often ' + _feltName(p.shift.a) + ' to ' + _feltName(p.shift.b) + '. That shift has shown up ' + p.shift.count + ' times. Patterns like this might have a clear trigger directly before, though it\'s not always obvious. It might be as subtle as the time of day.');
     }
     if(p.comeback){
-      let s = 'After a dip into defense, safety usually returns within ' + p.comeback.phrase + '. You\'ve made that trip ' + p.comeback.n + ' times';
-      s += p.comeback.faster ? ', and lately the trips are getting shorter. That\'s your safety state showing signs of strengthening and increased regulation.' : '. Your system knows the way back.';
+      let s = 'After a dip into defense, safety usually returns within ' + p.comeback.phrase + '. That\'s happened ' + p.comeback.n + ' times';
+      s += p.comeback.faster ? ', and those dips have been getting shorter. That\'s your safety state showing signs of strengthening and increased regulation.' : '. Your system is showing it can re-regulate.';
       parts.push(s);
     }
     if(p.record){
@@ -1013,7 +1013,7 @@
       const up = p.context.tagPct >= p.context.typPct;
       let s = 'The weeks you tagged “' + p.context.label + '” carried ' + (up?'more':'less') + ' safety: ' + p.context.tagPct + '% of check-ins, against ' + p.context.typPct + '% in a typical week.';
       s += (p.context.peRate!=null)
-        ? ' Practice runs alongside too, with more safety in your next check-in about ' + p.context.peRate + '% of the time after practicing.'
+        ? ' Practice runs alongside too: whenever you next check in after a practice, even if it\'s hours later, that check-in carries more safety about ' + p.context.peRate + '% of the time.'
         : ' Worth noticing what those weeks held.';
       parts.push(s);
     }
@@ -1021,12 +1021,12 @@
       const bits=[];
       if(p.ctxStates.safe) bits.push('“'+p.ctxStates.safe.label+'” is what you name most around your safe check-ins');
       if(p.ctxStates.def) bits.push((bits.length?'and ':'')+'“'+p.ctxStates.def.label+'” shows up most around defense');
-      parts.push('You\'ve started naming what\'s hitting hardest in the moment. So far, ' + bits.join(', ') + '. A map like that makes the harder moments more predictable, and the good ones easier to repeat.');
+      parts.push('You\'ve started naming what\'s hitting hardest in the moment. So far, ' + bits.join(', ') + '. This data will make the harder moments more predictable and manageable. And let you prepare for the easier ones with more intentional mindfulness.');
     }
     if(parts.length < 2) return null;                    // one lonely fact isn't a section
     parts.unshift(cycle('pats-lead', [
-      'Your check-ins have been quietly building a map. A few landmarks worth naming this week.',
-      'Zoom in on your own patterns for a moment, because they\'re getting distinct.'
+      'Your check-ins have been building a map. A few landmarks worth naming this week.',
+      'Zoom in on your own patterns for a moment, because they\'re becoming clearer.'
     ]));
     return { id:'blog-pats', heading:_heading(ctx.dom,'What your patterns show',false), paras:parts, fresh:true };
   }
