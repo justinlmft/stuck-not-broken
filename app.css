@@ -1204,6 +1204,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .wr-ctx{margin:14px 0 4px}
 .wr-ctx-q{font-size:calc(14px * var(--type-scale));color:var(--muted);margin:0 0 9px}
 .wr-chiprow{display:flex;flex-wrap:wrap;gap:7px}
+.wr-chiprow[hidden]{display:none}  /* class-selector display:flex would otherwise beat [hidden] UA rule; needed for the check-in context tabs */
 .wr-chip{position:relative;border:0.5px solid var(--hairline);border-radius:999px;background:none;padding:8px 13px;font:inherit;font-size:calc(13px * var(--type-scale));color:var(--ink-80);cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease)}
 .wr-chip::after{content:"";position:absolute;inset:-6px}   /* ~44pt hit area */
 .wr-chip:active{background:var(--press)}
