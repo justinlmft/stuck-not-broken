@@ -823,7 +823,6 @@
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
         'The energy locked up in freeze isn\'t the enemy. It\'s the same fuel that runs motivation and play once safety is mixed in. As the brake learns it can lift, that fuel comes back to you. First as small movements, then as wanting things again.',
-        _essayBaseline(ctx),
         'Freeze is where your body is right now. Maybe it\'s been here a long time. It\'s not where your body stays.',
         'Stuck, not broken. And stuck is temporary.'
       ].filter(Boolean)});
@@ -856,7 +855,6 @@
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
         'Hold this lightly if it\'s hard to believe right now. Small, low-demand safety cues, repeated, shift shutdown toward stillness. A similar internal quiet, but peaceful instead of numb. As energy returns, it might show up as motivation. It might also show up as irritability. Either one is good news, because it means things are moving again.',
-        _essayBaseline(ctx),
         'Feeling permanent isn\'t the same as being permanent.',
         'You\'re not broken. You\'re stuck, and stuck is something that moves.'
       ].filter(Boolean)});
@@ -887,7 +885,6 @@
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
         'Every small cue of safety gives this energy somewhere to go. Over time, mobilization with safety mixed in becomes motivation and play. Same fuel, different mix. The energy was never the problem.',
-        _essayBaseline(ctx),
         'You\'re not broken, and you\'re not too much. You\'re mobilized, but not enough safety has been mixed in yet. Yet.'
       ].filter(Boolean)});
       return sec;
@@ -918,7 +915,6 @@
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
         'Keep a little safety mixed into this energy, and it stays fuel instead of turning into a fire. Over time, you get to mobilize during the day and still settle into stillness in the evening, and the drive stops costing you on the back end.',
-        _essayBaseline(ctx),
         'It\'s just how the body works. Whether you\'re mobile or immobile, change is always close.'
       ].filter(Boolean)});
       return sec;
@@ -949,7 +945,6 @@
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
         'Let this rest actually restore you and it does more than feel good. Immobile with safety mixed in is where the body recovers and where the deeper work gets done. Keep practicing it, and stillness stays stillness: quiet you can sink into without disappearing.',
-        _essayBaseline(ctx),
         'Collapsed, still, or somewhere in between, the body can move again.'
       ].filter(Boolean)});
       return sec;
@@ -981,7 +976,6 @@
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
         'Keep noticing safety and using it the way you have been, and it stops being a visitor and starts becoming a baseline. That\'s what the practice reps do over time. The goal was never to feel safe all the time. It\'s to build enough safety to move freely among all of your body\'s states without getting stuck.',
-        _essayBaseline(ctx),
         'Either way, you\'ve proven your system can find safety. It might be worth trusting your body a bit more.'
       ].filter(Boolean)});
       return sec;
@@ -1023,6 +1017,12 @@
         : ' Worth noticing what those weeks held.';
       parts.push(s);
     }
+    if(p.ctxStates && (p.ctxStates.safe || p.ctxStates.def)){
+      const bits=[];
+      if(p.ctxStates.safe) bits.push('“'+p.ctxStates.safe.label+'” is what you name most around your safe check-ins');
+      if(p.ctxStates.def) bits.push((bits.length?'and ':'')+'“'+p.ctxStates.def.label+'” shows up most around defense');
+      parts.push('You\'ve started naming what\'s hitting hardest in the moment. So far, ' + bits.join(', ') + '. A map like that makes the harder moments more predictable, and the good ones easier to repeat.');
+    }
     if(parts.length < 2) return null;                    // one lonely fact isn't a section
     parts.unshift(cycle('pats-lead', [
       'Your check-ins have been quietly building a map. A few landmarks worth naming this week.',
@@ -1050,6 +1050,11 @@
     const secs = ESSAYS[dom](ctx);
     const pats = _essayPatterns(ctx);
     if(pats) secs.splice(1, 0, pats);                    // fresh data early: right after "What X is"
+    // the Baseline zoom-out gets the same fresh treatment as the patterns section
+    // (2026-07-05): its own highlighted section just before the close, instead of
+    // hiding as a paragraph inside "Where this can go"
+    const zoom = _essayBaseline(ctx);
+    if(zoom) secs.splice(Math.max(secs.length-1, 0), 0, { id:'blog-zoom', heading:_heading(dom,'Zoom out',false), paras:[zoom.replace(/^Zoom out for a second\. /,'')], fresh:true });
     return { stateName: ctx.stateName, dom:dom, stage:stage, dek:dek,
              bullets:[{ text:dek }],                    // back-compat: weekly mint summary + old renderers
              sections: secs };

@@ -804,6 +804,8 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .ch-seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
 .ch-auto{display:block;width:100%;margin:0 0 8px}
 .ci-ctx .wr-chiprow{margin-top:4px}
+.ci-ctx .ch-cap{min-height:0}
+.ci-ctx-cap{color:var(--muted)}
 .ci-ctx-opt{font-size:calc(11px * var(--type-scale));color:var(--muted);font-weight:400;margin-left:4px}
 .ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .ch-opt:hover{border-color:var(--ink-80)}
@@ -1177,6 +1179,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
    quiet eyebrow — the "what's new this week" scent trail (2026-07-05) */
 .sec-fresh{border-left:2px solid var(--fresh-col,var(--s-safety));border-radius:0;padding-left:14px}
 .fresh-eyeb{font-size:calc(10.5px * var(--type-scale));text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 6px}
+.sec-share{margin-top:10px;font-size:calc(13px * var(--type-scale))}
 .read-lead{font-size:calc(16px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
 .read-dek{font-size:calc(16px * var(--type-scale));line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0}
 /* reader TOC: ink text with a quiet ">" marker, inset like a list (blue links cut per Justin) */

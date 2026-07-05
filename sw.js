@@ -5,12 +5,12 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v170';
+const SHELL_VERSION = 'snb-app-shell-v171';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=60', './app.js?v=70', './icons.js', './current.js',
-  './config.js', './store.js?v=43', './from-justin.js?v=7', './player.html',
+  './', './index.html', './app.css?v=61', './app.js?v=71', './icons.js', './current.js',
+  './config.js', './store.js?v=43', './from-justin.js?v=8', './player.html',
   './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 

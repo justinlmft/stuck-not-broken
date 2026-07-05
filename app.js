@@ -932,6 +932,17 @@
     if(!c) return '';
     if(id==='blog-1' && c.dist && c.order) return stateMixBar(c.dist, c.order);
     if(id==='blog-2' && c.dom) return stateGlyphViz(c.dom);
+    // fresh sections reuse the You-tab card visuals (Justin 2026-07-05): the reader
+    // and the cards speak the same visual language
+    if(id==='blog-pats' && c.patterns){
+      const p=c.patterns;
+      if(p.day) return `<div class="wk-strip" aria-hidden="true" style="margin:14px 0 4px">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===p.day.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>`;
+      if(p.shift) return `<div class="cb-viz cb-glyphs" aria-hidden="true" style="margin:14px 0 4px"><span class="cb-g">${stateMarks(p.shift.a)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(p.shift.a)},${STATE_COLOR(p.shift.b)})"></span><span class="cb-g">${stateMarks('safety'===p.shift.b?'safety':p.shift.b)}</span></div>`;
+      return '';
+    }
+    if(id==='blog-zoom' && c.zoomPct!=null){
+      return `<div class="safety-meter" style="margin:14px 0 4px"><span class="safety-meter-fill" style="width:${c.zoomPct}%"></span></div>`;
+    }
     // trend-arc (blog-3) + fork (blog-4) removed per Justin; helpers kept for possible reuse.
     return '';
   }
@@ -966,7 +977,7 @@
   // answerable context prompt (context-prompts.md): one tappable question per
   // section, multi-select, skippable. LOCAL-ONLY for now — cloud column waits for
   // the next Supabase round (do not sync from here).
-  const CTX_OPTS = ['work','family','friends','partner','spiritual','nature','body & movement','rest','practice','something else']; // 🖊
+  const CTX_OPTS = ['work','family','friends','partner','hobbies','spiritual','nature','body & movement','rest','practice','something else']; // 🖊
   function _ctxLoad(){ try{ return JSON.parse(localStorage.getItem('snb-contexts'))||{}; }catch(e){ return {}; } }
   function _ctxSave(m){ try{ localStorage.setItem('snb-contexts', JSON.stringify(m)); }catch(e){} }
   function _ctxChipsHTML(q, key){
@@ -1139,7 +1150,8 @@
           shift:trnR?{a:trnR.a,b:trnR.b,count:trnR.count}:null,
           comeback:recR?{phrase:(recR.avg<=1.5?'a check-in or two':'about '+Math.round(recR.avg)+' check-ins'), n:recR.n, faster:!!(rtR&&rtR.dir==='faster')}:null,
           record:(prR&&prR.bestWeek)?prR.bestWeek:null,
-          context:ceR?{label:ceR.label,tagPct:ceR.tagPct,typPct:ceR.typPct,peRate:peR?Math.round(peR.rate*20)*5:null}:null
+          context:ceR?{label:ceR.label,tagPct:ceR.tagPct,typPct:ceR.typPct,peRate:peR?Math.round(peR.rate*20)*5:null}:null,
+          ctxStates:_contextStateLink()
         };
       }catch(e){ return null; }
     })();
@@ -1156,7 +1168,9 @@
     const dayV = [];
     for(let i=13;i>=0;i--){ const d=new Date(_now - i*864e5); d.setHours(0,0,0,0); const a=Store.dayArc?Store.dayArc(d.getTime()):null; if(a && a.n) dayV.push({ x:(13-i), v:a.moments.reduce((s,m)=>s+m.v,0)/a.n }); }
     const _ps = Store.periodStats ? Store.periodStats(_now-7*864e5, _now) : null;
-    const vizCtx = { dom:dom, dayV:dayV, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null };
+    const _base28 = Store.periodStats ? Store.periodStats(_now-28*864e5, _now) : null;
+    const vizCtx = { dom:dom, dayV:dayV, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null,
+                     patterns:patterns, zoomPct:(_base28&&_base28.n>=8)?Math.round(_base28.regShare*100):null };
     const P = (t)=> t ? `<p class="read-p">${escapeHtml(t)}</p>` : '';
     // the daily note now lives in the today block above; only fall back to a lead
     // paragraph when there are no moments today (todayBlock empty).
@@ -1171,13 +1185,16 @@
       // as a pull-quote (reader-beauty pass)
       const PQ = (t)=> t ? `<blockquote class="read-pq">${escapeHtml(t)}</blockquote>` : '';
       // fresh (data-driven) sections get the highlight treatment: an accent hairline in
-      // the issue's state color + a quiet eyebrow, so what's NEW is scannable at a glance
+      // the issue's state color + a quiet eyebrow, so what's NEW is scannable at a glance.
+      // they're also shareable — same 1080x1080 cards as the You tab (Justin 2026-07-05)
+      const _shareable = { 'blog-pats':1, 'blog-zoom':1 };
       const sectionsHTML = issue.sections.map(sec=>`
         <section${sec.fresh?` class="sec-fresh" style="margin-top:22px;--fresh-col:${STATE_COLOR(issue.dom)}"`:` style="margin-top:22px"`}>
           ${sec.fresh?'<p class="fresh-eyeb">from your check-ins · updates as you do</p>':''}
           <h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>
           ${sec.paras.map((t,i)=> (sec.id==='blog-6' && i===sec.paras.length-1) ? PQ(t) : P(t)).join('')}
           ${sectionViz(sec.id, vizCtx)}
+          ${_shareable[sec.id]?`<button class="linkbtn sec-share" type="button" data-share-sec="${sec.id}">share this →</button>`:''}
         </section>`).join('');
       bodyHTML = `
         ${lead}
@@ -1212,6 +1229,18 @@
         </div>
       </div>`);
     $('#deep-back').onclick = ()=>app('today');
+    // fresh-section share: the same image cards the You tab shares
+    (function(){
+      const _sig = 'stuck not broken · app.stucknotbroken.com';
+      root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
+        const which=b.dataset.shareSec;
+        if(which==='blog-pats' && patterns){
+          if(patterns.day){ openShare(`${patterns.day.pct}% of my ${patterns.day.label} check-ins have safety in them. i'm learning my nervous system's patterns. ${_sig}`, { kind:'days', idx:patterns.day.idx }); return; }
+          if(patterns.shift){ openShare(`when my state changes, it most often shifts from ${STATE_NAME(patterns.shift.a)} to ${STATE_NAME(patterns.shift.b)}. i can see the pattern now. ${_sig}`, { kind:'path', a:patterns.shift.a, b:patterns.shift.b }); return; }
+        }
+        if(which==='blog-zoom' && vizCtx.zoomPct!=null){ openShare(`my safety baseline this month: ${vizCtx.zoomPct}%. i'm watching it move. ${_sig}`, { kind:'meter', pct:vizCtx.zoomPct }); return; }
+      }));
+    })();
     if(visit.wire) visit.wire();
     const ab = $('#open-arch'); if(ab) ab.onclick = screenArchive;
     const at = $('#open-arch-top'); if(at) at.onclick = screenArchive;
@@ -1698,11 +1727,12 @@
       const ord = nth===2?'2nd ':nth===3?'3rd ':nth>3?nth+'th ':'';
       return `${who} ${ord}${seg} check-in`;
     })();
-    // day-keyed context chips (2026-07-05): context can ride along with ANY check-in,
-    // not just the weekly reader question. keyed to the LOCAL day, merged on save,
+    // per-check-in context (2026-07-05 v2): "what's having the biggest impact right
+    // now?" — keyed to THIS check-in ('c'+t), so each tag is tied to the state it was
+    // felt in. that's what makes safety-context vs defense-context data possible.
     // synced through the same Store.saveContexts -> public.contexts -> mirror path.
-    const _ciDayKey = (function(){ const d=new Date(editRec?editRec.t:Date.now()); return 'd'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
-    const ctxSel = new Set(_ctxLoad()[_ciDayKey]||[]);
+    // fresh check-ins start untagged (impact is moment-specific, never prefilled).
+    const ctxSel = new Set(editRec ? (_ctxLoad()['c'+editRec.t]||[]) : []);
     $('#content').innerHTML = `<div class="view checkin2">
 
         <div class="scr-head">
@@ -1731,9 +1761,10 @@
           </div>`:''}
         </div>
 
-        <div class="ci-block ci-ctx">
-          <p class="dash-prompt">what's around right now? <span class="ci-ctx-opt">optional</span></p>
+        <div class="ci-block ci-challenge ci-ctx">
+          <p class="dash-prompt">what's having the biggest impact right now? <span class="ci-ctx-opt">optional</span></p>
           <div class="wr-chiprow" id="ci-ctx-row">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSel.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" aria-pressed="${ctxSel.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+          <p class="ch-cap ci-ctx-cap">ties this moment to what's driving it. shows up later in your patterns, on the you tab and in your reflections.</p>
         </div>
 
         <div class="ci-block ci-challenge">
@@ -1824,13 +1855,14 @@
       if(ch!=null) vals.challenge = ch;                  // null = "whatever you recommend": let the recommender decide
       if(typeof ovr==='string' && ovr) vals.dom = ovr;   // expert override rides along (edit only)
       window._ciSource = null;
-      // context rides with the check-in: replace this day's tags with the selection
-      try{
-        const m=_ctxLoad(); m[_ciDayKey]=Array.from(ctxSel); _ctxSave(m);
-        if(window.Store && Store.saveContexts) Store.saveContexts(_ciDayKey, "what's around right now?", Array.from(ctxSel));
-      }catch(e){}
-      if(editRec){ Store.updateCheckin(editRec.t, vals); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
+      // context is saved keyed to the exact check-in (after add, so we know its t)
+      const _saveCtx = (t)=>{ try{
+        const k='c'+t, m=_ctxLoad(); m[k]=Array.from(ctxSel); _ctxSave(m);
+        if(window.Store && Store.saveContexts) Store.saveContexts(k, "what's having the biggest impact right now?", Array.from(ctxSel));
+      }catch(e){} };
+      if(editRec){ Store.updateCheckin(editRec.t, vals); _saveCtx(editRec.t); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
+      _saveCtx(rec.t);
       ciSaveQ(rec.t, qIdx);
       haptic('save');
       FromJustin.refresh();
@@ -2155,10 +2187,14 @@
     const wkTags={};
     Object.keys(m).forEach(k=>{
       if(!(m[k]||[]).length) return;
-      const p=k.slice(1).split('-').map(Number);            // local date parts
-      if(p.length<3||p.some(isNaN)) return;
-      const t=new Date(p[0],p[1]-1,p[2]).getTime();
-      const ws = k[0]==='w' ? t : k[0]==='d' ? _sundayStart(t) : null;
+      let ws=null;
+      if(k[0]==='c'){ const t=Number(k.slice(1)); if(isFinite(t)) ws=_sundayStart(t); }   // per-check-in tag
+      else if(k[0]==='w'||k[0]==='d'){
+        const p=k.slice(1).split('-').map(Number);          // local date parts
+        if(p.length<3||p.some(isNaN)) return;
+        const t=new Date(p[0],p[1]-1,p[2]).getTime();
+        ws = k[0]==='w' ? t : _sundayStart(t);
+      }
       if(ws==null) return;
       const set=wkTags[ws]=wkTags[ws]||{};
       m[k].forEach(lb=>{ set[lb]=1; });
@@ -2180,6 +2216,23 @@
     Object.keys(byLabel).forEach(lb=>{ const a=byLabel[lb];
       if(a.length>=2){ const p=Math.round(a.reduce((s,v)=>s+v,0)/a.length*100); if(!best||Math.abs(p-typPct)>Math.abs(best.tagPct-typPct)) best={ label:lb, tagPct:p, n:a.length }; } });
     return (best && Math.abs(best.tagPct-typPct)>=5) ? { label:best.label, tagPct:best.tagPct, typPct } : null;
+  }
+
+  // context ↔ state link: which tag gets named most around safe check-ins, and which
+  // around defense. only per-check-in ('c') tags carry a state, so only they count.
+  function _contextStateLink(){
+    const m=_ctxLoad();
+    const byT={}; Store.checkins().forEach(c=>{ if(c&&c.dom&&c.dom!=='neutral') byT[c.t]=c.dom; });
+    const safe={}, def={};
+    Object.keys(m).forEach(k=>{
+      if(k[0]!=='c'||!(m[k]||[]).length) return;
+      const dom=byT[Number(k.slice(1))]; if(!dom) return;
+      const tgt=_REGDOMS[dom]?safe:def;
+      m[k].forEach(lb=>{ tgt[lb]=(tgt[lb]||0)+1; });
+    });
+    const top=o=>{ const e=Object.entries(o).sort((a,b)=>b[1]-a[1])[0]; return (e&&e[1]>=2)?{label:e[0],n:e[1]}:null; };
+    const s=top(safe), d=top(def);
+    return (s||d) ? { safe:s, def:d } : null;
   }
 
   function tabCurrent(){
@@ -2332,6 +2385,7 @@
       const fl  = _safetyFlavors(cs);
       const ce  = _contextEffect();
       const pe  = ce && Store.practiceEffect ? Store.practiceEffect() : null;
+      const csl = _contextStateLink();
       c.innerHTML=`
         <div class="view play-view">
           <div class="filter-bar">
@@ -2408,14 +2462,19 @@
               <p class="panel-sub">this is what your safety looks like over ${periodPhrase}</p>
               <div class="help-bars">${fl.map(r=>`<div class="help-row"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
             }
-            if(ce){
-              slides.push(['your top context', `
-              ${shareBtn('context')}<h2 class="panel-title">your top context</h2>
+            if(ce || csl){
+              const bars = ce ? `
               <p class="panel-sub">safety in the weeks you tagged “${escapeHtml(ce.label)}”, next to a typical week</p>
               <div class="help-bars">
                 <div class="help-row"><span class="help-lbl">tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
                 <div class="help-row"><span class="help-lbl">typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
-              </div>
+              </div>` : `<p class="panel-sub">what you tag as having the biggest impact, by the state you were in</p>`;
+              const links = csl ? `
+              ${csl.safe?`<p class="cb-line"${ce?' style="margin-top:16px"':''}>tagged most around your safe check-ins: <b>${escapeHtml(csl.safe.label)}</b>.</p>`:''}
+              ${csl.def?`<p class="cb-line">tagged most around defense: <b>${escapeHtml(csl.def.label)}</b>.</p>`:''}` : '';
+              slides.push(['your top context', `
+              ${shareBtn('context')}<h2 class="panel-title">your top context</h2>
+              ${bars}${links}
               ${pe?`<p class="ctx-practice">after practicing: your next check-in has safety more often, about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
             slides.push(['your safety changes', `
