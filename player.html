@@ -1089,6 +1089,17 @@ $('player').addEventListener('pointerdown',()=>{if(playing||finished)revealContr
 
 /* safeguard: if this page is hidden (another tab/frame is in front), pause so audio never plays in the background */
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing&&!paused){$('pause').click();}});
+
+/* screen wake lock (Beth's day-1 feedback, 2026-07-05): on iPhone home-screen
+   installs, the screen sleeping mid-practice killed the session with no way to
+   resume — she had to start over. While a session is live we hold a screen wake
+   lock (iOS 16.4+, Android, desktop; everything try/catch so devices without it
+   lose nothing). The OS drops the lock whenever the page hides; we re-acquire
+   when it returns while a session is still live, and on resume from pause. */
+let _wl=null;
+async function wlHold(){ try{ if(_wl||!('wakeLock' in navigator))return; _wl=await navigator.wakeLock.request('screen'); _wl.addEventListener('release',()=>{_wl=null;}); }catch(e){ _wl=null; } }
+function wlDrop(){ try{ if(_wl)_wl.release(); }catch(e){} _wl=null; }
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&playing&&!finished) wlHold(); });
 /* if the OS pauses the audio element itself (headphones unplugged, bluetooth route
    change), sync the UI into the honest paused state instead of pretending to play.
    debounced: clip-ends and src swaps also fire 'pause' — only a pause that STICKS
@@ -1130,14 +1141,14 @@ function startPlayer(){
   activePack=null;                                      // woven mode — clear any standalone state
   const o=buildPlan();SEQ=o.seq;PH=o.phase;LOOP=o.loop;LOOPFROM=o.loopFrom;buildTrackSeq();
   $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');$('pause').style.display='';
-  finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;
+  finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;wlHold();
   showScreen('player');fitRing();renderTest();showSil();
   started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
   inBreak=false;$('player').classList.remove('finished','conn-trouble','breaking','rested','paused');revealControls();
   cancelAnimationFrame(rafId);ringLoop();
   advance();
 }
-function stopAll(){playing=false;paused=false;inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);}
+function stopAll(){playing=false;paused=false;inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);wlDrop();}
 
 /* ── standalone playback: drive the same engine from a fixed pack (no build/weave) ── */
 function applyPack(pack){
@@ -1153,7 +1164,7 @@ function startStandalone(){
   const begin=pack=>{
     applyPack(pack);buildTrackSeq();
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');$('pause').style.display='';
-    finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;
+    finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;wlHold();
     showScreen('player');fitRing();renderTest();showSil();
     started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
     inBreak=false;$('player').classList.remove('finished','conn-trouble','breaking','rested','paused');revealControls();
@@ -1264,7 +1275,7 @@ au.onerror=()=>{                                      // a clip failed to load �
   inGap=true;gapRemain=300;gapStart=performance.now();
   clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},300);
 };
-function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}
+function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}wlDrop();
   capClear();$('starting').classList.remove('show');
   $('pause').style.display='none';const tl=$('timeleft');if(tl)tl.textContent='';
   clearTimeout(ctrlTimer);$('player').classList.add('finished');$('player').classList.remove('conn-trouble');
@@ -1274,7 +1285,7 @@ $('pause').onclick=()=>{
   if(!playing)return;
   haptic();
   if(paused){ // resume
-    paused=false;
+    paused=false;wlHold();
     if(inGap){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
     else{try{au.play();}catch(e){}}
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
