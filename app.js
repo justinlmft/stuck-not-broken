@@ -3448,8 +3448,8 @@
       pond:'still water — a ripple now and then.',
       reeds:'reeds swaying in an uneven breeze.',
       breeze:'strands carried sideways on a light wind, each at its own speed.',
-      sunbeam:'a still beam of light, dust hanging in it.',
-      fireflies:'small lights arriving and leaving on their own time.' };
+      sunbeam:'a still beam of light, dust hanging in it. appears in dark mode.',
+      fireflies:'small lights arriving and leaving on their own time. appears in dark mode.' };
     const scCap=$('#scene-cap');
     const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; };
     _scSet(psc);
