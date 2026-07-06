@@ -366,6 +366,7 @@
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
           <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
+          ${up?'':'<p class="fineprint" style="margin-top:6px">the breath above needs no account. the rest of the app does — it keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">forgot your password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">on-device mode: your data stays on this device for now.</p>'}
         </div>
@@ -525,7 +526,7 @@
   }
   // In-app reader for the create-account disclaimers. Back returns to the
   // create-account screen (authMode='up'), never into the main app.
-  function screenPolicy(which){
+  function screenPolicy(which, from){
     const isPriv = which==='privacy';
     const eyebrow = isPriv ? 'privacy policy' : 'terms of use';
     const title = isPriv ? 'what we keep, and what we don’t.' : 'how to get the most out of this app.';
@@ -562,7 +563,7 @@
           <p class="fineprint" style="margin-top:4px">plain-language draft for this design. the final ${isPriv?'privacy policy':'terms'} will replace this before launch.</p>
         </div>
       </div>`);
-    $('#policy-back').onclick = ()=>{ authMode='up'; screenSignIn(); };
+    $('#policy-back').onclick = ()=>{ if(from==='settings'){ screenSettings(); } else { authMode='up'; screenSignIn(); } };
   }
 
   // ---------------------------------------------------------------- app shell
@@ -751,7 +752,7 @@
         ${reflText ? `<button class="tb-row" id="tb-refl">
           <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
           <span class="tb-row-text">
-            <span class="tb-row-title">your reflections</span>
+            <span class="tb-row-title">reflections for you</span>
             <span class="tb-refl">${reflText}</span>${dotsHTML}
           </span><span class="wc-go">${CHEV}</span>
         </button>` : ''}
@@ -1722,6 +1723,9 @@
     // scenarios: on edit, restore the questions that were actually answered; else roll fresh
     const qIdx = (editRec && ciLoadQ(editRec.t)) || { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
     const seg = segPoss(segOf(editRec?editRec.t:Date.now()));
+    // first-week cadence hint (Beth's day-1 question, 2026-07-05): answers "how
+    // often should i check in?" right where the question arises, then retires. 🖊
+    let _yng=false; try{ const _tn=Store.tenure(); _yng=!editRec && (!_tn || (_tn.days||0)<=7); }catch(e){}
     // "{name}'s {time} check-in", counting returns within the same daypart
     // ("sam's 2nd afternoon check-in") — the eyebrow becomes theirs
     const _ciEyebrow = (function(){
@@ -1758,7 +1762,8 @@
           </div>
           <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
           <p class="ci-readout" id="ci-readout"></p>
-          ${editRec?`<div class="ci-ovr">
+          ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like — when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
+          <div class="ci-ovr">
             <button class="set-quiet ci-ovr-link" id="ci-ovr-link" type="button">know your states? set it yourself</button>
             <div class="ci-ovr-panel" id="ci-ovr-panel" hidden>
               <p class="ci-ovr-note">your answers stay as they are — this only changes which state this check-in counts as.</p>
@@ -1768,7 +1773,7 @@
               <p class="ci-ovr-about" id="ci-ovr-about"></p>
               <button class="set-quiet ci-ovr-clear" id="ci-ovr-clear" type="button">match my answers</button>
             </div>
-          </div>`:''}
+          </div>
         </div>
 
         ${(function(){
@@ -1862,8 +1867,8 @@
       };
       ovrLink.onclick = ()=>{
         panel.hidden = !panel.hidden;
-        if(!panel.hidden){ if(!ovr && editRec.dom){ ovr = editRec.dom; } }        // open: start from what it counts as now
-        else { ovr = null; }                                                      // close via the link = never mind
+        if(!panel.hidden){ if(!ovr && editRec && editRec.dom){ ovr = editRec.dom; } }   // open on edit: start from what it counts as now; fresh check-ins start unchosen
+        else { ovr = null; }                                                            // close via the link = never mind
         paint();
       };
       root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{ ovr = b.dataset.ovr; paint(); });
@@ -1921,7 +1926,7 @@
     $('#save').onclick = ()=>{
       const vals = { v:v/100, sym:s/100, dor:d/100, source:(window._ciSource||null) };
       if(ch!=null) vals.challenge = ch;                  // null = "whatever you recommend": let the recommender decide
-      if(typeof ovr==='string' && ovr) vals.dom = ovr;   // expert override rides along (edit only)
+      if(typeof ovr==='string' && ovr) vals.dom = ovr;   // expert override rides along (fresh + edit; re-exposed 2026-07-05 after Beth's day-1 feedback)
       window._ciSource = null;
       // context is saved keyed to the exact check-in, split by direction:
       //   c{t}+ = "i've had more of"   c{t}- = "i've had less of"
@@ -2138,7 +2143,14 @@
       let drewGlyph=false;
       try{
         if(localStorage.getItem('snb_share_glyph')!=='0'){
-          const m={}; Store.checkins().forEach(c=>{ if(c.dom&&c.dom!=='neutral') m[c.dom]=(m[c.dom]||0)+1; });
+          // the signature is the state the body keeps coming back to: the most
+          // common state over a trailing 90-day window, recomputed at share time
+          // so it moves with every check-in (Justin 2026-07-05). thin window
+          // falls back to all-time so new accounts still get a signature.
+          const _cut=Date.now()-90*864e5;
+          let _arr=Store.checkins().filter(c=>c.dom&&c.dom!=='neutral'&&c.t>=_cut);
+          if(!_arr.length) _arr=Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');
+          const m={}; _arr.forEach(c=>{ m[c.dom]=(m[c.dom]||0)+1; });
           const idKey=Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
           if(idKey){ const vb=String(TRI_VB).split(/\s+/).map(Number); const gw=52*vb[2]/vb[3]; drewGlyph=_cnvGlyph(x, idKey, L+gw/2, sigY, 52); }
         }
@@ -3333,8 +3345,10 @@
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
-    const ps = Store.prefSense(); const psil = Store.prefSilence();
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
+    // on/off pairs render as switches in list rows (HIG: segmented controls pick
+    // among values; switches flip a state) — settings pass 2026-07-05
+    const swRow=(id,label,on)=>`<div class="set-row-sw"><span class="set-sw-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
     $('#content').innerHTML = `
       <div class="view settings-view">
         <div class="scr-head">
@@ -3358,41 +3372,18 @@
           </div>
         </div>
         <div class="set-group">
-          <p class="dash-prompt">motion</p>
-          <div class="set-seg" id="seg-motion">
-            ${segBtn('rm','0','full',!rm)}${segBtn('rm','1','calm',rm)}
-          </div>
-        </div>
-        <div class="set-group">
-          <p class="dash-prompt">haptics</p>
-          <div class="set-seg" id="seg-haptics">
-            ${segBtn('hp','0','off',!hp)}${segBtn('hp','1','on',hp)}
-          </div>
-          ${_hapIsIOS()?'<p class="fineprint" style="margin-top:8px">on iphone, the system limits haptics for web apps, so taps here may stay silent. everything else works the same.</p>':''}
-        </div>
-        <div class="set-group">
           <p class="dash-prompt">appearance</p>
           <div class="set-seg" id="seg-theme">
             ${segBtn('th','','auto',th==='')}${segBtn('th','light','light',th==='light')}${segBtn('th','dark','dark',th==='dark')}
           </div>
         </div>
-        </div>
-
-        <div class="set-card">
-        <p class="set-card-h">practice defaults</p>
         <div class="set-group">
-          <p class="dash-prompt">anchoring sense</p>
-          <div class="set-seg" id="seg-sense" style="flex-wrap:wrap">
-            ${segBtn('sense','','auto',!ps)}${P_SENSES.map(s=>segBtn('sense',s,s,ps===s)).join('')}
-          </div>
+          ${swRow('sw-motion','animations',!rm)}
+          <p class="fineprint" id="motion-cap" style="margin-top:2px"></p>
+          ${swRow('sw-haptics','haptics',hp)}
+          <p class="fineprint" id="hap-cap" style="margin-top:2px"></p>
+          ${_hapIsIOS()?'<p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system limits haptics for web apps, so taps here may stay silent. everything else works the same.</p>':''}
         </div>
-        <div class="set-group">
-          <p class="dash-prompt">silence between guidance</p>
-          <div class="set-seg" id="seg-silence" style="flex-wrap:wrap">
-            ${segBtn('sil','','auto',psil==null)}${P_SILENCE.map(([v,l])=>segBtn('sil',v,l,psil===v)).join('')}
-          </div>
-        </div>
-
         </div>
 
         <div class="set-card">
@@ -3402,20 +3393,15 @@
         </div>`}
 
         <div class="set-group">
-          <p class="dash-prompt">offline</p>
-          <div class="set-seg" id="seg-offline">
-            ${segBtn('off','0','off',!offOn)}${segBtn('off','1','on',offOn)}
-          </div>
-          <p class="fineprint" id="offline-status" style="margin-top:8px">about 94 mb. best on wi-fi. lets every meditation play without a connection.</p>
+          ${swRow('sw-offline','save practices for offline',offOn)}
+          <p class="fineprint" id="offline-status" style="margin-top:2px"></p>
+          <p class="fineprint" style="margin-top:4px">your check-ins already work offline — they save on this device and sync to your account whenever you reconnect.</p>
           <p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system may clear this if the app goes unused for a while. just turn it back on if that happens.</p>
         </div>
 
         <div class="set-group">
-          <p class="dash-prompt">your glyph on shared images</p>
-          <div class="set-seg" id="seg-glyph">
-            ${segBtn('gl','0','off',gl==='0')}${segBtn('gl','1','on',gl!=='0')}
-          </div>
-          <p class="fineprint" style="margin-top:8px">adds your most frequent state's logo marks to the picture cards you share.</p>
+          ${swRow('sw-glyph','state glyph on shared images',gl!=='0')}
+          <p class="fineprint" id="glyph-cap" style="margin-top:2px"></p>
         </div>
 
         </div>
@@ -3424,56 +3410,70 @@
         <p class="set-card-h">your data</p>
         <div class="set-actions">
           <button class="set-quiet" id="export">export your check-ins</button>
+          <button class="set-quiet" id="privacy">how your data is handled</button>
           <button class="set-quiet" id="signout">sign out</button>
-          <button class="set-quiet" id="reset">reset my data</button>
-          <button class="set-quiet" id="delacct">delete my account</button>
         </div>
         </div>
+
+        <div class="set-card set-danger">
+        <div class="set-actions">
+          <button class="set-quiet set-quiet-danger" id="reset">reset my data</button>
+          <button class="set-quiet set-quiet-danger" id="delacct">delete my account</button>
+        </div>
+        </div>
+        <p class="set-version" id="set-version"></p>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
     const segText=$('#seg-text'); if(segText) segText.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_textscale', b.dataset.ts); applyPrefs();
       segText.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     });
-    const segMot=$('#seg-motion'); if(segMot) segMot.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{
-      localStorage.setItem('snb_reduce_motion', b.dataset.rm); applyPrefs();
-      segMot.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-    });
     const segTh=$('#seg-theme'); if(segTh) segTh.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_theme', b.dataset.th); applyPrefs();
       segTh.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     });
-    const segHp=$('#seg-haptics'); if(segHp) segHp.querySelectorAll('[data-hp]').forEach(b=>b.onclick=()=>{
-      localStorage.setItem('snb_haptics', b.dataset.hp); haptic('save');
-      segHp.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-    });
-    const segGl=$('#seg-glyph'); if(segGl) segGl.querySelectorAll('[data-gl]').forEach(b=>b.onclick=()=>{
-      localStorage.setItem('snb_share_glyph', b.dataset.gl);
-      segGl.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-    });
-    const segSense=$('#seg-sense'); if(segSense) segSense.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
-      Store.setPrefSense(b.dataset.sense);
-      segSense.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-    });
-    const segSil=$('#seg-silence'); if(segSil) segSil.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
-      Store.setPrefSilence(b.dataset.sil);
-      segSil.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-    });
+    const bindSw=(id,fn)=>{ const b=$('#'+id); if(b) b.onclick=()=>{
+      const on=!b.classList.contains('on');
+      b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false');
+      fn(on);
+    }; };
+    // "animations" reads in the positive: switch ON = animations on. the caption
+    // mirrors the current state so the row explains itself either way. 🖊
+    const _motionCap = on=>{ const el=$('#motion-cap'); if(el) el.textContent = on
+      ? 'animations are on.'
+      : "animations are off — this turns off the app's decorative movement. breathing practices keep their full timing; words carry the pace instead."; };
+    _motionCap(!rm);
+    bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
+    const _hapCap = on=>{ const el=$('#hap-cap'); if(el) el.textContent = on
+      ? 'haptics are on — the app answers your taps with a tiny buzz.'
+      : 'haptics are off — the app never vibrates.'; };
+    _hapCap(hp);
+    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); _hapCap(on); });
+    const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
+      ? 'your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
+      : 'your share cards go out with no state signature.'; };
+    _glyphCap(gl!=='0');
+    bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
     // offline: bulk download / clear, with an honest iOS-eviction check on render
-    const segOff = $('#seg-offline'); const offStatus = $('#offline-status');
+    const segOff = $('#sw-offline'); const offStatus = $('#offline-status');
     const setOff = (t)=>{ if(offStatus) offStatus.textContent = t; };
+    // plain state-mirroring captions (Justin 2026-07-05): the line always says
+    // what is true RIGHT NOW, in the plainest words we have. 🖊
+    const OFF_ON_TXT  = 'every meditation is saved on this device — they all play without a connection.';
+    const OFF_OFF_TXT = 'meditations play over the internet. turn this on to save them all to this device (about 94 mb — best on wi-fi), so they play with no connection at all.';
+    setOff(localStorage.getItem(OFFLINE_FLAG)==='1' ? OFF_ON_TXT : OFF_OFF_TXT);
     (async ()=>{
       if(localStorage.getItem(OFFLINE_FLAG)==='1'){
         const mani = await offlineManifest(); const have = await offlineCachedCount();
-        setOff(mani.length && have>=mani.length ? (isStandalone()?'installed & saved for offline ✓':'saved for offline ✓') : 'your device cleared the offline copy. turn on to download it again.');
+        setOff(mani.length && have>=mani.length ? OFF_ON_TXT : 'your device cleared the offline copy — turn this on again to re-save it.');
       }
     })();
     let offBusy = false;
-    if(segOff) segOff.querySelectorAll('[data-off]').forEach(b=>b.onclick=async ()=>{
+    if(segOff) segOff.onclick = async ()=>{
       if(offBusy) return;
-      const want = b.dataset.off==='1';
-      segOff.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      const want = !segOff.classList.contains('on');
+      segOff.classList.toggle('on', want); segOff.setAttribute('aria-checked', want?'true':'false');
       if(want){
         offBusy = true; haptic('save'); setOff('preparing…');
         const urls = await offlineManifest();
@@ -3483,14 +3483,17 @@
           localStorage.setItem(OFFLINE_FLAG,'1');
           try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
           const have = await offlineCachedCount();
-          if(res.quota || have < urls.length) setOff("didn't all fit, saved "+have+" of "+urls.length+". free up space and turn on again.");
-          else setOff(isStandalone()?'installed & saved for offline ✓':'saved for offline ✓');
+          if(res.quota || have < urls.length) setOff("didn't all fit — saved "+have+" of "+urls.length+". free up some space and turn this on again.");
+          else setOff(OFF_ON_TXT);
         }catch(e){ setOff('download failed. check your connection and try again.'); }
         offBusy = false;
       } else {
-        offBusy = true; await clearOffline(); localStorage.removeItem(OFFLINE_FLAG); setOff('offline copy removed.'); offBusy = false;
+        offBusy = true; await clearOffline(); localStorage.removeItem(OFFLINE_FLAG); setOff('offline copy removed — meditations play over the internet again.'); offBusy = false;
       }
-    });
+    };
+    const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
+    // version line: read the ?v= off the live script tag so it never drifts from a deploy
+    try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version'); if(ve) ve.textContent='stuck not broken · app v'+(vm?vm[1]:'dev'); }catch(e){}
     $('#export').onclick = ()=>{
       const blob = new Blob([JSON.stringify(Store.checkins(),null,2)],{type:'application/json'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-checkins.json'; a.click();
@@ -3500,7 +3503,7 @@
       if(!confirm('Sign out? Your check-ins are saved to your account and will be here when you sign back in.')) return;
       await Store.signOut(); currentTab='today'; route();
     };
-    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practices?')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
+    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'t be undone — your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
     // full in-app account deletion (the privacy policy promises it): a clear
     // confirm screen, then the delete-account edge function erases everything
     // server-side, instantly. 🖊 copy below is a draft for Justin to own.
@@ -3554,6 +3557,8 @@
     if(!head) return;
     const f = Math.max(0, Math.min(1, 1 - sc.scrollTop/70));
     head.style.setProperty('--hfade', f.toFixed(3));
+    // interactive heads (reader's archive button) stop eating touches once faded
+    if(head.classList.contains('read-head')) head.style.pointerEvents = f<=0.02 ? 'none' : '';
   }, true);
 
   // ---------------------------------------------------------------- utils

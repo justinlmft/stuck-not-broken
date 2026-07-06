@@ -90,6 +90,13 @@ p{margin:0;text-wrap:pretty}
    into the page — JS sets --hfade from scrollTop (scroll-driven animations aren't
    on all cohort iOS versions yet). */
 .scroll .scr-head{position:sticky;top:0;z-index:6;background:var(--bone);opacity:var(--hfade,1)}
+/* the faded large title must not eat touches (Beth's day-1 bug, 2026-07-05):
+   sticky at z6, it still intercepts taps at opacity 0 — the top check-in
+   slider "stuck" under it. plain heads are display-only, so touches pass
+   through; the reader head (archive button) re-enables while visible via
+   the scroll fader in app.js. */
+.scroll .scr-head{pointer-events:none}
+.scroll .scr-head.read-head{pointer-events:auto}
 /* the sticky strip spans the full screen width (cancels the .view side padding) so
    content slides cleanly under it instead of peeking through the gutters */
 .scroll .scr-head{margin-left:-22px;margin-right:-22px;padding:0 22px 6px}
@@ -325,20 +332,23 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .carousel{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .carousel::-webkit-scrollbar{display:none}
 /* 92% panels: the next card peeks in from the edge so the carousel is discoverable */
-.panel{flex:0 0 92%;scroll-snap-align:start;box-sizing:border-box;background:var(--bone);border:1px solid var(--hairline);border-radius:16px;padding:22px 20px;min-height:230px;display:flex;flex-direction:column}
-.panel-title{font-size:calc(21px * var(--type-scale));font-weight:500;color:var(--ink);margin:0 0 5px;line-height:1.15}
-.panel-sub{font-size:calc(13px * var(--type-scale));line-height:1.45;color:var(--muted);margin:0 0 20px;text-wrap:pretty}
-.panel-empty{font-size:calc(14px * var(--type-scale));line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0}
+/* card type loosened per HIG dynamic-type ratios (2026-07-05): small text
+   carries proportionally MORE leading (footnote 13/18, subhead 15/20) — subs
+   moved up to subhead size, body lines to ~1.65, a step of air between lines. */
+.panel{flex:0 0 92%;scroll-snap-align:start;box-sizing:border-box;background:var(--bone);border:1px solid var(--hairline);border-radius:16px;padding:24px 22px;min-height:230px;display:flex;flex-direction:column}
+.panel-title{font-size:calc(21px * var(--type-scale));font-weight:500;color:var(--ink);margin:0 0 7px;line-height:1.2}
+.panel-sub{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--muted);margin:0 0 18px;text-wrap:pretty}
+.panel-empty{font-size:calc(14.5px * var(--type-scale));line-height:1.65;color:var(--muted);text-wrap:pretty;margin:8px 0 0}
 /* safety hero + warmth bloom */
 .safety-wrap{position:relative;display:flex;align-items:baseline;gap:12px;margin-top:2px}
 .safety-num{font-size:calc(56px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
 .safety-num .pct{font-size:calc(24px * var(--type-scale));color:var(--muted);margin-left:1px}
-.safety-trend{font-size:calc(13.5px * var(--type-scale))}
+.safety-trend{font-size:calc(14px * var(--type-scale))}
 .safety-trend.rising{color:var(--leaf)}
 .safety-trend.falling,.safety-trend.steady{color:var(--muted)}
 .safety-meter{height:14px;background:var(--bone-deep);border-radius:7px;overflow:hidden;margin-top:18px}
 .safety-meter-fill{display:block;height:100%;border-radius:7px;background:var(--s-safety);transition:width .6s var(--ease)}
-.safety-foot{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:12px 0 0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.safety-foot{font-size:calc(14px * var(--type-scale));line-height:1.5;color:var(--muted);margin:12px 0 0;display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
 .safety-foot b{font-weight:500;color:var(--ink-80)}
 .safety-foot .st-marks{margin-left:1px}
 .safety-range{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin:9px 0 0}
@@ -352,10 +362,10 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 /* does practice help */
 .help-bars{display:flex;flex-direction:column;gap:16px;margin-top:6px}
 .help-row{display:flex;align-items:center;gap:11px}
-.help-lbl{flex:none;width:96px;font-size:calc(13.5px * var(--type-scale));color:var(--ink-80)}
+.help-lbl{flex:none;width:100px;font-size:calc(14px * var(--type-scale));color:var(--ink-80)}
 .help-track{flex:1;height:14px;background:var(--bone-deep);border-radius:7px;overflow:hidden}
 .help-fill{display:block;height:100%;border-radius:7px;transition:width .6s var(--ease)}
-.help-pct{flex:none;width:36px;text-align:right;font-size:calc(13px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
+.help-pct{flex:none;width:40px;text-align:right;font-size:calc(13.5px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
 .help-verdict{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:18px 0 0;text-wrap:pretty}
 .help-verdict.good{color:var(--leaf)}
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
@@ -363,7 +373,8 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .cb-dot{width:15px;height:15px;border-radius:50%;flex:none}
 .cb-path{flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,#E89B9B,#F4D58D);transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
 .cb-end{animation:cbPop .4s 1.6s var(--ease) both}
-.cb-line{font-size:calc(15.5px * var(--type-scale));line-height:1.6;color:var(--ink-80);text-wrap:pretty;margin:0}
+.cb-line{font-size:calc(15.5px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0}
+.cb-line+.cb-line{margin-top:12px}
 .cb-line b{font-weight:600;color:var(--ink)}
 @keyframes cbDraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes cbPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
@@ -406,12 +417,12 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .wk-mark .snb-ico{height:19px;width:auto;display:block}
 .help-lbl .st-marks{display:inline-flex;gap:2px;vertical-align:-2px;margin-right:6px}
 .help-lbl .st-mark{width:12px;height:12px}
-.ctx-practice{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:14px 0 0;text-wrap:pretty}
+.ctx-practice{font-size:calc(13.5px * var(--type-scale));line-height:1.55;color:var(--muted);margin:14px 0 0;text-wrap:pretty}
 .dist-bars{display:flex;flex-direction:column;gap:14px}
 .distrow{display:flex;flex-direction:column;gap:7px;width:100%;background:none;border:0;padding:2px 0;cursor:pointer;color:inherit;font:inherit;text-align:left}
 .distrow-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.distrow-name{font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);text-transform:lowercase}
-.distrow-pct{font-size:calc(13px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
+.distrow-name{font-size:calc(15px * var(--type-scale));color:var(--ink-80);text-transform:lowercase}
+.distrow-pct{font-size:calc(13.5px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
 .distrow-track{height:12px;background:var(--bone-deep);border-radius:6px;overflow:hidden;width:100%}
 .distrow-fill{display:block;height:100%;border-radius:6px;transition:width .55s var(--ease)}
 .distrow:active .distrow-track{opacity:.7}
@@ -868,6 +879,20 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
    style. used for the settings actions and the plan reader's "change this practice". */
 .set-quiet{background:none;border:0;cursor:pointer;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--ink-80);padding:6px 2px;text-decoration:underline;text-decoration-color:rgba(58,63,74,.4);text-underline-offset:3px;transition:color .15s var(--ease),text-decoration-color .15s var(--ease)}
 .set-quiet:hover{color:var(--ink);text-decoration-color:var(--ink)}
+/* settings pass 2026-07-05: on/off pairs are switches in list rows (HIG);
+   destructive actions live in their own red-tinged card, apart from the rest */
+.set-row-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}
+.set-sw-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
+.set-sw{flex:none;width:46px;height:28px;border-radius:14px;background:var(--hairline);border:0;cursor:pointer;position:relative;padding:0;transition:background .2s var(--ease)}
+.set-sw-knob{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:var(--knob);box-shadow:0 1px 2px rgba(26,31,42,.18);transition:left .2s var(--ease)}
+.set-sw.on{background:var(--ink)}
+.set-sw.on .set-sw-knob{left:20px}
+.set-sw:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.set-danger{background:transparent;border:1px solid rgba(154,59,59,.3)}
+.set-danger .set-actions{padding:6px 0}
+.set-quiet-danger{color:var(--danger);text-decoration-color:rgba(154,59,59,.4)}
+.set-quiet-danger:hover{color:var(--danger);text-decoration-color:var(--danger)}
+.set-version{font-size:calc(11.5px * var(--type-scale));color:var(--muted);opacity:.7;text-align:center;margin:6px 0 10px}
 
 /* small lifetime counts at the foot of the "you" tab (the stats home) */
 .ystats{display:flex;gap:30px;margin-top:20px;padding-top:16px;border-top:1px solid var(--hairline)}
@@ -1088,11 +1113,11 @@ body.reduce-motion .tg-m{transition:none}
 
 
 /* 'your growth' card headline */
-.growth-head{display:flex;flex-direction:column;gap:3px;margin:4px 0 14px}
+.growth-head{display:flex;flex-direction:column;gap:5px;margin:4px 0 16px}
 .growth-num{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
 .growth-num.up{color:var(--leaf)}
 .growth-num.down{color:var(--muted)}
-.growth-cap{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);line-height:1.4;text-wrap:pretty}
+.growth-cap{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.5;text-wrap:pretty}
 
 
 /* change a recent check-in: picker list + entry link */
