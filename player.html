@@ -1444,10 +1444,15 @@ function drawScene(W,H,unit,t,moving,e,col){
     if(moving&&_sT>=_ripNext){ _ripArr.push({x:.2+Math.random()*.6,y:.25+Math.random()*.5,b:_sT}); _ripNext=_sT+4+Math.random()*5; if(_ripArr.length>4)_ripArr.shift(); }
     _ripArr.forEach(rp=>{
       const age=_sT-rp.b, life=6; if(age>life) return;
-      const p=age/life, R=unit*(.06+.42*p), a=(p<.08?p/.08:1-((p-.08)/.92))*.5;
-      g.strokeStyle=col(a*fade); g.lineWidth=1.5;
+      const p=age/life, R=unit*(.06+.42*p);
+      // equal-weight rings (the brighter outer stroke read thicker); the
+      // exterior lets go first (gone by ~65% of life), the interior follows.
+      const aOut=(p<.08?p/.08:Math.max(0,1-((p-.08)/.57)))*.5;
+      const aIn =(p<.08?p/.08:1-((p-.08)/.92))*.5;
+      g.lineWidth=1.5;
+      g.strokeStyle=col(aOut*fade);
       g.beginPath();g.arc(rp.x*W,rp.y*H,R,0,6.283);g.stroke();
-      g.strokeStyle=col(a*.45*fade);
+      g.strokeStyle=col(aIn*fade);
       g.beginPath();g.arc(rp.x*W,rp.y*H,R*.62,0,6.283);g.stroke();
     });
   } else if(SCENE==='reeds'){
