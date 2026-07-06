@@ -3514,10 +3514,10 @@
     setHTML(`
       <div class="view gate"><div class="gate-body">
         <p class="eyebrow">delete my account</p>
-        <h1 style="margin:12px 0 12px">before you go, here's exactly what happens.</h1>
-        <p class="lede" style="margin-bottom:14px">deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. there is no undo.</p>
-        <p class="lede" style="margin-bottom:14px">what stays: an anonymous copy of check-ins and practice data. no name, no email, no notes. once your account is gone, it can never be connected to you, even by us. it helps us learn whether this app helps people.</p>
-        <p class="lede" style="margin-bottom:24px">your reasons are your own, and no explanation is needed. if it ever feels right to come back, you're welcome any time. a fresh start takes about a minute.</p>
+        <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
+        <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
+        <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
+        <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
         <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>keep my account</button>
         <p class="fineprint" style="margin-top:12px;text-align:center"><button class="linkbtn" id="del-go" style="font-size:inherit;padding:2px"${busy?' disabled':''}>${busy?'deleting…':'delete my account and all of my data'}</button></p>
@@ -3537,8 +3537,8 @@
     setHTML(`
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">done</p>
-        <h1 style="margin:12px 0 12px">your account is gone.</h1>
-        <p class="lede" style="margin-bottom:24px">everything that identifies you was erased. thank you for spending some time here. if you ever want to return, the door is open.</p>
+        <h1 style="margin:12px 0 12px">Your account is gone.</h1>
+        <p class="lede" style="margin-bottom:24px">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
         <button class="btn block" id="del-done">okay</button>
       </div></div>`);
     $('#del-done').onclick = ()=>{ authMode='in'; lastEmail=''; currentTab='today'; route(); };
