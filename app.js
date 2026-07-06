@@ -3345,6 +3345,7 @@
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
+    const psc = (localStorage.getItem('snb_practice_scene')||'');    // practice scene — '' = surprise me (random per session)
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
     // among values; switches flip a state) — settings pass 2026-07-05
@@ -3376,6 +3377,13 @@
           <div class="set-seg" id="seg-theme">
             ${segBtn('th','','auto',th==='')}${segBtn('th','light','light',th==='light')}${segBtn('th','dark','dark',th==='dark')}
           </div>
+        </div>
+        <div class="set-group">
+          <p class="dash-prompt">practice scene</p>
+          <div class="set-seg" id="seg-scene" style="flex-wrap:wrap">
+            ${segBtn('scene','','surprise me',psc==='')}${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>segBtn('scene',s,s,psc===s)).join('')}
+          </div>
+          <p class="fineprint" id="scene-cap" style="margin-top:8px"></p>
         </div>
         <div class="set-group">
           ${swRow('sw-motion','animations',!rm)}
@@ -3431,6 +3439,23 @@
     const segTh=$('#seg-theme'); if(segTh) segTh.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_theme', b.dataset.th); applyPrefs();
       segTh.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+    });
+    // practice scene: the caption mirrors the choice, same as the switches. 🖊
+    const SCENE_CAP={ '':'a different scene each session — the app chooses.',
+      circles:'the slow circles, as now.',
+      drift:'soft specks drifting upward, each at its own pace.',
+      pond:'still water — a ripple now and then.',
+      reeds:'reeds swaying in an uneven breeze.',
+      breeze:'strands carried sideways on a light wind, each at its own speed.',
+      sunbeam:'a still beam of light, dust hanging in it.',
+      fireflies:'small lights arriving and leaving on their own time.' };
+    const segSc=$('#seg-scene'); const scCap=$('#scene-cap');
+    const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; };
+    _scSet(psc);
+    if(segSc) segSc.querySelectorAll('[data-scene]').forEach(b=>b.onclick=()=>{
+      localStorage.setItem('snb_practice_scene', b.dataset.scene);
+      segSc.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      _scSet(b.dataset.scene);
     });
     const bindSw=(id,fn)=>{ const b=$('#'+id); if(b) b.onclick=()=>{
       const on=!b.classList.contains('on');
