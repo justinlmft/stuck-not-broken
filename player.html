@@ -1436,17 +1436,22 @@ function drawScene(W,H,unit,t,moving,e,col){
       g.beginPath(); g.moveTo(bx,by); g.quadraticCurveTo(bx+sw*hh*.25, by-hh*.55, tx, ty); g.stroke();
     });
   } else if(SCENE==='breeze'){
+    // straight strands (Justin 07-06: the wavy version read wrong) — clean
+    // lines drifting sideways at their own speeds, nothing more.
     _strands.forEach(s=>{
       if(moving){ s.x+=s.sp*dt; if(s.x>1.15){ s.x=-.35; s.y=.15+Math.random()*.7; } }
       const y0=s.y*H, x0=s.x*W, L=s.len*W;
       g.strokeStyle=col(s.a*fade); g.lineWidth=1.6; g.lineCap='round';
-      g.beginPath();
-      for(let k=0;k<=16;k++){ const px=x0+L*k/16, py=y0+Math.sin(k*.7+s.ph+_sT*.6)*s.amp; k?g.lineTo(px,py):g.moveTo(px,py); }
-      g.stroke();
+      g.beginPath(); g.moveTo(x0,y0); g.lineTo(x0+L,y0); g.stroke();
     });
   } else if(SCENE==='sunbeam'){
+    // light sources stay LIGHT (Justin 07-06): the state colour can run dark
+    // (ink, defense shades), which turned the beam murky and the flies into
+    // "bug bites". sunbeam + fireflies use the fixed warm safety gold from the
+    // approved mockups instead — light is light, whatever state the clip is in.
+    const GOLD=a=>'rgba(244,213,141,'+a+')';
     const bw=W*.34, grd=g.createLinearGradient(0,-H,0,H);
-    grd.addColorStop(0,col(.22*fade)); grd.addColorStop(1,col(.03*fade));
+    grd.addColorStop(0,GOLD(.32*fade)); grd.addColorStop(1,GOLD(.05*fade));
     g.save(); g.translate(W*.5,H*.5); g.rotate(.3); g.fillStyle=grd; g.fillRect(-bw/2,-H*1.2,bw,H*2.4); g.restore();
     _dust.forEach(d=>{
       const px=(d.x*W)+Math.sin(_sT*6.283/d.per+d.ph)*d.ax;
@@ -1455,12 +1460,14 @@ function drawScene(W,H,unit,t,moving,e,col){
       g.beginPath();g.arc(px,py,d.r,0,6.283);g.fill();
     });
   } else if(SCENE==='fireflies'){
+    const GOLD=a=>'rgba(244,213,141,'+a+')', GOLDC=a=>'rgba(236,196,120,'+a+')';
     _flies.forEach(f=>{
       const p=((_sT+f.ph)%f.per)/f.per, tw=Math.sin(p*Math.PI);
       const px=(f.x*W)+Math.sin(_sT*6.283/(f.per*2.1)+f.ph)*f.wx;
       const py=(f.y*H)+Math.cos(_sT*6.283/(f.per*1.7)+f.ph)*f.wy;
-      g.fillStyle=col(.18*tw*fade); g.beginPath();g.arc(px,py,6,0,6.283);g.fill();
-      g.fillStyle=col(.8*tw*fade);  g.beginPath();g.arc(px,py,2.2,0,6.283);g.fill();
+      g.fillStyle=GOLD(.28*tw*fade); g.beginPath();g.arc(px,py,7,0,6.283);g.fill();
+      g.fillStyle=GOLD(.5*tw*fade);  g.beginPath();g.arc(px,py,4,0,6.283);g.fill();
+      g.fillStyle=GOLDC(.95*tw*fade);g.beginPath();g.arc(px,py,2.2,0,6.283);g.fill();
     });
   }
   if(e>0.01){ const dotR=Math.max(2.5,unit*0.02);
