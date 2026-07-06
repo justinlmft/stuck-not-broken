@@ -1627,6 +1627,7 @@ function postToHost(event){
     const skill=q.get('skill'); if(skill&&SKILLS.most&&SKILLS.most.some(x=>x[0]===skill))c.skill=skill;
     if(q.get('holdwatch')==='1')c.holdWatch=true;   // host-driven hold-both selection
     const hs=parseInt(q.get('holdsecs'),10); if([30,60,90,120].indexOf(hs)>=0)c.holdSeconds=hs;   // host-driven hold-both duration
+    if(q.get('open')==='1')c.open=true;   // host-driven open-ended / practice indefinitely
     const sil=parseInt(q.get('silence'),10); if(!isNaN(sil))c.silence=sil;
     practices=[c];active=0;picked=true;cfg=practices[active];
   }

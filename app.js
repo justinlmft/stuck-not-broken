@@ -304,7 +304,7 @@
   // when the body doesn't already name the anchor (anchoring's body does).
   // dur phrasing for the hold & watch line (30/60/90/120s)
   const holdDurWords = (s) => s===60 ? 'a minute' : s===120 ? 'two minutes' : (s||60)+' seconds';
-  function expectText(key, sense, skill, silence, holdWatch, holdSeconds){
+  function expectText(key, sense, skill, silence, holdWatch, holdSeconds, open){
     if(!key || key==='more') return '';
     const est = estMinutes(key, key==='micro' ? 2 : silence);
     const lbl = Store.practiceLabel(key);
@@ -320,6 +320,7 @@
     if(key==='most' && holdWatch && (skill==='balancing' || skill==='pendulation'))
       bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
+    if(key==='most' && open) bits.push('open-ended — it keeps going until you choose to stop.');
     return bits.filter(Boolean).join(' ');
   }
 
@@ -357,9 +358,9 @@
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <button class="gate-breath" id="gate-breath" type="button" aria-label="take one breath, no account needed">
+          <button class="gate-breath" id="gate-breath" type="button" aria-label="take one breath first">
             <span class="gb-ring" id="gb-ring" aria-hidden="true"></span>
-            <span class="gb-txt" id="gb-txt" aria-live="polite">take one breath first. no account needed.</span>
+            <span class="gb-txt" id="gb-txt" aria-live="polite">take one breath first.</span>
           </button>
           <p class="eyebrow">stuck not broken</p>
           <h1 style="margin:10px 0 12px">${up?'an app to guide you through emotional regulation.':'your nervous system, over time.'}</h1>
@@ -441,7 +442,7 @@
       setTxt("that's the heart of it. come on in.");
       setTimeout(()=>{
         if(ring){ ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation=''; }
-        setTxt('take one breath first. no account needed.');
+        setTxt('take one breath first.');
         _gbRunning=false;
       }, 3200);
     };
@@ -2979,7 +2980,7 @@
   // Tapping it opens the plan reader. "choose another way" reveals the full chooser.
   function tabPractice(){
     const reco = Store.recommend();
-    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60 };
+    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60, open:false };
     renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
@@ -3055,7 +3056,7 @@
     $('#plan-change').onclick = ()=>{
       app('practice');
       // open the chooser already on this practice, with its current shape selected
-      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60 };
+      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60, open:false };
       renderPracticeChooser();
     };
   }
@@ -3113,7 +3114,11 @@
           <p class="dash-prompt">how much silence between guidance?</p>
           <div class="p-chips">${P_SILENCE.map(([v,l])=>chip(l,v,'sil',v===silence)).join('')}</div>
         </div>`:''}
-        <p class="ch-cap p-expect" id="p-expect">${expectText(key, sense, skill, silence, pState.holdWatch, pState.holdSeconds)}</p>
+        ${key==='most'?`<div class="p-rgroup">
+          <p class="dash-prompt">how long would you like to practice?</p>
+          <div class="p-chips">${[[false,'a complete practice'],[true,'open-ended']].map(([v,l])=>chip(l,v,'open',v===!!pState.open)).join('')}</div>
+        </div>`:''}
+        <p class="ch-cap p-expect" id="p-expect">${expectText(key, sense, skill, silence, pState.holdWatch, pState.holdSeconds, pState.open)}</p>
         ${key==='most'?'<button class="p-surprise" id="p-surprise">surprise me</button>':''}
       </div>`:'';
 
@@ -3177,7 +3182,7 @@
     });
     // the live "what to expect" paragraph rebuilds (with a soft crossfade) on every chip tap
     const updExpect=()=>{ const el=$('#p-expect'); if(el){ el.classList.remove('cap-in'); void el.offsetWidth;
-      el.textContent=expectText(pState.key, pState.sense, pState.skill, pState.silence, pState.holdWatch, pState.holdSeconds); el.classList.add('cap-in'); } };
+      el.textContent=expectText(pState.key, pState.sense, pState.skill, pState.silence, pState.holdWatch, pState.holdSeconds, pState.open); el.classList.add('cap-in'); } };
     c.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
       pState.sense=b.dataset.sense;
       c.querySelectorAll('[data-sense]').forEach(r=>r.classList.toggle('on',r.dataset.sense===pState.sense));
@@ -3200,6 +3205,11 @@
     c.querySelectorAll('[data-holdsec]').forEach(b=>b.onclick=()=>{
       pState.holdSeconds=+b.dataset.holdsec;
       c.querySelectorAll('[data-holdsec]').forEach(r=>r.classList.toggle('on',+r.dataset.holdsec===pState.holdSeconds));
+      updExpect();
+    });
+    c.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{
+      pState.open=b.dataset.open==='true';
+      c.querySelectorAll('[data-open]').forEach(r=>r.classList.toggle('on',(r.dataset.open==='true')===pState.open));
       updExpect();
     });
     c.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
@@ -3233,9 +3243,10 @@
         const ps={embed:'1',autostart:'1',practice:key,sense,silence:String(sil)};
         if(key==='most')ps.skill=skill;
         if(key==='most'&&(skill==='balancing'||skill==='pendulation')&&pState.holdWatch){ps.holdwatch='1';ps.holdsecs=String(pState.holdSeconds||60);}
+        if(key==='most'&&pState.open)ps.open='1';
         src='player.html?'+new URLSearchParams(ps).toString();
       }
-      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch,holdWatchTargetSeconds:(pState.holdWatch?(pState.holdSeconds||60):null)});
+      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch,holdWatchTargetSeconds:(pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(key==='most'?!!pState.open:false)});
     };
   }
 
