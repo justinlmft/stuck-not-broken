@@ -302,7 +302,9 @@
   // screen uses (practice body, skill gloss, silence vocab, estMinutes) so the two
   // screens always describe the same practice the same way. sense line appears only
   // when the body doesn't already name the anchor (anchoring's body does).
-  function expectText(key, sense, skill, silence){
+  // dur phrasing for the hold & watch line (30/60/90/120s)
+  const holdDurWords = (s) => s===60 ? 'a minute' : s===120 ? 'two minutes' : (s||60)+' seconds';
+  function expectText(key, sense, skill, silence, holdWatch, holdSeconds){
     if(!key || key==='more') return '';
     const est = estMinutes(key, key==='micro' ? 2 : silence);
     const lbl = Store.practiceLabel(key);
@@ -313,6 +315,10 @@
     ];
     if((key==='most'||key==='micro') && sense) bits.push(`your anchor is ${sense}.`);
     if(key==='most' && skill && SKILL_CAP[skill]) bits.push(SKILL_CAP[skill]);
+    // hold & watch is offered only for balancing / pendulation; the line + its duration
+    // update live as the user toggles the option and picks a length.
+    if(key==='most' && holdWatch && (skill==='balancing' || skill==='pendulation'))
+      bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
     return bits.filter(Boolean).join(' ');
   }
@@ -2973,7 +2979,7 @@
   // Tapping it opens the plan reader. "choose another way" reveals the full chooser.
   function tabPractice(){
     const reco = Store.recommend();
-    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false };
+    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60 };
     renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
@@ -3049,7 +3055,7 @@
     $('#plan-change').onclick = ()=>{
       app('practice');
       // open the chooser already on this practice, with its current shape selected
-      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false };
+      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60 };
       renderPracticeChooser();
     };
   }
@@ -3099,11 +3105,15 @@
           <p class="dash-prompt">add hold &amp; watch?</p>
           <div class="p-chips">${[[true,'hold & watch'],[false,'skip it']].map(([v,l])=>chip(l,v,'holdwatch',v===!!pState.holdWatch)).join('')}</div>
         </div>`:''}
+        ${key==='most'?`<div class="p-rgroup" id="p-hd-group" style="${((skill==='balancing'||skill==='pendulation')&&pState.holdWatch)?'':'display:none'}">
+          <p class="dash-prompt">how long to hold &amp; watch?</p>
+          <div class="p-chips">${[[30,'30 sec'],[60,'1 min'],[90,'90 sec'],[120,'2 min']].map(([v,l])=>chip(l,v,'holdsec',v===pState.holdSeconds)).join('')}</div>
+        </div>`:''}
         ${key!=='micro'?`<div class="p-rgroup">
           <p class="dash-prompt">how much silence between guidance?</p>
           <div class="p-chips">${P_SILENCE.map(([v,l])=>chip(l,v,'sil',v===silence)).join('')}</div>
         </div>`:''}
-        <p class="ch-cap p-expect" id="p-expect">${expectText(key, sense, skill, silence)}</p>
+        <p class="ch-cap p-expect" id="p-expect">${expectText(key, sense, skill, silence, pState.holdWatch, pState.holdSeconds)}</p>
         ${key==='most'?'<button class="p-surprise" id="p-surprise">surprise me</button>':''}
       </div>`:'';
 
@@ -3167,7 +3177,7 @@
     });
     // the live "what to expect" paragraph rebuilds (with a soft crossfade) on every chip tap
     const updExpect=()=>{ const el=$('#p-expect'); if(el){ el.classList.remove('cap-in'); void el.offsetWidth;
-      el.textContent=expectText(pState.key, pState.sense, pState.skill, pState.silence); el.classList.add('cap-in'); } };
+      el.textContent=expectText(pState.key, pState.sense, pState.skill, pState.silence, pState.holdWatch, pState.holdSeconds); el.classList.add('cap-in'); } };
     c.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
       pState.sense=b.dataset.sense;
       c.querySelectorAll('[data-sense]').forEach(r=>r.classList.toggle('on',r.dataset.sense===pState.sense));
@@ -3178,11 +3188,19 @@
       c.querySelectorAll('[data-skill]').forEach(r=>r.classList.toggle('on',r.dataset.skill===pState.skill));
       // hold & watch is offered only for balancing / pendulation — show/hide its group as skill changes
       const hwg=$('#p-hw-group'); if(hwg) hwg.style.display=(pState.skill==='balancing'||pState.skill==='pendulation')?'':'none';
+      const hdg0=$('#p-hd-group'); if(hdg0) hdg0.style.display=((pState.skill==='balancing'||pState.skill==='pendulation')&&pState.holdWatch)?'':'none';
       updExpect();
     });
     c.querySelectorAll('[data-holdwatch]').forEach(b=>b.onclick=()=>{
       pState.holdWatch=b.dataset.holdwatch==='true';
       c.querySelectorAll('[data-holdwatch]').forEach(r=>r.classList.toggle('on',(r.dataset.holdwatch==='true')===pState.holdWatch));
+      const hdg=$('#p-hd-group'); if(hdg) hdg.style.display=(pState.holdWatch&&(pState.skill==='balancing'||pState.skill==='pendulation'))?'':'none';
+      updExpect();
+    });
+    c.querySelectorAll('[data-holdsec]').forEach(b=>b.onclick=()=>{
+      pState.holdSeconds=+b.dataset.holdsec;
+      c.querySelectorAll('[data-holdsec]').forEach(r=>r.classList.toggle('on',+r.dataset.holdsec===pState.holdSeconds));
+      updExpect();
     });
     c.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
       pState.silence=+b.dataset.sil;
@@ -3196,7 +3214,8 @@
       const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
       const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
       const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw});
+      const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
     };
 
     const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
@@ -3213,10 +3232,10 @@
         const sil = key==='micro' ? 2 : silence;   // micro runs on fixed short gaps
         const ps={embed:'1',autostart:'1',practice:key,sense,silence:String(sil)};
         if(key==='most')ps.skill=skill;
-        if(key==='most'&&(skill==='balancing'||skill==='pendulation')&&pState.holdWatch)ps.holdwatch='1';
+        if(key==='most'&&(skill==='balancing'||skill==='pendulation')&&pState.holdWatch){ps.holdwatch='1';ps.holdsecs=String(pState.holdSeconds||60);}
         src='player.html?'+new URLSearchParams(ps).toString();
       }
-      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch});
+      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch,holdWatchTargetSeconds:(pState.holdWatch?(pState.holdSeconds||60):null)});
     };
   }
 
@@ -3248,6 +3267,7 @@
       if(typeof m.loops==='number') reco.loops=m.loops;
       if(m.holdWatch!==undefined) reco.holdWatch=m.holdWatch;
       if(typeof m.holdWatchSeconds==='number') reco.holdWatchSeconds=m.holdWatchSeconds;
+      if(typeof m.holdWatchTargetSeconds==='number') reco.holdWatchTargetSeconds=m.holdWatchTargetSeconds;
     }
     if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); renderFeedback(reco); }
     else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); renderExitReason(); }
@@ -3270,7 +3290,8 @@
       openEnded:(reco.openEnded!=null ? !!reco.openEnded : null),
       loops:(typeof reco.loops==='number' ? reco.loops : null),
       holdWatch:(reco.holdWatch!=null ? !!reco.holdWatch : null),
-      holdWatchSeconds:(typeof reco.holdWatchSeconds==='number' ? reco.holdWatchSeconds : null) });
+      holdWatchSeconds:(typeof reco.holdWatchSeconds==='number' ? reco.holdWatchSeconds : null),
+      holdWatchTargetSeconds:(typeof reco.holdWatchTargetSeconds==='number' ? reco.holdWatchTargetSeconds : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
   // Early exit: an optional one-tap read on WHY — too hard, too easy, pulled away —
