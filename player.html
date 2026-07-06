@@ -1477,12 +1477,22 @@ function drawScene(W,H,unit,t,moving,e,col){
 addEventListener('resize',()=>{if(!$('player').classList.contains('hidden'))fitRing();});
 function ringLoop(){
   rafId=requestAnimationFrame(ringLoop);
-  const W=cv.clientWidth,H=cv.clientHeight,cx=W/2,cy=H/2;g.clearRect(0,0,W,H);
+  // guard against buffer/element size drift (Justin 07-06: stretched buffers
+  // warped every circle into an oval on the full-bleed canvas) — if the layout
+  // moved under us without a resize event, refit before drawing.
+  const _d=devicePixelRatio||1;
+  if(Math.round(cv.clientWidth*_d)!==cv.width||Math.round(cv.clientHeight*_d)!==cv.height) fitRing();
+  const W=cv.clientWidth,H=cv.clientHeight,cx=W/2;g.clearRect(0,0,W,H);
   // ease the circle's size as the menu (controls) comes and goes — smaller when the menu is up,
   // full size when it's away. Done here, in the canvas, so it blends with the breathing (no jerk).
   const wantMsz = 1;   // full-bleed scenes: the menu overlays on its own veil now — nothing shrinks (2026-07-05)
   _msz += (wantMsz-_msz)*0.06;
-  const unit=Math.min(Math.min(W,H),430)*_msz;   // full-bleed canvas: cap the ring/element scale so desktop screens don't blow it up
+  // scenes use the whole field; the CIRCLES keep their original calm footprint
+  // (the old #ring css: min(82vw, 360px, 48vh)) and sit ABOVE the CC band, not
+  // centred on the full viewport (Justin 07-06: "huge oval… lost its calm").
+  const sceneUnit=Math.min(Math.min(W,H),430)*_msz;
+  const unit=Math.min(W*0.82,360,H*0.48)*_msz;
+  const cy=Math.max(unit*0.55+20,(H-250)/2);
   const t=performance.now()/1000;
   const moving=playing&&!paused&&!reduce;
   if(moving){_breath=Math.sin(t*0.55)*0.5+0.5;_breath2=Math.sin(t*0.41+0.7)*0.5+0.5;}  // when paused/reduced, hold the last value instead of snapping to a default shape
@@ -1500,7 +1510,7 @@ function ringLoop(){
   const oc=_roc.map(Math.round), ic=_ric.map(Math.round);                       // outer-ring (safety) + inner-ring (defense) colours, eased independently
   const rgbaO=(a)=>'rgba('+oc[0]+','+oc[1]+','+oc[2]+','+a+')';
   const rgbaI=(a)=>'rgba('+ic[0]+','+ic[1]+','+ic[2]+','+a+')';
-  if(SCENE!=='circles'){ drawScene(W,H,unit,t,moving,e,rgba); return; }
+  if(SCENE!=='circles'){ drawScene(W,H,sceneUnit,t,moving,e,rgba); return; }
   g.lineCap='round';
   const dotR=Math.max(2.5,unit*0.02);
   // the migrating second ring — faint thread, outside for mindfulness/safety / inside for defense (both at once when holding)
