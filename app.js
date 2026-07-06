@@ -3228,8 +3228,12 @@
   });
   function logSession(reco, completed, endedEarly, minutes){
     if(window._sessionLogged) return; window._sessionLogged=true;
-    Store.addSession({ practiceKey:reco.practiceKey, skill:reco.skill, sense:reco.sense, silence:reco.silence,
-      completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null });
+    // skills exist only on the self-regulation ('most') track. Gate here at the save
+    // boundary so no non-'most' session can inherit a leftover default skill (e.g. the
+    // customizer's default 'imagery'). This is the authoritative write for every path.
+    Store.addSession({ practiceKey:reco.practiceKey, skill:(reco.practiceKey==='most' ? (reco.skill||null) : null), sense:reco.sense, silence:reco.silence,
+      completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null,
+      challenge:(typeof reco.challenge==='number' ? reco.challenge : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
   // Early exit: an optional one-tap read on WHY — too hard, too easy, pulled away —
