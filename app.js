@@ -2973,7 +2973,7 @@
   // Tapping it opens the plan reader. "choose another way" reveals the full chooser.
   function tabPractice(){
     const reco = Store.recommend();
-    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null };
+    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false };
     renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
@@ -3049,7 +3049,7 @@
     $('#plan-change').onclick = ()=>{
       app('practice');
       // open the chooser already on this practice, with its current shape selected
-      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null };
+      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false };
       renderPracticeChooser();
     };
   }
@@ -3094,6 +3094,10 @@
         ${key==='most'?`<div class="p-rgroup">
           <p class="dash-prompt">which skill do you want to practice?</p>
           <div class="p-chips">${P_SKILLS.map(([v,l])=>chip(l,v,'skill',v===skill)).join('')}</div>
+        </div>`:''}
+        ${key==='most'?`<div class="p-rgroup" id="p-hw-group" style="${(skill==='balancing'||skill==='pendulation')?'':'display:none'}">
+          <p class="dash-prompt">add hold &amp; watch?</p>
+          <div class="p-chips">${[[true,'hold & watch'],[false,'skip it']].map(([v,l])=>chip(l,v,'holdwatch',v===!!pState.holdWatch)).join('')}</div>
         </div>`:''}
         ${key!=='micro'?`<div class="p-rgroup">
           <p class="dash-prompt">how much silence between guidance?</p>
@@ -3172,7 +3176,13 @@
     c.querySelectorAll('[data-skill]').forEach(b=>b.onclick=()=>{
       pState.skill=b.dataset.skill;
       c.querySelectorAll('[data-skill]').forEach(r=>r.classList.toggle('on',r.dataset.skill===pState.skill));
+      // hold & watch is offered only for balancing / pendulation — show/hide its group as skill changes
+      const hwg=$('#p-hw-group'); if(hwg) hwg.style.display=(pState.skill==='balancing'||pState.skill==='pendulation')?'':'none';
       updExpect();
+    });
+    c.querySelectorAll('[data-holdwatch]').forEach(b=>b.onclick=()=>{
+      pState.holdWatch=b.dataset.holdwatch==='true';
+      c.querySelectorAll('[data-holdwatch]').forEach(r=>r.classList.toggle('on',(r.dataset.holdwatch==='true')===pState.holdWatch));
     });
     c.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
       pState.silence=+b.dataset.sil;
@@ -3185,7 +3195,8 @@
       const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
       const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
       const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence});
+      const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw});
     };
 
     const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
@@ -3202,9 +3213,10 @@
         const sil = key==='micro' ? 2 : silence;   // micro runs on fixed short gaps
         const ps={embed:'1',autostart:'1',practice:key,sense,silence:String(sil)};
         if(key==='most')ps.skill=skill;
+        if(key==='most'&&(skill==='balancing'||skill==='pendulation')&&pState.holdWatch)ps.holdwatch='1';
         src='player.html?'+new URLSearchParams(ps).toString();
       }
-      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence)});
+      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch});
     };
   }
 

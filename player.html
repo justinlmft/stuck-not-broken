@@ -473,6 +473,10 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
             <span class="eyebrow">describe the defense?</span>
             <div class="chips" id="descdefs"></div>
           </div>
+          <div class="block" id="holdwatchwrap">
+            <span class="eyebrow">hold &amp; watch?</span>
+            <div class="chips" id="holdwatches"></div>
+          </div>
           <div class="block" id="lenwrap">
             <span class="eyebrow">length</span>
             <div class="chips" id="lens"></div>
@@ -846,7 +850,7 @@ const EXP={
    sum:"A super simple practice to connect with the present moment as it is through the senses and the breath. No pressure. Just presence."},
  anchoring:{key:'anchoring',t:'Connect with safety',cue:'a step in — settling into safety',d:'',sense:'touch',silence:8,gentle:true,mind:false,tier:1,
    sum:"Connect into safety through your {sense}, and stay there a while."},
- most:{key:'most',t:'Practice self-regulation',cue:'the deepest — meeting what is hard',d:"",sense:'touch',skill:'imagery',descDefense:false,silence:4,gentle:false,mind:false,tier:3,
+ most:{key:'most',t:'Practice self-regulation',cue:'the deepest — meeting what is hard',d:"",sense:'touch',skill:'imagery',descDefense:false,holdWatch:false,silence:4,gentle:false,mind:false,tier:3,
    sum:"Intentionally and compassionately hold safety and non-safety."},
  more:{key:'more',t:'More meditations',cue:'standalone guided sessions',d:"",standalone:true,silence:8,mind:false,tier:9,
    sum:"Full guided practices — pick one and begin."}
@@ -905,7 +909,8 @@ function build(c){
       }
       if(skill==='balancing'){
         add('PEND-SAFETY','back to safety');add('PEND-SAFETY-Q','noticing safety');
-        add('HOLD-WATCH','holding both');add('PEND-SAFETY','back to safety');
+        if(c.holdWatch)add('HOLD-WATCH','holding both');   // optional hold-both, chosen in the customizer
+        add('PEND-SAFETY','back to safety');
       }else if(skill==='imagery'){
         ['IMG-01','IMG-02','IMG-03','IMG-04','IMG-05','IMG-06'].forEach(b=>add(b,'giving it an image'));
         add('PEND-SAFETY','back to safety');
@@ -919,7 +924,7 @@ function build(c){
         add('PEND-SAFETY','back to safety');add('PEND-SAFETY-Q','noticing safety');
         add('PEND-DEFENSE','toward the harder side');add('PEND-DEFENSE-Q','noticing it');add('PEND-SAFE-REMIND','you are safe');
         add('PEND-TO-SAFETY-BRIEF','letting it come and go');add('PEND-TO-DEFENSE-BRIEF','letting it come and go');add('PEND-TO-SAFETY-BRIEF','letting it come and go');
-        add('HOLD-WATCH','holding both');                 // hold both after the back-and-forth (Justin 2026-07-06)
+        if(c.holdWatch)add('HOLD-WATCH','holding both');   // optional hold-both after the back-and-forth, chosen in the customizer
         add('PEND-SAFETY','back to safety');
       }
       if(c.open)add('LOOP-GATE','staying or closing');    // open-ended: loops back to loopBase (INVITE-01 / OBST-01)
@@ -1008,6 +1013,11 @@ function renderSetup(){
   $('descdefwrap').style.display=showDD?'block':'none';
   if(showDD){const dw=$('descdefs');dw.innerHTML='';
     [[true,'describe it'],[false,'skip it']].forEach(([v,lbl])=>{const p=chip(lbl,v===!!cfg.descDefense);p.onclick=()=>{cfg.descDefense=v;renderSetup();};dw.appendChild(p);});}
+  // hold & watch — the culminating "holding both" beat, offered only after balancing or pendulating
+  const showHW=cfg.key==='most'&&['balancing','pendulation'].indexOf(cfg.skill)>=0;
+  $('holdwatchwrap').style.display=showHW?'block':'none';
+  if(showHW){const hw=$('holdwatches');hw.innerHTML='';
+    [[true,'hold & watch'],[false,'skip it']].forEach(([v,lbl])=>{const p=chip(lbl,v===!!cfg.holdWatch);p.onclick=()=>{cfg.holdWatch=v;renderSetup();};hw.appendChild(p);});}
   // silence
   const sv=$('sils');sv.innerHTML='';
   SIL.forEach(([v,lbl])=>{const p=chip(lbl,v===cfg.silence);p.onclick=()=>{cfg.silence=v;renderSetup();};sv.appendChild(p);});
@@ -1035,6 +1045,7 @@ $('adjust').addEventListener('toggle',()=>{
 $('surprise').onclick=()=>{
   cfg.sense=rand(allSenses);cfg.skill=rand(SKILLS.most.map(x=>x[0]));cfg.silence=rand(SIL.map(x=>x[0]));
   cfg.descDefense=['imagery','balancing','pendulation'].indexOf(cfg.skill)>=0?rand([true,false]):false;
+  cfg.holdWatch=['balancing','pendulation'].indexOf(cfg.skill)>=0?rand([true,false]):false;
   renderSetup();
 };
 
@@ -1588,7 +1599,7 @@ function postToHost(event){
     // really happened (in-player tweaks, endless loops, hold-both time).
     const detail = cfg ? { skill:(cfg.key==='most'?(cfg.skill||null):null), sense:(cfg.sense||null), silence:cfg.silence,
       descDefense:!!cfg.descDefense, meditationId:(cfg.pack||null), openEnded:!!cfg.open } : {};
-    detail.loops=loopCount; detail.holdWatch=holdWatchUsed; detail.holdWatchSeconds=holdWatchSeconds;
+    detail.loops=loopCount; detail.holdWatch=!!(cfg&&cfg.holdWatch); detail.holdWatchSeconds=holdWatchSeconds;   // holdWatch = the user's selection; seconds = actual time on the beat
     window.parent.postMessage(Object.assign({type:'snb-weaver',event,minutes},detail),'*');
   }catch(e){}
 }
@@ -1602,6 +1613,7 @@ function postToHost(event){
     const c=fresh(pk);
     const sense=q.get('sense'); if(sense&&allSenses.indexOf(sense)>=0)c.sense=sense;
     const skill=q.get('skill'); if(skill&&SKILLS.most&&SKILLS.most.some(x=>x[0]===skill))c.skill=skill;
+    if(q.get('holdwatch')==='1')c.holdWatch=true;   // host-driven hold-both selection
     const sil=parseInt(q.get('silence'),10); if(!isNaN(sil))c.silence=sil;
     practices=[c];active=0;picked=true;cfg=practices[active];
   }
