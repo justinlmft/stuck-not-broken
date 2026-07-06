@@ -919,6 +919,7 @@ function build(c){
         add('PEND-SAFETY','back to safety');add('PEND-SAFETY-Q','noticing safety');
         add('PEND-DEFENSE','toward the harder side');add('PEND-DEFENSE-Q','noticing it');add('PEND-SAFE-REMIND','you are safe');
         add('PEND-TO-SAFETY-BRIEF','letting it come and go');add('PEND-TO-DEFENSE-BRIEF','letting it come and go');add('PEND-TO-SAFETY-BRIEF','letting it come and go');
+        add('HOLD-WATCH','holding both');                 // hold both after the back-and-forth (Justin 2026-07-06)
         add('PEND-SAFETY','back to safety');
       }
       if(c.open)add('LOOP-GATE','staying or closing');    // open-ended: loops back to loopBase (INVITE-01 / OBST-01)
@@ -1042,6 +1043,7 @@ $('surprise').onclick=()=>{
    (a clip whose take ran longer than DUR bled into the silence). DUR is no longer
    used to advance; we wait for `ended`, then hold the silence gap, then play next. */
 let SEQ=[],PH=[],idx=-1,LOOP=false,LOOPFROM=0;
+let loopCount=0,holdWatchUsed=false,holdWatchSeconds=0;   // telemetry: endless loops + hold-both usage/time
 let activePack=null;                 // loaded standalone pack, or null in woven mode
 const SEGSTATE={},GAPTIER={},PACKCACHE={};   // standalone: id→ring state / silence tier; fetched-pack cache
 let playing=false,paused=false,finished=false,started=false,closingNow=false,playStart=0;
@@ -1166,6 +1168,7 @@ function startPlayer(){
   playStart=Date.now();                                // embed: clock the session so the host can log its length
   activePack=null;                                      // woven mode — clear any standalone state
   const o=buildPlan();SEQ=o.seq;PH=o.phase;LOOP=o.loop;LOOPFROM=o.loopFrom;buildTrackSeq();
+  loopCount=0;holdWatchUsed=false;holdWatchSeconds=0;   // reset telemetry for this session
   $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');$('pause').style.display='';
   finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;wlHold();pickScene();
   showScreen('player');fitRing();renderTest();showSil();
@@ -1261,6 +1264,7 @@ au.addEventListener('playing',()=>{if(!started){started=true;const s=$('starting
 
 function playCurrent(){
   const b=SEQ[idx];
+  if(/^HOLD-WATCH/.test(b)){ holdWatchUsed=true; holdWatchSeconds+=Math.round((DUR[b]||8)+gapAfter(b)); }   // hold-both telemetry
   const file=rand(MAN[b]);          // CAPTIONS: this is the chosen variant filename — caption key is CAP[file]
   curFile=file;capStart(CAP[file]||'');   // parse caption into phrases, reveal progressively (shown only when captions on)
   try{au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
@@ -1269,7 +1273,7 @@ function playCurrent(){
 function advance(){
   if(!playing)return;
   idx++;
-  if(idx>=SEQ.length){if(LOOP){idx=LOOPFROM;}else{return finish();}}
+  if(idx>=SEQ.length){if(LOOP){idx=LOOPFROM;loopCount++;}else{return finish();}}
   inGap=false;
   playCurrent();updateTest();showTimeLeft();
 }
@@ -1580,7 +1584,12 @@ function postToHost(event){
   try{
     if(window.parent===window)return;
     const minutes=playStart?Math.max(1,Math.round((Date.now()-playStart)/60000)):null;
-    window.parent.postMessage({type:'snb-weaver',event,minutes},'*');
+    // report the final, actually-practiced config + telemetry so the host logs what
+    // really happened (in-player tweaks, endless loops, hold-both time).
+    const detail = cfg ? { skill:(cfg.key==='most'?(cfg.skill||null):null), sense:(cfg.sense||null), silence:cfg.silence,
+      descDefense:!!cfg.descDefense, meditationId:(cfg.pack||null), openEnded:!!cfg.open } : {};
+    detail.loops=loopCount; detail.holdWatch=holdWatchUsed; detail.holdWatchSeconds=holdWatchSeconds;
+    window.parent.postMessage(Object.assign({type:'snb-weaver',event,minutes},detail),'*');
   }catch(e){}
 }
 (function initEmbed(){

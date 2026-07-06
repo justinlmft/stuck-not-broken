@@ -160,8 +160,8 @@
   // opaque, so it is stored as 'self-regulation' (the app's own word for that track); the
   // other keys are already self-explanatory and pass through unchanged.
   const practiceLabelFor = k => (k==='most' ? 'self-regulation' : (k||null));
-  const rowToSession = r => ({ t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null) });
-  const sessionToRow = s => ({ user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey) });
+  const rowToSession = r => ({ t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null) });
+  const sessionToRow = s => ({ user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null) });
 
   // ---- lifecycle ----
   async function init(cb){
@@ -363,8 +363,7 @@
     // the 50/50/50 tie-break's accidental stillness.
     const dom = (c.dom && (c.dom==='neutral' || PVCurrent.STATES[c.dom])) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
-    // time and fed to the recommender. NOTE: not yet a cloud column — it lives in the
-    // on-device record/cache; add a `challenge` column + map it in checkinToRow to sync it.
+    // time and fed to the recommender. Synced to the cloud `challenge` column via checkinToRow.
     const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, fr:c.freeze||0, note:c.note||'', dom:dom.key,
                   challenge:(typeof c.challenge==='number'?c.challenge:null),
                   source:(c.source||null) };   // e.g. 'post-practice' — lets practiceEffect use clean before/after pairs
@@ -373,7 +372,7 @@
     saveCache(); if(CLOUD) flush();
     return rec;
   }
-  // edit an existing check-in in place (by timestamp): local + cloud. challenge stays local-only (no cloud column yet).
+  // edit an existing check-in in place (by timestamp): local + cloud, challenge included.
   function updateCheckin(t, c){
     const i = data.checkins.findIndex(x=>x.t===t);
     if(i<0) return null;
@@ -390,7 +389,7 @@
       _setEdit(t, { v:rec.v, sym:rec.sym, dor:rec.dor, fr:rec.fr, dom:rec.dom, challenge:rec.challenge });
       try{
         // .then() is required or the request never sends; on success drop the overlay.
-        sb.from('checkins').update({ v:rec.v, sym:rec.sym, dor:rec.dor, fr:rec.fr, dom:rec.dom }).eq('user_id', auth.user.id).eq('t', t)
+        sb.from('checkins').update({ v:rec.v, sym:rec.sym, dor:rec.dor, fr:rec.fr, dom:rec.dom, challenge:rec.challenge }).eq('user_id', auth.user.id).eq('t', t)
           .then(function(res){ if(res && !res.error) _clearEdit(t); }, function(){});
       }catch(e){}
     }
@@ -950,7 +949,26 @@
     return b.label;
   }
   // post-practice: stamp how the body felt afterward onto the last session
-  function noteFeedback(val){ const s=data.sessions[data.sessions.length-1]; if(s){ s.feedback=val; saveCache(); } }
+  // Stamp fields onto an already-logged session and get them to the cloud. Mirrors
+  // updateCheckin's outbox-aware pattern: if the INSERT is still queued, edit it in place
+  // (the pending INSERT carries the fields); otherwise UPDATE the existing cloud row.
+  // (Previously noteFeedback only mutated locally, so post-practice feedback never synced.)
+  function _stampSession(t, local, row){
+    const i=data.sessions.findIndex(x=>x && x.t===t); if(i<0) return;
+    Object.assign(data.sessions[i], local);
+    const oi=outbox.sessions.findIndex(x=>x && x.t===t);
+    if(oi>=0){ Object.assign(outbox.sessions[oi], local); saveCache(); if(CLOUD) flush(); return; }
+    saveCache();
+    if(CLOUD && auth.user){
+      try{ sb.from('sessions').update(row).eq('user_id', auth.user.id).eq('t', t).then(function(){}, function(){}); }catch(e){}
+    }
+  }
+  // post-practice: how the body landed, stamped onto the last session (feeds the advisor).
+  function noteFeedback(val){ const s=data.sessions[data.sessions.length-1]; if(!s) return;
+    _stampSession(s.t, { feedback:val, afterFeeling:val }, { feedback:val, after_feeling:val }); }
+  // early-exit reason, stamped onto the last session — kept separate from after-feeling.
+  function noteExit(val){ const s=data.sessions[data.sessions.length-1]; if(!s) return;
+    _stampSession(s.t, { feedback:val, exitReason:val }, { feedback:val, exit_reason:val }); }
 
   const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
@@ -961,9 +979,14 @@
 
   // ---- user-chosen practice preferences (auto-fill the customizer; null = let the app decide) ----
   function prefSense(){ try{ return localStorage.getItem('snb_pref_sense')||null; }catch(e){ return null; } }
-  function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} }
+  function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
   function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
-  function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} }
+  function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
+  // default sense/silence also live in the cloud (public.preferences) so they aren't
+  // device-only and can inform analysis. Fire-and-forget upsert of the current values.
+  function _syncPrefs(){ if(!CLOUD || !auth.user) return; try{
+    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+  }catch(e){} }
 
   async function reset(){
     if(CLOUD && auth.user){
@@ -1021,7 +1044,7 @@
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
     learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, recommend, spectrum, practiceLabel, reset, getName, setName,
-    challengeLabel, noteFeedback, CHALLENGE_LEVELS,
+    challengeLabel, noteFeedback, noteExit, CHALLENGE_LEVELS,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
   };

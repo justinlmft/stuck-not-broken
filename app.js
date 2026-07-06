@@ -3223,6 +3223,20 @@
     if(m.event === 'screen'){ document.body.classList.toggle('in-practice', m.screen==='player'); return; }
     const reco = window._pendingReco;
     if(!reco) return;
+    // merge the player's final, actually-practiced config + telemetry onto the reco, so
+    // the logged session reflects any in-player tweaks (skill/sense/silence/describe-the-
+    // defense), the guided meditation chosen, endless mode + loop count, and hold-both time.
+    if(m.event === 'complete' || m.event === 'exit'){
+      if(reco.practiceKey==='most' && m.skill!==undefined) reco.skill=m.skill;
+      if(m.sense!==undefined && m.sense!==null) reco.sense=m.sense;
+      if(typeof m.silence==='number') reco.silence=m.silence;
+      if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
+      if(m.meditationId!==undefined) reco.meditationId=m.meditationId;
+      if(m.openEnded!==undefined) reco.openEnded=m.openEnded;
+      if(typeof m.loops==='number') reco.loops=m.loops;
+      if(m.holdWatch!==undefined) reco.holdWatch=m.holdWatch;
+      if(typeof m.holdWatchSeconds==='number') reco.holdWatchSeconds=m.holdWatchSeconds;
+    }
     if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); renderFeedback(reco); }
     else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); renderExitReason(); }
   });
@@ -3231,9 +3245,20 @@
     // skills exist only on the self-regulation ('most') track. Gate here at the save
     // boundary so no non-'most' session can inherit a leftover default skill (e.g. the
     // customizer's default 'imagery'). This is the authoritative write for every path.
-    Store.addSession({ practiceKey:reco.practiceKey, skill:(reco.practiceKey==='most' ? (reco.skill||null) : null), sense:reco.sense, silence:reco.silence,
+    const _isMost = reco.practiceKey==='most';
+    const _skill = _isMost ? (reco.skill||null) : null;
+    // beginner vs advanced self-regulation: pendulation or a high challenge appetite = advanced.
+    const _selfRegLevel = _isMost ? ((_skill==='pendulation' || (typeof reco.challenge==='number' && reco.challenge>=0.78)) ? 'advanced' : 'beginner') : null;
+    Store.addSession({ practiceKey:reco.practiceKey, skill:_skill, sense:reco.sense, silence:reco.silence,
       completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null,
-      challenge:(typeof reco.challenge==='number' ? reco.challenge : null) });
+      challenge:(typeof reco.challenge==='number' ? reco.challenge : null),
+      selfRegLevel:_selfRegLevel,
+      descDefense:(_isMost ? !!reco.descDefense : null),
+      meditationId:(reco.meditationId||null),
+      openEnded:(reco.openEnded!=null ? !!reco.openEnded : null),
+      loops:(typeof reco.loops==='number' ? reco.loops : null),
+      holdWatch:(reco.holdWatch!=null ? !!reco.holdWatch : null),
+      holdWatchSeconds:(typeof reco.holdWatchSeconds==='number' ? reco.holdWatchSeconds : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
   // Early exit: an optional one-tap read on WHY — too hard, too easy, pulled away —
@@ -3259,7 +3284,7 @@
         </div>
         <button class="navlink" id="fb-skip" style="align-self:center;margin-top:18px">skip</button>
       </div></div>`);
-    root.querySelectorAll('.fb-opt').forEach(b=>b.onclick=()=>{ try{ Store.noteFeedback(b.dataset.fb); }catch(e){} haptic('save'); app('practice'); });
+    root.querySelectorAll('.fb-opt').forEach(b=>b.onclick=()=>{ try{ Store.noteExit(b.dataset.fb); }catch(e){} haptic('save'); app('practice'); });
     const sk=$('#fb-skip'); if(sk) sk.onclick=()=>app('practice');
   }
 
