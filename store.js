@@ -156,8 +156,12 @@
     challenge:(typeof r.challenge==='number'?r.challenge:null), source:(r.source||null) });
   const checkinToRow = c => ({ user_id:auth.user.id, t:c.t, v:c.v, sym:c.sym, dor:c.dor, fr:c.fr||0, note:c.note||'', dom:c.dom,
     challenge:(typeof c.challenge==='number'?c.challenge:null), source:(c.source||null) });
-  const rowToSession = r => ({ t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null) });
-  const sessionToRow = s => ({ user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null) });
+  // practice_label = a data-clear name for the practice track. The internal key 'most' is
+  // opaque, so it is stored as 'self-regulation' (the app's own word for that track); the
+  // other keys are already self-explanatory and pass through unchanged.
+  const practiceLabelFor = k => (k==='most' ? 'self-regulation' : (k||null));
+  const rowToSession = r => ({ t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null) });
+  const sessionToRow = s => ({ user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey) });
 
   // ---- lifecycle ----
   async function init(cb){
@@ -415,6 +419,7 @@
     // decoding the 0–0.9 number. Skill × challengeLevel = the skill-by-depth signal.
     if(typeof rec.challenge !== 'number'){ const lc = lastCheckin(); rec.challenge = (lc && typeof lc.challenge==='number') ? lc.challenge : null; }
     rec.challengeLevel = (typeof rec.challenge==='number') ? challengeLabel(rec.challenge) : null;
+    rec.practiceLabel = practiceLabelFor(rec.practiceKey);
     data.sessions.push(rec);
     if(CLOUD && auth.user){ outbox.sessions.push(rec); setSync('syncing'); }
     saveCache(); if(CLOUD) flush();
