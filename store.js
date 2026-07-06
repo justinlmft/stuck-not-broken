@@ -354,9 +354,10 @@
 
   // ---- check-ins ----
   function addCheckin(c){
-    // expert override: an explicit, valid state key wins over the inferred one
-    // (set from the edit-check-in screen; raw v/sym/dor stay untouched)
-    const dom = (c.dom && PVCurrent.STATES[c.dom]) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // explicit state key wins over the inferred one. 'neutral' is accepted too
+    // (2026-07-06): an all-untouched midpoint save counts as "settling", never
+    // the 50/50/50 tie-break's accidental stillness.
+    const dom = (c.dom && (c.dom==='neutral' || PVCurrent.STATES[c.dom])) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
     // time and fed to the recommender. NOTE: not yet a cloud column — it lives in the
     // on-device record/cache; add a `challenge` column + map it in checkinToRow to sync it.
@@ -488,7 +489,16 @@
     if(!cs.length) return null;
     const avg = k => cs.reduce((n,c)=>n+c[k],0)/cs.length;
     const v=avg('v'), sym=avg('sym'), dor=avg('dor');
-    const dom = PVCurrent.dominantOf(v,sym,dor);
+    // classify the classifications (Justin 2026-07-06): the trend state is the
+    // MODAL dom of the window, ties broken by recency — never a classification
+    // of averaged axes (fight↔shutdown oscillation could average into a
+    // "freeze" the person never once reported).
+    const cnt={}; cs.forEach(c=>{ if(c.dom && c.dom!=='neutral') cnt[c.dom]=(cnt[c.dom]||0)+1; });
+    let dk=null;
+    for(let i=cs.length-1;i>=0;i--){ const k=cs[i].dom; if(!k||k==='neutral') continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
+    const dom = dk
+      ? { key:dk, name:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].name)||dk, color:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].color)||null }
+      : PVCurrent.dominantOf(v,sym,dor);
     let dir='steady';
     if(cs.length>=2){ const d=cs[cs.length-1].v - cs[0].v; dir = d>0.12?'rising':d<-0.12?'falling':'steady'; }
     return { v, sym, dor, dom, dir, n:cs.length };

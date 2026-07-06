@@ -1766,12 +1766,11 @@
           <div class="ci-ovr">
             <button class="set-quiet ci-ovr-link" id="ci-ovr-link" type="button">know your states? set it yourself</button>
             <div class="ci-ovr-panel" id="ci-ovr-panel" hidden>
-              <p class="ci-ovr-note">your answers stay as they are — this only changes which state this check-in counts as.</p>
+              <p class="ci-ovr-note">choosing a state moves the sliders to match it — fine-tune from there if it's close but not quite.</p>
               <div class="ci-ovr-chips">
                 ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
               </div>
               <p class="ci-ovr-about" id="ci-ovr-about"></p>
-              <button class="set-quiet ci-ovr-clear" id="ci-ovr-clear" type="button">match my answers</button>
             </div>
           </div>
         </div>
@@ -1853,26 +1852,44 @@
         const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
       });
     };
-    // expert override (edit only): a deliberate, tucked-away way to overrule the
-    // inferred state. Answers stay untouched; only the stored state key changes.
-    let ovr = null;
+    // "know your states" (reworked 2026-07-06, Justin): picking a state MOVES
+    // the sliders to that state's shape, animated in real time — the sliders
+    // stay the single source of truth, the saved label always derives from the
+    // answers (no label-only override, nothing to discard, safety % and state
+    // mix can never disagree), and fine-tuning from there is the natural next
+    // step. the teaching copy (STATE_DETAIL.about) still appears in place.
+    const STATE_AXES={ safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15],
+                       stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
+    let _ovrAnim=null;
+    function _slideTo(tv,ts,td){
+      cancelAnimationFrame(_ovrAnim);
+      const f={v:v,s:s,d:d};
+      const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
+      axTouched.v=1; axTouched.sym=1; axTouched.dor=1;
+      const apply=(nv,ns,nd)=>{ v=nv; s=ns; d=nd;
+        const ev=$('#sl-v'), es=$('#sl-sym'), ed=$('#sl-dor');
+        if(ev) ev.value=Math.round(v); if(es) es.value=Math.round(100-s); if(ed) ed.value=Math.round(100-d);
+        refresh(); };
+      if(calm){ apply(tv,ts,td); return; }
+      const t0=performance.now(), dur=650, easeFn=x=>1-Math.pow(1-x,3);
+      const step=now=>{ const p=Math.min(1,(now-t0)/dur), e=easeFn(p);
+        apply(f.v+(tv-f.v)*e, f.s+(ts-f.s)*e, f.d+(td-f.d)*e);
+        if(p<1) _ovrAnim=requestAnimationFrame(step); };
+      _ovrAnim=requestAnimationFrame(step);
+    }
     const ovrLink = $('#ci-ovr-link');
     if(ovrLink){
       const panel = $('#ci-ovr-panel');
-      // the selected state teaches itself in place: the SAME copy as the state pages
-      // reached from the You-tab stats (STATE_DETAIL), never a second vocabulary
-      const paint = ()=>{
-        root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.classList.toggle('on', b.dataset.ovr===ovr));
-        const ab = $('#ci-ovr-about'); if(ab) ab.textContent = (ovr && STATE_DETAIL[ovr]) ? STATE_DETAIL[ovr].about : '';
+      const paint = k=>{
+        root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.classList.toggle('on', b.dataset.ovr===k));
+        const ab = $('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
       };
-      ovrLink.onclick = ()=>{
-        panel.hidden = !panel.hidden;
-        if(!panel.hidden){ if(!ovr && editRec && editRec.dom){ ovr = editRec.dom; } }   // open on edit: start from what it counts as now; fresh check-ins start unchosen
-        else { ovr = null; }                                                            // close via the link = never mind
-        paint();
-      };
-      root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{ ovr = b.dataset.ovr; paint(); });
-      $('#ci-ovr-clear').onclick = ()=>{ ovr = null; paint(); panel.hidden = true; };
+      ovrLink.onclick = ()=>{ panel.hidden = !panel.hidden; };
+      root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{
+        const k=b.dataset.ovr, ax=STATE_AXES[k];
+        paint(k);
+        if(ax) _slideTo(ax[0]*100, ax[1]*100, ax[2]*100);
+      });
     }
 
     // context tabs + chips: switch direction, then tap tags to toggle in the active set
@@ -1926,7 +1943,9 @@
     $('#save').onclick = ()=>{
       const vals = { v:v/100, sym:s/100, dor:d/100, source:(window._ciSource||null) };
       if(ch!=null) vals.challenge = ch;                  // null = "whatever you recommend": let the recommender decide
-      if(typeof ovr==='string' && ovr) vals.dom = ovr;   // expert override rides along (fresh + edit; re-exposed 2026-07-05 after Beth's day-1 feedback)
+      // untouched midpoints are not a read: never let the 50/50/50 tie-break
+      // invent "stillness" — an all-untouched fresh save counts as settling.
+      if(!(axTouched.v||axTouched.sym||axTouched.dor) && !editRec) vals.dom='neutral';
       window._ciSource = null;
       // context is saved keyed to the exact check-in, split by direction:
       //   c{t}+ = "i've had more of"   c{t}- = "i've had less of"
