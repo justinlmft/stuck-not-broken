@@ -3380,10 +3380,11 @@
         </div>
         <div class="set-group">
           <p class="dash-prompt">practice scene</p>
-          <div class="set-seg" id="seg-scene" style="flex-wrap:wrap">
-            ${segBtn('scene','','surprise me',psc==='')}${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>segBtn('scene',s,s,psc===s)).join('')}
+          <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">surprise me</button>
+          <div class="ch-seg">
+            ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
           </div>
-          <p class="fineprint" id="scene-cap" style="margin-top:8px"></p>
+          <p class="fineprint" id="scene-cap" style="margin-top:10px"></p>
         </div>
         <div class="set-group">
           ${swRow('sw-motion','animations',!rm)}
@@ -3449,12 +3450,12 @@
       breeze:'strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'a still beam of light, dust hanging in it.',
       fireflies:'small lights arriving and leaving on their own time.' };
-    const segSc=$('#seg-scene'); const scCap=$('#scene-cap');
+    const scCap=$('#scene-cap');
     const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; };
     _scSet(psc);
-    if(segSc) segSc.querySelectorAll('[data-scene]').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene);
-      segSc.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      document.querySelectorAll('.scene-opt').forEach(x=>x.classList.toggle('on', x===b));
       _scSet(b.dataset.scene);
     });
     const bindSw=(id,fn)=>{ const b=$('#'+id); if(b) b.onclick=()=>{
