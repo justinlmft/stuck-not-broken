@@ -213,6 +213,11 @@ body.playing .brand{display:none}
 .pfoot::before{content:'';position:absolute;left:-28px;right:-28px;top:-64px;bottom:-30px;background:linear-gradient(to top,var(--bone) 0%,var(--bone) 72%,transparent 100%);opacity:0;transition:opacity .5s var(--ease);pointer-events:none;z-index:-1}
 #player.show-controls .pfoot::before{opacity:1}
 #ring{width:100%;height:100%;display:block}
+/* the scene tucks under the phone's status area (Justin 07-06: time/battery
+   sat on the sunbeam): bone at the very top, dissolving down into the
+   animation — the same veil language as the bottom. fixed px, not env(),
+   because safe-area insets don't reach inside the embed iframe. */
+#player::before{content:'';position:fixed;top:0;left:0;right:0;height:76px;background:linear-gradient(to bottom,var(--bone) 18%,transparent 100%);z-index:1;pointer-events:none}
 .phase{font-size:12.5px;text-transform:lowercase;letter-spacing:.14em;color:var(--muted);min-height:1.5em;margin:0 0 22px;opacity:0;transition:opacity 1.1s var(--ease);text-wrap:pretty;max-width:24em}
 /* a quiet "it's beginning" cue so the opening silence never reads as broken */
 .starting{font-size:13px;letter-spacing:.14em;text-transform:lowercase;color:var(--muted);margin:0;min-height:1.4em;text-align:center;opacity:0;transition:opacity .6s var(--ease)}
@@ -1449,9 +1454,9 @@ function drawScene(W,H,unit,t,moving,e,col){
     // (ink, defense shades), which turned the beam murky and the flies into
     // "bug bites". sunbeam + fireflies use the fixed warm safety gold from the
     // approved mockups instead — light is light, whatever state the clip is in.
-    const GOLD=a=>'rgba(244,213,141,'+a+')';
+    const AMBER=a=>'rgba(226,178,106,'+a+')';   // deeper than the fly-gold: at beam alphas the pale gold blended to grey-cream on bone (Justin 07-06)
     const bw=W*.34, grd=g.createLinearGradient(0,-H,0,H);
-    grd.addColorStop(0,GOLD(.32*fade)); grd.addColorStop(1,GOLD(.05*fade));
+    grd.addColorStop(0,AMBER(.45*fade)); grd.addColorStop(1,AMBER(.07*fade));
     g.save(); g.translate(W*.5,H*.5); g.rotate(.3); g.fillStyle=grd; g.fillRect(-bw/2,-H*1.2,bw,H*2.4); g.restore();
     _dust.forEach(d=>{
       const px=(d.x*W)+Math.sin(_sT*6.283/d.per+d.ph)*d.ax;
