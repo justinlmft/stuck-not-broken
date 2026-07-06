@@ -201,21 +201,27 @@ body.playing .brand{display:none}
    (the menu) overlay the bottom, out of flow. When the menu appears, the stage rises toward the
    top (not all the way) and the circle shrinks, so focus shifts to the menu; when it's away, the
    stage settles back to centre and the circle grows again. */
-.stage{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .9s var(--gentle);will-change:transform}
-.ringwrap{width:100%;display:flex;align-items:center;justify-content:center;padding:8px 0}
-.pfoot{position:absolute;left:0;right:0;bottom:0;width:100%;display:flex;flex-direction:column;align-items:stretch}
-/* only the vertical move is a CSS transition; the circle's SIZE is eased inside the canvas
-   animation (see _msz in ringLoop) so it stays perfectly smooth against the 60fps breathing. */
-#player.show-controls .stage{transform:translateY(-12vh)}
-@media (prefers-reduced-motion:reduce){.stage{transition:none}}
-#ring{width:min(82vw,360px);height:min(82vw,360px);max-height:48vh;display:block}
+/* full-bleed scenes (Justin 2026-07-05): the canvas IS the screen — fixed to the
+   viewport so the animation touches every edge (the old centred stage read as a
+   confining rectangle and pulled people out of the practice). text and menus
+   float above on bone veils that dissolve upward into the animation. NOTE: no
+   ancestor of .ringwrap may carry transform/will-change, or fixed breaks. */
+.stage{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:192px;position:relative;z-index:1}
+.ringwrap{position:fixed;inset:0;z-index:0;padding:0}
+.pfoot{position:absolute;left:0;right:0;bottom:0;width:100%;display:flex;flex-direction:column;align-items:stretch;z-index:2}
+/* the menu overlays the scene on a solid bone backdrop that fades away above it */
+.pfoot::before{content:'';position:absolute;left:-28px;right:-28px;top:-64px;bottom:-30px;background:linear-gradient(to top,var(--bone) 0%,var(--bone) 72%,transparent 100%);opacity:0;transition:opacity .5s var(--ease);pointer-events:none;z-index:-1}
+#player.show-controls .pfoot::before{opacity:1}
+#ring{width:100%;height:100%;display:block}
 .phase{font-size:12.5px;text-transform:lowercase;letter-spacing:.14em;color:var(--muted);min-height:1.5em;margin:0 0 22px;opacity:0;transition:opacity 1.1s var(--ease);text-wrap:pretty;max-width:24em}
 /* a quiet "it's beginning" cue so the opening silence never reads as broken */
 .starting{font-size:13px;letter-spacing:.14em;text-transform:lowercase;color:var(--muted);margin:0;min-height:1.4em;text-align:center;opacity:0;transition:opacity .6s var(--ease)}
 .starting.show{opacity:1;animation:startpulse 1.9s ease-in-out infinite}
 @keyframes startpulse{0%,100%{opacity:.4}50%{opacity:.85}}
 @media (prefers-reduced-motion:reduce){.starting.show{animation:none;opacity:.7}}
-.caption{display:flex;align-items:center;justify-content:flex-start;height:5em;font-size:calc(17px * var(--type-scale));line-height:1.65;color:var(--ink-80);max-width:none;width:100%;margin:0 0 18px;text-align:left;text-wrap:pretty;padding:0}
+.caption{display:flex;align-items:center;justify-content:flex-start;height:5em;font-size:calc(17px * var(--type-scale));line-height:1.65;color:var(--ink-80);max-width:none;width:100%;margin:0 0 18px;text-align:left;text-wrap:pretty;padding:0;position:relative}
+/* CC floats on its own bone veil, fading upward into the scene (same treatment as the menu) */
+#player.caps-on .caption::before{content:'';position:absolute;left:-28px;right:-28px;top:-42px;bottom:-14px;background:linear-gradient(to top,var(--bone) 0%,var(--bone) 68%,transparent 100%);pointer-events:none;z-index:-1}
 #player:not(.caps-on) .caption{display:none}
 /* paused: the whole field dims to read as resting (not frozen); only the resume button stays full */
 #player .ringwrap,#player .caption,#player .starting,#player .controlbar,#player .endings{transition:opacity .45s var(--ease)}
@@ -285,12 +291,12 @@ body.playing .brand{display:none}
 .endnow:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 
 /* gentle completion */
-.done{display:none;flex-direction:column;align-items:stretch;gap:10px;width:100%}
+.done{display:none;flex-direction:column;align-items:stretch;gap:10px;width:100%;position:relative;z-index:2}
 #player.finished .controls{display:none}
 #player.finished .done{display:flex;animation:riseIn .55s var(--ease)}
 .done .btn{width:100%}
 /* terminal rest — just the settled ring and a quiet way back */
-.rest{display:none;flex-direction:column;align-items:center}
+.rest{display:none;flex-direction:column;align-items:center;position:relative;z-index:2}
 #player.rested .done{display:none}
 #player.rested .rest{display:flex;animation:riseIn .7s var(--ease)}
 
@@ -1463,9 +1469,9 @@ function ringLoop(){
   const W=cv.clientWidth,H=cv.clientHeight,cx=W/2,cy=H/2;g.clearRect(0,0,W,H);
   // ease the circle's size as the menu (controls) comes and goes — smaller when the menu is up,
   // full size when it's away. Done here, in the canvas, so it blends with the breathing (no jerk).
-  const wantMsz = $('player').classList.contains('show-controls') ? 0.7 : 1;
+  const wantMsz = 1;   // full-bleed scenes: the menu overlays on its own veil now — nothing shrinks (2026-07-05)
   _msz += (wantMsz-_msz)*0.06;
-  const unit=Math.min(W,H)*_msz;
+  const unit=Math.min(Math.min(W,H),430)*_msz;   // full-bleed canvas: cap the ring/element scale so desktop screens don't blow it up
   const t=performance.now()/1000;
   const moving=playing&&!paused&&!reduce;
   if(moving){_breath=Math.sin(t*0.55)*0.5+0.5;_breath2=Math.sin(t*0.41+0.7)*0.5+0.5;}  // when paused/reduced, hold the last value instead of snapping to a default shape

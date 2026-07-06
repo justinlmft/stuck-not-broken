@@ -893,6 +893,10 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .set-quiet-danger{color:var(--danger);text-decoration-color:rgba(154,59,59,.4)}
 .set-quiet-danger:hover{color:var(--danger);text-decoration-color:var(--danger)}
 .set-version{font-size:calc(11.5px * var(--type-scale));color:var(--muted);opacity:.7;text-align:center;margin:6px 0 10px}
+/* practice-scene options (2026-07-05): a dedicated 2-column grid — never a
+   wrapped pill row. an odd last option spans the full row so nothing dangles. */
+.scene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+.scene-grid .ch-opt:last-child:nth-child(odd){grid-column:1/-1}
 
 /* small lifetime counts at the foot of the "you" tab (the stats home) */
 .ystats{display:flex;gap:30px;margin-top:20px;padding-top:16px;border-top:1px solid var(--hairline)}

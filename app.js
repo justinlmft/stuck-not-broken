@@ -3381,7 +3381,7 @@
         <div class="set-group">
           <p class="dash-prompt">practice scene</p>
           <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">surprise me</button>
-          <div class="ch-seg">
+          <div class="scene-grid">
             ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
           </div>
           <p class="fineprint" id="scene-cap" style="margin-top:10px"></p>
