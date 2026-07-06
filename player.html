@@ -1385,11 +1385,14 @@ function fitRing(){const dpr=devicePixelRatio||1;const w=cv.clientWidth,h=cv.cli
    their own elements — CC space and the popup menu are unaffected. */
 const SCENES=['circles','drift','pond','reeds','breeze','sunbeam','fireflies'];
 let SCENE='circles';
-let _motes=[],_reedArr=[],_ripArr=[],_strands=[],_dust=[],_flies=[],_ripNext=0,_sT=0,_sLast=0;
+let _motes=[],_reedArr=[],_ripArr=[],_strands=[],_dust=[],_flies=[],_ripNext=0,_sT=0,_sLast=0,_bgRGB=[250,249,245];
 function pickScene(){
   let pref=''; try{ pref=localStorage.getItem('snb_practice_scene')||''; }catch(e){}
   SCENE = SCENES.indexOf(pref)>=0 ? pref : SCENES[Math.floor(Math.random()*SCENES.length)];
   _motes=[];_reedArr=[];_ripArr=[];_strands=[];_dust=[];_flies=[];_ripNext=0;_sT=0;_sLast=0;
+  // sunbeam specks are the BACKGROUND colour (Justin 2026-07-05): bright dust
+  // caught in the light, not darker grit. read live so dark mode follows.
+  try{ const m=(getComputedStyle(document.body).backgroundColor||'').match(/\d+/g); if(m&&m.length>=3) _bgRGB=m.slice(0,3).map(Number); }catch(e){}
   for(let i=0;i<14;i++)_motes.push({x:Math.random(),y:Math.random(),r:1.5+Math.random()*3.5,v:(6+Math.random()*14)/1000,dx:(Math.random()-.5)*.003,a:.18+Math.random()*.3});
   for(let i=0;i<9;i++)_reedArr.push({x:.12+.76*(i/8)+(Math.random()-.5)*.05,h:.3+Math.random()*.34,per:5.2+Math.random()*6.5,ph:Math.random()*6.283,amp:.045+Math.random()*.05,w:1.4+Math.random()*1.2});
   for(let i=0;i<7;i++)_strands.push({y:.15+.7*(i/6)+(Math.random()-.5)*.06,len:.2+Math.random()*.22,sp:(28+Math.random()*46)/1000,x:Math.random()*1.4-.2,amp:2.5+Math.random()*4,ph:Math.random()*6.283,a:.22+Math.random()*.28});
@@ -1438,7 +1441,8 @@ function drawScene(W,H,unit,t,moving,e,col){
     _dust.forEach(d=>{
       const px=(d.x*W)+Math.sin(_sT*6.283/d.per+d.ph)*d.ax;
       const py=(d.y*H)+Math.cos(_sT*6.283/(d.per*1.3)+d.ph)*d.ay;
-      g.fillStyle=col(d.a*fade); g.beginPath();g.arc(px,py,d.r,0,6.283);g.fill();
+      g.fillStyle='rgba('+_bgRGB[0]+','+_bgRGB[1]+','+_bgRGB[2]+','+Math.min(1,(.5+d.a)*fade)+')';
+      g.beginPath();g.arc(px,py,d.r,0,6.283);g.fill();
     });
   } else if(SCENE==='fireflies'){
     _flies.forEach(f=>{
