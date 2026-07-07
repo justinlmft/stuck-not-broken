@@ -846,7 +846,7 @@ const MEDS={
 const MEDS_ORDER=['uye','eye','daily-dysregulation','outside-the-cave'];   // gentlest first
 /* skills offered within self-regulation (like the anchor menu) */
 const SKILLS={
-  most:[['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']]
+  most:[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']]
 };
 const EXP={
  micro:{key:'micro',t:'A tiny practice',cue:'about two minutes, one sense, done',d:"",sense:'touch',silence:2,gentle:true,mind:false,tier:0,
@@ -897,9 +897,12 @@ function build(c){
     add('MIND-06','sight');add('MIND-07','an emotion');add('MIND-08','an invitation');
   }else{
     const defense=(c.key==='most'), skill=c.skill;
-    const usesInvite=defense&&skill!=='obstacles';     // obstacles & anchoring skip intent-set / invite
+    const usesInvite=defense&&skill!=='obstacles'&&skill!=='validate';   // obstacles, validate & anchoring skip intent-set / invite
     if(usesInvite)add('INTENT-SET','setting an intention');
-    add(defense?({imagery:'PINTRO-IMAGERY',obstacles:'PINTRO-OBSTACLES',balancing:'PINTRO-BALANCING'}[skill]||'PINTRO-PENDULATING'):'PINTRO-ANCHORING','settling in');
+    // validate & normalize (the first rung, 2026-07-06) has no recorded PINTRO of
+    // its own yet — it goes straight to arriving; a v2 script can add one later.
+    if(!(defense&&skill==='validate'))
+      add(defense?({imagery:'PINTRO-IMAGERY',obstacles:'PINTRO-OBSTACLES',balancing:'PINTRO-BALANCING'}[skill]||'PINTRO-PENDULATING'):'PINTRO-ANCHORING','settling in');
     add('MIND-01','arriving');
     loopBase=anchorBlock(c,add);                        // anchor into safety (all non-mind practices)
     if(defense){
@@ -912,7 +915,16 @@ function build(c){
         add('NUMB-OK','permission');
         if(c.descDefense)add('DESC-DEFENSE','describing the defense');   // optional, under 'more options'
       }
-      if(skill==='balancing'){
+      if(skill==='validate'){
+        // validate & normalize — Justin's first self-regulation rung (2026-07-06),
+        // assembled entirely from existing clips: IMG-01 (validate: "I do feel
+        // blank") + IMG-02 (normalize: "makes sense given my life context"), then
+        // permission and back to safety. The gentlest defense contact there is.
+        loopBase='IMG-01';
+        add('IMG-01','validating what is here');add('IMG-02','normalizing it');
+        add('NUMB-OK','permission');
+        add('PEND-SAFETY','back to safety');
+      }else if(skill==='balancing'){
         add('PEND-SAFETY','back to safety');add('PEND-SAFETY-Q','noticing safety');
         if(c.holdWatch)add('HOLD-WATCH','holding both');   // optional hold-both, chosen in the customizer
         add('PEND-SAFETY','back to safety');
@@ -1625,6 +1637,8 @@ function postToHost(event){
     const c=fresh(pk);
     const sense=q.get('sense'); if(sense&&allSenses.indexOf(sense)>=0)c.sense=sense;
     const skill=q.get('skill'); if(skill&&SKILLS.most&&SKILLS.most.some(x=>x[0]===skill))c.skill=skill;
+    // host-driven describe-the-defense preset (recommender v2; rung-gated in store.js)
+    if(q.get('descdef')==='1'&&['imagery','balancing','pendulation'].indexOf(c.skill)>=0)c.descDefense=true;
     if(q.get('holdwatch')==='1')c.holdWatch=true;   // host-driven hold-both selection
     const hs=parseInt(q.get('holdsecs'),10); if([30,60,90,120].indexOf(hs)>=0)c.holdSeconds=hs;   // host-driven hold-both duration
     if(q.get('open')==='1')c.open=true;   // host-driven open-ended / practice indefinitely

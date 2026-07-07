@@ -160,8 +160,8 @@
   // opaque, so it is stored as 'self-regulation' (the app's own word for that track); the
   // other keys are already self-explanatory and pass through unchanged.
   const practiceLabelFor = k => (k==='most' ? 'self-regulation' : (k||null));
-  const rowToSession = r => ({ t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null) });
-  const sessionToRow = s => ({ user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null) });
+  const rowToSession = r => ({ t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
+  const sessionToRow = s => ({ user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null) });
 
   // ---- lifecycle ----
   async function init(cb){
@@ -486,11 +486,19 @@
     // if the MOST RECENT session ended early with a stated reason (exit-hard /
     // exit-easy / exit-distracted / exit-enough), surface it — the advisor nudges
     // the very next practice off it, then it naturally expires with the next session.
+    // exitReason is the clean column (2026-07-06 split); legacy rows fall back to
+    // the old overloaded feedback value.
     const lastS = data.sessions[data.sessions.length-1] || null;
-    const lastExit = (lastS && lastS.endedEarly && /^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null;
+    const lastExit = (lastS && lastS.endedEarly)
+      ? (lastS.exitReason || ((/^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null))
+      : null;
+    // how the body landed after the most recent session (more/same/less/struggle/
+    // unsure) — a completed session that was a struggle steps the next one down
+    // exactly like a too-hard exit (Justin 2026-07-06: finishing != going well).
+    const lastAfter = lastS ? (lastS.afterFeeling || null) : null;
     return { favSense: top(count(done,'sense')), favSkill: top(count(done,'skill')), favPractice: top(count(done,'practiceKey')),
              sessionsDone: done.length, endsEarlyOften: earlyRate >= 0.4 && data.sessions.length >= 3,
-             challengeAvg, challengeN: chs.length, lastExit };
+             challengeAvg, challengeN: chs.length, lastExit, lastAfter };
   }
 
   // ---- trend ----
@@ -663,6 +671,120 @@
       .filter(g => g.total >= _INSIGHT_MIN_N)
       .map(g => Object.assign(g, { rate: g.moved / g.total }))
       .sort((a,b) => b.total - a.total || b.rate - a.rate);
+  }
+
+  // ---- outcome ledger (recommender v2, Justin's rulings 2026-07-06) -----------
+  // Polarity: 'more' = good; 'same' = neutral (but nudges one step easier next
+  // time); 'less' / 'struggle' / 'unsure' = bad. exit-hard = bad; exit-enough /
+  // exit-distracted = neutral; exit-easy = its own turn-up signal (handled in
+  // recommend). A next check-in that reads steadier also counts as good — so
+  // pre-07-06 history (no after_feeling column) still earns credit.
+  function _exitOf(s){ return s ? (s.exitReason || ((/^exit-/.test(s.feedback||'')) ? s.feedback : null)) : null; }
+  function _movedUp(s){
+    if(!s || !s.domBefore || _RANK[s.domBefore]==null) return false;
+    const next = data.checkins.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
+    return !!next && _RANK[next.dom] > _RANK[s.domBefore];
+  }
+  // one session -> 'good' | 'bad' | 'neutral' | null (no readable outcome)
+  function _outcomeOf(s){
+    if(!s) return null;
+    const af = s.afterFeeling || null, ex = _exitOf(s);
+    if(ex==='exit-hard' || af==='struggle' || af==='less' || af==='unsure') return 'bad';
+    if(af==='more' || _movedUp(s)) return 'good';
+    if(af==='same' || ex==='exit-enough' || ex==='exit-distracted' || ex==='exit-easy') return 'neutral';
+    return null;
+  }
+  // Justin's self-regulation rung order (his curriculum; validate & normalize is
+  // the app's first defense rung as of v2). descDefense is a dial ON TOP of the
+  // ladder, and hold & watch sits above that — both gated in recommend().
+  const SKILL_LADDER = ['validate','imagery','obstacles','balancing','pendulation'];
+  // per-skill tallies over self-regulation sessions; plain (no describe-the-
+  // defense) and desc (with it) are tallied separately, because the descDefense
+  // rung only unlocks off PLAIN success at balancing + pendulation.
+  function skillOutcomes(){
+    const out = {};
+    SKILL_LADDER.forEach(k => out[k] = { plain:{good:0,bad:0,n:0,last:[]}, desc:{good:0,bad:0,n:0,last:[]} });
+    data.sessions.forEach(s => {
+      if(s.practiceKey!=='most' || !s.skill || !out[s.skill]) return;
+      const o = _outcomeOf(s);
+      const b = s.descDefense ? out[s.skill].desc : out[s.skill].plain;
+      b.n++;
+      if(o==='good') b.good++; else if(o==='bad') b.bad++;
+      b.last.push(o); if(b.last.length>2) b.last.shift();     // the two most recent attempts
+    });
+    return out;
+  }
+  // rungs(): which skills are cleared, the next rung to work on, and the dial
+  // unlocks. Cleared = >=2 good plain outcomes AND no bad in the last 2 attempts
+  // (a bad PAUSES the clear until a good attempt lands — scenario B).
+  // next = first uncleared rung ABOVE the highest cleared one (history is
+  // grandfathered: someone strong at pendulation is never sent back to validate).
+  function rungs(){
+    const so = skillOutcomes();
+    const cleared = {};
+    let hi = -1;
+    SKILL_LADDER.forEach((k,i) => {
+      const p = so[k].plain;
+      cleared[k] = p.good >= 2 && p.last.indexOf('bad') < 0;
+      if(cleared[k]) hi = i;
+    });
+    let next = null;
+    for(let i = hi + 1; i < SKILL_LADDER.length; i++){ if(!cleared[SKILL_LADDER[i]]){ next = SKILL_LADDER[i]; break; } }
+    if(hi < 0) next = 'validate';                             // nothing cleared yet: start at the first rung
+    // describe-the-defense unlocks after succeeding at balancing AND pendulation
+    // without it (Justin's cohort sequence).
+    const descUnlocked = !!(cleared.balancing && cleared.pendulation);
+    let descGoing = null;                                     // how the dial itself has been going
+    if(descUnlocked){
+      let g=0, n=0, lastBad=false;
+      SKILL_LADDER.forEach(k => { const d=so[k].desc; g+=d.good; n+=d.n; if(d.last.length && d.last[d.last.length-1]==='bad') lastBad=true; });
+      descGoing = { tried:n>0, good:g, n, lastBad };
+    }
+    // strongest cleared skill that can carry the descDefense dial (introduce the
+    // dial where they're most solid first).
+    let strongest = null, bestRate = -1;
+    ['imagery','balancing','pendulation'].forEach(k => {
+      if(!cleared[k]) return;
+      const p = so[k].plain, r = p.n ? p.good/p.n : 0;
+      if(r > bestRate){ bestRate = r; strongest = k; }
+    });
+    return { cleared, next, hi, descUnlocked, descGoing, strongest, so };
+  }
+  // hold & watch duration from demonstrated tolerance: how much of the chosen
+  // target they've actually been holding. >=90% of target -> same or one step up;
+  // <50% -> one step down; no history -> the smallest dose (30s).
+  const HOLD_STEPS = [30,60,90,120];
+  function holdTarget(){
+    const hs = data.sessions.filter(s => s.holdWatch && typeof s.holdWatchTargetSeconds==='number').slice(-3);
+    if(!hs.length) return 30;
+    const last = hs[hs.length-1];
+    const withActual = hs.filter(s => typeof s.holdWatchSeconds==='number');
+    if(!withActual.length) return last.holdWatchTargetSeconds || 30;
+    const ratio = withActual.reduce((a,s)=>a + Math.min(1, s.holdWatchSeconds/Math.max(1,s.holdWatchTargetSeconds)), 0) / withActual.length;
+    const cur = last.holdWatchTargetSeconds || 30;
+    const i = HOLD_STEPS.indexOf(cur) >= 0 ? HOLD_STEPS.indexOf(cur) : 0;
+    if(ratio >= 0.9) return HOLD_STEPS[Math.min(i+1, HOLD_STEPS.length-1)];
+    if(ratio < 0.5) return HOLD_STEPS[Math.max(i-1, 0)];
+    return cur;
+  }
+  // ---- daypart capacity: does this hour of the day historically run low on
+  // safety for this person? Used as a DAMPENER only (Justin 2026-07-06): a low
+  // daypart withholds the moment's +1 lift in spectrum(); it never pushes below
+  // what the current check-in reports, and it never re-locks cleared rungs.
+  function daypartLow(){
+    const cs = data.checkins;
+    if(cs.length < 8) return false;
+    const seg = _segOf(Date.now());
+    let n=0, sum=0, N=0, SUM=0;
+    cs.forEach(c => { if(typeof c.v!=='number') return; N++; SUM+=c.v; if(_segOf(c.t)===seg){ n++; sum+=c.v; } });
+    if(n < 4 || !N) return false;
+    return (sum/n) < (SUM/N) - 0.12;
+  }
+  // overall rated-outcome share — extra evidence for the Baseline estimate.
+  function _overallOutcomes(){
+    let good=0, bad=0, rated=0;
+    data.sessions.forEach(s => { const o=_outcomeOf(s); if(o==='good'){good++;rated++;} else if(o==='bad'){bad++;rated++;} else if(o==='neutral'){rated++;} });
+    return { good, bad, rated };
   }
 
   // dayArc: any one calendar day's moments as an arc — the atom of the reflections
@@ -838,17 +960,27 @@
     if(st && st.n >= 8){
       confidence = 'ok';
       const pe = practiceEffect(), rec = recovery();
+      // v2: rated session outcomes (after-feeling / moved-up) join practiceEffect
+      // and recovery as Point-3 evidence — the Baseline now reads what the person
+      // REPORTED, not only what the next check-in implied.
+      const oc = _overallOutcomes();
+      const outcomesGood = oc.rated >= 4 && (oc.good / oc.rated) >= 0.5;
       baseline = 1;
       if(st.regShare >= 0.25) baseline = 2;
-      if(st.regShare >= 0.5 && L.sessionsDone >= 3 && (rec != null || (pe && pe.rate >= 0.5))) baseline = 3;
+      if(st.regShare >= 0.5 && L.sessionsDone >= 3 && (rec != null || (pe && pe.rate >= 0.5) || outcomesGood)) baseline = 3;
       if(st.regShare >= 0.75 && L.sessionsDone >= 8) baseline = 4;
     }
-    let working = baseline;
+    let working = baseline, lifted = false;
     if(last){
-      if(_REG[last.dom] && last.v >= 0.6) working = Math.min(4, baseline + 1);        // strong safety Moment
+      if(_REG[last.dom] && last.v >= 0.6){ working = Math.min(4, baseline + 1); lifted = working > baseline; } // strong safety Moment
       else if(_DYS[last.dom] && last.v <= 0.25) working = Math.max(1, baseline - 1);   // deep defense Moment
     }
-    return { baseline, working, moment: last ? { dom:last.dom, v:last.v } : null, confidence };
+    // daypart dampener (Justin 2026-07-06): in an hour that historically runs low
+    // on safety, the Moment's +1 lift is withheld — today's ceiling sits at the
+    // Baseline in their thin hours. Never pushes below what the check-in reports.
+    const dpLow = daypartLow();
+    if(dpLow && lifted){ working = baseline; lifted = false; }
+    return { baseline, working, moment: last ? { dom:last.dom, v:last.v } : null, confidence, daypartLow: dpLow };
   }
 
   // ---- recommender (Safety Spectrum model, 2026-07-03) ------------------------
@@ -903,37 +1035,118 @@
       if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
       return cfg('anchoring', null, sense, sil, reason, 'connect with safety');
     }
-    // level 3+ — anchoring is real; defense in a dose when asked. pendulation gated.
-    const mostDone = data.sessions.filter(s=>s.completed && s.practiceKey==='most').length;
+    // level 3+ — anchoring is real; defense in a dose when asked, walked rung by
+    // rung (validate & normalize -> imagery -> obstacles -> balancing ->
+    // pendulation), with describe-the-defense and hold & watch as gated dials on
+    // top. (recommender v2, Justin's rulings 2026-07-06.)
+    const rg = rungs();
     const wantsDefense = want >= 0.53;
+    // the daypart evidence sentence, spoken whenever the dampener actually held
+    // today's ceiling down (the person deserves to know why).
+    const dpNote = sp.daypartLow ? " this hour of the day usually runs lower on safety for you, so we're keeping today's depth at your steady ground." : "";
     if(!wantsDefense || falling){
-      const reason = falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
+      const reason = (falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
                    : dys ? "your history shows real safety to draw on, even in a harder moment. we'll anchor into it and let that be enough today."
-                   : "you have real safety, and you asked to keep it gentle. let's connect more deeply with calm.";
+                   : "you have real safety, and you asked to keep it gentle. let's connect more deeply with calm.") + dpNote;
       return cfg('anchoring', null, sense, sil, reason, dys ? 'meet you where you are' : 'stay gentle');
     }
-    const pend = want>=0.78 && mostDone>=3 && !dys;
-    const skill = pend ? 'pendulation' : (L.favSkill || 'imagery');
-    let reason = dys
-      ? "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose."
-      : "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
-    if(!dys && want>=0.78) reason = pend
-      ? "you have safety, practice reps behind you, and you asked for more. safety, a little defense, and back."
-      : "you have safety, and you asked for more challenge. let's use that capacity to connect with non-safety.";
-    else if(!dys && L.sessionsDone>=3 && L.favPractice==='most') reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
-    return cfg('most', skill, sense, want>=0.78?4:(L.endsEarlyOften?8:6), reason, 'room to go deeper');
+    // ---- what happened last time on this track (graded step-down) ----
+    // hard signals (struggle / less / too-hard exit): first one turns the dials
+    // down on the SAME rung; a second in a row steps down a rung. soft signals
+    // ('same' / 'unsure'): one step easier right away, as a one-session nudge.
+    const mosts = data.sessions.filter(s => s.practiceKey==='most');
+    const lastMost = mosts[mosts.length-1] || null;
+    const prevMost = mosts[mosts.length-2] || null;
+    const lastAf = lastMost ? (lastMost.afterFeeling || null) : null;
+    const hardLast = !!lastMost && (lastAf==='struggle' || lastAf==='less' || _exitOf(lastMost)==='exit-hard');
+    const softLast = !!lastMost && !hardLast && (lastAf==='same' || lastAf==='unsure');
+    const below = k => { const i = SKILL_LADDER.indexOf(k); return i > 0 ? SKILL_LADDER[i-1] : null; };
+    // default rung: the next uncleared one; with the whole ladder cleared, an
+    // advanced ask goes to the top (pendulation — where the hold & watch dial
+    // lives), otherwise their strongest skill.
+    let skill = rg.next
+      || (want >= 0.78 && rg.cleared.pendulation ? 'pendulation' : null)
+      || rg.strongest || L.favSkill || 'validate';
+    let dialDown = false, droppedRung = false, leftTrack = false;
+    if(hardLast){
+      if(prevMost && _outcomeOf(prevMost)==='bad'){                       // two heavy ones in a row
+        const dn = below(lastMost.skill || skill);
+        if(dn){ skill = dn; droppedRung = true; } else leftTrack = true;  // below the first rung -> anchoring
+      } else { skill = lastMost.skill || skill; dialDown = true; }        // first one: same rung, smaller dose
+    } else if(softLast){
+      const dn = below(lastMost.skill || skill);
+      if(dn){ skill = dn; droppedRung = true; } else leftTrack = true;
+    }
+    if(leftTrack){
+      const reason = "last one didn't land well, so we're stepping out of defense work for a session and connecting with safety instead. the ladder will be right where you left it." + dpNote;
+      return cfg('anchoring', null, sense, 12, reason, 'a gentler session');
+    }
+    // pendulation still asks for advanced appetite (the ladder opens it; the
+    // person's stated depth chooses whether to take it today).
+    if(skill==='pendulation' && want < 0.78 && !droppedRung) skill = rg.cleared.balancing ? 'balancing' : 'obstacles';
+    // ---- the dials on top of the rung ----
+    // describe-the-defense: unlocks only after plain success at balancing AND
+    // pendulation; introduced on the strongest cleared skill; dropped again the
+    // session after it went badly. never on a dialed-down / stepped-down session.
+    let desc = false, descIntro = false;
+    if(rg.descUnlocked && !dialDown && !droppedRung && ['imagery','balancing','pendulation'].indexOf(skill) >= 0){
+      if(rg.descGoing && rg.descGoing.lastBad) desc = false;
+      else { desc = true; descIntro = !(rg.descGoing && rg.descGoing.tried); if(descIntro && rg.strongest) skill = rg.strongest; }
+    }
+    // hold & watch: Baseline 4 with today's working point at 3+ (Justin: strong
+    // safety as the NORM unlocks it; a good moment alone never does, and a rough
+    // moment doesn't take it away). sits above the describe rung.
+    let hold = false, holdSecs = null;
+    if(sp.baseline===4 && sp.working>=3 && rg.descUnlocked && !dialDown && !droppedRung && (skill==='balancing' || skill==='pendulation')){
+      hold = true; holdSecs = holdTarget();
+    }
+    // ---- why this practice (evidence named, in order: baseline/moment -> last
+    // session -> rung/dial -> daypart). drafts for Justin's copy pass.
+    let reason;
+    if(dialDown){
+      reason = "last one was a lot, so we're staying with " + _skillWord(skill) + " and making it smaller — a shorter stay, more room between the guidance.";
+      if(lastMost && lastMost.emotionIntent) reason += " if you work with " + lastMost.emotionIntent + " again, maybe at a gentler intensity this time.";
+    } else if(droppedRung && hardLast){
+      reason = "the last couple were heavy, so we're stepping one rung down to " + _skillWord(skill) + ". the deeper work will be right there when you're ready.";
+    } else if(droppedRung){
+      reason = "last one didn't land clearly, so we're going one step easier this time: " + _skillWord(skill) + ".";
+    } else if(hold){
+      reason = "strong safety has become your norm, and you're anchored right now. we'll go to the top of the ladder: " + _skillWord(skill) + ", and hold safety and defense together to watch what unfolds.";
+    } else if(descIntro){
+      reason = "you've been steady with balancing and pendulation on their own. this one adds describing the defense out loud — one step deeper, on the skill you're strongest in.";
+    } else if(dys){
+      reason = "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose.";
+    } else if(rg.hi < 0){
+      reason = "you have safety and you asked to meet defense. we'll start at the first rung: validating and normalizing what's here. asking for more opened the door — the ladder still goes one step at a time.";
+    } else if(rg.next){
+      reason = "you have safety here, and your practice history has earned the next step: " + _skillWord(skill) + ". one rung at a time, with the way back always open.";
+    } else if(want>=0.78){
+      reason = "you have safety, practice reps behind you, and you asked for more. safety, a little defense, and back.";
+    } else if(L.sessionsDone>=3 && L.favPractice==='most'){
+      reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
+    } else {
+      reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
+    }
+    reason += dpNote;
+    const sil3 = dialDown ? 12 : (want>=0.78 ? 4 : (L.endsEarlyOften ? 8 : 6));
+    return cfg('most', skill, sense, sil3, reason, dialDown ? 'same rung, smaller dose' : droppedRung ? 'one step easier' : 'room to go deeper',
+               { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedRung });
 
-    function cfg(practiceKey, skill, sense, silence, reason, tag){
+    function cfg(practiceKey, skill, sense, silence, reason, tag, extras){
       const pSil = prefSilence();
       let sil2 = (pSil!=null?pSil:silence);
       if(L.lastExit==='exit-distracted'){ sil2 = Math.min(sil2, 4); reason += " shorter silences this time, so it's easier to stay with."; }
-      else if(L.lastExit==='exit-hard'){ reason += " last one was a lot, so we're keeping this one easier."; }
+      else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedRung))){ reason += " last one was a lot, so we're keeping this one easier."; }
       else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
-      return { practiceKey, skill, sense, silence: sil2, reason, tag,
+      return Object.assign({ practiceKey, skill, sense, silence: sil2, reason, tag,
                adapted: (L.sessionsDone>0 || L.challengeN>0), domBefore: last?last.dom:null, challenge: want,
-               spectrum: { baseline: sp.baseline, working: sp.working } };
+               descDefense: false, holdWatch: false, holdWatchTargetSeconds: null,
+               spectrum: { baseline: sp.baseline, working: sp.working, daypartLow: !!sp.daypartLow } }, extras || {});
     }
   }
+  // plain word for a skill inside advisor copy (lowercase register)
+  const _SKILL_WORD = { validate:'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
+  function _skillWord(k){ return _SKILL_WORD[k] || k; }
 
   // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
   const CHALLENGE_LEVELS = [
@@ -969,6 +1182,36 @@
   // early-exit reason, stamped onto the last session — kept separate from after-feeling.
   function noteExit(val){ const s=data.sessions[data.sessions.length-1]; if(!s) return;
     _stampSession(s.t, { feedback:val, exitReason:val }, { feedback:val, exit_reason:val }); }
+
+  // ---- emotions + intensity (recommender v2, Justin 2026-07-06) ---------------
+  // Curated plain-emotion words — never an open list, never free text (keeps the
+  // analytics mirror clean). DELIBERATELY not state-named (Justin: "rage is
+  // frozen fight, but one might choose fight instead") — the chip mirrors what
+  // the person FELT; which state it belongs to stays with their check-ins and
+  // the reader, never inferred here. Intensity (1 mild / 2 moderate / 3 strong)
+  // 'connected' appears only in the post-practice "did anything surface?"
+  // question — regulation made visible. (No intensity rating — Justin 07-06:
+  // the pick stays one tap; "gentler intensity" lives in coaching copy only.)
+  // Clinical rule: emotion SHIFTS (sad in -> angry out) are REPORTED, never
+  // scored — the only thing the math ever scores is more safety.
+  const EMOTION_FAMILIES = [
+    { key:'anxious', label:'anxious', hint:'like nervous, worried, uneasy' },
+    { key:'angry',   label:'angry',   hint:'like annoyed, irritable — all the way up to rage' },
+    { key:'sad',     label:'sad',     hint:'like lonely, hopeless, disconnected' },
+    { key:'fear',    label:'fear',    hint:'like dread, panic, overwhelm' },
+  ];
+  const EMOTION_SURFACED = EMOTION_FAMILIES.concat([
+    { key:'connected', label:'connected', hint:'like calm, present, at ease' },
+  ]);
+  // optional post-practice: which families showed up while they practiced.
+  // MULTI-select (Justin 2026-07-06): a session can surface several — stored as a
+  // comma-joined string of family keys in canonical order (text column; simple to
+  // split anywhere, mirror-safe).
+  function noteSurfaced(val){ const s=data.sessions[data.sessions.length-1]; if(!s) return;
+    const v = Array.isArray(val)
+      ? EMOTION_SURFACED.map(f=>f.key).filter(k=>val.indexOf(k)>=0).join(',') || null
+      : (val || null);
+    _stampSession(s.t, { emotionSurfaced:v }, { emotion_surfaced:v }); }
 
   const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
@@ -1044,7 +1287,8 @@
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
     learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, recommend, spectrum, practiceLabel, reset, getName, setName,
-    challengeLabel, noteFeedback, noteExit, CHALLENGE_LEVELS,
+    challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
+    rungs, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
   };

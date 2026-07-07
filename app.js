@@ -195,11 +195,12 @@
     micro:       { cls:'mind',   color:'var(--track-mind)' },
   };
   const trackOf = (k) => TRACK[k] || TRACK.mindfulness;
-  const SKILL_LABEL = { imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
+  const SKILL_LABEL = { validate:'validate & normalize', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
   const skillLabel = (k) => SKILL_LABEL[k] || k;
   // plain-language gloss for each skill name — used by the builder's live
   // "what to expect" paragraph and anywhere else a skill needs explaining
   const SKILL_CAP = {
+    validate:   "name one thing you're feeling, say that it's real, and see that it makes sense given your life. the first rung of the ladder.",
     imagery:    'give a challenging feeling a shape in your mind and invite it in, a little at a time.',
     obstacles:  'notice what gets in the way of feeling safe, and meet it with some kindness.',
     balancing:  'hold something pleasant and something challenging at the same time, giving each some room.',
@@ -2965,7 +2966,7 @@
     {key:'more',       title:'more meditations',         sub:'standalone guided sessions'},
   ];
   const P_SENSES=['touch','sound','sight','movement','imagination'];
-  const P_SKILLS=[['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']];
+  const P_SKILLS=[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']];
   const P_SILENCE=[[4,'a little'],[8,'some'],[12,'a lot']];
   const P_MEDS=[
     {id:'uye',                 title:'Use Your Ears',       est:'~10 min', sub:'grounding through sound'},
@@ -2980,7 +2981,11 @@
   // Tapping it opens the plan reader. "choose another way" reveals the full chooser.
   function tabPractice(){
     const reco = Store.recommend();
-    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60, open:false };
+    // the recommender's preset dials (describe-the-defense / hold & watch, both
+    // gate-checked in store.js) seed the customizer so "change this practice"
+    // starts from the tuned shape.
+    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
+               holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null };
     renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
@@ -3016,6 +3021,8 @@
     const shapeBits = [
       (reco.practiceKey!=='mindfulness' && reco.sense) ? `anchored through ${hl(reco.sense)}` : null,
       reco.skill ? `practicing ${hl(skillLabel(reco.skill))}` : null,
+      reco.descDefense ? `${hl('describing the defense')} out loud` : null,
+      reco.holdWatch ? `${hl('holding both')} for ${hl(holdDurWords(reco.holdWatchTargetSeconds||30))}` : null,
       `with ${hl(silLabel(reco.silence))} silence between guidance`,
       chLabel ? `challenge level at ${hl(chLabel)}` : null,
       planEst ? `about ${hl(planEst+' minutes')} in all` : null,
@@ -3056,7 +3063,8 @@
     $('#plan-change').onclick = ()=>{
       app('practice');
       // open the chooser already on this practice, with its current shape selected
-      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null, holdWatch:false, holdSeconds:60, open:false };
+      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
+                 holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null };
       renderPracticeChooser();
     };
   }
@@ -3101,6 +3109,12 @@
         ${key==='most'?`<div class="p-rgroup">
           <p class="dash-prompt">which skill do you want to practice?</p>
           <div class="p-chips">${P_SKILLS.map(([v,l])=>chip(l,v,'skill',v===skill)).join('')}</div>
+        </div>`:''}
+        ${key==='most'?`<div class="p-rgroup">
+          <p class="dash-prompt">working with anything today?</p>
+          <div class="p-chips">${[['','let it surface']].concat(Store.EMOTION_FAMILIES.map(f=>[f.key,f.label])).map(([v,l])=>
+            `<button class="p-chip${(pState.emotion||'')===v?' on':''}" data-emo="${escapeHtml(v)}">${escapeHtml(l)}</button>`).join('')}</div>
+          <p class="ch-cap" id="p-emo-hint">${(()=>{const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);return f?escapeHtml(f.hint):'choosing ahead of time helps you notice it when it arrives. optional.';})()}</p>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup" id="p-hw-group" style="${(skill==='balancing'||skill==='pendulation')?'':'display:none'}">
           <p class="dash-prompt">add hold &amp; watch?</p>
@@ -3196,6 +3210,13 @@
       const hdg0=$('#p-hd-group'); if(hdg0) hdg0.style.display=((pState.skill==='balancing'||pState.skill==='pendulation')&&pState.holdWatch)?'':'none';
       updExpect();
     });
+    c.querySelectorAll('[data-emo]').forEach(b=>b.onclick=()=>{
+      pState.emotion = b.dataset.emo || null;
+      c.querySelectorAll('[data-emo]').forEach(r=>r.classList.toggle('on',(r.dataset.emo||null)===pState.emotion));
+      const h=$('#p-emo-hint');
+      if(h){ const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);
+        h.textContent = f ? f.hint : 'choosing ahead of time helps you notice it when it arrives. optional.'; }
+    });
     c.querySelectorAll('[data-holdwatch]').forEach(b=>b.onclick=()=>{
       pState.holdWatch=b.dataset.holdwatch==='true';
       c.querySelectorAll('[data-holdwatch]').forEach(r=>r.classList.toggle('on',(r.dataset.holdwatch==='true')===pState.holdWatch));
@@ -3246,7 +3267,7 @@
         if(key==='most'&&pState.open)ps.open='1';
         src='player.html?'+new URLSearchParams(ps).toString();
       }
-      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch,holdWatchTargetSeconds:(pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(key==='most'?!!pState.open:false)});
+      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch,holdWatchTargetSeconds:(pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(key==='most'?!!pState.open:false),emotionIntent:(key==='most'?(pState.emotion||null):null)});
     };
   }
 
@@ -3255,6 +3276,12 @@
   function launchWeaver(reco){
     const params = { embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) };
     if(reco.skill) params.skill = reco.skill;
+    // recommender-preset dials ride into the player (both already gate-checked in
+    // store.js: describe-the-defense by the rung ladder, hold & watch by baseline 4).
+    if(reco.practiceKey==='most' && reco.descDefense) params.descdef = '1';
+    if(reco.practiceKey==='most' && reco.holdWatch && (reco.skill==='balancing'||reco.skill==='pendulation')){
+      params.holdwatch='1'; params.holdsecs=String(reco.holdWatchTargetSeconds||30);
+    }
     practiceShell('player.html?'+new URLSearchParams(params).toString(), reco);
   }
 
@@ -3297,6 +3324,7 @@
       challenge:(typeof reco.challenge==='number' ? reco.challenge : null),
       selfRegLevel:_selfRegLevel,
       descDefense:(_isMost ? !!reco.descDefense : null),
+      emotionIntent:(_isMost ? (reco.emotionIntent||null) : null),
       meditationId:(reco.meditationId||null),
       openEnded:(reco.openEnded!=null ? !!reco.openEnded : null),
       loops:(typeof reco.loops==='number' ? reco.loops : null),
@@ -3342,6 +3370,12 @@
     { key:'unsure',  label:'not sure' },
   ];
   function renderFeedback(reco){
+    // v2: the body-feeling answer now SELECTS (instead of advancing), and an
+    // optional "did anything surface?" family row sits beneath it — both save on
+    // continue. surfaced uses the same curated families as the customizer (plus
+    // settled), so regulation becomes visible: what came up vs what they chose.
+    const isMost = reco && reco.practiceKey==='most';
+    const emoChip = f => `<button class="p-chip fb-emo" data-emosurf="${f.key}">${escapeHtml(f.label)}</button>`;
     setHTML(`
       <header class="appbar"></header>
       <div class="scroll"><div class="view fb-view">
@@ -3353,9 +3387,32 @@
         <div class="fb-opts">
           ${FB_OPTS.map(o=>`<button class="fb-opt" data-fb="${o.key}">${o.label}</button>`).join('')}
         </div>
-        <button class="navlink" id="fb-skip" style="align-self:center;margin-top:18px">skip</button>
+        ${isMost?`<div class="fb-surf">
+          <p class="dash-prompt">did anything surface?</p>
+          <p class="ch-cap">whatever showed up while you practiced — even if it wasn’t what you chose. pick any that fit. optional.</p>
+          <div class="p-chips">${Store.EMOTION_SURFACED.map(emoChip).join('')}</div>
+        </div>`:''}
+        <button class="btn block" id="fb-continue" disabled style="margin-top:18px">continue</button>
+        <button class="navlink" id="fb-skip" style="align-self:center;margin-top:12px">skip</button>
       </div></div>`);
-    root.querySelectorAll('.fb-opt').forEach(b=>b.onclick=()=>{ try{ Store.noteFeedback(b.dataset.fb); }catch(e){} fbThanks(b.dataset.fb); });
+    let fbSel=null; const surfSel=new Set();   // surfaced is MULTI-select: several families can show up in one session
+    const cont=$('#fb-continue');
+    root.querySelectorAll('.fb-opt').forEach(b=>b.onclick=()=>{
+      fbSel=b.dataset.fb;
+      root.querySelectorAll('.fb-opt').forEach(r=>r.classList.toggle('on',r.dataset.fb===fbSel));
+      if(cont){ cont.disabled=false; cont.removeAttribute('disabled'); }
+    });
+    root.querySelectorAll('[data-emosurf]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.emosurf;
+      if(surfSel.has(k)) surfSel.delete(k); else surfSel.add(k);   // tap toggles each family
+      b.classList.toggle('on', surfSel.has(k));
+    });
+    if(cont) cont.onclick=()=>{
+      if(!fbSel) return;
+      try{ Store.noteFeedback(fbSel); }catch(e){}
+      if(surfSel.size){ try{ Store.noteSurfaced(Array.from(surfSel)); }catch(e){} }
+      haptic('save'); fbThanks(fbSel);
+    };
     const sk=$('#fb-skip'); if(sk) sk.onclick=()=>app('today');
   }
   function fbThanks(val){

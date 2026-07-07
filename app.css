@@ -779,6 +779,13 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .fb-opt:active{background:var(--bone-deep)}
 @media(hover:hover){.fb-opt:hover{border-color:var(--ink-80)}}
 .fb-opt:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* v2: the body-feeling answer selects (continue advances), so it needs an on state */
+.fb-opt.on{border-color:var(--ink);font-weight:500}
+/* "did anything surface?" (post-practice) — plain-emotion chips (multi-select).
+   deliberately no state colors: the chip mirrors what was felt, never claims a state. */
+.fb-surf{margin-bottom:6px}
+.fb-surf .dash-prompt{margin-bottom:2px}
+.fb-surf .ch-cap{margin:0 0 10px}
 .fb-after{display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:6px}
 
 /* ---- check-in v2 (no animated figure — the live readout is the system's answer; fits one screen) ---- */
