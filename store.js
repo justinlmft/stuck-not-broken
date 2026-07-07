@@ -750,6 +750,41 @@
     });
     return { cleared, next, hi, descUnlocked, descGoing, strongest, so };
   }
+  // one-sentence descriptions of each ladder skill + dial, so the reader can name
+  // the skill AND teach what it is (a path to the fuller practice-tab breakdown sits
+  // in the reader copy). Straw wording — Justin owns final. Keyed to SKILL_LADDER + dials.
+  const SKILL_DESC = {
+    validate:    "letting what's here be here, meeting the emotion without arguing with it",
+    imagery:     'using a mental image to invite some safety',
+    obstacles:   'noticing what blocks safety and working with it directly',
+    balancing:   'holding some safety and some defense at the same time',
+    pendulation: 'moving toward the defense and back to safety, in small swings',
+    descDefense: 'naming the defense out loud as you feel it',
+    holdWatch:   'staying with what surfaces and watching it move, without steering it',
+  };
+  function skillDesc(k){ return SKILL_DESC[k] || null; }
+  // rungStory(): the reader-facing shape of rungs()/skillOutcomes() — which skills are
+  // cleared (advisor names, ladder order), the next one to work on, and whether there's
+  // any self-regulation history to speak of. Null until there is. Not scored; capacity,
+  // not rank. The "what would change the app's recommendation" story is copy in the
+  // reader's S6 (the recommender's own step-down/advance logic told plainly).
+  function rungStory(){
+    const hasHistory = data.sessions.some(s => s && s.practiceKey==='most');
+    if(!hasHistory) return null;
+    const rg = rungs();
+    const cleared = SKILL_LADDER.filter(k => rg.cleared[k]);
+    // reason = the good signal that most recently fired on the strongest skill, so the
+    // reader can name WHY it was recommended: the after-feeling came back 'more', or the
+    // next check-in read steadier (else just 'going well'). Reported, never scored.
+    let reason = 'going-well';
+    if(rg.strongest){
+      const ms = data.sessions.filter(s => s.practiceKey==='most' && s.skill===rg.strongest).sort((a,b)=>a.t-b.t);
+      for(let i=ms.length-1;i>=0;i--){ if(_outcomeOf(ms[i])==='good'){ reason = ms[i].afterFeeling==='more' ? 'more' : (_movedUp(ms[i]) ? 'steadier' : 'going-well'); break; } }
+    }
+    return { cleared, next: rg.next, strongest: rg.strongest, reason,
+             descUnlocked: rg.descUnlocked, curDesc: rg.strongest ? skillDesc(rg.strongest) : null,
+             nextDesc: rg.next ? skillDesc(rg.next) : null, hasHistory:true };
+  }
   // hold & watch duration from demonstrated tolerance: how much of the chosen
   // target they've actually been holding. >=90% of target -> same or one step up;
   // <50% -> one step down; no history -> the smallest dose (30s).
@@ -1213,6 +1248,84 @@
       : (val || null);
     _stampSession(s.t, { emotionSurfaced:v }, { emotion_surfaced:v }); }
 
+  // ---- reader bridge + signals (recommender-v2 data -> the reader) ------------
+  // emotion group -> the state it's evidence of. Reader-only: capture stays plain,
+  // and the math NEVER scores this (more-safety is the only scored outcome). Group
+  // grain — the user picks a family, never a specific feeling. Grouping is from our
+  // internal SSIEC (rage->fear, regret->sad); the name "SSIEC" is never user-facing.
+  const EMOTION_STATE = { anxious:'fightflight', angry:'fightflight', sad:'shutdown', fear:'freeze', connected:'safety' };
+  function emotionStateOf(key){ return EMOTION_STATE[key] || null; }
+  // emotionShift(session): per-session beat for the daily reader. Reports the family
+  // they set out to work with (intent) and the families they named afterward
+  // (surfaced) — both facts THEY gave. diverged = intent set and not among surfaced.
+  // Defaults to the most recent session. Reported, never ordered, never scored.
+  function emotionShift(s){
+    s = s || (data.sessions[data.sessions.length-1] || null);
+    if(!s) return null;
+    const intent = s.emotionIntent || null;
+    const surfaced = s.emotionSurfaced ? String(s.emotionSurfaced).split(',').map(x=>x.trim()).filter(Boolean) : [];
+    if(!intent && !surfaced.length) return null;
+    return { intent, surfaced, connected: surfaced.indexOf('connected')>=0,
+             diverged: !!(intent && surfaced.length && surfaced.indexOf(intent)<0),
+             domBefore: s.domBefore || null };
+  }
+  // emotionPatterns(startMs, endMs): aggregate over sessions in a window that NAMED a
+  // feeling. TWO args = explicit window (used by minted period reflections, so a closed
+  // month/quarter/year computes over THAT span and can freeze). <=1 arg = rolling last-N-
+  // days (default 28) for the live weekly/monthly reader. families = share of naming-
+  // sessions each group surfaced in (percentages, never X-of-N). alignRate = share where
+  // intent landed among surfaced. connectedPct = share where connected surfaced. topFamily
+  // = most-surfaced group (ties broken by EMOTION_SURFACED order, deterministic). When
+  // n>=6, `shift` compares the window's first third vs last third (for the "what surfaces
+  // changed over the span" period beat). Gated at >=4 naming-sessions. Reported, NEVER
+  // scored; more-safety stays the only scored axis.
+  function emotionPatterns(startMs, endMs){
+    let a, b;
+    if(endMs==null){ const days = (typeof startMs==='number' && startMs>0) ? startMs : 28; b = Date.now(); a = b - days*864e5; }
+    else { a = startMs; b = endMs; }
+    const ss = data.sessions
+      .filter(s => s && typeof s.t==='number' && s.t>=a && s.t<b && s.emotionSurfaced)
+      .sort((x,y)=>x.t-y.t);
+    const n = ss.length;
+    if(n < 4) return null;
+    const setsOf = s => String(s.emotionSurfaced).split(',').map(x=>x.trim()).filter(Boolean);
+    const tally = list => { const fam={}; EMOTION_SURFACED.forEach(f=>fam[f.key]=0); let conn=0;
+      list.forEach(s => { const set=setsOf(s); EMOTION_SURFACED.forEach(f=>{ if(set.indexOf(f.key)>=0) fam[f.key]++; }); if(set.indexOf('connected')>=0) conn++; });
+      return { fam, conn }; };
+    const topOf = list => { const t=tally(list).fam; let k=null,m=-1; EMOTION_SURFACED.forEach(f=>{ if(t[f.key]>m){ m=t[f.key]; k=f.key; } }); return m>0?k:null; };
+    const { fam, conn } = tally(ss);
+    const families = {}; Object.keys(fam).forEach(k => { if(fam[k]) families[k] = Math.round(fam[k]/n*100); });
+    const topFamily = topOf(ss);
+    const withIntent = ss.filter(s => s.emotionIntent);
+    let aligned=0; withIntent.forEach(s => { if(setsOf(s).indexOf(s.emotionIntent)>=0) aligned++; });
+    let shift = null;
+    if(n >= 6){
+      const third = Math.max(1, Math.floor(n/3));
+      const first = ss.slice(0, third), last = ss.slice(-third);
+      shift = { firstTop: topOf(first), lastTop: topOf(last),
+                connectedFirstPct: Math.round(tally(first).conn/first.length*100),
+                connectedLastPct: Math.round(tally(last).conn/last.length*100) };
+    }
+    return { n, families, topFamily,
+             alignRate: withIntent.length ? aligned/withIntent.length : null, alignN: withIntent.length,
+             connectedPct: Math.round(conn/n*100), shift };
+  }
+  // rungMovement(startMs, endMs): the self-regulation skill practiced at the window's
+  // start vs its end (from 'most' sessions with a skill inside the window). Powers the
+  // period "3 months ago you were practicing X, now Y" arc. Null until two such practices
+  // exist in the window. `advanced` is available (ladder index) but the copy stays neutral
+  // — forward-then-back is normal (Justin), and the ladder is a sequence, not a score.
+  function rungMovement(startMs, endMs){
+    const ms = data.sessions
+      .filter(s => s && s.practiceKey==='most' && s.skill && typeof s.t==='number' && s.t>=startMs && s.t<endMs)
+      .sort((a,b)=>a.t-b.t);
+    if(ms.length < 2) return null;
+    const from = ms[0].skill, to = ms[ms.length-1].skill;
+    const fi = SKILL_LADDER.indexOf(from), ti = SKILL_LADDER.indexOf(to);
+    return { from, to, fromDesc: skillDesc(from), toDesc: skillDesc(to),
+             moved: from!==to, advanced: (fi>=0 && ti>=0) ? ti>fi : null, n: ms.length };
+  }
+
   const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
 
@@ -1288,7 +1401,8 @@
     mints, hasMint, saveMint,
     learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, recommend, spectrum, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
-    rungs, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
+    rungs, rungStory, rungMovement, skillDesc, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
+    emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
   };

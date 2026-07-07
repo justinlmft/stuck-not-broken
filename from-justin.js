@@ -491,6 +491,9 @@
       const rose = (beforeV!=null) && (lastM.v > beforeV + 0.04);
       const dkey = (sBetween.feedback === 'struggle') ? 'struggled' : (rose || sBetween.feedback === 'more') ? 'eased' : 'held';
       parts.push(cycle('daily-delta', DAILY_DELTA[dkey]));
+      // per-session emotion shift beat: what they set out to work with vs what surfaced
+      const shift = (global.Store && Store.emotionShift) ? Store.emotionShift(sBetween) : null;
+      if(shift && shift.surfaced && shift.surfaced.length){ const line = _emotionShiftLine(shift); if(line) parts.push(line); }
     } else if(n >= 2){
       const distinct = M.map(m=>m.dom).filter((d,i,a)=>a.indexOf(d)===i).length;
       const akey = distinct >= 3 ? 'mixed' : t.dir==='up' ? 'eased' : t.dir==='down' ? 'charged' : 'steady';
@@ -1031,6 +1034,86 @@
     return { id:'blog-pats', heading:_heading(ctx.dom,'What your patterns show',false), paras:parts, fresh:true };
   }
 
+  // ---- emotion + rung reader beats (recommender-v2 data -> reader, 2026-07-07) --
+  // Group->state bridge for user-facing copy. Mirrors Store.EMOTION_STATE; the word
+  // "SSIEC" is internal and never shown. Bridges are offered as a lens ("could be"),
+  // never scored — more-safety stays the only scored axis. Straw phrasing 🖊 Justin owns;
+  // the Direction-1 per-session template and the change-data conditional are his approved copy.
+  const EMO_BRIDGE = { anxious:'flight activation', angry:'fight activation', sad:'a move toward shutdown', fear:'a freeze response', connected:'a sign of safety in the system' };
+  const PAT_BRIDGE = { anxious:'mobilized energy, the body geared up to act', angry:'mobilized energy, the body geared up to act', sad:'the body conserving, pulling inward', fear:'energy and brake at once', connected:'a sign of safety' };
+  const _RUNG_WORD = { validate:'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
+  function _rungWord(k){ return _RUNG_WORD[k] || k; }
+  const _artA = w => (/^[aeiou]/i.test(String(w||'')) ? 'an ' : 'a ');
+  // per-session shift beat (daily reader). shift = Store.emotionShift(session).
+  function _emotionShiftLine(shift){
+    if(!shift) return '';
+    const surf = (shift.surfaced || []).slice();
+    if(!shift.intent){
+      if(!surf.length) return '';
+      return 'You didn\'t set an intention this time, and ' + _artA(surf[0]) + surf[0] + ' emotion surfaced. Good job noticing what was maybe already there.';
+    }
+    const nonConn = surf.filter(k => k!=='connected');
+    const hasConn = surf.indexOf('connected') >= 0;
+    let whatSurfaced;
+    if(!surf.length) whatSurfaced = 'not much this time';
+    else { const primary = nonConn[0] || surf[0];
+      whatSurfaced = _artA(primary) + primary + ' one';
+      if(hasConn && primary!=='connected') whatSurfaced += ', along with a connected one'; }
+    let s = 'You set out to work with ' + _artA(shift.intent) + shift.intent + ' emotion, and what surfaced was ' + whatSurfaced + '. This is totally normal and expected. The body brings forth what it\'s ready for, not necessarily what we have planned for it.';
+    const bits = [];
+    const primary = nonConn[0];
+    if(primary && EMO_BRIDGE[primary]) bits.push('The ' + primary + ' emotion could be ' + EMO_BRIDGE[primary]);
+    if(hasConn) bits.push('the connected one is ' + EMO_BRIDGE.connected);
+    if(bits.length) s += ' ' + bits.join('; ') + '.';
+    return s;
+  }
+  // period emotion mix line (monthly/quarterly + essay), spanWord e.g. 'this month'.
+  function _periodEmotionLine(e, spanWord){
+    if(!e || !e.topFamily) return '';
+    const top = e.topFamily, pct = e.families[top];
+    let s = 'Across your practices ' + spanWord + ', ' + _artA(top) + top + ' type of emotion surfaced most, in about ' + pct + '% of the ones where you named a feeling.';
+    if(top==='connected'){
+      s += ' That\'s a sign of safety showing up while you practiced.';
+    } else {
+      if(PAT_BRIDGE[top]) s += ' That type is usually ' + PAT_BRIDGE[top] + '.';
+      if(e.connectedPct>0) s += ' A connected type showed up in about ' + e.connectedPct + '%, a sign of safety while you practiced.';
+    }
+    return s;
+  }
+  // essay "what's been surfacing" section (weekly/live), from Store.emotionPatterns().
+  function _essayEmotion(ctx){
+    const e = ctx.emotion; if(!e || !e.topFamily) return null;
+    const s = _periodEmotionLine(e, 'lately');
+    const prompt = 'When you set out to work with one type of emotion and a different one shows up, what do you make of that? Do you think this is evidence of self-regulation? Or something else?';
+    return { id:'blog-emo', heading:_heading(ctx.dom,'What\'s been surfacing',false), paras:[s, prompt], fresh:true };
+  }
+  // rung movement sentence for the period altitudes. mv = Store.rungMovement(win).
+  function _rungMovementLine(mv, whenWord){
+    if(!mv || !mv.moved) return '';
+    return whenWord + ' you were practicing ' + _rungWord(mv.from) + ', and now you\'re working with ' + _rungWord(mv.to) + '.';
+  }
+  // essay "your self-regulation practice" section: which skill + why (from the data),
+  // the next skill, and the change-data conditional (Justin-approved). ctx.rung =
+  // Store.rungStory().
+  function _essayRung(ctx){
+    const r = ctx.rung; if(!r || !r.hasHistory) return null;
+    const cur = r.strongest || (r.cleared && r.cleared.length ? r.cleared[r.cleared.length-1] : null);
+    const parts = [];
+    if(cur){
+      let s = 'In your self-regulation practice, you\'ve been working with ' + _rungWord(cur) + (r.curDesc ? ': ' + r.curDesc : '') + '.';
+      const because = r.reason==='more' ? 'left you feeling more connected afterward, not less'
+                    : r.reason==='steadier' ? 'were followed by steadier check-ins'
+                    : 'have been going well, more than not';
+      s += ' This skill was recommended because your recent ' + _rungWord(cur) + ' practices ' + because + '.';
+      if(r.next) s += ' When you\'re ready to try it, the next skill is ' + _rungWord(r.next) + (r.nextDesc ? ', ' + r.nextDesc : '') + '.';
+      parts.push(s);
+    } else if(r.next){
+      parts.push('In your self-regulation practice, the next skill is ' + _rungWord(r.next) + (r.nextDesc ? ', ' + r.nextDesc : '') + '.');
+    }
+    parts.push('Self-regulation happens incrementally, not all at once. It\'s normal and expected to move forward in practices, and then move backward. The next recommended practices will adapt based on your check-ins. If you report lower safety, the app will ease back into shorter, gentler practices, and more time building safety before moving into defense. If you report safety is holding, the app will build practices with the next skill level challenge.');
+    return { id:'blog-rung', heading:_heading(ctx.dom,'Your self-regulation practice',false), paras:parts, fresh:true };
+  }
+
   function blog(ctx0){
     ctx0 = ctx0 || {};
     const dom = ctx0.dom || ((global.Store&&Store.lastCheckin)?(Store.lastCheckin()||{}).dom:null);
@@ -1050,6 +1133,12 @@
     const secs = ESSAYS[dom](ctx);
     const pats = _essayPatterns(ctx);
     if(pats) secs.splice(1, 0, pats);                    // fresh data early: right after "What X is"
+    // emotion surface patterns sit next to the check-in patterns (both "what's showing up")
+    const emo = _essayEmotion(ctx);
+    if(emo) secs.splice(pats ? 2 : 1, 0, emo);
+    // the self-regulation rung story + change-data lands late, near "What to try"/"Where this can go"
+    const rung = _essayRung(ctx);
+    if(rung) secs.splice(Math.max(secs.length-1, 0), 0, rung);
     // the Baseline zoom-out gets the same fresh treatment as the patterns section
     // (2026-07-05): its own highlighted section just before the close, instead of
     // hiding as a paragraph inside "Where this can go"
@@ -1092,6 +1181,11 @@
     if(st.bestDow!=null) parts.push(_fillMQ(cycle('mo-dow', MONTHLY.rhythm_dow), o));
     const rec = ctx0.recovery;
     if(rec && rec.avg!=null) parts.push(_fillMQ(cycle('mo-rec', MONTHLY.recovery), { N:_recoveryPhrase(rec) }));
+    // emotion mix + self-regulation movement over the month (recommender-v2)
+    const emoLine = _periodEmotionLine(ctx0.emotion, 'this month');
+    if(emoLine) parts.push(emoLine);
+    const mvLine = _rungMovementLine(ctx0.movement, 'At the start of the month');
+    if(mvLine) parts.push(mvLine);
     parts.push(cycle('mo-close', MONTHLY.close));
     return { text: parts.join(' '), stats: st };
   }
@@ -1135,6 +1229,12 @@
     const rec = ctx0.recovery;
     if(rec && rec.avg!=null) parts.push(_fillMQ(cycle('q-rec', QUARTERLY.recovery), { N:_recoveryPhrase(rec) }));
     parts.push(_fillMQ(cycle('q-tot', QUARTERLY.totals), o));
+    // self-regulation arc + emotion mix over the span (recommender-v2)
+    const _when = { q:'3 months ago', half:'6 months ago', year:'A year ago' };
+    const mvLine = _rungMovementLine(ctx0.movement, _when[mark] || 'Earlier in this stretch');
+    if(mvLine) parts.push(mvLine.charAt(0).toUpperCase() + mvLine.slice(1));
+    const emoLine = _periodEmotionLine(ctx0.emotion, _QSPAN[mark] || 'this stretch');
+    if(emoLine) parts.push(emoLine);
     parts.push(cycle('q-close:'+mark, QUARTERLY.close[mark]));
     return { text: parts.join(' '), stats: st, mark: mark };
   }

@@ -1172,7 +1172,9 @@
       dom:dom, dir:dir, count:base.length, streak:streak,
       nState:base.filter(c=>c.dom===dom).length, nTotal:base.length,
       f2s:f2s, defDom:defDom, name:((Store.getName&&Store.getName())||''),
-      patterns:patterns
+      patterns:patterns,
+      emotion:(Store.emotionPatterns?Store.emotionPatterns():null),
+      rung:(Store.rungStory?Store.rungStory():null)
     }) : null;
 
     // per-section visuals: computed from the reader's own recent signals so each picture
@@ -1372,7 +1374,8 @@
         if(!Store.hasMint('monthly', key)){
           const st = Store.periodStats(ms, me);
           if(st && st.n>=8){
-            const note = FromJustin.monthly({ stats:st, baseline:Store.baselineDelta(ms,me), recovery:(Store.recovery?Store.recovery():null) });
+            const note = FromJustin.monthly({ stats:st, baseline:Store.baselineDelta(ms,me), recovery:(Store.recovery?Store.recovery():null),
+              emotion:(Store.emotionPatterns?Store.emotionPatterns(ms,me):null), movement:(Store.rungMovement?Store.rungMovement(ms,me):null) });
             if(note && note.text){
               const label = new Date(ms).toLocaleDateString(undefined,{ month:'long', year:'numeric' });
               Store.saveMint({ tier:'monthly', date:key, dateMs:ms, text:note.text, data:{ label } });
@@ -1396,7 +1399,8 @@
         const st = Store.periodStats(start, end);
         if(!st || st.n<12) continue;
         const mark = (q%4===0)?'year' : (q%4===2)?'half' : 'q';
-        const note = FromJustin.quarterly({ stats:st, baseline:Store.baselineDelta(start,end), recovery:(Store.recovery?Store.recovery():null), mark:mark });
+        const note = FromJustin.quarterly({ stats:st, baseline:Store.baselineDelta(start,end), recovery:(Store.recovery?Store.recovery():null), mark:mark,
+          emotion:(Store.emotionPatterns?Store.emotionPatterns(start,end):null), movement:(Store.rungMovement?Store.rungMovement(start,end):null) });
         if(note && note.text){
           const lead = mark==='year'?'a year' : mark==='half'?'6 months' : 'a quarter';
           const label = lead + ' to ' + new Date(end-1).toLocaleDateString(undefined,{ month:'long', day:'numeric', year:'numeric' });
