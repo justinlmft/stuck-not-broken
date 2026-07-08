@@ -261,7 +261,10 @@
       if(!session) return { error:'not signed in' };
       const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/' + name, {
         method:'POST',
-        headers:{ Authorization:'Bearer ' + session.access_token, apikey: cfg.SUPABASE_ANON_KEY, 'Content-Type':'application/json' },
+        // no apikey header on purpose: these fns run verify_jwt=off + auth via the
+        // Bearer token internally. Sending apikey would add it to the CORS preflight,
+        // which the function's allow-headers must echo — simpler to just not send it.
+        headers:{ Authorization:'Bearer ' + session.access_token, 'Content-Type':'application/json' },
       });
       let b={}; try{ b = await r.json(); }catch(e){}
       if(!r.ok || !b.url) return { error:(b && b.error) || 'something went wrong. please try again in a moment.' };
