@@ -108,6 +108,25 @@
   let _deferredInstall = null;
   const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
   const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+  // in-app browsers (instagram/facebook/gmail/etc.) and non-Safari iOS browsers
+  // can't "add to home screen" — the #1 install snag for new members (Claudia hit
+  // it). detect them so we say "open in your real browser first" instead of
+  // pointing at a share icon that isn't there.
+  const inAppBrowser = () => /FBAN|FBAV|FB_IAB|Instagram|Line|MicroMessenger|WhatsApp|Snapchat|Pinterest|LinkedInApp|GSA/i.test(navigator.userAgent||'') || /; wv\)/.test(navigator.userAgent||'');
+  const iosSafari = () => isiOS() && /Safari/.test(navigator.userAgent||'') && !/CriOS|FxiOS|EdgiOS|FBAN|FBAV|Instagram|Line|GSA/i.test(navigator.userAgent||'');
+  function openElsewhereMsg(){
+    return isiOS()
+      ? 'to install, open this page in safari first (not this in-app window), then tap the share icon and choose "add to home screen."'
+      : 'to install, open this page in chrome first (not this in-app window), then use the menu and choose "add to home screen."';
+  }
+  // one source of truth for install state: installed | button | ios-safari | open-elsewhere | other
+  function installState(){
+    if(isStandalone()) return 'installed';
+    if(inAppBrowser() || (isiOS() && !iosSafari())) return 'open-elsewhere';
+    if(canInstall()) return 'button';
+    if(isiOS()) return 'ios-safari';
+    return 'other';
+  }
   const canInstall = () => !!_deferredInstall;
   window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); _deferredInstall = e; updateInstallUI(); });
   window.addEventListener('appinstalled', ()=>{ _deferredInstall = null; try{ localStorage.setItem('snb_installed','1'); }catch(_){} updateInstallUI(); showToast('installed'); });
@@ -338,6 +357,10 @@
   function route(){
     if(!Store.user()) return screenSignIn();
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
+    // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
+    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'){ if(Store.refreshBilling) Store.refreshBilling(); showToast("your free trial is active. no charge until it ends, and we'll remind you first."); } } }catch(e){}
+    // paid-trial gate: ONLY the invited cohort without an active sub sees the paywall.
+    if(!Store.hasAccess()) return screenPaywall();
     // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
     let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
     if(h==='checkin'){ app('today'); return screenCheckin(); }
@@ -467,6 +490,38 @@
     }, 350);
   }
 
+  // ---------------------------------------------------------------- paywall (paid-trial cohort only)
+  // Shown to an invited cohort member who is signed in but has no active trial or
+  // subscription. Copy is the calm, no-surprise-charge voice (Trial-Copy draft).
+  function screenPaywall(err, busy){
+    const b = (Store.billing && Store.billing()) || null;
+    const ended = !!(b && (b.sub_status==='canceled' || b.sub_status==='unpaid' || b.sub_status==='incomplete_expired' || b.sub_status==='paused'));
+    setHTML(`
+      <div class="view gate">
+        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
+        <div class="gate-body">
+          <p class="eyebrow">${ended?'your free trial has ended':'your free trial'}</p>
+          <h1 style="margin:10px 0 12px">${ended?'keep going for $12 a month':'try the whole app free for 8 days'}</h1>
+          <p class="lede" style="margin-bottom:18px">${ended
+            ? "you weren't charged. if you'd like to keep going, it's $12 a month, and you can cancel anytime."
+            : 'check in with how you actually feel, get a practice tuned to your state, and notice what shifts. free for 8 days.'}</p>
+          ${ended?'':`<p class="fineprint" style="margin-bottom:18px">a card is required to start. you won't be charged today. after 8 days it's $12 a month, and you can cancel anytime before then and pay nothing.</p>`}
+          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
+          <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':(ended?'subscribe':'start my free trial')}</button>
+          ${ended?'':'<p class="fineprint" style="margin-top:10px">we\'ll remind you before the trial ends. cancelling takes two taps.</p>'}
+          <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-out" style="font-size:inherit;padding:2px">sign out</button></p>
+        </div>
+      </div>`);
+    if(busy) return;
+    $('#pw-go').onclick = ()=>{
+      screenPaywall(null, true);
+      Promise.resolve(Store.startTrial()).then(res=>{
+        if(res && res.error) return screenPaywall(res.error);   // else the browser is redirecting to Stripe
+      }).catch(e=>screenPaywall(String((e&&e.message)||e)));
+    };
+    const so=$('#pw-out'); if(so) so.onclick = async ()=>{ await Store.signOut(); currentTab='today'; route(); };
+  }
+
   function screenConfirm(email){
     setHTML(`
       <div class="view gate"><div class="gate-body" style="text-align:center">
@@ -590,27 +645,57 @@
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     ({ today:tabToday, current:tabCurrent, practice:tabPractice }[tab] || tabToday)();
     if(tab === 'today') maybeInstallNudge();
+    maybeTrialBanner();
     document.body.classList.remove('show-fab');
   }
   // install affordances: a quiet settings row + an optional dismissable today nudge
   function installRowInner(){
-    if(isStandalone()) return '<span class="val" style="font-weight:400">installed</span>';
-    if(canInstall()) return '<button class="set-quiet in-go" type="button">install this app</button>';
-    if(isiOS()) return '<span class="ios-hint">to install: tap the share icon, then choose add to home screen.</span>';
+    const s = installState();
+    if(s==='installed') return '<span class="val" style="font-weight:400">installed</span>';
+    if(s==='button') return '<button class="set-quiet in-go" type="button">install this app</button>';
+    if(s==='ios-safari') return '<span class="ios-hint">to install: tap the share icon, then choose add to home screen.</span>';
+    if(s==='open-elsewhere') return '<span class="ios-hint">'+openElsewhereMsg()+'</span>';
     return '<span class="ios-hint">to install: open your browser menu and choose install or add to home screen.</span>';
   }
   function maybeInstallNudge(){
     // android/chrome: native install button (beforeinstallprompt). iOS never fires
     // that event, so there the nudge carries the add-to-home-screen instruction.
-    try{ if(isStandalone() || !(canInstall() || isiOS())) return; if(localStorage.getItem('snb_install_nudge') === 'dismissed') return; }catch(_){ return; }
+    let s; try{ s = installState(); if(s==='installed' || s==='other') return; if(localStorage.getItem('snb_install_nudge') === 'dismissed') return; }catch(_){ return; }
     const c = content(); if(!c || document.getElementById('install-nudge')) return;
     const b = document.createElement('div'); b.className = 'install-nudge'; b.id = 'install-nudge';
-    b.innerHTML = canInstall()
+    b.innerHTML = s==='button'
       ? '<span class="in-txt">install the SNB app.</span><span class="in-actions"><button type="button" class="in-go">install</button><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>'
-      : '<span class="in-txt">install the app: tap the share icon, then <b>add to home screen</b>.</span><span class="in-actions"><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>';
+      : s==='open-elsewhere'
+        ? '<span class="in-txt">'+openElsewhereMsg()+'</span><span class="in-actions"><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>'
+        : '<span class="in-txt">install the app: tap the share icon, then <b>add to home screen</b>.</span><span class="in-actions"><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>';
     c.insertBefore(b, c.firstChild);
     const g = b.querySelector('.in-go'); if(g) g.onclick = promptInstall;
     const x = b.querySelector('.in-x'); if(x) x.onclick = ()=>{ try{ localStorage.setItem('snb_install_nudge','dismissed'); }catch(_){} b.remove(); };
+  }
+  // paid-trial banner: persistent while trialing. names the charge date and gives a
+  // one-tap manage/cancel. calm early on; a firmer nudge in the last two days. no
+  // countdown-timer urgency — the promise is that nobody pays by accident.
+  function maybeTrialBanner(){
+    let bill; try{ bill = Store.billing && Store.billing(); }catch(_){ return; }
+    if(!bill || bill.sub_status!=='trialing' || !bill.trial_end) return;
+    const c = content(); if(!c || document.getElementById('trial-banner')) return;
+    const end = new Date(bill.trial_end); if(isNaN(end)) return;
+    const daysLeft = Math.max(0, Math.ceil((end - Date.now())/864e5));
+    const dateStr = end.toLocaleDateString('en-US', { month:'long', day:'numeric' });
+    const urgent = daysLeft <= 2;
+    const msg = daysLeft<=0
+      ? "your trial ends today. you'll be charged $12 to keep going, or cancel now and pay nothing."
+      : urgent
+        ? `your free trial ends ${dateStr}. to avoid the $12 charge, cancel before then. it takes two taps.`
+        : `you're on your free trial. it ends ${dateStr}, when the first $12 charge would happen.`;
+    const el = document.createElement('div');
+    el.className = 'trial-banner' + (urgent?' urgent':''); el.id = 'trial-banner';
+    el.innerHTML = `<span class="tb-txt">${msg}</span><button type="button" class="tb-manage">manage</button>`;
+    c.insertBefore(el, c.firstChild);
+    const m = el.querySelector('.tb-manage');
+    if(m) m.onclick = ()=>{ m.disabled=true; m.textContent='one moment…';
+      Promise.resolve(Store.openPortal()).then(res=>{ if(res && res.error){ m.disabled=false; m.textContent='manage'; showToast(res.error); } })
+        .catch(e=>{ m.disabled=false; m.textContent='manage'; showToast(String((e&&e.message)||e)); }); };
   }
   // active tab = FILLED symbol (the iOS convention: selection reads at a glance,
   // not just by tint); inactive = outline.
@@ -3568,6 +3653,10 @@
 
         </div>
 
+        ${(function(){ var b=(Store.billing&&Store.billing())||null; if(!b||(b.sub_status!=='trialing'&&b.sub_status!=='active'))return '';
+          var lbl=b.sub_status==='trialing'?"you're on a free trial. $12/month begins when it ends, and you can cancel before then and pay nothing.":'your subscription is active. $12/month, cancel anytime.';
+          return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">${lbl}</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage or cancel subscription</button></div></div>`; })()}
+
         <div class="set-card">
         <p class="set-card-h">your data</p>
         <div class="set-actions">
@@ -3586,6 +3675,9 @@
         <p class="set-version" id="set-version"></p>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='one moment…';
+      Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
+        .catch(e=>{ mgs.disabled=false; mgs.textContent=t; showToast(String((e&&e.message)||e)); }); };
     const segText=$('#seg-text'); if(segText) segText.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_textscale', b.dataset.ts); applyPrefs();
       segText.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));

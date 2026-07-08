@@ -184,13 +184,13 @@
             auth.user = { id:session.user.id, email:session.user.email };
             if(was !== auth.user.id) loadCache();
             if(event==='SIGNED_IN' || event==='TOKEN_REFRESHED' || was !== auth.user.id) hydrate();
-            if(event==='SIGNED_IN') checkMembership();
+            if(event==='SIGNED_IN'){ checkMembership(); fetchBilling(); }
           } else if(event==='SIGNED_OUT'){
             auth.user = null;
           }
         });
         const session = await ensureSession();           // live, refreshed-if-needed session — not a cached pointer
-        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email }; loadCache(); await hydrate(); checkMembership(); }
+        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email }; loadCache(); await hydrate(); checkMembership(); fetchBilling(); }
       }catch(e){ console.warn('session check failed', e); }
     } else {
       const p = readProfile();
@@ -220,6 +220,57 @@
       }).catch(()=>{});
     }catch(e){}
   }
+  // ---- billing / paid-trial status ----
+  // Only the invited trial cohort is gated behind payment. Existing members and
+  // on-device mode keep full access. Cached locally so a returning subscriber
+  // never flashes the paywall before the network answers.
+  const BILLING_LS = 'snb_billing';
+  function _billingKey(){ return BILLING_LS + '_' + ((auth.user && auth.user.id) || 'anon'); }
+  function _readBillingCache(){ try{ return JSON.parse(localStorage.getItem(_billingKey())) || null; }catch(e){ return null; } }
+  function _writeBillingCache(o){ try{ localStorage.setItem(_billingKey(), JSON.stringify(o)); }catch(e){} }
+  async function fetchBilling(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      const [rowRes, cohRes] = await Promise.all([
+        sb.from('billing').select('*').eq('user_id', auth.user.id).maybeSingle(),
+        sb.rpc('is_trial_cohort'),
+      ]);
+      auth.billing = (rowRes && rowRes.data) || null;
+      auth.isCohort = !!(cohRes && cohRes.data);
+      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null, trialEnd: auth.billing ? auth.billing.trial_end : null, cohort: auth.isCohort, at: Date.now() });
+      if(typeof notify === 'function') notify();
+    }catch(e){ /* keep last-known cache */ }
+  }
+  function billing(){
+    if(auth.billing) return auth.billing;
+    const c = _readBillingCache();
+    return c ? { sub_status:c.status, trial_end:c.trialEnd } : null;
+  }
+  function _billingActive(){ const b = billing(); return !!(b && (b.sub_status==='trialing' || b.sub_status==='active')); }
+  function isCohort(){ if(typeof auth.isCohort==='boolean') return auth.isCohort; const c=_readBillingCache(); return c ? !!c.cohort : false; }
+  function hasAccess(){
+    if(!CLOUD) return true;            // on-device mode is never gated
+    if(_billingActive()) return true;  // active trial or paid subscription
+    if(isCohort()) return false;       // a cohort member without an active sub -> paywall
+    return true;                       // everyone else (existing members) grandfathered in
+  }
+  async function _postFn(name){
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { error:'not signed in' };
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/' + name, {
+        method:'POST',
+        headers:{ Authorization:'Bearer ' + session.access_token, apikey: cfg.SUPABASE_ANON_KEY, 'Content-Type':'application/json' },
+      });
+      let b={}; try{ b = await r.json(); }catch(e){}
+      if(!r.ok || !b.url) return { error:(b && b.error) || 'something went wrong. please try again in a moment.' };
+      return { url:b.url };
+    }catch(e){ return { error:String((e&&e.message)||e) }; }
+  }
+  async function startTrial(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('create-checkout'); if(res.url) location.href = res.url; return res; }
+  async function openPortal(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res; }
+
   function readProfile(){ try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch(e){ return null; } }
   function writeProfile(p){ try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch(e){} }
   function clearProfile(){ try { localStorage.removeItem(PROFILE_KEY); } catch(e){} }
@@ -1405,5 +1456,6 @@
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
+    hasAccess, billing, isCohort, startTrial, openPortal, refreshBilling: fetchBilling,
   };
 })(window);
