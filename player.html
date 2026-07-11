@@ -1381,7 +1381,7 @@ function playCurrent(){
   const file=rand(MAN[b]);          // CAPTIONS: this is the chosen variant filename — caption key is CAP[file]
   curFile=file;capStart(CAP[file]||'');   // parse caption into phrases, reveal progressively (shown only when captions on)
   _lastSelfCtl=Date.now();   // src swap fires a 'pause' event; that is us, not the OS
-  try{au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
+  try{au.src=clipUrl(file);au.currentTime=0;msSet('playing');_tryPlay(()=>armTapToStart());}catch(e){armTapToStart();}
   prefetchAhead();
 }
 function advance(){
@@ -1420,36 +1420,43 @@ function showTimeLeft(){
 
    The old setTimeout path is kept as a fallback for any browser where the silent clip fails
    to load, so a failure degrades to the previous behaviour rather than freezing. */
-const _silCache = new Map();
-function silenceURL(sec){
-  const s = Math.max(0.05, Math.min(120, sec||0));
-  const key = s.toFixed(2);
-  if(_silCache.has(key)) return _silCache.get(key);
-  const rate = 8000, n = Math.round(rate * s);        // 8kHz 8-bit mono — silence needs no fidelity
-  const buf = new Uint8Array(44 + n);
-  const wr = (off, str)=>{ for(let i=0;i<str.length;i++) buf[off+i] = str.charCodeAt(i); };
-  const u32 = (off, v)=>{ buf[off]=v&255; buf[off+1]=(v>>8)&255; buf[off+2]=(v>>16)&255; buf[off+3]=(v>>24)&255; };
-  const u16 = (off, v)=>{ buf[off]=v&255; buf[off+1]=(v>>8)&255; };
-  wr(0,'RIFF'); u32(4, 36+n); wr(8,'WAVE'); wr(12,'fmt ');
-  u32(16,16); u16(20,1); u16(22,1); u32(24,rate); u32(28,rate); u16(32,1); u16(34,8);
-  wr(36,'data'); u32(40,n);
-  buf.fill(128, 44);                                   // 128 = silence in unsigned 8-bit PCM
-  let bin=''; for(let i=0;i<buf.length;i++) bin += String.fromCharCode(buf[i]);
-  const url = 'data:audio/wav;base64,' + btoa(bin);
-  _silCache.set(key, url);
-  return url;
+/* ONE real silent file, replayed. (Rewritten 2026-07-10 after the second device test.)
+   v1 built a per-length silent WAV as a base64 data: URI. It worked awake, but on a LOCKED
+   screen Justin saw the lock-screen button flip to "play" on its own and then the audio die.
+   Two causes, both from the source churn:
+     - every gap set a NEW src (a fresh data: URI), which momentarily PAUSES the element.
+       iOS draws its Now Playing button from the element's real state, so it flashed "play".
+     - iOS is far more willing to keep an already-loaded, same-origin media resource going in
+       the background than to accept a brand-new large data: URI. When that load lost, the
+       play() promise rejected and the practice was dead with nothing left to retry.
+   Now: a single 8KB same-origin silence-1s.wav (service-worker cached). A gap of N seconds
+   replays THAT ONE FILE N times via currentTime=0 — so the src changes once per gap, never
+   per second, and never to a data: URI. */
+const SIL_SRC = 'clips/silence-1s.wav';
+let _silLeft = 0;                                      // whole seconds of silence still to play
+function _tryPlay(onFail){
+  let tries = 0;
+  const go = ()=>{
+    try{
+      const pr = au.play();
+      if(pr && pr.catch) pr.catch(()=>{ (++tries < 3) ? setTimeout(go, 350) : (onFail && onFail()); });
+    }catch(e){ (++tries < 3) ? setTimeout(go, 350) : (onFail && onFail()); }
+  };
+  go();
 }
 function playGap(seconds){
-  const ms = Math.max(0, (seconds||0) * 1000);
-  if(ms < 60){ inGap=false; return advance(); }        // no meaningful gap — go straight on
-  inGap = true; gapRemain = ms; gapStart = performance.now();
-  _lastSelfCtl = Date.now();   // the src swap fires a 'pause' event; that is us, not the OS
+  const secs = Math.max(0, seconds||0);
+  if(secs < 0.4){ inGap=false; return advance(); }      // no meaningful gap — go straight on
+  inGap = true; gapRemain = secs*1000; gapStart = performance.now();
+  _lastSelfCtl = Date.now();     // the src swap fires a 'pause' event; that is us, not the OS
+  _inSilence = true;
+  _silLeft = Math.max(1, Math.round(secs));
   try{
-    _inSilence = true;
-    au.src = silenceURL(seconds);
-    const pr = au.play();
-    if(pr && pr.catch) pr.catch(()=>{ _silFallback(ms); });
-  }catch(e){ _silFallback(ms); }
+    if(!/silence-1s\.wav$/.test(au.src||'')) au.src = SIL_SRC;   // swap only if not already on it
+    au.currentTime = 0;
+    msSet('playing');            // keep the lock-screen glyph honest across the swap
+    _tryPlay(()=>_silFallback(secs*1000));
+  }catch(e){ _silFallback(secs*1000); }
 }
 function _silFallback(ms){                             // silent clip wouldn't play — old timer path
   _inSilence = false;
@@ -1459,8 +1466,16 @@ function _silFallback(ms){                             // silent clip wouldn't p
 
 au.onended=()=>{
   if(!playing||paused)return;
-  if(_inSilence){                                      // the GAP finished -> next clip
-    _inSilence=false; inGap=false;
+  if(_inSilence){
+    // one second of the gap elapsed. Replay the SAME file until the gap is spent — no src
+    // change, so iOS never re-negotiates the media source mid-gap.
+    if(--_silLeft > 0){
+      _lastSelfCtl = Date.now();
+      try{ au.currentTime = 0; _tryPlay(()=>{ _inSilence=false; inGap=false; advance(); }); }
+      catch(e){ _inSilence=false; inGap=false; advance(); }
+      return;
+    }
+    _inSilence=false; inGap=false;                     // the GAP finished -> next clip
     return advance();
   }
   // a clip finished playing, in full
