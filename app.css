@@ -1196,6 +1196,30 @@ body.reduce-motion .tg-m{transition:none}
 .safety-foot{display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:nowrap}
 .safety-foot .tg-host{flex:none;display:inline-flex}
 .safety-foot .triglyph{height:30px}
+
+/* ---- guest reflection: the tri-glyph as the moment of delight (2026-07-10, Justin) ----
+   The person is still learning the glyphs, so show ALL THREE and light only theirs. The
+   dim two are the teaching: "these are the other places you could have been."
+   The reveal is deliberately unhurried — the three marks settle in, then the lit one(s)
+   take their colour a beat later. Nothing bounces; this is a mirror, not a reward. */
+.g-glyph{display:flex;justify-content:center;padding:10px 0 2px}
+.g-glyph .triglyph{height:76px}
+.g-glyph .tg-m{
+  transform-origin:center;
+  animation:gGlyphIn .7s var(--ease) both;
+  transition:fill 1.1s .55s var(--ease);   /* colour arrives AFTER the marks have settled */
+}
+.g-glyph .tg-m[data-m="heart"]{animation-delay:.05s}
+.g-glyph .tg-m[data-m="bolt"] {animation-delay:.16s}
+.g-glyph .tg-m[data-m="x"]    {animation-delay:.27s}
+@keyframes gGlyphIn{
+  from{opacity:0;transform:translateY(7px) scale(.94)}
+  to  {opacity:1;transform:none}
+}
+body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
+@media (prefers-reduced-motion:reduce){
+  .g-glyph .tg-m{animation:none;transition:none}
+}
 .safety-foot .sf-txt{flex:1}
 
 

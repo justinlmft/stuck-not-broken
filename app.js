@@ -445,7 +445,8 @@
       </div>`);
     if(busy) return;
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
-    $('#arrive-start').onclick = ()=>{ screenArrival(null, true); startGuestFlow(); };
+    // hold the arrival on screen (just disable the button) — no re-render, no flash
+    $('#arrive-start').onclick = (e)=>{ const b=e.currentTarget; b.disabled=true; b.textContent='one moment…'; startGuestFlow(); };
     $('#arrive-signin').onclick = ()=>{ authMode='in'; screenSignIn(); };
   }
 
@@ -598,12 +599,18 @@
 
   // Entry: mint an anonymous session, then drop into the tabbar-free check-in.
   function startGuestFlow(){
-    screenSignIn(null, true);   // reuse the gate's "one moment…" busy state while the session mints
+    // 2026-07-10 (Justin, on-device): this used to render screenSignIn(busy) while the
+    // anonymous session minted — so tapping "start a check-in" flashed the SIGN-IN SCREEN
+    // for a split second before the check-in appeared. A leftover from before the arrival
+    // existed. Don't render anything: hold the current screen until the check-in is ready.
+    //
+    // Also set _guestFlow BEFORE the async call. Store.init(route) re-fires route() on the
+    // SIGNED_IN event, which would otherwise race us and render the check-in twice.
+    _guestFlow = true; _guestCI = null; _guestPracticed = false;
     // on failure fall back to whichever gate this visitor came from
     const gate = (err)=>{ _guestFlow=false; return (Store.cloud() && !knownDevice()) ? screenArrival(err) : screenSignIn(err); };
     Promise.resolve(Store.signInAnonymously()).then(res=>{
       if(res && res.error) return gate(res.error);
-      _guestFlow = true; _guestCI = null;
       guestCheckin();
     }).catch(e=>gate(String((e&&e.message)||e)));
   }
@@ -694,7 +701,8 @@
     $('#content').innerHTML = `<div class="view fb-view">
         <div class="scr-head">
           <p class="eyebrow">what you named</p>
-          <h1 class="scr-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stateMarks(dom.key)}<span>${escapeHtml(name)}</span></h1>
+          <div class="g-glyph">${triGlyph(dom.key)}</div>
+          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(name)}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
         </div>
         <p class="settle-note" style="margin:14px 0 4px;max-width:none">this is just a read of right now. it isn't a score, and nothing here is wrong. it's a place to start from.</p>

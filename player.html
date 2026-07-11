@@ -291,8 +291,14 @@ body.playing .brand{display:none}
 /* the controls live on one compact, centred bar — no full-width pills, no wasted space */
 /* control bar spans the page columns: silence + captions at the LEFT edge, pause/play at the
    RIGHT edge (easy thumb reach) — both aligned to the same grid as the cards, caption and buttons. */
-.controlbar{display:flex;align-items:center;gap:10px;width:100%;flex-wrap:nowrap}
-.adjgroup{display:flex;align-items:center;gap:10px;flex:none}
+/* 2026-07-10 (Justin, on-device): this row was nowrap with .adjgroup at flex:none, so it
+   could never shrink. Once items 53-54 added the previous-section and 5s-rewind buttons the
+   contents totalled ~450px on a 390px phone and simply ran off the right edge.
+   Fix: let it wrap into two honest rows — adjustments (silence · CC) on top, transport
+   (prev · back-5 · pause) underneath, with pause still the flexible hero. */
+.controlbar{display:flex;align-items:center;gap:10px;width:100%;flex-wrap:wrap}
+.adjgroup{display:flex;align-items:center;gap:10px;flex:1 1 100%;justify-content:space-between;min-width:0}
+.adj{min-width:0}
 .endbtn{width:100%}
 .adj{display:flex;align-items:center;justify-content:center;gap:2px;width:auto;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:13px;letter-spacing:.04em;text-transform:lowercase;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{padding:0 4px 0 14px}
