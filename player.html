@@ -1131,6 +1131,7 @@ const SEGSTATE={},GAPTIER={},PACKCACHE={};   // standalone: id→ring state / si
 let playing=false,paused=false,finished=false,started=false,closingNow=false,playStart=0;
 let gapTimer=null,inGap=false,gapRemain=0,gapStart=0;
 let _inSilence=false;   // true while the element is playing a silent GAP clip (see silenceURL)
+let _endedWhilePaused=false;  // a clip ended while paused; settle the advance on resume
 // when WE last deliberately paused/resumed. The external-pause watchdog ignores anything
 // inside ~1.2s of this, so our own async au.play() can't be mistaken for an OS pause.
 let _lastSelfCtl=0;
@@ -1289,7 +1290,7 @@ function startPlayer(){
   cancelAnimationFrame(rafId);ringLoop();
   advance();
 }
-function stopAll(){playing=false;paused=false;inGap=false;_inSilence=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);wlDrop();}
+function stopAll(){playing=false;paused=false;inGap=false;_inSilence=false;_endedWhilePaused=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);wlDrop();}
 
 /* ── standalone playback: drive the same engine from a fixed pack (no build/weave) ── */
 function applyPack(pack){
@@ -1386,7 +1387,7 @@ function playCurrent(){
 }
 function advance(){
   if(!playing)return;
-  _inSilence=false;      // leaving any gap; the next thing to sound is a real clip
+  _inSilence=false; _endedWhilePaused=false;      // leaving any gap; the next thing to sound is a real clip
   idx++;
   if(idx>=SEQ.length){if(LOOP){idx=LOOPFROM;loopCount++;}else{return finish();}}
   inGap=false;
@@ -1479,8 +1480,9 @@ au.addEventListener('timeupdate',()=>{
   if(!_inSilence||!playing||paused)return;
   if(au.currentTime >= _gapSecs){ _inSilence=false; inGap=false; advance(); }
 });
-au.onended=()=>{
-  if(!playing||paused)return;
+/* What to do when the thing that was sounding reaches its end. Pulled out of the event handler
+   so a resume can run it too — see _endedWhilePaused below. */
+function _onEnded(){
   if(_inSilence){                 // silent file ran out before we cut it (gap >= file length)
     _inSilence=false; inGap=false;
     return advance();
@@ -1489,6 +1491,16 @@ au.onended=()=>{
   if(!LOOP&&idx>=SEQ.length-1)return finish();         // last clip plays to its natural end — no cut
   capClear();                                          // clear caption during the silence gap
   playGap(gapAfter(SEQ[idx]));
+}
+/* 2026-07-10 (Justin): if a clip ENDED while the practice was paused, this handler used to
+   `return` on `paused` and simply throw the event away — so the sequence never advanced and the
+   practice was stranded on a finished clip. Worse, resuming then called play() on an ALREADY-ENDED
+   element, which restarts that same clip from the top: "it plays to the end and then back to the
+   pause state." Now we remember the ended clip and act on it the moment they press play. */
+au.onended=()=>{
+  if(!playing)return;
+  if(paused){ _endedWhilePaused = true; return; }      // owe an advance; settle it on resume
+  _onEnded();
 };
 au.onerror=()=>{                                      // a clip failed to load — skip on, don't freeze
   $('starting').classList.remove('show');
@@ -1498,7 +1510,7 @@ au.onerror=()=>{                                      // a clip failed to load �
   inGap=true;gapRemain=300;gapStart=performance.now();
   clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},300);
 };
-function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;_inSilence=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}wlDrop();
+function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;_inSilence=false;_endedWhilePaused=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}wlDrop();
   capClear();$('starting').classList.remove('show');
   $('pause').style.display='none';const tl=$('timeleft');if(tl)tl.textContent='';
   clearTimeout(ctrlTimer);$('player').classList.add('finished');$('player').classList.remove('conn-trouble');
@@ -1528,7 +1540,7 @@ $('prevclip').onclick=()=>{
   if(!playing||finished||inBreak||closingNow)return;
   _lastSelfCtl=Date.now();
   haptic();
-  clearTimeout(gapTimer); inGap=false; _inSilence=false;   // drop any in-progress silence gap
+  clearTimeout(gapTimer); inGap=false; _inSilence=false; _endedWhilePaused=false;   // drop any in-progress silence gap
   idx=Math.max(-1, idx-2);                      // _advanceCore will idx++ onto the previous clip (or 0)
   if(paused){ paused=false; $('pause').classList.remove('is-paused'); $('pause').setAttribute('aria-label','pause'); $('player').classList.remove('paused'); }
   revealControls();
@@ -1543,13 +1555,18 @@ $('pause').onclick=()=>{
     // a gap is now REAL AUDIO (the silent clip), so resuming it is just au.play(). Only the
     // timer-fallback gap (silent clip failed to load) still needs the setTimeout rescheduled.
     if(inGap && !_inSilence){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
-    // Resume, robustly. 2026-07-10: pressing PLAY on the lock screen during a clip/silence
-    // transition used to hit a source that was mid-swap — play() rejected and the practice
-    // went silent until the app was reopened. If the element has no usable source (empty or
-    // errored), don't try to play nothing: re-arm the current clip from scratch.
+    // Resume, robustly. 2026-07-10:
+    //  - if a clip ENDED while we were paused, settle that first: move to the gap/next clip
+    //    rather than calling play() on a finished element (which would replay the same clip).
+    //  - pressing PLAY on the lock screen during a clip/silence transition used to hit a source
+    //    that was mid-swap; play() rejected and the practice went silent until the app reopened.
+    //    If the element has no usable source, re-arm the current clip instead of playing nothing.
     else{
       msSet('playing');
-      if(!au.src || au.error){ playCurrent(); }
+      $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
+      $('player').classList.remove('paused');revealControls();
+      if(_endedWhilePaused){ _endedWhilePaused=false; _onEnded(); return; }
+      if(!au.src || au.error || au.ended){ playCurrent(); }
       else { _tryPlay(()=>armTapToStart()); }
     }
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
