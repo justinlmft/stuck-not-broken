@@ -39,6 +39,18 @@ function snbPickEnv(host) {
 
 const SNB_ENV = snbPickEnv(location.hostname);
 
+/* Cloudflare Pages also serves the staging build at snb-beta.pages.dev, and that
+   hostname CANNOT be covered by the Cloudflare Access gate (Access only protects
+   hostnames in a zone we own; pages.dev is Cloudflare's). So the gate on
+   beta.stucknotbroken.com is bypassable simply by knowing the pages.dev URL.
+
+   Bounce it to the gated domain. This is a client-side guard, so treat it as a
+   speed bump, not a security boundary — it is acceptable only because staging holds
+   no real user data and has no Stripe. Never rely on this to protect anything real. */
+if (/\.pages\.dev$/i.test(location.hostname)) {
+  location.replace('https://beta.stucknotbroken.com' + location.pathname + location.search + location.hash);
+}
+
 window.SNB_CONFIG = {
   SUPABASE_URL:      SNB_ENV.SUPABASE_URL,
   SUPABASE_ANON_KEY: SNB_ENV.SUPABASE_ANON_KEY,
