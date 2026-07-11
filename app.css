@@ -1202,7 +1202,7 @@ body.reduce-motion .tg-m{transition:none}
    dim two are the teaching: "these are the other places you could have been."
    The reveal is deliberately unhurried — the three marks settle in, then the lit one(s)
    take their colour a beat later. Nothing bounces; this is a mirror, not a reward. */
-.g-glyph{display:flex;justify-content:center;padding:10px 0 2px}
+.g-glyph{display:flex;justify-content:flex-start;padding:10px 0 2px}
 .g-glyph .triglyph{height:76px}
 .g-glyph .tg-m{
   transform-origin:center;

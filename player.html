@@ -282,23 +282,38 @@ body.playing .brand{display:none}
 .transport.is-paused .ico-play{display:block}
 /* compact secondary transports (previous section · skip-back-5) — fixed width so pause stays the hero */
 .transport.mini{flex:0 0 auto;width:46px;min-width:46px}
-.transport.mini .rw{position:relative;display:flex;align-items:center;justify-content:center;width:27px;height:27px;color:var(--ink)}
-.transport.mini .rw svg{width:27px;height:27px;display:block;stroke:var(--ink)}
-.transport.mini .rw5{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:600 8.5px/1 Inter,system-ui,sans-serif;color:var(--ink);padding-top:1px}
+/* back-5: a counter-clockwise arc with the numeral centred INSIDE it. The old version used a
+   tight r=6 arc at stroke 1.7 with a bold 8.5px "5" jammed on top — at 27px the two collided
+   and read as a smudge ("weird symbol", Justin). Bigger arc, thinner stroke, the numeral
+   properly centred in the open circle with room to breathe. */
+.transport.mini .rw{position:relative;display:flex;align-items:center;justify-content:center;width:28px;height:28px;color:var(--ink)}
+.transport.mini .rw svg{width:28px;height:28px;display:block;stroke:var(--ink)}
+.transport.mini .rw5{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 10px/1 Inter,system-ui,sans-serif;color:var(--ink);letter-spacing:0;padding-top:1px}
 
 /* ── adjustments: two quiet, equal setting pills ── */
 /* ── settings: two equal cells on one grid row, sharing the column's edges ── */
 /* the controls live on one compact, centred bar — no full-width pills, no wasted space */
 /* control bar spans the page columns: silence + captions at the LEFT edge, pause/play at the
    RIGHT edge (easy thumb reach) — both aligned to the same grid as the cards, caption and buttons. */
-/* 2026-07-10 (Justin, on-device): this row was nowrap with .adjgroup at flex:none, so it
-   could never shrink. Once items 53-54 added the previous-section and 5s-rewind buttons the
-   contents totalled ~450px on a 390px phone and simply ran off the right edge.
-   Fix: let it wrap into two honest rows — adjustments (silence · CC) on top, transport
-   (prev · back-5 · pause) underneath, with pause still the flexible hero. */
-.controlbar{display:flex;align-items:center;gap:10px;width:100%;flex-wrap:wrap}
-.adjgroup{display:flex;align-items:center;gap:10px;flex:1 1 100%;justify-content:space-between;min-width:0}
-.adj{min-width:0}
+/* ---- control bar: an explicit 6-column grid, three full rows (2026-07-10, Justin) ----
+   History: this row was flex/nowrap with .adjgroup at flex:none, so it could never shrink.
+   Once items 53-54 added the previous-section and 5s-rewind buttons it totalled ~450px on a
+   390px phone and ran off the right edge. A wrap fixed the overflow but the result was ad hoc.
+   Now it is a real grid, and space goes to what needs it:
+     row 1  silence     — needs the most width (label + stepper), so it gets a full line
+     row 2  CC          — a toggle, but full width keeps the left edge honest
+     row 3  prev · back5 · pause — pause is the hero and takes 4 of 6 columns
+   Every control is 54px tall and snaps to the same columns, so the left/right edges line up
+   down the whole stack instead of drifting. */
+.controlbar{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;width:100%;align-items:center}
+.adjgroup{display:contents}          /* let the silence + CC pills sit directly on the grid */
+.adj{min-width:0;width:100%}
+.adj.silence{grid-column:span 6;justify-content:space-between;padding:0 6px 0 16px}
+.captoggle{grid-column:span 6;justify-content:center;gap:8px}
+.prevclip{grid-column:span 1}
+.rewind{grid-column:span 2}
+#pause{grid-column:span 3}
+.transport.mini{width:100%;min-width:0}   /* grid owns the width now, not a fixed 46px */
 .endbtn{width:100%}
 .adj{display:flex;align-items:center;justify-content:center;gap:2px;width:auto;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:13px;letter-spacing:.04em;text-transform:lowercase;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{padding:0 4px 0 14px}
@@ -542,7 +557,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
         <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc">CC</span><span class="cc-state" id="capstate">off</span></button>
         </div>
       <button class="transport mini prevclip" id="prevclip" type="button" aria-label="previous section"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.6" y="5.5" width="2.4" height="13" rx="1.1"></rect><path d="M18.4 6 L10 12 L18.4 18 Z" fill="currentColor"></path></svg></button>
-      <button class="transport mini rewind" id="rewind" type="button" aria-label="back 5 seconds"><span class="rw" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11.8 6.2 A6 6 0 1 0 6.1 9"></path><path d="M4.6 5.2 L6.1 9.1 L9.7 7.5"></path></svg><span class="rw5">5</span></span></button>
+      <button class="transport mini rewind" id="rewind" type="button" aria-label="back 5 seconds"><span class="rw" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.2a8.8 8.8 0 1 1-8.2 5.6"></path><path d="M9.1 2.6 L5.4 5.9 L9.0 9.0"></path></svg><span class="rw5">5</span></span></button>
       <button class="transport" id="pause" aria-label="pause"><svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="2.2"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="2.2"></rect></svg><svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
       </div>
       <!-- endings: graceful close, and a quiet escape -->
