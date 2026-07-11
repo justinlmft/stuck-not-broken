@@ -1634,8 +1634,8 @@ function msSet(state){ try{ if('mediaSession' in navigator) navigator.mediaSessi
   if(!('mediaSession' in navigator)) return;
   try{
     const ms = navigator.mediaSession;
-    ms.setActionHandler('play',  ()=>{ dlog('ms:play');  if(playing && paused) $('pause').click(); else dlog('ms:play:IGNORED'); });
-    ms.setActionHandler('pause', ()=>{ dlog('ms:pause'); if(playing && !paused) $('pause').click(); else dlog('ms:pause:IGNORED'); });
+    ms.setActionHandler('play',  ()=>{ dlog('ms:play');  if(playing && paused) $('pause').click(); else if(playing && au.paused) _tryPlay(); });
+    ms.setActionHandler('pause', ()=>{ dlog('ms:pause'); if(playing && !paused) $('pause').click(); });
     ms.setActionHandler('seekbackward', ()=>{ const r=$('rewind'); if(r) r.click(); });
     ms.setActionHandler('previoustrack', ()=>{ const p=$('prevclip'); if(p) p.click(); });
     // no next-track: a practice is a sequence to be walked, not skipped forward through.
@@ -1657,6 +1657,49 @@ function msMeta(title){
 /* keep the lock-screen play/pause glyph honest with our real state */
 au.addEventListener('play',  ()=>msSet('playing'));
 au.addEventListener('pause', ()=>msSet(paused ? 'paused' : 'playing'));
+
+/* ---- STALL RECOVERY (2026-07-10) --------------------------------------------------------
+   Found by instrumenting Justin's locked iPhone, not by reasoning. The log:
+
+       ms:pause  -> au:pause   at 5.45s        (correct)
+       [play pressed]
+       au:play / au:playing    at 5.49s        (element says it is playing)
+       ...8 seconds later, currentTime is STILL 5.49
+
+   Resuming from the lock screen SUCCEEDS and then does nothing. play() does not reject, the
+   'playing' event fires, and the clock never advances: iOS restores the element's state but
+   does not reactivate the audio session, so it plays into the void. Every earlier fix assumed
+   play() was FAILING and retried it — but it was succeeding and lying, so no retry could ever
+   have caught this.
+
+   So: watch the clock. If we believe we are playing and currentTime has not moved for ~1.2s,
+   the element is a corpse. Reload the source, seek back to where we were, and start again. */
+let _lastPos = 0, _lastPosAt = 0, _recovering = false;
+function _stallCheck(){
+  if(!playing || paused || finished || inBreak || _recovering) { _lastPosAt = 0; return; }
+  if(au.paused) return;                       // genuinely paused; not a stall
+  const now = performance.now(), pos = au.currentTime || 0;
+  if(!_lastPosAt || Math.abs(pos - _lastPos) > 0.05){ _lastPos = pos; _lastPosAt = now; return; }
+  if(now - _lastPosAt < 1200) return;         // moving, or not stuck long enough
+  // stuck: "playing" but the clock is frozen
+  _recovering = true;
+  dlog('STALL:recover', {pos: pos});
+  const src = au.currentSrc || au.src, at = pos;
+  try{
+    au.load();                                // tear the dead media session down
+    const onReady = ()=>{
+      au.removeEventListener('loadedmetadata', onReady);
+      try{ au.currentTime = at; }catch(e){}   // back to where the person actually was
+      _lastPos = at; _lastPosAt = performance.now();
+      _tryPlay(()=>{ _recovering=false; armTapToStart(); });
+      setTimeout(()=>{ _recovering = false; }, 600);
+    };
+    au.addEventListener('loadedmetadata', onReady);
+    if(!au.src) au.src = src;
+  }catch(e){ _recovering = false; }
+}
+setInterval(_stallCheck, 500);                 // foreground ticking
+au.addEventListener('timeupdate', _stallCheck);// and media-driven, which survives backgrounding
 
 /* live silence control — adjusts the current practice's gap length on the fly */
 const SILSTEPS=[2,4,6,8,10,12,16];
