@@ -113,18 +113,28 @@
   // it). detect them so we say "open in your real browser first" instead of
   // pointing at a share icon that isn't there.
   const inAppBrowser = () => /FBAN|FBAV|FB_IAB|Instagram|Line|MicroMessenger|WhatsApp|Snapchat|Pinterest|LinkedInApp|GSA/i.test(navigator.userAgent||'') || /; wv\)/.test(navigator.userAgent||'');
-  const iosSafari = () => isiOS() && /Safari/.test(navigator.userAgent||'') && !/CriOS|FxiOS|EdgiOS|FBAN|FBAV|Instagram|Line|GSA/i.test(navigator.userAgent||'');
+  // Real third-party iOS browsers (Chrome/Edge/Firefox on iPhone). These are NOT
+  // in-app webviews: since iOS 16.4 they all expose "add to home screen" in their
+  // own share menu, exactly like Safari.
+  const iosThirdParty = () => isiOS() && /CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent||'');
+  // "can add to home screen from the share menu" — Safari OR a real third-party iOS
+  // browser. 2026-07-10 FIX (Justin, on iPhone Chrome): we previously treated ANY
+  // non-Safari iOS browser as an in-app webview and told the person to "open this
+  // page in safari first." That is wrong and was the message he saw — iOS Chrome can
+  // install perfectly well. Only genuine in-app webviews (IG/FB/etc.) cannot.
+  const iosShareInstall = () => isiOS() && !inAppBrowser();
   function openElsewhereMsg(){
+    // Only ever shown inside a real in-app webview now.
     return isiOS()
-      ? 'to install, open this page in safari first (not this in-app window), then tap the share icon and choose "add to home screen."'
-      : 'to install, open this page in chrome first (not this in-app window), then use the menu and choose "add to home screen."';
+      ? 'to install, open this page in your browser first (not this in-app window), then tap the share icon and choose "add to home screen."'
+      : 'to install, open this page in your browser first (not this in-app window), then use the menu and choose "add to home screen."';
   }
-  // one source of truth for install state: installed | button | ios-safari | open-elsewhere | other
+  // one source of truth for install state: installed | button | ios-share | open-elsewhere | other
   function installState(){
     if(isStandalone()) return 'installed';
-    if(inAppBrowser() || (isiOS() && !iosSafari())) return 'open-elsewhere';
-    if(canInstall()) return 'button';
-    if(isiOS()) return 'ios-safari';
+    if(inAppBrowser()) return 'open-elsewhere';       // genuine webview: cannot install, must leave
+    if(canInstall()) return 'button';                 // Android/desktop Chrome: real install prompt
+    if(iosShareInstall()) return 'ios-share';         // any iOS browser incl. Chrome: share -> add to home screen
     return 'other';
   }
   const canInstall = () => !!_deferredInstall;
@@ -354,8 +364,19 @@
   function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
+  // Has an account ever been signed in on this device? Set on every successful
+  // sign-in / sign-up / guest-save. Decides what a signed-OUT visitor lands on:
+  // a known device gets the sign-in form; a brand-new visitor gets the on-ramp.
+  function knownDevice(){ try{ return localStorage.getItem('snb_had_account')==='1'; }catch(e){ return false; } }
+  function markKnownDevice(){ try{ localStorage.setItem('snb_had_account','1'); }catch(e){} }
+
   function route(){
-    if(!Store.user()) return screenSignIn();
+    // ARRIVAL (2026-07-10, Justin): a first-time visitor must reach a real check-in and
+    // a real practice BEFORE any signup prompt — that immediate win is the whole point
+    // of the web-first front door. Previously the guest CTA was quiet fineprint *below*
+    // the sign-in form, so the default path was land -> sign up -> app, and the taste
+    // never happened. Now: new visitor -> on-ramp; known device -> sign-in.
+    if(!Store.user()) return (Store.cloud() && !knownDevice()) ? screenArrival() : screenSignIn();
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
     try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'){ if(Store.refreshBilling) Store.refreshBilling(); showToast("your free trial is active. no charge until it ends, and we'll remind you first."); } } }catch(e){}
@@ -374,6 +395,37 @@
   // captured at load, before the hash is consumed anywhere; also set by the
   // PASSWORD_RECOVERY auth event (registered near Store.init at the bottom)
   let _recovery = /type=recovery/.test(location.hash||'');
+
+  // ---------------------------------------------------------------- arrival (on-ramp)
+  // The front door for anyone who has never had an account on this device. No form,
+  // no password, no tabbar — one primary action: start a check-in. The guest sequence
+  // (check-in -> reflection -> one practice -> save invite) runs from here, so the
+  // person feels something work before they are ever asked for an email.
+  // Sign-in is present but secondary — a returning person on a new device still gets in
+  // in one tap. 🖊 copy: draft, Justin to finalize.
+  function screenArrival(err, busy){
+    setHTML(`
+      <div class="view gate">
+        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
+        <div class="gate-body">
+          <button class="gate-breath" id="gate-breath" type="button" aria-label="take one breath first">
+            <span class="gb-ring" id="gb-ring" aria-hidden="true"></span>
+            <span class="gb-txt" id="gb-txt" aria-live="polite">take one breath first.</span>
+          </button>
+          <p class="eyebrow">stuck not broken</p>
+          <h1 style="margin:10px 0 12px">your nervous system, over time.</h1>
+          <p class="lede" style="margin-bottom:26px">check in about where you are right now, and try a practice for it. no account, nothing to set up.</p>
+          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
+          <button class="btn block" id="arrive-start"${busy?' disabled':''}>${busy?'one moment…':'start a check-in'}</button>
+          <p class="fineprint" style="margin-top:16px">takes about two minutes. you can save it after, if you want to keep it.</p>
+          <p class="fineprint" style="margin-top:18px">already have an account? <button class="linkbtn" id="arrive-signin" style="font-size:inherit;padding:2px">sign in</button></p>
+        </div>
+      </div>`);
+    if(busy) return;
+    const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
+    $('#arrive-start').onclick = ()=>{ screenArrival(null, true); startGuestFlow(); };
+    $('#arrive-signin').onclick = ()=>{ authMode='in'; screenSignIn(); };
+  }
 
   // ---------------------------------------------------------------- sign in / up
   function screenSignIn(err, busy){
@@ -448,8 +500,9 @@
       screenSignIn(null, true);
       Promise.resolve(up ? Store.signUp(email,pw) : Store.signIn(email,pw)).then(res=>{
         if(res && res.error) return screenSignIn(res.error);
-        if(res && res.needsConfirm) return screenConfirm(email);
+        if(res && res.needsConfirm){ markKnownDevice(); return screenConfirm(email); }
         if(nm) Store.setName(nm);
+        markKnownDevice();   // this device has had an account -> signed-out visits land on sign-in, not the on-ramp
         currentTab='today'; route();
       }).catch(e=>screenSignIn(String((e&&e.message)||e)));
     }
@@ -514,11 +567,13 @@
   // Entry: mint an anonymous session, then drop into the tabbar-free check-in.
   function startGuestFlow(){
     screenSignIn(null, true);   // reuse the gate's "one moment…" busy state while the session mints
+    // on failure fall back to whichever gate this visitor came from
+    const gate = (err)=>{ _guestFlow=false; return (Store.cloud() && !knownDevice()) ? screenArrival(err) : screenSignIn(err); };
     Promise.resolve(Store.signInAnonymously()).then(res=>{
-      if(res && res.error){ _guestFlow=false; return screenSignIn(res.error); }
+      if(res && res.error) return gate(res.error);
       _guestFlow = true; _guestCI = null;
       guestCheckin();
-    }).catch(e=>{ _guestFlow=false; screenSignIn(String((e&&e.message)||e)); });
+    }).catch(e=>gate(String((e&&e.message)||e)));
   }
 
   // ---- guest check-in (streamlined, tabbar-free) ----
@@ -732,8 +787,9 @@
       guestSaveInvite(from, null, true);
       Promise.resolve(Store.linkIdentity(email, pw)).then(res=>{
         if(res && res.error) return guestSaveInvite(from, res.error);
-        if(res && res.needsConfirm) return screenConfirm(email);
+        if(res && res.needsConfirm){ markKnownDevice(); return screenConfirm(email); }
         if(nm) Store.setName(nm);
+        markKnownDevice();
         _guestFlow = false; _guestCI = null;   // leave the guest sequence; now a normal saved user
         currentTab='today'; route();
       }).catch(e=>guestSaveInvite(from, String((e&&e.message)||e)));
@@ -911,7 +967,7 @@
     const s = installState();
     if(s==='installed') return '<span class="val" style="font-weight:400">installed</span>';
     if(s==='button') return '<button class="set-quiet in-go" type="button">install this app</button>';
-    if(s==='ios-safari') return '<span class="ios-hint">to install: tap the share icon, then choose add to home screen.</span>';
+    if(s==='ios-share') return '<span class="ios-hint">to install: tap the share icon, then choose add to home screen.</span>';
     if(s==='open-elsewhere') return '<span class="ios-hint">'+openElsewhereMsg()+'</span>';
     return '<span class="ios-hint">to install: open your browser menu and choose install or add to home screen.</span>';
   }
