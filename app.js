@@ -377,6 +377,26 @@
     // the sign-in form, so the default path was land -> sign up -> app, and the taste
     // never happened. Now: new visitor -> on-ramp; known device -> sign-in.
     if(!Store.user()) return (Store.cloud() && !knownDevice()) ? screenArrival() : screenSignIn();
+
+    // ---- HARD SAFETY GATE (2026-07-10, found on Justin's device pass) ----
+    // An anonymous guest IS a Store.user(), so route() used to fall straight through
+    // to app(currentTab) — the full tabbed shell, including the practice tab and its
+    // self-regulation / pendulation track. Any reload mid-guest-flow triggered this,
+    // and a service-worker update reloads the page automatically, so it happened on
+    // its own. The guest SCREENS were tabbar-free and correct; the ROUTER was the hole.
+    //
+    // A guest must never reach the tabbed app. Resume the guest sequence instead:
+    // straight to the reflection if they already checked in, otherwise the check-in.
+    if(Store.isAnonymous && Store.isAnonymous()){
+      if(_guestFlow) return;                 // already mid-flow; the guest screens own the view
+      _guestFlow = true;
+      let last = null; try{ last = Store.lastCheckin && Store.lastCheckin(); }catch(e){}
+      if(last && typeof last.v==='number'){
+        _guestCI = { v:last.v, sym:last.sym, dor:last.dor };
+        return guestReflection();
+      }
+      return guestCheckin();
+    }
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
     try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'){ if(Store.refreshBilling) Store.refreshBilling(); showToast("your free trial is active. no charge until it ends, and we'll remind you first."); } } }catch(e){}
@@ -560,9 +580,14 @@
   // reader/blog, no "most" track — those stay paid.
   let _guestFlow = false;
   let _guestCI = null;          // {v,sym,dor} (0..1) captured at check-in, for reflection + return
-  // true only while an anonymous guest is mid-flow; gates the tabbar-free screens
-  // and the hard 'most' refusal in launchWeaver/logSession.
-  function inGuest(){ try{ return !!_guestFlow && Store.isAnonymous && Store.isAnonymous(); }catch(e){ return false; } }
+  // Gates the tabbar-free screens and the hard 'most' refusal in launchWeaver/logSession.
+  //
+  // 2026-07-10: this used to require `_guestFlow && isAnonymous()`. That was a latent
+  // hole — `_guestFlow` is in-memory, so any page reload cleared it while the person
+  // was still an anonymous user, and every guard keyed on inGuest() silently switched
+  // off. Anonymity is the durable fact; the flag is not. Key the guard on anonymity
+  // ALONE, so it cannot be defeated by a reload.
+  function inGuest(){ try{ return !!(Store.isAnonymous && Store.isAnonymous()); }catch(e){ return false; } }
 
   // Entry: mint an anonymous session, then drop into the tabbar-free check-in.
   function startGuestFlow(){
