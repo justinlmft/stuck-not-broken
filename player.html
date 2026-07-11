@@ -1119,6 +1119,7 @@ let activePack=null;                 // loaded standalone pack, or null in woven
 const SEGSTATE={},GAPTIER={},PACKCACHE={};   // standalone: id→ring state / silence tier; fetched-pack cache
 let playing=false,paused=false,finished=false,started=false,closingNow=false,playStart=0;
 let gapTimer=null,inGap=false,gapRemain=0,gapStart=0;
+let _inSilence=false;   // true while the element is playing a silent GAP clip (see silenceURL)
 
 function showScreen(id){if(id==='setup')picked=false;['setup','player'].forEach(s=>$(s).classList.toggle('hidden',s!==id));document.body.classList.toggle('playing',id==='player');try{if(window.parent!==window)window.parent.postMessage({type:'snb-weaver',event:'screen',screen:id},'*');}catch(e){}}
 
@@ -1239,7 +1240,7 @@ const PNAME={mindfulness:'simple mindfulness',anchoring:'connecting with safety'
 const _advanceCore=advance;
 advance=function(){
   if(playing&&!inBreak&&idx>=0&&idx+1<SEQ.length&&PH[idx]==='closing'&&PH[idx+1]&&PH[idx+1]!=='closing'){
-    inBreak=true;try{au.pause();}catch(e){}clearTimeout(gapTimer);inGap=false;
+    inBreak=true;try{au.pause();}catch(e){}clearTimeout(gapTimer);inGap=false;_inSilence=false;
     // which meditation is coming up next?
     let seg=0;for(let i=1;i<=idx+1;i++){if(PH[i-1]==='closing'&&PH[i]!=='closing')seg++;}
     const nm=PNAME[(practices[seg]||{}).key]||'';
@@ -1266,7 +1267,7 @@ function startPlayer(){
   cancelAnimationFrame(rafId);ringLoop();
   advance();
 }
-function stopAll(){playing=false;paused=false;inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);wlDrop();}
+function stopAll(){playing=false;paused=false;inGap=false;_inSilence=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);wlDrop();}
 
 /* ── standalone playback: drive the same engine from a fixed pack (no build/weave) ── */
 function applyPack(pack){
@@ -1362,6 +1363,7 @@ function playCurrent(){
 }
 function advance(){
   if(!playing)return;
+  _inSilence=false;      // leaving any gap; the next thing to sound is a real clip
   idx++;
   if(idx>=SEQ.length){if(LOOP){idx=LOOPFROM;loopCount++;}else{return finish();}}
   inGap=false;
@@ -1381,21 +1383,76 @@ function showTimeLeft(){
   const m=remainingMins();
   e.textContent = m<1 ? 'less than a minute left' : 'about '+Math.round(m)+' min left';
 }
-au.onended=()=>{                                      // a clip finished playing, in full
+/* ---- SILENCE AS REAL AUDIO (2026-07-10) ----------------------------------------------
+   THE BUG (Justin, on device): with the screen locked, audio played to the end of the
+   current clip and then stopped. The reason: the silence BETWEEN clips was a setTimeout.
+   iOS keeps an <audio> element sounding on a locked screen, but it suspends JS timers —
+   so when the clip ended, the timer that would have started the next one never fired, and
+   the practice died mid-way.
+
+   The fix: make the gap itself a piece of audio. A silent WAV of exactly the gap length is
+   played through the same element, so the chain is driven by MEDIA events ('ended'), which
+   keep firing in the background, instead of by JS timers, which do not. As a bonus, pause /
+   resume during a gap is now just pausing audio — no elapsed-time bookkeeping.
+
+   The old setTimeout path is kept as a fallback for any browser where the silent clip fails
+   to load, so a failure degrades to the previous behaviour rather than freezing. */
+const _silCache = new Map();
+function silenceURL(sec){
+  const s = Math.max(0.05, Math.min(120, sec||0));
+  const key = s.toFixed(2);
+  if(_silCache.has(key)) return _silCache.get(key);
+  const rate = 8000, n = Math.round(rate * s);        // 8kHz 8-bit mono — silence needs no fidelity
+  const buf = new Uint8Array(44 + n);
+  const wr = (off, str)=>{ for(let i=0;i<str.length;i++) buf[off+i] = str.charCodeAt(i); };
+  const u32 = (off, v)=>{ buf[off]=v&255; buf[off+1]=(v>>8)&255; buf[off+2]=(v>>16)&255; buf[off+3]=(v>>24)&255; };
+  const u16 = (off, v)=>{ buf[off]=v&255; buf[off+1]=(v>>8)&255; };
+  wr(0,'RIFF'); u32(4, 36+n); wr(8,'WAVE'); wr(12,'fmt ');
+  u32(16,16); u16(20,1); u16(22,1); u32(24,rate); u32(28,rate); u16(32,1); u16(34,8);
+  wr(36,'data'); u32(40,n);
+  buf.fill(128, 44);                                   // 128 = silence in unsigned 8-bit PCM
+  let bin=''; for(let i=0;i<buf.length;i++) bin += String.fromCharCode(buf[i]);
+  const url = 'data:audio/wav;base64,' + btoa(bin);
+  _silCache.set(key, url);
+  return url;
+}
+function playGap(seconds){
+  const ms = Math.max(0, (seconds||0) * 1000);
+  if(ms < 60){ inGap=false; return advance(); }        // no meaningful gap — go straight on
+  inGap = true; gapRemain = ms; gapStart = performance.now();
+  try{
+    _inSilence = true;
+    au.src = silenceURL(seconds);
+    const pr = au.play();
+    if(pr && pr.catch) pr.catch(()=>{ _silFallback(ms); });
+  }catch(e){ _silFallback(ms); }
+}
+function _silFallback(ms){                             // silent clip wouldn't play — old timer path
+  _inSilence = false;
+  clearTimeout(gapTimer);
+  gapTimer = setTimeout(()=>{ inGap=false; advance(); }, ms);
+}
+
+au.onended=()=>{
   if(!playing||paused)return;
+  if(_inSilence){                                      // the GAP finished -> next clip
+    _inSilence=false; inGap=false;
+    return advance();
+  }
+  // a clip finished playing, in full
   if(!LOOP&&idx>=SEQ.length-1)return finish();         // last clip plays to its natural end — no cut
-  capClear();    // clear caption during the silence gap
-  gapRemain=gapAfter(SEQ[idx])*1000;gapStart=performance.now();inGap=true;
-  clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);
+  capClear();                                          // clear caption during the silence gap
+  playGap(gapAfter(SEQ[idx]));
 };
 au.onerror=()=>{                                      // a clip failed to load — skip on, don't freeze
   $('starting').classList.remove('show');
   if(!playing||paused)return;
+  if(_inSilence){ _inSilence=false; return _silFallback(gapRemain||300); }  // silent clip itself failed
   if(!LOOP&&idx>=SEQ.length-1)return finish();
   inGap=true;gapRemain=300;gapStart=performance.now();
   clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},300);
 };
-function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}wlDrop();
+function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;_inSilence=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}wlDrop();
   capClear();$('starting').classList.remove('show');
   $('pause').style.display='none';const tl=$('timeleft');if(tl)tl.textContent='';
   clearTimeout(ctrlTimer);$('player').classList.add('finished');$('player').classList.remove('conn-trouble');
@@ -1423,7 +1480,7 @@ $('rewind').onclick=()=>{
 $('prevclip').onclick=()=>{
   if(!playing||finished||inBreak||closingNow)return;
   haptic();
-  clearTimeout(gapTimer); inGap=false;         // drop any in-progress silence gap
+  clearTimeout(gapTimer); inGap=false; _inSilence=false;   // drop any in-progress silence gap
   idx=Math.max(-1, idx-2);                      // _advanceCore will idx++ onto the previous clip (or 0)
   if(paused){ paused=false; $('pause').classList.remove('is-paused'); $('pause').setAttribute('aria-label','pause'); $('player').classList.remove('paused'); }
   revealControls();
@@ -1434,7 +1491,9 @@ $('pause').onclick=()=>{
   haptic();
   if(paused){ // resume
     paused=false;wlHold();
-    if(inGap){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
+    // a gap is now REAL AUDIO (the silent clip), so resuming it is just au.play(). Only the
+    // timer-fallback gap (silent clip failed to load) still needs the setTimeout rescheduled.
+    if(inGap && !_inSilence){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
     // resuming after a screen lock can leave au.play() rejecting (iOS suspends media on
     // lock); catch it and arm tap-to-start so resume never silently dies on a dead screen.
     else{try{const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}}
@@ -1442,7 +1501,7 @@ $('pause').onclick=()=>{
     $('player').classList.remove('paused');revealControls();
   }else{ // pause
     paused=true;
-    if(inGap){clearTimeout(gapTimer);gapRemain=Math.max(0,gapRemain-(performance.now()-gapStart));}
+    if(inGap && !_inSilence){clearTimeout(gapTimer);gapRemain=Math.max(0,gapRemain-(performance.now()-gapStart));}
     else{try{au.pause();}catch(e){}}
     $('pause').classList.add('is-paused');$('pause').setAttribute('aria-label','resume');
     $('player').classList.add('paused','show-controls');clearTimeout(ctrlTimer);$('starting').classList.remove('show');
