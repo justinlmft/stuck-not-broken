@@ -1738,6 +1738,28 @@ function _stallCheck(){
     if(!au.src) au.src = src;
   }catch(e){ _recovering = false; }
 }
+/* Wake-up recovery. MEASURED, twice, on Justin's phone: if the practice is paused from the lock
+   screen, iOS will not sound it again in the background — WebKit itself resumes the element and
+   the clock still does not move (au:playing at 6.88, still 6.88 seven seconds later). It only
+   comes back when the page is FOREGROUNDED. That is a WebKit audio-session limit, not something
+   code can beat; the durable fix is the native app.
+   So: degrade gracefully. The moment the screen comes back, pick the practice up exactly where it
+   was, without the person having to touch anything. */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden || !playing || paused || finished || inBreak) return;
+  // give WebKit a beat to restore its own session, then check whether sound is actually happening
+  setTimeout(()=>{
+    if(document.hidden || !playing || paused) return;
+    const before = au.currentTime;
+    setTimeout(()=>{
+      if(document.hidden || !playing || paused) return;
+      if(Math.abs(au.currentTime - before) < 0.05){    // frozen -> it came back dead; revive it
+        dlog('wake:recover', {pos: au.currentTime});
+        _lastPosAt = 0; _stallCheck();
+      }
+    }, 400);
+  }, 250);
+});
 setInterval(_stallCheck, 500);                 // foreground ticking
 au.addEventListener('timeupdate', _stallCheck);// and media-driven, which survives backgrounding
 
