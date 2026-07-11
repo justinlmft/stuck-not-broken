@@ -811,6 +811,42 @@ DUR={"INTRO-01":11.1,
 /* ====== helpers ====== */
 const $=id=>document.getElementById(id);
 const au=$('au');
+
+/* ---- TEMPORARY DIAGNOSTICS (staging/beta only) — 2026-07-10 --------------------------------
+   The lock-screen pause/resume bug has survived three fixes, which means I am guessing. This
+   ships a line per media event to the STAGING database so the real sequence on Justin's locked
+   iPhone can be read instead of imagined. It is hostname-gated: it can never run on production.
+   DELETE once the bug is closed. */
+const _DBG = location.hostname !== 'app.stucknotbroken.com';
+const _DBG_URL = 'https://qzwpktrzfswhcprrjysz.supabase.co/rest/v1/debug_log';
+const _DBG_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6d3BrdHJ6ZnN3aGNwcnJqeXN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3MzQ4OTQsImV4cCI6MjA5OTMxMDg5NH0.3v0SVI4ROr9LT9fywwfR2c5OP83butDvNgk2FGeBLn0';
+const _DBG_SID = Math.random().toString(36).slice(2,8);
+function dlog(ev, extra){
+  if(!_DBG) return;
+  try{
+    const d = Object.assign({
+      playing:  typeof playing!=='undefined'  ? playing  : null,
+      paused:   typeof paused!=='undefined'   ? paused   : null,
+      inGap:    typeof inGap!=='undefined'    ? inGap    : null,
+      inSilence:typeof _inSilence!=='undefined'? _inSilence: null,
+      endedWhilePaused: typeof _endedWhilePaused!=='undefined' ? _endedWhilePaused : null,
+      idx:      typeof idx!=='undefined'      ? idx      : null,
+      auPaused: au.paused, auEnded: au.ended, auTime: +(au.currentTime||0).toFixed(2),
+      auReady:  au.readyState, auErr: au.error ? au.error.code : null,
+      src:      (au.currentSrc||'').split('/').pop().slice(0,40),
+      hidden:   document.hidden,
+    }, extra||{});
+    // keepalive so the POST still lands if the page is being backgrounded
+    fetch(_DBG_URL, { method:'POST', keepalive:true,
+      headers:{ 'Content-Type':'application/json', apikey:_DBG_KEY, Authorization:'Bearer '+_DBG_KEY, Prefer:'return=minimal' },
+      body: JSON.stringify({ session_id:_DBG_SID, ev:ev, detail:d }) }).catch(()=>{});
+  }catch(e){}
+}
+if(_DBG){
+  ['play','pause','ended','error','stalled','waiting','playing','suspend','abort','emptied','loadstart','canplay']
+    .forEach(e=>au.addEventListener(e, ()=>dlog('au:'+e)));
+  document.addEventListener('visibilitychange', ()=>dlog('visibility'));
+}
 au.preload='auto';
 const rand=a=>a[Math.floor(Math.random()*a.length)];
 const has=b=>MAN[b]&&MAN[b].length;
@@ -828,6 +864,7 @@ function prefetchAhead(){
 /* ── tap-to-start safety net: if the browser blocks autoplay, first tap anywhere resumes ── */
 let _tapArmed=false;
 function armTapToStart(){
+  dlog('armTapToStart');
   // 2026-07-10: NEVER arm this while the page is hidden. On a locked screen there is no
   // pointer to tap with, so arming it parked the practice forever behind a prompt the
   // person could not see or answer — Justin: "the pause and play buttons made the player
@@ -1448,12 +1485,13 @@ function _tryPlay(onFail){
   const go = ()=>{
     try{
       const pr = au.play();
-      if(pr && pr.catch) pr.catch(()=>{ (++tries < 3) ? setTimeout(go, 350) : (onFail && onFail()); });
+      if(pr && pr.catch) pr.catch((err)=>{ dlog('play:REJECT', {tries:tries, err:String(err&&err.name||err)}); (++tries < 3) ? setTimeout(go, 350) : (dlog('play:GAVEUP'), onFail && onFail()); });
     }catch(e){ (++tries < 3) ? setTimeout(go, 350) : (onFail && onFail()); }
   };
   go();
 }
 function playGap(seconds){
+  dlog('playGap', {secs:seconds});
   const secs = Math.max(0, seconds||0);
   if(secs < 0.4){ inGap=false; return advance(); }      // no meaningful gap — go straight on
   inGap = true; gapRemain = secs*1000; gapStart = performance.now();
@@ -1483,6 +1521,7 @@ au.addEventListener('timeupdate',()=>{
 /* What to do when the thing that was sounding reaches its end. Pulled out of the event handler
    so a resume can run it too — see _endedWhilePaused below. */
 function _onEnded(){
+  dlog('onEnded:handle');
   if(_inSilence){                 // silent file ran out before we cut it (gap >= file length)
     _inSilence=false; inGap=false;
     return advance();
@@ -1548,6 +1587,7 @@ $('prevclip').onclick=()=>{
 };
 $('pause').onclick=()=>{
   if(!playing)return;
+  dlog('ui:pauseBtn');
   _lastSelfCtl=Date.now();   // we are driving; the watchdog must not second-guess this
   haptic();
   if(paused){ // resume
@@ -1594,8 +1634,8 @@ function msSet(state){ try{ if('mediaSession' in navigator) navigator.mediaSessi
   if(!('mediaSession' in navigator)) return;
   try{
     const ms = navigator.mediaSession;
-    ms.setActionHandler('play',  ()=>{ if(playing && paused) $('pause').click(); });
-    ms.setActionHandler('pause', ()=>{ if(playing && !paused) $('pause').click(); });
+    ms.setActionHandler('play',  ()=>{ dlog('ms:play');  if(playing && paused) $('pause').click(); else dlog('ms:play:IGNORED'); });
+    ms.setActionHandler('pause', ()=>{ dlog('ms:pause'); if(playing && !paused) $('pause').click(); else dlog('ms:pause:IGNORED'); });
     ms.setActionHandler('seekbackward', ()=>{ const r=$('rewind'); if(r) r.click(); });
     ms.setActionHandler('previoustrack', ()=>{ const p=$('prevclip'); if(p) p.click(); });
     // no next-track: a practice is a sequence to be walked, not skipped forward through.
