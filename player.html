@@ -1432,8 +1432,16 @@ function showTimeLeft(){
    Now: a single 8KB same-origin silence-1s.wav (service-worker cached). A gap of N seconds
    replays THAT ONE FILE N times via currentTime=0 — so the src changes once per gap, never
    per second, and never to a data: URI. */
-const SIL_SRC = 'clips/silence-1s.wav';
-let _silLeft = 0;                                      // whole seconds of silence still to play
+/* v3 (2026-07-10, after the third device test). v2 replayed a 1s file N times. Audio survived
+   the lock — but the element PAUSED at every one-second boundary, and iOS draws its lock-screen
+   glyph from the element's real state, so the button flickered play/pause all the way through
+   each gap ("play and pause come and go during silence transitions"). Pressing play into one of
+   those windows hit a source mid-swap and killed it.
+   v3: the whole gap is ONE continuous playback of a 30s silent file, cut short by 'timeupdate'
+   when the gap is spent. The element never pauses mid-gap, so the glyph holds still, and there
+   is no half-swapped source for a lock-screen tap to land on. */
+const SIL_SRC = 'clips/silence-30s.wav';
+let _gapSecs = 0;                                      // how far into the silent file this gap runs
 function _tryPlay(onFail){
   let tries = 0;
   const go = ()=>{
@@ -1450,9 +1458,9 @@ function playGap(seconds){
   inGap = true; gapRemain = secs*1000; gapStart = performance.now();
   _lastSelfCtl = Date.now();     // the src swap fires a 'pause' event; that is us, not the OS
   _inSilence = true;
-  _silLeft = Math.max(1, Math.round(secs));
+  _gapSecs = secs;               // 'timeupdate' ends the gap when the file reaches this point
   try{
-    if(!/silence-1s\.wav$/.test(au.src||'')) au.src = SIL_SRC;   // swap only if not already on it
+    if(!/silence-30s\.wav$/.test(au.src||'')) au.src = SIL_SRC;
     au.currentTime = 0;
     msSet('playing');            // keep the lock-screen glyph honest across the swap
     _tryPlay(()=>_silFallback(secs*1000));
@@ -1464,18 +1472,17 @@ function _silFallback(ms){                             // silent clip wouldn't p
   gapTimer = setTimeout(()=>{ inGap=false; advance(); }, ms);
 }
 
+/* the gap ends HERE, not on a timer and not on 'ended': while the silent file plays we watch
+   its position, and the moment it passes the gap length we move on. timeupdate keeps firing in
+   the background (it is a media event), which is the whole point. */
+au.addEventListener('timeupdate',()=>{
+  if(!_inSilence||!playing||paused)return;
+  if(au.currentTime >= _gapSecs){ _inSilence=false; inGap=false; advance(); }
+});
 au.onended=()=>{
   if(!playing||paused)return;
-  if(_inSilence){
-    // one second of the gap elapsed. Replay the SAME file until the gap is spent — no src
-    // change, so iOS never re-negotiates the media source mid-gap.
-    if(--_silLeft > 0){
-      _lastSelfCtl = Date.now();
-      try{ au.currentTime = 0; _tryPlay(()=>{ _inSilence=false; inGap=false; advance(); }); }
-      catch(e){ _inSilence=false; inGap=false; advance(); }
-      return;
-    }
-    _inSilence=false; inGap=false;                     // the GAP finished -> next clip
+  if(_inSilence){                 // silent file ran out before we cut it (gap >= file length)
+    _inSilence=false; inGap=false;
     return advance();
   }
   // a clip finished playing, in full
@@ -1536,9 +1543,15 @@ $('pause').onclick=()=>{
     // a gap is now REAL AUDIO (the silent clip), so resuming it is just au.play(). Only the
     // timer-fallback gap (silent clip failed to load) still needs the setTimeout rescheduled.
     if(inGap && !_inSilence){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
-    // resuming after a screen lock can leave au.play() rejecting (iOS suspends media on
-    // lock); catch it and arm tap-to-start so resume never silently dies on a dead screen.
-    else{try{const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}}
+    // Resume, robustly. 2026-07-10: pressing PLAY on the lock screen during a clip/silence
+    // transition used to hit a source that was mid-swap — play() rejected and the practice
+    // went silent until the app was reopened. If the element has no usable source (empty or
+    // errored), don't try to play nothing: re-arm the current clip from scratch.
+    else{
+      msSet('playing');
+      if(!au.src || au.error){ playCurrent(); }
+      else { _tryPlay(()=>armTapToStart()); }
+    }
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
     $('player').classList.remove('paused');revealControls();
   }else{ // pause
