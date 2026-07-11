@@ -181,7 +181,7 @@
           }
           if(session && session.user){
             const was = auth.user && auth.user.id;
-            auth.user = { id:session.user.id, email:session.user.email };
+            auth.user = { id:session.user.id, email:session.user.email, anon:!!session.user.is_anonymous };
             if(was !== auth.user.id) loadCache();
             if(event==='SIGNED_IN' || event==='TOKEN_REFRESHED' || was !== auth.user.id) hydrate();
             if(event==='SIGNED_IN'){ checkMembership(); fetchBilling(); }
@@ -190,7 +190,7 @@
           }
         });
         const session = await ensureSession();           // live, refreshed-if-needed session — not a cached pointer
-        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email }; loadCache(); await hydrate(); checkMembership(); fetchBilling(); }
+        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email, anon:!!session.user.is_anonymous }; loadCache(); await hydrate(); checkMembership(); fetchBilling(); }
       }catch(e){ console.warn('session check failed', e); }
     } else {
       const p = readProfile();
@@ -342,7 +342,7 @@
       const { data:res, error } = await sb.auth.signUp({ email, password });
       if(error) return { error: error.message };
       if(res.user && !res.session) return { needsConfirm: true };     // email confirmation on
-      if(res.user){ auth.user = { id:res.user.id, email:res.user.email }; loadCache(); await hydrate(); }
+      if(res.user){ auth.user = { id:res.user.id, email:res.user.email, anon:false }; loadCache(); await hydrate(); }
       return {};
     }
     return localEnter(email);
@@ -351,7 +351,45 @@
     if(CLOUD){
       const { data:res, error } = await sb.auth.signInWithPassword({ email, password });
       if(error) return { error: error.message };
-      auth.user = { id:res.user.id, email:res.user.email }; loadCache(); await hydrate();
+      auth.user = { id:res.user.id, email:res.user.email, anon:false }; loadCache(); await hydrate();
+      return {};
+    }
+    return localEnter(email);
+  }
+  // ---- anonymous (guest) sign-in ----
+  // The pre-signup guest flow: a visitor can do a real check-in, get a real
+  // reflection, and try one practice before creating an account. Supabase
+  // anonymous auth mints a real auth.uid() (is_anonymous=true), which satisfies
+  // the RLS `auth.uid() = user_id` on checkins/sessions/contexts/preferences —
+  // no schema change. linkIdentity() later attaches an email/password to the
+  // SAME user, so everything the guest did carries over with zero migration.
+  async function signInAnonymously(){
+    if(CLOUD){
+      const { data:res, error } = await sb.auth.signInAnonymously();
+      if(error) return { error: error.message };
+      if(res && res.user){ auth.user = { id:res.user.id, email:res.user.email||'', anon:true }; loadCache(); }
+      return {};
+    }
+    return localEnter('');   // on-device mode: just a local session
+  }
+  // true while the person is a guest (anonymous auth, no email yet). Used to keep
+  // the guest UI tabbar-free and to hard-refuse the self-regulation track before signup.
+  function isAnonymous(){
+    if(!CLOUD) return false;
+    if(auth.user && typeof auth.user.anon==='boolean') return auth.user.anon;
+    return !!(auth.user && !auth.user.email);   // fallback: an anon user has no email
+  }
+  // Convert an anonymous guest into a permanent account WITHOUT changing user_id:
+  // attaching an email + password upgrades the same auth user in place, so the
+  // guest's check-in/session/context rows stay theirs. Mirrors signUp's return shape.
+  async function linkIdentity(email, password){
+    if(CLOUD){
+      const { data:res, error } = await sb.auth.updateUser({ email, password });
+      if(error) return { error: error.message };
+      if(res && res.user){ auth.user = { id:res.user.id, email:res.user.email||email, anon:false }; }
+      // some projects require confirming the newly-attached email; surface that like signUp does
+      if(res && res.user && res.user.new_email && !res.user.email_confirmed_at){ /* email set, confirmation may follow */ }
+      loadCache(); await hydrate();
       return {};
     }
     return localEnter(email);
@@ -1448,7 +1486,7 @@
   }
 
   global.Store = {
-    init, signUp, signIn, signOut, user, cloud, syncStatus,
+    init, signUp, signIn, signInAnonymously, isAnonymous, linkIdentity, signOut, user, cloud, syncStatus,
     resetPassword, updatePassword, onPasswordRecovery, deleteAccount,
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,

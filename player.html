@@ -23,8 +23,17 @@
   --btn-hover:#2A3040;--rbtn:10px;--rcard:14px;
   --ease:cubic-bezier(.2,.6,.2,1);
   --gentle:cubic-bezier(.25,.46,.3,1);   /* softer, slower easing for menu transitions */
-  --type-scale:1;                        /* set from snb_textscale at boot (same-origin localStorage) */
+  /* type: same composition as app.css (2026-07-10). --type-user is the person's
+     text-size setting (from snb_textscale at boot, same-origin localStorage);
+     --type-fluid is the device ramp; --type-scale is the composed value that every
+     calc(Npx * var(--type-scale)) below already reads. The player is a separate
+     document, so it carries its own copy of the ramp. */
+  --type-user:1;
+  --type-fluid:1.133;                    /* compact: 15 -> 17px */
+  --type-scale:calc(var(--type-user) * var(--type-fluid));
 }
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
+@media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
 /* warm dark mode — the app's core dark tokens (app.css :root.theme-dark) */
 :root.theme-dark{
   --bone:#1B1C1E;--bone-deep:#24262A;--hairline:#3A3C42;--ink:#ECEAE3;
@@ -263,7 +272,7 @@ body.playing .brand{display:none}
 /* ── primary transport: the one hero control ── */
 /* pause/play — a wide rounded button (not a circle, so it never echoes the breathing ring) that
    grows to fill the row from the captions pill out to the right edge — no empty gutter. */
-.transport{flex:1 1 auto;min-width:54px;height:54px;border-radius:15px;border:1.5px solid var(--ink);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:box-shadow var(--ease) .2s,transform var(--ease) .2s}
+.transport{flex:1 1 auto;min-width:48px;height:54px;border-radius:15px;border:1.5px solid var(--ink);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:box-shadow var(--ease) .2s,transform var(--ease) .2s}
 .transport:hover{box-shadow:0 0 0 1.5px var(--ink)}
 .transport:active{transform:scale(.96)}
 .transport:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
@@ -271,6 +280,11 @@ body.playing .brand{display:none}
 .transport .ico-play{display:none;margin-left:3px}
 .transport.is-paused .ico-pause{display:none}
 .transport.is-paused .ico-play{display:block}
+/* compact secondary transports (previous section · skip-back-5) — fixed width so pause stays the hero */
+.transport.mini{flex:0 0 auto;width:46px;min-width:46px}
+.transport.mini .rw{position:relative;display:flex;align-items:center;justify-content:center;width:27px;height:27px;color:var(--ink)}
+.transport.mini .rw svg{width:27px;height:27px;display:block;stroke:var(--ink)}
+.transport.mini .rw5{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:600 8.5px/1 Inter,system-ui,sans-serif;color:var(--ink);padding-top:1px}
 
 /* ── adjustments: two quiet, equal setting pills ── */
 /* ── settings: two equal cells on one grid row, sharing the column's edges ── */
@@ -404,7 +418,7 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 </style>
 <script>/* sync embed detection — set class on <html> before first paint */(function(){var q=new URLSearchParams(location.search);if(q.get('embed')==='1')document.documentElement.classList.add('embed');if(q.get('autostart')==='1')document.documentElement.classList.add('autostart');
 /* text-size setting follows the user into the player (same-origin localStorage) */
-try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-scale',String(ts));}catch(e){}
+try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-user',String(ts));}catch(e){}
 /* dark mode reaches the player too (2026-07-06): same-origin localStorage carries
    the app's snb_theme; auto follows the system. before this the player was
    permanently light — a bright screen for a night practice, and the reason
@@ -521,6 +535,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
         </div>
         <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc">CC</span><span class="cc-state" id="capstate">off</span></button>
         </div>
+      <button class="transport mini prevclip" id="prevclip" type="button" aria-label="previous section"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.6" y="5.5" width="2.4" height="13" rx="1.1"></rect><path d="M18.4 6 L10 12 L18.4 18 Z" fill="currentColor"></path></svg></button>
+      <button class="transport mini rewind" id="rewind" type="button" aria-label="back 5 seconds"><span class="rw" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11.8 6.2 A6 6 0 1 0 6.1 9"></path><path d="M4.6 5.2 L6.1 9.1 L9.7 7.5"></path></svg><span class="rw5">5</span></span></button>
       <button class="transport" id="pause" aria-label="pause"><svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="2.2"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="2.2"></rect></svg><svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
       </div>
       <!-- endings: graceful close, and a quiet escape -->
@@ -1345,13 +1361,43 @@ function finish(){playing=false;finished=true;finishAt=performance.now();inGap=f
   clearTimeout(ctrlTimer);$('player').classList.add('finished');$('player').classList.remove('conn-trouble');
   postToHost('complete');   // embed: tell the host the session reached its natural end
 }
+/* skip back 5 seconds within the current clip (Roberto's request). Clips advance on
+   au.onended, and timeupdate only drives captions, so seeking currentTime backward is
+   safe and self-correcting (captions re-sync, onended just fires later). Clamped to the
+   clip start; a gentle no-op during silence gaps / breaks so the gap state machine is
+   never disturbed. Works whether playing or paused (paused: scrub back, resume as normal). */
+$('rewind').onclick=()=>{
+  if(!playing||finished||inGap||inBreak)return;
+  haptic();
+  try{
+    const t=au.currentTime||0;
+    au.currentTime=Math.max(0,t-5);
+    if(!paused){ const pr=au.play(); if(pr&&pr.catch)pr.catch(()=>{armTapToStart();}); }
+  }catch(e){}
+};
+/* back to the previous section (clip) — Roberto's "back button", distinct from the 5s rewind.
+   Clips advance via idx++ in advance(); to step back we cancel any pending silence gap, set idx
+   two behind, and re-enter the raw _advanceCore (which idx++'s and plays) — using the raw advance,
+   not the break-wrapped one, so navigating backward never trips a between-practice pause. Clamped
+   so the first clip just restarts. Pressing back resumes playback (it plays the target clip). */
+$('prevclip').onclick=()=>{
+  if(!playing||finished||inBreak||closingNow)return;
+  haptic();
+  clearTimeout(gapTimer); inGap=false;         // drop any in-progress silence gap
+  idx=Math.max(-1, idx-2);                      // _advanceCore will idx++ onto the previous clip (or 0)
+  if(paused){ paused=false; $('pause').classList.remove('is-paused'); $('pause').setAttribute('aria-label','pause'); $('player').classList.remove('paused'); }
+  revealControls();
+  _advanceCore();
+};
 $('pause').onclick=()=>{
   if(!playing)return;
   haptic();
   if(paused){ // resume
     paused=false;wlHold();
     if(inGap){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
-    else{try{au.play();}catch(e){}}
+    // resuming after a screen lock can leave au.play() rejecting (iOS suspends media on
+    // lock); catch it and arm tap-to-start so resume never silently dies on a dead screen.
+    else{try{const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}}
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
     $('player').classList.remove('paused');revealControls();
   }else{ // pause

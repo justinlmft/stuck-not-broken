@@ -18,9 +18,52 @@
      rather than the darker ochre — darkened amber reads brown; this stays warm. */
   --track-safety-ink:#5891C5; --track-self-ink:#D29A4A; --track-mind-ink:#1A1F2A;
   --field:#fff; --knob:#fff; --danger:#9A3B3B; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
-  --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1); --type-scale:1;
+  --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1);
   --ink-faded:rgba(26,31,42,.25);   /* untouched check-in rails: present, clearly not "done" */
+
+  /* ---------- fluid interface tokens (Phase 1, 2026-07-10) ----------
+     Mirrored from Web Designer's snb-web.css so the app and the site don't drift.
+     Additive only: nothing below is consumed yet except the type ramp and heading
+     weight. Phases 2-4 replace by-eye spacing with these roles. */
+
+  /* spacing scale — 8px base, same numbers as the site */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
+  --sp-6:32px; --sp-7:48px; --sp-8:64px; --sp-9:80px; --sp-10:96px;
+  /* semantic roles — reach for these, not the raw scale */
+  --space-bound:var(--sp-2);    /* label to its control */
+  --space-snug:var(--sp-3);     /* tight pairs */
+  --space-stack:var(--sp-4);    /* within a component */
+  --space-group:var(--sp-5);    /* between components */
+  --space-block:var(--sp-6);    /* between blocks */
+  --space-sub:var(--sp-7);      /* between sub-sections */
+  --space-section:var(--sp-8);  /* between sections */
+
+  /* layout — clamp() is what makes it fluid instead of breakpoint-bolted */
+  --page:1120px;                          /* focal content cap */
+  --shell:1240px;                         /* shell cap (rail + content), Phase 2 */
+  --pad-x:clamp(20px,5vw,40px);
+  --gap:clamp(20px,4vw,32px);
+  --section:clamp(64px,9vw,112px);
+  --measure:66ch;                         /* reading line length; text is never full-bleed */
+
+  /* type ramp — device-appropriate body (Justin, 2026-07-10): ~17px phone -> ~19px wide.
+     Stepped by size class, not clamp(): CSS cannot derive a unitless ratio from vw,
+     and the WHOLE scale (h1..h3 and ~213 calc sites) must ride the ramp together or
+     the hierarchy inverts (h3 is 15px = body today).
+
+     --type-user  = the person's own text-size setting (JS writes this; was --type-scale)
+     --type-fluid = the device ramp
+     --type-scale = the composed value every existing calc(Npx * var(--type-scale))
+                    already reads — including the inline styles in app.js/player.html.
+     Composing here means zero edits at the ~213 call sites, and the user's setting
+     still multiplies on top of the device size exactly as before. */
+  --type-user:1;
+  --type-fluid:1.133;                     /* compact: 15 -> 17px */
+  --type-scale:calc(var(--type-user) * var(--type-fluid));
+  --fs-body:calc(15px * var(--type-scale));
 }
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
+@media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
 /* iOS paints a dark rectangle over tapped elements by default — our buttons
@@ -28,7 +71,7 @@ html,body{margin:0;height:100%;touch-action:manipulation}
 *{-webkit-tap-highlight-color:transparent}
 body{
   font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bone);color:var(--ink);
-  font-size:calc(15px * var(--type-scale));line-height:1.5;-webkit-font-smoothing:antialiased;
+  font-size:var(--fs-body);line-height:1.5;-webkit-font-smoothing:antialiased;
   display:flex;align-items:center;justify-content:center;min-height:100svh;
 }
 button{font:inherit;color:inherit}
@@ -70,7 +113,9 @@ button{font:inherit;color:inherit}
 
 /* type */
 .eyebrow{font-size:11.5px;font-weight:500;text-transform:uppercase;letter-spacing:.15em;color:var(--muted)}
-h1,h2,h3{font-weight:500;margin:0;letter-spacing:-.01em;text-wrap:pretty}
+/* headings 600 (2026-07-10) — matches Web Designer so the app and the site read as
+   one brand. Lowercase-500 UI labels elsewhere are unchanged; this is headings only. */
+h1,h2,h3{font-weight:600;margin:0;letter-spacing:-.015em;text-wrap:pretty}
 h1{font-size:calc(23px * var(--type-scale));line-height:1.2}
 h2{font-size:calc(18px * var(--type-scale));line-height:1.28}
 h3{font-size:calc(15px * var(--type-scale));line-height:1.3}
@@ -619,7 +664,10 @@ body.in-practice .tabbar{display:none}
 /* on the practice cards the two-mark pair stacks vertically, matching the single icons' footprint */
 .p-opt-ico .p-ico-pair{flex-direction:column;gap:1px}
 .p-opt-ico .p-ico-pair svg{width:26px;height:26px}
-.p-opt{max-height:130px;overflow:hidden;margin-bottom:12px;padding:17px 18px;
+/* the cap is an animation clamp (collapse/expand), not a design height — it has to
+   ride --type-scale, or larger type (device ramp x the user's text-size setting)
+   clips the reason line. 2026-07-10. */
+.p-opt{max-height:calc(130px * var(--type-scale));overflow:hidden;margin-bottom:12px;padding:17px 18px;
   transition:max-height .35s var(--ease),margin .3s var(--ease),opacity .28s var(--ease),padding .28s var(--ease),border-color .2s var(--ease)}
 .p-opt .wc-title{font-size:calc(17px * var(--type-scale))}
 .p-opt .wc-reason{font-size:calc(14px * var(--type-scale));margin-top:5px}
@@ -1335,7 +1383,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .tb-halo.b{width:86%;height:86%;animation-delay:.6s;opacity:.32}
 .tb-ring{width:170px;height:170px;border-radius:50%;border:1.5px solid var(--ink);opacity:.72;display:flex;align-items:center;justify-content:center;animation:t-breathe 9s var(--ease) infinite;transition:width .6s var(--ease),height .6s var(--ease);will-change:transform,opacity}
 .tb-core{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.7}
-.tb-below{position:relative;display:flex;align-items:center;justify-content:center;min-height:46px;overflow:hidden;transition:opacity .4s var(--ease),max-height .6s var(--ease),margin .6s var(--ease);max-height:80px}
+.tb-below{position:relative;display:flex;align-items:center;justify-content:center;min-height:46px;overflow:hidden;transition:opacity .4s var(--ease),max-height .6s var(--ease),margin .6s var(--ease);max-height:calc(80px * var(--type-scale))}
 .tb-txt{display:flex;flex-direction:column;gap:6px;transition:opacity .4s var(--ease)}
 .tb-line{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink)}
 .tb-hint{font-size:calc(13px * var(--type-scale));color:var(--muted)}
@@ -1408,7 +1456,7 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 
 /* first-week accounts: the settled ring keeps its faint hint so a returning
    new user still knows the circle is tappable */
-.today.tb.breathed.young .tb-below{opacity:1;max-height:46px;min-height:0;margin:0}
+.today.tb.breathed.young .tb-below{opacity:1;max-height:calc(46px * var(--type-scale));min-height:0;margin:0}
 .today.tb.breathed.young .tb-txt{opacity:1}
 .today.tb.breathed.young .tb-line{display:none}
 .today.tb.breathed.young .tb-hint{opacity:.55}

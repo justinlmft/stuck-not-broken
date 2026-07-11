@@ -394,6 +394,7 @@
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
+          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">new here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>start a check-in — no account needed</button>'}
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
           <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
@@ -404,6 +405,7 @@
       </div>`);
     if(busy) return;
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
+    const gs=$('#guest-start'); if(gs) gs.onclick = startGuestFlow;
     $('#toggle').onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); };
     $('#go').onclick = submit;
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
@@ -488,6 +490,262 @@
       }, 4200);
       setTimeout(done, 10400);
     }, 350);
+  }
+
+  // ================================================================ GUEST PRE-SIGNUP FLOW
+  // A visitor can do a real check-in, get a real reflection, and try ONE practice
+  // before creating an account (approved 2026-07-10; free/paid boundary cleared by
+  // Get More Sales). This is deliberately a SEPARATE, tabbar-free linear sequence —
+  // it never calls app()/screenCheckin()/renderPracticeChooser(), because those
+  // render the shared tabbar whose practice tab exposes the self-regulation ("most"/
+  // pendulation) track. That track needs an established safety baseline and must be
+  // unreachable by a first-time anonymous visitor. Only after a successful save
+  // (linkIdentity) does the person enter the normal route()/app() shell.
+  //
+  // Free/paid boundary held here (GMS 2026-07-10): the guest gets a single generic,
+  // self-picked, NON-recommended taste. No recommender/personalization dials, no
+  // reader/blog, no "most" track — those stay paid.
+  let _guestFlow = false;
+  let _guestCI = null;          // {v,sym,dor} (0..1) captured at check-in, for reflection + return
+  // true only while an anonymous guest is mid-flow; gates the tabbar-free screens
+  // and the hard 'most' refusal in launchWeaver/logSession.
+  function inGuest(){ try{ return !!_guestFlow && Store.isAnonymous && Store.isAnonymous(); }catch(e){ return false; } }
+
+  // Entry: mint an anonymous session, then drop into the tabbar-free check-in.
+  function startGuestFlow(){
+    screenSignIn(null, true);   // reuse the gate's "one moment…" busy state while the session mints
+    Promise.resolve(Store.signInAnonymously()).then(res=>{
+      if(res && res.error){ _guestFlow=false; return screenSignIn(res.error); }
+      _guestFlow = true; _guestCI = null;
+      guestCheckin();
+    }).catch(e=>{ _guestFlow=false; screenSignIn(String((e&&e.message)||e)); });
+  }
+
+  // ---- guest check-in (streamlined, tabbar-free) ----
+  // Three sliders + the live mirror + "ask me differently". Intentionally omits the
+  // paid-side folds (challenge / "choose your next practice" = recommender
+  // personalization) and context tagging (patterns = paid) — the guest taste is
+  // generic by design. The saved check-in is source-tagged 'guest' so guest-origin
+  // signups never blend into the paid-trial cohort read (GMS condition, 2026-07-10).
+  function guestCheckin(){
+    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    let v=50, s=50, d=50;   // symmetric midpoints; nothing suggested
+    const qIdx = { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
+    root.innerHTML = `
+      <header class="appbar"><button class="backbtn" id="g-ci-back">back</button></header>
+      <div class="scroll" id="content"></div>`;
+    $('#g-ci-back').onclick = ()=>guestLeave();
+    $('#content').innerHTML = `<div class="view checkin2">
+        <div class="scr-head">
+          <p class="eyebrow">your first check-in</p>
+          <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
+        </div>
+        <div class="ci-block">
+          <div class="sliders">
+            ${sliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
+            ${sliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
+            ${sliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
+          </div>
+          <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
+          <p class="ci-readout" id="ci-readout"></p>
+          <p class="fineprint" style="margin-top:10px">no account yet — this check-in is real. save it at the end and it stays yours.</p>
+        </div>
+        <div class="actionbar"><button class="btn block" id="g-ci-save">see what you're in</button></div>
+      </div>`;
+    const readout = $('#ci-readout');
+    const axTouched = {};
+    function refresh(){
+      setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
+      const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
+      const core = STATE_CORE[dom.key] || [];
+      const own = AXIS_OWN();
+      const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
+      ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
+        const active = allTouched && core.length>1 && core.includes(ax);
+        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink-faded)'); });
+      if(readout){
+        const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
+        readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
+          : 'move the sliders, and this line will mirror what you set.';
+        readout.classList.toggle('ci-readout-idle', !anyTouched);
+      }
+    }
+    bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
+    bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
+    bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
+    refresh();
+    $('#ci-shuffle').onclick = ()=>{
+      ['v','sym','dor'].forEach(ax=>{
+        qIdx[ax] = ciRand(ax, qIdx[ax]);
+        const q = root.querySelector('#q-'+ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
+        const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
+      });
+    };
+    $('#g-ci-save').onclick = ()=>{
+      const vals = { v:v/100, sym:s/100, dor:d/100, source:'guest' };
+      if(!(axTouched.v||axTouched.sym||axTouched.dor)) vals.dom='neutral';   // untouched midpoints = settling, never a tie-break state
+      Store.addCheckin(vals);
+      _guestCI = { v:v/100, sym:s/100, dor:d/100 };
+      haptic('save');
+      guestReflection();
+    };
+  }
+
+  // ---- guest reflection (immediate single-check-in state read) ----
+  // Free forever (GMS): the immediate state read from a check-in. Mirrors what the
+  // person named — the dominant state, in the tri-glyph marks, with the mirror line.
+  // No reader/blog and no "recommended for you" (both paid personalization).
+  function guestReflection(){
+    clearFigures(); document.body.classList.remove('in-practice');
+    const ci = _guestCI || { v:.5, sym:.5, dor:.5 };
+    const dom = window.PVCurrent.dominantOf(ci.v, ci.sym, ci.dor);
+    const name = STATE_NAME(dom.key);
+    root.innerHTML = `
+      <header class="appbar"><button class="backbtn" id="g-rf-back">back</button></header>
+      <div class="scroll" id="content"></div>`;
+    $('#g-rf-back').onclick = ()=>guestCheckin();
+    $('#content').innerHTML = `<div class="view fb-view">
+        <div class="scr-head">
+          <p class="eyebrow">what you named</p>
+          <h1 class="scr-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stateMarks(dom.key)}<span>${escapeHtml(name)}</span></h1>
+          <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
+        </div>
+        <p class="settle-note" style="margin:14px 0 4px">this is just a read of right now. it isn't a score, and nothing here is wrong. it's a place to start from.</p>
+        <div class="fb-after" style="margin-top:22px">
+          <button class="btn block" id="g-rf-practice">try a practice from here</button>
+          <button class="navlink" id="g-rf-save" style="align-self:center">save this and finish</button>
+        </div>
+      </div>`;
+    $('#g-rf-practice').onclick = ()=>guestPracticePick();
+    $('#g-rf-save').onclick = ()=>guestSaveInvite('reflection');
+  }
+
+  // ---- guest practice pick (exactly two hardcoded options) ----
+  // Built fresh with exactly two options — simple mindfulness and connect-with-safety.
+  // NEVER the full P_OPTS and NEVER the 'most' (self-regulation) branch. This is the
+  // hard safety boundary for anonymous visitors.
+  const GUEST_P_OPTS = [
+    { key:'mindfulness', title:'simple mindfulness', sub:'the gentlest, a calm place to start' },
+    { key:'anchoring',   title:'connect with safety', sub:'settling in through your senses' },
+  ];
+  function guestPracticePick(){
+    clearFigures(); document.body.classList.remove('in-practice');
+    const P_ICO = {
+      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+      anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
+    };
+    const card = (o)=>`
+      <button class="wincard p-opt" data-gkey="${o.key}">
+        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
+        <span class="wc-text">
+          <span class="wc-title">${escapeHtml(o.title)}</span>
+          <span class="wc-reason">${escapeHtml(o.sub)}</span>
+        </span>
+        <span class="wc-go">${CHEV}</span>
+      </button>`;
+    root.innerHTML = `
+      <header class="appbar"><button class="backbtn" id="g-pp-back">back</button></header>
+      <div class="scroll" id="content"></div>`;
+    $('#g-pp-back').onclick = ()=>guestReflection();
+    $('#content').innerHTML = `<div class="view p-view">
+        <div class="scr-head">
+          <p class="eyebrow">your choice</p>
+          <h2 class="scr-h">pick one to try.</h2>
+          <p class="scr-lede">both are short and gentle. this one's your pick, not a recommendation.</p>
+        </div>
+        <div class="p-bottom">
+          <div class="p-opts">${GUEST_P_OPTS.map(card).join('')}</div>
+        </div>
+        <p class="fineprint" style="margin-top:16px;text-align:center"><button class="navlink" id="g-pp-save" style="font-size:inherit">save what you've got and finish</button></p>
+      </div>`;
+    content().querySelectorAll('[data-gkey]').forEach(b=>b.onclick=()=>guestLaunch(b.dataset.gkey));
+    $('#g-pp-save').onclick = ()=>guestSaveInvite('pick');
+  }
+
+  // ---- guest practice launch + tabbar-free shell ----
+  function guestLaunch(key){
+    if(key!=='mindfulness' && key!=='anchoring'){   // hard guard: guests get only these two
+      showToast('that one opens once you have an account.'); return guestPracticePick();
+    }
+    const sense = 'touch', silence = 8;   // generic, non-personalized defaults
+    const ps = { embed:'1', autostart:'1', practice:key, sense, silence:String(silence) };
+    const src = 'player.html?'+new URLSearchParams(ps).toString();
+    const reco = { practiceKey:key, sense, silence };
+    guestPracticeShell(src, reco);
+  }
+  // Same as practiceShell, but with NO tabbar — a guest must not gain tab access
+  // (and its 'most' path) mid-practice. Back returns to the guest pick screen.
+  function guestPracticeShell(src, reco){
+    haptic('start');
+    setHTML(`
+      <div class="weaver-wrap">
+        <div class="weaver-loading" id="weaver-loading" aria-live="polite"><span class="wl-ring" aria-hidden="true"></span><span class="wl-txt">preparing your practice</span></div>
+        <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
+      </div>`);
+    const _wf=$('#weaver'), _wl=$('#weaver-loading');
+    let _wlDone=false;
+    const _wlTimeout=setTimeout(()=>{
+      if(_wlDone||!_wl) return;
+      _wl.innerHTML='<span class="wl-txt">can’t load the practice right now. check your connection and try again.</span><button class="set-quiet actionbar-aux" id="wl-back" style="margin-top:14px">back</button>';
+      const b=document.getElementById('wl-back'); if(b) b.onclick=()=>guestPracticePick();
+    }, 10000);
+    if(_wf&&_wl) _wf.addEventListener('load',()=>{ _wlDone=true; clearTimeout(_wlTimeout); _wl.classList.add('gone'); setTimeout(()=>{ try{_wl.remove();}catch(e){} },600); });
+    window._pendingReco = reco;
+  }
+
+  // ---- guest save-invite (identity linking) ----
+  // Reuses the account form, but calls Store.linkIdentity() (attach email+password
+  // to the same anonymous user) instead of signUp — so the guest's check-in,
+  // session, and any data carry over with zero migration. Frames the free tier as
+  // progression, not a downgrade (GMS copy note, 🖊 Justin to finalize wording).
+  function guestSaveInvite(from, err, busy){
+    setHTML(`
+      <div class="view gate">
+        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
+        <div class="gate-body">
+          <p class="eyebrow">save your check-in</p>
+          <h1 style="margin:10px 0 12px">you got a taste. keep it.</h1>
+          <p class="lede" style="margin-bottom:22px">create an account and this check-in, and everything you do next, stays yours — your matched practices and the full library are inside.</p>
+          <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
+          <div class="field"><label for="nm">your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
+          <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="new-password"></div>
+          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
+          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':'save and create account'}</button>
+          <p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
+          <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people. it can never be traced back to you.</p>
+          <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-later" style="font-size:inherit;padding:2px">not now</button></p>
+        </div>
+      </div>`);
+    if(busy) return;
+    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
+      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
+    });
+    $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; });
+    $('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+    const later = $('#g-later'); if(later) later.onclick = ()=>{ if(from==='pick') return guestPracticePick(); return guestReflection(); };
+    $('#g-go').onclick = submit;
+    function submit(){
+      const email=($('#em').value||'').trim(), pw=$('#pw').value;
+      if(!email || (Store.cloud() && !pw)){ lastEmail=email; return guestSaveInvite(from, 'enter your email and a password.'); }
+      lastEmail=email;
+      const nm = (($('#nm')||{}).value||'').trim();
+      guestSaveInvite(from, null, true);
+      Promise.resolve(Store.linkIdentity(email, pw)).then(res=>{
+        if(res && res.error) return guestSaveInvite(from, res.error);
+        if(res && res.needsConfirm) return screenConfirm(email);
+        if(nm) Store.setName(nm);
+        _guestFlow = false; _guestCI = null;   // leave the guest sequence; now a normal saved user
+        currentTab='today'; route();
+      }).catch(e=>guestSaveInvite(from, String((e&&e.message)||e)));
+    }
+  }
+
+  // Abandon the guest flow entirely (back off the first screen): sign the anonymous
+  // session out and return to the sign-in gate. The stray anonymous user + its lone
+  // check-in are discarded (unsaved by definition).
+  function guestLeave(){
+    _guestFlow = false; _guestCI = null;
+    Promise.resolve(Store.signOut && Store.signOut()).then(()=>{ authMode='in'; route(); }).catch(()=>{ authMode='in'; route(); });
   }
 
   // ---------------------------------------------------------------- paywall (paid-trial cohort only)
@@ -3027,7 +3285,7 @@
     setHTML(`
       <div class="weaver-wrap">
         <div class="weaver-loading" id="weaver-loading" aria-live="polite"><span class="wl-ring" aria-hidden="true"></span><span class="wl-txt">preparing your practice</span></div>
-        <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay"></iframe>
+        <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
       </div>
       <nav class="tabbar" id="tabs">
         ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
@@ -3363,6 +3621,12 @@
   // Today's "a practice for now" row → one-tap autostart of the recommended practice,
   // same full-bleed shell (tab bar for nav, no top header).
   function launchWeaver(reco){
+    // Defense in depth: an anonymous guest must never reach the self-regulation
+    // ("most") track — it needs an established safety baseline. The guest UI can't
+    // produce this key, but refuse it here regardless.
+    if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()){
+      showToast("that practice opens once you've saved an account."); return;
+    }
     const params = { embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) };
     if(reco.skill) params.skill = reco.skill;
     // recommender-preset dials ride into the player (both already gate-checked in
@@ -3396,10 +3660,20 @@
       if(typeof m.holdWatchSeconds==='number') reco.holdWatchSeconds=m.holdWatchSeconds;
       if(typeof m.holdWatchTargetSeconds==='number') reco.holdWatchTargetSeconds=m.holdWatchTargetSeconds;
     }
+    // Guest flow: no tabbar screens. A completed practice hands off to save-invite;
+    // an early exit returns to the guest reflection (never renderFeedback/app()).
+    if(inGuest()){
+      if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); guestSaveInvite('complete'); }
+      else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); guestReflection(); }
+      return;
+    }
     if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); renderFeedback(reco); }
     else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); renderExitReason(); }
   });
   function logSession(reco, completed, endedEarly, minutes){
+    // Defense in depth: never log a self-regulation ('most') session for an
+    // anonymous guest (the guest UI cannot produce one; refuse it regardless).
+    if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()) return;
     if(window._sessionLogged) return; window._sessionLogged=true;
     // skills exist only on the self-regulation ('most') track. Gate here at the save
     // boundary so no non-'most' session can inherit a leftover default skill (e.g. the
@@ -3838,7 +4112,10 @@
   function applyPrefs(){
     try{
       const ts = parseFloat(localStorage.getItem('snb_textscale')||'1') || 1;
-      document.documentElement.style.setProperty('--type-scale', String(ts));
+      // --type-user, not --type-scale: app.css composes --type-scale from the user's
+      // setting x the device ramp (--type-fluid). Writing --type-scale here would
+      // clobber the ramp and pin the app back to phone-sized type on desktop.
+      document.documentElement.style.setProperty('--type-user', String(ts));
       document.body.classList.toggle('reduce-motion', localStorage.getItem('snb_reduce_motion')==='1');
       const theme = localStorage.getItem('snb_theme') || '';            // '', 'light', 'dark' ('' follows the system)
       const de = document.documentElement;
