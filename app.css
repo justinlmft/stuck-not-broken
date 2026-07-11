@@ -671,6 +671,27 @@ body.in-practice .tabbar{display:none}
   transition:max-height .35s var(--ease),margin .3s var(--ease),opacity .28s var(--ease),padding .28s var(--ease),border-color .2s var(--ease)}
 .p-opt .wc-title{font-size:calc(17px * var(--type-scale))}
 .p-opt .wc-reason{font-size:calc(14px * var(--type-scale));margin-top:5px}
+/* ---- guest on-ramp practice cards (2026-07-10) ----
+   The guest pick reuses .p-opt, which is built for the main chooser: icon top-aligned,
+   a max-height animation clamp, and a 2-line text clamp on the reason. With the Phase 1
+   type ramp the text got ~13% bigger, so the two cards ended up UNEQUAL heights with the
+   reason wrapping mid-phrase — Justin's "buttons are jacked up". These are a plain pair
+   of choices with no collapse animation, so give them their own rules: equal height,
+   icon centered, no clamps, text room to breathe. */
+.g-opts{gap:12px}
+.g-opt{
+  align-items:center;                       /* was: icon top-aligned, text center — misaligned */
+  max-height:none; overflow:visible;        /* no collapse animation here, so no clamp */
+  min-height:calc(84px * var(--type-scale));/* both cards the same height, whatever the wrap */
+  margin-bottom:0; padding:16px 18px; gap:14px;
+}
+.g-opt .p-opt-ico{align-self:center;margin:0}
+.g-opt .wc-text{gap:4px}
+.g-opt .wc-reason{
+  -webkit-line-clamp:none; display:block; overflow:visible;  /* let it wrap, don't clip */
+  margin-top:2px; text-wrap:pretty;
+}
+
 .p-opts.has-sel .p-opt:not(.p-sel){
   opacity:0;max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-color:transparent;pointer-events:none}
 /* on selection, color is earned sparingly: ONLY the chosen option's title carries the

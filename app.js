@@ -436,9 +436,11 @@
           <h1 style="margin:10px 0 12px">your nervous system, over time.</h1>
           <p class="lede" style="margin-bottom:26px">check in about where you are right now, and try a practice for it. no account, nothing to set up.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
+          <p class="fineprint" style="margin-top:2px">takes about two minutes. you can save it after, if you want to keep it.</p>
+          <p class="fineprint" style="margin-top:14px">already have an account? <button class="linkbtn" id="arrive-signin" style="font-size:inherit;padding:2px">sign in</button></p>
+        </div>
+        <div class="actionbar">
           <button class="btn block" id="arrive-start"${busy?' disabled':''}>${busy?'one moment…':'start a check-in'}</button>
-          <p class="fineprint" style="margin-top:16px">takes about two minutes. you can save it after, if you want to keep it.</p>
-          <p class="fineprint" style="margin-top:18px">already have an account? <button class="linkbtn" id="arrive-signin" style="font-size:inherit;padding:2px">sign in</button></p>
         </div>
       </div>`);
     if(busy) return;
@@ -580,6 +582,11 @@
   // reader/blog, no "most" track — those stay paid.
   let _guestFlow = false;
   let _guestCI = null;          // {v,sym,dor} (0..1) captured at check-in, for reflection + return
+  // ONE practice per guest. Justin, 2026-07-10: a guest could finish (or exit) a practice
+  // and immediately pick another, indefinitely — the taste is meant to be a single, honest
+  // free practice, not an unlimited library. Once they've practiced, the way forward is the
+  // save screen; the practice CTA is retired rather than silently failing.
+  let _guestPracticed = false;
   // Gates the tabbar-free screens and the hard 'most' refusal in launchWeaver/logSession.
   //
   // 2026-07-10: this used to require `_guestFlow && isAnonymous()`. That was a latent
@@ -690,13 +697,15 @@
           <h1 class="scr-h" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${stateMarks(dom.key)}<span>${escapeHtml(name)}</span></h1>
           <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
         </div>
-        <p class="settle-note" style="margin:14px 0 4px">this is just a read of right now. it isn't a score, and nothing here is wrong. it's a place to start from.</p>
-        <div class="fb-after" style="margin-top:22px">
-          <button class="btn block" id="g-rf-practice">try a practice from here</button>
-          <button class="navlink" id="g-rf-save" style="align-self:center">save this and finish</button>
+        <p class="settle-note" style="margin:14px 0 4px;max-width:none">this is just a read of right now. it isn't a score, and nothing here is wrong. it's a place to start from.</p>
+        <div class="actionbar">
+          ${_guestPracticed
+            ? '<button class="btn block" id="g-rf-save">keep this</button>'
+            : '<button class="btn block" id="g-rf-practice">try a practice from here</button><button class="navlink" id="g-rf-save" style="align-self:center">save this and finish</button>'}
         </div>
       </div>`;
-    $('#g-rf-practice').onclick = ()=>guestPracticePick();
+    // once they've practiced, the practice CTA is gone — one taste, then save
+    const rfp = $('#g-rf-practice'); if(rfp) rfp.onclick = ()=>guestPracticePick();
     $('#g-rf-save').onclick = ()=>guestSaveInvite('reflection');
   }
 
@@ -709,13 +718,15 @@
     { key:'anchoring',   title:'connect with safety', sub:'settling in through your senses' },
   ];
   function guestPracticePick(){
+    // hard stop: one practice per guest. If they've already had it, the only way on is save.
+    if(_guestPracticed) return guestSaveInvite('complete');
     clearFigures(); document.body.classList.remove('in-practice');
     const P_ICO = {
       mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
       anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
     };
     const card = (o)=>`
-      <button class="wincard p-opt" data-gkey="${o.key}">
+      <button class="wincard p-opt g-opt" data-gkey="${o.key}">
         <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
         <span class="wc-text">
           <span class="wc-title">${escapeHtml(o.title)}</span>
@@ -731,12 +742,12 @@
         <div class="scr-head">
           <p class="eyebrow">your choice</p>
           <h2 class="scr-h">pick one to try.</h2>
-          <p class="scr-lede">both are short and gentle. this one's your pick, not a recommendation.</p>
+          <p class="scr-lede">both are short and gentle.</p>
         </div>
-        <div class="p-bottom">
-          <div class="p-opts">${GUEST_P_OPTS.map(card).join('')}</div>
+        <div class="p-opts g-opts">${GUEST_P_OPTS.map(card).join('')}</div>
+        <div class="actionbar">
+          <button class="navlink" id="g-pp-save" style="align-self:center">save what you've got and finish</button>
         </div>
-        <p class="fineprint" style="margin-top:16px;text-align:center"><button class="navlink" id="g-pp-save" style="font-size:inherit">save what you've got and finish</button></p>
       </div>`;
     content().querySelectorAll('[data-gkey]').forEach(b=>b.onclick=()=>guestLaunch(b.dataset.gkey));
     $('#g-pp-save').onclick = ()=>guestSaveInvite('pick');
@@ -3744,8 +3755,12 @@
     // Guest flow: no tabbar screens. A completed practice hands off to save-invite;
     // an early exit returns to the guest reflection (never renderFeedback/app()).
     if(inGuest()){
+      // One practice per guest — whether they finished it or left early, the next step is
+      // the save screen, not another pick. (Previously an early exit dropped back to the
+      // reflection, where they could start another practice, and another, forever.)
+      _guestPracticed = true;
       if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); guestSaveInvite('complete'); }
-      else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); guestReflection(); }
+      else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); guestSaveInvite('exit'); }
       return;
     }
     if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); renderFeedback(reco); }
