@@ -190,6 +190,9 @@ p{margin:0;text-wrap:pretty}
 .gb-txt{font-size:calc(13px * var(--type-scale));color:var(--muted)}
 .gate-breath:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:12px}
 @media (prefers-reduced-motion:reduce){.gb-ring{animation:none;opacity:.5}}
+/* guest landing: the breathing circle, still. a close, not a reward. */
+.view.gate.land .gate-body{text-align:center}
+.land-ring{display:block;width:104px;height:104px;margin:0 auto;border-radius:50%;border:1.5px solid var(--ink);opacity:.5}
 /* session-end: quiet links, no slab */
 .endlink{display:block;margin:0 auto;background:none;border:0;cursor:pointer;color:var(--muted);font-size:calc(15px * var(--type-scale));padding:10px 6px}
 .endlink.lead{color:var(--ink);font-weight:500;font-size:calc(18px * var(--type-scale));margin-bottom:4px}

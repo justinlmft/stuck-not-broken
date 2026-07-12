@@ -433,10 +433,10 @@
             <span class="gb-txt" id="gb-txt" aria-live="polite">take one breath first.</span>
           </button>
           <p class="eyebrow">stuck not broken</p>
-          <h1 style="margin:10px 0 12px">your nervous system, over time.</h1>
-          <p class="lede" style="margin-bottom:26px">check in about where you are right now, and try a practice for it. no account, nothing to set up.</p>
+          <h1 style="margin:10px 0 12px">name where you are right now.</h1>
+          <p class="lede" style="margin-bottom:26px">two minutes, three questions, and a practice for whatever you find. no account, nothing to install.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <p class="fineprint" style="margin-top:2px">takes about two minutes. you can save it after, if you want to keep it.</p>
+          <p class="fineprint" style="margin-top:2px">nothing is saved unless you decide to keep it.</p>
           <p class="fineprint" style="margin-top:14px">already have an account? <button class="linkbtn" id="arrive-signin" style="font-size:inherit;padding:2px">sign in</button></p>
         </div>
         <div class="actionbar">
@@ -642,9 +642,9 @@
           </div>
           <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
           <p class="ci-readout" id="ci-readout"></p>
-          <p class="fineprint" style="margin-top:10px">no account yet — this check-in is real. save it at the end and it stays yours.</p>
+          <p class="fineprint" style="margin-top:10px">small, ordinary things. how hard or easy they feel is the read.</p>
         </div>
-        <div class="actionbar"><button class="btn block" id="g-ci-save">see what you're in</button></div>
+        <div class="actionbar"><button class="btn block" id="g-ci-save">see what you described</button></div>
       </div>`;
     const readout = $('#ci-readout');
     const axTouched = {};
@@ -700,16 +700,15 @@
     $('#g-rf-back').onclick = ()=>guestCheckin();
     $('#content').innerHTML = `<div class="view fb-view">
         <div class="scr-head">
-          <p class="eyebrow">what you named</p>
+          <p class="eyebrow">what you described</p>
           <div class="g-glyph">${triGlyph(dom.key)}</div>
           <h1 class="scr-h" style="margin-top:14px">${escapeHtml(name)}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
         </div>
-        <p class="settle-note" style="margin:14px 0 4px;max-width:none">this is just a read of right now. it isn't a score, and nothing here is wrong. it's a place to start from.</p>
         <div class="actionbar">
           ${_guestPracticed
-            ? '<button class="btn block" id="g-rf-save">keep this</button>'
-            : '<button class="btn block" id="g-rf-practice">try a practice from here</button><button class="navlink" id="g-rf-save" style="align-self:center">save this and finish</button>'}
+            ? '<button class="btn block" id="g-rf-save">keep this check-in</button>'
+            : '<button class="btn block" id="g-rf-practice">try a practice from here</button><button class="navlink" id="g-rf-save" style="align-self:center">keep this check-in</button>'}
         </div>
       </div>`;
     // once they've practiced, the practice CTA is gone — one taste, then save
@@ -749,12 +748,12 @@
     $('#content').innerHTML = `<div class="view p-view">
         <div class="scr-head">
           <p class="eyebrow">your choice</p>
-          <h2 class="scr-h">pick one to try.</h2>
-          <p class="scr-lede">both are short and gentle.</p>
+          <h2 class="scr-h">pick one. either is fine.</h2>
+          <p class="scr-lede">both are short. there's no wrong one.</p>
         </div>
         <div class="p-opts g-opts">${GUEST_P_OPTS.map(card).join('')}</div>
         <div class="actionbar">
-          <button class="navlink" id="g-pp-save" style="align-self:center">save what you've got and finish</button>
+          <button class="navlink" id="g-pp-save" style="align-self:center">keep this check-in</button>
         </div>
       </div>`;
     content().querySelectorAll('[data-gkey]').forEach(b=>b.onclick=()=>guestLaunch(b.dataset.gkey));
@@ -797,22 +796,43 @@
   // to the same anonymous user) instead of signUp — so the guest's check-in,
   // session, and any data carry over with zero migration. Frames the free tier as
   // progression, not a downgrade (GMS copy note, 🖊 Justin to finalize wording).
+  // ---- guest landing (after a completed practice) ----
+  // A close, not a congratulation. Nothing to do, nothing to answer, no ask. Its only job
+  // is to let the practice land BEFORE the save invite, so the offer reads as a choice
+  // rather than a sell riding on top of the reward.
+  function guestLanding(){
+    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    setHTML(`
+      <div class="view gate land">
+        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
+        <div class="gate-body">
+          <span class="land-ring" aria-hidden="true"></span>
+          <h1 style="margin:22px 0 12px">that's the practice.</h1>
+          <p class="lede">stay here as long as you like.</p>
+        </div>
+        <div class="actionbar">
+          <button class="btn block" id="g-land-go">i'm ready</button>
+        </div>
+      </div>`);
+    $('#g-land-go').onclick = ()=>guestSaveInvite('complete');
+  }
+
   function guestSaveInvite(from, err, busy){
     setHTML(`
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">save your check-in</p>
-          <h1 style="margin:10px 0 12px">you got a taste. keep it.</h1>
-          <p class="lede" style="margin-bottom:22px">create an account and this check-in, and everything you do next, stays yours — your matched practices and the full library are inside.</p>
+          <p class="eyebrow">before you go</p>
+          <h1 style="margin:10px 0 12px">this check-in only exists on this device.</h1>
+          <p class="lede" style="margin-bottom:22px">an account keeps it, and everything you do after it, yours.</p>
           <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
           <div class="field"><label for="nm">your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="new-password"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':'save and create account'}</button>
+          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':'create an account'}</button>
           <p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people. it can never be traced back to you.</p>
-          <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-later" style="font-size:inherit;padding:2px">not now</button></p>
+          <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-later" style="font-size:inherit;padding:2px">leave without saving</button></p>
         </div>
       </div>`);
     if(busy) return;
@@ -821,7 +841,10 @@
     });
     $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; });
     $('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
-    const later = $('#g-later'); if(later) later.onclick = ()=>{ if(from==='pick') return guestPracticePick(); return guestReflection(); };
+    // "leave without saving" means what it says. The arrival screen promised nothing is
+    // saved unless they decide to keep it; a quiet bounce back into the flow (or a kept
+    // check-in) would make that a lie. So this exits: sign out, discard, back to the door.
+    const later = $('#g-later'); if(later) later.onclick = ()=>guestLeave();
     $('#g-go').onclick = submit;
     function submit(){
       const email=($('#em').value||'').trim(), pw=$('#pw').value;
@@ -3767,7 +3790,9 @@
       // the save screen, not another pick. (Previously an early exit dropped back to the
       // reflection, where they could start another practice, and another, forever.)
       _guestPracticed = true;
-      if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); guestSaveInvite('complete'); }
+      // Completed → land first (a beat with no ask), THEN the save invite. Left early →
+      // they already opted out of the practice; no landing beat, straight to the offer.
+      if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); guestLanding(); }
       else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); guestSaveInvite('exit'); }
       return;
     }
