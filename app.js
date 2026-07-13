@@ -113,18 +113,28 @@
   // it). detect them so we say "open in your real browser first" instead of
   // pointing at a share icon that isn't there.
   const inAppBrowser = () => /FBAN|FBAV|FB_IAB|Instagram|Line|MicroMessenger|WhatsApp|Snapchat|Pinterest|LinkedInApp|GSA/i.test(navigator.userAgent||'') || /; wv\)/.test(navigator.userAgent||'');
-  const iosSafari = () => isiOS() && /Safari/.test(navigator.userAgent||'') && !/CriOS|FxiOS|EdgiOS|FBAN|FBAV|Instagram|Line|GSA/i.test(navigator.userAgent||'');
+  // Real third-party iOS browsers (Chrome/Edge/Firefox on iPhone). These are NOT
+  // in-app webviews: since iOS 16.4 they all expose "add to home screen" in their
+  // own share menu, exactly like Safari.
+  const iosThirdParty = () => isiOS() && /CriOS|FxiOS|EdgiOS|OPiOS/i.test(navigator.userAgent||'');
+  // "can add to home screen from the share menu" — Safari OR a real third-party iOS
+  // browser. 2026-07-10 FIX (Justin, on iPhone Chrome): we previously treated ANY
+  // non-Safari iOS browser as an in-app webview and told the person to "open this
+  // page in safari first." That is wrong and was the message he saw — iOS Chrome can
+  // install perfectly well. Only genuine in-app webviews (IG/FB/etc.) cannot.
+  const iosShareInstall = () => isiOS() && !inAppBrowser();
   function openElsewhereMsg(){
+    // Only ever shown inside a real in-app webview now.
     return isiOS()
-      ? 'to install, open this page in safari first (not this in-app window), then tap the share icon and choose "add to home screen."'
-      : 'to install, open this page in chrome first (not this in-app window), then use the menu and choose "add to home screen."';
+      ? 'to install, open this page in your browser first (not this in-app window), then tap the share icon and choose "add to home screen."'
+      : 'to install, open this page in your browser first (not this in-app window), then use the menu and choose "add to home screen."';
   }
-  // one source of truth for install state: installed | button | ios-safari | open-elsewhere | other
+  // one source of truth for install state: installed | button | ios-share | open-elsewhere | other
   function installState(){
     if(isStandalone()) return 'installed';
-    if(inAppBrowser() || (isiOS() && !iosSafari())) return 'open-elsewhere';
-    if(canInstall()) return 'button';
-    if(isiOS()) return 'ios-safari';
+    if(inAppBrowser()) return 'open-elsewhere';       // genuine webview: cannot install, must leave
+    if(canInstall()) return 'button';                 // Android/desktop Chrome: real install prompt
+    if(iosShareInstall()) return 'ios-share';         // any iOS browser incl. Chrome: share -> add to home screen
     return 'other';
   }
   const canInstall = () => !!_deferredInstall;
@@ -354,17 +364,65 @@
   function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
+  // Has an account ever been signed in on this device? Set on every successful
+  // sign-in / sign-up / guest-save. Decides what a signed-OUT visitor lands on:
+  // a known device gets the sign-in form; a brand-new visitor gets the on-ramp.
+  function knownDevice(){ try{ return localStorage.getItem('snb_had_account')==='1'; }catch(e){ return false; } }
+  function markKnownDevice(){ try{ localStorage.setItem('snb_had_account','1'); }catch(e){} }
+
   function route(){
-    if(!Store.user()) return screenSignIn();
+    // ON-RAMP (rebuilt 2026-07-13; spec ONRAMP-COPY-DRAFT.md): a first-time visitor must
+    // reach a real check-in and a real practice BEFORE any signup prompt. The ARRIVAL
+    // SCREEN IS RETIRED — every visitor comes from a link that already said what this is;
+    // a lobby re-explains the click. The link lands ON the check-in. No anonymous session
+    // exists yet: it mints at first write ("see what you described"), which is what makes
+    // the check-in's trust line structurally true.
+    if(!Store.user()){
+      // /stuck door: a brand-new visitor who clicked "start a practice" gets exactly that.
+      // Known devices keep the sign-in gate (their practice is inside their account).
+      if(_doorPractice && Store.cloud() && !knownDevice()){ _doorPractice=false; return startGuestFlow('practice'); }
+      if(Store.cloud() && !knownDevice()){ if(_guestFlow) return; return startGuestFlow(); }
+      return screenSignIn();
+    }
+
+    // ---- HARD SAFETY GATE (2026-07-10, found on Justin's device pass) ----
+    // An anonymous guest IS a Store.user(), so route() used to fall straight through
+    // to app(currentTab) — the full tabbed shell, including the practice tab and its
+    // self-regulation / pendulation track. Any reload mid-guest-flow triggered this,
+    // and a service-worker update reloads the page automatically, so it happened on
+    // its own. The guest SCREENS were tabbar-free and correct; the ROUTER was the hole.
+    //
+    // A guest must never reach the tabbed app. Resume the guest sequence instead:
+    // straight to the reflection if they already checked in, otherwise the check-in.
+    if(Store.isAnonymous && Store.isAnonymous()){
+      if(_guestFlow) return;                 // already mid-flow; the guest screens own the view
+      _guestFlow = true;
+      // Resume the guest sequence at the STAGE the reload interrupted (sessionStorage
+      // carries door/practiced/both reads; Store data is the fallback for a reopened tab).
+      const gs = gsGet();
+      _guestCI = gs.ci1 || null; _guestCI2 = gs.ci2 || null;
+      if(!_guestCI){ try{ const last = Store.lastCheckin && Store.lastCheckin(); if(last && typeof last.v==='number') _guestCI = { v:last.v, sym:last.sym, dor:last.dor }; }catch(e){} }
+      let practiced = !!gs.practiced;
+      try{ if(!practiced && Store.sessions && Store.sessions().length) practiced = true; }catch(e){}
+      _guestPracticed = practiced;
+      if(practiced){
+        if(_guestCI && _guestCI2) return guestBeforeAfter();
+        if(guestDoor()==='practice') return _guestCI ? guestOffer() : guestCheckin('post');
+        return _guestCI ? guestCheckin('after') : guestOffer();
+      }
+      if(_guestCI) return guestReflection();
+      if(guestDoor()==='practice') return guestPracticePick();
+      return guestCheckin('before');
+    }
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
-    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'){ if(Store.refreshBilling) Store.refreshBilling(); showToast("your free trial is active. no charge until it ends, and we'll remind you first."); } } }catch(e){}
+    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'){ if(Store.refreshBilling) Store.refreshBilling(); showToast("your free trial is active. no charge until it ends, and we'll remind you first."); } else if(co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('your subscription is active.'); } } }catch(e){}
     // paid-trial gate: ONLY the invited cohort without an active sub sees the paywall.
     if(!Store.hasAccess()) return screenPaywall();
     // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
     let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
     if(h==='checkin'){ app('today'); return screenCheckin(); }
-    if(h==='practice'){ return app('practice'); }
+    if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('today'); }   // lands on the ring, ready to tap
     return app(currentTab);
   }
@@ -374,6 +432,30 @@
   // captured at load, before the hash is consumed anywhere; also set by the
   // PASSWORD_RECOVERY auth event (registered near Store.init at the bottom)
   let _recovery = /type=recovery/.test(location.hash||'');
+
+  // ---- the /stuck hand-off door (2026-07-12, Justin via architect: intent, not data) ----
+  // ?start=practice sends a BRAND-NEW visitor straight to the guest practice pick — the
+  // check-in is OFFERED after the practice instead of leading. Everyone else (no param,
+  // known device, signed in) keeps the existing doors. No state travels; the param is the
+  // person's intent, nothing more. UTM params pass through untouched (page-level analytics;
+  // the app never reads them). Captured once and stripped so a plain reload re-enters
+  // normally; sessionStorage remembers the door within the tab so a mid-flow reload resumes
+  // the practice-first sequence instead of dumping the person into a check-in they didn't pick.
+  let _doorPractice = false;
+  try{
+    const _dq = new URLSearchParams(location.search);
+    if(_dq.get('start')==='practice'){
+      _doorPractice = true;
+      _dq.delete('start');
+      history.replaceState(null,'',location.pathname+(_dq.toString()?'?'+_dq.toString():'')+location.hash);
+    }
+  }catch(e){}
+  // (the door now lives in the guest sessionStorage blob — see gsGet/gsSet/guestDoor below)
+
+  // ---------------------------------------------------------------- arrival — RETIRED
+  // (2026-07-13, on-ramp rebuild.) The arrival lobby re-explained a click the visitor
+  // already made; the link now lands directly on the guest check-in. Its trust line and
+  // the quiet "sign in" link moved onto the check-in itself. See guestCheckin().
 
   // ---------------------------------------------------------------- sign in / up
   function screenSignIn(err, busy){
@@ -394,6 +476,7 @@
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
+          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">new here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>start a check-in — no account needed</button>'}
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
           <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
@@ -404,6 +487,7 @@
       </div>`);
     if(busy) return;
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
+    const gs=$('#guest-start'); if(gs) gs.onclick = startGuestFlow;
     $('#toggle').onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); };
     $('#go').onclick = submit;
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
@@ -446,8 +530,9 @@
       screenSignIn(null, true);
       Promise.resolve(up ? Store.signUp(email,pw) : Store.signIn(email,pw)).then(res=>{
         if(res && res.error) return screenSignIn(res.error);
-        if(res && res.needsConfirm) return screenConfirm(email);
+        if(res && res.needsConfirm){ markKnownDevice(); return screenConfirm(email); }
         if(nm) Store.setName(nm);
+        markKnownDevice();   // this device has had an account -> signed-out visits land on sign-in, not the on-ramp
         currentTab='today'; route();
       }).catch(e=>screenSignIn(String((e&&e.message)||e)));
     }
@@ -488,6 +573,530 @@
       }, 4200);
       setTimeout(done, 10400);
     }, 350);
+  }
+
+  // ================================================================ GUEST ON-RAMP
+  // (Rebuilt 2026-07-13. Spec: ONRAMP-COPY-DRAFT.md — copy CLOSED — + ONRAMP-MOCKUP.html.)
+  // The flow: check-in → practice → check in again → what changed (before/after) → the
+  // offer. The /stuck door (?start=practice) skips to the pick and offers the check-in
+  // after; it has no "before", so it gets no before/after screen.
+  //
+  // This is deliberately a SEPARATE, tabbar-free linear sequence — it never calls
+  // app()/screenCheckin()/renderPracticeChooser(), because those render the shared
+  // tabbar whose practice tab exposes the self-regulation ("most"/pendulation) track.
+  // That track needs an established safety baseline and must be unreachable by an
+  // anonymous visitor. Only after a successful save (linkIdentity) does the person
+  // enter the normal route()/app() shell.
+  //
+  // Free/paid boundary (GMS + Justin 2026-07-13): the guest taster is MINDFULNESS ONLY,
+  // chosen by TIME (tiny ~2 min / full ~6 min). Safety anchoring is faded with the rest:
+  // (1) never demo what you're about to take away — everything a guest touches, they
+  // keep for free; (2) safety anchoring is state-matched by nature = personalization =
+  // paid. The guest chose by time; the product chooses by state.
+  let _guestFlow = false;
+  let _guestCI  = null;   // {v,sym,dor} (0..1) the first check-in — the "before"
+  let _guestCI2 = null;   // {v,sym,dor} the post-practice check-in — the "after"
+  // ONE practice per guest (Justin 2026-07-10): the taste is a single, honest free
+  // practice, not an unlimited library. Once practiced, the way forward is the offer.
+  let _guestPracticed = false;
+  // Gates the tabbar-free screens and the hard 'most' refusal in launchWeaver/logSession.
+  //
+  // 2026-07-10: this used to require `_guestFlow && isAnonymous()`. That was a latent
+  // hole — `_guestFlow` is in-memory, so any page reload cleared it while the person
+  // was still an anonymous user, and every guard keyed on inGuest() silently switched
+  // off. Anonymity is the durable fact; the flag is not. Key the guard on anonymity
+  // ALONE, so it cannot be defeated by a reload.
+  function inGuest(){ try{ return !!(Store.isAnonymous && Store.isAnonymous()); }catch(e){ return false; } }
+
+  // Mid-flow position must survive reloads (a service-worker update reloads the page on
+  // its own): door, practiced, the asked questions, and both reads live in sessionStorage
+  // for the tab. (Replaces the old single 'snb_guest_door' key AND the in-memory-only
+  // _guestPracticed, which a reload used to clear — reopening the practice pick.)
+  const GS_KEY = 'snb_guest_state';
+  function gsGet(){ try{ return JSON.parse(sessionStorage.getItem(GS_KEY)) || {}; }catch(e){ return {}; } }
+  function gsSet(patch){ try{ sessionStorage.setItem(GS_KEY, JSON.stringify(Object.assign(gsGet(), patch))); }catch(e){} }
+  function gsClear(){ try{ sessionStorage.removeItem(GS_KEY); }catch(e){} }
+  function guestDoor(){ return gsGet().door || null; }
+
+  // ---- offer instrumentation (GMS build item 2, agreed by Justin 07-13) ----
+  // offer_view / subscribe_click / continue_free, with return-visit count and check-in
+  // count riding along — the data that turns offer-now-vs-offer-later into evidence.
+  // Queued locally; drains through Store.trackEvent when the events table lands (Phase 2).
+  function gtrack(name, meta){
+    try{
+      const q = JSON.parse(localStorage.getItem('snb_guest_events')||'[]');
+      q.push({ name:name, t:Date.now(), meta:meta||null });
+      localStorage.setItem('snb_guest_events', JSON.stringify(q.slice(-200)));
+    }catch(e){}
+    try{ if(Store.trackEvent) Store.trackEvent(name, meta); }catch(e){}
+  }
+  function gVisits(){ try{
+    const d = new Date().toDateString();
+    const o = JSON.parse(localStorage.getItem('snb_guest_visits')||'{}');
+    if(o.day!==d){ o.day=d; o.n=(o.n||0)+1; localStorage.setItem('snb_guest_visits', JSON.stringify(o)); }
+    return o.n||1;
+  }catch(e){ return 1; } }
+  function gCheckinCount(){ try{ return (Store.checkins()||[]).length; }catch(e){ return 0; } }
+
+  // Entry. NO anonymous session is minted here — the sliders run locally, and the
+  // session mints at first write (the "see what you described" tap / the practice
+  // launch on the /stuck door). Before that tap nothing exists to save, which is what
+  // makes the check-in's trust line structurally true.
+  // entry: 'checkin' (default) or 'practice' (the /stuck door: straight to the pick;
+  // the check-in is offered after the practice).
+  function startGuestFlow(entry){
+    _guestFlow = true; _guestCI = null; _guestCI2 = null; _guestPracticed = false; _offerViewed = false;
+    const practiceFirst = entry==='practice';
+    gsClear(); gsSet({ door: practiceFirst ? 'practice' : 'checkin' });
+    gVisits();   // count the visit-day for the conversion read
+    practiceFirst ? guestPracticePick() : guestCheckin('before');
+  }
+  // Mint the anonymous session on demand, exactly once, at first write.
+  function ensureGuestSession(){
+    if(Store.user()) return Promise.resolve({});
+    return Promise.resolve(Store.signInAnonymously());
+  }
+
+  // ---- guest check-in (streamlined, tabbar-free) ----
+  // Three sliders + the live mirror + "ask me differently". Intentionally omits the
+  // paid-side folds (challenge / "choose your next practice" = recommender
+  // personalization) and context tagging (patterns = paid) — the guest taste is
+  // generic by design. The saved check-in is source-tagged 'guest' so guest-origin
+  // signups never blend into the paid-trial cohort read (GMS condition, 2026-07-10).
+  //
+  // Three modes:
+  //   'before' — the front door (check-in-first). Trust line + quiet sign-in live here
+  //              now that the arrival is retired. No session exists until the CTA tap.
+  //   'after'  — the second read, post-practice. SAME three questions as the before-read
+  //              (like compares with like), sliders reset to the middle — never anchored
+  //              to the pre-practice values, so the second read is independent.
+  //   'post'   — the /stuck door's OFFERED check-in after its practice. First and only
+  //              read there (no "before"), so it leads to the reflection, not a compare.
+  function guestCheckin(mode, err){
+    mode = mode || 'before';
+    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    let v=50, s=50, d=50;   // symmetric midpoints; nothing suggested
+    const gsQ = gsGet().q;
+    const qIdx = (mode==='after' && gsQ) ? { v:gsQ.v, sym:gsQ.sym, dor:gsQ.dor }
+               : { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
+    const entry = mode==='before';
+    root.innerHTML = `
+      <header class="appbar">${entry && Store.user() ? '<button class="backbtn" id="g-ci-back">back</button>':''}</header>
+      <div class="scroll" id="content"></div>`;
+    // back exists only on a re-visited before-read (reflection -> back). Backing off it
+    // = abandon (discard the anonymous session). The entry screen has no back — there is
+    // nothing behind it any more; leaving is closing the tab or the quiet sign-in link.
+    const gcb = $('#g-ci-back'); if(gcb) gcb.onclick = ()=>guestLeave();
+    $('#content').innerHTML = `<div class="view checkin2">
+        <div class="scr-head">
+          <p class="eyebrow">${mode==='before' ? 'before your practice' : 'after your practice'}</p>
+          <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
+        </div>
+        <div class="ci-block">
+          <div class="sliders">
+            ${sliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
+            ${sliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
+            ${sliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
+          </div>
+          ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>'}
+          <p class="ci-readout" id="ci-readout"></p>
+          ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
+        </div>
+        <div class="actionbar">
+          <button class="btn block" id="g-ci-save">${mode==='after' ? 'see what changed' : 'see what you described'}</button>
+          ${mode==='post' ? '<button class="navlink" id="g-ci-skip" style="align-self:center">not now</button>' : ''}
+          ${entry ? `<p class="fineprint" style="text-align:center;margin:2px 0 0">nothing is saved unless you decide to create an account.</p>
+          <p class="fineprint" style="text-align:center;margin:0">already have an account? <button class="linkbtn" id="g-ci-signin" style="font-size:inherit;padding:2px">sign in</button></p>` : ''}
+        </div>
+      </div>`;
+    const readout = $('#ci-readout');
+    const axTouched = {};
+    function refresh(){
+      setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
+      const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
+      const core = STATE_CORE[dom.key] || [];
+      const own = AXIS_OWN();
+      const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
+      ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
+        const active = allTouched && core.length>1 && core.includes(ax);
+        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink-faded)'); });
+      if(readout){
+        const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
+        readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
+          : 'move the sliders, and this line will mirror what you set.';
+        readout.classList.toggle('ci-readout-idle', !anyTouched);
+      }
+    }
+    bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
+    bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
+    bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
+    refresh();
+    const shuf = $('#ci-shuffle'); if(shuf) shuf.onclick = ()=>{
+      ['v','sym','dor'].forEach(ax=>{
+        qIdx[ax] = ciRand(ax, qIdx[ax]);
+        const q = root.querySelector('#q-'+ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
+        const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
+      });
+    };
+    const skip = $('#g-ci-skip'); if(skip) skip.onclick = ()=>guestOffer();
+    const gsi = $('#g-ci-signin'); if(gsi) gsi.onclick = ()=>{
+      _guestFlow = false; gsClear();
+      const go = ()=>{ authMode='in'; screenSignIn(); };
+      Promise.resolve(Store.user() ? Store.signOut() : null).then(go).catch(go);
+    };
+    $('#g-ci-save').onclick = (e)=>{
+      const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'one moment…';
+      const vals = { v:v/100, sym:s/100, dor:d/100, source:'guest' };
+      if(!(axTouched.v||axTouched.sym||axTouched.dor)) vals.dom='neutral';   // untouched midpoints = settling, never a tie-break state
+      // the anonymous session mints HERE, at first write — not at page-load.
+      ensureGuestSession().then(res=>{
+        if(res && res.error) return guestCheckin(mode, res.error);
+        Store.addCheckin(vals);
+        haptic('save');
+        const read = { v:v/100, sym:s/100, dor:d/100 };
+        if(mode==='after'){ _guestCI2 = read; gsSet({ ci2:read }); guestBeforeAfter(); }
+        else { _guestCI = read; gsSet({ ci1:read, q:qIdx }); guestReflection(); }
+      }).catch(e2=>guestCheckin(mode, String((e2&&e2.message)||e2)));
+    };
+  }
+
+  // ---- guest reflection (immediate single-check-in state read) ----
+  // Free forever (GMS): the immediate state read from a check-in. Mirrors what the
+  // person named — the dominant state, in the tri-glyph marks, with the mirror line.
+  // THE APP'S OWN mirror sentence (ciMirror) — the guest copy is never forked. They
+  // described; the app names. No reader/blog, no "recommended for you" (paid).
+  function guestReflection(){
+    clearFigures(); document.body.classList.remove('in-practice');
+    const ci = _guestCI || { v:.5, sym:.5, dor:.5 };
+    const dom = window.PVCurrent.dominantOf(ci.v, ci.sym, ci.dor);
+    const name = STATE_NAME(dom.key);
+    root.innerHTML = `
+      <header class="appbar">${_guestPracticed ? '' : '<button class="backbtn" id="g-rf-back">back</button>'}</header>
+      <div class="scroll" id="content"></div>`;
+    const grb = $('#g-rf-back'); if(grb) grb.onclick = ()=>guestCheckin('before');
+    $('#content').innerHTML = `<div class="view fb-view">
+        <div class="scr-head">
+          <p class="eyebrow">what you described</p>
+          <div class="g-glyph">${triGlyph(dom.key)}</div>
+          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(name)}</h1>
+          <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
+          ${_guestPracticed ? '' : '<p class="scr-lede">Now that you\'ve checked in, you\'re ready for your practice.</p>'}
+        </div>
+        <div class="actionbar">
+          ${_guestPracticed
+            ? '<button class="btn block" id="g-rf-next">next</button>'
+            : '<button class="btn block" id="g-rf-practice">try my practice</button><button class="navlink" id="g-rf-save" style="align-self:center">keep this check-in</button>'}
+        </div>
+      </div>`;
+    // post-practice (the /stuck door's offered check-in): the way on is the offer
+    const rfp = $('#g-rf-practice'); if(rfp) rfp.onclick = ()=>guestPracticePick();
+    const rfs = $('#g-rf-save');     if(rfs) rfs.onclick = ()=>guestOffer();
+    const rfn = $('#g-rf-next');     if(rfn) rfn.onclick = ()=>guestOffer();
+  }
+
+  // ---- guest practice pick: all six options, two open (mindfulness, chosen by TIME) ----
+  // The menu shows the REAL app's menu in the real order — nothing is hidden. Locked is
+  // FADED INK ONLY: same card, same fill, no dashes, no padlocks, chevron hidden.
+  // Greyed out does not mean filled in. The two open options are the two mindfulness
+  // practices; the choice is a time question, never a state match (that's the paid line).
+  // NEVER the 'most' (self-regulation) branch — the hard safety boundary for anonymous
+  // visitors — and no safety anchoring: never demo what you're about to take away.
+  function guestPracticePick(){
+    // hard stop: one practice per guest. If they've already had it, the only way on is the offer.
+    if(_guestPracticed) return guestOffer();
+    clearFigures(); document.body.classList.remove('in-practice');
+    const P_ICO = {
+      micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
+      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+      anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
+      most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
+      more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    };
+    // the two open subs carry the estimate — sourced from PRACTICE_EST at the SAME
+    // silence guestLaunch actually passes, so the promised times are the real times.
+    const estTiny = estMinutes('micro', 2), estFull = estMinutes('mindfulness', 4);
+    const OPTS = [
+      { key:'micro',       open:true,  title:'a tiny practice',          sub:`about ${estTiny} min · one sense, done` },
+      { key:'mindfulness', open:true,  title:'simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
+      { key:'anchoring',   open:false, title:'connect with safety',      sub:'settling in through your senses' },
+      { key:'most',        open:false, title:'practice self-regulation', sub:'the deepest, meeting what is hard' },
+      { key:'more',        open:false, title:'more meditations',         sub:'standalone guided sessions' },
+    ];
+    const card = (o)=> o.open ? `
+      <button class="wincard p-opt g-opt" data-gkey="${o.key}">
+        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
+        <span class="wc-text">
+          <span class="wc-title">${escapeHtml(o.title)}</span>
+          <span class="wc-reason">${escapeHtml(o.sub)}</span>
+        </span>
+        <span class="wc-go">${CHEV}</span>
+      </button>` : `
+      <div class="wincard p-opt g-opt g-locked" aria-disabled="true">
+        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
+        <span class="wc-text">
+          <span class="wc-title">${escapeHtml(o.title)}</span>
+          <span class="wc-reason">${escapeHtml(o.sub)}</span>
+        </span>
+        <span class="wc-go">${CHEV}</span>
+      </div>`;
+    // the tuned card leads, exactly as in the real app — faded, with the honest reason
+    const tunedCard = `
+      <div class="wincard tuned-card track-mind g-locked" aria-disabled="true" style="margin-bottom:12px">
+        <span class="wc-text">
+          <span class="tuned-kicker">made for you</span>
+          <span class="wc-title">your custom practice</span>
+          <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5"/></svg>
+          <span class="wc-reason">needs a bit more check-in data</span>
+        </span>
+        <span class="wc-go">${CHEV}</span>
+      </div>`;
+    // Practice-first (the /stuck door): the pick is this person's FIRST screen — there is
+    // nothing behind it, so it gets no back button. Check-in-first guests keep
+    // back -> reflection, a real return. ("keep this check-in" was CUT from this screen:
+    // the reflection behind them offers it, and back returns there.)
+    root.innerHTML = `
+      <header class="appbar">${_guestCI?'<button class="backbtn" id="g-pp-back">back</button>':''}</header>
+      <div class="scroll" id="content"></div>`;
+    const gpb = $('#g-pp-back'); if(gpb) gpb.onclick = ()=>guestReflection();
+    $('#content').innerHTML = `<div class="view p-view">
+        <div class="scr-head">
+          <p class="eyebrow">your choice</p>
+          <h2 class="scr-h">how long would you like to practice?</h2>
+        </div>
+        ${tunedCard}
+        <div class="p-opts g-opts">${OPTS.map(card).join('')}</div>
+      </div>`;
+    content().querySelectorAll('[data-gkey]').forEach(b=>b.onclick=()=>guestLaunch(b.dataset.gkey));
+  }
+
+  // ---- guest practice launch + tabbar-free shell ----
+  function guestLaunch(key){
+    if(key!=='mindfulness' && key!=='micro'){   // hard guard: guests get only the two mindfulness practices
+      showToast('that one opens once you have an account.'); return guestPracticePick();
+    }
+    // Generic, non-personalized defaults. Silence values are load-bearing: the pick
+    // screen promised "about 2 min / about 6 min" from PRACTICE_EST — micro runs on its
+    // fixed short gaps (2, same as the real app) and mindfulness gets 4, the estimate's
+    // basis. Any other value makes the promised times a lie.
+    const sense = 'touch', silence = key==='micro' ? 2 : 4;
+    const ps = { embed:'1', autostart:'1', practice:key, sense, silence:String(silence) };
+    const src = 'player.html?'+new URLSearchParams(ps).toString();
+    const reco = { practiceKey:key, sense, silence };
+    // the /stuck door reaches here with no session yet (its first write is the session
+    // log at practice end) — mint now so that write has somewhere to land.
+    ensureGuestSession().then(res=>{
+      if(res && res.error){ showToast('something went wrong. please try again.'); return guestPracticePick(); }
+      guestPracticeShell(src, reco);
+    }).catch(()=>{ showToast('something went wrong. please try again.'); guestPracticePick(); });
+  }
+  // Same as practiceShell, but with NO tabbar — a guest must not gain tab access
+  // (and its 'most' path) mid-practice. Back returns to the guest pick screen.
+  function guestPracticeShell(src, reco){
+    haptic('start');
+    setHTML(`
+      <div class="weaver-wrap">
+        <div class="weaver-loading" id="weaver-loading" aria-live="polite"><span class="wl-ring" aria-hidden="true"></span><span class="wl-txt">preparing your practice</span></div>
+        <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
+      </div>`);
+    const _wf=$('#weaver'), _wl=$('#weaver-loading');
+    let _wlDone=false;
+    const _wlTimeout=setTimeout(()=>{
+      if(_wlDone||!_wl) return;
+      _wl.innerHTML='<span class="wl-txt">can’t load the practice right now. check your connection and try again.</span><button class="set-quiet actionbar-aux" id="wl-back" style="margin-top:14px">back</button>';
+      const b=document.getElementById('wl-back'); if(b) b.onclick=()=>guestPracticePick();
+    }, 10000);
+    if(_wf&&_wl) _wf.addEventListener('load',()=>{ _wlDone=true; clearTimeout(_wlTimeout); _wl.classList.add('gone'); setTimeout(()=>{ try{_wl.remove();}catch(e){} },600); });
+    window._pendingReco = reco;
+  }
+
+  // ---- what changed (before/after) ----
+  // Two tri-glyphs, the two state names, then the two reads in plain speech. THE RULE
+  // THAT KEEPS THIS SCREEN SAFE: report the two reads and NEVER attribute the gap to
+  // the practice. No "the practice worked", no arrow-up-good, no percentages, no
+  // "you improved by". The moment the app claims credit for a good delta, a bad delta
+  // becomes a verdict on the person. All three outcomes are normal; none is a result.
+  function guestBeforeAfter(){
+    const a = _guestCI  || gsGet().ci1 || null;
+    const b = _guestCI2 || gsGet().ci2 || null;
+    if(!a || !b) return guestOffer();   // a read was lost (tab closed mid-flow): no honest comparison, on to the offer
+    const da = window.PVCurrent.dominantOf(a.v, a.sym, a.dor);
+    const db = window.PVCurrent.dominantOf(b.v, b.sym, b.dor);
+    // Per-axis movement, in the SAME felt bands the mirror speaks in (ciBucket) — a
+    // slider nudge that doesn't change the band isn't movement. Direction of "ease":
+    // connecting easier (+v), energy settling (−sym), doing more in reach (−dor).
+    const mv = ciBucket(b.v)   - ciBucket(a.v);
+    const ms = ciBucket(b.sym) - ciBucket(a.sym);
+    const md = ciBucket(b.dor) - ciBucket(a.dor);
+    const net = (mv>0?1:mv<0?-1:0) + (ms<0?1:ms>0?-1:0) + (md<0?1:md>0?-1:0);
+    let body;
+    if(net > 0){
+      // it eased — describe what actually moved, axis by axis, in the register of
+      // Justin's example ("You're feeling more connected. Doing things is about the
+      // same. And your energy settled."). 🖊 clause bank assembled from that example +
+      // the mirror's vocabulary; flag any clause that reads off and I'll adjust.
+      const cv = mv>0 ? "you're feeling more connected"        : mv<0 ? 'connecting feels harder right now'          : 'connecting is about the same';
+      const cd = md<0 ? 'doing things feels more within reach' : md>0 ? 'doing things takes more effort right now'   : 'doing things is about the same';
+      const cs = ms<0 ? 'your energy settled'                  : ms>0 ? "there's more energy in your body"           : 'your energy is about the same';
+      const cap = (t)=>t.charAt(0).toUpperCase()+t.slice(1);
+      body = `${cap(cv)}. ${cap(cd)}. And ${cs}.`;
+    } else if(net < 0){
+      body = "Something felt challenging. Not uncommon at all. Sometimes, slowing down and paying attention brings forth what's waiting for your attention.";
+    } else {
+      body = "Your before and after are about the same. That's common. This particular practice may not have been the best fit for your system at this time.";
+    }
+    setHTML(`
+      <header class="appbar"></header>
+      <div class="scroll" id="content"></div>`);
+    $('#content').innerHTML = `<div class="view fb-view">
+        <div class="scr-head">
+          <p class="eyebrow">your before and after</p>
+        </div>
+        <div class="ba-body">
+          <div class="ba-pair">
+            <div class="ba-col"><div class="ba-glyph">${triGlyph(da.key)}</div><div class="ba-state">${escapeHtml(STATE_NAME(da.key))}</div></div>
+            <div class="ba-arrow" aria-hidden="true">→</div>
+            <div class="ba-col"><div class="ba-glyph">${triGlyph(db.key)}</div><div class="ba-state">${escapeHtml(STATE_NAME(db.key))}</div></div>
+          </div>
+          <p class="scr-lede">${escapeHtml(body)}</p>
+          <p class="scr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular meditation.</p>
+          <p class="scr-lede">Over time, with more check-ins and practices, you can watch your nervous system change, identify what practices work best, and master self-regulation skills. This system adapts with you and your capacity.</p>
+          <p class="scr-lede">Sign up for a free account on the next page to keep checking in as much as you want. Or, subscribe for unlimited custom meditations and deep insights based on your check-ins.</p>
+        </div>
+        <div class="actionbar">
+          <button class="btn block" id="g-ba-next">next</button>
+          <button class="navlink" id="g-ba-no" style="align-self:center">no thanks</button>
+        </div>
+      </div>`;
+    $('#g-ba-next').onclick = ()=>guestOffer();
+    $('#g-ba-no').onclick   = ()=>guestLeave();
+  }
+
+  // ---- the offer (replaces the old save-invite screen) ----
+  // "two ways to keep going." — no body; the cards do the work. Paid leads; the free
+  // card is SAME weight, no fade — free has to be genuinely takeable, or the honest-
+  // offer stance is decorative. No trial: free or paid, nothing between (Justin,
+  // 07-13). No urgency, no countdowns, no discounts. Email + password + consent come
+  // on the form AFTER the choice — that's the moment of consent.
+  let _offerViewed = false;
+  function guestOffer(){
+    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    if(!_offerViewed){ _offerViewed = true; gtrack('offer_view', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); }
+    root.innerHTML = `
+      <header class="appbar"></header>
+      <div class="scroll" id="content"></div>`;
+    $('#content').innerHTML = `<div class="view offer-view">
+        <div class="scr-head">
+          <h1 class="scr-h" style="font-size:calc(26px * var(--type-scale))">two ways to keep going.</h1>
+        </div>
+        <div class="offer-card offer-paid">
+          <h2>your personal self-regulation tool</h2>
+          <ul>
+            <li>meditations built from your own check-ins, not picked off a list</li>
+            <li>all six practices, including the safety practices</li>
+            <li>your check-in history read back to you: what is shifting, what keeps repeating, and what to practice next</li>
+            <li>a weekly reader written from your own week</li>
+          </ul>
+          <button class="btn block" id="g-of-sub">subscribe now&nbsp;&nbsp;·&nbsp;&nbsp;$12/mo</button>
+          <p class="fineprint" style="margin-top:10px">Renews automatically; cancel in one click anytime. No refunds or pauses.</p>
+          <details class="offer-more">
+            <summary>What you get when you subscribe ▾</summary>
+            <div class="offer-more-body">
+              <p><b>Practices:</b> Get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
+              <p><b>Analytics:</b> The more you check in, the more you learn about yourself. Identify what time of day, what day of the week, and even what season of the year bring you the most safety or the most challenge. See how practices affect your system and which ones help the most.</p>
+              <p><b>Personal reader:</b> Your check-ins and analytics create your own personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
+            </div>
+          </details>
+        </div>
+        <div class="offer-card offer-free">
+          <h2>keep going for free.</h2>
+          <ul>
+            <li>check in as often as you like</li>
+            <li>both mindfulness practices, the short one and the full one, as often as you want</li>
+            <li>your own check-in history, saved</li>
+          </ul>
+          <button class="btn block quiet" id="g-of-free">continue free</button>
+        </div>
+        <div class="actionbar">
+          <button class="navlink" id="g-of-leave" style="align-self:center">leave without saving</button>
+        </div>
+      </div>`;
+    $('#g-of-sub').onclick   = ()=>{ gtrack('subscribe_click', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('paid'); };
+    $('#g-of-free').onclick  = ()=>{ gtrack('continue_free',   { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('free'); };
+    // "leave without saving" means what it says: sign out, discard. The check-in
+    // promised nothing is saved unless they decide to create an account; a quiet
+    // bounce back into the flow would make that a lie.
+    $('#g-of-leave').onclick = ()=>guestLeave();
+  }
+
+  // ---- the account form, after the choice ----
+  // Calls Store.linkIdentity() (attach email+password to the same anonymous user), so
+  // the guest's check-ins and session carry over with zero migration. The consent
+  // fineprint is the app's own sign-up fineprint, reused verbatim — this screen is the
+  // moment of consent. Paid continues into Stripe Checkout (standalone acct, NO trial).
+  // 🖊 heading + button labels are functional UI copy, not from the closed set — flag
+  // if the register is off.
+  function guestAccountForm(mode, err, busy){
+    const paid = mode==='paid';
+    setHTML(`
+      <div class="view gate">
+        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
+        <div class="gate-body">
+          <p class="eyebrow">${paid ? 'subscribe · $12/mo' : 'keep going for free'}</p>
+          <h1 style="margin:10px 0 12px">create your account.</h1>
+          <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"></div>
+          <div class="field"><label for="nm">your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
+          <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="new-password"></div>
+          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
+          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(paid?'continue to payment':'create account')}</button>
+          <p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
+          <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>
+          <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-back" style="font-size:inherit;padding:2px">back</button></p>
+        </div>
+      </div>`);
+    if(busy) return;
+    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
+      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
+    });
+    $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; });
+    $('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+    const gb = $('#g-back'); if(gb) gb.onclick = ()=>guestOffer();
+    $('#g-go').onclick = submit;
+    function submit(){
+      const email=($('#em').value||'').trim(), pw=$('#pw').value;
+      if(!email || (Store.cloud() && !pw)){ lastEmail=email; return guestAccountForm(mode, 'enter your email and a password.'); }
+      lastEmail=email;
+      const nm = (($('#nm')||{}).value||'').trim();
+      guestAccountForm(mode, null, true);
+      Promise.resolve(Store.linkIdentity(email, pw)).then(res=>{
+        if(res && res.error) return guestAccountForm(mode, res.error);
+        if(nm) Store.setName(nm);
+        markKnownDevice();
+        _guestFlow = false; _guestCI = null; _guestCI2 = null; _guestPracticed = false; gsClear();
+        if(res && res.needsConfirm) return screenConfirm(email);
+        // Refresh billing/cohort BEFORE routing: an INVITED email must get its trial
+        // terms regardless of entry point (GMS build item 1 — route by email, not
+        // door). A cohort member never sees the guest checkout: route() sends them
+        // to their own trial paywall. The edge function holds the same line server-side.
+        return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>{
+          if(paid && !(Store.isCohort && Store.isCohort())){
+            // guest-origin subscribe: standalone Stripe, NO trial — free or paid, nothing between.
+            return Promise.resolve(Store.startGuestCheckout ? Store.startGuestCheckout() : { error:'unavailable' }).then(r=>{
+              if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your free account is ready."); }
+            });
+          }
+          currentTab='today'; route();
+        });
+      }).catch(e=>guestAccountForm(mode, String((e&&e.message)||e)));
+    }
+  }
+
+  // Abandon the guest flow entirely: sign the anonymous session out and land on the
+  // quiet sign-in gate (which carries its own "start a check-in — no account needed"
+  // way back in). The stray anonymous user + its rows are discarded — unsaved by definition.
+  function guestLeave(){
+    _guestFlow = false; _guestCI = null; _guestCI2 = null; _guestPracticed = false; gsClear();
+    const done = ()=>{ authMode='in'; screenSignIn(); };
+    Promise.resolve(Store.user() ? Store.signOut() : null).then(done).catch(done);
   }
 
   // ---------------------------------------------------------------- paywall (paid-trial cohort only)
@@ -653,7 +1262,7 @@
     const s = installState();
     if(s==='installed') return '<span class="val" style="font-weight:400">installed</span>';
     if(s==='button') return '<button class="set-quiet in-go" type="button">install this app</button>';
-    if(s==='ios-safari') return '<span class="ios-hint">to install: tap the share icon, then choose add to home screen.</span>';
+    if(s==='ios-share') return '<span class="ios-hint">to install: tap the share icon, then choose add to home screen.</span>';
     if(s==='open-elsewhere') return '<span class="ios-hint">'+openElsewhereMsg()+'</span>';
     return '<span class="ios-hint">to install: open your browser menu and choose install or add to home screen.</span>';
   }
@@ -3027,7 +3636,7 @@
     setHTML(`
       <div class="weaver-wrap">
         <div class="weaver-loading" id="weaver-loading" aria-live="polite"><span class="wl-ring" aria-hidden="true"></span><span class="wl-txt">preparing your practice</span></div>
-        <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay"></iframe>
+        <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
       </div>
       <nav class="tabbar" id="tabs">
         ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
@@ -3363,6 +3972,12 @@
   // Today's "a practice for now" row → one-tap autostart of the recommended practice,
   // same full-bleed shell (tab bar for nav, no top header).
   function launchWeaver(reco){
+    // Defense in depth: an anonymous guest must never reach the self-regulation
+    // ("most") track — it needs an established safety baseline. The guest UI can't
+    // produce this key, but refuse it here regardless.
+    if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()){
+      showToast("that practice opens once you've saved an account."); return;
+    }
     const params = { embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) };
     if(reco.skill) params.skill = reco.skill;
     // recommender-preset dials ride into the player (both already gate-checked in
@@ -3396,10 +4011,35 @@
       if(typeof m.holdWatchSeconds==='number') reco.holdWatchSeconds=m.holdWatchSeconds;
       if(typeof m.holdWatchTargetSeconds==='number') reco.holdWatchTargetSeconds=m.holdWatchTargetSeconds;
     }
+    // Guest flow: no tabbar screens, ever (never renderFeedback/app()).
+    // One practice per guest — whether they finished it or left early, there is no
+    // way back to the pick. The practiced flag persists (sessionStorage) so a reload
+    // can't reopen the practice.
+    if(inGuest()){
+      _guestPracticed = true; gsSet({ practiced:1 });
+      if(m.event === 'complete'){
+        haptic('complete'); logSession(reco, true, false, m.minutes);
+        // No landing beat, no "done." — the practice ends and the check-in is what's
+        // there. Check-in-first: the second read ("after your practice"), then the
+        // before/after. The /stuck door has no "before", so its check-in is OFFERED
+        // ('post': same screen, a quiet "not now" leads to the offer instead).
+        return (guestDoor()==='practice' && !_guestCI) ? guestCheckin('post') : guestCheckin('after');
+      }
+      if(m.event === 'exit'){
+        // left early = they opted out of the practice; a forced "after" read wouldn't
+        // be honest. Straight to the offer.
+        logSession(reco, false, true, m.minutes);
+        return guestOffer();
+      }
+      return;
+    }
     if(m.event === 'complete'){ haptic('complete'); logSession(reco, true, false, m.minutes); renderFeedback(reco); }
     else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); renderExitReason(); }
   });
   function logSession(reco, completed, endedEarly, minutes){
+    // Defense in depth: never log a self-regulation ('most') session for an
+    // anonymous guest (the guest UI cannot produce one; refuse it regardless).
+    if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()) return;
     if(window._sessionLogged) return; window._sessionLogged=true;
     // skills exist only on the self-regulation ('most') track. Gate here at the save
     // boundary so no non-'most' session can inherit a leftover default skill (e.g. the
@@ -3838,7 +4478,10 @@
   function applyPrefs(){
     try{
       const ts = parseFloat(localStorage.getItem('snb_textscale')||'1') || 1;
-      document.documentElement.style.setProperty('--type-scale', String(ts));
+      // --type-user, not --type-scale: app.css composes --type-scale from the user's
+      // setting x the device ramp (--type-fluid). Writing --type-scale here would
+      // clobber the ramp and pin the app back to phone-sized type on desktop.
+      document.documentElement.style.setProperty('--type-user', String(ts));
       document.body.classList.toggle('reduce-motion', localStorage.getItem('snb_reduce_motion')==='1');
       const theme = localStorage.getItem('snb_theme') || '';            // '', 'light', 'dark' ('' follows the system)
       const de = document.documentElement;

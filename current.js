@@ -22,7 +22,7 @@
   const STATES = {
     stillness:   { name: 'stillness',     color: MIX.stillness, weight: (v,s,d) => Math.min(v, d) * (1 - s) },
     safety:      { name: 'safety',        color: BASE.yellow,   weight: (v,s,d) => v * (1 - s) * (1 - d) },
-    play:        { name: 'play',          color: MIX.play,      weight: (v,s,d) => Math.min(v, s) * (1 - d) },
+    play:        { name: 'play / motivation', color: MIX.play,  weight: (v,s,d) => Math.min(v, s) * (1 - d) },
     fightflight: { name: 'flight/fight',color: BASE.red,     weight: (v,s,d) => s * (1 - v) * (1 - d) },
     freeze:      { name: 'freeze',        color: MIX.freeze,    weight: (v,s,d) => Math.min(s, d) * (1 - v) },
     shutdown:    { name: 'shutdown',      color: BASE.blue,     weight: (v,s,d) => d * (1 - v) * (1 - s) },

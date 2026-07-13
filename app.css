@@ -18,9 +18,52 @@
      rather than the darker ochre — darkened amber reads brown; this stays warm. */
   --track-safety-ink:#5891C5; --track-self-ink:#D29A4A; --track-mind-ink:#1A1F2A;
   --field:#fff; --knob:#fff; --danger:#9A3B3B; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
-  --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1); --type-scale:1;
+  --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1);
   --ink-faded:rgba(26,31,42,.25);   /* untouched check-in rails: present, clearly not "done" */
+
+  /* ---------- fluid interface tokens (Phase 1, 2026-07-10) ----------
+     Mirrored from Web Designer's snb-web.css so the app and the site don't drift.
+     Additive only: nothing below is consumed yet except the type ramp and heading
+     weight. Phases 2-4 replace by-eye spacing with these roles. */
+
+  /* spacing scale — 8px base, same numbers as the site */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px;
+  --sp-6:32px; --sp-7:48px; --sp-8:64px; --sp-9:80px; --sp-10:96px;
+  /* semantic roles — reach for these, not the raw scale */
+  --space-bound:var(--sp-2);    /* label to its control */
+  --space-snug:var(--sp-3);     /* tight pairs */
+  --space-stack:var(--sp-4);    /* within a component */
+  --space-group:var(--sp-5);    /* between components */
+  --space-block:var(--sp-6);    /* between blocks */
+  --space-sub:var(--sp-7);      /* between sub-sections */
+  --space-section:var(--sp-8);  /* between sections */
+
+  /* layout — clamp() is what makes it fluid instead of breakpoint-bolted */
+  --page:1120px;                          /* focal content cap */
+  --shell:1240px;                         /* shell cap (rail + content), Phase 2 */
+  --pad-x:clamp(20px,5vw,40px);
+  --gap:clamp(20px,4vw,32px);
+  --section:clamp(64px,9vw,112px);
+  --measure:66ch;                         /* reading line length; text is never full-bleed */
+
+  /* type ramp — device-appropriate body (Justin, 2026-07-10): ~17px phone -> ~19px wide.
+     Stepped by size class, not clamp(): CSS cannot derive a unitless ratio from vw,
+     and the WHOLE scale (h1..h3 and ~213 calc sites) must ride the ramp together or
+     the hierarchy inverts (h3 is 15px = body today).
+
+     --type-user  = the person's own text-size setting (JS writes this; was --type-scale)
+     --type-fluid = the device ramp
+     --type-scale = the composed value every existing calc(Npx * var(--type-scale))
+                    already reads — including the inline styles in app.js/player.html.
+     Composing here means zero edits at the ~213 call sites, and the user's setting
+     still multiplies on top of the device size exactly as before. */
+  --type-user:1;
+  --type-fluid:1.133;                     /* compact: 15 -> 17px */
+  --type-scale:calc(var(--type-user) * var(--type-fluid));
+  --fs-body:calc(15px * var(--type-scale));
 }
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
+@media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
 /* iOS paints a dark rectangle over tapped elements by default — our buttons
@@ -28,7 +71,7 @@ html,body{margin:0;height:100%;touch-action:manipulation}
 *{-webkit-tap-highlight-color:transparent}
 body{
   font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bone);color:var(--ink);
-  font-size:calc(15px * var(--type-scale));line-height:1.5;-webkit-font-smoothing:antialiased;
+  font-size:var(--fs-body);line-height:1.5;-webkit-font-smoothing:antialiased;
   display:flex;align-items:center;justify-content:center;min-height:100svh;
 }
 button{font:inherit;color:inherit}
@@ -70,7 +113,9 @@ button{font:inherit;color:inherit}
 
 /* type */
 .eyebrow{font-size:11.5px;font-weight:500;text-transform:uppercase;letter-spacing:.15em;color:var(--muted)}
-h1,h2,h3{font-weight:500;margin:0;letter-spacing:-.01em;text-wrap:pretty}
+/* headings 600 (2026-07-10) — matches Web Designer so the app and the site read as
+   one brand. Lowercase-500 UI labels elsewhere are unchanged; this is headings only. */
+h1,h2,h3{font-weight:600;margin:0;letter-spacing:-.015em;text-wrap:pretty}
 h1{font-size:calc(23px * var(--type-scale));line-height:1.2}
 h2{font-size:calc(18px * var(--type-scale));line-height:1.28}
 h3{font-size:calc(15px * var(--type-scale));line-height:1.3}
@@ -145,6 +190,9 @@ p{margin:0;text-wrap:pretty}
 .gb-txt{font-size:calc(13px * var(--type-scale));color:var(--muted)}
 .gate-breath:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:12px}
 @media (prefers-reduced-motion:reduce){.gb-ring{animation:none;opacity:.5}}
+/* guest landing: the breathing circle, still. a close, not a reward. */
+.view.gate.land .gate-body{text-align:center}
+.land-ring{display:block;width:104px;height:104px;margin:0 auto;border-radius:50%;border:1.5px solid var(--ink);opacity:.5}
 /* session-end: quiet links, no slab */
 .endlink{display:block;margin:0 auto;background:none;border:0;cursor:pointer;color:var(--muted);font-size:calc(15px * var(--type-scale));padding:10px 6px}
 .endlink.lead{color:var(--ink);font-weight:500;font-size:calc(18px * var(--type-scale));margin-bottom:4px}
@@ -619,10 +667,34 @@ body.in-practice .tabbar{display:none}
 /* on the practice cards the two-mark pair stacks vertically, matching the single icons' footprint */
 .p-opt-ico .p-ico-pair{flex-direction:column;gap:1px}
 .p-opt-ico .p-ico-pair svg{width:26px;height:26px}
-.p-opt{max-height:130px;overflow:hidden;margin-bottom:12px;padding:17px 18px;
+/* the cap is an animation clamp (collapse/expand), not a design height — it has to
+   ride --type-scale, or larger type (device ramp x the user's text-size setting)
+   clips the reason line. 2026-07-10. */
+.p-opt{max-height:calc(130px * var(--type-scale));overflow:hidden;margin-bottom:12px;padding:17px 18px;
   transition:max-height .35s var(--ease),margin .3s var(--ease),opacity .28s var(--ease),padding .28s var(--ease),border-color .2s var(--ease)}
 .p-opt .wc-title{font-size:calc(17px * var(--type-scale))}
 .p-opt .wc-reason{font-size:calc(14px * var(--type-scale));margin-top:5px}
+/* ---- guest on-ramp practice cards (2026-07-10) ----
+   The guest pick reuses .p-opt, which is built for the main chooser: icon top-aligned,
+   a max-height animation clamp, and a 2-line text clamp on the reason. With the Phase 1
+   type ramp the text got ~13% bigger, so the two cards ended up UNEQUAL heights with the
+   reason wrapping mid-phrase — Justin's "buttons are jacked up". These are a plain pair
+   of choices with no collapse animation, so give them their own rules: equal height,
+   icon centered, no clamps, text room to breathe. */
+.g-opts{gap:12px}
+.g-opt{
+  align-items:center;                       /* was: icon top-aligned, text center — misaligned */
+  max-height:none; overflow:visible;        /* no collapse animation here, so no clamp */
+  min-height:calc(84px * var(--type-scale));/* both cards the same height, whatever the wrap */
+  margin-bottom:0; padding:16px 18px; gap:14px;
+}
+.g-opt .p-opt-ico{align-self:center;margin:0}
+.g-opt .wc-text{gap:4px}
+.g-opt .wc-reason{
+  -webkit-line-clamp:none; display:block; overflow:visible;  /* let it wrap, don't clip */
+  margin-top:2px; text-wrap:pretty;
+}
+
 .p-opts.has-sel .p-opt:not(.p-sel){
   opacity:0;max-height:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-color:transparent;pointer-events:none}
 /* on selection, color is earned sparingly: ONLY the chosen option's title carries the
@@ -1127,6 +1199,30 @@ body.reduce-motion .tg-m{transition:none}
 .safety-foot{display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:nowrap}
 .safety-foot .tg-host{flex:none;display:inline-flex}
 .safety-foot .triglyph{height:30px}
+
+/* ---- guest reflection: the tri-glyph as the moment of delight (2026-07-10, Justin) ----
+   The person is still learning the glyphs, so show ALL THREE and light only theirs. The
+   dim two are the teaching: "these are the other places you could have been."
+   The reveal is deliberately unhurried — the three marks settle in, then the lit one(s)
+   take their colour a beat later. Nothing bounces; this is a mirror, not a reward. */
+.g-glyph{display:flex;justify-content:flex-start;padding:10px 0 2px}
+.g-glyph .triglyph{height:76px}
+.g-glyph .tg-m{
+  transform-origin:center;
+  animation:gGlyphIn .7s var(--ease) both;
+  transition:fill 1.1s .55s var(--ease);   /* colour arrives AFTER the marks have settled */
+}
+.g-glyph .tg-m[data-m="heart"]{animation-delay:.05s}
+.g-glyph .tg-m[data-m="bolt"] {animation-delay:.16s}
+.g-glyph .tg-m[data-m="x"]    {animation-delay:.27s}
+@keyframes gGlyphIn{
+  from{opacity:0;transform:translateY(7px) scale(.94)}
+  to  {opacity:1;transform:none}
+}
+body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
+@media (prefers-reduced-motion:reduce){
+  .g-glyph .tg-m{animation:none;transition:none}
+}
 .safety-foot .sf-txt{flex:1}
 
 
@@ -1335,12 +1431,33 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .tb-halo.b{width:86%;height:86%;animation-delay:.6s;opacity:.32}
 .tb-ring{width:170px;height:170px;border-radius:50%;border:1.5px solid var(--ink);opacity:.72;display:flex;align-items:center;justify-content:center;animation:t-breathe 9s var(--ease) infinite;transition:width .6s var(--ease),height .6s var(--ease);will-change:transform,opacity}
 .tb-core{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.7}
-.tb-below{position:relative;display:flex;align-items:center;justify-content:center;min-height:46px;overflow:hidden;transition:opacity .4s var(--ease),max-height .6s var(--ease),margin .6s var(--ease);max-height:80px}
-.tb-txt{display:flex;flex-direction:column;gap:6px;transition:opacity .4s var(--ease)}
+.tb-below{position:relative;display:flex;align-items:center;justify-content:center;min-height:46px;overflow:hidden;transition:opacity .4s var(--ease),max-height .6s var(--ease),margin .6s var(--ease);max-height:calc(80px * var(--type-scale))}
+/* .tb-txt (the resting "take a breath" label) and .tb-phase (the in/out cue) are
+   SIBLINGS INSIDE .tb-stage and occupy the SAME centred box — .tb-phase is
+   absolutely centred directly on top of .tb-txt. They are kept apart by opacity
+   alone, so their fades must NEVER run concurrently or both are painted at once
+   and the text visibly overlaps (Claudia, 2026-07-12: "the 'In' & 'out' texts
+   overlap in a weird way with the text underneath it"). It was deterministic, not
+   device-specific: .tb-txt faded out over .4s while .tb-phase faded in over .7s.
+   FIX: stagger the crossfade — each one only begins to appear once the other has
+   fully gone. Whichever is LEAVING moves immediately; whichever is ARRIVING waits
+   out the other's fade. visibility is stepped at the end of the fade so a
+   fully-transparent label can never be co-painted or hit-tested.
+   Timings: .tb-txt out = .4s · .tb-phase out = .7s → the in-delays mirror those. */
+.tb-txt{display:flex;flex-direction:column;gap:6px;opacity:1;visibility:visible;
+  /* arriving: wait for .tb-phase (.7s) to clear first */
+  transition:opacity .4s var(--ease) .7s, visibility 0s linear .7s}
+.today.tb.breathing .tb-txt{opacity:0;visibility:hidden;pointer-events:none;
+  /* leaving: go immediately, and stop painting the instant we hit 0 */
+  transition:opacity .4s var(--ease), visibility 0s linear .4s}
 .tb-line{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink)}
 .tb-hint{font-size:calc(13px * var(--type-scale));color:var(--muted)}
-.tb-phase{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.12em;text-transform:lowercase;opacity:0;transition:opacity .7s var(--ease);pointer-events:none}
-.tb-phase.show{opacity:1}
+.tb-phase{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.12em;text-transform:lowercase;opacity:0;visibility:hidden;pointer-events:none;
+  /* leaving: go immediately */
+  transition:opacity .7s var(--ease), visibility 0s linear .7s}
+.tb-phase.show{opacity:1;visibility:visible;
+  /* arriving: wait for .tb-txt (.4s) to clear first */
+  transition:opacity .7s var(--ease) .4s, visibility 0s linear .4s}
 
 /* two separate filled cards with air between them (was one grouped card with an
    inset hairline) — each action is content-rich enough to be its own destination.
@@ -1370,7 +1487,8 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 .today.tb.breathing .tb-head,
 .today.tb.breathing .tb-cluster,
 .today.tb.breathing .tb-foot,
-.today.tb.breathing .tb-txt{opacity:0;pointer-events:none}
+/* (the .breathing hide for .tb-txt now lives with the staggered crossfade above —
+   this duplicate was opacity-only and would have re-broken the overlap fix) */
 .today.tb.breathing .tb-ring{animation:none}
 .today.tb.breathing .tb-halo{animation:none;opacity:.42}
 
@@ -1408,10 +1526,52 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 
 /* first-week accounts: the settled ring keeps its faint hint so a returning
    new user still knows the circle is tappable */
-.today.tb.breathed.young .tb-below{opacity:1;max-height:46px;min-height:0;margin:0}
-.today.tb.breathed.young .tb-txt{opacity:1}
+.today.tb.breathed.young .tb-below{opacity:1;max-height:calc(46px * var(--type-scale));min-height:0;margin:0}
+.today.tb.breathed.young .tb-txt{opacity:1;visibility:visible}
 .today.tb.breathed.young .tb-line{display:none}
 .today.tb.breathed.young .tb-hint{opacity:.55}
 
 @keyframes bloom{0%,100%{transform:scale(.96);opacity:.30}50%{transform:scale(1.05);opacity:.55}}
 @media (prefers-reduced-motion:reduce){.tb-halo,.tb-ring{animation:none;transform:scale(.98)}}
+
+/* ================================================================ guest on-ramp
+   (2026-07-13 rebuild — spec ONRAMP-COPY-DRAFT.md + ONRAMP-MOCKUP.html) */
+
+/* locked practice options: FADED INK ONLY — same card, same fill, no dashes,
+   no padlocks, chevron hidden. greyed out does not mean filled in. */
+.g-locked{opacity:.42;cursor:default}
+.g-locked:active{background:transparent}
+@media(hover:hover){.g-locked:hover{border-color:var(--hairline)}}
+.g-locked .wc-go{visibility:hidden}
+.g-locked .tuned-line path{stroke-dasharray:none;stroke-dashoffset:0}
+
+/* before/after: the two reads side by side. glyphs + state names only — no
+   "before"/"now" labels, no score, nothing that grades the gap. */
+.ba-pair{display:flex;align-items:flex-start;gap:22px;margin:10px 0 4px}
+.ba-col{display:flex;flex-direction:column;gap:9px}
+.ba-col .triglyph{height:52px}
+.ba-glyph{display:flex}
+.ba-arrow{color:var(--muted);font-size:calc(20px * var(--type-scale));line-height:1;margin-top:16px}
+.ba-state{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em}
+
+/* the offer: paid leads, free SAME weight (no fade — honesty is structural).
+   the paid card is distinguished by its ink border only. */
+.offer-view .offer-card{border:1px solid var(--hairline);border-radius:18px;padding:18px;margin:0 0 14px;background:transparent}
+.offer-view .offer-paid{border-color:var(--ink)}
+.offer-card h2{font-size:calc(19px * var(--type-scale));font-weight:600;margin:0 0 12px;color:var(--ink)}
+.offer-card.offer-free h2{font-size:calc(17px * var(--type-scale));font-weight:500}
+.offer-card ul{margin:0 0 16px;padding-left:18px;color:var(--ink-80)}
+.offer-card li{margin:0 0 6px;font-size:calc(15px * var(--type-scale));line-height:1.5}
+.offer-more{border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px}
+.offer-more summary{cursor:pointer;list-style:none;font-size:calc(14px * var(--type-scale));color:var(--link);text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:3px}
+.offer-more summary::-webkit-details-marker{display:none}
+.offer-more-body{font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);margin-top:12px}
+.offer-more-body p{margin:0 0 10px;line-height:1.5}
+
+/* before/after body: flow content BELOW the sticky eyebrow (2026-07-13 device-pass
+   fix: the words lived inside .scr-head, which pins and fades on scroll — the
+   whole screen vanished as the actionbar scrolled in). scr-lede is margin-top-only,
+   so restore the paragraph rhythm here. */
+.ba-body{display:flex;flex-direction:column;padding-bottom:8px}
+.ba-body .scr-lede{margin:0 0 14px}
+.ba-body .ba-pair{margin:4px 0 16px}
