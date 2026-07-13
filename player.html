@@ -23,8 +23,17 @@
   --btn-hover:#2A3040;--rbtn:10px;--rcard:14px;
   --ease:cubic-bezier(.2,.6,.2,1);
   --gentle:cubic-bezier(.25,.46,.3,1);   /* softer, slower easing for menu transitions */
-  --type-scale:1;                        /* set from snb_textscale at boot (same-origin localStorage) */
+  /* type: same composition as app.css (2026-07-10). --type-user is the person's
+     text-size setting (from snb_textscale at boot, same-origin localStorage);
+     --type-fluid is the device ramp; --type-scale is the composed value that every
+     calc(Npx * var(--type-scale)) below already reads. The player is a separate
+     document, so it carries its own copy of the ramp. */
+  --type-user:1;
+  --type-fluid:1.133;                    /* compact: 15 -> 17px */
+  --type-scale:calc(var(--type-user) * var(--type-fluid));
 }
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
+@media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
 /* warm dark mode — the app's core dark tokens (app.css :root.theme-dark) */
 :root.theme-dark{
   --bone:#1B1C1E;--bone-deep:#24262A;--hairline:#3A3C42;--ink:#ECEAE3;
@@ -263,7 +272,7 @@ body.playing .brand{display:none}
 /* ── primary transport: the one hero control ── */
 /* pause/play — a wide rounded button (not a circle, so it never echoes the breathing ring) that
    grows to fill the row from the captions pill out to the right edge — no empty gutter. */
-.transport{flex:1 1 auto;min-width:54px;height:54px;border-radius:15px;border:1.5px solid var(--ink);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:box-shadow var(--ease) .2s,transform var(--ease) .2s}
+.transport{flex:1 1 auto;min-width:48px;height:54px;border-radius:15px;border:1.5px solid var(--ink);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:box-shadow var(--ease) .2s,transform var(--ease) .2s}
 .transport:hover{box-shadow:0 0 0 1.5px var(--ink)}
 .transport:active{transform:scale(.96)}
 .transport:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
@@ -271,14 +280,40 @@ body.playing .brand{display:none}
 .transport .ico-play{display:none;margin-left:3px}
 .transport.is-paused .ico-pause{display:none}
 .transport.is-paused .ico-play{display:block}
+/* compact secondary transports (previous section · skip-back-5) — fixed width so pause stays the hero */
+.transport.mini{flex:0 0 auto;width:46px;min-width:46px}
+/* back-5: a counter-clockwise arc with the numeral centred INSIDE it. The old version used a
+   tight r=6 arc at stroke 1.7 with a bold 8.5px "5" jammed on top — at 27px the two collided
+   and read as a smudge ("weird symbol", Justin). Bigger arc, thinner stroke, the numeral
+   properly centred in the open circle with room to breathe. */
+.transport.mini .rw{position:relative;display:flex;align-items:center;justify-content:center;width:28px;height:28px;color:var(--ink)}
+.transport.mini .rw svg{width:28px;height:28px;display:block;stroke:var(--ink)}
+.transport.mini .rw5{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 10px/1 Inter,system-ui,sans-serif;color:var(--ink);letter-spacing:0;padding-top:1px}
 
 /* ── adjustments: two quiet, equal setting pills ── */
 /* ── settings: two equal cells on one grid row, sharing the column's edges ── */
 /* the controls live on one compact, centred bar — no full-width pills, no wasted space */
 /* control bar spans the page columns: silence + captions at the LEFT edge, pause/play at the
    RIGHT edge (easy thumb reach) — both aligned to the same grid as the cards, caption and buttons. */
-.controlbar{display:flex;align-items:center;gap:10px;width:100%;flex-wrap:nowrap}
-.adjgroup{display:flex;align-items:center;gap:10px;flex:none}
+/* ---- control bar: an explicit 6-column grid, three full rows (2026-07-10, Justin) ----
+   History: this row was flex/nowrap with .adjgroup at flex:none, so it could never shrink.
+   Once items 53-54 added the previous-section and 5s-rewind buttons it totalled ~450px on a
+   390px phone and ran off the right edge. A wrap fixed the overflow but the result was ad hoc.
+   Now it is a real grid, and space goes to what needs it:
+     row 1  silence     — needs the most width (label + stepper), so it gets a full line
+     row 2  CC          — a toggle, but full width keeps the left edge honest
+     row 3  prev · back5 · pause — pause is the hero and takes 4 of 6 columns
+   Every control is 54px tall and snaps to the same columns, so the left/right edges line up
+   down the whole stack instead of drifting. */
+.controlbar{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;width:100%;align-items:center}
+.adjgroup{display:contents}          /* let the silence + CC pills sit directly on the grid */
+.adj{min-width:0;width:100%}
+.adj.silence{grid-column:span 4;justify-content:space-between;padding:0 4px 0 14px}
+.captoggle{grid-column:span 2;justify-content:center;gap:6px;padding:0 8px}
+.prevclip{grid-column:span 1}
+.rewind{grid-column:span 2}
+#pause{grid-column:span 3}
+.transport.mini{width:100%;min-width:0}   /* grid owns the width now, not a fixed 46px */
 .endbtn{width:100%}
 .adj{display:flex;align-items:center;justify-content:center;gap:2px;width:auto;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:13px;letter-spacing:.04em;text-transform:lowercase;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{padding:0 4px 0 14px}
@@ -404,7 +439,7 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 </style>
 <script>/* sync embed detection — set class on <html> before first paint */(function(){var q=new URLSearchParams(location.search);if(q.get('embed')==='1')document.documentElement.classList.add('embed');if(q.get('autostart')==='1')document.documentElement.classList.add('autostart');
 /* text-size setting follows the user into the player (same-origin localStorage) */
-try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-scale',String(ts));}catch(e){}
+try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-user',String(ts));}catch(e){}
 /* dark mode reaches the player too (2026-07-06): same-origin localStorage carries
    the app's snb_theme; auto follows the system. before this the player was
    permanently light — a bright screen for a night practice, and the reason
@@ -521,6 +556,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
         </div>
         <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc">CC</span><span class="cc-state" id="capstate">off</span></button>
         </div>
+      <button class="transport mini prevclip" id="prevclip" type="button" aria-label="previous section"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.6" y="5.5" width="2.4" height="13" rx="1.1"></rect><path d="M18.4 6 L10 12 L18.4 18 Z" fill="currentColor"></path></svg></button>
+      <button class="transport mini rewind" id="rewind" type="button" aria-label="back 5 seconds"><span class="rw" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.2a8.8 8.8 0 1 1-8.2 5.6"></path><path d="M9.1 2.6 L5.4 5.9 L9.0 9.0"></path></svg><span class="rw5">5</span></span></button>
       <button class="transport" id="pause" aria-label="pause"><svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="2.2"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="2.2"></rect></svg><svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
       </div>
       <!-- endings: graceful close, and a quiet escape -->
@@ -774,6 +811,7 @@ DUR={"INTRO-01":11.1,
 /* ====== helpers ====== */
 const $=id=>document.getElementById(id);
 const au=$('au');
+
 au.preload='auto';
 const rand=a=>a[Math.floor(Math.random()*a.length)];
 const has=b=>MAN[b]&&MAN[b].length;
@@ -791,6 +829,17 @@ function prefetchAhead(){
 /* ── tap-to-start safety net: if the browser blocks autoplay, first tap anywhere resumes ── */
 let _tapArmed=false;
 function armTapToStart(){
+  // 2026-07-10: NEVER arm this while the page is hidden. On a locked screen there is no
+  // pointer to tap with, so arming it parked the practice forever behind a prompt the
+  // person could not see or answer — Justin: "the pause and play buttons made the player
+  // stop". If a resume fails while hidden, just retry when the screen comes back.
+  if(document.hidden){
+    document.addEventListener('visibilitychange', function _rt(){
+      document.removeEventListener('visibilitychange', _rt);
+      if(!document.hidden && playing && !paused){ try{ const p=au.play(); if(p&&p.catch)p.catch(()=>armTapToStart()); }catch(e){ armTapToStart(); } }
+    });
+    return;
+  }
   if(_tapArmed)return;_tapArmed=true;
   const _s=$('starting'); if(_s){_s.textContent='tap to start';_s.classList.add('show');}   // make the needed tap explicit, not a silent "preparing"
   document.addEventListener('pointerdown',function _t(){
@@ -1082,6 +1131,11 @@ let activePack=null;                 // loaded standalone pack, or null in woven
 const SEGSTATE={},GAPTIER={},PACKCACHE={};   // standalone: id→ring state / silence tier; fetched-pack cache
 let playing=false,paused=false,finished=false,started=false,closingNow=false,playStart=0;
 let gapTimer=null,inGap=false,gapRemain=0,gapStart=0;
+let _inSilence=false;   // true while the element is playing a silent GAP clip (see silenceURL)
+let _endedWhilePaused=false;  // a clip ended while paused; settle the advance on resume
+// when WE last deliberately paused/resumed. The external-pause watchdog ignores anything
+// inside ~1.2s of this, so our own async au.play() can't be mistaken for an OS pause.
+let _lastSelfCtl=0;
 
 function showScreen(id){if(id==='setup')picked=false;['setup','player'].forEach(s=>$(s).classList.toggle('hidden',s!==id));document.body.classList.toggle('playing',id==='player');try{if(window.parent!==window)window.parent.postMessage({type:'snb-weaver',event:'screen',screen:id},'*');}catch(e){}}
 
@@ -1149,17 +1203,34 @@ $('player').addEventListener('pointerdown',()=>{if(playing||finished)revealContr
   c.addEventListener('pointerleave',()=>{if(playing&&!finished)revealControls();});
 })();
 
-/* safeguard: if this page is hidden (another tab/frame is in front), pause so audio never plays in the background */
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing&&!paused){$('pause').click();}});
+/* 2026-07-10 — THE LOCK-SCREEN BUG (Roberto's crash; Justin reproduced on device).
+   This used to be:
+       if(document.hidden && playing && !paused) $('pause').click();
+   i.e. the moment the page went hidden we clicked our own pause button. Pressing the
+   power button hides the document — so the app was DELIBERATELY killing its own audio
+   the instant the screen locked. iOS was never the culprit; we were.
 
-/* screen wake lock (Beth's day-1 feedback, 2026-07-05): on iPhone home-screen
-   installs, the screen sleeping mid-practice killed the session with no way to
-   resume — she had to start over. While a session is live we hold a screen wake
-   lock (iOS 16.4+, Android, desktop; everything try/catch so devices without it
-   lose nothing). The OS drops the lock whenever the page hides; we re-acquire
-   when it returns while a session is still live, and on resume from pause. */
+   A guided practice is exactly the case where audio SHOULD keep playing with the screen
+   off: eyes closed, phone down, screen dark. So: no auto-pause. Audio continues through
+   a locked screen, and the lock-screen transport (below) drives it.
+
+   The old comment worried about "audio playing in the background" — for a meditation that
+   is the desired behaviour, not a leak. If we ever need to pause on a genuine app-switch,
+   that must be distinguished from a screen lock; visibilitychange cannot tell them apart,
+   which is precisely how this bug happened. */
+
+/* screen wake lock — DISABLED 2026-07-10.
+   History: added 2026-07-05 for Beth, because the screen sleeping mid-practice killed the
+   session. But it treated the symptom: the session died on sleep only because of the
+   auto-pause above. With that removed, audio survives a locked screen on its own, so
+   holding the screen awake now does more harm than good — it burns battery and keeps a lit
+   screen in a dark room through an eyes-closed practice (Justin: "in the player, it does
+   not auto lock!"). The phone should be free to sleep; the practice keeps going.
+   The functions stay as no-op-safe stubs so every existing wlHold()/wlDrop() call site is
+   untouched — flip _WAKE_LOCK back to true if a device ever needs it. */
+const _WAKE_LOCK = false;
 let _wl=null;
-async function wlHold(){ try{ if(_wl||!('wakeLock' in navigator))return; _wl=await navigator.wakeLock.request('screen'); _wl.addEventListener('release',()=>{_wl=null;}); }catch(e){ _wl=null; } }
+async function wlHold(){ if(!_WAKE_LOCK) return; try{ if(_wl||!('wakeLock' in navigator))return; _wl=await navigator.wakeLock.request('screen'); _wl.addEventListener('release',()=>{_wl=null;}); }catch(e){ _wl=null; } }
 function wlDrop(){ try{ if(_wl)_wl.release(); }catch(e){} _wl=null; }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&playing&&!finished) wlHold(); });
 /* if the OS pauses the audio element itself (headphones unplugged, bluetooth route
@@ -1168,7 +1239,15 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&playing&
    (still paused 350ms later, not ended, not in a gap) counts as external. */
 au.addEventListener('pause',()=>{
   if(au.ended) return;
-  setTimeout(()=>{ if(playing&&!paused&&!inGap&&!finished&&!inBreak&&au.paused&&!au.ended){ try{$('pause').click();}catch(e){} } }, 350);
+  setTimeout(()=>{
+    // 2026-07-10: ignore anything WE just did. When the lock-screen play button resumes us,
+    // au.play() is async — for a moment `paused` is already false while `au.paused` is still
+    // true. This watchdog would see that window, decide the OS had paused us, and click pause
+    // right back, killing the practice the instant it resumed. Only an EXTERNAL pause (one we
+    // did not cause in the last ~1.2s) counts.
+    if(Date.now() - _lastSelfCtl < 1200) return;
+    if(playing&&!paused&&!inGap&&!finished&&!inBreak&&au.paused&&!au.ended){ try{$('pause').click();}catch(e){} }
+  }, 350);
 });
 
 /* connection trouble: additive listeners (do not touch the timing engine). If clips keep failing,
@@ -1185,7 +1264,7 @@ const PNAME={mindfulness:'simple mindfulness',anchoring:'connecting with safety'
 const _advanceCore=advance;
 advance=function(){
   if(playing&&!inBreak&&idx>=0&&idx+1<SEQ.length&&PH[idx]==='closing'&&PH[idx+1]&&PH[idx+1]!=='closing'){
-    inBreak=true;try{au.pause();}catch(e){}clearTimeout(gapTimer);inGap=false;
+    inBreak=true;try{au.pause();}catch(e){}clearTimeout(gapTimer);inGap=false;_inSilence=false;
     // which meditation is coming up next?
     let seg=0;for(let i=1;i<=idx+1;i++){if(PH[i-1]==='closing'&&PH[i]!=='closing')seg++;}
     const nm=PNAME[(practices[seg]||{}).key]||'';
@@ -1205,13 +1284,14 @@ function startPlayer(){
   loopCount=0;holdWatchUsed=false;holdWatchSeconds=0;   // reset telemetry for this session
   $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');$('pause').style.display='';
   finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;wlHold();pickScene();
+  msMeta((PNAME[(practices[0]||{}).key])||'guided practice');   // lock-screen title
   showScreen('player');fitRing();renderTest();showSil();
   started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
   inBreak=false;$('player').classList.remove('finished','conn-trouble','breaking','rested','paused');revealControls();
   cancelAnimationFrame(rafId);ringLoop();
   advance();
 }
-function stopAll(){playing=false;paused=false;inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);wlDrop();}
+function stopAll(){playing=false;paused=false;inGap=false;_inSilence=false;_endedWhilePaused=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}cancelAnimationFrame(rafId);wlDrop();}
 
 /* ── standalone playback: drive the same engine from a fixed pack (no build/weave) ── */
 function applyPack(pack){
@@ -1228,6 +1308,7 @@ function startStandalone(){
     applyPack(pack);buildTrackSeq();
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');$('pause').style.display='';
     finished=false;paused=false;playing=true;inGap=false;idx=-1;closingNow=false;wlHold();pickScene();
+    msMeta((pack&&(pack.title||pack.name))||'guided practice');   // lock-screen title
     showScreen('player');fitRing();renderTest();showSil();
     started=false;const _st=$('starting');if(_st){_st.textContent='preparing your audio';_st.classList.add('show');}
     inBreak=false;$('player').classList.remove('finished','conn-trouble','breaking','rested','paused');revealControls();
@@ -1301,11 +1382,13 @@ function playCurrent(){
   if(/^HOLD-WATCH/.test(b)){ holdWatchUsed=true; holdWatchSeconds+=Math.round((DUR[b]||8)+gapAfter(b)); }   // hold-both telemetry
   const file=rand(MAN[b]);          // CAPTIONS: this is the chosen variant filename — caption key is CAP[file]
   curFile=file;capStart(CAP[file]||'');   // parse caption into phrases, reveal progressively (shown only when captions on)
-  try{au.src=clipUrl(file);au.currentTime=0;const pr=au.play();if(pr&&pr.catch)pr.catch(()=>{armTapToStart();});}catch(e){armTapToStart();}
+  _lastSelfCtl=Date.now();   // src swap fires a 'pause' event; that is us, not the OS
+  try{au.src=clipUrl(file);au.currentTime=0;msSet('playing');_tryPlay(()=>armTapToStart());}catch(e){armTapToStart();}
   prefetchAhead();
 }
 function advance(){
   if(!playing)return;
+  _inSilence=false; _endedWhilePaused=false;      // leaving any gap; the next thing to sound is a real clip
   idx++;
   if(idx>=SEQ.length){if(LOOP){idx=LOOPFROM;loopCount++;}else{return finish();}}
   inGap=false;
@@ -1325,43 +1408,318 @@ function showTimeLeft(){
   const m=remainingMins();
   e.textContent = m<1 ? 'less than a minute left' : 'about '+Math.round(m)+' min left';
 }
-au.onended=()=>{                                      // a clip finished playing, in full
-  if(!playing||paused)return;
+/* ---- SILENCE AS REAL AUDIO (2026-07-10) ----------------------------------------------
+   THE BUG (Justin, on device): with the screen locked, audio played to the end of the
+   current clip and then stopped. The reason: the silence BETWEEN clips was a setTimeout.
+   iOS keeps an <audio> element sounding on a locked screen, but it suspends JS timers —
+   so when the clip ended, the timer that would have started the next one never fired, and
+   the practice died mid-way.
+
+   The fix: make the gap itself a piece of audio. A silent WAV of exactly the gap length is
+   played through the same element, so the chain is driven by MEDIA events ('ended'), which
+   keep firing in the background, instead of by JS timers, which do not. As a bonus, pause /
+   resume during a gap is now just pausing audio — no elapsed-time bookkeeping.
+
+   The old setTimeout path is kept as a fallback for any browser where the silent clip fails
+   to load, so a failure degrades to the previous behaviour rather than freezing. */
+/* ONE real silent file, replayed. (Rewritten 2026-07-10 after the second device test.)
+   v1 built a per-length silent WAV as a base64 data: URI. It worked awake, but on a LOCKED
+   screen Justin saw the lock-screen button flip to "play" on its own and then the audio die.
+   Two causes, both from the source churn:
+     - every gap set a NEW src (a fresh data: URI), which momentarily PAUSES the element.
+       iOS draws its Now Playing button from the element's real state, so it flashed "play".
+     - iOS is far more willing to keep an already-loaded, same-origin media resource going in
+       the background than to accept a brand-new large data: URI. When that load lost, the
+       play() promise rejected and the practice was dead with nothing left to retry.
+   Now: a single 8KB same-origin silence-1s.wav (service-worker cached). A gap of N seconds
+   replays THAT ONE FILE N times via currentTime=0 — so the src changes once per gap, never
+   per second, and never to a data: URI. */
+/* v3 (2026-07-10, after the third device test). v2 replayed a 1s file N times. Audio survived
+   the lock — but the element PAUSED at every one-second boundary, and iOS draws its lock-screen
+   glyph from the element's real state, so the button flickered play/pause all the way through
+   each gap ("play and pause come and go during silence transitions"). Pressing play into one of
+   those windows hit a source mid-swap and killed it.
+   v3: the whole gap is ONE continuous playback of a 30s silent file, cut short by 'timeupdate'
+   when the gap is spent. The element never pauses mid-gap, so the glyph holds still, and there
+   is no half-swapped source for a lock-screen tap to land on. */
+const SIL_SRC = 'clips/silence-30s.wav';
+let _gapSecs = 0;                                      // how far into the silent file this gap runs
+function _tryPlay(onFail){
+  let tries = 0;
+  const go = ()=>{
+    // retrying while hidden just produces AbortError storms (see the device log); iOS will
+    // not start media in the background. Try once, then wait for the screen to come back.
+    if(document.hidden) tries = 2;
+    try{
+      const pr = au.play();
+      if(pr && pr.catch) pr.catch((err)=>{ (++tries < 3) ? setTimeout(go, 350) : (onFail && onFail()); });
+    }catch(e){ (++tries < 3) ? setTimeout(go, 350) : (onFail && onFail()); }
+  };
+  go();
+}
+function playGap(seconds){
+  const secs = Math.max(0, seconds||0);
+  if(secs < 0.4){ inGap=false; return advance(); }      // no meaningful gap — go straight on
+  inGap = true; gapRemain = secs*1000; gapStart = performance.now();
+  _lastSelfCtl = Date.now();     // the src swap fires a 'pause' event; that is us, not the OS
+  _inSilence = true;
+  _gapSecs = secs;               // 'timeupdate' ends the gap when the file reaches this point
+  try{
+    if(!/silence-30s\.wav$/.test(au.src||'')) au.src = SIL_SRC;
+    au.currentTime = 0;
+    msSet('playing');            // keep the lock-screen glyph honest across the swap
+    _tryPlay(()=>_silFallback(secs*1000));
+  }catch(e){ _silFallback(secs*1000); }
+}
+function _silFallback(ms){                             // silent clip wouldn't play — old timer path
+  _inSilence = false;
+  clearTimeout(gapTimer);
+  gapTimer = setTimeout(()=>{ inGap=false; advance(); }, ms);
+}
+
+/* the gap ends HERE, not on a timer and not on 'ended': while the silent file plays we watch
+   its position, and the moment it passes the gap length we move on. timeupdate keeps firing in
+   the background (it is a media event), which is the whole point. */
+au.addEventListener('timeupdate',()=>{
+  if(!_inSilence||!playing||paused)return;
+  if(au.currentTime >= _gapSecs){ _inSilence=false; inGap=false; advance(); }
+});
+/* What to do when the thing that was sounding reaches its end. Pulled out of the event handler
+   so a resume can run it too — see _endedWhilePaused below. */
+function _onEnded(){
+  if(_inSilence){                 // silent file ran out before we cut it (gap >= file length)
+    _inSilence=false; inGap=false;
+    return advance();
+  }
+  // a clip finished playing, in full
   if(!LOOP&&idx>=SEQ.length-1)return finish();         // last clip plays to its natural end — no cut
-  capClear();    // clear caption during the silence gap
-  gapRemain=gapAfter(SEQ[idx])*1000;gapStart=performance.now();inGap=true;
-  clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);
+  capClear();                                          // clear caption during the silence gap
+  playGap(gapAfter(SEQ[idx]));
+}
+/* 2026-07-10 (Justin): if a clip ENDED while the practice was paused, this handler used to
+   `return` on `paused` and simply throw the event away — so the sequence never advanced and the
+   practice was stranded on a finished clip. Worse, resuming then called play() on an ALREADY-ENDED
+   element, which restarts that same clip from the top: "it plays to the end and then back to the
+   pause state." Now we remember the ended clip and act on it the moment they press play. */
+au.onended=()=>{
+  if(!playing)return;
+  if(paused){ _endedWhilePaused = true; return; }      // owe an advance; settle it on resume
+  _onEnded();
 };
 au.onerror=()=>{                                      // a clip failed to load — skip on, don't freeze
   $('starting').classList.remove('show');
   if(!playing||paused)return;
+  if(_inSilence){ _inSilence=false; return _silFallback(gapRemain||300); }  // silent clip itself failed
   if(!LOOP&&idx>=SEQ.length-1)return finish();
   inGap=true;gapRemain=300;gapStart=performance.now();
   clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},300);
 };
-function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}wlDrop();
+function finish(){playing=false;finished=true;finishAt=performance.now();inGap=false;_inSilence=false;_endedWhilePaused=false;clearTimeout(gapTimer);try{au.pause();}catch(e){}wlDrop();
   capClear();$('starting').classList.remove('show');
   $('pause').style.display='none';const tl=$('timeleft');if(tl)tl.textContent='';
   clearTimeout(ctrlTimer);$('player').classList.add('finished');$('player').classList.remove('conn-trouble');
   postToHost('complete');   // embed: tell the host the session reached its natural end
 }
+/* skip back 5 seconds within the current clip (Roberto's request). Clips advance on
+   au.onended, and timeupdate only drives captions, so seeking currentTime backward is
+   safe and self-correcting (captions re-sync, onended just fires later). Clamped to the
+   clip start; a gentle no-op during silence gaps / breaks so the gap state machine is
+   never disturbed. Works whether playing or paused (paused: scrub back, resume as normal). */
+$('rewind').onclick=()=>{
+  if(!playing||finished||inGap||inBreak)return;
+  _lastSelfCtl=Date.now();
+  haptic();
+  try{
+    const t=au.currentTime||0;
+    au.currentTime=Math.max(0,t-5);
+    if(!paused){ const pr=au.play(); if(pr&&pr.catch)pr.catch(()=>{armTapToStart();}); }
+  }catch(e){}
+};
+/* back to the previous section (clip) — Roberto's "back button", distinct from the 5s rewind.
+   Clips advance via idx++ in advance(); to step back we cancel any pending silence gap, set idx
+   two behind, and re-enter the raw _advanceCore (which idx++'s and plays) — using the raw advance,
+   not the break-wrapped one, so navigating backward never trips a between-practice pause. Clamped
+   so the first clip just restarts. Pressing back resumes playback (it plays the target clip). */
+$('prevclip').onclick=()=>{
+  if(!playing||finished||inBreak||closingNow)return;
+  _lastSelfCtl=Date.now();
+  haptic();
+  clearTimeout(gapTimer); inGap=false; _inSilence=false; _endedWhilePaused=false;   // drop any in-progress silence gap
+  idx=Math.max(-1, idx-2);                      // _advanceCore will idx++ onto the previous clip (or 0)
+  if(paused){ paused=false; $('pause').classList.remove('is-paused'); $('pause').setAttribute('aria-label','pause'); $('player').classList.remove('paused'); }
+  revealControls();
+  _advanceCore();
+};
 $('pause').onclick=()=>{
   if(!playing)return;
+  _lastSelfCtl=Date.now();   // we are driving; the watchdog must not second-guess this
   haptic();
   if(paused){ // resume
     paused=false;wlHold();
-    if(inGap){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
-    else{try{au.play();}catch(e){}}
+    // a gap is now REAL AUDIO (the silent clip), so resuming it is just au.play(). Only the
+    // timer-fallback gap (silent clip failed to load) still needs the setTimeout rescheduled.
+    if(inGap && !_inSilence){gapStart=performance.now();clearTimeout(gapTimer);gapTimer=setTimeout(()=>{inGap=false;advance();},gapRemain);}
+    // Resume, robustly. 2026-07-10:
+    //  - if a clip ENDED while we were paused, settle that first: move to the gap/next clip
+    //    rather than calling play() on a finished element (which would replay the same clip).
+    //  - pressing PLAY on the lock screen during a clip/silence transition used to hit a source
+    //    that was mid-swap; play() rejected and the practice went silent until the app reopened.
+    //    If the element has no usable source, re-arm the current clip instead of playing nothing.
+    else{
+      msSet('playing');
+      $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
+      $('player').classList.remove('paused');revealControls();
+      if(_endedWhilePaused){ _endedWhilePaused=false; _onEnded(); return; }
+      if(!au.src || au.error || au.ended){ playCurrent(); }
+      else { _tryPlay(()=>armTapToStart()); }
+    }
     $('pause').classList.remove('is-paused');$('pause').setAttribute('aria-label','pause');
     $('player').classList.remove('paused');revealControls();
   }else{ // pause
     paused=true;
-    if(inGap){clearTimeout(gapTimer);gapRemain=Math.max(0,gapRemain-(performance.now()-gapStart));}
+    if(inGap && !_inSilence){clearTimeout(gapTimer);gapRemain=Math.max(0,gapRemain-(performance.now()-gapStart));}
     else{try{au.pause();}catch(e){}}
     $('pause').classList.add('is-paused');$('pause').setAttribute('aria-label','resume');
     $('player').classList.add('paused','show-controls');clearTimeout(ctrlTimer);$('starting').classList.remove('show');
   }
 };
+/* ---- lock-screen / Now Playing transport (MediaSession) — 2026-07-10 ----
+   There was no MediaSession at all, which is why the play button Justin saw on his lock
+   screen did nothing: iOS renders Now Playing because an <audio> element is sounding, but
+   with no action handlers registered its buttons have nothing to call. Wire them to the
+   SAME handlers as the on-screen controls, so the lock screen is a real remote:
+     play / pause   -> the pause button (it toggles)
+     seek backward  -> the 5s rewind
+     previous track -> the previous-section button
+   Everything is guarded: no MediaSession (older iOS, some Androids) simply means no remote,
+   exactly as before. */
+function msSet(state){ try{ if('mediaSession' in navigator) navigator.mediaSession.playbackState = state; }catch(e){} }
+(function initMediaSession(){
+  if(!('mediaSession' in navigator)) return;
+  try{
+    const ms = navigator.mediaSession;
+    /* 2026-07-10 — measured, not guessed. With handlers registered we called au.pause() /
+       au.play() ourselves. On iOS, a JS-initiated pause in the background tears down the audio
+       session, and a JS-initiated play in the background CANNOT bring it back: the promise
+       resolves, 'playing' fires, and currentTime stays frozen until the page is foregrounded.
+       So we do NOT register play/pause handlers. With no handler, WebKit performs the pause and
+       resume on the element ITSELF, keeping its own audio session — which is the only path that
+       works off-screen. We just observe the result (see the au 'play'/'pause' listeners below)
+       and keep our own state in step. */
+    ms.setActionHandler('play',  null);
+    ms.setActionHandler('pause', null);
+    ms.setActionHandler('seekbackward', ()=>{ const r=$('rewind'); if(r) r.click(); });
+    ms.setActionHandler('previoustrack', ()=>{ const p=$('prevclip'); if(p) p.click(); });
+    // no next-track: a practice is a sequence to be walked, not skipped forward through.
+    ms.setActionHandler('nexttrack', null);
+  }catch(e){}
+})();
+/* Title the Now Playing card once we know which practice is running. Called from start. */
+function msMeta(title){
+  try{
+    if(!('mediaSession' in navigator) || !window.MediaMetadata) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: title || 'guided practice',
+      artist: 'Stuck Not Broken',
+      artwork: [{ src: 'icon-192.png', sizes:'192x192', type:'image/png' },
+                { src: 'icon-512.png', sizes:'512x512', type:'image/png' }],
+    });
+  }catch(e){}
+}
+/* keep the lock-screen play/pause glyph honest with our real state */
+au.addEventListener('play',  ()=>msSet('playing'));
+au.addEventListener('pause', ()=>msSet(paused ? 'paused' : 'playing'));
+
+/* Since WebKit now owns pause/resume from the lock screen, MIRROR what it does into our state so
+   the in-app button, the caption and the engine stay in step with reality. Ignore the pauses we
+   cause ourselves (src swaps), which is what _lastSelfCtl marks. */
+au.addEventListener('pause', ()=>{
+  if(!playing || finished || inBreak) return;
+  if(au.ended) return;                                   // that's an 'ended', not a pause
+  if(Date.now() - _lastSelfCtl < 1200) return;           // our own src swap
+  if(paused) return;                                     // already know
+  paused = true;
+  $('pause').classList.add('is-paused'); $('pause').setAttribute('aria-label','resume');
+  $('player').classList.add('paused','show-controls');
+});
+au.addEventListener('play', ()=>{
+  if(!playing || finished || inBreak) return;
+  if(!paused) return;
+  paused = false;
+  $('pause').classList.remove('is-paused'); $('pause').setAttribute('aria-label','pause');
+  $('player').classList.remove('paused');
+  if(_endedWhilePaused){ _endedWhilePaused = false; _onEnded(); }   // settle any owed advance
+});
+
+/* ---- STALL RECOVERY (2026-07-10) --------------------------------------------------------
+   Found by instrumenting Justin's locked iPhone, not by reasoning. The log:
+
+       ms:pause  -> au:pause   at 5.45s        (correct)
+       [play pressed]
+       au:play / au:playing    at 5.49s        (element says it is playing)
+       ...8 seconds later, currentTime is STILL 5.49
+
+   Resuming from the lock screen SUCCEEDS and then does nothing. play() does not reject, the
+   'playing' event fires, and the clock never advances: iOS restores the element's state but
+   does not reactivate the audio session, so it plays into the void. Every earlier fix assumed
+   play() was FAILING and retried it — but it was succeeding and lying, so no retry could ever
+   have caught this.
+
+   So: watch the clock. If we believe we are playing and currentTime has not moved for ~1.2s,
+   the element is a corpse. Reload the source, seek back to where we were, and start again. */
+let _lastPos = 0, _lastPosAt = 0, _recovering = false;
+function _stallCheck(){
+  // NEVER touch the element while hidden. au.load() in the background EMPTIES it and iOS
+  // refuses to reload media off-screen -> AbortError -> stall -> recover -> abort, forever.
+  // Measured on Justin's phone: the recovery loop fired every 2s and never healed; the audio
+  // only came back the instant the page became VISIBLE again. So: only recover in the
+  // foreground, where a reload is actually allowed.
+  if(document.hidden){ _lastPosAt = 0; return; }
+  if(!playing || paused || finished || inBreak || _recovering) { _lastPosAt = 0; return; }
+  if(au.paused) return;                       // genuinely paused; not a stall
+  const now = performance.now(), pos = au.currentTime || 0;
+  if(!_lastPosAt || Math.abs(pos - _lastPos) > 0.05){ _lastPos = pos; _lastPosAt = now; return; }
+  if(now - _lastPosAt < 1200) return;         // moving, or not stuck long enough
+  // stuck: "playing" but the clock is frozen
+  _recovering = true;
+  const src = au.currentSrc || au.src, at = pos;
+  try{
+    au.load();                                // tear the dead media session down
+    const onReady = ()=>{
+      au.removeEventListener('loadedmetadata', onReady);
+      try{ au.currentTime = at; }catch(e){}   // back to where the person actually was
+      _lastPos = at; _lastPosAt = performance.now();
+      _tryPlay(()=>{ _recovering=false; armTapToStart(); });
+      setTimeout(()=>{ _recovering = false; }, 600);
+    };
+    au.addEventListener('loadedmetadata', onReady);
+    if(!au.src) au.src = src;
+  }catch(e){ _recovering = false; }
+}
+/* Wake-up recovery. MEASURED, twice, on Justin's phone: if the practice is paused from the lock
+   screen, iOS will not sound it again in the background — WebKit itself resumes the element and
+   the clock still does not move (au:playing at 6.88, still 6.88 seven seconds later). It only
+   comes back when the page is FOREGROUNDED. That is a WebKit audio-session limit, not something
+   code can beat; the durable fix is the native app.
+   So: degrade gracefully. The moment the screen comes back, pick the practice up exactly where it
+   was, without the person having to touch anything. */
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden || !playing || paused || finished || inBreak) return;
+  // give WebKit a beat to restore its own session, then check whether sound is actually happening
+  setTimeout(()=>{
+    if(document.hidden || !playing || paused) return;
+    const before = au.currentTime;
+    setTimeout(()=>{
+      if(document.hidden || !playing || paused) return;
+      if(Math.abs(au.currentTime - before) < 0.05){    // frozen -> it came back dead; revive it
+        _lastPosAt = 0; _stallCheck();
+      }
+    }, 400);
+  }, 250);
+});
+setInterval(_stallCheck, 500);                 // foreground ticking
+au.addEventListener('timeupdate', _stallCheck);// and media-driven, which survives backgrounding
+
 /* live silence control — adjusts the current practice's gap length on the fly */
 const SILSTEPS=[2,4,6,8,10,12,16];
 const nearestSil=v=>SILSTEPS.reduce((b,s)=>Math.abs(s-v)<Math.abs(b-v)?s:b,SILSTEPS[0]);
