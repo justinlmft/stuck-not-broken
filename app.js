@@ -845,14 +845,14 @@
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
           <span class="land-ring" aria-hidden="true"></span>
-          <h1 style="margin:22px 0 12px">that's the practice.</h1>
-          <p class="lede">stay here as long as you like.</p>
+          <h1 style="margin:22px 0 12px">${_guestCI ? "that's the practice." : 'done.'}</h1>
+          <p class="lede">${_guestCI ? 'stay here as long as you like.' : 'how did the practice go? click below to share a check-in.'}</p>
         </div>
         <div class="actionbar">
           ${_guestCI
             ? '<button class="btn block" id="g-land-go">i\'m ready</button>'
-            : `<button class="btn block" id="g-land-ci">name where you are now</button>
-               <button class="navlink" id="g-land-skip" style="align-self:center">not now</button>`}
+            : `<button class="btn block" id="g-land-ci">check in</button>
+               <button class="navlink" id="g-land-skip" style="align-self:center">i'll pass for now.</button>`}
         </div>
       </div>`);
     // practice-first (the /stuck door): the check-in is OFFERED here, after the practice —
