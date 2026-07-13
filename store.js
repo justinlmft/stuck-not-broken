@@ -254,7 +254,7 @@
     if(isCohort()) return false;       // a cohort member without an active sub -> paywall
     return true;                       // everyone else (existing members) grandfathered in
   }
-  async function _postFn(name){
+  async function _postFn(name, body){
     const cfg = global.SNB_CONFIG || {};
     try{
       const { data:{ session } } = await sb.auth.getSession();
@@ -265,6 +265,7 @@
         // Bearer token internally. Sending apikey would add it to the CORS preflight,
         // which the function's allow-headers must echo — simpler to just not send it.
         headers:{ Authorization:'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
       });
       let b={}; try{ b = await r.json(); }catch(e){}
       if(!r.ok || !b.url) return { error:(b && b.error) || 'something went wrong. please try again in a moment.' };
@@ -272,6 +273,19 @@
     }catch(e){ return { error:String((e&&e.message)||e) }; }
   }
   async function startTrial(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('create-checkout'); if(res.url) location.href = res.url; return res; }
+  // Guest-origin subscribe (the on-ramp offer, 2026-07-13): same $12/mo price, NO
+  // trial — on-ramp arrivals are free-or-paid, nothing between. The create-checkout
+  // edge function must branch on {origin:'guest'} (skip trial_period_days) BEFORE
+  // this is reachable in production; until then the flag is sent and ignored.
+  async function startGuestCheckout(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('create-checkout', { origin:'guest' }); if(res.url) location.href = res.url; return res; }
+  // ---- funnel events (on-ramp instrumentation, GMS 2026-07-13) ----
+  // Fire-and-forget, write-only (RLS: insert-own only; nothing reads it client-side).
+  // offer_view / subscribe_click / continue_free ride through here so conversion
+  // timing becomes evidence. Failure is silent by design — never block a screen on it.
+  function trackEvent(name, meta){
+    if(!CLOUD || !auth.user || !name) return;
+    try{ sb.from('events').insert({ user_id: auth.user.id, name: String(name), meta: meta || null }).then(()=>{}, ()=>{}); }catch(e){}
+  }
   async function openPortal(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res; }
 
   function readProfile(){ try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch(e){ return null; } }
@@ -1497,6 +1511,7 @@
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
-    hasAccess, billing, isCohort, startTrial, openPortal, refreshBilling: fetchBilling,
+    hasAccess, billing, isCohort, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    trackEvent,
   };
 })(window);

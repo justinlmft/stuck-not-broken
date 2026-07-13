@@ -1432,11 +1432,32 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .tb-ring{width:170px;height:170px;border-radius:50%;border:1.5px solid var(--ink);opacity:.72;display:flex;align-items:center;justify-content:center;animation:t-breathe 9s var(--ease) infinite;transition:width .6s var(--ease),height .6s var(--ease);will-change:transform,opacity}
 .tb-core{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.7}
 .tb-below{position:relative;display:flex;align-items:center;justify-content:center;min-height:46px;overflow:hidden;transition:opacity .4s var(--ease),max-height .6s var(--ease),margin .6s var(--ease);max-height:calc(80px * var(--type-scale))}
-.tb-txt{display:flex;flex-direction:column;gap:6px;transition:opacity .4s var(--ease)}
+/* .tb-txt (the resting "take a breath" label) and .tb-phase (the in/out cue) are
+   SIBLINGS INSIDE .tb-stage and occupy the SAME centred box — .tb-phase is
+   absolutely centred directly on top of .tb-txt. They are kept apart by opacity
+   alone, so their fades must NEVER run concurrently or both are painted at once
+   and the text visibly overlaps (Claudia, 2026-07-12: "the 'In' & 'out' texts
+   overlap in a weird way with the text underneath it"). It was deterministic, not
+   device-specific: .tb-txt faded out over .4s while .tb-phase faded in over .7s.
+   FIX: stagger the crossfade — each one only begins to appear once the other has
+   fully gone. Whichever is LEAVING moves immediately; whichever is ARRIVING waits
+   out the other's fade. visibility is stepped at the end of the fade so a
+   fully-transparent label can never be co-painted or hit-tested.
+   Timings: .tb-txt out = .4s · .tb-phase out = .7s → the in-delays mirror those. */
+.tb-txt{display:flex;flex-direction:column;gap:6px;opacity:1;visibility:visible;
+  /* arriving: wait for .tb-phase (.7s) to clear first */
+  transition:opacity .4s var(--ease) .7s, visibility 0s linear .7s}
+.today.tb.breathing .tb-txt{opacity:0;visibility:hidden;pointer-events:none;
+  /* leaving: go immediately, and stop painting the instant we hit 0 */
+  transition:opacity .4s var(--ease), visibility 0s linear .4s}
 .tb-line{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink)}
 .tb-hint{font-size:calc(13px * var(--type-scale));color:var(--muted)}
-.tb-phase{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.12em;text-transform:lowercase;opacity:0;transition:opacity .7s var(--ease);pointer-events:none}
-.tb-phase.show{opacity:1}
+.tb-phase{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.12em;text-transform:lowercase;opacity:0;visibility:hidden;pointer-events:none;
+  /* leaving: go immediately */
+  transition:opacity .7s var(--ease), visibility 0s linear .7s}
+.tb-phase.show{opacity:1;visibility:visible;
+  /* arriving: wait for .tb-txt (.4s) to clear first */
+  transition:opacity .7s var(--ease) .4s, visibility 0s linear .4s}
 
 /* two separate filled cards with air between them (was one grouped card with an
    inset hairline) — each action is content-rich enough to be its own destination.
@@ -1466,7 +1487,8 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 .today.tb.breathing .tb-head,
 .today.tb.breathing .tb-cluster,
 .today.tb.breathing .tb-foot,
-.today.tb.breathing .tb-txt{opacity:0;pointer-events:none}
+/* (the .breathing hide for .tb-txt now lives with the staggered crossfade above —
+   this duplicate was opacity-only and would have re-broken the overlap fix) */
 .today.tb.breathing .tb-ring{animation:none}
 .today.tb.breathing .tb-halo{animation:none;opacity:.42}
 
@@ -1505,9 +1527,43 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 /* first-week accounts: the settled ring keeps its faint hint so a returning
    new user still knows the circle is tappable */
 .today.tb.breathed.young .tb-below{opacity:1;max-height:calc(46px * var(--type-scale));min-height:0;margin:0}
-.today.tb.breathed.young .tb-txt{opacity:1}
+.today.tb.breathed.young .tb-txt{opacity:1;visibility:visible}
 .today.tb.breathed.young .tb-line{display:none}
 .today.tb.breathed.young .tb-hint{opacity:.55}
 
 @keyframes bloom{0%,100%{transform:scale(.96);opacity:.30}50%{transform:scale(1.05);opacity:.55}}
 @media (prefers-reduced-motion:reduce){.tb-halo,.tb-ring{animation:none;transform:scale(.98)}}
+
+/* ================================================================ guest on-ramp
+   (2026-07-13 rebuild — spec ONRAMP-COPY-DRAFT.md + ONRAMP-MOCKUP.html) */
+
+/* locked practice options: FADED INK ONLY — same card, same fill, no dashes,
+   no padlocks, chevron hidden. greyed out does not mean filled in. */
+.g-locked{opacity:.42;cursor:default}
+.g-locked:active{background:transparent}
+@media(hover:hover){.g-locked:hover{border-color:var(--hairline)}}
+.g-locked .wc-go{visibility:hidden}
+.g-locked .tuned-line path{stroke-dasharray:none;stroke-dashoffset:0}
+
+/* before/after: the two reads side by side. glyphs + state names only — no
+   "before"/"now" labels, no score, nothing that grades the gap. */
+.ba-pair{display:flex;align-items:flex-start;gap:22px;margin:10px 0 4px}
+.ba-col{display:flex;flex-direction:column;gap:9px}
+.ba-col .triglyph{height:52px}
+.ba-glyph{display:flex}
+.ba-arrow{color:var(--muted);font-size:calc(20px * var(--type-scale));line-height:1;margin-top:16px}
+.ba-state{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em}
+
+/* the offer: paid leads, free SAME weight (no fade — honesty is structural).
+   the paid card is distinguished by its ink border only. */
+.offer-view .offer-card{border:1px solid var(--hairline);border-radius:18px;padding:18px;margin:0 0 14px;background:transparent}
+.offer-view .offer-paid{border-color:var(--ink)}
+.offer-card h2{font-size:calc(19px * var(--type-scale));font-weight:600;margin:0 0 12px;color:var(--ink)}
+.offer-card.offer-free h2{font-size:calc(17px * var(--type-scale));font-weight:500}
+.offer-card ul{margin:0 0 16px;padding-left:18px;color:var(--ink-80)}
+.offer-card li{margin:0 0 6px;font-size:calc(15px * var(--type-scale));line-height:1.5}
+.offer-more{border-top:1px solid var(--hairline);margin-top:14px;padding-top:12px}
+.offer-more summary{cursor:pointer;list-style:none;font-size:calc(14px * var(--type-scale));color:var(--link);text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:3px}
+.offer-more summary::-webkit-details-marker{display:none}
+.offer-more-body{font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);margin-top:12px}
+.offer-more-body p{margin:0 0 10px;line-height:1.5}
