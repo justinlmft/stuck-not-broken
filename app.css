@@ -1567,3 +1567,11 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 .offer-more summary::-webkit-details-marker{display:none}
 .offer-more-body{font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);margin-top:12px}
 .offer-more-body p{margin:0 0 10px;line-height:1.5}
+
+/* before/after body: flow content BELOW the sticky eyebrow (2026-07-13 device-pass
+   fix: the words lived inside .scr-head, which pins and fades on scroll — the
+   whole screen vanished as the actionbar scrolled in). scr-lede is margin-top-only,
+   so restore the paragraph rhythm here. */
+.ba-body{display:flex;flex-direction:column;padding-bottom:8px}
+.ba-body .scr-lede{margin:0 0 14px}
+.ba-body .ba-pair{margin:4px 0 16px}

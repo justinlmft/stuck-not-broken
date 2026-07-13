@@ -950,6 +950,8 @@
     $('#content').innerHTML = `<div class="view fb-view">
         <div class="scr-head">
           <p class="eyebrow">your before and after</p>
+        </div>
+        <div class="ba-body">
           <div class="ba-pair">
             <div class="ba-col"><div class="ba-glyph">${triGlyph(da.key)}</div><div class="ba-state">${escapeHtml(STATE_NAME(da.key))}</div></div>
             <div class="ba-arrow" aria-hidden="true">→</div>
