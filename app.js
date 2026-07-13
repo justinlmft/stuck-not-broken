@@ -376,7 +376,12 @@
     // of the web-first front door. Previously the guest CTA was quiet fineprint *below*
     // the sign-in form, so the default path was land -> sign up -> app, and the taste
     // never happened. Now: new visitor -> on-ramp; known device -> sign-in.
-    if(!Store.user()) return (Store.cloud() && !knownDevice()) ? screenArrival() : screenSignIn();
+    if(!Store.user()){
+      // /stuck door: a brand-new visitor who clicked "start a practice" gets exactly that.
+      // Known devices keep the sign-in gate (their practice is inside their account).
+      if(_doorPractice && Store.cloud() && !knownDevice()){ _doorPractice=false; return startGuestFlow('practice'); }
+      return (Store.cloud() && !knownDevice()) ? screenArrival() : screenSignIn();
+    }
 
     // ---- HARD SAFETY GATE (2026-07-10, found on Justin's device pass) ----
     // An anonymous guest IS a Store.user(), so route() used to fall straight through
@@ -395,6 +400,9 @@
         _guestCI = { v:last.v, sym:last.sym, dor:last.dor };
         return guestReflection();
       }
+      // practice-first guest (came through the /stuck door) who reloaded before
+      // checking in: resume at the pick, not a check-in they never chose.
+      if(guestDoor()==='practice') return guestPracticePick();
       return guestCheckin();
     }
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
@@ -405,7 +413,7 @@
     // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
     let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
     if(h==='checkin'){ app('today'); return screenCheckin(); }
-    if(h==='practice'){ return app('practice'); }
+    if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('today'); }   // lands on the ring, ready to tap
     return app(currentTab);
   }
@@ -415,6 +423,26 @@
   // captured at load, before the hash is consumed anywhere; also set by the
   // PASSWORD_RECOVERY auth event (registered near Store.init at the bottom)
   let _recovery = /type=recovery/.test(location.hash||'');
+
+  // ---- the /stuck hand-off door (2026-07-12, Justin via architect: intent, not data) ----
+  // ?start=practice sends a BRAND-NEW visitor straight to the guest practice pick — the
+  // check-in is OFFERED after the practice instead of leading. Everyone else (no param,
+  // known device, signed in) keeps the existing doors. No state travels; the param is the
+  // person's intent, nothing more. UTM params pass through untouched (page-level analytics;
+  // the app never reads them). Captured once and stripped so a plain reload re-enters
+  // normally; sessionStorage remembers the door within the tab so a mid-flow reload resumes
+  // the practice-first sequence instead of dumping the person into a check-in they didn't pick.
+  let _doorPractice = false;
+  try{
+    const _dq = new URLSearchParams(location.search);
+    if(_dq.get('start')==='practice'){
+      _doorPractice = true;
+      _dq.delete('start');
+      history.replaceState(null,'',location.pathname+(_dq.toString()?'?'+_dq.toString():'')+location.hash);
+    }
+  }catch(e){}
+  function guestDoor(){ try{ return sessionStorage.getItem('snb_guest_door'); }catch(e){ return null; } }
+  function setGuestDoor(v){ try{ v ? sessionStorage.setItem('snb_guest_door',v) : sessionStorage.removeItem('snb_guest_door'); }catch(e){} }
 
   // ---------------------------------------------------------------- arrival (on-ramp)
   // The front door for anyone who has never had an account on this device. No form,
@@ -597,8 +625,10 @@
   // ALONE, so it cannot be defeated by a reload.
   function inGuest(){ try{ return !!(Store.isAnonymous && Store.isAnonymous()); }catch(e){ return false; } }
 
-  // Entry: mint an anonymous session, then drop into the tabbar-free check-in.
-  function startGuestFlow(){
+  // Entry: mint an anonymous session, then drop into the tabbar-free guest sequence.
+  // entry: 'checkin' (default — arrival CTA) or 'practice' (the /stuck door: straight
+  // to the pick; the check-in is offered after the practice on the landing beat).
+  function startGuestFlow(entry){
     // 2026-07-10 (Justin, on-device): this used to render screenSignIn(busy) while the
     // anonymous session minted — so tapping "start a check-in" flashed the SIGN-IN SCREEN
     // for a split second before the check-in appeared. A leftover from before the arrival
@@ -607,11 +637,13 @@
     // Also set _guestFlow BEFORE the async call. Store.init(route) re-fires route() on the
     // SIGNED_IN event, which would otherwise race us and render the check-in twice.
     _guestFlow = true; _guestCI = null; _guestPracticed = false;
+    const practiceFirst = entry==='practice';
+    setGuestDoor(practiceFirst ? 'practice' : null);
     // on failure fall back to whichever gate this visitor came from
-    const gate = (err)=>{ _guestFlow=false; return (Store.cloud() && !knownDevice()) ? screenArrival(err) : screenSignIn(err); };
+    const gate = (err)=>{ _guestFlow=false; setGuestDoor(null); return (Store.cloud() && !knownDevice()) ? screenArrival(err) : screenSignIn(err); };
     Promise.resolve(Store.signInAnonymously()).then(res=>{
       if(res && res.error) return gate(res.error);
-      guestCheckin();
+      practiceFirst ? guestPracticePick() : guestCheckin();
     }).catch(e=>gate(String((e&&e.message)||e)));
   }
 
@@ -628,7 +660,10 @@
     root.innerHTML = `
       <header class="appbar"><button class="backbtn" id="g-ci-back">back</button></header>
       <div class="scroll" id="content"></div>`;
-    $('#g-ci-back').onclick = ()=>guestLeave();
+    // back off the FIRST screen = abandon. But when the check-in was offered after a
+    // practice (the /stuck door), back returns to the save offer — leaving would silently
+    // discard the practice they just finished.
+    $('#g-ci-back').onclick = ()=> _guestPracticed ? guestSaveInvite('landing') : guestLeave();
     $('#content').innerHTML = `<div class="view checkin2">
         <div class="scr-head">
           <p class="eyebrow">your first check-in</p>
@@ -744,7 +779,8 @@
     root.innerHTML = `
       <header class="appbar"><button class="backbtn" id="g-pp-back">back</button></header>
       <div class="scroll" id="content"></div>`;
-    $('#g-pp-back').onclick = ()=>guestReflection();
+    // practice-first guests have no reflection to go back to — back means leave.
+    $('#g-pp-back').onclick = ()=> _guestCI ? guestReflection() : guestLeave();
     $('#content').innerHTML = `<div class="view p-view">
         <div class="scr-head">
           <p class="eyebrow">your choice</p>
@@ -752,12 +788,12 @@
           <p class="scr-lede">both are short. there's no wrong one.</p>
         </div>
         <div class="p-opts g-opts">${GUEST_P_OPTS.map(card).join('')}</div>
-        <div class="actionbar">
+        ${_guestCI ? `<div class="actionbar">
           <button class="navlink" id="g-pp-save" style="align-self:center">keep this check-in</button>
-        </div>
+        </div>` : ''}
       </div>`;
     content().querySelectorAll('[data-gkey]').forEach(b=>b.onclick=()=>guestLaunch(b.dataset.gkey));
-    $('#g-pp-save').onclick = ()=>guestSaveInvite('pick');
+    const gps = $('#g-pp-save'); if(gps) gps.onclick = ()=>guestSaveInvite('pick');
   }
 
   // ---- guest practice launch + tabbar-free shell ----
@@ -811,10 +847,19 @@
           <p class="lede">stay here as long as you like.</p>
         </div>
         <div class="actionbar">
-          <button class="btn block" id="g-land-go">i'm ready</button>
+          ${_guestCI
+            ? '<button class="btn block" id="g-land-go">i\'m ready</button>'
+            : `<button class="btn block" id="g-land-ci">name where you are now</button>
+               <button class="navlink" id="g-land-skip" style="align-self:center">not now</button>`}
         </div>
       </div>`);
-    $('#g-land-go').onclick = ()=>guestSaveInvite('complete');
+    // practice-first (the /stuck door): the check-in is OFFERED here, after the practice —
+    // 🖊 draft copy, Justin finalizes. Taking it runs the same guest check-in -> reflection,
+    // where "keep this check-in" leads on (the practice CTA is already retired). Declining
+    // goes straight to the save offer. Check-in-first guests keep the plain close.
+    const glg = $('#g-land-go');   if(glg)  glg.onclick  = ()=>guestSaveInvite('complete');
+    const glc = $('#g-land-ci');   if(glc)  glc.onclick  = ()=>guestCheckin();
+    const gls = $('#g-land-skip'); if(gls)  gls.onclick  = ()=>guestSaveInvite('complete');
   }
 
   function guestSaveInvite(from, err, busy){
@@ -823,7 +868,7 @@
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
           <p class="eyebrow">before you go</p>
-          <h1 style="margin:10px 0 12px">this check-in only exists on this device.</h1>
+          <h1 style="margin:10px 0 12px">this ${_guestCI?'check-in':'practice'} only exists on this device.</h1>
           <p class="lede" style="margin-bottom:22px">an account keeps it, and everything you do after it, yours.</p>
           <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
           <div class="field"><label for="nm">your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
@@ -857,7 +902,7 @@
         if(res && res.needsConfirm){ markKnownDevice(); return screenConfirm(email); }
         if(nm) Store.setName(nm);
         markKnownDevice();
-        _guestFlow = false; _guestCI = null;   // leave the guest sequence; now a normal saved user
+        _guestFlow = false; _guestCI = null; setGuestDoor(null);   // leave the guest sequence; now a normal saved user
         currentTab='today'; route();
       }).catch(e=>guestSaveInvite(from, String((e&&e.message)||e)));
     }
@@ -867,7 +912,7 @@
   // session out and return to the sign-in gate. The stray anonymous user + its lone
   // check-in are discarded (unsaved by definition).
   function guestLeave(){
-    _guestFlow = false; _guestCI = null;
+    _guestFlow = false; _guestCI = null; setGuestDoor(null);
     Promise.resolve(Store.signOut && Store.signOut()).then(()=>{ authMode='in'; route(); }).catch(()=>{ authMode='in'; route(); });
   }
 
