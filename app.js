@@ -776,16 +776,18 @@
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
+    // Practice-first (the /stuck door): the pick is this person's FIRST screen — there is
+    // nothing behind it, so it gets no back button (a "back" to a place never visited is
+    // disorienting; Justin flagged it on the 07-12 device pass). Leaving = closing the tab.
+    // Check-in-first guests keep back -> reflection, a real return.
     root.innerHTML = `
-      <header class="appbar"><button class="backbtn" id="g-pp-back">back</button></header>
+      <header class="appbar">${_guestCI?'<button class="backbtn" id="g-pp-back">back</button>':''}</header>
       <div class="scroll" id="content"></div>`;
-    // practice-first guests have no reflection to go back to — back means leave.
-    $('#g-pp-back').onclick = ()=> _guestCI ? guestReflection() : guestLeave();
+    const gpb = $('#g-pp-back'); if(gpb) gpb.onclick = ()=>guestReflection();
     $('#content').innerHTML = `<div class="view p-view">
         <div class="scr-head">
           <p class="eyebrow">your choice</p>
-          <h2 class="scr-h">pick one. either is fine.</h2>
-          <p class="scr-lede">both are short. there's no wrong one.</p>
+          <h2 class="scr-h">pick a practice.</h2>
         </div>
         <div class="p-opts g-opts">${GUEST_P_OPTS.map(card).join('')}</div>
         ${_guestCI ? `<div class="actionbar">
