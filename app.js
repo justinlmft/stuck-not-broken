@@ -1011,8 +1011,8 @@
           <ul>
             <li>meditations built from your own check-ins, not picked off a list</li>
             <li>all six practices, including the safety practices</li>
-            <li>your check-in history read back to you: what is shifting, what keeps repeating, and what to practice next</li>
-            <li>a weekly reader written from your own week</li>
+            <li>what shows up across all your check-ins: when you're most regulated, what keeps repeating, which practices actually help</li>
+            <li>your own personal reader, from the moment to the day to the week and beyond</li>
           </ul>
           <button class="btn block" id="g-of-sub">subscribe now&nbsp;&nbsp;·&nbsp;&nbsp;$12/mo</button>
           <p class="fineprint" style="margin-top:10px">Renews automatically; cancel in one click anytime. No refunds or pauses.</p>
@@ -1130,9 +1130,11 @@
   // THE BASE PLAN ($12/mo) adds:
   //   · the MATCHING — practices built from their check-ins
   //   · the other practices — connect with safety, self-regulation, the session library
-  //   · their history read BACK to them — the pattern cards
-  //   · the weekly reader
-  // Free makes people feel seen; paid is how they change. Raw vs. read.
+  //   · the PATTERNS across all their check-ins (the You-tab cards + the deep read)
+  //   · the READER — and it is not a weekly: from-justin runs the moment, the day, the
+  //     week, the month and the quarter. Never call it "the weekly reader"; it undersells
+  //     it and it is not true.
+  // Free makes people feel seen; paid is how they change.
   //
   // HARD RULE: nothing a guest touches is ever taken away. The guest taster is exactly
   // the two mindfulness practices + the check-in + the state read — all free, forever.
@@ -1146,8 +1148,8 @@
   const SUB_WHAT = {
     matching: 'practices built from your check-ins',
     practice: 'the other practices',
-    patterns: 'your history, read back to you',
-    reader:   'the weekly reader',
+    patterns: 'the patterns across your check-ins',
+    reader:   'the reader',
   };
   let _subFrom = null;
   function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
@@ -1168,7 +1170,7 @@
         <div class="gate-body">
           <p class="eyebrow">the base plan</p>
           <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : '$12 a month'}</h1>
-          <p class="lede" style="margin-bottom:18px">it adds practices built from your own check-ins, the other practices, your history read back to you, and the weekly reader. $12 a month, cancel anytime.</p>
+          <p class="lede" style="margin-bottom:18px">it adds practices built from your own check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. $12 a month, cancel anytime.</p>
           <p class="fineprint" style="margin-bottom:18px">your card is charged today, then monthly. what you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':'subscribe'}</button>
@@ -3229,7 +3231,7 @@
       <button class="tb-row p-locked" id="hx-patterns" style="margin-top:18px">
         <span class="tb-row-text">
           <span class="tb-row-title">your patterns</span>
-          <span class="tb-row-sub">your history, read back to you &middot; on the base plan</span>
+          <span class="tb-row-sub">what shows up across all your check-ins &middot; on the base plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
     </div>`;

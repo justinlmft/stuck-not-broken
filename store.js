@@ -291,7 +291,8 @@
   // touched is taken away — that is a hard rule, not a preference.
   // What the base plan adds: the MATCHING (practices built from your check-ins), the
   // other practices (safety anchoring, self-regulation, the meditation library), your
-  // history read BACK to you (the pattern cards), and the weekly reader.
+  // patterns across all their check-ins (the pattern cards), and the reader (which runs
+  // the moment, the day, the week and beyond — it is NOT a weekly).
   //
   // Paid = an active subscription, OR an Academy co-regulator (the entitlements table
   // has stamped Circle membership since day one and was never wired to anything — this
