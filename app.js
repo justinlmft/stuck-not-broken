@@ -1015,7 +1015,7 @@
             <li>your own personal reader, from the moment to the day to the week and beyond</li>
           </ul>
           <button class="btn block" id="g-of-sub">subscribe now&nbsp;&nbsp;·&nbsp;&nbsp;$12/mo</button>
-          <p class="fineprint" style="margin-top:10px">Renews automatically; cancel in one click anytime. No refunds or pauses.</p>
+          <p class="fineprint" style="margin-top:10px">Renews automatically; cancel anytime from settings. No refunds or pauses.</p>
           <details class="offer-more">
             <summary>What you get when you subscribe ▾</summary>
             <div class="offer-more-body">

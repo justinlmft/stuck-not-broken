@@ -527,10 +527,22 @@
         const cfg = global.SNB_CONFIG || {};
         const { data:{ session } } = await sb.auth.getSession();
         if(!session) return { error:'not signed in' };
-        const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/delete-account', {
+        const call = (tok) => fetch(cfg.SUPABASE_URL + '/functions/v1/delete-account', {
           method:'POST',
-          headers:{ Authorization:'Bearer ' + session.access_token, apikey: cfg.SUPABASE_ANON_KEY }
+          headers:{ Authorization:'Bearer ' + tok, apikey: cfg.SUPABASE_ANON_KEY }
         });
+        let r = await call(session.access_token);
+        if(r.status === 401){
+          // A long-lived PWA session can hold a token the server no longer accepts
+          // (2026-07-14: exactly this staleness made delete fail on a real device with
+          // a dead-end error). Refresh the session once and retry; if the server still
+          // says no, the honest ask is a fresh sign-in, never "try again in a moment".
+          try{
+            const { data:rd } = await sb.auth.refreshSession();
+            if(rd && rd.session) r = await call(rd.session.access_token);
+          }catch(e){}
+          if(r.status === 401) return { error:'please sign out and sign back in, then try again.' };   // 🖊 approved 2026-07-14
+        }
         if(!r.ok){
           let m='could not delete the account right now. please try again in a moment.';
           try{ const b=await r.json(); if(b && b.error && b.error!=='not signed in') m=b.error; }catch(e){}
