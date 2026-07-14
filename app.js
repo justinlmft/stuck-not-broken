@@ -1118,22 +1118,58 @@
     Promise.resolve(Store.user() ? Store.signOut() : null).then(done).catch(done);
   }
 
+  // ================================================================ THE FREE/PAID LINE
+  // (2026-07-13. Built because the trial's removal left a hole: free was unconditional
+  // but nothing was gated, so a $12/mo subscription bought nothing a free account
+  // already had.)
+  //
+  // FREE, forever, no card, no time limit:
+  //   · unlimited check-ins · the immediate state read (the mirror) · the two mindfulness
+  //   practices (a tiny practice ~2min, simple mindfulness ~6min) · their own saved
+  //   check-in history, as they recorded it · the breath · export.
+  // THE BASE PLAN ($12/mo) adds:
+  //   · the MATCHING — practices built from their check-ins
+  //   · the other practices — connect with safety, self-regulation, the session library
+  //   · their history read BACK to them — the pattern cards
+  //   · the weekly reader
+  // Free makes people feel seen; paid is how they change. Raw vs. read.
+  //
+  // HARD RULE: nothing a guest touches is ever taken away. The guest taster is exactly
+  // the two mindfulness practices + the check-in + the state read — all free, forever.
+  // Locked is FADED INK ONLY: same card, same fill, no padlocks, no dashes, no shame.
+  // Greyed out does not mean filled in.
+  const FREE_PRACTICES = ['micro','mindfulness'];
+  function paidNow(){ try{ return !!(Store.isPaid && Store.isPaid()); }catch(e){ return false; } }
+  function practiceFree(key){ return FREE_PRACTICES.indexOf(key) !== -1; }
+  // what the person just reached for — named back to them on the subscribe screen, so
+  // it answers the question they actually asked instead of pitching at them.
+  const SUB_WHAT = {
+    matching: 'practices built from your check-ins',
+    practice: 'the other practices',
+    patterns: 'your history, read back to you',
+    reader:   'the weekly reader',
+  };
+  let _subFrom = null;
+  function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
+
   // ---------------------------------------------------------------- subscribe
   // NOT a paywall. Nothing is blocked and there is no exit cost — this screen is only
-  // ever reached by someone who chose it (settings). Free stays free, with no time limit.
-  // No trial, no card until this moment, no countdown, no discount.
+  // ever reached by someone who chose it (settings, or by reaching for a base-plan
+  // thing). Free stays free, with no time limit. No trial, no card until this moment,
+  // no countdown, no discount, no "you're missing out".
   // 🖊 COPY IS DRAFT — Justin is rewriting the offer copy; this is the honest placeholder,
-  // not the final register. The one structural rule that carries over from the offer
-  // screen: staying free must never be styled as a shameful exit.
+  // not the final register. The structural rule that carries over from the offer screen:
+  // staying free must never be styled as a shameful exit.
   function screenSubscribe(err, busy){
+    const what = _subFrom && SUB_WHAT[_subFrom];
     setHTML(`
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">subscribe</p>
-          <h1 style="margin:10px 0 12px">$12 a month</h1>
-          <p class="lede" style="margin-bottom:18px">practices built from your own check-ins, all six practices, your history read back to you, and the weekly reader. cancel anytime.</p>
-          <p class="fineprint" style="margin-bottom:18px">your card is charged today, then monthly. what you already use stays free either way.</p>
+          <p class="eyebrow">the base plan</p>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : '$12 a month'}</h1>
+          <p class="lede" style="margin-bottom:18px">it adds practices built from your own check-ins, the other practices, your history read back to you, and the weekly reader. $12 a month, cancel anytime.</p>
+          <p class="fineprint" style="margin-bottom:18px">your card is charged today, then monthly. what you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':'subscribe'}</button>
           <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">not now</button></p>
@@ -1146,7 +1182,7 @@
         if(res && res.error) return screenSubscribe(res.error);   // else the browser is redirecting to Stripe
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
-    const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ currentTab='today'; route(); };
+    const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ _subFrom=null; route(); };
   }
 
   function screenConfirm(email){
@@ -1395,6 +1431,7 @@
   }
   function tabToday(){
     const c = content();
+    const _paid = paidNow();
     const last = Store.lastCheckin();
     const reco = Store.recommend();
     const done = winsDone();
@@ -1442,19 +1479,38 @@
       </div>
       <div class="tb-more-slot"><button class="tb-more" id="tb-more" type="button">two more minutes?</button></div>
       <div class="tb-foot">
-        <button class="tb-row" id="tb-practice">
+        ${_paid
+          // the MATCHING: a practice named and reasoned from this person's check-ins.
+          ? `<button class="tb-row" id="tb-practice">
           <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
           <span class="tb-row-text">
             <span class="tb-row-title">recommended practice</span>
             <span class="tb-row-sub tb-prac track-${trackOf(reco.practiceKey).cls}">${pracName}</span>
             ${pracReason ? `<span class="tb-reason">${pracReason}</span>` : ''}
           </span><span class="wc-go">${CHEV}</span>
-        </button>
-        ${reflText ? `<button class="tb-row" id="tb-refl">
+        </button>`
+          // free: a plain door to the practices they have. NOT the matched practice, and
+          // NOT its name — naming it would be giving away the very thing behind the line,
+          // and dangling it would be worse. No lock, no tease.
+          : `<button class="tb-row" id="tb-practice">
+          <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
+          <span class="tb-row-text">
+            <span class="tb-row-title">practice</span>
+            <span class="tb-row-sub">choose a practice</span>
+          </span><span class="wc-go">${CHEV}</span>
+        </button>`}
+        ${(_paid && reflText) ? `<button class="tb-row" id="tb-refl">
           <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
           <span class="tb-row-text">
             <span class="tb-row-title">reflections for you</span>
             <span class="tb-refl">${reflText}</span>${dotsHTML}
+          </span><span class="wc-go">${CHEV}</span>
+        </button>` : ''}
+        ${!_paid ? `<button class="tb-row p-locked" id="tb-refl">
+          <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
+          <span class="tb-row-text">
+            <span class="tb-row-title">reflections for you</span>
+            <span class="tb-row-sub">on the base plan</span>
           </span><span class="wc-go">${CHEV}</span>
         </button>` : ''}
       </div>
@@ -1467,8 +1523,8 @@
       let sn = 'touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2});
     };
-    const pracBtn   = c.querySelector('#tb-practice');  if(pracBtn)   pracBtn.onclick   = ()=>renderPlan(reco,'today');
-    const reflBtn   = c.querySelector('#tb-refl');      if(reflBtn)   reflBtn.onclick   = screenReflectionDeep;
+    const pracBtn   = c.querySelector('#tb-practice');  if(pracBtn)   pracBtn.onclick   = ()=> _paid ? renderPlan(reco,'today') : app('practice');
+    const reflBtn   = c.querySelector('#tb-refl');      if(reflBtn)   reflBtn.onclick   = ()=> _paid ? screenReflectionDeep() : gateSubscribe('reader');
   }
 
   // Breath engine for the redesigned Today. On tap the ring becomes the whole
@@ -1799,6 +1855,11 @@
   }
 
   function screenReflectionDeep(){
+    // The reader — the weekly letter written from this person's own check-ins — is the
+    // base plan. Guarded here as well as at every call site (defense in depth).
+    // (When the evergreen/personalized content tagging lands, the evergreen essays come
+    // back out from behind this line and become free. That pass is not done yet.)
+    if(!paidNow()) return gateSubscribe('reader');
     const note = FromJustin.today();
     const last = Store.lastCheckin();
     const cs   = Store.checkins();
@@ -2190,6 +2251,7 @@
     return `<button class="arch-row${extraClass?' '+extraClass:''}" data-id="${escapeHtml(m.id)}" data-ms="${m.dateMs}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span>${body}</span><span class="wc-go">${CHEV}</span></button>`;
   }
   function screenArchive(){
+    if(!paidNow()) return gateSubscribe('reader');   // the reader's back issues — base plan
     const all = Store.mints ? Store.mints() : [];   // sorted newest-first
     const now = Date.now();
     const first = Store.firstCheckinT ? Store.firstCheckinT() : null;
@@ -2281,6 +2343,7 @@
     }
   }
   function screenMintedEntry(id){
+    if(!paidNow()) return gateSubscribe('reader');   // a minted reader issue — base plan
     const m = (Store.mints ? Store.mints() : []).find(x => x.id===id);
     if(!m) return screenArchive();
     if(m.tier==='weekly' && m.data && m.data.issue){
@@ -3127,6 +3190,54 @@
     return (s||d) ? { safe:s, def:d } : null;
   }
 
+  // ---- the free You tab: your check-in history, raw ----
+  // Not a locked version of the paid tab, and not a teaser. It is the real thing a free
+  // account is promised: their own saved check-ins, exactly as they recorded them — the
+  // date, the time, the state they named, and the app's mirror of what they set. No
+  // trend, no pattern, no verdict, no score: the app does not read it back to them, it
+  // simply keeps it and shows it. That read-back is what the base plan is.
+  // 🖊 copy draft.
+  function tabHistoryFree(c, allCs){
+    const cs = allCs.slice().sort((a,b)=>b.t-a.t);   // newest first
+    const byDay = {};
+    cs.forEach(x=>{ const k = new Date(x.t).toDateString(); (byDay[k] = byDay[k] || []).push(x); });
+    const dayHTML = Object.keys(byDay).map(k=>{
+      const d = new Date(k);
+      const label = sameDay(d.getTime()) ? 'today'
+        : d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }).toLowerCase();
+      const rows = byDay[k].map(x=>{
+        const dom = x.dom || (window.PVCurrent.dominantOf(x.v, x.sym, x.dor)||{}).key;
+        const mirror = ciMirror(x.v, x.sym, x.dor);
+        return `<div class="deep-row hx-row">
+          <span class="deep-lbl hx-time">${fmtTime(x.t)}</span>
+          <span class="hx-body">
+            <span class="hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">'+escapeHtml(STATE_NAME(dom))+'</span>' : ''}</span>
+            ${mirror ? `<span class="hx-mirror">${escapeHtml(mirror)}</span>` : ''}
+          </span>
+        </div>`;
+      }).join('');
+      return `<div class="deep-block"><h3 class="deep-h">${escapeHtml(label)}</h3>${rows}</div>`;
+    }).join('');
+
+    c.innerHTML = `<div class="view play-view">
+      <div class="filter-bar" style="justify-content:flex-end">
+        <button class="set-gear ci-add" id="add-ci" type="button" aria-label="new check in" title="new check in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
+      </div>
+      <div class="scr-head"><h2 class="scr-h">your check-ins.</h2></div>
+      <div class="deep">${dayHTML}</div>
+      <button class="tb-row p-locked" id="hx-patterns" style="margin-top:18px">
+        <span class="tb-row-text">
+          <span class="tb-row-title">your patterns</span>
+          <span class="tb-row-sub">your history, read back to you &middot; on the base plan</span>
+        </span><span class="wc-go">${CHEV}</span>
+      </button>
+    </div>`;
+    const ad=$('#add-ci');  if(ad) ad.onclick = screenCheckin;
+    const sb1=$('#set-btn'); if(sb1) sb1.onclick = screenSettings;
+    const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
+  }
+
   function tabCurrent(){
     const c = content();
     const ab=document.querySelector('.appbar');
@@ -3157,6 +3268,12 @@
       c.querySelectorAll('[data-state-detail]').forEach(b=>b.onclick=()=>screenStateDetail(b.dataset.stateDetail));
       return;
     }
+    // The pattern cards + the deep read are the app reading a person's history BACK to
+    // them — that is the base plan. Their OWN saved check-ins, exactly as they recorded
+    // them, are free forever. So a free account doesn't get a locked, teasing version of
+    // this tab; it gets a real one: their history, raw. Free makes people feel seen; paid
+    // is how they change.
+    if(!paidNow()) return tabHistoryFree(c, allCs);
 
     const avg = a => a.length ? a.reduce((s,v)=>s+v,0)/a.length : 0;
     const domOf = arr => { const m={}; arr.forEach(x=>{m[x.dom]=(m[x.dom]||0)+1;}); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:null; };
@@ -3704,6 +3821,9 @@
   // sentence-case a lowercase advisor string for the blog-styled plan screen
   function properCase(s){ return String(s==null?'':s).replace(/(^|[.!?]\s+)([a-z])/g,(m,p,c)=>p+c.toUpperCase()).replace(/\bi\b/g,'I').replace(/\bi(['’])/g,'I$1'); }
   function renderPlan(reco, from){
+    // The plan reader IS the matching, rendered — "why this practice, for you, now".
+    // It is the paid line. Guard here as well as at the call sites (defense in depth).
+    if(!paidNow()) return gateSubscribe('matching');
     from = from || 'practice';   // where "back" returns to: the chooser, or today's row
     clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
     currentTab = 'practice';
@@ -3843,12 +3963,17 @@
 
     const canBegin=!!(key&&(key!=='more'||med));
 
+    const _paid = paidNow();
     const reco = Store.recommend();
     const tk = trackOf(reco.practiceKey);
     const tunedNm = Store.getName();
     const tunedHeading = tunedNm ? `${escapeHtml(tunedNm)}'s custom practice` : 'your custom practice';
     const _tEst = estMinutes(reco.practiceKey, reco.silence);
-    const tunedCard = `
+    // The matched card is the paid line itself. For a free account it is NOT rendered
+    // faded-with-the-answer-showing (that would hand over the thing while pretending not
+    // to, and dangle it besides) — it is simply not there. What's there instead is the
+    // practices they have, and one quiet line saying where the matching lives.
+    const tunedCard = !_paid ? '' : `
       <button class="wincard tuned-card track-${tk.cls}${animateIn?' tc-in':''}" id="foryou">
         <span class="wc-text">
           <span class="tuned-kicker">made for you</span>
@@ -3863,9 +3988,21 @@
     // heading-friendly short names: "adjust your safety practice", never
     // "adjust your connect with safety practice" / "your a tiny practice practice"
     const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
-    const heading = !key ? 'your practice, or choose another.'
+    const heading = !key ? (_paid ? 'your practice, or choose another.' : 'pick a practice.')
       : (key==='more' ? 'choose a session.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
+    // free: the full menu in the real order, nothing hidden — the base-plan practices are
+    // FADED INK ONLY (same card, same fill, no padlock, no dashes), exactly as the guest
+    // pick renders them. Tapping one asks; it never scolds.
+    const optCards = P_OPTS.map(o=>{
+      const locked = !_paid && !practiceFree(o.key);
+      return locked
+        ? selCard(o, `data-plock="${o.key}"`, false).replace('class="wincard p-opt', 'class="wincard p-opt p-locked')
+        : selCard(o, `data-pkey="${o.key}"`, key===o.key);
+    }).join('');
+    const freeFoot = (!_paid && !key)
+      ? '<p class="fineprint" style="text-align:center;margin:14px 2px 0;opacity:.72">practices built from your check-ins are on the base plan.</p>'
+      : '';
 
     c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
       <div class="scr-head">
@@ -3875,7 +4012,7 @@
       </div>
       <div class="p-bottom">
         ${!key
-          ? `${tunedCard}<div class="p-opts" id="p-opts-list">${P_OPTS.map(o=>selCard(o,`data-pkey="${o.key}"`,key===o.key)).join('')}</div>`
+          ? `${tunedCard}<div class="p-opts" id="p-opts-list">${optCards}</div>${freeFoot}`
           : `${refineHTML}${medsHTML}`}
       </div>
       ${key?`<div class="actionbar">
@@ -3885,6 +4022,7 @@
     </div>`;
 
     c.querySelectorAll('[data-pkey]').forEach(b=>b.onclick=()=>{pState.key=pState.key===b.dataset.pkey?null:b.dataset.pkey;pState.med=null;renderPracticeChooser();});
+    c.querySelectorAll('[data-plock]').forEach(b=>b.onclick=()=>gateSubscribe('practice'));
     const cancelBtn=$('#p-cancel'); if(cancelBtn) cancelBtn.onclick=()=>{pState.key=null;pState.med=null;renderPracticeChooser();};
     c.querySelectorAll('[data-pmed]').forEach(b=>b.onclick=()=>{
       pState.med=b.dataset.pmed;
@@ -3977,6 +4115,10 @@
     if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()){
       showToast("that practice opens once you've saved an account."); return;
     }
+    // Defense in depth for the free/paid line: a free account can only launch the two
+    // mindfulness practices. The UI can't produce another key for them, but refuse it
+    // here regardless — this is the single choke point every practice passes through.
+    if(reco && !practiceFree(reco.practiceKey) && !paidNow()) return gateSubscribe('practice');
     const params = { embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) };
     if(reco.skill) params.skill = reco.skill;
     // recommender-preset dials ride into the player (both already gate-checked in

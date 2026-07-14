@@ -258,13 +258,17 @@
   async function fetchBilling(){
     if(!CLOUD || !auth.user) return;
     try{
-      const [rowRes, cohRes] = await Promise.all([
+      const [rowRes, cohRes, entRes] = await Promise.all([
         sb.from('billing').select('*').eq('user_id', auth.user.id).maybeSingle(),
         sb.rpc('is_trial_cohort'),
+        sb.from('entitlements').select('circle_member,legacy').eq('user_id', auth.user.id).maybeSingle(),
       ]);
       auth.billing = (rowRes && rowRes.data) || null;
       auth.isCohort = !!(cohRes && cohRes.data);
-      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null, trialEnd: auth.billing ? auth.billing.trial_end : null, cohort: auth.isCohort, at: Date.now() });
+      const ent = (entRes && entRes.data) || null;
+      auth.ent = { circle: !!(ent && ent.circle_member), legacy: !!(ent && ent.legacy) };
+      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null, trialEnd: auth.billing ? auth.billing.trial_end : null,
+                           cohort: auth.isCohort, circle: auth.ent.circle, legacy: auth.ent.legacy, at: Date.now() });
       if(typeof notify === 'function') notify();
     }catch(e){ /* keep last-known cache */ }
   }
@@ -275,13 +279,39 @@
   }
   function _billingActive(){ const b = billing(); return !!(b && (b.sub_status==='trialing' || b.sub_status==='active')); }
   function isCohort(){ if(typeof auth.isCohort==='boolean') return auth.isCohort; const c=_readBillingCache(); return c ? !!c.cohort : false; }
-  // FREE IS UNCONDITIONAL (2026-07-13, Justin via GMS). Nobody is ever blocked out of
-  // the app by a paywall: free has no time limit and no card. The card appears only when
-  // someone actively CHOOSES to subscribe. So this is now always true — the whole-app
-  // gate is dead. (The free-vs-paid FEATURE line — matching, all six practices, history
-  // read back, the weekly reader — is a separate, per-feature gate and is NOT yet built.
-  // See STATUS: until it is, a subscription buys nothing the free tier doesn't have.)
+
+  // FREE IS UNCONDITIONAL (2026-07-13). Nobody is ever blocked out of the app by a
+  // paywall: free has no time limit and no card. So hasAccess() is always true — the
+  // whole-app gate is dead and is not coming back.
   function hasAccess(){ return true; }
+
+  // ---- the free/paid FEATURE line (2026-07-13) ----
+  // What free is, forever: unlimited check-ins, the immediate state read, the two
+  // mindfulness practices, their own saved check-in history. Nothing a guest ever
+  // touched is taken away — that is a hard rule, not a preference.
+  // What the base plan adds: the MATCHING (practices built from your check-ins), the
+  // other practices (safety anchoring, self-regulation, the meditation library), your
+  // history read BACK to you (the pattern cards), and the weekly reader.
+  //
+  // Paid = an active subscription, OR an Academy co-regulator (the entitlements table
+  // has stamped Circle membership since day one and was never wired to anything — this
+  // is what it was built for), OR a grandfathered pre-existing account (`legacy`, a
+  // one-time server-side stamp over the accounts that existed on 2026-07-13; it is NOT
+  // date-derived, because a cutoff date would silently grandfather every guest who mints
+  // an anonymous session today and then signs up).
+  //
+  // Fail CLOSED for an anonymous guest (they are pre-account by definition), and OPEN
+  // for on-device mode (never gated). Between those, an unknown answer falls back to the
+  // local cache so a paying subscriber never flickers into the free tier on a slow
+  // network — the honest failure here is to over-serve, never to lock someone out.
+  function isPaid(){
+    if(!CLOUD) return true;                    // on-device mode is never gated
+    if(isAnonymous()) return false;            // a guest has no account yet
+    if(_billingActive()) return true;          // paying
+    if(typeof auth.ent === 'object' && auth.ent) return !!(auth.ent.circle || auth.ent.legacy);
+    const c = _readBillingCache();             // network hasn't answered yet
+    return !!(c && (c.circle || c.legacy));
+  }
   async function _postFn(name, body){
     const cfg = global.SNB_CONFIG || {};
     try{
@@ -1569,7 +1599,7 @@
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
-    hasAccess, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    hasAccess, isPaid, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW,
   };
 })(window);

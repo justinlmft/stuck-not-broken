@@ -1537,6 +1537,22 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 /* ================================================================ guest on-ramp
    (2026-07-13 rebuild — spec ONRAMP-COPY-DRAFT.md + ONRAMP-MOCKUP.html) */
 
+/* the free/paid line (2026-07-13). Same faded-ink grammar as the guest pick, but these
+   are LIVE: a free account can tap them, and tapping asks — it never scolds. No padlock,
+   no dashes, no "upgrade" badge. Greyed out does not mean filled in. */
+.p-locked{opacity:.45;cursor:pointer}
+.p-locked .wc-go{visibility:hidden}
+@media(hover:hover){.p-locked:hover{opacity:.62;border-color:var(--hairline)}}
+
+/* free You tab: the raw check-in history. Their words and their marks, nothing read
+   back at them — no trend, no verdict, no score. */
+.hx-row{align-items:flex-start;gap:12px}
+.hx-time{flex:0 0 auto;min-width:64px;opacity:.66;font-variant-numeric:tabular-nums}
+.hx-body{display:flex;flex-direction:column;gap:2px;text-align:left;flex:1 1 auto;min-width:0}
+.hx-name{display:inline-flex;align-items:center;gap:6px}
+.hx-state{font-weight:500}
+.hx-mirror{opacity:.72;line-height:1.4}
+
 /* locked practice options: FADED INK ONLY — same card, same fill, no dashes,
    no padlocks, chevron hidden. greyed out does not mean filled in. */
 .g-locked{opacity:.42;cursor:default}
