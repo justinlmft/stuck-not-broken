@@ -313,6 +313,12 @@
     const c = _readBillingCache();             // network hasn't answered yet
     return !!(c && (c.circle || c.legacy));
   }
+  // WHY this account has the base plan — display only (settings names the reason
+  // instead of calling a grandfathered/Academy account "the free plan", 2026-07-14).
+  function entitlement(){
+    const e = (typeof auth.ent === 'object' && auth.ent) ? auth.ent : (_readBillingCache() || {});
+    return { sub: _billingActive(), circle: !!e.circle, legacy: !!e.legacy };
+  }
   async function _postFn(name, body){
     const cfg = global.SNB_CONFIG || {};
     try{
@@ -1612,7 +1618,7 @@
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
-    hasAccess, isPaid, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    hasAccess, isPaid, entitlement, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW,
   };
 })(window);

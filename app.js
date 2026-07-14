@@ -4448,6 +4448,14 @@
           if(b && b.sub_status==='active')
             return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">your subscription is active. $12/month, cancel anytime.</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage or cancel subscription</button></div></div>`;
           if(!Store.cloud()) return '';
+          // legacy / Academy accounts have the whole base plan without a subscription —
+          // never call that "the free plan", and never show them a subscribe button.
+          // 🖊 copy draft (2026-07-14).
+          var ent = (Store.entitlement && Store.entitlement()) || {};
+          if(ent.circle)
+            return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">you're a co-regulator in the unstucking academy. the full app comes included with your membership, as a thank you for practicing with us. nothing to pay for here.</p></div>`;
+          if(ent.legacy)
+            return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">everything is included on your account. you were here before the base plan existed, so all of it is yours.</p></div>`;
           return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">you're on the free plan. it has no time limit.</p><div class="set-actions"><button class="set-quiet" id="go-sub">subscribe &middot; $12/month</button></div></div>`; })()}
 
         <div class="set-card">
