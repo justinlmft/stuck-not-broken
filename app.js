@@ -416,9 +416,11 @@
     }
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
-    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'){ if(Store.refreshBilling) Store.refreshBilling(); showToast("your free trial is active. no charge until it ends, and we'll remind you first."); } else if(co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('your subscription is active.'); } } }catch(e){}
-    // paid-trial gate: ONLY the invited cohort without an active sub sees the paywall.
-    if(!Store.hasAccess()) return screenPaywall();
+    // ('success' is the retired trial return; kept so an in-flight old link still lands.)
+    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('your subscription is active.'); } } }catch(e){}
+    // The whole-app paywall is GONE (2026-07-13): free is unconditional, no time limit,
+    // no card. Nobody is ever locked out. Subscribing is a choice made in settings or on
+    // the offer screen, never a wall. Store.hasAccess() is now always true.
     // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
     let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
     if(h==='checkin'){ app('today'); return screenCheckin(); }
@@ -622,13 +624,17 @@
   // offer_view / subscribe_click / continue_free, with return-visit count and check-in
   // count riding along — the data that turns offer-now-vs-offer-later into evidence.
   // Queued locally; drains through Store.trackEvent when the events table lands (Phase 2).
+  // Every event carries meta.src (the door) — stamped inside Store.trackEvent so no
+  // call site can forget it. Events fired before the anonymous session mints (guest_land)
+  // are parked by Store and flushed on first write; they are not lost.
   function gtrack(name, meta){
+    const m = Object.assign({}, meta||{}, { src:(Store.src?Store.src():'direct') });
     try{
       const q = JSON.parse(localStorage.getItem('snb_guest_events')||'[]');
-      q.push({ name:name, t:Date.now(), meta:meta||null });
+      q.push({ name:name, t:Date.now(), meta:m });
       localStorage.setItem('snb_guest_events', JSON.stringify(q.slice(-200)));
     }catch(e){}
-    try{ if(Store.trackEvent) Store.trackEvent(name, meta); }catch(e){}
+    try{ if(Store.trackEvent) Store.trackEvent(name, m); }catch(e){}
   }
   function gVisits(){ try{
     const d = new Date().toDateString();
@@ -647,8 +653,15 @@
   function startGuestFlow(entry){
     _guestFlow = true; _guestCI = null; _guestCI2 = null; _guestPracticed = false; _offerViewed = false;
     const practiceFirst = entry==='practice';
-    gsClear(); gsSet({ door: practiceFirst ? 'practice' : 'checkin' });
+    const landed = gsGet().landed;          // read BEFORE the clear
+    gsClear(); gsSet({ door: practiceFirst ? 'practice' : 'checkin', landed:1 });
     gVisits();   // count the visit-day for the conversion read
+    // guest_land — arrival at the flow, BEFORE the check-in. The denominator for
+    // everything: without it, a zero at the offer can't tell "nobody arrived" from
+    // "arrived and bounced". No session exists yet (it mints at first write), so this
+    // parks in Store and flushes when it does. Once per tab — a reload mid-flow is not
+    // a new arrival.
+    if(!landed) gtrack('guest_land', { door: practiceFirst ? 'practice' : 'checkin', visits:gVisits() });
     practiceFirst ? guestPracticePick() : guestCheckin('before');
   }
   // Mint the anonymous session on demand, exactly once, at first write.
@@ -746,7 +759,12 @@
     };
     $('#g-ci-save').onclick = (e)=>{
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'one moment…';
-      const vals = { v:v/100, sym:s/100, dor:d/100, source:'guest' };
+      // source = the DOOR the person came through (?src=, validated; 'direct' if none).
+      // Supersedes the flat 'guest' bucket (GMS 2026-07-13): once there is more than one
+      // door, a single bucket can't tell us which one produced anything. Guest-origin is
+      // still identifiable — it is exactly the Store.SRC_ALLOW set, which no signed-in
+      // write can produce (those use 'post-practice' or null).
+      const vals = { v:v/100, sym:s/100, dor:d/100, source:Store.src() };
       if(!(axTouched.v||axTouched.sym||axTouched.dor)) vals.dom='neutral';   // untouched midpoints = settling, never a tie-break state
       // the anonymous session mints HERE, at first write — not at page-load.
       ensureGuestSession().then(res=>{
@@ -1073,13 +1091,14 @@
         markKnownDevice();
         _guestFlow = false; _guestCI = null; _guestCI2 = null; _guestPracticed = false; gsClear();
         if(res && res.needsConfirm) return screenConfirm(email);
-        // Refresh billing/cohort BEFORE routing: an INVITED email must get its trial
-        // terms regardless of entry point (GMS build item 1 — route by email, not
-        // door). A cohort member never sees the guest checkout: route() sends them
-        // to their own trial paywall. The edge function holds the same line server-side.
+        // Everyone who chose to subscribe goes to Checkout — invited or not. The old
+        // fork (invited emails skipped the guest checkout and were sent to their trial
+        // paywall) is dead with the trial: there is ONE offer now, so an invited email
+        // gets the same terms as anyone else, and routing them past their own choice
+        // would silently hand them a free account they didn't pick. Cohort survives only
+        // as a reporting label on the billing row (the edge function stamps it).
         return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>{
-          if(paid && !(Store.isCohort && Store.isCohort())){
-            // guest-origin subscribe: standalone Stripe, NO trial — free or paid, nothing between.
+          if(paid){
             return Promise.resolve(Store.startGuestCheckout ? Store.startGuestCheckout() : { error:'unavailable' }).then(r=>{
               if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your free account is ready."); }
             });
@@ -1099,36 +1118,35 @@
     Promise.resolve(Store.user() ? Store.signOut() : null).then(done).catch(done);
   }
 
-  // ---------------------------------------------------------------- paywall (paid-trial cohort only)
-  // Shown to an invited cohort member who is signed in but has no active trial or
-  // subscription. Copy is the calm, no-surprise-charge voice (Trial-Copy draft).
-  function screenPaywall(err, busy){
-    const b = (Store.billing && Store.billing()) || null;
-    const ended = !!(b && (b.sub_status==='canceled' || b.sub_status==='unpaid' || b.sub_status==='incomplete_expired' || b.sub_status==='paused'));
+  // ---------------------------------------------------------------- subscribe
+  // NOT a paywall. Nothing is blocked and there is no exit cost — this screen is only
+  // ever reached by someone who chose it (settings). Free stays free, with no time limit.
+  // No trial, no card until this moment, no countdown, no discount.
+  // 🖊 COPY IS DRAFT — Justin is rewriting the offer copy; this is the honest placeholder,
+  // not the final register. The one structural rule that carries over from the offer
+  // screen: staying free must never be styled as a shameful exit.
+  function screenSubscribe(err, busy){
     setHTML(`
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">${ended?'your free trial has ended':'your free trial'}</p>
-          <h1 style="margin:10px 0 12px">${ended?'keep going for $12 a month':'try the whole app free for 8 days'}</h1>
-          <p class="lede" style="margin-bottom:18px">${ended
-            ? "you weren't charged. if you'd like to keep going, it's $12 a month, and you can cancel anytime."
-            : 'check in with how you actually feel, get a practice tuned to your state, and notice what shifts. free for 8 days.'}</p>
-          ${ended?'':`<p class="fineprint" style="margin-bottom:18px">a card is required to start. you won't be charged today. after 8 days it's $12 a month, and you can cancel anytime before then and pay nothing.</p>`}
+          <p class="eyebrow">subscribe</p>
+          <h1 style="margin:10px 0 12px">$12 a month</h1>
+          <p class="lede" style="margin-bottom:18px">practices built from your own check-ins, all six practices, your history read back to you, and the weekly reader. cancel anytime.</p>
+          <p class="fineprint" style="margin-bottom:18px">your card is charged today, then monthly. what you already use stays free either way.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':(ended?'subscribe':'start my free trial')}</button>
-          ${ended?'':'<p class="fineprint" style="margin-top:10px">we\'ll remind you before the trial ends. cancelling takes two taps.</p>'}
-          <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-out" style="font-size:inherit;padding:2px">sign out</button></p>
+          <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':'subscribe'}</button>
+          <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">not now</button></p>
         </div>
       </div>`);
     if(busy) return;
     $('#pw-go').onclick = ()=>{
-      screenPaywall(null, true);
-      Promise.resolve(Store.startTrial()).then(res=>{
-        if(res && res.error) return screenPaywall(res.error);   // else the browser is redirecting to Stripe
-      }).catch(e=>screenPaywall(String((e&&e.message)||e)));
+      screenSubscribe(null, true);
+      Promise.resolve(Store.startCheckout('member')).then(res=>{
+        if(res && res.error) return screenSubscribe(res.error);   // else the browser is redirecting to Stripe
+      }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
-    const so=$('#pw-out'); if(so) so.onclick = async ()=>{ await Store.signOut(); currentTab='today'; route(); };
+    const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ currentTab='today'; route(); };
   }
 
   function screenConfirm(email){
@@ -1281,31 +1299,12 @@
     const g = b.querySelector('.in-go'); if(g) g.onclick = promptInstall;
     const x = b.querySelector('.in-x'); if(x) x.onclick = ()=>{ try{ localStorage.setItem('snb_install_nudge','dismissed'); }catch(_){} b.remove(); };
   }
-  // paid-trial banner: persistent while trialing. names the charge date and gives a
-  // one-tap manage/cancel. calm early on; a firmer nudge in the last two days. no
-  // countdown-timer urgency — the promise is that nobody pays by accident.
-  function maybeTrialBanner(){
-    let bill; try{ bill = Store.billing && Store.billing(); }catch(_){ return; }
-    if(!bill || bill.sub_status!=='trialing' || !bill.trial_end) return;
-    const c = content(); if(!c || document.getElementById('trial-banner')) return;
-    const end = new Date(bill.trial_end); if(isNaN(end)) return;
-    const daysLeft = Math.max(0, Math.ceil((end - Date.now())/864e5));
-    const dateStr = end.toLocaleDateString('en-US', { month:'long', day:'numeric' });
-    const urgent = daysLeft <= 2;
-    const msg = daysLeft<=0
-      ? "your trial ends today. you'll be charged $12 to keep going, or cancel now and pay nothing."
-      : urgent
-        ? `your free trial ends ${dateStr}. to avoid the $12 charge, cancel before then. it takes two taps.`
-        : `you're on your free trial. it ends ${dateStr}, when the first $12 charge would happen.`;
-    const el = document.createElement('div');
-    el.className = 'trial-banner' + (urgent?' urgent':''); el.id = 'trial-banner';
-    el.innerHTML = `<span class="tb-txt">${msg}</span><button type="button" class="tb-manage">manage</button>`;
-    c.insertBefore(el, c.firstChild);
-    const m = el.querySelector('.tb-manage');
-    if(m) m.onclick = ()=>{ m.disabled=true; m.textContent='one moment…';
-      Promise.resolve(Store.openPortal()).then(res=>{ if(res && res.error){ m.disabled=false; m.textContent='manage'; showToast(res.error); } })
-        .catch(e=>{ m.disabled=false; m.textContent='manage'; showToast(String((e&&e.message)||e)); }); };
-  }
+  // RETIRED 2026-07-13 — the trial is gone, so nothing can enter `trialing` and there is
+  // no pending charge to warn anyone about. The banner existed to make sure nobody paid by
+  // accident; with no card taken until someone chooses to subscribe, that can't happen.
+  // Left as a no-op (call sites unchanged) rather than removed, so the deletion is one
+  // reversible decision and not a scatter of edits. The `.trial-banner` CSS is now unused.
+  function maybeTrialBanner(){ /* no trial exists any more */ }
   // active tab = FILLED symbol (the iOS convention: selection reads at a glance,
   // not just by tint); inactive = outline.
   function tabIcon(t, on){
@@ -4019,6 +4018,12 @@
       _guestPracticed = true; gsSet({ practiced:1 });
       if(m.event === 'complete'){
         haptic('complete'); logSession(reco, true, false, m.minutes);
+        // practice_complete — the guest finished the practice. Distinguishes "checked in
+        // and abandoned the practice" from "finished it and declined the offer": two
+        // different problems, two different fixes.
+        gtrack('practice_complete', { door:guestDoor(), practice:(reco&&reco.practiceKey)||null,
+                                      minutes:(typeof m.minutes==='number'?m.minutes:null),
+                                      checkins:gCheckinCount(), visits:gVisits() });
         // No landing beat, no "done." — the practice ends and the check-in is what's
         // there. Check-in-first: the second read ("after your practice"), then the
         // before/after. The /stuck door has no "before", so its check-in is OFFERED
@@ -4293,9 +4298,13 @@
 
         </div>
 
-        ${(function(){ var b=(Store.billing&&Store.billing())||null; if(!b||(b.sub_status!=='trialing'&&b.sub_status!=='active'))return '';
-          var lbl=b.sub_status==='trialing'?"you're on a free trial. $12/month begins when it ends, and you can cancel before then and pay nothing.":'your subscription is active. $12/month, cancel anytime.';
-          return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">${lbl}</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage or cancel subscription</button></div></div>`; })()}
+        ${(function(){ var b=(Store.billing&&Store.billing())||null;
+          // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
+          // never worded as though the free account is deficient. 🖊 copy draft.
+          if(b && b.sub_status==='active')
+            return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">your subscription is active. $12/month, cancel anytime.</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage or cancel subscription</button></div></div>`;
+          if(!Store.cloud()) return '';
+          return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">you're on the free plan. it has no time limit.</p><div class="set-actions"><button class="set-quiet" id="go-sub">subscribe &middot; $12/month</button></div></div>`; })()}
 
         <div class="set-card">
         <p class="set-card-h">your data</p>
@@ -4315,6 +4324,7 @@
         <p class="set-version" id="set-version"></p>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='one moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
         .catch(e=>{ mgs.disabled=false; mgs.textContent=t; showToast(String((e&&e.message)||e)); }); };

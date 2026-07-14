@@ -71,6 +71,32 @@
   const CLOUD = !!sb;
   const PROFILE_KEY = 'snb_profile';    // local-mode current profile pointer
 
+  // ---- door attribution: ?src= (GMS build item 1, 2026-07-13) ----
+  // A label on the DOOR, not on the person. No identity, no email, no Circle member id,
+  // nothing crossing between Circle and the app — just a string saying where the click
+  // came from. Read once on load, validated against a fixed allowlist (anything else is
+  // ignored, so a stray or spoofed param can never create a junk bucket), held for the
+  // tab in sessionStorage — it has to survive the check-in and the practice, because the
+  // events that matter fire later. Missing/invalid = 'direct'.
+  // Stamped on checkins.source and on every events.meta.src for the session.
+  const SRC_ALLOW = ['stuck','app-page','youtube','podcast','newsletter','circle','cohort','direct'];
+  const SRC_KEY = 'snb_src';
+  let _src = 'direct';
+  try{
+    const q = new URLSearchParams(global.location.search);
+    const raw = (q.get('src')||'').trim().toLowerCase();
+    if(raw && SRC_ALLOW.indexOf(raw) !== -1){
+      _src = raw;
+      sessionStorage.setItem(SRC_KEY, _src);
+      // strip it so a plain reload doesn't re-read it (the session copy is the record)
+      q.delete('src');
+      history.replaceState(null,'',global.location.pathname+(q.toString()?'?'+q.toString():'')+global.location.hash);
+    } else {
+      _src = sessionStorage.getItem(SRC_KEY) || 'direct';
+    }
+  }catch(e){ _src = 'direct'; }
+  function src(){ return _src; }
+
   let auth = { user: null };            // {id, email}
   let data = { checkins: [], sessions: [] };
   let outbox = { checkins: [], sessions: [] };
@@ -190,7 +216,7 @@
           }
         });
         const session = await ensureSession();           // live, refreshed-if-needed session — not a cached pointer
-        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email, anon:!!session.user.is_anonymous }; loadCache(); await hydrate(); checkMembership(); fetchBilling(); }
+        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email, anon:!!session.user.is_anonymous }; loadCache(); flushEvents(); await hydrate(); checkMembership(); fetchBilling(); }
       }catch(e){ console.warn('session check failed', e); }
     } else {
       const p = readProfile();
@@ -220,10 +246,11 @@
       }).catch(()=>{});
     }catch(e){}
   }
-  // ---- billing / paid-trial status ----
-  // Only the invited trial cohort is gated behind payment. Existing members and
-  // on-device mode keep full access. Cached locally so a returning subscriber
-  // never flashes the paywall before the network answers.
+  // ---- billing / subscription status ----
+  // Nobody is gated out of the app any more (free is unconditional, 2026-07-13). This
+  // now only answers "is there an active subscription", for the settings card and for
+  // the paid FEATURE line once that is built. Cached locally so a returning subscriber
+  // isn't misread as free before the network answers.
   const BILLING_LS = 'snb_billing';
   function _billingKey(){ return BILLING_LS + '_' + ((auth.user && auth.user.id) || 'anon'); }
   function _readBillingCache(){ try{ return JSON.parse(localStorage.getItem(_billingKey())) || null; }catch(e){ return null; } }
@@ -248,12 +275,13 @@
   }
   function _billingActive(){ const b = billing(); return !!(b && (b.sub_status==='trialing' || b.sub_status==='active')); }
   function isCohort(){ if(typeof auth.isCohort==='boolean') return auth.isCohort; const c=_readBillingCache(); return c ? !!c.cohort : false; }
-  function hasAccess(){
-    if(!CLOUD) return true;            // on-device mode is never gated
-    if(_billingActive()) return true;  // active trial or paid subscription
-    if(isCohort()) return false;       // a cohort member without an active sub -> paywall
-    return true;                       // everyone else (existing members) grandfathered in
-  }
+  // FREE IS UNCONDITIONAL (2026-07-13, Justin via GMS). Nobody is ever blocked out of
+  // the app by a paywall: free has no time limit and no card. The card appears only when
+  // someone actively CHOOSES to subscribe. So this is now always true — the whole-app
+  // gate is dead. (The free-vs-paid FEATURE line — matching, all six practices, history
+  // read back, the weekly reader — is a separate, per-feature gate and is NOT yet built.
+  // See STATUS: until it is, a subscription buys nothing the free tier doesn't have.)
+  function hasAccess(){ return true; }
   async function _postFn(name, body){
     const cfg = global.SNB_CONFIG || {};
     try{
@@ -272,19 +300,49 @@
       return { url:b.url };
     }catch(e){ return { error:String((e&&e.message)||e) }; }
   }
-  async function startTrial(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('create-checkout'); if(res.url) location.href = res.url; return res; }
-  // Guest-origin subscribe (the on-ramp offer, 2026-07-13): same $12/mo price, NO
-  // trial — on-ramp arrivals are free-or-paid, nothing between. The create-checkout
-  // edge function must branch on {origin:'guest'} (skip trial_period_days) BEFORE
-  // this is reachable in production; until then the flag is sent and ignored.
-  async function startGuestCheckout(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('create-checkout', { origin:'guest' }); if(res.url) location.href = res.url; return res; }
+  // ---- subscribe ----
+  // ONE offer, no trial (2026-07-13): $12/mo, first charge today. The 8-day trial is gone
+  // — it lived in the create-checkout edge function, never on the Stripe price. `origin`
+  // and `src` are REPORTING labels only; they buy no different terms. Both doors call the
+  // same function; startGuestCheckout just tags the row so the pulse can read guest and
+  // cohort as two lines and never blend them.
+  async function startCheckout(origin){
+    if(!CLOUD) return { error:'unavailable' };
+    const res = await _postFn('create-checkout', { origin: origin || 'member', src: _src });
+    if(res.url) location.href = res.url;
+    return res;
+  }
+  async function startGuestCheckout(){ return startCheckout('guest'); }
+  const startTrial = startCheckout;   // legacy alias — there is no trial any more
   // ---- funnel events (on-ramp instrumentation, GMS 2026-07-13) ----
   // Fire-and-forget, write-only (RLS: insert-own only; nothing reads it client-side).
   // offer_view / subscribe_click / continue_free ride through here so conversion
   // timing becomes evidence. Failure is silent by design — never block a screen on it.
+  //
+  // guest_land fires BEFORE any session exists (the anonymous session mints at first
+  // write, by design — that's what makes the check-in's trust line true). So an event
+  // with no user is not dropped: it is parked in localStorage with its real timestamp
+  // and flushed the moment a session exists. Without this, guest_land — the denominator
+  // for the whole funnel — would never be recorded.
+  const EV_PENDING = 'snb_events_pending';
+  function _evRead(){ try{ return JSON.parse(localStorage.getItem(EV_PENDING)||'[]'); }catch(e){ return []; } }
+  function _evWrite(a){ try{ localStorage.setItem(EV_PENDING, JSON.stringify(a.slice(-200))); }catch(e){} }
   function trackEvent(name, meta){
-    if(!CLOUD || !auth.user || !name) return;
-    try{ sb.from('events').insert({ user_id: auth.user.id, name: String(name), meta: meta || null }).then(()=>{}, ()=>{}); }catch(e){}
+    if(!CLOUD || !name) return;
+    const row = { name:String(name), meta: Object.assign({}, meta||{}, { src:_src }), t:new Date().toISOString() };
+    if(!auth.user){ const q=_evRead(); q.push(row); _evWrite(q); return; }
+    try{ sb.from('events').insert(Object.assign({ user_id: auth.user.id }, row)).then(()=>{}, ()=>{}); }catch(e){}
+  }
+  // Drain anything parked pre-session. Fire-and-forget; on failure the rows stay parked
+  // and the next flush retries. Never blocks a screen.
+  function flushEvents(){
+    if(!CLOUD || !auth.user) return;
+    const q = _evRead(); if(!q.length) return;
+    _evWrite([]);
+    try{
+      sb.from('events').insert(q.map(r=>Object.assign({ user_id: auth.user.id }, r)))
+        .then(()=>{}, ()=>{ const cur=_evRead(); _evWrite(q.concat(cur)); });
+    }catch(e){ const cur=_evRead(); _evWrite(q.concat(cur)); }
   }
   async function openPortal(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res; }
 
@@ -381,7 +439,7 @@
     if(CLOUD){
       const { data:res, error } = await sb.auth.signInAnonymously();
       if(error) return { error: error.message };
-      if(res && res.user){ auth.user = { id:res.user.id, email:res.user.email||'', anon:true }; loadCache(); }
+      if(res && res.user){ auth.user = { id:res.user.id, email:res.user.email||'', anon:true }; loadCache(); flushEvents(); }
       return {};
     }
     return localEnter('');   // on-device mode: just a local session
@@ -1511,7 +1569,7 @@
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
-    hasAccess, billing, isCohort, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
-    trackEvent,
+    hasAccess, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    trackEvent, flushEvents, src, SRC_ALLOW,
   };
 })(window);
