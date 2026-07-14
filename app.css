@@ -62,8 +62,13 @@
   --type-scale:calc(var(--type-user) * var(--type-fluid));
   --fs-body:calc(15px * var(--type-scale));
 }
-@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
-@media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
+/* PARKED until fluid Phase 2 (2026-07-14): these escalate type on wide VIEWPORTS,
+   but until Phase 2 kills the .phone frame the content column is phone-width at
+   every viewport — so wide type rendered in a narrow column (12% oversized, subs
+   wrapping, desktop screenshots off-spec). Nothing changes on real phones (compact
+   1.133 stays = the ~17px HIG body). Re-enable together WITH Phase 2.
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    regular: ~18px
+@media (min-width:1120px){ :root{ --type-fluid:1.267; } } wide:    ~19px */
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
 /* iOS paints a dark rectangle over tapped elements by default — our buttons
