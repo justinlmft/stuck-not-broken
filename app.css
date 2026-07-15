@@ -62,8 +62,13 @@
   --type-scale:calc(var(--type-user) * var(--type-fluid));
   --fs-body:calc(15px * var(--type-scale));
 }
-@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
-@media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
+/* PARKED until fluid Phase 2 (2026-07-14): these escalate type on wide VIEWPORTS,
+   but until Phase 2 kills the .phone frame the content column is phone-width at
+   every viewport — so wide type rendered in a narrow column (12% oversized, subs
+   wrapping, desktop screenshots off-spec). Nothing changes on real phones (compact
+   1.133 stays = the ~17px HIG body). Re-enable together WITH Phase 2.
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    regular: ~18px
+@media (min-width:1120px){ :root{ --type-fluid:1.267; } } wide:    ~19px */
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
 /* iOS paints a dark rectangle over tapped elements by default — our buttons
@@ -208,6 +213,9 @@ p{margin:0;text-wrap:pretty}
 .plan.on{border-color:var(--ink);border-width:2px;padding:17px}
 .plan .price{font-size:calc(21px * var(--type-scale));font-weight:600;letter-spacing:-.02em}
 .plan .price .per{font-size:calc(13px * var(--type-scale));font-weight:400;color:var(--muted);letter-spacing:0}
+.plan .plan-sub{font-size:calc(12.5px * var(--type-scale));font-weight:400;color:var(--muted);line-height:1.4}
+.plan[aria-checked="true"]{border-color:var(--ink);border-width:2px;padding:17px}
+.plan:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .plans{display:flex;flex-direction:column;gap:12px;margin:18px 0 22px}
 .fineprint{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:14px;line-height:1.5}
 .fineprint a{color:var(--link);text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:2px}

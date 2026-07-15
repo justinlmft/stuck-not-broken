@@ -451,16 +451,26 @@
   // the practice-first sequence instead of dumping the person into a check-in they didn't pick.
   let _doorPractice = false;
   let _doorSignup = false;
+  // Billing interval selected on any pricing surface. Default monthly; a pricing picker or
+  // the ?plan= deep-link param can set it to 'annual'. The edge function is the authority —
+  // it bills annual ONLY on an exact match, so this client value can never mischarge.
+  let _planChoice = 'monthly';
+  // ?start=signup&plan=… is a PAID deep-link (the /app page's subscribe buttons): the person
+  // already chose to pay, so after account creation we send them to Checkout, not the app.
+  let _paidSignupPending = false;
   try{
     const _dq = new URLSearchParams(location.search);
     const _startVal = _dq.get('start');
+    const _planVal = _dq.get('plan');
+    if(_planVal) _planChoice = String(_planVal).toLowerCase()==='annual' ? 'annual' : 'monthly';
     if(_startVal==='practice'){
       _doorPractice = true;
-      _dq.delete('start');
-      history.replaceState(null,'',location.pathname+(_dq.toString()?'?'+_dq.toString():'')+location.hash);
     } else if(_startVal==='signup'){
       _doorSignup = true;
-      _dq.delete('start');
+      if(_planVal) _paidSignupPending = true;   // came from a paid subscribe button
+    }
+    if(_startVal || _planVal){
+      _dq.delete('start'); _dq.delete('plan');
       history.replaceState(null,'',location.pathname+(_dq.toString()?'?'+_dq.toString():'')+location.hash);
     }
   }catch(e){}
@@ -547,6 +557,16 @@
         if(res && res.needsConfirm){ markKnownDevice(); return screenConfirm(email); }
         if(nm) Store.setName(nm);
         markKnownDevice();   // this device has had an account -> signed-out visits land on sign-in, not the on-ramp
+        // Paid deep-link (?start=signup&plan=…): they already chose to pay on the /app page,
+        // so hand them straight to Checkout for the interval they picked instead of the app.
+        if(_paidSignupPending){
+          _paidSignupPending = false;
+          const plan = _planChoice;
+          return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
+            Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
+              if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your account is ready — you can subscribe from settings."); }
+            }));
+        }
         currentTab='today'; route();
       }).catch(e=>screenSignIn(String((e&&e.message)||e)));
     }
@@ -1026,8 +1046,9 @@
             <li>what shows up across all your check-ins: when you're most regulated, what keeps repeating, which practices actually help</li>
             <li>your own personal reader, from the moment to the day to the week and beyond</li>
           </ul>
-          <button class="btn block" id="g-of-sub">subscribe now&nbsp;&nbsp;·&nbsp;&nbsp;$12/mo</button>
-          <p class="fineprint" style="margin-top:10px">Renews automatically; cancel anytime from settings. No refunds or pauses.</p>
+          ${planPickerHTML()}
+          <button class="btn block" id="g-of-sub">subscribe now</button>
+          <p class="fineprint" style="margin-top:10px">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
           <details class="offer-more">
             <summary>What you get when you subscribe ▾</summary>
             <div class="offer-more-body">
@@ -1050,7 +1071,8 @@
           <button class="navlink" id="g-of-leave" style="align-self:center">leave without saving</button>
         </div>
       </div>`;
-    $('#g-of-sub').onclick   = ()=>{ gtrack('subscribe_click', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('paid'); };
+    wirePlanPicker();
+    $('#g-of-sub').onclick   = ()=>{ gtrack('subscribe_click', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits(), plan:_planChoice }); guestAccountForm('paid'); };
     $('#g-of-free').onclick  = ()=>{ gtrack('continue_free',   { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('free'); };
     // "leave without saving" means what it says: sign out, discard. The check-in
     // promised nothing is saved unless they decide to create an account; a quiet
@@ -1071,7 +1093,7 @@
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">${paid ? 'subscribe · $12/mo' : 'keep going for free'}</p>
+          <p class="eyebrow">${paid ? (_planChoice==='annual' ? 'subscribe · $108/yr' : 'subscribe · $12/mo') : 'keep going for free'}</p>
           <h1 style="margin:10px 0 12px">create your account.</h1>
           <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"></div>
           <div class="field"><label for="nm">your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
@@ -1111,7 +1133,7 @@
         // as a reporting label on the billing row (the edge function stamps it).
         return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>{
           if(paid){
-            return Promise.resolve(Store.startGuestCheckout ? Store.startGuestCheckout() : { error:'unavailable' }).then(r=>{
+            return Promise.resolve(Store.startGuestCheckout ? Store.startGuestCheckout(_planChoice) : { error:'unavailable' }).then(r=>{
               if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your free account is ready."); }
             });
           }
@@ -1166,6 +1188,35 @@
   let _subFrom = null;
   function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
 
+  // ---- billing interval picker (monthly / annual) ----
+  // ONE product, ONE set of entitlements — the only difference is how often the card is
+  // charged. Amounts are stated plainly. NO "save X%", "best value", "2 months free" or any
+  // discount/urgency framing (standing brand guardrail). The annual card names its monthly
+  // equivalent ($9 a month) only as a factual comparison, matching the /app page. Reads and
+  // writes the shared _planChoice so every surface agrees. 🖊 copy draft — flag if register is off.
+  function planPickerHTML(){
+    const annual = _planChoice==='annual';
+    return `<div class="plans" role="radiogroup" aria-label="billing interval">
+      <button type="button" class="plan${annual?'':' on'}" data-plan="monthly" role="radio" aria-checked="${annual?'false':'true'}">
+        <span class="price">$12<span class="per"> / month</span></span>
+        <span class="plan-sub">billed monthly</span>
+      </button>
+      <button type="button" class="plan${annual?' on':''}" data-plan="annual" role="radio" aria-checked="${annual?'true':'false'}">
+        <span class="price">$108<span class="per"> / year</span></span>
+        <span class="plan-sub">billed once a year · that's $9 a month</span>
+      </button>
+    </div>`;
+  }
+  function wirePlanPicker(){
+    root.querySelectorAll('.plans .plan').forEach(el=>{
+      el.onclick = ()=>{
+        _planChoice = el.getAttribute('data-plan')==='annual' ? 'annual' : 'monthly';
+        const box = el.closest('.plans'); if(!box) return;
+        box.querySelectorAll('.plan').forEach(p=>{ const on=p===el; p.classList.toggle('on',on); p.setAttribute('aria-checked', on?'true':'false'); });
+      };
+    });
+  }
+
   // ---------------------------------------------------------------- subscribe
   // NOT a paywall. Nothing is blocked and there is no exit cost — this screen is only
   // ever reached by someone who chose it (settings, or by reaching for a base-plan
@@ -1181,18 +1232,21 @@
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
           <p class="eyebrow">the base plan</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : '$12 a month'}</h1>
-          <p class="lede" style="margin-bottom:18px">it adds practices built from your own check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. $12 a month, cancel anytime.</p>
-          <p class="fineprint" style="margin-bottom:18px">your card is charged today, then monthly. what you use now stays free either way, with no time limit.</p>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'choose your plan'}</h1>
+          <p class="lede" style="margin-bottom:6px">it adds practices built from your own check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. cancel anytime.</p>
+          ${planPickerHTML()}
+          <p class="fineprint" style="margin-bottom:18px">your card is charged today. it renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses. what you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':'subscribe'}</button>
           <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">not now</button></p>
         </div>
       </div>`);
     if(busy) return;
+    wirePlanPicker();
     $('#pw-go').onclick = ()=>{
+      const plan = _planChoice;
       screenSubscribe(null, true);
-      Promise.resolve(Store.startCheckout('member')).then(res=>{
+      Promise.resolve(Store.startCheckout('member', plan)).then(res=>{
         if(res && res.error) return screenSubscribe(res.error);   // else the browser is redirecting to Stripe
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
@@ -4458,7 +4512,7 @@
           // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
           // never worded as though the free account is deficient. 🖊 copy draft.
           if(b && b.sub_status==='active')
-            return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">your subscription is active. $12/month, cancel anytime.</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage or cancel subscription</button></div></div>`;
+            return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">your subscription is active. change between monthly and annual, or cancel, anytime.</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage, change, or cancel subscription</button></div></div>`;
           if(!Store.cloud()) return '';
           // legacy / Academy accounts have the whole base plan without a subscription —
           // never call that "the free plan", and never show them a subscribe button.
@@ -4468,7 +4522,7 @@
             return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">you're a co-regulator in the unstucking academy. the full app comes included with your membership, as a thank you for practicing with us. nothing to pay for here.</p></div>`;
           if(ent.legacy)
             return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">everything is included on your account. you were here before the base plan existed, so all of it is yours.</p></div>`;
-          return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">you're on the free plan. it has no time limit.</p><div class="set-actions"><button class="set-quiet" id="go-sub">subscribe &middot; $12/month</button></div></div>`; })()}
+          return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">you're on the free plan. it has no time limit.</p><div class="set-actions"><button class="set-quiet" id="go-sub">subscribe &middot; monthly or annual</button></div></div>`; })()}
 
         <div class="set-card">
         <p class="set-card-h">your data</p>
