@@ -338,18 +338,21 @@
     }catch(e){ return { error:String((e&&e.message)||e) }; }
   }
   // ---- subscribe ----
-  // ONE offer, no trial (2026-07-13): $12/mo, first charge today. The 8-day trial is gone
-  // — it lived in the create-checkout edge function, never on the Stripe price. `origin`
-  // and `src` are REPORTING labels only; they buy no different terms. Both doors call the
-  // same function; startGuestCheckout just tags the row so the pulse can read guest and
-  // cohort as two lines and never blend them.
-  async function startCheckout(origin){
+  // No trial (2026-07-13): first charge today. Two intervals share ONE product / ONE set of
+  // entitlements (annual added 2026-07-15): monthly $12/mo, annual $108/yr. `plan` names the
+  // interval; the edge function is the authority — it bills annual ONLY on an exact match and
+  // falls back to monthly on anything else, so a bad `plan` can never mischarge. `origin` and
+  // `src` are REPORTING labels only; they buy no different terms. Both doors call the same
+  // function; startGuestCheckout just tags the row so the pulse can read guest and cohort as
+  // two lines and never blend them.
+  async function startCheckout(origin, plan){
     if(!CLOUD) return { error:'unavailable' };
-    const res = await _postFn('create-checkout', { origin: origin || 'member', src: _src });
+    const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
+    const res = await _postFn('create-checkout', { origin: origin || 'member', src: _src, plan: p });
     if(res.url) location.href = res.url;
     return res;
   }
-  async function startGuestCheckout(){ return startCheckout('guest'); }
+  async function startGuestCheckout(plan){ return startCheckout('guest', plan); }
   const startTrial = startCheckout;   // legacy alias — there is no trial any more
   // ---- funnel events (on-ramp instrumentation, GMS 2026-07-13) ----
   // Fire-and-forget, write-only (RLS: insert-own only; nothing reads it client-side).
