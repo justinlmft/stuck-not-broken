@@ -378,6 +378,12 @@
     // exists yet: it mints at first write ("see what you described"), which is what makes
     // the check-in's trust line structurally true.
     if(!Store.user()){
+      // ?start=signup: a visitor who has already decided to pay/join goes straight to
+      // account creation, skipping the free practice/check-in flow entirely. Unlike the
+      // practice door below, this is an explicit request to skip value-first, not the
+      // app's default — so it's a distinct door, not a replacement for it. Known devices
+      // keep the ordinary sign-in gate (their account already exists on this browser).
+      if(_doorSignup && Store.cloud() && !knownDevice()){ _doorSignup=false; authMode='up'; return screenSignIn(); }
       // /stuck door: a brand-new visitor who clicked "start a practice" gets exactly that.
       // Known devices keep the sign-in gate (their practice is inside their account).
       if(_doorPractice && Store.cloud() && !knownDevice()){ _doorPractice=false; return startGuestFlow('practice'); }
@@ -444,10 +450,16 @@
   // normally; sessionStorage remembers the door within the tab so a mid-flow reload resumes
   // the practice-first sequence instead of dumping the person into a check-in they didn't pick.
   let _doorPractice = false;
+  let _doorSignup = false;
   try{
     const _dq = new URLSearchParams(location.search);
-    if(_dq.get('start')==='practice'){
+    const _startVal = _dq.get('start');
+    if(_startVal==='practice'){
       _doorPractice = true;
+      _dq.delete('start');
+      history.replaceState(null,'',location.pathname+(_dq.toString()?'?'+_dq.toString():'')+location.hash);
+    } else if(_startVal==='signup'){
+      _doorSignup = true;
       _dq.delete('start');
       history.replaceState(null,'',location.pathname+(_dq.toString()?'?'+_dq.toString():'')+location.hash);
     }
