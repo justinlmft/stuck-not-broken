@@ -2957,10 +2957,15 @@
           <p class="scr-lede">your ${first?'':'next '}check-in will open here on its own.</p>
         </div>
         <div class="actionbar">
-          <button class="navlink" id="lv-go" style="align-self:center">check in now</button>
+          ${first
+            ? '<button class="btn block" id="lv-go">check in</button>'
+            : '<button class="navlink" id="lv-go" style="align-self:center">check in now</button>'}
           <button class="navlink" id="lv-leave" style="align-self:center">leave this live practice</button>
         </div>
       </div>`);
+    // self-paced door (Justin 2026-07-17): nobody is ever locked out of checking in by
+    // the deck — a late joiner gets a full button until their FIRST reading is saved;
+    // after that it recedes to the quiet link and the deck leads.
     _livePollStart(join);
     $('#lv-go').onclick = ()=>openReading(next);
     $('#lv-leave').onclick = ()=>{ _livePollStop(); try{ sessionStorage.setItem('snb_live_seen', join.code); }catch(e){} _liveClear(); app('today'); showToast('you can rejoin any time with the code'); };   // 🖊
