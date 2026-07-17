@@ -2904,7 +2904,7 @@
     const h    = next.phase==='before' ? (first?'before we begin':'before this practice') : 'now that we’ve practiced';
     const lede = next.phase==='before'
       ? 'a quick check-in, so you can see where you’re starting from. no right answers.'
-      : 'the same check-in, after. whatever you notice is the point.';
+      : 'it’s time for another check-in to see how your system responded.';   // Justin's wording, 2026-07-17
     _liveShell(`<div class="view fb-view">
         <div class="scr-head">
           <p class="eyebrow">live &middot; ${escapeHtml(name)}${next.label&&next.label!==name?' &middot; '+escapeHtml(next.label):''}</p>
@@ -2934,9 +2934,9 @@
           <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
           <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'settling':escapeHtml(STATE_NAME(domKey))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
-          <p class="scr-lede">${more?'saved. head back to the practice. the screen will invite the next check-in.':'saved. that was the last one.'}</p>
+          <p class="scr-lede">${more?'your check-in is saved. head back to the live practice now. this screen will wait here, ready for your next check-in after the practice.':'your check-in is saved. that was the last one for this practice.'}</p>
         </div>
-        <div class="actionbar"><button class="btn block" id="lv-on">${more?'back to the practice':'see what you noticed'}</button></div>
+        <div class="actionbar"><button class="btn block" id="lv-on">${more?'okay':'see what you noticed'}</button></div>
       </div>`);
     $('#lv-on').onclick = ()=>screenLive();
   }
@@ -2948,12 +2948,10 @@
       let rec=null; cs.forEach(c=>{ if(c.live_session_id===s.id && c.practice_ref===r.ref && c.phase===r.phase) rec=c; });
       return { ...r, rec };
     }).filter(r=>r.rec);
-    const cells=rows.map(r=>{
-      const k=(r.rec.dom && r.rec.dom!=='neutral')?r.rec.dom:window.PVCurrent.dominantOf(r.rec.v,r.rec.sym,r.rec.dor).key;
-      return `<div class="lv-cell"><div class="g-glyph">${triGlyph(k)}</div>
-        <p class="lv-cell-state">${escapeHtml(STATE_NAME(k))}</p>
-        <p class="lv-cell-ph">${r.phase==='before'?'before':'after'}</p></div>`;
-    }).join('');
+    const keyed=rows.map(r=>({ ...r, key:(r.rec.dom && r.rec.dom!=='neutral')?r.rec.dom:window.PVCurrent.dominantOf(r.rec.v,r.rec.sym,r.rec.dor).key }));
+    const cells=keyed.map(r=>`<div class="lv-cell"><div class="g-glyph">${triGlyph(r.key)}</div>
+        <p class="lv-cell-state">${escapeHtml(STATE_NAME(r.key))}</p>
+        <p class="lv-cell-ph">${r.phase==='before'?'before':'after'}</p></div>`).join('');
     _liveShell(`<div class="view fb-view">
         <div class="scr-head">
           <p class="eyebrow">live &middot; ${escapeHtml(name)}</p>
@@ -2962,11 +2960,14 @@
         </div>
         <div class="lv-trail">${cells}</div>
         <div class="actionbar">
-          ${rows.length?'<button class="btn block" id="lv-share">share that you practiced</button>':''}
+          ${rows.length?'<button class="btn block" id="lv-share">share this</button>':''}
           <button class="navlink" id="lv-done" style="align-self:center">done</button>
         </div>
       </div>`);
-    const sh=$('#lv-share'); if(sh) sh.onclick=()=>openShare('i practiced a '+name+' with stuck not broken.');   // 🖊
+    // the shared card IS this screen: the glyph trail drawn onto the 1080 card (same
+    // path as the you-tab stats cards), with the practice named beneath. 🖊
+    const sh=$('#lv-share'); if(sh) sh.onclick=()=>openShare('i practiced a '+name+' with stuck not broken.',
+      { kind:'trail', rows: keyed.map(r=>({ key:r.key, ph:(r.phase==='before'?'before':'after') })) });
     $('#lv-done').onclick = ()=>{ _liveClear(); app('today'); showToast('saved with your check-ins'); };
   }
   // the "we're live" nudge: small, invitational, always rejectable, off-switch in settings.
@@ -2986,19 +2987,37 @@
         if(!s) return;
         if(sessionStorage.getItem('snb_live_seen')===s.code) return;
         if(currentTab!=='today' || !document.querySelector('#content .view')) return;   // still on today?
-        const host=document.querySelector('#content .view');
+        if(document.querySelector('.lv-pop')) return;                                   // never stack two
+        // a POP-UP, not a card (Justin 2026-07-17): white on purpose against the bone
+        // app, three state-color dots on top — significant and a little fun, still
+        // fully rejectable in one tap. copy is Justin's wording. 🖊
+        const who = s.type==='capacity-builder'
+          ? 'you’re an unstucking academy co-regulation student and welcome to join.'
+          : (e.circle ? 'you’re an unstucking academy student and welcome to join.'      // 🖊 variant
+          :  e.sub    ? 'you’re a subscriber and welcome to join.'                        // 🖊 variant
+          :             'you’re a free subscriber and welcome to join.');
         const el=document.createElement('div');
-        el.className='set-card live-nudge';
-        el.innerHTML=`<p class="lv-n-h">we’re practicing live right now</p>
-          <p class="fineprint">a ${escapeHtml(LIVE_NAME[s.type]||'live practice')} is happening. if you’re there with us, you can check in alongside it.</p>
-          <div class="set-actions"><button class="set-quiet" id="lv-n-join">i’m there &middot; check in</button>
-          <button class="set-quiet" id="lv-n-no">not now</button></div>`;   // 🖊
-        host.insertBefore(el, host.firstChild);
+        el.className='lv-pop';
+        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="join us live">
+          <div class="lv-pop-dots" aria-hidden="true"><span style="background:#F4D58D"></span><span style="background:#E89B9B"></span><span style="background:#A3C0DD"></span></div>
+          <p class="lv-pop-h">join us live!</p>
+          <p class="lv-pop-b">right now, justin is hosting a ${escapeHtml(LIVE_NAME[s.type]||'live')} practice. ${who}</p>
+          <button class="btn block" id="lv-n-join">join &rarr;</button>
+          <button class="set-quiet" id="lv-n-no">not now</button>
+          <button class="set-quiet lv-pop-off" id="lv-n-off">turn off these notifications</button>
+        </div>`;
+        document.body.appendChild(el);
+        const _close=()=>{ sessionStorage.setItem('snb_live_seen', s.code); el.remove(); };
+        el.addEventListener('click', ev=>{ if(ev.target===el) _close(); });
         const j=el.querySelector('#lv-n-join'); if(j) j.onclick=()=>{
           try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:s.code, joined:'self', t:Date.now() })); }catch(e2){}
-          screenLive();
+          el.remove(); screenLive();
         };
-        const n=el.querySelector('#lv-n-no'); if(n) n.onclick=()=>{ sessionStorage.setItem('snb_live_seen', s.code); el.remove(); };
+        const n=el.querySelector('#lv-n-no'); if(n) n.onclick=_close;
+        const off=el.querySelector('#lv-n-off'); if(off) off.onclick=()=>{
+          try{ localStorage.setItem('snb_live_nudge','0'); }catch(e2){}
+          _close(); showToast('you can turn these back on in settings');   // 🖊
+        };
       });
     }catch(e){}
   }
@@ -3106,6 +3125,28 @@
         return 490;
       }
       return 400;
+    }
+    if(viz.kind==='trail'){
+      // live check-in trail (2026-07-17): each reading's glyph in order, phase labels
+      // beneath, gradient segments between adjacent reads. rows=[{key, ph}] — the states
+      // THEY named, never a score. 2 for a mindful moment, 4 for a capacity builder.
+      const rows=viz.rows||[]; const n=rows.length; if(!n) return 260;
+      const y=300, pad=n>2?60:110, span=W-2*L-2*pad, x0=L+pad;
+      const step=n>1?span/(n-1):0, gh=n>2?76:96, gap=n>2?52:66;
+      for(let i=0;i<n-1;i++){
+        const a=x0+i*step, b=x0+(i+1)*step;
+        const g=x.createLinearGradient(a,0,b,0);
+        g.addColorStop(0,STATE_COLOR(rows[i].key)); g.addColorStop(1,STATE_COLOR(rows[i+1].key));
+        x.strokeStyle=g; x.lineWidth=6; x.beginPath(); x.moveTo(a+gap,y); x.lineTo(b-gap,y); x.stroke();
+      }
+      rows.forEach((r,i)=>{
+        const cx=n>1?x0+i*step:W/2;
+        _cnvGlyph(x, r.key, cx, y, gh);
+        x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif'; x.textAlign='center';
+        x.fillText(r.ph||'', cx, y+gh/2+44);
+      });
+      x.textAlign='left';
+      return y+gh/2+90;
     }
     if(viz.kind==='path'){
       // a/b are STATE KEYS: endpoints render ONLY the state's own active marks

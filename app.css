@@ -1610,3 +1610,19 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 /* the "we're live" invitation card on today — quiet, dismissible */
 .live-nudge{padding-bottom:12px;margin-top:0}
 .live-nudge .lv-n-h{font-weight:500;margin:0 0 4px}
+
+/* ---- "join us live!" pop-up (Justin 2026-07-17): white against the bone app, three
+   state-color dots, a small pop of arrival. significant but rejectable in one tap. */
+.lv-pop{position:fixed;inset:0;z-index:9990;display:flex;align-items:center;justify-content:center;background:rgba(26,31,42,.35);padding:24px}
+.lv-pop-card{background:#fff;color:#1A1F2A;border-radius:20px;padding:26px 22px 16px;max-width:340px;width:100%;text-align:center;box-shadow:0 18px 60px rgba(0,0,0,.28);display:flex;flex-direction:column}
+@keyframes lvPop{from{transform:scale(.92) translateY(8px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.lv-pop-card{animation:lvPop .32s var(--ease) both}
+@media (prefers-reduced-motion:reduce){.lv-pop-card{animation:none}}
+body.reduce-motion .lv-pop-card{animation:none}
+.lv-pop-dots{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
+.lv-pop-dots span{width:10px;height:10px;border-radius:50%}
+.lv-pop-h{font-weight:500;font-size:20px;margin:0 0 6px;color:#1A1F2A}
+.lv-pop-b{font-size:14.5px;line-height:1.5;color:#5E5A4E;margin:0 0 18px}
+.lv-pop .btn{margin-bottom:4px}
+.lv-pop .set-quiet{color:#5E5A4E;align-self:center}
+.lv-pop-off{opacity:.7;font-size:12.5px}
