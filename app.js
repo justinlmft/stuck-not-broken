@@ -202,10 +202,12 @@
   }
   // the full brand lockup with every mark in its own axis color — the "all of you"
   // logo (vs triGlyph, which lights only the active state). used by the live popup.
-  function triLogo(cls){
+  // ink=true renders the lockup uncolored — glyphs stay ink until they carry DATA
+  // (Justin 2026-07-17): the waiting screen shows ink; color belongs to readings.
+  function triLogo(cls, ink){
     const I = window.SNB_ICONS||{};
     const cols = { heart:STATE_COLOR('safety'), bolt:STATE_COLOR('fightflight'), x:STATE_COLOR('shutdown') };
-    const paths = TRI_ORDER.map(m=>`<path class="tl-m" data-m="${m}" fill="${cols[m]}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
+    const paths = TRI_ORDER.map(m=>`<path class="tl-m" data-m="${m}"${ink?' style="fill:var(--ink)"':' fill="'+cols[m]+'"'} d="${(I[m]&&I[m].d)||''}"></path>`).join('');
     return `<svg class="trilogo${cls?' '+cls:''}" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
   }
   function stateMarks(key){
@@ -2832,8 +2834,15 @@
       ciSaveQ(rec.t, qIdx);
       haptic('save');
       FromJustin.refresh();
-      // live: the immediate payoff is the glyph reflection, then back to the practice
-      if(_lc){ window._liveCtx=null; return screenLiveMoment(rec); }
+      // live: mid-session readings get the glyph reflection; the LAST reading goes
+      // straight to the results — no extra stop between save and the payoff
+      // (Justin 2026-07-17, round 4).
+      if(_lc){
+        window._liveCtx=null;
+        const _ls=_liveCache();
+        if(_ls && !_liveNext(_ls)) return screenLiveTrail(_ls);
+        return screenLiveMoment(rec);
+      }
       // T-2: the FIRST check-in lands back on Today, where the halo has just taken
       // their state color — a visible payoff, not the You tab's "check in twice" nag
       app(Store.checkins().length >= 2 ? 'current' : 'today');
@@ -2943,7 +2952,7 @@
     _liveShell(`<div class="view fb-view">
         <div class="scr-head">
           <p class="eyebrow">live &middot; ${escapeHtml(name)}</p>
-          <div class="lv-wait-logo">${triLogo('lv-breathe')}</div>
+          <div class="lv-wait-logo">${triLogo('lv-breathe', true)}</div>
           <h2 class="scr-h" style="margin-top:14px">${first?'we’re getting started':'enjoy the practice'}</h2>
           <p class="scr-lede">your ${first?'':'next '}check-in will open here on its own.</p>
         </div>
@@ -2982,9 +2991,10 @@
       let rec=null; cs.forEach(c=>{ if(c.live_session_id===s.id && c.practice_ref===r.ref && c.phase===r.phase) rec=c; });
       return rec ? { ...r, key:((rec.dom && rec.dom!=='neutral')?rec.dom:window.PVCurrent.dominantOf(rec.v,rec.sym,rec.dor).key) } : null;
     }).filter(Boolean);
-    const arrow=`<svg class="lv-arr" viewBox="0 0 64 24" aria-hidden="true">
-        <path class="lv-arr-line" d="M4 12 H50" fill="none" stroke-linecap="round"/>
-        <path class="lv-arr-head" d="M46 4 L57 12 L46 20" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    // vertical trail (Justin 2026-07-17): tall view — reads stack, the arrow points DOWN
+    const arrow=`<svg class="lv-arr" viewBox="0 0 24 64" aria-hidden="true">
+        <path class="lv-arr-line" d="M12 4 V50" fill="none" stroke-linecap="round"/>
+        <path class="lv-arr-head" d="M4 46 L12 57 L20 46" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     // each state renders as its OWN mark(s), tinted the state color (blends = both marks)
     const mk=k=>`<span class="lv-mk">${(STATE_AXES[k]||[]).map(([icn])=>ico(icn,{cls:'lv-mark',color:STATE_COLOR(k)})).join('')}</span>`;
     const row=keyed.map((r,i)=>`${i?arrow:''}<span class="lv-g" style="--i:${i}">${mk(r.key)}</span>`).join('');
