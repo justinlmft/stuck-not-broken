@@ -200,6 +200,16 @@
     const paths = TRI_ORDER.map(m=>`<path class="tg-m" data-m="${m}"${active.indexOf(m)>=0?` data-col="${col}"`:''} d="${(I[m]&&I[m].d)||''}"></path>`).join('');
     return `<svg class="triglyph" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
   }
+  // the full brand lockup with every mark in its own axis color — the "all of you"
+  // logo (vs triGlyph, which lights only the active state). used by the live popup.
+  // ink=true renders the lockup uncolored — glyphs stay ink until they carry DATA
+  // (Justin 2026-07-17): the waiting screen shows ink; color belongs to readings.
+  function triLogo(cls, ink){
+    const I = window.SNB_ICONS||{};
+    const cols = { heart:STATE_COLOR('safety'), bolt:STATE_COLOR('fightflight'), x:STATE_COLOR('shutdown') };
+    const paths = TRI_ORDER.map(m=>`<path class="tl-m" data-m="${m}"${ink?' style="fill:var(--ink)"':' fill="'+cols[m]+'"'} d="${(I[m]&&I[m].d)||''}"></path>`).join('');
+    return `<svg class="trilogo${cls?' '+cls:''}" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
+  }
   function stateMarks(key){
     const ax = STATE_AXES[key];
     if(!ax) return `<span class="st-dot" style="background:${STATE_COLOR(key)}"></span>`;
@@ -383,6 +393,9 @@
       // practice door below, this is an explicit request to skip value-first, not the
       // app's default — so it's a distinct door, not a replacement for it. Known devices
       // keep the ordinary sign-in gate (their account already exists on this browser).
+      // a pending live join needs an account (free is enough): known devices sign in,
+      // new devices create one. The join code waits in localStorage through auth.
+      if(_liveJoin() && Store.cloud()){ authMode = knownDevice() ? 'in' : 'up'; return screenSignIn(); }
       if(_doorSignup && Store.cloud() && !knownDevice()){ _doorSignup=false; authMode='up'; return screenSignIn(); }
       // /stuck door: a brand-new visitor who clicked "start a practice" gets exactly that.
       // Known devices keep the sign-in gate (their practice is inside their account).
@@ -427,6 +440,9 @@
     // The whole-app paywall is GONE (2026-07-13): free is unconditional, no time limit,
     // no card. Nobody is ever locked out. Subscribing is a choice made in settings or on
     // the offer screen, never a wall. Store.hasAccess() is now always true.
+    // live check-in (Live-Checkin-Plan Phase 1): while a join is pending, the app opens
+    // straight to the live flow — the seams (open when cued, slide, swipe back) depend on it.
+    if(_liveJoin()) return screenLive();
     // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
     let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
     if(h==='checkin'){ app('today'); return screenCheckin(); }
@@ -469,8 +485,16 @@
       _doorSignup = true;
       if(_planVal) _paidSignupPending = true;   // came from a paid subscribe button
     }
-    if(_startVal || _planVal){
-      _dq.delete('start'); _dq.delete('plan');
+    // ?live=CODE — the live check-in join link/QR (2026-07-17, Live-Checkin-Plan Phase 1).
+    // Persisted to localStorage (not a variable) so the join survives sign-in, an iOS PWA
+    // reload under memory pressure, and app-switching between the stream and the app.
+    // joined:'scan' = arrived via link/QR; the in-app nudge join stamps 'self' instead.
+    const _liveVal = _dq.get('live');
+    if(_liveVal && /^[A-Za-z0-9]{4,10}$/.test(_liveVal)){
+      try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:String(_liveVal).toUpperCase(), joined:'scan', t:Date.now() })); }catch(e){}
+    }
+    if(_startVal || _planVal || _liveVal){
+      _dq.delete('start'); _dq.delete('plan'); _dq.delete('live');
       history.replaceState(null,'',location.pathname+(_dq.toString()?'?'+_dq.toString():'')+location.hash);
     }
   }catch(e){}
@@ -1376,6 +1400,7 @@
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     ({ today:tabToday, current:tabCurrent, practice:tabPractice }[tab] || tabToday)();
     if(tab === 'today') maybeInstallNudge();
+    if(tab === 'today') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
     maybeTrialBanner();
     document.body.classList.remove('show-fab');
   }
@@ -2565,6 +2590,7 @@
     // "{name}'s {time} check-in", counting returns within the same daypart
     // ("sam's 2nd afternoon check-in") — the eyebrow becomes theirs
     const _ciEyebrow = (function(){
+      if(window._liveCtx) return window._liveCtx.eyebrow;   // live: "live · mindful moment · before"
       if(editRec) return `changing ${fmtDay(editRec.t)} · ${fmtTime(editRec.t)}`;
       const who = (Store.getName && Store.getName()) ? Store.getName()+"'s" : 'your';
       const nth = Store.checkins().filter(c=>sameDay(c.t)&&segOf(c.t)===segOf(Date.now())).length + 1;
@@ -2778,6 +2804,10 @@
 
     $('#save').onclick = ()=>{
       const vals = { v:v/100, sym:s/100, dor:d/100, source:(window._ciSource||null) };
+      // live check-in: tag the reading to its session + seam so the trail (and the
+      // efficacy mirror) can pair before/after per practice.
+      const _lc = window._liveCtx || null;
+      if(_lc && !editRec){ vals.live_session_id=_lc.id; vals.practice_ref=_lc.practice_ref; vals.phase=_lc.phase; vals.joined=_lc.joined||'self'; }
       if(ch!=null) vals.challenge = ch;                  // null = "whatever you recommend": let the recommender decide
       // untouched midpoints are not a read: never let the 50/50/50 tie-break
       // invent "stillness" — an all-untouched fresh save counts as settling.
@@ -2804,12 +2834,244 @@
       ciSaveQ(rec.t, qIdx);
       haptic('save');
       FromJustin.refresh();
+      // live: mid-session readings get the glyph reflection; the LAST reading goes
+      // straight to the results — no extra stop between save and the payoff
+      // (Justin 2026-07-17, round 4).
+      if(_lc){
+        window._liveCtx=null;
+        const _ls=_liveCache();
+        if(_ls && !_liveNext(_ls)) return screenLiveTrail(_ls);
+        return screenLiveMoment(rec);
+      }
       // T-2: the FIRST check-in lands back on Today, where the halo has just taken
       // their state color — a visible payoff, not the You tab's "check in twice" nag
       app(Store.checkins().length >= 2 ? 'current' : 'today');
       actionSnack('checked in', 'change', ()=>screenCheckin(rec));
     };
   }
+  // ---------------------------------------------------------------- LIVE CHECK-IN
+  // (2026-07-17, Live-Checkin-Plan.md Phase 1 — Mindful Moment slice.)
+  // A live practice publishes itself at Present time (live_sessions row via edge fn);
+  // attendees join by QR/link (?live=CODE) or the today-tab nudge. The reading IS the
+  // app's full, normal check-in, unchanged — screenCheckin renders it with _liveCtx set,
+  // tags the save, and hands back here. Completed readings live in Store.checkins()
+  // (tagged), so progress is account-bound and survives reload/app-switch/device-switch.
+  // Guardrails: opt-in, invitational, never a score; the trail mirrors what THEY named.
+  const LIVE_NAME = { 'mindful-moment':'mindful moment', 'capacity-builder':'capacity builder' };
+  function _liveJoin(){ try{
+    const j = JSON.parse(localStorage.getItem('snb_live_join')||'null');
+    // a join can't outlive the longest possible live session (8h cap server-side):
+    // without this, an abandoned scan would trap every later visit at the sign-in gate.
+    if(j && Date.now()-(j.t||0) > 8*3600*1000){ localStorage.removeItem('snb_live_join'); return null; }
+    return j;
+  }catch(e){ return null; } }
+  function _liveClear(){ try{ localStorage.removeItem('snb_live_join'); localStorage.removeItem('snb_live_sess'); }catch(e){} }
+  function _liveCache(){ try{ return JSON.parse(localStorage.getItem('snb_live_sess')||'null'); }catch(e){ return null; } }
+  // practices jsonb -> ordered readings [{ref,phase,label}]; safe default = MM before/after
+  function _liveReadings(s){
+    const prs = (Array.isArray(s.practices) && s.practices.length) ? s.practices
+      : [{ ref:'mm', label:LIVE_NAME[s.type]||'live practice', checkins:['before','after'] }];
+    const out=[];
+    prs.forEach(p=>((Array.isArray(p.checkins)&&p.checkins.length)?p.checkins:['before','after'])
+      .forEach(ph=>out.push({ ref:(p.ref||'mm'), phase:ph, label:(p.label||'') })));
+    return out;
+  }
+  function _liveDone(s){
+    const done=new Set();
+    try{ Store.checkins().forEach(c=>{ if(c.live_session_id===s.id && c.practice_ref && c.phase) done.add(c.practice_ref+':'+c.phase); }); }catch(e){}
+    return done;
+  }
+  function _liveNext(s){ const done=_liveDone(s); return _liveReadings(s).find(r=>!done.has(r.ref+':'+r.phase))||null; }
+  function _liveShell(inner){
+    _livePollStop();
+    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    root.innerHTML = `<header class="appbar"></header><div class="scroll" id="content"></div>`;
+    $('#content').innerHTML = inner;
+  }
+  // SLIDE SYNC poll: while the waiting screen is up, watch the session row every 12s.
+  // The builder stamps `seam` as slides advance (update-live-session, presenter_key
+  // gated) — when the check-in slide is up, the app opens the check-in by itself.
+  let _livePollT=null;
+  function _livePollStop(){ if(_livePollT){ clearInterval(_livePollT); _livePollT=null; } }
+  function _livePollStart(join){
+    _livePollStop();
+    _livePollT = setInterval(async ()=>{
+      const j=_liveJoin(); if(!j || j.code!==join.code) return _livePollStop();
+      const f=await Store.liveFetch(join.code);
+      if(!f || !f.id) return;                                   // network blip: keep waiting
+      try{ localStorage.setItem('snb_live_sess', JSON.stringify(f)); }catch(e){}
+      const done=_liveDone(f);
+      const actionable = !f.live ||
+        (f.seam && _liveReadings(f).some(r=>(r.ref+':'+r.phase)===f.seam && !done.has(r.ref+':'+r.phase)));
+      if(actionable){ _livePollStop(); screenLive(); }          // re-route: opens the check-in / trail / ended
+    }, 12000);
+  }
+  // a small terminal screen (not found / ended / member-only) with one way onward. 🖊
+  function _liveEnd(h, lede){
+    _liveShell(`<div class="view fb-view">
+        <div class="scr-head"><p class="eyebrow">live practice</p>
+        <h2 class="scr-h">${h}</h2><p class="scr-lede">${lede}</p></div>
+        <div class="actionbar"><button class="btn block" id="lv-out">back to the app</button></div>
+      </div>`);
+    $('#lv-out').onclick = ()=>{ _liveClear(); app('today'); };
+  }
+  async function screenLive(){
+    const join = _liveJoin(); if(!join) return app(currentTab);
+    _liveShell(`<div class="view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">one moment&hellip;</h2></div></div>`);
+    let s = await Store.liveFetch(join.code);
+    if(!s || !s.id){
+      const c=_liveCache();
+      if(c && c.code===join.code) s=c;                       // offline blip: run on the cached copy
+      else if(s && s.error && s.error!=='not found') return _liveEnd('we couldn’t reach the live practice','check your connection, then open the app again. your place is saved.');   // 🖊
+      else return _liveEnd('we couldn’t find that live practice','the code may have been mistyped, or the practice may be over. nothing is lost.');   // 🖊
+    }
+    try{ localStorage.setItem('snb_live_sess', JSON.stringify(s)); }catch(e){}
+    // capacity builders are an academy practice; mindful moments are for everyone. 🖊
+    if(s.type==='capacity-builder'){
+      const e=(Store.entitlement&&Store.entitlement())||{};
+      if(!(e.sub||e.circle||e.legacy)) return _liveEnd('this one is an academy practice','capacity builders are part of the unstucking academy. mindful moments are open to everyone, and you’re always welcome there.');
+    }
+    const next=_liveNext(s);
+    if(!next) return screenLiveTrail(s);
+    if(!s.live) return _liveDone(s).size ? screenLiveTrail(s) : _liveEnd('this live practice has ended','it’s okay to have missed it. the practices in the app are always here.');   // 🖊
+    const name=LIVE_NAME[s.type]||'live practice';
+    const openReading = r => {
+      _livePollStop();
+      window._ciSource='live';
+      window._liveCtx = { id:s.id, practice_ref:r.ref, phase:r.phase, joined:(join.joined||'self'),
+        eyebrow:'live · '+name+' · '+(r.phase==='before'?'before':'after') };
+      screenCheckin();
+    };
+    // the deck drives (Justin 2026-07-17): if the current slide IS an undone check-in
+    // seam, open it immediately — no button, no tap.
+    const seamR = s.seam ? _liveReadings(s).find(r=>(r.ref+':'+r.phase)===s.seam && !_liveDone(s).has(r.ref+':'+r.phase)) : null;
+    if(seamR) return openReading(seamR);
+    // otherwise: a calm holding screen that advances itself. the quiet link is the
+    // fallback for sessions whose builder doesn't stamp seams (yet). 🖊
+    const first=_liveDone(s).size===0;
+    _liveShell(`<div class="view fb-view">
+        <div class="scr-head">
+          <p class="eyebrow">live &middot; ${escapeHtml(name)}</p>
+          <div class="lv-wait-logo">${triLogo('lv-breathe', true)}</div>
+          <h2 class="scr-h" style="margin-top:14px">${first?'we’re getting started':'enjoy the practice'}</h2>
+          <p class="scr-lede">your ${first?'':'next '}check-in will open here on its own.</p>
+        </div>
+        <div class="actionbar">
+          ${first
+            ? '<button class="btn block" id="lv-go">check in</button>'
+            : '<button class="navlink" id="lv-go" style="align-self:center">check in now</button>'}
+          <button class="navlink" id="lv-leave" style="align-self:center">leave this live practice</button>
+        </div>
+      </div>`);
+    // self-paced door (Justin 2026-07-17): nobody is ever locked out of checking in by
+    // the deck — a late joiner gets a full button until their FIRST reading is saved;
+    // after that it recedes to the quiet link and the deck leads.
+    _livePollStart(join);
+    $('#lv-go').onclick = ()=>openReading(next);
+    $('#lv-leave').onclick = ()=>{ _livePollStop(); try{ sessionStorage.setItem('snb_live_seen', join.code); }catch(e){} _liveClear(); app('today'); showToast('you can rejoin any time with the code'); };   // 🖊
+  }
+  // immediately after each live reading: their state, mirrored back. 🖊
+  function screenLiveMoment(rec){
+    const s=_liveCache();
+    const domKey = (rec.dom && rec.dom!=='neutral') ? rec.dom : window.PVCurrent.dominantOf(rec.v, rec.sym, rec.dor).key;
+    const more = s ? !!_liveNext(s) : false;
+    _liveShell(`<div class="view fb-view">
+        <div class="scr-head">
+          <p class="eyebrow">what you described</p>
+          <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
+          <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'settling':escapeHtml(STATE_NAME(domKey))}</h1>
+          <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
+          <p class="scr-lede">${more?'your check-in is saved. head back to the live practice now. this screen will wait here, ready for your next check-in after the practice.':'your check-in is saved. that was the last one for this practice.'}</p>
+        </div>
+        <div class="actionbar"><button class="btn block" id="lv-on">${more?'okay':'see what you noticed'}</button></div>
+      </div>`);
+    $('#lv-on').onclick = ()=>screenLive();
+  }
+  // the end-of-practice payoff, stripped to what matters (Justin 2026-07-17):
+  // "your practice results" + the state marks with an arrow between. the arrow
+  // tells the story; no labels, no lede. never a score.
+  function screenLiveTrail(s){
+    const cs=Store.checkins();
+    const keyed=_liveReadings(s).map(r=>{
+      let rec=null; cs.forEach(c=>{ if(c.live_session_id===s.id && c.practice_ref===r.ref && c.phase===r.phase) rec=c; });
+      return rec ? { ...r, key:((rec.dom && rec.dom!=='neutral')?rec.dom:window.PVCurrent.dominantOf(rec.v,rec.sym,rec.dor).key) } : null;
+    }).filter(Boolean);
+    // vertical trail (Justin 2026-07-17): tall view — reads stack, the arrow points DOWN
+    const arrow=`<svg class="lv-arr" viewBox="0 0 24 64" aria-hidden="true">
+        <path class="lv-arr-line" d="M12 4 V50" fill="none" stroke-linecap="round"/>
+        <path class="lv-arr-head" d="M4 46 L12 57 L20 46" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    // each state renders as its OWN mark(s), tinted the state color (blends = both marks)
+    const mk=k=>`<span class="lv-mk">${(STATE_AXES[k]||[]).map(([icn])=>ico(icn,{cls:'lv-mark',color:STATE_COLOR(k)})).join('')}</span>`;
+    const row=keyed.map((r,i)=>`${i?arrow:''}<span class="lv-g" style="--i:${i}">${mk(r.key)}</span>`).join('');
+    _liveShell(`<div class="view fb-view">
+        <div class="scr-head"><h2 class="scr-h">your practice results</h2></div>
+        <div class="lv-trail2">${row}</div>
+        <div class="actionbar">
+          ${keyed.length?'<button class="btn block" id="lv-share">share this</button>':''}
+          <button class="navlink" id="lv-done" style="align-self:center">done</button>
+        </div>
+      </div>`);
+    const sh=$('#lv-share'); if(sh) sh.onclick=()=>openShare(
+      s.type==='capacity-builder' ? 'I practiced capacity building today.' : 'I practiced mindfulness today.',   // 🖊 CB variant
+      { kind:'trail', rows: keyed.map(r=>({ key:r.key })) });
+    $('#lv-done').onclick = ()=>{ _liveClear(); app('today'); showToast('saved with your check-ins'); };
+  }
+  // the "we're live" nudge: small, invitational, always rejectable, off-switch in settings.
+  // free-for-all events show for everyone; member events only to members (kind, no upsell).
+  function liveNudge(){
+    try{
+      if(localStorage.getItem('snb_live_nudge')==='0') return;
+      if(!Store.user() || (Store.isAnonymous&&Store.isAnonymous())) return;
+      if(_liveJoin()) return;
+      const K='snb_live_poll_t';
+      if(Date.now() - (+localStorage.getItem(K)||0) < 3*60*1000) return;   // poll at most every 3 min
+      localStorage.setItem(K, String(Date.now()));
+      Store.livePoll().then(r=>{
+        if(!r || !Array.isArray(r.live) || !r.live.length) return;
+        const e=(Store.entitlement&&Store.entitlement())||{};
+        const s=r.live.find(x=>x.type!=='capacity-builder' || e.sub||e.circle||e.legacy);
+        if(!s) return;
+        if(sessionStorage.getItem('snb_live_seen')===s.code) return;
+        if(currentTab!=='today' || !document.querySelector('#content .view')) return;   // still on today?
+        if(document.querySelector('.lv-pop')) return;                                   // never stack two
+        // a POP-UP, not a card (Justin 2026-07-17): white on purpose against the bone
+        // app, the tri-glyph logo on top, marks arriving one by one — significant and
+        // a little fun, still fully rejectable in one tap.
+        // THE COPY IS SESSION-AUTHORED: the builder sends host + invite at Present
+        // (updatable without an app deploy). Built-in lines are only the fallback. 🖊
+        const who = s.type==='capacity-builder'
+          ? 'you’re an unstucking academy co-regulation student and welcome to join.'
+          : (e.circle ? 'you’re an unstucking academy student and welcome to join.'      // 🖊 variant
+          :  e.sub    ? 'you’re a subscriber and welcome to join.'                        // 🖊 variant
+          :             'you’re a free subscriber and welcome to join.');
+        const line = s.invite ? escapeHtml(s.invite)
+          : ('right now, '+escapeHtml(s.host||'justin')+' is hosting a '+escapeHtml(LIVE_NAME[s.type]||'live')+' practice. '+who);
+        const el=document.createElement('div');
+        el.className='lv-pop';
+        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="join us live">
+          <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
+          <p class="lv-pop-h">join us live!</p>
+          <p class="lv-pop-b">${line}</p>
+          <button class="btn block" id="lv-n-join">join &rarr;</button>
+          <button class="set-quiet" id="lv-n-no">not now</button>
+          <button class="set-quiet lv-pop-off" id="lv-n-off">turn off these notifications</button>
+        </div>`;
+        document.body.appendChild(el);
+        const _close=()=>{ sessionStorage.setItem('snb_live_seen', s.code); el.remove(); };
+        el.addEventListener('click', ev=>{ if(ev.target===el) _close(); });
+        const j=el.querySelector('#lv-n-join'); if(j) j.onclick=()=>{
+          try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:s.code, joined:'self', t:Date.now() })); }catch(e2){}
+          el.remove(); screenLive();
+        };
+        const n=el.querySelector('#lv-n-no'); if(n) n.onclick=_close;
+        const off=el.querySelector('#lv-n-off'); if(off) off.onclick=()=>{
+          try{ localStorage.setItem('snb_live_nudge','0'); }catch(e2){}
+          _close(); showToast('you can turn these back on in settings');   // 🖊
+        };
+      });
+    }catch(e){}
+  }
+
   function sliderHTML(key,scenario,cls,val){
     const ax = AXIS_ICON[key] || {};
     const icon = ax.icon ? ico(ax.icon,{cls:'slider-ico', color:STATE_COLOR(ax.state)}) : '';
@@ -2913,6 +3175,30 @@
         return 490;
       }
       return 400;
+    }
+    if(viz.kind==='trail'){
+      // live practice results (redesigned with Justin 2026-07-17): each state as its
+      // OWN mark(s) in the state color, a hairline arrow between reads, no labels —
+      // the arrow tells the story. rows=[{key}], 2 (MM) to 4 (CB).
+      const rows=viz.rows||[]; const n=rows.length; if(!n) return 260;
+      const y=310, mh=(n>2?100:150), mgap=Math.round(mh*.14), arrW=(n>2?64:96), agap=(n>2?22:34);
+      const marksOf=k=>(STATE_AXES[k]||[]).map(a=>a[0]);
+      const wOf=k=>{ const ms=marksOf(k); return ms.length*mh + (ms.length-1)*mgap; };
+      const total=rows.reduce((t,r)=>t+wOf(r.key),0) + (n-1)*(arrW+2*agap);
+      let cx=(W-total)/2;
+      rows.forEach((r,i)=>{
+        const ms=marksOf(r.key), col=STATE_COLOR(r.key);
+        ms.forEach((m,mi)=>{ _cnvMark(x, m, col, cx+mh/2+mi*(mh+mgap), y, mh); });
+        cx+=wOf(r.key);
+        if(i<n-1){
+          const ax0=cx+agap, ax1=ax0+arrW;
+          x.strokeStyle='#D8D2C2'; x.lineWidth=8; x.lineCap='round'; x.lineJoin='round';
+          x.beginPath(); x.moveTo(ax0,y); x.lineTo(ax1-16,y); x.stroke();
+          x.beginPath(); x.moveTo(ax1-30,y-15); x.lineTo(ax1-8,y); x.lineTo(ax1-30,y+15); x.stroke();
+          cx+=arrW+2*agap;
+        }
+      });
+      return y+mh/2+70;
     }
     if(viz.kind==='path'){
       // a/b are STATE KEYS: endpoints render ONLY the state's own active marks
@@ -4438,6 +4724,7 @@
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
+    const lv = (localStorage.getItem('snb_live_nudge')||'1');        // "we're live" invitations — on by default
     const psc = (localStorage.getItem('snb_practice_scene')||'');    // practice scene — '' = surprise me (random per session)
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
@@ -4504,6 +4791,11 @@
         <div class="set-group">
           ${swRow('sw-glyph','state glyph on shared images',gl!=='0')}
           <p class="fineprint" id="glyph-cap" style="margin-top:2px"></p>
+        </div>
+
+        <div class="set-group">
+          ${swRow('sw-live','live practice invitations',lv!=='0')}
+          <p class="fineprint" id="live-cap" style="margin-top:2px"></p>
         </div>
 
         </div>
@@ -4593,6 +4885,12 @@
       : 'your share cards go out with no state signature.'; };
     _glyphCap(gl!=='0');
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
+    // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
+    const _liveCap = on=>{ const el=$('#live-cap'); if(el) el.textContent = on
+      ? 'when a live practice is happening, the today screen offers a quiet invitation to check in alongside it.'
+      : 'the app never mentions live practices. joining by link or code still works.'; };
+    _liveCap(lv!=='0');
+    bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
     // offline: bulk download / clear, with an honest iOS-eviction check on render
     const segOff = $('#sw-offline'); const offStatus = $('#offline-status');

@@ -1599,3 +1599,64 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 .ba-body{display:flex;flex-direction:column;padding-bottom:8px}
 .ba-body .scr-lede{margin:0 0 14px}
 .ba-body .ba-pair{margin:4px 0 16px}
+
+/* ---- live check-in (Live-Checkin-Plan Phase 1, 2026-07-17) ----
+   the trail = each reading's glyph + the state THEY named, in order. never a score. */
+.lv-trail{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin:22px 0 8px}
+.lv-cell{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:84px}
+.lv-cell .g-glyph .triglyph{height:52px}
+.lv-cell-state{font-weight:500;font-size:15px;margin:0}
+.lv-cell-ph{font-size:12px;color:var(--ink-80);margin:0;letter-spacing:.04em}
+/* the "we're live" invitation card on today — quiet, dismissible */
+.live-nudge{padding-bottom:12px;margin-top:0}
+.live-nudge .lv-n-h{font-weight:500;margin:0 0 4px}
+
+/* ---- "join us live!" pop-up (Justin 2026-07-17): white against the bone app, three
+   state-color dots, a small pop of arrival. significant but rejectable in one tap. */
+.lv-pop{position:fixed;inset:0;z-index:9990;display:flex;align-items:center;justify-content:center;background:rgba(26,31,42,.35);padding:24px}
+.lv-pop-card{background:#fff;color:#1A1F2A;border-radius:20px;padding:26px 22px 16px;max-width:340px;width:100%;text-align:center;box-shadow:0 18px 60px rgba(0,0,0,.28);display:flex;flex-direction:column}
+@keyframes lvPop{from{transform:scale(.92) translateY(8px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.lv-pop-card{animation:lvPop .32s var(--ease) both}
+@media (prefers-reduced-motion:reduce){.lv-pop-card{animation:none}}
+body.reduce-motion .lv-pop-card{animation:none}
+.lv-pop-dots{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
+.lv-pop-dots span{width:10px;height:10px;border-radius:50%}
+.lv-pop-h{font-weight:500;font-size:20px;margin:0 0 6px;color:#1A1F2A}
+.lv-pop-b{font-size:14.5px;line-height:1.5;color:#5E5A4E;margin:0 0 18px}
+.lv-pop .btn{margin-bottom:4px}
+.lv-pop .set-quiet{color:#5E5A4E;align-self:center}
+.lv-pop-off{opacity:.7;font-size:12.5px}
+
+/* ---- live round 3 (Justin's design pass, 2026-07-17) ---- */
+/* trail: marks + arrow, nothing else. marks pop in staggered; the arrow draws. */
+.lv-trail2{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;margin:34px 8px}
+.lv-mk{display:inline-flex;align-items:center;gap:7px}
+.lv-mark{height:58px;width:auto;display:block}
+.lv-g{display:inline-flex;transform-origin:center}
+.lv-arr{width:22px;height:52px;flex:none;overflow:visible}
+.lv-arr path{stroke:var(--ink-faded);stroke-width:3}
+@keyframes lvGpop{0%{transform:scale(.3);opacity:0}70%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
+@keyframes lvArr{from{stroke-dashoffset:80}to{stroke-dashoffset:0}}
+.lv-g{animation:lvGpop .5s calc(.15s + var(--i,0)*.55s) cubic-bezier(.34,1.4,.64,1) both}
+.lv-arr path{stroke-dasharray:80;animation:lvArr .5s .45s ease-out both}
+@media (prefers-reduced-motion:reduce){.lv-g,.lv-arr path{animation:none;stroke-dasharray:none}}
+body.reduce-motion .lv-g,body.reduce-motion .lv-arr path{animation:none;stroke-dasharray:none}
+/* popup: tri-glyph logo, marks arriving one by one; card springs in with a small overshoot */
+.lv-pop-logo{margin-bottom:12px}
+.lv-pop-logo .trilogo{height:32px;width:auto;overflow:visible}
+.lv-pop-card{animation:lvSpring .55s cubic-bezier(.34,1.35,.64,1) both}
+@keyframes lvSpring{0%{transform:scale(.82) translateY(14px);opacity:0}60%{transform:scale(1.04) translateY(-3px);opacity:1}100%{transform:scale(1) translateY(0)}}
+.lv-pop .tl-m{opacity:0;transform-box:fill-box;transform-origin:center;animation:lvMark .45s cubic-bezier(.34,1.4,.64,1) both}
+.lv-pop .tl-m[data-m="heart"]{animation-delay:.28s}
+.lv-pop .tl-m[data-m="bolt"]{animation-delay:.44s}
+.lv-pop .tl-m[data-m="x"]{animation-delay:.6s}
+@keyframes lvMark{0%{opacity:0;transform:scale(.4)}70%{transform:scale(1.15)}100%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.lv-pop-card,.lv-pop .tl-m{animation:none;opacity:1}}
+body.reduce-motion .lv-pop-card,body.reduce-motion .lv-pop .tl-m{animation:none;opacity:1}
+/* waiting screen: the logo breathes while the deck drives */
+.lv-wait-logo{margin-top:26px}
+.lv-wait-logo .trilogo{height:38px;width:auto;overflow:visible}
+.lv-breathe{animation:lvBreathe 4.5s ease-in-out infinite}
+@keyframes lvBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+@media (prefers-reduced-motion:reduce){.lv-breathe{animation:none}}
+body.reduce-motion .lv-breathe{animation:none}

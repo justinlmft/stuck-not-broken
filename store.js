@@ -178,10 +178,18 @@
   }
 
   // ---- row mappers (cloud columns are snake_case) ----
-  const rowToCheckin = r => ({ t:r.t, v:r.v, sym:r.sym, dor:r.dor, fr:r.fr, note:r.note, dom:r.dom,
-    challenge:(typeof r.challenge==='number'?r.challenge:null), source:(r.source||null) });
-  const checkinToRow = c => ({ user_id:auth.user.id, t:c.t, v:c.v, sym:c.sym, dor:c.dor, fr:c.fr||0, note:c.note||'', dom:c.dom,
-    challenge:(typeof c.challenge==='number'?c.challenge:null), source:(c.source||null) });
+  const rowToCheckin = r => { const c = { t:r.t, v:r.v, sym:r.sym, dor:r.dor, fr:r.fr, note:r.note, dom:r.dom,
+    challenge:(typeof r.challenge==='number'?r.challenge:null), source:(r.source||null) };
+    // live check-in tags (2026-07-17, Live-Checkin-Plan Phase 1) — carried both ways so
+    // the live flow's "which readings are done" survives a device switch.
+    if(r.live_session_id){ c.live_session_id=r.live_session_id; c.practice_ref=r.practice_ref||null; c.phase=r.phase||null; c.joined=r.joined||null; }
+    return c; };
+  const checkinToRow = c => { const r = { user_id:auth.user.id, t:c.t, v:c.v, sym:c.sym, dor:c.dor, fr:c.fr||0, note:c.note||'', dom:c.dom,
+    challenge:(typeof c.challenge==='number'?c.challenge:null), source:(c.source||null) };
+    // only include the live columns when set: prod's checkins table gains them in the
+    // live-checkin migration — never send the keys on an ordinary check-in.
+    if(c.live_session_id){ r.live_session_id=c.live_session_id; r.practice_ref=c.practice_ref||null; r.phase=c.phase||null; r.joined=c.joined||null; }
+    return r; };
   // practice_label = a data-clear name for the practice track. The internal key 'most' is
   // opaque, so it is stored as 'self-regulation' (the app's own word for that track); the
   // other keys are already self-explanatory and pass through unchanged.
@@ -345,6 +353,26 @@
   // `src` are REPORTING labels only; they buy no different terms. Both doors call the same
   // function; startGuestCheckout just tags the row so the pulse can read guest and cohort as
   // two lines and never blend them.
+  // ---- live sessions (2026-07-17, Live-Checkin-Plan Phase 1) ----
+  // Both go through the get-live-session edge function (verify_jwt: the anon key is a
+  // valid JWT, so no user session is required — the join code is on the shared screen,
+  // the check-ins themselves are what's account-bound).
+  async function _liveGet(qs){
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/get-live-session' + (qs||''), {
+        headers:{ Authorization:'Bearer ' + cfg.SUPABASE_ANON_KEY, apikey: cfg.SUPABASE_ANON_KEY },
+      });
+      let b={}; try{ b = await r.json(); }catch(e){}
+      if(!r.ok) return { error:(b && b.error) || ('status ' + r.status) };
+      return b;
+    }catch(e){ return { error:String((e&&e.message)||e) }; }
+  }
+  // full session (id, code, type, recipe, practices, started_at, expires_at, live) or {error}
+  function liveFetch(code){ return _liveGet('?code=' + encodeURIComponent(String(code||''))); }
+  // {live:[{code,type,started_at,expires_at}...]} — powers the "we're live" nudge poll
+  function livePoll(){ return _liveGet(''); }
+
   async function startCheckout(origin, plan){
     if(!CLOUD) return { error:'unavailable' };
     const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
@@ -583,6 +611,8 @@
     const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, fr:c.freeze||0, note:c.note||'', dom:dom.key,
                   challenge:(typeof c.challenge==='number'?c.challenge:null),
                   source:(c.source||null) };   // e.g. 'post-practice' — lets practiceEffect use clean before/after pairs
+    // live check-in tags ride along only when the check-in happened inside a live session
+    if(c.live_session_id){ rec.live_session_id=c.live_session_id; rec.practice_ref=c.practice_ref||null; rec.phase=c.phase||null; rec.joined=c.joined||null; }
     data.checkins.push(rec);
     if(CLOUD && auth.user){ outbox.checkins.push(rec); setSync('syncing'); }
     saveCache(); if(CLOUD) flush();
@@ -1623,5 +1653,6 @@
     saveContexts,
     hasAccess, isPaid, entitlement, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW,
+    liveFetch, livePoll,
   };
 })(window);
