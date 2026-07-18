@@ -524,6 +524,7 @@
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
+          ${up?'<p class="fineprint" style="margin-top:12px;text-align:center">already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">log in</button></p>':''}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">new here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>start a check-in — no account needed</button>'}
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
@@ -537,6 +538,7 @@
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
     const gs=$('#guest-start'); if(gs) gs.onclick = startGuestFlow;
     $('#toggle').onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); };
+    { const _tt=$('#toggle-top'); if(_tt) _tt.onclick=()=>{ authMode='in'; screenSignIn(); }; }
     $('#go').onclick = submit;
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
       a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
