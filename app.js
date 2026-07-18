@@ -2895,7 +2895,7 @@
   function _livePollStop(){ if(_livePollT){ clearInterval(_livePollT); _livePollT=null; } }
   function _livePollStart(join){
     _livePollStop();
-    _livePollT = setInterval(async ()=>{
+    const tick = async ()=>{
       const j=_liveJoin(); if(!j || j.code!==join.code) return _livePollStop();
       const f=await Store.liveFetch(join.code);
       if(!f || !f.id) return;                                   // network blip: keep waiting
@@ -2904,7 +2904,9 @@
       const actionable = !f.live ||
         (f.seam && _liveReadings(f).some(r=>(r.ref+':'+r.phase)===f.seam && !done.has(r.ref+':'+r.phase)));
       if(actionable){ _livePollStop(); screenLive(); }          // re-route: opens the check-in / trail / ended
-    }, 12000);
+    };
+    tick();                                   // check immediately; don't wait a full interval
+    _livePollT = setInterval(tick, 3500);
   }
   // a small terminal screen (not found / ended / member-only) with one way onward. 🖊
   function _liveEnd(h, lede){
