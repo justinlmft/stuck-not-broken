@@ -516,7 +516,7 @@
             <span class="gb-ring" id="gb-ring" aria-hidden="true"></span>
             <span class="gb-txt" id="gb-txt" aria-live="polite">take one breath first.</span>
           </button>
-          <p class="eyebrow">stuck not broken</p>
+          <p class="eyebrow">stuck not broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">you\u2019re joining a live practice. sign in to check in.</div>':''}
           <h1 style="margin:10px 0 12px">${up?'an app to guide you through emotional regulation.':'your nervous system, over time.'}</h1>
           <p class="lede" style="margin-bottom:24px">check in about your nervous system, get practices tuned to you, and watch your patterns become visible over time.</p>
           <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
