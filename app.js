@@ -2915,6 +2915,21 @@
       </div>`);
     $('#lv-out').onclick = ()=>{ _liveClear(); app('today'); };
   }
+  function screenLiveCode(){
+    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">join with a code</h2><p class="scr-lede">enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--line,#e4e1d8);border-radius:12px;background:var(--card,#fff);color:inherit;font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">back</button></div></div>');
+    var inp=$('#lc-in'); if(inp) inp.focus();
+    var go=function(){
+      var v=((inp&&inp.value)||'').trim().toUpperCase();
+      if(!/^[A-Z0-9]{4,10}$/.test(v)){ var m=$('#lc-msg'); if(m) m.textContent='that doesn\u2019t look like a code. it\u2019s a few letters and numbers.'; return; }
+      try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:v, joined:'self', t:Date.now() })); }catch(e){}
+      if(!Store.user() && Store.cloud()){ authMode = knownDevice() ? 'in' : 'up'; return screenSignIn(); }
+      screenLive();
+    };
+    if($('#lc-go')) $('#lc-go').onclick=go;
+    if(inp) inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); go(); }});
+    if($('#lc-back')) $('#lc-back').onclick=function(){ app('settings'); };
+  }
+
   async function screenLive(){
     const join = _liveJoin(); if(!join) return app(currentTab);
     _liveShell(`<div class="view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">one moment&hellip;</h2></div></div>`);
@@ -4796,6 +4811,7 @@
         <div class="set-group">
           ${swRow('sw-live','live practice invitations',lv!=='0')}
           <p class="fineprint" id="live-cap" style="margin-top:2px"></p>
+          <button class="set-quiet" id="live-code" type="button" style="margin-top:6px">join a live practice with a code</button>
         </div>
 
         </div>
@@ -4891,6 +4907,7 @@
       : 'the app never mentions live practices. joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });
+    { const _lc=$('#live-code'); if(_lc) _lc.onclick=()=>screenLiveCode(); }
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
     // offline: bulk download / clear, with an honest iOS-eviction check on render
     const segOff = $('#sw-offline'); const offStatus = $('#offline-status');
