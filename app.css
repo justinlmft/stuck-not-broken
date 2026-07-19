@@ -124,6 +124,33 @@ button{font:inherit;color:inherit}
 
   /* install nudge is phone-in-browser only (Justin, 2026-07-10) — never on desktop */
   #screen .install-nudge{display:none}
+
+  /* ---- Phase 4 composition (2026-07-19) ---- */
+  /* rail brand anchor: the ink mark, quiet, at the top of the rail */
+  #screen > .tabbar::before{content:'';flex:none;width:100%;height:24px;margin:2px 0 16px;
+    background:var(--ink);opacity:.9;
+    -webkit-mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat;
+    mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat}
+
+  /* vertical rhythm: screens open with a settled top band instead of hugging
+     the appbar — composed whitespace, not leftover phone layout */
+  #screen .view{padding-top:clamp(30px,6vh,64px)}
+  #screen .today{padding-top:clamp(26px,5vh,56px)}
+
+  /* short screens: sticky footers (check-in CTA, plan actions, From Justin)
+     sit with their content at a calm distance instead of stranding at the
+     viewport foot with a dead band above them */
+  #screen .actionbar,#screen .plan-actions{margin-top:clamp(28px,6vh,64px)}
+  #screen .from-justin{margin-top:clamp(28px,6vh,64px)}
+}
+@media (min-width:1120px){
+  /* the you-tab pattern cards compose as a two-column grid on wide — a swipe
+     carousel is a phone metaphor; this tab is the one place extra width earns
+     a real layout change (WEB-APP-FLUID-PLAN Phase 4) */
+  #screen .view.play-view:has(> .carousel){max-width:960px}
+  #screen .play-view .carousel{display:grid;grid-template-columns:1fr 1fr;gap:20px;overflow-x:visible}
+  #screen .play-view .carousel .panel{width:auto}
+  #screen .play-view .dots{display:none}
 }
 @media (min-width:720px) and (hover:hover){
   #screen > .tabbar button:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 5%,transparent)}

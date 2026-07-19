@@ -1818,8 +1818,9 @@ function pickScene(){
   // sunbeam specks are the BACKGROUND colour (Justin 2026-07-05): dust
   // silhouetted in the light. read live so dark mode follows.
   try{ const m=(getComputedStyle(document.body).backgroundColor||'').match(/\d+/g); if(m&&m.length>=3) _bgRGB=m.slice(0,3).map(Number); }catch(e){}
-  // 9 unfilled motes, slower rise (Justin 07-06: fewer, slower, outlines)
-  for(let i=0;i<9;i++)_motes.push({x:Math.random(),y:Math.random(),r:1.5+Math.random()*3.5,v:(3.5+Math.random()*8)/1000,dx:(Math.random()-.5)*.003,a:.18+Math.random()*.3});
+  // motes: density scales with the field (Justin 2026-07-19: "scale them") —
+  // 9 on a phone (07-06: fewer, slower, outlines), filling toward ~20 wide.
+  _initMotes();
   // reeds: density scales with the field (fluid Phase 3, from the validated
   // 2026-07-10 demo) — a sparse stand of 7 on a phone, filling toward ~22 on a
   // wide screen, with varied height/weight/opacity so the stand reads natural.
@@ -1827,14 +1828,25 @@ function pickScene(){
   _initReeds();
   for(let i=0;i<7;i++)_strands.push({y:.15+.7*(i/6)+(Math.random()-.5)*.06,len:.2+Math.random()*.22,sp:(28+Math.random()*46)/1000,x:Math.random()*1.4-.2,amp:2.5+Math.random()*4,ph:Math.random()*6.283,a:.22+Math.random()*.28});
   for(let i=0;i<8;i++)_dust.push({x:.36+Math.random()*.24,y:.12+Math.random()*.72,r:1+Math.random()*1.6,per:9+Math.random()*11,ph:Math.random()*6.283,ax:4+Math.random()*6,ay:8+Math.random()*9,a:.35+Math.random()*.25});
-  // stratified x-spread (Justin 07-06: pure random kept landing in a diagonal line)
-  for(let i=0;i<7;i++)_flies.push({x:.12+.76*(i/6)+(Math.random()-.5)*.09,y:.15+Math.random()*.62,per:5.5+Math.random()*6.5,ph:Math.random()*10,wx:8+Math.random()*9,wy:6+Math.random()*8});
+  // fireflies: stratified x-spread (Justin 07-06: pure random kept landing in
+  // a diagonal line), density scaled to the field (2026-07-19: 7 -> ~14 wide).
+  _initFlies();
 }
+function _fieldW(){ return (typeof cv!=='undefined'&&cv&&cv.clientWidth)||innerWidth||390; }
 function _initReeds(){
   _reedArr=[];
-  const w=(typeof cv!=='undefined'&&cv&&cv.clientWidth)||innerWidth||390;
-  const RN=Math.round(Math.max(7,Math.min(22,w/100)));
+  const RN=Math.round(Math.max(7,Math.min(22,_fieldW()/100)));
   for(let i=0;i<RN;i++)_reedArr.push({x:(i/(RN-1))*.96+.02+(Math.random()-.5)*.028,h:.24+Math.random()*.42,per:8+Math.random()*8,ph:Math.random()*6.283,amp:.035+Math.random()*.045,w:1.1+Math.random()*1.5,a:.3+Math.random()*.32});
+}
+function _initMotes(){
+  _motes=[];
+  const RN=Math.round(Math.max(9,Math.min(20,_fieldW()/70)));
+  for(let i=0;i<RN;i++)_motes.push({x:Math.random(),y:Math.random(),r:1.5+Math.random()*3.5,v:(3.5+Math.random()*8)/1000,dx:(Math.random()-.5)*.003,a:.18+Math.random()*.3});
+}
+function _initFlies(){
+  _flies=[];
+  const RN=Math.round(Math.max(7,Math.min(14,_fieldW()/100)));
+  for(let i=0;i<RN;i++)_flies.push({x:.12+.76*(i/(RN-1))+(Math.random()-.5)*.09,y:.15+Math.random()*.62,per:5.5+Math.random()*6.5,ph:Math.random()*10,wx:8+Math.random()*9,wy:6+Math.random()*8});
 }
 function drawScene(W,H,unit,t,moving,e,col){
   const dt=Math.min(.05,Math.max(0,t-_sLast)); _sLast=t; if(moving)_sT+=dt;
@@ -1912,6 +1924,8 @@ addEventListener('resize',()=>{if(!$('player').classList.contains('hidden')){fit
   // Phase 3): a live resize across a threshold refills the field; otherwise
   // the stand holds still so a practice is never visually disturbed.
   if(_reedArr.length){const want=Math.round(Math.max(7,Math.min(22,cv.clientWidth/100)));if(want!==_reedArr.length)_initReeds();}
+  if(_motes.length){const want=Math.round(Math.max(9,Math.min(20,cv.clientWidth/70)));if(want!==_motes.length)_initMotes();}
+  if(_flies.length){const want=Math.round(Math.max(7,Math.min(14,cv.clientWidth/100)));if(want!==_flies.length)_initFlies();}
 }});
 function ringLoop(){
   rafId=requestAnimationFrame(ringLoop);
