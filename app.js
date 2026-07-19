@@ -3067,17 +3067,26 @@
           : ('right now, '+escapeHtml(s.host||'justin')+' is hosting a '+escapeHtml(LIVE_NAME[s.type]||'live')+' practice. '+who);
         const el=document.createElement('div');
         el.className='lv-pop';
-        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="join us live">
+        const room=(typeof s.room==='string' && /^https?:\/\/\S+$/i.test(s.room.trim())) ? s.room.trim() : null;   // builder-published live room URL (Option A: link out only)
+        const head=room?'join us live!':"we're practicing live";   // 🖊 no room → don't over-promise
+        const btns=room
+          ? '<button class="btn block" id="lv-n-watch">watch live &rarr;</button><button class="btn quiet block" id="lv-n-join">just check in</button>'
+          : '<button class="btn block" id="lv-n-join">check in &rarr;</button>';
+        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="${head}">
           <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
-          <p class="lv-pop-h">join us live!</p>
+          <p class="lv-pop-h">${head}</p>
           <p class="lv-pop-b">${line}</p>
-          <button class="btn block" id="lv-n-join">check in &rarr;</button>
+          ${btns}
           <button class="set-quiet" id="lv-n-no">not now</button>
           <button class="set-quiet lv-pop-off" id="lv-n-off">turn off these notifications</button>
         </div>`;
         document.body.appendChild(el);
         const _close=()=>{ sessionStorage.setItem('snb_live_seen', s.code); el.remove(); };
         el.addEventListener('click', ev=>{ if(ev.target===el) _close(); });
+        const w=el.querySelector('#lv-n-watch'); if(w) w.onclick=()=>{
+          try{ window.open(room,'_blank','noopener'); }catch(e2){}
+          _close();
+        };
         const j=el.querySelector('#lv-n-join'); if(j) j.onclick=()=>{
           try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:s.code, joined:'self', t:Date.now() })); }catch(e2){}
           el.remove(); screenLive();
