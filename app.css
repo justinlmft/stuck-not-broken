@@ -375,7 +375,9 @@ body.breathing .breathhero .bh-row{opacity:0}
 .reco .head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .reco h3{font-size:calc(18px * var(--type-scale))}
 .reco .meta{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin-top:-4px}
-.reco .adapt{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf)}
+/* no decorative green (Justin 2026-07-19): green is not a brand color — positive
+   accents read in ink; color stays meaning-bearing (states) only. --leaf retired. */
+.reco .adapt{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink)}
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block;vertical-align:baseline}
 
 .section-label{margin:26px 0 12px}
@@ -478,7 +480,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .safety-num{font-size:calc(56px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
 .safety-num .pct{font-size:calc(24px * var(--type-scale));color:var(--muted);margin-left:1px}
 .safety-trend{font-size:calc(14px * var(--type-scale))}
-.safety-trend.rising{color:var(--leaf)}
+.safety-trend.rising{color:var(--ink)}
 .safety-trend.falling,.safety-trend.steady{color:var(--muted)}
 .safety-meter{height:14px;background:var(--bone-deep);border-radius:7px;overflow:hidden;margin-top:18px}
 .safety-meter-fill{display:block;height:100%;border-radius:7px;background:var(--s-safety);transition:width .6s var(--ease)}
@@ -501,7 +503,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .help-fill{display:block;height:100%;border-radius:7px;transition:width .6s var(--ease)}
 .help-pct{flex:none;width:40px;text-align:right;font-size:calc(13.5px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
 .help-verdict{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:18px 0 0;text-wrap:pretty}
-.help-verdict.good{color:var(--leaf)}
+.help-verdict.good{color:var(--ink)}
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
 .cb-viz{display:flex;align-items:center;gap:9px;margin:14px 0 16px}
 .cb-dot{width:15px;height:15px;border-radius:50%;flex:none}
@@ -1315,7 +1317,7 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 /* 'your growth' card headline */
 .growth-head{display:flex;flex-direction:column;gap:5px;margin:4px 0 16px}
 .growth-num{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
-.growth-num.up{color:var(--leaf)}
+.growth-num.up{color:var(--ink)}
 .growth-num.down{color:var(--muted)}
 .growth-cap{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.5;text-wrap:pretty}
 
