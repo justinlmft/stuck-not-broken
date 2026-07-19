@@ -1833,19 +1833,23 @@ function pickScene(){
   _initFlies();
 }
 function _fieldW(){ return (typeof cv!=='undefined'&&cv&&cv.clientWidth)||innerWidth||390; }
+/* reduced motion means LESS, not just frozen (shutdown-viewer lens, Justin
+   2026-07-19): when someone asks for reduced motion, the field holds the
+   phone-minimum density at every width — fewer points of attention, not a
+   denser still image. */
 function _initReeds(){
   _reedArr=[];
-  const RN=Math.round(Math.max(7,Math.min(22,_fieldW()/100)));
+  const RN=reduce?7:Math.round(Math.max(7,Math.min(22,_fieldW()/100)));
   for(let i=0;i<RN;i++)_reedArr.push({x:(i/(RN-1))*.96+.02+(Math.random()-.5)*.028,h:.24+Math.random()*.42,per:8+Math.random()*8,ph:Math.random()*6.283,amp:.035+Math.random()*.045,w:1.1+Math.random()*1.5,a:.3+Math.random()*.32});
 }
 function _initMotes(){
   _motes=[];
-  const RN=Math.round(Math.max(9,Math.min(20,_fieldW()/70)));
+  const RN=reduce?9:Math.round(Math.max(9,Math.min(20,_fieldW()/70)));
   for(let i=0;i<RN;i++)_motes.push({x:Math.random(),y:Math.random(),r:1.5+Math.random()*3.5,v:(3.5+Math.random()*8)/1000,dx:(Math.random()-.5)*.003,a:.18+Math.random()*.3});
 }
 function _initFlies(){
   _flies=[];
-  const RN=Math.round(Math.max(7,Math.min(14,_fieldW()/100)));
+  const RN=reduce?7:Math.round(Math.max(7,Math.min(14,_fieldW()/100)));
   for(let i=0;i<RN;i++)_flies.push({x:.12+.76*(i/(RN-1))+(Math.random()-.5)*.09,y:.15+Math.random()*.62,per:5.5+Math.random()*6.5,ph:Math.random()*10,wx:8+Math.random()*9,wy:6+Math.random()*8});
 }
 function drawScene(W,H,unit,t,moving,e,col){
@@ -1923,9 +1927,11 @@ addEventListener('resize',()=>{if(!$('player').classList.contains('hidden')){fit
   // re-seed the reed stand only when the density band actually changes (fluid
   // Phase 3): a live resize across a threshold refills the field; otherwise
   // the stand holds still so a practice is never visually disturbed.
-  if(_reedArr.length){const want=Math.round(Math.max(7,Math.min(22,cv.clientWidth/100)));if(want!==_reedArr.length)_initReeds();}
-  if(_motes.length){const want=Math.round(Math.max(9,Math.min(20,cv.clientWidth/70)));if(want!==_motes.length)_initMotes();}
-  if(_flies.length){const want=Math.round(Math.max(7,Math.min(14,cv.clientWidth/100)));if(want!==_flies.length)_initFlies();}
+  if(!reduce){
+    if(_reedArr.length){const want=Math.round(Math.max(7,Math.min(22,cv.clientWidth/100)));if(want!==_reedArr.length)_initReeds();}
+    if(_motes.length){const want=Math.round(Math.max(9,Math.min(20,cv.clientWidth/70)));if(want!==_motes.length)_initMotes();}
+    if(_flies.length){const want=Math.round(Math.max(7,Math.min(14,cv.clientWidth/100)));if(want!==_flies.length)_initFlies();}
+  }
 }});
 function ringLoop(){
   rafId=requestAnimationFrame(ringLoop);
