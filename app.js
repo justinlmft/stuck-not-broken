@@ -3997,7 +3997,10 @@
           };
           const cur=all.find(s=>s[0]===key);
           const wrap=document.createElement('div'); wrap.className='you-ledger';
-          wrap.innerHTML='<nav class="yl-list" aria-label="your patterns">'
+          // heading approved verbatim (Justin, 2026-07-19) — no sub: the period
+          // pills above already say the window, the list already invites choice.
+          wrap.innerHTML='<h2 class="yl-h">what your check-ins show.</h2>'
+            +'<nav class="yl-list" aria-label="what your check-ins show">'
             +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+s[1]+'</span></button>').join('')
             +'</nav>'
             +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
