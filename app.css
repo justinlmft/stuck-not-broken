@@ -124,7 +124,56 @@ button{font:inherit;color:inherit}
 
   /* install nudge is phone-in-browser only (Justin, 2026-07-10) — never on desktop */
   #screen .install-nudge{display:none}
+
+  /* ---- Phase 4 composition (2026-07-19) ---- */
+  /* rail brand anchor: the ink mark, quiet, at the top of the rail */
+  #screen > .tabbar::before{content:'';flex:none;width:100%;height:24px;margin:2px 0 16px;
+    background:var(--ink);opacity:.9;
+    -webkit-mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat;
+    mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat}
+
+  /* vertical rhythm: screens open with a settled top band instead of hugging
+     the appbar — composed whitespace, not leftover phone layout */
+  #screen .view{padding-top:clamp(30px,6vh,64px)}
+  #screen .today{padding-top:clamp(26px,5vh,56px)}
+
+  /* short screens: sticky footers (check-in CTA, plan actions, From Justin)
+     sit with their content at a calm distance instead of stranding at the
+     viewport foot with a dead band above them */
+  #screen .actionbar,#screen .plan-actions{margin-top:clamp(28px,6vh,64px)}
+  #screen .from-justin{margin-top:clamp(28px,6vh,64px)}
 }
+@media (min-width:1120px){
+  /* the you-tab LEDGER (Justin's pick, 2026-07-19): a swipe carousel is a phone
+     metaphor — on wide, every pattern card is listed quietly on the left and
+     shown ONE at a time on the right, keeping the capacity-aware pacing. */
+  #screen .view.play-view:has(.you-ledger){max-width:980px}
+  #screen .play-view .dots{display:none}
+  .you-ledger{display:grid;grid-template-columns:272px minmax(0,1fr);gap:clamp(24px,3.5vw,52px);align-items:start;margin-top:6px}
+  .yl-h{grid-column:1/-1;font-size:calc(22px * var(--type-scale));font-weight:500;line-height:1.24;letter-spacing:-.01em;color:var(--ink);margin:4px 0 2px}
+  .yl-list{display:flex;flex-direction:column;border-top:1px solid var(--hairline)}
+  .yl-item{display:flex;align-items:center;gap:11px;text-align:left;background:none;border:0;border-bottom:1px solid var(--hairline);padding:13px 10px 13px 12px;cursor:pointer;color:var(--muted);font:inherit;font-size:calc(13.5px * var(--type-user));position:relative;min-height:52px}
+  .yl-ic{flex:none;width:26px;display:flex;align-items:center;justify-content:center;gap:1.5px}
+  .yl-ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.75}
+  .yl-ic.tri svg{width:9px;height:9px}
+  .yl-dot{width:7px;height:7px;border-radius:50%;background:var(--hairline)}
+  .yl-nm{font-weight:500;color:var(--ink-80);line-height:1.3}
+  .yl-item:hover .yl-nm,.yl-item.on .yl-nm{color:var(--ink)}
+  .yl-item.on::before{content:'';position:absolute;left:0;top:11px;bottom:11px;width:2px;background:var(--ink);border-radius:2px}
+  .yl-item:focus-visible{outline:2px solid var(--ink);outline-offset:-2px;border-radius:8px}
+  .you-ledger .panel{flex:none;width:auto;min-height:320px}
+}
+/* axis cards (mobilized / immobilized time of day) — all sizes */
+.ax-big{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);margin:4px 0 12px;display:flex;align-items:center;gap:12px}
+.ax-big .seg-ico{width:.85em;height:.85em}
+/* daypart symbols: quiet ink line icons (morning sunrise / afternoon sun /
+   evening moon+star / late-night stars) */
+.seg-ico{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.deep-lbl .seg-ico{width:15px;height:15px;vertical-align:-2.5px;margin-right:7px;opacity:.75}
+.ax-flav{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 14px}
+.ax-flav span{display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale));color:var(--ink-80)}
+.ax-flav i{width:9px;height:9px;border-radius:50%;flex:none}
+.ax-note{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.55;margin:0;text-wrap:pretty}
 @media (min-width:720px) and (hover:hover){
   #screen > .tabbar button:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 5%,transparent)}
   #screen > .tabbar button.on:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
@@ -331,7 +380,9 @@ body.breathing .breathhero .bh-row{opacity:0}
 .reco .head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .reco h3{font-size:calc(18px * var(--type-scale))}
 .reco .meta{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin-top:-4px}
-.reco .adapt{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--leaf)}
+/* no decorative green (Justin 2026-07-19): green is not a brand color — positive
+   accents read in ink; color stays meaning-bearing (states) only. --leaf retired. */
+.reco .adapt{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink)}
 .dot{width:9px;height:9px;border-radius:50%;display:inline-block;vertical-align:baseline}
 
 .section-label{margin:26px 0 12px}
@@ -434,7 +485,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .safety-num{font-size:calc(56px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
 .safety-num .pct{font-size:calc(24px * var(--type-scale));color:var(--muted);margin-left:1px}
 .safety-trend{font-size:calc(14px * var(--type-scale))}
-.safety-trend.rising{color:var(--leaf)}
+.safety-trend.rising{color:var(--ink)}
 .safety-trend.falling,.safety-trend.steady{color:var(--muted)}
 .safety-meter{height:14px;background:var(--bone-deep);border-radius:7px;overflow:hidden;margin-top:18px}
 .safety-meter-fill{display:block;height:100%;border-radius:7px;background:var(--s-safety);transition:width .6s var(--ease)}
@@ -457,7 +508,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .help-fill{display:block;height:100%;border-radius:7px;transition:width .6s var(--ease)}
 .help-pct{flex:none;width:40px;text-align:right;font-size:calc(13.5px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
 .help-verdict{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:18px 0 0;text-wrap:pretty}
-.help-verdict.good{color:var(--leaf)}
+.help-verdict.good{color:var(--ink)}
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
 .cb-viz{display:flex;align-items:center;gap:9px;margin:14px 0 16px}
 .cb-dot{width:15px;height:15px;border-radius:50%;flex:none}
@@ -1271,7 +1322,7 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 /* 'your growth' card headline */
 .growth-head{display:flex;flex-direction:column;gap:5px;margin:4px 0 16px}
 .growth-num{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
-.growth-num.up{color:var(--leaf)}
+.growth-num.up{color:var(--ink)}
 .growth-num.down{color:var(--muted)}
 .growth-cap{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.5;text-wrap:pretty}
 

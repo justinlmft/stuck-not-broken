@@ -1459,6 +1459,17 @@
   // where you are at different times of day, and see those patterns build up over time.
   function segOf(t){ const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; }
   function segLabel(seg){ return seg==='late'?'late night':seg; }
+  // daypart symbols (Justin 2026-07-19: symbols where natural — a moon says
+  // evening faster than the word). Quiet ink line icons, one per daypart.
+  function segIco(seg){
+    const P={
+      morning:'<path d="M12 9a4 4 0 014 4H8a4 4 0 014-4z"/><path d="M12 4v2M5.3 6.8l1.4 1.4M18.7 6.8l-1.4 1.4M3 13h2M19 13h2M5 17h14"/>',
+      afternoon:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>',
+      evening:'<path d="M19 13.5A7.5 7.5 0 0110.5 5 7.5 7.5 0 1019 13.5z"/><path d="M17.5 4.5l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z"/>',
+      late:'<path d="M12 3l.9 2.6L15.5 6.5l-2.6.9L12 10l-.9-2.6L8.5 6.5l2.6-.9z"/><path d="M18 12l.6 1.8 1.8.6-1.8.6L18 16.8l-.6-1.8-1.8-.6 1.8-.6z"/><path d="M7 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'
+    };
+    return P[seg]?'<svg class="seg-ico" viewBox="0 0 24 24" aria-hidden="true">'+P[seg]+'</svg>':'';
+  }
   function segPoss(seg){ return seg==='late'?'night':seg; }
   // per-user AND per-day: a new account on the same device must not inherit
   // the previous account's "already breathed today" settled state
@@ -3884,6 +3895,42 @@
               ${shareBtn('practice')}<h2 class="panel-title">is practice helping?</h2>
               <p class="panel-sub">your average safety after you practice vs. not.</p>
               ${helpHTML}`]);
+            // axis cards (2026-07-19, from the desktop ledger design): the most
+            // mobilized / most immobilized time of day, each with its FLAVOR —
+            // whether safety is in the mix (play vs fight/flight; stillness vs
+            // shutdown; freeze = both pedals). Mirrors what the person named,
+            // never a score. 🖊 copy drafted, Justin-owned.
+            const _AXFL = (SET)=>{
+              let best=null;
+              ['morning','afternoon','evening','late'].forEach(sg=>{
+                const sub=cs.filter(x=>segOf(x.t)===sg); if(sub.length<4) return;
+                const hits=sub.filter(x=>SET[x.dom]); const share=hits.length/sub.length;
+                if(hits.length>=3 && (!best || share>best.share)) best={seg:sg,share,n:hits.length,hits};
+              });
+              if(!best) return null;
+              const cnt={}; best.hits.forEach(x=>{cnt[x.dom]=(cnt[x.dom]||0)+1;});
+              best.flavors=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k,Math.round(n/best.n*100)]);
+              return best;
+            };
+            const _axNm = k => ({play:'play/motivation',stillness:'stillness'}[k])||STATE_NAME(k);
+            const _axChips = f => `<div class="ax-flav">${f.map(([k,p])=>`<span><i style="background:${STATE_COLOR(k)}"></i>${_axNm(k)} ${p}%</span>`).join('')}</div>`;
+            const _mob=_AXFL({fightflight:1,play:1}), _imm=_AXFL({shutdown:1,stillness:1,freeze:1});
+            if(_mob){
+              slides.push(['mobilized','your most mobilized time of day', `
+              <h2 class="panel-title">your most mobilized time of day</h2>
+              <p class="panel-sub">when mobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
+              <div class="ax-big">${segIco(_mob.seg)}${_mob.seg==='late'?'late at night':segLabel(_mob.seg)+'s'}</div>
+              ${_axChips(_mob.flavors)}
+              <p class="ax-note">play is mobilization with safety in the mix. fight/flight is without.</p>`]);
+            }
+            if(_imm){
+              slides.push(['immobilized','your most immobilized time of day', `
+              <h2 class="panel-title">your most immobilized time of day</h2>
+              <p class="panel-sub">when immobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
+              <div class="ax-big">${segIco(_imm.seg)}${_imm.seg==='late'?'late at night':segLabel(_imm.seg)+'s'}</div>
+              ${_axChips(_imm.flavors)}
+              <p class="ax-note">stillness is immobilization with safety in the mix. shutdown is without. freeze is both pedals at once.</p>`]);
+            }
             // capacity-aware carousel (2026-07-05): AT MOST 4 cards, chosen for
             // what the data supports and what the person has room for right now.
             // when recent check-ins lean defensive, the cards that say "dips end"
@@ -3897,8 +3944,15 @@
               ? ['comeback','times','records','practice','flavors','baseline','mix','context','changes','states','shift','safety']
               : ['safety','comeback','changes','baseline','times','shift','records','mix','flavors','context','states','practice'];
             const _rank = k=>{ const i=_ORDER.indexOf(k); return i<0?99:i; };
-            const picked = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0])).slice(0,4);
-            window._youSlides = picked.map(s=>s[1]);
+            const sorted = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0]));
+            // desktop ledger (2026-07-19): at wide the carousel stays empty and a
+            // one-card-at-a-time ledger is built after render — ALL cards listed,
+            // one shown, so the capacity-aware pacing survives the big screen.
+            window._youAll = sorted;
+            const _wide = window.matchMedia && matchMedia('(min-width:1120px)').matches;
+            const picked = sorted.slice(0,4);
+            window._youSlides = _wide ? [] : picked.map(s=>s[1]);
+            if(_wide) return '';
             return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${s[1]}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
 
@@ -3907,7 +3961,7 @@
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row"><span class="deep-lbl">${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">day by day</h3>
@@ -3932,6 +3986,44 @@
           <button class="change-link" id="change-ci" type="button">change a recent check-in</button>
           ${Store.sessions().length ? '<button class="change-link" id="manage-pr" type="button">manage your practices</button>' : ''}
         </div>`;
+
+      // ---- desktop ledger (2026-07-19): wide screens get the pattern cards as a
+      // quiet list + ONE card at a time (master-detail) instead of a swipe
+      // carousel. Runs BEFORE the shared bindings below so the injected card's
+      // taps/links bind exactly like carousel content. Compact is untouched.
+      if(window.matchMedia && matchMedia('(min-width:1120px)').matches && window._youAll && window._youAll.length){
+        const cvEl=$('#carousel'), dtEl=$('#dots');
+        if(cvEl){
+          const all=window._youAll;
+          let key=window._youLedgerKey; if(!all.some(s=>s[0]===key)) key=all[0][0];
+          window._youLedgerKey=key;
+          const _I={
+            safety:'<span class="yl-ic tri"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
+            mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
+            times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
+            mobilized:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
+            immobilized:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            records:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 4h11l-2.5 3.5L17 11H6"/></svg></span>'
+          };
+          const cur=all.find(s=>s[0]===key);
+          const wrap=document.createElement('div'); wrap.className='you-ledger';
+          // heading approved verbatim (Justin, 2026-07-19) — no sub: the period
+          // pills above already say the window, the list already invites choice.
+          wrap.innerHTML='<h2 class="yl-h">what your check-ins show.</h2>'
+            +'<nav class="yl-list" aria-label="what your check-ins show">'
+            +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+s[1]+'</span></button>').join('')
+            +'</nav>'
+            +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
+          cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
+          cvEl.parentNode.insertBefore(wrap, cvEl);
+          wrap.querySelectorAll('.yl-item').forEach(b=>b.onclick=()=>{ window._youLedgerKey=b.dataset.led; render(); });
+        }
+      }
+      if(!window._youMqlBound){
+        window._youMqlBound=true;
+        try{ matchMedia('(min-width:1120px)').addEventListener('change',()=>{ try{ if(currentTab==='current') app('current'); }catch(e){} }); }catch(e){}
+      }
 
       function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; } const p=$('#ot-play'); if(p) p.innerHTML='<svg viewBox="0 0 24 24"><path d="M8 6 L18 12 L8 18 Z"/></svg>'; }
 
