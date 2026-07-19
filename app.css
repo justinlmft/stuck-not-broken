@@ -164,7 +164,12 @@ button{font:inherit;color:inherit}
   .you-ledger .panel{flex:none;width:auto;min-height:320px}
 }
 /* axis cards (mobilized / immobilized time of day) — all sizes */
-.ax-big{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);margin:4px 0 12px}
+.ax-big{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);margin:4px 0 12px;display:flex;align-items:center;gap:12px}
+.ax-big .seg-ico{width:.85em;height:.85em}
+/* daypart symbols: quiet ink line icons (morning sunrise / afternoon sun /
+   evening moon+star / late-night stars) */
+.seg-ico{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.deep-lbl .seg-ico{width:15px;height:15px;vertical-align:-2.5px;margin-right:7px;opacity:.75}
 .ax-flav{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 14px}
 .ax-flav span{display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale));color:var(--ink-80)}
 .ax-flav i{width:9px;height:9px;border-radius:50%;flex:none}

@@ -1459,6 +1459,17 @@
   // where you are at different times of day, and see those patterns build up over time.
   function segOf(t){ const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; }
   function segLabel(seg){ return seg==='late'?'late night':seg; }
+  // daypart symbols (Justin 2026-07-19: symbols where natural — a moon says
+  // evening faster than the word). Quiet ink line icons, one per daypart.
+  function segIco(seg){
+    const P={
+      morning:'<path d="M12 9a4 4 0 014 4H8a4 4 0 014-4z"/><path d="M12 4v2M5.3 6.8l1.4 1.4M18.7 6.8l-1.4 1.4M3 13h2M19 13h2M5 17h14"/>',
+      afternoon:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>',
+      evening:'<path d="M19 13.5A7.5 7.5 0 0110.5 5 7.5 7.5 0 1019 13.5z"/><path d="M17.5 4.5l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z"/>',
+      late:'<path d="M12 3l.9 2.6L15.5 6.5l-2.6.9L12 10l-.9-2.6L8.5 6.5l2.6-.9z"/><path d="M18 12l.6 1.8 1.8.6-1.8.6L18 16.8l-.6-1.8-1.8-.6 1.8-.6z"/><path d="M7 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'
+    };
+    return P[seg]?'<svg class="seg-ico" viewBox="0 0 24 24" aria-hidden="true">'+P[seg]+'</svg>':'';
+  }
   function segPoss(seg){ return seg==='late'?'night':seg; }
   // per-user AND per-day: a new account on the same device must not inherit
   // the previous account's "already breathed today" settled state
@@ -3908,7 +3919,7 @@
               slides.push(['mobilized','your most mobilized time of day', `
               <h2 class="panel-title">your most mobilized time of day</h2>
               <p class="panel-sub">when mobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
-              <div class="ax-big">${_mob.seg==='late'?'late at night':segLabel(_mob.seg)}</div>
+              <div class="ax-big">${segIco(_mob.seg)}${_mob.seg==='late'?'late at night':segLabel(_mob.seg)+'s'}</div>
               ${_axChips(_mob.flavors)}
               <p class="ax-note">play is mobilization with safety in the mix. fight/flight is without.</p>`]);
             }
@@ -3916,7 +3927,7 @@
               slides.push(['immobilized','your most immobilized time of day', `
               <h2 class="panel-title">your most immobilized time of day</h2>
               <p class="panel-sub">when immobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
-              <div class="ax-big">${_imm.seg==='late'?'late at night':segLabel(_imm.seg)}</div>
+              <div class="ax-big">${segIco(_imm.seg)}${_imm.seg==='late'?'late at night':segLabel(_imm.seg)+'s'}</div>
               ${_axChips(_imm.flavors)}
               <p class="ax-note">stillness is immobilization with safety in the mix. shutdown is without. freeze is both pedals at once.</p>`]);
             }
@@ -3950,7 +3961,7 @@
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row"><span class="deep-lbl">${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">day by day</h3>
