@@ -3344,7 +3344,7 @@
     const url=location.href;
     if(navigator.share){ navigator.share({title:'stuck not broken', text:txt, url}).catch(()=>{}); return; }
     const enc=encodeURIComponent(txt);
-    const host=document.querySelector('.phone')||document.body;
+    const host=document.querySelector('.shell')||document.body;
     const old=document.getElementById('share-sheet'); if(old) old.remove();
     const s=document.createElement('div'); s.id='share-sheet'; s.className='share-sheet';
     s.innerHTML=`<div class="ss-card"><p class="ss-h">share your progress</p><a class="ss-opt" href="sms:?&body=${enc}">message</a><a class="ss-opt" href="mailto:?subject=${encodeURIComponent('my progress')}&body=${enc}">email</a><a class="ss-opt" href="https://twitter.com/intent/tweet?text=${enc}" target="_blank" rel="noopener">post to X</a><button class="ss-opt" type="button" data-copy="1">copy</button><button class="ss-cancel" type="button">cancel</button></div>`;
