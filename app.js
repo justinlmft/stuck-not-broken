@@ -3071,7 +3071,7 @@
           <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
           <p class="lv-pop-h">join us live!</p>
           <p class="lv-pop-b">${line}</p>
-          <button class="btn block" id="lv-n-join">join &rarr;</button>
+          <button class="btn block" id="lv-n-join">check in &rarr;</button>
           <button class="set-quiet" id="lv-n-no">not now</button>
           <button class="set-quiet lv-pop-off" id="lv-n-off">turn off these notifications</button>
         </div>`;
