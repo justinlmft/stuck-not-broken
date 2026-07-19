@@ -516,7 +516,7 @@
             <span class="gb-ring" id="gb-ring" aria-hidden="true"></span>
             <span class="gb-txt" id="gb-txt" aria-live="polite">take one breath first.</span>
           </button>
-          <p class="eyebrow">stuck not broken</p>
+          <p class="eyebrow">stuck not broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">you\u2019re joining a live practice. sign in to check in.</div>':''}
           <h1 style="margin:10px 0 12px">${up?'an app to guide you through emotional regulation.':'your nervous system, over time.'}</h1>
           <p class="lede" style="margin-bottom:24px">check in about your nervous system, get practices tuned to you, and watch your patterns become visible over time.</p>
           <div class="field"><label for="em">email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
@@ -524,6 +524,7 @@
           <div class="field"><label for="pw">password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
+          ${up?'<p class="fineprint" style="margin-top:12px;text-align:center">already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">log in</button></p>':''}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">new here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>start a check-in — no account needed</button>'}
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
@@ -537,6 +538,7 @@
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
     const gs=$('#guest-start'); if(gs) gs.onclick = startGuestFlow;
     $('#toggle').onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); };
+    { const _tt=$('#toggle-top'); if(_tt) _tt.onclick=()=>{ authMode='in'; screenSignIn(); }; }
     $('#go').onclick = submit;
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
       a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
@@ -2895,7 +2897,7 @@
   function _livePollStop(){ if(_livePollT){ clearInterval(_livePollT); _livePollT=null; } }
   function _livePollStart(join){
     _livePollStop();
-    _livePollT = setInterval(async ()=>{
+    const tick = async ()=>{
       const j=_liveJoin(); if(!j || j.code!==join.code) return _livePollStop();
       const f=await Store.liveFetch(join.code);
       if(!f || !f.id) return;                                   // network blip: keep waiting
@@ -2904,7 +2906,9 @@
       const actionable = !f.live ||
         (f.seam && _liveReadings(f).some(r=>(r.ref+':'+r.phase)===f.seam && !done.has(r.ref+':'+r.phase)));
       if(actionable){ _livePollStop(); screenLive(); }          // re-route: opens the check-in / trail / ended
-    }, 12000);
+    };
+    tick();                                   // check immediately; don't wait a full interval
+    _livePollT = setInterval(tick, 3500);
   }
   // a small terminal screen (not found / ended / member-only) with one way onward. 🖊
   function _liveEnd(h, lede){
@@ -2915,6 +2919,21 @@
       </div>`);
     $('#lv-out').onclick = ()=>{ _liveClear(); app('today'); };
   }
+  function screenLiveCode(){
+    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">join with a code</h2><p class="scr-lede">enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--line,#e4e1d8);border-radius:12px;background:var(--card,#fff);color:inherit;font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">back</button></div></div>');
+    var inp=$('#lc-in'); if(inp) inp.focus();
+    var go=function(){
+      var v=((inp&&inp.value)||'').trim().toUpperCase();
+      if(!/^[A-Z0-9]{4,10}$/.test(v)){ var m=$('#lc-msg'); if(m) m.textContent='that doesn\u2019t look like a code. it\u2019s a few letters and numbers.'; return; }
+      try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:v, joined:'self', t:Date.now() })); }catch(e){}
+      if(!Store.user() && Store.cloud()){ authMode = knownDevice() ? 'in' : 'up'; return screenSignIn(); }
+      screenLive();
+    };
+    if($('#lc-go')) $('#lc-go').onclick=go;
+    if(inp) inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); go(); }});
+    if($('#lc-back')) $('#lc-back').onclick=function(){ app('settings'); };
+  }
+
   async function screenLive(){
     const join = _liveJoin(); if(!join) return app(currentTab);
     _liveShell(`<div class="view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">one moment&hellip;</h2></div></div>`);
@@ -3024,7 +3043,7 @@
       if(!Store.user() || (Store.isAnonymous&&Store.isAnonymous())) return;
       if(_liveJoin()) return;
       const K='snb_live_poll_t';
-      if(Date.now() - (+localStorage.getItem(K)||0) < 3*60*1000) return;   // poll at most every 3 min
+      if(Date.now() - (+localStorage.getItem(K)||0) < 15*1000) return;   // poll at most every 15s (was 3 min; too slow to re-check on app reopen)
       localStorage.setItem(K, String(Date.now()));
       Store.livePoll().then(r=>{
         if(!r || !Array.isArray(r.live) || !r.live.length) return;
@@ -3048,17 +3067,26 @@
           : ('right now, '+escapeHtml(s.host||'justin')+' is hosting a '+escapeHtml(LIVE_NAME[s.type]||'live')+' practice. '+who);
         const el=document.createElement('div');
         el.className='lv-pop';
-        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="join us live">
+        const room=(typeof s.room==='string' && /^https?:\/\/\S+$/i.test(s.room.trim())) ? s.room.trim() : null;   // builder-published live room URL (Option A: link out only)
+        const head=room?'join us live!':"we're practicing live";   // 🖊 no room → don't over-promise
+        const btns=room
+          ? '<button class="btn block" id="lv-n-watch">watch live &rarr;</button><button class="btn quiet block" id="lv-n-join">just check in</button>'
+          : '<button class="btn block" id="lv-n-join">check in &rarr;</button>';
+        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="${head}">
           <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
-          <p class="lv-pop-h">join us live!</p>
+          <p class="lv-pop-h">${head}</p>
           <p class="lv-pop-b">${line}</p>
-          <button class="btn block" id="lv-n-join">join &rarr;</button>
+          ${btns}
           <button class="set-quiet" id="lv-n-no">not now</button>
           <button class="set-quiet lv-pop-off" id="lv-n-off">turn off these notifications</button>
         </div>`;
         document.body.appendChild(el);
         const _close=()=>{ sessionStorage.setItem('snb_live_seen', s.code); el.remove(); };
         el.addEventListener('click', ev=>{ if(ev.target===el) _close(); });
+        const w=el.querySelector('#lv-n-watch'); if(w) w.onclick=()=>{
+          try{ window.open(room,'_blank','noopener'); }catch(e2){}
+          _close();
+        };
         const j=el.querySelector('#lv-n-join'); if(j) j.onclick=()=>{
           try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:s.code, joined:'self', t:Date.now() })); }catch(e2){}
           el.remove(); screenLive();
@@ -3316,7 +3344,7 @@
     const url=location.href;
     if(navigator.share){ navigator.share({title:'stuck not broken', text:txt, url}).catch(()=>{}); return; }
     const enc=encodeURIComponent(txt);
-    const host=document.querySelector('.phone')||document.body;
+    const host=document.querySelector('.shell')||document.body;
     const old=document.getElementById('share-sheet'); if(old) old.remove();
     const s=document.createElement('div'); s.id='share-sheet'; s.className='share-sheet';
     s.innerHTML=`<div class="ss-card"><p class="ss-h">share your progress</p><a class="ss-opt" href="sms:?&body=${enc}">message</a><a class="ss-opt" href="mailto:?subject=${encodeURIComponent('my progress')}&body=${enc}">email</a><a class="ss-opt" href="https://twitter.com/intent/tweet?text=${enc}" target="_blank" rel="noopener">post to X</a><button class="ss-opt" type="button" data-copy="1">copy</button><button class="ss-cancel" type="button">cancel</button></div>`;
@@ -4796,6 +4824,7 @@
         <div class="set-group">
           ${swRow('sw-live','live practice invitations',lv!=='0')}
           <p class="fineprint" id="live-cap" style="margin-top:2px"></p>
+          <button class="set-quiet" id="live-code" type="button" style="margin-top:6px">join a live practice with a code</button>
         </div>
 
         </div>
@@ -4891,6 +4920,7 @@
       : 'the app never mentions live practices. joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });
+    { const _lc=$('#live-code'); if(_lc) _lc.onclick=()=>screenLiveCode(); }
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
     // offline: bulk download / clear, with an honest iOS-eviction check on render
     const segOff = $('#sw-offline'); const offStatus = $('#offline-status');

@@ -45,6 +45,7 @@
   --gap:clamp(20px,4vw,32px);
   --section:clamp(64px,9vw,112px);
   --measure:66ch;                         /* reading line length; text is never full-bleed */
+  --col:680px;                            /* capped content column on regular/wide (Phase 2) */
 
   /* type ramp — device-appropriate body (Justin, 2026-07-10): ~17px phone -> ~19px wide.
      Stepped by size class, not clamp(): CSS cannot derive a unitless ratio from vw,
@@ -62,13 +63,11 @@
   --type-scale:calc(var(--type-user) * var(--type-fluid));
   --fs-body:calc(15px * var(--type-scale));
 }
-/* PARKED until fluid Phase 2 (2026-07-14): these escalate type on wide VIEWPORTS,
-   but until Phase 2 kills the .phone frame the content column is phone-width at
-   every viewport — so wide type rendered in a narrow column (12% oversized, subs
-   wrapping, desktop screenshots off-spec). Nothing changes on real phones (compact
-   1.133 stays = the ~17px HIG body). Re-enable together WITH Phase 2.
-@media (min-width:720px){ :root{ --type-fluid:1.2; } }    regular: ~18px
-@media (min-width:1120px){ :root{ --type-fluid:1.267; } } wide:    ~19px */
+/* Device-appropriate type ramp (re-enabled with fluid Phase 2, 2026-07-19):
+   reading distance grows with the screen, so the whole scale rides up together.
+   Compact 1.133 stays = the ~17px HIG body on phones. */
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
+@media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
 /* iOS paints a dark rectangle over tapped elements by default — our buttons
@@ -77,24 +76,59 @@ html,body{margin:0;height:100%;touch-action:manipulation}
 body{
   font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bone);color:var(--ink);
   font-size:var(--fs-body);line-height:1.5;-webkit-font-smoothing:antialiased;
-  display:flex;align-items:center;justify-content:center;min-height:100svh;
+  min-height:100svh;
 }
 button{font:inherit;color:inherit}
 
-/* phone shell */
-.phone{
-  position:relative;width:min(390px,calc(100vw - 32px));height:min(844px,calc(100svh - 32px));
-  border-radius:24px;
+/* ---------- fluid shell (Phase 2, 2026-07-19) ----------
+   The `.phone` device frame is retired. The app root is a normal responsive
+   surface: it fills whatever viewport it's in and composes by size class —
+   compact <720 (bottom tab bar, as always) · regular 720–1120 · wide >1120
+   (tab bar becomes a left rail; content caps at --col and centers; the whole
+   shell caps at --shell 1240 and centers). Plan: WEB-APP-FLUID-PLAN.md;
+   visual source of truth: archive/2026-07-17/demo-adaptive-shell.html. */
+.shell{
+  position:relative;width:100%;height:100svh;height:100dvh;margin-inline:auto;
   background:var(--bone);overflow:hidden;display:flex;flex-direction:column;
 }
-@media (min-width:480px){
-  /* framed (desktop/designer) view: contrast the backdrop and float the device so its edges read */
-  body{ background:var(--backdrop); }
-  .phone{ border-radius:44px; width:auto; height:min(860px,94svh); aspect-ratio:390/844; max-width:100vw;
-    box-shadow:0 1px 0 rgba(0,0,0,.04), 0 22px 60px rgba(26,31,42,.18); border:1px solid rgba(26,31,42,.06); }
+#screen{display:flex;flex-direction:column;flex:1;min-height:0}
+
+@media (min-width:720px){
+  .shell{max-width:var(--shell)}
+  /* one interface, recomposed: the same appbar/scroll/tabbar children lay out
+     as [rail | header-over-content] — no markup changes, grid does the work. */
+  #screen{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  #screen > .tabbar{grid-column:1;grid-row:1 / span 2}
+  #screen > .appbar{grid-column:2;grid-row:1}
+  #screen > :not(.appbar):not(.tabbar){grid-column:2;grid-row:2;min-height:0}
+
+  /* the bottom tab bar becomes a left rail (HIG: a bottom bar is a phone
+     metaphor; pointer contexts get side navigation) */
+  #screen > .tabbar{
+    flex-direction:column;justify-content:flex-start;gap:4px;height:100%;overflow-y:auto;
+    border-top:0;border-right:1px solid var(--hairline);
+    padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
+    min-width:118px}
+  #screen > .tabbar button{flex-direction:row;justify-content:flex-start;gap:12px;
+    width:100%;min-height:52px;padding:0 14px;border-radius:12px}
+  #screen > .tabbar button .lb{font-size:calc(14px * var(--type-user))}
+  #screen > .tabbar button.on{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+  #screen > .tabbar button:focus-visible{outline-offset:2px}
+
+  /* content and header hold a calm centered column — never stretched wall to wall */
+  #screen > .appbar{width:100%;max-width:var(--col);margin-inline:auto}
+  #screen .view,#screen .today{width:100%;max-width:var(--col);margin-inline:auto}
+
+  /* floating new-check-in recedes to a corner pill (it no longer sits over a tab bar) */
+  .shell .fab{left:auto;right:30px;bottom:28px;width:auto;padding:0 24px}
+
+  /* install nudge is phone-in-browser only (Justin, 2026-07-10) — never on desktop */
+  #screen .install-nudge{display:none}
 }
-/* on a real phone, drop the device-frame margin and go edge-to-edge so the app uses the full screen */
-@media (max-width:479px){ body{align-items:stretch;justify-content:stretch} .phone{ width:100vw; height:100svh; height:100dvh; border-radius:0; } }
+@media (min-width:720px) and (hover:hover){
+  #screen > .tabbar button:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 5%,transparent)}
+  #screen > .tabbar button.on:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+}
 
 /* boot: what shows between first paint and the app's first render (store/auth
    init). Bone screen; a quiet ring fades in only if boot takes longer than a
@@ -536,8 +570,8 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .filter-bar .play-filter.seg{flex:1;margin-bottom:0}
 .filter-bar .set-gear{flex:none;margin-left:0}
 .ci-add svg{stroke-width:2}
-/* floating new check-in */
-.phone{position:relative}
+/* floating new check-in (positioned within the shell) */
+.shell{position:relative}
 .fab{position:absolute;left:22px;right:22px;bottom:78px;height:50px;border-radius:14px;border:1px solid var(--hairline);background:var(--bone);color:var(--ink);display:none;align-items:center;justify-content:center;gap:8px;cursor:pointer;z-index:40;box-shadow:0 4px 16px rgba(0,0,0,.10);transition:transform .16s var(--ease),box-shadow .16s}
 body.show-fab .fab{display:flex}
 .fab svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;flex:none}
@@ -1154,7 +1188,7 @@ body.reduce-motion .settle-ico{transition:none}
 .trial-banner.urgent .tb-manage{background:var(--bone);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){.trial-banner{animation:none}}
 /* non-selectable chrome; reader/blog prose + inputs stay selectable */
-.phone{-webkit-user-select:none;user-select:none}
+.shell{-webkit-user-select:none;user-select:none}
 .view.read,.view.read *,input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text}
 /* drop pull-to-refresh / rubberband only in the installed app */
 @media (display-mode:standalone){html,body{overscroll-behavior:none}}
