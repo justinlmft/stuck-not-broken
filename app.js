@@ -3043,7 +3043,7 @@
       if(!Store.user() || (Store.isAnonymous&&Store.isAnonymous())) return;
       if(_liveJoin()) return;
       const K='snb_live_poll_t';
-      if(Date.now() - (+localStorage.getItem(K)||0) < 3*60*1000) return;   // poll at most every 3 min
+      if(Date.now() - (+localStorage.getItem(K)||0) < 15*1000) return;   // poll at most every 15s (was 3 min; too slow to re-check on app reopen)
       localStorage.setItem(K, String(Date.now()));
       Store.livePoll().then(r=>{
         if(!r || !Array.isArray(r.live) || !r.live.length) return;
