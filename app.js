@@ -2467,12 +2467,18 @@
     if(!m) return screenArchive();
     if(m.tier==='weekly' && m.data && m.data.issue){
       const card = m.data.card || {};
+      // same desktop composition as the live reader: reading column + sticky
+      // contents rail (fills the window, top-aligned). Mobile unchanged.
+      const asideTOC = readerTOC(m.data.issue);
       setHTML(`
-        <header class="appbar"><button class="backbtn" id="me-back">back</button></header>
+        <header class="appbar read-appbar"><button class="backbtn" id="me-back">back</button></header>
         <div class="scroll">
           <div class="view read" style="gap:0">
-            ${weekWinCardHTML(card)}
-            ${renderIssue(m.data.issue)}
+            <div class="read-flow">
+              ${weekWinCardHTML(card)}
+              ${renderIssue(m.data.issue)}
+            </div>
+            ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
           </div>
         </div>`);
       $('#me-back').onclick = screenArchive;
@@ -4030,6 +4036,11 @@
             +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
           cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
           cvEl.parentNode.insertBefore(wrap, cvEl);
+          // desktop top-alignment: lift the week/all toggle to the row just under the
+          // heading, so "what your check-ins show." tops the screen on the same line
+          // as the rail's first word (Justin 2026-07-20). Compact carousel untouched.
+          const _fb = c.querySelector('.filter-bar'), _ylh = wrap.querySelector('.yl-h');
+          if(_fb && _ylh) _ylh.after(_fb);
           wrap.querySelectorAll('.yl-item').forEach(b=>b.onclick=()=>{ window._youLedgerKey=b.dataset.led; render(); });
         }
       }

@@ -1858,6 +1858,19 @@ body.reduce-motion .lv-breathe{animation:none}
   .read-aside .read-toc li{font-size:calc(13px * var(--type-scale));margin:0 0 10px}
 }
 
+/* Desktop heading alignment (Justin 2026-07-20): every screen's first heading sits
+   on the same top line as the rail's first word. An empty eyebrow above a heading
+   must not add height, or the heading drops below the line. */
+@media (min-width:720px){
+  .scr-head .eyebrow:empty{display:none}
+}
+/* You ledger: the heading tops the screen (aligned with the rail); the week/all
+   toggle moves to the row just below it (JS lifts it under the heading). */
+@media (min-width:1120px){
+  #screen .view.play-view:has(.you-ledger){padding-top:36px}
+  .you-ledger .filter-bar{grid-column:1/-1;margin:0 0 8px}
+}
+
 /* ============================================================
    DESKTOP CHECK-IN (>=720) — same 12-col reimagining: the framing
    question anchors the left columns (sticky, calm), the active
