@@ -1747,33 +1747,65 @@ body.reduce-motion .lv-pop-card,body.reduce-motion .lv-pop .tl-m{animation:none;
 body.reduce-motion .lv-breathe{animation:none}
 
 /* ============================================================
-   DESKTOP TODAY (>=720) — recomposition, not a stretched phone.
-   The breath ring anchors a calm left field; the day's few next
-   things (check in [primary], recommended practice, reflections)
-   become a quiet right-hand column. Same DOM, zero render changes.
-   Compact <720 is untouched. Breathing state falls back to the
-   existing centered behavior (grid disabled while .breathing).
+   DESKTOP TODAY (>=720) — 12-column Swiss grid, flush TOP + LEFT.
+   Everything shares one grid: breath anchors the left columns
+   (1-6, flush-left); the day's next things stack tight in the
+   right columns (7-12): greeting -> check in -> recommended
+   practice -> reflections. Content is top-aligned (no vertical
+   centering) and left-anchored (margin-inline:0). Same DOM, zero
+   render changes. Compact <720 untouched. Breathing state falls
+   back to the existing centered behavior (grid off while .breathing).
    ============================================================ */
 @media (min-width:720px){
   body:not(.breathing) #screen .today.tb{
-    max-width:var(--page);                 /* was --col (680); use up to 1120 */
+    max-width:1080px;
+    margin-inline:0;                       /* left-anchor (cancel the centering cap) */
     display:grid;
-    grid-template-columns:1fr 1fr;
-    align-content:center;                  /* center the whole composition vertically */
-    column-gap:clamp(40px,6vw,88px);
-    row-gap:16px;
-    padding:clamp(30px,5vh,64px) clamp(28px,5vw,56px);
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    align-content:start;                   /* flush to the top */
+    column-gap:clamp(18px,2vw,28px);
+    row-gap:14px;
+    padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
   }
-  body:not(.breathing) #screen .today.tb > *{grid-column:2}   /* right column by default */
   body:not(.breathing) #screen .today.tb .tb-hero{
-    grid-column:1;
-    grid-row:1 / span 20;                  /* spans the right column's rows */
-    align-self:center;                     /* breath centers against the right stack */
-    justify-self:center;
+    grid-column:1 / 7;                      /* breath owns the left columns */
+    grid-row:1 / span 4;
+    align-self:start;
+    justify-self:start;
+    align-items:flex-start;                /* ring + label flush-left */
+    text-align:left;
     flex:none;                             /* cancel mobile flex:1 fill */
     width:100%;
+    padding-top:clamp(28px,6vh,64px);      /* drop the ring to align with the right stack */
   }
-  body:not(.breathing) #screen .today.tb .tb-head{align-self:end;margin:0}
-  body:not(.breathing) #screen .today.tb .tb-cluster{margin-top:0}
-  body:not(.breathing) #screen .today.tb .tb-foot{align-self:start;margin-top:0}
+  body:not(.breathing) #screen .today.tb .tb-head{grid-column:7 / 13;grid-row:1;align-self:start;margin:0 0 4px}
+  body:not(.breathing) #screen .today.tb .tb-cluster{grid-column:7 / 13;grid-row:2;align-self:start;margin:0}
+  body:not(.breathing) #screen .today.tb .tb-foot{grid-column:7 / 13;grid-row:3;align-self:start;margin:0}
+  body:not(.breathing) #screen .today.tb .tb-more-slot{grid-column:7 / 13;grid-row:4;align-self:start;margin:0}
 }
+
+/* ============================================================
+   DESKTOP PRACTICE (>=720) — two-column composition so the tab
+   fits one screen (no bottom bleed): the "made for you" custom
+   practice as a feature on the left (cols 1-6), the other
+   practices as a list on the right (cols 7-12). Interim toward
+   the full list|detail preview (that needs a JS detail pane).
+   Compact <720 untouched.
+   ============================================================ */
+@media (min-width:720px){
+  #screen .p-view{max-width:1080px;margin-inline:0}
+  #screen .p-view .p-bottom{
+    display:grid;
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    column-gap:clamp(18px,2vw,28px);
+    align-items:start;
+  }
+  #screen .p-view #foryou{grid-column:1 / 7;margin:0;align-self:start}
+  #screen .p-view #p-opts-list{grid-column:7 / 13;margin:0}
+  #screen .p-view #p-opts-list .p-opt{margin-bottom:10px}
+  #screen .p-view #p-opts-list .p-opt:last-child{margin-bottom:0}
+}
+
+/* The reader keeps the left rail on desktop (same as every other
+   screen); on mobile it stays immersive with just the back button. */
+@media (max-width:719.98px){ .reader-rail{display:none} }

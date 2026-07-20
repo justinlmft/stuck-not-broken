@@ -2102,8 +2102,10 @@
           ${bodyHTML}
           ${archiveLink}
         </div>
-      </div>`);
+      </div>
+      <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
     $('#deep-back').onclick = ()=>app('today');
+    $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     // fresh-section share: the same image cards the You tab shares
     (function(){
       const _sig = 'stuck not broken · app.stucknotbroken.com';
