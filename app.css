@@ -1745,3 +1745,35 @@ body.reduce-motion .lv-pop-card,body.reduce-motion .lv-pop .tl-m{animation:none;
 @keyframes lvBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @media (prefers-reduced-motion:reduce){.lv-breathe{animation:none}}
 body.reduce-motion .lv-breathe{animation:none}
+
+/* ============================================================
+   DESKTOP TODAY (>=720) — recomposition, not a stretched phone.
+   The breath ring anchors a calm left field; the day's few next
+   things (check in [primary], recommended practice, reflections)
+   become a quiet right-hand column. Same DOM, zero render changes.
+   Compact <720 is untouched. Breathing state falls back to the
+   existing centered behavior (grid disabled while .breathing).
+   ============================================================ */
+@media (min-width:720px){
+  body:not(.breathing) #screen .today.tb{
+    max-width:var(--page);                 /* was --col (680); use up to 1120 */
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    align-content:center;                  /* center the whole composition vertically */
+    column-gap:clamp(40px,6vw,88px);
+    row-gap:16px;
+    padding:clamp(30px,5vh,64px) clamp(28px,5vw,56px);
+  }
+  body:not(.breathing) #screen .today.tb > *{grid-column:2}   /* right column by default */
+  body:not(.breathing) #screen .today.tb .tb-hero{
+    grid-column:1;
+    grid-row:1 / span 20;                  /* spans the right column's rows */
+    align-self:center;                     /* breath centers against the right stack */
+    justify-self:center;
+    flex:none;                             /* cancel mobile flex:1 fill */
+    width:100%;
+  }
+  body:not(.breathing) #screen .today.tb .tb-head{align-self:end;margin:0}
+  body:not(.breathing) #screen .today.tb .tb-cluster{margin-top:0}
+  body:not(.breathing) #screen .today.tb .tb-foot{align-self:start;margin-top:0}
+}
