@@ -1745,3 +1745,93 @@ body.reduce-motion .lv-pop-card,body.reduce-motion .lv-pop .tl-m{animation:none;
 @keyframes lvBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @media (prefers-reduced-motion:reduce){.lv-breathe{animation:none}}
 body.reduce-motion .lv-breathe{animation:none}
+
+/* ============================================================
+   DESKTOP TODAY (>=720) — 12-column Swiss grid, flush TOP + LEFT.
+   Everything shares one grid: breath anchors the left columns
+   (1-6, flush-left); the day's next things stack tight in the
+   right columns (7-12): greeting -> check in -> recommended
+   practice -> reflections. Content is top-aligned (no vertical
+   centering) and left-anchored (margin-inline:0). Same DOM, zero
+   render changes. Compact <720 untouched. The grid stays ON during
+   breathing too, so tapping the ring never reverts to the old
+   centered column (breath animates in place, no layout jump).
+   ============================================================ */
+@media (min-width:720px){
+  #screen .today.tb{
+    max-width:1080px;
+    margin-inline:0;                       /* left-anchor (cancel the centering cap) */
+    display:grid;
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    align-content:start;                   /* flush to the top */
+    column-gap:clamp(18px,2vw,28px);
+    row-gap:14px;
+    padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
+  }
+  #screen .today.tb .tb-hero{
+    grid-column:1 / 7;                      /* breath owns the left columns */
+    grid-row:1 / span 4;
+    align-self:start;
+    justify-self:start;
+    align-items:center;                    /* ring + label centered in the left field */
+    text-align:center;
+    flex:none;                             /* cancel mobile flex:1 fill */
+    width:100%;
+    padding-top:0;                          /* lifted to sit level with the greeting/check-in */
+  }
+  #screen .today.tb .tb-head{grid-column:7 / 13;grid-row:1;align-self:start;margin:0 0 4px}
+  #screen .today.tb .tb-cluster{grid-column:7 / 13;grid-row:2;align-self:start;margin:0}
+  #screen .today.tb .tb-foot{grid-column:7 / 13;grid-row:3;align-self:start;margin:0}
+  #screen .today.tb .tb-more-slot{grid-column:7 / 13;grid-row:4;align-self:start;margin:0}
+}
+
+/* ============================================================
+   DESKTOP PRACTICE (>=720) — two-column composition so the tab
+   fits one screen (no bottom bleed): the "made for you" custom
+   practice as a feature on the left (cols 1-6), the other
+   practices as a list on the right (cols 7-12). Interim toward
+   the full list|detail preview (that needs a JS detail pane).
+   Compact <720 untouched.
+   ============================================================ */
+@media (min-width:720px){
+  /* SCOPED to the chooser only (:has(#p-opts-list)) so the customiser / adjust
+     screen -- also a .p-view.p-bottom, but with .p-refine not #p-opts-list -- keeps
+     its default centered column and is never squished into the 12-col grid. */
+  #screen .p-view:has(#p-opts-list){max-width:1080px;margin-inline:0}
+  #screen .p-view:has(#p-opts-list) .p-bottom{
+    display:grid;
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    column-gap:clamp(18px,2vw,28px);
+    align-items:start;
+  }
+  #screen .p-view:has(#p-opts-list) #foryou{grid-column:1 / 7;margin:0;align-self:start}
+  #screen .p-view:has(#p-opts-list) #p-opts-list{grid-column:7 / 13;margin:0}
+  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt{margin-bottom:10px}
+  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt:last-child{margin-bottom:0}
+}
+
+/* The reader keeps the left rail on desktop (same as every other
+   screen); on mobile it stays immersive with just the back button. */
+@media (max-width:719.98px){ .reader-rail{display:none} }
+
+/* ============================================================
+   DESKTOP CHECK-IN (>=720) — same 12-col reimagining: the framing
+   question anchors the left columns (sticky, calm), the active
+   controls (sliders -> readout -> "set it yourself" -> the next-
+   practice + context folds -> save) form the right column. Flush
+   top + left; compact <720 untouched.
+   ============================================================ */
+@media (min-width:720px){
+  #screen .view.checkin2{
+    max-width:1080px;margin-inline:0;
+    display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
+    align-content:start;
+    column-gap:clamp(20px,2.4vw,36px);row-gap:16px;
+    padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
+  }
+  #screen .view.checkin2 .scr-head{grid-column:1 / 6;grid-row:1 / span 5;align-self:start;margin:0;position:sticky;top:clamp(40px,6vh,72px)}
+  #screen .view.checkin2 .ci-block:not(.ci-fold){grid-column:6 / 13;grid-row:1;align-self:start;margin:0}
+  #screen .view.checkin2 #fold-ch{grid-column:6 / 13;grid-row:2;margin:0}
+  #screen .view.checkin2 #fold-ctx{grid-column:6 / 13;grid-row:3;margin:0}
+  #screen .view.checkin2 .actionbar{grid-column:6 / 13;grid-row:4;margin-top:8px}
+}
