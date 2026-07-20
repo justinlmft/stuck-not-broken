@@ -436,7 +436,7 @@
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
     // ('success' is the retired trial return; kept so an in-flight old link still lands.)
-    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('your subscription is active.'); } } }catch(e){}
+    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('your subscription is active.'); } else if(co==='cancel'){ if(Store.trackEvent) Store.trackEvent('checkout_cancel', {}); } } }catch(e){}
     // The whole-app paywall is GONE (2026-07-13): free is unconditional, no time limit,
     // no card. Nobody is ever locked out. Subscribing is a choice made in settings or on
     // the offer screen, never a wall. Store.hasAccess() is now always true.
