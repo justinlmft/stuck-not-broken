@@ -377,7 +377,17 @@
     if(!CLOUD) return { error:'unavailable' };
     const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
     const res = await _postFn('create-checkout', { origin: origin || 'member', src: _src, plan: p });
-    if(res.url) location.href = res.url;
+    if(res.url){
+      // funnel: record the handoff to Stripe so the gap between subscribe_click and payment
+      // stops being a black box (paired with checkout_cancel on the return). Await the write
+      // before navigating away, but cap it so a slow insert can never delay the redirect.
+      try{ await Promise.race([ _trackEventNow('checkout_redirect', { origin: origin||'member', plan: p }), _sleep(600) ]); }catch(e){}
+      location.href = res.url;
+    } else {
+      // no url = the function refused or errored; a silent client-side dead end is now visible.
+      // reason is a coarse code, never the raw message (no PII into the funnel).
+      trackEvent('checkout_error', { origin: origin||'member', plan: p, reason: (res && res.error) ? 'server_error' : 'no_url' });
+    }
     return res;
   }
   async function startGuestCheckout(plan){ return startCheckout('guest', plan); }
@@ -411,6 +421,16 @@
       sb.from('events').insert(q.map(r=>Object.assign({ user_id: auth.user.id }, r)))
         .then(()=>{}, ()=>{ const cur=_evRead(); _evWrite(q.concat(cur)); });
     }catch(e){ const cur=_evRead(); _evWrite(q.concat(cur)); }
+  }
+  const _sleep = ms => new Promise(r=>setTimeout(r, ms));
+  // Like trackEvent but returns the insert promise, so a caller about to navigate away
+  // (the checkout redirect) can await the write. Falls back to the parked path if there is
+  // somehow no session yet (it flushes on next load, keeping the real timestamp).
+  function _trackEventNow(name, meta){
+    if(!CLOUD || !name) return Promise.resolve();
+    if(!auth.user){ trackEvent(name, meta); return Promise.resolve(); }
+    const row = { user_id: auth.user.id, name:String(name), meta: Object.assign({}, meta||{}, { src:_src }), t:new Date().toISOString() };
+    try{ return sb.from('events').insert(row).then(()=>{}, ()=>{}); }catch(e){ return Promise.resolve(); }
   }
   async function openPortal(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res; }
 
