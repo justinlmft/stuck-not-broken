@@ -1793,17 +1793,20 @@ body.reduce-motion .lv-breathe{animation:none}
    Compact <720 untouched.
    ============================================================ */
 @media (min-width:720px){
-  #screen .p-view{max-width:1080px;margin-inline:0}
-  #screen .p-view .p-bottom{
+  /* SCOPED to the chooser only (:has(#p-opts-list)) so the customiser / adjust
+     screen -- also a .p-view.p-bottom, but with .p-refine not #p-opts-list -- keeps
+     its default centered column and is never squished into the 12-col grid. */
+  #screen .p-view:has(#p-opts-list){max-width:1080px;margin-inline:0}
+  #screen .p-view:has(#p-opts-list) .p-bottom{
     display:grid;
     grid-template-columns:repeat(12,minmax(0,1fr));
     column-gap:clamp(18px,2vw,28px);
     align-items:start;
   }
-  #screen .p-view #foryou{grid-column:1 / 7;margin:0;align-self:start}
-  #screen .p-view #p-opts-list{grid-column:7 / 13;margin:0}
-  #screen .p-view #p-opts-list .p-opt{margin-bottom:10px}
-  #screen .p-view #p-opts-list .p-opt:last-child{margin-bottom:0}
+  #screen .p-view:has(#p-opts-list) #foryou{grid-column:1 / 7;margin:0;align-self:start}
+  #screen .p-view:has(#p-opts-list) #p-opts-list{grid-column:7 / 13;margin:0}
+  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt{margin-bottom:10px}
+  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt:last-child{margin-bottom:0}
 }
 
 /* The reader keeps the left rail on desktop (same as every other
