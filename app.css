@@ -1815,6 +1815,40 @@ body.reduce-motion .lv-breathe{animation:none}
 @media (max-width:719.98px){ .reader-rail{display:none} }
 
 /* ============================================================
+   DESKTOP READER COMPOSITION (>=720) — reading column + contents rail.
+   The reader was a 680 column centered in the content area, so the left
+   nav shoved it left and the right side read as dead space (HIG Layout:
+   extend content to fill the window; put secondary info in another part
+   of the window rather than leaving it blank). Fix: keep the prose at its
+   readable measure in .read-flow, and fill the window with a quiet sticky
+   "in this reflection" rail (.read-aside) on the right. The chart stays
+   inline in the flow. Only engages when an essay TOC exists
+   (:has(.read-aside)); a no-essay reader keeps the plain centered column.
+   Mobile (<720) is untouched: .read-aside is display:none and .read-flow
+   is a flex column that reproduces the prior child spacing exactly.
+   ============================================================ */
+.read-flow{display:flex;flex-direction:column}
+@media (max-width:719.98px){ .read-aside{display:none} }
+@media (min-width:720px){
+  /* a middle spacer column carries the gutter so the reader's inline
+     style="gap:0" (which would zero a grid column-gap) can't collapse it. */
+  #screen .view.read:has(.read-aside){
+    display:grid;
+    grid-template-columns:minmax(0,660px) clamp(30px,4vw,60px) minmax(150px,200px);
+    justify-content:center;
+    align-items:start;
+    max-width:min(var(--page),980px);
+  }
+  #screen .view.read:has(.read-aside) > .read-flow{grid-column:1;min-width:0}
+  #screen .view.read:has(.read-aside) > .read-aside{grid-column:3;align-self:stretch}
+  /* the inline (mobile-position) TOC is redundant once the rail shows */
+  #screen .view.read:has(.read-aside) > .read-flow nav[aria-label="contents"]{display:none}
+  .read-aside > nav{position:sticky;top:14px;margin:0}
+  .read-aside .sec-h{font-size:calc(12.5px * var(--type-scale));color:var(--muted);letter-spacing:0}
+  .read-aside .read-toc li{font-size:calc(13px * var(--type-scale));margin:0 0 10px}
+}
+
+/* ============================================================
    DESKTOP CHECK-IN (>=720) — same 12-col reimagining: the framing
    question anchors the left columns (sticky, calm), the active
    controls (sliders -> readout -> "set it yourself" -> the next-

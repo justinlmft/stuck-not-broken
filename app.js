@@ -2088,19 +2088,30 @@
     const _rtWords = String(todayBlock+visit.html+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
     const _rtMins = Math.max(1, Math.round(_rtWords/200));
     const _uname = (Store.getName && Store.getName()) || '';
+    // desktop contents rail: a second copy of the essay TOC lives in .read-aside and
+    // shows only >=720 (CSS), where it becomes a quiet sticky rail that fills the window
+    // beside the reading column (HIG Layout: secondary info in another part of the
+    // window). The inline TOC inside bodyHTML keeps its mobile position; CSS hides it
+    // >=720. .read-flow wraps the reading column so the aside can stretch full-height
+    // for a real sticky. Mobile is unchanged (.read-aside is display:none, .read-flow
+    // is a flex column that preserves the prior child spacing).
+    const asideTOC = issue ? readerTOC(issue) : '';
     setHTML(`
       <header class="appbar"><button class="backbtn" id="deep-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <div class="scr-head read-head">
-            <h1 class="read-h1">Your Reflections</h1>
-            <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
-            ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="past reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
+          <div class="read-flow">
+            <div class="scr-head read-head">
+              <h1 class="read-h1">Your Reflections</h1>
+              <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
+              ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="past reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
+            </div>
+            ${todayBlock}
+            ${visit.html}
+            ${bodyHTML}
+            ${archiveLink}
           </div>
-          ${todayBlock}
-          ${visit.html}
-          ${bodyHTML}
-          ${archiveLink}
+          ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
         </div>
       </div>
       <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
