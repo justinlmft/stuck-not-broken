@@ -109,10 +109,13 @@ button{font:inherit;color:inherit}
     border-top:0;border-right:1px solid var(--hairline);
     padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
     min-width:118px}
-  #screen > .tabbar button{flex-direction:row;justify-content:flex-start;gap:12px;
-    width:100%;min-height:52px;padding:0 14px;border-radius:12px}
+  /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
+     ink, dormant = normal muted; no background. Top-aligned so the first word
+     lines up with the screen's first heading. 44px keeps the click target. */
+  #screen > .tabbar button{flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
+    width:100%;min-height:44px;padding:2px 0;color:var(--muted);font-weight:400}
   #screen > .tabbar button .lb{font-size:calc(14px * var(--type-user))}
-  #screen > .tabbar button.on{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+  #screen > .tabbar button.on{background:none;color:var(--ink);font-weight:500}
   #screen > .tabbar button:focus-visible{outline-offset:2px}
 
   /* content and header hold a calm centered column — never stretched wall to wall */
@@ -175,8 +178,8 @@ button{font:inherit;color:inherit}
 .ax-flav i{width:9px;height:9px;border-radius:50%;flex:none}
 .ax-note{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.55;margin:0;text-wrap:pretty}
 @media (min-width:720px) and (hover:hover){
-  #screen > .tabbar button:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 5%,transparent)}
-  #screen > .tabbar button.on:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+  #screen > .tabbar button:hover{color:var(--ink);background:none}
+  #screen > .tabbar button.on:hover{background:none}
 }
 
 /* boot: what shows between first paint and the app's first render (store/auth
@@ -1838,12 +1841,19 @@ body.reduce-motion .lv-breathe{animation:none}
     justify-content:center;
     align-items:start;
     max-width:min(var(--page),980px);
+    padding-top:8px;
   }
+  /* top alignment: back sits in its own strip, left-aligned over the reading
+     column; the reader's first heading (Your Reflections) meets the rail's
+     first word and the contents-rail heading (in this reflection) on one line. */
+  #screen > .appbar.read-appbar{max-width:min(var(--page),980px);margin-inline:auto;
+    padding-left:30px;padding-right:30px;text-align:left}
+  #screen > .appbar.read-appbar .backbtn{padding-left:0;text-align:left}
   #screen .view.read:has(.read-aside) > .read-flow{grid-column:1;min-width:0}
   #screen .view.read:has(.read-aside) > .read-aside{grid-column:3;align-self:stretch}
   /* the inline (mobile-position) TOC is redundant once the rail shows */
   #screen .view.read:has(.read-aside) > .read-flow nav[aria-label="contents"]{display:none}
-  .read-aside > nav{position:sticky;top:14px;margin:0}
+  .read-aside > nav{position:sticky;top:8px;margin:0 !important}
   .read-aside .sec-h{font-size:calc(12.5px * var(--type-scale));color:var(--muted);letter-spacing:0}
   .read-aside .read-toc li{font-size:calc(13px * var(--type-scale));margin:0 0 10px}
 }

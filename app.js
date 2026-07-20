@@ -2097,7 +2097,7 @@
     // is a flex column that preserves the prior child spacing).
     const asideTOC = issue ? readerTOC(issue) : '';
     setHTML(`
-      <header class="appbar"><button class="backbtn" id="deep-back">back</button></header>
+      <header class="appbar read-appbar"><button class="backbtn" id="deep-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
           <div class="read-flow">
