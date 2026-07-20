@@ -1772,11 +1772,11 @@ body.reduce-motion .lv-breathe{animation:none}
     grid-row:1 / span 4;
     align-self:start;
     justify-self:start;
-    align-items:flex-start;                /* ring + label flush-left */
-    text-align:left;
+    align-items:center;                    /* ring + label centered in the left field */
+    text-align:center;
     flex:none;                             /* cancel mobile flex:1 fill */
     width:100%;
-    padding-top:clamp(28px,6vh,64px);      /* drop the ring to align with the right stack */
+    padding-top:0;                          /* lifted to sit level with the greeting/check-in */
   }
   body:not(.breathing) #screen .today.tb .tb-head{grid-column:7 / 13;grid-row:1;align-self:start;margin:0 0 4px}
   body:not(.breathing) #screen .today.tb .tb-cluster{grid-column:7 / 13;grid-row:2;align-self:start;margin:0}
