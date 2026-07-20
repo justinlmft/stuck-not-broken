@@ -1867,7 +1867,9 @@ body.reduce-motion .lv-breathe{animation:none}
 /* You ledger: the heading tops the screen (aligned with the rail); the week/all
    toggle moves to the row just below it (JS lifts it under the heading). */
 @media (min-width:1120px){
-  #screen .view.play-view:has(.you-ledger){padding-top:36px}
+  /* flush-left like Practice, so the heading's gap from the rail matches across
+     screens (Justin 2026-07-20) — was centered, which read as a wider left gutter. */
+  #screen .view.play-view:has(.you-ledger){padding-top:36px;margin-inline:0}
   .you-ledger .filter-bar{grid-column:1/-1;margin:0 0 8px}
 }
 
