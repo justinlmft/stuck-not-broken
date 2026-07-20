@@ -2480,8 +2480,10 @@
             </div>
             ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
           </div>
-        </div>`);
+        </div>
+        <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
       $('#me-back').onclick = screenArchive;
+      $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
       const sb = $('#me-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
       return;
     }
