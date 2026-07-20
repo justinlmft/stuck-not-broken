@@ -1813,3 +1813,25 @@ body.reduce-motion .lv-breathe{animation:none}
 /* The reader keeps the left rail on desktop (same as every other
    screen); on mobile it stays immersive with just the back button. */
 @media (max-width:719.98px){ .reader-rail{display:none} }
+
+/* ============================================================
+   DESKTOP CHECK-IN (>=720) — same 12-col reimagining: the framing
+   question anchors the left columns (sticky, calm), the active
+   controls (sliders -> readout -> "set it yourself" -> the next-
+   practice + context folds -> save) form the right column. Flush
+   top + left; compact <720 untouched.
+   ============================================================ */
+@media (min-width:720px){
+  #screen .view.checkin2{
+    max-width:1080px;margin-inline:0;
+    display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
+    align-content:start;
+    column-gap:clamp(20px,2.4vw,36px);row-gap:16px;
+    padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
+  }
+  #screen .view.checkin2 .scr-head{grid-column:1 / 6;grid-row:1 / span 5;align-self:start;margin:0;position:sticky;top:clamp(40px,6vh,72px)}
+  #screen .view.checkin2 .ci-block:not(.ci-fold){grid-column:6 / 13;grid-row:1;align-self:start;margin:0}
+  #screen .view.checkin2 #fold-ch{grid-column:6 / 13;grid-row:2;margin:0}
+  #screen .view.checkin2 #fold-ctx{grid-column:6 / 13;grid-row:3;margin:0}
+  #screen .view.checkin2 .actionbar{grid-column:6 / 13;grid-row:4;margin-top:8px}
+}
