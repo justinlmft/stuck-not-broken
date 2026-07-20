@@ -109,10 +109,13 @@ button{font:inherit;color:inherit}
     border-top:0;border-right:1px solid var(--hairline);
     padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
     min-width:118px}
-  #screen > .tabbar button{flex-direction:row;justify-content:flex-start;gap:12px;
-    width:100%;min-height:52px;padding:0 14px;border-radius:12px}
+  /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
+     ink, dormant = normal muted; no background. Top-aligned so the first word
+     lines up with the screen's first heading. 44px keeps the click target. */
+  #screen > .tabbar button{flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
+    width:100%;min-height:44px;padding:2px 0;color:var(--muted);font-weight:400}
   #screen > .tabbar button .lb{font-size:calc(14px * var(--type-user))}
-  #screen > .tabbar button.on{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+  #screen > .tabbar button.on{background:none;color:var(--ink);font-weight:500}
   #screen > .tabbar button:focus-visible{outline-offset:2px}
 
   /* content and header hold a calm centered column — never stretched wall to wall */
@@ -175,8 +178,8 @@ button{font:inherit;color:inherit}
 .ax-flav i{width:9px;height:9px;border-radius:50%;flex:none}
 .ax-note{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.55;margin:0;text-wrap:pretty}
 @media (min-width:720px) and (hover:hover){
-  #screen > .tabbar button:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 5%,transparent)}
-  #screen > .tabbar button.on:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
+  #screen > .tabbar button:hover{color:var(--ink);background:none}
+  #screen > .tabbar button.on:hover{background:none}
 }
 
 /* boot: what shows between first paint and the app's first render (store/auth
@@ -1813,6 +1816,62 @@ body.reduce-motion .lv-breathe{animation:none}
 /* The reader keeps the left rail on desktop (same as every other
    screen); on mobile it stays immersive with just the back button. */
 @media (max-width:719.98px){ .reader-rail{display:none} }
+
+/* ============================================================
+   DESKTOP READER COMPOSITION (>=720) — reading column + contents rail.
+   The reader was a 680 column centered in the content area, so the left
+   nav shoved it left and the right side read as dead space (HIG Layout:
+   extend content to fill the window; put secondary info in another part
+   of the window rather than leaving it blank). Fix: keep the prose at its
+   readable measure in .read-flow, and fill the window with a quiet sticky
+   "in this reflection" rail (.read-aside) on the right. The chart stays
+   inline in the flow. Only engages when an essay TOC exists
+   (:has(.read-aside)); a no-essay reader keeps the plain centered column.
+   Mobile (<720) is untouched: .read-aside is display:none and .read-flow
+   is a flex column that reproduces the prior child spacing exactly.
+   ============================================================ */
+.read-flow{display:flex;flex-direction:column}
+@media (max-width:719.98px){ .read-aside{display:none} }
+@media (min-width:720px){
+  /* a middle spacer column carries the gutter so the reader's inline
+     style="gap:0" (which would zero a grid column-gap) can't collapse it. */
+  #screen .view.read:has(.read-aside){
+    display:grid;
+    grid-template-columns:minmax(0,660px) clamp(30px,4vw,60px) minmax(150px,200px);
+    justify-content:center;
+    align-items:start;
+    max-width:min(var(--page),980px);
+    padding-top:8px;
+  }
+  /* top alignment: back sits in its own strip, left-aligned over the reading
+     column; the reader's first heading (Your Reflections) meets the rail's
+     first word and the contents-rail heading (in this reflection) on one line. */
+  #screen > .appbar.read-appbar{max-width:min(var(--page),980px);margin-inline:auto;
+    padding-left:30px;padding-right:30px;text-align:left}
+  #screen > .appbar.read-appbar .backbtn{padding-left:0;text-align:left}
+  #screen .view.read:has(.read-aside) > .read-flow{grid-column:1;min-width:0}
+  #screen .view.read:has(.read-aside) > .read-aside{grid-column:3;align-self:stretch}
+  /* the inline (mobile-position) TOC is redundant once the rail shows */
+  #screen .view.read:has(.read-aside) > .read-flow nav[aria-label="contents"]{display:none}
+  .read-aside > nav{position:sticky;top:8px;margin:0 !important}
+  .read-aside .sec-h{font-size:calc(12.5px * var(--type-scale));color:var(--muted);letter-spacing:0}
+  .read-aside .read-toc li{font-size:calc(13px * var(--type-scale));margin:0 0 10px}
+}
+
+/* Desktop heading alignment (Justin 2026-07-20): every screen's first heading sits
+   on the same top line as the rail's first word. An empty eyebrow above a heading
+   must not add height, or the heading drops below the line. */
+@media (min-width:720px){
+  .scr-head .eyebrow:empty{display:none}
+}
+/* You ledger: the heading tops the screen (aligned with the rail); the week/all
+   toggle moves to the row just below it (JS lifts it under the heading). */
+@media (min-width:1120px){
+  /* flush-left like Practice, so the heading's gap from the rail matches across
+     screens (Justin 2026-07-20) — was centered, which read as a wider left gutter. */
+  #screen .view.play-view:has(.you-ledger){padding-top:36px;margin-inline:0}
+  .you-ledger .filter-bar{grid-column:1/-1;margin:0 0 8px}
+}
 
 /* ============================================================
    DESKTOP CHECK-IN (>=720) — same 12-col reimagining: the framing
