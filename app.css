@@ -1753,11 +1753,12 @@ body.reduce-motion .lv-breathe{animation:none}
    right columns (7-12): greeting -> check in -> recommended
    practice -> reflections. Content is top-aligned (no vertical
    centering) and left-anchored (margin-inline:0). Same DOM, zero
-   render changes. Compact <720 untouched. Breathing state falls
-   back to the existing centered behavior (grid off while .breathing).
+   render changes. Compact <720 untouched. The grid stays ON during
+   breathing too, so tapping the ring never reverts to the old
+   centered column (breath animates in place, no layout jump).
    ============================================================ */
 @media (min-width:720px){
-  body:not(.breathing) #screen .today.tb{
+  #screen .today.tb{
     max-width:1080px;
     margin-inline:0;                       /* left-anchor (cancel the centering cap) */
     display:grid;
@@ -1767,7 +1768,7 @@ body.reduce-motion .lv-breathe{animation:none}
     row-gap:14px;
     padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
   }
-  body:not(.breathing) #screen .today.tb .tb-hero{
+  #screen .today.tb .tb-hero{
     grid-column:1 / 7;                      /* breath owns the left columns */
     grid-row:1 / span 4;
     align-self:start;
@@ -1778,10 +1779,10 @@ body.reduce-motion .lv-breathe{animation:none}
     width:100%;
     padding-top:0;                          /* lifted to sit level with the greeting/check-in */
   }
-  body:not(.breathing) #screen .today.tb .tb-head{grid-column:7 / 13;grid-row:1;align-self:start;margin:0 0 4px}
-  body:not(.breathing) #screen .today.tb .tb-cluster{grid-column:7 / 13;grid-row:2;align-self:start;margin:0}
-  body:not(.breathing) #screen .today.tb .tb-foot{grid-column:7 / 13;grid-row:3;align-self:start;margin:0}
-  body:not(.breathing) #screen .today.tb .tb-more-slot{grid-column:7 / 13;grid-row:4;align-self:start;margin:0}
+  #screen .today.tb .tb-head{grid-column:7 / 13;grid-row:1;align-self:start;margin:0 0 4px}
+  #screen .today.tb .tb-cluster{grid-column:7 / 13;grid-row:2;align-self:start;margin:0}
+  #screen .today.tb .tb-foot{grid-column:7 / 13;grid-row:3;align-self:start;margin:0}
+  #screen .today.tb .tb-more-slot{grid-column:7 / 13;grid-row:4;align-self:start;margin:0}
 }
 
 /* ============================================================
