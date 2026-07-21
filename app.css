@@ -582,8 +582,10 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .ot-bar{flex:1;min-width:1px;border:0;border-radius:3px 3px 0 0;padding:0;cursor:pointer;opacity:.85;transition:opacity .2s var(--ease)}
 .ot-bar.on{opacity:1;transform:scaleY(1.05);transform-origin:bottom}
 .ot-strip:has(.ot-bar.on) .ot-bar:not(.on){opacity:.38}
-/* play filter: full-width segmented control */
-.play-filter.seg{display:flex;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px;margin-bottom:16px}
+/* play filter: full-width segmented control.
+   Same overflow fix as .set-seg — flex-wrap lets pills drop to a second line at
+   large type-scale instead of overflowing the row (2026-07-21). */
+.play-filter.seg{display:flex;flex-wrap:wrap;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px;margin-bottom:16px}
 .play-filter.seg .period-pill{flex:1;border:0;border-radius:8px;padding:12px 0;font-size:calc(13px * var(--type-scale));color:var(--muted);background:transparent;white-space:nowrap}
 .play-filter.seg .period-pill:hover{border:0;color:var(--ink-80)}
 .play-filter.seg .period-pill.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
@@ -1041,8 +1043,11 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .ci-orient{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--muted);margin:8px 0 0;text-wrap:pretty}
 .set-group:last-of-type{margin-bottom:0}
 .set-group .dash-prompt{margin:0 0 10px}
-/* on-system segmented control (matches the stats playground filter) */
-.set-seg{display:flex;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px}
+/* on-system segmented control (matches the stats playground filter).
+   flex-wrap so large type-scale (the "huge" text-size tier, 1.6x) can't force
+   the row wider than its container — buttons drop to a second line instead of
+   overflowing past the card/screen edge (found on-device, 2026-07-21). */
+.set-seg{display:flex;flex-wrap:wrap;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px}
 .set-seg button{flex:1;border:0;border-radius:8px;padding:10px 0;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--muted);background:transparent;cursor:pointer;white-space:nowrap;transition:color .15s var(--ease)}
 .set-seg button.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .set-seg button:hover{color:var(--ink-80)}
