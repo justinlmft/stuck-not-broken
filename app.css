@@ -515,7 +515,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
 .cb-viz{display:flex;align-items:center;gap:9px;margin:14px 0 16px}
 .cb-dot{width:15px;height:15px;border-radius:50%;flex:none}
-.cb-path{flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,#E89B9B,#F4D58D);transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
+.cb-path{flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--s-fight),var(--s-safety));transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
 .cb-end{animation:cbPop .4s 1.6s var(--ease) both}
 .cb-line{font-size:calc(15.5px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0}
 .cb-line+.cb-line{margin-top:12px}
