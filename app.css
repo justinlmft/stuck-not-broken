@@ -458,8 +458,13 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 /* ---------- you / account ---------- */
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 0;border-bottom:1px solid var(--hairline)}
 .row:last-child{border-bottom:0}
-.row .k{font-size:calc(14px * var(--type-scale));color:var(--muted)}
-.row .val{font-size:calc(15px * var(--type-scale));font-weight:500}
+.row .k{font-size:calc(14px * var(--type-scale));color:var(--muted);flex:none}
+/* a long, unbreakable value (an email address has no spaces to wrap at) has no
+   min-width floor by default on a flex item, so it refused to shrink and forced
+   the whole row — and everything above it, up to the shell — wider than the
+   viewport, skewing the entire screen sideways. min-width:0 lets it actually
+   shrink; ellipsis truncates instead of overflowing (found on-device, 2026-07-21). */
+.row .val{font-size:calc(15px * var(--type-scale));font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .name-input{font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--hairline);padding:13px 0;flex:1;text-align:right;min-width:0}
 .name-input:focus{outline:none;border-bottom-color:var(--ink)}
 .name-input::placeholder{color:var(--hairline)}
