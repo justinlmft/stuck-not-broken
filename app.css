@@ -460,7 +460,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .row:last-child{border-bottom:0}
 .row .k{font-size:calc(14px * var(--type-scale));color:var(--muted)}
 .row .val{font-size:calc(15px * var(--type-scale));font-weight:500}
-.name-input{font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--hairline);padding:2px 0;flex:1;text-align:right;min-width:0}
+.name-input{font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--hairline);padding:13px 0;flex:1;text-align:right;min-width:0}
 .name-input:focus{outline:none;border-bottom-color:var(--ink)}
 .name-input::placeholder{color:var(--hairline)}
 .stat{display:flex;flex-direction:column;gap:2px}
@@ -616,7 +616,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .ct-btn{border:0;background:transparent;border-radius:7px;padding:5px 14px;font:inherit;font-size:calc(12.5px * var(--type-scale));color:var(--muted);cursor:pointer}
 .ct-btn.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .chart{display:block;width:100%;height:auto;margin:4px 0 10px;overflow:visible}
-.chart .cx{font-size:9px;fill:var(--muted);font-family:inherit}
+.chart .cx{font-size:calc(11px * var(--type-scale));fill:var(--muted);font-family:inherit}
 .cpt{cursor:pointer}
 .cpt:hover{stroke-width:2.4}
 /* sticky period filter + settings gear share the top row */
@@ -828,7 +828,7 @@ body.in-practice .tabbar{display:none}
 .p-refine .p-surprise{animation-delay:.56s}
 @keyframes secRise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 /* the skill gloss reads like the reader's pull-quote, in the track color */
-.p-refine .ch-cap{border-left:3px solid var(--tc-ink,#C9A24B);padding:2px 0 2px 14px;font-size:calc(15px * var(--type-scale));line-height:1.55;margin-top:14px}
+.p-refine .ch-cap{border-left:3px solid var(--tc-ink,var(--amber));padding:2px 0 2px 14px;font-size:calc(15px * var(--type-scale));line-height:1.55;margin-top:14px}
 .ch-cap.cap-in{animation:capFade .35s var(--ease) both}
 @keyframes capFade{from{opacity:0}to{opacity:1}}
 body.reduce-motion .p-refine .p-rgroup,body.reduce-motion .p-refine .p-surprise,body.reduce-motion .p-refine .p-expect{animation:none;opacity:1;transform:none}
@@ -1043,7 +1043,7 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .set-group .dash-prompt{margin:0 0 10px}
 /* on-system segmented control (matches the stats playground filter) */
 .set-seg{display:flex;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px}
-.set-seg button{flex:1;border:0;border-radius:8px;padding:9px 0;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--muted);background:transparent;cursor:pointer;white-space:nowrap;transition:color .15s var(--ease)}
+.set-seg button{flex:1;border:0;border-radius:8px;padding:10px 0;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--muted);background:transparent;cursor:pointer;white-space:nowrap;transition:color .15s var(--ease)}
 .set-seg button.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .set-seg button:hover{color:var(--ink-80)}
 .set-seg button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
@@ -1059,6 +1059,7 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .set-row-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}
 .set-sw-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
 .set-sw{flex:none;width:46px;height:28px;border-radius:14px;background:var(--hairline);border:0;cursor:pointer;position:relative;padding:0;transition:background .2s var(--ease)}
+.set-sw::before{content:'';position:absolute;inset:-8px}
 .set-sw-knob{position:absolute;top:2px;left:2px;width:24px;height:24px;border-radius:50%;background:var(--knob);box-shadow:0 1px 2px rgba(26,31,42,.18);transition:left .2s var(--ease)}
 .set-sw.on{background:var(--ink)}
 .set-sw.on .set-sw-knob{left:20px}
@@ -1133,8 +1134,11 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .deep-tap::after{content:'';position:absolute;inset:-8px -4px;border-radius:999px}
 /* text-link controls ("back", "change this practice", "skip", "change a recent
    check-in") — same treatment; ::before because .navlink's ::after is its arrow */
-.set-quiet,.navlink,.change-link{position:relative}
-.set-quiet::before,.navlink::before,.change-link::before{content:'';position:absolute;inset:-9px -4px}
+.set-quiet,.navlink,.change-link,.linkbtn,.ci-shuffle{position:relative}
+.set-quiet::before,.navlink::before,.change-link::before,.ci-shuffle::before{content:'';position:absolute;inset:-9px -4px}
+/* .linkbtn is shorter (25px) than the others in this group, so -9px falls 1px short of the
+   44px floor (QC pass 1, pre-beta note 2026-07-21) — its own, slightly deeper inset. */
+.linkbtn::before{content:'';position:absolute;inset:-10px -4px}
 /* motion: "calm" stills every decorative animation app-wide, including pseudo-element
    loops like the safety-ring sonar ripple. CSS transitions (hover, etc.) still run. */
 body.reduce-motion *,
@@ -1225,7 +1229,7 @@ body.reduce-motion .settle-ico{transition:none}
 
 
 /* ── PWA native-feel: install affordances + chrome polish ────────────── */
-.set-row-inline{display:flex;align-items:center;min-height:22px}
+.set-row-inline{display:flex;align-items:center;min-height:44px}
 .ios-hint{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.45}
 .install-nudge{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--bone-deep);border:1px solid var(--hairline);border-radius:12px;padding:10px 12px;margin:0 0 14px;animation:nudgeIn .4s var(--ease)}
 .install-nudge .in-txt{font-size:calc(13px * var(--type-scale));color:var(--ink-80);line-height:1.4}
@@ -1360,7 +1364,7 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 .mtl-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:6px}
 .mtl-key{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
 .mtl-sw{width:9px;height:9px;border-radius:50%;display:inline-block}
-.mtl-ring{width:11px;height:11px;border-radius:50%;border:1.5px solid #C9A24B;display:inline-block}
+.mtl-ring{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--amber);display:inline-block}
 .md-row{display:inline-flex;align-items:center;gap:6px;margin-top:9px}
 .md-dot{width:11px;height:11px;border-radius:50%;display:inline-block}
 .md-dot.md-new{box-shadow:0 0 0 3px var(--bone),0 0 0 5px rgba(94,90,78,.28)}
@@ -1385,11 +1389,11 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 .pr-del:active{transform:scale(0.98)}
 
 /* ---- weekly share card + archive weekly tag ---- */
-.arch-tag{display:inline-block;margin-left:8px;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border:0.5px solid var(--hairline);border-radius:999px;padding:1px 7px;vertical-align:middle}
+.arch-tag{display:inline-block;margin-left:8px;font-size:calc(11px * var(--type-scale));font-weight:500;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border:0.5px solid var(--hairline);border-radius:999px;padding:1px 7px;vertical-align:middle}
 /* in-app share-card preview removed (Justin QA 2026-07-05) — the dark branded
    card lives only in the shared canvas image now */
 .week-win{position:relative;border:1px solid var(--hairline);border-radius:14px;padding:17px 18px 15px;margin:2px 0 18px}
-.ww-eyeb{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0 0 10px}
+.ww-eyeb{font-size:calc(11px * var(--type-scale));letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0 0 10px}
 .ww-line{font-size:calc(17px * var(--type-scale));line-height:1.45;font-weight:500;color:var(--ink);margin:0;padding-right:40px;text-wrap:pretty}
 .ww-foot{display:flex;align-items:center;gap:9px;margin-top:14px}
 .ww-foot .triglyph{height:24px;width:auto;animation:wwIn .55s .15s var(--ease) both}
@@ -1408,7 +1412,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 /* ---- for-you reader section visuals ---- */
 .sec-viz{margin:12px 0 2px}
 .vz-svg{display:block;width:100%;height:auto}
-.vz-cap{font-size:10.5px;color:var(--muted);margin-bottom:4px}
+.vz-cap{font-size:calc(11px * var(--type-scale));color:var(--muted);margin-bottom:4px}
 .mix-bar{display:flex;height:24px;border-radius:6px;overflow:hidden}
 .mix-bar>div{height:100%}
 .vz-legend{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:8px}

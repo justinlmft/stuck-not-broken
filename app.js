@@ -335,7 +335,7 @@
     anchoring: (sense)=>`you'll bring your attention to ${sense||'your senses'} and connect with the present moment, identifying how safety feels in the body and spending time with it. good for moments to practice feeling safety or where your system is drifting into defense. best if done in an environment with less distraction. feel free to move or not.`,
     most: ()=>"you'll intentionally and compassionately turn your attention toward an emotion that is more challenging while staying connected to the present moment and anchored in safety. best done in an environment free of distraction and more comfort.",
     micro: ()=>'a very short present-moment connection practice, built for the middle of a busy day. use this anywhere and doing anything.',
-    more: ()=>'a full, standalone guided session, played start to finish.',
+    more: ()=>'a full, standalone guided practice, played start to finish.',
   };
   const aboutOf = (k, sense) => { const f = PRACTICE_ABOUT[k]; return f ? f(sense) : ''; };
   // the builder's dynamic "what to expect": assembled from the SAME slots the plan
@@ -360,7 +360,7 @@
     if(key==='most' && holdWatch && (skill==='balancing' || skill==='pendulation'))
       bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
-    if(key==='most' && open) bits.push('open-ended — it keeps going until you choose to stop.');
+    if(key==='most' && open) bits.push('open-ended: it keeps going until you choose to stop.');
     return bits.filter(Boolean).join(' ');
   }
 
@@ -525,11 +525,11 @@
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
           ${up?'<p class="fineprint" style="margin-top:12px;text-align:center">already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">log in</button></p>':''}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">new here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>start a check-in — no account needed</button>'}
+          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">new here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>start a check-in, no account needed</button>'}
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
           <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
-          ${up?'':'<p class="fineprint" style="margin-top:6px">the breath above needs no account. the rest of the app does — it keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
+          ${up?'':'<p class="fineprint" style="margin-top:6px">the breath above needs no account. the rest of the app does. it keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">forgot your password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">on-device mode: your data stays on this device for now.</p>'}
         </div>
@@ -590,7 +590,7 @@
           const plan = _planChoice;
           return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
             Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
-              if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your account is ready — you can subscribe from settings."); }
+              if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your account is ready. you can subscribe from settings."); }
             }));
         }
         currentTab='today'; route();
@@ -832,7 +832,16 @@
         const read = { v:v/100, sym:s/100, dor:d/100 };
         if(mode==='after'){ _guestCI2 = read; gsSet({ ci2:read }); guestBeforeAfter(); }
         else { _guestCI = read; gsSet({ ci1:read, q:qIdx }); guestReflection(); }
-      }).catch(e2=>guestCheckin(mode, String((e2&&e2.message)||e2)));
+      }).catch(e2=>{
+        const msg = String((e2&&e2.message)||e2||'');
+        // a raw browser network error (offline, DNS, CORS preflight, etc.) reads as
+        // jargon and blame ("Failed to fetch"). swap it for plain, corrective copy;
+        // anything else (a real validation/server message) still shows as-is.
+        const friendly = /fail(ed)? to fetch|networkerror|load failed|network request failed/i.test(msg)
+          ? "couldn't reach the server. your check-in still works on this device."
+          : msg;
+        guestCheckin(mode, friendly);
+      });
     };
   }
 
@@ -896,7 +905,7 @@
       { key:'mindfulness', open:true,  title:'simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
       { key:'anchoring',   open:false, title:'connect with safety',      sub:'settling in through your senses' },
       { key:'most',        open:false, title:'practice self-regulation', sub:'the deepest, meeting what is hard' },
-      { key:'more',        open:false, title:'more meditations',         sub:'standalone guided sessions' },
+      { key:'more',        open:false, title:'more practices',           sub:'standalone guided practices' },
     ];
     const card = (o)=> o.open ? `
       <button class="wincard p-opt g-opt" data-gkey="${o.key}">
@@ -1034,9 +1043,9 @@
             <div class="ba-col"><div class="ba-glyph">${triGlyph(db.key)}</div><div class="ba-state">${escapeHtml(STATE_NAME(db.key))}</div></div>
           </div>
           <p class="scr-lede">${escapeHtml(body)}</p>
-          <p class="scr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular meditation.</p>
+          <p class="scr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular practice.</p>
           <p class="scr-lede">Over time, with more check-ins and practices, you can watch your nervous system change, identify what practices work best, and master self-regulation skills. This system adapts with you and your capacity.</p>
-          <p class="scr-lede">Sign up for a free account on the next page to keep checking in as much as you want. Or, subscribe for unlimited custom meditations and deep insights based on your check-ins.</p>
+          <p class="scr-lede">Sign up for a free account on the next page to keep checking in as much as you want. Or, subscribe for unlimited custom practices and deep insights based on your check-ins.</p>
         </div>
         <div class="actionbar">
           <button class="btn block" id="g-ba-next">next</button>
@@ -1067,7 +1076,7 @@
         <div class="offer-card offer-paid">
           <h2>your personal self-regulation tool</h2>
           <ul>
-            <li>meditations built from your own check-ins, not picked off a list</li>
+            <li>practices built from your own check-ins, not picked off a list</li>
             <li>all six practices, including the safety practices</li>
             <li>what shows up across all your check-ins: when you're most regulated, what keeps repeating, which practices actually help</li>
             <li>your own personal reader, from the moment to the day to the week and beyond</li>
@@ -1555,7 +1564,7 @@
     const halo = checkedIn ? STATE_COLOR(dom) : 'var(--hairline)';
     const stateHTML = checkedIn
       ? `<button class="tb-state tb-state-line" id="tb-state"><span class="tb-glyph">${triGlyph(dom)}</span><span class="tb-state-txt">${STATE_NAME(dom)} · this ${segLabel(segOf(last.t))}</span><span class="tb-chev">${CHEV}</span></button>`
-      : `<button class="tb-state tb-state-cta" id="tb-state"><span class="tb-glyph">${triGlyph('neutral')}</span><span class="tb-state-txt">check in — how are you?</span><span class="tb-chev">${CHEV}</span></button>`;
+      : `<button class="tb-state tb-state-cta" id="tb-state"><span class="tb-glyph">${triGlyph('neutral')}</span><span class="tb-state-txt">check in. how are you?</span><span class="tb-chev">${CHEV}</span></button>`;
 
     const pracName   = escapeHtml(Store.practiceLabel(reco.practiceKey));
     const pracReason = reco.reason ? escapeHtml(reco.reason) : '';
@@ -2658,11 +2667,11 @@
           </div>
           <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
           <p class="ci-readout" id="ci-readout"></p>
-          ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like — when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
+          ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like: when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
           <div class="ci-ovr">
             <button class="set-quiet ci-ovr-link" id="ci-ovr-link" type="button">know your states? set it yourself</button>
             <div class="ci-ovr-panel" id="ci-ovr-panel" hidden>
-              <p class="ci-ovr-note">choosing a state moves the sliders to match it — fine-tune from there if it's close but not quite.</p>
+              <p class="ci-ovr-note">choosing a state moves the sliders to match it. fine-tune from there if it's close but not quite.</p>
               <div class="ci-ovr-chips">
                 ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
               </div>
@@ -2703,7 +2712,7 @@
             </div>
             <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-more" role="tabpanel">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelMore.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="more" aria-pressed="${ctxSelMore.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
             <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-less" role="tabpanel" hidden>${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelLess.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="less" aria-pressed="${ctxSelLess.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
-            <p class="ch-cap ci-ctx-cap">helps track what's adding to — or taking from — the states you feel over time. shows up later in your patterns.</p>
+            <p class="ch-cap ci-ctx-cap">helps track what's adding to (or taking from) the states you feel over time. shows up later in your patterns.</p>
           </div>
         </div>`;
         })()}
@@ -4277,7 +4286,7 @@
     {key:'mindfulness',title:'simple mindfulness',       sub:'the gentlest, a calm place to start'},
     {key:'anchoring',  title:'connect with safety',      sub:'settling in through your senses'},
     {key:'most',       title:'practice self-regulation', sub:'the deepest, meeting what is hard'},
-    {key:'more',       title:'more meditations',         sub:'standalone guided sessions'},
+    {key:'more',       title:'more practices',           sub:'standalone guided practices'},
   ];
   const P_SENSES=['touch','sound','sight','movement','imagination'];
   const P_SKILLS=[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']];
@@ -4765,7 +4774,7 @@
         </div>
         ${isMost?`<div class="fb-surf">
           <p class="dash-prompt">did anything surface?</p>
-          <p class="ch-cap">whatever showed up while you practiced — even if it wasn’t what you chose. pick any that fit. optional.</p>
+          <p class="ch-cap">whatever showed up while you practiced, even if it wasn’t what you chose. pick any that fit. optional.</p>
           <div class="p-chips">${Store.EMOTION_SURFACED.map(emoChip).join('')}</div>
         </div>`:''}
         <button class="btn block" id="fb-continue" disabled style="margin-top:18px">continue</button>
@@ -4895,7 +4904,7 @@
         <div class="set-group">
           <p class="dash-prompt">text size</p>
           <div class="set-seg" id="seg-text">
-            ${segBtn('ts','0.92','smaller',ts==='0.92')}${segBtn('ts','1','default',ts==='1')}${segBtn('ts','1.12','larger',ts==='1.12')}${segBtn('ts','1.25','largest',ts==='1.25')}
+            ${segBtn('ts','0.92','smaller',ts==='0.92')}${segBtn('ts','1','default',ts==='1')}${segBtn('ts','1.12','larger',ts==='1.12')}${segBtn('ts','1.25','largest',ts==='1.25')}${segBtn('ts','1.6','huge',ts==='1.6')}
           </div>
         </div>
         <div class="set-group">
@@ -4930,7 +4939,7 @@
         <div class="set-group">
           ${swRow('sw-offline','save practices for offline',offOn)}
           <p class="fineprint" id="offline-status" style="margin-top:2px"></p>
-          <p class="fineprint" style="margin-top:4px">your check-ins already work offline — they save on this device and sync to your account whenever you reconnect.</p>
+          <p class="fineprint" style="margin-top:4px">your check-ins already work offline. they save on this device and sync to your account whenever you reconnect.</p>
           <p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system may clear this if the app goes unused for a while. just turn it back on if that happens.</p>
         </div>
 
@@ -4994,7 +5003,7 @@
       segTh.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     });
     // practice scene: the caption mirrors the choice, same as the switches. 🖊
-    const SCENE_CAP={ '':'a different scene each session — the app chooses.',
+    const SCENE_CAP={ '':'a different scene each time. the app chooses.',
       circles:'the slow circles, as now.',
       drift:'soft specks drifting upward, each at its own pace.',
       pond:'still water — a ripple now and then.',
@@ -5019,12 +5028,12 @@
     // mirrors the current state so the row explains itself either way. 🖊
     const _motionCap = on=>{ const el=$('#motion-cap'); if(el) el.textContent = on
       ? 'animations are on.'
-      : "animations are off — this turns off the app's decorative movement. breathing practices keep their full timing; words carry the pace instead."; };
+      : "animations are off. this turns off the app's decorative movement. breathing practices keep their full timing; words carry the pace instead."; };
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
     const _hapCap = on=>{ const el=$('#hap-cap'); if(el) el.textContent = on
-      ? 'haptics are on — the app answers your taps with a tiny buzz.'
-      : 'haptics are off — the app never vibrates.'; };
+      ? 'haptics are on. the app answers your taps with a tiny buzz.'
+      : 'haptics are off. the app never vibrates.'; };
     _hapCap(hp);
     bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); _hapCap(on); });
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
@@ -5045,13 +5054,13 @@
     const setOff = (t)=>{ if(offStatus) offStatus.textContent = t; };
     // plain state-mirroring captions (Justin 2026-07-05): the line always says
     // what is true RIGHT NOW, in the plainest words we have. 🖊
-    const OFF_ON_TXT  = 'every meditation is saved on this device — they all play without a connection.';
-    const OFF_OFF_TXT = 'meditations play over the internet. turn this on to save them all to this device (about 94 mb — best on wi-fi), so they play with no connection at all.';
+    const OFF_ON_TXT  = 'every practice is saved on this device, they all play without a connection.';
+    const OFF_OFF_TXT = 'practices play over the internet. turn this on to save them all to this device (about 94 mb, best on wi-fi), so they play with no connection at all.';
     setOff(localStorage.getItem(OFFLINE_FLAG)==='1' ? OFF_ON_TXT : OFF_OFF_TXT);
     (async ()=>{
       if(localStorage.getItem(OFFLINE_FLAG)==='1'){
         const mani = await offlineManifest(); const have = await offlineCachedCount();
-        setOff(mani.length && have>=mani.length ? OFF_ON_TXT : 'your device cleared the offline copy — turn this on again to re-save it.');
+        setOff(mani.length && have>=mani.length ? OFF_ON_TXT : 'your device cleared the offline copy. turn this on again to re-save it.');
       }
     })();
     let offBusy = false;
@@ -5068,12 +5077,12 @@
           localStorage.setItem(OFFLINE_FLAG,'1');
           try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
           const have = await offlineCachedCount();
-          if(res.quota || have < urls.length) setOff("didn't all fit — saved "+have+" of "+urls.length+". free up some space and turn this on again.");
+          if(res.quota || have < urls.length) setOff("didn't all fit. saved "+have+" of "+urls.length+". free up some space and turn this on again.");
           else setOff(OFF_ON_TXT);
         }catch(e){ setOff('download failed. check your connection and try again.'); }
         offBusy = false;
       } else {
-        offBusy = true; await clearOffline(); localStorage.removeItem(OFFLINE_FLAG); setOff('offline copy removed — meditations play over the internet again.'); offBusy = false;
+        offBusy = true; await clearOffline(); localStorage.removeItem(OFFLINE_FLAG); setOff('offline copy removed. practices play over the internet again.'); offBusy = false;
       }
     };
     const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
@@ -5088,7 +5097,7 @@
       if(!confirm('Sign out? Your check-ins are saved to your account and will be here when you sign back in.')) return;
       await Store.signOut(); currentTab='today'; route();
     };
-    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'t be undone — your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
+    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'t be undone. your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
     // full in-app account deletion (the privacy policy promises it): a clear
     // confirm screen, then the delete-account edge function erases everything
     // server-side, instantly. 🖊 copy below is a draft for Justin to own.
