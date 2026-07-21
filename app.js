@@ -1728,7 +1728,7 @@
       for(let i=1;i<a.length;i++){ if(t<=a[i].t){ const f=(t-a[i-1].t)/((a[i].t-a[i-1].t)||1); return a[i-1].v+(a[i].v-a[i-1].v)*f; } } return a[a.length-1].v; };
     const midY=(padT+(H-padT-padB)/2).toFixed(0);
     const line = pts.length>1 ? `<polyline points="${pts.map(p=>p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ')}" fill="none" stroke="var(--hairline)" stroke-width="1.5" stroke-dasharray="2 3"/>` : '';
-    const rings = sessions.map(s=>{ const x=fx(s.t).toFixed(1), y=fy(vAt(s.t)).toFixed(1); return `<circle cx="${x}" cy="${y}" r="8" fill="none" stroke="#C9A24B" stroke-width="2"/><circle cx="${x}" cy="${y}" r="2" fill="#C9A24B"/>`; }).join('');
+    const rings = sessions.map(s=>{ const x=fx(s.t).toFixed(1), y=fy(vAt(s.t)).toFixed(1); return `<circle cx="${x}" cy="${y}" r="8" fill="none" stroke="#D29A4A" stroke-width="2"/><circle cx="${x}" cy="${y}" r="2" fill="#D29A4A"/>`; }).join('');
     const dots = pts.map((p,i)=>{ const nw=i===pts.length-1, c=STATE_COLOR(p.dom), x=p.x.toFixed(1), y=p.y.toFixed(1);
       return (nw?`<circle cx="${x}" cy="${y}" r="12" fill="none" stroke="${c}" stroke-opacity="0.45" stroke-width="2"/>`:'')+`<circle cx="${x}" cy="${y}" r="${nw?8.5:7.5}" fill="${c}"/>`; }).join('');
     const axis=`<text transform="rotate(-90 11 ${midY})" x="11" y="${midY}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="Inter">more safety</text>`+
@@ -1775,9 +1775,9 @@
     const last = pts[pts.length-1];
     return `<div class="sec-viz"><div class="vz-cap">your safety, recently</div><svg viewBox="0 0 ${W} ${H}" class="vz-svg" role="img" aria-label="your safety trend over recent days">`+
       `<line x1="${padL}" y1="${bot}" x2="${W-padR}" y2="${bot}" stroke="var(--hairline)" stroke-width="1"/>`+
-      `<polyline points="${P.join(' ')}" fill="none" stroke="#C9A24B" stroke-width="2.5"/>`+
+      `<polyline points="${P.join(' ')}" fill="none" stroke="#D29A4A" stroke-width="2.5"/>`+
       `<polyline points="${P.join(' ')} ${fx(last.x).toFixed(1)},${bot} ${padL},${bot}" fill="#F4D58D" fill-opacity="0.14" stroke="none"/>`+
-      `<circle cx="${fx(last.x).toFixed(1)}" cy="${_safeToY(last.v,top,bot).toFixed(1)}" r="3.5" fill="#C9A24B"/>`+
+      `<circle cx="${fx(last.x).toFixed(1)}" cy="${_safeToY(last.v,top,bot).toFixed(1)}" r="3.5" fill="#D29A4A"/>`+
       `</svg></div>`;
   }
   // "the fork ahead": the person's real trajectory flowing into a split — up toward more
@@ -1796,10 +1796,10 @@
     const defName = defenseState ? STATE_NAME(defenseState) : 'defense';
     return `<div class="sec-viz"><svg viewBox="0 0 ${W} ${H}" class="vz-svg" role="img" aria-label="a forking path from your current level toward more safety or toward ${escapeHtml(defName)}">`+
       `<line x1="${padL}" y1="${bot}" x2="${W-8}" y2="${bot}" stroke="var(--hairline)" stroke-width="1"/>`+
-      `<polyline points="${traj.join(' ')}" fill="none" stroke="#C9A24B" stroke-width="2.5"/>`+
+      `<polyline points="${traj.join(' ')}" fill="none" stroke="#D29A4A" stroke-width="2.5"/>`+
       `<path d="M${nodeX},${ny.toFixed(1)} C${(nodeX+60).toFixed(0)},${(ny-8).toFixed(0)} ${(bx-60)},${upEnd+8} ${bx},${upEnd}" fill="none" stroke="#9FC498" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round"/>`+
       `<path d="M${nodeX},${ny.toFixed(1)} C${(nodeX+60).toFixed(0)},${(ny+8).toFixed(0)} ${(bx-60)},${downEnd-8} ${bx},${downEnd}" fill="none" stroke="${defCol}" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round"/>`+
-      `<circle cx="${nodeX}" cy="${ny.toFixed(1)}" r="6" fill="${STATE_COLOR(dom)}" stroke="#C9A24B" stroke-width="1.5"/>`+
+      `<circle cx="${nodeX}" cy="${ny.toFixed(1)}" r="6" fill="${STATE_COLOR(dom)}" stroke="#D29A4A" stroke-width="1.5"/>`+
       `<text x="${bx}" y="${upEnd-4}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Inter">toward more safety</text>`+
       `<text x="${bx}" y="${downEnd+13}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Inter">toward ${escapeHtml(defName)}</text>`+
       `</svg></div>`;
