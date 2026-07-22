@@ -75,7 +75,7 @@ if (window.SNB_IS_STAGING) {
   document.addEventListener('DOMContentLoaded', function () {
     try {
       const b = document.createElement('div');
-      b.textContent = 'beta — test data, not your real account';
+      b.textContent = 'beta: test data, not your real account';
       b.setAttribute('role', 'status');
       b.style.cssText = [
         'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:2147483647',

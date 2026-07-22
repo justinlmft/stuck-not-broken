@@ -13,7 +13,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 <link rel="manifest" href="manifest.webmanifest">
 
-<title>A guided practice — Stuck Not Broken</title>
+<title>A guided practice · Stuck Not Broken</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
@@ -492,7 +492,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
           <div class="chips" id="skills"></div>
         </div>
         <div class="block" id="medwrap" style="display:none">
-          <span class="eyebrow">choose a session</span>
+          <span class="eyebrow">choose a practice</span>
           <div class="medlist" id="meds"></div>
         </div>
       </div>
@@ -906,7 +906,7 @@ const EXP={
    sum:"Connect into safety through your {sense}, and stay there a while."},
  most:{key:'most',t:'Practice self-regulation',cue:'the deepest — meeting what is hard',d:"",sense:'touch',skill:'imagery',descDefense:false,holdWatch:false,holdSeconds:60,silence:4,gentle:false,mind:false,tier:3,
    sum:"Intentionally and compassionately hold safety and non-safety."},
- more:{key:'more',t:'More meditations',cue:'standalone guided sessions',d:"",standalone:true,silence:8,mind:false,tier:9,
+ more:{key:'more',t:'More practices',cue:'standalone guided practices',d:"",standalone:true,silence:8,mind:false,tier:9,
    sum:"Full guided practices — pick one and begin."}
 };
 let practices=[fresh('mindfulness')];
@@ -1059,7 +1059,7 @@ function renderSetup(){
       mw.appendChild(b);});
     const sv=$('sils');sv.innerHTML='';                                  // silence still applies to a standalone
     SIL.forEach(([v,lbl])=>{const p=chip(lbl,v===cfg.silence);p.onclick=()=>{cfg.silence=v;renderSetup();};sv.appendChild(p);});
-    $('summary').innerHTML = cfg.pack ? ('<b>'+MEDS[cfg.pack].cue+' · '+MEDS[cfg.pack].est+'.</b>') : 'Choose a session to begin.';
+    $('summary').innerHTML = cfg.pack ? ('<b>'+MEDS[cfg.pack].cue+' · '+MEDS[cfg.pack].est+'.</b>') : 'choose a practice to begin.';
     const rv0=$('reveal'); if(rv0) rv0.style.maxHeight = picked ? rv0.scrollHeight+'px' : '0px';
     return;
   }
@@ -1317,7 +1317,7 @@ function startStandalone(){
   };
   if(PACKCACHE[id])return begin(PACKCACHE[id]);
   fetch(PACKS_BASE+MEDS[id].file).then(r=>r.json()).then(p=>{PACKCACHE[id]=p;begin(p);})
-   .catch(()=>{$('summary').innerHTML='<b>Could not load that session — check your connection.</b>';});
+   .catch(()=>{$('summary').innerHTML='<b>could not load that practice. check your connection.</b>';});
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

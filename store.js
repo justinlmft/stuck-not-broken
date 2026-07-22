@@ -1379,8 +1379,8 @@
       if(dn){ skill = dn; droppedRung = true; } else leftTrack = true;
     }
     if(leftTrack){
-      const reason = "last one didn't land well, so we're stepping out of defense work for a session and connecting with safety instead. the ladder will be right where you left it." + dpNote;
-      return cfg('anchoring', null, sense, 12, reason, 'a gentler session');
+      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. the ladder will be right where you left it." + dpNote;
+      return cfg('anchoring', null, sense, 12, reason, 'a gentler practice');
     }
     // pendulation still asks for advanced appetite (the ladder opens it; the
     // person's stated depth chooses whether to take it today).
@@ -1405,7 +1405,7 @@
     // session -> rung/dial -> daypart). drafts for Justin's copy pass.
     let reason;
     if(dialDown){
-      reason = "last one was a lot, so we're staying with " + _skillWord(skill) + " and making it smaller — a shorter stay, more room between the guidance.";
+      reason = "last one was a lot, so we're staying with " + _skillWord(skill) + " and making it smaller: a shorter stay, more room between the guidance.";
       if(lastMost && lastMost.emotionIntent) reason += " if you work with " + lastMost.emotionIntent + " again, maybe at a gentler intensity this time.";
     } else if(droppedRung && hardLast){
       reason = "the last couple were heavy, so we're stepping one rung down to " + _skillWord(skill) + ". the deeper work will be right there when you're ready.";
@@ -1414,11 +1414,11 @@
     } else if(hold){
       reason = "strong safety has become your norm, and you're anchored right now. we'll go to the top of the ladder: " + _skillWord(skill) + ", and hold safety and defense together to watch what unfolds.";
     } else if(descIntro){
-      reason = "you've been steady with balancing and pendulation on their own. this one adds describing the defense out loud — one step deeper, on the skill you're strongest in.";
+      reason = "you've been steady with balancing and pendulation on their own. this one adds describing the defense out loud, one step deeper, on the skill you're strongest in.";
     } else if(dys){
       reason = "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose.";
     } else if(rg.hi < 0){
-      reason = "you have safety and you asked to meet defense. we'll start at the first rung: validating and normalizing what's here. asking for more opened the door — the ladder still goes one step at a time.";
+      reason = "you have safety and you asked to meet defense. we'll start at the first rung: validating and normalizing what's here. asking for more opened the door. the ladder still goes one step at a time.";
     } else if(rg.next){
       reason = "you have safety here, and your practice history has earned the next step: " + _skillWord(skill) + ". one rung at a time, with the way back always open.";
     } else if(want>=0.78){
@@ -1497,7 +1497,7 @@
   // scored — the only thing the math ever scores is more safety.
   const EMOTION_FAMILIES = [
     { key:'anxious', label:'anxious', hint:'like nervous, worried, uneasy' },
-    { key:'angry',   label:'angry',   hint:'like annoyed, irritable — all the way up to rage' },
+    { key:'angry',   label:'angry',   hint:'like annoyed, irritable, all the way up to rage' },
     { key:'sad',     label:'sad',     hint:'like lonely, hopeless, disconnected' },
     { key:'fear',    label:'fear',    hint:'like dread, panic, overwhelm' },
   ];
