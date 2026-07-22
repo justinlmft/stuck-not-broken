@@ -1803,28 +1803,43 @@ body.reduce-motion .lv-breathe{animation:none}
 }
 
 /* ============================================================
-   DESKTOP PRACTICE (>=720) — two-column composition so the tab
-   fits one screen (no bottom bleed): the "made for you" custom
-   practice as a feature on the left (cols 1-6), the other
-   practices as a list on the right (cols 7-12). Interim toward
-   the full list|detail preview (that needs a JS detail pane).
-   Compact <720 untouched.
+   DESKTOP PRACTICE (>=720) — persistent list | detail. The list
+   (the "made for you" custom-practice card + the practice cards)
+   stays in a left column; the selected practice's adjust /
+   what-to-expect + begin render in a sticky right column. One
+   reading order, no navigation, fits one screen. The DOM for this
+   is built by the desktop branch in renderPracticeChooser (class
+   .p-split-view) — mobile <720 renders the original flow and is
+   untouched.
    ============================================================ */
 @media (min-width:720px){
-  /* SCOPED to the chooser only (:has(#p-opts-list)) so the customiser / adjust
-     screen -- also a .p-view.p-bottom, but with .p-refine not #p-opts-list -- keeps
-     its default centered column and is never squished into the 12-col grid. */
-  #screen .p-view:has(#p-opts-list){max-width:1080px;margin-inline:0}
-  #screen .p-view:has(#p-opts-list) .p-bottom{
+  #screen .p-split-view{max-width:1080px;margin-inline:0}
+  .p-split{
     display:grid;
-    grid-template-columns:repeat(12,minmax(0,1fr));
-    column-gap:clamp(18px,2vw,28px);
+    grid-template-columns:minmax(300px,4.4fr) 6fr;
+    column-gap:clamp(28px,4vw,56px);
     align-items:start;
   }
-  #screen .p-view:has(#p-opts-list) #foryou{grid-column:1 / 7;margin:0;align-self:start}
-  #screen .p-view:has(#p-opts-list) #p-opts-list{grid-column:7 / 13;margin:0}
-  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt{margin-bottom:10px}
-  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt:last-child{margin-bottom:0}
+  .p-list-col{min-width:0}
+  .p-list-col #p-opts-list{margin:0}
+  .p-list-col #p-opts-list .p-opt{margin-bottom:10px}
+  .p-list-col #p-opts-list .p-opt:last-child{margin-bottom:0}
+  .p-list-col #foryou{margin:0 0 18px}
+  /* selected card reads as SELECTED (keep the card; highlight it) rather than the
+     mobile collapse-into-adjust treatment (.p-opt.p-sel), which is for the
+     full-screen flow where the chooser is replaced. */
+  .p-list-col .p-opt.p-sel{
+    border:1px solid var(--ink);border-radius:14px;background:var(--bone-deep);
+    max-height:none;overflow:visible;padding:17px 18px;margin-bottom:10px;
+  }
+  .p-list-col .p-opt.p-sel:active{background:var(--bone-deep)}
+  .p-list-col .p-opt.p-sel .wc-title{color:var(--ink);font-weight:500}
+  .p-list-col .p-opt.p-sel .wc-go{transform:rotate(90deg);color:var(--muted)}
+  /* detail column: sticky so a long adjust list keeps the list in view */
+  .p-detail-col{min-width:0;position:sticky;top:8px}
+  .p-detail-col .p-refine{margin:0}
+  .p-detail-bar{margin-top:24px}
+  .p-detail-bar .btn.block{width:auto;min-width:200px}
 }
 
 /* The reader keeps the left rail on desktop (same as every other
