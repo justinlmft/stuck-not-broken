@@ -1820,6 +1820,10 @@ body.reduce-motion .lv-breathe{animation:none}
     column-gap:clamp(28px,4vw,56px);
     align-items:start;
   }
+  /* ARRIVAL (nothing picked): detail hidden, list holds a calm single column so it
+     doesn't read as a squished half of an empty two-column grid. */
+  .p-split-view:not(.has-detail) .p-split{grid-template-columns:minmax(0,540px)}
+  .p-split-view:not(.has-detail) .p-detail-col{display:none}
   .p-list-col{min-width:0}
   .p-list-col #p-opts-list{margin:0}
   .p-list-col #p-opts-list .p-opt{margin-bottom:10px}
@@ -1835,6 +1839,15 @@ body.reduce-motion .lv-breathe{animation:none}
   .p-list-col .p-opt.p-sel:active{background:var(--bone-deep)}
   .p-list-col .p-opt.p-sel .wc-title{color:var(--ink);font-weight:500}
   .p-list-col .p-opt.p-sel .wc-go{transform:rotate(90deg);color:var(--muted)}
+  /* once a practice is picked, the OTHERS stay visible but recede — faded, outline
+     removed, still clickable to switch. (Overrides the mobile base rule that collapses
+     them to zero; desktop keeps them in place.) */
+  .p-list-col .p-opts.has-sel .p-opt:not(.p-sel){
+    opacity:.45;max-height:none;overflow:visible;pointer-events:auto;
+    margin-bottom:10px;padding:17px 18px;border-color:transparent;
+    transition:opacity .2s var(--ease),border-color .2s var(--ease);
+  }
+  @media(hover:hover){.p-list-col .p-opts.has-sel .p-opt:not(.p-sel):hover{opacity:.85}}
   /* detail column: sticky so a long adjust list keeps the list in view */
   .p-detail-col{min-width:0;position:sticky;top:8px}
   .p-detail-col .p-refine{margin:0}

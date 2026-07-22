@@ -4398,18 +4398,12 @@
   function renderPracticeChooser(animateIn){
     const c=content();
     let {key,sense,skill,silence,med}=pState;
-    // Desktop (>=720) shows a persistent list|detail: the practice cards stay on the
-    // left while the selected practice's adjust/what-to-expect renders on the right.
-    // So the detail pane is never empty, seed the selection to the recommended
-    // practice on first arrival (mobile keeps key=null and its full-screen flow).
+    // Desktop (>=720) shows a list|detail. On arrival NOTHING is selected: the list
+    // shows neutral cards and the detail column stays hidden until the user picks a
+    // practice. On pick, that card lights up, the others fade + lose their outline,
+    // and its adjust/what-to-expect reveals on the right. (Mobile <720 keeps key=null
+    // and its full-screen flow unchanged.)
     const desk = !!(window.matchMedia && window.matchMedia('(min-width:720px)').matches);
-    if(desk && key===null){
-      const _rk = Store.recommend().practiceKey;
-      // seed to the recommended practice when it's accessible; otherwise fall back to
-      // mindfulness (always free, the gentlest) so the detail pane is never empty.
-      if(_rk && _rk!=='more' && (paidNow() || practiceFree(_rk))){ key=_rk; pState.key=_rk; }
-      else { key='mindfulness'; pState.key='mindfulness'; }
-    }
 
     // per-practice icons: the breath ring for mindfulness, the brand heart for
     // safety, the brand bolt for self-regulation (matching the player's tinting),
@@ -4549,14 +4543,14 @@
       // renders on the right. No navigation, no bottom bleed. Reuses the exact same
       // refine/meds markup + handlers + begin flow as mobile. ----
       const deskHeading = _paid ? 'your practice, or choose another.' : 'pick a practice.';
-      c.innerHTML=`<div class="view p-view p-split-view${key?' track-'+trackOf(key).cls:''}">
+      c.innerHTML=`<div class="view p-view p-split-view${key?' has-detail':''}${key?' track-'+trackOf(key).cls:''}">
       <div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">${deskHeading}</h2>
       </div>
       <div class="p-split">
         <div class="p-list-col">
-          ${tunedCard}<div class="p-opts" id="p-opts-list">${optCards}</div>${freeFoot}
+          ${tunedCard}<div class="p-opts${key?' has-sel':''}" id="p-opts-list">${optCards}</div>${freeFoot}
         </div>
         <div class="p-detail-col">
           ${key ? `${refineHTML}${medsHTML}
