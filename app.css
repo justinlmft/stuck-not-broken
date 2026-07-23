@@ -1996,3 +1996,33 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
   #screen .view.checkin2 #fold-ctx{grid-column:6 / 13;grid-row:3;margin:0}
   #screen .view.checkin2 .actionbar{grid-column:6 / 13;grid-row:4;margin-top:8px}
 }
+
+/* ---- You tab refine (2026-07-23): reader-on-top + filterable data ---------
+   Additive only. The pattern cards, deep sections, and all logic are unchanged;
+   this adds the "cards to share" lead, the personal-reflection entry band, and
+   a sticky state filter that dims non-matching data rows. Tokens are shared with
+   the design system, so light/dark are inherited automatically. */
+.cards-lead{font-size:calc(11.5px * var(--type-scale));font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);margin:2px 0 10px}
+.you-reader{display:block;margin:18px 0 2px;border:1px solid var(--hairline);border-radius:18px;padding:20px;text-decoration:none;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),transform .2s var(--ease)}
+.you-reader:hover{border-color:var(--ink)}
+.you-reader:active{transform:scale(.994)}
+.you-reader:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.you-reader .yr-eyebrow{font-size:calc(11px * var(--type-scale));font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
+.you-reader .yr-h{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:10px 0 0;color:var(--ink)}
+.you-reader .yr-lede{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:7px 0 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.you-reader .yr-go{display:flex;align-items:center;gap:11px;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)}
+.you-reader .yr-glyph{flex:none;display:inline-flex;opacity:.7;transform:scale(.82);transform-origin:left center}
+.you-reader .yr-txt{font-size:calc(14.5px * var(--type-scale));color:var(--ink);font-weight:500;flex:1}
+.you-reader .yr-arw{color:var(--muted);flex:none;display:inline-flex}
+.you-reader .yr-arw svg{width:20px;height:20px}
+.you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px -22px 4px;padding:12px 22px}
+.you-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.you-chips::-webkit-scrollbar{display:none}
+.you-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hairline);border-radius:999px;padding:7px 13px;font:inherit;font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;cursor:pointer;flex:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),background .2s var(--ease),color .2s var(--ease)}
+.you-chip:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.you-chip.on{border-color:var(--ink)}
+.you-chip.plain.on{background:var(--ink);color:var(--bone)}
+.you-chip svg{flex:none}
+.deep-row{transition:opacity .2s var(--ease)}
+.deep-row.dim{opacity:.28}
+@media (prefers-reduced-motion:reduce){.you-reader,.you-chip,.deep-row{transition:none}}

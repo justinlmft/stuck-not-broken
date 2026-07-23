@@ -3820,6 +3820,12 @@
       const ce  = _contextEffect();
       const pe  = ce ? _peWindowed() : null;
       const csl = _contextStateLink();
+      // reader-on-top + filterable data (2026-07-23 refine): the daily reader line
+      // becomes the personal-reflection entry; state chips filter the data rows.
+      const _r=(FromJustin&&(FromJustin.daily?FromJustin.daily():(FromJustin.today?FromJustin.today():null)))||null;
+      const _reflText=(_r&&_r.text)?escapeHtml(_r.text):'';
+      const _present=(function(){const t=['morning','afternoon','evening','late'].map(sg=>domOf(cs.filter(x=>segOf(x.t)===sg)));const d=[0,1,2,3,4,5,6].map(k=>{const sub=cs.filter(x=>new Date(x.t).getDay()===k);return sub.length>=3?domOf(sub):null;});return [...new Set([...t,...d].filter(Boolean))];})();
+      const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">all</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_NAME(s)}</span></button>`).join('');
       c.innerHTML=`
         <div class="view play-view">
           <div class="filter-bar">
@@ -3828,6 +3834,7 @@
             <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
           </div>
 
+          <p class="cards-lead" id="cards-lead">cards to share &middot; tap the share icon to send one</p>
           <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="your patterns \u2014 swipe or use the dots below">${(function(){
             // slides assemble dynamically, wins first. a safety DIP is never
             // animated or headlined here (it lives, gently worded, in the reader).
@@ -3988,14 +3995,23 @@
 
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${lb}"></button>`).join('')}</div>
 
+          <a class="you-reader" id="you-reader" href="#">
+            <span class="yr-eyebrow">from your check-ins &middot; updates as you check in</span>
+            <h3 class="yr-h">your reflection</h3>
+            <p class="yr-lede">${_reflText || 'the personal read of your patterns, in plain language.'}</p>
+            <span class="yr-go"><span class="yr-glyph">${triGlyph('safety')}</span><span class="yr-txt">read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+          </a>
+
+          <div class="you-filter" id="you-filter"><div class="you-chips">${_chipsHTML}</div></div>
+
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">day by day</h3>
-              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
               <p class="deep-foot">% = check-ins where a safe state leads.</p>
             </div>
             <div class="deep-block">
@@ -4046,6 +4062,7 @@
             +'</nav>'
             +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
           cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
+          const _cl=c.querySelector('#cards-lead'); if(_cl) _cl.style.display='none';
           cvEl.parentNode.insertBefore(wrap, cvEl);
           // desktop top-alignment: lift the week/all toggle to the row just under the
           // heading, so "what your check-ins show." tops the screen on the same line
@@ -4069,6 +4086,10 @@
       const chgBtn=$('#change-ci'); if(chgBtn) chgBtn.onclick=screenChangeCheckin;
       const mpBtn=$('#manage-pr'); if(mpBtn) mpBtn.onclick=screenManagePractices;
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
+      // reader-on-top entry → the full personal reflection (paid deep reader)
+      const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
+      // state chips filter the data rows (dim non-matching); range change re-renders and resets to all
+      (function(){ const fb=c.querySelector('#you-filter'); if(!fb) return; const chips=fb.querySelectorAll('.you-chip'); const rows=c.querySelectorAll('.deep-row[data-state]'); chips.forEach(ch=>ch.addEventListener('click',()=>{ const f=ch.dataset.f; chips.forEach(x=>x.classList.toggle('on',x===ch)); rows.forEach(r=>{ const ds=r.getAttribute('data-state'); r.classList.toggle('dim', f!=='all' && ds!==f); }); })); })();
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
       const _sig = 'stuck not broken · app.stucknotbroken.com';
