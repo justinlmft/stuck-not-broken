@@ -4397,7 +4397,13 @@
 
   function renderPracticeChooser(animateIn){
     const c=content();
-    const {key,sense,skill,silence,med}=pState;
+    let {key,sense,skill,silence,med}=pState;
+    // Desktop (>=720) shows a list|detail. On arrival NOTHING is selected: the list
+    // shows neutral cards and the detail column stays hidden until the user picks a
+    // practice. On pick, that card lights up, the others fade + lose their outline,
+    // and its adjust/what-to-expect reveals on the right. (Mobile <720 keeps key=null
+    // and its full-screen flow unchanged.)
+    const desk = !!(window.matchMedia && window.matchMedia('(min-width:720px)').matches);
 
     // per-practice icons: the breath ring for mindfulness, the brand heart for
     // safety, the brand bolt for self-regulation (matching the player's tinting),
@@ -4483,7 +4489,7 @@
     // to, and dangle it besides) — it is simply not there. What's there instead is the
     // practices they have, and one quiet line saying where the matching lives.
     const tunedCard = !_paid ? '' : `
-      <button class="wincard tuned-card track-${tk.cls}${animateIn?' tc-in':''}" id="foryou">
+      <button class="wincard tuned-card track-${tk.cls}${animateIn?' tc-in':''}${pState.tunedSel?' tuned-sel':''}" id="foryou">
         <span class="wc-text">
           <span class="tuned-kicker">made for you</span>
           <span class="wc-title">${tunedHeading}</span>
@@ -4507,13 +4513,15 @@
       const locked = !_paid && !practiceFree(o.key);
       return locked
         ? selCard(o, `data-plock="${o.key}"`, false).replace('class="wincard p-opt', 'class="wincard p-opt p-locked')
-        : selCard(o, `data-pkey="${o.key}"`, key===o.key);
+        : selCard(o, `data-pkey="${o.key}"`, key===o.key && !pState.tunedSel);
     }).join('');
     const freeFoot = (!_paid && !key)
       ? '<p class="fineprint" style="text-align:center;margin:14px 2px 0;opacity:.72">practices built from your check-ins are on the base plan.</p>'
       : '';
 
-    c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
+    if(!desk){
+      // ---- MOBILE (<720): unchanged full-screen flow (list OR adjust) ----
+      c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
       <div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">${heading}</h2>
@@ -4529,10 +4537,34 @@
         <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>begin</button>
       </div>`:''}
     </div>`;
+    } else {
+      // ---- DESKTOP (>=720): persistent list | detail. The list (tuned card +
+      // practice cards) stays left; the selected practice's adjust/what-to-expect
+      // renders on the right. No navigation, no bottom bleed. Reuses the exact same
+      // refine/meds markup + handlers + begin flow as mobile. ----
+      const deskHeading = _paid ? 'your practice, or choose another.' : 'pick a practice.';
+      c.innerHTML=`<div class="view p-view p-split-view${key?' has-detail':''}${key?' track-'+trackOf(key).cls:''}">
+      <div class="scr-head">
+        <p class="eyebrow"></p>
+        <h2 class="scr-h">${deskHeading}</h2>
+      </div>
+      <div class="p-split">
+        <div class="p-list-col">
+          ${tunedCard}<div class="p-opts${key?' has-sel':''}" id="p-opts-list">${optCards}</div>${freeFoot}
+        </div>
+        <div class="p-detail-col">
+          ${key ? `${refineHTML}${medsHTML}
+            <div class="actionbar p-detail-bar">
+              <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>begin</button>
+            </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+    }
 
-    c.querySelectorAll('[data-pkey]').forEach(b=>b.onclick=()=>{pState.key=pState.key===b.dataset.pkey?null:b.dataset.pkey;pState.med=null;renderPracticeChooser();});
+    c.querySelectorAll('[data-pkey]').forEach(b=>b.onclick=()=>{pState.tunedSel=false;pState.key=desk?b.dataset.pkey:(pState.key===b.dataset.pkey?null:b.dataset.pkey);pState.med=null;renderPracticeChooser();});
     c.querySelectorAll('[data-plock]').forEach(b=>b.onclick=()=>gateSubscribe('practice'));
-    const cancelBtn=$('#p-cancel'); if(cancelBtn) cancelBtn.onclick=()=>{pState.key=null;pState.med=null;renderPracticeChooser();};
+    const cancelBtn=$('#p-cancel'); if(cancelBtn) cancelBtn.onclick=()=>{pState.key=null;pState.med=null;pState.tunedSel=false;renderPracticeChooser();};
     c.querySelectorAll('[data-pmed]').forEach(b=>b.onclick=()=>{
       pState.med=b.dataset.pmed;
       c.querySelectorAll('[data-pmed]').forEach(r=>r.classList.toggle('on',r.dataset.pmed===pState.med));
@@ -4593,7 +4625,17 @@
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
     };
 
-    const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
+    const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>{
+      // Desktop: the recommended card opens its detail in the right panel (like the
+      // practice cards) instead of navigating to the plan screen. Mobile keeps the plan.
+      if(desk && reco.practiceKey && reco.practiceKey!=='more'){
+        pState.tunedSel=true; pState.key=reco.practiceKey; pState.med=null;
+        if(reco.sense) pState.sense=reco.sense;
+        if(reco.skill) pState.skill=reco.skill;
+        if(reco.silence) pState.silence=reco.silence;
+        renderPracticeChooser();
+      } else { renderPlan(reco); }
+    };
     const beginBtn=$('#p-begin');
     // attach regardless of initial canBegin: for "More meditations" the button starts
     // disabled (no session picked yet) and is enabled when a session is chosen — but the

@@ -1803,28 +1803,116 @@ body.reduce-motion .lv-breathe{animation:none}
 }
 
 /* ============================================================
-   DESKTOP PRACTICE (>=720) — two-column composition so the tab
-   fits one screen (no bottom bleed): the "made for you" custom
-   practice as a feature on the left (cols 1-6), the other
-   practices as a list on the right (cols 7-12). Interim toward
-   the full list|detail preview (that needs a JS detail pane).
-   Compact <720 untouched.
+   DESKTOP PRACTICE (>=720) — persistent list | detail. The list
+   (the "made for you" custom-practice card + the practice cards)
+   stays in a left column; the selected practice's adjust /
+   what-to-expect + begin render in a sticky right column. One
+   reading order, no navigation, fits one screen. The DOM for this
+   is built by the desktop branch in renderPracticeChooser (class
+   .p-split-view) — mobile <720 renders the original flow and is
+   untouched.
    ============================================================ */
 @media (min-width:720px){
-  /* SCOPED to the chooser only (:has(#p-opts-list)) so the customiser / adjust
-     screen -- also a .p-view.p-bottom, but with .p-refine not #p-opts-list -- keeps
-     its default centered column and is never squished into the 12-col grid. */
-  #screen .p-view:has(#p-opts-list){max-width:1080px;margin-inline:0}
-  #screen .p-view:has(#p-opts-list) .p-bottom{
+  #screen .p-split-view{max-width:1080px;margin-inline:0}
+  /* The list column is a FIXED width in BOTH states so it never reflows when you
+     pick a practice — the detail pane just appears to its right. */
+  .p-split{
     display:grid;
-    grid-template-columns:repeat(12,minmax(0,1fr));
-    column-gap:clamp(18px,2vw,28px);
+    grid-template-columns:440px minmax(0,1fr);
+    column-gap:clamp(28px,4vw,56px);
     align-items:start;
   }
-  #screen .p-view:has(#p-opts-list) #foryou{grid-column:1 / 7;margin:0;align-self:start}
-  #screen .p-view:has(#p-opts-list) #p-opts-list{grid-column:7 / 13;margin:0}
-  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt{margin-bottom:10px}
-  #screen .p-view:has(#p-opts-list) #p-opts-list .p-opt:last-child{margin-bottom:0}
+  /* ARRIVAL (nothing picked): detail hidden; the list keeps the SAME 440px width. */
+  .p-split-view:not(.has-detail) .p-split{grid-template-columns:440px}
+  .p-split-view:not(.has-detail) .p-detail-col{display:none}
+  .p-list-col{min-width:0}
+  .p-list-col #p-opts-list{margin:0}
+  .p-list-col #p-opts-list .p-opt{margin-bottom:10px}
+  .p-list-col #p-opts-list .p-opt:last-child{margin-bottom:0}
+  .p-list-col #foryou{margin:0 0 18px}
+  /* selected card = darker OUTLINE only, no fill (SNB cards are never color-filled).
+     Overrides the mobile collapse-into-adjust treatment (.p-opt.p-sel) for the
+     full-screen flow. */
+  .p-list-col .p-opt.p-sel{
+    border:1px solid var(--ink-80);border-radius:14px;background:transparent;
+    max-height:none;overflow:visible;padding:17px 18px;margin-bottom:10px;
+  }
+  .p-list-col .p-opt.p-sel:active{background:transparent}
+  .p-list-col .p-opt.p-sel .wc-title{color:var(--ink);font-weight:500}
+  .p-list-col .p-opt.p-sel .wc-go{transform:rotate(90deg);color:var(--muted)}
+  /* once a practice is picked, EVERY other card recedes — the other practices AND the
+     recommended "made for you" card — faded, outline gone, still clickable to switch.
+     (Overrides the mobile base rule that collapses non-selected cards to zero.) */
+  .p-list-col .p-opts.has-sel .p-opt:not(.p-sel){
+    opacity:.4;max-height:none;overflow:visible;pointer-events:auto;
+    margin-bottom:10px;padding:17px 18px;border-color:transparent;
+    transition:opacity .2s var(--ease),border-color .2s var(--ease);
+  }
+  .p-split-view.has-detail .p-list-col #foryou{
+    opacity:.4;transition:opacity .2s var(--ease),border-color .2s var(--ease);
+  }
+  /* ...unless the recommended card itself is the selection: then it's the lit one
+     (darker outline, no fill) and everything else fades. */
+  .p-split-view.has-detail .p-list-col #foryou.tuned-sel{opacity:1;border-color:var(--ink-80)}
+  @media(hover:hover){
+    .p-list-col .p-opts.has-sel .p-opt:not(.p-sel):hover{opacity:.8}
+    .p-split-view.has-detail .p-list-col #foryou:not(.tuned-sel):hover{opacity:.8}
+  }
+  /* detail column: sticky so a long adjust list keeps the list in view */
+  .p-detail-col{min-width:0;position:sticky;top:8px}
+  .p-detail-col .p-refine{margin:0}
+  .p-detail-bar{margin-top:24px}
+  .p-detail-bar .btn.block{width:auto;min-width:200px}
+
+  /* "more practices" sessions render as CARDS in the detail pane (outline only,
+     no fill), not divider rows. */
+  .p-detail-col .p-med-list{border-top:0;margin-top:14px;gap:10px}
+  .p-detail-col .p-med-row{
+    border:1px solid var(--hairline);border-radius:14px;background:transparent;
+    padding:14px 16px;gap:3px;
+    transition:border-color .2s var(--ease),opacity .2s var(--ease);
+  }
+  .p-detail-col .p-med-row.on{border-color:var(--ink-80)}
+  @media(hover:hover){
+    .p-detail-col .p-med-row:hover{border-color:var(--ink-80)}
+    .p-detail-col .p-med-row:hover .p-med-title{text-decoration:none}
+  }
+
+  /* Detail-pane submenus animate in TOP-TO-BOTTOM. Order-based (> *:nth-child) so
+     EVERY group staggers regardless of which conditional groups are present — the
+     base rule only covered .p-rgroup:nth-child(1..3), which left self-reg's later
+     groups (silence, length) popping in with no delay. Also covers the meds cards,
+     which had no entrance animation at all. */
+  .p-split-view .p-detail-col .p-refine > *,
+  .p-split-view .p-detail-col .p-med-row{
+    opacity:0;transform:translateY(9px);animation:secRise .5s var(--ease) both;
+  }
+  .p-split-view .p-detail-col .p-refine > *:nth-child(1),
+  .p-split-view .p-detail-col .p-med-row:nth-child(1){animation-delay:.04s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(2),
+  .p-split-view .p-detail-col .p-med-row:nth-child(2){animation-delay:.10s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(3),
+  .p-split-view .p-detail-col .p-med-row:nth-child(3){animation-delay:.16s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(4),
+  .p-split-view .p-detail-col .p-med-row:nth-child(4){animation-delay:.22s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(5){animation-delay:.28s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(6){animation-delay:.34s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(7){animation-delay:.40s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(8){animation-delay:.46s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(n+9){animation-delay:.52s}
+  .p-split-view .p-detail-col .p-detail-bar{
+    opacity:0;transform:translateY(9px);animation:secRise .5s .3s var(--ease) both;
+  }
+}
+
+/* Reduce-Motion: the desktop detail-pane stagger is decorative — honor the setting. */
+body.reduce-motion .p-detail-col .p-refine > *,
+body.reduce-motion .p-detail-col .p-med-row,
+body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){
+  .p-detail-col .p-refine > *,
+  .p-detail-col .p-med-row,
+  .p-detail-col .p-detail-bar{animation:none;opacity:1;transform:none}
 }
 
 /* The reader keeps the left rail on desktop (same as every other
