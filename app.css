@@ -2024,3 +2024,33 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .deep-row{transition:opacity .2s var(--ease)}
 .deep-row.dim{opacity:.28}
 @media (prefers-reduced-motion:reduce){.you-reader,.you-chip,.deep-row{transition:none}}
+
+/* ---- breath ring: three-state ladder (2026-07-23) --------------------------
+   #tring holds a 3-ring SVG (outer=safety, middle=fight/flight, inner=shutdown).
+   Each ring keeps its own ambient breath; the current state lights + amplifies
+   the dominant ring(s), quiet rings stay pale ink. The existing breath engine
+   scales #tring as a whole; .breathing gathers all three into one ink wave. */
+.tb-ring.br-stage{width:100%;height:100%;border:0;border-radius:0;opacity:1;animation:none}
+.br-svg{width:100%;height:100%;overflow:visible;display:block}
+.br-c{fill:none;stroke-linecap:round;transition:stroke .9s var(--ease),stroke-width .9s var(--ease),stroke-opacity .9s var(--ease)}
+.br-c.lit{stroke-width:2.4}
+.br-c.dim{stroke:var(--ink);stroke-opacity:.16;stroke-width:2}
+.br-dot{transition:fill .9s var(--ease)}
+.br-g{transform-box:fill-box;transform-origin:center}
+.br-out{animation-duration:7s;animation-timing-function:cubic-bezier(.37,0,.63,1);animation-iteration-count:infinite}
+.br-mid{animation-duration:3s;animation-timing-function:cubic-bezier(.45,0,.55,1);animation-iteration-count:infinite}
+.br-in{animation-duration:9s;animation-timing-function:cubic-bezier(.37,0,.63,1);animation-iteration-count:infinite}
+.br-out.act{animation-name:brOutAct}.br-out.qui{animation-name:brOutQui}
+.br-mid.act{animation-name:brMidAct}.br-mid.qui{animation-name:brMidQui}
+.br-in.act{animation-name:brInAct}.br-in.qui{animation-name:brInQui}
+@keyframes brOutAct{0%,100%{transform:scale(.955)}50%{transform:scale(1.055)}}
+@keyframes brOutQui{0%,100%{transform:scale(.985)}50%{transform:scale(1.02)}}
+@keyframes brMidAct{0%,100%{transform:scale(.985)}50%{transform:scale(1.04)}}
+@keyframes brMidQui{0%,100%{transform:scale(.992)}50%{transform:scale(1.016)}}
+@keyframes brInAct{0%,100%{transform:scale(.975)}50%{transform:scale(1.006)}}
+@keyframes brInQui{0%,100%{transform:scale(.987)}50%{transform:scale(1.001)}}
+/* tap → gather: during the guided breath all three lock to one calm ink wave */
+.today.tb.breathing .br-g{animation:none}
+.today.tb.breathing .br-c{stroke:var(--ink);stroke-opacity:.5;stroke-width:1.5}
+.today.tb.breathing .br-dot{fill:var(--ink);fill-opacity:.5}
+@media (prefers-reduced-motion:reduce){.br-g{animation:none!important}}

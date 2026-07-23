@@ -1581,9 +1581,8 @@
       <div class="tb-cluster">${stateHTML}</div>
       <div class="tb-hero">
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
-          <span class="tb-stage" style="--halo:${halo}">
-            <span class="tb-halo"></span><span class="tb-halo b"></span>
-            <span class="tb-ring" id="tring"><span class="tb-core"></span></span>
+          <span class="tb-stage">
+            <span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(dom)}</span>
           </span>
           <span class="tb-below">
             <span class="tb-txt"><span class="tb-line">take a breath</span><span class="tb-hint">tap the ring to breathe</span></span>
@@ -1707,6 +1706,36 @@
       }, 4300);
       later(finish, 10600);
     }, 380);
+  }
+
+  // ---- breath ring: the three-state ladder (2026-07-23) ----------------------
+  // The single centering ring is really the polyvagal ladder: outer = safety
+  // (ventral), middle = fight/flight (sympathetic), inner = shutdown (dorsal) —
+  // order fixed forever. All three are always alive: each ring keeps its own
+  // ambient breath. The current state lights + amplifies the dominant ring(s)
+  // (a blend lights two, in the blend token); quiet rings stay pale ink. On tap,
+  // the existing breath engine scales #tring as a whole and CSS (.breathing)
+  // gathers all three into one regulated ink wave. A pure SVG, no engine change.
+  const RING_CFG = {
+    safety:     { out:1, mid:0, in:0, c:'--s-safety' },
+    fightflight:{ out:0, mid:1, in:0, c:'--s-fight' },
+    shutdown:   { out:0, mid:0, in:1, c:'--s-shutdown' },
+    play:       { out:1, mid:1, in:0, c:'--s-play' },
+    stillness:  { out:1, mid:0, in:1, c:'--s-still' },
+    freeze:     { out:0, mid:1, in:1, c:'--s-freeze' }
+  };
+  function tbRingSVG(dom){
+    const cfg = RING_CFG[dom] || null;   // no/neutral check-in → all rings quiet, alive
+    const ring = (pos, r, on)=>{
+      const st = on ? ` style="stroke:var(${cfg.c})"` : '';
+      return `<g class="br-g br-${pos} ${on?'act':'qui'}"><circle class="br-c ${on?'lit':'dim'}" cx="150" cy="150" r="${r}"${st}/></g>`;
+    };
+    const dotCol = cfg ? `var(${cfg.c})` : 'var(--muted)';
+    return `<svg class="br-svg" viewBox="0 0 300 300" aria-hidden="true">`
+      + ring('out',128, !!(cfg&&cfg.out))
+      + ring('mid',104, !!(cfg&&cfg.mid))
+      + ring('in', 80,  !!(cfg&&cfg.in))
+      + `<circle class="br-dot" cx="150" cy="150" r="4.5" style="fill:${dotCol}"/></svg>`;
   }
 
   // The moment timeline: today's check-ins placed by time (x) and safety (y),
