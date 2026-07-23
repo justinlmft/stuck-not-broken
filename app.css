@@ -1814,15 +1814,16 @@ body.reduce-motion .lv-breathe{animation:none}
    ============================================================ */
 @media (min-width:720px){
   #screen .p-split-view{max-width:1080px;margin-inline:0}
+  /* The list column is a FIXED width in BOTH states so it never reflows when you
+     pick a practice — the detail pane just appears to its right. */
   .p-split{
     display:grid;
-    grid-template-columns:minmax(300px,4.4fr) 6fr;
+    grid-template-columns:440px minmax(0,1fr);
     column-gap:clamp(28px,4vw,56px);
     align-items:start;
   }
-  /* ARRIVAL (nothing picked): detail hidden, list holds a calm single column so it
-     doesn't read as a squished half of an empty two-column grid. */
-  .p-split-view:not(.has-detail) .p-split{grid-template-columns:minmax(0,540px)}
+  /* ARRIVAL (nothing picked): detail hidden; the list keeps the SAME 440px width. */
+  .p-split-view:not(.has-detail) .p-split{grid-template-columns:440px}
   .p-split-view:not(.has-detail) .p-detail-col{display:none}
   .p-list-col{min-width:0}
   .p-list-col #p-opts-list{margin:0}
