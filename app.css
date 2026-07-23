@@ -1829,25 +1829,34 @@ body.reduce-motion .lv-breathe{animation:none}
   .p-list-col #p-opts-list .p-opt{margin-bottom:10px}
   .p-list-col #p-opts-list .p-opt:last-child{margin-bottom:0}
   .p-list-col #foryou{margin:0 0 18px}
-  /* selected card reads as SELECTED (keep the card; highlight it) rather than the
-     mobile collapse-into-adjust treatment (.p-opt.p-sel), which is for the
-     full-screen flow where the chooser is replaced. */
+  /* selected card = darker OUTLINE only, no fill (SNB cards are never color-filled).
+     Overrides the mobile collapse-into-adjust treatment (.p-opt.p-sel) for the
+     full-screen flow. */
   .p-list-col .p-opt.p-sel{
-    border:1px solid var(--ink);border-radius:14px;background:var(--bone-deep);
+    border:1px solid var(--ink-80);border-radius:14px;background:transparent;
     max-height:none;overflow:visible;padding:17px 18px;margin-bottom:10px;
   }
-  .p-list-col .p-opt.p-sel:active{background:var(--bone-deep)}
+  .p-list-col .p-opt.p-sel:active{background:transparent}
   .p-list-col .p-opt.p-sel .wc-title{color:var(--ink);font-weight:500}
   .p-list-col .p-opt.p-sel .wc-go{transform:rotate(90deg);color:var(--muted)}
-  /* once a practice is picked, the OTHERS stay visible but recede — faded, outline
-     removed, still clickable to switch. (Overrides the mobile base rule that collapses
-     them to zero; desktop keeps them in place.) */
+  /* once a practice is picked, EVERY other card recedes — the other practices AND the
+     recommended "made for you" card — faded, outline gone, still clickable to switch.
+     (Overrides the mobile base rule that collapses non-selected cards to zero.) */
   .p-list-col .p-opts.has-sel .p-opt:not(.p-sel){
-    opacity:.45;max-height:none;overflow:visible;pointer-events:auto;
+    opacity:.4;max-height:none;overflow:visible;pointer-events:auto;
     margin-bottom:10px;padding:17px 18px;border-color:transparent;
     transition:opacity .2s var(--ease),border-color .2s var(--ease);
   }
-  @media(hover:hover){.p-list-col .p-opts.has-sel .p-opt:not(.p-sel):hover{opacity:.85}}
+  .p-split-view.has-detail .p-list-col #foryou{
+    opacity:.4;transition:opacity .2s var(--ease),border-color .2s var(--ease);
+  }
+  /* ...unless the recommended card itself is the selection: then it's the lit one
+     (darker outline, no fill) and everything else fades. */
+  .p-split-view.has-detail .p-list-col #foryou.tuned-sel{opacity:1;border-color:var(--ink-80)}
+  @media(hover:hover){
+    .p-list-col .p-opts.has-sel .p-opt:not(.p-sel):hover{opacity:.8}
+    .p-split-view.has-detail .p-list-col #foryou:not(.tuned-sel):hover{opacity:.8}
+  }
   /* detail column: sticky so a long adjust list keeps the list in view */
   .p-detail-col{min-width:0;position:sticky;top:8px}
   .p-detail-col .p-refine{margin:0}
