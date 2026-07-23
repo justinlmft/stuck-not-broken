@@ -2006,8 +2006,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .you-reader:hover{border-color:var(--ink)}
 .you-reader:active{transform:scale(.994)}
 .you-reader:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.you-reader .yr-eyebrow{font-size:calc(11px * var(--type-scale));font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted)}
-.you-reader .yr-h{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:10px 0 0;color:var(--ink)}
+.you-reader .yr-h{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:0;color:var(--ink)}
 .you-reader .yr-lede{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:7px 0 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .you-reader .yr-go{display:flex;align-items:center;gap:11px;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)}
 .you-reader .yr-glyph{flex:none;display:inline-flex;opacity:.7;transform:scale(.82);transform-origin:left center}

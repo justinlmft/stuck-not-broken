@@ -3995,7 +3995,6 @@
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${lb}"></button>`).join('')}</div>
 
           <a class="you-reader" id="you-reader" href="#">
-            <span class="yr-eyebrow">from your check-ins &middot; updates as you check in</span>
             <h3 class="yr-h">your reflection</h3>
             <p class="yr-lede">${_reflText || 'the personal read of your patterns, in plain language.'}</p>
             <span class="yr-go"><span class="yr-glyph">${triGlyph('safety')}</span><span class="yr-txt">read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
