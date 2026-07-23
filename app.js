@@ -3834,7 +3834,6 @@
             <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
           </div>
 
-          <p class="cards-lead" id="cards-lead">cards to share &middot; tap the share icon to send one</p>
           <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="your patterns \u2014 swipe or use the dots below">${(function(){
             // slides assemble dynamically, wins first. a safety DIP is never
             // animated or headlined here (it lives, gently worded, in the reader).
@@ -4062,7 +4061,6 @@
             +'</nav>'
             +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
           cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
-          const _cl=c.querySelector('#cards-lead'); if(_cl) _cl.style.display='none';
           cvEl.parentNode.insertBefore(wrap, cvEl);
           // desktop top-alignment: lift the week/all toggle to the row just under the
           // heading, so "what your check-ins show." tops the screen on the same line

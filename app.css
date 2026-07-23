@@ -2002,7 +2002,6 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    this adds the "cards to share" lead, the personal-reflection entry band, and
    a sticky state filter that dims non-matching data rows. Tokens are shared with
    the design system, so light/dark are inherited automatically. */
-.cards-lead{font-size:calc(11.5px * var(--type-scale));font-weight:500;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);margin:2px 0 10px}
 .you-reader{display:block;margin:18px 0 2px;border:1px solid var(--hairline);border-radius:18px;padding:20px;text-decoration:none;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),transform .2s var(--ease)}
 .you-reader:hover{border-color:var(--ink)}
 .you-reader:active{transform:scale(.994)}
