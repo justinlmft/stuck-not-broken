@@ -1862,6 +1862,56 @@ body.reduce-motion .lv-breathe{animation:none}
   .p-detail-col .p-refine{margin:0}
   .p-detail-bar{margin-top:24px}
   .p-detail-bar .btn.block{width:auto;min-width:200px}
+
+  /* "more practices" sessions render as CARDS in the detail pane (outline only,
+     no fill), not divider rows. */
+  .p-detail-col .p-med-list{border-top:0;margin-top:14px;gap:10px}
+  .p-detail-col .p-med-row{
+    border:1px solid var(--hairline);border-radius:14px;background:transparent;
+    padding:14px 16px;gap:3px;
+    transition:border-color .2s var(--ease),opacity .2s var(--ease);
+  }
+  .p-detail-col .p-med-row.on{border-color:var(--ink-80)}
+  @media(hover:hover){
+    .p-detail-col .p-med-row:hover{border-color:var(--ink-80)}
+    .p-detail-col .p-med-row:hover .p-med-title{text-decoration:none}
+  }
+
+  /* Detail-pane submenus animate in TOP-TO-BOTTOM. Order-based (> *:nth-child) so
+     EVERY group staggers regardless of which conditional groups are present — the
+     base rule only covered .p-rgroup:nth-child(1..3), which left self-reg's later
+     groups (silence, length) popping in with no delay. Also covers the meds cards,
+     which had no entrance animation at all. */
+  .p-split-view .p-detail-col .p-refine > *,
+  .p-split-view .p-detail-col .p-med-row{
+    opacity:0;transform:translateY(9px);animation:secRise .5s var(--ease) both;
+  }
+  .p-split-view .p-detail-col .p-refine > *:nth-child(1),
+  .p-split-view .p-detail-col .p-med-row:nth-child(1){animation-delay:.04s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(2),
+  .p-split-view .p-detail-col .p-med-row:nth-child(2){animation-delay:.10s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(3),
+  .p-split-view .p-detail-col .p-med-row:nth-child(3){animation-delay:.16s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(4),
+  .p-split-view .p-detail-col .p-med-row:nth-child(4){animation-delay:.22s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(5){animation-delay:.28s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(6){animation-delay:.34s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(7){animation-delay:.40s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(8){animation-delay:.46s}
+  .p-split-view .p-detail-col .p-refine > *:nth-child(n+9){animation-delay:.52s}
+  .p-split-view .p-detail-col .p-detail-bar{
+    opacity:0;transform:translateY(9px);animation:secRise .5s .3s var(--ease) both;
+  }
+}
+
+/* Reduce-Motion: the desktop detail-pane stagger is decorative — honor the setting. */
+body.reduce-motion .p-detail-col .p-refine > *,
+body.reduce-motion .p-detail-col .p-med-row,
+body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){
+  .p-detail-col .p-refine > *,
+  .p-detail-col .p-med-row,
+  .p-detail-col .p-detail-bar{animation:none;opacity:1;transform:none}
 }
 
 /* The reader keeps the left rail on desktop (same as every other
