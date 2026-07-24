@@ -2054,3 +2054,28 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .today.tb.breathing .br-c{stroke:var(--ink);stroke-opacity:.5;stroke-width:1.5}
 .today.tb.breathing .br-dot{fill:var(--ink);fill-opacity:.5}
 @media (prefers-reduced-motion:reduce){.br-g{animation:none!important}}
+
+/* ---- moment-home: the calm centered "now" (2026-07-23) ---------------------
+   Period icon + state (or greeting) over the ring, one outlined capsule below. */
+.today.tb.mh .tb-hero{gap:18px}
+.mh-top{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;transition:opacity .9s var(--ease)}
+.mh-peri{color:var(--muted);display:inline-flex}
+.mh-peri svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mh-greet{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em;margin:0;text-wrap:pretty}
+.mh-state{display:inline-flex;align-items:center;gap:9px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 4px}
+.mh-state .mh-glyph{display:inline-flex}
+.mh-state .mh-glyph .triglyph{height:20px;width:auto}
+.mh-state-txt{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em}
+.mh-state .mh-chev{color:var(--muted);display:inline-flex}
+@media(hover:hover){.mh-state:hover .mh-chev{color:var(--ink)}}
+.mh-state:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:10px}
+.mh-foot{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:14px;transition:opacity .9s var(--ease)}
+.mh-noci{text-align:center;font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0}
+.mh-capsule{display:flex;align-items:center;justify-content:center;min-height:54px;border-radius:999px;border:1px solid var(--hairline);background:transparent;color:var(--ink);font:inherit;font-size:calc(15.5px * var(--type-scale));font-weight:500;cursor:pointer;text-decoration:none;transition:border-color .2s var(--ease),background .2s var(--ease),transform .12s var(--ease)}
+@media(hover:hover){.mh-capsule:hover{border-color:var(--ink)}}
+.mh-capsule:active{transform:scale(.99)}
+.mh-capsule:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.mh-capsule.mh-ink{background:var(--ink);color:var(--bone);border-color:var(--ink)}
+/* during the breath, the top + capsule clear so only the ring remains */
+.today.tb.mh.breathing .mh-top,
+.today.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}

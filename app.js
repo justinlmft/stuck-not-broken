@@ -1576,10 +1576,19 @@
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
 
-    c.innerHTML = `<div class="view today tb${settled?' breathed':''}${young?' young':''}">
-      <div class="tb-head"><h2 class="tb-greet">${greet}</h2></div>
-      <div class="tb-cluster">${stateHTML}</div>
+    // moment-home (2026-07-23): the "now" screen settles to a calm center — the
+    // period icon + your state (or a greeting before you've checked in) over the
+    // breath ring, with ONE outlined invitation at the bottom. No dividers, nothing
+    // dominating the centering screen. The reader/reflection is its own surface now
+    // (the You-tab reader band); the recommended practice is the single capsule.
+    c.innerHTML = `<div class="view today tb mh${settled?' breathed':''}${young?' young':''}">
       <div class="tb-hero">
+        <div class="mh-top">
+          <span class="mh-peri" aria-hidden="true">${segIco(seg)}</span>
+          ${checkedIn
+            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-state-txt">${STATE_NAME(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            : `<h2 class="tb-greet mh-greet">${greet}</h2>`}
+        </div>
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
           <span class="tb-stage">
             <span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(dom)}</span>
@@ -1590,55 +1599,25 @@
           </span>
           <span class="tb-esc" aria-hidden="true">tap anywhere to end early</span>
         </button>
+        <div class="tb-more-slot"><button class="tb-more" id="tb-more" type="button">two more minutes?</button></div>
       </div>
-      <div class="tb-more-slot"><button class="tb-more" id="tb-more" type="button">two more minutes?</button></div>
-      <div class="tb-foot">
-        ${_paid
-          // the MATCHING: a practice named and reasoned from this person's check-ins.
-          ? `<button class="tb-row" id="tb-practice">
-          <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">recommended practice</span>
-            <span class="tb-row-sub tb-prac track-${trackOf(reco.practiceKey).cls}">${pracName}</span>
-            ${pracReason ? `<span class="tb-reason">${pracReason}</span>` : ''}
-          </span><span class="wc-go">${CHEV}</span>
-        </button>`
-          // free: a plain door to the practices they have. NOT the matched practice, and
-          // NOT its name — naming it would be giving away the very thing behind the line,
-          // and dangling it would be worse. No lock, no tease.
-          : `<button class="tb-row" id="tb-practice">
-          <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">practice</span>
-            <span class="tb-row-sub">choose a practice</span>
-          </span><span class="wc-go">${CHEV}</span>
-        </button>`}
-        ${(_paid && reflText) ? `<button class="tb-row" id="tb-refl">
-          <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">reflections for you</span>
-            <span class="tb-refl">${reflText}</span>${dotsHTML}
-          </span><span class="wc-go">${CHEV}</span>
-        </button>` : ''}
-        ${!_paid ? `<button class="tb-row p-locked" id="tb-refl">
-          <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">reflections for you</span>
-            <span class="tb-row-sub">on the base plan</span>
-          </span><span class="wc-go">${CHEV}</span>
-        </button>` : ''}
+      <div class="mh-foot">
+        ${checkedIn
+          ? `<button class="mh-capsule" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
+          : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p><button class="mh-capsule mh-ink" id="mh-cta" type="button">check in</button>`}
       </div>
     </div>`;
 
-    const stateBtn  = c.querySelector('#tb-state');    if(stateBtn)  stateBtn.onclick  = screenCheckin;
     const breathBtn = c.querySelector('#tb-breath');   if(breathBtn) breathBtn.onclick = runBreath;
     // post-breath offer: one tap into the ~2.5-min micro practice
     const moreBtn = c.querySelector('#tb-more'); if(moreBtn) moreBtn.onclick = ()=>{
       let sn = 'touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2});
     };
-    const pracBtn   = c.querySelector('#tb-practice');  if(pracBtn)   pracBtn.onclick   = ()=> _paid ? renderPlan(reco,'today') : app('practice');
-    const reflBtn   = c.querySelector('#tb-refl');      if(reflBtn)   reflBtn.onclick   = ()=> _paid ? screenReflectionDeep() : gateSubscribe('reader');
+    // the state word opens the glossary (what the state is); re-checking-in lives on
+    // the You tab ("change a recent check-in"). The single capsule is the practice.
+    const mhState = c.querySelector('#mh-state'); if(mhState) mhState.onclick = ()=> screenStateDetail(dom);
+    const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'today') : app('practice'); };
   }
 
   // Breath engine for the redesigned Today. On tap the ring becomes the whole
