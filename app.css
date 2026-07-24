@@ -106,13 +106,13 @@ button{font:inherit;color:inherit}
      metaphor; pointer contexts get side navigation) */
   #screen > .tabbar{
     flex-direction:column;justify-content:flex-start;gap:4px;height:100%;overflow-y:auto;
-    border-top:0;border-right:1px solid var(--hairline);
+    border-top:0;border-radius:0;background:none;margin:0;border-right:1px solid var(--hairline);
     padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
     min-width:118px}
   /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
      ink, dormant = normal muted; no background. Top-aligned so the first word
      lines up with the screen's first heading. 44px keeps the click target. */
-  #screen > .tabbar button{flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
+  #screen > .tabbar button{flex:none;border-radius:0;flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
     width:100%;min-height:44px;padding:2px 0;color:var(--muted);font-weight:400}
   #screen > .tabbar button .lb{font-size:calc(14px * var(--type-user))}
   #screen > .tabbar button.on{background:none;color:var(--ink);font-weight:500}
@@ -684,8 +684,10 @@ body.show-fab .fab{display:flex}
 .safety-track{display:inline-block;width:48px;height:4px;background:var(--bone-deep);border-radius:2px;overflow:hidden;vertical-align:middle;flex:none}
 .safety-fill{display:block;height:100%;background:var(--s-safety);border-radius:2px}
 .stat-trend{font-size:calc(12px * var(--type-scale));color:var(--muted);font-weight:400}
-.tabbar{display:flex;flex:none;justify-content:space-evenly;border-top:1px solid var(--hairline);background:var(--bone);padding-bottom:env(safe-area-inset-bottom)}
-.tabbar button{flex:none;background:none;border:0;cursor:pointer;padding:8px 18px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);transition:color .2s var(--ease);min-height:52px;position:relative}
+/* bottom nav as its own housed card (2026-07-24) — no hard top divider that made
+   it feel lost / too separate; the icons now sit in a calm bone-deep shelf. */
+.tabbar{display:flex;flex:none;justify-content:space-around;background:var(--bone-deep);border-radius:20px;margin:4px 14px calc(6px + env(safe-area-inset-bottom));padding:4px}
+.tabbar button{flex:1;background:none;border:0;cursor:pointer;padding:8px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);transition:color .2s var(--ease);min-height:52px;position:relative;border-radius:15px}
 .tabbar button .ic{display:flex}
 .tabbar button .ic svg{width:23px;height:23px;display:block}
 .tabbar button .lb{font-size:11.5px;letter-spacing:.01em;text-transform:lowercase}
