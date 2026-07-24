@@ -4468,16 +4468,27 @@
   const MK_TYPE_PILL = { micro:'tiny', mindfulness:'mindfulness', anchoring:'safety', most:'self-regulation', surprise:'surprise' };
   const mkIsSession = (k)=> P_MEDS.some(m=>m.id===k);
   const mkPill = (k)=> MK_TYPE_PILL[k] || (P_MEDS.find(m=>m.id===k)||{}).title || k;
-  // the type picker, grouped for the brand sheet
+  // full (menu) label + one-line description for each type — so the picker rows read as
+  // distinct choices, not a strip of words.
+  const MK_TYPE_MENU = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
+  const MK_TYPE_SUB  = { micro:'about two minutes, one sense', mindfulness:'the gentlest, a calm place to start', anchoring:'settle in through your senses', most:'the deepest, meeting what is hard' };
+  // short glosses for the skill picker rows
+  const MK_SKILL_SUB = { validate:'name it, and see it makes sense', imagery:'give the feeling a shape, invite it in', obstacles:'meet what blocks safety, with kindness', balancing:'hold something pleasant and something hard together', pendulation:'move gently between ease and challenge' };
+  // per-type glyphs for the picker (currentColor: muted at rest, track ink when selected)
+  const MK_TYPE_ICO = {
+    micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
+    anchoring:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.6-8.3A4.4 4.4 0 0 1 12 6.8a4.4 4.4 0 0 1 8.6 4.9C18.5 15.8 12 20 12 20z"/></svg>',
+    most:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
+    session:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    surprise:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
+  };
+  // the type picker, grouped for the brand sheet — rows carry an icon + a one-line
+  // description; the label-less last group renders as a plain divider before "surprise".
   const MK_TYPE_GROUPS = ()=>[
-    { label:'shape your own', opts:[
-      {val:'micro',       menu:'a tiny practice'},
-      {val:'mindfulness', menu:'simple mindfulness'},
-      {val:'anchoring',   menu:'connect with safety'},
-      {val:'most',        menu:'self-regulation'},
-    ]},
-    { label:'standalone sessions', opts:P_MEDS.map(m=>({val:m.id, menu:m.title})) },
-    { label:'or', opts:[{val:'surprise', menu:'surprise me'}] },
+    { label:'shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], sub:MK_TYPE_SUB[k], ico:MK_TYPE_ICO[k] })) },
+    { label:'guided sessions', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, sub:`${m.sub} · ${m.est}`, ico:MK_TYPE_ICO.session })) },
+    { label:null, opts:[{ val:'surprise', menu:'surprise me', sub:'a self-regulation practice, shaped at random', ico:MK_TYPE_ICO.surprise }] },
   ];
 
   // Practice opens on a personalized "for you" view: a context line tuned to the
@@ -4590,12 +4601,14 @@
     const old=document.getElementById('p7-sheet'); if(old) old.remove();
     const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
     let rows='';
-    groups.forEach(g=>{
+    groups.forEach((g,gi)=>{
       if(g.label) rows+=`<div class="p7-sheet-group">${escapeHtml(g.label)}</div>`;
+      else if(gi>0) rows+=`<div class="p7-sheet-sep" aria-hidden="true"></div>`;
       g.opts.forEach(o=>{
         const sel = String(o.val)===String(current);
-        rows+=`<button class="p7-opt${sel?' sel':''}" type="button" data-val="${escapeHtml(String(o.val))}">
-          <span class="p7-opt-l">${escapeHtml(o.menu)}</span>
+        rows+=`<button class="p7-opt${o.ico?' rich':''}${sel?' sel':''}" type="button" data-val="${escapeHtml(String(o.val))}">
+          ${o.ico?`<span class="p7-opt-ico" aria-hidden="true">${o.ico}</span>`:''}
+          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(o.menu)}</span>${o.sub?`<span class="p7-opt-sub">${escapeHtml(o.sub)}</span>`:''}</span>
           <svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>
         </button>`;
       });
@@ -4745,13 +4758,13 @@
         const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
         openDialSheet('anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tkCls, (v)=>{ pState.sense=v; paintMaker(); });
       } else if(kind==='skill'){
-        openDialSheet('which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l}))}], pState.skill, tkCls, (v)=>{
+        openDialSheet('which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tkCls, (v)=>{
           pState.skill=v;
           if(v!=='balancing' && v!=='pendulation') pState.holdWatch=false;   // hold & watch only applies to these
           paintMaker();
         });
       } else if(kind==='emotion'){
-        const opts=[{val:'',menu:'whatever surfaces'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:f.label})));
+        const opts=[{val:'',menu:'whatever surfaces',sub:'let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:f.label,sub:f.hint})));
         openDialSheet('working with', [{opts}], pState.emotion||'', tkCls, (v)=>{ pState.emotion=v||null; paintMaker(); });
       } else if(kind==='hold'){
         const opts=[{val:'off',menu:'skip hold & watch'},{val:'30',menu:'hold & watch for 30 sec'},{val:'60',menu:'hold & watch for 1 min'},{val:'90',menu:'hold & watch for 90 sec'},{val:'120',menu:'hold & watch for 2 min'}];

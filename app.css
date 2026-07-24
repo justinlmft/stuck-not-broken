@@ -921,14 +921,30 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .p7-sheet-card.track-self{--tc:var(--track-self);--tc-ink:var(--track-self-ink)}
 .p7-sheet.on .p7-sheet-card{transform:none}
 .p7-sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--hairline);margin:8px auto 4px}
-.p7-sheet-title{font-size:calc(13px * var(--type-scale));font-weight:600;color:var(--muted);padding:8px 24px 6px}
-.p7-sheet-group{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);padding:16px 24px 4px}
-.p7-opt{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;background:none;border:0;
-  padding:15px 24px;font:inherit;font-size:calc(16px * var(--type-scale));color:var(--ink-80);text-align:left;cursor:pointer}
+.p7-sheet-title{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink);letter-spacing:-.01em;padding:10px 22px 6px}
+/* section header: a sentence-case banded label (NOT a tiny uppercase eyebrow), so
+   the groups read as real sections (2026-07-24, Justin). */
+.p7-sheet-group{font-size:calc(12.5px * var(--type-scale));font-weight:600;color:var(--muted);letter-spacing:.01em;
+  padding:14px 22px 8px;background:var(--bone-deep);border-top:0.5px solid var(--hairline)}
+.p7-sheet-body > .p7-sheet-group:first-child{border-top:0}
+.p7-sheet-sep{height:0;border-top:0.5px solid var(--hairline);margin:0}
+/* rows: an icon, a title + one-line description, and a check. hairline dividers
+   between consecutive rows so it reads as a list of distinct choices, not a strip. */
+.p7-opt{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;position:relative;
+  padding:15px 22px;font:inherit;color:var(--ink-80);text-align:left;cursor:pointer}
+.p7-opt + .p7-opt{border-top:0.5px solid var(--hairline)}
 .p7-opt:hover{background:var(--bone-deep)}
 .p7-opt:active{background:var(--press)}
-.p7-opt.sel{color:var(--tc-ink);font-weight:500}
-.p7-opt-check{width:19px;height:19px;color:var(--tc-ink);opacity:0;flex:none}
+.p7-opt.sel{background:var(--bone-deep);color:var(--tc-ink)}
+.p7-opt.sel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tc-ink)}
+.p7-opt-ico{flex:none;width:26px;height:26px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.p7-opt-ico svg{width:24px;height:24px;display:block}
+.p7-opt.sel .p7-opt-ico{color:var(--tc-ink)}
+.p7-opt-main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.p7-opt-l{font-size:calc(16px * var(--type-scale));line-height:1.25}
+.p7-opt.sel .p7-opt-l{font-weight:500}
+.p7-opt-sub{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.35;text-wrap:pretty}
+.p7-opt-check{width:19px;height:19px;color:var(--tc-ink);opacity:0;flex:none;margin-left:auto}
 .p7-opt.sel .p7-opt-check{opacity:1}
 body.reduce-motion .p7-shape{animation:none}
 @media (prefers-reduced-motion:reduce){.p7-shape{animation:none}.p7-sheet,.p7-sheet-card{transition:none}}
