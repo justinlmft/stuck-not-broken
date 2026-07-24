@@ -2062,20 +2062,26 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-peri{color:var(--muted);display:inline-flex}
 .mh-peri svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .mh-greet{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em;margin:0;text-wrap:pretty}
-.mh-state{display:inline-flex;align-items:center;gap:9px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 4px}
+.mh-state{display:inline-flex;align-items:center;gap:11px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 6px}
+.mh-state .mh-peri{display:inline-flex;color:var(--muted)}
+.mh-state .mh-peri svg{width:20px;height:20px}
 .mh-state .mh-glyph{display:inline-flex}
-.mh-state .mh-glyph .triglyph{height:20px;width:auto}
+.mh-state .mh-glyph .triglyph{height:26px;width:auto}
 .mh-state-txt{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em}
 .mh-state .mh-chev{color:var(--muted);display:inline-flex}
 @media(hover:hover){.mh-state:hover .mh-chev{color:var(--ink)}}
 .mh-state:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:10px}
 .mh-foot{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:14px;transition:opacity .9s var(--ease)}
 .mh-noci{text-align:center;font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0}
-.mh-capsule{display:flex;align-items:center;justify-content:center;min-height:54px;border-radius:999px;border:1px solid var(--hairline);background:transparent;color:var(--ink);font:inherit;font-size:calc(15.5px * var(--type-scale));font-weight:500;cursor:pointer;text-decoration:none;transition:border-color .2s var(--ease),background .2s var(--ease),transform .12s var(--ease)}
-@media(hover:hover){.mh-capsule:hover{border-color:var(--ink)}}
+.mh-capsule{display:flex;align-items:center;justify-content:center;min-height:56px;border-radius:999px;border:1.5px solid var(--ink);background:transparent;color:var(--ink);font:inherit;font-size:calc(15.5px * var(--type-scale));font-weight:600;cursor:pointer;text-decoration:none;transition:border-color .2s var(--ease),background .2s var(--ease),color .2s var(--ease),transform .12s var(--ease)}
+@media(hover:hover){.mh-capsule:hover{background:var(--ink);color:var(--bone)}}
 .mh-capsule:active{transform:scale(.99)}
 .mh-capsule:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .mh-capsule.mh-ink{background:var(--ink);color:var(--bone);border-color:var(--ink)}
 /* during the breath, the top + capsule clear so only the ring remains */
 .today.tb.mh.breathing .mh-top,
 .today.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}
+/* settled (after a breath): keep the ring generous and full-strength, not the tiny
+   faint puck the old single-ring settle used — the ladder needs room to read */
+.today.tb.mh.breathed .tb-stage{width:190px;height:190px}
+.today.tb.mh.breathed .tb-ring.br-stage{width:100%;height:100%;opacity:1}

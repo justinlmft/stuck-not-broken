@@ -1584,10 +1584,9 @@
     c.innerHTML = `<div class="view today tb mh${settled?' breathed':''}${young?' young':''}">
       <div class="tb-hero">
         <div class="mh-top">
-          <span class="mh-peri" aria-hidden="true">${segIco(seg)}</span>
           ${checkedIn
-            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-state-txt">${STATE_NAME(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
-            : `<h2 class="tb-greet mh-greet">${greet}</h2>`}
+            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is — open the glossary"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-state-txt">${STATE_NAME(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
           <span class="tb-stage">
