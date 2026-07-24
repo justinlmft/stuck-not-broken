@@ -413,11 +413,13 @@
   const ICO_PLUS  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
   const ICO_PRAC  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11.14-6.86a1 1 0 0 0 0-1.72L9.52 4.28A1 1 0 0 0 8 5.14z"></path></svg>';
   const ICO_READ  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10.5 5 8.3 4.5 5.5 4.5A1.5 1.5 0 0 0 4 6v11a1.5 1.5 0 0 0 1.5 1.5c2.8 0 5 .5 6.5 2 1.5-1.5 3.7-2 6.5-2A1.5 1.5 0 0 0 20 17V6a1.5 1.5 0 0 0-1.5-1.5c-2.8 0-5 .5-6.5 2zM12 6.5v13"></path></svg>';
-  // is there a personal reflection the person hasn't opened yet? (newest weekly mint
-  // vs the last one they opened, tracked in localStorage). used by the post-breath slot.
-  function _latestReflection(){ try{ const w = Store.mints ? Store.mints('weekly') : []; return (w && w.length) ? w[0] : null; }catch(e){ return null; } }
-  function _readerUnread(){ const m=_latestReflection(); if(!m) return false; try{ return localStorage.getItem('snb_reader_seen') !== String(m.id); }catch(e){ return false; } }
-  function _markReaderSeen(){ const m=_latestReflection(); if(!m) return; try{ localStorage.setItem('snb_reader_seen', String(m.id)); }catch(e){} }
+  // the personal reader adjusts to your MOST RECENT check-in, so it's "waiting" whenever
+  // you've checked in since you last opened it (Justin 2026-07-24). tracked by the latest
+  // check-in timestamp, stored when the reader opens (from any door, free or paid — free
+  // users get the subscribe/upgrade prompt, and it clears the nudge for that check-in).
+  function _readerSeenT(){ try{ return parseInt(localStorage.getItem('snb_reader_seen_t')||'0',10)||0; }catch(e){ return 0; } }
+  function _readerUnread(){ try{ const last = Store.lastCheckin && Store.lastCheckin(); return !!(last && typeof last.t==='number' && last.t > _readerSeenT()); }catch(e){ return false; } }
+  function _markReaderSeen(){ try{ const last = Store.lastCheckin && Store.lastCheckin(); const t=(last && typeof last.t==='number')?last.t:Date.now(); localStorage.setItem('snb_reader_seen_t', String(t)); }catch(e){} }
   let _mhMorphTimer = null;   // micro → reader morph (10s)
   let _mhAfterBreath = null;  // re-run the post-breath reveal when a breath completes
   // "tuned to you" badge: the brand mark (recolors to white via currentColor)
@@ -1734,7 +1736,7 @@
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
-      third.onclick = ()=> (third.dataset.kind==='reader') ? (_markReaderSeen(), screenReflectionDeep()) : _launchMicro();
+      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
       const _morphQueued = mhOffers.length>1 && mhOffers[0]==='micro' && mhOffers[1]==='reader';
       // reveal + (re)arm the 10s micro→reader morph. runs on load if already breathed,
       // and again each time a breath completes (via _mhAfterBreath).
@@ -2117,8 +2119,9 @@
     // base plan. Guarded here as well as at every call site (defense in depth).
     // (When the evergreen/personalized content tagging lands, the evergreen essays come
     // back out from behind this line and become free. That pass is not done yet.)
+    _markReaderSeen();   // any reader-open clears the nudge for this check-in — incl. free
+                         // users who then hit the subscribe/upgrade prompt below
     if(!paidNow()) return gateSubscribe('reader');
-    _markReaderSeen();   // opening the reader from any door clears the "new reflection" nudge
     const note = FromJustin.today();
     const last = Store.lastCheckin();
     const cs   = Store.checkins();
