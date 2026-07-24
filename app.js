@@ -314,6 +314,52 @@
   const ciBucket = x => x < 0.18 ? 0 : x < 0.45 ? 1 : x < 0.72 ? 2 : 3;
   const ciMirror = (v, sym, dor) =>
     `you're reporting: ${CI_MIRROR.v[ciBucket(v)]}, ${CI_MIRROR.sym[ciBucket(sym)]}, and ${CI_MIRROR.dor[ciBucket(dor)]}.`;
+  // ---- shared check-in feedback (turn 4 + r2 2026-07-24) -------------------------
+  // one ci4 slider row: glyph anchors, question leads, single shared scale above.
+  function ci4SliderHTML(key, scenario, cls, val, numbered){
+    const ax = AXIS_ICON[key] || {};
+    const icon = ax.icon ? ico(ax.icon,{cls:'slider-ico', color:STATE_COLOR(ax.state)}) : '';
+    return `<div class="slider" data-axis="${key}">
+      <span class="slider-ico-wrap">${icon}</span>
+      <div class="slider-main">
+        <p class="q" id="q-${key}">${scenario}</p>
+        <div class="sl-row">
+          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
+          ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+  }
+  // each axis's colour = its slider-rail colour: faded ink when untouched, the axis's
+  // own colour once set, the blend's colour when it joins an active two-axis blend.
+  // rails, glyphs and the mirror clauses all use this, so they move together.
+  function ciAxisColorFn(v, s, d, axTouched){
+    const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
+    const core = STATE_CORE[dom.key] || [];
+    const own = AXIS_OWN();
+    const all = axTouched.v && axTouched.sym && axTouched.dor;
+    return ax => !axTouched[ax] ? 'var(--ink-faded)'
+      : (all && core.length>1 && core.includes(ax)) ? STATE_COLOR(dom.key) : own[ax];
+  }
+  // the live "you're reporting" line, each clause tinted by colOf (matches its slider)
+  function ciMirrorColoredHTML(v, s, d, colOf){
+    const bV=CI_MIRROR.v[ciBucket(v/100)], bS=CI_MIRROR.sym[ciBucket(s/100)], bD=CI_MIRROR.dor[ciBucket(d/100)];
+    return `<span class="ci-join">you're reporting: </span>`
+      +`<span class="ci-clause" style="color:${colOf('v')}">${bV}</span>`
+      +`<span class="ci-join">, </span>`
+      +`<span class="ci-clause" style="color:${colOf('sym')}">${bS}</span>`
+      +`<span class="ci-join">, and </span>`
+      +`<span class="ci-clause" style="color:${colOf('dor')}">${bD}</span>`
+      +`<span class="ci-join">.</span>`;
+  }
+  // paint each slider rail AND its anchoring glyph the same colour (colOf)
+  function ciPaintSliders(colOf){
+    ['v','sym','dor'].forEach(ax=>{
+      const col = colOf(ax);
+      const el = $('#sl-'+ax); if(el) el.style.setProperty('--rail', col);
+      const g = root.querySelector('.slider[data-axis="'+ax+'"] .slider-ico'); if(g) g.style.color = col;
+    });
+  }
   function ciRand(ax, not){ const n = CI_BANK[ax].length; let i = Math.floor(Math.random()*n); if(n > 1 && i === not) i = (i+1)%n; return i; }
   // Which scenario each check-in asked (local-only, keyed by check-in timestamp) so
   // editing a check-in shows the questions that were actually answered. Kept out of
@@ -765,19 +811,20 @@
     // = abandon (discard the anonymous session). The entry screen has no back — there is
     // nothing behind it any more; leaving is closing the tab or the quiet sign-in link.
     const gcb = $('#g-ci-back'); if(gcb) gcb.onclick = ()=>guestLeave();
-    $('#content').innerHTML = `<div class="view checkin2">
+    $('#content').innerHTML = `<div class="view checkin2 ci4">
         <div class="scr-head">
           <p class="eyebrow">${mode==='before' ? 'before your practice' : 'after your practice'}</p>
           <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
         </div>
         <div class="ci-block">
+          <div class="ci4-scale" aria-hidden="true"><span>harder</span><span>easier</span></div>
           <div class="sliders">
-            ${sliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
-            ${sliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
-            ${sliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
+            ${ci4SliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
+            ${ci4SliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
+            ${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
-          ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>'}
-          <p class="ci-readout" id="ci-readout"></p>
+          ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
+          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
@@ -791,18 +838,12 @@
     const axTouched = {};
     function refresh(){
       setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
-      const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
-      const core = STATE_CORE[dom.key] || [];
-      const own = AXIS_OWN();
-      const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
-      ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
-        const active = allTouched && core.length>1 && core.includes(ax);
-        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink-faded)'); });
+      const colOf = ciAxisColorFn(v, s, d, axTouched);
+      ciPaintSliders(colOf);   // rails + anchoring glyphs move together
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
-          : 'move the sliders, and this line will mirror what you set.';
-        readout.classList.toggle('ci-readout-idle', !anyTouched);
+        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, colOf); readout.classList.remove('ci-readout-idle'); }
+        else { readout.innerHTML = '<span class="ci-idle">move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
       }
     }
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
@@ -2680,19 +2721,7 @@
     // one ci4 slider row: glyph anchors, question leads, single shared scale above.
     // numbers mode shows a live 0-10 badge reading the SAME slider value (ease), so the
     // number and the hard→easy position are one datum — Justin's alignment requirement.
-    const _ax4 = (key,scenario,cls,val)=>{
-      const ax=AXIS_ICON[key]||{}; const icon=ax.icon?ico(ax.icon,{cls:'slider-ico',color:STATE_COLOR(ax.state)}):'';
-      return `<div class="slider" data-axis="${key}">
-        <span class="slider-ico-wrap">${icon}</span>
-        <div class="slider-main">
-          <p class="q" id="q-${key}">${scenario}</p>
-          <div class="sl-row">
-            <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
-            ${_ciNumbers?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
-          </div>
-        </div>
-      </div>`;
-    };
+    const _ax4 = (key,scenario,cls,val)=>ci4SliderHTML(key,scenario,cls,val,_ciNumbers);
     const _ciInput = _ciStates
       ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
           <div class="ci-ovr-chips ci4-states">
@@ -2747,44 +2776,23 @@
       </div>`;
 
     const readout = $('#ci-readout');
-    const _axOwn = AXIS_OWN();   // v=safety, sym=fight/flight, dor=shutdown — each clause's own color
-    // fresh check-ins start neutral (Justin 2026-07-05): rails sit in ink and the
-    // mirror stays quiet until an axis is actually set — color and words respond
-    // to what the person SET, never to defaults. edits show everything at once.
+    // fresh check-ins start neutral (Justin 2026-07-05): rails, glyphs and the mirror
+    // stay quiet until an axis is set — color responds to what the person SET, never to
+    // defaults. edits show everything at once. rail + glyph + clause move together (r2).
     const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
-    // the live "you're reporting" mirror, each clause tinted to its axis's own color
-    // (turn 4): the words and the rails read as one thing.
-    function _mirrorHTML(){
-      const bV=CI_MIRROR.v[ciBucket(v/100)], bS=CI_MIRROR.sym[ciBucket(s/100)], bD=CI_MIRROR.dor[ciBucket(d/100)];
-      return `<span class="ci-join">you're reporting: </span>`
-        +`<span class="ci-clause" style="color:${_axOwn.v}">${bV}</span>`
-        +`<span class="ci-join">, </span>`
-        +`<span class="ci-clause" style="color:${_axOwn.sym}">${bS}</span>`
-        +`<span class="ci-join">, and </span>`
-        +`<span class="ci-clause" style="color:${_axOwn.dor}">${bD}</span>`
-        +`<span class="ci-join">.</span>`;
-    }
     const _idleMsg = _ciStates ? 'pick a state above, and this line mirrors what you named.'   // 🖊
       : (_ciNumbers ? 'move a slider, and this line mirrors the number you set.'                // 🖊
       : 'move the sliders, and this line will mirror what you set.');                            // 🖊
     function refresh(){
-      if(!_ciStates){ setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d); }
-      const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
-      // tint the sliders to the current state: a blend colors only its active axes,
-      // and only once ALL THREE are set (a dominant from untouched midpoints isn't a
-      // real read). untouched rails sit in faded ink: present, not "done".
-      const core = STATE_CORE[dom.key] || [];
-      const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
+      const colOf = ciAxisColorFn(v, s, d, axTouched);
       if(!_ciStates){
-        ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
-          const active = allTouched && core.length>1 && core.includes(ax);
-          el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : _axOwn[ax]) : 'var(--ink-faded)');
-          if(_ciNumbers){ const nb=$('#num-'+ax); if(nb) nb.textContent = Math.round((+el.value)/10); }
-        });
+        setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
+        ciPaintSliders(colOf);   // rails + anchoring glyphs take the same colour
+        if(_ciNumbers){ ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax), nb=$('#num-'+ax); if(el&&nb) nb.textContent = Math.round((+el.value)/10); }); }
       }
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        if(anyTouched){ readout.innerHTML = _mirrorHTML(); readout.classList.remove('ci-readout-idle'); }
+        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, colOf); readout.classList.remove('ci-readout-idle'); }
         else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
       }
     }
@@ -4997,7 +5005,7 @@
 
           <div class="gs-card">
             <button class="rs-disc-btn" id="ci-method-btn" type="button" aria-expanded="true"><span class="gs-h" style="margin:0">your check-in</span><span class="rs-disc-val"><span id="ci-method-val">${METHOD_LABEL[method]||'sliders'}</span> ${_svgChev}</span></button>
-            <div class="rs-disc-body" id="ci-method-body">
+            <div class="rs-disc-body open" id="ci-method-body"><div class="disc-inner">
               <p class="gs-lbl2">how you enter your state</p>
               <div class="set-seg" id="seg-method">
                 <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>sliders</button>
@@ -5006,7 +5014,7 @@
               </div>
               <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
               <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
-            </div>
+            </div></div>
           </div>
 
           <div class="gs-card">
@@ -5023,13 +5031,13 @@
             </div>
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
             <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'surprise me':psc}</span> ${_svgChev}</span></button>
-            <div class="rs-scene-body" id="scene-body" hidden>
+            <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
               <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">surprise me</button>
               <div class="scene-grid" style="margin-top:8px">
                 ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
               </div>
               <p class="rs-cap" id="scene-cap"></p>
-            </div>
+            </div></div>
           </div>
 
           <div class="gs-card">
@@ -5083,7 +5091,7 @@
     // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
     (function(){
       const btn=$('#ci-method-btn'), body=$('#ci-method-body');
-      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.hidden=open; };
+      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.classList.toggle('open',!open); };
       const seg=$('#seg-method'); if(!seg) return;
       const val=$('#ci-method-val'), cap=$('#ci-method-cap'), prev=$('#ci-method-preview');
       seg.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
@@ -5098,7 +5106,7 @@
     })();
     // practice-scene disclosure toggle
     (function(){ const btn=$('#scene-btn'), body=$('#scene-body');
-      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.hidden=open; }; })();
+      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.classList.toggle('open',!open); }; })();
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='one moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })

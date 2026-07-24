@@ -1137,8 +1137,14 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .rs-disc-val{color:var(--muted);display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale))}
 .rs-disc-chev{transition:transform .2s var(--ease);flex:none}
 .rs-disc-btn[aria-expanded="true"] .rs-disc-chev{transform:rotate(90deg)}
-.rs-disc-body{margin-top:16px}
-.rs-scene-body{margin-top:14px}
+/* disclosures expand/collapse with a calm grid-rows animation (no magic max-height,
+   robust at large text sizes); reduce-motion snaps. inner wrapper clips the content. */
+.rs-disc-body,.rs-scene-body{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .3s var(--ease),opacity .24s var(--ease)}
+.rs-disc-body.open,.rs-scene-body.open{grid-template-rows:1fr;opacity:1}
+.rs-disc-body>.disc-inner,.rs-scene-body>.disc-inner{overflow:hidden;min-height:0}
+.rs-disc-body>.disc-inner{padding-top:16px}
+.rs-scene-body>.disc-inner{padding-top:14px}
+body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:none}
 .rs-cap{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.5;margin:11px 0 0;text-wrap:pretty}
 .rs-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--bone-deep)}
 .rs-preview .q{font-size:calc(14.5px * var(--type-scale));font-weight:500;line-height:1.35;margin:0;color:var(--ink)}
@@ -1242,7 +1248,7 @@ body.reduce-motion .wc-ring{transform:scale(.96)}
   opacity:calc(.30 + var(--lvl,.18) * .70);
   filter:saturate(calc(.20 + var(--lvl,.18) * .80));
   transform:scale(calc(.86 + var(--lvl,.18) * .14));
-  transition:opacity .22s var(--ease), filter .22s var(--ease), transform .22s var(--ease)}
+  transition:opacity .22s var(--ease), filter .22s var(--ease), transform .22s var(--ease), color .3s var(--ease)}
 .slider-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .checkin2 .slider .top{align-items:baseline;justify-content:flex-start;gap:6px;flex-wrap:nowrap;white-space:nowrap;min-width:0}
 .checkin2 .slider .nm{white-space:nowrap}
