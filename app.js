@@ -4539,7 +4539,7 @@
     // heading-friendly short names: "adjust your safety practice", never
     // "adjust your connect with safety practice" / "your a tiny practice practice"
     const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
-    const heading = !key ? (_paid ? 'your practice, or choose another.' : 'pick a practice.')
+    const heading = !key ? (_paid ? '' : 'pick a practice.')
       : (key==='more' ? 'choose a session.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
     // free: the full menu in the real order, nothing hidden — the base-plan practices are
@@ -4558,11 +4558,11 @@
     if(!desk){
       // ---- MOBILE (<720): unchanged full-screen flow (list OR adjust) ----
       c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
-      <div class="scr-head">
+      ${heading?`<div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">${heading}</h2>
         ${key&&key!=='more'?`<svg class="p-adjust-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`:''}
-      </div>
+      </div>`:''}
       <div class="p-bottom">
         ${!key
           ? `${tunedCard}<div class="p-opts" id="p-opts-list">${optCards}</div>${freeFoot}`
@@ -4578,12 +4578,12 @@
       // practice cards) stays left; the selected practice's adjust/what-to-expect
       // renders on the right. No navigation, no bottom bleed. Reuses the exact same
       // refine/meds markup + handlers + begin flow as mobile. ----
-      const deskHeading = _paid ? 'your practice, or choose another.' : 'pick a practice.';
+      const deskHeading = _paid ? '' : 'pick a practice.';
       c.innerHTML=`<div class="view p-view p-split-view${key?' has-detail':''}${key?' track-'+trackOf(key).cls:''}">
-      <div class="scr-head">
+      ${deskHeading?`<div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">${deskHeading}</h2>
-      </div>
+      </div>`:''}
       <div class="p-split">
         <div class="p-list-col">
           ${tunedCard}<div class="p-opts${key?' has-sel':''}" id="p-opts-list">${optCards}</div>${freeFoot}
