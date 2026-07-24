@@ -1610,7 +1610,7 @@
         ${checkedIn
           ? `<div class="mh-grid">
                <button class="btn quiet block" id="mh-checkin" type="button">check in again</button>
-               <button class="btn quiet block" id="tb-more" type="button">two more minutes</button>
+               <button class="btn quiet block mh-more" id="tb-more" type="button">two more minutes</button>
              </div>
              <button class="btn block" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
           : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
@@ -3675,7 +3675,7 @@
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
         <h3 class="yr-h">your reflection</h3>
         <p class="yr-lede">the personal read of your patterns, in plain language.</p>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph('safety')}</span><span class="yr-txt" style="color:var(--muted)">read your full reflection &middot; on the base plan</span></span>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">read your full reflection &middot; on the base plan</span></span>
       </a>
       <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">your check-ins.</h2></div>
       <div class="deep">${dayHTML}</div>
@@ -4022,7 +4022,7 @@
           <a class="you-reader" id="you-reader" href="#">
             <h3 class="yr-h">your reflection</h3>
             <p class="yr-lede">${_reflText || 'the personal read of your patterns, in plain language.'}</p>
-            <span class="yr-go"><span class="yr-glyph">${triGlyph('safety')}</span><span class="yr-txt">read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
 
           <div class="you-filter" id="you-filter"><div class="you-chips">${_chipsHTML}</div></div>

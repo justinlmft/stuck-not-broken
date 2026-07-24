@@ -2073,10 +2073,14 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-state:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:10px}
 .mh-foot{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:14px;transition:opacity .9s var(--ease)}
 .mh-noci{text-align:center;font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0}
-/* footer buttons as a grid: the two secondary actions share a row, the primary
-   (recommended practice) sits full-width beneath — like the player's controls */
-.mh-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* footer buttons: "check in again" leads full-width; "two more minutes" appears
+   only AFTER a breath (that's when it has context), and the grid opens to two
+   columns then. The primary (recommended practice) sits full-width beneath. */
+.mh-grid{display:grid;grid-template-columns:1fr;gap:10px}
 .mh-grid .btn{width:100%;min-width:0}
+.today.tb.mh.breathed .mh-grid{grid-template-columns:1fr 1fr}
+.mh-more{display:none}
+.today.tb.mh.breathed .mh-more{display:flex}
 /* during the breath, the top + capsule clear so only the ring remains */
 .today.tb.mh.breathing .mh-top,
 .today.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}
