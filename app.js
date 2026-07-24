@@ -1406,7 +1406,7 @@
       </header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     ({ today:tabToday, current:tabCurrent, practice:tabPractice }[tab] || tabToday)();
@@ -1585,7 +1585,7 @@
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
-            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is — open the glossary"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-state-txt">${STATE_NAME(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is — open the glossary"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
             : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
@@ -1598,12 +1598,14 @@
           </span>
           <span class="tb-esc" aria-hidden="true">tap anywhere to end early</span>
         </button>
-        <div class="tb-more-slot"><button class="tb-more" id="tb-more" type="button">two more minutes?</button></div>
       </div>
       <div class="mh-foot">
         ${checkedIn
-          ? `<button class="mh-capsule" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
-          : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p><button class="mh-capsule mh-ink" id="mh-cta" type="button">check in</button>`}
+          ? `<button class="btn quiet block" id="mh-checkin" type="button">check in again</button>
+             <button class="btn block" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
+          : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
+             <button class="btn block" id="mh-cta" type="button">check in</button>`}
+        <button class="btn quiet block mh-more" id="tb-more" type="button">two more minutes</button>
       </div>
     </div>`;
 
@@ -1616,6 +1618,7 @@
     // the state word opens the glossary (what the state is); re-checking-in lives on
     // the You tab ("change a recent check-in"). The single capsule is the practice.
     const mhState = c.querySelector('#mh-state'); if(mhState) mhState.onclick = ()=> screenStateDetail(dom);
+    const mhCheck = c.querySelector('#mh-checkin'); if(mhCheck) mhCheck.onclick = screenCheckin;
     const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'today') : app('practice'); };
   }
 
@@ -2130,7 +2133,7 @@
           ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
         </div>
       </div>
-      <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
+      <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
     $('#deep-back').onclick = ()=>app('today');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     // fresh-section share: the same image cards the You tab shares
@@ -2497,7 +2500,7 @@
             ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
           </div>
         </div>
-        <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
+        <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
       $('#me-back').onclick = screenArchive;
       $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
       const sb = $('#me-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
@@ -2620,7 +2623,7 @@
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
@@ -4192,7 +4195,7 @@
       <header class="appbar"><button class="backbtn" id="sd-back">back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#sd-back').onclick = ()=>app('current');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -4295,7 +4298,7 @@
         <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
       </div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`);
     // quiet placeholder until the player document has loaded (it then shows its
     // own "preparing your audio" line) — never a blank screen after "begin".
@@ -4390,7 +4393,7 @@
       <header class="appbar"><button class="backbtn" id="plan-back">back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#plan-back').onclick = ()=>app(from);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -4942,7 +4945,7 @@
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const u=Store.user();
