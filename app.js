@@ -2257,6 +2257,14 @@
     const visit = buildVisitSection();
     const hasArchive = (Store.mints && Store.mints().length > 0);
     const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">past reflections →</button>` : '';
+    // the reader closes into a practice: when you've finished reading what your
+    // check-ins are saying, the practice shaped from them is one tap away (the plan
+    // reader, then begin). links to the SAME recommendation as the practice tab.
+    const reco = (Store.recommend && Store.recommend()) || null;
+    const practiceCTA = reco ? `<div class="read-to-practice">
+            <p class="read-p" style="margin:0 0 12px">when you're ready, here is the practice shaped from these check-ins.</p>
+            <button class="btn block" id="read-begin-practice" type="button">the practice made for you</button>
+          </div>` : '';
     // quiet read-time line (HIG: set expectations; a reluctant reader wants the size of the ask)
     const _rtWords = String(todayBlock+visit.html+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
     const _rtMins = Math.max(1, Math.round(_rtWords/200));
@@ -2282,6 +2290,7 @@
             ${todayBlock}
             ${visit.html}
             ${bodyHTML}
+            ${practiceCTA}
             ${archiveLink}
           </div>
           ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
@@ -2290,6 +2299,7 @@
       <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
     $('#deep-back').onclick = ()=>app('today');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
     // fresh-section share: the same image cards the You tab shares
     (function(){
       const _sig = 'stuck not broken · app.stucknotbroken.com';
@@ -4442,6 +4452,28 @@
   ];
   let pState=null;
 
+  // ---------------------------------------------------------------- 7b MAKER DATA
+  // The four shapeable practices (they take dials). Everything else in the type
+  // picker — the standalone sessions and "surprise me" — has no dials, so picking
+  // one collapses the rest of the sentence.
+  const MK_SHAPED = ['micro','mindfulness','anchoring','most'];
+  // the pill (in-sentence) label for each type — kept short so the sentence reads
+  // naturally ("a safety practice", not "a connect with safety practice").
+  const MK_TYPE_PILL = { micro:'tiny', mindfulness:'mindfulness', anchoring:'safety', most:'self-regulation', surprise:'surprise' };
+  const mkIsSession = (k)=> P_MEDS.some(m=>m.id===k);
+  const mkPill = (k)=> MK_TYPE_PILL[k] || (P_MEDS.find(m=>m.id===k)||{}).title || k;
+  // the type picker, grouped for the brand sheet
+  const MK_TYPE_GROUPS = ()=>[
+    { label:'shape your own', opts:[
+      {val:'micro',       menu:'a tiny practice'},
+      {val:'mindfulness', menu:'simple mindfulness'},
+      {val:'anchoring',   menu:'connect with safety'},
+      {val:'most',        menu:'self-regulation'},
+    ]},
+    { label:'standalone sessions', opts:P_MEDS.map(m=>({val:m.id, menu:m.title})) },
+    { label:'or', opts:[{val:'surprise', menu:'surprise me'}] },
+  ];
+
   // Practice opens on a personalized "for you" view: a context line tuned to the
   // last check-in, and one track-colored card the Curriculum Advisor recommends.
   // Tapping it opens the plan reader. "choose another way" reveals the full chooser.
@@ -4451,7 +4483,10 @@
     // gate-checked in store.js) seed the customizer so "change this practice"
     // starts from the tuned shape.
     pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
-               holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null };
+               holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null,
+               // 7b maker state (paid + mobile): "make my own" starts collapsed; when
+               // opened it seeds from the recommended shape so it begins somewhere coherent.
+               makerOpen:false, mkKey:(MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring') };
     renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
@@ -4538,6 +4573,193 @@
     };
   }
 
+  // caret shown on every dial — an obvious "opens a menu" chevron (replaces the old
+  // ambiguous up/down glyph). track-colored via currentColor on the pill.
+  const MK_CARET = '<svg class="p7-dial-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+
+  // A brand-styled option sheet (replaces the OS's native <select> menu). Slides up
+  // from the bottom, bone surface, hairline rows, the current choice checked in the
+  // track color. groups: [{label, opts:[{val, menu}]}]. onPick(val) fires on choose.
+  function openDialSheet(title, groups, current, trackCls, onPick){
+    const old=document.getElementById('p7-sheet'); if(old) old.remove();
+    const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
+    let rows='';
+    groups.forEach(g=>{
+      if(g.label) rows+=`<div class="p7-sheet-group">${escapeHtml(g.label)}</div>`;
+      g.opts.forEach(o=>{
+        const sel = String(o.val)===String(current);
+        rows+=`<button class="p7-opt${sel?' sel':''}" type="button" data-val="${escapeHtml(String(o.val))}">
+          <span class="p7-opt-l">${escapeHtml(o.menu)}</span>
+          <svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>
+        </button>`;
+      });
+    });
+    wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true">
+      <div class="p7-sheet-grip" aria-hidden="true"></div>
+      ${title?`<div class="p7-sheet-title">${escapeHtml(title)}</div>`:''}
+      <div class="p7-sheet-body">${rows}</div>
+    </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const close=()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown',onKey); setTimeout(()=>{try{wrap.remove();}catch(e){}},320); };
+    const onKey=(e)=>{ if(e.key==='Escape') close(); };
+    document.addEventListener('keydown',onKey);
+    wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+    wrap.querySelectorAll('[data-val]').forEach(b=>b.onclick=()=>{ close(); onPick(b.dataset.val); haptic('start'); });
+  }
+
+  // ---- 7b: the "make my own" sentence-maker (paid, mobile) --------------------
+  // Heading + the recommended "made for you" card (kept), then a collapsible
+  // "make my own" that reads as one plain sentence whose underlined words are dials.
+  // The sentence is fully dynamic: each clause appears only when it applies to the
+  // chosen practice (mindfulness has no sense; micro has no silence; only
+  // self-regulation carries skill / emotion / hold-&-watch / length). Picking a
+  // standalone session or "surprise" collapses every dial but the type.
+  function renderMaker7b(animateIn){
+    const c=content();
+    const reco = Store.recommend();
+    const rtk = trackOf(reco.practiceKey);
+    const tunedNm = Store.getName();
+    const tunedHeading = tunedNm ? `${escapeHtml(tunedNm)}'s custom practice` : 'your custom practice';
+    const _tEst = estMinutes(reco.practiceKey, reco.silence);
+    const tunedCard = `
+      <button class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" type="button">
+        <span class="wc-text">
+          <span class="tuned-kicker">made for you</span>
+          <span class="wc-title">${tunedHeading}</span>
+          <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
+          <span class="wc-reason">${escapeHtml(reco.reason)}</span>
+          ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
+        </span>
+        <span class="wc-go">${CHEV}</span>
+      </button>`;
+
+    c.innerHTML=`<div class="view p-view p7-view">
+      <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">your practice.</h2></div>
+      ${tunedCard}
+      <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}"></button>
+      <div class="p7-shape" id="p7-shape" ${pState.makerOpen?'':'hidden'}></div>
+    </div>`;
+
+    const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
+    const toggle=$('#p7-toggle');
+    const paintToggle=()=>{ toggle.textContent = pState.makerOpen ? 'hide' : 'make my own'; toggle.setAttribute('aria-expanded', pState.makerOpen?'true':'false'); };
+    paintToggle();
+    toggle.onclick=()=>{
+      pState.makerOpen=!pState.makerOpen;
+      const sh=$('#p7-shape');
+      if(pState.makerOpen){ sh.hidden=false; paintMaker(); } else { sh.hidden=true; sh.innerHTML=''; }
+      paintToggle();
+    };
+    if(pState.makerOpen) paintMaker();
+
+    // build one dial pill (an underlined, tappable word in the sentence)
+    function dial(kind, label){
+      return `<button class="p7-dial" type="button" data-dial="${kind}"><span class="p7-dial-t">${escapeHtml(label)}</span>${MK_CARET}</button>`;
+    }
+    // assemble the live sentence for the current maker state
+    function sentenceHTML(){
+      const k = pState.mkKey;
+      let s = `a ${dial('type', mkPill(k))} practice`;
+      if(MK_SHAPED.indexOf(k)>=0){
+        if(k!=='mindfulness') s += `, anchored through ${dial('sense', pState.sense)}`;
+        if(k==='most'){
+          s += `, practicing ${dial('skill', skillLabel(pState.skill))}`;
+          const emo = Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion);
+          s += `, working with ${dial('emotion', emo?emo.label:'whatever surfaces')}`;
+          if(pState.skill==='balancing' || pState.skill==='pendulation'){
+            s += pState.holdWatch
+              ? `, holding &amp; watching for ${dial('hold', holdDurWords(pState.holdSeconds))}`
+              : `, ${dial('hold', 'add hold & watch')}`;
+          }
+        }
+        if(k!=='micro') s += `, with ${dial('silence', silLabel(pState.silence))} silence`;
+        if(k==='most') s += `, running ${dial('length', pState.open?'open-ended':'a complete practice')}`;
+      }
+      return s + '.';
+    }
+    // the dynamic "what this is" explainer, straight from the shared expectText slots
+    function explainHTML(){
+      const k = pState.mkKey;
+      if(k==='surprise') return "we'll shape a self-regulation practice for you on the spot — meeting what's hard while keeping you anchored in safety. you'll see its shape before it begins.";
+      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? `a full, standalone guided session, ${escapeHtml(m.est.replace('~','about '))}. ${escapeHtml(m.sub)}, played start to finish.` : ''; }
+      return escapeHtml(expectText(k, pState.sense, pState.skill, pState.silence, pState.holdWatch, pState.holdSeconds, pState.open));
+    }
+
+    function paintMaker(){
+      const sh=$('#p7-shape'); if(!sh) return;
+      const k=pState.mkKey; const tk=trackOf(k);
+      sh.className='p7-shape track-'+tk.cls;
+      sh.innerHTML=`
+        <p class="p7-shape-h">make my own</p>
+        <p class="p7-sentence">${sentenceHTML()}</p>
+        <p class="p7-explain" id="p7-explain">${explainHTML()}</p>
+        <div class="p7-actions"><button class="btn block" id="p7-begin">begin</button></div>`;
+      sh.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
+      const bg=$('#p7-begin'); if(bg) bg.onclick=beginMaker;
+    }
+
+    // open the right brand sheet for a given dial, then repaint on choose
+    function openDial(kind){
+      const k=pState.mkKey; const tkCls='track-'+trackOf(k).cls;
+      if(kind==='type'){
+        openDialSheet('what would you like to practice?', MK_TYPE_GROUPS(), k, tkCls, (v)=>{
+          pState.mkKey=v;
+          // entering self-regulation: make sure the seeded dials are valid for it
+          if(v==='most'){ if(!pState.skill) pState.skill='imagery'; if(!pState.sense) pState.sense='touch'; }
+          if(v==='micro' && ['movement','imagination'].indexOf(pState.sense)>=0) pState.sense='touch';
+          paintMaker();
+        });
+      } else if(kind==='sense'){
+        const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
+        openDialSheet('anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tkCls, (v)=>{ pState.sense=v; paintMaker(); });
+      } else if(kind==='skill'){
+        openDialSheet('which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l}))}], pState.skill, tkCls, (v)=>{
+          pState.skill=v;
+          if(v!=='balancing' && v!=='pendulation') pState.holdWatch=false;   // hold & watch only applies to these
+          paintMaker();
+        });
+      } else if(kind==='emotion'){
+        const opts=[{val:'',menu:'whatever surfaces'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:f.label})));
+        openDialSheet('working with', [{opts}], pState.emotion||'', tkCls, (v)=>{ pState.emotion=v||null; paintMaker(); });
+      } else if(kind==='hold'){
+        const opts=[{val:'off',menu:'skip hold & watch'},{val:'30',menu:'hold & watch for 30 sec'},{val:'60',menu:'hold & watch for 1 min'},{val:'90',menu:'hold & watch for 90 sec'},{val:'120',menu:'hold & watch for 2 min'}];
+        openDialSheet('hold & watch', [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tkCls, (v)=>{
+          if(v==='off'){ pState.holdWatch=false; } else { pState.holdWatch=true; pState.holdSeconds=+v; }
+          paintMaker();
+        });
+      } else if(kind==='silence'){
+        openDialSheet('how much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
+      } else if(kind==='length'){
+        openDialSheet('how long?', [{opts:[{val:'false',menu:'a complete practice'},{val:'true',menu:'open-ended'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
+      }
+    }
+
+    function beginMaker(){
+      const k=pState.mkKey;
+      if(k==='surprise'){
+        const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
+        const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
+        const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
+        const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
+        const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
+        practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
+        return;
+      }
+      if(mkIsSession(k)){
+        practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k});
+        return;
+      }
+      const sil = k==='micro' ? 2 : pState.silence;
+      const ps={embed:'1',autostart:'1',practice:k,sense:pState.sense,silence:String(sil)};
+      if(k==='most'){ ps.skill=pState.skill;
+        if((pState.skill==='balancing'||pState.skill==='pendulation')&&pState.holdWatch){ ps.holdwatch='1'; ps.holdsecs=String(pState.holdSeconds||60); }
+        if(pState.open) ps.open='1';
+      }
+      practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:pState.skill,silence:sil,holdWatch:(k==='most'?!!pState.holdWatch:false),holdWatchTargetSeconds:(k==='most'&&pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(k==='most'?!!pState.open:false),emotionIntent:(k==='most'?(pState.emotion||null):null)});
+    }
+  }
+
   function renderPracticeChooser(animateIn){
     const c=content();
     let {key,sense,skill,silence,med}=pState;
@@ -4547,6 +4769,11 @@
     // and its adjust/what-to-expect reveals on the right. (Mobile <720 keeps key=null
     // and its full-screen flow unchanged.)
     const desk = !!(window.matchMedia && window.matchMedia('(min-width:720px)').matches);
+
+    // 7b — paid members on mobile get the "make my own" sentence-maker (redesign,
+    // 2026-07-24). Free accounts and desktop keep the existing chooser below,
+    // unchanged. (Desktop paid stays on the list|detail split for now.)
+    if(paidNow() && !desk){ return renderMaker7b(animateIn); }
 
     // per-practice icons: the breath ring for mindfulness, the brand heart for
     // safety, the brand bolt for self-regulation (matching the player's tinting),
