@@ -1137,19 +1137,25 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .rs-disc-val{color:var(--muted);display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale))}
 .rs-disc-chev{transition:transform .2s var(--ease);flex:none}
 .rs-disc-btn[aria-expanded="true"] .rs-disc-chev{transform:rotate(90deg)}
-/* disclosures expand/collapse with a calm grid-rows animation (no magic max-height,
-   robust at large text sizes); reduce-motion snaps. inner wrapper clips the content. */
-.rs-disc-body,.rs-scene-body{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .3s var(--ease),opacity .24s var(--ease)}
-.rs-disc-body.open,.rs-scene-body.open{grid-template-rows:1fr;opacity:1}
-.rs-disc-body>.disc-inner,.rs-scene-body>.disc-inner{overflow:hidden;min-height:0}
+/* disclosures expand/collapse with a JS-measured max-height animation — reliable on
+   every engine incl. iOS WebKit (grid-rows fr-interpolation is not). the height is
+   set in JS (scrollHeight → 0), then released to none once open so content can grow.
+   reduce-motion snaps. inner wrapper carries the top spacing so nothing shows collapsed. */
+.rs-disc-body,.rs-scene-body{overflow:hidden;max-height:0;opacity:0;transition:max-height .32s var(--ease),opacity .24s var(--ease)}
 .rs-disc-body>.disc-inner{padding-top:16px}
 .rs-scene-body>.disc-inner{padding-top:14px}
 body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:none}
 .rs-cap{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.5;margin:11px 0 0;text-wrap:pretty}
 .rs-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--bone-deep)}
-.rs-preview .q{font-size:calc(14.5px * var(--type-scale));font-weight:500;line-height:1.35;margin:0;color:var(--ink)}
-.rs-preview .slider{gap:8px}
-.rs-preview input[type=range]{opacity:.85}
+/* method preview: ink illustration of the control (no glyph, no state colour). the
+   scale row and the slider row share one grid so labels align to the rail ends, and
+   numbers mode reserves a right-hand column for the value (like the live slider). */
+.ci-prev-scale,.ci-prev-row{display:grid;grid-template-columns:1fr;column-gap:13px;align-items:center}
+.ci-prev.has-num .ci-prev-scale,.ci-prev.has-num .ci-prev-row{grid-template-columns:1fr 1.8ch}
+.ci-prev-scale{margin:0 0 5px}
+.ci-prev-lbls{display:flex;justify-content:space-between;font-size:calc(11.5px * var(--type-scale));color:var(--muted);letter-spacing:.03em}
+.ci-prev-range{width:100%;--rail:var(--ink-80)}
+.ci-prev-num{text-align:right;font-size:calc(16px * var(--type-scale));font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 /* text-size A's + auto/light/dark icon segment */
 .ts-a{display:block;font-weight:600;line-height:1;color:inherit}
 .icon-seg{display:flex;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px}

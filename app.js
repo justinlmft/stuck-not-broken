@@ -352,6 +352,28 @@
       +`<span class="ci-clause" style="color:${colOf('dor')}">${bD}</span>`
       +`<span class="ci-join">.</span>`;
   }
+  // settings disclosure open/close with a measured max-height glide (reliable on iOS
+  // WebKit). opening animates 0 → scrollHeight then releases to `none` so later content
+  // growth (e.g. swapping the method preview) isn't clipped; closing animates back to 0.
+  function _discSetOpen(body, open){ if(!body) return;
+    if(open){ body.style.maxHeight='none'; body.style.opacity='1'; }
+    else { body.style.maxHeight='0px'; body.style.opacity='0'; } }
+  function _discToggle(btn, body){ if(!btn||!body) return;
+    const wasOpen = btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded', wasOpen?'false':'true');
+    const calm = document.body.classList.contains('reduce-motion');
+    if(wasOpen){                                   // closing
+      body.style.maxHeight = body.scrollHeight+'px'; body.style.opacity='1';
+      void body.offsetHeight;                      // force reflow so the next values transition
+      body.style.maxHeight='0px'; body.style.opacity='0';
+    } else {                                       // opening
+      body.style.opacity='1';
+      if(calm){ body.style.maxHeight='none'; return; }
+      body.style.maxHeight = body.scrollHeight+'px';
+      const done = e=>{ if(e.propertyName!=='max-height') return; body.style.maxHeight='none'; body.removeEventListener('transitionend', done); };
+      body.addEventListener('transitionend', done);
+    }
+  }
   // paint each slider rail AND its anchoring glyph the same colour (colOf)
   function ciPaintSliders(colOf){
     ['v','sym','dor'].forEach(ax=>{
@@ -4979,15 +5001,16 @@
     const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
     const _svgDark=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>`;
     const TS_SIZES=[['0.92','12px'],['1','15px'],['1.12','18px'],['1.25','21px'],['1.6','26px']];
-    // a small, non-interactive taste of the chosen check-in method
+    // a small, non-interactive taste of the chosen method. ink only (it illustrates the
+    // control, not a real reading), no glyph; the scale labels sit flush to the rail, and
+    // numbers mode shows the value on the right exactly like the live slider.
     const _methodPreview=(m)=>{
       if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}</div>`;
-      const sc = m==='numbers'?['0','10']:['harder','easier'];
-      return `<div class="ci4-scale" aria-hidden="true"><span>${sc[0]}</span><span>${sc[1]}</span></div>
-        <div class="slider" data-axis="v" style="align-items:flex-start" aria-hidden="true">
-          <span class="slider-ico-wrap" style="margin-top:1px">${ico('heart',{cls:'slider-ico',color:STATE_COLOR('safety')})}</span>
-          <div class="slider-main"><p class="q">accept a compliment without deflecting?</p>
-          <input type="range" class="r-v" min="0" max="100" value="62" style="--rail:var(--s-safety)" tabindex="-1"></div>
+      const numbered = m==='numbers';
+      const sc = numbered ? ['0','10'] : ['harder','easier'];
+      return `<div class="ci-prev${numbered?' has-num':''}" aria-hidden="true">
+          <div class="ci-prev-scale"><span class="ci-prev-lbls"><span>${sc[0]}</span><span>${sc[1]}</span></span></div>
+          <div class="ci-prev-row"><input type="range" class="ci-prev-range" min="0" max="100" value="62" tabindex="-1">${numbered?'<span class="ci-prev-num">6</span>':''}</div>
         </div>`;
     };
     $('#content').innerHTML = `
@@ -5005,7 +5028,7 @@
 
           <div class="gs-card">
             <button class="rs-disc-btn" id="ci-method-btn" type="button" aria-expanded="true"><span class="gs-h" style="margin:0">your check-in</span><span class="rs-disc-val"><span id="ci-method-val">${METHOD_LABEL[method]||'sliders'}</span> ${_svgChev}</span></button>
-            <div class="rs-disc-body open" id="ci-method-body"><div class="disc-inner">
+            <div class="rs-disc-body" id="ci-method-body"><div class="disc-inner">
               <p class="gs-lbl2">how you enter your state</p>
               <div class="set-seg" id="seg-method">
                 <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>sliders</button>
@@ -5055,6 +5078,7 @@
           <div class="gs-card">
             <p class="gs-h">your data</p>
             ${gsSw('sw-glyph','state glyph on shared images',gl!=='0')}
+            <p class="gs-fine">a personal touch on the cards you share: your dominant state's mark, added in the corner. off means the cards share the reflection alone.</p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">export your check-ins</button>
               <button class="set-quiet" id="privacy">how your data is handled</button>
@@ -5091,7 +5115,7 @@
     // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
     (function(){
       const btn=$('#ci-method-btn'), body=$('#ci-method-body');
-      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.classList.toggle('open',!open); };
+      if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); }
       const seg=$('#seg-method'); if(!seg) return;
       const val=$('#ci-method-val'), cap=$('#ci-method-cap'), prev=$('#ci-method-preview');
       seg.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
@@ -5106,7 +5130,7 @@
     })();
     // practice-scene disclosure toggle
     (function(){ const btn=$('#scene-btn'), body=$('#scene-body');
-      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.classList.toggle('open',!open); }; })();
+      if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='one moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
