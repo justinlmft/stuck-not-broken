@@ -421,6 +421,7 @@
   function _readerUnread(){ try{ const last = Store.lastCheckin && Store.lastCheckin(); return !!(last && typeof last.t==='number' && last.t > _readerSeenT()); }catch(e){ return false; } }
   function _markReaderSeen(){ try{ const last = Store.lastCheckin && Store.lastCheckin(); const t=(last && typeof last.t==='number')?last.t:Date.now(); localStorage.setItem('snb_reader_seen_t', String(t)); }catch(e){} }
   let _mhMorphTimer = null;   // micro → reader morph (10s)
+  let _mhStepTimer  = null;   // staged post-breath reveal (shorten → invite)
   let _mhAfterBreath = null;  // re-run the post-breath reveal when a breath completes
   // "tuned to you" badge: the brand mark (recolors to white via currentColor)
   const MARK_GLYPH = "<svg viewBox=\"4 44 462 371\" fill=\"currentColor\"><path d=\"M 228.6626430999995,414.99967965948633 C 193.0931878499996,414.99967965948633 159.69623824999962,401.15528090948635 134.56332974999987,376.0223724094866 L 42.977307250000194,284.43634990948647 C 17.844398749999527,259.30344140948625 4.0,225.86389365948654 4.0,190.3370365594864 C 4.0,154.76758130948647 17.844398750000437,121.3706317094865 42.977307250000194,96.23772320948629 C 68.11021574999995,71.10481470948653 101.54976350000015,57.26041595948655 137.07662059999984,57.260415959486096 C 171.45332764999966,57.260415959486096 203.82792165000046,70.21025355948623 228.6626430999995,93.76703050948609 C 280.7175823999996,44.35317650948619 363.2727970999995,45.20513950948626 414.34797894999974,96.23772320948629 C 466.23252564999984,148.1222699094864 466.23252564999984,232.5518032094864 414.34797894999974,284.47894805948624 L 322.76195644999916,376.06497055948637 C 297.6290479499994,401.1978790594861 264.1895001999992,415.0422778094861 228.6626430999995,415.0422778094861 L 228.6626430999995,414.99967965948633 M 137.11921875000007,109.86913120948648 C 115.60715299999993,109.86913120948648 95.41562990000057,118.21836860948625 80.20809035000002,133.42590815948634 C 48.813253799999075,164.82074470948638 48.813253799999075,215.8533284094864 80.20809035000002,247.24816495948645 L 171.7941128499997,338.83418745948654 C 187.00165239999933,354.0417270094862 207.1931754999996,362.3909644094864 228.70524124999974,362.3909644094864 C 250.2173069999999,362.3909644094864 270.40883009999925,354.0417270094862 285.6163696499989,338.83418745948654 L 377.20239214999947,247.24816495948645 C 408.5546305500002,215.89592655948618 408.5546305500002,164.82074470948638 377.20239214999947,133.42590815948634 C 345.80755560000034,102.0310716094863 294.7749719000003,102.0310716094863 263.3801353500003,133.42590815948634 L 228.70524124999974,168.10080225948641 L 194.03034714999922,133.42590815948634 C 178.82280759999958,118.21836860948625 158.6312844999993,109.86913120948648 137.11921875000007,109.86913120948648\"/></svg>";
@@ -1730,30 +1731,46 @@
     const mhCheck = c.querySelector('#mh-checkin'); if(mhCheck) mhCheck.onclick = screenCheckin;
     const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'today') : app('practice'); };
 
-    // ---- dynamic post-breath third button ----
-    clearTimeout(_mhMorphTimer); _mhAfterBreath = null;
+    // ---- dynamic post-breath third button (choreographed) ----
+    clearTimeout(_mhMorphTimer); clearTimeout(_mhStepTimer); _mhAfterBreath = null;
     const _launchMicro = ()=>{ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
       third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
       const _morphQueued = mhOffers.length>1 && mhOffers[0]==='micro' && mhOffers[1]==='reader';
-      // reveal + (re)arm the 10s micro→reader morph. runs on load if already breathed,
-      // and again each time a breath completes (via _mhAfterBreath).
-      const _reveal = ()=>{
-        const t = c.querySelector('#mh-third'); if(!t) return;
-        t.classList.remove('mh-in'); void t.offsetWidth; t.classList.add('mh-in');   // replay the entrance
-        clearTimeout(_mhMorphTimer);
-        if(_morphQueued){
-          t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro');
-          _mhMorphTimer = setTimeout(()=>{ const x=c.querySelector('#mh-third'); if(!x) return;
-            x.classList.add('mh-morphing');
-            setTimeout(()=>{ x.dataset.kind='reader'; x.innerHTML = mhThirdHTML('reader'); x.classList.remove('mh-morphing'); }, 220);
-          }, 10000);
-        }
+      // the graceful two-beat morph: the invite fades out, its content swaps while it's
+      // invisible, then the reader doorway fades back in — slow enough to be felt.
+      const _morphToReader = (t)=>{
+        t.classList.add('mh-morphing');
+        setTimeout(()=>{ t.dataset.kind='reader'; t.innerHTML = mhThirdHTML('reader'); void t.offsetWidth; t.classList.remove('mh-morphing'); }, 480);
       };
-      _mhAfterBreath = _reveal;
-      if(settled) _reveal();   // already breathed today → show it now (and arm the morph)
+      // arm the 10s micro→reader morph, measured from when the invite has finished arriving.
+      const _armMorph = (leadMs)=>{ clearTimeout(_mhMorphTimer);
+        if(!_morphQueued) return;
+        _mhMorphTimer = setTimeout(()=>{ const x=c.querySelector('#mh-third'); if(x) _morphToReader(x); }, leadMs + 10000); };
+      // reveal choreography: (1) check-in shortens to the plus, (2) THEN the invite eases
+      // in. On a breath we reset to the full "check in again" first (while the footer is
+      // still faded out from the breath, so no blip), then play both beats in sequence.
+      const _reveal = (animate)=>{
+        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
+        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
+        if(_morphQueued){ t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); }
+        t.classList.remove('mh-morphing');
+        if(!animate){                                   // load / already-breathed: show at rest, no animation
+          row.classList.add('mh-noanim'); row.classList.add('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim'); _armMorph(0); return;
+        }
+        // reset to the full check-in instantly (no bounce), while the footer is dim
+        row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
+        _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
+          const r = c.querySelector('#mh-2nd'); if(!r) return;
+          r.classList.add('revealed');
+          setTimeout(()=>{ const r2=c.querySelector('#mh-2nd'); if(r2) r2.classList.add('third-in'); }, 470);   // beat 2: invite eases in
+        }, 300);
+        _armMorph(300 + 470 + 550);
+      };
+      _mhAfterBreath = ()=> _reveal(true);
+      if(settled) _reveal(false);   // already breathed today → show it at rest (and arm the morph)
     }
   }
 
