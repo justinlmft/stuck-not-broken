@@ -2082,7 +2082,10 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    only AFTER a breath (that's when it has context), and the grid opens to two
    columns then. The primary (recommended practice) sits full-width beneath. */
 .mh-grid{display:grid;grid-template-columns:1fr;gap:10px}
-.mh-grid .btn{width:100%;min-width:0}
+/* footer weight hierarchy: the two secondaries read thin/light; the recommended
+   practice leads by weight, not fill — a thicker unfilled outline (2026-07-24) */
+.mh-grid .btn{width:100%;min-width:0;font-weight:400;border-color:var(--hairline)}
+.btn.mh-primary{border-width:2px;border-color:var(--ink);font-weight:600}
 .today.tb.mh.breathed .mh-grid{grid-template-columns:1fr 1fr}
 .mh-more{display:none}
 .today.tb.mh.breathed .mh-more{display:flex}

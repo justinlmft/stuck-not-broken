@@ -1612,9 +1612,9 @@
                <button class="btn quiet block" id="mh-checkin" type="button">check in again</button>
                <button class="btn quiet block mh-more" id="tb-more" type="button">two more minutes</button>
              </div>
-             <button class="btn block" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
+             <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
           : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
-             <button class="btn block" id="mh-cta" type="button">check in</button>`}
+             <button class="btn quiet block mh-primary" id="mh-cta" type="button">check in</button>`}
       </div>
     </div>`;
 
