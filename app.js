@@ -4638,15 +4638,24 @@
     const c=content();
     const reco = Store.recommend();
     const rtk = trackOf(reco.practiceKey);
+    // defensive: some entry paths (e.g. the plan screen's "change this practice") seed
+    // pState without a maker type. Never open the maker on a blank practice type.
+    if(!pState.mkKey || (MK_SHAPED.indexOf(pState.mkKey)<0 && !mkIsSession(pState.mkKey) && pState.mkKey!=='surprise')){
+      pState.mkKey = (MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring');
+    }
+    if(!pState.sense) pState.sense='touch';
+    if(!pState.skill) pState.skill='imagery';
+    if(!pState.silence) pState.silence=8;
     const tunedNm = Store.getName();
-    const tunedHeading = tunedNm ? `${escapeHtml(tunedNm)}'s custom practice` : 'your custom practice';
+    // the hand-drawn underline sits under the NAME (or "your"), not under "practice"
+    // (Justin 2026-07-24) — so the possessive lead is its own underlined span.
+    const nameLead = tunedNm ? `${escapeHtml(tunedNm)}’s` : 'your';
     const _tEst = estMinutes(reco.practiceKey, reco.silence);
     const tunedCard = `
       <button class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" type="button">
         <span class="wc-text">
           <span class="tuned-kicker">made for you</span>
-          <span class="wc-title">${tunedHeading}</span>
-          <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
+          <span class="wc-title"><span class="tuned-name">${nameLead}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
           <span class="wc-reason">${escapeHtml(reco.reason)}</span>
           ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
@@ -4678,19 +4687,20 @@
     toggle.onclick=()=>{
       pState.makerOpen=!pState.makerOpen;
       const sh=$('#p7-shape');
-      if(pState.makerOpen){ sh.hidden=false; paintMaker(); } else { sh.hidden=true; sh.innerHTML=''; }
+      if(pState.makerOpen){ sh.hidden=false; paintMaker(true); } else { sh.hidden=true; sh.innerHTML=''; }
       paintToggle();
     };
-    if(pState.makerOpen) paintMaker();
+    if(pState.makerOpen) paintMaker(true);
 
     // build one dial pill (an underlined, tappable word in the sentence)
-    function dial(kind, label){
-      return `<button class="p7-dial" type="button" data-dial="${kind}"><span class="p7-dial-t">${escapeHtml(label)}</span>${MK_CARET}</button>`;
+    function dial(kind, label, extraCls){
+      return `<button class="p7-dial${extraCls?' '+extraCls:''}" type="button" data-dial="${kind}"><span class="p7-dial-t">${escapeHtml(label)}</span>${MK_CARET}</button>`;
     }
     // assemble the live sentence for the current maker state
     function sentenceHTML(){
       const k = pState.mkKey;
-      let s = `a ${dial('type', mkPill(k))} practice`;
+      const typeLabel = mkPill(k);
+      let s = `a ${dial('type', typeLabel || 'choose', typeLabel ? '' : 'is-empty')} practice`;
       if(MK_SHAPED.indexOf(k)>=0){
         if(k!=='mindfulness') s += `, anchored through ${dial('sense', pState.sense)}`;
         if(k==='most'){
@@ -4741,7 +4751,7 @@
       return bits.filter(Boolean).join(' ');
     }
 
-    function paintMaker(){
+    function paintMaker(cue){
       const sh=$('#p7-shape'); if(!sh) return;
       const k=pState.mkKey; const tk=trackOf(k);
       sh.className='p7-shape track-'+tk.cls;
@@ -4752,6 +4762,9 @@
         <div class="p7-actions"><button class="btn block" id="p7-begin">begin</button></div>`;
       sh.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
       const bg=$('#p7-begin'); if(bg) bg.onclick=beginMaker;
+      // when the maker first opens, briefly pulse the practice-type pill so it's clear
+      // the type is tappable (it's the first, primary dial). (Justin 2026-07-24)
+      if(cue){ const td=sh.querySelector('[data-dial="type"]'); if(td){ td.classList.add('p7-dial-cue'); td.addEventListener('animationend',()=>td.classList.remove('p7-dial-cue'),{once:true}); } }
     }
 
     // open the right brand sheet for a given dial, then repaint on choose
