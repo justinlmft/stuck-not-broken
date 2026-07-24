@@ -349,8 +349,15 @@
     const est = estMinutes(key, key==='micro' ? 2 : silence);
     const lbl = Store.practiceLabel(key);
     const head = /^a /.test(lbl) ? lbl : `a guided ${lbl} practice`;   // micro's label is already "a tiny practice"
+    // open-ended (self-reg only) has no fixed length: the estimate reflects the
+    // guided portion, then notes it keeps going until you stop — a fixed "about N
+    // minutes" ignored the open-ended toggle before (fix 2026-07-24).
+    const openEnded = (key==='most' && !!open);
+    const timePhrase = openEnded
+      ? (est ? `, about ${est} minutes of guidance, then open-ended` : ', open-ended')
+      : (est ? `, about ${est} minutes` : '');
     const bits = [
-      `${head}${est ? ', about '+est+' minutes' : ''}.`,
+      `${head}${timePhrase}.`,
       aboutOf(key, sense),
     ];
     if((key==='most'||key==='micro') && sense) bits.push(`your anchor is ${sense}.`);
@@ -360,7 +367,7 @@
     if(key==='most' && holdWatch && (skill==='balancing' || skill==='pendulation'))
       bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
-    if(key==='most' && open) bits.push('open-ended: it keeps going until you choose to stop.');
+    if(openEnded) bits.push('it keeps going until you choose to stop.');
     return bits.filter(Boolean).join(' ');
   }
 
