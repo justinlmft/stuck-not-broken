@@ -341,15 +341,30 @@
     return ax => !axTouched[ax] ? 'var(--ink-faded)'
       : (all && core.length>1 && core.includes(ax)) ? STATE_COLOR(dom.key) : own[ax];
   }
-  // the live "you're reporting" line, each clause tinted by colOf (matches its slider)
-  function ciMirrorColoredHTML(v, s, d, colOf){
+  // TEXT shades of the axis colours (the pastels used on rails/glyphs fail contrast as
+  // text on bone; these keep the hue but are darkened to ~6-7:1, dark-mode maps back to
+  // the pastels). same faded/own/blend logic as the rails so the clause still "matches"
+  // its slider by hue, just readable (2026-07-24 r4).
+  const STATE_TEXT_VAR = { safety:'var(--s-safety-tx)', fightflight:'var(--s-fight-tx)', shutdown:'var(--s-shutdown-tx)', play:'var(--s-play-tx)', stillness:'var(--s-still-tx)', freeze:'var(--s-freeze-tx)' };
+  const AXIS_OWN_TX = () => ({ v:STATE_TEXT_VAR.safety, sym:STATE_TEXT_VAR.fightflight, dor:STATE_TEXT_VAR.shutdown });
+  function ciAxisTextColorFn(v, s, d, axTouched){
+    const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
+    const core = STATE_CORE[dom.key] || [];
+    const own = AXIS_OWN_TX();
+    const all = axTouched.v && axTouched.sym && axTouched.dor;
+    return ax => !axTouched[ax] ? 'var(--muted)'
+      : (all && core.length>1 && core.includes(ax)) ? (STATE_TEXT_VAR[dom.key]||'var(--ink)') : own[ax];
+  }
+  // the live "you're reporting" line, each clause tinted by a READABLE text shade that
+  // matches its slider's hue (txOf); untouched clauses read muted.
+  function ciMirrorColoredHTML(v, s, d, txOf){
     const bV=CI_MIRROR.v[ciBucket(v/100)], bS=CI_MIRROR.sym[ciBucket(s/100)], bD=CI_MIRROR.dor[ciBucket(d/100)];
     return `<span class="ci-join">you're reporting: </span>`
-      +`<span class="ci-clause" style="color:${colOf('v')}">${bV}</span>`
+      +`<span class="ci-clause" style="color:${txOf('v')}">${bV}</span>`
       +`<span class="ci-join">, </span>`
-      +`<span class="ci-clause" style="color:${colOf('sym')}">${bS}</span>`
+      +`<span class="ci-clause" style="color:${txOf('sym')}">${bS}</span>`
       +`<span class="ci-join">, and </span>`
-      +`<span class="ci-clause" style="color:${colOf('dor')}">${bD}</span>`
+      +`<span class="ci-clause" style="color:${txOf('dor')}">${bD}</span>`
       +`<span class="ci-join">.</span>`;
   }
   // settings disclosure open/close with a measured max-height glide (reliable on iOS
@@ -864,7 +879,7 @@
       ciPaintSliders(colOf);   // rails + anchoring glyphs move together
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, colOf); readout.classList.remove('ci-readout-idle'); }
+        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
         else { readout.innerHTML = '<span class="ci-idle">move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
       }
     }
@@ -2814,7 +2829,7 @@
       }
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, colOf); readout.classList.remove('ci-readout-idle'); }
+        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
         else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
       }
     }
@@ -5118,13 +5133,17 @@
       if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); }
       const seg=$('#seg-method'); if(!seg) return;
       const val=$('#ci-method-val'), cap=$('#ci-method-cap'), prev=$('#ci-method-preview');
+      // the numbers preview is a live illustration: dragging its slider moves the value
+      // on the right, just like the real check-in (Justin r4 — the "6" was static).
+      const _bindPrev=()=>{ if(!prev) return; const r=prev.querySelector('.ci-prev-range'), n=prev.querySelector('.ci-prev-num'); if(r&&n) r.oninput=()=>{ n.textContent = Math.round((+r.value)/10); }; };
+      _bindPrev();
       seg.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
         const m=b.dataset.method;
         localStorage.setItem('snb_checkin_method', m);
         seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
         if(val) val.textContent = METHOD_LABEL[m]||m;
         if(cap) cap.textContent = METHOD_CAP[m]||'';
-        if(prev) prev.innerHTML = _methodPreview(m);
+        if(prev){ prev.innerHTML = _methodPreview(m); _bindPrev(); }
         haptic('save');
       });
     })();

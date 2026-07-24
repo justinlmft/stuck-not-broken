@@ -9,6 +9,10 @@
   --sky:#5891C5; --leaf:#5BA070; --amber:#D29A4A;
   --s-safety:#F4D58D; --s-fight:#E89B9B; --s-shutdown:#A3C0DD;
   --s-play:#E8A871; --s-still:#9FC498; --s-freeze:#B89AC4; --s-unlit:#D8D2C2;
+  /* readable text shades of the state colours (the pastels fail contrast as text on
+     bone). same hue, darkened to ~6-7:1 on light; dark mode keeps the pastels below. */
+  --s-safety-tx:#6E5410; --s-fight-tx:#9A3B3B; --s-shutdown-tx:#375A85;
+  --s-play-tx:#8F4E13; --s-still-tx:#3E6335; --s-freeze-tx:#634873;
   /* practice track colors: mindfulness = ink, connect-with-safety = sky/blue, self-regulation = amber */
   --track-mind:#1A1F2A; --track-safety:#5891C5; --track-self:#D29A4A;
   /* darker "ink" versions of the track colors for small text (the raw track
@@ -1355,6 +1359,9 @@ body.reduce-motion .settle-ico{transition:none}
   --track-mind:#E7E5DE;
   /* on dark, the raw track colors themselves clear 4.5:1 — the ink variants map to them */
   --track-mind-ink:#ECEAE3; --track-safety-ink:#5891C5; --track-self-ink:#D29A4A;
+  /* dark: the pastels read fine on the dark bg, so the text shades map back to them */
+  --s-safety-tx:var(--s-safety); --s-fight-tx:var(--s-fight); --s-shutdown-tx:var(--s-shutdown);
+  --s-play-tx:var(--s-play); --s-still-tx:var(--s-still); --s-freeze-tx:var(--s-freeze);
   }
 }
 :root.theme-dark{
@@ -1366,6 +1373,9 @@ body.reduce-motion .settle-ico{transition:none}
   --backdrop:#0D0E10; --press:#2C2E33; --scale-lo:#3A3C42; --scale-hi:#C5C3BC; --link-soft:rgba(143,182,238,.45); --tg-dim:#565961;
   --track-mind:#E7E5DE;
   --track-mind-ink:#ECEAE3; --track-safety-ink:#5891C5; --track-self-ink:#D29A4A;
+  /* dark: the pastels read fine on the dark bg, so the text shades map back to them */
+  --s-safety-tx:var(--s-safety); --s-fight-tx:var(--s-fight); --s-shutdown-tx:var(--s-shutdown);
+  --s-play-tx:var(--s-play); --s-still-tx:var(--s-still); --s-freeze-tx:var(--s-freeze);
 }
 
 
