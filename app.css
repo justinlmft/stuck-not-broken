@@ -2165,17 +2165,31 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-state:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:10px}
 .mh-foot{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:14px;transition:opacity .9s var(--ease)}
 .mh-noci{text-align:center;font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0}
-/* footer buttons: "check in again" leads full-width; "two more minutes" appears
-   only AFTER a breath (that's when it has context), and the grid opens to two
-   columns then. The primary (recommended practice) sits full-width beneath. */
-.mh-grid{display:grid;grid-template-columns:1fr;gap:10px}
-/* footer weight hierarchy: the two secondaries read thin/light; the recommended
-   practice leads by weight, not fill — a thicker unfilled outline (2026-07-24) */
-.mh-grid .btn{width:100%;min-width:0;font-weight:400;border-color:var(--hairline)}
+/* footer second row (r5 2026-07-24): "check in again" leads full-width; AFTER a breath
+   it shrinks to a compact plus (~24%) and a dynamic third button (~76%) animates in —
+   a micro practice ("two more minutes?") that morphs into the personal-reader doorway
+   after 10s when a new reflection is waiting. gated on .breathed so it only shows once
+   the person has taken their breath. The primary (recommended practice) sits beneath. */
+.mh-secondrow{display:flex}
+.mh-secondrow .btn{width:auto;min-width:0;font-weight:400;border-color:var(--hairline)}
+.mh-checkin{flex:1 1 100%;transition:flex-basis .42s var(--ease),flex-grow .42s var(--ease)}
+.mh-checkin .mh-ci-plus{display:none;align-items:center;justify-content:center}
+.mh-ic{width:20px;height:20px;display:block}
+.mh-third{flex:0 1 0%;max-width:0;margin-left:0;padding-left:0;padding-right:0;border-width:0;overflow:hidden;white-space:nowrap;opacity:0;transform:translateY(6px);
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  transition:flex-grow .42s var(--ease),max-width .42s var(--ease),margin-left .42s var(--ease),padding .42s var(--ease),opacity .5s var(--ease) .06s,transform .5s var(--ease) .06s}
+.mh-third.mh-morphing{opacity:0;transition:opacity .2s var(--ease)}
+.mh-th-ic{flex:none;display:inline-flex;color:var(--ink-80)}
+.mh-th-t{font-size:calc(14px * var(--type-scale))}
 .btn.mh-primary{border-width:2px;border-color:var(--ink);font-weight:600}
-.today.tb.mh.breathed .mh-grid{grid-template-columns:1fr 1fr}
-.mh-more{display:none}
-.today.tb.mh.breathed .mh-more{display:flex}
+/* breathed: check-in shrinks to a plus; third grows in with its gap and fades/rises */
+.today.tb.mh.breathed .mh-secondrow.has-third .mh-checkin{flex:0 0 24%}
+.today.tb.mh.breathed .mh-secondrow.has-third .mh-ci-full{display:none}
+.today.tb.mh.breathed .mh-secondrow.has-third .mh-checkin .mh-ci-plus{display:inline-flex}
+.today.tb.mh.breathed .mh-secondrow.has-third .mh-third{flex:1 1 auto;max-width:100%;margin-left:10px;padding-left:22px;padding-right:22px;border-width:1px;opacity:1;transform:none}
+@media (prefers-reduced-motion:no-preference){ .mh-third.mh-in{animation:mhThirdIn .55s var(--ease)} }
+@keyframes mhThirdIn{from{opacity:.15;transform:translateY(6px)}to{opacity:1;transform:none}}
+body.reduce-motion .mh-third,body.reduce-motion .mh-checkin{transition:none}
 /* during the breath, the top + capsule clear so only the ring remains */
 .today.tb.mh.breathing .mh-top,
 .today.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}

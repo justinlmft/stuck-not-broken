@@ -407,6 +407,19 @@
     localStorage.setItem(CI_QKEY, JSON.stringify(m)); }catch(e){} }
   function ciLoadQ(t){ try{ return JSON.parse(localStorage.getItem(CI_QKEY)||'{}')[t] || null; }catch(e){ return null; } }
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
+  // now-screen post-breath slot (r5 2026-07-24): small, legible icons for the dynamic
+  // second row — a plus for "check in again" once it shrinks, a play for the micro
+  // practice, an open book for the personal-reader doorway.
+  const ICO_PLUS  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+  const ICO_PRAC  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11.14-6.86a1 1 0 0 0 0-1.72L9.52 4.28A1 1 0 0 0 8 5.14z"></path></svg>';
+  const ICO_READ  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10.5 5 8.3 4.5 5.5 4.5A1.5 1.5 0 0 0 4 6v11a1.5 1.5 0 0 0 1.5 1.5c2.8 0 5 .5 6.5 2 1.5-1.5 3.7-2 6.5-2A1.5 1.5 0 0 0 20 17V6a1.5 1.5 0 0 0-1.5-1.5c-2.8 0-5 .5-6.5 2zM12 6.5v13"></path></svg>';
+  // is there a personal reflection the person hasn't opened yet? (newest weekly mint
+  // vs the last one they opened, tracked in localStorage). used by the post-breath slot.
+  function _latestReflection(){ try{ const w = Store.mints ? Store.mints('weekly') : []; return (w && w.length) ? w[0] : null; }catch(e){ return null; } }
+  function _readerUnread(){ const m=_latestReflection(); if(!m) return false; try{ return localStorage.getItem('snb_reader_seen') !== String(m.id); }catch(e){ return false; } }
+  function _markReaderSeen(){ const m=_latestReflection(); if(!m) return; try{ localStorage.setItem('snb_reader_seen', String(m.id)); }catch(e){} }
+  let _mhMorphTimer = null;   // micro → reader morph (10s)
+  let _mhAfterBreath = null;  // re-run the post-breath reveal when a breath completes
   // "tuned to you" badge: the brand mark (recolors to white via currentColor)
   const MARK_GLYPH = "<svg viewBox=\"4 44 462 371\" fill=\"currentColor\"><path d=\"M 228.6626430999995,414.99967965948633 C 193.0931878499996,414.99967965948633 159.69623824999962,401.15528090948635 134.56332974999987,376.0223724094866 L 42.977307250000194,284.43634990948647 C 17.844398749999527,259.30344140948625 4.0,225.86389365948654 4.0,190.3370365594864 C 4.0,154.76758130948647 17.844398750000437,121.3706317094865 42.977307250000194,96.23772320948629 C 68.11021574999995,71.10481470948653 101.54976350000015,57.26041595948655 137.07662059999984,57.260415959486096 C 171.45332764999966,57.260415959486096 203.82792165000046,70.21025355948623 228.6626430999995,93.76703050948609 C 280.7175823999996,44.35317650948619 363.2727970999995,45.20513950948626 414.34797894999974,96.23772320948629 C 466.23252564999984,148.1222699094864 466.23252564999984,232.5518032094864 414.34797894999974,284.47894805948624 L 322.76195644999916,376.06497055948637 C 297.6290479499994,401.1978790594861 264.1895001999992,415.0422778094861 228.6626430999995,415.0422778094861 L 228.6626430999995,414.99967965948633 M 137.11921875000007,109.86913120948648 C 115.60715299999993,109.86913120948648 95.41562990000057,118.21836860948625 80.20809035000002,133.42590815948634 C 48.813253799999075,164.82074470948638 48.813253799999075,215.8533284094864 80.20809035000002,247.24816495948645 L 171.7941128499997,338.83418745948654 C 187.00165239999933,354.0417270094862 207.1931754999996,362.3909644094864 228.70524124999974,362.3909644094864 C 250.2173069999999,362.3909644094864 270.40883009999925,354.0417270094862 285.6163696499989,338.83418745948654 L 377.20239214999947,247.24816495948645 C 408.5546305500002,215.89592655948618 408.5546305500002,164.82074470948638 377.20239214999947,133.42590815948634 C 345.80755560000034,102.0310716094863 294.7749719000003,102.0310716094863 263.3801353500003,133.42590815948634 L 228.70524124999974,168.10080225948641 L 194.03034714999922,133.42590815948634 C 178.82280759999958,118.21836860948625 158.6312844999993,109.86913120948648 137.11921875000007,109.86913120948648\"/></svg>";
   const GEAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
@@ -1660,6 +1673,20 @@
     const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
+    // post-breath slot ladder (r5): after a breath the "check in again" button shrinks
+    // to a plus and a dynamic third button animates in. offer = micro practice ("two
+    // more minutes?") which morphs to the reader doorway after 10s when a new reflection
+    // is waiting; if you've already practiced today, the reader (if new) is offered
+    // straight away, else nothing (the button stays "check in again", full width).
+    const practicedToday = !!(td && Array.isArray(td.sessions) && td.sessions.length>0);
+    const readerNew = _readerUnread();
+    const mhOffers = [];
+    if(!practicedToday) mhOffers.push('micro');
+    if(readerNew) mhOffers.push('reader');
+    const mhThird = mhOffers.length>0;
+    const mhThirdHTML = (kind)=> kind==='reader'
+      ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">your reflection is ready</span>`   // 🖊
+      : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">two more minutes?</span>`;          // 🖊
 
     // moment-home (2026-07-23): the "now" screen settles to a calm center — the
     // period icon + your state (or a greeting before you've checked in) over the
@@ -1686,9 +1713,9 @@
       </div>
       <div class="mh-foot">
         ${checkedIn
-          ? `<div class="mh-grid">
-               <button class="btn quiet block" id="mh-checkin" type="button">check in again</button>
-               <button class="btn quiet block mh-more" id="tb-more" type="button">two more minutes</button>
+          ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
+               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="check in again"><span class="mh-ci-full">check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
+               ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhOffers[0]}">${mhThirdHTML(mhOffers[0])}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
           : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
@@ -1697,16 +1724,37 @@
     </div>`;
 
     const breathBtn = c.querySelector('#tb-breath');   if(breathBtn) breathBtn.onclick = runBreath;
-    // post-breath offer: one tap into the ~2.5-min micro practice
-    const moreBtn = c.querySelector('#tb-more'); if(moreBtn) moreBtn.onclick = ()=>{
-      let sn = 'touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2});
-    };
     // the state word opens the glossary (what the state is); re-checking-in lives on
     // the You tab ("change a recent check-in"). The single capsule is the practice.
     const mhState = c.querySelector('#mh-state'); if(mhState) mhState.onclick = ()=> screenStateDetail(dom);
     const mhCheck = c.querySelector('#mh-checkin'); if(mhCheck) mhCheck.onclick = screenCheckin;
     const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'today') : app('practice'); };
+
+    // ---- dynamic post-breath third button ----
+    clearTimeout(_mhMorphTimer); _mhAfterBreath = null;
+    const _launchMicro = ()=>{ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
+    const third = c.querySelector('#mh-third');
+    if(third){
+      third.onclick = ()=> (third.dataset.kind==='reader') ? (_markReaderSeen(), screenReflectionDeep()) : _launchMicro();
+      const _morphQueued = mhOffers.length>1 && mhOffers[0]==='micro' && mhOffers[1]==='reader';
+      // reveal + (re)arm the 10s micro→reader morph. runs on load if already breathed,
+      // and again each time a breath completes (via _mhAfterBreath).
+      const _reveal = ()=>{
+        const t = c.querySelector('#mh-third'); if(!t) return;
+        t.classList.remove('mh-in'); void t.offsetWidth; t.classList.add('mh-in');   // replay the entrance
+        clearTimeout(_mhMorphTimer);
+        if(_morphQueued){
+          t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro');
+          _mhMorphTimer = setTimeout(()=>{ const x=c.querySelector('#mh-third'); if(!x) return;
+            x.classList.add('mh-morphing');
+            setTimeout(()=>{ x.dataset.kind='reader'; x.innerHTML = mhThirdHTML('reader'); x.classList.remove('mh-morphing'); }, 220);
+          }, 10000);
+        }
+      };
+      _mhAfterBreath = _reveal;
+      if(settled) _reveal();   // already breathed today → show it now (and arm the morph)
+    }
   }
 
   // Breath engine for the redesigned Today. On tap the ring becomes the whole
@@ -1742,7 +1790,7 @@
         ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation='';
         document.body.classList.remove('breathing');
         view.classList.remove('breathing');
-        if(settle) view.classList.add('breathed');
+        if(settle){ view.classList.add('breathed'); try{ if(_mhAfterBreath) _mhAfterBreath(); }catch(_){} }
         breathing = false;
       }, settle ? 1200 : 500);
     };
@@ -2072,6 +2120,7 @@
     // (When the evergreen/personalized content tagging lands, the evergreen essays come
     // back out from behind this line and become free. That pass is not done yet.)
     if(!paidNow()) return gateSubscribe('reader');
+    _markReaderSeen();   // opening the reader from any door clears the "new reflection" nudge
     const note = FromJustin.today();
     const last = Store.lastCheckin();
     const cs   = Store.checkins();
