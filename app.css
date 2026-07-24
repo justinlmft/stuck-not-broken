@@ -1022,6 +1022,26 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .ci-fold-btn:hover .ci-fold-lk{color:var(--ink);text-decoration-color:var(--ink)}
 .ci-fold .stats-body.open{padding:6px 0 4px}
 .ci-readout-idle{color:var(--muted);font-style:normal}
+/* check-in redesign (turn 4, 2026-07-24): one shared harder/easier scale, calmer
+   sliders (glyph anchors, question leads), and a live "you're reporting" mirror
+   whose clauses tint to each axis's own color. numbers mode shares the same slider
+   data, shown 0-10. states mode = the state chips as the primary input. */
+.ci4 .sliders{gap:20px}
+.ci4 .slider{align-items:flex-start}
+.ci4 .slider-ico-wrap{margin-top:1px}
+.ci4-scale{display:flex;justify-content:space-between;padding-left:45px;margin:0 0 4px}
+.ci4-scale span{font-size:calc(11.5px * var(--type-scale));color:var(--muted);letter-spacing:.03em}
+.ci4 .sl-row{display:flex;align-items:center;gap:13px;width:100%}
+.ci4 .sl-row input[type=range]{flex:1;min-width:0}
+.ci4 .slider-num{flex:none;min-width:1.6ch;text-align:right;font-size:calc(16px * var(--type-scale));font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.ci4-states{margin-top:4px}
+.ci4-states-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);margin:0 0 13px;text-wrap:pretty}
+.ci-readout4{display:block;line-height:1.55}
+.ci-readout4 .ci-join{color:var(--muted)}
+.ci-readout4 .ci-clause{font-weight:500;transition:color .35s var(--ease)}
+.ci-readout4 .ci-idle{color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.ci-readout4 .ci-clause{animation:ciClauseIn .35s var(--ease)}}
+@keyframes ciClauseIn{from{opacity:.45}to{opacity:1}}
 .ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .ch-opt:hover{border-color:var(--ink-80)}
 .ch-opt.on{border-color:var(--ink);border-width:2px;padding:12px 7px;color:var(--ink);font-weight:500}
@@ -1088,6 +1108,51 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
    wrapped pill row. an odd last option spans the full row so nothing dangles. */
 .scene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
 .scene-grid .ch-opt:last-child:nth-child(odd){grid-column:1/-1}
+
+/* settings redesign (turn 6, 2026-07-24): soft filled cards (the app's documented
+   phone-card convention), sentence-case groups, all-live controls. inline
+   disclosures for "your check-in" (method chooser) and "practice scene". */
+.gs{display:flex;flex-direction:column;gap:14px;padding-bottom:34px}
+.gs-card{background:var(--bone-deep);border-radius:18px;padding:17px 18px}
+.gs-card .set-seg,.gs-card .icon-seg{background:var(--press)}
+/* the three input methods share one row; "pick a state" must not wrap to a second line
+   (buttons keep content width so text never overflows into its neighbour) */
+#seg-method{flex-wrap:nowrap}
+.gs-h{font-size:calc(12px * var(--type-scale));font-weight:500;color:var(--muted);margin:0 0 14px}
+.gs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+.gs-k{font-size:calc(14.5px * var(--type-scale));color:var(--muted);flex:none}
+.gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
+.gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0}
+.gs-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
+.gs-sw+.gs-sw{border-top:1px solid var(--hairline)}
+.gs-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
+.gs-lbl2{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:0 0 9px}
+.gs-actions{display:flex;flex-direction:column;align-items:flex-start;gap:15px}
+.gs-note{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);margin:0 0 12px;line-height:1.55}
+.gs-fine{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.5;margin:10px 0 0;text-wrap:pretty}
+.gs-danger{display:flex;flex-direction:column;align-items:flex-start;gap:15px;padding:6px 4px 0}
+/* inline disclosures */
+.rs-disc-btn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--ink);text-align:left}
+.rs-disc-btn .gs-h{margin:0}
+.rs-disc-val{color:var(--muted);display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale))}
+.rs-disc-chev{transition:transform .2s var(--ease);flex:none}
+.rs-disc-btn[aria-expanded="true"] .rs-disc-chev{transform:rotate(90deg)}
+.rs-disc-body{margin-top:16px}
+.rs-scene-body{margin-top:14px}
+.rs-cap{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.5;margin:11px 0 0;text-wrap:pretty}
+.rs-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--bone-deep)}
+.rs-preview .q{font-size:calc(14.5px * var(--type-scale));font-weight:500;line-height:1.35;margin:0;color:var(--ink)}
+.rs-preview .slider{gap:8px}
+.rs-preview input[type=range]{opacity:.85}
+/* text-size A's + auto/light/dark icon segment */
+.ts-a{display:block;font-weight:600;line-height:1;color:inherit}
+.icon-seg{display:flex;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px}
+.icon-seg button{flex:1;border:0;border-radius:8px;padding:9px 0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:var(--muted);font:inherit;transition:color .15s var(--ease)}
+.icon-seg button.on{background:var(--raised);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+.icon-seg button:hover{color:var(--ink-80)}
+.icon-seg button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.icon-seg svg{width:20px;height:20px;display:block}
+.icon-seg .lb{font-size:calc(11px * var(--type-scale));letter-spacing:.01em}
 
 /* small lifetime counts at the foot of the "you" tab (the stats home) */
 .ystats{display:flex;gap:30px;margin-top:20px;padding-top:16px;border-top:1px solid var(--hairline)}

@@ -2671,32 +2671,52 @@
     const ctxSelMore = new Set(editRec ? (_ctxAll_e['c'+editRec.t+'+'] || _legacyC || []) : []);
     const ctxSelLess = new Set(editRec ? (_ctxAll_e['c'+editRec.t+'-'] || []) : []);
     let ctxDir = 'more';   // active tab
-    $('#content').innerHTML = `<div class="view checkin2">
+    // input method (settings → "your check-in"): sliders (default) · states · numbers.
+    // all three capture the SAME v/sym/dor; the method only changes the affordance, so
+    // the saved reading and the trend line never seam across methods (Justin 2026-07-24).
+    const ciMethod = (localStorage.getItem('snb_checkin_method')||'sliders');
+    const _ciStates = ciMethod==='states', _ciNumbers = ciMethod==='numbers';
+    const _ciScale = _ciNumbers ? ['0','10'] : ['harder','easier'];
+    // one ci4 slider row: glyph anchors, question leads, single shared scale above.
+    // numbers mode shows a live 0-10 badge reading the SAME slider value (ease), so the
+    // number and the hard→easy position are one datum — Justin's alignment requirement.
+    const _ax4 = (key,scenario,cls,val)=>{
+      const ax=AXIS_ICON[key]||{}; const icon=ax.icon?ico(ax.icon,{cls:'slider-ico',color:STATE_COLOR(ax.state)}):'';
+      return `<div class="slider" data-axis="${key}">
+        <span class="slider-ico-wrap">${icon}</span>
+        <div class="slider-main">
+          <p class="q" id="q-${key}">${scenario}</p>
+          <div class="sl-row">
+            <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
+            ${_ciNumbers?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    };
+    const _ciInput = _ciStates
+      ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
+          <div class="ci-ovr-chips ci4-states">
+            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
+          </div>
+          <p class="ci-ovr-about" id="ci-ovr-about"></p>`
+      : `<div class="ci4-scale" aria-hidden="true"><span>${_ciScale[0]}</span><span>${_ciScale[1]}</span></div>
+          <div class="sliders">
+            ${_ax4('v', CI_BANK.v[qIdx.v], 'r-v', v)}
+            ${_ax4('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
+            ${_ax4('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
+          </div>`;
+    $('#content').innerHTML = `<div class="view checkin2 ci4${_ciStates?' ci-m-states':(_ciNumbers?' ci-m-numbers':'')}">
 
         <div class="scr-head">
           <p class="eyebrow">${escapeHtml(_ciEyebrow)}</p>
-          <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
+          <h2 class="scr-h">${_ciStates?'how are you, right now?':'right now, how easy would it be to&hellip;'}</h2>
         </div>
 
         <div class="ci-block">
-          <div class="sliders">
-            ${sliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
-            ${sliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
-            ${sliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
-          </div>
-          <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
-          <p class="ci-readout" id="ci-readout"></p>
+          ${_ciInput}
+          ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
+          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like: when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
-          <div class="ci-ovr">
-            <button class="set-quiet ci-ovr-link" id="ci-ovr-link" type="button">know your states? set it yourself</button>
-            <div class="ci-ovr-panel" id="ci-ovr-panel" hidden>
-              <p class="ci-ovr-note">choosing a state moves the sliders to match it. fine-tune from there if it's close but not quite.</p>
-              <div class="ci-ovr-chips">
-                ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
-              </div>
-              <p class="ci-ovr-about" id="ci-ovr-about"></p>
-            </div>
-          </div>
         </div>
 
         ${(function(){
@@ -2707,19 +2727,6 @@
           // on the collapsed rows (Justin 2026-07-05): the opened panel's
           // highlighted option is the state.
           return `
-        <div class="ci-block ci-challenge ci-fold" id="fold-ch">
-          <button class="ci-fold-btn" id="fold-ch-btn" type="button" aria-expanded="false" aria-controls="fold-ch-body">
-            <span class="ci-fold-lk">choose your next practice</span><span class="stats-tog-icon">+</span>
-          </button>
-          <div class="stats-body" id="fold-ch-body">
-            <button class="ch-opt ch-auto${ch==null?' on':''}" id="ch-auto" type="button">whatever you recommend</button>
-            <div class="ch-seg" id="ch-seg">
-              ${CH_LEVELS.map(l=>`<button class="ch-opt${l.v===ch?' on':''}" type="button" data-ch="${l.v}" data-chkey="${l.key}">${CH_SHORT[l.key]||l.label}</button>`).join('')}
-            </div>
-            <p class="ch-cap" id="ch-cap"></p>
-          </div>
-        </div>
-
         <div class="ci-block ci-challenge ci-ctx ci-fold" id="fold-ctx">
           <button class="ci-fold-btn" id="fold-ctx-btn" type="button" aria-expanded="false" aria-controls="fold-ctx-body">
             <span class="ci-fold-lk">add context to this check-in</span><span class="stats-tog-icon">+</span>
@@ -2740,79 +2747,74 @@
       </div>`;
 
     const readout = $('#ci-readout');
+    const _axOwn = AXIS_OWN();   // v=safety, sym=fight/flight, dor=shutdown — each clause's own color
     // fresh check-ins start neutral (Justin 2026-07-05): rails sit in ink and the
-    // mirror stays quiet until a slider actually moves — color and words respond
+    // mirror stays quiet until an axis is actually set — color and words respond
     // to what the person SET, never to defaults. edits show everything at once.
     const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
+    // the live "you're reporting" mirror, each clause tinted to its axis's own color
+    // (turn 4): the words and the rails read as one thing.
+    function _mirrorHTML(){
+      const bV=CI_MIRROR.v[ciBucket(v/100)], bS=CI_MIRROR.sym[ciBucket(s/100)], bD=CI_MIRROR.dor[ciBucket(d/100)];
+      return `<span class="ci-join">you're reporting: </span>`
+        +`<span class="ci-clause" style="color:${_axOwn.v}">${bV}</span>`
+        +`<span class="ci-join">, </span>`
+        +`<span class="ci-clause" style="color:${_axOwn.sym}">${bS}</span>`
+        +`<span class="ci-join">, and </span>`
+        +`<span class="ci-clause" style="color:${_axOwn.dor}">${bD}</span>`
+        +`<span class="ci-join">.</span>`;
+    }
+    const _idleMsg = _ciStates ? 'pick a state above, and this line mirrors what you named.'   // 🖊
+      : (_ciNumbers ? 'move a slider, and this line mirrors the number you set.'                // 🖊
+      : 'move the sliders, and this line will mirror what you set.');                            // 🖊
     function refresh(){
-      setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
+      if(!_ciStates){ setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d); }
       const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
-      // tint the sliders to the current state: a blend colors only its active axes.
-      // the blend tint only applies once ALL THREE are set — a dominant computed
-      // from untouched midpoints isn't a real read, so partial input shows each
-      // axis its own color. untouched rails sit in faded ink: present, not "done".
+      // tint the sliders to the current state: a blend colors only its active axes,
+      // and only once ALL THREE are set (a dominant from untouched midpoints isn't a
+      // real read). untouched rails sit in faded ink: present, not "done".
       const core = STATE_CORE[dom.key] || [];
-      const own = AXIS_OWN();
       const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
-      ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
-        const active = allTouched && core.length>1 && core.includes(ax);
-        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink-faded)'); });
+      if(!_ciStates){
+        ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
+          const active = allTouched && core.length>1 && core.includes(ax);
+          el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : _axOwn[ax]) : 'var(--ink-faded)');
+          if(_ciNumbers){ const nb=$('#num-'+ax); if(nb) nb.textContent = Math.round((+el.value)/10); }
+        });
+      }
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
-          : 'move the sliders, and this line will mirror what you set.';   // 🖊
-        readout.classList.toggle('ci-readout-idle', !anyTouched);
+        if(anyTouched){ readout.innerHTML = _mirrorHTML(); readout.classList.remove('ci-readout-idle'); }
+        else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
       }
     }
     // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert
-    bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
-    bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
-    bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
+    if(!_ciStates){
+      bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
+      bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
+      bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
+    }
     refresh();
-    $('#ci-shuffle').onclick = ()=>{
+    const _shuf = $('#ci-shuffle');
+    if(_shuf) _shuf.onclick = ()=>{
       ['v','sym','dor'].forEach(ax=>{
         qIdx[ax] = ciRand(ax, qIdx[ax]);
         const q = root.querySelector('#q-'+ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
         const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
       });
     };
-    // "know your states" (reworked 2026-07-06, Justin): picking a state MOVES
-    // the sliders to that state's shape, animated in real time — the sliders
-    // stay the single source of truth, the saved label always derives from the
-    // answers (no label-only override, nothing to discard, safety % and state
-    // mix can never disagree), and fine-tuning from there is the natural next
-    // step. the teaching copy (STATE_DETAIL.about) still appears in place.
+    // pick-a-state input method (moved here from the old inline override; the chooser
+    // now lives in settings → "your check-in"): tapping a state sets the underlying
+    // v/sym/dor — the SAME three numbers the sliders capture — so the saved reading
+    // and the trend line never seam across methods. teaching copy shows in place.
     const STATE_AXES={ safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15],
                        stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
-    let _ovrAnim=null;
-    function _slideTo(tv,ts,td){
-      cancelAnimationFrame(_ovrAnim);
-      const f={v:v,s:s,d:d};
-      const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
-      axTouched.v=1; axTouched.sym=1; axTouched.dor=1;
-      const apply=(nv,ns,nd)=>{ v=nv; s=ns; d=nd;
-        const ev=$('#sl-v'), es=$('#sl-sym'), ed=$('#sl-dor');
-        if(ev) ev.value=Math.round(v); if(es) es.value=Math.round(100-s); if(ed) ed.value=Math.round(100-d);
-        refresh(); };
-      if(calm){ apply(tv,ts,td); return; }
-      const t0=performance.now(), dur=650, easeFn=x=>1-Math.pow(1-x,3);
-      const step=now=>{ const p=Math.min(1,(now-t0)/dur), e=easeFn(p);
-        apply(f.v+(tv-f.v)*e, f.s+(ts-f.s)*e, f.d+(td-f.d)*e);
-        if(p<1) _ovrAnim=requestAnimationFrame(step); };
-      _ovrAnim=requestAnimationFrame(step);
-    }
-    const ovrLink = $('#ci-ovr-link');
-    if(ovrLink){
-      const panel = $('#ci-ovr-panel');
-      const paint = k=>{
-        root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.classList.toggle('on', b.dataset.ovr===k));
-        const ab = $('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
-      };
-      ovrLink.onclick = ()=>{ panel.hidden = !panel.hidden; };
+    if(_ciStates){
       root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{
         const k=b.dataset.ovr, ax=STATE_AXES[k];
-        paint(k);
-        if(ax) _slideTo(ax[0]*100, ax[1]*100, ax[2]*100);
+        root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x===b));
+        const ab=$('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
+        if(ax){ axTouched.v=1; axTouched.sym=1; axTouched.dor=1; v=ax[0]*100; s=ax[1]*100; d=ax[2]*100; refresh(); }
       });
     }
 
@@ -2835,7 +2837,7 @@
       b.setAttribute('aria-expanded', open?'false':'true');
       if(body) body.classList.toggle('open', !open);
     }; };
-    _bindFold('fold-ch-btn'); _bindFold('fold-ctx-btn');
+    _bindFold('fold-ctx-btn');
 
     const _ctxSetOf = d => d==='less' ? ctxSelLess : ctxSelMore;
     ['ci-ctx-row-more','ci-ctx-row-less'].forEach(id=>{
@@ -2846,23 +2848,9 @@
       });
     });
 
-    const cap = $('#ch-cap');
-    const AUTO_CAP = 'a new practice designed for you will arrive after you save your check-in.';
-    function setCap(key){ if(cap) cap.textContent = key==='auto' ? AUTO_CAP : (CH_CAP[key] || ''); }
-    const chAuto = $('#ch-auto');
-    setCap(ch==null ? 'auto' : (CH_LEVELS.find(l=>l.v===ch)||{key:'meet'}).key);
-    if(chAuto) chAuto.onclick = ()=>{
-      ch = null;
-      chAuto.classList.add('on');
-      $('#ch-seg').querySelectorAll('.ch-opt').forEach(x=>x.classList.remove('on'));
-      setCap('auto');
-    };
-    $('#ch-seg').querySelectorAll('.ch-opt').forEach(b=>b.onclick=()=>{
-      ch = +b.dataset.ch;
-      if(chAuto) chAuto.classList.remove('on');
-      $('#ch-seg').querySelectorAll('.ch-opt').forEach(x=>x.classList.toggle('on', x===b));
-      setCap(b.dataset.chkey);
-    });
+    // the "choose your next practice" fold was removed from the check-in (Justin
+    // 2026-07-24, turn 4): the practice picker owns level selection. `ch` stays null,
+    // so the recommender uses the person's learned appetite — the intended default.
 
     $('#save').onclick = ()=>{
       const vals = { v:v/100, sym:s/100, dor:d/100, source:(window._ciSource||null) };
@@ -4969,111 +4957,148 @@
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
     // among values; switches flip a state) — settings pass 2026-07-05
     const swRow=(id,label,on)=>`<div class="set-row-sw"><span class="set-sw-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
+    // settings redesign (turn 6, 2026-07-24): soft cards + a switch that reads in a row
+    const gsSw=(id,label,on)=>`<div class="gs-sw"><span class="gs-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
+    // input method (settings owns the choice now): sliders (default) · states · numbers
+    const method = (localStorage.getItem('snb_checkin_method')||'sliders');
+    const METHOD_LABEL = { sliders:'sliders', states:'pick a state', numbers:'numbers' };
+    const METHOD_CAP = {                                                                            // 🖊
+      sliders:'drag three quick questions from harder to easier. the default, and the calmest.',
+      states:'skip the sliders and tap the state that fits. good for when you already know.',
+      numbers:'the same three questions, entered as a number from 0 to 10.' };
+    const _svgChev=`<svg class="rs-disc-chev" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>`;
+    const _svgAuto=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></svg>`;
+    const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
+    const _svgDark=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>`;
+    const TS_SIZES=[['0.92','12px'],['1','15px'],['1.12','18px'],['1.25','21px'],['1.6','26px']];
+    // a small, non-interactive taste of the chosen check-in method
+    const _methodPreview=(m)=>{
+      if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}</div>`;
+      const sc = m==='numbers'?['0','10']:['harder','easier'];
+      return `<div class="ci4-scale" aria-hidden="true"><span>${sc[0]}</span><span>${sc[1]}</span></div>
+        <div class="slider" data-axis="v" style="align-items:flex-start" aria-hidden="true">
+          <span class="slider-ico-wrap" style="margin-top:1px">${ico('heart',{cls:'slider-ico',color:STATE_COLOR('safety')})}</span>
+          <div class="slider-main"><p class="q">accept a compliment without deflecting?</p>
+          <input type="range" class="r-v" min="0" max="100" value="62" style="--rail:var(--s-safety)" tabindex="-1"></div>
+        </div>`;
+    };
     $('#content').innerHTML = `
       <div class="view settings-view">
         <div class="scr-head">
           <p class="eyebrow"></p>
           <h2 class="scr-h">settings</h2>
         </div>
+        <div class="gs">
 
-        <div class="set-card">
-        <div class="set-rows">
-          <div class="row"><span class="k">name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="so the app can greet you by name"></div>
-          <div class="row"><span class="k">account</span><span class="val" style="font-weight:400">${escapeHtml(u.email||'on this device')}</span></div>
-        </div>
-        </div>
-
-        <div class="set-card">
-        <p class="set-card-h">display</p>
-        <div class="set-group">
-          <p class="dash-prompt">text size</p>
-          <div class="set-seg" id="seg-text">
-            ${segBtn('ts','0.92','smaller',ts==='0.92')}${segBtn('ts','1','default',ts==='1')}${segBtn('ts','1.12','larger',ts==='1.12')}${segBtn('ts','1.25','largest',ts==='1.25')}${segBtn('ts','1.6','huge',ts==='1.6')}
+          <div class="gs-card">
+            <div class="gs-row"><span class="gs-k">name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="add your name"></div>
+            <div class="gs-row"><span class="gs-k">account</span><span class="gs-v">${escapeHtml(u.email||'on this device')}</span></div>
           </div>
-        </div>
-        <div class="set-group">
-          <p class="dash-prompt">appearance</p>
-          <div class="set-seg" id="seg-theme">
-            ${segBtn('th','','auto',th==='')}${segBtn('th','light','light',th==='light')}${segBtn('th','dark','dark',th==='dark')}
+
+          <div class="gs-card">
+            <button class="rs-disc-btn" id="ci-method-btn" type="button" aria-expanded="true"><span class="gs-h" style="margin:0">your check-in</span><span class="rs-disc-val"><span id="ci-method-val">${METHOD_LABEL[method]||'sliders'}</span> ${_svgChev}</span></button>
+            <div class="rs-disc-body" id="ci-method-body">
+              <p class="gs-lbl2">how you enter your state</p>
+              <div class="set-seg" id="seg-method">
+                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>sliders</button>
+                <button type="button" data-method="states"${method==='states'?' class="on"':''}>pick a state</button>
+                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>numbers</button>
+              </div>
+              <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
+              <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
+            </div>
           </div>
-        </div>
-        <div class="set-group">
-          <p class="dash-prompt">practice scene</p>
-          <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">surprise me</button>
-          <div class="scene-grid">
-            ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
+
+          <div class="gs-card">
+            <p class="gs-h">appearance</p>
+            <p class="gs-lbl2">text size</p>
+            <div class="set-seg ts-seg" id="seg-text">
+              ${TS_SIZES.map(([v,fs])=>`<button type="button" data-ts="${v}"${ts===v?' class="on"':''}><span class="ts-a" style="font-size:${fs}">A</span></button>`).join('')}
+            </div>
+            <p class="gs-lbl2" style="margin-top:18px">theme</p>
+            <div class="icon-seg" id="seg-theme">
+              <button type="button" data-th=""${th===''?' class="on"':''}>${_svgAuto}<span class="lb">auto</span></button>
+              <button type="button" data-th="light"${th==='light'?' class="on"':''}>${_svgLight}<span class="lb">light</span></button>
+              <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">dark</span></button>
+            </div>
+            <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
+            <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'surprise me':psc}</span> ${_svgChev}</span></button>
+            <div class="rs-scene-body" id="scene-body" hidden>
+              <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">surprise me</button>
+              <div class="scene-grid" style="margin-top:8px">
+                ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
+              </div>
+              <p class="rs-cap" id="scene-cap"></p>
+            </div>
           </div>
-          <p class="fineprint" id="scene-cap" style="margin-top:10px"></p>
-        </div>
-        <div class="set-group">
-          ${swRow('sw-motion','animations',!rm)}
-          <p class="fineprint" id="motion-cap" style="margin-top:2px"></p>
-          ${swRow('sw-haptics','haptics',hp)}
-          <p class="fineprint" id="hap-cap" style="margin-top:2px"></p>
-          ${_hapIsIOS()?'<p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system limits haptics for web apps, so taps here may stay silent. everything else works the same.</p>':''}
-        </div>
-        </div>
 
-        <div class="set-card">
-        <p class="set-card-h">app</p>
-        ${isStandalone()?'':`<div class="set-group">
-          <div class="set-row-inline" id="install-row">${installRowInner()}</div>
-        </div>`}
+          <div class="gs-card">
+            <p class="gs-h">app</p>
+            ${gsSw('sw-live','live practice invitations',lv!=='0')}
+            ${gsSw('sw-haptics','haptics',hp)}
+            ${gsSw('sw-offline','save practices for offline',offOn)}
+            <p class="gs-fine" id="offline-status"></p>
+            <p class="gs-fine">your check-ins already work offline. they save on this device and sync to your account whenever you reconnect.</p>
+            ${_hapIsIOS()?'<p class="gs-fine">on iphone, the system limits haptics and may clear the offline copy after a while. just turn things back on if that happens.</p>':''}
+            ${isStandalone()?'':`<div class="set-row-inline" id="install-row" style="margin-top:12px">${installRowInner()}</div>`}
+            <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">join a live practice with a code</button></div>
+          </div>
 
-        <div class="set-group">
-          ${swRow('sw-offline','save practices for offline',offOn)}
-          <p class="fineprint" id="offline-status" style="margin-top:2px"></p>
-          <p class="fineprint" style="margin-top:4px">your check-ins already work offline. they save on this device and sync to your account whenever you reconnect.</p>
-          <p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system may clear this if the app goes unused for a while. just turn it back on if that happens.</p>
-        </div>
+          <div class="gs-card">
+            <p class="gs-h">your data</p>
+            ${gsSw('sw-glyph','state glyph on shared images',gl!=='0')}
+            <div class="gs-actions" style="margin-top:14px">
+              <button class="set-quiet" id="export">export your check-ins</button>
+              <button class="set-quiet" id="privacy">how your data is handled</button>
+              <button class="set-quiet" id="signout">sign out</button>
+            </div>
+          </div>
 
-        <div class="set-group">
-          ${swRow('sw-glyph','state glyph on shared images',gl!=='0')}
-          <p class="fineprint" id="glyph-cap" style="margin-top:2px"></p>
-        </div>
+          ${(function(){ var b=(Store.billing&&Store.billing())||null;
+            // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
+            // never worded as though the free account is deficient. 🖊 copy draft.
+            if(b && b.sub_status==='active')
+              return `<div class="gs-card"><p class="gs-h">subscription</p><p class="gs-note">your subscription is active. change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">manage, change, or cancel subscription</button></div>`;
+            if(!Store.cloud()) return '';
+            // legacy / Academy accounts have the whole base plan without a subscription —
+            // never call that "the free plan", and never show them a subscribe button.
+            var ent = (Store.entitlement && Store.entitlement()) || {};
+            if(ent.circle)
+              return `<div class="gs-card"><p class="gs-h">your plan</p><p class="gs-note" style="margin:0">you're a co-regulator in the unstucking academy. the full app comes included with your membership, as a thank you for practicing with us. nothing to pay for here.</p></div>`;
+            if(ent.legacy)
+              return `<div class="gs-card"><p class="gs-h">your plan</p><p class="gs-note" style="margin:0">everything is included on your account. you were here before the base plan existed, so all of it is yours.</p></div>`;
+            return `<div class="gs-card"><p class="gs-h">subscription</p><p class="gs-note">you're on the free plan. it has no time limit.</p><button class="set-quiet" id="go-sub">subscribe &middot; monthly or annual</button></div>`; })()}
 
-        <div class="set-group">
-          ${swRow('sw-live','live practice invitations',lv!=='0')}
-          <p class="fineprint" id="live-cap" style="margin-top:2px"></p>
-          <button class="set-quiet" id="live-code" type="button" style="margin-top:6px">join a live practice with a code</button>
-        </div>
+          <div class="gs-danger">
+            <button class="set-quiet set-quiet-danger" id="reset">reset my data</button>
+            <button class="set-quiet set-quiet-danger" id="delacct">delete my account</button>
+          </div>
 
+          <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
         </div>
-
-        ${(function(){ var b=(Store.billing&&Store.billing())||null;
-          // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
-          // never worded as though the free account is deficient. 🖊 copy draft.
-          if(b && b.sub_status==='active')
-            return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">your subscription is active. change between monthly and annual, or cancel, anytime.</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage, change, or cancel subscription</button></div></div>`;
-          if(!Store.cloud()) return '';
-          // legacy / Academy accounts have the whole base plan without a subscription —
-          // never call that "the free plan", and never show them a subscribe button.
-          // 🖊 copy draft (2026-07-14).
-          var ent = (Store.entitlement && Store.entitlement()) || {};
-          if(ent.circle)
-            return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">you're a co-regulator in the unstucking academy. the full app comes included with your membership, as a thank you for practicing with us. nothing to pay for here.</p></div>`;
-          if(ent.legacy)
-            return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">everything is included on your account. you were here before the base plan existed, so all of it is yours.</p></div>`;
-          return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">you're on the free plan. it has no time limit.</p><div class="set-actions"><button class="set-quiet" id="go-sub">subscribe &middot; monthly or annual</button></div></div>`; })()}
-
-        <div class="set-card">
-        <p class="set-card-h">your data</p>
-        <div class="set-actions">
-          <button class="set-quiet" id="export">export your check-ins</button>
-          <button class="set-quiet" id="privacy">how your data is handled</button>
-          <button class="set-quiet" id="signout">sign out</button>
-        </div>
-        </div>
-
-        <div class="set-card set-danger">
-        <div class="set-actions">
-          <button class="set-quiet set-quiet-danger" id="reset">reset my data</button>
-          <button class="set-quiet set-quiet-danger" id="delacct">delete my account</button>
-        </div>
-        </div>
-        <p class="set-version" id="set-version"></p>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    // "your check-in" method chooser (turn 6): the choice lives in settings; the
+    // check-in reads snb_checkin_method on open. all three methods capture the same
+    // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
+    (function(){
+      const btn=$('#ci-method-btn'), body=$('#ci-method-body');
+      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.hidden=open; };
+      const seg=$('#seg-method'); if(!seg) return;
+      const val=$('#ci-method-val'), cap=$('#ci-method-cap'), prev=$('#ci-method-preview');
+      seg.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
+        const m=b.dataset.method;
+        localStorage.setItem('snb_checkin_method', m);
+        seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        if(val) val.textContent = METHOD_LABEL[m]||m;
+        if(cap) cap.textContent = METHOD_CAP[m]||'';
+        if(prev) prev.innerHTML = _methodPreview(m);
+        haptic('save');
+      });
+    })();
+    // practice-scene disclosure toggle
+    (function(){ const btn=$('#scene-btn'), body=$('#scene-body');
+      if(btn&&body) btn.onclick=()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',open?'false':'true'); body.hidden=open; }; })();
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='one moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
@@ -5095,8 +5120,8 @@
       breeze:'strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'a still beam of light, dust hanging in it. appears in dark mode.',
       fireflies:'small lights arriving and leaving on their own time. appears in dark mode.' };
-    const scCap=$('#scene-cap');
-    const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; };
+    const scCap=$('#scene-cap'); const scVal=$('#scene-val');
+    const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'surprise me':v; };
     _scSet(psc);
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene);
