@@ -1676,14 +1676,14 @@
     const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
-    // post-breath slot (r6): after EVERY breath the "check in again" button shrinks to a
-    // plus and the micro invite ("two more minutes?") animates in — it always returns on
-    // a breath, even if you've already practiced today (Justin 2026-07-24). When a new
-    // personal reflection is waiting, the micro fades out and the reader doorway fades in
-    // after 10s.
+    // post-breath slot (r7 2026-07-24): the RESTING/default content of this slot is the
+    // reader doorway (when a reflection is waiting) — not the micro invite. The micro
+    // ("two more minutes?") is a TRANSIENT post-breath nudge: it appears for ~10s right
+    // after a breath, then reverts to the resting state (reader, or nothing). Before r7
+    // the micro was the default and never went away — Justin's fix: reader is default,
+    // micro is a brief post-breath moment only.
     const readerNew = _readerUnread();
-    const mhOffers = ['micro'];
-    if(readerNew) mhOffers.push('reader');
+    const mhRestKind = readerNew ? 'reader' : null;   // default/resting content of the slot
     const mhThird = true;
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">your reflection is ready</span>`   // 🖊
@@ -1716,7 +1716,7 @@
         ${checkedIn
           ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
                <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="check in again"><span class="mh-ci-full">check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
-               ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhOffers[0]}">${mhThirdHTML(mhOffers[0])}</button>` : ''}
+               ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
           : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
@@ -1738,39 +1738,45 @@
     const third = c.querySelector('#mh-third');
     if(third){
       third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
-      const _morphQueued = mhOffers.length>1 && mhOffers[0]==='micro' && mhOffers[1]==='reader';
-      // the graceful two-beat morph: the invite fades out, its content swaps while it's
-      // invisible, then the reader doorway fades back in — slow enough to be felt.
-      const _morphToReader = (t)=>{
-        t.classList.add('mh-morphing');
-        setTimeout(()=>{ t.dataset.kind='reader'; t.innerHTML = mhThirdHTML('reader'); void t.offsetWidth; t.classList.remove('mh-morphing'); }, 480);
-      };
-      // arm the 10s micro→reader morph, measured from when the invite has finished arriving.
-      const _armMorph = (leadMs)=>{ clearTimeout(_mhMorphTimer);
-        if(!_morphQueued) return;
-        _mhMorphTimer = setTimeout(()=>{ const x=c.querySelector('#mh-third'); if(x) _morphToReader(x); }, leadMs + 10000); };
-      // reveal choreography: (1) check-in shortens to the plus, (2) THEN the invite eases
-      // in. On a breath we reset to the full "check in again" first (while the footer is
-      // still faded out from the breath, so no blip), then play both beats in sequence.
-      const _reveal = (animate)=>{
+
+      // RESTING state: the reader doorway when a reflection is waiting; otherwise the
+      // slot collapses (check-in returns to full width). This is the default the screen
+      // sits in — on load and ~10s after a breath.
+      const _rest = (animate)=>{
         const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        if(_morphQueued){ t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); }
-        t.classList.remove('mh-morphing');
-        if(!animate){                                   // load / already-breathed: show at rest, no animation
-          row.classList.add('mh-noanim'); row.classList.add('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim'); _armMorph(0); return;
+        const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
+        const showReader = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
+          tt.dataset.kind='reader'; tt.innerHTML=mhThirdHTML('reader'); tt.classList.remove('mh-morphing');
+          r.classList.add('revealed','third-in'); };
+        if(!mhRestKind){                                 // nothing to rest on → collapse the slot
+          if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
+          else { row.classList.add('mh-noanim'); collapse(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
+          return;
         }
-        // reset to the full check-in instantly (no bounce), while the footer is dim
+        if(!animate){ row.classList.add('mh-noanim'); showReader(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
+        else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showReader, 480); }   // fade micro out, swap to reader, fade in
+      };
+
+      // TRANSIENT post-breath nudge: show "two more minutes?" for ~10s, then revert to
+      // the resting state. (1) check-in shortens to the plus, (2) the invite eases in.
+      const _postBreath = ()=>{
+        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
+        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
+        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing');
+        // reset to the full check-in instantly (footer is dim from the breath, so no blip)
         row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
         _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
           const r = c.querySelector('#mh-2nd'); if(!r) return;
           r.classList.add('revealed');
           setTimeout(()=>{ const r2=c.querySelector('#mh-2nd'); if(r2) r2.classList.add('third-in'); }, 470);   // beat 2: invite eases in
         }, 300);
-        _armMorph(300 + 470 + 550);
+        // after ~10s (measured from when the invite finished arriving) fall back to rest
+        _mhMorphTimer = setTimeout(()=> _rest(true), 300 + 470 + 550 + 10000);
       };
-      _mhAfterBreath = ()=> _reveal(true);
-      if(settled) _reveal(false);   // already breathed today → show it at rest (and arm the morph)
+
+      _mhAfterBreath = ()=> _postBreath();
+      _rest(false);   // load: sit in the resting state (reader default, or collapsed)
     }
   }
 
@@ -4665,8 +4671,11 @@
         if(k!=='mindfulness') s += `, anchored through ${dial('sense', pState.sense)}`;
         if(k==='most'){
           s += `, practicing ${dial('skill', skillLabel(pState.skill))}`;
-          const emo = Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion);
-          s += `, working with ${dial('emotion', emo?emo.label:'whatever surfaces')}`;
+          // "working with <feeling>" is meaningless for the obstacles skill — omit it there
+          if(pState.skill!=='obstacles'){
+            const emo = Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion);
+            s += `, working with ${dial('emotion', emo?emo.label:'whatever surfaces')}`;
+          }
           if(pState.skill==='balancing' || pState.skill==='pendulation'){
             s += pState.holdWatch
               ? `, holding &amp; watching for ${dial('hold', holdDurWords(pState.holdSeconds))}`
@@ -4678,12 +4687,34 @@
       }
       return s + '.';
     }
-    // the dynamic "what this is" explainer, straight from the shared expectText slots
+    // the dynamic "what this is" explainer — proper-cased (sentence case, not lowercase),
+    // with the user's own dial choices shown in bold so they can see their shaping reflected.
     function explainHTML(){
       const k = pState.mkKey;
-      if(k==='surprise') return "we'll shape a self-regulation practice for you on the spot — meeting what's hard while keeping you anchored in safety. you'll see its shape before it begins.";
-      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? `a full, standalone guided session, ${escapeHtml(m.est.replace('~','about '))}. ${escapeHtml(m.sub)}, played start to finish.` : ''; }
-      return escapeHtml(expectText(k, pState.sense, pState.skill, pState.silence, pState.holdWatch, pState.holdSeconds, pState.open));
+      const b = (t)=>`<strong>${escapeHtml(String(t))}</strong>`;
+      if(k==='surprise') return "We'll shape a self-regulation practice for you on the spot, meeting what's hard while keeping you anchored in safety. You'll see the practice's details before it begins.";
+      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided session, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
+      const est = estMinutes(k, k==='micro'?2:pState.silence);
+      const openEnded = (k==='most' && !!pState.open);
+      const label = Store.practiceLabel(k);
+      const bits = [];
+      // opening: what it is + how long (the type + length are user choices → bold)
+      const head = /^a /.test(label) ? `A ${b(label.replace(/^a /,''))}` : `A guided ${b(label)} practice`;
+      const timePhrase = openEnded
+        ? (est ? `, about ${b(est+' minutes')} of guidance, then ${b('open-ended')}` : `, ${b('open-ended')}`)
+        : (est ? `, about ${b(est+' minutes')}` : '');
+      bits.push(head + timePhrase + '.');
+      // the approved "about" prose, proper-cased; bold the anchor sense where anchoring names it
+      let about = escapeHtml(properCase(aboutOf(k, pState.sense)));
+      if(k==='anchoring' && pState.sense) about = about.replace(pState.sense, b(pState.sense));
+      bits.push(about);
+      if((k==='most'||k==='micro') && pState.sense) bits.push(`Your anchor is ${b(pState.sense)}.`);
+      if(k==='most' && pState.skill && SKILL_CAP[pState.skill]) bits.push(escapeHtml(properCase(SKILL_CAP[pState.skill])));
+      if(k==='most' && pState.skill!=='obstacles' && pState.emotion){ const emo=Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion); if(emo) bits.push(`You're working with ${b(emo.label)}.`); }
+      if(k==='most' && pState.holdWatch && (pState.skill==='balancing'||pState.skill==='pendulation')) bits.push(`Then hold safety and defense together and watch what unfolds, for ${b(holdDurWords(pState.holdSeconds))}.`);
+      if(k!=='micro') bits.push(`With ${b(silLabel(pState.silence))} silence between the guidance.`);
+      if(openEnded) bits.push('It keeps going until you choose to stop.');
+      return bits.filter(Boolean).join(' ');
     }
 
     function paintMaker(){
@@ -4738,12 +4769,17 @@
     function beginMaker(){
       const k=pState.mkKey;
       if(k==='surprise'){
+        // shape a random self-regulation practice, then show its plan (details) BEFORE it
+        // begins — the plan screen's own "begin" launches it. (Justin 2026-07-24: surprise
+        // must reveal the practice's details first, not autostart.)
         const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
         const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
         const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
         const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
         const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
-        practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
+        renderPlan({ practiceKey:'most', sense:rsense, skill:rskill, silence:rsilence,
+                     holdWatch:rhw, holdWatchTargetSeconds:(rhw?rhs:null),
+                     reason:'a surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
         return;
       }
       if(mkIsSession(k)){

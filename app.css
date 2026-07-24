@@ -864,6 +864,17 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 
 /* ---------- 7b: the "make my own" sentence-maker (paid, mobile) ---------- */
 .p7-view{--tc:var(--track-mind);--tc-ink:var(--track-mind-ink)}
+/* the recommended practice is the hero of this screen — give the tuned card real
+   presence: more room, a larger title, a fuller reason (2026-07-24, Justin). */
+.p7-view .scr-head{margin-bottom:22px}
+.p7-view .tuned-card{padding:28px 24px 26px;margin-bottom:26px}
+.p7-view .tuned-card .tuned-kicker{font-size:12px;letter-spacing:.14em;margin-bottom:11px}
+.p7-view .tuned-card .wc-title{font-size:calc(25px * var(--type-scale));line-height:1.18;letter-spacing:-.01em}
+.p7-view .tuned-card .tuned-line{width:100px;height:7px;margin:9px 0 3px}
+.p7-view .tuned-card .wc-reason{font-size:calc(15.5px * var(--type-scale));line-height:1.62;margin-top:13px}
+.p7-view .tuned-card .tuned-meta{font-size:calc(13px * var(--type-scale));margin-top:14px}
+.p7-view .tuned-card .wc-go{align-self:center}
+.p7-view .tuned-card .wc-go svg{width:26px;height:26px}
 /* "make my own" toggle — a quiet underlined link under the tuned card. NO divider
    above it (Justin, 2026-07-24). */
 .p7-maker-toggle{align-self:flex-start;margin:6px 0 0;padding:8px 2px;background:none;border:0;font:inherit;
