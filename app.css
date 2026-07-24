@@ -877,21 +877,14 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .p7-view .tuned-card .tuned-meta{font-size:calc(13px * var(--type-scale));margin-top:14px}
 .p7-view .tuned-card .wc-go{align-self:center}
 .p7-view .tuned-card .wc-go svg{width:26px;height:26px}
-/* "make my own" toggle — an outlined pill with a small sparkle, sitting a little
-   apart from the hero card. NO divider above it. It eases in on load and the sparkle
-   gives a gentle, occasional twinkle — the invitation to create feels a touch special
-   (Justin, 2026-07-24). */
-.p7-maker-toggle{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;margin:18px 0 0;
-  padding:12px 20px;background:transparent;border:1px solid var(--hairline);border-radius:999px;font:inherit;
-  font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink-80);cursor:pointer;
-  transition:border-color .2s var(--ease),color .2s var(--ease),background .2s var(--ease),transform .15s var(--ease);
+/* "make my own" toggle — a plain underlined link under the tuned card (NO divider,
+   no pill, no sparkle — Justin 2026-07-24). Eases in gently on load. */
+.p7-maker-toggle{display:inline-flex;align-self:flex-start;margin:16px 0 0;padding:6px 2px;background:none;border:0;
+  font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink-80);
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--hairline);cursor:pointer;
   animation:mkRise .5s var(--ease) both}
-.p7-maker-toggle:hover{border-color:var(--ink-80);color:var(--ink);background:var(--bone-deep)}
-.p7-maker-toggle:active{transform:scale(.97)}
-.p7-maker-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
-.p7-mk-ico{display:inline-flex;width:16px;height:16px;color:var(--track-safety-ink);flex:none}
-.p7-mk-ico svg{width:16px;height:16px;display:block}
-.p7-maker-toggle.is-open .p7-mk-ico{color:var(--muted)}
+.p7-maker-toggle:hover{color:var(--ink);text-decoration-color:var(--ink-80)}
+.p7-maker-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:6px}
 @keyframes mkRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 body.reduce-motion .p7-maker-toggle{animation:none;opacity:1}
 @media(prefers-reduced-motion:reduce){.p7-maker-toggle{animation:none;opacity:1}}
@@ -917,11 +910,10 @@ body.reduce-motion .p7-maker-toggle{animation:none;opacity:1}
 .p7-dial-caret{width:13px;height:13px;color:var(--muted);flex:none;margin-top:1px}
 /* an unset practice type reads as an obvious empty, tappable field */
 .p7-dial.is-empty{color:var(--muted);border:1px dashed var(--tc,var(--hairline));background:transparent;min-width:64px;justify-content:center}
-/* on maker-open, the type pill pulses briefly so it's clearly the thing to tap */
-.p7-dial-cue{animation:p7DialCue 1.9s var(--ease) both}
-@keyframes p7DialCue{0%{transform:scale(1);border-color:transparent}12%{transform:scale(1.12);border-color:var(--tc)}30%{transform:scale(1)}44%{transform:scale(1.09);border-color:var(--tc)}60%,100%{transform:scale(1);border-color:transparent}}
-.p7-dial.is-empty.p7-dial-cue{animation:p7DialCueEmpty 1.9s var(--ease) both}
-@keyframes p7DialCueEmpty{0%{transform:scale(1)}12%{transform:scale(1.12)}30%{transform:scale(1)}44%{transform:scale(1.09)}60%,100%{transform:scale(1)}}
+/* on maker-open, the type pill gives ONE gentle scale pulse (after a brief wait) so
+   it's clear it's tappable — no outline flash, the bone pill is enough (Justin). */
+.p7-dial-cue{animation:p7DialCue 1s var(--ease) .5s both}
+@keyframes p7DialCue{0%{transform:scale(1)}40%{transform:scale(1.06)}70%,100%{transform:scale(1)}}
 body.reduce-motion .p7-dial-cue{animation:none}
 @media(prefers-reduced-motion:reduce){.p7-dial-cue{animation:none}}
 /* the dynamic explainer — what this shaped practice actually is. reads like the
