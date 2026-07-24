@@ -3654,18 +3654,24 @@
         <button class="set-gear ci-add" id="add-ci" type="button" aria-label="new check in" title="new check in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
         <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
       </div>
-      <div class="scr-head"><h2 class="scr-h">your check-ins.</h2></div>
-      <div class="deep">${dayHTML}</div>
-      <button class="tb-row p-locked" id="hx-patterns" style="margin-top:18px">
+      <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">your patterns</span>
-          <span class="tb-row-sub">what shows up across all your check-ins &middot; on the base plan</span>
+          <span class="tb-row-sub">your times of day, your week, your numbers &middot; on the base plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
+      <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
+        <h3 class="yr-h">your reflection</h3>
+        <p class="yr-lede">the personal read of your patterns, in plain language.</p>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph('safety')}</span><span class="yr-txt" style="color:var(--muted)">read your full reflection &middot; on the base plan</span></span>
+      </a>
+      <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">your check-ins.</h2></div>
+      <div class="deep">${dayHTML}</div>
     </div>`;
     const ad=$('#add-ci');  if(ad) ad.onclick = screenCheckin;
     const sb1=$('#set-btn'); if(sb1) sb1.onclick = screenSettings;
     const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
+    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); gateSubscribe('reader'); };
   }
 
   function tabCurrent(){
