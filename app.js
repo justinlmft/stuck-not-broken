@@ -4656,13 +4656,24 @@
     c.innerHTML=`<div class="view p-view p7-view">
       <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">your practice.</h2></div>
       ${tunedCard}
-      <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}"></button>
+      <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}">
+        <span class="p7-mk-ico" aria-hidden="true"></span><span class="p7-mk-label"></span>
+      </button>
       <div class="p7-shape" id="p7-shape" ${pState.makerOpen?'':'hidden'}></div>
     </div>`;
 
+    const MK_SPARKLE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7z"/><path d="M18.5 3l.7 2.5L21.5 6l-2.3.5L18.5 9l-.7-2.5L15.5 6l2.3-.5z"/></svg>';
+    const MK_MINUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg>';
     const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
     const toggle=$('#p7-toggle');
-    const paintToggle=()=>{ toggle.textContent = pState.makerOpen ? 'hide' : 'make my own'; toggle.setAttribute('aria-expanded', pState.makerOpen?'true':'false'); };
+    const paintToggle=()=>{
+      const open=pState.makerOpen;
+      toggle.classList.toggle('is-open', open);
+      const ico=toggle.querySelector('.p7-mk-ico'), lab=toggle.querySelector('.p7-mk-label');
+      if(ico) ico.innerHTML = open ? MK_MINUS : MK_SPARKLE;
+      if(lab) lab.textContent = open ? 'hide' : 'make my own';
+      toggle.setAttribute('aria-expanded', open?'true':'false');
+    };
     paintToggle();
     toggle.onclick=()=>{
       pState.makerOpen=!pState.makerOpen;
@@ -4705,7 +4716,7 @@
     function explainHTML(){
       const k = pState.mkKey;
       const b = (t)=>`<strong>${escapeHtml(String(t))}</strong>`;
-      if(k==='surprise') return "We'll shape a self-regulation practice for you on the spot, meeting what's hard while keeping you anchored in safety. You'll see the practice's details before it begins.";
+      if(k==='surprise') return "This is a randomly created practice, weaving together various self-regulation skills. This is best for the curious and motivated.";
       if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided session, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
       const est = estMinutes(k, k==='micro'?2:pState.silence);
       const openEnded = (k==='most' && !!pState.open);

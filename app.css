@@ -875,13 +875,26 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .p7-view .tuned-card .tuned-meta{font-size:calc(13px * var(--type-scale));margin-top:14px}
 .p7-view .tuned-card .wc-go{align-self:center}
 .p7-view .tuned-card .wc-go svg{width:26px;height:26px}
-/* "make my own" toggle — a quiet underlined link under the tuned card. NO divider
-   above it (Justin, 2026-07-24). */
-.p7-maker-toggle{align-self:flex-start;margin:6px 0 0;padding:8px 2px;background:none;border:0;font:inherit;
-  font-size:calc(15px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-underline-offset:3px;
-  text-decoration-color:var(--hairline);cursor:pointer}
-.p7-maker-toggle:hover{color:var(--ink);text-decoration-color:var(--ink-80)}
-.p7-maker-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:6px}
+/* "make my own" toggle — an outlined pill with a small sparkle, sitting a little
+   apart from the hero card. NO divider above it. It eases in on load and the sparkle
+   gives a gentle, occasional twinkle — the invitation to create feels a touch special
+   (Justin, 2026-07-24). */
+.p7-maker-toggle{display:inline-flex;align-items:center;gap:9px;align-self:flex-start;margin:18px 0 0;
+  padding:12px 20px;background:transparent;border:1px solid var(--hairline);border-radius:999px;font:inherit;
+  font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink-80);cursor:pointer;
+  transition:border-color .2s var(--ease),color .2s var(--ease),background .2s var(--ease),transform .15s var(--ease);
+  animation:mkRise .5s var(--ease) both}
+.p7-maker-toggle:hover{border-color:var(--ink-80);color:var(--ink);background:var(--bone-deep)}
+.p7-maker-toggle:active{transform:scale(.97)}
+.p7-maker-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.p7-mk-ico{display:inline-flex;width:16px;height:16px;color:var(--track-safety-ink);flex:none;transform-origin:center}
+.p7-mk-ico svg{width:16px;height:16px;display:block}
+.p7-maker-toggle:not(.is-open) .p7-mk-ico{animation:mkTwinkle 3.4s var(--ease) 1s infinite}
+.p7-maker-toggle.is-open .p7-mk-ico{color:var(--muted)}
+@keyframes mkRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes mkTwinkle{0%,74%,100%{opacity:.5;transform:scale(1) rotate(0)}84%{opacity:1;transform:scale(1.22) rotate(10deg)}92%{opacity:.72;transform:scale(1.05) rotate(3deg)}}
+body.reduce-motion .p7-maker-toggle,body.reduce-motion .p7-mk-ico{animation:none;opacity:1}
+@media(prefers-reduced-motion:reduce){.p7-maker-toggle,.p7-mk-ico{animation:none;opacity:1}}
 .p7-shape{margin-top:16px;animation:refineIn .3s var(--ease) both}
 .p7-shape[hidden]{display:none}
 .p7-shape.track-safety{--tc:var(--track-safety);--tc-ink:var(--track-safety-ink)}
