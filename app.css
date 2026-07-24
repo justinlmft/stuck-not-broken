@@ -856,10 +856,13 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 /* the chosen practice, named in the adjust-screen heading, carries its track color */
 .p-adjust-name{color:var(--tc)}
 /* more meditations: plain ruled list */
-.p-med-list{display:flex;flex-direction:column;margin-top:8px;margin-bottom:4px;border-top:1px solid var(--hairline)}
-.p-med-row{display:flex;flex-direction:column;gap:2px;text-align:left;background:none;border:0;border-bottom:1px solid var(--hairline);padding:13px 0;cursor:pointer;color:inherit;font:inherit;width:100%;transition:opacity .2s var(--ease)}
-.p-med-row:active{opacity:.6}
-@media(hover:hover){.p-med-row:hover .p-med-title{text-decoration:underline}}
+/* "more practices" as cards (not divider rows) — matches the practice cards and
+   the desktop treatment (2026-07-24) */
+.p-med-list{display:flex;flex-direction:column;gap:12px;margin-top:12px;margin-bottom:4px}
+.p-med-row{display:flex;flex-direction:column;gap:3px;text-align:left;background:transparent;border:1px solid var(--hairline);border-radius:14px;padding:15px 16px;cursor:pointer;color:inherit;font:inherit;width:100%;transition:border-color .2s var(--ease),background .2s var(--ease)}
+.p-med-row:active{background:var(--bone-deep)}
+@media(hover:hover){.p-med-row:hover{border-color:var(--ink-80)}}
+.p-med-row.on{border-color:var(--ink-80)}
 .p-med-row.on .p-med-title{font-weight:500;color:var(--ink)}
 .p-med-row.on .p-med-meta{color:var(--ink-80)}
 .p-med-title{font-size:calc(15px * var(--type-scale));font-weight:400;color:var(--ink);line-height:1.3}

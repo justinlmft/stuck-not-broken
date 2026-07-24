@@ -4464,7 +4464,6 @@
         <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
         <span class="wc-text">
           <span class="wc-title">${escapeHtml(o.title)}</span>
-          <span class="wc-reason">${escapeHtml(o.sub)}</span>
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
