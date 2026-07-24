@@ -1673,17 +1673,15 @@
     const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
-    // post-breath slot ladder (r5): after a breath the "check in again" button shrinks
-    // to a plus and a dynamic third button animates in. offer = micro practice ("two
-    // more minutes?") which morphs to the reader doorway after 10s when a new reflection
-    // is waiting; if you've already practiced today, the reader (if new) is offered
-    // straight away, else nothing (the button stays "check in again", full width).
-    const practicedToday = !!(td && Array.isArray(td.sessions) && td.sessions.length>0);
+    // post-breath slot (r6): after EVERY breath the "check in again" button shrinks to a
+    // plus and the micro invite ("two more minutes?") animates in — it always returns on
+    // a breath, even if you've already practiced today (Justin 2026-07-24). When a new
+    // personal reflection is waiting, the micro fades out and the reader doorway fades in
+    // after 10s.
     const readerNew = _readerUnread();
-    const mhOffers = [];
-    if(!practicedToday) mhOffers.push('micro');
+    const mhOffers = ['micro'];
     if(readerNew) mhOffers.push('reader');
-    const mhThird = mhOffers.length>0;
+    const mhThird = true;
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">your reflection is ready</span>`   // 🖊
       : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">two more minutes?</span>`;          // 🖊
