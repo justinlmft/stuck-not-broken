@@ -467,7 +467,14 @@
       bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
     if(openEnded) bits.push('it keeps going until you choose to stop.');
-    return bits.filter(Boolean).join(' ');
+    // practice DESCRIPTIONS read in normal (sentence) case on every surface (Justin
+    // 2026-07-25). The plan screen and the 7b maker explainer already proper-case
+    // their "what to expect"; this is the ONLY description surface that was still
+    // lowercase (the chooser / desktop list|detail's live #p-expect), so make it
+    // agree here — one source, every caller. Each bit ends in a period, so
+    // properCase capitalizes the first word of every sentence and leaves the
+    // lowercase-UI practice names mid-sentence untouched.
+    return properCase(bits.filter(Boolean).join(' '));
   }
 
   const fmtDay = (t) => new Date(t).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
