@@ -4475,12 +4475,12 @@
   const MK_TYPE_PILL = { micro:'tiny', mindfulness:'mindfulness', anchoring:'safety', most:'self-regulation', surprise:'surprise' };
   const mkIsSession = (k)=> P_MEDS.some(m=>m.id===k);
   const mkPill = (k)=> MK_TYPE_PILL[k] || (P_MEDS.find(m=>m.id===k)||{}).title || k;
-  // full (menu) label + one-line description for each type — so the picker rows read as
-  // distinct choices, not a strip of words.
+  // full (menu) label for each type. The type picker shows the NAME only — no
+  // descriptions (Justin 2026-07-25: "just leave the practice names, like
+  // 'connect with safety' and 'self-regulation'").
   const MK_TYPE_MENU = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
-  const MK_TYPE_SUB  = { micro:'about two minutes, one sense', mindfulness:'the gentlest, a calm place to start', anchoring:'settle in through your senses', most:'the deepest, meeting what is hard' };
-  // short glosses for the skill picker rows
-  const MK_SKILL_SUB = { validate:'name it, and see it makes sense', imagery:'give the feeling a shape, invite it in', obstacles:'meet what blocks safety, with kindness', balancing:'hold something pleasant and something hard together', pendulation:'move gently between ease and challenge' };
+  // short glosses for the skill picker rows (copy per Justin 2026-07-25)
+  const MK_SKILL_SUB = { validate:'acknowledge defense and briefly put into context', imagery:'give the feeling a shape, invite it in', obstacles:'practice noticing emotions as they arise', balancing:'feel into defense while anchored in safety', pendulation:'shift focus between safety and defense' };
   // per-type glyphs for the picker (currentColor: muted at rest, track ink when selected)
   const MK_TYPE_ICO = {
     micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
@@ -4492,10 +4492,13 @@
   };
   // the type picker, grouped for the brand sheet — rows carry an icon + a one-line
   // description; the label-less last group renders as a plain divider before "surprise".
+  // NAMES ONLY — no per-row descriptions (Justin 2026-07-25). The banded group
+  // headers ('shape your own' / 'guided sessions') carry the grouping; each row is
+  // just its icon + name. (openDialSheet omits the sub line when o.sub is absent.)
   const MK_TYPE_GROUPS = ()=>[
-    { label:'shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], sub:MK_TYPE_SUB[k], ico:MK_TYPE_ICO[k] })) },
-    { label:'guided sessions', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, sub:`${m.sub} · ${m.est}`, ico:MK_TYPE_ICO.session })) },
-    { label:null, opts:[{ val:'surprise', menu:'surprise me', sub:'a self-regulation practice, shaped at random', ico:MK_TYPE_ICO.surprise }] },
+    { label:'shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
+    { label:'guided sessions', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
+    { label:null, opts:[{ val:'surprise', menu:'surprise me', ico:MK_TYPE_ICO.surprise }] },
   ];
 
   // Practice opens on a personalized "for you" view: a context line tuned to the
