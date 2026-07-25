@@ -9,6 +9,10 @@
   --sky:#5891C5; --leaf:#5BA070; --amber:#D29A4A;
   --s-safety:#F4D58D; --s-fight:#E89B9B; --s-shutdown:#A3C0DD;
   --s-play:#E8A871; --s-still:#9FC498; --s-freeze:#B89AC4; --s-unlit:#D8D2C2;
+  /* readable text shades of the state colours (the pastels fail contrast as text on
+     bone). same hue, darkened to ~6-7:1 on light; dark mode keeps the pastels below. */
+  --s-safety-tx:#6E5410; --s-fight-tx:#9A3B3B; --s-shutdown-tx:#375A85;
+  --s-play-tx:#8F4E13; --s-still-tx:#3E6335; --s-freeze-tx:#634873;
   /* practice track colors: mindfulness = ink, connect-with-safety = sky/blue, self-regulation = amber */
   --track-mind:#1A1F2A; --track-safety:#5891C5; --track-self:#D29A4A;
   /* darker "ink" versions of the track colors for small text (the raw track
@@ -106,13 +110,13 @@ button{font:inherit;color:inherit}
      metaphor; pointer contexts get side navigation) */
   #screen > .tabbar{
     flex-direction:column;justify-content:flex-start;gap:4px;height:100%;overflow-y:auto;
-    border-top:0;border-right:1px solid var(--hairline);
+    border-top:0;border-radius:0;background:none;margin:0;border-right:1px solid var(--hairline);
     padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
     min-width:118px}
   /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
      ink, dormant = normal muted; no background. Top-aligned so the first word
      lines up with the screen's first heading. 44px keeps the click target. */
-  #screen > .tabbar button{flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
+  #screen > .tabbar button{flex:none;border-radius:0;flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
     width:100%;min-height:44px;padding:2px 0;color:var(--muted);font-weight:400}
   #screen > .tabbar button .lb{font-size:calc(14px * var(--type-user))}
   #screen > .tabbar button.on{background:none;color:var(--ink);font-weight:500}
@@ -165,6 +169,17 @@ button{font:inherit;color:inherit}
   .yl-item.on::before{content:'';position:absolute;left:0;top:11px;bottom:11px;width:2px;background:var(--ink);border-radius:2px}
   .yl-item:focus-visible{outline:2px solid var(--ink);outline-offset:-2px;border-radius:8px}
   .you-ledger .panel{flex:none;width:auto;min-height:320px}
+}
+/* The You-tab ledger only engages at >=1120 (its JS gate). Between 720 and 1119
+   the phone carousel was still sizing its slides at 92% of a now-very-wide
+   container, so one card stretched to ~1100px and ~1000px tall with a short
+   line of content floating in it. Capping the slide keeps a readable measure
+   and restores the "next card peeks in" affordance the 92% was there for.
+   (Pre-existing — live prod does the same — folded in here per Justin
+   2026-07-24: "anything that is not accounted for in beta needs to be there.") */
+@media (min-width:720px) and (max-width:1119.98px){
+  #screen .carousel{gap:18px}
+  #screen .carousel > .panel{flex:0 0 min(92%,520px)}
 }
 /* axis cards (mobilized / immobilized time of day) — all sizes */
 .ax-big{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);margin:4px 0 12px;display:flex;align-items:center;gap:12px}
@@ -256,7 +271,13 @@ p{margin:0;text-wrap:pretty}
 /* press state — a tap must acknowledge itself (HIG: always provide a press state) */
 .btn:active{background:var(--btn-hover);transform:scale(.985)}
 .btn.quiet:active{background:var(--press);transform:scale(.985)}
-.btn.block{width:100%;padding:15px 20px;font-size:calc(15px * var(--type-scale));border-radius:12px;min-height:52px}
+/* Full-width buttons WRAP (2026-07-24). .btn is white-space:nowrap, which is right
+   for inline pills but wrong for a block CTA: "see your recommended practice" — the
+   longest label in the app — overran its own pill at 390px, and any Dynamic Type step
+   above default clipped it further. A block button has the width to take a second
+   line, so let it; nothing else about .btn changes. */
+.btn.block{width:100%;padding:15px 20px;font-size:calc(15px * var(--type-scale));border-radius:12px;min-height:52px;
+  white-space:normal;text-wrap:balance;line-height:1.3}
 .btn.quiet{background:transparent;color:var(--ink);border:1px solid var(--ink)}
 .btn.quiet:hover{border-color:var(--ink-80)}
 .btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
@@ -501,7 +522,11 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .safety-foot b{font-weight:500;color:var(--ink-80)}
 .safety-foot .st-marks{margin-left:1px}
 .safety-range{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin:9px 0 0}
-.bloom-line{font-size:calc(13.5px * var(--type-scale));color:var(--amber);margin:7px 0 0;opacity:0;animation:bloomline 1s .35s var(--ease) forwards}
+/* DQA hard-fail fix (2026-07-24): this line used --amber, which is 2.36:1 on
+   bone in light mode — a WCAG-AA failure. --ink-80 reads 10.02:1 (clears the
+   7:1 bar in QC-Assistant-Brief.md too) and is correct in dark mode as well.
+   --amber stays as the safety-meter FILL only, where it is decoration, not text. */
+.bloom-line{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);margin:7px 0 0;opacity:0;animation:bloomline 1s .35s var(--ease) forwards}
 @keyframes bloomline{to{opacity:1}}
 .safety-num-val{display:inline-block}
 /* legend */
@@ -684,8 +709,10 @@ body.show-fab .fab{display:flex}
 .safety-track{display:inline-block;width:48px;height:4px;background:var(--bone-deep);border-radius:2px;overflow:hidden;vertical-align:middle;flex:none}
 .safety-fill{display:block;height:100%;background:var(--s-safety);border-radius:2px}
 .stat-trend{font-size:calc(12px * var(--type-scale));color:var(--muted);font-weight:400}
-.tabbar{display:flex;flex:none;justify-content:space-evenly;border-top:1px solid var(--hairline);background:var(--bone);padding-bottom:env(safe-area-inset-bottom)}
-.tabbar button{flex:none;background:none;border:0;cursor:pointer;padding:8px 18px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);transition:color .2s var(--ease);min-height:52px;position:relative}
+/* bottom nav as its own housed card (2026-07-24) — no hard top divider that made
+   it feel lost / too separate; the icons now sit in a calm bone-deep shelf. */
+.tabbar{display:flex;flex:none;justify-content:space-around;background:var(--bone-deep);border-radius:20px;margin:4px 14px calc(6px + env(safe-area-inset-bottom));padding:4px}
+.tabbar button{flex:1;background:none;border:0;cursor:pointer;padding:8px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);transition:color .2s var(--ease);min-height:52px;position:relative;border-radius:15px}
 .tabbar button .ic{display:flex}
 .tabbar button .ic svg{width:23px;height:23px;display:block}
 .tabbar button .lb{font-size:11.5px;letter-spacing:.01em;text-transform:lowercase}
@@ -855,11 +882,115 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .p-chip:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 /* the chosen practice, named in the adjust-screen heading, carries its track color */
 .p-adjust-name{color:var(--tc)}
+
+/* ---------- 7b: the "make my own" sentence-maker (paid, mobile) ---------- */
+.p7-view{--tc:var(--track-mind);--tc-ink:var(--track-mind-ink)}
+/* the recommended practice is the hero of this screen — give the tuned card real
+   presence: more room, a larger title, a fuller reason (2026-07-24, Justin). */
+.p7-view .scr-head{margin-bottom:22px}
+.p7-view .tuned-card{padding:28px 24px 26px;margin-bottom:26px}
+.p7-view .tuned-card .tuned-kicker{font-size:12px;letter-spacing:.14em;margin-bottom:11px}
+.p7-view .tuned-card .wc-title{font-size:calc(25px * var(--type-scale));line-height:1.18;letter-spacing:-.01em}
+/* the drawn underline hugs the name span (not the whole title / "practice") */
+.p7-view .tuned-card .tuned-name{position:relative;display:inline-block}
+.p7-view .tuned-card .tuned-line{position:absolute;left:0;right:0;bottom:-7px;width:100%;height:6px;margin:0}
+.p7-view .tuned-card .wc-reason{font-size:calc(15.5px * var(--type-scale));line-height:1.62;margin-top:13px}
+.p7-view .tuned-card .tuned-meta{font-size:calc(13px * var(--type-scale));margin-top:14px}
+.p7-view .tuned-card .wc-go{align-self:center}
+.p7-view .tuned-card .wc-go svg{width:26px;height:26px}
+/* "make my own" toggle — a plain underlined link under the tuned card (NO divider,
+   no pill, no sparkle — Justin 2026-07-24). Eases in gently on load. */
+.p7-maker-toggle{display:inline-flex;align-self:flex-start;margin:16px 0 0;padding:6px 2px;background:none;border:0;
+  font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink-80);
+  text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--hairline);cursor:pointer;
+  animation:mkRise .5s var(--ease) both}
+.p7-maker-toggle:hover{color:var(--ink);text-decoration-color:var(--ink-80)}
+.p7-maker-toggle:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:6px}
+@keyframes mkRise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+body.reduce-motion .p7-maker-toggle{animation:none;opacity:1}
+@media(prefers-reduced-motion:reduce){.p7-maker-toggle{animation:none;opacity:1}}
+.p7-shape{margin-top:16px;animation:refineIn .3s var(--ease) both}
+.p7-shape[hidden]{display:none}
+.p7-shape.track-safety{--tc:var(--track-safety);--tc-ink:var(--track-safety-ink)}
+.p7-shape.track-self{--tc:var(--track-self);--tc-ink:var(--track-self-ink)}
+.p7-shape.track-mind{--tc:var(--track-mind);--tc-ink:var(--track-mind-ink)}
+.p7-shape-h{font-size:calc(16px * var(--type-scale));font-weight:600;color:var(--ink);margin:0 0 16px}
+/* the sentence: a flowing, readable line. generous line-height so the dials wrap
+   gracefully instead of jamming together. */
+.p7-sentence{font-size:calc(17px * var(--type-scale));line-height:1.95;color:var(--ink-80);margin:0;text-wrap:pretty}
+/* each dial is a tappable, track-tinted word with an obvious caret. sized to its
+   content (no fixed widths — that was the awkward-gap problem). */
+.p7-dial{display:inline-flex;align-items:center;gap:5px;vertical-align:baseline;font:inherit;
+  font-size:calc(17px * var(--type-scale));font-weight:500;color:var(--tc-ink);
+  background:var(--bone-deep);border:1px solid transparent;border-radius:999px;
+  padding:3px 11px 4px;margin:0 1px;cursor:pointer;line-height:1.25;
+  transition:border-color .15s var(--ease),background .15s var(--ease)}
+.p7-dial:hover{border-color:var(--tc)}
+.p7-dial:active{background:var(--press)}
+.p7-dial:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.p7-dial-caret{width:13px;height:13px;color:var(--muted);flex:none;margin-top:1px}
+/* an unset practice type reads as an obvious empty, tappable field */
+.p7-dial.is-empty{color:var(--muted);border:1px dashed var(--tc,var(--hairline));background:transparent;min-width:64px;justify-content:center}
+/* on maker-open, the type pill gives ONE gentle scale pulse (after a brief wait) so
+   it's clear it's tappable — no outline flash, the bone pill is enough (Justin). */
+.p7-dial-cue{animation:p7DialCue 1s var(--ease) .5s both}
+@keyframes p7DialCue{0%{transform:scale(1)}40%{transform:scale(1.06)}70%,100%{transform:scale(1)}}
+body.reduce-motion .p7-dial-cue{animation:none}
+@media(prefers-reduced-motion:reduce){.p7-dial-cue{animation:none}}
+/* the dynamic explainer — what this shaped practice actually is. reads like the
+   reader's body, in a track-colored quote rail (matches .ch-cap). */
+.p7-explain{font-size:calc(14.5px * var(--type-scale));line-height:1.6;color:var(--ink-80);
+  border-left:3px solid var(--tc-ink,var(--hairline));padding:2px 0 2px 14px;margin:22px 0 0;text-wrap:pretty;
+  min-height:3.2em;transition:opacity .3s var(--ease)}
+.p7-actions{margin-top:24px}
+
+/* brand option sheet — replaces the OS's native <select> popup. */
+.p7-sheet{position:fixed;inset:0;z-index:120;display:flex;align-items:flex-end;justify-content:center;
+  background:rgba(40,38,32,0);transition:background .28s var(--ease);pointer-events:none}
+.p7-sheet.on{background:rgba(40,38,32,.34);pointer-events:auto}
+.p7-sheet-card{width:100%;max-width:520px;background:var(--bone);border-top-left-radius:20px;border-top-right-radius:20px;
+  box-shadow:0 -10px 40px rgba(26,31,42,.18);padding:8px 0 max(14px,env(safe-area-inset-bottom));
+  transform:translateY(100%);transition:transform .32s var(--ease);max-height:76vh;overflow-y:auto;
+  --tc:var(--track-mind);--tc-ink:var(--track-mind-ink)}
+.p7-sheet-card.track-safety{--tc:var(--track-safety);--tc-ink:var(--track-safety-ink)}
+.p7-sheet-card.track-self{--tc:var(--track-self);--tc-ink:var(--track-self-ink)}
+.p7-sheet.on .p7-sheet-card{transform:none}
+.p7-sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--hairline);margin:8px auto 4px}
+.p7-sheet-title{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink);letter-spacing:-.01em;padding:10px 22px 6px}
+/* section header: a sentence-case banded label (NOT a tiny uppercase eyebrow), so
+   the groups read as real sections (2026-07-24, Justin). */
+.p7-sheet-group{font-size:calc(12.5px * var(--type-scale));font-weight:600;color:var(--muted);letter-spacing:.01em;
+  padding:14px 22px 8px;background:var(--bone-deep);border-top:0.5px solid var(--hairline)}
+.p7-sheet-body > .p7-sheet-group:first-child{border-top:0}
+.p7-sheet-sep{height:0;border-top:0.5px solid var(--hairline);margin:0}
+/* rows: an icon, a title + one-line description, and a check. hairline dividers
+   between consecutive rows so it reads as a list of distinct choices, not a strip. */
+.p7-opt{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;position:relative;
+  padding:15px 22px;font:inherit;color:var(--ink-80);text-align:left;cursor:pointer}
+.p7-opt + .p7-opt{border-top:0.5px solid var(--hairline)}
+.p7-opt:hover{background:var(--bone-deep)}
+.p7-opt:active{background:var(--press)}
+.p7-opt.sel{background:var(--bone-deep);color:var(--tc-ink)}
+.p7-opt.sel::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tc-ink)}
+.p7-opt-ico{flex:none;width:26px;height:26px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.p7-opt-ico svg{width:24px;height:24px;display:block}
+.p7-opt.sel .p7-opt-ico{color:var(--tc-ink)}
+.p7-opt-main{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.p7-opt-l{font-size:calc(16px * var(--type-scale));line-height:1.25}
+.p7-opt.sel .p7-opt-l{font-weight:500}
+.p7-opt-sub{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.35;text-wrap:pretty}
+.p7-opt-check{width:19px;height:19px;color:var(--tc-ink);opacity:0;flex:none;margin-left:auto}
+.p7-opt.sel .p7-opt-check{opacity:1}
+body.reduce-motion .p7-shape{animation:none}
+@media (prefers-reduced-motion:reduce){.p7-shape{animation:none}.p7-sheet,.p7-sheet-card{transition:none}}
 /* more meditations: plain ruled list */
-.p-med-list{display:flex;flex-direction:column;margin-top:8px;margin-bottom:4px;border-top:1px solid var(--hairline)}
-.p-med-row{display:flex;flex-direction:column;gap:2px;text-align:left;background:none;border:0;border-bottom:1px solid var(--hairline);padding:13px 0;cursor:pointer;color:inherit;font:inherit;width:100%;transition:opacity .2s var(--ease)}
-.p-med-row:active{opacity:.6}
-@media(hover:hover){.p-med-row:hover .p-med-title{text-decoration:underline}}
+/* "more practices" as cards (not divider rows) — matches the practice cards and
+   the desktop treatment (2026-07-24) */
+.p-med-list{display:flex;flex-direction:column;gap:12px;margin-top:12px;margin-bottom:4px}
+.p-med-row{display:flex;flex-direction:column;gap:3px;text-align:left;background:transparent;border:1px solid var(--hairline);border-radius:14px;padding:15px 16px;cursor:pointer;color:inherit;font:inherit;width:100%;transition:border-color .2s var(--ease),background .2s var(--ease)}
+.p-med-row:active{background:var(--bone-deep)}
+@media(hover:hover){.p-med-row:hover{border-color:var(--ink-80)}}
+.p-med-row.on{border-color:var(--ink-80)}
 .p-med-row.on .p-med-title{font-weight:500;color:var(--ink)}
 .p-med-row.on .p-med-meta{color:var(--ink-80)}
 .p-med-title{font-size:calc(15px * var(--type-scale));font-weight:400;color:var(--ink);line-height:1.3}
@@ -1009,7 +1140,10 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
    left (like "ask me differently"); the + sits at the row's right edge
    and rotates to x when open. no readouts on the collapsed rows. */
 .ci-fold{gap:0}
-.ci-fold-btn{display:flex;align-items:center;justify-content:space-between;gap:7px;width:100%;background:none;border:0;cursor:pointer;font:inherit;padding:8px 0;color:inherit;white-space:nowrap;min-width:0;position:relative;text-align:left}
+/* "add context to this check-in" wraps rather than pushing out of its card:
+   nowrap held at default type but overran by 172px at the 200% Dynamic Type step
+   the HIG + SNB checklist requires. (2026-07-24) */
+.ci-fold-btn{display:flex;align-items:center;justify-content:space-between;gap:7px;width:100%;background:none;border:0;cursor:pointer;font:inherit;padding:8px 0;color:inherit;white-space:normal;text-wrap:pretty;min-width:0;position:relative;text-align:left}
 .ci-fold-btn::before{content:'';position:absolute;inset:-6px -4px}
 .ci-fold-btn .stats-tog-icon{flex:none}
 .ci-fold-btn[aria-expanded="true"] .stats-tog-icon{transform:rotate(45deg)}
@@ -1017,7 +1151,29 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
 .ci-fold-btn:hover .ci-fold-lk{color:var(--ink);text-decoration-color:var(--ink)}
 .ci-fold .stats-body.open{padding:6px 0 4px}
 .ci-readout-idle{color:var(--muted);font-style:normal}
-.ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;transition:border-color .2s var(--ease),color .2s var(--ease)}
+/* check-in redesign (turn 4, 2026-07-24): one shared harder/easier scale, calmer
+   sliders (glyph anchors, question leads), and a live "you're reporting" mirror
+   whose clauses tint to each axis's own color. numbers mode shares the same slider
+   data, shown 0-10. states mode = the state chips as the primary input. */
+.ci4 .sliders{gap:20px}
+.ci4 .slider{align-items:flex-start}
+.ci4 .slider-ico-wrap{margin-top:1px}
+.ci4-scale{display:flex;justify-content:space-between;padding-left:45px;margin:0 0 4px}
+.ci4-scale span{font-size:calc(11.5px * var(--type-scale));color:var(--muted);letter-spacing:.03em}
+.ci4 .sl-row{display:flex;align-items:center;gap:13px;width:100%}
+.ci4 .sl-row input[type=range]{flex:1;min-width:0}
+.ci4 .slider-num{flex:none;min-width:1.6ch;text-align:right;font-size:calc(16px * var(--type-scale));font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.ci4-states{margin-top:4px}
+.ci4-states-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);margin:0 0 13px;text-wrap:pretty}
+.ci-readout4{display:block;line-height:1.55}
+.ci-readout4 .ci-join{color:var(--muted)}
+.ci-readout4 .ci-clause{font-weight:500;transition:color .35s var(--ease)}
+.ci-readout4 .ci-idle{color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.ci-readout4 .ci-clause{animation:ciClauseIn .35s var(--ease)}}
+@keyframes ciClauseIn{from{opacity:.45}to{opacity:1}}
+/* overflow-wrap so a long single-word option (scene names) breaks instead of
+   running out of its own half-width cell at the large Dynamic Type steps. */
+.ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;overflow-wrap:anywhere;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .ch-opt:hover{border-color:var(--ink-80)}
 .ch-opt.on{border-color:var(--ink);border-width:2px;padding:12px 7px;color:var(--ink);font-weight:500}
 .ch-opt:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -1083,6 +1239,68 @@ body.reduce-motion .ch-cap.cap-in{animation:none}
    wrapped pill row. an odd last option spans the full row so nothing dangles. */
 .scene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
 .scene-grid .ch-opt:last-child:nth-child(odd){grid-column:1/-1}
+
+/* settings redesign (turn 6, 2026-07-24): soft filled cards (the app's documented
+   phone-card convention), sentence-case groups, all-live controls. inline
+   disclosures for "your check-in" (method chooser) and "practice scene". */
+.gs{display:flex;flex-direction:column;gap:14px;padding-bottom:34px}
+.gs-card{background:var(--bone-deep);border-radius:18px;padding:17px 18px}
+.gs-card .set-seg,.gs-card .icon-seg{background:var(--press)}
+/* the three input methods share one row; "pick a state" must not wrap to a second line
+   (buttons keep content width so text never overflows into its neighbour).
+   nowrap is right at ordinary type sizes, but at the 200% Dynamic Type step the HIG +
+   SNB checklist requires, the three labels are 437px against a 310px card and the
+   control ran out of its own container. Wrap is allowed once the row can no longer
+   hold them, which only happens at the large steps. (2026-07-24) */
+#seg-method{flex-wrap:nowrap}
+@media (max-width:520px){ #seg-method{flex-wrap:wrap} }
+.gs-h{font-size:calc(12px * var(--type-scale));font-weight:500;color:var(--muted);margin:0 0 14px}
+.gs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+.gs-k{font-size:calc(14.5px * var(--type-scale));color:var(--muted);flex:none}
+.gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
+.gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0}
+.gs-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
+.gs-sw+.gs-sw{border-top:1px solid var(--hairline)}
+.gs-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
+.gs-lbl2{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:0 0 9px}
+.gs-actions{display:flex;flex-direction:column;align-items:flex-start;gap:15px}
+.gs-note{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);margin:0 0 12px;line-height:1.55}
+.gs-fine{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.5;margin:10px 0 0;text-wrap:pretty}
+.gs-danger{display:flex;flex-direction:column;align-items:flex-start;gap:15px;padding:6px 4px 0}
+/* inline disclosures */
+.rs-disc-btn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--ink);text-align:left}
+.rs-disc-btn .gs-h{margin:0}
+.rs-disc-val{color:var(--muted);display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale))}
+.rs-disc-chev{transition:transform .2s var(--ease);flex:none}
+.rs-disc-btn[aria-expanded="true"] .rs-disc-chev{transform:rotate(90deg)}
+/* disclosures expand/collapse with a JS-measured max-height animation — reliable on
+   every engine incl. iOS WebKit (grid-rows fr-interpolation is not). the height is
+   set in JS (scrollHeight → 0), then released to none once open so content can grow.
+   reduce-motion snaps. inner wrapper carries the top spacing so nothing shows collapsed. */
+.rs-disc-body,.rs-scene-body{overflow:hidden;max-height:0;opacity:0;transition:max-height .32s var(--ease),opacity .24s var(--ease)}
+.rs-disc-body>.disc-inner{padding-top:16px}
+.rs-scene-body>.disc-inner{padding-top:14px}
+body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:none}
+.rs-cap{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.5;margin:11px 0 0;text-wrap:pretty}
+.rs-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--bone-deep)}
+/* method preview: ink illustration of the control (no glyph, no state colour). the
+   scale row and the slider row share one grid so labels align to the rail ends, and
+   numbers mode reserves a right-hand column for the value (like the live slider). */
+.ci-prev-scale,.ci-prev-row{display:grid;grid-template-columns:1fr;column-gap:13px;align-items:center}
+.ci-prev.has-num .ci-prev-scale,.ci-prev.has-num .ci-prev-row{grid-template-columns:1fr 1.8ch}
+.ci-prev-scale{margin:0 0 5px}
+.ci-prev-lbls{display:flex;justify-content:space-between;font-size:calc(11.5px * var(--type-scale));color:var(--muted);letter-spacing:.03em}
+.ci-prev-range{width:100%;--rail:var(--ink-80)}
+.ci-prev-num{text-align:right;font-size:calc(16px * var(--type-scale));font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
+/* text-size A's + auto/light/dark icon segment */
+.ts-a{display:block;font-weight:600;line-height:1;color:inherit}
+.icon-seg{display:flex;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px}
+.icon-seg button{flex:1;border:0;border-radius:8px;padding:9px 0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:var(--muted);font:inherit;transition:color .15s var(--ease)}
+.icon-seg button.on{background:var(--raised);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
+.icon-seg button:hover{color:var(--ink-80)}
+.icon-seg button:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.icon-seg svg{width:20px;height:20px;display:block}
+.icon-seg .lb{font-size:calc(11px * var(--type-scale));letter-spacing:.01em}
 
 /* small lifetime counts at the foot of the "you" tab (the stats home) */
 .ystats{display:flex;gap:30px;margin-top:20px;padding-top:16px;border-top:1px solid var(--hairline)}
@@ -1172,7 +1390,7 @@ body.reduce-motion .wc-ring{transform:scale(.96)}
   opacity:calc(.30 + var(--lvl,.18) * .70);
   filter:saturate(calc(.20 + var(--lvl,.18) * .80));
   transform:scale(calc(.86 + var(--lvl,.18) * .14));
-  transition:opacity .22s var(--ease), filter .22s var(--ease), transform .22s var(--ease)}
+  transition:opacity .22s var(--ease), filter .22s var(--ease), transform .22s var(--ease), color .3s var(--ease)}
 .slider-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .checkin2 .slider .top{align-items:baseline;justify-content:flex-start;gap:6px;flex-wrap:nowrap;white-space:nowrap;min-width:0}
 .checkin2 .slider .nm{white-space:nowrap}
@@ -1273,6 +1491,9 @@ body.reduce-motion .settle-ico{transition:none}
   --track-mind:#E7E5DE;
   /* on dark, the raw track colors themselves clear 4.5:1 — the ink variants map to them */
   --track-mind-ink:#ECEAE3; --track-safety-ink:#5891C5; --track-self-ink:#D29A4A;
+  /* dark: the pastels read fine on the dark bg, so the text shades map back to them */
+  --s-safety-tx:var(--s-safety); --s-fight-tx:var(--s-fight); --s-shutdown-tx:var(--s-shutdown);
+  --s-play-tx:var(--s-play); --s-still-tx:var(--s-still); --s-freeze-tx:var(--s-freeze);
   }
 }
 :root.theme-dark{
@@ -1284,6 +1505,9 @@ body.reduce-motion .settle-ico{transition:none}
   --backdrop:#0D0E10; --press:#2C2E33; --scale-lo:#3A3C42; --scale-hi:#C5C3BC; --link-soft:rgba(143,182,238,.45); --tg-dim:#565961;
   --track-mind:#E7E5DE;
   --track-mind-ink:#ECEAE3; --track-safety-ink:#5891C5; --track-self-ink:#D29A4A;
+  /* dark: the pastels read fine on the dark bg, so the text shades map back to them */
+  --s-safety-tx:var(--s-safety); --s-fight-tx:var(--s-fight); --s-shutdown-tx:var(--s-shutdown);
+  --s-play-tx:var(--s-play); --s-still-tx:var(--s-still); --s-freeze-tx:var(--s-freeze);
 }
 
 
@@ -1442,6 +1666,10 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .read-pq{margin:18px 0 14px;padding:3px 0;border-left:none;font-size:calc(18px * var(--type-scale));line-height:1.55;font-weight:500;color:var(--ink);text-wrap:pretty;font-style:normal}
 /* reader body copy — classes so the text-size setting reaches it (was inline px in app.js) */
 .read-p{font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
+/* the reader's close: a quiet handoff from reflection into the practice shaped from
+   these check-ins (2026-07-24). set apart by a hairline, not a slab. */
+.read-to-practice{margin-top:30px;padding-top:24px;border-top:0.5px solid var(--hairline)}
+.read-to-practice .btn.block{margin-top:2px}
 /* fresh (data-driven) reader sections: accent hairline in the issue's state color +
    quiet eyebrow — the "what's new this week" scent trail (2026-07-05) */
 .sec-fresh{border-left:2px solid var(--fresh-col,var(--s-safety));border-radius:0;padding-left:14px}
@@ -1450,10 +1678,13 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .read-lead{font-size:calc(16px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
 .read-dek{font-size:calc(16px * var(--type-scale));line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0}
 /* reader TOC: ink text with a quiet ">" marker, inset like a list (blue links cut per Justin) */
-.read-toc{margin:0;padding-left:14px;list-style:none}
+/* the ">" trails the chapter, not leads it: "what safety is >" (Justin 2026-07-25).
+   with the marker no longer hanging off the left, the list sits flush (padding-left:0)
+   so the chapter name leads. the arrow is part of the link, so it's tappable too. */
+.read-toc{margin:0;padding-left:0;list-style:none}
 .read-toc li{margin:0 0 8px;line-height:1.5;font-size:calc(15px * var(--type-scale))}
-.read-toc li::before{content:">";color:var(--muted);margin-right:9px}
 .read-toc a{color:var(--ink);text-decoration:none}
+.read-toc a::after{content:">";color:var(--muted);margin-left:9px}
 .arch-link{color:var(--ink);text-decoration-color:var(--muted)}
 /* mint-seal removed (Justin 2026-07-04: "minted" won't make sense to the reader;
    the stamp was visually foreign to the app) */
@@ -1716,17 +1947,17 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 /* ---- "join us live!" pop-up (Justin 2026-07-17): white against the bone app, three
    state-color dots, a small pop of arrival. significant but rejectable in one tap. */
 .lv-pop{position:fixed;inset:0;z-index:9990;display:flex;align-items:center;justify-content:center;background:rgba(26,31,42,.35);padding:24px}
-.lv-pop-card{background:#fff;color:#1A1F2A;border-radius:20px;padding:26px 22px 16px;max-width:340px;width:100%;text-align:center;box-shadow:0 18px 60px rgba(0,0,0,.28);display:flex;flex-direction:column}
+.lv-pop-card{background:var(--raised);color:var(--ink);border-radius:20px;padding:26px 22px 16px;max-width:340px;width:100%;text-align:center;box-shadow:0 18px 60px rgba(0,0,0,.28);display:flex;flex-direction:column}
 @keyframes lvPop{from{transform:scale(.92) translateY(8px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
 .lv-pop-card{animation:lvPop .32s var(--ease) both}
 @media (prefers-reduced-motion:reduce){.lv-pop-card{animation:none}}
 body.reduce-motion .lv-pop-card{animation:none}
 .lv-pop-dots{display:flex;gap:8px;justify-content:center;margin-bottom:12px}
 .lv-pop-dots span{width:10px;height:10px;border-radius:50%}
-.lv-pop-h{font-weight:500;font-size:20px;margin:0 0 6px;color:#1A1F2A}
-.lv-pop-b{font-size:14.5px;line-height:1.5;color:#5E5A4E;margin:0 0 18px}
+.lv-pop-h{font-weight:500;font-size:20px;margin:0 0 6px;color:var(--ink)}
+.lv-pop-b{font-size:14.5px;line-height:1.5;color:var(--muted);margin:0 0 18px}
 .lv-pop .btn{margin-bottom:4px}
-.lv-pop .set-quiet{color:#5E5A4E;align-self:center}
+.lv-pop .set-quiet{color:var(--muted);align-self:center}
 .lv-pop-off{opacity:.7;font-size:12.5px}
 
 /* ---- live round 3 (Justin's design pass, 2026-07-17) ---- */
@@ -1803,6 +2034,106 @@ body.reduce-motion .lv-breathe{animation:none}
 }
 
 /* ============================================================
+   DESKTOP MOMENT-HOME (>=720, 2026-07-24) — the fix for the one
+   screen the mobile-first redesign broke on desktop.
+
+   The 12-col grid above was written for the OLD today markup
+   (.tb-head / .tb-cluster / .tb-foot). Moment-home replaced those
+   with .mh-top (nested INSIDE .tb-hero) and .mh-foot, and neither
+   had a placement rule — so the whole action stack auto-placed
+   into a single ~58px column: the state pill lost its label, the
+   reader / micro buttons clipped to stubs, and the primary CTA
+   overflowed across the screen. Broken at every width from 720 up,
+   light and dark, and the post-breath slot never rendered.
+
+   Justin's calls (2026-07-24): keep the two-column composition
+   desktop already has; FLUSH TOP + LEFT like every other desktop
+   screen in the app (Practice, Check-in, the You ledger) — only the
+   breath ring is centred, inside its own field; and nothing may
+   overflow its own pill.
+
+   >=1060 (real desktop): ring + its state pill own the left field,
+   the actions own the right field, both top-aligned. The grid stays
+   ON while breathing so the ring animates in place with no layout
+   jump — during the breath everything but the ring is already faded
+   out, so nothing else needs placing.
+
+   720-1059 (small laptop / landscape tablet): the right field is too
+   narrow for "see your recommended practice", so that band keeps the
+   mobile single-column composition — left-anchored and top-aligned,
+   ring still centred within it.
+   ============================================================ */
+
+/* --- 720-1059: one left-anchored column (the split doesn't fit yet) --- */
+@media (min-width:720px) and (max-width:1059.98px){
+  #screen .today.tb.mh{
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-start;   /* flush top */
+    align-items:flex-start;       /* flush left */
+    max-width:560px;
+    margin-inline:0;              /* left-anchored, matching Practice / Check-in */
+  }
+  #screen .today.tb.mh .tb-hero{
+    flex:none;
+    width:100%;
+    justify-content:flex-start;
+    align-items:center;           /* the ring stays centred in its own column */
+  }
+  #screen .today.tb.mh .tb-stage{width:240px;height:240px}
+  #screen .today.tb.mh.breathed .tb-stage{width:206px;height:206px}
+  #screen .today.tb.mh .mh-foot{width:100%;margin-top:clamp(18px,3vh,32px)}
+}
+
+/* --- >=1060: the two-column composition, flush top + left --- */
+@media (min-width:1060px){
+  #screen .today.tb.mh{align-content:start}
+  #screen .today.tb.mh .tb-hero{
+    grid-column:1 / 7;
+    grid-row:1;
+    align-self:start;             /* flush top */
+    align-items:center;           /* ring centred inside the left field */
+  }
+  /* a desktop window can hold a more generous ring than a phone */
+  #screen .today.tb.mh .tb-stage{width:250px;height:250px}
+  #screen .today.tb.mh.breathed .tb-stage{width:214px;height:214px}
+  #screen .today.tb.mh .mh-foot{
+    grid-column:7 / 13;
+    grid-row:1;
+    align-self:start;             /* flush top, level with the state pill */
+    justify-self:stretch;
+    width:100%;
+    margin-top:0;                 /* the field is already capped by the 1080 grid */
+  }
+  #screen .today.tb.mh .mh-foot .btn{min-height:52px}
+  /* the no-check-in-yet line reads as a left-aligned lead-in here, not a caption */
+  #screen .today.tb.mh .mh-noci{text-align:left}
+}
+
+/* CHECK-IN KEEPS ITS WORDS ON DESKTOP (2026-07-24, Justin: "make sure the desktop
+   is faithful"). The mobile choreography shrinks "check in again" to a bare plus
+   (24%) to free room for the invite — a WIDTH COMPROMISE, not a design intent. On a
+   desktop window the right field is ~430-530px and both labels fit, so an unlabelled
+   icon button here is pure information loss: no text, and a mouse has nothing to
+   hover (the plus keeps a title= for the narrower band, where it stays).
+   The choreography survives — the invite still eases in beside it; it just no longer
+   has to evict the label to do it. 1100 not 1060: at exactly 1060 the field is 418px
+   and the two labels want ~437, so that last sliver keeps the plus rather than
+   wrapping the reader onto two lines next to a one-line neighbour. */
+@media (min-width:1100px){
+  /* wraps rather than being squeezed below min-content at the large Dynamic Type
+     steps (flex-shrink on a nowrap .btn overran it 44px at 200%) */
+  #screen .today.tb.mh .mh-secondrow.revealed .mh-checkin{flex:0 1 auto;white-space:normal;text-wrap:balance}
+  #screen .today.tb.mh .mh-secondrow.revealed .mh-ci-full{display:inline}
+  #screen .today.tb.mh .mh-secondrow.revealed .mh-checkin .mh-ci-plus{display:none}
+}
+/* 1100-1199 both labels fit only just; trimming the side padding (words AND the read
+   glyph both stay) keeps them on one line instead of wrapping the reader. */
+@media (min-width:1100px) and (max-width:1199.98px){
+  #screen .today.tb.mh .mh-secondrow .btn{padding-left:14px;padding-right:14px}
+}
+
+/* ============================================================
    DESKTOP PRACTICE (>=720) — persistent list | detail. The list
    (the "made for you" custom-practice card + the practice cards)
    stays in a left column; the selected practice's adjust /
@@ -1860,6 +2191,23 @@ body.reduce-motion .lv-breathe{animation:none}
   }
   /* detail column: sticky so a long adjust list keeps the list in view */
   .p-detail-col{min-width:0;position:sticky;top:8px}
+  /* 720-1059: the list column is a FIXED 440px, so side-by-side left the detail
+     pane ~130px wide at 760 and "begin" ran 72px out of its own column and 50px
+     off-screen. Below the width where both columns fit, STACK them (list, then
+     detail) — still flush top + left, still one reading order, nothing clipped.
+     Threshold matches moment-home's, so the whole app changes gear at 1060.
+     (Found 2026-07-24 in the desktop once-over; pre-existing on prod.) */
+  @media (max-width:1059.98px){
+    .p-split,
+    .p-split-view:not(.has-detail) .p-split{grid-template-columns:minmax(0,1fr);row-gap:24px}
+    .p-list-col,.p-detail-col{max-width:560px}
+    .p-detail-col{position:static;top:auto}
+    /* stacked, the detail column is taller than the window, so a sticky "begin"
+       pinned itself over the chips behind it. Let it sit at the end of its own
+       content instead — the column is the scroll, not a pane. */
+    .p-detail-col .p-detail-bar{position:static;bottom:auto}
+    .p-detail-col .p-detail-bar::before{display:none}
+  }
   .p-detail-col .p-refine{margin:0}
   .p-detail-bar{margin-top:24px}
   .p-detail-bar .btn.block{width:auto;min-width:200px}
@@ -1973,6 +2321,16 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
      screens (Justin 2026-07-20) — was centered, which read as a wider left gutter. */
   #screen .view.play-view:has(.you-ledger){padding-top:36px;margin-inline:0}
   .you-ledger .filter-bar{grid-column:1/-1;margin:0 0 8px}
+  /* the state-filter bar sticks flush to the top on the desktop ledger (2026-07-25).
+     Its 64px sticky offset is calibrated for the phone/tablet layout, where the
+     period filter-bar (sticky top:0) sits above it and covers that band. On the
+     ledger the JS lifts the week/all filter-bar up into the heading row, where it
+     scrolls away — so the 64px band above the pinned chip bar was left uncovered and
+     the data rows showed through it ("visible space above it, background scrolling
+     behind"). Nothing persistent sits above it here, so pin it at the top. Scoped
+     with :has(.you-ledger) so a wide-but-ledger-less view (little data) keeps the
+     64px offset and still tucks under its sticky filter-bar. */
+  #screen .view.play-view:has(.you-ledger) .you-filter{top:0;margin-top:8px}
 }
 
 /* ============================================================
@@ -1996,3 +2354,121 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
   #screen .view.checkin2 #fold-ctx{grid-column:6 / 13;grid-row:3;margin:0}
   #screen .view.checkin2 .actionbar{grid-column:6 / 13;grid-row:4;margin-top:8px}
 }
+
+/* ---- You tab refine (2026-07-23): reader-on-top + filterable data ---------
+   Additive only. The pattern cards, deep sections, and all logic are unchanged;
+   this adds the "cards to share" lead, the personal-reflection entry band, and
+   a sticky state filter that dims non-matching data rows. Tokens are shared with
+   the design system, so light/dark are inherited automatically. */
+.you-reader{display:block;margin:18px 0 2px;border:1px solid var(--hairline);border-radius:18px;padding:20px;text-decoration:none;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),transform .2s var(--ease)}
+.you-reader:hover{border-color:var(--ink)}
+.you-reader:active{transform:scale(.994)}
+.you-reader:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.you-reader .yr-h{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:0;color:var(--ink)}
+.you-reader .yr-lede{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:7px 0 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.you-reader .yr-go{display:flex;align-items:center;gap:11px;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)}
+.you-reader .yr-glyph{flex:none;display:inline-flex;opacity:.7;transform:scale(.82);transform-origin:left center}
+.you-reader .yr-txt{font-size:calc(14.5px * var(--type-scale));color:var(--ink);font-weight:500;flex:1}
+.you-reader .yr-arw{color:var(--muted);flex:none;display:inline-flex}
+.you-reader .yr-arw svg{width:20px;height:20px}
+.you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px -22px 4px;padding:12px 22px}
+.you-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.you-chips::-webkit-scrollbar{display:none}
+.you-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hairline);border-radius:999px;padding:7px 13px;font:inherit;font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;cursor:pointer;flex:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),background .2s var(--ease),color .2s var(--ease)}
+.you-chip:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.you-chip.on{border-color:var(--ink)}
+.you-chip.plain.on{background:var(--ink);color:var(--bone)}
+.you-chip svg{flex:none}
+.deep-row{transition:opacity .2s var(--ease)}
+.deep-row.dim{opacity:.28}
+@media (prefers-reduced-motion:reduce){.you-reader,.you-chip,.deep-row{transition:none}}
+
+/* ---- breath ring: three-state ladder (2026-07-23) --------------------------
+   #tring holds a 3-ring SVG (outer=safety, middle=fight/flight, inner=shutdown).
+   Each ring keeps its own ambient breath; the current state lights + amplifies
+   the dominant ring(s), quiet rings stay pale ink. The existing breath engine
+   scales #tring as a whole; .breathing gathers all three into one ink wave. */
+.tb-ring.br-stage{width:100%;height:100%;border:0;border-radius:0;opacity:1;animation:none}
+.br-svg{width:100%;height:100%;overflow:visible;display:block}
+.br-c{fill:none;stroke-linecap:round;transition:stroke .9s var(--ease),stroke-width .9s var(--ease),stroke-opacity .9s var(--ease)}
+.br-c.lit{stroke-width:2.4}
+.br-c.dim{stroke:var(--ink);stroke-opacity:.16;stroke-width:2}
+.br-dot{transition:fill .9s var(--ease)}
+.br-g{transform-box:fill-box;transform-origin:center}
+.br-out{animation-duration:7s;animation-timing-function:cubic-bezier(.37,0,.63,1);animation-iteration-count:infinite}
+.br-mid{animation-duration:3s;animation-timing-function:cubic-bezier(.45,0,.55,1);animation-iteration-count:infinite}
+.br-in{animation-duration:9s;animation-timing-function:cubic-bezier(.37,0,.63,1);animation-iteration-count:infinite}
+.br-out.act{animation-name:brOutAct}.br-out.qui{animation-name:brOutQui}
+.br-mid.act{animation-name:brMidAct}.br-mid.qui{animation-name:brMidQui}
+.br-in.act{animation-name:brInAct}.br-in.qui{animation-name:brInQui}
+@keyframes brOutAct{0%,100%{transform:scale(.955)}50%{transform:scale(1.055)}}
+@keyframes brOutQui{0%,100%{transform:scale(.985)}50%{transform:scale(1.02)}}
+@keyframes brMidAct{0%,100%{transform:scale(.985)}50%{transform:scale(1.04)}}
+@keyframes brMidQui{0%,100%{transform:scale(.992)}50%{transform:scale(1.016)}}
+@keyframes brInAct{0%,100%{transform:scale(.975)}50%{transform:scale(1.006)}}
+@keyframes brInQui{0%,100%{transform:scale(.987)}50%{transform:scale(1.001)}}
+/* tap → gather: during the guided breath all three lock to one calm ink wave */
+.today.tb.breathing .br-g{animation:none}
+.today.tb.breathing .br-c{stroke:var(--ink);stroke-opacity:.5;stroke-width:1.5}
+.today.tb.breathing .br-dot{fill:var(--ink);fill-opacity:.5}
+@media (prefers-reduced-motion:reduce){.br-g{animation:none!important}}
+
+/* ---- moment-home: the calm centered "now" (2026-07-23) ---------------------
+   Period icon + state (or greeting) over the ring, one outlined capsule below. */
+.today.tb.mh .tb-hero{gap:18px}
+.mh-top{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;transition:opacity .9s var(--ease)}
+.mh-peri{color:var(--ink);display:inline-flex}
+.mh-peri svg{width:24px;height:24px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.mh-greet{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em;margin:0;text-wrap:pretty}
+.mh-state{display:inline-flex;align-items:center;gap:11px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 6px}
+.mh-state .mh-peri{display:inline-flex;color:var(--ink)}
+.mh-state .mh-peri svg{width:24px;height:24px}
+.mh-state .mh-glyph{display:inline-flex}
+.mh-state .mh-glyph .triglyph{height:26px;width:auto}
+.mh-state-txt{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em}
+.mh-state .mh-chev{color:var(--muted);display:inline-flex}
+@media(hover:hover){.mh-state:hover .mh-chev{color:var(--ink)}}
+.mh-state:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:10px}
+.mh-foot{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:14px;transition:opacity .9s var(--ease)}
+.mh-noci{text-align:center;font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0}
+/* footer second row (choreographed r8 2026-07-24): "check in again" leads full-width;
+   after a breath it shortens to a compact plus (~24%), THEN the dynamic third button
+   (~76%) eases in — a micro practice ("two more minutes?") that gracefully becomes the
+   reader doorway ~10s later. Driven by .revealed/.third-in on the row (JS-staged so the
+   shorten and the invite are sequenced), decoupled from the breath's .breathed toggle so
+   it never blips. The primary (recommended practice) sits beneath. */
+.mh-secondrow{display:flex}
+.mh-secondrow .btn{width:auto;min-width:0;font-weight:400;border-color:var(--hairline)}
+.mh-checkin{flex:1 1 100%;transition:flex-basis .45s var(--ease),flex-grow .45s var(--ease)}
+.mh-checkin .mh-ci-plus{display:none;align-items:center;justify-content:center}
+.mh-ic{width:20px;height:20px;display:block}
+.mh-th-ic{flex:none;display:inline-flex;color:var(--ink-80)}
+.mh-th-t{font-size:calc(14px * var(--type-scale))}
+.btn.mh-primary{border-width:2px;border-color:var(--ink);font-weight:600}
+/* the third button: its BOX opens with .revealed (making room as check-in shortens);
+   its CONTENT eases in only with .third-in, so the invite arrives after the shorten. */
+.mh-third{flex:0 1 0%;max-width:0;margin-left:0;padding-left:0;padding-right:0;border-width:0;overflow:hidden;white-space:nowrap;opacity:0;transform:translateX(10px);
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  transition:flex-grow .45s var(--ease),max-width .45s var(--ease),margin-left .45s var(--ease),padding .45s var(--ease)}
+.mh-secondrow.revealed .mh-checkin{flex:0 0 24%}
+.mh-secondrow.revealed .mh-ci-full{display:none}
+.mh-secondrow.revealed .mh-checkin .mh-ci-plus{display:inline-flex}
+.mh-secondrow.revealed .mh-third{flex:1 1 auto;max-width:100%;margin-left:10px;padding-left:22px;padding-right:22px;border-width:1px}
+.mh-secondrow.revealed.third-in .mh-third{opacity:1;transform:none;transition:opacity .55s var(--ease),transform .55s var(--ease);
+  /* nowrap + overflow:hidden are needed for the max-width reveal, but once the
+     invite has ARRIVED they silently truncated the label at larger Dynamic Type
+     steps ("your reflection is ready" was clipped 25px at 1.6x). Released here so
+     the label wraps instead of being cut off. (2026-07-24) */
+  white-space:normal;overflow:visible;text-wrap:balance}
+/* micro → reader: a perceptible two-beat — the invite fades out, swaps, the reader fades in */
+.mh-secondrow.revealed.third-in .mh-third.mh-morphing{opacity:0;transform:translateY(-5px);transition:opacity .45s var(--ease),transform .45s var(--ease)}
+/* instant reset between breaths (no bounce back to full before re-shortening) */
+.mh-secondrow.mh-noanim .mh-checkin,.mh-secondrow.mh-noanim .mh-third{transition:none}
+body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
+/* during the breath, the top + capsule clear so only the ring remains */
+.today.tb.mh.breathing .mh-top,
+.today.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}
+/* settled (after a breath): keep the ring generous and full-strength, not the tiny
+   faint puck the old single-ring settle used — the ladder needs room to read */
+.today.tb.mh.breathed .tb-stage{width:190px;height:190px}
+.today.tb.mh.breathed .tb-ring.br-stage{width:100%;height:100%;opacity:1}

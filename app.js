@@ -314,6 +314,89 @@
   const ciBucket = x => x < 0.18 ? 0 : x < 0.45 ? 1 : x < 0.72 ? 2 : 3;
   const ciMirror = (v, sym, dor) =>
     `you're reporting: ${CI_MIRROR.v[ciBucket(v)]}, ${CI_MIRROR.sym[ciBucket(sym)]}, and ${CI_MIRROR.dor[ciBucket(dor)]}.`;
+  // ---- shared check-in feedback (turn 4 + r2 2026-07-24) -------------------------
+  // one ci4 slider row: glyph anchors, question leads, single shared scale above.
+  function ci4SliderHTML(key, scenario, cls, val, numbered){
+    const ax = AXIS_ICON[key] || {};
+    const icon = ax.icon ? ico(ax.icon,{cls:'slider-ico', color:STATE_COLOR(ax.state)}) : '';
+    return `<div class="slider" data-axis="${key}">
+      <span class="slider-ico-wrap">${icon}</span>
+      <div class="slider-main">
+        <p class="q" id="q-${key}">${scenario}</p>
+        <div class="sl-row">
+          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
+          ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
+        </div>
+      </div>
+    </div>`;
+  }
+  // each axis's colour = its slider-rail colour: faded ink when untouched, the axis's
+  // own colour once set, the blend's colour when it joins an active two-axis blend.
+  // rails, glyphs and the mirror clauses all use this, so they move together.
+  function ciAxisColorFn(v, s, d, axTouched){
+    const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
+    const core = STATE_CORE[dom.key] || [];
+    const own = AXIS_OWN();
+    const all = axTouched.v && axTouched.sym && axTouched.dor;
+    return ax => !axTouched[ax] ? 'var(--ink-faded)'
+      : (all && core.length>1 && core.includes(ax)) ? STATE_COLOR(dom.key) : own[ax];
+  }
+  // TEXT shades of the axis colours (the pastels used on rails/glyphs fail contrast as
+  // text on bone; these keep the hue but are darkened to ~6-7:1, dark-mode maps back to
+  // the pastels). same faded/own/blend logic as the rails so the clause still "matches"
+  // its slider by hue, just readable (2026-07-24 r4).
+  const STATE_TEXT_VAR = { safety:'var(--s-safety-tx)', fightflight:'var(--s-fight-tx)', shutdown:'var(--s-shutdown-tx)', play:'var(--s-play-tx)', stillness:'var(--s-still-tx)', freeze:'var(--s-freeze-tx)' };
+  const AXIS_OWN_TX = () => ({ v:STATE_TEXT_VAR.safety, sym:STATE_TEXT_VAR.fightflight, dor:STATE_TEXT_VAR.shutdown });
+  function ciAxisTextColorFn(v, s, d, axTouched){
+    const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
+    const core = STATE_CORE[dom.key] || [];
+    const own = AXIS_OWN_TX();
+    const all = axTouched.v && axTouched.sym && axTouched.dor;
+    return ax => !axTouched[ax] ? 'var(--muted)'
+      : (all && core.length>1 && core.includes(ax)) ? (STATE_TEXT_VAR[dom.key]||'var(--ink)') : own[ax];
+  }
+  // the live "you're reporting" line, each clause tinted by a READABLE text shade that
+  // matches its slider's hue (txOf); untouched clauses read muted.
+  function ciMirrorColoredHTML(v, s, d, txOf){
+    const bV=CI_MIRROR.v[ciBucket(v/100)], bS=CI_MIRROR.sym[ciBucket(s/100)], bD=CI_MIRROR.dor[ciBucket(d/100)];
+    return `<span class="ci-join">you're reporting: </span>`
+      +`<span class="ci-clause" style="color:${txOf('v')}">${bV}</span>`
+      +`<span class="ci-join">, </span>`
+      +`<span class="ci-clause" style="color:${txOf('sym')}">${bS}</span>`
+      +`<span class="ci-join">, and </span>`
+      +`<span class="ci-clause" style="color:${txOf('dor')}">${bD}</span>`
+      +`<span class="ci-join">.</span>`;
+  }
+  // settings disclosure open/close with a measured max-height glide (reliable on iOS
+  // WebKit). opening animates 0 → scrollHeight then releases to `none` so later content
+  // growth (e.g. swapping the method preview) isn't clipped; closing animates back to 0.
+  function _discSetOpen(body, open){ if(!body) return;
+    if(open){ body.style.maxHeight='none'; body.style.opacity='1'; }
+    else { body.style.maxHeight='0px'; body.style.opacity='0'; } }
+  function _discToggle(btn, body){ if(!btn||!body) return;
+    const wasOpen = btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded', wasOpen?'false':'true');
+    const calm = document.body.classList.contains('reduce-motion');
+    if(wasOpen){                                   // closing
+      body.style.maxHeight = body.scrollHeight+'px'; body.style.opacity='1';
+      void body.offsetHeight;                      // force reflow so the next values transition
+      body.style.maxHeight='0px'; body.style.opacity='0';
+    } else {                                       // opening
+      body.style.opacity='1';
+      if(calm){ body.style.maxHeight='none'; return; }
+      body.style.maxHeight = body.scrollHeight+'px';
+      const done = e=>{ if(e.propertyName!=='max-height') return; body.style.maxHeight='none'; body.removeEventListener('transitionend', done); };
+      body.addEventListener('transitionend', done);
+    }
+  }
+  // paint each slider rail AND its anchoring glyph the same colour (colOf)
+  function ciPaintSliders(colOf){
+    ['v','sym','dor'].forEach(ax=>{
+      const col = colOf(ax);
+      const el = $('#sl-'+ax); if(el) el.style.setProperty('--rail', col);
+      const g = root.querySelector('.slider[data-axis="'+ax+'"] .slider-ico'); if(g) g.style.color = col;
+    });
+  }
   function ciRand(ax, not){ const n = CI_BANK[ax].length; let i = Math.floor(Math.random()*n); if(n > 1 && i === not) i = (i+1)%n; return i; }
   // Which scenario each check-in asked (local-only, keyed by check-in timestamp) so
   // editing a check-in shows the questions that were actually answered. Kept out of
@@ -324,6 +407,22 @@
     localStorage.setItem(CI_QKEY, JSON.stringify(m)); }catch(e){} }
   function ciLoadQ(t){ try{ return JSON.parse(localStorage.getItem(CI_QKEY)||'{}')[t] || null; }catch(e){ return null; } }
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
+  // now-screen post-breath slot (r5 2026-07-24): small, legible icons for the dynamic
+  // second row — a plus for "check in again" once it shrinks, a play for the micro
+  // practice, an open book for the personal-reader doorway.
+  const ICO_PLUS  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+  const ICO_PRAC  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11.14-6.86a1 1 0 0 0 0-1.72L9.52 4.28A1 1 0 0 0 8 5.14z"></path></svg>';
+  const ICO_READ  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10.5 5 8.3 4.5 5.5 4.5A1.5 1.5 0 0 0 4 6v11a1.5 1.5 0 0 0 1.5 1.5c2.8 0 5 .5 6.5 2 1.5-1.5 3.7-2 6.5-2A1.5 1.5 0 0 0 20 17V6a1.5 1.5 0 0 0-1.5-1.5c-2.8 0-5 .5-6.5 2zM12 6.5v13"></path></svg>';
+  // the personal reader adjusts to your MOST RECENT check-in, so it's "waiting" whenever
+  // you've checked in since you last opened it (Justin 2026-07-24). tracked by the latest
+  // check-in timestamp, stored when the reader opens (from any door, free or paid — free
+  // users get the subscribe/upgrade prompt, and it clears the nudge for that check-in).
+  function _readerSeenT(){ try{ return parseInt(localStorage.getItem('snb_reader_seen_t')||'0',10)||0; }catch(e){ return 0; } }
+  function _readerUnread(){ try{ const last = Store.lastCheckin && Store.lastCheckin(); return !!(last && typeof last.t==='number' && last.t > _readerSeenT()); }catch(e){ return false; } }
+  function _markReaderSeen(){ try{ const last = Store.lastCheckin && Store.lastCheckin(); const t=(last && typeof last.t==='number')?last.t:Date.now(); localStorage.setItem('snb_reader_seen_t', String(t)); }catch(e){} }
+  let _mhMorphTimer = null;   // micro → reader morph (10s)
+  let _mhStepTimer  = null;   // staged post-breath reveal (shorten → invite)
+  let _mhAfterBreath = null;  // re-run the post-breath reveal when a breath completes
   // "tuned to you" badge: the brand mark (recolors to white via currentColor)
   const MARK_GLYPH = "<svg viewBox=\"4 44 462 371\" fill=\"currentColor\"><path d=\"M 228.6626430999995,414.99967965948633 C 193.0931878499996,414.99967965948633 159.69623824999962,401.15528090948635 134.56332974999987,376.0223724094866 L 42.977307250000194,284.43634990948647 C 17.844398749999527,259.30344140948625 4.0,225.86389365948654 4.0,190.3370365594864 C 4.0,154.76758130948647 17.844398750000437,121.3706317094865 42.977307250000194,96.23772320948629 C 68.11021574999995,71.10481470948653 101.54976350000015,57.26041595948655 137.07662059999984,57.260415959486096 C 171.45332764999966,57.260415959486096 203.82792165000046,70.21025355948623 228.6626430999995,93.76703050948609 C 280.7175823999996,44.35317650948619 363.2727970999995,45.20513950948626 414.34797894999974,96.23772320948629 C 466.23252564999984,148.1222699094864 466.23252564999984,232.5518032094864 414.34797894999974,284.47894805948624 L 322.76195644999916,376.06497055948637 C 297.6290479499994,401.1978790594861 264.1895001999992,415.0422778094861 228.6626430999995,415.0422778094861 L 228.6626430999995,414.99967965948633 M 137.11921875000007,109.86913120948648 C 115.60715299999993,109.86913120948648 95.41562990000057,118.21836860948625 80.20809035000002,133.42590815948634 C 48.813253799999075,164.82074470948638 48.813253799999075,215.8533284094864 80.20809035000002,247.24816495948645 L 171.7941128499997,338.83418745948654 C 187.00165239999933,354.0417270094862 207.1931754999996,362.3909644094864 228.70524124999974,362.3909644094864 C 250.2173069999999,362.3909644094864 270.40883009999925,354.0417270094862 285.6163696499989,338.83418745948654 L 377.20239214999947,247.24816495948645 C 408.5546305500002,215.89592655948618 408.5546305500002,164.82074470948638 377.20239214999947,133.42590815948634 C 345.80755560000034,102.0310716094863 294.7749719000003,102.0310716094863 263.3801353500003,133.42590815948634 L 228.70524124999974,168.10080225948641 L 194.03034714999922,133.42590815948634 C 178.82280759999958,118.21836860948625 158.6312844999993,109.86913120948648 137.11921875000007,109.86913120948648\"/></svg>";
   const GEAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
@@ -349,8 +448,15 @@
     const est = estMinutes(key, key==='micro' ? 2 : silence);
     const lbl = Store.practiceLabel(key);
     const head = /^a /.test(lbl) ? lbl : `a guided ${lbl} practice`;   // micro's label is already "a tiny practice"
+    // open-ended (self-reg only) has no fixed length: the estimate reflects the
+    // guided portion, then notes it keeps going until you stop — a fixed "about N
+    // minutes" ignored the open-ended toggle before (fix 2026-07-24).
+    const openEnded = (key==='most' && !!open);
+    const timePhrase = openEnded
+      ? (est ? `, about ${est} minutes of guidance, then open-ended` : ', open-ended')
+      : (est ? `, about ${est} minutes` : '');
     const bits = [
-      `${head}${est ? ', about '+est+' minutes' : ''}.`,
+      `${head}${timePhrase}.`,
       aboutOf(key, sense),
     ];
     if((key==='most'||key==='micro') && sense) bits.push(`your anchor is ${sense}.`);
@@ -360,8 +466,15 @@
     if(key==='most' && holdWatch && (skill==='balancing' || skill==='pendulation'))
       bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
-    if(key==='most' && open) bits.push('open-ended: it keeps going until you choose to stop.');
-    return bits.filter(Boolean).join(' ');
+    if(openEnded) bits.push('it keeps going until you choose to stop.');
+    // practice DESCRIPTIONS read in normal (sentence) case on every surface (Justin
+    // 2026-07-25). The plan screen and the 7b maker explainer already proper-case
+    // their "what to expect"; this is the ONLY description surface that was still
+    // lowercase (the chooser / desktop list|detail's live #p-expect), so make it
+    // agree here — one source, every caller. Each bit ends in a period, so
+    // properCase capitalizes the first word of every sentence and leaves the
+    // lowercase-UI practice names mid-sentence untouched.
+    return properCase(bits.filter(Boolean).join(' '));
   }
 
   const fmtDay = (t) => new Date(t).toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric' });
@@ -758,19 +871,20 @@
     // = abandon (discard the anonymous session). The entry screen has no back — there is
     // nothing behind it any more; leaving is closing the tab or the quiet sign-in link.
     const gcb = $('#g-ci-back'); if(gcb) gcb.onclick = ()=>guestLeave();
-    $('#content').innerHTML = `<div class="view checkin2">
+    $('#content').innerHTML = `<div class="view checkin2 ci4">
         <div class="scr-head">
           <p class="eyebrow">${mode==='before' ? 'before your practice' : 'after your practice'}</p>
           <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
         </div>
         <div class="ci-block">
+          <div class="ci4-scale" aria-hidden="true"><span>harder</span><span>easier</span></div>
           <div class="sliders">
-            ${sliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
-            ${sliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
-            ${sliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
+            ${ci4SliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
+            ${ci4SliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
+            ${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
-          ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>'}
-          <p class="ci-readout" id="ci-readout"></p>
+          ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
+          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
@@ -784,18 +898,12 @@
     const axTouched = {};
     function refresh(){
       setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
-      const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
-      const core = STATE_CORE[dom.key] || [];
-      const own = AXIS_OWN();
-      const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
-      ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
-        const active = allTouched && core.length>1 && core.includes(ax);
-        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink-faded)'); });
+      const colOf = ciAxisColorFn(v, s, d, axTouched);
+      ciPaintSliders(colOf);   // rails + anchoring glyphs move together
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
-          : 'move the sliders, and this line will mirror what you set.';
-        readout.classList.toggle('ci-readout-idle', !anyTouched);
+        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
+        else { readout.innerHTML = '<span class="ci-idle">move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
       }
     }
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
@@ -1406,7 +1514,7 @@
       </header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     ({ today:tabToday, current:tabCurrent, practice:tabPractice }[tab] || tabToday)();
@@ -1575,15 +1683,34 @@
     const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
+    // post-breath slot (r7 2026-07-24): the RESTING/default content of this slot is the
+    // reader doorway (when a reflection is waiting) — not the micro invite. The micro
+    // ("two more minutes?") is a TRANSIENT post-breath nudge: it appears for ~10s right
+    // after a breath, then reverts to the resting state (reader, or nothing). Before r7
+    // the micro was the default and never went away — Justin's fix: reader is default,
+    // micro is a brief post-breath moment only.
+    const readerNew = _readerUnread();
+    const mhRestKind = readerNew ? 'reader' : null;   // default/resting content of the slot
+    const mhThird = true;
+    const mhThirdHTML = (kind)=> kind==='reader'
+      ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">your reflection is ready</span>`   // 🖊
+      : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">two more minutes?</span>`;          // 🖊
 
-    c.innerHTML = `<div class="view today tb${settled?' breathed':''}${young?' young':''}">
-      <div class="tb-head"><h2 class="tb-greet">${greet}</h2></div>
-      <div class="tb-cluster">${stateHTML}</div>
+    // moment-home (2026-07-23): the "now" screen settles to a calm center — the
+    // period icon + your state (or a greeting before you've checked in) over the
+    // breath ring, with ONE outlined invitation at the bottom. No dividers, nothing
+    // dominating the centering screen. The reader/reflection is its own surface now
+    // (the You-tab reader band); the recommended practice is the single capsule.
+    c.innerHTML = `<div class="view today tb mh${settled?' breathed':''}${young?' young':''}">
       <div class="tb-hero">
+        <div class="mh-top">
+          ${checkedIn
+            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is — open the glossary"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
+        </div>
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
-          <span class="tb-stage" style="--halo:${halo}">
-            <span class="tb-halo"></span><span class="tb-halo b"></span>
-            <span class="tb-ring" id="tring"><span class="tb-core"></span></span>
+          <span class="tb-stage">
+            <span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(dom)}</span>
           </span>
           <span class="tb-below">
             <span class="tb-txt"><span class="tb-line">take a breath</span><span class="tb-hint">tap the ring to breathe</span></span>
@@ -1592,54 +1719,72 @@
           <span class="tb-esc" aria-hidden="true">tap anywhere to end early</span>
         </button>
       </div>
-      <div class="tb-more-slot"><button class="tb-more" id="tb-more" type="button">two more minutes?</button></div>
-      <div class="tb-foot">
-        ${_paid
-          // the MATCHING: a practice named and reasoned from this person's check-ins.
-          ? `<button class="tb-row" id="tb-practice">
-          <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">recommended practice</span>
-            <span class="tb-row-sub tb-prac track-${trackOf(reco.practiceKey).cls}">${pracName}</span>
-            ${pracReason ? `<span class="tb-reason">${pracReason}</span>` : ''}
-          </span><span class="wc-go">${CHEV}</span>
-        </button>`
-          // free: a plain door to the practices they have. NOT the matched practice, and
-          // NOT its name — naming it would be giving away the very thing behind the line,
-          // and dangling it would be worse. No lock, no tease.
-          : `<button class="tb-row" id="tb-practice">
-          <span class="tb-row-ico" aria-hidden="true">${tabIcon('practice')}</span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">practice</span>
-            <span class="tb-row-sub">choose a practice</span>
-          </span><span class="wc-go">${CHEV}</span>
-        </button>`}
-        ${(_paid && reflText) ? `<button class="tb-row" id="tb-refl">
-          <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">reflections for you</span>
-            <span class="tb-refl">${reflText}</span>${dotsHTML}
-          </span><span class="wc-go">${CHEV}</span>
-        </button>` : ''}
-        ${!_paid ? `<button class="tb-row p-locked" id="tb-refl">
-          <span class="tb-row-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h11a1 1 0 0 1 1 1v17l-6.5-4.2L5.5 21V4a1 1 0 0 1 1-1z"/></svg></span>
-          <span class="tb-row-text">
-            <span class="tb-row-title">reflections for you</span>
-            <span class="tb-row-sub">on the base plan</span>
-          </span><span class="wc-go">${CHEV}</span>
-        </button>` : ''}
+      <div class="mh-foot">
+        ${checkedIn
+          ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
+               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="check in again" title="check in again"><span class="mh-ci-full">check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
+               ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
+             </div>
+             <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
+          : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
+             <button class="btn quiet block mh-primary" id="mh-cta" type="button">check in</button>`}
       </div>
     </div>`;
 
-    const stateBtn  = c.querySelector('#tb-state');    if(stateBtn)  stateBtn.onclick  = screenCheckin;
     const breathBtn = c.querySelector('#tb-breath');   if(breathBtn) breathBtn.onclick = runBreath;
-    // post-breath offer: one tap into the ~2.5-min micro practice
-    const moreBtn = c.querySelector('#tb-more'); if(moreBtn) moreBtn.onclick = ()=>{
-      let sn = 'touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2});
-    };
-    const pracBtn   = c.querySelector('#tb-practice');  if(pracBtn)   pracBtn.onclick   = ()=> _paid ? renderPlan(reco,'today') : app('practice');
-    const reflBtn   = c.querySelector('#tb-refl');      if(reflBtn)   reflBtn.onclick   = ()=> _paid ? screenReflectionDeep() : gateSubscribe('reader');
+    // the state word opens the glossary (what the state is); re-checking-in lives on
+    // the You tab ("change a recent check-in"). The single capsule is the practice.
+    const mhState = c.querySelector('#mh-state'); if(mhState) mhState.onclick = ()=> screenStateDetail(dom);
+    const mhCheck = c.querySelector('#mh-checkin'); if(mhCheck) mhCheck.onclick = screenCheckin;
+    const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'today') : app('practice'); };
+
+    // ---- dynamic post-breath third button (choreographed) ----
+    clearTimeout(_mhMorphTimer); clearTimeout(_mhStepTimer); _mhAfterBreath = null;
+    const _launchMicro = ()=>{ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
+    const third = c.querySelector('#mh-third');
+    if(third){
+      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
+
+      // RESTING state: the reader doorway when a reflection is waiting; otherwise the
+      // slot collapses (check-in returns to full width). This is the default the screen
+      // sits in — on load and ~10s after a breath.
+      const _rest = (animate)=>{
+        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
+        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
+        const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
+        const showReader = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
+          tt.dataset.kind='reader'; tt.innerHTML=mhThirdHTML('reader'); tt.classList.remove('mh-morphing');
+          r.classList.add('revealed','third-in'); };
+        if(!mhRestKind){                                 // nothing to rest on → collapse the slot
+          if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
+          else { row.classList.add('mh-noanim'); collapse(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
+          return;
+        }
+        if(!animate){ row.classList.add('mh-noanim'); showReader(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
+        else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showReader, 480); }   // fade micro out, swap to reader, fade in
+      };
+
+      // TRANSIENT post-breath nudge: show "two more minutes?" for ~10s, then revert to
+      // the resting state. (1) check-in shortens to the plus, (2) the invite eases in.
+      const _postBreath = ()=>{
+        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
+        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
+        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing');
+        // reset to the full check-in instantly (footer is dim from the breath, so no blip)
+        row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
+        _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
+          const r = c.querySelector('#mh-2nd'); if(!r) return;
+          r.classList.add('revealed');
+          setTimeout(()=>{ const r2=c.querySelector('#mh-2nd'); if(r2) r2.classList.add('third-in'); }, 470);   // beat 2: invite eases in
+        }, 300);
+        // after ~10s (measured from when the invite finished arriving) fall back to rest
+        _mhMorphTimer = setTimeout(()=> _rest(true), 300 + 470 + 550 + 10000);
+      };
+
+      _mhAfterBreath = ()=> _postBreath();
+      _rest(false);   // load: sit in the resting state (reader default, or collapsed)
+    }
   }
 
   // Breath engine for the redesigned Today. On tap the ring becomes the whole
@@ -1675,7 +1820,7 @@
         ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation='';
         document.body.classList.remove('breathing');
         view.classList.remove('breathing');
-        if(settle) view.classList.add('breathed');
+        if(settle){ view.classList.add('breathed'); try{ if(_mhAfterBreath) _mhAfterBreath(); }catch(_){} }
         breathing = false;
       }, settle ? 1200 : 500);
     };
@@ -1707,6 +1852,36 @@
       }, 4300);
       later(finish, 10600);
     }, 380);
+  }
+
+  // ---- breath ring: the three-state ladder (2026-07-23) ----------------------
+  // The single centering ring is really the polyvagal ladder: outer = safety
+  // (ventral), middle = fight/flight (sympathetic), inner = shutdown (dorsal) —
+  // order fixed forever. All three are always alive: each ring keeps its own
+  // ambient breath. The current state lights + amplifies the dominant ring(s)
+  // (a blend lights two, in the blend token); quiet rings stay pale ink. On tap,
+  // the existing breath engine scales #tring as a whole and CSS (.breathing)
+  // gathers all three into one regulated ink wave. A pure SVG, no engine change.
+  const RING_CFG = {
+    safety:     { out:1, mid:0, in:0, c:'--s-safety' },
+    fightflight:{ out:0, mid:1, in:0, c:'--s-fight' },
+    shutdown:   { out:0, mid:0, in:1, c:'--s-shutdown' },
+    play:       { out:1, mid:1, in:0, c:'--s-play' },
+    stillness:  { out:1, mid:0, in:1, c:'--s-still' },
+    freeze:     { out:0, mid:1, in:1, c:'--s-freeze' }
+  };
+  function tbRingSVG(dom){
+    const cfg = RING_CFG[dom] || null;   // no/neutral check-in → all rings quiet, alive
+    const ring = (pos, r, on)=>{
+      const st = on ? ` style="stroke:var(${cfg.c})"` : '';
+      return `<g class="br-g br-${pos} ${on?'act':'qui'}"><circle class="br-c ${on?'lit':'dim'}" cx="150" cy="150" r="${r}"${st}/></g>`;
+    };
+    const dotCol = cfg ? `var(${cfg.c})` : 'var(--muted)';
+    return `<svg class="br-svg" viewBox="0 0 300 300" aria-hidden="true">`
+      + ring('out',128, !!(cfg&&cfg.out))
+      + ring('mid',104, !!(cfg&&cfg.mid))
+      + ring('in', 80,  !!(cfg&&cfg.in))
+      + `<circle class="br-dot" cx="150" cy="150" r="4.5" style="fill:${dotCol}"/></svg>`;
   }
 
   // The moment timeline: today's check-ins placed by time (x) and safety (y),
@@ -1974,6 +2149,8 @@
     // base plan. Guarded here as well as at every call site (defense in depth).
     // (When the evergreen/personalized content tagging lands, the evergreen essays come
     // back out from behind this line and become free. That pass is not done yet.)
+    _markReaderSeen();   // any reader-open clears the nudge for this check-in — incl. free
+                         // users who then hit the subscribe/upgrade prompt below
     if(!paidNow()) return gateSubscribe('reader');
     const note = FromJustin.today();
     const last = Store.lastCheckin();
@@ -2093,6 +2270,14 @@
     const visit = buildVisitSection();
     const hasArchive = (Store.mints && Store.mints().length > 0);
     const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">past reflections →</button>` : '';
+    // the reader closes into a practice: when you've finished reading what your
+    // check-ins are saying, the practice shaped from them is one tap away (the plan
+    // reader, then begin). links to the SAME recommendation as the practice tab.
+    const reco = (Store.recommend && Store.recommend()) || null;
+    const practiceCTA = reco ? `<div class="read-to-practice">
+            <p class="read-p" style="margin:0 0 12px">when you're ready, here is the practice shaped from these check-ins.</p>
+            <button class="btn block" id="read-begin-practice" type="button">the practice made for you</button>
+          </div>` : '';
     // quiet read-time line (HIG: set expectations; a reluctant reader wants the size of the ask)
     const _rtWords = String(todayBlock+visit.html+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
     const _rtMins = Math.max(1, Math.round(_rtWords/200));
@@ -2118,14 +2303,16 @@
             ${todayBlock}
             ${visit.html}
             ${bodyHTML}
+            ${practiceCTA}
             ${archiveLink}
           </div>
           ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
         </div>
       </div>
-      <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
+      <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
     $('#deep-back').onclick = ()=>app('today');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
     // fresh-section share: the same image cards the You tab shares
     (function(){
       const _sig = 'stuck not broken · app.stucknotbroken.com';
@@ -2490,7 +2677,7 @@
             ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
           </div>
         </div>
-        <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
+        <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
       $('#me-back').onclick = screenArchive;
       $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
       const sb = $('#me-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
@@ -2613,7 +2800,7 @@
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
@@ -2652,32 +2839,40 @@
     const ctxSelMore = new Set(editRec ? (_ctxAll_e['c'+editRec.t+'+'] || _legacyC || []) : []);
     const ctxSelLess = new Set(editRec ? (_ctxAll_e['c'+editRec.t+'-'] || []) : []);
     let ctxDir = 'more';   // active tab
-    $('#content').innerHTML = `<div class="view checkin2">
+    // input method (settings → "your check-in"): sliders (default) · states · numbers.
+    // all three capture the SAME v/sym/dor; the method only changes the affordance, so
+    // the saved reading and the trend line never seam across methods (Justin 2026-07-24).
+    const ciMethod = (localStorage.getItem('snb_checkin_method')||'sliders');
+    const _ciStates = ciMethod==='states', _ciNumbers = ciMethod==='numbers';
+    const _ciScale = _ciNumbers ? ['0','10'] : ['harder','easier'];
+    // one ci4 slider row: glyph anchors, question leads, single shared scale above.
+    // numbers mode shows a live 0-10 badge reading the SAME slider value (ease), so the
+    // number and the hard→easy position are one datum — Justin's alignment requirement.
+    const _ax4 = (key,scenario,cls,val)=>ci4SliderHTML(key,scenario,cls,val,_ciNumbers);
+    const _ciInput = _ciStates
+      ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
+          <div class="ci-ovr-chips ci4-states">
+            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
+          </div>
+          <p class="ci-ovr-about" id="ci-ovr-about"></p>`
+      : `<div class="ci4-scale" aria-hidden="true"><span>${_ciScale[0]}</span><span>${_ciScale[1]}</span></div>
+          <div class="sliders">
+            ${_ax4('v', CI_BANK.v[qIdx.v], 'r-v', v)}
+            ${_ax4('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
+            ${_ax4('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
+          </div>`;
+    $('#content').innerHTML = `<div class="view checkin2 ci4${_ciStates?' ci-m-states':(_ciNumbers?' ci-m-numbers':'')}">
 
         <div class="scr-head">
           <p class="eyebrow">${escapeHtml(_ciEyebrow)}</p>
-          <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
+          <h2 class="scr-h">${_ciStates?'how are you, right now?':'right now, how easy would it be to&hellip;'}</h2>
         </div>
 
         <div class="ci-block">
-          <div class="sliders">
-            ${sliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', v)}
-            ${sliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
-            ${sliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
-          </div>
-          <button class="ci-shuffle" id="ci-shuffle" type="button">ask me differently</button>
-          <p class="ci-readout" id="ci-readout"></p>
+          ${_ciInput}
+          ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
+          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like: when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
-          <div class="ci-ovr">
-            <button class="set-quiet ci-ovr-link" id="ci-ovr-link" type="button">know your states? set it yourself</button>
-            <div class="ci-ovr-panel" id="ci-ovr-panel" hidden>
-              <p class="ci-ovr-note">choosing a state moves the sliders to match it. fine-tune from there if it's close but not quite.</p>
-              <div class="ci-ovr-chips">
-                ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
-              </div>
-              <p class="ci-ovr-about" id="ci-ovr-about"></p>
-            </div>
-          </div>
         </div>
 
         ${(function(){
@@ -2688,19 +2883,6 @@
           // on the collapsed rows (Justin 2026-07-05): the opened panel's
           // highlighted option is the state.
           return `
-        <div class="ci-block ci-challenge ci-fold" id="fold-ch">
-          <button class="ci-fold-btn" id="fold-ch-btn" type="button" aria-expanded="false" aria-controls="fold-ch-body">
-            <span class="ci-fold-lk">choose your next practice</span><span class="stats-tog-icon">+</span>
-          </button>
-          <div class="stats-body" id="fold-ch-body">
-            <button class="ch-opt ch-auto${ch==null?' on':''}" id="ch-auto" type="button">whatever you recommend</button>
-            <div class="ch-seg" id="ch-seg">
-              ${CH_LEVELS.map(l=>`<button class="ch-opt${l.v===ch?' on':''}" type="button" data-ch="${l.v}" data-chkey="${l.key}">${CH_SHORT[l.key]||l.label}</button>`).join('')}
-            </div>
-            <p class="ch-cap" id="ch-cap"></p>
-          </div>
-        </div>
-
         <div class="ci-block ci-challenge ci-ctx ci-fold" id="fold-ctx">
           <button class="ci-fold-btn" id="fold-ctx-btn" type="button" aria-expanded="false" aria-controls="fold-ctx-body">
             <span class="ci-fold-lk">add context to this check-in</span><span class="stats-tog-icon">+</span>
@@ -2721,79 +2903,53 @@
       </div>`;
 
     const readout = $('#ci-readout');
-    // fresh check-ins start neutral (Justin 2026-07-05): rails sit in ink and the
-    // mirror stays quiet until a slider actually moves — color and words respond
-    // to what the person SET, never to defaults. edits show everything at once.
+    // fresh check-ins start neutral (Justin 2026-07-05): rails, glyphs and the mirror
+    // stay quiet until an axis is set — color responds to what the person SET, never to
+    // defaults. edits show everything at once. rail + glyph + clause move together (r2).
     const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
+    const _idleMsg = _ciStates ? 'pick a state above, and this line mirrors what you named.'   // 🖊
+      : (_ciNumbers ? 'move a slider, and this line mirrors the number you set.'                // 🖊
+      : 'move the sliders, and this line will mirror what you set.');                            // 🖊
     function refresh(){
-      setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
-      const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
-      // tint the sliders to the current state: a blend colors only its active axes.
-      // the blend tint only applies once ALL THREE are set — a dominant computed
-      // from untouched midpoints isn't a real read, so partial input shows each
-      // axis its own color. untouched rails sit in faded ink: present, not "done".
-      const core = STATE_CORE[dom.key] || [];
-      const own = AXIS_OWN();
-      const allTouched = axTouched.v && axTouched.sym && axTouched.dor;
-      ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax); if(!el) return;
-        const active = allTouched && core.length>1 && core.includes(ax);
-        el.style.setProperty('--rail', axTouched[ax] ? (active ? STATE_COLOR(dom.key) : own[ax]) : 'var(--ink-faded)'); });
+      const colOf = ciAxisColorFn(v, s, d, axTouched);
+      if(!_ciStates){
+        setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
+        ciPaintSliders(colOf);   // rails + anchoring glyphs take the same colour
+        if(_ciNumbers){ ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax), nb=$('#num-'+ax); if(el&&nb) nb.textContent = Math.round((+el.value)/10); }); }
+      }
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        readout.textContent = anyTouched ? ciMirror(v/100, s/100, d/100)
-          : 'move the sliders, and this line will mirror what you set.';   // 🖊
-        readout.classList.toggle('ci-readout-idle', !anyTouched);
+        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
+        else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
       }
     }
     // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert
-    bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
-    bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
-    bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
+    if(!_ciStates){
+      bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
+      bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
+      bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
+    }
     refresh();
-    $('#ci-shuffle').onclick = ()=>{
+    const _shuf = $('#ci-shuffle');
+    if(_shuf) _shuf.onclick = ()=>{
       ['v','sym','dor'].forEach(ax=>{
         qIdx[ax] = ciRand(ax, qIdx[ax]);
         const q = root.querySelector('#q-'+ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
         const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
       });
     };
-    // "know your states" (reworked 2026-07-06, Justin): picking a state MOVES
-    // the sliders to that state's shape, animated in real time — the sliders
-    // stay the single source of truth, the saved label always derives from the
-    // answers (no label-only override, nothing to discard, safety % and state
-    // mix can never disagree), and fine-tuning from there is the natural next
-    // step. the teaching copy (STATE_DETAIL.about) still appears in place.
+    // pick-a-state input method (moved here from the old inline override; the chooser
+    // now lives in settings → "your check-in"): tapping a state sets the underlying
+    // v/sym/dor — the SAME three numbers the sliders capture — so the saved reading
+    // and the trend line never seam across methods. teaching copy shows in place.
     const STATE_AXES={ safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15],
                        stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
-    let _ovrAnim=null;
-    function _slideTo(tv,ts,td){
-      cancelAnimationFrame(_ovrAnim);
-      const f={v:v,s:s,d:d};
-      const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
-      axTouched.v=1; axTouched.sym=1; axTouched.dor=1;
-      const apply=(nv,ns,nd)=>{ v=nv; s=ns; d=nd;
-        const ev=$('#sl-v'), es=$('#sl-sym'), ed=$('#sl-dor');
-        if(ev) ev.value=Math.round(v); if(es) es.value=Math.round(100-s); if(ed) ed.value=Math.round(100-d);
-        refresh(); };
-      if(calm){ apply(tv,ts,td); return; }
-      const t0=performance.now(), dur=650, easeFn=x=>1-Math.pow(1-x,3);
-      const step=now=>{ const p=Math.min(1,(now-t0)/dur), e=easeFn(p);
-        apply(f.v+(tv-f.v)*e, f.s+(ts-f.s)*e, f.d+(td-f.d)*e);
-        if(p<1) _ovrAnim=requestAnimationFrame(step); };
-      _ovrAnim=requestAnimationFrame(step);
-    }
-    const ovrLink = $('#ci-ovr-link');
-    if(ovrLink){
-      const panel = $('#ci-ovr-panel');
-      const paint = k=>{
-        root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.classList.toggle('on', b.dataset.ovr===k));
-        const ab = $('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
-      };
-      ovrLink.onclick = ()=>{ panel.hidden = !panel.hidden; };
+    if(_ciStates){
       root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{
         const k=b.dataset.ovr, ax=STATE_AXES[k];
-        paint(k);
-        if(ax) _slideTo(ax[0]*100, ax[1]*100, ax[2]*100);
+        root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x===b));
+        const ab=$('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
+        if(ax){ axTouched.v=1; axTouched.sym=1; axTouched.dor=1; v=ax[0]*100; s=ax[1]*100; d=ax[2]*100; refresh(); }
       });
     }
 
@@ -2816,7 +2972,7 @@
       b.setAttribute('aria-expanded', open?'false':'true');
       if(body) body.classList.toggle('open', !open);
     }; };
-    _bindFold('fold-ch-btn'); _bindFold('fold-ctx-btn');
+    _bindFold('fold-ctx-btn');
 
     const _ctxSetOf = d => d==='less' ? ctxSelLess : ctxSelMore;
     ['ci-ctx-row-more','ci-ctx-row-less'].forEach(id=>{
@@ -2827,23 +2983,9 @@
       });
     });
 
-    const cap = $('#ch-cap');
-    const AUTO_CAP = 'a new practice designed for you will arrive after you save your check-in.';
-    function setCap(key){ if(cap) cap.textContent = key==='auto' ? AUTO_CAP : (CH_CAP[key] || ''); }
-    const chAuto = $('#ch-auto');
-    setCap(ch==null ? 'auto' : (CH_LEVELS.find(l=>l.v===ch)||{key:'meet'}).key);
-    if(chAuto) chAuto.onclick = ()=>{
-      ch = null;
-      chAuto.classList.add('on');
-      $('#ch-seg').querySelectorAll('.ch-opt').forEach(x=>x.classList.remove('on'));
-      setCap('auto');
-    };
-    $('#ch-seg').querySelectorAll('.ch-opt').forEach(b=>b.onclick=()=>{
-      ch = +b.dataset.ch;
-      if(chAuto) chAuto.classList.remove('on');
-      $('#ch-seg').querySelectorAll('.ch-opt').forEach(x=>x.classList.toggle('on', x===b));
-      setCap(b.dataset.chkey);
-    });
+    // the "choose your next practice" fold was removed from the check-in (Justin
+    // 2026-07-24, turn 4): the practice picker owns level selection. `ch` stays null,
+    // so the recommender uses the person's learned appetite — the intended default.
 
     $('#save').onclick = ()=>{
       const vals = { v:v/100, sym:s/100, dor:d/100, source:(window._ciSource||null) };
@@ -2961,7 +3103,7 @@
     $('#lv-out').onclick = ()=>{ _liveClear(); app('today'); };
   }
   function screenLiveCode(){
-    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">join with a code</h2><p class="scr-lede">enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--line,#e4e1d8);border-radius:12px;background:var(--card,#fff);color:inherit;font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">back</button></div></div>');
+    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">join with a code</h2><p class="scr-lede">enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">back</button></div></div>');
     var inp=$('#lc-in'); if(inp) inp.focus();
     var go=function(){
       var v=((inp&&inp.value)||'').trim().toUpperCase();
@@ -3647,18 +3789,24 @@
         <button class="set-gear ci-add" id="add-ci" type="button" aria-label="new check in" title="new check in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
         <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
       </div>
-      <div class="scr-head"><h2 class="scr-h">your check-ins.</h2></div>
-      <div class="deep">${dayHTML}</div>
-      <button class="tb-row p-locked" id="hx-patterns" style="margin-top:18px">
+      <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">your patterns</span>
-          <span class="tb-row-sub">what shows up across all your check-ins &middot; on the base plan</span>
+          <span class="tb-row-sub">your times of day, your week, your numbers &middot; on the base plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
+      <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
+        <h3 class="yr-h">your reflection</h3>
+        <p class="yr-lede">the personal read of your patterns, in plain language.</p>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">read your full reflection &middot; on the base plan</span></span>
+      </a>
+      <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">your check-ins.</h2></div>
+      <div class="deep">${dayHTML}</div>
     </div>`;
     const ad=$('#add-ci');  if(ad) ad.onclick = screenCheckin;
     const sb1=$('#set-btn'); if(sb1) sb1.onclick = screenSettings;
     const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
+    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); gateSubscribe('reader'); };
   }
 
   function tabCurrent(){
@@ -3820,6 +3968,12 @@
       const ce  = _contextEffect();
       const pe  = ce ? _peWindowed() : null;
       const csl = _contextStateLink();
+      // reader-on-top + filterable data (2026-07-23 refine): the daily reader line
+      // becomes the personal-reflection entry; state chips filter the data rows.
+      const _r=(FromJustin&&(FromJustin.daily?FromJustin.daily():(FromJustin.today?FromJustin.today():null)))||null;
+      const _reflText=(_r&&_r.text)?escapeHtml(_r.text):'';
+      const _present=(function(){const t=['morning','afternoon','evening','late'].map(sg=>domOf(cs.filter(x=>segOf(x.t)===sg)));const d=[0,1,2,3,4,5,6].map(k=>{const sub=cs.filter(x=>new Date(x.t).getDay()===k);return sub.length>=3?domOf(sub):null;});return [...new Set([...t,...d].filter(Boolean))];})();
+      const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">all</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_NAME(s)}</span></button>`).join('');
       c.innerHTML=`
         <div class="view play-view">
           <div class="filter-bar">
@@ -3988,14 +4142,22 @@
 
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${lb}"></button>`).join('')}</div>
 
+          <a class="you-reader" id="you-reader" href="#">
+            <h3 class="yr-h">your reflection</h3>
+            <p class="yr-lede">${_reflText || 'the personal read of your patterns, in plain language.'}</p>
+            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+          </a>
+
+          <div class="you-filter" id="you-filter"><div class="you-chips">${_chipsHTML}</div></div>
+
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">day by day</h3>
-              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
               <p class="deep-foot">% = check-ins where a safe state leads.</p>
             </div>
             <div class="deep-block">
@@ -4069,6 +4231,10 @@
       const chgBtn=$('#change-ci'); if(chgBtn) chgBtn.onclick=screenChangeCheckin;
       const mpBtn=$('#manage-pr'); if(mpBtn) mpBtn.onclick=screenManagePractices;
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
+      // reader-on-top entry → the full personal reflection (paid deep reader)
+      const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
+      // state chips filter the data rows (dim non-matching); range change re-renders and resets to all
+      (function(){ const fb=c.querySelector('#you-filter'); if(!fb) return; const chips=fb.querySelectorAll('.you-chip'); const rows=c.querySelectorAll('.deep-row[data-state]'); chips.forEach(ch=>ch.addEventListener('click',()=>{ const f=ch.dataset.f; chips.forEach(x=>x.classList.toggle('on',x===ch)); rows.forEach(r=>{ const ds=r.getAttribute('data-state'); r.classList.toggle('dim', f!=='all' && ds!==f); }); })); })();
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
       const _sig = 'stuck not broken · app.stucknotbroken.com';
@@ -4161,7 +4327,7 @@
       <header class="appbar"><button class="backbtn" id="sd-back">back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#sd-back').onclick = ()=>app('current');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -4264,7 +4430,7 @@
         <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
       </div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`);
     // quiet placeholder until the player document has loaded (it then shows its
     // own "preparing your audio" line) — never a blank screen after "begin".
@@ -4299,6 +4465,42 @@
   ];
   let pState=null;
 
+  // ---------------------------------------------------------------- 7b MAKER DATA
+  // The four shapeable practices (they take dials). Everything else in the type
+  // picker — the standalone sessions and "surprise me" — has no dials, so picking
+  // one collapses the rest of the sentence.
+  const MK_SHAPED = ['micro','mindfulness','anchoring','most'];
+  // the pill (in-sentence) label for each type — kept short so the sentence reads
+  // naturally ("a safety practice", not "a connect with safety practice").
+  const MK_TYPE_PILL = { micro:'tiny', mindfulness:'mindfulness', anchoring:'safety', most:'self-regulation', surprise:'surprise' };
+  const mkIsSession = (k)=> P_MEDS.some(m=>m.id===k);
+  const mkPill = (k)=> MK_TYPE_PILL[k] || (P_MEDS.find(m=>m.id===k)||{}).title || k;
+  // full (menu) label for each type. The type picker shows the NAME only — no
+  // descriptions (Justin 2026-07-25: "just leave the practice names, like
+  // 'connect with safety' and 'self-regulation'").
+  const MK_TYPE_MENU = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
+  // short glosses for the skill picker rows (copy per Justin 2026-07-25)
+  const MK_SKILL_SUB = { validate:'acknowledge defense and briefly put into context', imagery:'give the feeling a shape, invite it in', obstacles:'practice noticing emotions as they arise', balancing:'feel into defense while anchored in safety', pendulation:'shift focus between safety and defense' };
+  // per-type glyphs for the picker (currentColor: muted at rest, track ink when selected)
+  const MK_TYPE_ICO = {
+    micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
+    anchoring:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.6-8.3A4.4 4.4 0 0 1 12 6.8a4.4 4.4 0 0 1 8.6 4.9C18.5 15.8 12 20 12 20z"/></svg>',
+    most:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
+    session:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    surprise:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
+  };
+  // the type picker, grouped for the brand sheet — rows carry an icon + a one-line
+  // description; the label-less last group renders as a plain divider before "surprise".
+  // NAMES ONLY — no per-row descriptions (Justin 2026-07-25). The banded group
+  // headers ('shape your own' / 'guided sessions') carry the grouping; each row is
+  // just its icon + name. (openDialSheet omits the sub line when o.sub is absent.)
+  const MK_TYPE_GROUPS = ()=>[
+    { label:'shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
+    { label:'guided sessions', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
+    { label:null, opts:[{ val:'surprise', menu:'surprise me', ico:MK_TYPE_ICO.surprise }] },
+  ];
+
   // Practice opens on a personalized "for you" view: a context line tuned to the
   // last check-in, and one track-colored card the Curriculum Advisor recommends.
   // Tapping it opens the plan reader. "choose another way" reveals the full chooser.
@@ -4308,7 +4510,10 @@
     // gate-checked in store.js) seed the customizer so "change this practice"
     // starts from the tuned shape.
     pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
-               holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null };
+               holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null,
+               // 7b maker state (paid + mobile): "make my own" starts collapsed; when
+               // opened it seeds from the recommended shape so it begins somewhere coherent.
+               makerOpen:false, mkKey:(MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring') };
     renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
@@ -4359,7 +4564,7 @@
       <header class="appbar"><button class="backbtn" id="plan-back">back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#plan-back').onclick = ()=>app(from);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -4395,6 +4600,242 @@
     };
   }
 
+  // caret shown on every dial — an obvious "opens a menu" chevron (replaces the old
+  // ambiguous up/down glyph). track-colored via currentColor on the pill.
+  const MK_CARET = '<svg class="p7-dial-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+
+  // A brand-styled option sheet (replaces the OS's native <select> menu). Slides up
+  // from the bottom, bone surface, hairline rows, the current choice checked in the
+  // track color. groups: [{label, opts:[{val, menu}]}]. onPick(val) fires on choose.
+  function openDialSheet(title, groups, current, trackCls, onPick){
+    const old=document.getElementById('p7-sheet'); if(old) old.remove();
+    const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
+    let rows='';
+    groups.forEach((g,gi)=>{
+      if(g.label) rows+=`<div class="p7-sheet-group">${escapeHtml(g.label)}</div>`;
+      else if(gi>0) rows+=`<div class="p7-sheet-sep" aria-hidden="true"></div>`;
+      g.opts.forEach(o=>{
+        const sel = String(o.val)===String(current);
+        rows+=`<button class="p7-opt${o.ico?' rich':''}${sel?' sel':''}" type="button" data-val="${escapeHtml(String(o.val))}">
+          ${o.ico?`<span class="p7-opt-ico" aria-hidden="true">${o.ico}</span>`:''}
+          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(o.menu)}</span>${o.sub?`<span class="p7-opt-sub">${escapeHtml(o.sub)}</span>`:''}</span>
+          <svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>
+        </button>`;
+      });
+    });
+    wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true">
+      <div class="p7-sheet-grip" aria-hidden="true"></div>
+      ${title?`<div class="p7-sheet-title">${escapeHtml(title)}</div>`:''}
+      <div class="p7-sheet-body">${rows}</div>
+    </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const close=()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown',onKey); setTimeout(()=>{try{wrap.remove();}catch(e){}},320); };
+    const onKey=(e)=>{ if(e.key==='Escape') close(); };
+    document.addEventListener('keydown',onKey);
+    wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+    wrap.querySelectorAll('[data-val]').forEach(b=>b.onclick=()=>{ close(); onPick(b.dataset.val); haptic('start'); });
+  }
+
+  // ---- 7b: the "make my own" sentence-maker (paid, mobile) --------------------
+  // Heading + the recommended "made for you" card (kept), then a collapsible
+  // "make my own" that reads as one plain sentence whose underlined words are dials.
+  // The sentence is fully dynamic: each clause appears only when it applies to the
+  // chosen practice (mindfulness has no sense; micro has no silence; only
+  // self-regulation carries skill / emotion / hold-&-watch / length). Picking a
+  // standalone session or "surprise" collapses every dial but the type.
+  function renderMaker7b(animateIn){
+    const c=content();
+    const reco = Store.recommend();
+    const rtk = trackOf(reco.practiceKey);
+    // defensive: some entry paths (e.g. the plan screen's "change this practice") seed
+    // pState without a maker type. Never open the maker on a blank practice type.
+    if(!pState.mkKey || (MK_SHAPED.indexOf(pState.mkKey)<0 && !mkIsSession(pState.mkKey) && pState.mkKey!=='surprise')){
+      pState.mkKey = (MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring');
+    }
+    if(!pState.sense) pState.sense='touch';
+    if(!pState.skill) pState.skill='imagery';
+    if(!pState.silence) pState.silence=8;
+    const tunedNm = Store.getName();
+    // the hand-drawn underline sits under the NAME (or "your"), not under "practice"
+    // (Justin 2026-07-24) — so the possessive lead is its own underlined span.
+    const nameLead = tunedNm ? `${escapeHtml(tunedNm)}’s` : 'your';
+    const _tEst = estMinutes(reco.practiceKey, reco.silence);
+    const tunedCard = `
+      <button class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" type="button">
+        <span class="wc-text">
+          <span class="tuned-kicker">made for you</span>
+          <span class="wc-title"><span class="tuned-name">${nameLead}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
+          <span class="wc-reason">${escapeHtml(reco.reason)}</span>
+          ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
+        </span>
+        <span class="wc-go">${CHEV}</span>
+      </button>`;
+
+    c.innerHTML=`<div class="view p-view p7-view">
+      <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">your practice.</h2></div>
+      ${tunedCard}
+      <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}"></button>
+      <div class="p7-shape" id="p7-shape" ${pState.makerOpen?'':'hidden'}></div>
+    </div>`;
+
+    const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
+    const toggle=$('#p7-toggle');
+    const paintToggle=()=>{
+      const open=pState.makerOpen;
+      toggle.textContent = open ? 'hide' : 'make my own';
+      toggle.setAttribute('aria-expanded', open?'true':'false');
+    };
+    paintToggle();
+    toggle.onclick=()=>{
+      pState.makerOpen=!pState.makerOpen;
+      const sh=$('#p7-shape');
+      if(pState.makerOpen){ sh.hidden=false; paintMaker(true); } else { sh.hidden=true; sh.innerHTML=''; }
+      paintToggle();
+    };
+    if(pState.makerOpen) paintMaker(true);
+
+    // build one dial pill (an underlined, tappable word in the sentence)
+    function dial(kind, label, extraCls){
+      return `<button class="p7-dial${extraCls?' '+extraCls:''}" type="button" data-dial="${kind}"><span class="p7-dial-t">${escapeHtml(label)}</span>${MK_CARET}</button>`;
+    }
+    // assemble the live sentence for the current maker state
+    function sentenceHTML(){
+      const k = pState.mkKey;
+      const typeLabel = mkPill(k);
+      let s = `a ${dial('type', typeLabel || 'choose', typeLabel ? '' : 'is-empty')} practice`;
+      if(MK_SHAPED.indexOf(k)>=0){
+        if(k!=='mindfulness') s += `, anchored through ${dial('sense', pState.sense)}`;
+        if(k==='most'){
+          s += `, practicing ${dial('skill', skillLabel(pState.skill))}`;
+          // "working with <feeling>" is meaningless for the obstacles skill — omit it there
+          if(pState.skill!=='obstacles'){
+            const emo = Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion);
+            s += `, working with ${dial('emotion', emo?emo.label:'whatever surfaces')}`;
+          }
+          if(pState.skill==='balancing' || pState.skill==='pendulation'){
+            s += pState.holdWatch
+              ? `, holding &amp; watching for ${dial('hold', holdDurWords(pState.holdSeconds))}`
+              : `, ${dial('hold', 'add hold & watch')}`;
+          }
+        }
+        if(k!=='micro') s += `, with ${dial('silence', silLabel(pState.silence))} silence`;
+        if(k==='most') s += `, running ${dial('length', pState.open?'open-ended':'a complete practice')}`;
+      }
+      return s + '.';
+    }
+    // the dynamic "what this is" explainer — proper-cased (sentence case, not lowercase),
+    // with the user's own dial choices shown in bold so they can see their shaping reflected.
+    function explainHTML(){
+      const k = pState.mkKey;
+      const b = (t)=>`<strong>${escapeHtml(String(t))}</strong>`;
+      if(k==='surprise') return "This is a randomly created practice, weaving together various self-regulation skills. This is best for the curious and motivated.";
+      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided session, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
+      const est = estMinutes(k, k==='micro'?2:pState.silence);
+      const openEnded = (k==='most' && !!pState.open);
+      const label = Store.practiceLabel(k);
+      const bits = [];
+      // opening: what it is + how long (the type + length are user choices → bold)
+      const head = /^a /.test(label) ? `A ${b(label.replace(/^a /,''))}` : `A guided ${b(label)} practice`;
+      const timePhrase = openEnded
+        ? (est ? `, about ${b(est+' minutes')} of guidance, then ${b('open-ended')}` : `, ${b('open-ended')}`)
+        : (est ? `, about ${b(est+' minutes')}` : '');
+      bits.push(head + timePhrase + '.');
+      // the approved "about" prose, proper-cased; bold the anchor sense where anchoring names it
+      let about = escapeHtml(properCase(aboutOf(k, pState.sense)));
+      if(k==='anchoring' && pState.sense) about = about.replace(pState.sense, b(pState.sense));
+      bits.push(about);
+      if((k==='most'||k==='micro') && pState.sense) bits.push(`Your anchor is ${b(pState.sense)}.`);
+      if(k==='most' && pState.skill && SKILL_CAP[pState.skill]) bits.push(escapeHtml(properCase(SKILL_CAP[pState.skill])));
+      if(k==='most' && pState.skill!=='obstacles' && pState.emotion){ const emo=Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion); if(emo) bits.push(`You're working with ${b(emo.label)}.`); }
+      if(k==='most' && pState.holdWatch && (pState.skill==='balancing'||pState.skill==='pendulation')) bits.push(`Then hold safety and defense together and watch what unfolds, for ${b(holdDurWords(pState.holdSeconds))}.`);
+      if(k!=='micro') bits.push(`With ${b(silLabel(pState.silence))} silence between the guidance.`);
+      if(openEnded) bits.push('It keeps going until you choose to stop.');
+      return bits.filter(Boolean).join(' ');
+    }
+
+    function paintMaker(cue){
+      const sh=$('#p7-shape'); if(!sh) return;
+      const k=pState.mkKey; const tk=trackOf(k);
+      sh.className='p7-shape track-'+tk.cls;
+      sh.innerHTML=`
+        <p class="p7-shape-h">make my own</p>
+        <p class="p7-sentence">${sentenceHTML()}</p>
+        <p class="p7-explain" id="p7-explain">${explainHTML()}</p>
+        <div class="p7-actions"><button class="btn block" id="p7-begin">begin</button></div>`;
+      sh.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
+      const bg=$('#p7-begin'); if(bg) bg.onclick=beginMaker;
+      // when the maker first opens, briefly pulse the practice-type pill so it's clear
+      // the type is tappable (it's the first, primary dial). (Justin 2026-07-24)
+      if(cue){ const td=sh.querySelector('[data-dial="type"]'); if(td){ td.classList.add('p7-dial-cue'); td.addEventListener('animationend',()=>td.classList.remove('p7-dial-cue'),{once:true}); } }
+    }
+
+    // open the right brand sheet for a given dial, then repaint on choose
+    function openDial(kind){
+      const k=pState.mkKey; const tkCls='track-'+trackOf(k).cls;
+      if(kind==='type'){
+        openDialSheet('what would you like to practice?', MK_TYPE_GROUPS(), k, tkCls, (v)=>{
+          pState.mkKey=v;
+          // entering self-regulation: make sure the seeded dials are valid for it
+          if(v==='most'){ if(!pState.skill) pState.skill='imagery'; if(!pState.sense) pState.sense='touch'; }
+          if(v==='micro' && ['movement','imagination'].indexOf(pState.sense)>=0) pState.sense='touch';
+          paintMaker();
+        });
+      } else if(kind==='sense'){
+        const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
+        openDialSheet('anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tkCls, (v)=>{ pState.sense=v; paintMaker(); });
+      } else if(kind==='skill'){
+        openDialSheet('which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tkCls, (v)=>{
+          pState.skill=v;
+          if(v!=='balancing' && v!=='pendulation') pState.holdWatch=false;   // hold & watch only applies to these
+          paintMaker();
+        });
+      } else if(kind==='emotion'){
+        const opts=[{val:'',menu:'whatever surfaces',sub:'let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:f.label,sub:f.hint})));
+        openDialSheet('working with', [{opts}], pState.emotion||'', tkCls, (v)=>{ pState.emotion=v||null; paintMaker(); });
+      } else if(kind==='hold'){
+        const opts=[{val:'off',menu:'skip hold & watch'},{val:'30',menu:'hold & watch for 30 sec'},{val:'60',menu:'hold & watch for 1 min'},{val:'90',menu:'hold & watch for 90 sec'},{val:'120',menu:'hold & watch for 2 min'}];
+        openDialSheet('hold & watch', [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tkCls, (v)=>{
+          if(v==='off'){ pState.holdWatch=false; } else { pState.holdWatch=true; pState.holdSeconds=+v; }
+          paintMaker();
+        });
+      } else if(kind==='silence'){
+        openDialSheet('how much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
+      } else if(kind==='length'){
+        openDialSheet('how long?', [{opts:[{val:'false',menu:'a complete practice'},{val:'true',menu:'open-ended'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
+      }
+    }
+
+    function beginMaker(){
+      const k=pState.mkKey;
+      if(k==='surprise'){
+        // shape a random self-regulation practice, then show its plan (details) BEFORE it
+        // begins — the plan screen's own "begin" launches it. (Justin 2026-07-24: surprise
+        // must reveal the practice's details first, not autostart.)
+        const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
+        const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
+        const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
+        const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
+        const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
+        renderPlan({ practiceKey:'most', sense:rsense, skill:rskill, silence:rsilence,
+                     holdWatch:rhw, holdWatchTargetSeconds:(rhw?rhs:null),
+                     reason:'a surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
+        return;
+      }
+      if(mkIsSession(k)){
+        practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k});
+        return;
+      }
+      const sil = k==='micro' ? 2 : pState.silence;
+      const ps={embed:'1',autostart:'1',practice:k,sense:pState.sense,silence:String(sil)};
+      if(k==='most'){ ps.skill=pState.skill;
+        if((pState.skill==='balancing'||pState.skill==='pendulation')&&pState.holdWatch){ ps.holdwatch='1'; ps.holdsecs=String(pState.holdSeconds||60); }
+        if(pState.open) ps.open='1';
+      }
+      practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:pState.skill,silence:sil,holdWatch:(k==='most'?!!pState.holdWatch:false),holdWatchTargetSeconds:(k==='most'&&pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(k==='most'?!!pState.open:false),emotionIntent:(k==='most'?(pState.emotion||null):null)});
+    }
+  }
+
   function renderPracticeChooser(animateIn){
     const c=content();
     let {key,sense,skill,silence,med}=pState;
@@ -4404,6 +4845,11 @@
     // and its adjust/what-to-expect reveals on the right. (Mobile <720 keeps key=null
     // and its full-screen flow unchanged.)
     const desk = !!(window.matchMedia && window.matchMedia('(min-width:720px)').matches);
+
+    // 7b — paid members on mobile get the "make my own" sentence-maker (redesign,
+    // 2026-07-24). Free accounts and desktop keep the existing chooser below,
+    // unchanged. (Desktop paid stays on the list|detail split for now.)
+    if(paidNow() && !desk){ return renderMaker7b(animateIn); }
 
     // per-practice icons: the breath ring for mindfulness, the brand heart for
     // safety, the brand bolt for self-regulation (matching the player's tinting),
@@ -4421,7 +4867,6 @@
         <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
         <span class="wc-text">
           <span class="wc-title">${escapeHtml(o.title)}</span>
-          <span class="wc-reason">${escapeHtml(o.sub)}</span>
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
@@ -4503,7 +4948,7 @@
     // heading-friendly short names: "adjust your safety practice", never
     // "adjust your connect with safety practice" / "your a tiny practice practice"
     const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
-    const heading = !key ? (_paid ? 'your practice, or choose another.' : 'pick a practice.')
+    const heading = !key ? (_paid ? '' : 'pick a practice.')
       : (key==='more' ? 'choose a session.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
     // free: the full menu in the real order, nothing hidden — the base-plan practices are
@@ -4522,11 +4967,11 @@
     if(!desk){
       // ---- MOBILE (<720): unchanged full-screen flow (list OR adjust) ----
       c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
-      <div class="scr-head">
+      ${heading?`<div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">${heading}</h2>
         ${key&&key!=='more'?`<svg class="p-adjust-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`:''}
-      </div>
+      </div>`:''}
       <div class="p-bottom">
         ${!key
           ? `${tunedCard}<div class="p-opts" id="p-opts-list">${optCards}</div>${freeFoot}`
@@ -4542,12 +4987,12 @@
       // practice cards) stays left; the selected practice's adjust/what-to-expect
       // renders on the right. No navigation, no bottom bleed. Reuses the exact same
       // refine/meds markup + handlers + begin flow as mobile. ----
-      const deskHeading = _paid ? 'your practice, or choose another.' : 'pick a practice.';
+      const deskHeading = _paid ? '' : 'pick a practice.';
       c.innerHTML=`<div class="view p-view p-split-view${key?' has-detail':''}${key?' track-'+trackOf(key).cls:''}">
-      <div class="scr-head">
+      ${deskHeading?`<div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">${deskHeading}</h2>
-      </div>
+      </div>`:''}
       <div class="p-split">
         <div class="p-list-col">
           ${tunedCard}<div class="p-opts${key?' has-sel':''}" id="p-opts-list">${optCards}</div>${freeFoot}
@@ -4911,7 +5356,7 @@
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','today')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const u=Store.user();
@@ -4927,111 +5372,154 @@
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
     // among values; switches flip a state) — settings pass 2026-07-05
     const swRow=(id,label,on)=>`<div class="set-row-sw"><span class="set-sw-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
+    // settings redesign (turn 6, 2026-07-24): soft cards + a switch that reads in a row
+    const gsSw=(id,label,on)=>`<div class="gs-sw"><span class="gs-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
+    // input method (settings owns the choice now): sliders (default) · states · numbers
+    const method = (localStorage.getItem('snb_checkin_method')||'sliders');
+    const METHOD_LABEL = { sliders:'sliders', states:'pick a state', numbers:'numbers' };
+    const METHOD_CAP = {                                                                            // 🖊
+      sliders:'drag three quick questions from harder to easier. the default, and the calmest.',
+      states:'skip the sliders and tap the state that fits. good for when you already know.',
+      numbers:'the same three questions, entered as a number from 0 to 10.' };
+    const _svgChev=`<svg class="rs-disc-chev" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>`;
+    const _svgAuto=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></svg>`;
+    const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
+    const _svgDark=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>`;
+    const TS_SIZES=[['0.92','12px'],['1','15px'],['1.12','18px'],['1.25','21px'],['1.6','26px']];
+    // a small, non-interactive taste of the chosen method. ink only (it illustrates the
+    // control, not a real reading), no glyph; the scale labels sit flush to the rail, and
+    // numbers mode shows the value on the right exactly like the live slider.
+    const _methodPreview=(m)=>{
+      if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}</div>`;
+      const numbered = m==='numbers';
+      const sc = numbered ? ['0','10'] : ['harder','easier'];
+      return `<div class="ci-prev${numbered?' has-num':''}" aria-hidden="true">
+          <div class="ci-prev-scale"><span class="ci-prev-lbls"><span>${sc[0]}</span><span>${sc[1]}</span></span></div>
+          <div class="ci-prev-row"><input type="range" class="ci-prev-range" min="0" max="100" value="62" tabindex="-1">${numbered?'<span class="ci-prev-num">6</span>':''}</div>
+        </div>`;
+    };
     $('#content').innerHTML = `
       <div class="view settings-view">
         <div class="scr-head">
           <p class="eyebrow"></p>
           <h2 class="scr-h">settings</h2>
         </div>
+        <div class="gs">
 
-        <div class="set-card">
-        <div class="set-rows">
-          <div class="row"><span class="k">name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="so the app can greet you by name"></div>
-          <div class="row"><span class="k">account</span><span class="val" style="font-weight:400">${escapeHtml(u.email||'on this device')}</span></div>
-        </div>
-        </div>
-
-        <div class="set-card">
-        <p class="set-card-h">display</p>
-        <div class="set-group">
-          <p class="dash-prompt">text size</p>
-          <div class="set-seg" id="seg-text">
-            ${segBtn('ts','0.92','smaller',ts==='0.92')}${segBtn('ts','1','default',ts==='1')}${segBtn('ts','1.12','larger',ts==='1.12')}${segBtn('ts','1.25','largest',ts==='1.25')}${segBtn('ts','1.6','huge',ts==='1.6')}
+          <div class="gs-card">
+            <div class="gs-row"><span class="gs-k">name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="add your name"></div>
+            <div class="gs-row"><span class="gs-k">account</span><span class="gs-v">${escapeHtml(u.email||'on this device')}</span></div>
           </div>
-        </div>
-        <div class="set-group">
-          <p class="dash-prompt">appearance</p>
-          <div class="set-seg" id="seg-theme">
-            ${segBtn('th','','auto',th==='')}${segBtn('th','light','light',th==='light')}${segBtn('th','dark','dark',th==='dark')}
+
+          <div class="gs-card">
+            <button class="rs-disc-btn" id="ci-method-btn" type="button" aria-expanded="true"><span class="gs-h" style="margin:0">your check-in</span><span class="rs-disc-val"><span id="ci-method-val">${METHOD_LABEL[method]||'sliders'}</span> ${_svgChev}</span></button>
+            <div class="rs-disc-body" id="ci-method-body"><div class="disc-inner">
+              <p class="gs-lbl2">how you enter your state</p>
+              <div class="set-seg" id="seg-method">
+                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>sliders</button>
+                <button type="button" data-method="states"${method==='states'?' class="on"':''}>pick a state</button>
+                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>numbers</button>
+              </div>
+              <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
+              <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
+            </div></div>
           </div>
-        </div>
-        <div class="set-group">
-          <p class="dash-prompt">practice scene</p>
-          <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">surprise me</button>
-          <div class="scene-grid">
-            ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
+
+          <div class="gs-card">
+            <p class="gs-h">appearance</p>
+            <p class="gs-lbl2">text size</p>
+            <div class="set-seg ts-seg" id="seg-text">
+              ${TS_SIZES.map(([v,fs])=>`<button type="button" data-ts="${v}"${ts===v?' class="on"':''}><span class="ts-a" style="font-size:${fs}">A</span></button>`).join('')}
+            </div>
+            <p class="gs-lbl2" style="margin-top:18px">theme</p>
+            <div class="icon-seg" id="seg-theme">
+              <button type="button" data-th=""${th===''?' class="on"':''}>${_svgAuto}<span class="lb">auto</span></button>
+              <button type="button" data-th="light"${th==='light'?' class="on"':''}>${_svgLight}<span class="lb">light</span></button>
+              <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">dark</span></button>
+            </div>
+            <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
+            <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'surprise me':psc}</span> ${_svgChev}</span></button>
+            <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
+              <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">surprise me</button>
+              <div class="scene-grid" style="margin-top:8px">
+                ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
+              </div>
+              <p class="rs-cap" id="scene-cap"></p>
+            </div></div>
           </div>
-          <p class="fineprint" id="scene-cap" style="margin-top:10px"></p>
-        </div>
-        <div class="set-group">
-          ${swRow('sw-motion','animations',!rm)}
-          <p class="fineprint" id="motion-cap" style="margin-top:2px"></p>
-          ${swRow('sw-haptics','haptics',hp)}
-          <p class="fineprint" id="hap-cap" style="margin-top:2px"></p>
-          ${_hapIsIOS()?'<p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system limits haptics for web apps, so taps here may stay silent. everything else works the same.</p>':''}
-        </div>
-        </div>
 
-        <div class="set-card">
-        <p class="set-card-h">app</p>
-        ${isStandalone()?'':`<div class="set-group">
-          <div class="set-row-inline" id="install-row">${installRowInner()}</div>
-        </div>`}
+          <div class="gs-card">
+            <p class="gs-h">app</p>
+            ${gsSw('sw-live','live practice invitations',lv!=='0')}
+            ${gsSw('sw-haptics','haptics',hp)}
+            ${gsSw('sw-offline','save practices for offline',offOn)}
+            <p class="gs-fine" id="offline-status"></p>
+            <p class="gs-fine">your check-ins already work offline. they save on this device and sync to your account whenever you reconnect.</p>
+            ${_hapIsIOS()?'<p class="gs-fine">on iphone, the system limits haptics and may clear the offline copy after a while. just turn things back on if that happens.</p>':''}
+            ${isStandalone()?'':`<div class="set-row-inline" id="install-row" style="margin-top:12px">${installRowInner()}</div>`}
+            <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">join a live practice with a code</button></div>
+          </div>
 
-        <div class="set-group">
-          ${swRow('sw-offline','save practices for offline',offOn)}
-          <p class="fineprint" id="offline-status" style="margin-top:2px"></p>
-          <p class="fineprint" style="margin-top:4px">your check-ins already work offline. they save on this device and sync to your account whenever you reconnect.</p>
-          <p class="fineprint" style="margin-top:4px;opacity:.7">on iphone, the system may clear this if the app goes unused for a while. just turn it back on if that happens.</p>
-        </div>
+          <div class="gs-card">
+            <p class="gs-h">your data</p>
+            ${gsSw('sw-glyph','state glyph on shared images',gl!=='0')}
+            <p class="gs-fine">a personal touch on the cards you share: your dominant state's mark, added in the corner. off means the cards share the reflection alone.</p>
+            <div class="gs-actions" style="margin-top:14px">
+              <button class="set-quiet" id="export">export your check-ins</button>
+              <button class="set-quiet" id="privacy">how your data is handled</button>
+              <button class="set-quiet" id="signout">sign out</button>
+            </div>
+          </div>
 
-        <div class="set-group">
-          ${swRow('sw-glyph','state glyph on shared images',gl!=='0')}
-          <p class="fineprint" id="glyph-cap" style="margin-top:2px"></p>
-        </div>
+          ${(function(){ var b=(Store.billing&&Store.billing())||null;
+            // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
+            // never worded as though the free account is deficient. 🖊 copy draft.
+            if(b && b.sub_status==='active')
+              return `<div class="gs-card"><p class="gs-h">subscription</p><p class="gs-note">your subscription is active. change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">manage, change, or cancel subscription</button></div>`;
+            if(!Store.cloud()) return '';
+            // legacy / Academy accounts have the whole base plan without a subscription —
+            // never call that "the free plan", and never show them a subscribe button.
+            var ent = (Store.entitlement && Store.entitlement()) || {};
+            if(ent.circle)
+              return `<div class="gs-card"><p class="gs-h">your plan</p><p class="gs-note" style="margin:0">you're a co-regulator in the unstucking academy. the full app comes included with your membership, as a thank you for practicing with us. nothing to pay for here.</p></div>`;
+            if(ent.legacy)
+              return `<div class="gs-card"><p class="gs-h">your plan</p><p class="gs-note" style="margin:0">everything is included on your account. you were here before the base plan existed, so all of it is yours.</p></div>`;
+            return `<div class="gs-card"><p class="gs-h">subscription</p><p class="gs-note">you're on the free plan. it has no time limit.</p><button class="set-quiet" id="go-sub">subscribe &middot; monthly or annual</button></div>`; })()}
 
-        <div class="set-group">
-          ${swRow('sw-live','live practice invitations',lv!=='0')}
-          <p class="fineprint" id="live-cap" style="margin-top:2px"></p>
-          <button class="set-quiet" id="live-code" type="button" style="margin-top:6px">join a live practice with a code</button>
-        </div>
+          <div class="gs-danger">
+            <button class="set-quiet set-quiet-danger" id="reset">reset my data</button>
+            <button class="set-quiet set-quiet-danger" id="delacct">delete my account</button>
+          </div>
 
+          <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
         </div>
-
-        ${(function(){ var b=(Store.billing&&Store.billing())||null;
-          // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
-          // never worded as though the free account is deficient. 🖊 copy draft.
-          if(b && b.sub_status==='active')
-            return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">your subscription is active. change between monthly and annual, or cancel, anytime.</p><div class="set-actions"><button class="set-quiet" id="manage-sub">manage, change, or cancel subscription</button></div></div>`;
-          if(!Store.cloud()) return '';
-          // legacy / Academy accounts have the whole base plan without a subscription —
-          // never call that "the free plan", and never show them a subscribe button.
-          // 🖊 copy draft (2026-07-14).
-          var ent = (Store.entitlement && Store.entitlement()) || {};
-          if(ent.circle)
-            return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">you're a co-regulator in the unstucking academy. the full app comes included with your membership, as a thank you for practicing with us. nothing to pay for here.</p></div>`;
-          if(ent.legacy)
-            return `<div class="set-card"><p class="set-card-h">your plan</p><p class="fineprint">everything is included on your account. you were here before the base plan existed, so all of it is yours.</p></div>`;
-          return `<div class="set-card"><p class="set-card-h">subscription</p><p class="fineprint" style="margin-bottom:8px">you're on the free plan. it has no time limit.</p><div class="set-actions"><button class="set-quiet" id="go-sub">subscribe &middot; monthly or annual</button></div></div>`; })()}
-
-        <div class="set-card">
-        <p class="set-card-h">your data</p>
-        <div class="set-actions">
-          <button class="set-quiet" id="export">export your check-ins</button>
-          <button class="set-quiet" id="privacy">how your data is handled</button>
-          <button class="set-quiet" id="signout">sign out</button>
-        </div>
-        </div>
-
-        <div class="set-card set-danger">
-        <div class="set-actions">
-          <button class="set-quiet set-quiet-danger" id="reset">reset my data</button>
-          <button class="set-quiet set-quiet-danger" id="delacct">delete my account</button>
-        </div>
-        </div>
-        <p class="set-version" id="set-version"></p>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    // "your check-in" method chooser (turn 6): the choice lives in settings; the
+    // check-in reads snb_checkin_method on open. all three methods capture the same
+    // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
+    (function(){
+      const btn=$('#ci-method-btn'), body=$('#ci-method-body');
+      if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); }
+      const seg=$('#seg-method'); if(!seg) return;
+      const val=$('#ci-method-val'), cap=$('#ci-method-cap'), prev=$('#ci-method-preview');
+      // the numbers preview is a live illustration: dragging its slider moves the value
+      // on the right, just like the real check-in (Justin r4 — the "6" was static).
+      const _bindPrev=()=>{ if(!prev) return; const r=prev.querySelector('.ci-prev-range'), n=prev.querySelector('.ci-prev-num'); if(r&&n) r.oninput=()=>{ n.textContent = Math.round((+r.value)/10); }; };
+      _bindPrev();
+      seg.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
+        const m=b.dataset.method;
+        localStorage.setItem('snb_checkin_method', m);
+        seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        if(val) val.textContent = METHOD_LABEL[m]||m;
+        if(cap) cap.textContent = METHOD_CAP[m]||'';
+        if(prev){ prev.innerHTML = _methodPreview(m); _bindPrev(); }
+        haptic('save');
+      });
+    })();
+    // practice-scene disclosure toggle
+    (function(){ const btn=$('#scene-btn'), body=$('#scene-body');
+      if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='one moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
@@ -5053,8 +5541,8 @@
       breeze:'strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'a still beam of light, dust hanging in it. appears in dark mode.',
       fireflies:'small lights arriving and leaving on their own time. appears in dark mode.' };
-    const scCap=$('#scene-cap');
-    const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; };
+    const scCap=$('#scene-cap'); const scVal=$('#scene-val');
+    const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'surprise me':v; };
     _scSet(psc);
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene);
