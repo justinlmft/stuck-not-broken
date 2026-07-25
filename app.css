@@ -2107,6 +2107,29 @@ body.reduce-motion .lv-breathe{animation:none}
   #screen .today.tb.mh .mh-noci{text-align:left}
 }
 
+/* CHECK-IN KEEPS ITS WORDS ON DESKTOP (2026-07-24, Justin: "make sure the desktop
+   is faithful"). The mobile choreography shrinks "check in again" to a bare plus
+   (24%) to free room for the invite — a WIDTH COMPROMISE, not a design intent. On a
+   desktop window the right field is ~430-530px and both labels fit, so an unlabelled
+   icon button here is pure information loss: no text, and a mouse has nothing to
+   hover (the plus keeps a title= for the narrower band, where it stays).
+   The choreography survives — the invite still eases in beside it; it just no longer
+   has to evict the label to do it. 1100 not 1060: at exactly 1060 the field is 418px
+   and the two labels want ~437, so that last sliver keeps the plus rather than
+   wrapping the reader onto two lines next to a one-line neighbour. */
+@media (min-width:1100px){
+  /* wraps rather than being squeezed below min-content at the large Dynamic Type
+     steps (flex-shrink on a nowrap .btn overran it 44px at 200%) */
+  #screen .today.tb.mh .mh-secondrow.revealed .mh-checkin{flex:0 1 auto;white-space:normal;text-wrap:balance}
+  #screen .today.tb.mh .mh-secondrow.revealed .mh-ci-full{display:inline}
+  #screen .today.tb.mh .mh-secondrow.revealed .mh-checkin .mh-ci-plus{display:none}
+}
+/* 1100-1199 both labels fit only just; trimming the side padding (words AND the read
+   glyph both stay) keeps them on one line instead of wrapping the reader. */
+@media (min-width:1100px) and (max-width:1199.98px){
+  #screen .today.tb.mh .mh-secondrow .btn{padding-left:14px;padding-right:14px}
+}
+
 /* ============================================================
    DESKTOP PRACTICE (>=720) — persistent list | detail. The list
    (the "made for you" custom-practice card + the practice cards)
