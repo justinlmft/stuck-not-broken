@@ -2318,6 +2318,16 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
      screens (Justin 2026-07-20) — was centered, which read as a wider left gutter. */
   #screen .view.play-view:has(.you-ledger){padding-top:36px;margin-inline:0}
   .you-ledger .filter-bar{grid-column:1/-1;margin:0 0 8px}
+  /* the state-filter bar sticks flush to the top on the desktop ledger (2026-07-25).
+     Its 64px sticky offset is calibrated for the phone/tablet layout, where the
+     period filter-bar (sticky top:0) sits above it and covers that band. On the
+     ledger the JS lifts the week/all filter-bar up into the heading row, where it
+     scrolls away — so the 64px band above the pinned chip bar was left uncovered and
+     the data rows showed through it ("visible space above it, background scrolling
+     behind"). Nothing persistent sits above it here, so pin it at the top. Scoped
+     with :has(.you-ledger) so a wide-but-ledger-less view (little data) keeps the
+     64px offset and still tucks under its sticky filter-bar. */
+  #screen .view.play-view:has(.you-ledger) .you-filter{top:0;margin-top:8px}
 }
 
 /* ============================================================
