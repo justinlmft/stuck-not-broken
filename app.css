@@ -1678,10 +1678,13 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .read-lead{font-size:calc(16px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
 .read-dek{font-size:calc(16px * var(--type-scale));line-height:1.6;color:var(--muted);text-wrap:pretty;margin:8px 0 0}
 /* reader TOC: ink text with a quiet ">" marker, inset like a list (blue links cut per Justin) */
-.read-toc{margin:0;padding-left:14px;list-style:none}
+/* the ">" trails the chapter, not leads it: "what safety is >" (Justin 2026-07-25).
+   with the marker no longer hanging off the left, the list sits flush (padding-left:0)
+   so the chapter name leads. the arrow is part of the link, so it's tappable too. */
+.read-toc{margin:0;padding-left:0;list-style:none}
 .read-toc li{margin:0 0 8px;line-height:1.5;font-size:calc(15px * var(--type-scale))}
-.read-toc li::before{content:">";color:var(--muted);margin-right:9px}
 .read-toc a{color:var(--ink);text-decoration:none}
+.read-toc a::after{content:">";color:var(--muted);margin-left:9px}
 .arch-link{color:var(--ink);text-decoration-color:var(--muted)}
 /* mint-seal removed (Justin 2026-07-04: "minted" won't make sense to the reader;
    the stamp was visually foreign to the app) */
