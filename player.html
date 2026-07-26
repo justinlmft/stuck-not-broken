@@ -18,8 +18,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 :root{
-  --bone:#FAF9F5;--bone-deep:#F0EEE7;--hairline:#D8D2C2;--ink:#1A1F2A;--ink-80:#3A3F4A;--muted:#5E5A4E;--link:#0645AD;
+  --bone:#FAF9F5;--bone-deep:#F0EEE7;--hairline:#D8D2C2;--ink:#1A1F2A;--ink-80:#3A3F4A;--muted:#534F45;--link:#0645AD;
   --leaf:#5BA070;--amber:#D29A4A;--sky:#5891C5;
+  /* A3 (DQA 2026-07-26): the chooser eyebrow used to get three LITERAL hexes written
+     inline, so it could not flip and the ink door read 1.62:1 in dark. Mirrors app.css:23. */
+  --track-mind-ink:#1A1F2A;--track-safety-ink:#5891C5;--track-self-ink:#D29A4A;
   --btn-hover:#2A3040;--rbtn:10px;--rcard:14px;
   --ease:cubic-bezier(.2,.6,.2,1);
   --gentle:cubic-bezier(.25,.46,.3,1);   /* softer, slower easing for menu transitions */
@@ -37,7 +40,8 @@
 /* warm dark mode — the app's core dark tokens (app.css :root.theme-dark) */
 :root.theme-dark{
   --bone:#1B1C1E;--bone-deep:#24262A;--hairline:#3A3C42;--ink:#ECEAE3;
-  --ink-80:#C5C3BC;--muted:#928F87;--link:#8FB6EE;--btn-hover:#D7D5CE;
+  --ink-80:#C5C3BC;--muted:#B4B0A6;--link:#8FB6EE;--btn-hover:#D7D5CE;
+  --track-mind-ink:#ECEAE3;--track-safety-ink:#5891C5;--track-self-ink:#D29A4A;   /* mirrors app.css:1494 */
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bone)}
@@ -1026,7 +1030,7 @@ function renderSetup(){
   const mk=document.querySelector('.mark');
   if(mk){mk.classList.remove('mark-sky','mark-amber','mark-ink');mk.classList.add('mark-'+_trk);}
   $('chooser').style.setProperty('--trk','var(--'+_trk+')');
-  $('chooser').style.setProperty('--trk-ink',_trk==='amber'?'#D29A4A':_trk==='ink'?'#3A3F4A':'#5891C5');
+  $('chooser').style.setProperty('--trk-ink','var(--track-'+(_trk==='amber'?'self':_trk==='ink'?'mind':'safety')+'-ink)');
   $('beginhelp').style.display='none';   // orientation now lives in the welcome line + per-option subtitles
   // experience options — built ONCE and then updated in place, so the collapse (on pick) and the
   // expand (on 'back') are the same CSS transition played in reverse, not a jerky DOM rebuild.

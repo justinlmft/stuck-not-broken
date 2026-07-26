@@ -1210,11 +1210,19 @@
           </ul>
           <button class="btn block quiet" id="g-of-free">continue free</button>
         </div>
+        <p class="fineprint" style="text-align:center;margin:14px 0 0">already have an account? <button class="linkbtn" id="g-of-signin" style="font-size:inherit;padding:2px">sign in</button></p>
         <div class="actionbar">
           <button class="navlink" id="g-of-leave" style="align-self:center">leave without saving</button>
         </div>
       </div>`;
     wirePlanPicker();
+    // "already have an account?" — the offer screen was the one place in the guest flow
+    // with no way back to an existing account, so a returning subscriber on a new device
+    // or browser hit a wall that only offered to sell them what they already own. Same
+    // operation as "leave without saving" (sign the anonymous session out, land on the
+    // sign-in form) and the same affordance already on the guest check-in screen; only
+    // the label differs, because the two are different questions to the person reading.
+    const gof = $('#g-of-signin'); if(gof) gof.onclick = ()=>{ gtrack('guest_signin', { door:guestDoor(), from:'offer' }); guestLeave(); };
     $('#g-of-sub').onclick   = ()=>{ gtrack('subscribe_click', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits(), plan:_planChoice }); guestAccountForm('paid'); };
     $('#g-of-free').onclick  = ()=>{ gtrack('continue_free',   { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('free'); };
     // "leave without saving" means what it says: sign out, discard. The check-in
@@ -4666,7 +4674,7 @@
         <span class="wc-text">
           <span class="tuned-kicker">made for you</span>
           <span class="wc-title"><span class="tuned-name">${nameLead}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
-          <span class="wc-reason">${escapeHtml(reco.reason)}</span>
+          <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
           ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
         <span class="wc-go">${CHEV}</span>
@@ -4939,7 +4947,7 @@
           <span class="tuned-kicker">made for you</span>
           <span class="wc-title">${tunedHeading}</span>
           <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
-          <span class="wc-reason">${escapeHtml(reco.reason)}</span>
+          <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
           ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
         <span class="wc-go">${CHEV}</span>

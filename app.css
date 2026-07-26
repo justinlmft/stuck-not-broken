@@ -5,7 +5,7 @@
 
 :root{
   --bone:#FAF9F5; --bone-deep:#F0EEE7; --hairline:#D8D2C2; --ink:#1A1F2A;
-  --ink-80:#3A3F4A; --muted:#5E5A4E; --link:#0645AD;
+  --ink-80:#3A3F4A; --muted:#534F45; --link:#0645AD;
   --sky:#5891C5; --leaf:#5BA070; --amber:#D29A4A;
   --s-safety:#F4D58D; --s-fight:#E89B9B; --s-shutdown:#A3C0DD;
   --s-play:#E8A871; --s-still:#9FC498; --s-freeze:#B89AC4; --s-unlit:#D8D2C2;
@@ -1484,7 +1484,8 @@ body.reduce-motion .settle-ico{transition:none}
 @media (prefers-color-scheme: dark){
   :root:not(.theme-light){
   --bone:#1B1C1E; --bone-deep:#24262A; --hairline:#3A3C42; --ink:#ECEAE3;
-  --ink-80:#C5C3BC; --muted:#928F87; --link:#8FB6EE;
+  --ink-80:#C5C3BC; --muted:#B4B0A6; --link:#8FB6EE;
+  --ink-faded:rgba(236,234,227,.25);   /* A1: was absent here, so system dark kept the LIGHT value (1.008:1) and the check-in tri-glyphs + untouched rails vanished */
   --btn-hover:#D7D5CE;
   --field:#27292E; --knob:#ECEAE3; --danger:#E8A0A0; --raised:#2F3137;
   --backdrop:#0D0E10; --press:#2C2E33; --scale-lo:#3A3C42; --scale-hi:#C5C3BC; --link-soft:rgba(143,182,238,.45); --tg-dim:#565961;
@@ -1499,7 +1500,7 @@ body.reduce-motion .settle-ico{transition:none}
 :root.theme-dark{
   --ink-faded:rgba(236,234,227,.25);
   --bone:#1B1C1E; --bone-deep:#24262A; --hairline:#3A3C42; --ink:#ECEAE3;
-  --ink-80:#C5C3BC; --muted:#928F87; --link:#8FB6EE;
+  --ink-80:#C5C3BC; --muted:#B4B0A6; --link:#8FB6EE;
   --btn-hover:#D7D5CE;
   --field:#27292E; --knob:#ECEAE3; --danger:#E8A0A0; --raised:#2F3137;
   --backdrop:#0D0E10; --press:#2C2E33; --scale-lo:#3A3C42; --scale-hi:#C5C3BC; --link-soft:rgba(143,182,238,.45); --tg-dim:#565961;
