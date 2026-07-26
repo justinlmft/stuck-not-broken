@@ -1648,29 +1648,24 @@
     ];
   }
   function obMarkSVG(){
-    // the mark, at rest. assets/logo/snb-mark.svg is the source of truth for this shape.
-    return '<svg class="ob-mark" viewBox="96 10 208 351" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">'
-      + '<g stroke-width="9.5"><path d="M 120,145 C 105,144 103,173 120,173"/><path d="M 279.5,145 C 294.5,144 296.5,173 279.5,173"/></g>'
-      + '<path stroke-width="9.5" d="M 122,273.5 L 122,86 C 122,63 152,24.5 200,24.5 C 248,24.5 277.5,63 277.5,86 L 277.5,273.5"/>'
-      + '<g stroke-width="6"><path d="M 181.5,108 Q 163,109 146,120"/><path d="M 218.5,108 Q 237,109 254,120"/></g>'
-      + '<g stroke-width="5.5"><circle cx="161.5" cy="151" r="27"/><circle cx="238.5" cy="151" r="27"/>'
-      + '<path d="M 189,146 Q 200,140.5 211,146"/><path d="M 134.5,148 L 122.5,147"/><path d="M 265.5,148 L 277.5,147"/></g>'
-      + '<g stroke-width="3.6"><path d="M 149,156 C 149.5,144 173.5,144 174,156"/><path d="M 226,156 C 226.5,144 250.5,144 251,156"/></g>'
-      + '<ellipse cx="154.5" cy="190" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(13.7 154.5 190)"/>'
-      + '<ellipse cx="245.5" cy="190" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(-13.7 245.5 190)"/>'
-      + '<g stroke-width="9.5"><path d="M 137.5,219.5 L 137.5,305.5"/><path d="M 261.5,219.5 L 261.5,305.5"/>'
-      + '<path d="M 154.5,328.5 L 154.5,255.5 A 45,45 0 0 1 244.5,255.5 L 244.5,328.5"/>'
-      + '<path d="M 175.5,343.5 L 175.5,255.5 A 24.5,24.5 0 0 1 224.5,255.5 L 224.5,343.5"/><path d="M 200,262.5 L 200,346.5"/></g>'
-      + '<path stroke-width="4.2" d="M 181.5,192 C 183,209 217,209 218.5,192"/></svg>';
+    // r9, generated from assets/logo/snb-mark.svg so the inline copy cannot drift from
+    // the asset. Weight ladder: head/beard 9.5 - ears 6.5 - frame 5.5 - brows 5.2 -
+    // nose 4.2 - eyes 3.6. Do not flatten these; six weights is a decision, not an accident.
+    return '<svg class="ob-mark" viewBox="96 10 208 351" aria-hidden="true" fill="none" '
+      + 'stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">'
+      + '<g id="snb-ears" stroke-width="6.5"> <path id="snb-ear-l" d="M 120,147 C 105,148 112,193 120,194"/> <path id="snb-ear-r" d="M 279.5,147 C 294.5,148 287.5,193 279.5,194"/> </g> <path id="snb-head" stroke-width="9.5" d="M 122,273.5 L 122,86 C 122,63 152,24.5 200,24.5 C 248,24.5 277.5,63 277.5,86 L 277.5,273.5"/> <g id="snb-brows" stroke-width="5.2"> <path id="snb-brow-l" d="M 181.5,108 Q 163,109 146,120"/> <path id="snb-brow-r" d="M 218.5,108 Q 237,109 254,120"/> </g> <g id="snb-glasses" stroke-width="5.5"> <circle id="snb-lens-l" cx="164.5" cy="151" r="25.5"/> <circle id="snb-lens-r" cx="235.5" cy="151" r="25.5"/> <path id="snb-bridge" d="M 192,146 Q 200,141.5 208,146"/> <path id="snb-arm-l" d="M 137.5,148 L 122.5,147"/> <path id="snb-arm-r" d="M 262.5,148 L 277.5,147"/> </g> <g id="snb-eyes-closed" stroke-width="3.6"> <path id="snb-eyec-l" d="M 152,156 C 152.5,144 176.5,144 177,156"/> <path id="snb-eyec-r" d="M 223,156 C 223.5,144 247.5,144 248,156"/> </g> <g id="snb-eyes-open" opacity="0"> <circle id="snb-eyeo-l" cx="164.5" cy="151" r="6" fill="currentColor" stroke="none"/> <circle id="snb-eyeo-r" cx="235.5" cy="151" r="6" fill="currentColor" stroke="none"/> </g> <ellipse id="snb-cheek-l" cx="154.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(13.7 154.5 192.5)"/> <ellipse id="snb-cheek-r" cx="245.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(-13.7 245.5 192.5)"/> <g id="snb-beard" stroke-width="9.5"> <path id="snb-ridge-1l" d="M 137.5,219.5 L 137.5,305.5"/> <path id="snb-ridge-1r" d="M 261.5,219.5 L 261.5,305.5"/> <path id="snb-ridge-2" d="M 154.5,328.5 L 154.5,258.25 A 45,45 0 0 1 244.5,258.25 L 244.5,328.5"/> <path id="snb-ridge-3" d="M 175.5,343.5 L 175.5,255.5 A 24.5,24.5 0 0 1 224.5,255.5 L 224.5,343.5"/> <path id="snb-ridge-4" d="M 200,262.5 L 200,346.5"/> </g> <path id="snb-nose" stroke-width="4.2" d="M 180,189 C 183,215 217,215 220,189"/>'
+      + '</svg>';
   }
-
   let _ob = { i:0, on:false };
   function obStep(x){ return x==='decline' ? OB_STEPS.filter(s=>s.id==='decline')[0] : OB_STEPS[x]; }
+  let _obResize=null;
   function startOnboarding(fromSettings){
-    if(_ob.on) return;
+    if(_ob.on || $('#ob-root')) return;
     obBuildSteps();
     _ob.i = fromSettings ? 1 : 0; _ob.on = true;
     obTrack('orient_start', { from: fromSettings?'settings':'first_open' });
+    if(!_obResize){ _obResize = ()=>{ if(_ob.on){ const st=obStep(_ob.i); if(st) obPlace(st); } };
+      window.addEventListener('resize', _obResize); }
     obPaint(true);
   }
   function endOnboarding(how){
@@ -1682,7 +1677,9 @@
   }
   function obEnsureRoot(){
     let d=$('#ob-root');
-    if(!d){ d=document.createElement('div'); d.id='ob-root'; d.className='ob-root'; root.appendChild(d); }
+    // document.body, NOT root: app() rebuilds root.innerHTML on every render and on every
+    // re-entry into route(), which is what made the sheet flash and disappear on beta.
+    if(!d){ d=document.createElement('div'); d.id='ob-root'; d.className='ob-root'; document.body.appendChild(d); }
     return d;
   }
   function obPaint(first){
@@ -1719,7 +1716,8 @@
   }
   function obPlace(st){
     const d=$('#ob-root'); const card=d.querySelector('.ob-card');
-    const shellR = root.getBoundingClientRect();
+    // positioned against the viewport now that the overlay is a child of body
+    const shellR = { left:0, top:0, width:window.innerWidth, height:window.innerHeight };
     const contentEl = $('#content'); if(contentEl) contentEl.style.transform='';
     const dims = [...d.querySelectorAll('.ob-dim')];
     const hole = d.querySelector('.ob-hole');
@@ -1737,12 +1735,12 @@
     }
     const p = st.pad==null?8:st.pad;
     const measure = ()=>{ const tr=target.getBoundingClientRect();
-      return { x:tr.left-shellR.left-p, y:tr.top-shellR.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
+      return { x:tr.left-p, y:tr.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
     let r = measure();
     // the sheet is pinned to the bottom, so a low target would sit UNDER it.
     // lift the app content by the overlap and re-measure, so the ring stays visible.
     if(contentEl && card){
-      const cardTop = card.getBoundingClientRect().top - shellR.top;
+      const cardTop = card.getBoundingClientRect().top;
       const overlap = (r.y + r.h + 16) - cardTop;
       if(overlap > 0){ contentEl.style.transform='translateY('+(-Math.round(overlap))+'px)'; r = measure(); }
     }

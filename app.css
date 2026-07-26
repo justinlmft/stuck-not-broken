@@ -2481,7 +2481,7 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
    one easing curve, and a spotlight that is four dim panes plus a 2px ink ring
    so nothing floats. Never a card that cannot be left.
    ═══════════════════════════════════════════════════════════════════════════ */
-.ob-root{position:absolute;inset:0;z-index:80;pointer-events:auto}
+.ob-root{position:fixed;inset:0;z-index:80;pointer-events:auto}
 .ob-dim{position:absolute;background:rgba(26,31,42,.38)}
 .ob-dim.anim{animation:obFade .24s var(--ease)}
 .ob-hole{position:absolute;border:2px solid var(--ink);border-radius:16px;pointer-events:none;box-sizing:border-box}
