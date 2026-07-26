@@ -1536,7 +1536,7 @@
   // ═════════════════════════════════════════════════════════════════════════
   // MEMBER ONBOARDING (item 114, 2026-07-26)
   // Built from Claude Design's approved prototype — their sheet variant (1b).
-  // Their path, kept: welcome + the choice · practice customizer (spotlight) ·
+  // Their path, kept: welcome + the choice · practice maker (spotlight) ·
   // reader (spotlight) · you-tab stats (spotlight) · check-in method ·
   // practice defaults · your name · done. Declining gives ONE card listing the
   // three unlocks and nothing else. Every card can be left.
@@ -1601,8 +1601,8 @@
         actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
 
       { id:'practice', tab:'practice', kind:'spot', target:'#p7-toggle', pad:8,
-        h:'Your practice customizer',
-        body:'<p class="ob-p">This opens the practice customizer. Want more silence? No problem. A certain visual? Sure thing. Do it all here.</p>' },
+        h:'Your practice maker',
+        body:'<p class="ob-p">This opens the practice maker. Want more silence? No problem. A certain visual? Sure thing. Do it all here.</p>' },
 
       { id:'reader', tab:'current', kind:'spot', target:'#you-reader', pad:8,
         h:'Your personal reader',
