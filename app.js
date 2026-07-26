@@ -3266,6 +3266,15 @@
       const colOf = ciAxisColorFn(v, s, d, axTouched);
       // states mode paints the same way, but only once the fine-tune block is open
       const _tuneOpen = !_ciStates || !!(root.querySelector('#ci-tune') && !root.querySelector('#ci-tune').hidden);
+      // the chips above are not just the input, they are a live readout: as the sliders
+      // move, the highlighted state follows the numbers. Otherwise someone can tune their
+      // way well out of the state they tapped while that chip still sits lit (Justin,
+      // 2026-07-26). dominantOf can land on 'neutral', which is no chip: honest, so the
+      // row simply goes quiet rather than pretending.
+      if(_ciStates && _tuneOpen){
+        const dk = window.PVCurrent.dominantOf(v/100, s/100, d/100).key;
+        root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x.dataset.ovr===dk));
+      }
       if(_tuneOpen){
         setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
         ciPaintSliders(colOf);   // rails + anchoring glyphs take the same colour
