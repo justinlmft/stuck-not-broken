@@ -2517,11 +2517,20 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
   /* The actions must NEVER be pushed off. The card is a column: only the body scrolls,
      and the footer is flex:none, so long copy costs reading room and never the buttons. */
   display:flex;flex-direction:column;max-height:min(82vh,640px)}
-.ob-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+/* the 20px keeps the last line of copy clear of the footer fade. Without it the body
+   ends exactly at the footer edge and the gradient washes out the final line even when
+   there is nothing to scroll (measured: 0px gap on the method card at 390 / 100%). */
+.ob-body{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;padding-bottom:20px}
 .ob-foot{flex:none;position:relative}
 /* a short fade so scrolled copy dissolves into the footer instead of being sliced */
+/* and the fade only exists while there IS more copy below the fold. It used to paint
+   unconditionally, so it dimmed the end of copy that fitted perfectly well. */
 .ob-foot::before{content:"";position:absolute;left:0;right:0;top:-18px;height:18px;pointer-events:none;
+  opacity:0;transition:opacity .18s var(--ease);
   background:linear-gradient(to bottom,transparent,var(--bone))}
+.ob-card.more .ob-foot::before{opacity:1}
+body.reduce-motion .ob-foot::before{transition:none}
 .ob-card.anim{animation:obRiseS .34s var(--ease)}
 /* the grab row carries back on the left. A 3-column grid keeps the grab optically centred
    whether or not back is there, and keeps the control out of the footer, where it would

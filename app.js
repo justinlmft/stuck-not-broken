@@ -1663,7 +1663,7 @@
     obBuildSteps();
     _ob.i = fromSettings ? 1 : 0; _ob.min = _ob.i; _ob.on = true;
     obTrack('orient_start', { from: fromSettings?'settings':'first_open' });
-    if(!_obResize){ _obResize = ()=>{ if(_ob.on){ const st=obStep(_ob.i); if(st) obPlace(st); } };
+    if(!_obResize){ _obResize = ()=>{ if(_ob.on){ const st=obStep(_ob.i); if(st){ obPlace(st); obFade(); } } };
       window.addEventListener('resize', _obResize); }
     obPaint(true);
   }
@@ -1713,7 +1713,21 @@
     d.innerHTML = html;
     obPlace(st);
     obWire(st);
+    obFade();
     const card=d.querySelector('.ob-card'); if(card) card.focus && card.setAttribute('tabindex','-1');
+  }
+  // The footer fade means "there is more copy below". It used to paint unconditionally,
+  // so on a card whose copy fitted exactly it washed out the last line for no reason
+  // (measured: 0px between the method caption and the footer at 390 / 100%).
+  function obFade(){
+    const d=$('#ob-root'); if(!d) return;
+    const card=d.querySelector('.ob-card'), body=d.querySelector('.ob-body');
+    if(!card||!body) return;
+    const upd=()=>card.classList.toggle('more', body.scrollTop + body.clientHeight < body.scrollHeight - 1);
+    body.onscroll=upd; upd();
+    // obPlace sets the card height in this same frame, so a synchronous read can catch a
+    // stale clientHeight and miss a body that really does overflow. Re-measure after layout.
+    requestAnimationFrame(upd); setTimeout(upd, 140);
   }
   function obPlace(st){
     const d=$('#ob-root'); const card=d.querySelector('.ob-card');
