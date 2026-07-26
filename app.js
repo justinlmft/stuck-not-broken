@@ -1577,7 +1577,7 @@
   }
   function obChip(group,val,label){ return '<button class="ob-chip" type="button" data-'+group+'="'+val+'">'+escapeHtml(label)+'</button>'; }
   const OB_METHOD_CAP = {
-    sliders:'Three slow sliders. The most detail, if you have the energy for it.',
+    sliders:'Best for someone who has a hard time identifying their state. Simply answer a few quick questions with three sliders.',
     states :'Start from the state that fits, then fine-tune. Quickest when you already know.',
     numbers:'One number per axis. Quickest if you already know what you would say.'
   };
@@ -1615,7 +1615,7 @@
       { id:'method', tab:'current', kind:'center',
         h:'How do you want to check in?',
         body:'<p class="ob-p">All three record the same thing, so you can switch any time without breaking your history.</p>'
-           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Sliders')+obChip('method','states','Pick a state')+obChip('method','numbers','Numbers')+'</div>'
+           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Question sliders')+obChip('method','states','Pick a state')+obChip('method','numbers','Numbers')+'</div>'
            + '<p class="ob-fine" data-cap="method"></p>' },
 
       { id:'defaults', tab:'practice', kind:'center',
