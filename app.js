@@ -1200,10 +1200,10 @@
         <div class="offer-card offer-paid">
           <h2>your personal self-regulation tool</h2>
           <ul>
-            <li>practices built from your own check-ins, not picked off a list</li>
+            <li>practices built from your check-ins, not picked off a list</li>
             <li>all six practices, including the safety practices</li>
             <li>what shows up across all your check-ins: when you're most regulated, what keeps repeating, which practices actually help</li>
-            <li>your own personal reader, from the moment to the day to the week and beyond</li>
+            <li>your personal reader, from the moment to the day to the week and beyond</li>
           </ul>
           ${planPickerHTML()}
           <button class="btn block" id="g-of-sub">subscribe now</button>
@@ -1213,7 +1213,7 @@
             <div class="offer-more-body">
               <p><b>Practices:</b> Get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
               <p><b>Analytics:</b> The more you check in, the more you learn about yourself. Identify what time of day, what day of the week, and even what season of the year bring you the most safety or the most challenge. See how practices affect your system and which ones help the most.</p>
-              <p><b>Personal reader:</b> Your check-ins and analytics create your own personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
+              <p><b>Personal reader:</b> Your check-ins and analytics create your personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
             </div>
           </details>
         </div>
@@ -1222,7 +1222,7 @@
           <ul>
             <li>check in as often as you like</li>
             <li>both mindfulness practices, the short one and the full one, as often as you want</li>
-            <li>your own check-in history, saved</li>
+            <li>your check-in history, saved</li>
           </ul>
           <button class="btn block quiet" id="g-of-free">continue free</button>
         </div>
@@ -1400,7 +1400,7 @@
         <div class="gate-body">
           <p class="eyebrow">the base plan</p>
           <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">it adds practices built from your own check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. cancel anytime.</p>
+          <p class="lede" style="margin-bottom:6px">it adds practices built from your check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. cancel anytime.</p>
           ${planPickerHTML()}
           <p class="fineprint" style="margin-bottom:18px">your card is charged today. it renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses. what you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
@@ -1587,10 +1587,9 @@
     // buttons, so long copy costs the scroll, not the action.
     OB_STEPS = [
       { id:'welcome', tab:'today', kind:'center',
-        eyebrow:'You\u2019re in',
         h:'Welcome',
         body:'<p class="ob-p">Thank you for subscribing. Three things just opened up for you:</p>'
-           + '<ol class="ob-list"><li>Practices built from your own check-ins</li>'
+           + '<ol class="ob-list"><li>Practices built from your check-ins</li>'
            + '<li>Your own reader</li>'
            + '<li>What shows up across all your check-ins</li></ol>'
            + '<p class="ob-p">I can walk you through them and help you set things up, or you can go straight in. Either is fine, and the walkthrough stays in settings.</p>'
@@ -1602,23 +1601,21 @@
         h:'Built, not picked',
         body:'<p class="ob-p">This opens the maker. It starts from your last check-in, and every part of it is yours to change before you begin.</p>' },
 
-      { id:'reader', tab:'today', kind:'spot', target:'#mh-third', pad:8,
+      { id:'reader', tab:'current', kind:'spot', target:'#you-reader', pad:8,
         h:'Your reader',
-        body:'<p class="ob-p">When a reflection is ready it appears here, written from your own check-ins. The more you check in, the further out it can see.</p>' },
+        body:'<p class="ob-p">When a reflection is ready it appears here, written from your check-ins. The more you check in, the further out it can see.</p>' },
 
       { id:'stats', tab:'current', kind:'spot', target:'#carousel', pad:6,
         h:'What keeps showing up',
         body:'<p class="ob-p">Your patterns live here. None of it is a score and none of it is a target. It mirrors what you named, nothing more.</p>' },
 
       { id:'method', tab:'current', kind:'center',
-        eyebrow:'Set it your way',
         h:'How do you want to check in?',
         body:'<p class="ob-p">All three record the same thing, so you can switch any time without breaking your history.</p>'
            + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Sliders')+obChip('method','states','Pick a state')+obChip('method','numbers','Numbers')+'</div>'
            + '<p class="ob-fine" data-cap="method"></p>' },
 
       { id:'defaults', tab:'practice', kind:'center',
-        eyebrow:'Set it your way',
         h:'Where should your practices start?',
         body:'<p class="ob-p">A starting point, not a rule. You can change any of it before you begin.</p>'
            + '<p class="ob-fine" style="margin:10px 0 3px">Anchored through</p>'
@@ -1627,9 +1624,8 @@
            + '<div class="ob-chips" data-group="silence">'+[[4,'A little'],[8,'Some'],[14,'A lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
 
       { id:'name', tab:'practice', kind:'center',
-        eyebrow:'Set it your way',
         h:'What should I call you?',
-        body:'<p class="ob-p">It only ever appears on your own screens. Leave it blank if you would rather not.</p>'
+        body:'<p class="ob-p">It only ever appears on your screens. Leave it blank if you would rather not.</p>'
            + '<input class="ob-name" id="ob-name" type="text" placeholder="Your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
 
       { id:'done', tab:'today', kind:'center',
@@ -1656,13 +1652,16 @@
       + '<g id="snb-ears" stroke-width="6.5"> <path id="snb-ear-l" d="M 120,147 C 105,148 112,193 120,194"/> <path id="snb-ear-r" d="M 279.5,147 C 294.5,148 287.5,193 279.5,194"/> </g> <path id="snb-head" stroke-width="9.5" d="M 122,273.5 L 122,86 C 122,63 152,24.5 200,24.5 C 248,24.5 277.5,63 277.5,86 L 277.5,273.5"/> <g id="snb-brows" stroke-width="5.2"> <path id="snb-brow-l" d="M 181.5,108 Q 163,109 146,120"/> <path id="snb-brow-r" d="M 218.5,108 Q 237,109 254,120"/> </g> <g id="snb-glasses" stroke-width="5.5"> <circle id="snb-lens-l" cx="164.5" cy="151" r="25.5"/> <circle id="snb-lens-r" cx="235.5" cy="151" r="25.5"/> <path id="snb-bridge" d="M 192,146 Q 200,141.5 208,146"/> <path id="snb-arm-l" d="M 137.5,148 L 122.5,147"/> <path id="snb-arm-r" d="M 262.5,148 L 277.5,147"/> </g> <g id="snb-eyes-closed" stroke-width="3.6"> <path id="snb-eyec-l" d="M 152,156 C 152.5,144 176.5,144 177,156"/> <path id="snb-eyec-r" d="M 223,156 C 223.5,144 247.5,144 248,156"/> </g> <g id="snb-eyes-open" opacity="0"> <circle id="snb-eyeo-l" cx="164.5" cy="151" r="6" fill="currentColor" stroke="none"/> <circle id="snb-eyeo-r" cx="235.5" cy="151" r="6" fill="currentColor" stroke="none"/> </g> <ellipse id="snb-cheek-l" cx="154.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(13.7 154.5 192.5)"/> <ellipse id="snb-cheek-r" cx="245.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(-13.7 245.5 192.5)"/> <g id="snb-beard" stroke-width="9.5"> <path id="snb-ridge-1l" d="M 137.5,219.5 L 137.5,305.5"/> <path id="snb-ridge-1r" d="M 261.5,219.5 L 261.5,305.5"/> <path id="snb-ridge-2" d="M 154.5,328.5 L 154.5,258.25 A 45,45 0 0 1 244.5,258.25 L 244.5,328.5"/> <path id="snb-ridge-3" d="M 175.5,343.5 L 175.5,255.5 A 24.5,24.5 0 0 1 224.5,255.5 L 224.5,343.5"/> <path id="snb-ridge-4" d="M 200,262.5 L 200,346.5"/> </g> <path id="snb-nose" stroke-width="4.2" d="M 180,189 C 183,215 217,215 220,189"/>'
       + '</svg>';
   }
-  let _ob = { i:0, on:false };
+  let _ob = { i:0, min:0, on:false };
+  // no back on the first card of the run. Re-entry from settings starts at 1, so back
+  // there must not reach the welcome, which thanks them for subscribing all over again.
+  function obCanBack(){ return _ob.i==='decline' ? true : (typeof _ob.i==='number' && _ob.i > _ob.min); }
   function obStep(x){ return x==='decline' ? OB_STEPS.filter(s=>s.id==='decline')[0] : OB_STEPS[x]; }
   let _obResize=null;
   function startOnboarding(fromSettings){
     if(_ob.on || $('#ob-root')) return;
     obBuildSteps();
-    _ob.i = fromSettings ? 1 : 0; _ob.on = true;
+    _ob.i = fromSettings ? 1 : 0; _ob.min = _ob.i; _ob.on = true;
     obTrack('orient_start', { from: fromSettings?'settings':'first_open' });
     if(!_obResize){ _obResize = ()=>{ if(_ob.on){ const st=obStep(_ob.i); if(st) obPlace(st); } };
       window.addEventListener('resize', _obResize); }
@@ -1697,9 +1696,11 @@
              + '<div class="ob-dim" data-side="l"></div><div class="ob-dim" data-side="r"></div>';
     if(st.kind==='spot') html += '<div class="ob-hole"></div>';
     html += '<div class="ob-card'+(first?' anim':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
-      + '<span class="ob-grab"></span>'
+      + '<div class="ob-top">'
+      + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
+          + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>back</button>' : '<span></span>')
+      + '<span class="ob-grab"></span><span class="ob-toppad"></span></div>'
       + '<div class="ob-body">'
-      + (st.eyebrow?'<p class="ob-eyebrow">'+escapeHtml(st.eyebrow)+'</p>':'')
       + '<h2 class="ob-h">'+escapeHtml(st.h)+'</h2>'
       + st.body
       + (st.fine?'<p class="ob-fine">'+escapeHtml(st.fine)+'</p>':'')
@@ -1776,6 +1777,8 @@
       if(g==='end'){ return endOnboarding('done'); }
       if(g==='decline'){ _ob.i='decline'; return obPaint(false); }
       if(g==='next'){ _ob.i = (typeof _ob.i==='number' ? _ob.i+1 : 0); return obPaint(false); }
+      // decline is a standalone card reached from the welcome, so its back goes there
+      if(g==='back'){ _ob.i = (_ob.i==='decline') ? 0 : Math.max(_ob.min, _ob.i-1); return obPaint(false); }
       _ob.i = +g; obPaint(false);
     });
     // the preference cards write the SAME keys settings writes — a walkthrough OF the app
