@@ -316,15 +316,18 @@
     `you're reporting: ${CI_MIRROR.v[ciBucket(v)]}, ${CI_MIRROR.sym[ciBucket(sym)]}, and ${CI_MIRROR.dor[ciBucket(dor)]}.`;
   // ---- shared check-in feedback (turn 4 + r2 2026-07-24) -------------------------
   // one ci4 slider row: glyph anchors, question leads, single shared scale above.
-  function ci4SliderHTML(key, scenario, cls, val, numbered){
+  // plain = the state method's fine-tune. Someone who picks a state already knows their
+  // states, so they get the axis by name and a less/more scale instead of a scenario
+  // question and harder/easier (Justin, 2026-07-26).
+  function ci4SliderHTML(key, scenario, cls, val, numbered, plain){
     const ax = AXIS_ICON[key] || {};
     const icon = ax.icon ? ico(ax.icon,{cls:'slider-ico', color:STATE_COLOR(ax.state)}) : '';
-    return `<div class="slider" data-axis="${key}">
+    return `<div class="slider${plain?' slider-plain':''}" data-axis="${key}">
       <span class="slider-ico-wrap">${icon}</span>
       <div class="slider-main">
         <p class="q" id="q-${key}">${scenario}</p>
         <div class="sl-row">
-          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
+          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="${plain?('how much '+scenario):('how easy would it be to '+scenario)}">
           ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
         </div>
       </div>
@@ -3181,21 +3184,33 @@
     // starting point that can then be fine-tuned rather than one of six fixed readings.
     // Before this, every "safety" tap saved exactly 85/15/15 and the granular data was
     // gone (Justin, 2026-07-26).
+    // Two shapes of the same three sliders.
+    //  · question form (sliders / numbers): a scenario, scored harder -> easier. The two
+    //    defence axes invert, because "easy to relax your shoulders" is LOW mobilization.
+    //  · plain form (states fine-tune): the axis by name, scored less -> more, read
+    //    directly. A slider labelled "mobilization" that FALLS as you drag right would be
+    //    a trap, so in this form nothing inverts.
+    const AX_PLAIN = { v:'connection', sym:'mobilization', dor:'immobilization' };
     const _sliderBlock = `<div class="ci4-scale" aria-hidden="true"><span>${_ciScale[0]}</span><span>${_ciScale[1]}</span></div>
           <div class="sliders">
             ${_ax4('v', CI_BANK.v[qIdx.v], 'r-v', v)}
             ${_ax4('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
             ${_ax4('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>`;
+    const _plainBlock = `<div class="ci4-scale" aria-hidden="true"><span>less</span><span>more</span></div>
+          <div class="sliders">
+            ${ci4SliderHTML('v', AX_PLAIN.v, 'r-v', v, false, true)}
+            ${ci4SliderHTML('sym', AX_PLAIN.sym, 'r-sym', s, false, true)}
+            ${ci4SliderHTML('dor', AX_PLAIN.dor, 'r-dor', d, false, true)}
+          </div>`;
     const _ciInput = _ciStates
       ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
           <div class="ci-ovr-chips ci4-states">
             ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
           </div>
-          <p class="ci-ovr-about" id="ci-ovr-about"></p>
           <div class="ci-tune" id="ci-tune"${editRec?'':' hidden'}>
             <p class="ci-tune-lede">fine-tune anything that isn't quite right.</p>
-            ${_sliderBlock}
+            ${_plainBlock}
           </div>`
       : _sliderBlock;
     $('#content').innerHTML = `<div class="view checkin2 ci4${_ciStates?' ci-m-states':(_ciNumbers?' ci-m-numbers':'')}">
@@ -3208,7 +3223,6 @@
         <div class="ci-block">
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
-          ${_ciStates?`<button class="ci-shuffle" id="ci-shuffle-st" type="button"${editRec?'':' hidden'}>change the questions</button>`:''}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like: when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
         </div>
@@ -3263,13 +3277,13 @@
         else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
       }
     }
-    // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert.
     // Bound in every method now: in states mode the same three sliders are the fine-tune.
+    // Question form reads ease, so the two defence axes invert; plain form reads the axis.
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
-    bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
-    bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
+    bindSlider('sym', val=>{s=_ciStates?val:100-val;axTouched.sym=1;refresh();});
+    bindSlider('dor', val=>{d=_ciStates?val:100-val;axTouched.dor=1;refresh();});
     refresh();
-    const _shuf = $('#ci-shuffle') || $('#ci-shuffle-st');
+    const _shuf = $('#ci-shuffle');
     if(_shuf) _shuf.onclick = ()=>{
       ['v','sym','dor'].forEach(ax=>{
         qIdx[ax] = ciRand(ax, qIdx[ax]);
@@ -3290,13 +3304,12 @@
       root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{
         const k=b.dataset.ovr, ax=STATE_AXES[k];
         root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x===b));
-        const ab=$('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
         if(!ax) return;
         axTouched.v=1; axTouched.sym=1; axTouched.dor=1;
         v=ax[0]*100; s=ax[1]*100; d=ax[2]*100;
-        // sliders read EASE, so the two defence axes invert on the way in
+        // the plain sliders read the axis directly, so nothing inverts here
         const put=(id,val)=>{ const el=$('#sl-'+id); if(el) el.value=String(Math.round(val)); };
-        put('v', v); put('sym', 100-s); put('dor', 100-d);
+        put('v', v); put('sym', s); put('dor', d);
         const tune=$('#ci-tune'), shuf=$('#ci-shuffle-st');
         const firstOpen = tune && tune.hidden;
         if(firstOpen){ tune.hidden=false; tune.classList.add('in'); }

@@ -1136,7 +1136,6 @@ body.reduce-motion .p7-shape{animation:none}
 .ci-ovr-opt:hover{border-color:var(--ink-80)}
 .ci-ovr-opt.on{border-color:var(--ink);border-width:1px;padding:10px 15px;color:var(--ink);font-weight:500}
 .ci-ovr-opt .st-marks{display:inline-flex}
-.ci-ovr-about{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:2px 0 0;text-wrap:pretty;min-height:1em}
 /* challenge appetite — set apart in a soft recessed panel so it reads as its own
    decision, not a continuation of the sliders above */
 .ci-challenge{gap:0;margin-top:18px;border:1px solid var(--hairline);border-radius:16px;padding:16px 16px 18px}
@@ -1186,6 +1185,9 @@ body.reduce-motion .p7-shape{animation:none}
 .ci-tune.in{animation:secRise .42s var(--ease) both}
 body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 .ci-tune-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);margin:0 0 13px;text-wrap:pretty}
+/* the plain (states) fine-tune labels the axis instead of asking a scenario, so the label
+   is a quiet name rather than a question. */
+.slider-plain .q{font-weight:500;letter-spacing:.01em}
 .ci-readout4{display:block;line-height:1.55}
 .ci-readout4 .ci-join{color:var(--muted)}
 .ci-readout4 .ci-clause{font-weight:500;transition:color .35s var(--ease)}
