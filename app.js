@@ -1558,9 +1558,9 @@
   function obTrack(name, meta){ try{ if(Store.trackEvent) Store.trackEvent(name, meta||{}); }catch(e){} }
 
   const OB_UNLOCKS = [
-    ['spark', 'Practices built from your check-ins', 'The practice tab stops being a list. It builds one out of what you actually reported, and you can change any part of it.'],
-    ['book',  'Your own reader',                     'Your check-ins, read back to you in plain language. It changes every time you check in.'],
-    ['chart', 'What shows up across all your check-ins', 'When you are most regulated, what keeps repeating, and which practices help. It needs a few check-ins first.']
+    ['spark', 'Practices custom-designed for you', 'The practice tab stops being a list. It builds one out of what you actually reported, and you can change any part of it.'],
+    ['book',  'A personal reader',                  'Your check-ins, read back to you in plain language. It changes every time you check in.'],
+    ['chart', 'Deep data insights',                 'When you are most regulated, what keeps repeating, and which practices help. It needs a few check-ins first.']
   ];
   function _obIcon(k){
     const p = k==='spark' ? '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8"/>'
@@ -1589,25 +1589,25 @@
       { id:'welcome', tab:'today', kind:'center',
         h:'Welcome',
         body:'<p class="ob-p">Thank you for subscribing. Three things just opened up for you:</p>'
-           + '<ol class="ob-list"><li>Practices built from your check-ins</li>'
-           + '<li>Your own reader</li>'
-           + '<li>What shows up across all your check-ins</li></ol>'
-           + '<p class="ob-p">I can walk you through them and help you set things up, or you can go straight in. Either is fine, and the walkthrough stays in settings.</p>'
+           + '<ol class="ob-list"><li>Practices created just for you</li>'
+           + '<li>A personal reader</li>'
+           + '<li>Deep data insights</li></ol>'
+           + '<p class="ob-p">Choose how you’d like to get started below. Welcome again.</p>'
            + '<p class="ob-sign">Justin</p>'
            + obMarkSVG(),
         actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
 
       { id:'practice', tab:'practice', kind:'spot', target:'#p7-toggle', pad:8,
-        h:'Built, not picked',
-        body:'<p class="ob-p">This opens the maker. It starts from your last check-in, and every part of it is yours to change before you begin.</p>' },
+        h:'Your practice customizer',
+        body:'<p class="ob-p">This opens the practice customizer. Want more silence? No problem. A certain visual? Sure thing. Do it all here.</p>' },
 
       { id:'reader', tab:'current', kind:'spot', target:'#you-reader', pad:8,
-        h:'Your reader',
-        body:'<p class="ob-p">When a reflection is ready it appears here, written from your check-ins. The more you check in, the further out it can see.</p>' },
+        h:'Your personal reader',
+        body:'<p class="ob-p">Your personal reader changes based on your check-ins and practices. Over the moments, days, weeks, and beyond, it will have more and more information about you to learn from and build insight from.</p>' },
 
       { id:'stats', tab:'current', kind:'spot', target:'#carousel', pad:6,
-        h:'What keeps showing up',
-        body:'<p class="ob-p">Your patterns live here. None of it is a score and none of it is a target. It mirrors what you named, nothing more.</p>' },
+        h:'Your insights & patterns',
+        body:'<p class="ob-p">This is where you can find snapshots of what your data is saying. Check-ins and practices accumulate here.</p>' },
 
       { id:'method', tab:'current', kind:'center',
         h:'How do you want to check in?',
