@@ -1603,6 +1603,10 @@
   function prefSense(){ try{ return localStorage.getItem('snb_pref_sense')||null; }catch(e){ return null; } }
   function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
   function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
+  // a small named-preference bag, mirrored into the cloud preferences row. Used by the
+  // member onboarding's `oriented` flag so it survives a new device (item 114).
+  function setPref(k,v){ try{ localStorage.setItem('snb_pref_'+k, String(v)); }catch(e){} }
+  function getPref(k){ try{ return localStorage.getItem('snb_pref_'+k)||''; }catch(e){ return ''; } }
   function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
   // default sense/silence also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
@@ -1672,7 +1676,7 @@
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
     hasAccess, isPaid, entitlement, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
-    trackEvent, flushEvents, src, SRC_ALLOW,
+    trackEvent, flushEvents, src, SRC_ALLOW, setPref, getPref,
     liveFetch, livePoll,
   };
 })(window);

@@ -561,7 +561,23 @@
     if(h==='checkin'){ app('today'); return screenCheckin(); }
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('today'); }   // lands on the ring, ready to tap
-    return app(currentTab);
+    const _r = app(currentTab);
+    // MEMBER ONBOARDING (item 114): gate on paid && not yet oriented. Deliberately NOT
+    // the ?checkout= return param — someone who closes the tab at Stripe and comes back
+    // tomorrow still gets oriented, and so does an Academy member who never saw Stripe.
+    // Deferred a frame so the shell it overlays actually exists.
+    try{
+      let force=false;
+      if(_obTestAllowed()){
+        const q=new URLSearchParams(location.search);
+        if(q.get('walkthrough')==='1'){
+          force=true; try{ localStorage.removeItem(_obKey()); }catch(e){}
+          history.replaceState(null,'',location.pathname);
+        }
+      }
+      if((force || (paidNow() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
+    }catch(e){}
+    return _r;
   }
   let currentTab = 'today';
   let authMode = 'in';
@@ -1513,6 +1529,294 @@
 
   // ---------------------------------------------------------------- app shell
   let _mintedThisSession = false;
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // MEMBER ONBOARDING (item 114, 2026-07-26)
+  // Built from Claude Design's approved prototype — their sheet variant (1b).
+  // Their path, kept: welcome + the choice · practice customizer (spotlight) ·
+  // reader (spotlight) · you-tab stats (spotlight) · check-in method ·
+  // practice defaults · your name · done. Declining gives ONE card listing the
+  // three unlocks and nothing else. Every card can be left.
+  //
+  // The gate is `paidNow() && !oriented`, deliberately NOT the ?checkout= param:
+  // someone who closes the tab at Stripe and comes back tomorrow still gets
+  // oriented, and so does an Academy member who never touched Stripe.
+  //
+  // The preference cards write the REAL settings — the same keys the settings
+  // screen writes — so this is a walkthrough OF the app, not a copy of it.
+  // 🖊 ALL COPY IS DRAFT for Justin.
+  // ═════════════════════════════════════════════════════════════════════════
+  // NON-PROD ONLY test entry (item 114). beta.stucknotbroken.com and localhost get
+  // ?walkthrough=1, which clears the oriented flag and replays the whole thing as if the
+  // account had just paid. Hostname-gated the same way config.js picks its database, so it
+  // is structurally impossible on app.stucknotbroken.com — there is no flag to forget.
+  function _obTestAllowed(){ try{ return location.hostname !== 'app.stucknotbroken.com'; }catch(e){ return false; } }
+  function _obKey(){ const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_oriented_'+u; }
+  function oriented(){ try{ return localStorage.getItem(_obKey())||''; }catch(e){ return ''; } }
+  function setOriented(v){ try{ localStorage.setItem(_obKey(), v); }catch(e){}
+    try{ if(Store.setPref) Store.setPref('oriented', v); }catch(e){} }
+  function obTrack(name, meta){ try{ if(Store.trackEvent) Store.trackEvent(name, meta||{}); }catch(e){} }
+
+  const OB_UNLOCKS = [
+    ['spark', 'Practices built from your check-ins', 'The practice tab stops being a list. It builds one out of what you actually reported, and you can change any part of it.'],
+    ['book',  'Your own reader',                     'Your check-ins, read back to you in plain language. It changes every time you check in.'],
+    ['chart', 'What shows up across all your check-ins', 'When you are most regulated, what keeps repeating, and which practices help. It needs a few check-ins first.']
+  ];
+  function _obIcon(k){
+    const p = k==='spark' ? '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8"/>'
+            : k==='book'  ? '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/>'
+            : '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>';
+    return '<span class="u-ic"><svg viewBox="0 0 24 24">'+p+'</svg></span>';
+  }
+  function obUnlockList(){
+    return '<div class="ob-unlocks">'+OB_UNLOCKS.map(u=>
+      '<div class="ob-unlock">'+_obIcon(u[0])+'<span><b>'+escapeHtml(u[1])+'</b><span class="u-s">'+escapeHtml(u[2])+'</span></span></div>').join('')+'</div>';
+  }
+  function obChip(group,val,label){ return '<button class="ob-chip" type="button" data-'+group+'="'+val+'">'+escapeHtml(label)+'</button>'; }
+  const OB_METHOD_CAP = {
+    sliders:'Three slow sliders. The most detail, if you have the energy for it.',
+    states :'Pick the state that fits and move on. The lowest effort of the three.',
+    numbers:'One number per axis. Quickest if you already know what you would say.'
+  };
+  let OB_STEPS = [];
+  function obBuildSteps(){
+    const nm = (Store.getName && Store.getName()) || '';
+    // 🖊 DRAFT COPY. Sentence case here, not the app's lowercase UI: Justin's call
+    // (2026-07-26) — these cards carry the most reading in the app and legibility wins.
+    // Kept short on purpose. The card gives reading room to the body and never to the
+    // buttons, so long copy costs the scroll, not the action.
+    OB_STEPS = [
+      { id:'welcome', tab:'today', kind:'center',
+        eyebrow:'You\u2019re in',
+        h:'Welcome',
+        body:'<p class="ob-p">Thank you for subscribing. Three things just opened up for you:</p>'
+           + '<ol class="ob-list"><li>Practices built from your own check-ins</li>'
+           + '<li>Your own reader</li>'
+           + '<li>What shows up across all your check-ins</li></ol>'
+           + '<p class="ob-p">I can walk you through them and help you set things up, or you can go straight in. Either is fine, and the walkthrough stays in settings.</p>'
+           + '<p class="ob-sign">Justin</p>'
+           + obMarkSVG(),
+        actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
+
+      { id:'practice', tab:'practice', kind:'spot', target:'#p7-toggle', pad:8,
+        h:'Built, not picked',
+        body:'<p class="ob-p">This opens the maker. It starts from your last check-in, and every part of it is yours to change before you begin.</p>' },
+
+      { id:'reader', tab:'today', kind:'spot', target:'#mh-third', pad:8,
+        h:'Your reader',
+        body:'<p class="ob-p">When a reflection is ready it appears here, written from your own check-ins. The more you check in, the further out it can see.</p>' },
+
+      { id:'stats', tab:'current', kind:'spot', target:'#carousel', pad:6,
+        h:'What keeps showing up',
+        body:'<p class="ob-p">Your patterns live here. None of it is a score and none of it is a target. It mirrors what you named, nothing more.</p>' },
+
+      { id:'method', tab:'current', kind:'center',
+        eyebrow:'Set it your way',
+        h:'How do you want to check in?',
+        body:'<p class="ob-p">All three record the same thing, so you can switch any time without breaking your history.</p>'
+           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Sliders')+obChip('method','states','Pick a state')+obChip('method','numbers','Numbers')+'</div>'
+           + '<p class="ob-fine" data-cap="method"></p>' },
+
+      { id:'defaults', tab:'practice', kind:'center',
+        eyebrow:'Set it your way',
+        h:'Where should your practices start?',
+        body:'<p class="ob-p">A starting point, not a rule. You can change any of it before you begin.</p>'
+           + '<p class="ob-fine" style="margin:10px 0 3px">Anchored through</p>'
+           + '<div class="ob-chips" data-group="sense">'+[['touch','Touch'],['sound','Sound'],['sight','Sight'],['movement','Movement'],['imagination','Imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
+           + '<p class="ob-fine" style="margin:14px 0 3px">How much silence</p>'
+           + '<div class="ob-chips" data-group="silence">'+[[4,'A little'],[8,'Some'],[14,'A lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
+
+      { id:'name', tab:'practice', kind:'center',
+        eyebrow:'Set it your way',
+        h:'What should I call you?',
+        body:'<p class="ob-p">It only ever appears on your own screens. Leave it blank if you would rather not.</p>'
+           + '<input class="ob-name" id="ob-name" type="text" placeholder="Your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
+
+      { id:'done', tab:'today', kind:'center',
+        h:'That\u2019s the whole loop',
+        body:'<p class="ob-p">Check in, do the practice it gives you, check in again. It gets more yours every time.</p>'
+           + '<p class="ob-sign">Justin</p>'
+           + obMarkSVG(),
+        fine:'All of this is in settings, and the walkthrough is there if you want it again.',
+        actions:[{label:'Take me in',kind:'primary',go:'end'}] },
+
+      { id:'decline', tab:'today', kind:'center', standalone:true,
+        h:'Here\u2019s what opened up',
+        body:'<p class="ob-p">So you know where to look when you want it.</p>'+obUnlockList()
+           + '<p class="ob-p" style="margin-top:12px">The walkthrough is in settings whenever you want it.</p>',
+        actions:[{label:'Okay, in I go',kind:'primary',go:'end'}] }
+    ];
+  }
+  function obMarkSVG(){
+    // the mark, at rest. assets/logo/snb-mark.svg is the source of truth for this shape.
+    return '<svg class="ob-mark" viewBox="96 10 208 351" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">'
+      + '<g stroke-width="9.5"><path d="M 120,145 C 105,144 103,173 120,173"/><path d="M 279.5,145 C 294.5,144 296.5,173 279.5,173"/></g>'
+      + '<path stroke-width="9.5" d="M 122,273.5 L 122,86 C 122,63 152,24.5 200,24.5 C 248,24.5 277.5,63 277.5,86 L 277.5,273.5"/>'
+      + '<g stroke-width="6"><path d="M 181.5,108 Q 163,109 146,120"/><path d="M 218.5,108 Q 237,109 254,120"/></g>'
+      + '<g stroke-width="5.5"><circle cx="161.5" cy="151" r="27"/><circle cx="238.5" cy="151" r="27"/>'
+      + '<path d="M 189,146 Q 200,140.5 211,146"/><path d="M 134.5,148 L 122.5,147"/><path d="M 265.5,148 L 277.5,147"/></g>'
+      + '<g stroke-width="3.6"><path d="M 149,156 C 149.5,144 173.5,144 174,156"/><path d="M 226,156 C 226.5,144 250.5,144 251,156"/></g>'
+      + '<ellipse cx="154.5" cy="190" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(13.7 154.5 190)"/>'
+      + '<ellipse cx="245.5" cy="190" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(-13.7 245.5 190)"/>'
+      + '<g stroke-width="9.5"><path d="M 137.5,219.5 L 137.5,305.5"/><path d="M 261.5,219.5 L 261.5,305.5"/>'
+      + '<path d="M 154.5,328.5 L 154.5,255.5 A 45,45 0 0 1 244.5,255.5 L 244.5,328.5"/>'
+      + '<path d="M 175.5,343.5 L 175.5,255.5 A 24.5,24.5 0 0 1 224.5,255.5 L 224.5,343.5"/><path d="M 200,262.5 L 200,346.5"/></g>'
+      + '<path stroke-width="4.2" d="M 181.5,192 C 183,209 217,209 218.5,192"/></svg>';
+  }
+
+  let _ob = { i:0, on:false };
+  function obStep(x){ return x==='decline' ? OB_STEPS.filter(s=>s.id==='decline')[0] : OB_STEPS[x]; }
+  function startOnboarding(fromSettings){
+    if(_ob.on) return;
+    obBuildSteps();
+    _ob.i = fromSettings ? 1 : 0; _ob.on = true;
+    obTrack('orient_start', { from: fromSettings?'settings':'first_open' });
+    obPaint(true);
+  }
+  function endOnboarding(how){
+    const d=$('#ob-root'); _ob.on=false;
+    setOriented(how==='skip' ? 'skipped' : 'yes');
+    obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'' });
+    const c=$('#content'); if(c) c.style.transform='';
+    if(d && d.parentNode) d.parentNode.removeChild(d);
+  }
+  function obEnsureRoot(){
+    let d=$('#ob-root');
+    if(!d){ d=document.createElement('div'); d.id='ob-root'; d.className='ob-root'; root.appendChild(d); }
+    return d;
+  }
+  function obPaint(first){
+    const st=obStep(_ob.i); if(!st){ endOnboarding('done'); return; }
+    // app(tab) rebuilds root.innerHTML, which takes the overlay with it — so switch the
+    // tab FIRST and re-attach afterwards, never the other way round.
+    if(st.tab && st.tab!==currentTab){ app(st.tab); }
+    const d=obEnsureRoot();
+    obTrack('orient_step', { step: st.id });
+    const seq = OB_STEPS.filter(s=>!s.standalone && s.id!=='welcome' && s.id!=='done');
+    const pos = seq.map(s=>s.id).indexOf(st.id);
+    const actions = st.actions || [{ label:(pos===seq.length-1?'done':'next'), kind:'primary', go:'next' }];
+    const showSkip = !st.actions;
+    let html = '<div class="ob-dim" data-side="t"></div><div class="ob-dim" data-side="b"></div>'
+             + '<div class="ob-dim" data-side="l"></div><div class="ob-dim" data-side="r"></div>';
+    if(st.kind==='spot') html += '<div class="ob-hole"></div>';
+    html += '<div class="ob-card'+(first?' anim':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
+      + '<span class="ob-grab"></span>'
+      + '<div class="ob-body">'
+      + (st.eyebrow?'<p class="ob-eyebrow">'+escapeHtml(st.eyebrow)+'</p>':'')
+      + '<h2 class="ob-h">'+escapeHtml(st.h)+'</h2>'
+      + st.body
+      + (st.fine?'<p class="ob-fine">'+escapeHtml(st.fine)+'</p>':'')
+      + '</div>'
+      + '<div class="ob-foot">'
+      + '<div class="ob-acts">'+actions.map(a=>'<button class="btn'+(a.kind==='quiet'?' quiet':'')+' block" type="button" data-go="'+a.go+'">'+escapeHtml(a.label)+'</button>').join('')+'</div>'
+      + (showSkip ? '<div class="ob-row"><div class="ob-dots">'+seq.map((s,i)=>'<i class="'+(i===pos?'on':'')+'"></i>').join('')+'</div>'
+          + '<button class="ob-skip" type="button" data-go="skip">I\u2019ll take it from here</button></div>' : '')
+      + '</div></div>';
+    d.innerHTML = html;
+    obPlace(st);
+    obWire(st);
+    const card=d.querySelector('.ob-card'); if(card) card.focus && card.setAttribute('tabindex','-1');
+  }
+  function obPlace(st){
+    const d=$('#ob-root'); const card=d.querySelector('.ob-card');
+    const shellR = root.getBoundingClientRect();
+    const contentEl = $('#content'); if(contentEl) contentEl.style.transform='';
+    const dims = [...d.querySelectorAll('.ob-dim')];
+    const hole = d.querySelector('.ob-hole');
+    let target = st.kind==='spot' ? document.querySelector(st.target) : null;
+    // Two of the three spotlight targets are MOBILE-ONLY: #p7-toggle only renders for
+    // paid-on-phone (renderMaker7b), and #carousel is replaced by the ledger on the wide
+    // you-tab. On desktop they are absent, and an unguarded measure put the ring in the
+    // top-left corner. Missing or zero-sized target => fall back to a plain centred card.
+    if(target){ const tr=target.getBoundingClientRect(); if(!tr.width || !tr.height) target=null; }
+    if(!target){
+      // no spotlight: one full dim pane behind the card, the rest collapsed
+      dims.forEach((el,i)=>{ el.style.cssText = i===0 ? 'inset:0' : 'display:none'; });
+      if(hole) hole.style.display='none';
+      return;
+    }
+    const p = st.pad==null?8:st.pad;
+    const measure = ()=>{ const tr=target.getBoundingClientRect();
+      return { x:tr.left-shellR.left-p, y:tr.top-shellR.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
+    let r = measure();
+    // the sheet is pinned to the bottom, so a low target would sit UNDER it.
+    // lift the app content by the overlap and re-measure, so the ring stays visible.
+    if(contentEl && card){
+      const cardTop = card.getBoundingClientRect().top - shellR.top;
+      const overlap = (r.y + r.h + 16) - cardTop;
+      if(overlap > 0){ contentEl.style.transform='translateY('+(-Math.round(overlap))+'px)'; r = measure(); }
+    }
+    const W=shellR.width, H=shellR.height;
+    const set=(el,x,y,w,h)=>{ el.style.cssText='left:'+x+'px;top:'+y+'px;width:'+Math.max(0,w)+'px;height:'+Math.max(0,h)+'px'; };
+    set(dims[0], 0, 0, W, r.y);                       // top
+    set(dims[1], 0, r.y+r.h, W, H-(r.y+r.h));         // bottom
+    set(dims[2], 0, r.y, r.x, r.h);                   // left
+    set(dims[3], r.x+r.w, r.y, W-(r.x+r.w), r.h);     // right
+    if(hole){
+      // conform to the target: take its own corner radius and grow it by the pad, so the
+      // ring sits snug on a pill or a rounded button instead of boxing it in a rectangle.
+      let br = 16;
+      try{ const cs=getComputedStyle(target);
+        const raw = cs.borderTopLeftRadius||'';
+        const v = parseFloat(raw)||0;
+        // A target with its own radius: match it and grow by the pad, so the ring is
+        // parallel to the corner. A target with NO radius (most of ours are plain text
+        // buttons) reads boxy at pad-only, so give it a pill capped at 28.
+        br = raw.indexOf('%')>=0 ? Math.min(r.w,r.h)/2
+           : v > 0 ? v + p
+           : Math.min(r.h/2, 28);
+        br = Math.min(br, Math.min(r.w,r.h)/2);
+      }catch(e){}
+      hole.style.cssText='left:'+r.x+'px;top:'+r.y+'px;width:'+r.w+'px;height:'+r.h+'px;border-radius:'+br+'px';
+    }
+  }
+  function obWire(st){
+    const d=$('#ob-root'); if(!d) return;
+    d.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{
+      const g=b.dataset.go;
+      if(g==='skip'){ return endOnboarding('skip'); }
+      if(g==='end'){ return endOnboarding('done'); }
+      if(g==='decline'){ _ob.i='decline'; return obPaint(false); }
+      if(g==='next'){ _ob.i = (typeof _ob.i==='number' ? _ob.i+1 : 0); return obPaint(false); }
+      _ob.i = +g; obPaint(false);
+    });
+    // the preference cards write the SAME keys settings writes — a walkthrough OF the app
+    const mSel = d.querySelector('[data-group="method"]');
+    if(mSel){
+      const cur = (()=>{ try{ return localStorage.getItem('snb_checkin_method')||'sliders'; }catch(e){ return 'sliders'; } })();
+      const cap = d.querySelector('[data-cap="method"]');
+      const mark=(v)=>{ mSel.querySelectorAll('[data-method]').forEach(x=>x.classList.toggle('on', x.dataset.method===v));
+                        if(cap) cap.textContent = OB_METHOD_CAP[v]||''; };
+      mark(cur);
+      mSel.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
+        try{ localStorage.setItem('snb_checkin_method', b.dataset.method); }catch(e){}
+        mark(b.dataset.method); haptic('save'); obTrack('orient_pref',{pref:'method',value:b.dataset.method});
+      });
+    }
+    const sSel = d.querySelector('[data-group="sense"]');
+    if(sSel){
+      const cur = (Store.prefSense && Store.prefSense()) || '';
+      sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on', x.dataset.sense===cur));
+      sSel.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
+        if(Store.setPrefSense) Store.setPrefSense(b.dataset.sense);
+        sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on',x===b));
+        haptic('save'); obTrack('orient_pref',{pref:'sense',value:b.dataset.sense});
+      });
+    }
+    const qSel = d.querySelector('[data-group="silence"]');
+    if(qSel){
+      const cur = (Store.prefSilence && Store.prefSilence());
+      qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on', +x.dataset.silence===cur));
+      qSel.querySelectorAll('[data-silence]').forEach(b=>b.onclick=()=>{
+        if(Store.setPrefSilence) Store.setPrefSilence(+b.dataset.silence);
+        qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on',x===b));
+        haptic('save'); obTrack('orient_pref',{pref:'silence',value:b.dataset.silence});
+      });
+    }
+    const nameEl = d.querySelector('#ob-name');
+    if(nameEl) nameEl.addEventListener('change', e=>{ if(Store.setName) Store.setName(e.target.value.trim()); });
+  }
+
   function app(tab){
     currentTab = tab;
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); mintWeeks(); mintMonths(); mintQuarters(); }
@@ -5434,6 +5738,12 @@
           </div>
 
           <div class="gs-card">
+            <div class="gs-sw" style="padding-bottom:4px"><span class="gs-lbl">the walkthrough</span>
+              <button class="linkbtn" id="set-walkthrough" type="button">walk me through it</button></div>
+            <p class="gs-cap" style="margin:0 0 2px">the member walkthrough, again. it changes nothing on its own.</p>
+          </div>
+
+          <div class="gs-card">
             <p class="gs-h">appearance</p>
             <p class="gs-lbl2">text size</p>
             <div class="set-seg ts-seg" id="seg-text">
@@ -5503,6 +5813,7 @@
         </div>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('today'); setTimeout(()=>startOnboarding(true), 80); };
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same
     // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
