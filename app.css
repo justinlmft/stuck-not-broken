@@ -1179,6 +1179,13 @@ body.reduce-motion .p7-shape{animation:none}
 .ci4 .slider-num{flex:none;min-width:1.6ch;text-align:right;font-size:calc(16px * var(--type-scale));font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.01em}
 .ci4-states{margin-top:4px}
 .ci4-states-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);margin:0 0 13px;text-wrap:pretty}
+/* states mode step 2: the same three sliders, opened by the state tap and sitting where
+   that state puts them. Six fixed presets used to be the whole reading. */
+.ci-tune{margin-top:22px;padding-top:18px;border-top:1px solid var(--hairline)}
+.ci-tune[hidden]{display:none}
+.ci-tune.in{animation:secRise .42s var(--ease) both}
+body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
+.ci-tune-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);margin:0 0 13px;text-wrap:pretty}
 .ci-readout4{display:block;line-height:1.55}
 .ci-readout4 .ci-join{color:var(--muted)}
 .ci-readout4 .ci-clause{font-weight:500;transition:color .35s var(--ease)}

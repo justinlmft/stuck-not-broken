@@ -1575,7 +1575,7 @@
   function obChip(group,val,label){ return '<button class="ob-chip" type="button" data-'+group+'="'+val+'">'+escapeHtml(label)+'</button>'; }
   const OB_METHOD_CAP = {
     sliders:'Three slow sliders. The most detail, if you have the energy for it.',
-    states :'Pick the state that fits and move on. The lowest effort of the three.',
+    states :'Start from the state that fits, then fine-tune. Quickest when you already know.',
     numbers:'One number per axis. Quickest if you already know what you would say.'
   };
   let OB_STEPS = [];
@@ -3176,18 +3176,28 @@
     // numbers mode shows a live 0-10 badge reading the SAME slider value (ease), so the
     // number and the hard→easy position are one datum — Justin's alignment requirement.
     const _ax4 = (key,scenario,cls,val)=>ci4SliderHTML(key,scenario,cls,val,_ciNumbers);
-    const _ciInput = _ciStates
-      ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
-          <div class="ci-ovr-chips ci4-states">
-            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
-          </div>
-          <p class="ci-ovr-about" id="ci-ovr-about"></p>`
-      : `<div class="ci4-scale" aria-hidden="true"><span>${_ciScale[0]}</span><span>${_ciScale[1]}</span></div>
+    // the sliders are the SAME markup in every method. In states mode they start folded
+    // and open on the first state tap, pre-positioned from it, so picking a state is a
+    // starting point that can then be fine-tuned rather than one of six fixed readings.
+    // Before this, every "safety" tap saved exactly 85/15/15 and the granular data was
+    // gone (Justin, 2026-07-26).
+    const _sliderBlock = `<div class="ci4-scale" aria-hidden="true"><span>${_ciScale[0]}</span><span>${_ciScale[1]}</span></div>
           <div class="sliders">
             ${_ax4('v', CI_BANK.v[qIdx.v], 'r-v', v)}
             ${_ax4('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
             ${_ax4('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>`;
+    const _ciInput = _ciStates
+      ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
+          <div class="ci-ovr-chips ci4-states">
+            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
+          </div>
+          <p class="ci-ovr-about" id="ci-ovr-about"></p>
+          <div class="ci-tune" id="ci-tune"${editRec?'':' hidden'}>
+            <p class="ci-tune-lede">fine-tune anything that isn't quite right.</p>
+            ${_sliderBlock}
+          </div>`
+      : _sliderBlock;
     $('#content').innerHTML = `<div class="view checkin2 ci4${_ciStates?' ci-m-states':(_ciNumbers?' ci-m-numbers':'')}">
 
         <div class="scr-head">
@@ -3198,6 +3208,7 @@
         <div class="ci-block">
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
+          ${_ciStates?`<button class="ci-shuffle" id="ci-shuffle-st" type="button"${editRec?'':' hidden'}>change the questions</button>`:''}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like: when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
         </div>
@@ -3234,12 +3245,14 @@
     // stay quiet until an axis is set — color responds to what the person SET, never to
     // defaults. edits show everything at once. rail + glyph + clause move together (r2).
     const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
-    const _idleMsg = _ciStates ? 'pick a state above, and this line mirrors what you named.'   // 🖊
+    const _idleMsg = _ciStates ? 'pick a state above, then fine-tune. this line mirrors what you set.'   // 🖊
       : (_ciNumbers ? 'move a slider, and this line mirrors the number you set.'                // 🖊
       : 'move the sliders, and this line will mirror what you set.');                            // 🖊
     function refresh(){
       const colOf = ciAxisColorFn(v, s, d, axTouched);
-      if(!_ciStates){
+      // states mode paints the same way, but only once the fine-tune block is open
+      const _tuneOpen = !_ciStates || !!(root.querySelector('#ci-tune') && !root.querySelector('#ci-tune').hidden);
+      if(_tuneOpen){
         setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
         ciPaintSliders(colOf);   // rails + anchoring glyphs take the same colour
         if(_ciNumbers){ ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax), nb=$('#num-'+ax); if(el&&nb) nb.textContent = Math.round((+el.value)/10); }); }
@@ -3250,14 +3263,13 @@
         else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
       }
     }
-    // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert
-    if(!_ciStates){
-      bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
-      bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
-      bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
-    }
+    // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert.
+    // Bound in every method now: in states mode the same three sliders are the fine-tune.
+    bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
+    bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
+    bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
     refresh();
-    const _shuf = $('#ci-shuffle');
+    const _shuf = $('#ci-shuffle') || $('#ci-shuffle-st');
     if(_shuf) _shuf.onclick = ()=>{
       ['v','sym','dor'].forEach(ax=>{
         qIdx[ax] = ciRand(ax, qIdx[ax]);
@@ -3272,11 +3284,30 @@
     const STATE_AXES={ safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15],
                        stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
     if(_ciStates){
+      // the six presets are the STARTING POINT. Tapping one opens the sliders sitting
+      // exactly where that state puts them, and every later nudge is the person's own
+      // reading — same v/sym/dor the slider method saves, at full resolution.
       root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{
         const k=b.dataset.ovr, ax=STATE_AXES[k];
         root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x===b));
         const ab=$('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
-        if(ax){ axTouched.v=1; axTouched.sym=1; axTouched.dor=1; v=ax[0]*100; s=ax[1]*100; d=ax[2]*100; refresh(); }
+        if(!ax) return;
+        axTouched.v=1; axTouched.sym=1; axTouched.dor=1;
+        v=ax[0]*100; s=ax[1]*100; d=ax[2]*100;
+        // sliders read EASE, so the two defence axes invert on the way in
+        const put=(id,val)=>{ const el=$('#sl-'+id); if(el) el.value=String(Math.round(val)); };
+        put('v', v); put('sym', 100-s); put('dor', 100-d);
+        const tune=$('#ci-tune'), shuf=$('#ci-shuffle-st');
+        const firstOpen = tune && tune.hidden;
+        if(firstOpen){ tune.hidden=false; tune.classList.add('in'); }
+        if(shuf) shuf.hidden=false;
+        refresh();
+        // the state chips and the state description push the sliders below the fold, so
+        // opening them silently would leave the fine-tune invisible on a phone. Bring it
+        // into view once, on the first open only, and never fight a later scroll.
+        if(firstOpen) requestAnimationFrame(()=>{
+          try{ tune.scrollIntoView({behavior: document.body.classList.contains('reduce-motion')?'auto':'smooth', block:'nearest'}); }catch(e){ tune.scrollIntoView(); }
+        });
       });
     }
 
@@ -5706,7 +5737,7 @@
     const METHOD_LABEL = { sliders:'sliders', states:'pick a state', numbers:'numbers' };
     const METHOD_CAP = {                                                                            // 🖊
       sliders:'drag three quick questions from harder to easier. the default, and the calmest.',
-      states:'skip the sliders and tap the state that fits. good for when you already know.',
+      states:'start from the state that fits, then fine-tune the sliders. good for when you already know.',
       numbers:'the same three questions, entered as a number from 0 to 10.' };
     const _svgChev=`<svg class="rs-disc-chev" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>`;
     const _svgAuto=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></svg>`;
