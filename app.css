@@ -2548,7 +2548,10 @@ body.reduce-motion .ob-foot::before{transition:none}
 .ob-p{font-size:calc(14.5px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
 .ob-fine{font-size:calc(12.5px * var(--type-scale));line-height:1.5;color:var(--muted);margin:10px 0 0;text-wrap:pretty}
 .ob-sign{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:12px 0 0}
-.ob-list{margin:0 0 12px;padding:0 0 0 20px;font-size:calc(14.5px * var(--type-scale));line-height:1.6;color:var(--ink-80)}
+/* the 16px margin insets the whole list from the body text. padding-left is the marker
+   gutter, so without the margin the numbers sat flush with the paragraph above and the
+   list did not read as a list at all (Justin, 2026-07-26). */
+.ob-list{margin:0 0 12px 16px;padding:0 0 0 20px;font-size:calc(14.5px * var(--type-scale));line-height:1.6;color:var(--ink-80)}
 .ob-list li{margin:0 0 4px}
 .ob-acts{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .ob-acts .btn{width:100%}
