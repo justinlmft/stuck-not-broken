@@ -1207,7 +1207,7 @@
           </ul>
           ${planPickerHTML()}
           <button class="btn block" id="g-of-sub">subscribe now</button>
-          <p class="fineprint" style="margin-top:10px">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
+          <p class="fineprint" style="margin-top:10px">renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses.</p>
           <details class="offer-more">
             <summary>What you get when you subscribe ▾</summary>
             <div class="offer-more-body">
@@ -2015,7 +2015,7 @@
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
-            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is — open the glossary"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
             : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
@@ -2166,7 +2166,7 @@
 
   // ---- breath ring: the three-state ladder (2026-07-23) ----------------------
   // The single centering ring is really the polyvagal ladder: outer = safety
-  // (ventral), middle = fight/flight (sympathetic), inner = shutdown (dorsal) —
+  // (ventral), middle = flight/fight (sympathetic), inner = shutdown (dorsal) —
   // order fixed forever. All three are always alive: each ring keeps its own
   // ambient breath. The current state lights + amplifies the dominant ring(s)
   // (a blend lights two, in the blend token); quiet rings stay pale ink. On tap,
@@ -2606,7 +2606,7 @@
         <div class="view read" style="gap:0">
           <div class="read-flow">
             <div class="scr-head read-head">
-              <h1 class="read-h1">Your Reflections</h1>
+              <h1 class="read-h1">your reflections</h1>
               <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
               ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="past reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
             </div>
@@ -2625,7 +2625,7 @@
     const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
     // fresh-section share: the same image cards the You tab shares
     (function(){
-      const _sig = 'stuck not broken · app.stucknotbroken.com';
+      const _sig = 'stuck not broken · stucknotbroken.com/stuck';
       root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
         const which=b.dataset.shareSec;
         if(which==='blog-pats' && patterns){
@@ -2947,7 +2947,7 @@
       <header class="appbar"><button class="backbtn" id="arch-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <h1 class="read-h1">Past Reflections</h1>
+          <h1 class="read-h1">past reflections</h1>
           ${caption}
           ${rows}
         </div>
@@ -3822,7 +3822,7 @@
       x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
       x.fillText('the Stuck Not Broken app',L,H-186);
       x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif';
-      x.fillText('download at app.stucknotbroken.com',L,H-138);
+      x.fillText('download at stucknotbroken.com/stuck',L,H-138);
       const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
       if(!blob) return false;
       const file=new File([blob],'stuck-not-broken.png',{type:'image/png'});
@@ -4391,7 +4391,7 @@
               ${helpHTML}`]);
             // axis cards (2026-07-19, from the desktop ledger design): the most
             // mobilized / most immobilized time of day, each with its FLAVOR —
-            // whether safety is in the mix (play vs fight/flight; stillness vs
+            // whether safety is in the mix (play vs flight/fight; stillness vs
             // shutdown; freeze = both pedals). Mirrors what the person named,
             // never a score. 🖊 copy drafted, Justin-owned.
             const _AXFL = (SET)=>{
@@ -4415,7 +4415,7 @@
               <p class="panel-sub">when mobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
               <div class="ax-big">${segIco(_mob.seg)}${_mob.seg==='late'?'late at night':segLabel(_mob.seg)+'s'}</div>
               ${_axChips(_mob.flavors)}
-              <p class="ax-note">play is mobilization with safety in the mix. fight/flight is without.</p>`]);
+              <p class="ax-note">play is mobilization with safety in the mix. flight/fight is without.</p>`]);
             }
             if(_imm){
               slides.push(['immobilized','your most immobilized time of day', `
@@ -4463,11 +4463,11 @@
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">day by day</h3>
-              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
               <p class="deep-foot">% = check-ins where a safe state leads.</p>
             </div>
             <div class="deep-block">
@@ -4547,7 +4547,7 @@
       (function(){ const fb=c.querySelector('#you-filter'); if(!fb) return; const chips=fb.querySelectorAll('.you-chip'); const rows=c.querySelectorAll('.deep-row[data-state]'); chips.forEach(ch=>ch.addEventListener('click',()=>{ const f=ch.dataset.f; chips.forEach(x=>x.classList.toggle('on',x===ch)); rows.forEach(r=>{ const ds=r.getAttribute('data-state'); r.classList.toggle('dim', f!=='all' && ds!==f); }); })); })();
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
-      const _sig = 'stuck not broken · app.stucknotbroken.com';
+      const _sig = 'stuck not broken · stucknotbroken.com/stuck';
       // share copy never repeats the number the visual already shows (Justin 2026-07-05:
       // "redundant"). when the baseline ROSE this month, the card celebrates the rise.
       const bd = bl ? (function(){ try{ const n=Date.now(); return Store.baselineDelta ? Store.baselineDelta(n-28*864e5, n) : null; }catch(e){ return null; } })() : null;
@@ -4807,7 +4807,7 @@
   // just its icon + name. (openDialSheet omits the sub line when o.sub is absent.)
   const MK_TYPE_GROUPS = ()=>[
     { label:'shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
-    { label:'guided sessions', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
+    { label:'guided practices', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
     { label:null, opts:[{ val:'surprise', menu:'surprise me', ico:MK_TYPE_ICO.surprise }] },
   ];
 
@@ -4887,11 +4887,11 @@
         </div>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">Why this practice was chosen for you</p>
+        <p class="sec-h">why this practice was chosen for you</p>
         <p class="plan-why">${escapeHtml(properCase(reco.reason))}</p>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">What to expect in your custom practice</p>
+        <p class="sec-h">what to expect in your custom practice</p>
         <p class="plan-about">${escapeHtml(properCase(aboutOf(reco.practiceKey, reco.sense)))}</p>
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
       </div>
@@ -5040,7 +5040,7 @@
       const k = pState.mkKey;
       const b = (t)=>`<strong>${escapeHtml(String(t))}</strong>`;
       if(k==='surprise') return "This is a randomly created practice, weaving together various self-regulation skills. This is best for the curious and motivated.";
-      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided session, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
+      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided practice, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
       const est = estMinutes(k, k==='micro'?2:pState.silence);
       const openEnded = (k==='most' && !!pState.open);
       const label = Store.practiceLabel(k);
@@ -5259,7 +5259,7 @@
     // "adjust your connect with safety practice" / "your a tiny practice practice"
     const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
     const heading = !key ? (_paid ? '' : 'pick a practice.')
-      : (key==='more' ? 'choose a session.'
+      : (key==='more' ? 'choose a practice.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
     // free: the full menu in the real order, nothing hidden — the base-plan practices are
     // FADED INK ONLY (same card, same fill, no padlock, no dashes), exactly as the guest
@@ -5853,7 +5853,7 @@
     const SCENE_CAP={ '':'a different scene each time. the app chooses.',
       circles:'the slow circles, as now.',
       drift:'soft specks drifting upward, each at its own pace.',
-      pond:'still water — a ripple now and then.',
+      pond:'still water, a ripple now and then.',
       reeds:'reeds swaying in an uneven breeze.',
       breeze:'strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'a still beam of light, dust hanging in it. appears in dark mode.',
@@ -5955,7 +5955,7 @@
     setHTML(`
       <div class="view gate"><div class="gate-body">
         <p class="eyebrow">delete my account</p>
-        <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
+        <h1 style="margin:12px 0 12px">before you go, here's exactly what happens.</h1>
         <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
         <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
         <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
@@ -5978,7 +5978,7 @@
     setHTML(`
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">done</p>
-        <h1 style="margin:12px 0 12px">Your account is gone.</h1>
+        <h1 style="margin:12px 0 12px">your account is gone.</h1>
         <p class="lede" style="margin-bottom:24px">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
         <button class="btn block" id="del-done">okay</button>
       </div></div>`);
