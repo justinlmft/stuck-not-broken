@@ -1561,9 +1561,9 @@
   function obTrack(name, meta){ try{ if(Store.trackEvent) Store.trackEvent(name, meta||{}); }catch(e){} }
 
   const OB_UNLOCKS = [
-    ['spark', 'Practices custom-designed for you', 'The practice tab stops being a list. It builds one out of what you actually reported, and you can change any part of it.'],
-    ['book',  'A personal reader',                  'Your check-ins, read back to you in plain language. It changes every time you check in.'],
-    ['chart', 'Deep data insights',                 'When you are most regulated, what keeps repeating, and which practices help. It needs a few check-ins first.']
+    ['spark', 'Practices created just for you', 'The app designs self-regulation practices for you and only you based on your history, practices, and preferences. (Feel free to customize further!)'],
+    ['book',  'A personal reader',                  'It’s like a blog written just for you. It changes over time.'],
+    ['chart', 'Deep data insights',                 'Get data analysis about everything, from when you’re most regulated, patterns, and which practices help. It needs a few check-ins first.']
   ];
   function _obIcon(k){
     const p = k==='spark' ? '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8"/>'
@@ -1595,7 +1595,7 @@
            + '<ol class="ob-list"><li>Practices created just for you</li>'
            + '<li>A personal reader</li>'
            + '<li>Deep data insights</li></ol>'
-           + '<p class="ob-p">Choose how you’d like to get started below. Welcome again.</p>'
+           + '<p class="ob-p">Choose how you’d like to get started below.</p>'
            + '<p class="ob-sign">Justin</p>'
            + obMarkSVG(),
         actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
@@ -1609,31 +1609,31 @@
         body:'<p class="ob-p">Your personal reader changes based on your check-ins and practices. Over the moments, days, weeks, and beyond, it will have more and more information about you to learn from and build insight from.</p>' },
 
       { id:'stats', tab:'current', kind:'spot', target:'#carousel', pad:6,
-        h:'Your insights & patterns',
-        body:'<p class="ob-p">This is where you can find snapshots of what your data is saying. Check-ins and practices accumulate here.</p>' },
+        h:'Deep data insights',
+        body:'<p class="ob-p">Find snapshot results of your data. Check-ins and practices accumulate here.</p>' },
 
       { id:'method', tab:'current', kind:'center',
         h:'How do you want to check in?',
-        body:'<p class="ob-p">All three record the same thing, so you can switch any time without breaking your history.</p>'
-           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Question sliders')+obChip('method','numbers','Numbers')+obChip('method','states','Pick your state')+'</div>'
+        body:'<p class="ob-p">All three record the same thing, so no need to worry about your history if you decide to change later.</p>'
+           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Question sliders')+obChip('method','numbers','Numbers')+obChip('method','states','State picker')+'</div>'
            + '<p class="ob-fine" data-cap="method"></p>' },
 
       { id:'defaults', tab:'practice', kind:'center',
-        h:'Where should your practices start?',
-        body:'<p class="ob-p">A starting point, not a rule. You can change any of it before you begin.</p>'
-           + '<p class="ob-fine" style="margin:10px 0 3px">Anchored through</p>'
-           + '<div class="ob-chips" data-group="sense">'+[['touch','Touch'],['sound','Sound'],['sight','Sight'],['movement','Movement'],['imagination','Imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
+        h:'Practice defaults',
+        body:'<p class="ob-p">You can change these any time you want, but this sets the defaults for now.</p>'
+           + '<p class="ob-fine" style="margin:10px 0 3px">Connect to the present moment through</p>'
+           + '<div class="ob-chips" data-group="sense">'+[['touch','touch'],['sound','sound'],['sight','sight'],['movement','movement'],['imagination','imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
            + '<p class="ob-fine" style="margin:14px 0 3px">How much silence</p>'
-           + '<div class="ob-chips" data-group="silence">'+[[4,'A little'],[8,'Some'],[14,'A lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
+           + '<div class="ob-chips" data-group="silence">'+[[4,'a little'],[8,'some'],[14,'a lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
 
       { id:'name', tab:'practice', kind:'center',
-        h:'What should I call you?',
-        body:'<p class="ob-p">It only ever appears on your screens. Leave it blank if you would rather not.</p>'
-           + '<input class="ob-name" id="ob-name" type="text" placeholder="Your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
+        h:'What should the app call you?',
+        body:'<p class="ob-p">(Or leave it blank.)</p>'
+           + '<input class="ob-name" id="ob-name" type="text" placeholder="your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
 
       { id:'done', tab:'today', kind:'center',
-        h:'That\u2019s the whole loop',
-        body:'<p class="ob-p">Check in, do the practice it gives you, check in again. It gets more yours every time.</p>'
+        h:'Done.',
+        body:'<p class="ob-p">And that’s it. Check in, do a practice, check in again. It gets more and more yours every time.</p>'
            + '<p class="ob-sign">Justin</p>'
            + obMarkSVG(),
         fine:'All of this is in settings, and the walkthrough is there if you want it again.',
@@ -1641,7 +1641,7 @@
 
       { id:'decline', tab:'today', kind:'center', standalone:true,
         h:'Here\u2019s what opened up',
-        body:'<p class="ob-p">So you know where to look when you want it.</p>'+obUnlockList()
+        body:'<p class="ob-p">Enjoy exploring on your own. Here’s a brief rundown.</p>'+obUnlockList()
            + '<p class="ob-p" style="margin-top:12px">The walkthrough is in settings whenever you want it.</p>',
         actions:[{label:'Okay, in I go',kind:'primary',go:'end'}] }
     ];
@@ -5756,11 +5756,11 @@
     const gsSw=(id,label,on)=>`<div class="gs-sw"><span class="gs-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
     // input method (settings owns the choice now): sliders (default) · states · numbers
     const method = (localStorage.getItem('snb_checkin_method')||'sliders');
-    const METHOD_LABEL = { sliders:'sliders', states:'pick a state', numbers:'numbers' };
+    const METHOD_LABEL = { sliders:'question sliders', states:'state picker', numbers:'number sliders' };
     const METHOD_CAP = {                                                                            // 🖊
-      sliders:'drag three quick questions from harder to easier. the default, and the calmest.',
-      states:'start from the state that fits, then fine-tune the sliders. good for when you already know.',
-      numbers:'the same three questions, entered as a number from 0 to 10.' };
+      sliders:'best for someone who has a hard time identifying their state. simply answer a few quick questions with three sliders.',
+      numbers:'use numbers to check in. best for the person that thinks concretely.',
+      states:'choose your state, then fine-tune it with sliders. best for someone familiar with their states and able to name them.' };
     const _svgChev=`<svg class="rs-disc-chev" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>`;
     const _svgAuto=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></svg>`;
     const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
@@ -5796,9 +5796,9 @@
             <div class="rs-disc-body" id="ci-method-body"><div class="disc-inner">
               <p class="gs-lbl2">how you enter your state</p>
               <div class="set-seg" id="seg-method">
-                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>sliders</button>
-                <button type="button" data-method="states"${method==='states'?' class="on"':''}>pick a state</button>
-                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>numbers</button>
+                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>question sliders</button>
+                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>number sliders</button>
+                <button type="button" data-method="states"${method==='states'?' class="on"':''}>state picker</button>
               </div>
               <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
               <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
