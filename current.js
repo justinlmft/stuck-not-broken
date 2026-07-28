@@ -20,9 +20,15 @@
   // The six states, each defined by how the three circuits combine.
   // weight() returns 0..1 strength of that state given circuit presences.
   const STATES = {
-    stillness:   { name: 'stillness',     color: MIX.stillness, weight: (v,s,d) => Math.min(v, d) * (1 - s) },
+    // stillness = immobilization WITH significant safety — the exact symmetric case of play.
+    // Same ruling applied (v >= 0.40): below that it is not stillness, it is shutdown. FLAGGED for
+    // Justin — he ruled play explicitly; this extends the identical logic to the other safe blend.
+    stillness:   { name: 'stillness',     color: MIX.stillness, weight: (v,s,d) => v < 0.40 ? 0 : Math.min(v, d) * (1 - s) },
     safety:      { name: 'safety',        color: BASE.yellow,   weight: (v,s,d) => v * (1 - s) * (1 - d) },
-    play:        { name: 'play / motivation', color: MIX.play,  weight: (v,s,d) => Math.min(v, s) * (1 - d) },
+    // play = mobilization WITH significant safety. Justin's ruling (2026-07-28): below ~40%
+    // connection it is not play, it is flight/fight — so play needs v >= 0.40 to register at all.
+    // This kills the low-everything case where a blend won on almost no connection (map §2).
+    play:        { name: 'play/motivation', color: MIX.play,  weight: (v,s,d) => v < 0.40 ? 0 : Math.min(v, s) * (1 - d) },
     fightflight: { name: 'flight/fight',color: BASE.red,     weight: (v,s,d) => s * (1 - v) * (1 - d) },
     freeze:      { name: 'freeze',        color: MIX.freeze,    weight: (v,s,d) => Math.min(s, d) * (1 - v) },
     shutdown:    { name: 'shutdown',      color: BASE.blue,     weight: (v,s,d) => d * (1 - v) * (1 - s) },
@@ -38,6 +44,26 @@
     shutdown:    'your system is pulling toward shutdown right now. it is protecting you.',
     neutral:     'notice where your system is right now. there is no wrong answer.',
   };
+
+  // Score all six states and return the winner enriched with the honesty
+  // signals §7.3 needs: `strength` (the winner's own weight, 0..1 — low means a
+  // faint winner, e.g. safety winning on almost no connection) and `gap` (how
+  // far ahead of second place, small means a close race). `second`/`secondW`
+  // name the runner-up so mixed-state copy can say "mostly x with a bit of y".
+  // `key`/`name`/`color`/`w` are unchanged, so every existing caller still works.
+  const NEUTRAL = { key:'neutral', name:'settling', color:'#D8D2C2', w:0, strength:0, gap:0, second:null, secondW:0 };
+  function score(v,s,d){
+    let best={key:'neutral',name:'',color:'#D8D2C2',w:-1}, second={key:null,w:-1};
+    for(const k in STATES){
+      const w=STATES[k].weight(v,s,d);
+      if(w>best.w){ second=best; best={key:k,name:STATES[k].name,color:STATES[k].color,w}; }
+      else if(w>second.w){ second={key:k,w}; }
+    }
+    if(best.w<0.06) return NEUTRAL;
+    return { key:best.key, name:best.name, color:best.color, w:best.w,
+             strength:best.w, gap:best.w-Math.max(0,second.w),
+             second:second.key, secondW:Math.max(0,second.w) };
+  }
 
   function hexToRgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
   function rgbToHex(a){return '#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
@@ -157,12 +183,7 @@
     }
     function clamp(x){return Math.max(0,Math.min(1,x||0));}
 
-    function dominant(){
-      let best={key:'neutral',name:'',color:'#D8D2C2',w:0};
-      for(const k in STATES){const w=STATES[k].weight(cur.v,cur.sym,cur.dor);if(w>best.w)best={key:k,name:STATES[k].name,color:STATES[k].color,w};}
-      if(best.w<0.06)return {key:'neutral',name:'settling',color:'#D8D2C2',w:0};
-      return best;
-    }
+    function dominant(){ return score(cur.v,cur.sym,cur.dor); }
     function readout(){const d=dominant();return READOUTS[d.key]||READOUTS.neutral;}
 
     paint(0,0,0);
@@ -171,17 +192,47 @@
 
   // expose state metadata for other screens (timeline colors, names)
   createCurrent.STATES = STATES;
-  createCurrent.dominantOf = function(v,s,d){
-    let best={key:'neutral',name:'settling',color:'#D8D2C2',w:0};
-    for(const k in STATES){const w=STATES[k].weight(v,s,d);if(w>best.w)best={key:k,name:STATES[k].name,color:STATES[k].color,w};}
-    return best.w<0.06?{key:'neutral',name:'settling',color:'#D8D2C2',w:0}:best;
-  };
+  createCurrent.dominantOf = function(v,s,d){ return score(v,s,d); };
 
   // readout computed directly from values (not the figure's eased state) — so
   // callers get the correct sentence the instant inputs change, with no lag.
   createCurrent.readoutOf = function(v,s,d){
     const dom = createCurrent.dominantOf(v,s,d);
     return READOUTS[dom.key] || READOUTS.neutral;
+  };
+
+  // §7.3 — the two honest readings under a check-in. Consumes the strength/gap that
+  // dominantOf now carries so the app can speak WITHOUT overclaiming: a faint winner
+  // (a regulated LABEL that needed almost no connection) says so; a close race names
+  // the mix instead of committing to a coin-flip; a true dead-centre says nothing is
+  // obvious. NEVER a score or a rank — it names, it does not grade (standing guardrail).
+  // Returns { tie, dominant, balance } strings; copy is Justin-owned draft from the map.
+  const _READ_NAME = { safety:'safety', play:'play', stillness:'stillness', fightflight:'flight/fight', freeze:'freeze', shutdown:'shutdown' };
+  const _FAINT = 0.18;   // winner weight below this = "not much of it"
+  const _CLOSE = 0.02;   // gap to second below this = a close race (map: ~2%)
+  createCurrent.readingOf = function(v,s,d){
+    // the genuine centre: all three axes sitting mid, nothing pulling. fires here ONLY,
+    // never at the connection-high / others-default corner (that person IS reporting
+    // something — full connection). §7.3.
+    const mid = x => x>=0.40 && x<=0.60;
+    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:'nothing is obvious to you right now. no worries.', balance:null };
+    const dom = createCurrent.dominantOf(v,s,d);
+    if(dom.key==='neutral') return { tie:false, dominant:READOUTS.neutral, balance:null };
+    const nm = _READ_NAME[dom.key] || dom.key;
+    const secNm = dom.second ? (_READ_NAME[dom.second] || dom.second) : null;
+    let dominant;
+    if(dom.strength < _FAINT) dominant = `you’re reporting mostly ${nm}, but not much (and that’s okay).`;
+    else if(dom.gap < _CLOSE && secNm) dominant = `mostly ${nm}, with some ${secNm}, too.`;
+    else dominant = `you’re reporting mostly ${nm}.`;
+    // safety-vs-defense balance — the leading indicator of nearing dysregulation.
+    // defense = the louder defensive axis (matches the baseline metric + moment gate).
+    const def = Math.max(s, d), margin = v - def;
+    let balance;
+    if(v >= 0.40 && def >= 0.60) balance = 'there’s safety in the system with a lot of energy, too. safety may come and go. (and that’s normal.)';
+    else if(margin > 0.15) balance = 'you’ve got more safety than defense in your system.';
+    else if(margin < -0.15) balance = 'you’ve got more defense than safety in your system right now.';
+    else balance = 'safety and defense are about even right now.';
+    return { tie:false, dominant, balance };
   };
 
   global.PVCurrent = createCurrent;

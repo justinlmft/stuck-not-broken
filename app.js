@@ -316,15 +316,18 @@
     `you're reporting: ${CI_MIRROR.v[ciBucket(v)]}, ${CI_MIRROR.sym[ciBucket(sym)]}, and ${CI_MIRROR.dor[ciBucket(dor)]}.`;
   // ---- shared check-in feedback (turn 4 + r2 2026-07-24) -------------------------
   // one ci4 slider row: glyph anchors, question leads, single shared scale above.
-  function ci4SliderHTML(key, scenario, cls, val, numbered){
+  // plain = the state method's fine-tune. Someone who picks a state already knows their
+  // states, so they get the axis by name and a less/more scale instead of a scenario
+  // question and harder/easier (Justin, 2026-07-26).
+  function ci4SliderHTML(key, scenario, cls, val, numbered, plain){
     const ax = AXIS_ICON[key] || {};
     const icon = ax.icon ? ico(ax.icon,{cls:'slider-ico', color:STATE_COLOR(ax.state)}) : '';
-    return `<div class="slider" data-axis="${key}">
+    return `<div class="slider${plain?' slider-plain':''}" data-axis="${key}">
       <span class="slider-ico-wrap">${icon}</span>
       <div class="slider-main">
         <p class="q" id="q-${key}">${scenario}</p>
         <div class="sl-row">
-          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
+          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="${plain?('how much '+scenario):('how easy would it be to '+scenario)}">
           ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
         </div>
       </div>
@@ -561,7 +564,27 @@
     if(h==='checkin'){ app('today'); return screenCheckin(); }
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('today'); }   // lands on the ring, ready to tap
-    return app(currentTab);
+    const _r = app(currentTab);
+    // MEMBER ONBOARDING (item 114): gate on paid && not yet oriented. Deliberately NOT
+    // the ?checkout= return param — someone who closes the tab at Stripe and comes back
+    // tomorrow still gets oriented, and so does an Academy member who never saw Stripe.
+    // Deferred a frame so the shell it overlays actually exists.
+    try{
+      let force=false;
+      if(_obTestAllowed()){
+        const q=new URLSearchParams(location.search);
+        if(q.get('walkthrough')==='1'){
+          force=true; try{ localStorage.removeItem(_obKey()); }catch(e){}
+          history.replaceState(null,'',location.pathname);
+        }
+      }
+      if((force || (paidNow() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
+      // already-oriented returning users get the one-time "what's new" card instead (the
+      // state-math rework changed naming + recommendations; explain it once). Mutually
+      // exclusive with onboarding, which only fires for !oriented.
+      else if(oriented() && !whatsNewSeen() && !_liveJoin()) setTimeout(()=>{ if(!_ob.on && !document.getElementById('wn-scrim')) showWhatsNew(); }, 80);
+    }catch(e){}
+    return _r;
   }
   let currentTab = 'today';
   let authMode = 'in';
@@ -885,6 +908,7 @@
           </div>
           ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
+          <div class="ci-reading" id="ci-reading" hidden></div>
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
@@ -904,6 +928,15 @@
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
         if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
         else { readout.innerHTML = '<span class="ci-idle">move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
+      }
+      const reading = $('#ci-reading');
+      if(reading){
+        if(axTouched.v && axTouched.sym && axTouched.dor){
+          const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
+          reading.innerHTML = `<span class="ci-reading-dom">${rd.dominant}</span>`
+            + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
+          reading.hidden = false;
+        } else reading.hidden = true;
       }
     }
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
@@ -1184,20 +1217,20 @@
         <div class="offer-card offer-paid">
           <h2>your personal self-regulation tool</h2>
           <ul>
-            <li>practices built from your own check-ins, not picked off a list</li>
+            <li>practices built from your check-ins, not picked off a list</li>
             <li>all six practices, including the safety practices</li>
             <li>what shows up across all your check-ins: when you're most regulated, what keeps repeating, which practices actually help</li>
-            <li>your own personal reader, from the moment to the day to the week and beyond</li>
+            <li>your personal reader, from the moment to the day to the week and beyond</li>
           </ul>
           ${planPickerHTML()}
           <button class="btn block" id="g-of-sub">subscribe now</button>
-          <p class="fineprint" style="margin-top:10px">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
+          <p class="fineprint" style="margin-top:10px">renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses.</p>
           <details class="offer-more">
             <summary>What you get when you subscribe ▾</summary>
             <div class="offer-more-body">
               <p><b>Practices:</b> Get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
               <p><b>Analytics:</b> The more you check in, the more you learn about yourself. Identify what time of day, what day of the week, and even what season of the year bring you the most safety or the most challenge. See how practices affect your system and which ones help the most.</p>
-              <p><b>Personal reader:</b> Your check-ins and analytics create your own personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
+              <p><b>Personal reader:</b> Your check-ins and analytics create your personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
             </div>
           </details>
         </div>
@@ -1206,15 +1239,23 @@
           <ul>
             <li>check in as often as you like</li>
             <li>both mindfulness practices, the short one and the full one, as often as you want</li>
-            <li>your own check-in history, saved</li>
+            <li>your check-in history, saved</li>
           </ul>
           <button class="btn block quiet" id="g-of-free">continue free</button>
         </div>
+        <p class="fineprint" style="text-align:center;margin:14px 0 0">already have an account? <button class="linkbtn" id="g-of-signin" style="font-size:inherit;padding:2px">sign in</button></p>
         <div class="actionbar">
           <button class="navlink" id="g-of-leave" style="align-self:center">leave without saving</button>
         </div>
       </div>`;
     wirePlanPicker();
+    // "already have an account?" — the offer screen was the one place in the guest flow
+    // with no way back to an existing account, so a returning subscriber on a new device
+    // or browser hit a wall that only offered to sell them what they already own. Same
+    // operation as "leave without saving" (sign the anonymous session out, land on the
+    // sign-in form) and the same affordance already on the guest check-in screen; only
+    // the label differs, because the two are different questions to the person reading.
+    const gof = $('#g-of-signin'); if(gof) gof.onclick = ()=>{ gtrack('guest_signin', { door:guestDoor(), from:'offer' }); guestLeave(); };
     $('#g-of-sub').onclick   = ()=>{ gtrack('subscribe_click', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits(), plan:_planChoice }); guestAccountForm('paid'); };
     $('#g-of-free').onclick  = ()=>{ gtrack('continue_free',   { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('free'); };
     // "leave without saving" means what it says: sign out, discard. The check-in
@@ -1376,7 +1417,7 @@
         <div class="gate-body">
           <p class="eyebrow">the base plan</p>
           <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">it adds practices built from your own check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. cancel anytime.</p>
+          <p class="lede" style="margin-bottom:6px">it adds practices built from your check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. cancel anytime.</p>
           ${planPickerHTML()}
           <p class="fineprint" style="margin-bottom:18px">your card is charged today. it renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses. what you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
@@ -1505,6 +1546,342 @@
 
   // ---------------------------------------------------------------- app shell
   let _mintedThisSession = false;
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // MEMBER ONBOARDING (item 114, 2026-07-26)
+  // Built from Claude Design's approved prototype — their sheet variant (1b).
+  // Their path, kept: welcome + the choice · practice maker (spotlight) ·
+  // reader (spotlight) · you-tab stats (spotlight) · check-in method ·
+  // practice defaults · your name · done. Declining gives ONE card listing the
+  // three unlocks and nothing else. Every card can be left.
+  //
+  // The gate is `paidNow() && !oriented`, deliberately NOT the ?checkout= param:
+  // someone who closes the tab at Stripe and comes back tomorrow still gets
+  // oriented, and so does an Academy member who never touched Stripe.
+  //
+  // The preference cards write the REAL settings — the same keys the settings
+  // screen writes — so this is a walkthrough OF the app, not a copy of it.
+  // 🖊 ALL COPY IS DRAFT for Justin.
+  // ═════════════════════════════════════════════════════════════════════════
+  // NON-PROD ONLY test entry (item 114). beta.stucknotbroken.com and localhost get
+  // ?walkthrough=1, which clears the oriented flag and replays the whole thing as if the
+  // account had just paid. Hostname-gated the same way config.js picks its database, so it
+  // is structurally impossible on app.stucknotbroken.com — there is no flag to forget.
+  function _obTestAllowed(){ try{ return location.hostname !== 'app.stucknotbroken.com'; }catch(e){ return false; } }
+  function _obKey(){ const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_oriented_'+u; }
+  function oriented(){ try{ return localStorage.getItem(_obKey())||''; }catch(e){ return ''; } }
+  function setOriented(v){ try{ localStorage.setItem(_obKey(), v); }catch(e){}
+    try{ if(Store.setPref) Store.setPref('oriented', v); }catch(e){} }
+  function obTrack(name, meta){ try{ if(Store.trackEvent) Store.trackEvent(name, meta||{}); }catch(e){} }
+
+  // ---- "what's new" one-time card (returning users, after the state-math rework) ----
+  // Shown ONCE to an already-oriented user when they next open the app, so the change in
+  // state naming / practice recommendations doesn't arrive unexplained. New users go through
+  // onboarding instead (this fires only for oriented()). Bump the version suffix to re-show
+  // for a future update. Copy is Justin's, verbatim; the mark is the onboarding mark.
+  function _wnKey(){ const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_whatsnew_statemath_'+u; }
+  function whatsNewSeen(){ try{ return !!localStorage.getItem(_wnKey()); }catch(e){ return true; } }
+  function markWhatsNewSeen(){ try{ localStorage.setItem(_wnKey(), '1'); }catch(e){} }
+  function showWhatsNew(){
+    if(document.getElementById('wn-scrim')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'wn-scrim'; wrap.id = 'wn-scrim';
+    wrap.innerHTML = `
+      <div class="wn-card" role="dialog" aria-modal="true" aria-label="app updates">
+        <img class="wn-mark" src="${MARK}" alt="Stuck Not Broken">
+        <h2 class="wn-h">App updates</h2>
+        <p class="wn-p">Stuck Not Broken has undergone a major update to a couple of key things to give you an even better experience. Here's what to expect from now on:</p>
+        <ul class="wn-list">
+          <li>more accurate state naming and reflections based on your check-ins</li>
+          <li>much more accurate practice recommendations based on your self-reported capacity and previous practice history</li>
+        </ul>
+        <p class="wn-p">I changed some math stuff in the background to give you the best experience possible and to help you achieve even more levels of insight and regulation.</p>
+        <p class="wn-p">Thanks for being an early SNB app user!</p>
+        <p class="wn-sig">Justin</p>
+        <button class="btn block" id="wn-ok" type="button">got it</button>
+      </div>`;
+    const close = ()=>{ markWhatsNewSeen(); try{ wrap.remove(); }catch(e){} };
+    wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
+    document.body.appendChild(wrap);
+    const ok = wrap.querySelector('#wn-ok'); if(ok) ok.onclick = close;
+    obTrack('whatsnew_shown', { v:'statemath' });
+  }
+
+  const OB_UNLOCKS = [
+    ['spark', 'Practices created just for you', 'The app designs self-regulation practices for you and only you based on your history, practices, and preferences. (Feel free to customize further!)'],
+    ['book',  'A personal reader',                  'It’s like a blog written just for you. It changes over time.'],
+    ['chart', 'Deep data insights',                 'Get data analysis about everything, from when you’re most regulated, patterns, and which practices help. It needs a few check-ins first.']
+  ];
+  function _obIcon(k){
+    const p = k==='spark' ? '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8"/>'
+            : k==='book'  ? '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/>'
+            : '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>';
+    return '<span class="u-ic"><svg viewBox="0 0 24 24">'+p+'</svg></span>';
+  }
+  function obUnlockList(){
+    return '<div class="ob-unlocks">'+OB_UNLOCKS.map(u=>
+      '<div class="ob-unlock">'+_obIcon(u[0])+'<span><b>'+escapeHtml(u[1])+'</b><span class="u-s">'+escapeHtml(u[2])+'</span></span></div>').join('')+'</div>';
+  }
+  function obChip(group,val,label){ return '<button class="ob-chip" type="button" data-'+group+'="'+val+'">'+escapeHtml(label)+'</button>'; }
+  const OB_METHOD_CAP = {
+    sliders:'Best for someone who has a hard time identifying their state. Simply answer a few quick questions with three sliders.',
+    states :'Choose your state, then fine-tune it with sliders. Best for someone familiar with their states and able to name them.',
+    numbers:'One number per axis. Quickest if you already know what you would say.'
+  };
+  let OB_STEPS = [];
+  function obBuildSteps(){
+    const nm = (Store.getName && Store.getName()) || '';
+    // 🖊 DRAFT COPY. Sentence case here, not the app's lowercase UI: Justin's call
+    // (2026-07-26) — these cards carry the most reading in the app and legibility wins.
+    // Kept short on purpose. The card gives reading room to the body and never to the
+    // buttons, so long copy costs the scroll, not the action.
+    OB_STEPS = [
+      { id:'welcome', tab:'today', kind:'center',
+        h:'Welcome',
+        body:'<p class="ob-p">Thank you for subscribing. Three things just opened up for you:</p>'
+           + '<ol class="ob-list"><li>Practices created just for you</li>'
+           + '<li>A personal reader</li>'
+           + '<li>Deep data insights</li></ol>'
+           + '<p class="ob-p">Choose how you’d like to get started below.</p>'
+           + '<p class="ob-sign">Justin</p>'
+           + obMarkSVG(),
+        actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
+
+      { id:'practice', tab:'practice', kind:'spot', target:'#p7-toggle', pad:8,
+        h:'Your practice maker',
+        body:'<p class="ob-p">This opens the practice maker. Want more silence? No problem. A certain visual? Sure thing. Do it all here.</p>' },
+
+      { id:'reader', tab:'current', kind:'spot', target:'#you-reader', pad:8,
+        h:'Your personal reader',
+        body:'<p class="ob-p">Your personal reader changes based on your check-ins and practices. Over the moments, days, weeks, and beyond, it will have more and more information about you to learn from and build insight from.</p>' },
+
+      { id:'stats', tab:'current', kind:'spot', target:'#carousel', pad:6,
+        h:'Deep data insights',
+        body:'<p class="ob-p">Find snapshot results of your data. Check-ins and practices accumulate here.</p>' },
+
+      { id:'method', tab:'current', kind:'center',
+        h:'How do you want to check in?',
+        body:'<p class="ob-p">All three record the same thing, so no need to worry about your history if you decide to change later.</p>'
+           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Question sliders')+obChip('method','numbers','Numbers')+obChip('method','states','State picker')+'</div>'
+           + '<p class="ob-fine" data-cap="method"></p>' },
+
+      { id:'defaults', tab:'practice', kind:'center',
+        h:'Practice defaults',
+        body:'<p class="ob-p">You can change these any time you want, but this sets the defaults for now.</p>'
+           + '<p class="ob-fine" style="margin:10px 0 3px">Connect to the present moment through</p>'
+           + '<div class="ob-chips" data-group="sense">'+[['touch','touch'],['sound','sound'],['sight','sight'],['movement','movement'],['imagination','imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
+           + '<p class="ob-fine" style="margin:14px 0 3px">How much silence</p>'
+           + '<div class="ob-chips" data-group="silence">'+[[4,'a little'],[8,'some'],[14,'a lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
+
+      { id:'name', tab:'practice', kind:'center',
+        h:'What should the app call you?',
+        body:'<p class="ob-p">(Or leave it blank.)</p>'
+           + '<input class="ob-name" id="ob-name" type="text" placeholder="your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
+
+      { id:'done', tab:'today', kind:'center',
+        h:'Done.',
+        body:'<p class="ob-p">And that’s it. Check in, do a practice, check in again. It gets more and more yours every time.</p>'
+           + '<p class="ob-sign">Justin</p>'
+           + obMarkSVG(),
+        fine:'All of this is in settings, and the walkthrough is there if you want it again.',
+        actions:[{label:'Take me in',kind:'primary',go:'end'}] },
+
+      { id:'decline', tab:'today', kind:'center', standalone:true,
+        h:'Here\u2019s what opened up',
+        body:'<p class="ob-p">Enjoy exploring on your own. Here’s a brief rundown.</p>'+obUnlockList()
+           + '<p class="ob-p" style="margin-top:12px">The walkthrough is in settings whenever you want it.</p>',
+        actions:[{label:'Okay, in I go',kind:'primary',go:'end'}] }
+    ];
+  }
+  function obMarkSVG(){
+    // r9, generated from assets/logo/snb-mark.svg so the inline copy cannot drift from
+    // the asset. Weight ladder: head/beard 9.5 - ears 6.5 - frame 5.5 - brows 5.2 -
+    // nose 4.2 - eyes 3.6. Do not flatten these; six weights is a decision, not an accident.
+    return '<svg class="ob-mark" viewBox="96 10 208 351" aria-hidden="true" fill="none" '
+      + 'stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">'
+      + '<g id="snb-ears" stroke-width="6.5"> <path id="snb-ear-l" d="M 120,147 C 105,148 112,193 120,194"/> <path id="snb-ear-r" d="M 279.5,147 C 294.5,148 287.5,193 279.5,194"/> </g> <path id="snb-head" stroke-width="9.5" d="M 122,273.5 L 122,86 C 122,63 152,24.5 200,24.5 C 248,24.5 277.5,63 277.5,86 L 277.5,273.5"/> <g id="snb-brows" stroke-width="5.2"> <path id="snb-brow-l" d="M 181.5,108 Q 163,109 146,120"/> <path id="snb-brow-r" d="M 218.5,108 Q 237,109 254,120"/> </g> <g id="snb-glasses" stroke-width="5.5"> <circle id="snb-lens-l" cx="164.5" cy="151" r="25.5"/> <circle id="snb-lens-r" cx="235.5" cy="151" r="25.5"/> <path id="snb-bridge" d="M 192,146 Q 200,141.5 208,146"/> <path id="snb-arm-l" d="M 137.5,148 L 122.5,147"/> <path id="snb-arm-r" d="M 262.5,148 L 277.5,147"/> </g> <g id="snb-eyes-closed" stroke-width="3.6"> <path id="snb-eyec-l" d="M 152,156 C 152.5,144 176.5,144 177,156"/> <path id="snb-eyec-r" d="M 223,156 C 223.5,144 247.5,144 248,156"/> </g> <g id="snb-eyes-open" opacity="0"> <circle id="snb-eyeo-l" cx="164.5" cy="151" r="6" fill="currentColor" stroke="none"/> <circle id="snb-eyeo-r" cx="235.5" cy="151" r="6" fill="currentColor" stroke="none"/> </g> <ellipse id="snb-cheek-l" cx="154.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(13.7 154.5 192.5)"/> <ellipse id="snb-cheek-r" cx="245.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(-13.7 245.5 192.5)"/> <g id="snb-beard" stroke-width="9.5"> <path id="snb-ridge-1l" d="M 137.5,219.5 L 137.5,305.5"/> <path id="snb-ridge-1r" d="M 261.5,219.5 L 261.5,305.5"/> <path id="snb-ridge-2" d="M 154.5,328.5 L 154.5,258.25 A 45,45 0 0 1 244.5,258.25 L 244.5,328.5"/> <path id="snb-ridge-3" d="M 175.5,343.5 L 175.5,255.5 A 24.5,24.5 0 0 1 224.5,255.5 L 224.5,343.5"/> <path id="snb-ridge-4" d="M 200,262.5 L 200,346.5"/> </g> <path id="snb-nose" stroke-width="4.2" d="M 180,189 C 183,215 217,215 220,189"/>'
+      + '</svg>';
+  }
+  let _ob = { i:0, min:0, on:false };
+  // no back on the first card of the run. Re-entry from settings starts at 1, so back
+  // there must not reach the welcome, which thanks them for subscribing all over again.
+  function obCanBack(){ return _ob.i==='decline' ? true : (typeof _ob.i==='number' && _ob.i > _ob.min); }
+  function obStep(x){ return x==='decline' ? OB_STEPS.filter(s=>s.id==='decline')[0] : OB_STEPS[x]; }
+  let _obResize=null;
+  function startOnboarding(fromSettings){
+    if(_ob.on || $('#ob-root')) return;
+    obBuildSteps();
+    _ob.i = fromSettings ? 1 : 0; _ob.min = _ob.i; _ob.on = true;
+    obTrack('orient_start', { from: fromSettings?'settings':'first_open' });
+    if(!_obResize){ _obResize = ()=>{ if(_ob.on){ const st=obStep(_ob.i); if(st){ obPlace(st); obFade(); } } };
+      window.addEventListener('resize', _obResize); }
+    obPaint(true);
+  }
+  function endOnboarding(how){
+    const d=$('#ob-root'); _ob.on=false;
+    setOriented(how==='skip' ? 'skipped' : 'yes');
+    obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'' });
+    const c=$('#content'); if(c) c.style.transform='';
+    if(d && d.parentNode) d.parentNode.removeChild(d);
+  }
+  function obEnsureRoot(){
+    let d=$('#ob-root');
+    // document.body, NOT root: app() rebuilds root.innerHTML on every render and on every
+    // re-entry into route(), which is what made the sheet flash and disappear on beta.
+    if(!d){ d=document.createElement('div'); d.id='ob-root'; d.className='ob-root'; document.body.appendChild(d); }
+    return d;
+  }
+  function obPaint(first){
+    const st=obStep(_ob.i); if(!st){ endOnboarding('done'); return; }
+    // app(tab) rebuilds root.innerHTML, which takes the overlay with it — so switch the
+    // tab FIRST and re-attach afterwards, never the other way round.
+    if(st.tab && st.tab!==currentTab){ app(st.tab); }
+    const d=obEnsureRoot();
+    obTrack('orient_step', { step: st.id });
+    const seq = OB_STEPS.filter(s=>!s.standalone && s.id!=='welcome' && s.id!=='done');
+    const pos = seq.map(s=>s.id).indexOf(st.id);
+    const actions = st.actions || [{ label:(pos===seq.length-1?'done':'next'), kind:'primary', go:'next' }];
+    const showSkip = !st.actions;
+    let html = '<div class="ob-dim" data-side="t"></div><div class="ob-dim" data-side="b"></div>'
+             + '<div class="ob-dim" data-side="l"></div><div class="ob-dim" data-side="r"></div>';
+    if(st.kind==='spot') html += '<div class="ob-hole"></div>';
+    html += '<div class="ob-card'+(first?' anim':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
+      + '<div class="ob-top">'
+      + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
+          + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>back</button>' : '<span></span>')
+      + '<span class="ob-grab"></span><span class="ob-toppad"></span></div>'
+      + '<div class="ob-body">'
+      + '<h2 class="ob-h">'+escapeHtml(st.h)+'</h2>'
+      + st.body
+      + (st.fine?'<p class="ob-fine">'+escapeHtml(st.fine)+'</p>':'')
+      + '</div>'
+      + '<div class="ob-foot">'
+      + '<div class="ob-acts">'+actions.map(a=>'<button class="btn'+(a.kind==='quiet'?' quiet':'')+' block" type="button" data-go="'+a.go+'">'+escapeHtml(a.label)+'</button>').join('')+'</div>'
+      + (showSkip ? '<div class="ob-row"><div class="ob-dots">'+seq.map((s,i)=>'<i class="'+(i===pos?'on':'')+'"></i>').join('')+'</div>'
+          + '<button class="ob-skip" type="button" data-go="skip">I\u2019ll take it from here</button></div>' : '')
+      + '</div></div>';
+    d.innerHTML = html;
+    obPlace(st);
+    obWire(st);
+    obFade();
+    const card=d.querySelector('.ob-card'); if(card) card.focus && card.setAttribute('tabindex','-1');
+  }
+  // The footer fade means "there is more copy below". It used to paint unconditionally,
+  // so on a card whose copy fitted exactly it washed out the last line for no reason
+  // (measured: 0px between the method caption and the footer at 390 / 100%).
+  function obFade(){
+    const d=$('#ob-root'); if(!d) return;
+    const card=d.querySelector('.ob-card'), body=d.querySelector('.ob-body');
+    if(!card||!body) return;
+    const upd=()=>card.classList.toggle('more', body.scrollTop + body.clientHeight < body.scrollHeight - 1);
+    body.onscroll=upd; upd();
+    // obPlace sets the card height in this same frame, so a synchronous read can catch a
+    // stale clientHeight and miss a body that really does overflow. Re-measure after layout.
+    requestAnimationFrame(upd); setTimeout(upd, 140);
+  }
+  function obPlace(st){
+    const d=$('#ob-root'); const card=d.querySelector('.ob-card');
+    // positioned against the viewport now that the overlay is a child of body
+    const shellR = { left:0, top:0, width:window.innerWidth, height:window.innerHeight };
+    const contentEl = $('#content'); if(contentEl) contentEl.style.transform='';
+    const dims = [...d.querySelectorAll('.ob-dim')];
+    const hole = d.querySelector('.ob-hole');
+    let target = st.kind==='spot' ? document.querySelector(st.target) : null;
+    // Two of the three spotlight targets are MOBILE-ONLY: #p7-toggle only renders for
+    // paid-on-phone (renderMaker7b), and #carousel is replaced by the ledger on the wide
+    // you-tab. On desktop they are absent, and an unguarded measure put the ring in the
+    // top-left corner. Missing or zero-sized target => fall back to a plain centred card.
+    if(target){ const tr=target.getBoundingClientRect(); if(!tr.width || !tr.height) target=null; }
+    if(!target){
+      // no spotlight: one full dim pane behind the card, the rest collapsed
+      dims.forEach((el,i)=>{ el.style.cssText = i===0 ? 'inset:0' : 'display:none'; });
+      if(hole) hole.style.display='none';
+      return;
+    }
+    const p = st.pad==null?8:st.pad;
+    const measure = ()=>{ const tr=target.getBoundingClientRect();
+      return { x:tr.left-p, y:tr.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
+    let r = measure();
+    // the sheet is pinned to the bottom, so a low target would sit UNDER it.
+    // lift the app content by the overlap and re-measure, so the ring stays visible.
+    if(contentEl && card){
+      const cardTop = card.getBoundingClientRect().top;
+      const overlap = (r.y + r.h + 16) - cardTop;
+      if(overlap > 0){ contentEl.style.transform='translateY('+(-Math.round(overlap))+'px)'; r = measure(); }
+    }
+    const W=shellR.width, H=shellR.height;
+    const set=(el,x,y,w,h)=>{ el.style.cssText='left:'+x+'px;top:'+y+'px;width:'+Math.max(0,w)+'px;height:'+Math.max(0,h)+'px'; };
+    set(dims[0], 0, 0, W, r.y);                       // top
+    set(dims[1], 0, r.y+r.h, W, H-(r.y+r.h));         // bottom
+    set(dims[2], 0, r.y, r.x, r.h);                   // left
+    set(dims[3], r.x+r.w, r.y, W-(r.x+r.w), r.h);     // right
+    if(hole){
+      // conform to the target: take its own corner radius and grow it by the pad, so the
+      // ring sits snug on a pill or a rounded button instead of boxing it in a rectangle.
+      let br = 16;
+      try{ const cs=getComputedStyle(target);
+        const raw = cs.borderTopLeftRadius||'';
+        const v = parseFloat(raw)||0;
+        // A target with its own radius: match it and grow by the pad, so the ring is
+        // parallel to the corner. A target with NO radius (most of ours are plain text
+        // buttons) reads boxy at pad-only, so give it a pill capped at 28.
+        br = raw.indexOf('%')>=0 ? Math.min(r.w,r.h)/2
+           : v > 0 ? v + p
+           : Math.min(r.h/2, 28);
+        br = Math.min(br, Math.min(r.w,r.h)/2);
+      }catch(e){}
+      hole.style.cssText='left:'+r.x+'px;top:'+r.y+'px;width:'+r.w+'px;height:'+r.h+'px;border-radius:'+br+'px';
+    }
+  }
+  function obWire(st){
+    const d=$('#ob-root'); if(!d) return;
+    d.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{
+      const g=b.dataset.go;
+      if(g==='skip'){ return endOnboarding('skip'); }
+      if(g==='end'){ return endOnboarding('done'); }
+      if(g==='decline'){ _ob.i='decline'; return obPaint(false); }
+      if(g==='next'){ _ob.i = (typeof _ob.i==='number' ? _ob.i+1 : 0); return obPaint(false); }
+      // decline is a standalone card reached from the welcome, so its back goes there
+      if(g==='back'){ _ob.i = (_ob.i==='decline') ? 0 : Math.max(_ob.min, _ob.i-1); return obPaint(false); }
+      _ob.i = +g; obPaint(false);
+    });
+    // the preference cards write the SAME keys settings writes — a walkthrough OF the app
+    const mSel = d.querySelector('[data-group="method"]');
+    if(mSel){
+      const cur = (()=>{ try{ return localStorage.getItem('snb_checkin_method')||'sliders'; }catch(e){ return 'sliders'; } })();
+      const cap = d.querySelector('[data-cap="method"]');
+      const mark=(v)=>{ mSel.querySelectorAll('[data-method]').forEach(x=>x.classList.toggle('on', x.dataset.method===v));
+                        if(cap) cap.textContent = OB_METHOD_CAP[v]||''; };
+      mark(cur);
+      mSel.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
+        try{ localStorage.setItem('snb_checkin_method', b.dataset.method); }catch(e){}
+        mark(b.dataset.method); haptic('save'); obTrack('orient_pref',{pref:'method',value:b.dataset.method});
+      });
+    }
+    const sSel = d.querySelector('[data-group="sense"]');
+    if(sSel){
+      const cur = (Store.prefSense && Store.prefSense()) || '';
+      sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on', x.dataset.sense===cur));
+      sSel.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
+        if(Store.setPrefSense) Store.setPrefSense(b.dataset.sense);
+        sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on',x===b));
+        haptic('save'); obTrack('orient_pref',{pref:'sense',value:b.dataset.sense});
+      });
+    }
+    const qSel = d.querySelector('[data-group="silence"]');
+    if(qSel){
+      const cur = (Store.prefSilence && Store.prefSilence());
+      qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on', +x.dataset.silence===cur));
+      qSel.querySelectorAll('[data-silence]').forEach(b=>b.onclick=()=>{
+        if(Store.setPrefSilence) Store.setPrefSilence(+b.dataset.silence);
+        qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on',x===b));
+        haptic('save'); obTrack('orient_pref',{pref:'silence',value:b.dataset.silence});
+      });
+    }
+    const nameEl = d.querySelector('#ob-name');
+    if(nameEl) nameEl.addEventListener('change', e=>{ if(Store.setName) Store.setName(e.target.value.trim()); });
+  }
+
   function app(tab){
     currentTab = tab;
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); mintWeeks(); mintMonths(); mintQuarters(); }
@@ -1705,7 +2082,7 @@
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
-            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is — open the glossary"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
             : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
@@ -1856,7 +2233,7 @@
 
   // ---- breath ring: the three-state ladder (2026-07-23) ----------------------
   // The single centering ring is really the polyvagal ladder: outer = safety
-  // (ventral), middle = fight/flight (sympathetic), inner = shutdown (dorsal) —
+  // (ventral), middle = flight/fight (sympathetic), inner = shutdown (dorsal) —
   // order fixed forever. All three are always alive: each ring keeps its own
   // ambient breath. The current state lights + amplifies the dominant ring(s)
   // (a blend lights two, in the blend token); quiet rings stay pale ink. On tap,
@@ -2296,7 +2673,7 @@
         <div class="view read" style="gap:0">
           <div class="read-flow">
             <div class="scr-head read-head">
-              <h1 class="read-h1">Your Reflections</h1>
+              <h1 class="read-h1">your reflections</h1>
               <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
               ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="past reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
             </div>
@@ -2315,7 +2692,7 @@
     const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
     // fresh-section share: the same image cards the You tab shares
     (function(){
-      const _sig = 'stuck not broken · app.stucknotbroken.com';
+      const _sig = 'stuck not broken · stucknotbroken.com/stuck';
       root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
         const which=b.dataset.shareSec;
         if(which==='blog-pats' && patterns){
@@ -2637,7 +3014,7 @@
       <header class="appbar"><button class="backbtn" id="arch-back">back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <h1 class="read-h1">Past Reflections</h1>
+          <h1 class="read-h1">past reflections</h1>
           ${caption}
           ${rows}
         </div>
@@ -2849,18 +3226,40 @@
     // numbers mode shows a live 0-10 badge reading the SAME slider value (ease), so the
     // number and the hard→easy position are one datum — Justin's alignment requirement.
     const _ax4 = (key,scenario,cls,val)=>ci4SliderHTML(key,scenario,cls,val,_ciNumbers);
-    const _ciInput = _ciStates
-      ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
-          <div class="ci-ovr-chips ci4-states">
-            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
-          </div>
-          <p class="ci-ovr-about" id="ci-ovr-about"></p>`
-      : `<div class="ci4-scale" aria-hidden="true"><span>${_ciScale[0]}</span><span>${_ciScale[1]}</span></div>
+    // the sliders are the SAME markup in every method. In states mode they start folded
+    // and open on the first state tap, pre-positioned from it, so picking a state is a
+    // starting point that can then be fine-tuned rather than one of six fixed readings.
+    // Before this, every "safety" tap saved exactly 85/15/15 and the granular data was
+    // gone (Justin, 2026-07-26).
+    // Two shapes of the same three sliders.
+    //  · question form (sliders / numbers): a scenario, scored harder -> easier. The two
+    //    defence axes invert, because "easy to relax your shoulders" is LOW mobilization.
+    //  · plain form (states fine-tune): the axis by name, scored less -> more, read
+    //    directly. A slider labelled "mobilization" that FALLS as you drag right would be
+    //    a trap, so in this form nothing inverts.
+    const AX_PLAIN = { v:'connection', sym:'mobilization', dor:'immobilization' };
+    const _sliderBlock = `<div class="ci4-scale" aria-hidden="true"><span>${_ciScale[0]}</span><span>${_ciScale[1]}</span></div>
           <div class="sliders">
             ${_ax4('v', CI_BANK.v[qIdx.v], 'r-v', v)}
             ${_ax4('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
             ${_ax4('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>`;
+    const _plainBlock = `<div class="ci4-scale" aria-hidden="true"><span>less</span><span>more</span></div>
+          <div class="sliders">
+            ${ci4SliderHTML('v', AX_PLAIN.v, 'r-v', v, false, true)}
+            ${ci4SliderHTML('sym', AX_PLAIN.sym, 'r-sym', s, false, true)}
+            ${ci4SliderHTML('dor', AX_PLAIN.dor, 'r-dor', d, false, true)}
+          </div>`;
+    const _ciInput = _ciStates
+      ? `<p class="ci4-states-lede">tap the state that fits right now.</p>
+          <div class="ci-ovr-chips ci4-states">
+            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
+          </div>
+          <div class="ci-tune" id="ci-tune"${editRec?'':' hidden'}>
+            <p class="ci-tune-lede">fine-tune anything that isn't quite right.</p>
+            ${_plainBlock}
+          </div>`
+      : _sliderBlock;
     $('#content').innerHTML = `<div class="view checkin2 ci4${_ciStates?' ci-m-states':(_ciNumbers?' ci-m-numbers':'')}">
 
         <div class="scr-head">
@@ -2872,6 +3271,7 @@
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
+          <div class="ci-reading" id="ci-reading" hidden></div>
           ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like: when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
         </div>
 
@@ -2907,12 +3307,23 @@
     // stay quiet until an axis is set — color responds to what the person SET, never to
     // defaults. edits show everything at once. rail + glyph + clause move together (r2).
     const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
-    const _idleMsg = _ciStates ? 'pick a state above, and this line mirrors what you named.'   // 🖊
+    const _idleMsg = _ciStates ? 'pick a state above, then fine-tune. this line mirrors what you set.'   // 🖊
       : (_ciNumbers ? 'move a slider, and this line mirrors the number you set.'                // 🖊
       : 'move the sliders, and this line will mirror what you set.');                            // 🖊
     function refresh(){
       const colOf = ciAxisColorFn(v, s, d, axTouched);
-      if(!_ciStates){
+      // states mode paints the same way, but only once the fine-tune block is open
+      const _tuneOpen = !_ciStates || !!(root.querySelector('#ci-tune') && !root.querySelector('#ci-tune').hidden);
+      // the chips above are not just the input, they are a live readout: as the sliders
+      // move, the highlighted state follows the numbers. Otherwise someone can tune their
+      // way well out of the state they tapped while that chip still sits lit (Justin,
+      // 2026-07-26). dominantOf can land on 'neutral', which is no chip: honest, so the
+      // row simply goes quiet rather than pretending.
+      if(_ciStates && _tuneOpen){
+        const dk = window.PVCurrent.dominantOf(v/100, s/100, d/100).key;
+        root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x.dataset.ovr===dk));
+      }
+      if(_tuneOpen){
         setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
         ciPaintSliders(colOf);   // rails + anchoring glyphs take the same colour
         if(_ciNumbers){ ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax), nb=$('#num-'+ax); if(el&&nb) nb.textContent = Math.round((+el.value)/10); }); }
@@ -2922,13 +3333,23 @@
         if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
         else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
       }
+      // §7.3 — the two honest readings, once all three axes are set (a reading needs the
+      // whole picture; a partial report is not named). Names the state, never grades it.
+      const reading = $('#ci-reading');
+      if(reading){
+        if(axTouched.v && axTouched.sym && axTouched.dor){
+          const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
+          reading.innerHTML = `<span class="ci-reading-dom">${rd.dominant}</span>`
+            + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
+          reading.hidden = false;
+        } else reading.hidden = true;
+      }
     }
-    // sliders read ease (right = easier): heart ease IS connection; bolt/x ease invert
-    if(!_ciStates){
-      bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
-      bindSlider('sym', val=>{s=100-val;axTouched.sym=1;refresh();});
-      bindSlider('dor', val=>{d=100-val;axTouched.dor=1;refresh();});
-    }
+    // Bound in every method now: in states mode the same three sliders are the fine-tune.
+    // Question form reads ease, so the two defence axes invert; plain form reads the axis.
+    bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
+    bindSlider('sym', val=>{s=_ciStates?val:100-val;axTouched.sym=1;refresh();});
+    bindSlider('dor', val=>{d=_ciStates?val:100-val;axTouched.dor=1;refresh();});
     refresh();
     const _shuf = $('#ci-shuffle');
     if(_shuf) _shuf.onclick = ()=>{
@@ -2945,11 +3366,29 @@
     const STATE_AXES={ safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15],
                        stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
     if(_ciStates){
+      // the six presets are the STARTING POINT. Tapping one opens the sliders sitting
+      // exactly where that state puts them, and every later nudge is the person's own
+      // reading — same v/sym/dor the slider method saves, at full resolution.
       root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{
         const k=b.dataset.ovr, ax=STATE_AXES[k];
         root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x===b));
-        const ab=$('#ci-ovr-about'); if(ab) ab.textContent = (k && STATE_DETAIL[k]) ? STATE_DETAIL[k].about : '';
-        if(ax){ axTouched.v=1; axTouched.sym=1; axTouched.dor=1; v=ax[0]*100; s=ax[1]*100; d=ax[2]*100; refresh(); }
+        if(!ax) return;
+        axTouched.v=1; axTouched.sym=1; axTouched.dor=1;
+        v=ax[0]*100; s=ax[1]*100; d=ax[2]*100;
+        // the plain sliders read the axis directly, so nothing inverts here
+        const put=(id,val)=>{ const el=$('#sl-'+id); if(el) el.value=String(Math.round(val)); };
+        put('v', v); put('sym', s); put('dor', d);
+        const tune=$('#ci-tune'), shuf=$('#ci-shuffle-st');
+        const firstOpen = tune && tune.hidden;
+        if(firstOpen){ tune.hidden=false; tune.classList.add('in'); }
+        if(shuf) shuf.hidden=false;
+        refresh();
+        // the state chips and the state description push the sliders below the fold, so
+        // opening them silently would leave the fine-tune invisible on a phone. Bring it
+        // into view once, on the first open only, and never fight a later scroll.
+        if(firstOpen) requestAnimationFrame(()=>{
+          try{ tune.scrollIntoView({behavior: document.body.classList.contains('reduce-motion')?'auto':'smooth', block:'nearest'}); }catch(e){ tune.scrollIntoView(); }
+        });
       });
     }
 
@@ -3512,7 +3951,7 @@
       x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
       x.fillText('the Stuck Not Broken app',L,H-186);
       x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif';
-      x.fillText('download at app.stucknotbroken.com',L,H-138);
+      x.fillText('download at stucknotbroken.com/stuck',L,H-138);
       const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
       if(!blob) return false;
       const file=new File([blob],'stuck-not-broken.png',{type:'image/png'});
@@ -3633,17 +4072,59 @@
     if(!bestWeek && !fastest) return null;
     return { bestWeek, fastest };
   }
-  // the visible 28-day Baseline (same math as the reader's zoom-out section)
-  function _baselineCard(){
-    if(!(Store.tenure&&Store.periodStats)) return null;
-    const tn=Store.tenure(); if(!tn||tn.days<28) return null;
-    const now=Date.now();
-    const base=Store.periodStats(now-28*864e5, now); if(!base||base.n<8) return null;
-    const wk=Store.periodStats(now-7*864e5, now);
-    // LEVEL, not share (Justin 2026-07-05): "the level of safety consistently in
-    // your system" — average safety, unified with the hero card's metric. the
-    // reader's Baseline sections still use share; unify there in the reader round.
-    return { basePct: Math.round(base.avgV*100), wkPct: (wk&&wk.n>=3)?Math.round(wk.avgV*100):null };
+  // ---- the baseline card, rebuilt (§7.2, Justin 2026-07-27) ----
+  // (retired: the old 28-day _baselineCard %/meter — replaced by the spectrum card below)
+  // No percent, no meter-to-100. The person is their own scale: the six-state
+  // spectrum (their colors, their order) is the axis. The dot is the state they
+  // spend the most time in over the window; a white outline shows this window's
+  // state variation; a grey overlay shows the previous window's, to compare.
+  // Window comes from the you-tab time toggle (days), so the same card serves
+  // every timescale the person picks.
+  const _BL_ORDER = ['shutdown','freeze','fightflight','play','safety','stillness'];
+  const _blIdx = k => _BL_ORDER.indexOf(k);
+  const _blPos = idx => (idx + 0.5) / 6;                 // 0..1 center of a state's sixth
+  function _blBand(idxs){
+    const s = idxs.slice().sort((a,b)=>a-b);
+    const q = p => { const i=(s.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return s[lo]+(s[hi]-s[lo])*(i-lo); };
+    // central mass (p16..p84), padded half a segment so a single-state span still shows width
+    return { lo: Math.max(0, _blPos(q(0.16)) - 1/12), hi: Math.min(1, _blPos(q(0.84)) + 1/12) };
+  }
+  // pure: allCs + the active window's length in days (null = all time)
+  function _baselineBar(allCs, days){
+    const now = Date.now();
+    const nn = c => c.dom && c.dom !== 'neutral' && _blIdx(c.dom) >= 0;
+    const idxsOf = arr => arr.filter(nn).map(c => _blIdx(c.dom));
+    const cur = days==null ? idxsOf(allCs) : idxsOf(allCs.filter(c => c.t >= now - days*864e5));
+    const n = cur.length;
+    const cnt = {}; cur.forEach(i => cnt[i] = (cnt[i]||0)+1);
+    let modeIdx = null, mb = -1; Object.keys(cnt).forEach(k => { if(cnt[k] > mb){ mb = cnt[k]; modeIdx = +k; } });
+    if(n < 4) return { early:true, n, dotPos: modeIdx!=null ? _blPos(modeIdx) : 0.5 };
+    const band = _blBand(cur);
+    let prev = null;
+    if(days != null){
+      const p = idxsOf(allCs.filter(c => c.t >= now - 2*days*864e5 && c.t < now - days*864e5));
+      if(p.length >= 4) prev = _blBand(p);
+    }
+    return { early:false, n, dotPos:_blPos(modeIdx), modeState:_BL_ORDER[modeIdx], bandLo:band.lo, bandHi:band.hi, prev };
+  }
+  // renders the card body (everything under the panel-sub). phrases name the window.
+  function _blCardHTML(bl, nowPhrase, prevPhrase){
+    const pc = x => (x*100).toFixed(1);
+    const ticks = `<div class="bl-ticks">${['shutdown','freeze','flight/<br>fight','play','safety','stillness'].map(t=>`<span>${t}</span>`).join('')}</div>`;
+    if(bl.early){
+      return `<div class="bl-wrap early"><div class="bl-bar"><span class="bl-dot" style="left:${pc(bl.dotPos)}%"></span></div>${ticks}</div>
+        <p class="bl-early"><b>this is still early.</b> it becomes clearer with more check-ins over the next few weeks.</p>`;
+    }
+    const prevEl = bl.prev ? `<span class="bl-prev" style="left:${pc(bl.prev.lo)}%;width:${pc(bl.prev.hi-bl.prev.lo)}%"></span>` : '';
+    const band = `<span class="bl-band" style="left:${pc(bl.bandLo)}%;width:${pc(bl.bandHi-bl.bandLo)}%"></span>`;
+    const dot  = `<span class="bl-dot" style="left:${pc(bl.dotPos)}%"></span>`;
+    const keyPrev = (bl.prev && prevPhrase) ? `<div class="bl-krow"><span class="bl-kmark"><span class="bl-kprev"></span></span><span>your state variation ${prevPhrase}</span></div>` : '';
+    return `<div class="bl-wrap"><div class="bl-bar">${prevEl}${band}${dot}</div>${ticks}</div>
+      <div class="bl-key">
+        <div class="bl-krow"><span class="bl-kmark"><span class="bl-kdot"></span></span><span>the state you spend the most time in</span></div>
+        <div class="bl-krow"><span class="bl-kmark"><span class="bl-kband"></span></span><span>your state variation ${nowPhrase}</span></div>
+        ${keyPrev}
+      </div>`;
   }
   // context effect: the tagged label whose weeks differ most from a typical week.
   // returns BOTH percentages (never a "points" delta — Justin 2026-07-05: confusing).
@@ -3960,7 +4441,9 @@
       const rec = (Store.recovery ? Store.recovery() : null);
       const rt  = rec ? _recoveryTrend() : null;
       const dip = _topDipState();
-      const bl  = _baselineCard();
+      const bl  = _baselineBar(allCs, days);
+      const _blNow  = ({'7':'this week','30':'this month','90':'these 90 days','all':'all time'})[activePeriod] || 'this window';
+      const _blPrev = ({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod] || null;
       const wd  = _weekdayPattern(cs), dp = _daypartPattern(cs);
       const trn = (Store.transitions ? Store.transitions() : null);
       const pr  = _personalRecords(allCs);
@@ -3986,16 +4469,10 @@
             // slides assemble dynamically, wins first. a safety DIP is never
             // animated or headlined here (it lives, gently worded, in the reader).
             const slides = [];
-            slides.push(['safety','your safety', `
-              ${shareBtn('safety')}<h2 class="panel-title">your safety</h2>
-              <p class="panel-sub">the average level of safety in your system over ${periodPhrase}.</p>
-              <div class="safety-wrap${rising?' rising':''}" id="safety-wrap">
-                <div class="safety-num"><span class="safety-num-val">${safetyPct}</span><span class="pct">%</span></div>
-                ${dir==='falling'?'':`<div class="safety-trend ${dir}">${dir==='rising'?'and rising \u2191':'and steady'}</div>`}
-              </div>
-              <div class="safety-meter"><span class="safety-meter-fill" style="width:${safetyPct}%"></span></div>
-              ${(topState==='play'||topState==='stillness')?`<div class="safety-foot"><span class="tg-host">${triGlyph(topState)}</span><span class="sf-txt">your safety usually looks like <b>${topState==='play'?'playfulness and motivation':'stillness'}</b></span></div>`:''}
-              ${rising?'<p class="bloom-line">your system is finding more safety.</p>':''}`]);
+            slides.push(['safety','the level of safety in your system', `
+              ${shareBtn('safety')}<h2 class="panel-title">the level of safety in your system</h2>
+              <p class="panel-sub">the state you spend the most time in, over ${periodPhrase}.</p>
+              ${_blCardHTML(bl, _blNow, _blPrev)}`]);
             if(rec){
               const phrase = rec.avg<=1.5 ? 'a check-in or two' : 'about '+Math.round(rec.avg)+' check-ins';
               const from = dip || 'fightflight';
@@ -4007,14 +4484,8 @@
               <p class="cb-line">when your body drops into defense, safety usually returns within <b>${phrase}</b>. you've made that trip ${rec.n} times.</p>
               ${dipLine}${rtLine}`]);
             }
-            if(bl){
-              slides.push(['baseline','your safety baseline', `
-              ${shareBtn('baseline')}<h2 class="panel-title">your safety baseline</h2>
-              <p class="panel-sub">the level of safety consistently in your system over the past month.</p>
-              <div class="safety-wrap"><div class="safety-num"><span>${bl.basePct}</span><span class="pct">%</span></div></div>
-              <div class="safety-meter"><span class="safety-meter-fill" style="width:${bl.basePct}%"></span></div>
-              ${(bl.wkPct!=null&&bl.wkPct>=bl.basePct+3)?`<p class="cb-line">(but this week you're even higher, at <b>${bl.wkPct}%</b>.)</p>`:''}`]);
-            }
+            // the separate "your safety baseline" slide is retired (§7.2): its longer-window
+            // view is now just a wider choice on the time toggle above — one card, one metric.
             if(wd || dp){
               const strip = wd ? `<div class="wk-strip" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===wd.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>` : '';
               slides.push(['times','your most regulated times', `
@@ -4081,7 +4552,7 @@
               ${helpHTML}`]);
             // axis cards (2026-07-19, from the desktop ledger design): the most
             // mobilized / most immobilized time of day, each with its FLAVOR —
-            // whether safety is in the mix (play vs fight/flight; stillness vs
+            // whether safety is in the mix (play vs flight/fight; stillness vs
             // shutdown; freeze = both pedals). Mirrors what the person named,
             // never a score. 🖊 copy drafted, Justin-owned.
             const _AXFL = (SET)=>{
@@ -4105,7 +4576,7 @@
               <p class="panel-sub">when mobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
               <div class="ax-big">${segIco(_mob.seg)}${_mob.seg==='late'?'late at night':segLabel(_mob.seg)+'s'}</div>
               ${_axChips(_mob.flavors)}
-              <p class="ax-note">play is mobilization with safety in the mix. fight/flight is without.</p>`]);
+              <p class="ax-note">play is mobilization with safety in the mix. flight/fight is without.</p>`]);
             }
             if(_imm){
               slides.push(['immobilized','your most immobilized time of day', `
@@ -4153,11 +4624,11 @@
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">day by day</h3>
-              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u2014</span>'}</span></div>`; }).join('')}
+              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
               <p class="deep-foot">% = check-ins where a safe state leads.</p>
             </div>
             <div class="deep-block">
@@ -4169,7 +4640,6 @@
             </div>
             <div class="deep-block">
               <h3 class="deep-h">how you practice</h3>
-              <div class="deep-row"><span class="deep-lbl">challenge level</span><span class="deep-val">${(function(){const ca=Store.learned().challengeAvg;return ca!=null?Store.challengeLabel(ca):'\u2014';})()}</span></div>
               ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">you return to</span><span class="deep-val">${Store.practiceLabel(L.favPractice)}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">anchored through</span><span class="deep-val">${L.favSense}</span></div>`;return h;})()}
               ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
               ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">best time for it</span><span class="deep-val">${s==='late'?'late at night':segLabel(s)}</span></div>`;})()}
@@ -4237,18 +4707,15 @@
       (function(){ const fb=c.querySelector('#you-filter'); if(!fb) return; const chips=fb.querySelectorAll('.you-chip'); const rows=c.querySelectorAll('.deep-row[data-state]'); chips.forEach(ch=>ch.addEventListener('click',()=>{ const f=ch.dataset.f; chips.forEach(x=>x.classList.toggle('on',x===ch)); rows.forEach(r=>{ const ds=r.getAttribute('data-state'); r.classList.toggle('dim', f!=='all' && ds!==f); }); })); })();
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
-      const _sig = 'stuck not broken · app.stucknotbroken.com';
-      // share copy never repeats the number the visual already shows (Justin 2026-07-05:
-      // "redundant"). when the baseline ROSE this month, the card celebrates the rise.
-      const bd = bl ? (function(){ try{ const n=Date.now(); return Store.baselineDelta ? Store.baselineDelta(n-28*864e5, n) : null; }catch(e){ return null; } })() : null;
+      const _sig = 'stuck not broken · stucknotbroken.com/stuck';
+      // share copy never repeats the number the visual already shows (Justin 2026-07-05: "redundant").
       const SHARE_TXT = {
-        safety:  `my average level of safety lately. i'm learning my nervous system's language. ${_sig}`,
+        safety:  `the states i spend the most time in lately. i'm learning my nervous system's language. ${_sig}`,
         mix:     `my state mix lately. i'm mapping my nervous system, state by state. ${_sig}`,
         comeback:`after a dip, my nervous system finds its way back to safety. ${_sig}`,
         day:     `my safety over time, and how far it's come since i started. ${_sig}`,
         practice:`i'm tracking whether practice actually moves my nervous system. the data is answering. ${_sig}`,
-        states:  `my states over time, stretch by stretch. ${_sig}`,
-        baseline:(bd&&bd.dir==='up')?`my safety baseline increased this much this month! ${_sig}`:`my safety baseline this month. ${_sig}`,
+        states:  `my states over time, period by period. ${_sig}`,
         times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
         shift:   trn?`my nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
         records: (pr&&pr.bestWeek)?`my most regulated week yet. ${_sig}`:(pr&&pr.fastest)?`my fastest comeback yet: a dip, and back in ${pr.fastest.steps<=1?'one check-in':pr.fastest.steps+' check-ins'}. ${_sig}`:'',
@@ -4257,10 +4724,9 @@
       };
       // each share image carries the card's visual, not just words
       const SHARE_VIZ = {
-        safety:  { kind:'meter', pct:safetyPct },
+        safety:  { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
         day:     { kind:'meter', pct:safetyPct },
         comeback:rec?{ kind:'path', a:(dip||'fightflight'), b:'safety' }:null,
-        baseline:(bd&&bd.dir==='up')?{ kind:'meter', big:'+'+Math.abs(bd.deltaPct)+'%', pct:null }:(bl?{ kind:'meter', pct:bl.basePct }:null),
         times:   wd?{ kind:'days', idx:wd.idx }:null,
         shift:   trn?{ kind:'path', a:trn.a, b:trn.b }:null,
         records: (pr&&pr.bestWeek)?{ kind:'meter', pct:pr.bestWeek.pct }:(pr&&pr.fastest)?{ kind:'path', a:pr.fastest.dom, b:'safety' }:null,
@@ -4497,7 +4963,7 @@
   // just its icon + name. (openDialSheet omits the sub line when o.sub is absent.)
   const MK_TYPE_GROUPS = ()=>[
     { label:'shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
-    { label:'guided sessions', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
+    { label:'guided practices', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
     { label:null, opts:[{ val:'surprise', menu:'surprise me', ico:MK_TYPE_ICO.surprise }] },
   ];
 
@@ -4577,11 +5043,11 @@
         </div>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">Why this practice was chosen for you</p>
+        <p class="sec-h">why this practice was chosen for you</p>
         <p class="plan-why">${escapeHtml(properCase(reco.reason))}</p>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">What to expect in your custom practice</p>
+        <p class="sec-h">what to expect in your custom practice</p>
         <p class="plan-about">${escapeHtml(properCase(aboutOf(reco.practiceKey, reco.sense)))}</p>
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
       </div>
@@ -4666,7 +5132,7 @@
         <span class="wc-text">
           <span class="tuned-kicker">made for you</span>
           <span class="wc-title"><span class="tuned-name">${nameLead}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
-          <span class="wc-reason">${escapeHtml(reco.reason)}</span>
+          <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
           ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
         <span class="wc-go">${CHEV}</span>
@@ -4730,7 +5196,7 @@
       const k = pState.mkKey;
       const b = (t)=>`<strong>${escapeHtml(String(t))}</strong>`;
       if(k==='surprise') return "This is a randomly created practice, weaving together various self-regulation skills. This is best for the curious and motivated.";
-      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided session, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
+      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided practice, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
       const est = estMinutes(k, k==='micro'?2:pState.silence);
       const openEnded = (k==='most' && !!pState.open);
       const label = Store.practiceLabel(k);
@@ -4939,7 +5405,7 @@
           <span class="tuned-kicker">made for you</span>
           <span class="wc-title">${tunedHeading}</span>
           <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
-          <span class="wc-reason">${escapeHtml(reco.reason)}</span>
+          <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
           ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
         <span class="wc-go">${CHEV}</span>
@@ -4949,7 +5415,7 @@
     // "adjust your connect with safety practice" / "your a tiny practice practice"
     const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
     const heading = !key ? (_paid ? '' : 'pick a practice.')
-      : (key==='more' ? 'choose a session.'
+      : (key==='more' ? 'choose a practice.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
     // free: the full menu in the real order, nothing hidden — the base-plan practices are
     // FADED INK ONLY (same card, same fill, no padlock, no dashes), exactly as the guest
@@ -5189,8 +5655,9 @@
     // customizer's default 'imagery'). This is the authoritative write for every path.
     const _isMost = reco.practiceKey==='most';
     const _skill = _isMost ? (reco.skill||null) : null;
-    // beginner vs advanced self-regulation: pendulation or a high challenge appetite = advanced.
-    const _selfRegLevel = _isMost ? ((_skill==='pendulation' || (typeof reco.challenge==='number' && reco.challenge>=0.78)) ? 'advanced' : 'beginner') : null;
+    // beginner vs advanced self-regulation: the tier-3 skills (balancing/pendulation) = advanced.
+    // (re-sourced off the retired 0.55 challenge appetite → skill-based, §7.4.)
+    const _selfRegLevel = _isMost ? ((_skill==='pendulation' || _skill==='balancing') ? 'advanced' : 'beginner') : null;
     Store.addSession({ practiceKey:reco.practiceKey, skill:_skill, sense:reco.sense, silence:reco.silence,
       completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null,
       challenge:(typeof reco.challenge==='number' ? reco.challenge : null),
@@ -5376,11 +5843,11 @@
     const gsSw=(id,label,on)=>`<div class="gs-sw"><span class="gs-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
     // input method (settings owns the choice now): sliders (default) · states · numbers
     const method = (localStorage.getItem('snb_checkin_method')||'sliders');
-    const METHOD_LABEL = { sliders:'sliders', states:'pick a state', numbers:'numbers' };
+    const METHOD_LABEL = { sliders:'question sliders', states:'state picker', numbers:'number sliders' };
     const METHOD_CAP = {                                                                            // 🖊
-      sliders:'drag three quick questions from harder to easier. the default, and the calmest.',
-      states:'skip the sliders and tap the state that fits. good for when you already know.',
-      numbers:'the same three questions, entered as a number from 0 to 10.' };
+      sliders:'best for someone who has a hard time identifying their state. simply answer a few quick questions with three sliders.',
+      numbers:'use numbers to check in. best for the person that thinks concretely.',
+      states:'choose your state, then fine-tune it with sliders. best for someone familiar with their states and able to name them.' };
     const _svgChev=`<svg class="rs-disc-chev" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>`;
     const _svgAuto=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></svg>`;
     const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
@@ -5416,13 +5883,19 @@
             <div class="rs-disc-body" id="ci-method-body"><div class="disc-inner">
               <p class="gs-lbl2">how you enter your state</p>
               <div class="set-seg" id="seg-method">
-                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>sliders</button>
-                <button type="button" data-method="states"${method==='states'?' class="on"':''}>pick a state</button>
-                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>numbers</button>
+                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>question sliders</button>
+                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>number sliders</button>
+                <button type="button" data-method="states"${method==='states'?' class="on"':''}>state picker</button>
               </div>
               <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
               <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
             </div></div>
+          </div>
+
+          <div class="gs-card">
+            <div class="gs-sw" style="padding-bottom:4px"><span class="gs-lbl">the walkthrough</span>
+              <button class="linkbtn" id="set-walkthrough" type="button">walk me through it</button></div>
+            <p class="gs-cap" style="margin:0 0 2px">the member walkthrough, again. it changes nothing on its own.</p>
           </div>
 
           <div class="gs-card">
@@ -5495,6 +5968,7 @@
         </div>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('today'); setTimeout(()=>startOnboarding(true), 80); };
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same
     // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
@@ -5536,7 +6010,7 @@
     const SCENE_CAP={ '':'a different scene each time. the app chooses.',
       circles:'the slow circles, as now.',
       drift:'soft specks drifting upward, each at its own pace.',
-      pond:'still water — a ripple now and then.',
+      pond:'still water, a ripple now and then.',
       reeds:'reeds swaying in an uneven breeze.',
       breeze:'strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'a still beam of light, dust hanging in it. appears in dark mode.',
@@ -5638,7 +6112,7 @@
     setHTML(`
       <div class="view gate"><div class="gate-body">
         <p class="eyebrow">delete my account</p>
-        <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
+        <h1 style="margin:12px 0 12px">before you go, here's exactly what happens.</h1>
         <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
         <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
         <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
@@ -5661,7 +6135,7 @@
     setHTML(`
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">done</p>
-        <h1 style="margin:12px 0 12px">Your account is gone.</h1>
+        <h1 style="margin:12px 0 12px">your account is gone.</h1>
         <p class="lede" style="margin-bottom:24px">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
         <button class="btn block" id="del-done">okay</button>
       </div></div>`);
