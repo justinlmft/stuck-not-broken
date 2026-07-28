@@ -904,6 +904,7 @@
           </div>
           ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
+          <div class="ci-reading" id="ci-reading" hidden></div>
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
@@ -923,6 +924,15 @@
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
         if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
         else { readout.innerHTML = '<span class="ci-idle">move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
+      }
+      const reading = $('#ci-reading');
+      if(reading){
+        if(axTouched.v && axTouched.sym && axTouched.dor){
+          const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
+          reading.innerHTML = `<span class="ci-reading-dom">${rd.dominant}</span>`
+            + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
+          reading.hidden = false;
+        } else reading.hidden = true;
       }
     }
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
@@ -3224,6 +3234,7 @@
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">change the questions</button>'}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
+          <div class="ci-reading" id="ci-reading" hidden></div>
           ${_yng?'<p class="fineprint" style="margin-top:10px">check in whenever you like: when you’re off, when you’re good, any part of day. every check-in teaches the app your system.</p>':''}
         </div>
 
@@ -3284,6 +3295,17 @@
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
         if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
         else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
+      }
+      // §7.3 — the two honest readings, once all three axes are set (a reading needs the
+      // whole picture; a partial report is not named). Names the state, never grades it.
+      const reading = $('#ci-reading');
+      if(reading){
+        if(axTouched.v && axTouched.sym && axTouched.dor){
+          const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
+          reading.innerHTML = `<span class="ci-reading-dom">${rd.dominant}</span>`
+            + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
+          reading.hidden = false;
+        } else reading.hidden = true;
       }
     }
     // Bound in every method now: in states mode the same three sliders are the fine-tune.
@@ -4013,17 +4035,59 @@
     if(!bestWeek && !fastest) return null;
     return { bestWeek, fastest };
   }
-  // the visible 28-day Baseline (same math as the reader's zoom-out section)
-  function _baselineCard(){
-    if(!(Store.tenure&&Store.periodStats)) return null;
-    const tn=Store.tenure(); if(!tn||tn.days<28) return null;
-    const now=Date.now();
-    const base=Store.periodStats(now-28*864e5, now); if(!base||base.n<8) return null;
-    const wk=Store.periodStats(now-7*864e5, now);
-    // LEVEL, not share (Justin 2026-07-05): "the level of safety consistently in
-    // your system" — average safety, unified with the hero card's metric. the
-    // reader's Baseline sections still use share; unify there in the reader round.
-    return { basePct: Math.round(base.avgV*100), wkPct: (wk&&wk.n>=3)?Math.round(wk.avgV*100):null };
+  // ---- the baseline card, rebuilt (§7.2, Justin 2026-07-27) ----
+  // (retired: the old 28-day _baselineCard %/meter — replaced by the spectrum card below)
+  // No percent, no meter-to-100. The person is their own scale: the six-state
+  // spectrum (their colors, their order) is the axis. The dot is the state they
+  // spend the most time in over the window; a white outline shows this window's
+  // state variation; a grey overlay shows the previous window's, to compare.
+  // Window comes from the you-tab time toggle (days), so the same card serves
+  // every timescale the person picks.
+  const _BL_ORDER = ['shutdown','freeze','fightflight','play','safety','stillness'];
+  const _blIdx = k => _BL_ORDER.indexOf(k);
+  const _blPos = idx => (idx + 0.5) / 6;                 // 0..1 center of a state's sixth
+  function _blBand(idxs){
+    const s = idxs.slice().sort((a,b)=>a-b);
+    const q = p => { const i=(s.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return s[lo]+(s[hi]-s[lo])*(i-lo); };
+    // central mass (p16..p84), padded half a segment so a single-state span still shows width
+    return { lo: Math.max(0, _blPos(q(0.16)) - 1/12), hi: Math.min(1, _blPos(q(0.84)) + 1/12) };
+  }
+  // pure: allCs + the active window's length in days (null = all time)
+  function _baselineBar(allCs, days){
+    const now = Date.now();
+    const nn = c => c.dom && c.dom !== 'neutral' && _blIdx(c.dom) >= 0;
+    const idxsOf = arr => arr.filter(nn).map(c => _blIdx(c.dom));
+    const cur = days==null ? idxsOf(allCs) : idxsOf(allCs.filter(c => c.t >= now - days*864e5));
+    const n = cur.length;
+    const cnt = {}; cur.forEach(i => cnt[i] = (cnt[i]||0)+1);
+    let modeIdx = null, mb = -1; Object.keys(cnt).forEach(k => { if(cnt[k] > mb){ mb = cnt[k]; modeIdx = +k; } });
+    if(n < 4) return { early:true, n, dotPos: modeIdx!=null ? _blPos(modeIdx) : 0.5 };
+    const band = _blBand(cur);
+    let prev = null;
+    if(days != null){
+      const p = idxsOf(allCs.filter(c => c.t >= now - 2*days*864e5 && c.t < now - days*864e5));
+      if(p.length >= 4) prev = _blBand(p);
+    }
+    return { early:false, n, dotPos:_blPos(modeIdx), modeState:_BL_ORDER[modeIdx], bandLo:band.lo, bandHi:band.hi, prev };
+  }
+  // renders the card body (everything under the panel-sub). phrases name the window.
+  function _blCardHTML(bl, nowPhrase, prevPhrase){
+    const pc = x => (x*100).toFixed(1);
+    const ticks = `<div class="bl-ticks">${['shutdown','freeze','flight/<br>fight','play','safety','stillness'].map(t=>`<span>${t}</span>`).join('')}</div>`;
+    if(bl.early){
+      return `<div class="bl-wrap early"><div class="bl-bar"><span class="bl-dot" style="left:${pc(bl.dotPos)}%"></span></div>${ticks}</div>
+        <p class="bl-early"><b>this is still early.</b> it becomes clearer with more check-ins over the next few weeks.</p>`;
+    }
+    const prevEl = bl.prev ? `<span class="bl-prev" style="left:${pc(bl.prev.lo)}%;width:${pc(bl.prev.hi-bl.prev.lo)}%"></span>` : '';
+    const band = `<span class="bl-band" style="left:${pc(bl.bandLo)}%;width:${pc(bl.bandHi-bl.bandLo)}%"></span>`;
+    const dot  = `<span class="bl-dot" style="left:${pc(bl.dotPos)}%"></span>`;
+    const keyPrev = (bl.prev && prevPhrase) ? `<div class="bl-krow"><span class="bl-kmark"><span class="bl-kprev"></span></span><span>your state variation ${prevPhrase}</span></div>` : '';
+    return `<div class="bl-wrap"><div class="bl-bar">${prevEl}${band}${dot}</div>${ticks}</div>
+      <div class="bl-key">
+        <div class="bl-krow"><span class="bl-kmark"><span class="bl-kdot"></span></span><span>the state you spend the most time in</span></div>
+        <div class="bl-krow"><span class="bl-kmark"><span class="bl-kband"></span></span><span>your state variation ${nowPhrase}</span></div>
+        ${keyPrev}
+      </div>`;
   }
   // context effect: the tagged label whose weeks differ most from a typical week.
   // returns BOTH percentages (never a "points" delta — Justin 2026-07-05: confusing).
@@ -4340,7 +4404,9 @@
       const rec = (Store.recovery ? Store.recovery() : null);
       const rt  = rec ? _recoveryTrend() : null;
       const dip = _topDipState();
-      const bl  = _baselineCard();
+      const bl  = _baselineBar(allCs, days);
+      const _blNow  = ({'7':'this week','30':'this month','90':'these 90 days','all':'all time'})[activePeriod] || 'this window';
+      const _blPrev = ({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod] || null;
       const wd  = _weekdayPattern(cs), dp = _daypartPattern(cs);
       const trn = (Store.transitions ? Store.transitions() : null);
       const pr  = _personalRecords(allCs);
@@ -4366,16 +4432,10 @@
             // slides assemble dynamically, wins first. a safety DIP is never
             // animated or headlined here (it lives, gently worded, in the reader).
             const slides = [];
-            slides.push(['safety','your safety', `
-              ${shareBtn('safety')}<h2 class="panel-title">your safety</h2>
-              <p class="panel-sub">the average level of safety in your system over ${periodPhrase}.</p>
-              <div class="safety-wrap${rising?' rising':''}" id="safety-wrap">
-                <div class="safety-num"><span class="safety-num-val">${safetyPct}</span><span class="pct">%</span></div>
-                ${dir==='falling'?'':`<div class="safety-trend ${dir}">${dir==='rising'?'and rising \u2191':'and steady'}</div>`}
-              </div>
-              <div class="safety-meter"><span class="safety-meter-fill" style="width:${safetyPct}%"></span></div>
-              ${(topState==='play'||topState==='stillness')?`<div class="safety-foot"><span class="tg-host">${triGlyph(topState)}</span><span class="sf-txt">your safety usually looks like <b>${topState==='play'?'playfulness and motivation':'stillness'}</b></span></div>`:''}
-              ${rising?'<p class="bloom-line">your system is finding more safety.</p>':''}`]);
+            slides.push(['safety','the level of safety in your system', `
+              ${shareBtn('safety')}<h2 class="panel-title">the level of safety in your system</h2>
+              <p class="panel-sub">the state you spend the most time in, over ${periodPhrase}.</p>
+              ${_blCardHTML(bl, _blNow, _blPrev)}`]);
             if(rec){
               const phrase = rec.avg<=1.5 ? 'a check-in or two' : 'about '+Math.round(rec.avg)+' check-ins';
               const from = dip || 'fightflight';
@@ -4387,14 +4447,8 @@
               <p class="cb-line">when your body drops into defense, safety usually returns within <b>${phrase}</b>. you've made that trip ${rec.n} times.</p>
               ${dipLine}${rtLine}`]);
             }
-            if(bl){
-              slides.push(['baseline','your safety baseline', `
-              ${shareBtn('baseline')}<h2 class="panel-title">your safety baseline</h2>
-              <p class="panel-sub">the level of safety consistently in your system over the past month.</p>
-              <div class="safety-wrap"><div class="safety-num"><span>${bl.basePct}</span><span class="pct">%</span></div></div>
-              <div class="safety-meter"><span class="safety-meter-fill" style="width:${bl.basePct}%"></span></div>
-              ${(bl.wkPct!=null&&bl.wkPct>=bl.basePct+3)?`<p class="cb-line">(but this week you're even higher, at <b>${bl.wkPct}%</b>.)</p>`:''}`]);
-            }
+            // the separate "your safety baseline" slide is retired (§7.2): its longer-window
+            // view is now just a wider choice on the time toggle above — one card, one metric.
             if(wd || dp){
               const strip = wd ? `<div class="wk-strip" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===wd.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>` : '';
               slides.push(['times','your most regulated times', `
@@ -4549,7 +4603,6 @@
             </div>
             <div class="deep-block">
               <h3 class="deep-h">how you practice</h3>
-              <div class="deep-row"><span class="deep-lbl">challenge level</span><span class="deep-val">${(function(){const ca=Store.learned().challengeAvg;return ca!=null?Store.challengeLabel(ca):'\u2014';})()}</span></div>
               ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">you return to</span><span class="deep-val">${Store.practiceLabel(L.favPractice)}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">anchored through</span><span class="deep-val">${L.favSense}</span></div>`;return h;})()}
               ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
               ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">best time for it</span><span class="deep-val">${s==='late'?'late at night':segLabel(s)}</span></div>`;})()}
@@ -4618,17 +4671,14 @@
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
       const _sig = 'stuck not broken · stucknotbroken.com/stuck';
-      // share copy never repeats the number the visual already shows (Justin 2026-07-05:
-      // "redundant"). when the baseline ROSE this month, the card celebrates the rise.
-      const bd = bl ? (function(){ try{ const n=Date.now(); return Store.baselineDelta ? Store.baselineDelta(n-28*864e5, n) : null; }catch(e){ return null; } })() : null;
+      // share copy never repeats the number the visual already shows (Justin 2026-07-05: "redundant").
       const SHARE_TXT = {
-        safety:  `my average level of safety lately. i'm learning my nervous system's language. ${_sig}`,
+        safety:  `the states i spend the most time in lately. i'm learning my nervous system's language. ${_sig}`,
         mix:     `my state mix lately. i'm mapping my nervous system, state by state. ${_sig}`,
         comeback:`after a dip, my nervous system finds its way back to safety. ${_sig}`,
         day:     `my safety over time, and how far it's come since i started. ${_sig}`,
         practice:`i'm tracking whether practice actually moves my nervous system. the data is answering. ${_sig}`,
-        states:  `my states over time, stretch by stretch. ${_sig}`,
-        baseline:(bd&&bd.dir==='up')?`my safety baseline increased this much this month! ${_sig}`:`my safety baseline this month. ${_sig}`,
+        states:  `my states over time, period by period. ${_sig}`,
         times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
         shift:   trn?`my nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
         records: (pr&&pr.bestWeek)?`my most regulated week yet. ${_sig}`:(pr&&pr.fastest)?`my fastest comeback yet: a dip, and back in ${pr.fastest.steps<=1?'one check-in':pr.fastest.steps+' check-ins'}. ${_sig}`:'',
@@ -4637,10 +4687,9 @@
       };
       // each share image carries the card's visual, not just words
       const SHARE_VIZ = {
-        safety:  { kind:'meter', pct:safetyPct },
+        safety:  { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
         day:     { kind:'meter', pct:safetyPct },
         comeback:rec?{ kind:'path', a:(dip||'fightflight'), b:'safety' }:null,
-        baseline:(bd&&bd.dir==='up')?{ kind:'meter', big:'+'+Math.abs(bd.deltaPct)+'%', pct:null }:(bl?{ kind:'meter', pct:bl.basePct }:null),
         times:   wd?{ kind:'days', idx:wd.idx }:null,
         shift:   trn?{ kind:'path', a:trn.a, b:trn.b }:null,
         records: (pr&&pr.bestWeek)?{ kind:'meter', pct:pr.bestWeek.pct }:(pr&&pr.fastest)?{ kind:'path', a:pr.fastest.dom, b:'safety' }:null,
@@ -5569,8 +5618,9 @@
     // customizer's default 'imagery'). This is the authoritative write for every path.
     const _isMost = reco.practiceKey==='most';
     const _skill = _isMost ? (reco.skill||null) : null;
-    // beginner vs advanced self-regulation: pendulation or a high challenge appetite = advanced.
-    const _selfRegLevel = _isMost ? ((_skill==='pendulation' || (typeof reco.challenge==='number' && reco.challenge>=0.78)) ? 'advanced' : 'beginner') : null;
+    // beginner vs advanced self-regulation: the tier-3 skills (balancing/pendulation) = advanced.
+    // (re-sourced off the retired 0.55 challenge appetite → skill-based, §7.4.)
+    const _selfRegLevel = _isMost ? ((_skill==='pendulation' || _skill==='balancing') ? 'advanced' : 'beginner') : null;
     Store.addSession({ practiceKey:reco.practiceKey, skill:_skill, sense:reco.sense, silence:reco.silence,
       completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null,
       challenge:(typeof reco.challenge==='number' ? reco.challenge : null),

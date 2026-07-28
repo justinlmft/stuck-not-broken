@@ -915,6 +915,49 @@
     return { moved, total, rate: moved/total };
   }
 
+  // momentDeltas: the live-session before/after spine (§7.1 "moment self-regulation", §7.4 step 6).
+  // Pairs the two check-ins tagged inside one live practice — same live_session_id + practice_ref,
+  // phase 'before' vs 'after' — into a per-practice moment delta. This is the small, real, temporary
+  // signal (a dip that recovers around a single practice), distinct from the cross-month baseline.
+  // READ-ONLY and self-contained: nothing consumes it yet, and it deliberately does NOT touch the
+  // recommender (which must never read churn/movement — §7.6). Direction classification (§7.6, out
+  // of shutdown/freeze/flight-fight) is Stage 4 and lives in the reader; this only records the raw
+  // move so that layer has something honest to read.
+  //
+  // Per pair: dConn (v_after − v_before), defBefore/defAfter = the larger of the two defense axes
+  // (mobilization, immobilization) at each end, dDef (negative = defense eased), the two dominant
+  // keys, and rankDelta on the existing _RANK ladder. No framing, no "good/bad" — the caller decides.
+  function momentDeltas(){
+    const cs = data.checkins.filter(c => c.live_session_id && c.practice_ref && c.phase &&
+                                          typeof c.v==='number' && typeof c.sym==='number' && typeof c.dor==='number');
+    if(!cs.length) return { pairs:[], n:0, meanConnDelta:null, meanDefDelta:null };
+    // group by session + practice, keeping the earliest 'before' and the earliest 'after' after it
+    const groups = {};
+    cs.forEach(c => { const k = c.live_session_id + ' ' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
+    const def = c => Math.max(c.sym, c.dor);
+    const pairs = [];
+    Object.keys(groups).forEach(k => {
+      const g = groups[k].slice().sort((a,b) => a.t - b.t);
+      const before = g.find(c => c.phase === 'before');
+      if(!before) return;
+      const after = g.find(c => c.phase === 'after' && c.t >= before.t);
+      if(!after) return;
+      const rb = _RANK[before.dom], ra = _RANK[after.dom];
+      pairs.push({
+        sessionId: before.live_session_id, practiceRef: before.practice_ref,
+        tBefore: before.t, tAfter: after.t,
+        vBefore: before.v, vAfter: after.v, dConn: after.v - before.v,
+        defBefore: def(before), defAfter: def(after), dDef: def(after) - def(before),
+        domBefore: before.dom, domAfter: after.dom,
+        rankDelta: (rb != null && ra != null) ? ra - rb : null,
+      });
+    });
+    pairs.sort((a,b) => a.tAfter - b.tAfter);
+    const n = pairs.length;
+    const mean = sel => n ? pairs.reduce((s,p)=>s+sel(p),0)/n : null;
+    return { pairs, n, meanConnDelta: mean(p=>p.dConn), meanDefDelta: mean(p=>p.dDef) };
+  }
+
   // practiceInsights: the same read->practice->steadier loop as practiceEffect(), sliced finer
   // so the reader can name a specific practice for a specific state and time of day instead of
   // just an overall rate. Self-gated per slice (min sample size) so it never claims more than a
@@ -1135,6 +1178,18 @@
     let reg=0; cs.forEach(c=>{ if(_REGDOM[c.dom]) reg++; });
     const regShare = reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
+    // §7.2 canonical baseline inputs — connection RELATIVE TO DEFENSE, one place, one definition.
+    // These retire regShare as the user-facing baseline (regShare stays only as an internal signal
+    // for the spectrum() ladder). "defense" is the louder of the two defensive axes per check-in
+    // (max of mobilization, immobilization) — the same single-scalar defense the moment gate and the
+    // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgMargin = connection
+    // minus defense, the signed "how far is safety ahead of defense" the spoken baseline reports
+    // (never a %, never against 100 — §7.2). sdV = connection-number fluctuation (§7.6: SD of v),
+    // for the person's own-range axis. All population stats over the same window/weighting as avgV.
+    const defOf = c => Math.max(c.sym||0, c.dor||0);
+    const avgDef = cs.reduce((s,c)=>s+defOf(c),0)/n;
+    const avgMargin = avgV - avgDef;
+    const sdV = Math.sqrt(cs.reduce((s,c)=>{ const d=c.v-avgV; return s+d*d; },0)/n);
     // then vs now: first third vs last third of the window's average safety
     const third = Math.max(1, Math.floor(n/3));
     const firstAvg = cs.slice(0,third).reduce((s,c)=>s+c.v,0)/third;
@@ -1148,7 +1203,7 @@
     const domOf = arr => { const c2={}; arr.forEach(x=>c2[x.dom]=(c2[x.dom]||0)+1); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
     return {
       n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
-      reg, dys:n-reg, regShare, lean, avgV, firstAvg, lastAvg,
+      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgMargin, sdV, firstAvg, lastAvg,
       firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
       bestDow, defenseStates: order.filter(d=>_DYSDOM[d]), regStates: order.filter(d=>_REGDOM[d])
     };
@@ -1252,6 +1307,62 @@
   // which slides the working point up or down. The working point sets the practice
   // ceiling; the state only flavors the session.
   // Matrix: App Designer/Reader-Rework/practice-decision-matrix.md.
+  // ---- §7.4–7.5 tier model (connection-vs-defense, absolute levels) ----------
+  // GUARDRAIL (Justin 2026-07-27): the tier gates read safety (avgV) and defense
+  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgMargin. A positive
+  // margin on low absolute safety must not unlock a tier.
+  function _byDay(cs){ const m={}; cs.forEach(c=>{ const k=new Date(c.t).toDateString(); (m[k]=m[k]||[]).push(c); }); return m; }
+  // Consistency (§7.5, window resolved §7.6): a stable FLOOR that holds through
+  // variance — NOT low variance. Parameterized by the floor level being tested.
+  // All must hold across the rolling trailing-7: first AND last check-in at/above
+  // the floor (stops a strong-but-decaying week qualifying); most DAYS reach the
+  // floor; any dip >25pts below it recovers the SAME day.
+  function consistentAt(cs, floor){
+    if(!cs || cs.length < 4) return false;
+    const s = cs.slice().sort((a,b)=>a.t-b.t);
+    if(s[0].v < floor || s[s.length-1].v < floor) return false;      // endpoints rule
+    const days = _byDay(s), keys = Object.keys(days);
+    let reach = 0; keys.forEach(k => { if(Math.max.apply(null, days[k].map(c=>c.v)) >= floor) reach++; });
+    if(reach <= keys.length/2) return false;                          // "most days" = strictly over half
+    for(const k of keys){                                             // dips >25pts must recover same day
+      const dc = days[k];
+      if(dc.some(c => c.v < floor - 0.25) && !dc.some(c => c.v >= floor)) return false;
+    }
+    return true;
+  }
+  // The week baseline (§7.5): trailing 7 days, needs >=4 check-ins or it's the
+  // honest low-data path. safety = avgV, defense = avgDef (both absolute).
+  function baselineWeek(){
+    const now = Date.now();
+    const cs = data.checkins.filter(c => c.t >= now - 7*864e5 && c.t <= now && c.dom && c.dom !== 'neutral').sort((a,b)=>a.t-b.t);
+    if(cs.length < 4) return { lowData:true, n:cs.length };
+    // periodStats uses a strict `< endMs`; pass now+1 so a check-in stamped at exactly `now`
+    // (e.g. the one that just triggered this) is counted here too. Guard the null just in case.
+    const st = periodStats(now - 7*864e5, now + 1);
+    if(!st) return { lowData:true, n:cs.length };
+    return { lowData:false, n:cs.length, safety:st.avgV, defense:st.avgDef, consistent50: st.avgV >= 0.50 && consistentAt(cs, 0.50) };
+  }
+  // The moment gate (§7.4 step 5, §7.5): reads TODAY's check-in. Grounding only —
+  // no self-reg skill today — if either defense axis is very hot, or the freeze
+  // quadrant (both axes up). Targets the quadrant, not a sum.
+  function momentGate(last){
+    if(!last) return { open:false, hot:false };
+    const s = last.sym, d = last.dor;
+    const closed = s >= 0.75 || d >= 0.75 || (s >= 0.40 && d >= 0.40);
+    return { open:!closed, hot:closed, sym:s, dor:d };
+  }
+  // The ceiling tier the WEEK earns (§7.5). Week gates the ceiling; the moment gate
+  // (above) gates whether any of it is offered TODAY. `cleared` is rungs().cleared.
+  // 0 = grounding only · 1 = validating/imagery · 2 = obstacles · 3 = balancing/pendulation.
+  function skillCeiling(bw, cleared){
+    if(!bw || bw.lowData) return 0;
+    const s = bw.safety, d = bw.defense;
+    if(s >= 0.50 && bw.consistent50 && d <= 0.55 && cleared && cleared.obstacles) return 3;
+    if(s >= 0.45 && d <= 0.60 && cleared && cleared.validate && cleared.imagery) return 2;
+    if(s >= 0.40) return 1;
+    return 0;
+  }
+
   function spectrum(){
     const now = Date.now();
     const st = periodStats(now - 28*864e5, now);
@@ -1292,65 +1403,57 @@
     const last = lastCheckin();
     const L = learned();
     const tr = trend();
-    const sp = spectrum();
-    let want = (last && typeof last.challenge==='number') ? last.challenge
-               : (L.challengeAvg!=null ? L.challengeAvg : 0.55);
+    // §7.4–7.5 model (2026-07-27): the 0.55 challenge constant, the want/level fork and the
+    // regShare Spectrum are retired. Reading order is now: low-data → moment gate → the tier
+    // the WEEK earns (connection-vs-defense, absolute) → the rung ladder within that tier.
+    const bw = baselineWeek();          // trailing-7 avgV/avgDef, or the low-data path
+    const gate = momentGate(last);      // today's check-in opens/closes the moment
+    let ceiling = 0;                    // the tier the week earns (set once we have a check-in)
     if(!last){
       return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
         'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
     }
-    const _tn = tenure();
-    const early = (_tn.stage==='start' || _tn.stage==='early') && !(typeof last.challenge==='number' && last.challenge>=0.78);
-    if(early) want = Math.min(want, 0.55);
-    if(L.lastExit==='exit-hard') want = Math.min(want, 0.4);
-    else if(L.lastExit==='exit-easy') want = Math.min(0.95, want + 0.15);
     const dom = last.dom;
+    const dys = _DYS[dom];
     const sense = prefSense() || L.favSense || 'touch';
     const sil = L.endsEarlyOften ? 12 : 8;
-    const P = early ? Math.min(sp.working, 2) : sp.working;   // first days stay gentle
-    const wantPoint = want>=0.78 ? 4 : want>=0.53 ? 3 : want>=0.26 ? 2 : 1;
-    const level = Math.min(P, wantPoint);
-    const dys = _DYS[dom];
     const falling = !!(tr && tr.dir==='falling');
 
-    // level 1 — the smallest doses, whatever the state.
-    if(level <= 1){
+    // step 1 — fewer than 4 check-ins this week: the honest low-data path. A common state,
+    // written as carefully as the full one (§7.4): an invite plus a short why, not an error.
+    if(bw.lowData){
+      return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10,
+        "there isn't a full week of check-ins yet, so we'll keep it simple: a little time with the present moment. the more you check in, the more this practice shapes to your week.",
+        'building your picture');
+    }
+    // step 5 — hot defense today closes the moment gate: grounding only, whatever the week has
+    // earned (mobilization or immobilization very high, or the freeze quadrant — both up).
+    if(!gate.open){
       let reason = dom==='shutdown' ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
                  : dom==='freeze' ? "a lot is frozen within. we'll keep this small: settle first, then look for a bit of safety."
-                 : dys ? "a lot of energy within. we'll slow down and let some of it settle before anything else."
-                 : "let's keep it simple and connect with the present moment.";
+                 : "there's a lot of defense active right now. we'll stay with the present moment and let some of it settle.";
       if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
       return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
     }
-    // level 2 — safety cueing: settle the charge first, or gently connect with safety.
-    if(level === 2){
-      if(dom==='fightflight'){
-        const r2 = falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
-                 : "a lot of energy within. we'll slow down and let some of it settle before anything else.";
-        return cfg('mindfulness', null, sense, sil, r2, 'settle the charge');
-      }
-      let reason = dom==='shutdown' ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
-                 : dom==='freeze' ? "a lot is frozen within. let's practice through settling, then look for safety."
-                 : dom==='play' ? "there's safety with some energy within. a good opportunity to practice noticing."
-                 : "you have real safety here. let's connect more deeply with calm.";
-      if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
-      return cfg('anchoring', null, sense, sil, reason, 'connect with safety');
-    }
-    // level 3+ — anchoring is real; defense in a dose when asked, walked rung by
-    // rung (validate & normalize -> imagery -> obstacles -> balancing ->
-    // pendulation), with describe-the-defense and hold & watch as gated dials on
-    // top. (recommender v2, Justin's rulings 2026-07-06.)
+    // steps 2-4 — the ceiling the WEEK earns (avgV/avgDef ABSOLUTE, never margin — Justin's
+    // guardrail), capped by whichever skills the rung ladder has cleared.
     const rg = rungs();
-    const wantsDefense = want >= 0.53;
-    // the daypart evidence sentence, spoken whenever the dampener actually held
-    // today's ceiling down (the person deserves to know why).
-    const dpNote = sp.daypartLow ? " this hour of the day usually runs lower on safety for you, so we're keeping today's depth at your steady ground." : "";
-    if(!wantsDefense || falling){
-      const reason = (falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
+    ceiling = skillCeiling(bw, rg.cleared);
+    const dpNote = '';   // daypart dampener retired: the week + moment gates set the ceiling now
+
+    // ceiling 0 (safety below the 40% week floor), or a falling trend: anchor into safety and
+    // let that be enough today (Scheme A band 2 — rebuild before reaching further).
+    if(ceiling === 0 || falling){
+      const reason = falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
                    : dys ? "your history shows real safety to draw on, even in a harder moment. we'll anchor into it and let that be enough today."
-                   : "you have real safety, and you asked to keep it gentle. let's connect more deeply with calm.") + dpNote;
-      return cfg('anchoring', null, sense, sil, reason, dys ? 'meet you where you are' : 'stay gentle');
+                   : "you're finding safety, and it's still building week to week. we'll anchor into it and let that be enough today.";
+      return cfg('anchoring', null, sense, sil, reason, dys ? 'meet you where you are' : 'connect with safety');
     }
+    // ceiling >=1 — safety first, then a self-regulation skill capped to the tier the week
+    // earned (t1: validating/imagery · t2: +obstacles · t3: +balancing/pendulation).
+    // Scheme A band 3; the rung ladder fills the skill slot.
+    const TIER_TOP = { 1:'imagery', 2:'obstacles', 3:'pendulation' };
+    const capIdx = SKILL_LADDER.indexOf(TIER_TOP[ceiling]);
     // ---- what happened last time on this track (graded step-down) ----
     // hard signals (struggle / less / too-hard exit): first one turns the dials
     // down on the SAME rung; a second in a row steps down a rung. soft signals
@@ -1362,12 +1465,11 @@
     const hardLast = !!lastMost && (lastAf==='struggle' || lastAf==='less' || _exitOf(lastMost)==='exit-hard');
     const softLast = !!lastMost && !hardLast && (lastAf==='same' || lastAf==='unsure');
     const below = k => { const i = SKILL_LADDER.indexOf(k); return i > 0 ? SKILL_LADDER[i-1] : null; };
-    // default rung: the next uncleared one; with the whole ladder cleared, an
-    // advanced ask goes to the top (pendulation — where the hold & watch dial
-    // lives), otherwise their strongest skill.
-    let skill = rg.next
-      || (want >= 0.78 && rg.cleared.pendulation ? 'pendulation' : null)
-      || rg.strongest || L.favSkill || 'validate';
+    // default rung: the next uncleared one, else their strongest skill. Then CAP to the
+    // tier the week earned — the ladder can propose a rung the week hasn't unlocked; the
+    // ceiling holds it back (a rung above the tier drops to the tier's top skill).
+    let skill = rg.next || rg.strongest || L.favSkill || 'validate';
+    if(SKILL_LADDER.indexOf(skill) > capIdx) skill = SKILL_LADDER[capIdx];
     let dialDown = false, droppedRung = false, leftTrack = false;
     if(hardLast){
       if(prevMost && _outcomeOf(prevMost)==='bad'){                       // two heavy ones in a row
@@ -1382,9 +1484,8 @@
       const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. the ladder will be right where you left it." + dpNote;
       return cfg('anchoring', null, sense, 12, reason, 'a gentler practice');
     }
-    // pendulation still asks for advanced appetite (the ladder opens it; the
-    // person's stated depth chooses whether to take it today).
-    if(skill==='pendulation' && want < 0.78 && !droppedRung) skill = rg.cleared.balancing ? 'balancing' : 'obstacles';
+    // (pendulation no longer gated on appetite — the tier ceiling + the cap above are what
+    // decide whether it's reachable; a step-down may still have moved `skill` below it.)
     // ---- the dials on top of the rung ----
     // describe-the-defense: unlocks only after plain success at balancing AND
     // pendulation; introduced on the strongest cleared skill; dropped again the
@@ -1394,11 +1495,10 @@
       if(rg.descGoing && rg.descGoing.lastBad) desc = false;
       else { desc = true; descIntro = !(rg.descGoing && rg.descGoing.tried); if(descIntro && rg.strongest) skill = rg.strongest; }
     }
-    // hold & watch: Baseline 4 with today's working point at 3+ (Justin: strong
-    // safety as the NORM unlocks it; a good moment alone never does, and a rough
-    // moment doesn't take it away). sits above the describe rung.
+    // hold & watch: the top tier (ceiling 3 = safety 50%+ consistent, defense ≤55%) with the
+    // describe rung unlocked. Strong safety as the NORM unlocks it; sits above the describe rung.
     let hold = false, holdSecs = null;
-    if(sp.baseline===4 && sp.working>=3 && rg.descUnlocked && !dialDown && !droppedRung && (skill==='balancing' || skill==='pendulation')){
+    if(ceiling===3 && rg.descUnlocked && !dialDown && !droppedRung && (skill==='balancing' || skill==='pendulation')){
       hold = true; holdSecs = holdTarget();
     }
     // ---- why this practice (evidence named, in order: baseline/moment -> last
@@ -1421,15 +1521,16 @@
       reason = "you have safety and you asked to meet defense. we'll start at the first rung: validating and normalizing what's here. asking for more opened the door. the ladder still goes one step at a time.";
     } else if(rg.next){
       reason = "you have safety here, and your practice history has earned the next step: " + _skillWord(skill) + ". one rung at a time, with the way back always open.";
-    } else if(want>=0.78){
-      reason = "you have safety, practice reps behind you, and you asked for more. safety, a little defense, and back.";
+    } else if(ceiling>=3){
+      reason = "strong, steady safety and the reps behind you. safety, a little defense, and back.";
     } else if(L.sessionsDone>=3 && L.favPractice==='most'){
       reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
     } else {
       reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
     }
     reason += dpNote;
-    const sil3 = dialDown ? 12 : (want>=0.78 ? 4 : (L.endsEarlyOften ? 8 : 6));
+    // silence: the 0.55-appetite 4s default is re-sourced to the deepest tier (ceiling 3).
+    const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
     return cfg('most', skill, sense, sil3, reason, dialDown ? 'same rung, smaller dose' : droppedRung ? 'one step easier' : 'room to go deeper',
                { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedRung });
 
@@ -1440,9 +1541,10 @@
       else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedRung))){ reason += " last one was a lot, so we're keeping this one easier."; }
       else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
       return Object.assign({ practiceKey, skill, sense, silence: sil2, reason, tag,
-               adapted: (L.sessionsDone>0 || L.challengeN>0), domBefore: last?last.dom:null, challenge: want,
+               adapted: (L.sessionsDone>0), domBefore: last?last.dom:null, challenge: null,
                descDefense: false, holdWatch: false, holdWatchTargetSeconds: null,
-               spectrum: { baseline: sp.baseline, working: sp.working, daypartLow: !!sp.daypartLow } }, extras || {});
+               tier: { ceiling, safety: bw.lowData?null:bw.safety, defense: bw.lowData?null:bw.defense,
+                       consistent: !!bw.consistent50, gateOpen: !!gate.open } }, extras || {});
     }
   }
   // plain word for a skill inside advisor copy (lowercase register)
@@ -1669,7 +1771,7 @@
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
-    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, recommend, spectrum, practiceLabel, reset, getName, setName,
+    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, spectrum, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     rungs, rungStory, rungMovement, skillDesc, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
