@@ -776,26 +776,23 @@
     const now = Date.now();
     const wk = (ctx.weekStats !== undefined) ? ctx.weekStats : Store.periodStats(now - 7*864e5, now);
     if(!wk || wk.n < 3) return '';
-    const wkPct = Math.round(wk.regShare*100);
     const days = (ctx.histDays != null) ? ctx.histDays : ((Store.tenure()||{}).days || 0);
-    const felt = _feltName(ctx.dom);
+    // Scheme B (§7.2): band the CONNECTION level (avgV) into how reachable safety has been.
+    // No percentages — the person is their own scale; words, not numbers.
+    const band = v => v >= 0.50 ? 'within reach' : v >= 0.40 ? 'coming and going' : 'hard to reach';
     // pre-Baseline: too early to call it
     if(days < 28){
-      const weekLine = ctx.dom === 'safety'
-        ? 'You\'re reporting a week of mostly safety, ' + wkPct + '% of your check-ins.'
-        : 'You\'re reporting a week of mostly ' + felt + ', with safety showing up in ' + wkPct + '% of your check-ins.';
-      return 'Zoom out for a second. ' + weekLine + ' It\'s too early to call this a baseline, we\'ll keep an eye on it via your check-ins for another few weeks. By then, we should see some solid patterns and a clearer baseline forming.';
+      return 'Zoom out for a second. So far this week, safety has been ' + band(wk.avgV) + '. It\'s too early to call this a baseline, so we\'ll keep watching it through your check-ins for another few weeks. By then a clearer pattern should be forming.';
     }
-    // Baseline formed (month+): this week vs the baseline
+    // Baseline formed (month+): this week vs the baseline, in words not numbers
     const base = Store.periodStats(now - 28*864e5, now);
     if(!base || base.n < 8) return '';
-    const basePct = Math.round(base.regShare*100);
-    const d = wkPct - basePct;
-    const rel = d >= 5 ? 'a step above it' : d <= -5 ? 'a bit below it' : 'right at it';
-    const close = d >= 5 ? 'That\'s how baselines move: one week at a time.'
-                : d <= -5 ? 'A week below baseline is a moment in the bigger picture, not a slide. Gentle is fine for now.'
-                : 'Nothing wrong with staying at your baseline. It shows a solid foundation, at the least.';
-    return 'Zoom out for a second. Your baseline over the past month is ' + basePct + '% safety. This week came in at ' + wkPct + '%, ' + rel + '. ' + close;
+    const d = wk.avgV - base.avgV;
+    const move = d >= 0.05 ? 'a little higher than it\'s been' : d <= -0.05 ? 'a bit lower than usual' : 'about where it\'s been';
+    const close = d >= 0.05 ? 'That\'s how a baseline shifts: one week at a time.'
+                : d <= -0.05 ? 'A quieter week is a moment in the bigger picture, not a slide. Gentle is fine for now.'
+                : 'Holding steady is its own kind of solid ground.';
+    return 'Zoom out for a second. Over the past month, safety has been ' + band(base.avgV) + '. This week came in ' + move + '. ' + close;
   }
   const ESSAYS = {
     freeze: function(ctx){
@@ -1164,8 +1161,8 @@
     opener: ["A month of moments now.","A whole month of check-ins behind you.","You've shown up for around thirtyish days, and we have enough data to see the patterns of your nervous system."],
     where: ["Most of your check-ins reflect {DOM} about {PCT}%.","About {PCT}% of this month's check-ins leaned mostly toward {DOM}."],
     baseline: {
-      up: ["Baseline update: your safety baseline sits about {PCT}% higher than last month. This is the kind of shift only a month can show, and it's yours.","Baseline update: across the month, your baseline climbed about {PCT}%. Worth celebrating and leaning a bit more into."],
-      down: ["Baseline update: your safety baseline is running about {PCT}% lower than last month. Baselines dip with life context, and they come back the same way they formed: small, steady reps. Go easy.","Baseline update: a quieter month, with your baseline down about {PCT}%. Not a setback, just a season. Keep the basics going."],
+      up: ["Baseline update: your safety baseline is sitting higher than last month. This is the kind of shift only a month can show, and it's yours.","Baseline update: across the month, your baseline climbed. Worth celebrating and leaning a bit more into."],
+      down: ["Baseline update: your safety baseline is running a bit lower than last month. Baselines dip with life context, and they come back the same way they formed: small, steady reps. Go easy.","Baseline update: a quieter month, with your baseline down a little. Not a setback, just a season. Keep the basics going."],
       flat: ["Baseline update: your safety baseline held steady across the month. Stable is something you can build on."]
     },
     rhythm_dow: ["Looks like your {DAY} tend to carry a bit more safety state than other days. Worth noticing what's different about them, so you can do more of it.","Your {DAY} carry a little more safety than the rest, more often than not. A small clue about what's working for you."],
@@ -1201,7 +1198,7 @@
       holding: ["Across {SPAN}, there's been a lot of {FIRST}, and it's close to {LAST}. Stuck defense can last a while, can't it? It won't last forever, though."]
     },
     baseline: {
-      up: ["Your safety state baseline is higher than where {SPAN} began, up about {PCT}%. That's the kind of change only months can show.","Your safety state runs higher now than at the start of {SPAN}. A slow climb, and a real one."],
+      up: ["Your safety state baseline is higher than where {SPAN} began. That's the kind of change only months can show.","Your safety state runs higher now than at the start of {SPAN}. A slow climb, and a real one."],
       down: ["You've been reporting safety a little less than at the start of {SPAN}. It happens. The basics and small safety reps are how it comes back.","Your safety state was less obvious this period than the last. Go gently. It'll return."],
       flat: ["Your safety state baseline held fairly level across {SPAN}. Stable is good. You can build on stable."]
     },
@@ -1300,11 +1297,10 @@
       return out;
     }
     if(ctx.weekPct!=null && ctx.basePct!=null && Math.abs(ctx.weekPct-ctx.basePct)>=5){
-      const W = Math.round(ctx.weekPct), B = Math.round(ctx.basePct);
-      out.variant = W>B ? 'baseline-above' : 'baseline-below';
-      out.paras.push(W>B
-        ? 'Your week came in above your baseline: ' + W + '% safety against ' + B + '%. One week doesn\'t move a baseline much, but stacked weeks do. This is how the long story gets written, seven days at a time.'
-        : 'Your week came in below your baseline: ' + W + '% safety against ' + B + '%. One week doesn\'t move a baseline, and it doesn\'t need explaining away either. Look at the context, keep the practices small, and let next week be next week.');
+      out.variant = ctx.weekPct>ctx.basePct ? 'baseline-above' : 'baseline-below';
+      out.paras.push(ctx.weekPct>ctx.basePct
+        ? 'Your week came in a little above your usual baseline. One week doesn\'t move a baseline much, but stacked weeks do. This is how the long story gets written, seven days at a time.'
+        : 'Your week came in a little below your usual baseline. One week doesn\'t move a baseline, and it doesn\'t need explaining away either. Look at the context, keep the practices small, and let next week be next week.');
       return out;
     }
     out.variant = 'showup';

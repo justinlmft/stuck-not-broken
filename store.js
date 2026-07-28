@@ -1423,14 +1423,14 @@
     // written as carefully as the full one (§7.4): an invite plus a short why, not an error.
     if(bw.lowData){
       return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10,
-        "there isn't a full week of check-ins yet, so we'll keep it simple: a little time with the present moment. the more you check in, the more this practice shapes to your week.",
+        "there isn't a full week of check-ins yet, so we'll keep it simple through a little time with the present moment. the more you check in, the more this practice adapts to your capacity.",
         'building your picture');
     }
     // step 5 — hot defense today closes the moment gate: grounding only, whatever the week has
     // earned (mobilization or immobilization very high, or the freeze quadrant — both up).
     if(!gate.open){
       let reason = dom==='shutdown' ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
-                 : dom==='freeze' ? "a lot is frozen within. we'll keep this small: settle first, then look for a bit of safety."
+                 : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small, focusing on the present and connecting with safety."
                  : "there's a lot of defense active right now. we'll stay with the present moment and let some of it settle.";
       if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
       return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
@@ -1505,10 +1505,10 @@
     // session -> rung/dial -> daypart). drafts for Justin's copy pass.
     let reason;
     if(dialDown){
-      reason = "last one was a lot, so we're staying with " + _skillWord(skill) + " and making it smaller: a shorter stay, more room between the guidance.";
+      reason = "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler today: a bit shorter, with more quiet space to settle.";
       if(lastMost && lastMost.emotionIntent) reason += " if you work with " + lastMost.emotionIntent + " again, maybe at a gentler intensity this time.";
     } else if(droppedRung && hardLast){
-      reason = "the last couple were heavy, so we're stepping one rung down to " + _skillWord(skill) + ". the deeper work will be right there when you're ready.";
+      reason = "the last couple were a lot, so we'll ease back to " + _skillWord(skill) + " for now. that's just where your system is today, and it's completely normal. the deeper work stays right where you left it.";
     } else if(droppedRung){
       reason = "last one didn't land clearly, so we're going one step easier this time: " + _skillWord(skill) + ".";
     } else if(hold){
@@ -1518,11 +1518,11 @@
     } else if(dys){
       reason = "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose.";
     } else if(rg.hi < 0){
-      reason = "you have safety and you asked to meet defense. we'll start at the first rung: validating and normalizing what's here. asking for more opened the door. the ladder still goes one step at a time.";
+      reason = "you have safety here, and this is a good place to start meeting defense gently: validating and normalizing what's here. one rung at a time, with the way back always open.";
     } else if(rg.next){
       reason = "you have safety here, and your practice history has earned the next step: " + _skillWord(skill) + ". one rung at a time, with the way back always open.";
     } else if(ceiling>=3){
-      reason = "strong, steady safety and the reps behind you. safety, a little defense, and back.";
+      reason = "you've got steady safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
     } else if(L.sessionsDone>=3 && L.favPractice==='most'){
       reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
     } else {

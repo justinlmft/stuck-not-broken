@@ -215,23 +215,23 @@
     // never at the connection-high / others-default corner (that person IS reporting
     // something — full connection). §7.3.
     const mid = x => x>=0.40 && x<=0.60;
-    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:'nothing is obvious to you right now. that’s okay.', balance:null };
+    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:'nothing is obvious to you right now. no worries.', balance:null };
     const dom = createCurrent.dominantOf(v,s,d);
     if(dom.key==='neutral') return { tie:false, dominant:READOUTS.neutral, balance:null };
     const nm = _READ_NAME[dom.key] || dom.key;
     const secNm = dom.second ? (_READ_NAME[dom.second] || dom.second) : null;
     let dominant;
-    if(dom.strength < _FAINT) dominant = `you’re reporting mostly ${nm}, but not much of it.`;
-    else if(dom.gap < _CLOSE && secNm) dominant = `mostly ${nm}, with some ${secNm} alongside.`;
+    if(dom.strength < _FAINT) dominant = `you’re reporting mostly ${nm}, but not much (and that’s okay).`;
+    else if(dom.gap < _CLOSE && secNm) dominant = `mostly ${nm}, with some ${secNm}, too.`;
     else dominant = `you’re reporting mostly ${nm}.`;
     // safety-vs-defense balance — the leading indicator of nearing dysregulation.
     // defense = the louder defensive axis (matches the baseline metric + moment gate).
     const def = Math.max(s, d), margin = v - def;
     let balance;
-    if(v >= 0.40 && def >= 0.60) balance = 'there’s real safety here, with a lot of charge alongside it. safety may be hard to hold.';
-    else if(margin > 0.15) balance = 'safety is ahead of your defenses right now.';
-    else if(margin < -0.15) balance = 'your defenses are ahead of safety right now.';
-    else balance = 'safety and your defenses are about even right now.';
+    if(v >= 0.40 && def >= 0.60) balance = 'there’s safety in the system with a lot of energy, too. safety may come and go. (and that’s normal.)';
+    else if(margin > 0.15) balance = 'you’ve got more safety than defense in your system.';
+    else if(margin < -0.15) balance = 'you’ve got more defense than safety in your system right now.';
+    else balance = 'safety and defense are about even right now.';
     return { tie:false, dominant, balance };
   };
 
