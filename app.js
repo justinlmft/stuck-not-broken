@@ -579,6 +579,10 @@
         }
       }
       if((force || (paidNow() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
+      // already-oriented returning users get the one-time "what's new" card instead (the
+      // state-math rework changed naming + recommendations; explain it once). Mutually
+      // exclusive with onboarding, which only fires for !oriented.
+      else if(oriented() && !whatsNewSeen() && !_liveJoin()) setTimeout(()=>{ if(!_ob.on && !document.getElementById('wn-scrim')) showWhatsNew(); }, 80);
     }catch(e){}
     return _r;
   }
@@ -1569,6 +1573,39 @@
   function setOriented(v){ try{ localStorage.setItem(_obKey(), v); }catch(e){}
     try{ if(Store.setPref) Store.setPref('oriented', v); }catch(e){} }
   function obTrack(name, meta){ try{ if(Store.trackEvent) Store.trackEvent(name, meta||{}); }catch(e){} }
+
+  // ---- "what's new" one-time card (returning users, after the state-math rework) ----
+  // Shown ONCE to an already-oriented user when they next open the app, so the change in
+  // state naming / practice recommendations doesn't arrive unexplained. New users go through
+  // onboarding instead (this fires only for oriented()). Bump the version suffix to re-show
+  // for a future update. Copy is Justin's, verbatim; the mark is the onboarding mark.
+  function _wnKey(){ const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_whatsnew_statemath_'+u; }
+  function whatsNewSeen(){ try{ return !!localStorage.getItem(_wnKey()); }catch(e){ return true; } }
+  function markWhatsNewSeen(){ try{ localStorage.setItem(_wnKey(), '1'); }catch(e){} }
+  function showWhatsNew(){
+    if(document.getElementById('wn-scrim')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'wn-scrim'; wrap.id = 'wn-scrim';
+    wrap.innerHTML = `
+      <div class="wn-card" role="dialog" aria-modal="true" aria-label="app updates">
+        <img class="wn-mark" src="${MARK}" alt="Stuck Not Broken">
+        <h2 class="wn-h">App updates</h2>
+        <p class="wn-p">The Stuck Not Broken has undergone a major update to a couple of key things to give you an even better experience. Here's what to expect from now on:</p>
+        <ul class="wn-list">
+          <li>more accurate state naming and reflections based on your check-ins</li>
+          <li>much more accurate practice recommendations based on your self-reported capacity and previous practice history</li>
+        </ul>
+        <p class="wn-p">I changed some math stuff in the background to give you the best experience possible and to help you achieve even more levels of insight and regulation.</p>
+        <p class="wn-p">Thanks for being an early SNB app user!</p>
+        <p class="wn-sig">Justin</p>
+        <button class="btn block" id="wn-ok" type="button">got it</button>
+      </div>`;
+    const close = ()=>{ markWhatsNewSeen(); try{ wrap.remove(); }catch(e){} };
+    wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
+    document.body.appendChild(wrap);
+    const ok = wrap.querySelector('#wn-ok'); if(ok) ok.onclick = close;
+    obTrack('whatsnew_shown', { v:'statemath' });
+  }
 
   const OB_UNLOCKS = [
     ['spark', 'Practices created just for you', 'The app designs self-regulation practices for you and only you based on your history, practices, and preferences. (Feel free to customize further!)'],

@@ -2539,6 +2539,20 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 .ob-hole.anim{animation:obFade .2s var(--ease)}
 @keyframes obFade{from{opacity:0}to{opacity:1}}
 @keyframes obRiseS{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* "what's new" one-time card (returning users, state-math rework) */
+.wn-scrim{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+  padding:24px 18px calc(24px + env(safe-area-inset-bottom));background:var(--scrim,rgba(26,31,42,.42));
+  overflow-y:auto}
+.wn-card{background:var(--bone);border:1px solid var(--hairline);border-radius:16px;
+  width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px rgba(26,31,42,.18);
+  max-height:100%;overflow-y:auto}
+.wn-mark{height:26px;display:block;margin:0 0 16px}
+.wn-h{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}
+.wn-p{font-size:calc(14.5px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
+.wn-list{margin:0 0 14px;padding-left:20px;display:grid;gap:8px}
+.wn-list li{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty}
+.wn-sig{font-size:calc(14.5px * var(--type-scale));color:var(--ink);margin:0 0 20px;font-weight:500}
+.wn-card .btn.block{width:100%}
 .ob-card{position:absolute;box-sizing:border-box;background:var(--bone);border:1px solid var(--hairline);
   font-family:'Inter',system-ui,-apple-system,sans-serif;
   left:0;right:0;bottom:0;border-radius:20px 20px 0 0;border-left:0;border-right:0;border-bottom:0;
