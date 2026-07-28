@@ -20,9 +20,15 @@
   // The six states, each defined by how the three circuits combine.
   // weight() returns 0..1 strength of that state given circuit presences.
   const STATES = {
-    stillness:   { name: 'stillness',     color: MIX.stillness, weight: (v,s,d) => Math.min(v, d) * (1 - s) },
+    // stillness = immobilization WITH significant safety — the exact symmetric case of play.
+    // Same ruling applied (v >= 0.40): below that it is not stillness, it is shutdown. FLAGGED for
+    // Justin — he ruled play explicitly; this extends the identical logic to the other safe blend.
+    stillness:   { name: 'stillness',     color: MIX.stillness, weight: (v,s,d) => v < 0.40 ? 0 : Math.min(v, d) * (1 - s) },
     safety:      { name: 'safety',        color: BASE.yellow,   weight: (v,s,d) => v * (1 - s) * (1 - d) },
-    play:        { name: 'play/motivation', color: MIX.play,  weight: (v,s,d) => Math.min(v, s) * (1 - d) },
+    // play = mobilization WITH significant safety. Justin's ruling (2026-07-28): below ~40%
+    // connection it is not play, it is flight/fight — so play needs v >= 0.40 to register at all.
+    // This kills the low-everything case where a blend won on almost no connection (map §2).
+    play:        { name: 'play/motivation', color: MIX.play,  weight: (v,s,d) => v < 0.40 ? 0 : Math.min(v, s) * (1 - d) },
     fightflight: { name: 'flight/fight',color: BASE.red,     weight: (v,s,d) => s * (1 - v) * (1 - d) },
     freeze:      { name: 'freeze',        color: MIX.freeze,    weight: (v,s,d) => Math.min(s, d) * (1 - v) },
     shutdown:    { name: 'shutdown',      color: BASE.blue,     weight: (v,s,d) => d * (1 - v) * (1 - s) },
