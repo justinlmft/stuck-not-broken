@@ -1590,7 +1590,7 @@
       <div class="wn-card" role="dialog" aria-modal="true" aria-label="app updates">
         <img class="wn-mark" src="${MARK}" alt="Stuck Not Broken">
         <h2 class="wn-h">App updates</h2>
-        <p class="wn-p">The Stuck Not Broken has undergone a major update to a couple of key things to give you an even better experience. Here's what to expect from now on:</p>
+        <p class="wn-p">Stuck Not Broken has undergone a major update to a couple of key things to give you an even better experience. Here's what to expect from now on:</p>
         <ul class="wn-list">
           <li>more accurate state naming and reflections based on your check-ins</li>
           <li>much more accurate practice recommendations based on your self-reported capacity and previous practice history</li>
