@@ -160,6 +160,34 @@
 
   const STATE_COLOR = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].color : '#D8D2C2');
   const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'settling');
+  // mute(): blends a color toward the card background (--bone) so a de-emphasized
+  // chart bar reads as a genuinely softer version of ITS OWN hue, not a differently-
+  // hued pale tint. Used by the You-tab bar charts to make the winning bar/segment
+  // the obvious one (Justin 2026-07-29: "dull the colors of the other days and
+  // times to highlight the winning one").
+  // Bakes the muted color directly into the `background` value at render time —
+  // deliberately NOT a CSS opacity rule. `.rc-bar` carries `animation:riseIn .45s
+  // var(--ease) both`, and riseIn animates opacity 0->1; its `both` fill mode
+  // permanently holds opacity:1 once the animation finishes, silently overriding
+  // any plain `opacity` CSS property on the same element forever after first
+  // paint. A CSS-only "opacity:.x on the losing bars" rule never actually renders
+  // once the intro animation completes — caught this in preview when the fade was
+  // invisible no matter how low the opacity went ("all look the same opacity").
+  function _hexOrRgbToRgb(c){
+    c = (c||'').trim();
+    if(c[0]==='#'){ const h=c.slice(1); const n=h.length===3?h.split('').map(x=>x+x).join(''):h;
+      return [parseInt(n.slice(0,2),16), parseInt(n.slice(2,4),16), parseInt(n.slice(4,6),16)]; }
+    const m = c.match(/rgba?\(([^)]+)\)/);
+    if(m) return m[1].split(',').slice(0,3).map(x=>parseInt(x.trim(),10));
+    return [216,210,194]; // fallback ~ --hairline
+  }
+  function mute(color, strength){
+    strength = strength==null ? 0.62 : strength; // fraction blended TOWARD the bg (higher = duller)
+    const bg = [250,249,245]; // --bone
+    const c = _hexOrRgbToRgb(color);
+    const out = c.map((v,i)=>Math.round(v + (bg[i]-v)*strength));
+    return `rgb(${out[0]},${out[1]},${out[2]})`;
+  }
 
   // The three brand marks ARE the three nervous-system axes. heart=safety,
   // bolt=fight-or-flight, x=shutdown. One vocabulary across check-in, you-tab, feedback.
@@ -4572,31 +4600,38 @@
           ${_pi?`<p class="cb-line" style="margin-top:10px">your most reliable combo so far: <b>${Store.practiceLabel(_pi.practiceKey)}</b> ${_segPhrase(_pi.seg)}, safety follows about <b>${Math.round(_pi.rate*20)*5}%</b> of the time.</p>`:''}`;
       }
 
-      // ---- growth headline: safety now vs when you started (all-time, not period-filtered) ----
+      // ---- growth: safety now vs when you started (all-time, not period-filtered) ----
+      // v3 (2026-07-29 redesign, final round: "the bars are the story... give them
+      // real room" / "not a grabbable control and should not appear that way" / "no
+      // glyph on the card, does not seem right, this is about safety"). Replaced the
+      // dot-track (which read as a draggable slider it wasn't) with the same
+      // rc-chart/rc-col/rc-bar bar-chart language every other you-tab card already
+      // uses — a plain then/now pair, colored by the house safety gradient, with a
+      // heart glyph riding the "now" bar's value label (the only place on this card
+      // that names what it's measuring). The identifying line up top borrows the
+      // exact rc-hero-title styling the times/daypart cards use ("is your most
+      // regulated day") so the card reads the same way as its siblings.
+      // "then" is left as the plain word for now — Justin flagged that whether it
+      // should tie to the 7/30/90/all period toggle (vs. a fixed "a month ago"-style
+      // label) is still open; defaulting to the always-all-time comparison this card
+      // has always used rather than guessing at period-awareness.
       let growthHead='';
       (function(){
         const tn=Store.tenure();
         if(allCs.length>=8 && tn.days>=5 && tn.stage!=='start' && tn.stage!=='early'){
           const k=Math.max(2,Math.floor(allCs.length/4));
           const startV=avg(allCs.slice(0,k).map(x=>x.v)), recentV=avg(allCs.slice(-k).map(x=>x.v));
-          const g=Math.round((recentV-startV)*100), up=g>=3, down=g<=-3;
+          const g=Math.round((recentV-startV)*100), down=g<=-3;
           // a dip is never the headline here — that conversation lives in the reader.
-          // two plain percentages, never a "pts" delta (Justin 2026-07-05)
           if(!down){
-            const cap=up?'average safety, when you started vs now. the reps add up!':'average safety, about steady since you started.';
-            // v2 (2026-07-29, from Claude Design's layout-hierarchy pass — Justin: the
-            // per-card visuals still read as decoration, not the thing the eye lands on
-            // first). The track itself becomes the hero: wider, taller dots, full card
-            // width, nothing else competing above it. The percentages fold into the
-            // caption sentence below instead of a separate giant number, since the track
-            // now IS the headline.
             const sV=Math.round(startV*100), rV=Math.round(recentV*100);
-            const growthViz=`<div class="gr-hero" aria-hidden="true"><div class="gr-track-lg">
-              <span class="gr-fill-lg" style="left:${Math.min(sV,rV)}%;width:${Math.max(2,Math.abs(rV-sV))}%;background:linear-gradient(90deg,${safetyColor(startV)},${safetyColor(recentV)})"></span>
-              <span class="gr-dot-lg" style="left:${sV}%;background:${safetyColor(startV)}"></span>
-              <span class="gr-dot-lg gr-dot-lg-now" style="left:${rV}%;background:${safetyColor(recentV)}"></span>
-            </div></div>`;
-            growthHead=`${growthViz}<p class="growth-cap"><b>${sV}% → ${rV}%</b> ${cap}</p>`;
+            const heart=ico('heart',{cls:'gr-val-glyph',color:safetyColor(recentV)});
+            const hThen=Math.max(24,Math.round(sV/100*140)), hNow=Math.max(24,Math.round(rV/100*140));
+            growthHead=`<p class="rc-hero-title">average safety in your system</p>
+              <div class="rc-chart gr-mini-chart" aria-hidden="true">
+                <div class="rc-col"><span class="rc-val">${sV}%</span><span class="rc-bar" style="height:${hThen}px;background:${mute(safetyColor(startV),0.35)}"></span><span class="rc-lb">then</span></div>
+                <div class="rc-col rc-col-best"><span class="rc-val">${heart}${rV}%</span><span class="rc-bar" style="height:${hNow}px;background:${safetyColor(recentV)}"></span><span class="rc-lb">now</span></div>
+              </div>`;
           }
         }
       })();
@@ -4647,13 +4682,13 @@
             if(rec){
               const phrase = rec.avg<=1.5 ? 'a check-in or two' : 'about '+Math.round(rec.avg)+' check-ins';
               const from = dip || 'fightflight';
-              const rtLine = (rt && rt.dir==='faster') ? `<p class="cb-line">and lately, that trip has been getting <b>shorter</b>.</p>` : '';
-              const dipLine = dip ? `<p class="cb-line">your most common dip is into <b>${STATE_NAME(dip)}</b>.</p>` : '';
-              // trip-count moved out of the main sentence into a parenthetical, and bound
-              // to the SAME period as the rest of the card (was Store.recovery(), always
-              // all-time regardless of the period toggle — misleading next to a card
-              // whose every other number respects it) (Justin 2026-07-28).
-              const tripCount = `<p class="cb-fine">(${rec.n} time${rec.n===1?'':'s'}, over ${periodPhrase})</p>`;
+              // v2 (2026-07-29 redesign, final round: "a lot of info crammed into the
+              // card... restrict it to one sentence"). One lead sentence carries the
+              // whole claim (dip -> recover); the check-in count, trip count, and
+              // trend all fold into one small parenthetical footnote below, same tier
+              // as the shift card's fine print — so the two hero-glyph cards match.
+              const fasterTail = (rt && rt.dir==='faster') ? `, and it's taking less time lately` : '';
+              const tripCount = `<p class="cb-fine">(${phrase} each time, ${rec.n} time${rec.n===1?'':'s'} over ${periodPhrase}${fasterTail})</p>`;
               // title cut (Justin 2026-07-29c: "not needed... prefer the images carry
               // the visual weight not the titles"). The slide's array label ('getting
               // back to safety') stays — still used for the carousel dots' aria-label
@@ -4661,8 +4696,8 @@
               slides.push(['comeback','getting back to safety', `
               ${shareBtn('comeback')}
               <div class="cb-journey">${cbGlyphViz(from, 'safety', null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">when your body drops into defense, safety usually returns within <b>${phrase}</b>.</p>
-              ${dipLine}${rtLine}${tripCount}`]);
+              <p class="cb-line cb-line-lead">you commonly dip into <b>${STATE_NAME(from)}</b>, then recover into <b>safety</b>.</p>
+              ${tripCount}`]);
             }
             // the separate "your safety baseline" slide is retired (§7.2): its longer-window
             // view is now just a wider choice on the time toggle above — one card, one metric.
@@ -4694,7 +4729,7 @@
               const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
                 const pct=wdPcts[i], dom=wdDom[i], best=i===wd.idx;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):STATE_COLOR(dom);
+                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
                 return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*45}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
               }).join('')}</div>`;
               // title cut (Justin 2026-07-29c): "your most regulated day" repeated the
@@ -4711,7 +4746,7 @@
               const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
                 const pct=_daypartPct(cs,seg), dom=dpDom[i], best=seg===dp.key;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):STATE_COLOR(dom);
+                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
                 return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*60}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['daypart','your most regulated time of day', `
@@ -4734,7 +4769,7 @@
               const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
                 const pct=wlPcts[i], dom=wlDom[i], best=i===wdLeast.idx;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?worstColor:STATE_COLOR(dom);
+                const bg=pct==null?'var(--bone-deep)':best?worstColor:mute(STATE_COLOR(dom));
                 return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*45}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
               }).join('')}</div>`;
               slides.push(['leastDay','your least regulated day', `
@@ -4757,7 +4792,7 @@
               const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
                 const pct=_daypartPct(cs,seg), dom=dlDom[i], best=seg===dpLeast.key;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?worstDpColor:STATE_COLOR(dom);
+                const bg=pct==null?'var(--bone-deep)':best?worstDpColor:mute(STATE_COLOR(dom));
                 return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*60}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['leastDaypart','your least regulated time of day', `
@@ -4768,10 +4803,14 @@
             }
             if(trn){
               const nm = k => ({play:'regulated mobility',stillness:'regulated immobility'}[k])||STATE_NAME(k);
+              // hero treatment (2026-07-29 redesign: "needs the same treatment as
+              // 'getting back to safety'") — same cb-journey hero glyphs + one lead
+              // sentence + small parenthetical footnote, title cut.
               slides.push(['shift','your most common shift', `
-              ${shareBtn('shift')}<h2 class="panel-title">your most common shift</h2>
-              ${cbGlyphViz(trn.a, trn.b)}
-              <p class="cb-line">your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>. ${trn.count} times so far.</p>`]);
+              ${shareBtn('shift')}
+              <div class="cb-journey">${cbGlyphViz(trn.a, trn.b, null, 'hero')}</div>
+              <p class="cb-line cb-line-lead">your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>.</p>
+              <p class="cb-fine">(${trn.count} time${trn.count===1?'':'s'} so far)</p>`]);
             }
             if(pr){
               const fcTxt = pr.fastest ? (pr.fastest.steps<=1?'back in one check-in':'back in '+pr.fastest.steps+' check-ins') : '';
@@ -4815,9 +4854,7 @@
             // restructuring the shared arcBuckets block that 'states' below still uses.
             if(growthHead){
               slides.push(['started','your safety changes', `
-              ${shareBtn('started')}<h2 class="panel-title">your safety changes</h2>
-              <p class="panel-sub">average safety since you started, all time${activePeriod!=='all'?` — not limited to ${periodPhrase}`:''}.</p>
-              ${growthHead}`]);
+              ${shareBtn('started')}${growthHead}`]);
             }
             if(arcBuckets){
               slides.push(['states','your states over time', `
@@ -4829,42 +4866,48 @@
               ${shareBtn('practice')}<h2 class="panel-title">is practice helping?</h2>
               <p class="panel-sub">your average safety after you practice vs. not.</p>
               ${helpHTML}`]);
-            // axis cards (2026-07-19, from the desktop ledger design): the most
-            // mobilized / most immobilized time of day, each with its FLAVOR —
-            // whether safety is in the mix (play vs flight/fight; stillness vs
-            // shutdown; freeze = both pedals). Mirrors what the person named,
-            // never a score. 🖊 copy drafted, Justin-owned.
-            const _AXFL = (SET)=>{
-              let best=null;
-              ['morning','afternoon','evening','late'].forEach(sg=>{
-                const sub=cs.filter(x=>segOf(x.t)===sg); if(sub.length<4) return;
-                const hits=sub.filter(x=>SET[x.dom]); const share=hits.length/sub.length;
-                if(hits.length>=3 && (!best || share>best.share)) best={seg:sg,share,n:hits.length,hits};
+            // axis cards, v2 (2026-07-29 redesign, final: "make these into separate
+            // cards... i'd rather see these as cards with immediate info and
+            // shareability"). The old 2-card "most mobilized/immobilized time of
+            // day" + blended flavor chips are retired in favor of 5 minimal solo-
+            // state cards (play, flight/fight, stillness, shutdown, freeze), each
+            // with its OWN real per-daypart share and its own bar chart — same
+            // rc-hero-word pattern as times/daypart, same mute()-dulled losing bars.
+            // A more in-depth cross-referencing/filtering system is a future pass
+            // (Justin: "we can create that another time").
+            const _AX_SEGS = ['morning','afternoon','evening','late'];
+            const _axSoloPattern = (key) => {
+              let best=-1, bestPct=-1, bestN=0;
+              const pcts = _AX_SEGS.map((sg,i)=>{
+                const sub=cs.filter(x=>segOf(x.t)===sg);
+                if(sub.length<4) return null;
+                const hits=sub.filter(x=>x.dom===key).length;
+                const pct=Math.round(hits/sub.length*100);
+                if(hits>=3 && pct>bestPct){ bestPct=pct; best=i; bestN=hits; }
+                return pct;
               });
-              if(!best) return null;
-              const cnt={}; best.hits.forEach(x=>{cnt[x.dom]=(cnt[x.dom]||0)+1;});
-              best.flavors=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).map(([k,n])=>[k,Math.round(n/best.n*100)]);
-              return best;
+              if(best<0) return null;
+              return { pcts, best, pct:pcts[best], n:bestN };
             };
-            const _axNm = k => ({play:'play/motivation',stillness:'stillness'}[k])||STATE_NAME(k);
-            const _axChips = f => `<div class="ax-flav">${f.map(([k,p])=>`<span><i style="background:${STATE_COLOR(k)}"></i>${_axNm(k)} ${p}%</span>`).join('')}</div>`;
-            const _mob=_AXFL({fightflight:1,play:1}), _imm=_AXFL({shutdown:1,stillness:1,freeze:1});
-            if(_mob){
-              slides.push(['mobilized','your most mobilized time of day', `
-              <h2 class="panel-title">your most mobilized time of day</h2>
-              <p class="panel-sub">when mobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
-              <div class="ax-big">${segIco(_mob.seg)}${_mob.seg==='late'?'late at night':segLabel(_mob.seg)+'s'}</div>
-              ${_axChips(_mob.flavors)}
-              <p class="ax-note">play is mobilization with safety in the mix. flight/fight is without.</p>`]);
-            }
-            if(_imm){
-              slides.push(['immobilized','your most immobilized time of day', `
-              <h2 class="panel-title">your most immobilized time of day</h2>
-              <p class="panel-sub">when immobilization shows up most often in your check-ins, over ${periodPhrase}.</p>
-              <div class="ax-big">${segIco(_imm.seg)}${_imm.seg==='late'?'late at night':segLabel(_imm.seg)+'s'}</div>
-              ${_axChips(_imm.flavors)}
-              <p class="ax-note">stillness is immobilization with safety in the mix. shutdown is without. freeze is both pedals at once.</p>`]);
-            }
+            const _AX_ADJ = { play:'playful', fightflight:'flight/fight', stillness:'still', shutdown:'shutdown', freeze:'frozen' };
+            const _axSoloSlide = (key) => {
+              const pat = _axSoloPattern(key);
+              if(!pat) return;
+              const color = STATE_COLOR(key), glyph = stateMarks(key), adj = _AX_ADJ[key] || key;
+              const segName = segLabel(_AX_SEGS[pat.best]);
+              const chart = `<div class="rc-chart ax-solo-chart" aria-hidden="true">${_AX_SEGS.map((sg,i)=>{
+                const pct=pat.pcts[i], isBest=i===pat.best;
+                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
+                const bg = pct==null?'var(--bone-deep)':isBest?color:mute(color);
+                const val = isBest ? `<span class="rc-val">${glyph}${pct}%</span>` : '';
+                return `<div class="rc-col${isBest?' rc-col-best':''}" style="animation-delay:${i*45}ms">${val}<span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(sg)}</span></div>`;
+              }).join('')}</div>`;
+              slides.push(['ax-'+key, segName+' is your most '+adj+' time of day', `
+              ${shareBtn('ax-'+key)}
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${segName}</b> is your most <b>${adj}</b> time of day.</p>
+              ${chart}`]);
+            };
+            ['play','fightflight','stillness','shutdown','freeze'].forEach(_axSoloSlide);
             // capacity-aware carousel (2026-07-05): AT MOST 4 cards, chosen for
             // what the data supports and what the person has room for right now.
             // when recent check-ins lean defensive, the cards that say "dips end"
@@ -4943,8 +4986,14 @@
             comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
             mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
             times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
-            mobilized:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            immobilized:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            // mobilized/immobilized (2 combined cards) retired for 5 solo-state axis
+            // cards (2026-07-29 redesign) — same two stand-in glyphs reused per card
+            // since a bespoke icon per state wasn't part of this round's redesign.
+            'ax-play':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
+            'ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
+            'ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            'ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            'ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
             records:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 4h11l-2.5 3.5L17 11H6"/></svg></span>'
           };
           const cur=all.find(s=>s[0]===key);

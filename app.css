@@ -191,17 +191,13 @@ button{font:inherit;color:inherit}
   #screen .carousel{gap:18px}
   #screen .carousel > .panel{flex:0 0 min(92%,520px)}
 }
-/* axis cards (mobilized / immobilized time of day) — all sizes */
-.ax-big{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);margin:4px 0 12px;display:flex;align-items:center;gap:12px}
-.ax-big .seg-ico{width:.85em;height:.85em}
 /* daypart symbols: quiet ink line icons (morning sunrise / afternoon sun /
    evening moon+star / late-night stars) */
 .seg-ico{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .deep-lbl .seg-ico{width:15px;height:15px;vertical-align:-2.5px;margin-right:7px;opacity:.75}
-.ax-flav{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 14px}
-.ax-flav span{display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale));color:var(--ink-80)}
-.ax-flav i{width:9px;height:9px;border-radius:50%;flex:none}
-.ax-note{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.55;margin:0;text-wrap:pretty}
+/* .ax-big/.ax-flav/.ax-note (old mobilized/immobilized combined-card chips)
+   retired 2026-07-29 — those 2 cards became 5 solo-state axis cards built on the
+   shared rc-chart/rc-val system instead (see .ax-solo-chart below). */
 @media (min-width:720px) and (hover:hover){
   #screen > .tabbar button:hover{color:var(--ink);background:none}
   #screen > .tabbar button.on:hover{background:none}
@@ -670,7 +666,14 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 /* v2 (2026-07-29, Claude Design's layout-hierarchy pass, implemented from their
    markup proposal): the comeback card's glyphs become the dominant element on the
    card, not a strip under the sentence. A third size tier above .cb-glyphs-lg. */
-.cb-journey{margin:16px 0 18px}
+/* vertical rhythm rule (2026-07-29 redesign, Justin: "what is the rule about space
+   above and below the glyphs? if no rule, please make one") — hero-glyph blocks
+   get a fixed rhythm independent of whatever precedes/follows: 40px clear space
+   above (handled by the more specific .panel-share + .cb-journey rule below,
+   since a share button always precedes this block), 30px below, before the
+   caption sentence. Any future hero-glyph card should reuse .cb-journey rather
+   than inventing new margins. */
+.cb-journey{margin:16px 0 30px}
 /* titles cut on these 3 cards (Justin 2026-07-29c: "images carry the visual weight,
    not the titles") — the visual is now the FIRST visible thing under the share
    button, which is absolutely positioned and no longer has a title's height/padding
@@ -697,7 +700,13 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .cb-glyphs-hero .st-pair{gap:0}
 /* the single unified arrow shape (shaft + head, one path, one gradient — see
    cbHeroArrowSVG in app.js) replacing the old bar+separate-arrowhead pair */
-.cb-arrow-hero{flex:1;min-width:56px;height:30px;display:block}
+/* BUG FIX (2026-07-29 redesign: "on desktop, the arrow head stretches and it looks
+   weird"): flex:1 let this SVG's own row grow to whatever width the panel had —
+   on a wide desktop card that stretched a 30px-tall arrow shape to 400px+ wide
+   (preserveAspectRatio="none"), badly distorting the arrowhead. Fixed width
+   instead, and since the row's other two children (the glyphs) don't grow either,
+   the whole group now sits left-aligned as one unit rather than spanning the card. */
+.cb-arrow-hero{flex:0 0 auto;width:64px;height:28px;display:block}
 .cb-line-lead{font-size:calc(18px * var(--type-scale));line-height:1.5;color:var(--ink);font-weight:500;margin:0 0 12px}
 .wk-mark{display:inline-flex;align-items:center;justify-content:center;height:20px}
 .wk-mark .snb-ico{height:19px;width:auto;display:block}
@@ -1472,7 +1481,7 @@ body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:no
 .tb-row-sub{font-size:calc(14.5px * var(--type-scale))}
 .tb-refl,.tb-reason{font-size:calc(15px * var(--type-scale))}
 /* you tab reading text — fuller coverage (this screen has the most reading) */
-.help-lbl,.growth-cap,.bloom-line,.safety-foot,.safety-trend{font-size:calc(14px * var(--type-scale))}
+.help-lbl,.bloom-line,.safety-foot,.safety-trend{font-size:calc(14px * var(--type-scale))}
 .help-verdict{font-size:calc(14.5px * var(--type-scale))}
 .distrow-name{font-size:calc(15px * var(--type-scale))}
 .distrow-pct,.help-pct{font-size:calc(13.5px * var(--type-scale))}
@@ -1701,20 +1710,39 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 .safety-foot .sf-txt{flex:1}
 
 
-/* 'how far you've come' card, v2 (2026-07-29, Claude Design's layout-hierarchy
-   pass, implemented from their markup proposal): the track itself is now the
-   full-width hero — wider, taller dots, nothing else competing above it. The
-   percentages fold into the caption sentence (.growth-cap) instead of a separate
-   giant number, since the track now carries the headline job. Same safetyColor
-   ramp the day-by-day chart uses, so the two dots still read as "the same kind
-   of number" as everything else on the tab. */
-.gr-hero{margin:10px 0 16px}
-.gr-track-lg{position:relative;height:10px;border-radius:5px;background:var(--bone-deep)}
-.gr-fill-lg{position:absolute;top:0;bottom:0;border-radius:5px;opacity:.55}
-.gr-dot-lg{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;transform:translate(-50%,-50%);border:3px solid var(--bone);box-shadow:0 0 0 1px var(--hairline)}
-.gr-dot-lg-now{width:26px;height:26px}
-.growth-cap{font-size:calc(15.5px * var(--type-scale));color:var(--ink-80);line-height:1.6;text-wrap:pretty;margin:0}
-.growth-cap b{font-weight:600;color:var(--ink)}
+/* 'your safety changes' card, v3 (2026-07-29 redesign, final round: "not a
+   grabbable control and should not appear that way... the bars ARE the story
+   now"). The dot-track (.gr-hero/.gr-track-lg/.gr-dot-lg, retired) read as a
+   draggable slider it wasn't — replaced with the same rc-chart/rc-col/rc-bar bar
+   chart every other you-tab card uses: a plain then/now pair. gr-mini-chart just
+   widens the shared rc-chart columns and adds the bar's rounder top corner; the
+   value label and glyph rules below (.rc-val/.gr-val-glyph) are shared with the
+   solo axis cards' winning-bar label. */
+.gr-mini-chart{max-width:none;margin:8px 0 0;height:150px}
+.gr-mini-chart .rc-col{max-width:120px;flex:0 0 40%}
+.gr-mini-chart .rc-bar{border-radius:8px 8px 4px 4px}
+.gr-mini-chart .rc-val{font-size:calc(16px * var(--type-scale))}
+/* bug fix: a label that wraps to 2 lines (e.g. a longer "then" phrase) makes that
+   whole column taller — and since .rc-col anchors its content to the bottom edge
+   (justify-content:flex-end), the extra label height shoves that column's bar
+   upward relative to a sibling column whose label stayed on one line. Nowrap
+   guarantees every label is exactly one line, so every bar's bottom edge lines up
+   regardless of label length. */
+.gr-mini-chart .rc-lb{font-size:calc(12.5px * var(--type-scale));margin-top:2px;white-space:nowrap}
+/* value-above-bar label, shared by the growth mini-chart and the solo axis cards:
+   one small consistent convention (the number sits above its own bar) instead of
+   a different label style per card. Left-aligned to the bar's own left edge
+   rather than centered over it — align-self:flex-start overrides .rc-col's
+   align-items:center for just this child; .rc-bar is width:100% of the column,
+   so the column's left edge IS the bar's left edge. */
+.rc-val{display:flex;align-items:center;justify-content:flex-start;align-self:flex-start;gap:4px;font-size:calc(13px * var(--type-scale));font-weight:600;color:var(--ink);margin:0 0 6px;white-space:nowrap}
+.rc-val .st-mark,.rc-val .st-marks{width:14px;height:14px}
+.gr-val-glyph{width:16px;height:16px;flex:none;display:inline-block;vertical-align:-3px}
+/* solo axis cards (play/flight-fight/stillness/shutdown/freeze — 2026-07-29
+   redesign, replacing the old 2-card mobilized/immobilized + flavor-chip
+   layout): identical rc-chart bar structure to times/daypart, just a touch more
+   clearance under the hero-title line above it. */
+.ax-solo-chart{margin-top:6px}
 
 
 /* change a recent check-in: picker list + entry link */
