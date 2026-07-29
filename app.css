@@ -769,7 +769,14 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .ct-btn{border:0;background:transparent;border-radius:7px;padding:5px 14px;font:inherit;font-size:calc(12.5px * var(--type-scale));color:var(--muted);cursor:pointer}
 .ct-btn.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .chart{display:block;width:100%;height:auto;margin:4px 0 10px;overflow:visible}
-.chart .cx{font-size:calc(11px * var(--type-scale));fill:var(--muted);font-family:inherit}
+/* BUG FIX (2026-07-29, Justin: "the dates need to be way smaller, they overlap"):
+   this chart's date labels live inside the SVG's own 320-unit viewBox, so their
+   font-size behaves as user units, not screen pixels — at 11 units wide, "Jun 21"
+   (start-anchored, extending rightward) and the next label "Jun 28" (middle-
+   anchored) were together wider than the ~60-unit slot between them at 6 evenly-
+   spaced labels, so the first two always overlapped regardless of viewport width.
+   Shrunk enough to leave real breathing room between adjacent labels. */
+.chart .cx{font-size:calc(8px * var(--type-scale));fill:var(--muted);font-family:inherit}
 .cpt{cursor:pointer}
 .cpt:hover{stroke-width:2.4}
 /* sticky period filter + settings gear share the top row */
@@ -1736,7 +1743,17 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
    align-items:center for just this child; .rc-bar is width:100% of the column,
    so the column's left edge IS the bar's left edge. */
 .rc-val{display:flex;align-items:center;justify-content:flex-start;align-self:flex-start;gap:4px;font-size:calc(13px * var(--type-scale));font-weight:600;color:var(--ink);margin:0 0 6px;white-space:nowrap}
-.rc-val .st-mark,.rc-val .st-marks{width:14px;height:14px}
+/* BUG FIX (2026-07-29, Justin: "seeing glyph and percentage overlap"): this
+   used to size `.st-marks` (the icon WRAPPER) to a fixed 14x14 box too, not
+   just `.st-mark` (each icon). For a single-icon state that's harmless — but a
+   blended state (play/stillness/freeze) renders TWO icons in one `.st-marks`,
+   and squeezing that wrapper's width to 14px overrode its own
+   `flex:0 0 auto` (from the base `.st-marks` rule) — the second icon rendered
+   correctly sized but with nowhere to go, spilling out of its 14px box and
+   overlapping the "20%" text sitting right next to it in this flex row. Size
+   only the individual icon; let the wrapper size to its actual content. */
+.rc-val .st-mark{width:14px;height:14px}
+.rc-val .st-marks{height:14px;gap:2px}
 .gr-val-glyph{width:16px;height:16px;flex:none;display:inline-block;vertical-align:-3px}
 /* solo axis cards (play/flight-fight/stillness/shutdown/freeze — 2026-07-29
    redesign, replacing the old 2-card mobilized/immobilized + flavor-chip

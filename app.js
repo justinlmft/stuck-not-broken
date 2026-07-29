@@ -4601,16 +4601,13 @@
       }
 
       // ---- growth: safety now vs when you started (all-time, not period-filtered) ----
-      // v3 (2026-07-29 redesign, final round: "the bars are the story... give them
-      // real room" / "not a grabbable control and should not appear that way" / "no
-      // glyph on the card, does not seem right, this is about safety"). Replaced the
-      // dot-track (which read as a draggable slider it wasn't) with the same
-      // rc-chart/rc-col/rc-bar bar-chart language every other you-tab card already
-      // uses — a plain then/now pair, colored by the house safety gradient, with a
-      // heart glyph riding the "now" bar's value label (the only place on this card
-      // that names what it's measuring). The identifying line up top borrows the
-      // exact rc-hero-title styling the times/daypart cards use ("is your most
-      // regulated day") so the card reads the same way as its siblings.
+      // v4 (2026-07-29, Justin: "make this mirror the 'getting back to safety' card
+      // in layout and hierarchy"). Comeback's shape is: share button -> big visual
+      // first (wrapped in .cb-journey for the standard 40px-above/30px-below hero
+      // rhythm) -> one bold cb-line-lead sentence -> a small cb-fine footnote. This
+      // card now follows the same shape instead of leading with a caption line
+      // above the chart (the v3 rc-hero-title treatment) — visual first, sentence
+      // after, footnote last, same as every other hero-visual card on the tab.
       // "then" is left as the plain word for now — Justin flagged that whether it
       // should tie to the 7/30/90/all period toggle (vs. a fixed "a month ago"-style
       // label) is still open; defaulting to the always-all-time comparison this card
@@ -4621,17 +4618,19 @@
         if(allCs.length>=8 && tn.days>=5 && tn.stage!=='start' && tn.stage!=='early'){
           const k=Math.max(2,Math.floor(allCs.length/4));
           const startV=avg(allCs.slice(0,k).map(x=>x.v)), recentV=avg(allCs.slice(-k).map(x=>x.v));
-          const g=Math.round((recentV-startV)*100), down=g<=-3;
+          const g=Math.round((recentV-startV)*100), up=g>=3, down=g<=-3;
           // a dip is never the headline here — that conversation lives in the reader.
           if(!down){
             const sV=Math.round(startV*100), rV=Math.round(recentV*100);
             const heart=ico('heart',{cls:'gr-val-glyph',color:safetyColor(recentV)});
             const hThen=Math.max(24,Math.round(sV/100*140)), hNow=Math.max(24,Math.round(rV/100*140));
-            growthHead=`<p class="rc-hero-title">average safety in your system</p>
-              <div class="rc-chart gr-mini-chart" aria-hidden="true">
+            const chart=`<div class="rc-chart gr-mini-chart" aria-hidden="true">
                 <div class="rc-col"><span class="rc-val">${sV}%</span><span class="rc-bar" style="height:${hThen}px;background:${mute(safetyColor(startV),0.35)}"></span><span class="rc-lb">then</span></div>
                 <div class="rc-col rc-col-best"><span class="rc-val">${heart}${rV}%</span><span class="rc-bar" style="height:${hNow}px;background:${safetyColor(recentV)}"></span><span class="rc-lb">now</span></div>
               </div>`;
+            growthHead=`<div class="cb-journey">${chart}</div>
+              <p class="cb-line cb-line-lead">your average safety has ${up?'grown':'held steady'} since you started.</p>
+              <p class="cb-fine">(${tn.days} days between your first and most recent check-ins)</p>`;
           }
         }
       })();
@@ -4648,7 +4647,6 @@
       const wdLeast = _weekdayPatternWorst(cs);
       const dpLeast = _daypartPatternWorst(cs);
       const trn = (Store.transitions ? Store.transitions() : null);
-      const pr  = _personalRecords(allCs);
       const fl  = _safetyFlavors(cs);
       const ce  = _contextEffect();
       const pe  = ce ? _peWindowed() : null;
@@ -4812,15 +4810,7 @@
               <p class="cb-line cb-line-lead">your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>.</p>
               <p class="cb-fine">(${trn.count} time${trn.count===1?'':'s'} so far)</p>`]);
             }
-            if(pr){
-              const fcTxt = pr.fastest ? (pr.fastest.steps<=1?'back in one check-in':'back in '+pr.fastest.steps+' check-ins') : '';
-              slides.push(['records','your records', `
-              ${shareBtn('records')}<h2 class="panel-title">your records</h2>
-              <p class="panel-sub">personal bests, from your real check-ins.</p>
-              ${pr.bestWeek?`<div class="safety-meter" style="margin:12px 0 16px"><span class="safety-meter-fill" style="width:${pr.bestWeek.pct}%"></span></div>`:''}
-              ${pr.bestWeek?`<p class="cb-line">your most regulated week yet: the week of <b>${pr.bestWeek.label}</b>, when <b>${pr.bestWeek.pct}%</b> of your check-ins had safety in them.</p>`:''}
-              ${pr.fastest?`<p class="cb-line">your fastest comeback: a dip into <b>${STATE_NAME(pr.fastest.dom)}</b>, <b>${fcTxt}</b>.</p>`:''}`]);
-            }
+            // "your records" card CUT ENTIRELY (Justin 2026-07-29: "it's useless").
             slides.push(['mix','your state mix', `
               ${shareBtn('mix')}<h2 class="panel-title">your state mix</h2>
               <p class="panel-sub">${activePeriod==='all'?'your state averages, all time.':'your check-in averages, over '+periodPhrase+'.'}</p>
@@ -4918,8 +4908,8 @@
             const _defN = _recent.filter(x=>x.dom && x.dom!=='neutral' && !_REGDOMS[x.dom]).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const _ORDER = _tender
-              ? ['comeback','times','daypart','leastDay','leastDaypart','records','practice','flavors','baseline','mix','context','started','states','shift','safety']
-              : ['safety','comeback','started','baseline','times','daypart','leastDay','leastDaypart','shift','records','mix','flavors','context','states','practice'];
+              ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','baseline','mix','context','started','states','shift','safety']
+              : ['safety','comeback','started','baseline','times','daypart','leastDay','leastDaypart','shift','mix','flavors','context','states','practice'];
             const _rank = k=>{ const i=_ORDER.indexOf(k); return i<0?99:i; };
             const sorted = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0]));
             // desktop ledger (2026-07-19): at wide the carousel stays empty and a
@@ -4993,8 +4983,8 @@
             'ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
             'ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
             'ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            records:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M6 21V4"/><path d="M6 4h11l-2.5 3.5L17 11H6"/></svg></span>'
+            'ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>'
+            // 'records' icon entry removed — the card is cut (2026-07-29: "it's useless").
           };
           const cur=all.find(s=>s[0]===key);
           const wrap=document.createElement('div'); wrap.className='you-ledger';
@@ -5047,7 +5037,6 @@
         times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
         daypart: dp?`${dp.pct}% of my ${dp.seg} check-ins have safety in them. ${_sig}`:'',
         shift:   trn?`my nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
-        records: (pr&&pr.bestWeek)?`my most regulated week yet. ${_sig}`:(pr&&pr.fastest)?`my fastest comeback yet: a dip, and back in ${pr.fastest.steps<=1?'one check-in':pr.fastest.steps+' check-ins'}. ${_sig}`:'',
         flavors: (fl&&fl.length)?`my safety comes in flavors. lately it's mostly ${fl[0].label}. ${_sig}`:'',
         context: ce?`safety in my weeks tagged “${ce.label}”, next to a typical week. ${_sig}`:'',
         started: growthHead?`how far i've come since i started. ${_sig}`:'',
@@ -5060,7 +5049,6 @@
         times:   wd?{ kind:'days', idx:wd.idx }:null,
         daypart: null,
         shift:   trn?{ kind:'path', a:trn.a, b:trn.b }:null,
-        records: (pr&&pr.bestWeek)?{ kind:'meter', pct:pr.bestWeek.pct }:(pr&&pr.fastest)?{ kind:'path', a:pr.fastest.dom, b:'safety' }:null,
         flavors: fl?{ kind:'bars', rows:fl.map(r=>({ color:STATE_COLOR(r.key), pct:r.pct })) }:null,
         context: ce?{ kind:'bars', rows:[{ color:STATE_COLOR('safety'), pct:ce.tagPct },{ color:'#D8D2C2', pct:ce.typPct }] }:null,
         mix:     { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
