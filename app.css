@@ -21,7 +21,7 @@
      for ink too (he judges them still legible at these sizes).
      rather than the darker ochre — darkened amber reads brown; this stays warm. */
   --track-safety-ink:#5891C5; --track-self-ink:#D29A4A; --track-mind-ink:#1A1F2A;
-  --field:#fff; --knob:#fff; --danger:#953434; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
+  --field:#fff; --knob:#fff; --danger:#862F2F; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
   --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1);
   /* breath is the one motion that must be symmetric in and out, so it carries its own
      curve. Declared, not inline, so there is exactly one place it can change. */
@@ -297,7 +297,11 @@ p{margin:0;text-wrap:pretty}
 .backbtn{position:relative;background:none;border:0;cursor:pointer;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--muted);padding:6px 2px;display:inline-flex;align-items:center;gap:5px;transition:color .15s var(--ease)}
 .backbtn::before{content:'';display:inline-block;width:7px;height:7px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-1px);flex:none}
 .backbtn:hover{color:var(--ink)}
-.backbtn::before{content:'';position:absolute;inset:-8px -6px}
+/* hit-target expansion lives on ::after, not ::before — ::before is the chevron glyph
+   itself (see above); reusing ::before here used to yank the chevron out of the inline
+   flow via position:absolute and drag it away from the "back" text (D-item, backbtn
+   chevron/text misalignment). */
+.backbtn::after{content:'';position:absolute;inset:-8px -6px}
 .backbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 
 /* dividers */
@@ -581,16 +585,31 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .help-verdict{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:18px 0 0;text-wrap:pretty}
 .help-verdict.good{color:var(--ink)}
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
-.cb-viz{display:flex;align-items:center;gap:9px;margin:14px 0 16px}
-.cb-dot{width:15px;height:15px;border-radius:50%;flex:none}
-.cb-path{flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--s-fight),var(--s-safety));transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
-.cb-end{animation:cbPop .4s 1.6s var(--ease) both}
+.cb-viz{display:flex;align-items:center;gap:7px;margin:14px 0 16px}
+.cb-journey .cb-viz{margin:0}
+.cb-viz-inset{margin:14px 0 4px}
+.cb-path{position:relative;flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--s-fight),var(--s-safety));transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
+/* step dots on the comeback card's path: one per check-in in "about N check-ins" —
+   turns that number into a picture instead of just a word (Justin 2026-07-28: "the
+   count is the evidence" led to the parenthetical below; this is the CLAIM's own
+   number, so it earns a place on the visual itself). */
+.cb-steps{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-evenly;padding:0 5px}
+.cb-step{width:5px;height:5px;border-radius:50%;background:var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.08);opacity:0;animation:cbStepPop .35s var(--ease) both}
+@keyframes cbStepPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+/* the actual arrowhead (was missing entirely — the gradient bar alone left direction
+   only implied by color, easy to misread at a glance, e.g. .cb-dot/.cb-end were dead
+   CSS from an older dot-based version this replaced). pops in once the path has
+   finished drawing, tinted to the state it's arriving at (Justin 2026-07-28). */
+.cb-arrow{flex:none;width:15px;height:15px;opacity:0;animation:cbPop .3s 1.5s var(--ease) both}
 .cb-line{font-size:calc(15.5px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0}
 .cb-line+.cb-line{margin-top:12px}
 .cb-line b{font-weight:600;color:var(--ink)}
+/* the trip-count parenthetical: a quiet footnote, not a headline number (moved out of
+   the main sentence per Justin 2026-07-28) */
+.cb-fine{font-size:calc(13px * var(--type-scale));line-height:1.5;color:var(--muted);margin:10px 0 0}
 @keyframes cbDraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes cbPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-@media (prefers-reduced-motion:reduce){.cb-path,.cb-end{animation:none}}
+@media (prefers-reduced-motion:reduce){.cb-path,.cb-arrow,.cb-step{animation:none;opacity:1;transform:none}}
 
 /* dots — real buttons now (tap to jump to a card); the visible dot stays 7px,
    the touch zone is 38px per dot */
@@ -620,12 +639,66 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .wk-dot{width:13px;height:13px;border-radius:50%;background:var(--bone-deep)}
 .wk-dot.on{width:20px;height:20px;background:var(--s-safety)}
 .wk-lb{font-size:calc(10.5px * var(--type-scale));color:var(--muted)}
+/* "your most regulated day/time of day" v2 (2026-07-29, Claude Design's layout-
+   hierarchy pass) — replaced the dot-strip with a real bar chart: bar height =
+   that day/daypart's own safety %, bar color = that day/daypart's own dominant
+   state (STATE_COLOR, identity-by-color per DESIGN-DNA-CONTRACT — each bar only
+   ever carries the color of the state it's actually reporting on, never a
+   decorative ramp), led by a big "it's ___" headline instead of a subtitle line. */
+/* v3 (2026-07-29b, Justin: subject-first — "monday is your most regulated day," not
+   "it's monday" — with visual weight and the card's safety color ON monday itself).
+   The day/time name is a block-level "hero word," oversized against the tail sentence
+   that trails it, same big-word/small-caption pattern as the growth card's numbers. */
+.rc-hero-title{font-size:calc(15.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:2px 0 18px}
+.rc-hero-word{display:block;font-size:calc(34px * var(--type-scale));font-weight:600;line-height:1.15;margin:0 0 3px;text-transform:capitalize}
+.rc-chart{display:flex;gap:8px;align-items:flex-end;margin:0 0 16px;height:90px}
+.rc-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%}
+.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;animation:riseIn .45s var(--ease) both}
+.rc-lb{font-size:calc(11px * var(--type-scale));color:var(--muted);display:flex;align-items:center;justify-content:center}
+.rc-col-best .rc-lb{color:var(--ink);font-weight:600}
+.rc-lb .seg-ico{width:15px;height:15px;color:inherit}
 .streak{display:flex;gap:9px;align-items:center;margin:12px 0 16px;flex-wrap:wrap}
 .streak-dot{width:14px;height:14px;border-radius:50%;background:var(--s-safety)}
 .streak-more{font-size:calc(12px * var(--type-scale));color:var(--muted)}
 .cb-glyphs .cb-g{flex:none;display:inline-flex}
 .cb-glyphs .st-marks{display:inline-flex;gap:3px;align-items:center}
 .cb-glyphs .st-mark{width:24px;height:24px}
+/* "getting back to safety" specifically: bigger glyphs (Justin 2026-07-28) — the
+   standard 24px read too small carrying this much of the card's meaning on its own. */
+.cb-glyphs-lg .st-mark{width:32px;height:32px}
+.cb-glyphs-lg .cb-arrow{width:19px;height:19px}
+/* v2 (2026-07-29, Claude Design's layout-hierarchy pass, implemented from their
+   markup proposal): the comeback card's glyphs become the dominant element on the
+   card, not a strip under the sentence. A third size tier above .cb-glyphs-lg. */
+.cb-journey{margin:16px 0 18px}
+/* titles cut on these 3 cards (Justin 2026-07-29c: "images carry the visual weight,
+   not the titles") — the visual is now the FIRST visible thing under the share
+   button, which is absolutely positioned and no longer has a title's height/padding
+   reserving clearance above it. Bump top margin specifically in that case so nothing
+   crowds the button in the corner. */
+.panel-share + .cb-journey,.panel-share + .rc-hero-title{margin-top:40px}
+/* 2026-07-29b (Justin: "that's the star here. make them dominant."): a second bump,
+   56px wasn't enough — these are now the single biggest thing on the card, bigger than
+   the panel-title itself. */
+.cb-glyphs-hero .st-mark{width:88px;height:88px}
+/* BUG FIX (2026-07-29d, Justin: "why is the defense glyph so dang small??"): freeze/
+   play/stillness render as TWO marks (.st-pair) instead of one — e.g. freeze = bolt +
+   x. A later, equal-specificity rule (.st-pair .st-mark{width:14px}, for the small
+   inline mark pairs used elsewhere in the app) was winning by source order and
+   silently shrinking the hero pair down to 14px while single-icon dips (fightflight,
+   shutdown) rendered correctly at 88px — so this bug only showed up depending on
+   which state someone's most common dip happened to be. Three-class selector here
+   beats it on specificity regardless of source order. Sized down slightly from the
+   solo 88px (74px) so two side-by-side marks don't outweigh the single safety heart
+   on the other end — the PAIR together should read as roughly as dominant as the
+   heart, not each individual icon matching it 1:1.
+*/
+.cb-glyphs-hero .st-pair .st-mark{width:74px;height:74px}
+.cb-glyphs-hero .st-pair{gap:0}
+/* the single unified arrow shape (shaft + head, one path, one gradient — see
+   cbHeroArrowSVG in app.js) replacing the old bar+separate-arrowhead pair */
+.cb-arrow-hero{flex:1;min-width:56px;height:30px;display:block}
+.cb-line-lead{font-size:calc(18px * var(--type-scale));line-height:1.5;color:var(--ink);font-weight:500;margin:0 0 12px}
 .wk-mark{display:inline-flex;align-items:center;justify-content:center;height:20px}
 .wk-mark .snb-ico{height:19px;width:auto;display:block}
 .help-lbl .st-marks{display:inline-flex;gap:2px;vertical-align:-2px;margin-right:6px}
@@ -995,7 +1068,6 @@ body.reduce-motion .p7-dial-cue{animation:none}
 .p7-sheet-card.track-safety{--tc:var(--track-safety);--tc-ink:var(--track-safety-ink)}
 .p7-sheet-card.track-self{--tc:var(--track-self);--tc-ink:var(--track-self-ink)}
 .p7-sheet.on .p7-sheet-card{transform:none}
-.p7-sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--hairline);margin:8px auto 4px}
 .p7-sheet-title{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink);letter-spacing:-.01em;padding:10px 22px 6px}
 /* section header: a sentence-case banded label (NOT a tiny uppercase eyebrow), so
    the groups read as real sections (2026-07-24, Justin). */
@@ -1007,6 +1079,10 @@ body.reduce-motion .p7-dial-cue{animation:none}
    between consecutive rows so it reads as a list of distinct choices, not a strip. */
 .p7-opt{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;position:relative;
   padding:15px 22px;font:inherit;color:var(--ink-80);text-align:left;cursor:pointer}
+/* when a sheet has labeled groups (e.g. "what would you like to practice?"), indent the
+   option rows past the group header so the list reads as header→children, not a flat
+   strip with dividers that happen to have a caption above them (Justin 2026-07-28). */
+.p7-sheet-body:has(.p7-sheet-group) .p7-opt{padding-left:36px}
 .p7-opt + .p7-opt{border-top:0.5px solid var(--hairline)}
 .p7-opt:hover{background:var(--bone-deep)}
 .p7-opt:active{background:var(--press)}
@@ -1070,15 +1146,13 @@ body.reduce-motion .p7-shape{animation:none}
 
 /* ---- practice: plan reader ---- */
 /* header now follows the unified .scr-head rhythm: a reserved eyebrow line and a heading
-   on the same left edge as every other screen. the earned track color stays — as the
-   eyebrow color and a thin rail hung in the left gutter (it never displaces the text). */
+   on the same left edge as every other screen. the track-colored rail hung in the left
+   gutter is gone (Justin 2026-07-28: "cut the colored rail on custom practice") — the
+   track color still earns its place via .plan-hl (the tuned-detail highlights below). */
 .plan-view{gap:0}
 .plan-head{margin:0 0 22px}
 .plan-head .eyebrow{min-height:13px;margin:0 0 11px}
 .plan-titlerow{position:relative}
-.plan-rail{position:absolute;left:-14px;top:1px;bottom:1px;width:3px;border-radius:3px;background:var(--track-mind)}
-.plan-view.track-safety .plan-rail{background:var(--track-safety)}
-.plan-view.track-self   .plan-rail{background:var(--track-self)}
 /* plan (custom practice) reads like the blog reader: read-h1-size title, sec-h section
    headings, reader body register (Justin 2026-07-03) */
 .plan-title{font-size:calc(23px * var(--type-scale));font-weight:500;line-height:1.2;letter-spacing:-.01em;color:var(--ink);margin:0;text-wrap:pretty}
@@ -1339,6 +1413,11 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:none}
 .rs-cap{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.5;margin:11px 0 0;text-wrap:pretty}
 .rs-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--bone-deep)}
+/* onboarding's method card: fixed floor height so switching sliders/numbers/states
+   doesn't reflow the whole sheet — the state-picker preview (6 wrapped chips) is much
+   taller than the single-slider previews, and the card used to visibly resize on every
+   tap (Justin 2026-07-28: "check-in-method preview + fixed height"). */
+.ob-method-preview{min-height:98px}
 /* method preview: ink illustration of the control (no glyph, no state colour). the
    scale row and the slider row share one grid so labels align to the rail ends, and
    numbers mode reserves a right-hand column for the value (like the live slider). */
@@ -1622,12 +1701,20 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 .safety-foot .sf-txt{flex:1}
 
 
-/* 'your growth' card headline */
-.growth-head{display:flex;flex-direction:column;gap:5px;margin:4px 0 16px}
-.growth-num{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
-.growth-num.up{color:var(--ink)}
-.growth-num.down{color:var(--muted)}
-.growth-cap{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.5;text-wrap:pretty}
+/* 'how far you've come' card, v2 (2026-07-29, Claude Design's layout-hierarchy
+   pass, implemented from their markup proposal): the track itself is now the
+   full-width hero — wider, taller dots, nothing else competing above it. The
+   percentages fold into the caption sentence (.growth-cap) instead of a separate
+   giant number, since the track now carries the headline job. Same safetyColor
+   ramp the day-by-day chart uses, so the two dots still read as "the same kind
+   of number" as everything else on the tab. */
+.gr-hero{margin:10px 0 16px}
+.gr-track-lg{position:relative;height:10px;border-radius:5px;background:var(--bone-deep)}
+.gr-fill-lg{position:absolute;top:0;bottom:0;border-radius:5px;opacity:.55}
+.gr-dot-lg{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;transform:translate(-50%,-50%);border:3px solid var(--bone);box-shadow:0 0 0 1px var(--hairline)}
+.gr-dot-lg-now{width:26px;height:26px}
+.growth-cap{font-size:calc(15.5px * var(--type-scale));color:var(--ink-80);line-height:1.6;text-wrap:pretty;margin:0}
+.growth-cap b{font-weight:600;color:var(--ink)}
 
 
 /* change a recent check-in: picker list + entry link */
@@ -1727,6 +1814,12 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .read-pq{margin:18px 0 14px;padding:3px 0;border-left:none;font-size:calc(18px * var(--type-scale));line-height:1.55;font-weight:500;color:var(--ink);text-wrap:pretty;font-style:normal}
 /* reader body copy — classes so the text-size setting reaches it (was inline px in app.js) */
 .read-p{font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
+/* dynamic numbers/state names/counts in the reader's own sentences get the same
+   weight+ink treatment the You-tab cards already use for their <b> (.cb-line b) —
+   what's actually personal to the reader should read as such (Justin 2026-07-28).
+   from-justin.js wraps the dynamic tokens; boldHtml() in app.js is what lets the
+   <b> survive into the rendered paragraph instead of being escaped to text. */
+.read-p b,.read-lead b,.read-dek b,.read-pq b,.wr-list li b,.wr-foot b{font-weight:600;color:var(--ink)}
 /* the reader's close: a quiet handoff from reflection into the practice shaped from
    these check-ins (2026-07-24). set apart by a hairline, not a slab. */
 .read-to-practice{margin-top:30px;padding-top:24px;border-top:0.5px solid var(--hairline)}
@@ -2433,7 +2526,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .you-reader .yr-arw{color:var(--muted);flex:none;display:inline-flex}
 .you-reader .yr-arw svg{width:20px;height:20px}
 .you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px -22px 4px;padding:12px 22px}
-.you-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.you-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x}
 .you-chips::-webkit-scrollbar{display:none}
 .you-chip{position:relative;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hairline);border-radius:999px;padding:7px 13px;font:inherit;font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;cursor:pointer;flex:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),background .2s var(--ease),color .2s var(--ease)}
 .you-chip::before{content:'';position:absolute;inset:-7px 0}
@@ -2481,6 +2574,10 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-top{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;transition:opacity .9s var(--ease)}
 .mh-peri{color:var(--ink);display:inline-flex}
 .mh-peri svg{width:24px;height:24px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* the un-checked-in greet has nothing beside the period glyph (no state pill, no triglyph)
+   to give it visual company, so the same 24px reads small and lost above the greeting.
+   Bigger here only — the checked-in .mh-state icon is unchanged. (2026-07-28) */
+.mh-top > .mh-peri svg{width:34px;height:34px;stroke-width:1.3}
 .mh-greet{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em;margin:0;text-wrap:pretty}
 .mh-state{display:inline-flex;align-items:center;gap:11px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 6px}
 .mh-state .mh-peri{display:inline-flex;color:var(--ink)}
@@ -2516,6 +2613,9 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-secondrow.revealed .mh-ci-full{display:none}
 .mh-secondrow.revealed .mh-checkin .mh-ci-plus{display:inline-flex}
 .mh-secondrow.revealed .mh-third{flex:1 1 auto;max-width:100%;margin-left:10px;padding-left:22px;padding-right:22px;border-width:1px}
+/* not-checked-in second row (2026-07-28): the third/micro button has no check-in-again
+   sibling to sit beside, so it doesn't need the left margin that separates them. */
+.mh-secondrow.no-checkin.revealed .mh-third{margin-left:0}
 .mh-secondrow.revealed.third-in .mh-third{opacity:1;transform:none;transition:opacity .55s var(--ease),transform .55s var(--ease);
   /* nowrap + overflow:hidden are needed for the max-width reveal, but once the
      invite has ARRIVED they silently truncated the label at larger Dynamic Type
@@ -2549,6 +2649,12 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 .ob-hole.anim{animation:obFade .2s var(--ease)}
 @keyframes obFade{from{opacity:0}to{opacity:1}}
 @keyframes obRiseS{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* step-to-step transition (as opposed to the first-open rise from obRiseS): every card
+   after the first used to hard-cut in place — new copy, new height, new dim/hole shape,
+   all in the same frame. A soft fade+settle on the card, plus a fade on the dim panes and
+   spotlight hole (already-defined .anim classes, previously only ever applied on first
+   open), makes the shape genuinely shift rather than jump (Justin 2026-07-28). */
+@keyframes obStepIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 /* "what's new" one-time card (returning users, state-math rework) */
 .wn-scrim{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
   padding:24px 18px calc(24px + env(safe-area-inset-bottom));background:var(--scrim,rgba(26,31,42,.42));
@@ -2585,11 +2691,15 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 .ob-card.more .ob-foot::before{opacity:1}
 body.reduce-motion .ob-foot::before{transition:none}
 .ob-card.anim{animation:obRiseS .34s var(--ease)}
-/* the grab row carries back on the left. A 3-column grid keeps the grab optically centred
-   whether or not back is there, and keeps the control out of the footer, where it would
-   compete with the action button for the space the buttons are guaranteed. */
+.ob-card.step{animation:obStepIn .22s var(--ease)}
+/* the top row carries back on the left. A 3-column grid (back / empty spacer / empty
+   spacer) keeps back left-aligned without the row collapsing lopsided when it's the only
+   thing there, and keeps the control out of the footer, where it would compete with the
+   action button for the space the buttons are guaranteed. The centre column used to carry
+   a decorative "grab" pill implying the card was draggable — it wasn't (no drag/swipe
+   handler exists anywhere in the app), so it's removed rather than kept as a promise the
+   card didn't keep (Justin, 2026-07-28). */
 .ob-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:-6px 0 14px}
-.ob-grab{display:block;width:34px;height:4px;border-radius:2px;background:var(--hairline);margin:0 auto}
 .ob-back{position:relative;justify-self:start;display:inline-flex;align-items:center;gap:2px;
   background:none;border:0;padding:0;cursor:pointer;font:inherit;
   font-size:calc(13.5px * var(--type-scale));color:var(--muted);transition:color .15s var(--ease)}
@@ -2643,12 +2753,12 @@ body.reduce-motion .ob-foot::before{transition:none}
   .ob-card{left:50%;right:auto;bottom:50%;width:min(92%,520px);transform:translate(-50%,50%);
     border-radius:18px;border:1px solid var(--hairline);padding:26px 28px 22px;max-height:min(78vh,660px)}
   .ob-card.anim{animation:obFade .28s var(--ease)}
-  .ob-grab{display:none}                      /* nothing to drag on a pointer device */
+  .ob-card.step{animation:obFade .22s var(--ease)}
   .ob-acts{flex-direction:row-reverse;justify-content:flex-start;gap:10px}
   .ob-acts .btn{width:auto;min-width:172px}
   .ob-chips{gap:8px}
   .ob-mark{width:64px}
 }
 @media (prefers-reduced-motion:reduce){
-  .ob-card,.ob-dim,.ob-hole{animation:none}
+  .ob-card,.ob-card.step,.ob-dim,.ob-hole{animation:none}
 }

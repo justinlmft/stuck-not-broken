@@ -43,6 +43,16 @@
 (function (global) {
   'use strict';
 
+  // bold the parts of a reader sentence that are actually personal to the reader —
+  // percentages, counts, state names, dates/labels — the same way the You-tab cards
+  // already bold their numbers (.cb-line b in app.js). Escapes the value first (it
+  // may be user data, e.g. a name) so this can never inject anything beyond the
+  // literal <b>...</b> wrapper; app.js's boldHtml() is the matching piece that lets
+  // that <b> survive into the rendered paragraph (Justin 2026-07-28: "bold all
+  // dynamic elements in the reader").
+  function _esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+  function hl(s){ return '<b>'+_esc(s)+'</b>'; }
+
   const LIBRARY = {
     "safety": {
       "label": "safe",
@@ -754,18 +764,21 @@
     let body;
     if(ctx.nState!=null && ctx.nTotal!=null && ctx.nTotal>=3){
       // percentages, never "X of N" (Justin, 2026-07-04: counting fractions is cognitive load)
-      body = 'about ' + Math.round(ctx.nState/ctx.nTotal*100) + '% of your check-ins this week were ' + felt + '. ' + ESSAY_TAIL[ctx.dom];
+      body = 'about ' + hl(Math.round(ctx.nState/ctx.nTotal*100)+'%') + ' of your check-ins this week were ' + hl(felt) + '. ' + ESSAY_TAIL[ctx.dom];
     } else {
-      body = 'your last check-in was ' + felt + '. ' + ESSAY_TAIL[ctx.dom];
+      body = 'your last check-in was ' + hl(felt) + '. ' + ESSAY_TAIL[ctx.dom];
     }
-    if(ctx.name) return ctx.name + ', ' + body;
+    // the greeting name is real user text — escaped (not bolded: a shouted name at
+    // the top of every essay reads as noise, not emphasis) so it can never carry
+    // stray markup through boldHtml()'s narrow <b> allowlist on the app.js side.
+    if(ctx.name) return _esc(ctx.name) + ', ' + body;
     return body.charAt(0).toUpperCase() + body.slice(1);
   }
   function _essayInsight(ctx){
     const pi = ctx.pi; if(!pi) return ESSAY_DOOR[ctx.dom];
     const label = (global.Store && Store.practiceLabel) ? Store.practiceLabel(pi.practiceKey) : pi.practiceKey;
     const pct = Math.round(pi.rate*20)*5;
-    return 'Lately, in the ' + (SEG_PHRASE[pi.seg]||pi.seg) + ', ' + label + ' has tended to help you connect more with safety afterward, about ' + pct + '% of the time. ' + ESSAY_ENCOURAGE[ctx.dom];
+    return 'Lately, in the ' + hl(SEG_PHRASE[pi.seg]||pi.seg) + ', ' + hl(label) + ' has tended to help you connect more with safety afterward, about ' + hl(pct+'%') + ' of the time. ' + ESSAY_ENCOURAGE[ctx.dom];
   }
   // Moments & Baseline (Justin's spec, 2026-07-03): Baselines form over a month or
   // more. Under ~4 weeks of history: name the week, promise the baseline. Month+:
@@ -782,7 +795,7 @@
     const band = v => v >= 0.50 ? 'within reach' : v >= 0.40 ? 'coming and going' : 'hard to reach';
     // pre-Baseline: too early to call it
     if(days < 28){
-      return 'Zoom out for a second. So far this week, safety has been ' + band(wk.avgV) + '. It\'s too early to call this a baseline, so we\'ll keep watching it through your check-ins for another few weeks. By then a clearer pattern should be forming.';
+      return 'Zoom out for a second. So far this week, safety has been ' + hl(band(wk.avgV)) + '. It\'s too early to call this a baseline, so we\'ll keep watching it through your check-ins for another few weeks. By then a clearer pattern should be forming.';
     }
     // Baseline formed (month+): this week vs the baseline, in words not numbers
     const base = Store.periodStats(now - 28*864e5, now);
@@ -792,7 +805,7 @@
     const close = d >= 0.05 ? 'That\'s how a baseline shifts: one week at a time.'
                 : d <= -0.05 ? 'A quieter week is a moment in the bigger picture, not a slide. Gentle is fine for now.'
                 : 'Holding steady is its own kind of solid ground.';
-    return 'Zoom out for a second. Over the past month, safety has been ' + band(base.avgV) + '. This week came in ' + move + '. ' + close;
+    return 'Zoom out for a second. Over the past month, safety has been ' + hl(band(base.avgV)) + '. This week came in ' + hl(move) + '. ' + close;
   }
   const ESSAYS = {
     freeze: function(ctx){
@@ -808,7 +821,7 @@
         'Two coping habits keep it pressed longer. The first is forcing through the day and collapsing at the end of it, then doing the same thing tomorrow. Force reads to your body as more threat, so the brake holds tighter. The second is faking rest. Doom-scrolling looks like rest, but it numbs the experience instead of letting your system settle. It\'s coping, and coping is fine. It just won\'t lift the brake.',
         'Your thinking plays a part here too. Freeze thinking runs scattered and all-or-nothing: everything feels impossible, or it all has to happen right now. Those thoughts stem from the state, and they feed it back, because a mind insisting on all-or-nothing keeps the body braced. You don\'t have to argue with the thoughts. When a little safety comes in and the state thaws, the thinking loosens with it.'
       ];
-      if((ctx.streak||0)>=3) why.push('You\'ve checked in around freeze for '+ctx.streak+' days now. Long stretches in one place are common; that\'s basically what stuck means. It doesn\'t mean you\'ve stalled, and it isn\'t evidence that this is who you are. It\'s a state. States shift, even the ones that have been around a long time.');
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around freeze for '+hl(ctx.streak+' days')+' now. Long stretches in one place are common; that\'s basically what stuck means. It doesn\'t mean you\'ve stalled, and it isn\'t evidence that this is who you are. It\'s a state. States shift, even the ones that have been around a long time.');
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
       const shift=[
         'Thawing doesn\'t announce itself. It shows up small. A breath that goes deeper on its own. A stretch that happens without deciding to. The urge to move starting to feel more like wanting to than having to.',
@@ -839,7 +852,7 @@
         'Shutdown stays because the body doesn\'t have enough energy yet to come back online. Pushing against it, forcing yourself up and out, spends what little energy there is and deepens the collapse instead.',
         'It also stays because the mind starts telling a story that matches the state: that this is just who you are now, that nothing will help. The hopelessness feels like stone-carved truth. It isn\'t. Thoughts follow states, and that story is the shutdown talking, not the facts.'
       ];
-      if((ctx.streak||0)>=3) why.push('You\'ve checked in around shutdown for '+ctx.streak+' days now. Long stretches here are common, and they\'re exactly when the "this is just me now" story gets loudest. It\'s a state. States shift, even the slow ones.');
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around shutdown for '+hl(ctx.streak+' days')+' now. Long stretches here are common, and they\'re exactly when the "this is just me now" story gets loudest. It\'s a state. States shift, even the slow ones.');
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
       const shift=[
         'The first signs of energy returning are small and easy to miss. Caring a little about one thing. Noticing you\'re hungry. A window you actually wanted open.',
@@ -991,36 +1004,51 @@
     const p = ctx.patterns; if(!p) return null;
     const parts = [];
     if(p.day){
-      let s = 'Your most regulated day keeps being ' + p.day.label.charAt(0).toUpperCase()+p.day.label.slice(1) + 's: ' + p.day.pct + '% of those check-ins have safety in them.';
-      if(p.seg) s += ' By time of day, your ' + p.seg.seg + 's carry the most safety, at ' + p.seg.pct + '%.';
+      const dayLabel = p.day.label.charAt(0).toUpperCase()+p.day.label.slice(1);
+      let s = 'Your most regulated day keeps being ' + hl(dayLabel+'s') + ': ' + hl(p.day.pct+'%') + ' of those check-ins have safety in them.';
+      if(p.seg) s += ' By time of day, your ' + hl(p.seg.seg+'s') + ' carry the most safety, at ' + hl(p.seg.pct+'%') + '.';
       s += ' Days like that are worth studying, because whatever they hold and whatever you\'re doing, your system likes it.';
       // the context inputs can name a candidate for "whatever you're doing"
-      if(p.context && p.context.tagPct >= p.context.typPct) s += ' Your tags already point to one candidate: “' + p.context.label + '.”';
+      if(p.context && p.context.tagPct >= p.context.typPct) s += ' Your tags already point to one candidate: “' + hl(p.context.label) + '.”';
       parts.push(s);
     }
     if(p.shift){
-      parts.push('When your state changes, it\'s often ' + _feltName(p.shift.a) + ' to ' + _feltName(p.shift.b) + '. That shift has shown up ' + p.shift.count + ' times. Patterns like this might have a clear trigger directly before, though it\'s not always obvious. It might be as subtle as the time of day.');
+      parts.push('When your state changes, it\'s often ' + hl(_feltName(p.shift.a)) + ' to ' + hl(_feltName(p.shift.b)) + '. That shift has shown up ' + hl(p.shift.count) + ' times. Patterns like this might have a clear trigger directly before, though it\'s not always obvious. It might be as subtle as the time of day.');
     }
     if(p.comeback){
-      let s = 'After a dip into defense, safety usually returns within ' + p.comeback.phrase + '. That\'s happened ' + p.comeback.n + ' times';
+      let s = 'After a dip into defense, safety usually returns within ' + hl(p.comeback.phrase) + '. That\'s happened ' + hl(p.comeback.n) + ' times';
       s += p.comeback.faster ? ', and those dips have been getting shorter. That\'s your safety state showing signs of strengthening and increased regulation.' : '. Your system is showing it can re-regulate.';
       parts.push(s);
     }
     if(p.record){
-      parts.push('The week of ' + p.record.label + ' is still your most regulated week yet, with ' + p.record.pct + '% of its check-ins carrying safety. That week is proof of capacity. Your system has done it, which means it can do it again.');
+      // 2026-07-28 (Justin): this line rendered byte-identical every time the same week
+      // held the record, which reads as flat/stale rather than motivating. Two fixes:
+      // (1) name how long the record has held — real, changing information, not just
+      // rephrasing; (2) rotate the wording itself so repeat views don't feel canned. Both
+      // keyed off weeks-since, so the SAME record naturally reads differently as time
+      // passes rather than needing new data to say anything new.
+      const wsAgo = (p.record.ws!=null) ? Math.max(0, Math.round((Date.now()-p.record.ws)/(7*864e5))) : null;
+      const held = (wsAgo && wsAgo>0) ? (wsAgo===1 ? ', one week on' : ', ' + wsAgo + ' weeks on') : '';
+      const wkLabel = hl('the week of ' + p.record.label), wkPct = hl(p.record.pct+'%');
+      const variants = [
+        hl('The week of ' + p.record.label) + ' is still your most regulated week yet' + held + ', with ' + wkPct + ' of its check-ins carrying safety. That week is proof of capacity. Your system has done it, which means it can do it again.',
+        wkPct + ' of check-ins carried safety ' + wkLabel + ' — still your best week on record' + held + '. Whatever that week held, your system already knows how to find it.',
+        'Your most regulated week is still ' + wkLabel + held + ', at ' + wkPct + ' safety. Not a ceiling — evidence. Your system has reached it before.'
+      ];
+      parts.push(variants[wsAgo!=null ? (wsAgo % variants.length) : 0]);
     }
     if(p.context){
       const up = p.context.tagPct >= p.context.typPct;
-      let s = 'The weeks you tagged “' + p.context.label + '” carried ' + (up?'more':'less') + ' safety: ' + p.context.tagPct + '% of check-ins, against ' + p.context.typPct + '% in a typical week.';
+      let s = 'The weeks you tagged “' + hl(p.context.label) + '” carried ' + (up?'more':'less') + ' safety: ' + hl(p.context.tagPct+'%') + ' of check-ins, against ' + hl(p.context.typPct+'%') + ' in a typical week.';
       s += (p.context.peRate!=null)
-        ? ' Practice runs alongside too: when a check-in comes within a few hours of a practice, it carries more safety about ' + p.context.peRate + '% of the time.'
+        ? ' Practice runs alongside too: when a check-in comes within a few hours of a practice, it carries more safety about ' + hl(p.context.peRate+'%') + ' of the time.'
         : ' Worth noticing what those weeks held.';
       parts.push(s);
     }
     if(p.ctxStates && (p.ctxStates.safe || p.ctxStates.def)){
       const bits=[];
-      if(p.ctxStates.safe) bits.push('“'+p.ctxStates.safe.label+'” is what you name most around your safe check-ins');
-      if(p.ctxStates.def) bits.push((bits.length?'and ':'')+'“'+p.ctxStates.def.label+'” shows up most around defense');
+      if(p.ctxStates.safe) bits.push('“'+hl(p.ctxStates.safe.label)+'” is what you name most around your safe check-ins');
+      if(p.ctxStates.def) bits.push((bits.length?'and ':'')+'“'+hl(p.ctxStates.def.label)+'” shows up most around defense');
       parts.push('You\'ve started naming what\'s hitting hardest in the moment. So far, ' + bits.join(', ') + '. This data will make the harder moments more predictable and manageable. And let you prepare for the easier ones with more intentional mindfulness.');
     }
     if(parts.length < 2) return null;                    // one lonely fact isn't a section
@@ -1249,13 +1277,13 @@
     const n = ctx.n||0;
     if(n < 5){
       out.variant = 'lowdata';
-      out.paras.push('Only ' + n + ' check-in' + (n===1?'':'s') + ' throughout the entire week, so it\'s tough to give you substantial trends. That\'s not a problem, just a limit of the data. The more moments you capture, the more these reflections have to work with. A few honest seconds a day is plenty.');
+      out.paras.push('Only ' + hl(n + ' check-in' + (n===1?'':'s')) + ' throughout the entire week, so it\'s tough to give you substantial trends. That\'s not a problem, just a limit of the data. The more moments you capture, the more these reflections have to work with. A few honest seconds a day is plenty.');
       return out;
     }
     const P = ctx.pct!=null ? Math.round(ctx.pct) : null;
     if(ctx.shiftDir === 'safety'){
       out.variant = 'shift-safety';
-      out.paras.push('Last week leaned ' + _feltName(ctx.prevDom) + '. This week, ' + _feltName(ctx.dom) + ' took the lead, about ' + P + '% of your check-ins. That\'s evidence of more safety. And it didn\'t happen by accident. This is worth reflecting on now through journaling or just thinking about while you sip a tea. Ask yourself:');
+      out.paras.push('Last week leaned ' + hl(_feltName(ctx.prevDom)) + '. This week, ' + hl(_feltName(ctx.dom)) + ' took the lead, about ' + hl(P+'%') + ' of your check-ins. That\'s evidence of more safety. And it didn\'t happen by accident. This is worth reflecting on now through journaling or just thinking about while you sip a tea. Ask yourself:');
       out.bullets = [
         'What do you know you did to connect with safety more?',
         'Did something in your life context change that led to more safety?',
@@ -1268,8 +1296,8 @@
     if(ctx.shiftDir === 'defense'){
       out.variant = 'shift-defense';
       const K = ctx.practicesK||0;
-      const cheer = 'So, tell yourself "Good job, self," for the ' + n + ' check-ins' + (K>0 ? ' and the ' + K + ' practice' + (K===1?'':'s') : '') + ' this week.';
-      out.paras.push('Last week leaned ' + _feltName(ctx.prevDom) + '. This week, ' + _feltName(ctx.dom) + ' took the lead, about ' + P + '% of your check-ins. Weeks like this happen, and they usually make sense in context. A system that shifts into defense under load is working, not failing. ' + cheer + ' Then grab a blanket, plop on the couch, and reflect on this week:');
+      const cheer = 'So, tell yourself "Good job, self," for the ' + hl(n + ' check-ins') + (K>0 ? ' and the ' + hl(K + ' practice' + (K===1?'':'s')) : '') + ' this week.';
+      out.paras.push('Last week leaned ' + hl(_feltName(ctx.prevDom)) + '. This week, ' + hl(_feltName(ctx.dom)) + ' took the lead, about ' + hl(P+'%') + ' of your check-ins. Weeks like this happen, and they usually make sense in context. A system that shifts into defense under load is working, not failing. ' + cheer + ' Then grab a blanket, plop on the couch, and reflect on this week:');
       out.bullets = [
         'What did this week ask of you that last week didn\'t?',
         'Did something in your life context change that pulled on your system?',
@@ -1281,7 +1309,7 @@
     }
     if(ctx.recoveryDay && ctx.defenseState){
       out.variant = 'recovery';
-      out.paras.push('The week had a dip in the middle: ' + _feltName(ctx.defenseState) + ' showed up and stayed for a stretch. Here\'s the part worth keeping: you came back. By ' + ctx.recoveryDay + ', safety was back in the mix. This is evidence that your system knows how to return to safety. Dips will happen. That\'s completely normal. We just want to navigate it as regulated as possible. Reflect while it\'s fresh:');
+      out.paras.push('The week had a dip in the middle: ' + hl(_feltName(ctx.defenseState)) + ' showed up and stayed for a stretch. Here\'s the part worth keeping: you came back. By ' + hl(ctx.recoveryDay) + ', safety was back in the mix. This is evidence that your system knows how to return to safety. Dips will happen. That\'s completely normal. We just want to navigate it as regulated as possible. Reflect while it\'s fresh:');
       out.bullets = [
         'What helped you find your way back?',
         'Did a person, a place, or a practice make the difference?',
@@ -1293,7 +1321,7 @@
     }
     if(ctx.payoffK){
       out.variant = 'payoff';
-      out.paras.push('You practiced ' + ctx.payoffK + ' times this week, and the check-ins that followed carried more safety than the ones before. That\'s not magic. That\'s practice reps doing what practice reps do.');
+      out.paras.push('You practiced ' + hl(ctx.payoffK + ' times') + ' this week, and the check-ins that followed carried more safety than the ones before. That\'s not magic. That\'s practice reps doing what practice reps do.');
       return out;
     }
     if(ctx.weekPct!=null && ctx.basePct!=null && Math.abs(ctx.weekPct-ctx.basePct)>=5){
@@ -1304,7 +1332,7 @@
       return out;
     }
     out.variant = 'showup';
-    out.paras.push(n + ' check-ins this week. Honest ones, from wherever you actually were. That\'s the whole assignment. Everything below only exists because you keep doing this.');
+    out.paras.push(hl(n + ' check-ins') + ' this week. Honest ones, from wherever you actually were. That\'s the whole assignment. Everything below only exists because you keep doing this.');
     return out;
   }
 

@@ -218,6 +218,71 @@
     const marks = ax.map(([icn])=>ico(icn,{cls:'st-mark', color:col})).join('');
     return `<span class="st-marks${ax.length>1?' st-pair':''}">${marks}</span>`;
   }
+  const CB_ARROW = '<svg class="cb-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 5l7 7-7 7"/><path d="M20 12H4"/></svg>';
+  // hero arrow (2026-07-29, Justin: "the arrow and line between them should be one
+  // arrow not separate things"): the standard treatment is a gradient bar PLUS a
+  // separate small arrowhead icon appended after it with a gap — reads as two things.
+  // This is ONE filled shape, shaft and head as a single path, one gradient across the
+  // whole thing, no seam. Used only by the hero size tier.
+  let _cbHeroGradId = 0;
+  function cbHeroArrowSVG(fromKey, toKey){
+    const id = 'cbHeroGrad'+(_cbHeroGradId++);
+    return `<svg class="cb-arrow-hero" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">`
+      + `<defs><linearGradient id="${id}" x1="0" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse">`
+      + `<stop offset="0" stop-color="${STATE_COLOR(fromKey)}"></stop><stop offset="1" stop-color="${STATE_COLOR(toKey)}"></stop></linearGradient></defs>`
+      + `<path d="M0,8 L66,8 L66,0 L100,10 L66,20 L66,12 L0,12 Z" fill="url(#${id})"></path>`
+      + `</svg>`;
+  }
+  // "from state A, to state B" glyph strip — a gradient path between the two states'
+  // marks, PLUS an actual arrowhead (was previously just a bare gradient bar with no
+  // directionality at all, so which state led to which was only implied by color, easy
+  // to misread at a glance — Justin 2026-07-28: "getting back to safety" card glyph/
+  // arrow fix). Used by the comeback card, the shift card, and the reader's own
+  // patterns-section visual — one function so all three read identically.
+  function cbGlyphViz(fromKey, toKey, extraCls, big, steps){
+    // "getting back to safety" gets the bigger glyph treatment (Justin 2026-07-28: the
+    // glyphs read too small next to the amount of copy around them); other cards using
+    // this same viz keep the standard size unless they ask for it too.
+    // big='hero' (2026-07-29 → 2026-07-29b): the largest tier, comeback card only — "the
+    // glyphs are the star, make them dominant" (Justin). Also swaps the bar+arrowhead
+    // pair for the single cbHeroArrowSVG shape above. Superseded the v1 step-dots idea
+    // (`steps`, still supported for other callers) — redundant at this scale.
+    if(big==='hero'){
+      return `<div class="cb-viz cb-glyphs cb-glyphs-hero${extraCls?' '+extraCls:''}" aria-hidden="true">`
+        + `<span class="cb-g">${stateMarks(fromKey)}</span>`
+        + cbHeroArrowSVG(fromKey, toKey)
+        + `<span class="cb-g">${stateMarks(toKey)}</span>`
+        + `</div>`;
+    }
+    const sizeCls = big ? ' cb-glyphs-lg' : '';
+    const stepDots = steps>1 ? `<span class="cb-steps">${Array.from({length:Math.min(steps,7)}).map((_,i)=>`<span class="cb-step" style="animation-delay:${900+i*90}ms"></span>`).join('')}</span>` : '';
+    return `<div class="cb-viz cb-glyphs${sizeCls}${extraCls?' '+extraCls:''}" aria-hidden="true">`
+      + `<span class="cb-g">${stateMarks(fromKey)}</span>`
+      + `<span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(fromKey)},${STATE_COLOR(toKey)})">${stepDots}</span>`
+      + `${CB_ARROW.replace('class="cb-arrow"', `class="cb-arrow" style="color:${STATE_COLOR(toKey)}"`)}`
+      + `<span class="cb-g">${stateMarks(toKey)}</span>`
+      + `</div>`;
+  }
+  // check-in method label/caption/preview — shared between settings and the onboarding
+  // "how do you want to check in?" card so the two never drift (hoisted 2026-07-28;
+  // was previously a settings-only closure).
+  const METHOD_LABEL = { sliders:'questions', states:'state picker', numbers:'number sliders' };
+  const METHOD_CAP = {
+    sliders:'best for someone who has a hard time identifying their state. simply answer a few quick questions with three sliders.',
+    numbers:'use numbers to check in. best for the person that thinks concretely.',
+    states:'choose your state, then fine-tune it with sliders. best for someone familiar with their states and able to name them.' };
+  // a small, non-interactive taste of the chosen method. ink only (it illustrates the
+  // control, not a real reading), no glyph; the scale labels sit flush to the rail, and
+  // numbers mode shows the value on the right exactly like the live slider.
+  const _methodPreview=(m)=>{
+    if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}</div>`;
+    const numbered = m==='numbers';
+    const sc = numbered ? ['0','10'] : ['harder','easier'];
+    return `<div class="ci-prev${numbered?' has-num':''}" aria-hidden="true">
+        <div class="ci-prev-scale"><span class="ci-prev-lbls"><span>${sc[0]}</span><span>${sc[1]}</span></span></div>
+        <div class="ci-prev-row"><input type="range" class="ci-prev-range" min="0" max="100" value="62" tabindex="-1">${numbered?'<span class="ci-prev-num">6</span>':''}</div>
+      </div>`;
+  };
   // "tuned to you" sparkle — marks the one practice we shaped for you (not the logo)
   function setIcoLvl(axis,val){
     const el = root.querySelector('.slider[data-axis="'+axis+'"] .slider-ico');
@@ -239,7 +304,7 @@
   // plain-language gloss for each skill name — used by the builder's live
   // "what to expect" paragraph and anywhere else a skill needs explaining
   const SKILL_CAP = {
-    validate:   "name one thing you're feeling, say that it's real, and see that it makes sense given your life. the first rung of the ladder.",
+    validate:   "name one thing you're feeling, say that it's real, and see that it makes sense given your life.",
     imagery:    'give a challenging feeling a shape in your mind and invite it in, a little at a time.',
     obstacles:  'notice what gets in the way of feeling safe, and meet it with some kindness.',
     balancing:  'hold something pleasant and something challenging at the same time, giving each some room.',
@@ -1661,9 +1726,14 @@
 
       { id:'method', tab:'current', kind:'center',
         h:'How do you want to check in?',
+        // preview + fixed-height wrap (Justin 2026-07-28): a real taste of the control
+        // itself, not just a caption, and a min-height floor so picking between the much
+        // taller state-picker preview and the one-line slider previews doesn't resize the
+        // whole sheet under the person's thumb.
         body:'<p class="ob-p">All three record the same thing, so no need to worry about your history if you decide to change later.</p>'
            + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Question sliders')+obChip('method','numbers','Numbers')+obChip('method','states','State picker')+'</div>'
-           + '<p class="ob-fine" data-cap="method"></p>' },
+           + '<p class="ob-fine" data-cap="method"></p>'
+           + '<div class="rs-preview ob-method-preview" id="ob-method-preview"></div>' },
 
       { id:'defaults', tab:'practice', kind:'center',
         h:'Practice defaults',
@@ -1732,7 +1802,15 @@
     return d;
   }
   function obPaint(first){
-    const st=obStep(_ob.i); if(!st){ endOnboarding('done'); return; }
+    let st=obStep(_ob.i); if(!st){ endOnboarding('done'); return; }
+    // the 'done' card is the very next card after 'name' — greet by the name they just
+    // typed (read live, not the value OB_STEPS was built with, which is stale by design:
+    // steps are built once at onboarding start, before anyone has typed anything).
+    // Justin, 2026-07-28: it should say the chosen name back on that next card.
+    if(st.id==='done'){
+      const nm=(Store.getName&&Store.getName())||'';
+      if(nm) st=Object.assign({}, st, { body: st.body.replace('And that’s it.', 'And that’s it, '+escapeHtml(nm)+'.') });
+    }
     // app(tab) rebuilds root.innerHTML, which takes the overlay with it — so switch the
     // tab FIRST and re-attach afterwards, never the other way round.
     if(st.tab && st.tab!==currentTab){ app(st.tab); }
@@ -1742,14 +1820,20 @@
     const pos = seq.map(s=>s.id).indexOf(st.id);
     const actions = st.actions || [{ label:(pos===seq.length-1?'done':'next'), kind:'primary', go:'next' }];
     const showSkip = !st.actions;
-    let html = '<div class="ob-dim" data-side="t"></div><div class="ob-dim" data-side="b"></div>'
-             + '<div class="ob-dim" data-side="l"></div><div class="ob-dim" data-side="r"></div>';
-    if(st.kind==='spot') html += '<div class="ob-hole"></div>';
-    html += '<div class="ob-card'+(first?' anim':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
+    // dims/hole fade in on EVERY step now, not just the first (the .anim classes existed
+    // in CSS but were never applied past the first paint, so a spotlight moving to a new
+    // target — or vanishing/appearing between a spot card and a centered one — used to
+    // snap instantly). The card itself gets the big rise-from-bottom only on first open;
+    // every step after that gets a lighter fade+settle so the shape genuinely transitions
+    // rather than cutting (Justin 2026-07-28: "onboarding shape-shift transition").
+    let html = '<div class="ob-dim anim" data-side="t"></div><div class="ob-dim anim" data-side="b"></div>'
+             + '<div class="ob-dim anim" data-side="l"></div><div class="ob-dim anim" data-side="r"></div>';
+    if(st.kind==='spot') html += '<div class="ob-hole anim"></div>';
+    html += '<div class="ob-card'+(first?' anim':' step')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
       + '<div class="ob-top">'
       + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
           + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>back</button>' : '<span></span>')
-      + '<span class="ob-grab"></span><span class="ob-toppad"></span></div>'
+      + '<span></span><span class="ob-toppad"></span></div>'
       + '<div class="ob-body">'
       + '<h2 class="ob-h">'+escapeHtml(st.h)+'</h2>'
       + st.body
@@ -1840,7 +1924,14 @@
       if(g==='skip'){ return endOnboarding('skip'); }
       if(g==='end'){ return endOnboarding('done'); }
       if(g==='decline'){ _ob.i='decline'; return obPaint(false); }
-      if(g==='next'){ _ob.i = (typeof _ob.i==='number' ? _ob.i+1 : 0); return obPaint(false); }
+      if(g==='next'){
+        // save the just-typed name immediately on advance — the input's own 'change'
+        // listener only fires on blur, so tapping next without blurring first used to
+        // carry the name past the very card that asked for it (2026-07-28, Justin: the
+        // NEXT card after spelling it out should already say it back).
+        if(st && st.id==='name'){ const ne=d.querySelector('#ob-name'); if(ne && Store.setName) Store.setName(ne.value.trim()); }
+        _ob.i = (typeof _ob.i==='number' ? _ob.i+1 : 0); return obPaint(false);
+      }
       // decline is a standalone card reached from the welcome, so its back goes there
       if(g==='back'){ _ob.i = (_ob.i==='decline') ? 0 : Math.max(_ob.min, _ob.i-1); return obPaint(false); }
       _ob.i = +g; obPaint(false);
@@ -1850,8 +1941,13 @@
     if(mSel){
       const cur = (()=>{ try{ return localStorage.getItem('snb_checkin_method')||'sliders'; }catch(e){ return 'sliders'; } })();
       const cap = d.querySelector('[data-cap="method"]');
+      const prev = d.querySelector('#ob-method-preview');
+      // numbers preview is a live illustration, same as settings: dragging its slider
+      // moves the value on the right rather than sitting static.
+      const bindPrev=()=>{ if(!prev) return; const r=prev.querySelector('.ci-prev-range'), n=prev.querySelector('.ci-prev-num'); if(r&&n) r.oninput=()=>{ n.textContent = Math.round((+r.value)/10); }; };
       const mark=(v)=>{ mSel.querySelectorAll('[data-method]').forEach(x=>x.classList.toggle('on', x.dataset.method===v));
-                        if(cap) cap.textContent = OB_METHOD_CAP[v]||''; };
+                        if(cap) cap.textContent = OB_METHOD_CAP[v]||'';
+                        if(prev){ prev.innerHTML = _methodPreview(v); bindPrev(); } };
       mark(cur);
       mSel.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
         try{ localStorage.setItem('snb_checkin_method', b.dataset.method); }catch(e){}
@@ -2060,14 +2156,16 @@
     const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
-    // post-breath slot (r7 2026-07-24): the RESTING/default content of this slot is the
-    // reader doorway (when a reflection is waiting) — not the micro invite. The micro
-    // ("two more minutes?") is a TRANSIENT post-breath nudge: it appears for ~10s right
-    // after a breath, then reverts to the resting state (reader, or nothing). Before r7
-    // the micro was the default and never went away — Justin's fix: reader is default,
-    // micro is a brief post-breath moment only.
+    // post-breath slot (r7 2026-07-24; revised 2026-07-28 per Justin: (1) "check in again"
+    // should never sit alone once you've checked in, (2) "two more minutes?" should appear
+    // after a breath even when you haven't checked in yet — it never did, since the second
+    // row didn't exist at all in the not-checked-in markup). RESTING/default content: the
+    // reader doorway when a reflection is waiting; else, once checked in, the "two more
+    // minutes?" invite (never nothing any more); if not yet checked in AND nothing's
+    // unread, the row collapses at rest but the transient post-breath nudge below still
+    // fires and is visible for its ~10s window either way.
     const readerNew = _readerUnread();
-    const mhRestKind = readerNew ? 'reader' : null;   // default/resting content of the slot
+    const mhRestKind = readerNew ? 'reader' : (checkedIn ? 'micro' : null);
     const mhThird = true;
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">your reflection is ready</span>`   // 🖊
@@ -2104,6 +2202,9 @@
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
           : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
+             <div class="mh-secondrow no-checkin" id="mh-2nd">
+               <button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
+             </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">check in</button>`}
       </div>
     </div>`;
@@ -2123,23 +2224,25 @@
     if(third){
       third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
 
-      // RESTING state: the reader doorway when a reflection is waiting; otherwise the
-      // slot collapses (check-in returns to full width). This is the default the screen
-      // sits in — on load and ~10s after a breath.
+      // RESTING state: the reader doorway when a reflection is waiting; else, once
+      // checked in, the "two more minutes?" invite (2026-07-28: never collapses once
+      // there's a check-in to keep company — the row only collapses to nothing before
+      // any check-in exists, when mhRestKind is genuinely null). On load and ~10s after
+      // a breath.
       const _rest = (animate)=>{
         const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
         const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
-        const showReader = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
-          tt.dataset.kind='reader'; tt.innerHTML=mhThirdHTML('reader'); tt.classList.remove('mh-morphing');
+        const showRest = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
+          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing');
           r.classList.add('revealed','third-in'); };
         if(!mhRestKind){                                 // nothing to rest on → collapse the slot
           if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
           else { row.classList.add('mh-noanim'); collapse(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
           return;
         }
-        if(!animate){ row.classList.add('mh-noanim'); showReader(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
-        else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showReader, 480); }   // fade micro out, swap to reader, fade in
+        if(!animate){ row.classList.add('mh-noanim'); showRest(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
+        else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showRest, 480); }   // fade micro out, swap to rest content, fade in
       };
 
       // TRANSIENT post-breath nudge: show "two more minutes?" for ~10s, then revert to
@@ -2366,7 +2469,7 @@
     if(id==='blog-pats' && c.patterns){
       const p=c.patterns;
       if(p.day) return `<div class="wk-strip" aria-hidden="true" style="margin:14px 0 4px">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===p.day.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>`;
-      if(p.shift) return `<div class="cb-viz cb-glyphs" aria-hidden="true" style="margin:14px 0 4px"><span class="cb-g">${stateMarks(p.shift.a)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(p.shift.a)},${STATE_COLOR(p.shift.b)})"></span><span class="cb-g">${stateMarks('safety'===p.shift.b?'safety':p.shift.b)}</span></div>`;
+      if(p.shift) return cbGlyphViz(p.shift.a, 'safety'===p.shift.b?'safety':p.shift.b, 'cb-viz-inset');
       return '';
     }
     if(id==='blog-zoom' && c.zoomPct!=null){
@@ -2474,10 +2577,10 @@
   }
   function _visitSectionHTML(sec, key){
     if(!sec) return { html:'', wire:null };
-    const P=(t)=>t?`<p class="read-p">${escapeHtml(t)}</p>`:'';
-    const bullets = (sec.bullets&&sec.bullets.length) ? `<ul class="wr-list">${sec.bullets.map(b=>`<li>${escapeHtml(b)}</li>`).join('')}</ul>` : '';
+    const P=(t)=>t?`<p class="read-p">${boldHtml(t)}</p>`:'';
+    const bullets = (sec.bullets&&sec.bullets.length) ? `<ul class="wr-list">${sec.bullets.map(b=>`<li>${boldHtml(b)}</li>`).join('')}</ul>` : '';
     const chips = sec.chipQ ? _ctxChipsHTML(sec.chipQ, key) : '';
-    const foot = sec.footer ? `<p class="wr-foot">${escapeHtml(sec.footer)}</p>` : '';
+    const foot = sec.footer ? `<p class="wr-foot">${boldHtml(sec.footer)}</p>` : '';
     const html = `
       <section class="wr" style="margin:0 0 4px">
         ${sec.eyebrow?`<p class="wr-eyeb">${escapeHtml(sec.eyebrow)}</p>`:''}
@@ -2540,7 +2643,7 @@
     const todayBlock = (td && td.n>=1) ? `
       <section style="margin:0 0 4px">
         <h2 class="read-h2">Today, so far</h2>
-        ${dailyNote ? `<p class="read-lead">${escapeHtml(dailyNote.text)}</p>` : ''}
+        ${dailyNote ? `<p class="read-lead">${boldHtml(dailyNote.text)}</p>` : ''}
         ${momentTimeline(td.moments, td.sessions)}
       </section>
       <hr style="border:none;border-top:0.5px solid var(--hairline);margin:18px 0 20px">` : '';
@@ -2578,7 +2681,7 @@
         const trnR=Store.transitions?Store.transitions():null;
         const recR=Store.recovery?Store.recovery():null;
         const rtR=recR?_recoveryTrend():null;
-        const prR=_personalRecords(cs);
+        const prR=_personalRecords(cs, 8);   // reader: bound "your most regulated week" to the last ~2 months
         const ceR=_contextEffect();
         const peR=ceR?_peWindowed():null;
         return {
@@ -2609,19 +2712,19 @@
     const _base28 = Store.periodStats ? Store.periodStats(_now-28*864e5, _now) : null;
     const vizCtx = { dom:dom, dayV:dayV, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null,
                      patterns:patterns, zoomPct:(_base28&&_base28.n>=8)?Math.round(_base28.regShare*100):null };
-    const P = (t)=> t ? `<p class="read-p">${escapeHtml(t)}</p>` : '';
+    const P = (t)=> t ? `<p class="read-p">${boldHtml(t)}</p>` : '';
     // the daily note now lives in the today block above; only fall back to a lead
     // paragraph when there are no moments today (todayBlock empty).
-    const lead = (!todayBlock && dailyNote) ? `<p class="read-lead" style="margin:0 0 4px">${escapeHtml(dailyNote.text)}</p>` : '';
+    const lead = (!todayBlock && dailyNote) ? `<p class="read-lead" style="margin:0 0 4px">${boldHtml(dailyNote.text)}</p>` : '';
 
     let bodyHTML;
     if(issue){
       // dek (one-line subtitle) replaces the old "short version" bullets — the
       // TL;DR list re-fragmented exactly what the essay model fixes.
-      const dekHTML = issue.dek ? `<p class="read-dek">${escapeHtml(issue.dek)}</p>` : '';
+      const dekHTML = issue.dek ? `<p class="read-dek">${boldHtml(issue.dek)}</p>` : '';
       // the closing section's landing line is the issue's most quotable sentence — set it
       // as a pull-quote (reader-beauty pass)
-      const PQ = (t)=> t ? `<blockquote class="read-pq">${escapeHtml(t)}</blockquote>` : '';
+      const PQ = (t)=> t ? `<blockquote class="read-pq">${boldHtml(t)}</blockquote>` : '';
       // fresh (data-driven) sections get the highlight treatment: an accent hairline in
       // the issue's state color + a quiet eyebrow, so what's NEW is scannable at a glance.
       // they're also shareable — same 1080x1080 cards as the You tab (Justin 2026-07-05)
@@ -2757,6 +2860,25 @@
     const regShare=reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     return { n, dom, domShare:Math.round(cnt[dom]/n*100), second, secondShare: second?Math.round(cnt[second]/n*100):0,
              reg, dys:n-reg, regShare, lean, distinct:order.length, defenseStates:order.filter(d=>DYS[d]) };
+  }
+  // windowed equivalent of Store.recovery() over an explicit set of in-window check-ins
+  // (Store.recovery() is always all-time, no period param — so the "getting back to
+  // safety" card's trip-count used to cite an all-time number no matter which period
+  // toggle was active, which read as inconsistent with everything else on the card.
+  // Justin 2026-07-28: "trip-count moved to a parenthetical at the bottom with the
+  // real time period" — this is the "real time period" half of that fix.)
+  function _windowRecovery(cs){
+    const wcs = cs.filter(c=>c.dom&&c.dom!=='neutral');
+    if(wcs.length<12) return null;
+    const gaps=[]; let i=0;
+    while(i<wcs.length){
+      if(!_REGDOMS[wcs[i].dom]){ let j=i, steps=0, found=false;
+        while(j<wcs.length){ if(_REGDOMS[wcs[j].dom]){ found=true; break; } j++; steps++; }
+        if(found) gaps.push(steps); i=j;
+      } else i++;
+    }
+    if(gaps.length<3) return null;
+    return { avg: gaps.reduce((a,b)=>a+b,0)/gaps.length, n: gaps.length };
   }
   function weeklyIssueFor(ws){
     if(!FromJustin.blog) return null;
@@ -2915,13 +3037,13 @@
   }
   // render a frozen weekly issue (short version + sections) like the live for-you reader
   function renderIssue(issue){
-    const P=(t)=> t?`<p class="read-p">${escapeHtml(t)}</p>`:'';
-    const PQ=(t)=> t?`<blockquote class="read-pq">${escapeHtml(t)}</blockquote>`:'';
+    const P=(t)=> t?`<p class="read-p">${boldHtml(t)}</p>`:'';
+    const PQ=(t)=> t?`<blockquote class="read-pq">${boldHtml(t)}</blockquote>`:'';
     const sectionsHTML = (issue.sections||[]).map(sec=>`<section style="margin-top:22px"><h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>${(sec.paras||[]).map((t,i)=>(sec.id==='blog-6'&&i===(sec.paras.length-1))?PQ(t):P(t)).join('')}</section>`).join('');
     // new essay issues carry a dek; frozen pre-rework mints still carry bullets
     const headHTML = issue.dek
-      ? `<p class="read-dek">${escapeHtml(issue.dek)}</p>`
-      : `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${(issue.bullets||[]).map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80);font-size:calc(15px * var(--type-scale))">${escapeHtml(b.text)}</li>`).join('')}</ul></div>`;
+      ? `<p class="read-dek">${boldHtml(issue.dek)}</p>`
+      : `<div style="margin-top:14px"><p class="sec-h" style="margin:0 0 10px">the short version</p><ul style="margin:0;padding-left:18px">${(issue.bullets||[]).map(b=>`<li style="margin:0 0 8px;line-height:1.55;color:var(--ink-80);font-size:calc(15px * var(--type-scale))">${boldHtml(b.text)}</li>`).join('')}</ul></div>`;
     return `${headHTML}${readerTOC(issue)}${sectionsHTML}`;
   }
 
@@ -3995,6 +4117,18 @@
     const names=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
     return { label:names[best.day], idx:best.day, pct:best.pct };
   }
+  // mirror of _weekdayPattern, but the LEAST-regulated day (Justin 2026-07-29d).
+  // same gating (>=3 check-ins/day, >=14 total) so it never fires on thin data.
+  function _weekdayPatternWorst(cs){
+    if(cs.length < 14) return null;
+    const by={};
+    cs.forEach(c=>{ const d=new Date(c.t).getDay(); (by[d]=by[d]||[]).push(c); });
+    let worst=null;
+    Object.keys(by).forEach(d=>{ const a=by[d]; if(a.length>=3){ const p=_safeShare(a); if(worst==null||p<worst.pct) worst={ day:+d, pct:p }; } });
+    if(!worst) return null;
+    const names=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    return { label:names[worst.day], idx:worst.day, pct:worst.pct };
+  }
   // flavors of safety: among the check-ins that carry safety, which safe state they land in
   function _safetyFlavors(cs){
     const safe=cs.filter(c=>_REGDOMS[c.dom]);
@@ -4014,7 +4148,21 @@
     Object.keys(by).forEach(s=>{ const a=by[s]; if(a.length>=3){ const p=_safeShare(a); if(best==null||p>best.pct) best={ seg:s, pct:p }; } });
     if(!best) return null;
     const names={ morning:'morning', afternoon:'afternoon', evening:'evening', late:'late night' };
-    return { seg:names[best.seg]||best.seg, pct:best.pct };
+    // `key` is the raw segment (for building the daypart strip visual); `seg` stays the
+    // human label so existing "${dp.seg}" copy is unaffected.
+    return { seg:names[best.seg]||best.seg, key:best.seg, pct:best.pct };
+  }
+  // mirror of _daypartPattern, but the LEAST-regulated time of day (Justin 2026-07-29e:
+  // "do a least regulated time of day as well"). Same gating as the "best" version.
+  function _daypartPatternWorst(cs){
+    if(cs.length < 12) return null;
+    const by={};
+    cs.forEach(c=>{ const s=segOf(c.t); (by[s]=by[s]||[]).push(c); });
+    let worst=null;
+    Object.keys(by).forEach(s=>{ const a=by[s]; if(a.length>=3){ const p=_safeShare(a); if(worst==null||p<worst.pct) worst={ seg:s, pct:p }; } });
+    if(!worst) return null;
+    const names={ morning:'morning', afternoon:'afternoon', evening:'evening', late:'late night' };
+    return { seg:names[worst.seg]||worst.seg, key:worst.seg, pct:worst.pct };
   }
   // per-daypart share of safe check-ins, for the deep "time of day" rows (null when thin)
   function _daypartPct(cs, seg){
@@ -4050,15 +4198,20 @@
   // personal records: high-water marks ONLY — a record can be improved but never
   // lost, so there's nothing to "break" (no streaks: chain logic teaches that a
   // dip is a failure, which is the opposite of the app's teaching — Justin 2026-07-05).
-  function _personalRecords(allCs){
+  // maxWeeksBack: when set, bestWeek only looks at weeks within that many weeks of now —
+  // used by the reader essay so "your most regulated week" can't reach back to an
+  // arbitrarily old week the essay isn't otherwise discussing (Justin 2026-07-28).
+  // The You-tab stats-card call stays unbounded (a legitimate all-time personal best).
+  function _personalRecords(allCs, maxWeeksBack){
     const cs = allCs.filter(c=>c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);
     if(cs.length<12) return null;
     const wk={}; cs.forEach(c=>{ const ws=_sundayStart(c.t); (wk[ws]=wk[ws]||[]).push(c); });
     const curWs=_sundayStart(Date.now());
+    const oldestWs = maxWeeksBack!=null ? (curWs - maxWeeksBack*7*864e5) : -Infinity;
     let bw=null;
-    Object.keys(wk).forEach(ws=>{ if(+ws===curWs) return; const a=wk[ws];
+    Object.keys(wk).forEach(ws=>{ if(+ws===curWs || +ws<oldestWs) return; const a=wk[ws];
       if(a.length>=4){ const reg=a.filter(c=>_REGDOMS[c.dom]).length/a.length; if(!bw||reg>bw.share) bw={ ws:+ws, share:reg }; } });
-    const bestWeek = bw ? { label:new Date(bw.ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}), pct:Math.round(bw.share*100) } : null;
+    const bestWeek = bw ? { label:new Date(bw.ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}), pct:Math.round(bw.share*100), ws:bw.ws } : null;
     // fastest comeback: the shortest completed dip->safety trip (a recovery record)
     let fastest=null, n=0, i=0;
     while(i<cs.length){
@@ -4431,20 +4584,34 @@
           // two plain percentages, never a "pts" delta (Justin 2026-07-05)
           if(!down){
             const cap=up?'average safety, when you started vs now. the reps add up!':'average safety, about steady since you started.';
-            growthHead=`<p class="growth-head"><span class="growth-num ${up?'up':'flat'}">${Math.round(startV*100)}% → ${Math.round(recentV*100)}%</span><span class="growth-cap">${cap}</span></p>`;
+            // v2 (2026-07-29, from Claude Design's layout-hierarchy pass — Justin: the
+            // per-card visuals still read as decoration, not the thing the eye lands on
+            // first). The track itself becomes the hero: wider, taller dots, full card
+            // width, nothing else competing above it. The percentages fold into the
+            // caption sentence below instead of a separate giant number, since the track
+            // now IS the headline.
+            const sV=Math.round(startV*100), rV=Math.round(recentV*100);
+            const growthViz=`<div class="gr-hero" aria-hidden="true"><div class="gr-track-lg">
+              <span class="gr-fill-lg" style="left:${Math.min(sV,rV)}%;width:${Math.max(2,Math.abs(rV-sV))}%;background:linear-gradient(90deg,${safetyColor(startV)},${safetyColor(recentV)})"></span>
+              <span class="gr-dot-lg" style="left:${sV}%;background:${safetyColor(startV)}"></span>
+              <span class="gr-dot-lg gr-dot-lg-now" style="left:${rV}%;background:${safetyColor(recentV)}"></span>
+            </div></div>`;
+            growthHead=`${growthViz}<p class="growth-cap"><b>${sV}% → ${rV}%</b> ${cap}</p>`;
           }
         }
       })();
       const SHARE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg>';
       const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="share this card">${SHARE_ICON}</button>`;
       // hoisted card signals (slides render them; the share cards draw them)
-      const rec = (Store.recovery ? Store.recovery() : null);
+      const rec = _windowRecovery(cs);
       const rt  = rec ? _recoveryTrend() : null;
       const dip = _topDipState();
       const bl  = _baselineBar(allCs, days);
       const _blNow  = ({'7':'this week','30':'this month','90':'these 90 days','all':'all time'})[activePeriod] || 'this window';
       const _blPrev = ({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod] || null;
       const wd  = _weekdayPattern(cs), dp = _daypartPattern(cs);
+      const wdLeast = _weekdayPatternWorst(cs);
+      const dpLeast = _daypartPatternWorst(cs);
       const trn = (Store.transitions ? Store.transitions() : null);
       const pr  = _personalRecords(allCs);
       const fl  = _safetyFlavors(cs);
@@ -4455,7 +4622,11 @@
       // becomes the personal-reflection entry; state chips filter the data rows.
       const _r=(FromJustin&&(FromJustin.daily?FromJustin.daily():(FromJustin.today?FromJustin.today():null)))||null;
       const _reflText=(_r&&_r.text)?escapeHtml(_r.text):'';
-      const _present=(function(){const t=['morning','afternoon','evening','late'].map(sg=>domOf(cs.filter(x=>segOf(x.t)===sg)));const d=[0,1,2,3,4,5,6].map(k=>{const sub=cs.filter(x=>new Date(x.t).getDay()===k);return sub.length>=3?domOf(sub):null;});return [...new Set([...t,...d].filter(Boolean))];})();
+      // the filter must offer every state that actually has a row in this period, not just
+      // the states that happen to dominate a daypart/weekday bucket (that undercounted —
+      // a state could have rows and still never show as a filter chip). Canonical UI order.
+      const _stateOrder=['safety','play','fightflight','stillness','freeze','shutdown'];
+      const _present=_stateOrder.filter(s=>cs.some(x=>x.dom===s));
       const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">all</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_NAME(s)}</span></button>`).join('');
       c.innerHTML=`
         <div class="view play-view">
@@ -4478,28 +4649,128 @@
               const from = dip || 'fightflight';
               const rtLine = (rt && rt.dir==='faster') ? `<p class="cb-line">and lately, that trip has been getting <b>shorter</b>.</p>` : '';
               const dipLine = dip ? `<p class="cb-line">your most common dip is into <b>${STATE_NAME(dip)}</b>.</p>` : '';
+              // trip-count moved out of the main sentence into a parenthetical, and bound
+              // to the SAME period as the rest of the card (was Store.recovery(), always
+              // all-time regardless of the period toggle — misleading next to a card
+              // whose every other number respects it) (Justin 2026-07-28).
+              const tripCount = `<p class="cb-fine">(${rec.n} time${rec.n===1?'':'s'}, over ${periodPhrase})</p>`;
+              // title cut (Justin 2026-07-29c: "not needed... prefer the images carry
+              // the visual weight not the titles"). The slide's array label ('getting
+              // back to safety') stays — still used for the carousel dots' aria-label
+              // and window._youAll, just not printed as a visible <h2> anymore.
               slides.push(['comeback','getting back to safety', `
-              ${shareBtn('comeback')}<h2 class="panel-title">getting back to safety</h2>
-              <div class="cb-viz cb-glyphs" aria-hidden="true"><span class="cb-g">${stateMarks(from)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(from)},${STATE_COLOR('safety')})"></span><span class="cb-g">${stateMarks('safety')}</span></div>
-              <p class="cb-line">when your body drops into defense, safety usually returns within <b>${phrase}</b>. you've made that trip ${rec.n} times.</p>
-              ${dipLine}${rtLine}`]);
+              ${shareBtn('comeback')}
+              <div class="cb-journey">${cbGlyphViz(from, 'safety', null, 'hero')}</div>
+              <p class="cb-line cb-line-lead">when your body drops into defense, safety usually returns within <b>${phrase}</b>.</p>
+              ${dipLine}${rtLine}${tripCount}`]);
             }
             // the separate "your safety baseline" slide is retired (§7.2): its longer-window
             // view is now just a wider choice on the time toggle above — one card, one metric.
-            if(wd || dp){
-              const strip = wd ? `<div class="wk-strip" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===wd.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>` : '';
-              slides.push(['times','your most regulated times', `
-              ${shareBtn('times')}<h2 class="panel-title">your most regulated times</h2>
-              <p class="panel-sub">when your check-ins have safety most often, over ${periodPhrase}.</p>
-              ${strip}
-              ${wd?`<p class="cb-line">${wd.pct}% of your <b>${wd.label}</b> check-ins have safety in them.</p>`:''}
-              ${dp?`<p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them.</p>`:''}`]);
+            // split (Justin 2026-07-28): "your most regulated times" conflated a weekday
+            // pattern and a time-of-day pattern into one card sharing a single (weekday-only)
+            // visual — the daypart claim had no visual of its own. Two cards, each with its
+            // own strip: weekdays keep the existing week-dot strip, daypart gets a matching
+            // 4-segment strip using the same sun/moon glyphs already used elsewhere (segIco).
+            // both strips below now read as a tiny bar chart, not a single highlight: every
+            // cell that has enough check-ins gets sized + tinted by ITS OWN safety %, using
+            // the same low→high safetyColor ramp as the day-by-day chart above (one color
+            // language across cards, not a new palette). The winning cell keeps the heart
+            // mark on top so the headline claim is still legible at a glance (Justin
+            // 2026-07-28: "ask what each card is trying to express... use glyphs, bars,
+            // icons within our color constraints").
+            // v2 (2026-07-29, Claude Design's layout-hierarchy pass): real bar charts,
+            // not dot strips — height = that day/daypart's safety %, color = that day/
+            // daypart's own dominant state (identity), led by a big "it's ___" headline
+            // instead of a subtitle sentence. Period phrase folds into the caption line
+            // since the subtitle line is gone (still period-honest, just relocated).
+            // headline restructure (2026-07-29b, Justin: subject-first phrasing, visual
+            // weight and the card's safety color on the day/time name itself). The
+            // winning bar is now forced to the safety color too — previously it took
+            // whatever state happened to be that day's plurality vote, which could
+            // (and did) disagree with the gold headline word right above it.
+            if(wd){
+              const wdPcts=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?_safeShare(a):null; });
+              const wdDom=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?domOf(a):null; });
+              const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
+                const pct=wdPcts[i], dom=wdDom[i], best=i===wd.idx;
+                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
+                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):STATE_COLOR(dom);
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*45}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
+              }).join('')}</div>`;
+              // title cut (Justin 2026-07-29c): "your most regulated day" repeated the
+              // rc-hero-title sentence right below it. Array label stays for a11y.
+              slides.push(['times','your most regulated day', `
+              ${shareBtn('times')}
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${wd.label}</b> is your most regulated day.</p>
+              ${chart}
+              <p class="cb-line">${wd.pct}% of your <b>${wd.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
+            }
+            if(dp){
+              const segs=['morning','afternoon','evening','late'];
+              const dpDom=segs.map(seg=>{ const a=cs.filter(x=>segOf(x.t)===seg); return a.length>=3?domOf(a):null; });
+              const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
+                const pct=_daypartPct(cs,seg), dom=dpDom[i], best=seg===dp.key;
+                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
+                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):STATE_COLOR(dom);
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*60}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
+              }).join('')}</div>`;
+              slides.push(['daypart','your most regulated time of day', `
+              ${shareBtn('daypart')}
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${dp.seg}</b> is your most regulated time of day.</p>
+              ${chart}
+              <p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
+            }
+            // "least regulated day" (Justin 2026-07-29d: "same style we have as the most
+            // regulated one"). Same rc-chart bar structure as 'times' above, but there's no
+            // single "bad" state the way safety is the one "good" state — so the headline
+            // word and winning bar use THAT day's own dominant state color, not a fixed one.
+            // Skipped when it'd just repeat the most-regulated-day card (same day, or no
+            // most-regulated-day card to contrast against).
+            if(wdLeast && (!wd || wdLeast.idx!==wd.idx)){
+              const wlPcts=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?_safeShare(a):null; });
+              const wlDom=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?domOf(a):null; });
+              const worstDom = wlDom[wdLeast.idx];
+              const worstColor = worstDom ? STATE_COLOR(worstDom) : '#D8D2C2';
+              const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
+                const pct=wlPcts[i], dom=wlDom[i], best=i===wdLeast.idx;
+                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
+                const bg=pct==null?'var(--bone-deep)':best?worstColor:STATE_COLOR(dom);
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*45}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
+              }).join('')}</div>`;
+              slides.push(['leastDay','your least regulated day', `
+              ${shareBtn('leastDay')}
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstColor}">${wdLeast.label}</b> has the least regulation.</p>
+              ${chart}
+              <p class="cb-line">${wdLeast.pct}% of your <b>${wdLeast.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
+            }
+            // "least regulated time of day" (Justin 2026-07-29e: "do a least regulated time
+            // of day as well"). Mirrors 'daypart' the same way 'leastDay' mirrors 'times' —
+            // same rc-chart/segIco structure, headline + winning bar use that daypart's own
+            // dominant state color (no single "bad" state to anchor on). Skipped when it'd
+            // just repeat the most-regulated-time-of-day card.
+            if(dpLeast && (!dp || dpLeast.key!==dp.key)){
+              const segs=['morning','afternoon','evening','late'];
+              const dlDom=segs.map(seg=>{ const a=cs.filter(x=>segOf(x.t)===seg); return a.length>=3?domOf(a):null; });
+              const worstSegIdx=segs.indexOf(dpLeast.key);
+              const worstDpDom = dlDom[worstSegIdx];
+              const worstDpColor = worstDpDom ? STATE_COLOR(worstDpDom) : '#D8D2C2';
+              const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
+                const pct=_daypartPct(cs,seg), dom=dlDom[i], best=seg===dpLeast.key;
+                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
+                const bg=pct==null?'var(--bone-deep)':best?worstDpColor:STATE_COLOR(dom);
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*60}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
+              }).join('')}</div>`;
+              slides.push(['leastDaypart','your least regulated time of day', `
+              ${shareBtn('leastDaypart')}
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${dpLeast.seg}</b> has the least regulation.</p>
+              ${chart}
+              <p class="cb-line">${dpLeast.pct}% of your <b>${dpLeast.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
             if(trn){
               const nm = k => ({play:'regulated mobility',stillness:'regulated immobility'}[k])||STATE_NAME(k);
               slides.push(['shift','your most common shift', `
               ${shareBtn('shift')}<h2 class="panel-title">your most common shift</h2>
-              <div class="cb-viz cb-glyphs" aria-hidden="true"><span class="cb-g">${stateMarks(trn.a)}</span><span class="cb-path" style="background:linear-gradient(90deg,${STATE_COLOR(trn.a)},${STATE_COLOR(trn.b)})"></span><span class="cb-g">${stateMarks(trn.b)}</span></div>
+              ${cbGlyphViz(trn.a, trn.b)}
               <p class="cb-line">your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>. ${trn.count} times so far.</p>`]);
             }
             if(pr){
@@ -4536,10 +4807,18 @@
               ${bars}${links}
               ${pe?`<p class="ctx-practice">practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
-            slides.push(['changes','your safety changes', `
-              ${shareBtn('day')}<h2 class="panel-title">your safety changes</h2>
-              <p class="panel-sub">your safety state over time, and how far you've come since you started.</p>
-              ${growthHead}${dayByDay}`]);
+            // the day-by-day line-chart version of "your safety changes" is CUT
+            // (Justin 2026-07-29d: "we don't need it. cut it altogether. ugly anyway.")
+            // — the dot-track version below is the only "your safety changes" now, so
+            // the title collision flagged on 2026-07-28/29 is moot. `dayByDay` (built
+            // above, shared nowhere else) is now dead — left computed rather than
+            // restructuring the shared arcBuckets block that 'states' below still uses.
+            if(growthHead){
+              slides.push(['started','your safety changes', `
+              ${shareBtn('started')}<h2 class="panel-title">your safety changes</h2>
+              <p class="panel-sub">average safety since you started, all time${activePeriod!=='all'?` — not limited to ${periodPhrase}`:''}.</p>
+              ${growthHead}`]);
+            }
             if(arcBuckets){
               slides.push(['states','your states over time', `
               ${shareBtn('states')}<h2 class="panel-title">your states over time</h2>
@@ -4596,8 +4875,8 @@
             const _defN = _recent.filter(x=>x.dom && x.dom!=='neutral' && !_REGDOMS[x.dom]).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const _ORDER = _tender
-              ? ['comeback','times','records','practice','flavors','baseline','mix','context','changes','states','shift','safety']
-              : ['safety','comeback','changes','baseline','times','shift','records','mix','flavors','context','states','practice'];
+              ? ['comeback','times','daypart','leastDay','leastDaypart','records','practice','flavors','baseline','mix','context','started','states','shift','safety']
+              : ['safety','comeback','started','baseline','times','daypart','leastDay','leastDaypart','shift','records','mix','flavors','context','states','practice'];
             const _rank = k=>{ const i=_ORDER.indexOf(k); return i<0?99:i; };
             const sorted = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0]));
             // desktop ledger (2026-07-19): at wide the carousel stays empty and a
@@ -4717,10 +4996,12 @@
         practice:`i'm tracking whether practice actually moves my nervous system. the data is answering. ${_sig}`,
         states:  `my states over time, period by period. ${_sig}`,
         times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
+        daypart: dp?`${dp.pct}% of my ${dp.seg} check-ins have safety in them. ${_sig}`:'',
         shift:   trn?`my nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
         records: (pr&&pr.bestWeek)?`my most regulated week yet. ${_sig}`:(pr&&pr.fastest)?`my fastest comeback yet: a dip, and back in ${pr.fastest.steps<=1?'one check-in':pr.fastest.steps+' check-ins'}. ${_sig}`:'',
         flavors: (fl&&fl.length)?`my safety comes in flavors. lately it's mostly ${fl[0].label}. ${_sig}`:'',
         context: ce?`safety in my weeks tagged “${ce.label}”, next to a typical week. ${_sig}`:'',
+        started: growthHead?`how far i've come since i started. ${_sig}`:'',
       };
       // each share image carries the card's visual, not just words
       const SHARE_VIZ = {
@@ -4728,12 +5009,14 @@
         day:     { kind:'meter', pct:safetyPct },
         comeback:rec?{ kind:'path', a:(dip||'fightflight'), b:'safety' }:null,
         times:   wd?{ kind:'days', idx:wd.idx }:null,
+        daypart: null,
         shift:   trn?{ kind:'path', a:trn.a, b:trn.b }:null,
         records: (pr&&pr.bestWeek)?{ kind:'meter', pct:pr.bestWeek.pct }:(pr&&pr.fastest)?{ kind:'path', a:pr.fastest.dom, b:'safety' }:null,
         flavors: fl?{ kind:'bars', rows:fl.map(r=>({ color:STATE_COLOR(r.key), pct:r.pct })) }:null,
         context: ce?{ kind:'bars', rows:[{ color:STATE_COLOR('safety'), pct:ce.tagPct },{ color:'#D8D2C2', pct:ce.typPct }] }:null,
         mix:     { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
         states:  { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
+        started: { kind:'meter', pct:safetyPct },
       };
       c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); const k=b.dataset.share; openShare(SHARE_TXT[k]||SHARE_TXT.safety, SHARE_VIZ[k]||null); }));
       c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
@@ -4930,6 +5213,12 @@
     {id:'outside-the-cave',    title:'Outside the Cave',    est:'~32 min', sub:'a deeper imagery journey'},
   ];
   let pState=null;
+  // set by a caller that wants the NEXT tabPractice() to seed pState from a specific
+  // shape (e.g. "change this practice" preloading the practice being changed) instead
+  // of tabPractice()'s own from-scratch defaults. Consumed once, then cleared
+  // (Justin 2026-07-28: "make my own" starts from scratch, "change this practice"
+  // preloads — they'd collapsed into the same always-preloaded behavior).
+  let _pendingPState=null;
 
   // ---------------------------------------------------------------- 7b MAKER DATA
   // The four shapeable practices (they take dials). Everything else in the type
@@ -4971,15 +5260,22 @@
   // last check-in, and one track-colored card the Curriculum Advisor recommends.
   // Tapping it opens the plan reader. "choose another way" reveals the full chooser.
   function tabPractice(){
-    const reco = Store.recommend();
-    // the recommender's preset dials (describe-the-defense / hold & watch, both
-    // gate-checked in store.js) seed the customizer so "change this practice"
-    // starts from the tuned shape.
-    pState = { key:null, sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
-               holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null,
-               // 7b maker state (paid + mobile): "make my own" starts collapsed; when
-               // opened it seeds from the recommended shape so it begins somewhere coherent.
-               makerOpen:false, mkKey:(MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring') };
+    if(_pendingPState){
+      // a caller (currently only "change this practice") staged an exact shape to
+      // preload — consume it once rather than re-deriving from today's recommendation,
+      // which may have moved on since that shape was chosen.
+      pState = _pendingPState; _pendingPState = null;
+    } else {
+      // plain arrival at the practice tab: "make my own" starts from scratch, not
+      // silently pre-filled with today's recommendation (that's what the "made for
+      // you" card already IS — the maker is the other option, and only reads as an
+      // alternative if it actually starts blank). The recommender still seeds the
+      // "made for you" tuned card itself, computed fresh inside renderMaker7b/
+      // renderPracticeChooser from Store.recommend() — nothing here depends on reco.
+      pState = { key:null, sense:'touch', skill:'imagery', silence:8, med:null,
+                 holdWatch:false, holdSeconds:60, open:false, emotion:null,
+                 makerOpen:false, mkKey:'anchoring' };
+    }
     renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
   }
 
@@ -5038,7 +5334,6 @@
       <div class="plan-head">
         <p class="eyebrow"></p>
         <div class="plan-titlerow">
-          <span class="plan-rail" aria-hidden="true"></span>
           <h1 class="plan-title">${planTitle}</h1>
         </div>
       </div>
@@ -5058,11 +5353,17 @@
     </div>`;
     $('#plan-begin').onclick = ()=>launchWeaver(reco);
     $('#plan-change').onclick = ()=>{
+      // stage the current shape for tabPractice() to pick up, then navigate once — it
+      // used to call app('practice') (which rendered the tab's own from-scratch chooser
+      // once) and THEN overwrite pState and render a second time, a visible double-render
+      // for what should be a single hop straight into editing this practice
+      // (Justin 2026-07-28: "consolidate the repetitive practice screen"). Landing with
+      // the maker already open (rather than the collapsed toggle) skips re-showing the
+      // same "made for you" card the person just came from.
+      _pendingPState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
+                 holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null,
+                 makerOpen:true, mkKey:(MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring') };
       app('practice');
-      // open the chooser already on this practice, with its current shape selected
-      pState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
-                 holdWatch:!!reco.holdWatch, holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null };
-      renderPracticeChooser();
     };
   }
 
@@ -5090,7 +5391,6 @@
       });
     });
     wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true">
-      <div class="p7-sheet-grip" aria-hidden="true"></div>
       ${title?`<div class="p7-sheet-title">${escapeHtml(title)}</div>`:''}
       <div class="p7-sheet-body">${rows}</div>
     </div>`;
@@ -5842,29 +6142,14 @@
     // settings redesign (turn 6, 2026-07-24): soft cards + a switch that reads in a row
     const gsSw=(id,label,on)=>`<div class="gs-sw"><span class="gs-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>`;
     // input method (settings owns the choice now): sliders (default) · states · numbers
+    // METHOD_LABEL / METHOD_CAP / _methodPreview are module-level (hoisted 2026-07-28 so
+    // onboarding's method card can share them — see near stateMarks()).
     const method = (localStorage.getItem('snb_checkin_method')||'sliders');
-    const METHOD_LABEL = { sliders:'question sliders', states:'state picker', numbers:'number sliders' };
-    const METHOD_CAP = {                                                                            // 🖊
-      sliders:'best for someone who has a hard time identifying their state. simply answer a few quick questions with three sliders.',
-      numbers:'use numbers to check in. best for the person that thinks concretely.',
-      states:'choose your state, then fine-tune it with sliders. best for someone familiar with their states and able to name them.' };
     const _svgChev=`<svg class="rs-disc-chev" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>`;
     const _svgAuto=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"></circle><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" stroke="none"></path></svg>`;
     const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
     const _svgDark=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>`;
     const TS_SIZES=[['0.92','12px'],['1','15px'],['1.12','18px'],['1.25','21px'],['1.6','26px']];
-    // a small, non-interactive taste of the chosen method. ink only (it illustrates the
-    // control, not a real reading), no glyph; the scale labels sit flush to the rail, and
-    // numbers mode shows the value on the right exactly like the live slider.
-    const _methodPreview=(m)=>{
-      if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}</div>`;
-      const numbered = m==='numbers';
-      const sc = numbered ? ['0','10'] : ['harder','easier'];
-      return `<div class="ci-prev${numbered?' has-num':''}" aria-hidden="true">
-          <div class="ci-prev-scale"><span class="ci-prev-lbls"><span>${sc[0]}</span><span>${sc[1]}</span></span></div>
-          <div class="ci-prev-row"><input type="range" class="ci-prev-range" min="0" max="100" value="62" tabindex="-1">${numbered?'<span class="ci-prev-num">6</span>':''}</div>
-        </div>`;
-    };
     $('#content').innerHTML = `
       <div class="view settings-view">
         <div class="scr-head">
@@ -5883,7 +6168,7 @@
             <div class="rs-disc-body" id="ci-method-body"><div class="disc-inner">
               <p class="gs-lbl2">how you enter your state</p>
               <div class="set-seg" id="seg-method">
-                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>question sliders</button>
+                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>questions</button>
                 <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>number sliders</button>
                 <button type="button" data-method="states"${method==='states'?' class="on"':''}>state picker</button>
               </div>
@@ -6161,6 +6446,14 @@
 
   // ---------------------------------------------------------------- utils
   function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+  // reader paragraphs (from-justin.js) wrap their dynamic numbers/state names/counts
+  // in a literal <b>...</b> so the reader can bold what's actually personal to the
+  // reader, the way the You-tab cards already do (Justin 2026-07-28: "bold all
+  // dynamic elements in the reader"). escapeHtml() alone would turn that <b> into
+  // literal text, so this escapes everything the normal way and then selectively
+  // un-escapes ONLY the <b>/</b> sequences — a narrow allowlist, not a trust switch:
+  // nothing else (script tags, attributes, other elements) can pass through.
+  function boldHtml(s){ return escapeHtml(s).replace(/&lt;b&gt;/g,'<b>').replace(/&lt;\/b&gt;/g,'</b>'); }
   // user display preferences (text size + motion), persisted and applied app-wide
   function applyPrefs(){
     try{
