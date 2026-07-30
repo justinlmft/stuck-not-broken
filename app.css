@@ -21,7 +21,7 @@
      for ink too (he judges them still legible at these sizes).
      rather than the darker ochre — darkened amber reads brown; this stays warm. */
   --track-safety-ink:#5891C5; --track-self-ink:#D29A4A; --track-mind-ink:#1A1F2A;
-  --field:#fff; --knob:#fff; --danger:#953434; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
+  --field:#fff; --knob:#fff; --danger:#862F2F; --raised:#FAF9F5; --backdrop:#E7E3DA; --press:#EAE7DE; --scale-lo:#CEC8BB; --scale-hi:#3A3730; --link-soft:rgba(6,69,173,.4); --tg-dim:#C9C3B4;
   --btn-hover:#2A3040; --ease:cubic-bezier(.2,.6,.2,1);
   /* breath is the one motion that must be symmetric in and out, so it carries its own
      curve. Declared, not inline, so there is exactly one place it can change. */
@@ -191,17 +191,13 @@ button{font:inherit;color:inherit}
   #screen .carousel{gap:18px}
   #screen .carousel > .panel{flex:0 0 min(92%,520px)}
 }
-/* axis cards (mobilized / immobilized time of day) — all sizes */
-.ax-big{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);margin:4px 0 12px;display:flex;align-items:center;gap:12px}
-.ax-big .seg-ico{width:.85em;height:.85em}
 /* daypart symbols: quiet ink line icons (morning sunrise / afternoon sun /
    evening moon+star / late-night stars) */
 .seg-ico{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .deep-lbl .seg-ico{width:15px;height:15px;vertical-align:-2.5px;margin-right:7px;opacity:.75}
-.ax-flav{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 14px}
-.ax-flav span{display:inline-flex;align-items:center;gap:7px;font-size:calc(13.5px * var(--type-scale));color:var(--ink-80)}
-.ax-flav i{width:9px;height:9px;border-radius:50%;flex:none}
-.ax-note{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.55;margin:0;text-wrap:pretty}
+/* .ax-big/.ax-flav/.ax-note (old mobilized/immobilized combined-card chips)
+   retired 2026-07-29 — those 2 cards became 5 solo-state axis cards built on the
+   shared rc-chart/rc-val system instead (see .ax-solo-chart below). */
 @media (min-width:720px) and (hover:hover){
   #screen > .tabbar button:hover{color:var(--ink);background:none}
   #screen > .tabbar button.on:hover{background:none}
@@ -297,7 +293,11 @@ p{margin:0;text-wrap:pretty}
 .backbtn{position:relative;background:none;border:0;cursor:pointer;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--muted);padding:6px 2px;display:inline-flex;align-items:center;gap:5px;transition:color .15s var(--ease)}
 .backbtn::before{content:'';display:inline-block;width:7px;height:7px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-1px);flex:none}
 .backbtn:hover{color:var(--ink)}
-.backbtn::before{content:'';position:absolute;inset:-8px -6px}
+/* hit-target expansion lives on ::after, not ::before — ::before is the chevron glyph
+   itself (see above); reusing ::before here used to yank the chevron out of the inline
+   flow via position:absolute and drag it away from the "back" text (D-item, backbtn
+   chevron/text misalignment). */
+.backbtn::after{content:'';position:absolute;inset:-8px -6px}
 .backbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 
 /* dividers */
@@ -532,7 +532,15 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 /* baseline card (§7.2 rework): six-state spectrum, no % / no meter-to-100 */
 .bl-wrap{margin:8px 0 0}
 .bl-bar{position:relative;height:22px;border-radius:999px;background:linear-gradient(90deg,var(--s-shutdown) 8.33%,var(--s-freeze) 25%,var(--s-fight) 41.67%,var(--s-play) 58.33%,var(--s-safety) 75%,var(--s-still) 91.67%)}
-.bl-prev{position:absolute;top:50%;height:22px;transform:translateY(-50%);border-radius:999px;background:var(--ink);opacity:.13}
+/* BUG FIX (2026-07-30, Justin: "the variation last overlay is just not
+   visible... make it outlined the same as variation this, but dashed and a
+   bit thinner"): a filled translucent tint (background+opacity) never read
+   reliably against a 6-color gradient bar — it visually disappeared entirely
+   against whichever segment happened to be close in luminance to --ink at
+   low opacity. Now an outline like .bl-band, just dashed and a touch thinner
+   (1.5px vs 2px) and a shade shorter (20px vs 26px) so the two are easy to
+   tell apart at a glance without one going invisible. */
+.bl-prev{position:absolute;top:50%;height:20px;transform:translateY(-50%);border-radius:999px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.18);background:none;z-index:0}
 .bl-band{position:absolute;top:50%;height:26px;transform:translateY(-50%);border-radius:999px;border:2px solid var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.22);z-index:1}
 .bl-dot{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:var(--ink);border:2.5px solid var(--bone);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(26,31,42,.3);z-index:2}
 .bl-ticks{display:flex;margin:10px 0 0}
@@ -542,19 +550,36 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .bl-kmark{flex:0 0 30px;height:16px;display:inline-flex;align-items:center;justify-content:center}
 .bl-kdot{width:14px;height:14px;border-radius:50%;background:var(--ink);border:2px solid var(--bone);box-shadow:0 1px 2px rgba(26,31,42,.28)}
 .bl-kband{width:26px;height:15px;border-radius:5px;border:2px solid var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.3)}
-.bl-kprev{width:26px;height:15px;border-radius:5px;background:var(--ink);opacity:.13}
+.bl-kprev{width:26px;height:13px;border-radius:5px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.22);background:none}
 .bl-wrap.early .bl-bar{filter:grayscale(.5);opacity:.55}
 .bl-early{font-size:calc(12.5px * var(--type-scale));color:var(--ink-80);margin:16px 0 0;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
-   swatches sit on the dark card, so give them light/legible marks there. */
+   swatches sit on the dark card, so give them light/legible marks there.
+   BUG FIX (2026-07-30, Justin: "'state variation this month' shows white in
+   the key, but black outline in the bar... the key has grey for 'variation
+   last month' but it's not grey in the bar"): these dark-mode overrides only
+   ever touched .bl-kband/.bl-kprev — the KEY's swatches — never .bl-band/
+   .bl-prev, the actual overlays drawn ON the gradient bar. --bone flips to
+   near-black in dark mode, so .bl-band's border (still var(--bone)) rendered
+   as a near-invisible dark outline instead of the key's light one, and
+   .bl-prev's background (var(--ink), now light) at the same low .13 opacity
+   used in light mode barely showed against the dark bar instead of matching
+   the key's boosted .24. Both bar overlays now get the identical treatment
+   their key swatches already had. v2 (2026-07-30): .bl-prev/.bl-kprev switched
+   from a filled tint to a dashed outline (see above), so their dark-mode fix
+   is now the same border-color swap as .bl-band/.bl-kband, not an opacity bump. */
 @media (prefers-color-scheme: dark){
   :root:not(.theme-light) .wn-mark{filter:invert(1)}
+  :root:not(.theme-light) .bl-band{border-color:var(--ink);box-shadow:none}
   :root:not(.theme-light) .bl-kband{border-color:var(--ink);box-shadow:none}
-  :root:not(.theme-light) .bl-kprev{opacity:.24}
+  :root:not(.theme-light) .bl-prev{border-color:var(--ink);box-shadow:none}
+  :root:not(.theme-light) .bl-kprev{border-color:var(--ink);box-shadow:none}
 }
 :root.theme-dark .wn-mark{filter:invert(1)}
+:root.theme-dark .bl-band{border-color:var(--ink);box-shadow:none}
 :root.theme-dark .bl-kband{border-color:var(--ink);box-shadow:none}
-:root.theme-dark .bl-kprev{opacity:.24}
+:root.theme-dark .bl-prev{border-color:var(--ink);box-shadow:none}
+:root.theme-dark .bl-kprev{border-color:var(--ink);box-shadow:none}
 .safety-foot{font-size:calc(14px * var(--type-scale));line-height:1.5;color:var(--muted);margin:12px 0 0;display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:nowrap}
 .safety-foot b{font-weight:500;color:var(--ink-80)}
 .safety-foot .st-marks{margin-left:1px}
@@ -581,16 +606,31 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .help-verdict{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:18px 0 0;text-wrap:pretty}
 .help-verdict.good{color:var(--ink)}
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
-.cb-viz{display:flex;align-items:center;gap:9px;margin:14px 0 16px}
-.cb-dot{width:15px;height:15px;border-radius:50%;flex:none}
-.cb-path{flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--s-fight),var(--s-safety));transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
-.cb-end{animation:cbPop .4s 1.6s var(--ease) both}
+.cb-viz{display:flex;align-items:center;gap:7px;margin:14px 0 16px}
+.cb-journey .cb-viz{margin:0}
+.cb-viz-inset{margin:14px 0 4px}
+.cb-path{position:relative;flex:1;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--s-fight),var(--s-safety));transform-origin:left;animation:cbDraw 1.4s .4s var(--ease) both}
+/* step dots on the comeback card's path: one per check-in in "about N check-ins" —
+   turns that number into a picture instead of just a word (Justin 2026-07-28: "the
+   count is the evidence" led to the parenthetical below; this is the CLAIM's own
+   number, so it earns a place on the visual itself). */
+.cb-steps{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-evenly;padding:0 5px}
+.cb-step{width:5px;height:5px;border-radius:50%;background:var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.08);opacity:0;animation:cbStepPop .35s var(--ease) both}
+@keyframes cbStepPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+/* the actual arrowhead (was missing entirely — the gradient bar alone left direction
+   only implied by color, easy to misread at a glance, e.g. .cb-dot/.cb-end were dead
+   CSS from an older dot-based version this replaced). pops in once the path has
+   finished drawing, tinted to the state it's arriving at (Justin 2026-07-28). */
+.cb-arrow{flex:none;width:15px;height:15px;opacity:0;animation:cbPop .3s 1.5s var(--ease) both}
 .cb-line{font-size:calc(15.5px * var(--type-scale));line-height:1.65;color:var(--ink-80);text-wrap:pretty;margin:0}
 .cb-line+.cb-line{margin-top:12px}
 .cb-line b{font-weight:600;color:var(--ink)}
+/* the trip-count parenthetical: a quiet footnote, not a headline number (moved out of
+   the main sentence per Justin 2026-07-28) */
+.cb-fine{font-size:calc(13px * var(--type-scale));line-height:1.5;color:var(--muted);margin:10px 0 0}
 @keyframes cbDraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @keyframes cbPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
-@media (prefers-reduced-motion:reduce){.cb-path,.cb-end{animation:none}}
+@media (prefers-reduced-motion:reduce){.cb-path,.cb-arrow,.cb-step{animation:none;opacity:1;transform:none}}
 
 /* dots — real buttons now (tap to jump to a card); the visible dot stays 7px,
    the touch zone is 38px per dot */
@@ -620,12 +660,132 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .wk-dot{width:13px;height:13px;border-radius:50%;background:var(--bone-deep)}
 .wk-dot.on{width:20px;height:20px;background:var(--s-safety)}
 .wk-lb{font-size:calc(10.5px * var(--type-scale));color:var(--muted)}
+/* "your most regulated day/time of day" v2 (2026-07-29, Claude Design's layout-
+   hierarchy pass) — replaced the dot-strip with a real bar chart: bar height =
+   that day/daypart's own safety %, bar color = that day/daypart's own dominant
+   state (STATE_COLOR, identity-by-color per DESIGN-DNA-CONTRACT — each bar only
+   ever carries the color of the state it's actually reporting on, never a
+   decorative ramp), led by a big "it's ___" headline instead of a subtitle line. */
+/* v3 (2026-07-29b, Justin: subject-first — "monday is your most regulated day," not
+   "it's monday" — with visual weight and the card's safety color ON monday itself).
+   The day/time name is a block-level "hero word," oversized against the tail sentence
+   that trails it, same big-word/small-caption pattern as the growth card's numbers. */
+.rc-hero-title{font-size:calc(15.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:2px 0 18px}
+.rc-hero-word{display:block;font-size:calc(34px * var(--type-scale));font-weight:600;line-height:1.15;margin:0 0 3px;text-transform:capitalize}
+.rc-chart{display:flex;gap:8px;align-items:flex-end;margin:0 0 16px;height:90px}
+.rc-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%}
+/* BUG FIX (2026-07-31, Justin: "still not seeing the staggered bar animations"):
+   _staggerDelays' per-column value was being set as an inline `animation-delay`
+   on `.rc-col` — but `.rc-col` has no animation of its own; only its child
+   `.rc-bar` animates, with no delay of its own, so every bar rose in
+   on the same beat regardless of the computed stagger. Same `--sd` custom-
+   property convention as distrow-fill/help-fill: set on the column, consumed
+   by the element that actually animates.
+   UPDATE (2026-07-31, Justin: "better, but they should animate upward, not just
+   appear"): riseIn (opacity+7px translateY) reads as a fade, not a bar growing
+   in. `.rc-bar`'s own height is already its real value (set inline per column),
+   so scaling it from 0 anchored at the BOTTOM (transform-origin) makes it grow
+   up from the baseline to that height, like an actual bar chart animating in —
+   `rc-lb`'s label below is unaffected, only the bar scales. */
+.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;transform-origin:bottom center;animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+@keyframes rcGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.rc-lb{font-size:calc(11px * var(--type-scale));color:var(--muted);display:flex;align-items:center;justify-content:center}
+.rc-col-best .rc-lb{color:var(--ink);font-weight:600}
+.rc-lb .seg-ico{width:15px;height:15px;color:inherit}
 .streak{display:flex;gap:9px;align-items:center;margin:12px 0 16px;flex-wrap:wrap}
 .streak-dot{width:14px;height:14px;border-radius:50%;background:var(--s-safety)}
 .streak-more{font-size:calc(12px * var(--type-scale));color:var(--muted)}
 .cb-glyphs .cb-g{flex:none;display:inline-flex}
 .cb-glyphs .st-marks{display:inline-flex;gap:3px;align-items:center}
 .cb-glyphs .st-mark{width:24px;height:24px}
+/* "getting back to safety" specifically: bigger glyphs (Justin 2026-07-28) — the
+   standard 24px read too small carrying this much of the card's meaning on its own. */
+.cb-glyphs-lg .st-mark{width:32px;height:32px}
+.cb-glyphs-lg .cb-arrow{width:19px;height:19px}
+/* v2 (2026-07-29, Claude Design's layout-hierarchy pass, implemented from their
+   markup proposal): the comeback card's glyphs become the dominant element on the
+   card, not a strip under the sentence. A third size tier above .cb-glyphs-lg. */
+/* vertical rhythm rule (2026-07-29 redesign, Justin: "what is the rule about space
+   above and below the glyphs? if no rule, please make one") — hero-glyph blocks
+   get a fixed rhythm independent of whatever precedes/follows: 40px clear space
+   above (handled by the more specific .panel-share + .cb-journey rule below,
+   since a share button always precedes this block), 30px below, before the
+   caption sentence. Any future hero-glyph card should reuse .cb-journey rather
+   than inventing new margins. */
+.cb-journey{margin:16px 0 30px}
+/* titles cut on these 3 cards (Justin 2026-07-29c: "images carry the visual weight,
+   not the titles") — the visual is now the FIRST visible thing under the share
+   button, which is absolutely positioned and no longer has a title's height/padding
+   reserving clearance above it. Bump top margin specifically in that case so nothing
+   crowds the button in the corner. */
+.panel-share + .cb-journey,.panel-share + .rc-hero-title{margin-top:40px}
+/* 2026-07-29b (Justin: "that's the star here. make them dominant."): a second bump,
+   56px wasn't enough — these are now the single biggest thing on the card, bigger than
+   the panel-title itself. */
+/* BUG FIX (2026-07-31, Justin: "the heart glyphs seem smaller than the others"):
+   forcing every mark into the same 88x88 SQUARE box didn't actually make them
+   the same size — the heart's own viewBox is notably wider-than-tall
+   (aspect 1.24) versus bolt/x (~0.95-0.98, nearly square), so inside an
+   identical square box with the SVG default preserveAspectRatio (xMidYMid
+   meet), the heart is width-constrained and letterboxes vertically, rendering
+   at ~71px tall while bolt/x fill the full 88px height. Matching a fixed
+   WIDTH made them different heights. Match height instead (the dimension
+   that actually reads as "size" in a horizontal glyph row) and let width
+   size itself off each icon's own aspect ratio — no letterboxing, no
+   squishing, every mark actually 88px tall. */
+.cb-glyphs-hero .st-mark{width:auto;height:88px}
+/* BUG FIX (2026-07-29d, Justin: "why is the defense glyph so dang small??"): freeze/
+   play/stillness render as TWO marks (.st-pair) instead of one — e.g. freeze = bolt +
+   x. A later, equal-specificity rule (.st-pair .st-mark{width:14px}, for the small
+   inline mark pairs used elsewhere in the app) was winning by source order and
+   silently shrinking the hero pair down to 14px while single-icon dips (fightflight,
+   shutdown) rendered correctly at 88px — so this bug only showed up depending on
+   which state someone's most common dip happened to be. Three-class selector here
+   beats it on specificity regardless of source order.
+   UPDATE (2026-07-31, Justin: "make sure the glyphs are all the same size — some
+   seem a touch smaller"): the pair used to be sized down to 74px so the two marks
+   together wouldn't outweigh the single safety heart on the other end, but that
+   read as visibly smaller (measured live: 68px vs 81px rendered) whenever an
+   account's most common state was a blend (play/stillness/freeze). Every mark is
+   now the same 88px regardless of solo/pair — touching at gap:0 so a pair still
+   reads as one combined shape rather than two separate icons with daylight
+   between them, but no mark is ever smaller than another. Still needs its own
+   three-class rule below (not just the two-class .cb-glyphs-hero .st-mark
+   above): dropping it entirely let the generic .st-pair .st-mark{width:14px}
+   (same two-class specificity, later in the file) win by source order again —
+   the exact regression this bug-fix already covers, just re-triggered by
+   removing the override instead of by never having it.
+*/
+.cb-glyphs-hero .st-pair .st-mark{width:auto;height:88px}
+.cb-glyphs-hero .st-pair{gap:0}
+/* the single unified arrow shape (shaft + head, one path, one gradient — see
+   cbHeroArrowSVG in app.js) replacing the old bar+separate-arrowhead pair */
+/* BUG FIX (2026-07-29 redesign: "on desktop, the arrow head stretches and it looks
+   weird"): flex:1 let this SVG's own row grow to whatever width the panel had —
+   on a wide desktop card that stretched a 30px-tall arrow shape to 400px+ wide
+   (preserveAspectRatio="none"), badly distorting the arrowhead. Fixed width
+   instead, and since the row's other two children (the glyphs) don't grow either,
+   the whole group now sits left-aligned as one unit rather than spanning the card. */
+.cb-arrow-hero{flex:0 0 auto;width:64px;height:28px;display:block}
+/* BUG FIX (2026-07-30, Justin: "i don't see the animation... on any card" —
+   'getting back to safety', 'your most common shift', and 'is practice
+   helping?' all use this hero glyph treatment): the 2026-07-29 hero redesign
+   swapped the old .cb-path/.cb-arrow pair (which DID self-animate — see
+   cbDraw/cbPop above) for .cb-g/.cb-arrow-hero, but never gave the new
+   elements any animation of their own — these 3 cards have been rendering
+   fully-static since that redesign shipped. Same narrative the old pair had:
+   the FROM glyph appears, the arrow travels left-to-right to connect it to
+   the TO glyph, which resolves in as the payoff. */
+@media (prefers-reduced-motion:no-preference){
+  .cb-glyphs-hero .cb-g{animation:cbHeroGIn .4s var(--ease) both}
+  .cb-glyphs-hero .cb-g:first-child{animation-delay:.05s}
+  .cb-glyphs-hero .cb-g:last-child{animation-delay:.75s}
+  .cb-glyphs-hero .cb-arrow-hero{transform-origin:left center;animation:cbHeroArrowIn .5s .35s var(--ease) both}
+}
+@keyframes cbHeroGIn{from{opacity:0;transform:translateY(6px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes cbHeroArrowIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-arrow-hero{animation:none;opacity:1;transform:none}
+.cb-line-lead{font-size:calc(18px * var(--type-scale));line-height:1.5;color:var(--ink);font-weight:500;margin:0 0 12px}
 .wk-mark{display:inline-flex;align-items:center;justify-content:center;height:20px}
 .wk-mark .snb-ico{height:19px;width:auto;display:block}
 .help-lbl .st-marks{display:inline-flex;gap:2px;vertical-align:-2px;margin-right:6px}
@@ -672,7 +832,6 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .app-toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,8px);background:var(--ink);color:var(--bone);font-size:calc(13.5px * var(--type-scale));padding:9px 17px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease);z-index:60;box-shadow:0 8px 24px var(--shade)}
 .app-toast.on{opacity:1;transform:translate(-50%,0)}
 /* day-by-day: safety-warmth ribbon */
-.arc-readout{font-size:calc(12.5px * var(--type-scale));color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;margin-bottom:11px}
 .arc-wrap{position:relative;margin-bottom:26px}
 .arc-ribbon{height:46px;border-radius:11px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
 .arc-axis{position:relative;height:13px;margin-top:8px}
@@ -687,9 +846,14 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .ct-btn{border:0;background:transparent;border-radius:7px;padding:5px 14px;font:inherit;font-size:calc(12.5px * var(--type-scale));color:var(--muted);cursor:pointer}
 .ct-btn.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .chart{display:block;width:100%;height:auto;margin:4px 0 10px;overflow:visible}
-.chart .cx{font-size:calc(11px * var(--type-scale));fill:var(--muted);font-family:inherit}
-.cpt{cursor:pointer}
-.cpt:hover{stroke-width:2.4}
+/* BUG FIX (2026-07-29, Justin: "the dates need to be way smaller, they overlap"):
+   this chart's date labels live inside the SVG's own 320-unit viewBox, so their
+   font-size behaves as user units, not screen pixels — at 11 units wide, "Jun 21"
+   (start-anchored, extending rightward) and the next label "Jun 28" (middle-
+   anchored) were together wider than the ~60-unit slot between them at 6 evenly-
+   spaced labels, so the first two always overlapped regardless of viewport width.
+   Shrunk enough to leave real breathing room between adjacent labels. */
+.chart .cx{font-size:calc(8px * var(--type-scale));fill:var(--muted);font-family:inherit}
 /* sticky period filter + settings gear share the top row */
 .filter-bar{position:sticky;top:0;z-index:6;background:var(--bone);margin:0 -22px 16px;padding:14px 22px 12px;display:flex;align-items:center;gap:12px}
 .filter-bar .play-filter.seg{flex:1;margin-bottom:0}
@@ -720,10 +884,19 @@ body.show-fab .fab{display:flex}
 @keyframes numRise{from{transform:translateY(6px)}to{transform:translateY(0)}}
 @keyframes popIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:no-preference){
-  .safety-meter-fill,.distrow-fill,.help-fill{transform-origin:left center;animation:growx .9s var(--ease)}
+  /* --sd (2026-07-30, Justin: "stagger the bars in, rapidly"): a per-row/per-column
+     custom property set inline by JS. It inherits from the row/column element down
+     to its own inner fill/bar span (CSS custom properties inherit; animation-delay
+     itself does not), so both animate on the same beat without duplicating the
+     delay value on two elements. Defaults to 0ms wherever JS doesn't set it —
+     zero behavior change for anything not opted into staggering. `both` fill-mode
+     on every one of these (added alongside the delay support) holds the FROM state
+     during its delay instead of flashing the end-state first, then snapping back. */
+  .safety-meter-fill,.distrow-fill,.help-fill{transform-origin:left center;animation:growx .9s var(--ease) both;animation-delay:var(--sd,0ms)}
   .safety-num{animation:numRise .6s var(--ease)}
   .safety-foot,.safety-range,.bloom-line{animation:riseIn .7s var(--ease)}
-  .distrow{animation:riseIn .55s var(--ease)}
+  .distrow{animation:riseIn .55s var(--ease) both;animation-delay:var(--sd,0ms)}
+  .help-row{animation:riseIn .5s var(--ease) both;animation-delay:var(--sd,0ms)}
   .wk-cell{animation:riseIn .5s var(--ease) both}
   .wk-mark{animation:popIn .6s var(--ease) both;animation-delay:.35s}
   .streak-dot{animation:popIn .5s var(--ease) both}
@@ -995,7 +1168,6 @@ body.reduce-motion .p7-dial-cue{animation:none}
 .p7-sheet-card.track-safety{--tc:var(--track-safety);--tc-ink:var(--track-safety-ink)}
 .p7-sheet-card.track-self{--tc:var(--track-self);--tc-ink:var(--track-self-ink)}
 .p7-sheet.on .p7-sheet-card{transform:none}
-.p7-sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--hairline);margin:8px auto 4px}
 .p7-sheet-title{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink);letter-spacing:-.01em;padding:10px 22px 6px}
 /* section header: a sentence-case banded label (NOT a tiny uppercase eyebrow), so
    the groups read as real sections (2026-07-24, Justin). */
@@ -1007,6 +1179,10 @@ body.reduce-motion .p7-dial-cue{animation:none}
    between consecutive rows so it reads as a list of distinct choices, not a strip. */
 .p7-opt{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;position:relative;
   padding:15px 22px;font:inherit;color:var(--ink-80);text-align:left;cursor:pointer}
+/* when a sheet has labeled groups (e.g. "what would you like to practice?"), indent the
+   option rows past the group header so the list reads as header→children, not a flat
+   strip with dividers that happen to have a caption above them (Justin 2026-07-28). */
+.p7-sheet-body:has(.p7-sheet-group) .p7-opt{padding-left:36px}
 .p7-opt + .p7-opt{border-top:0.5px solid var(--hairline)}
 .p7-opt:hover{background:var(--bone-deep)}
 .p7-opt:active{background:var(--press)}
@@ -1070,15 +1246,13 @@ body.reduce-motion .p7-shape{animation:none}
 
 /* ---- practice: plan reader ---- */
 /* header now follows the unified .scr-head rhythm: a reserved eyebrow line and a heading
-   on the same left edge as every other screen. the earned track color stays — as the
-   eyebrow color and a thin rail hung in the left gutter (it never displaces the text). */
+   on the same left edge as every other screen. the track-colored rail hung in the left
+   gutter is gone (Justin 2026-07-28: "cut the colored rail on custom practice") — the
+   track color still earns its place via .plan-hl (the tuned-detail highlights below). */
 .plan-view{gap:0}
 .plan-head{margin:0 0 22px}
 .plan-head .eyebrow{min-height:13px;margin:0 0 11px}
 .plan-titlerow{position:relative}
-.plan-rail{position:absolute;left:-14px;top:1px;bottom:1px;width:3px;border-radius:3px;background:var(--track-mind)}
-.plan-view.track-safety .plan-rail{background:var(--track-safety)}
-.plan-view.track-self   .plan-rail{background:var(--track-self)}
 /* plan (custom practice) reads like the blog reader: read-h1-size title, sec-h section
    headings, reader body register (Justin 2026-07-03) */
 .plan-title{font-size:calc(23px * var(--type-scale));font-weight:500;line-height:1.2;letter-spacing:-.01em;color:var(--ink);margin:0;text-wrap:pretty}
@@ -1339,6 +1513,11 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:none}
 .rs-cap{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.5;margin:11px 0 0;text-wrap:pretty}
 .rs-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--bone-deep)}
+/* onboarding's method card: fixed floor height so switching sliders/numbers/states
+   doesn't reflow the whole sheet — the state-picker preview (6 wrapped chips) is much
+   taller than the single-slider previews, and the card used to visibly resize on every
+   tap (Justin 2026-07-28: "check-in-method preview + fixed height"). */
+.ob-method-preview{min-height:98px}
 /* method preview: ink illustration of the control (no glyph, no state colour). the
    scale row and the slider row share one grid so labels align to the rail ends, and
    numbers mode reserves a right-hand column for the value (like the live slider). */
@@ -1393,11 +1572,10 @@ body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:no
 .tb-row-sub{font-size:calc(14.5px * var(--type-scale))}
 .tb-refl,.tb-reason{font-size:calc(15px * var(--type-scale))}
 /* you tab reading text — fuller coverage (this screen has the most reading) */
-.help-lbl,.growth-cap,.bloom-line,.safety-foot,.safety-trend{font-size:calc(14px * var(--type-scale))}
+.help-lbl,.bloom-line,.safety-foot,.safety-trend{font-size:calc(14px * var(--type-scale))}
 .help-verdict{font-size:calc(14.5px * var(--type-scale))}
 .distrow-name{font-size:calc(15px * var(--type-scale))}
 .distrow-pct,.help-pct{font-size:calc(13.5px * var(--type-scale))}
-.arc-readout{font-size:calc(13px * var(--type-scale))}
 .lg-it{font-size:calc(12.5px * var(--type-scale))}
 
 /* ---------- enlarged hit areas ---------- */
@@ -1586,6 +1764,19 @@ body.reduce-motion .settle-ico{transition:none}
 @keyframes chartArea{from{opacity:0}to{opacity:.1}}
 body:not(.reduce-motion) .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
 body:not(.reduce-motion) .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
+/* 2026-07-30 (Justin: "'your states over time' has a great opportunity for
+   animation"): the line already drew itself here (see above), but that was
+   the ONLY thing that ever animated on this chart — the dots, date labels,
+   and state legend all just appeared instantly, and (separately) chartInner's
+   self-draw was gated to mode==='safety', a dead code path, so in practice
+   this chart never animated at all. Dots now pop in one-by-one, in sequence,
+   right as the line finishes drawing past them (delays are set inline per-dot
+   in JS since they land at different points along a 1.05s draw); the date
+   labels and the legend/scale footer fade in right after the last dot lands. */
+@keyframes cptIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+body:not(.reduce-motion) .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
+body:not(.reduce-motion) .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
+body:not(.reduce-motion) .legend[style*="animation-delay"],body:not(.reduce-motion) .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
 
 
 /* brand logo as a live state read — color only, lockup fixed (added 2026-06-27) */
@@ -1622,12 +1813,65 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 .safety-foot .sf-txt{flex:1}
 
 
-/* 'your growth' card headline */
-.growth-head{display:flex;flex-direction:column;gap:5px;margin:4px 0 16px}
-.growth-num{font-size:calc(30px * var(--type-scale));font-weight:500;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
-.growth-num.up{color:var(--ink)}
-.growth-num.down{color:var(--muted)}
-.growth-cap{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.5;text-wrap:pretty}
+/* 'your safety changes' card, v4 (2026-07-30, Justin: "make this into a line
+   graph instead... a nice smooth line using the colors of the safety
+   activation, like the states over time one"). v3's then/now BAR pair
+   (.gr-mini-chart, retired) is replaced by a 2-point line: same gradient/
+   self-draw mechanics as the states-over-time chart (.chart/.cline-path/
+   .cline-area/.cpt, reused as-is), just with only 2 points and a cubic-bezier
+   S-curve between them (flat-in, flat-out) instead of a straight diagonal, so
+   it reads as a deliberate flowing shape rather than a raw plot. Value labels
+   and the then/now labels sit outside the svg as plain flex rows, left/right-
+   aligned to match the line's endpoints, since positioning 2 fixed points
+   doesn't need real chart-label logic. */
+/* BUG FIX (2026-07-30, Justin: "it's tiny! it should take up as much visual
+   space as 'your states over time'. use the same visual language"): the svg
+   used to carry a hardcoded height:120px, which fought the shared .chart
+   class's own width:100%;height:auto (the same rule chartInner's states-over-
+   time svg relies on to fill the card). The viewBox is now literally the same
+   320×132 chartInner uses, so at the same card width the two charts render at
+   the same visual weight — removing the fixed height was the actual fix; the
+   viewBox match just keeps the proportions (and curve prominence) consistent too. */
+.gr-line-wrap{margin:8px 0 0}
+/* BUG FIX (2026-07-31, Justin: "the safety increase one... has floating
+   percentages"): the value labels used to sit in their own flex row above the
+   whole svg (.gr-line-vals, retired) — detached from the actual points below
+   them by the full height of the chart. Now positioned as % of .gr-line-box
+   (a plain position:relative wrapper around just the svg, so the box's own
+   size IS the svg's rendered size and left/top % line up 1:1 with the
+   viewBox's own x/W, y/H fractions), directly above each point — same
+   "value tied to its own mark" rule as .rc-val, applied to a line chart
+   instead of a bar. */
+.gr-line-box{position:relative}
+.gr-line-val{display:flex;align-items:center;gap:4px;font-size:calc(15px * var(--type-scale));font-weight:600;color:var(--ink)}
+.gr-line-val-now{font-size:calc(17px * var(--type-scale))}
+.gr-pt-val{position:absolute;transform:translate(0,calc(-100% - 10px));white-space:nowrap;pointer-events:none}
+.gr-pt-val-end{transform:translate(-100%,calc(-100% - 10px))}
+.gr-line-labs{display:flex;justify-content:space-between;font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:2px}
+/* value-above-bar label, shared by the growth mini-chart and the solo axis cards:
+   one small consistent convention (the number sits above its own bar) instead of
+   a different label style per card. Left-aligned to the bar's own left edge
+   rather than centered over it — align-self:flex-start overrides .rc-col's
+   align-items:center for just this child; .rc-bar is width:100% of the column,
+   so the column's left edge IS the bar's left edge. */
+.rc-val{display:flex;align-items:center;justify-content:flex-start;align-self:flex-start;gap:4px;font-size:calc(13px * var(--type-scale));font-weight:600;color:var(--ink);margin:0 0 6px;white-space:nowrap}
+/* BUG FIX (2026-07-29, Justin: "seeing glyph and percentage overlap"): this
+   used to size `.st-marks` (the icon WRAPPER) to a fixed 14x14 box too, not
+   just `.st-mark` (each icon). For a single-icon state that's harmless — but a
+   blended state (play/stillness/freeze) renders TWO icons in one `.st-marks`,
+   and squeezing that wrapper's width to 14px overrode its own
+   `flex:0 0 auto` (from the base `.st-marks` rule) — the second icon rendered
+   correctly sized but with nowhere to go, spilling out of its 14px box and
+   overlapping the "20%" text sitting right next to it in this flex row. Size
+   only the individual icon; let the wrapper size to its actual content. */
+.rc-val .st-mark{width:14px;height:14px}
+.rc-val .st-marks{height:14px;gap:2px}
+.gr-val-glyph{width:16px;height:16px;flex:none;display:inline-block;vertical-align:-3px}
+/* solo axis cards (play/flight-fight/stillness/shutdown/freeze — 2026-07-29
+   redesign, replacing the old 2-card mobilized/immobilized + flavor-chip
+   layout): identical rc-chart bar structure to times/daypart, just a touch more
+   clearance under the hero-title line above it. */
+.ax-solo-chart{margin-top:6px}
 
 
 /* change a recent check-in: picker list + entry link */
@@ -1727,6 +1971,12 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .read-pq{margin:18px 0 14px;padding:3px 0;border-left:none;font-size:calc(18px * var(--type-scale));line-height:1.55;font-weight:500;color:var(--ink);text-wrap:pretty;font-style:normal}
 /* reader body copy — classes so the text-size setting reaches it (was inline px in app.js) */
 .read-p{font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0 0 12px}
+/* dynamic numbers/state names/counts in the reader's own sentences get the same
+   weight+ink treatment the You-tab cards already use for their <b> (.cb-line b) —
+   what's actually personal to the reader should read as such (Justin 2026-07-28).
+   from-justin.js wraps the dynamic tokens; boldHtml() in app.js is what lets the
+   <b> survive into the rendered paragraph instead of being escaped to text. */
+.read-p b,.read-lead b,.read-dek b,.read-pq b,.wr-list li b,.wr-foot b{font-weight:600;color:var(--ink)}
 /* the reader's close: a quiet handoff from reflection into the practice shaped from
    these check-ins (2026-07-24). set apart by a hairline, not a slab. */
 .read-to-practice{margin-top:30px;padding-top:24px;border-top:0.5px solid var(--hairline)}
@@ -2433,7 +2683,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .you-reader .yr-arw{color:var(--muted);flex:none;display:inline-flex}
 .you-reader .yr-arw svg{width:20px;height:20px}
 .you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px -22px 4px;padding:12px 22px}
-.you-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.you-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x}
 .you-chips::-webkit-scrollbar{display:none}
 .you-chip{position:relative;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hairline);border-radius:999px;padding:7px 13px;font:inherit;font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;cursor:pointer;flex:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),background .2s var(--ease),color .2s var(--ease)}
 .you-chip::before{content:'';position:absolute;inset:-7px 0}
@@ -2481,6 +2731,10 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-top{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;transition:opacity .9s var(--ease)}
 .mh-peri{color:var(--ink);display:inline-flex}
 .mh-peri svg{width:24px;height:24px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* the un-checked-in greet has nothing beside the period glyph (no state pill, no triglyph)
+   to give it visual company, so the same 24px reads small and lost above the greeting.
+   Bigger here only — the checked-in .mh-state icon is unchanged. (2026-07-28) */
+.mh-top > .mh-peri svg{width:34px;height:34px;stroke-width:1.3}
 .mh-greet{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em;margin:0;text-wrap:pretty}
 .mh-state{display:inline-flex;align-items:center;gap:11px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 6px}
 .mh-state .mh-peri{display:inline-flex;color:var(--ink)}
@@ -2516,6 +2770,9 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-secondrow.revealed .mh-ci-full{display:none}
 .mh-secondrow.revealed .mh-checkin .mh-ci-plus{display:inline-flex}
 .mh-secondrow.revealed .mh-third{flex:1 1 auto;max-width:100%;margin-left:10px;padding-left:22px;padding-right:22px;border-width:1px}
+/* not-checked-in second row (2026-07-28): the third/micro button has no check-in-again
+   sibling to sit beside, so it doesn't need the left margin that separates them. */
+.mh-secondrow.no-checkin.revealed .mh-third{margin-left:0}
 .mh-secondrow.revealed.third-in .mh-third{opacity:1;transform:none;transition:opacity .55s var(--ease),transform .55s var(--ease);
   /* nowrap + overflow:hidden are needed for the max-width reveal, but once the
      invite has ARRIVED they silently truncated the label at larger Dynamic Type
@@ -2549,6 +2806,12 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 .ob-hole.anim{animation:obFade .2s var(--ease)}
 @keyframes obFade{from{opacity:0}to{opacity:1}}
 @keyframes obRiseS{from{transform:translateY(100%)}to{transform:translateY(0)}}
+/* step-to-step transition (as opposed to the first-open rise from obRiseS): every card
+   after the first used to hard-cut in place — new copy, new height, new dim/hole shape,
+   all in the same frame. A soft fade+settle on the card, plus a fade on the dim panes and
+   spotlight hole (already-defined .anim classes, previously only ever applied on first
+   open), makes the shape genuinely shift rather than jump (Justin 2026-07-28). */
+@keyframes obStepIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 /* "what's new" one-time card (returning users, state-math rework) */
 .wn-scrim{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
   padding:24px 18px calc(24px + env(safe-area-inset-bottom));background:var(--scrim,rgba(26,31,42,.42));
@@ -2585,11 +2848,15 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 .ob-card.more .ob-foot::before{opacity:1}
 body.reduce-motion .ob-foot::before{transition:none}
 .ob-card.anim{animation:obRiseS .34s var(--ease)}
-/* the grab row carries back on the left. A 3-column grid keeps the grab optically centred
-   whether or not back is there, and keeps the control out of the footer, where it would
-   compete with the action button for the space the buttons are guaranteed. */
+.ob-card.step{animation:obStepIn .22s var(--ease)}
+/* the top row carries back on the left. A 3-column grid (back / empty spacer / empty
+   spacer) keeps back left-aligned without the row collapsing lopsided when it's the only
+   thing there, and keeps the control out of the footer, where it would compete with the
+   action button for the space the buttons are guaranteed. The centre column used to carry
+   a decorative "grab" pill implying the card was draggable — it wasn't (no drag/swipe
+   handler exists anywhere in the app), so it's removed rather than kept as a promise the
+   card didn't keep (Justin, 2026-07-28). */
 .ob-top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;margin:-6px 0 14px}
-.ob-grab{display:block;width:34px;height:4px;border-radius:2px;background:var(--hairline);margin:0 auto}
 .ob-back{position:relative;justify-self:start;display:inline-flex;align-items:center;gap:2px;
   background:none;border:0;padding:0;cursor:pointer;font:inherit;
   font-size:calc(13.5px * var(--type-scale));color:var(--muted);transition:color .15s var(--ease)}
@@ -2643,12 +2910,12 @@ body.reduce-motion .ob-foot::before{transition:none}
   .ob-card{left:50%;right:auto;bottom:50%;width:min(92%,520px);transform:translate(-50%,50%);
     border-radius:18px;border:1px solid var(--hairline);padding:26px 28px 22px;max-height:min(78vh,660px)}
   .ob-card.anim{animation:obFade .28s var(--ease)}
-  .ob-grab{display:none}                      /* nothing to drag on a pointer device */
+  .ob-card.step{animation:obFade .22s var(--ease)}
   .ob-acts{flex-direction:row-reverse;justify-content:flex-start;gap:10px}
   .ob-acts .btn{width:auto;min-width:172px}
   .ob-chips{gap:8px}
   .ob-mark{width:64px}
 }
 @media (prefers-reduced-motion:reduce){
-  .ob-card,.ob-dim,.ob-hole{animation:none}
+  .ob-card,.ob-card.step,.ob-dim,.ob-hole{animation:none}
 }
