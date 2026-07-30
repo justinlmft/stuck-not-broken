@@ -188,6 +188,23 @@
     const out = c.map((v,i)=>Math.round(v + (bg[i]-v)*strength));
     return `rgb(${out[0]},${out[1]},${out[2]})`;
   }
+  // _staggerDelays(): per-column animation-delay (ms) so a bar chart's secondary
+  // columns cascade in fast, left-to-right in their own natural order, and the
+  // highlighted/"best" column (Justin 2026-07-30: "end with the primary one")
+  // lands LAST as the payoff — regardless of where it sits in the row. `step` is
+  // the gap between secondary columns ("rapidly"); `pause` is the small extra
+  // beat before the primary bar rises, so it reads as a deliberate landing, not
+  // just the next tick in the sequence. bestIdx<0/null = no highlight, falls
+  // back to a plain left-to-right cascade.
+  function _staggerDelays(n, bestIdx, step, pause){
+    step = step==null ? 32 : step;
+    pause = pause==null ? 90 : pause;
+    const arr = new Array(n).fill(0);
+    let k = 0;
+    for(let i=0;i<n;i++){ if(i===bestIdx) continue; arr[i] = k*step; k++; }
+    if(bestIdx!=null && bestIdx>=0 && bestIdx<n) arr[bestIdx] = k*step + pause;
+    return arr;
+  }
 
   // The three brand marks ARE the three nervous-system axes. heart=safety,
   // bolt=fight-or-flight, x=shutdown. One vocabulary across check-in, you-tab, feedback.
@@ -3902,6 +3919,33 @@
   }
   function periodLabel(key){ return PERIODS.find(p=>p.key===key)?.label||'all time'; }
 
+  // _smoothCurve(): Catmull-Rom -> cubic-bezier conversion (tension 1/6, the
+  // standard conversion) so a multi-point line reads as one continuous flowing
+  // shape instead of an angular point-to-point polyline (2026-07-30, Justin:
+  // "make the line smooth, not angular from point to point... this should feel
+  // like a nice flow"). Markers still sit exactly on the real data (dots use the
+  // raw point coordinates below); only the CONNECTING line eases between them.
+  // Returns just the "C ..." command sequence \u2014 callers prepend their own
+  // "M x0 y0 " so the same curve commands can be reused for both the stroke
+  // path and the fill-to-baseline area path.
+  function _smoothCurve(pts){
+    if(pts.length<2) return '';
+    if(pts.length===2){
+      // no interior neighbors to lean on \u2014 ease via a midpoint control (same
+      // flat-in/flat-out S-curve the 2-point growth chart uses) rather than a
+      // straight diagonal segment.
+      const midX=(pts[0].x+pts[1].x)/2;
+      return `C ${midX} ${pts[0].y} ${midX} ${pts[1].y} ${pts[1].x} ${pts[1].y}`;
+    }
+    let d='';
+    for(let i=0;i<pts.length-1;i++){
+      const p0=pts[i-1]||pts[i], p1=pts[i], p2=pts[i+1], p3=pts[i+2]||p2;
+      const c1x=p1.x+(p2.x-p0.x)/6, c1y=p1.y+(p2.y-p0.y)/6;
+      const c2x=p2.x-(p3.x-p1.x)/6, c2y=p2.y-(p3.y-p1.y)/6;
+      d+=`C ${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x} ${p2.y} `;
+    }
+    return d.trim();
+  }
   function chartInner(mode, B, safetyColor){
     const N=B.length;
     const W=320,H=132,padL=10,padR=10,padT=16,padB=26;
@@ -3910,28 +3954,31 @@
     const yOf=v=> padT+(1-Math.max(0,Math.min(1,v)))*plotH;
     const pts=B.map((b,i)=>({x:+xOf(i).toFixed(1), y:+yOf(b.avg).toFixed(1), b, i}));
     const baseY=(padT+plotH).toFixed(1);
-    const linePath=N===1?`M ${pts[0].x} ${pts[0].y} L ${pts[0].x+0.1} ${pts[0].y}`:'M '+pts.map(p=>`${p.x} ${p.y}`).join(' L ');
-    const areaPath=`M ${pts[0].x} ${baseY} L `+pts.map(p=>`${p.x} ${p.y}`).join(' L ')+` L ${pts[pts.length-1].x} ${baseY} Z`;
+    const curveCmds=_smoothCurve(pts);
+    const linePath=N===1?`M ${pts[0].x} ${pts[0].y} L ${pts[0].x+0.1} ${pts[0].y}`:`M ${pts[0].x} ${pts[0].y} ${curveCmds}`;
+    const areaPath=N===1?`M ${pts[0].x} ${baseY} L ${pts[0].x} ${pts[0].y} L ${pts[0].x+0.1} ${pts[0].y} L ${pts[0].x+0.1} ${baseY} Z`:`M ${pts[0].x} ${baseY} L ${pts[0].x} ${pts[0].y} ${curveCmds} L ${pts[pts.length-1].x} ${baseY} Z`;
     const maxL=Math.min(6,N), seen=new Set(), labs=[];
     for(let i=0;i<maxL;i++){ const idx=Math.round(i*(N-1)/(maxL-1||1)); if(seen.has(idx))continue; seen.add(idx); labs.push(`<text x="${xOf(idx).toFixed(1)}" y="${H-8}" text-anchor="${idx===0?'start':idx===N-1?'end':'middle'}" class="cx">${B[idx].label}</text>`); }
     // monochrome intensity gradient: height encodes safety; color deepens with it (no state hues)
     const ramp=(v)=>{ v=Math.max(0,Math.min(1,v)); const LO=[206,200,187],HI=[58,55,48]; return `rgb(${LO.map((c,i)=>Math.round(c+(HI[i]-c)*v)).join(',')})`; };
     const dots=pts.map(p=>`<circle class="cpt" data-i="${p.i}" cx="${p.x}" cy="${p.y}" r="3.6" fill="${mode==='safety'?ramp(p.b.avg):STATE_COLOR(p.b.dom)}" stroke="var(--bone)" stroke-width="1.6"></circle>`).join('');
-    let defs, lineSvg, footer, readoutTxt;
-    const last=B[N-1];
+    let defs, lineSvg, footer;
     const stops=pts.map(p=>`<stop offset="${N===1?0:(p.i/(N-1)).toFixed(3)}" stop-color="${mode==='safety'?ramp(p.b.avg):STATE_COLOR(p.b.dom)}"></stop>`).join('');
     defs=`<defs><linearGradient id="cline" x1="${padL}" y1="0" x2="${padL+plotW}" y2="0" gradientUnits="userSpaceOnUse">${stops}</linearGradient></defs>`;
     lineSvg=`<path class="cline-area" d="${areaPath}" fill="url(#cline)" opacity=".1"></path><path class="cline-path" pathLength="1" d="${linePath}" fill="none" stroke="url(#cline)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"></path>`;
     if(mode==='safety'){
       footer=`<div class="arc-scale"><span>less safety</span><span class="arc-scale-bar"></span><span>more</span></div>`;
-      readoutTxt=`${last.label} \u00b7 ${Math.round(last.avg*100)}% safety`;
     } else {
       const states=[...new Set(B.map(b=>b.dom))];
       footer=`<div class="legend">${states.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_NAME(k)}</span>`).join('')}</div>`;
-      readoutTxt=`${last.label} \u00b7 ${STATE_NAME(last.dom)}`;
     }
     const gain = mode==='safety' && N>=2 && (B[N-1].avg - B[0].avg) > 0.04;   // a real safety rise -> the line draws itself as a payoff
-    return `<div class="arc-readout" id="chart-readout">${readoutTxt}</div><svg viewBox="0 0 ${W} ${H}" class="chart${gain?' draw-gain':''}" preserveAspectRatio="xMidYMid meet">${defs}${lineSvg}${dots}${labs.join('')}</svg>${footer}`;
+    // the floating "Jul 27 \u00b7 play/motivation" readout (2026-07-30, Justin: "this
+    // is just floating there") is CUT \u2014 it defaulted to the latest point with no
+    // visual line tying it to that dot, and the legend + line already carry
+    // which state is which. Tap-a-dot-for-detail interactivity is cut with it
+    // (see the removed .cpt click handler) rather than left to silently do nothing.
+    return `<svg viewBox="0 0 ${W} ${H}" class="chart${gain?' draw-gain':''}" preserveAspectRatio="xMidYMid meet">${defs}${lineSvg}${dots}${labs.join('')}</svg>${footer}`;
   }
   // N-4: share as the designed card — a branded 1080×1080 image (bone, state dots,
   // the line, wordmark) via the system share sheet when file-sharing is supported;
@@ -4518,7 +4565,6 @@
       const days = PERIODS.find(p=>p.key===activePeriod)?.days||null;
       const cs = filterByPeriod(allCs, days);
       const paced = groupByDay(cs);
-      const sess = filterByPeriod(Store.sessions(), days);
       const periodTxt = PERIODS.find(p=>p.key===activePeriod)?.label||'all time';
       // full phrase for card subtitles ("7d" would read as "during the last 7d";
       // "all" used to render as "during the last all" — a live grammar bug)
@@ -4542,9 +4588,9 @@
       const counts={}; cs.forEach(x=>{counts[x.dom]=(counts[x.dom]||0)+1;});
       const total=cs.length||1;
       const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-      const mixHTML=ranked.map(([key,n])=>{
+      const mixHTML=ranked.map(([key,n],i)=>{
         const pct=Math.round(n/total*100);
-        return `<button class="distrow" data-state-detail="${key}">
+        return `<button class="distrow" data-state-detail="${key}" style="--sd:${i*50}ms">
           <span class="distrow-top"><span class="distrow-name">${stateMarks(key)}${({play:'play/motivation',stillness:'stillness'}[key])||STATE_NAME(key)}</span><span class="distrow-pct">${pct}%</span></span>
           <span class="distrow-track"><span class="distrow-fill" style="width:${Math.max(pct,2)}%;background:${STATE_COLOR(key)}"></span></span>
         </button>`;
@@ -4576,38 +4622,51 @@
         dayByDay=`<div class="chart-wrap" data-cmode="safety">${chartInner('safety', arcBuckets, safetyColor)}</div>`;
       }
 
-      // ---- does practice help: safety on practice days vs other days ----
-      const pDays=new Set(sess.map(s=>new Date(s.t).toDateString()));
-      const on=[],off=[];
-      cs.forEach(x=>{ (pDays.has(new Date(x.t).toDateString())?on:off).push(x.v); });
-      // data-only, three layers deep (Justin 2026-07-05): the bars, the loop rate,
-      // and the personal best-combo insight. no editorial verdicts.
-      let helpHTML;
-      if(sess.length<2 || !on.length || !off.length){
-        helpHTML=`<p class="panel-empty">practice a few times, checking in around it, and we'll show you whether it moves your safety.</p>`;
-      } else {
-        const onP=Math.round(avg(on)*100), offP=Math.round(avg(off)*100);
-        const _pe = _peWindowed();
-        const _pis = _peInsightsWindowed();
-        const _pi = _pis && _pis.length ? _pis[0] : null;
-        const _segPhrase = s => s==='late' ? 'late at night' : 'in the '+segLabel(s);
-        helpHTML=`
-          <div class="help-bars">
-            <div class="help-row"><span class="help-lbl">practice days</span><span class="help-track"><span class="help-fill" style="width:${onP}%;background:var(--s-safety)"></span></span><span class="help-pct">${onP}%</span></div>
-            <div class="help-row"><span class="help-lbl">other days</span><span class="help-track"><span class="help-fill" style="width:${offP}%;background:var(--hairline)"></span></span><span class="help-pct">${offP}%</span></div>
-          </div>
-          ${_pe?`<p class="cb-line" style="margin-top:16px">when you check in within a few hours of practicing, it shows more safety about <b>${Math.round(_pe.rate*20)*5}%</b> of the time.</p>`:''}
-          ${_pi?`<p class="cb-line" style="margin-top:10px">your most reliable combo so far: <b>${Store.practiceLabel(_pi.practiceKey)}</b> ${_segPhrase(_pi.seg)}, safety follows about <b>${Math.round(_pi.rate*20)*5}%</b> of the time.</p>`:''}`;
-      }
+      // ---- is practice helping: before vs after practice, windowed ----
+      // v2 (2026-07-30 redesign, Justin: "what are we trying to show? how
+      // practice shifts state? ... this should be purely before and after
+      // practice measurement based"). v1 compared average safety on any day
+      // that HAD a practice session vs any day that didn't — but that included
+      // check-ins that happened BEFORE that day's practice, and counted days
+      // where practice happened with no check-in ever logged after it. It
+      // measured correlation with a calendar day, never the practice's actual
+      // effect. Rebuilt entirely on _peWindowed()/_peInsightsWindowed(): a
+      // check-in only counts if it lands within 12 hours AFTER a practice
+      // session that has a recorded before-state — a real before/after pair.
+      // Same hero treatment as "getting back to safety" (Justin's ask): glyph
+      // visual first, one bold lead sentence, small footnote — no bars.
+      let practiceHead='';
+      (function(){
+        const pe=_peWindowed();
+        if(!pe) return;
+        const pis=_peInsightsWindowed();
+        const pi=pis && pis.length ? pis[0] : null;
+        const segPhrase = s => s==='late' ? 'late at night' : 'in the '+segLabel(s);
+        const pct=Math.round(pe.rate*20)*5;
+        // most common pre-practice state across the windowed sessions, purely
+        // for the glyph pair (mirrors how "getting back to safety" picks its
+        // own most-common dip state) — the claim itself is the RATE below, not
+        // a promise that practice always starts from this exact state.
+        const domCounts={};
+        Store.sessions().filter(s=>s&&s.domBefore&&_PE_RANK[s.domBefore]!=null).forEach(s=>{ domCounts[s.domBefore]=(domCounts[s.domBefore]||0)+1; });
+        const modeDom=Object.keys(domCounts).sort((a,b)=>domCounts[b]-domCounts[a])[0] || 'fightflight';
+        practiceHead=`<div class="cb-journey">${cbGlyphViz(modeDom, 'safety', null, 'hero')}</div>
+          <p class="cb-line cb-line-lead">after you practice, you move toward more safety about <b>${pct}%</b> of the time.</p>
+          <p class="cb-fine">(${pe.total} check-in${pe.total===1?'':'s'} within a few hours of practicing${pi?`; most reliably after ${Store.practiceLabel(pi.practiceKey)} ${segPhrase(pi.seg)}, about ${Math.round(pi.rate*20)*5}% of the time`:''})</p>`;
+      })();
 
       // ---- growth: safety now vs when you started (all-time, not period-filtered) ----
-      // v4 (2026-07-29, Justin: "make this mirror the 'getting back to safety' card
-      // in layout and hierarchy"). Comeback's shape is: share button -> big visual
-      // first (wrapped in .cb-journey for the standard 40px-above/30px-below hero
-      // rhythm) -> one bold cb-line-lead sentence -> a small cb-fine footnote. This
-      // card now follows the same shape instead of leading with a caption line
-      // above the chart (the v3 rc-hero-title treatment) — visual first, sentence
-      // after, footnote last, same as every other hero-visual card on the tab.
+      // v5 (2026-07-30, Justin: "make this into a line graph instead... a nice
+      // smooth line using the colors of the safety activation, like the states
+      // over time one"). Still the same 2-point then/now comparison (Justin
+      // confirmed: restyle the existing 2 points, not a fuller multi-point
+      // history — a fuller day-by-day version of this exact card was cut
+      // yesterday for looking "ugly"). Drawn with the same gradient/self-draw
+      // mechanics as the states-over-time chart (safetyColor, .cline-path/
+      // .cline-area/.cpt), just a cubic-bezier S-curve between 2 points instead
+      // of an N-point polyline. Layout otherwise unchanged: share button -> big
+      // visual first (.cb-journey, standard hero rhythm) -> one bold
+      // cb-line-lead sentence -> a small cb-fine footnote.
       // "then" is left as the plain word for now — Justin flagged that whether it
       // should tie to the 7/30/90/all period toggle (vs. a fixed "a month ago"-style
       // label) is still open; defaulting to the always-all-time comparison this card
@@ -4622,11 +4681,24 @@
           // a dip is never the headline here — that conversation lives in the reader.
           if(!down){
             const sV=Math.round(startV*100), rV=Math.round(recentV*100);
-            const heart=ico('heart',{cls:'gr-val-glyph',color:safetyColor(recentV)});
-            const hThen=Math.max(24,Math.round(sV/100*140)), hNow=Math.max(24,Math.round(rV/100*140));
-            const chart=`<div class="rc-chart gr-mini-chart" aria-hidden="true">
-                <div class="rc-col"><span class="rc-val">${sV}%</span><span class="rc-bar" style="height:${hThen}px;background:${mute(safetyColor(startV),0.35)}"></span><span class="rc-lb">then</span></div>
-                <div class="rc-col rc-col-best"><span class="rc-val">${heart}${rV}%</span><span class="rc-bar" style="height:${hNow}px;background:${safetyColor(recentV)}"></span><span class="rc-lb">now</span></div>
+            const startColor=safetyColor(startV), recentColor=safetyColor(recentV);
+            const heart=ico('heart',{cls:'gr-val-glyph',color:recentColor});
+            const W=240,H=130,padX=30,padTop=18,padBot=18;
+            const x0=padX, x1=W-padX, midX=(x0+x1)/2, baseY=padTop+(H-padTop-padBot);
+            const yOf=v=>padTop+(1-Math.max(0,Math.min(1,v)))*(H-padTop-padBot);
+            const y0=yOf(startV), y1=yOf(recentV);
+            const curvePath=`M ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1}`;
+            const areaPath=`M ${x0} ${baseY} L ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1} L ${x1} ${baseY} Z`;
+            const chart=`<div class="gr-line-wrap">
+                <div class="gr-line-vals"><span class="gr-line-val">${sV}%</span><span class="gr-line-val gr-line-val-now">${heart}${rV}%</span></div>
+                <svg viewBox="0 0 ${W} ${H}" class="chart gr-line-svg draw-gain" preserveAspectRatio="xMidYMid meet">
+                  <defs><linearGradient id="glGrad" x1="${x0}" y1="0" x2="${x1}" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${startColor}"></stop><stop offset="1" stop-color="${recentColor}"></stop></linearGradient></defs>
+                  <path class="cline-area" d="${areaPath}" fill="url(#glGrad)" opacity=".1"></path>
+                  <path class="cline-path" pathLength="1" d="${curvePath}" fill="none" stroke="url(#glGrad)" stroke-width="3.4" stroke-linecap="round"></path>
+                  <circle class="cpt" cx="${x0}" cy="${y0}" r="4.2" fill="${startColor}" stroke="var(--bone)" stroke-width="1.8"></circle>
+                  <circle class="cpt" cx="${x1}" cy="${y1}" r="5.4" fill="${recentColor}" stroke="var(--bone)" stroke-width="2"></circle>
+                </svg>
+                <div class="gr-line-labs"><span>then</span><span>now</span></div>
               </div>`;
             growthHead=`<div class="cb-journey">${chart}</div>
               <p class="cb-line cb-line-lead">your average safety has ${up?'grown':'held steady'} since you started.</p>
@@ -4724,11 +4796,12 @@
             if(wd){
               const wdPcts=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?_safeShare(a):null; });
               const wdDom=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?domOf(a):null; });
+              const wdDelays = _staggerDelays(7, wd.idx);
               const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
                 const pct=wdPcts[i], dom=wdDom[i], best=i===wd.idx;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*45}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${wdDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
               }).join('')}</div>`;
               // title cut (Justin 2026-07-29c): "your most regulated day" repeated the
               // rc-hero-title sentence right below it. Array label stays for a11y.
@@ -4741,11 +4814,12 @@
             if(dp){
               const segs=['morning','afternoon','evening','late'];
               const dpDom=segs.map(seg=>{ const a=cs.filter(x=>segOf(x.t)===seg); return a.length>=3?domOf(a):null; });
+              const dpDelays = _staggerDelays(segs.length, segs.indexOf(dp.key));
               const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
                 const pct=_daypartPct(cs,seg), dom=dpDom[i], best=seg===dp.key;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*60}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${dpDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['daypart','your most regulated time of day', `
               ${shareBtn('daypart')}
@@ -4764,11 +4838,12 @@
               const wlDom=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?domOf(a):null; });
               const worstDom = wlDom[wdLeast.idx];
               const worstColor = worstDom ? STATE_COLOR(worstDom) : '#D8D2C2';
+              const wlDelays = _staggerDelays(7, wdLeast.idx);
               const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
                 const pct=wlPcts[i], dom=wlDom[i], best=i===wdLeast.idx;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?worstColor:mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*45}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${wlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
               }).join('')}</div>`;
               slides.push(['leastDay','your least regulated day', `
               ${shareBtn('leastDay')}
@@ -4787,11 +4862,12 @@
               const worstSegIdx=segs.indexOf(dpLeast.key);
               const worstDpDom = dlDom[worstSegIdx];
               const worstDpColor = worstDpDom ? STATE_COLOR(worstDpDom) : '#D8D2C2';
+              const dlDelays = _staggerDelays(segs.length, worstSegIdx);
               const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
                 const pct=_daypartPct(cs,seg), dom=dlDom[i], best=seg===dpLeast.key;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?worstDpColor:mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${i*60}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${dlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['leastDaypart','your least regulated time of day', `
               ${shareBtn('leastDaypart')}
@@ -4819,14 +4895,14 @@
               slides.push(['flavors','your flavors of safety', `
               ${shareBtn('flavors')}<h2 class="panel-title">your flavors of safety</h2>
               <p class="panel-sub">this is what your safety looks like over ${periodPhrase}.</p>
-              <div class="help-bars">${fl.map(r=>`<div class="help-row"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
+              <div class="help-bars">${fl.map((r,i)=>`<div class="help-row" style="--sd:${i*50}ms"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
             }
             if(ce || csl){
               const bars = ce ? `
               <p class="panel-sub">safety in the weeks you tagged “${escapeHtml(ce.label)}”, next to a typical week.</p>
               <div class="help-bars">
-                <div class="help-row"><span class="help-lbl">tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
-                <div class="help-row"><span class="help-lbl">typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
+                <div class="help-row" style="--sd:0ms"><span class="help-lbl">tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
+                <div class="help-row" style="--sd:50ms"><span class="help-lbl">typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
               </div>` : `<p class="panel-sub">what you tag as having the biggest impact, by the state you were in.</p>`;
               const links = csl ? `
               ${csl.safe?`<p class="cb-line"${ce?' style="margin-top:16px"':''}>tagged most around your safe check-ins: <b>${escapeHtml(csl.safe.label)}</b>.</p>`:''}
@@ -4852,10 +4928,10 @@
               <p class="panel-sub">the state each stretch of time leaned toward.</p>
               <div class="chart-wrap" data-cmode="states">${chartInner('states', arcBuckets, safetyColor)}</div>`]);
             }
-            slides.push(['practice','is practice helping?', `
-              ${shareBtn('practice')}<h2 class="panel-title">is practice helping?</h2>
-              <p class="panel-sub">your average safety after you practice vs. not.</p>
-              ${helpHTML}`]);
+            if(practiceHead){
+              slides.push(['practice','is practice helping?', `
+              ${shareBtn('practice')}${practiceHead}`]);
+            }
             // axis cards, v2 (2026-07-29 redesign, final: "make these into separate
             // cards... i'd rather see these as cards with immediate info and
             // shareability"). The old 2-card "most mobilized/immobilized time of
@@ -4885,12 +4961,13 @@
               if(!pat) return;
               const color = STATE_COLOR(key), glyph = stateMarks(key), adj = _AX_ADJ[key] || key;
               const segName = segLabel(_AX_SEGS[pat.best]);
+              const axDelays = _staggerDelays(_AX_SEGS.length, pat.best);
               const chart = `<div class="rc-chart ax-solo-chart" aria-hidden="true">${_AX_SEGS.map((sg,i)=>{
                 const pct=pat.pcts[i], isBest=i===pat.best;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg = pct==null?'var(--bone-deep)':isBest?color:mute(color);
                 const val = isBest ? `<span class="rc-val">${glyph}${pct}%</span>` : '';
-                return `<div class="rc-col${isBest?' rc-col-best':''}" style="animation-delay:${i*45}ms">${val}<span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(sg)}</span></div>`;
+                return `<div class="rc-col${isBest?' rc-col-best':''}" style="animation-delay:${axDelays[i]}ms">${val}<span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(sg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['ax-'+key, segName+' is your most '+adj+' time of day', `
               ${shareBtn('ax-'+key)}
@@ -5058,13 +5135,6 @@
       c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); const k=b.dataset.share; openShare(SHARE_TXT[k]||SHARE_TXT.safety, SHARE_VIZ[k]||null); }));
       c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
-
-      if(arcBuckets){
-        c.querySelectorAll('.chart-wrap').forEach(wrap=>{
-          const mode=wrap.dataset.cmode;
-          wrap.querySelectorAll('.cpt').forEach(el=>el.addEventListener('click',()=>{ const i=+el.dataset.i, b=arcBuckets[i], r=wrap.querySelector('.arc-readout'); if(b&&r) r.textContent = mode==='safety'?`${b.label} \u00b7 ${Math.round(b.avg*100)}% safety`:`${b.label} \u00b7 ${STATE_NAME(b.dom)}`; }));
-        });
-      }
 
       const carousel=$('#carousel'); const dots=c.querySelectorAll('#dots .dot-i');
       if(carousel){ carousel.addEventListener('scroll',()=>{ const i=Math.max(0,Math.min(dots.length-1,Math.round(carousel.scrollLeft/snapUnit(carousel)))); dots.forEach((d,j)=>d.classList.toggle('on',j===i)); },{passive:true}); }

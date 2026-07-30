@@ -546,14 +546,29 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .bl-wrap.early .bl-bar{filter:grayscale(.5);opacity:.55}
 .bl-early{font-size:calc(12.5px * var(--type-scale));color:var(--ink-80);margin:16px 0 0;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
-   swatches sit on the dark card, so give them light/legible marks there. */
+   swatches sit on the dark card, so give them light/legible marks there.
+   BUG FIX (2026-07-30, Justin: "'state variation this month' shows white in
+   the key, but black outline in the bar... the key has grey for 'variation
+   last month' but it's not grey in the bar"): these dark-mode overrides only
+   ever touched .bl-kband/.bl-kprev — the KEY's swatches — never .bl-band/
+   .bl-prev, the actual overlays drawn ON the gradient bar. --bone flips to
+   near-black in dark mode, so .bl-band's border (still var(--bone)) rendered
+   as a near-invisible dark outline instead of the key's light one, and
+   .bl-prev's background (var(--ink), now light) at the same low .13 opacity
+   used in light mode barely showed against the dark bar instead of matching
+   the key's boosted .24. Both bar overlays now get the identical treatment
+   their key swatches already had. */
 @media (prefers-color-scheme: dark){
   :root:not(.theme-light) .wn-mark{filter:invert(1)}
+  :root:not(.theme-light) .bl-band{border-color:var(--ink);box-shadow:none}
   :root:not(.theme-light) .bl-kband{border-color:var(--ink);box-shadow:none}
+  :root:not(.theme-light) .bl-prev{opacity:.24}
   :root:not(.theme-light) .bl-kprev{opacity:.24}
 }
 :root.theme-dark .wn-mark{filter:invert(1)}
+:root.theme-dark .bl-band{border-color:var(--ink);box-shadow:none}
 :root.theme-dark .bl-kband{border-color:var(--ink);box-shadow:none}
+:root.theme-dark .bl-prev{opacity:.24}
 :root.theme-dark .bl-kprev{opacity:.24}
 .safety-foot{font-size:calc(14px * var(--type-scale));line-height:1.5;color:var(--muted);margin:12px 0 0;display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:nowrap}
 .safety-foot b{font-weight:500;color:var(--ink-80)}
@@ -754,7 +769,6 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .app-toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,8px);background:var(--ink);color:var(--bone);font-size:calc(13.5px * var(--type-scale));padding:9px 17px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease);z-index:60;box-shadow:0 8px 24px var(--shade)}
 .app-toast.on{opacity:1;transform:translate(-50%,0)}
 /* day-by-day: safety-warmth ribbon */
-.arc-readout{font-size:calc(12.5px * var(--type-scale));color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;margin-bottom:11px}
 .arc-wrap{position:relative;margin-bottom:26px}
 .arc-ribbon{height:46px;border-radius:11px;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
 .arc-axis{position:relative;height:13px;margin-top:8px}
@@ -777,8 +791,6 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    spaced labels, so the first two always overlapped regardless of viewport width.
    Shrunk enough to leave real breathing room between adjacent labels. */
 .chart .cx{font-size:calc(8px * var(--type-scale));fill:var(--muted);font-family:inherit}
-.cpt{cursor:pointer}
-.cpt:hover{stroke-width:2.4}
 /* sticky period filter + settings gear share the top row */
 .filter-bar{position:sticky;top:0;z-index:6;background:var(--bone);margin:0 -22px 16px;padding:14px 22px 12px;display:flex;align-items:center;gap:12px}
 .filter-bar .play-filter.seg{flex:1;margin-bottom:0}
@@ -809,10 +821,19 @@ body.show-fab .fab{display:flex}
 @keyframes numRise{from{transform:translateY(6px)}to{transform:translateY(0)}}
 @keyframes popIn{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion:no-preference){
-  .safety-meter-fill,.distrow-fill,.help-fill{transform-origin:left center;animation:growx .9s var(--ease)}
+  /* --sd (2026-07-30, Justin: "stagger the bars in, rapidly"): a per-row/per-column
+     custom property set inline by JS. It inherits from the row/column element down
+     to its own inner fill/bar span (CSS custom properties inherit; animation-delay
+     itself does not), so both animate on the same beat without duplicating the
+     delay value on two elements. Defaults to 0ms wherever JS doesn't set it —
+     zero behavior change for anything not opted into staggering. `both` fill-mode
+     on every one of these (added alongside the delay support) holds the FROM state
+     during its delay instead of flashing the end-state first, then snapping back. */
+  .safety-meter-fill,.distrow-fill,.help-fill{transform-origin:left center;animation:growx .9s var(--ease) both;animation-delay:var(--sd,0ms)}
   .safety-num{animation:numRise .6s var(--ease)}
   .safety-foot,.safety-range,.bloom-line{animation:riseIn .7s var(--ease)}
-  .distrow{animation:riseIn .55s var(--ease)}
+  .distrow{animation:riseIn .55s var(--ease) both;animation-delay:var(--sd,0ms)}
+  .help-row{animation:riseIn .5s var(--ease) both;animation-delay:var(--sd,0ms)}
   .wk-cell{animation:riseIn .5s var(--ease) both}
   .wk-mark{animation:popIn .6s var(--ease) both;animation-delay:.35s}
   .streak-dot{animation:popIn .5s var(--ease) both}
@@ -1492,7 +1513,6 @@ body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:no
 .help-verdict{font-size:calc(14.5px * var(--type-scale))}
 .distrow-name{font-size:calc(15px * var(--type-scale))}
 .distrow-pct,.help-pct{font-size:calc(13.5px * var(--type-scale))}
-.arc-readout{font-size:calc(13px * var(--type-scale))}
 .lg-it{font-size:calc(12.5px * var(--type-scale))}
 
 /* ---------- enlarged hit areas ---------- */
@@ -1717,25 +1737,23 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 .safety-foot .sf-txt{flex:1}
 
 
-/* 'your safety changes' card, v3 (2026-07-29 redesign, final round: "not a
-   grabbable control and should not appear that way... the bars ARE the story
-   now"). The dot-track (.gr-hero/.gr-track-lg/.gr-dot-lg, retired) read as a
-   draggable slider it wasn't — replaced with the same rc-chart/rc-col/rc-bar bar
-   chart every other you-tab card uses: a plain then/now pair. gr-mini-chart just
-   widens the shared rc-chart columns and adds the bar's rounder top corner; the
-   value label and glyph rules below (.rc-val/.gr-val-glyph) are shared with the
-   solo axis cards' winning-bar label. */
-.gr-mini-chart{max-width:none;margin:8px 0 0;height:150px}
-.gr-mini-chart .rc-col{max-width:120px;flex:0 0 40%}
-.gr-mini-chart .rc-bar{border-radius:8px 8px 4px 4px}
-.gr-mini-chart .rc-val{font-size:calc(16px * var(--type-scale))}
-/* bug fix: a label that wraps to 2 lines (e.g. a longer "then" phrase) makes that
-   whole column taller — and since .rc-col anchors its content to the bottom edge
-   (justify-content:flex-end), the extra label height shoves that column's bar
-   upward relative to a sibling column whose label stayed on one line. Nowrap
-   guarantees every label is exactly one line, so every bar's bottom edge lines up
-   regardless of label length. */
-.gr-mini-chart .rc-lb{font-size:calc(12.5px * var(--type-scale));margin-top:2px;white-space:nowrap}
+/* 'your safety changes' card, v4 (2026-07-30, Justin: "make this into a line
+   graph instead... a nice smooth line using the colors of the safety
+   activation, like the states over time one"). v3's then/now BAR pair
+   (.gr-mini-chart, retired) is replaced by a 2-point line: same gradient/
+   self-draw mechanics as the states-over-time chart (.chart/.cline-path/
+   .cline-area/.cpt, reused as-is), just with only 2 points and a cubic-bezier
+   S-curve between them (flat-in, flat-out) instead of a straight diagonal, so
+   it reads as a deliberate flowing shape rather than a raw plot. Value labels
+   and the then/now labels sit outside the svg as plain flex rows, left/right-
+   aligned to match the line's endpoints, since positioning 2 fixed points
+   doesn't need real chart-label logic. */
+.gr-line-wrap{margin:8px 0 0}
+.gr-line-vals{display:flex;justify-content:space-between;align-items:center;margin:0 0 2px}
+.gr-line-val{display:flex;align-items:center;gap:4px;font-size:calc(15px * var(--type-scale));font-weight:600;color:var(--ink)}
+.gr-line-val-now{font-size:calc(17px * var(--type-scale))}
+.gr-line-svg{height:120px}
+.gr-line-labs{display:flex;justify-content:space-between;font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:2px}
 /* value-above-bar label, shared by the growth mini-chart and the solo axis cards:
    one small consistent convention (the number sits above its own bar) instead of
    a different label style per card. Left-aligned to the bar's own left edge
