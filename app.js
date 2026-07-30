@@ -4705,15 +4705,27 @@
             const y0=yOf(startV), y1=yOf(recentV);
             const curvePath=`M ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1}`;
             const areaPath=`M ${x0} ${baseY} L ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1} L ${x1} ${baseY} Z`;
+            // value labels sit directly above their own point (2026-07-31, Justin:
+            // "the safety increase one... has floating percentages" — same "value
+            // above the bar, tied to it" rule as .rc-val, not a detached header row).
+            // Positioned as a % of the svg's own box so they track the actual point
+            // regardless of viewport width; start label left-aligned to its point
+            // (room to grow rightward), end label right-aligned to its point (it
+            // sits near the chart's right edge, so it must grow leftward instead).
+            const lx0=(x0/W*100).toFixed(2), ly0=(y0/H*100).toFixed(2);
+            const lx1=(x1/W*100).toFixed(2), ly1=(y1/H*100).toFixed(2);
             const chart=`<div class="gr-line-wrap">
-                <div class="gr-line-vals"><span class="gr-line-val">${sV}%</span><span class="gr-line-val gr-line-val-now">${heart}${rV}%</span></div>
-                <svg viewBox="0 0 ${W} ${H}" class="chart gr-line-svg draw-gain" preserveAspectRatio="xMidYMid meet">
-                  <defs><linearGradient id="glGrad" x1="${x0}" y1="0" x2="${x1}" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${startColor}"></stop><stop offset="1" stop-color="${recentColor}"></stop></linearGradient></defs>
-                  <path class="cline-area" d="${areaPath}" fill="url(#glGrad)" opacity=".1"></path>
-                  <path class="cline-path" pathLength="1" d="${curvePath}" fill="none" stroke="url(#glGrad)" stroke-width="3.4" stroke-linecap="round"></path>
-                  <circle class="cpt" cx="${x0}" cy="${y0}" r="4.2" fill="${startColor}" stroke="var(--bone)" stroke-width="1.8" style="animation-delay:150ms"></circle>
-                  <circle class="cpt" cx="${x1}" cy="${y1}" r="5.4" fill="${recentColor}" stroke="var(--bone)" stroke-width="2" style="animation-delay:950ms"></circle>
-                </svg>
+                <div class="gr-line-box">
+                  <svg viewBox="0 0 ${W} ${H}" class="chart gr-line-svg draw-gain" preserveAspectRatio="xMidYMid meet">
+                    <defs><linearGradient id="glGrad" x1="${x0}" y1="0" x2="${x1}" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${startColor}"></stop><stop offset="1" stop-color="${recentColor}"></stop></linearGradient></defs>
+                    <path class="cline-area" d="${areaPath}" fill="url(#glGrad)" opacity=".1"></path>
+                    <path class="cline-path" pathLength="1" d="${curvePath}" fill="none" stroke="url(#glGrad)" stroke-width="3.4" stroke-linecap="round"></path>
+                    <circle class="cpt" cx="${x0}" cy="${y0}" r="4.2" fill="${startColor}" stroke="var(--bone)" stroke-width="1.8" style="animation-delay:150ms"></circle>
+                    <circle class="cpt" cx="${x1}" cy="${y1}" r="5.4" fill="${recentColor}" stroke="var(--bone)" stroke-width="2" style="animation-delay:950ms"></circle>
+                  </svg>
+                  <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${sV}%</span>
+                  <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${heart}${rV}%</span>
+                </div>
                 <div class="gr-line-labs"><span>then</span><span>now</span></div>
               </div>`;
             growthHead=`<div class="cb-journey">${chart}</div>
@@ -4817,7 +4829,7 @@
                 const pct=wdPcts[i], dom=wdDom[i], best=i===wd.idx;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${wdDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${wdDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
               }).join('')}</div>`;
               // title cut (Justin 2026-07-29c): "your most regulated day" repeated the
               // rc-hero-title sentence right below it. Array label stays for a11y.
@@ -4835,7 +4847,7 @@
                 const pct=_daypartPct(cs,seg), dom=dpDom[i], best=seg===dp.key;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${dpDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${dpDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['daypart','your most regulated time of day', `
               ${shareBtn('daypart')}
@@ -4859,7 +4871,7 @@
                 const pct=wlPcts[i], dom=wlDom[i], best=i===wdLeast.idx;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?worstColor:mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${wlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${wlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
               }).join('')}</div>`;
               slides.push(['leastDay','your least regulated day', `
               ${shareBtn('leastDay')}
@@ -4883,7 +4895,7 @@
                 const pct=_daypartPct(cs,seg), dom=dlDom[i], best=seg===dpLeast.key;
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg=pct==null?'var(--bone-deep)':best?worstDpColor:mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="animation-delay:${dlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
+                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${dlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['leastDaypart','your least regulated time of day', `
               ${shareBtn('leastDaypart')}
@@ -4983,7 +4995,7 @@
                 const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
                 const bg = pct==null?'var(--bone-deep)':isBest?color:mute(color);
                 const val = isBest ? `<span class="rc-val">${glyph}${pct}%</span>` : '';
-                return `<div class="rc-col${isBest?' rc-col-best':''}" style="animation-delay:${axDelays[i]}ms">${val}<span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(sg)}</span></div>`;
+                return `<div class="rc-col${isBest?' rc-col-best':''}" style="--sd:${axDelays[i]}ms">${val}<span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(sg)}</span></div>`;
               }).join('')}</div>`;
               slides.push(['ax-'+key, segName+' is your most '+adj+' time of day', `
               ${shareBtn('ax-'+key)}

@@ -674,7 +674,14 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .rc-hero-word{display:block;font-size:calc(34px * var(--type-scale));font-weight:600;line-height:1.15;margin:0 0 3px;text-transform:capitalize}
 .rc-chart{display:flex;gap:8px;align-items:flex-end;margin:0 0 16px;height:90px}
 .rc-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%}
-.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;animation:riseIn .45s var(--ease) both}
+/* BUG FIX (2026-07-31, Justin: "still not seeing the staggered bar animations"):
+   _staggerDelays' per-column value was being set as an inline `animation-delay`
+   on `.rc-col` — but `.rc-col` has no animation of its own; only its child
+   `.rc-bar` animates (riseIn), with no delay of its own, so every bar rose in
+   on the same beat regardless of the computed stagger. Same `--sd` custom-
+   property convention as distrow-fill/help-fill: set on the column, consumed
+   by the element that actually animates. */
+.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;animation:riseIn .45s var(--ease) both;animation-delay:var(--sd,0ms)}
 .rc-lb{font-size:calc(11px * var(--type-scale));color:var(--muted);display:flex;align-items:center;justify-content:center}
 .rc-col-best .rc-lb{color:var(--ink);font-weight:600}
 .rc-lb .seg-ico{width:15px;height:15px;color:inherit}
@@ -716,12 +723,22 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    silently shrinking the hero pair down to 14px while single-icon dips (fightflight,
    shutdown) rendered correctly at 88px — so this bug only showed up depending on
    which state someone's most common dip happened to be. Three-class selector here
-   beats it on specificity regardless of source order. Sized down slightly from the
-   solo 88px (74px) so two side-by-side marks don't outweigh the single safety heart
-   on the other end — the PAIR together should read as roughly as dominant as the
-   heart, not each individual icon matching it 1:1.
+   beats it on specificity regardless of source order.
+   UPDATE (2026-07-31, Justin: "make sure the glyphs are all the same size — some
+   seem a touch smaller"): the pair used to be sized down to 74px so the two marks
+   together wouldn't outweigh the single safety heart on the other end, but that
+   read as visibly smaller (measured live: 68px vs 81px rendered) whenever an
+   account's most common state was a blend (play/stillness/freeze). Every mark is
+   now the same 88px regardless of solo/pair — touching at gap:0 so a pair still
+   reads as one combined shape rather than two separate icons with daylight
+   between them, but no mark is ever smaller than another. Still needs its own
+   three-class rule below (not just the two-class .cb-glyphs-hero .st-mark
+   above): dropping it entirely let the generic .st-pair .st-mark{width:14px}
+   (same two-class specificity, later in the file) win by source order again —
+   the exact regression this bug-fix already covers, just re-triggered by
+   removing the override instead of by never having it.
 */
-.cb-glyphs-hero .st-pair .st-mark{width:74px;height:74px}
+.cb-glyphs-hero .st-pair .st-mark{width:88px;height:88px}
 .cb-glyphs-hero .st-pair{gap:0}
 /* the single unified arrow shape (shaft + head, one path, one gradient — see
    cbHeroArrowSVG in app.js) replacing the old bar+separate-arrowhead pair */
@@ -1798,9 +1815,20 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
    the same visual weight — removing the fixed height was the actual fix; the
    viewBox match just keeps the proportions (and curve prominence) consistent too. */
 .gr-line-wrap{margin:8px 0 0}
-.gr-line-vals{display:flex;justify-content:space-between;align-items:center;margin:0 0 2px}
+/* BUG FIX (2026-07-31, Justin: "the safety increase one... has floating
+   percentages"): the value labels used to sit in their own flex row above the
+   whole svg (.gr-line-vals, retired) — detached from the actual points below
+   them by the full height of the chart. Now positioned as % of .gr-line-box
+   (a plain position:relative wrapper around just the svg, so the box's own
+   size IS the svg's rendered size and left/top % line up 1:1 with the
+   viewBox's own x/W, y/H fractions), directly above each point — same
+   "value tied to its own mark" rule as .rc-val, applied to a line chart
+   instead of a bar. */
+.gr-line-box{position:relative}
 .gr-line-val{display:flex;align-items:center;gap:4px;font-size:calc(15px * var(--type-scale));font-weight:600;color:var(--ink)}
 .gr-line-val-now{font-size:calc(17px * var(--type-scale))}
+.gr-pt-val{position:absolute;transform:translate(0,calc(-100% - 10px));white-space:nowrap;pointer-events:none}
+.gr-pt-val-end{transform:translate(-100%,calc(-100% - 10px))}
 .gr-line-labs{display:flex;justify-content:space-between;font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:2px}
 /* value-above-bar label, shared by the growth mini-chart and the solo axis cards:
    one small consistent convention (the number sits above its own bar) instead of
