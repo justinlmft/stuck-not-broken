@@ -1570,7 +1570,7 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">almost there</p>
         <h1 style="margin:12px 0 12px">check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">we sent a confirmation link to <b style="font-weight:500">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap it, then come back here to sign in.</p>
+        <p class="lede" style="margin-bottom:24px">we sent a confirmation link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap it, then come back here to sign in.</p>
         <button class="btn block" id="back2">back to sign in</button>
       </div></div>`);
     $('#back2').onclick=()=>{ authMode='in'; screenSignIn(); };
@@ -1582,7 +1582,7 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">reset link sent</p>
         <h1 style="margin:12px 0 12px">check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">we sent a password reset link to <b style="font-weight:500">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap the link and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
+        <p class="lede" style="margin-bottom:24px">we sent a password reset link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap the link and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
         <button class="btn block" id="back3">back to sign in</button>
       </div></div>`);
     $('#back3').onclick=()=>{ authMode='in'; screenSignIn(); };
@@ -1728,10 +1728,35 @@
         <p class="wn-sig">Justin</p>
         <button class="btn block" id="wn-ok" type="button">got it</button>
       </div>`;
-    const close = ()=>{ markWhatsNewSeen(); try{ wrap.remove(); }catch(e){} };
+    // D271 (DQA 2026-07-30): this was aria-modal="true" with no focus management at all
+    // — initial focus stayed on <body>, Tab reached six controls BEHIND the scrim before
+    // it ever reached "got it", and Escape did nothing. A dialog that traps the pointer
+    // has to trap the keyboard too, and it needs a conventional dismiss.
+    const _prevFocus = document.activeElement;
+    const close = ()=>{
+      markWhatsNewSeen();
+      try{ document.removeEventListener('keydown', onKey, true); }catch(e){}
+      try{ wrap.remove(); }catch(e){}
+      try{ if(_prevFocus && _prevFocus.focus) _prevFocus.focus(); }catch(e){}
+    };
+    const focusables = ()=>Array.prototype.filter.call(
+      wrap.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])'),
+      el=>el.offsetParent !== null || el === document.activeElement);
+    function onKey(e){
+      if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); return; }
+      if(e.key !== 'Tab') return;
+      const f = focusables(); if(!f.length){ e.preventDefault(); return; }
+      const first = f[0], last = f[f.length-1];
+      if(!wrap.contains(document.activeElement)){ e.preventDefault(); first.focus(); return; }
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
     wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
     document.body.appendChild(wrap);
+    document.addEventListener('keydown', onKey, true);
     const ok = wrap.querySelector('#wn-ok'); if(ok) ok.onclick = close;
+    // land focus inside the dialog, on the action, not on <body>
+    try{ if(ok) ok.focus({preventScroll:true}); }catch(e){ try{ if(ok) ok.focus(); }catch(_e){} }
     obTrack('whatsnew_shown', { v:'statemath' });
   }
 
@@ -4798,7 +4823,7 @@
             <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
           </div>
 
-          <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="your patterns \u2014 swipe or use the dots below">${(function(){
+          <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="your patterns: swipe or use the dots below">${(function(){
             // slides assemble dynamically, wins first. a safety DIP is never
             // animated or headlined here (it lives, gently worded, in the reader).
             const slides = [];
@@ -6318,7 +6343,7 @@
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const u=Store.user();
     const ts = (localStorage.getItem('snb_textscale')||'1');
-    const rm = (localStorage.getItem('snb_reduce_motion')==='1');
+    const rm = reduceMotionOn();   // effective, not just the stored value (D157/D270)
     const th = (localStorage.getItem('snb_theme')||'');
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
@@ -6644,6 +6669,17 @@
   // un-escapes ONLY the <b>/</b> sequences — a narrow allowlist, not a trust switch:
   // nothing else (script tags, attributes, other elements) can pass through.
   function boldHtml(s){ return escapeHtml(s).replace(/&lt;b&gt;/g,'<b>').replace(/&lt;\/b&gt;/g,'</b>'); }
+  // The effective reduce-motion state: the OS setting is the default, the in-app switch
+  // is an explicit override in either direction. One definition so the class, the switch
+  // and the caption can never disagree (DQA D157/D158/D269/D270, 2026-07-30).
+  function reduceMotionOn(){
+    try{
+      const pref = localStorage.getItem('snb_reduce_motion');   // '1' | '0' | null
+      if(pref==='1') return true;
+      if(pref==='0') return false;
+      return !!(window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches);
+    }catch(e){ return false; }
+  }
   // user display preferences (text size + motion), persisted and applied app-wide
   function applyPrefs(){
     try{
@@ -6652,7 +6688,13 @@
       // setting x the device ramp (--type-fluid). Writing --type-scale here would
       // clobber the ramp and pin the app back to phone-sized type on desktop.
       document.documentElement.style.setProperty('--type-user', String(ts));
-      document.body.classList.toggle('reduce-motion', localStorage.getItem('snb_reduce_motion')==='1');
+      // D157/D158/D269/D270 (DQA 2026-07-30): this class used to be set ONLY from the
+      // in-app switch, so `body.reduce-motion` (and every CSS rule keyed off it) stayed
+      // off for anyone who had asked for reduced motion at the OS level. Every JS site
+      // in this file already ORs both; the class now does too. The stored value is a
+      // three-state: '1' = user asked for reduced, '0' = user explicitly asked for
+      // animations (an override that beats the OS), unset = follow the OS.
+      document.body.classList.toggle('reduce-motion', reduceMotionOn());
       const theme = localStorage.getItem('snb_theme') || '';            // '', 'light', 'dark' ('' follows the system)
       const de = document.documentElement;
       de.classList.toggle('theme-dark', theme==='dark');

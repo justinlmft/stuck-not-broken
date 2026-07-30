@@ -336,7 +336,10 @@ p{margin:0;text-wrap:pretty}
 .plan:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .plans{display:flex;flex-direction:column;gap:12px;margin:18px 0 22px}
 .fineprint{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:14px;line-height:1.5}
-.fineprint a{color:var(--link);text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:2px}
+.fineprint a{position:relative;color:var(--link);text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:2px}
+/* D276: the fineprint policy links are 41x16 of ink. Pad the hit box out to >=44 tall
+   without moving the text, the way .linkbtn / .change-link already do. */
+.fineprint a::before{content:'';position:absolute;inset:-14px -6px}
 .fineprint a:hover{text-decoration-color:var(--link)}
 .autherr{font-size:calc(13.5px * var(--type-scale));color:var(--danger);margin:4px 0 0;line-height:1.45}
 
@@ -540,9 +543,9 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
    low opacity. Now an outline like .bl-band, just dashed and a touch thinner
    (1.5px vs 2px) and a shade shorter (20px vs 26px) so the two are easy to
    tell apart at a glance without one going invisible. */
-.bl-prev{position:absolute;top:50%;height:20px;transform:translateY(-50%);border-radius:999px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.18);background:none;z-index:0}
-.bl-band{position:absolute;top:50%;height:26px;transform:translateY(-50%);border-radius:999px;border:2px solid var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.22);z-index:1}
-.bl-dot{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:var(--ink);border:2.5px solid var(--bone);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(26,31,42,.3);z-index:2}
+.bl-prev{position:absolute;top:50%;height:20px;transform:translateY(-50%);border-radius:999px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px var(--shade);background:none;z-index:0}
+.bl-band{position:absolute;top:50%;height:26px;transform:translateY(-50%);border-radius:999px;border:2px solid var(--bone);box-shadow:0 0 0 1px var(--shade);z-index:1}
+.bl-dot{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:var(--ink);border:2.5px solid var(--bone);transform:translate(-50%,-50%);box-shadow:0 1px 3px var(--shade-deep);z-index:2}
 .bl-ticks{display:flex;margin:10px 0 0}
 .bl-ticks span{flex:1;font-size:calc(9.5px * var(--type-scale));color:var(--muted);text-align:center;line-height:1.2}
 .bl-key{border-top:1px solid var(--hairline);margin:15px 0 0;padding:13px 0 0;display:grid;gap:10px}
@@ -632,7 +635,7 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    count is the evidence" led to the parenthetical below; this is the CLAIM's own
    number, so it earns a place on the visual itself). */
 .cb-steps{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-evenly;padding:0 5px}
-.cb-step{width:5px;height:5px;border-radius:50%;background:var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.08);opacity:0;animation:cbStepPop .35s var(--ease) both}
+.cb-step{width:5px;height:5px;border-radius:50%;background:var(--bone);box-shadow:0 0 0 1px var(--shade-soft);opacity:0;animation:cbStepPop .35s var(--ease) both}
 @keyframes cbStepPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
 /* the actual arrowhead (was missing entirely — the gradient bar alone left direction
    only implied by color, easy to misread at a glance, e.g. .cb-dot/.cb-end were dead
@@ -717,7 +720,12 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    stuck invisible if JS/IntersectionObserver fails, same contract as the
    other two gated-animation patterns already in this file. */
 .rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;transform-origin:bottom center}
-.panel.panel-in .rc-bar{animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+/* D269 (DQA 2026-07-30): this ran under prefers-reduced-motion:reduce — no media
+   query and no class gate. The end state IS the natural state (transform-origin
+   bottom, real height inline per column), so skipping the animation lands correctly. */
+@media (prefers-reduced-motion:no-preference){
+  .panel.panel-in .rc-bar{animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+}
 @keyframes rcGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 .rc-lb{font-size:calc(11px * var(--type-scale));color:var(--muted);display:flex;align-items:center;justify-content:center}
 .rc-col-best .rc-lb{color:var(--ink);font-weight:600}
@@ -862,7 +870,7 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
    Same overflow fix as .set-seg — flex-wrap lets pills drop to a second line at
    large type-scale instead of overflowing the row (2026-07-21). */
 .play-filter.seg{display:flex;flex-wrap:wrap;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px;margin-bottom:16px}
-.play-filter.seg .period-pill{flex:1;border:0;border-radius:8px;padding:12px 0;font-size:calc(13px * var(--type-scale));color:var(--muted);background:transparent;white-space:nowrap}
+.play-filter.seg .period-pill{flex:1;min-width:44px;border:0;border-radius:8px;padding:12px 0;font-size:calc(13px * var(--type-scale));color:var(--muted);background:transparent;white-space:nowrap}
 .play-filter.seg .period-pill:hover{border:0;color:var(--ink-80)}
 .play-filter.seg .period-pill.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .play-filter.seg .period-pill:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -1453,7 +1461,7 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 @keyframes ciClauseIn{from{opacity:.45}to{opacity:1}}
 /* overflow-wrap so a long single-word option (scene names) breaks instead of
    running out of its own half-width cell at the large Dynamic Type steps. */
-.ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;overflow-wrap:anywhere;transition:border-color .2s var(--ease),color .2s var(--ease)}
+.ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;overflow-wrap:break-word;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .ch-opt:hover{border-color:var(--ink-80)}
 .ch-opt.on{border-color:var(--ink);border-width:2px;padding:12px 7px;color:var(--ink);font-weight:500}
 .ch-opt:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -1540,8 +1548,8 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 /* the walkthrough row caption shipped with no rule at all, so it inherited body size
    and read louder than its own label. Matches .ch-cap, the settings caption elsewhere. */
 .gs-cap{font-size:calc(13.5px * var(--type-scale));line-height:1.5;color:var(--muted);text-wrap:pretty}
-.gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
-.gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0}
+.gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink);min-width:0;text-align:right;overflow-wrap:break-word}
+.gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0;min-height:44px}
 .gs-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
 .gs-sw+.gs-sw{border-top:1px solid var(--hairline)}
 .gs-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
@@ -1820,8 +1828,13 @@ body.reduce-motion .settle-ico{transition:none}
    sequence (line, area, dots, date labels, legend) played once at render —
    invisible to anyone who hadn't swiped to that card yet in the carousel.
    Gated behind `.panel-in`, same convention/fallback as `.rc-bar` above. */
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
+/* D157 / D158 / D270 (DQA 2026-07-30): body:not(.reduce-motion) alone ignored the OS
+   setting, because app.js only ever set that class from the in-app switch. app.js now
+   ORs prefers-reduced-motion into the class; this media query is the second belt. */
+@media (prefers-reduced-motion:no-preference){
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
+}
 /* 2026-07-30 (Justin: "'your states over time' has a great opportunity for
    animation"): the line already drew itself here (see above), but that was
    the ONLY thing that ever animated on this chart — the dots, date labels,
@@ -1832,9 +1845,15 @@ body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-area{animation:
    in JS since they land at different points along a 1.05s draw); the date
    labels and the legend/scale footer fade in right after the last dot lands. */
 @keyframes cptIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
-body:not(.reduce-motion) .panel.panel-in .legend[style*="animation-delay"],body:not(.reduce-motion) .panel.panel-in .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
+/* D270 (and its two unlisted siblings, .cx / .legend+.arc-scale, same defect). NOTE:
+   these three set opacity:0 as the animation's start state, so they MUST NOT simply be
+   dropped under reduce-motion or the dots and labels would never appear. The @media
+   wrapper removes the opacity:0 along with the animation, landing on the end state. */
+@media (prefers-reduced-motion:no-preference){
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
+  body:not(.reduce-motion) .panel.panel-in .legend[style*="animation-delay"],body:not(.reduce-motion) .panel.panel-in .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
+}
 
 
 /* brand logo as a live state read — color only, lockup fixed (added 2026-06-27) */
@@ -1935,9 +1954,9 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 /* change a recent check-in: picker list + entry link */
 .change-link{display:block;margin:12px 0 2px;align-self:flex-start;text-align:left;background:none;border:0;color:var(--link);font:inherit;font-size:calc(13px * var(--type-scale));cursor:pointer;text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:3px}
 .change-list{display:flex;flex-direction:column;gap:8px}
-.change-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--bone-deep);border:1px solid var(--hairline);border-radius:12px;padding:13px 14px;cursor:pointer;color:var(--ink)}
-.change-when{flex:1;font-size:calc(14px * var(--type-scale));font-weight:500}
-.change-mark{display:flex;align-items:center;gap:7px;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
+.change-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;width:100%;min-width:0;text-align:left;background:var(--bone-deep);border:1px solid var(--hairline);border-radius:12px;padding:13px 14px;cursor:pointer;color:var(--ink)}
+.change-when{flex:1;min-width:0;overflow-wrap:break-word;font-size:calc(14px * var(--type-scale));font-weight:500}
+.change-mark{display:flex;align-items:center;min-width:0;overflow-wrap:break-word;gap:7px;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
 .change-row .wc-go{flex:none;display:flex}
 .change-row .wc-go svg{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ci-when{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin:2px 0 0}
@@ -2737,7 +2756,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .you-reader .yr-lede{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:7px 0 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .you-reader .yr-go{display:flex;align-items:center;gap:11px;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)}
 .you-reader .yr-glyph{flex:none;display:inline-flex;opacity:.7;transform:scale(.82);transform-origin:left center}
-.you-reader .yr-txt{font-size:calc(14.5px * var(--type-scale));color:var(--ink);font-weight:500;flex:1}
+.you-reader .yr-txt{font-size:calc(14.5px * var(--type-scale));color:var(--ink);font-weight:500;flex:1;min-width:0;overflow-wrap:break-word}
 .you-reader .yr-arw{color:var(--muted);flex:none;display:inline-flex}
 .you-reader .yr-arw svg{width:20px;height:20px}
 .you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px -22px 4px;padding:12px 22px}
@@ -2872,16 +2891,16 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 @keyframes obStepIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 /* "what's new" one-time card (returning users, state-math rework) */
 .wn-scrim{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
-  padding:24px 18px calc(24px + env(safe-area-inset-bottom));background:var(--scrim,rgba(26,31,42,.42));
+  padding:calc(24px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));background:var(--scrim);
   overflow-y:auto}
 .wn-card{background:var(--bone);border:1px solid var(--hairline);border-radius:16px;
-  width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px rgba(26,31,42,.18);
+  width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px var(--shade);
   max-height:100%;overflow-y:auto}
 .wn-mark{height:26px;display:block;margin:0 0 16px}
 .wn-h{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}
 .wn-p{font-size:calc(14.5px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
 .wn-list{margin:0 0 14px;padding-left:20px;display:grid;gap:8px}
-.wn-list li{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty}
+.wn-list li{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty;min-width:0;overflow-wrap:break-word}
 .wn-sig{font-size:calc(14.5px * var(--type-scale));color:var(--ink);margin:0 0 20px;font-weight:500}
 .wn-card .btn.block{width:100%}
 .ob-card{position:absolute;box-sizing:border-box;background:var(--bone);border:1px solid var(--hairline);

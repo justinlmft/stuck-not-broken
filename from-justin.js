@@ -1032,8 +1032,8 @@
       const wkLabel = hl('the week of ' + p.record.label), wkPct = hl(p.record.pct+'%');
       const variants = [
         hl('The week of ' + p.record.label) + ' is still your most regulated week yet' + held + ', with ' + wkPct + ' of its check-ins carrying safety. That week is proof of capacity. Your system has done it, which means it can do it again.',
-        wkPct + ' of check-ins carried safety ' + wkLabel + ' — still your best week on record' + held + '. Whatever that week held, your system already knows how to find it.',
-        'Your most regulated week is still ' + wkLabel + held + ', at ' + wkPct + ' safety. Not a ceiling — evidence. Your system has reached it before.'
+        wkPct + ' of check-ins carried safety ' + wkLabel + ', still your best week on record' + held + '. Whatever that week held, your system already knows how to find it.',
+        'Your most regulated week is still ' + wkLabel + held + ', at ' + wkPct + ' safety. Not a ceiling. Evidence. Your system has reached it before.'
       ];
       parts.push(variants[wsAgo!=null ? (wsAgo % variants.length) : 0]);
     }
