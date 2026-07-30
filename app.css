@@ -549,8 +549,22 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .bl-krow{display:flex;align-items:center;gap:11px;font-size:calc(12px * var(--type-scale));color:var(--ink-80);text-align:left}
 .bl-kmark{flex:0 0 30px;height:16px;display:inline-flex;align-items:center;justify-content:center}
 .bl-kdot{width:14px;height:14px;border-radius:50%;background:var(--ink);border:2px solid var(--bone);box-shadow:0 1px 2px rgba(26,31,42,.28)}
-.bl-kband{width:26px;height:15px;border-radius:5px;border:2px solid var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.3)}
-.bl-kprev{width:26px;height:13px;border-radius:5px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.22);background:none}
+/* BUG FIX (2026-07-31b, Justin: "'your state variation' has a solid and a
+   dashed line, but it's not obvious which is which in the key"): these two
+   swatches border-color'd themselves to var(--bone) — the CARD's own
+   background color — so in light mode the border was (by design) nearly
+   invisible against the card, and the only thing actually visible was the
+   box-shadow ring, which is a plain solid outline for BOTH swatches
+   regardless of which one's border is dashed. The one property meant to
+   tell them apart (solid vs. dashed) was rendered too low-contrast to read.
+   var(--bone) made sense for .bl-band/.bl-prev (the overlays drawn ON the
+   colorful gradient bar, a different background), but never for the key,
+   which always sits on the plain card. Swapped to var(--ink-80) — same
+   swap already used for BOTH of these swatches in dark mode below, just
+   made the default instead of a theme-conditional override (and no longer
+   needs the box-shadow ring once the border itself is visible on its own). */
+.bl-kband{width:26px;height:15px;border-radius:5px;border:2px solid var(--ink-80)}
+.bl-kprev{width:26px;height:13px;border-radius:5px;border:1.5px dashed var(--ink-80);background:none}
 .bl-wrap.early .bl-bar{filter:grayscale(.5);opacity:.55}
 .bl-early{font-size:calc(12.5px * var(--type-scale));color:var(--ink-80);margin:16px 0 0;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
@@ -567,19 +581,22 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
    the key's boosted .24. Both bar overlays now get the identical treatment
    their key swatches already had. v2 (2026-07-30): .bl-prev/.bl-kprev switched
    from a filled tint to a dashed outline (see above), so their dark-mode fix
-   is now the same border-color swap as .bl-band/.bl-kband, not an opacity bump. */
+   is now the same border-color swap as .bl-band/.bl-kband, not an opacity bump.
+   v3 (2026-07-31b): .bl-kband/.bl-kprev's dark-mode override below is now
+   REDUNDANT and removed — their base rule switched to var(--ink-80), which
+   already flips to a light, legible color in dark mode on its own (same
+   mechanism this whole override block exists to explain), so there's nothing
+   left for a dark-mode override to do for those two. .bl-band/.bl-prev (the
+   on-bar overlays, a different concern — see the BUG FIX comment above them)
+   still need their own override, unchanged. */
 @media (prefers-color-scheme: dark){
   :root:not(.theme-light) .wn-mark{filter:invert(1)}
   :root:not(.theme-light) .bl-band{border-color:var(--ink);box-shadow:none}
-  :root:not(.theme-light) .bl-kband{border-color:var(--ink);box-shadow:none}
   :root:not(.theme-light) .bl-prev{border-color:var(--ink);box-shadow:none}
-  :root:not(.theme-light) .bl-kprev{border-color:var(--ink);box-shadow:none}
 }
 :root.theme-dark .wn-mark{filter:invert(1)}
 :root.theme-dark .bl-band{border-color:var(--ink);box-shadow:none}
-:root.theme-dark .bl-kband{border-color:var(--ink);box-shadow:none}
 :root.theme-dark .bl-prev{border-color:var(--ink);box-shadow:none}
-:root.theme-dark .bl-kprev{border-color:var(--ink);box-shadow:none}
 .safety-foot{font-size:calc(14px * var(--type-scale));line-height:1.5;color:var(--muted);margin:12px 0 0;display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:nowrap}
 .safety-foot b{font-weight:500;color:var(--ink-80)}
 .safety-foot .st-marks{margin-left:1px}
@@ -686,8 +703,21 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    in. `.rc-bar`'s own height is already its real value (set inline per column),
    so scaling it from 0 anchored at the BOTTOM (transform-origin) makes it grow
    up from the baseline to that height, like an actual bar chart animating in —
-   `rc-lb`'s label below is unaffected, only the bar scales. */
-.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;transform-origin:bottom center;animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+   `rc-lb`'s label below is unaffected, only the bar scales.
+   BUG FIX (2026-07-31b, Justin: "on mobile, the animations all fire at once —
+   only the first carousel card is ever seen animating"): every one of these
+   entrance animations was unconditional, so it played once at render time
+   regardless of which carousel card was actually scrolled into view — by the
+   time you swiped to card 2+, its animation had already finished off-screen.
+   Same fix as `.tuned-card.tc-in` / the reader's `.read-anim section.sec-in`:
+   gate the animation behind a `.panel-in` class added by JS (see the
+   IntersectionObserver in app.js) when that card's `.panel` actually scrolls
+   into view. Base rule (no `.panel-in` yet) has no animation and no hidden
+   opacity/transform, so a card is always fully visible — content is never
+   stuck invisible if JS/IntersectionObserver fails, same contract as the
+   other two gated-animation patterns already in this file. */
+.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;transform-origin:bottom center}
+.panel.panel-in .rc-bar{animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
 @keyframes rcGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 .rc-lb{font-size:calc(11px * var(--type-scale));color:var(--muted);display:flex;align-items:center;justify-content:center}
 .rc-col-best .rc-lb{color:var(--ink);font-weight:600}
@@ -732,8 +762,21 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    WIDTH made them different heights. Match height instead (the dimension
    that actually reads as "size" in a horizontal glyph row) and let width
    size itself off each icon's own aspect ratio — no letterboxing, no
-   squishing, every mark actually 88px tall. */
-.cb-glyphs-hero .st-mark{width:auto;height:88px}
+   squishing, every mark actually 88px tall.
+   BUG FIX (2026-07-31b, Justin: "'your most common dip' card extends beyond
+   the [screen] margin"): a fixed 88px height never accounted for how WIDE the
+   resulting row gets — a blended pair (2 touching marks) + the 64px arrow +
+   a second mark can measure 350px+ wide (worse when the wide-aspect heart is
+   one of the three), but this card's own content box on a phone is only
+   ~300-320px (92vw panel minus its padding), so the row silently overflowed
+   past the card's edge instead of shrinking to fit. Marks don't have room to
+   flex-shrink (see .cb-glyphs .cb-g{flex:none} — needed so a pair doesn't
+   squish itself lopsided), so the fix is sizing height to the viewport via
+   clamp() instead of a flat 88px: same 88px from ~portrait-tablet width up
+   (unchanged from before — verified fine there), scaling down through the
+   phone range so the row's worst-case width always clears a phone's actual
+   content box, down to a 48px floor on the narrowest phones. */
+.cb-glyphs-hero .st-mark{width:auto;height:clamp(48px, 27vw - 40px, 88px)}
 /* BUG FIX (2026-07-29d, Justin: "why is the defense glyph so dang small??"): freeze/
    play/stillness render as TWO marks (.st-pair) instead of one — e.g. freeze = bolt +
    x. A later, equal-specificity rule (.st-pair .st-mark{width:14px}, for the small
@@ -756,7 +799,7 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    the exact regression this bug-fix already covers, just re-triggered by
    removing the override instead of by never having it.
 */
-.cb-glyphs-hero .st-pair .st-mark{width:auto;height:88px}
+.cb-glyphs-hero .st-pair .st-mark{width:auto;height:clamp(48px, 27vw - 40px, 88px)}
 .cb-glyphs-hero .st-pair{gap:0}
 /* the single unified arrow shape (shaft + head, one path, one gradient — see
    cbHeroArrowSVG in app.js) replacing the old bar+separate-arrowhead pair */
@@ -775,12 +818,16 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    elements any animation of their own — these 3 cards have been rendering
    fully-static since that redesign shipped. Same narrative the old pair had:
    the FROM glyph appears, the arrow travels left-to-right to connect it to
-   the TO glyph, which resolves in as the payoff. */
+   the TO glyph, which resolves in as the payoff.
+   BUG FIX (2026-07-31b, Justin: "on mobile... only the first one is seen"):
+   gated behind `.panel-in` for the same reason as `.rc-bar` above — this
+   animation was unconditional, so only the carousel card visible at render
+   time (card 1) was ever seen actually animating. */
 @media (prefers-reduced-motion:no-preference){
-  .cb-glyphs-hero .cb-g{animation:cbHeroGIn .4s var(--ease) both}
-  .cb-glyphs-hero .cb-g:first-child{animation-delay:.05s}
-  .cb-glyphs-hero .cb-g:last-child{animation-delay:.75s}
-  .cb-glyphs-hero .cb-arrow-hero{transform-origin:left center;animation:cbHeroArrowIn .5s .35s var(--ease) both}
+  .panel.panel-in .cb-glyphs-hero .cb-g{animation:cbHeroGIn .4s var(--ease) both}
+  .panel.panel-in .cb-glyphs-hero .cb-g:first-child{animation-delay:.05s}
+  .panel.panel-in .cb-glyphs-hero .cb-g:last-child{animation-delay:.75s}
+  .panel.panel-in .cb-glyphs-hero .cb-arrow-hero{transform-origin:left center;animation:cbHeroArrowIn .5s .35s var(--ease) both}
 }
 @keyframes cbHeroGIn{from{opacity:0;transform:translateY(6px) scale(.92)}to{opacity:1;transform:none}}
 @keyframes cbHeroArrowIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
@@ -892,14 +939,20 @@ body.show-fab .fab{display:flex}
      zero behavior change for anything not opted into staggering. `both` fill-mode
      on every one of these (added alongside the delay support) holds the FROM state
      during its delay instead of flashing the end-state first, then snapping back. */
-  .safety-meter-fill,.distrow-fill,.help-fill{transform-origin:left center;animation:growx .9s var(--ease) both;animation-delay:var(--sd,0ms)}
+  .safety-meter-fill{transform-origin:left center;animation:growx .9s var(--ease) both;animation-delay:var(--sd,0ms)}
   .safety-num{animation:numRise .6s var(--ease)}
   .safety-foot,.safety-range,.bloom-line{animation:riseIn .7s var(--ease)}
-  .distrow{animation:riseIn .55s var(--ease) both;animation-delay:var(--sd,0ms)}
-  .help-row{animation:riseIn .5s var(--ease) both;animation-delay:var(--sd,0ms)}
   .wk-cell{animation:riseIn .5s var(--ease) both}
   .wk-mark{animation:popIn .6s var(--ease) both;animation-delay:.35s}
   .streak-dot{animation:popIn .5s var(--ease) both}
+  /* BUG FIX (2026-07-31b, Justin: "on mobile... only the first one is seen"):
+     .distrow-fill/.help-fill/.distrow/.help-row all live exclusively inside
+     you-tab carousel cards (unlike their siblings above, which are shared
+     with the reader or are retired), so these are gated behind `.panel-in` —
+     same fix as `.rc-bar`. */
+  .panel.panel-in .distrow-fill,.panel.panel-in .help-fill{transform-origin:left center;animation:growx .9s var(--ease) both;animation-delay:var(--sd,0ms)}
+  .panel.panel-in .distrow{animation:riseIn .55s var(--ease) both;animation-delay:var(--sd,0ms)}
+  .panel.panel-in .help-row{animation:riseIn .5s var(--ease) both;animation-delay:var(--sd,0ms)}
 }
 .ot-bar:active{opacity:1}
 /* stats collapsible */
@@ -1762,8 +1815,13 @@ body.reduce-motion .settle-ico{transition:none}
 /* delight: the safety line draws itself on a gain (a payoff); reduce-motion safe, gains only */
 @keyframes chartDraw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 @keyframes chartArea{from{opacity:0}to{opacity:.1}}
-body:not(.reduce-motion) .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
-body:not(.reduce-motion) .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
+/* BUG FIX (2026-07-31b, Justin: "on mobile... only the first one is seen"):
+   all five of these were unconditional, so a chart card's whole draw-in
+   sequence (line, area, dots, date labels, legend) played once at render —
+   invisible to anyone who hadn't swiped to that card yet in the carousel.
+   Gated behind `.panel-in`, same convention/fallback as `.rc-bar` above. */
+body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
+body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
 /* 2026-07-30 (Justin: "'your states over time' has a great opportunity for
    animation"): the line already drew itself here (see above), but that was
    the ONLY thing that ever animated on this chart — the dots, date labels,
@@ -1774,9 +1832,9 @@ body:not(.reduce-motion) .chart.draw-gain .cline-area{animation:chartArea .85s v
    in JS since they land at different points along a 1.05s draw); the date
    labels and the legend/scale footer fade in right after the last dot lands. */
 @keyframes cptIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
-body:not(.reduce-motion) .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
-body:not(.reduce-motion) .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
-body:not(.reduce-motion) .legend[style*="animation-delay"],body:not(.reduce-motion) .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
+body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
+body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
+body:not(.reduce-motion) .panel.panel-in .legend[style*="animation-delay"],body:not(.reduce-motion) .panel.panel-in .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
 
 
 /* brand logo as a live state read — color only, lockup fixed (added 2026-06-27) */
