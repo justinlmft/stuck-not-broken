@@ -5131,6 +5131,11 @@
             +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
           cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
           cvEl.parentNode.insertBefore(wrap, cvEl);
+          // the desktop ledger shows exactly one card at a time (not a swipe
+          // carousel), so it's always the thing on screen the instant it's built —
+          // no need to wait for an IntersectionObserver, just trigger its entrance
+          // animation (gated behind `.panel-in`, see app.css) immediately.
+          const _ylPanel = wrap.querySelector('.yl-detail'); if(_ylPanel) _ylPanel.classList.add('panel-in');
           // desktop top-alignment: lift the week/all toggle to the row just under the
           // heading, so "what your check-ins show." tops the screen on the same line
           // as the rail's first word (Justin 2026-07-20). Compact carousel untouched.
@@ -5200,6 +5205,27 @@
         const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
         carousel.scrollTo({left:j*snapUnit(carousel), behavior:calm?'auto':'smooth'});
       }));
+      // each card's entrance animation (bars, hero glyphs, chart draw-in) used to
+      // fire unconditionally the moment this innerHTML was set — in the mobile
+      // swipe carousel only the FIRST card was ever actually on screen when that
+      // happened, so every other card had already finished its animation, fully
+      // static, by the time you swiped to it (Justin 2026-07-31: "only the first
+      // one is seen"). Trigger each card's `.panel-in` (which the CSS gates all
+      // of that entrance work behind — see app.css) when it actually scrolls into
+      // view instead, same convention as the reader's `.read-anim`/`.sec-in`:
+      // content is always visible even if this fails, it just won't animate.
+      try{
+        if(carousel){
+          const _calmCv = matchMedia('(prefers-reduced-motion:reduce)').matches || document.body.classList.contains('reduce-motion');
+          const _panels = carousel.querySelectorAll('.panel');
+          if(!_calmCv && 'IntersectionObserver' in window){
+            const _pio = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('panel-in'); _pio.unobserve(e.target); } }), { root:carousel, threshold:0.55 });
+            _panels.forEach(p=>_pio.observe(p));
+          } else {
+            _panels.forEach(p=>p.classList.add('panel-in'));
+          }
+        }
+      }catch(e){}
 
       // gentle count-up to the safety figure — the card's one breath of life,
       // and only the first time it's shown per page load (not on every period/tab switch).
