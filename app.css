@@ -532,7 +532,15 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 /* baseline card (§7.2 rework): six-state spectrum, no % / no meter-to-100 */
 .bl-wrap{margin:8px 0 0}
 .bl-bar{position:relative;height:22px;border-radius:999px;background:linear-gradient(90deg,var(--s-shutdown) 8.33%,var(--s-freeze) 25%,var(--s-fight) 41.67%,var(--s-play) 58.33%,var(--s-safety) 75%,var(--s-still) 91.67%)}
-.bl-prev{position:absolute;top:50%;height:22px;transform:translateY(-50%);border-radius:999px;background:var(--ink);opacity:.13}
+/* BUG FIX (2026-07-30, Justin: "the variation last overlay is just not
+   visible... make it outlined the same as variation this, but dashed and a
+   bit thinner"): a filled translucent tint (background+opacity) never read
+   reliably against a 6-color gradient bar — it visually disappeared entirely
+   against whichever segment happened to be close in luminance to --ink at
+   low opacity. Now an outline like .bl-band, just dashed and a touch thinner
+   (1.5px vs 2px) and a shade shorter (20px vs 26px) so the two are easy to
+   tell apart at a glance without one going invisible. */
+.bl-prev{position:absolute;top:50%;height:20px;transform:translateY(-50%);border-radius:999px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.18);background:none;z-index:0}
 .bl-band{position:absolute;top:50%;height:26px;transform:translateY(-50%);border-radius:999px;border:2px solid var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.22);z-index:1}
 .bl-dot{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:var(--ink);border:2.5px solid var(--bone);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(26,31,42,.3);z-index:2}
 .bl-ticks{display:flex;margin:10px 0 0}
@@ -542,7 +550,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .bl-kmark{flex:0 0 30px;height:16px;display:inline-flex;align-items:center;justify-content:center}
 .bl-kdot{width:14px;height:14px;border-radius:50%;background:var(--ink);border:2px solid var(--bone);box-shadow:0 1px 2px rgba(26,31,42,.28)}
 .bl-kband{width:26px;height:15px;border-radius:5px;border:2px solid var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.3)}
-.bl-kprev{width:26px;height:15px;border-radius:5px;background:var(--ink);opacity:.13}
+.bl-kprev{width:26px;height:13px;border-radius:5px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.22);background:none}
 .bl-wrap.early .bl-bar{filter:grayscale(.5);opacity:.55}
 .bl-early{font-size:calc(12.5px * var(--type-scale));color:var(--ink-80);margin:16px 0 0;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
@@ -557,19 +565,21 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
    .bl-prev's background (var(--ink), now light) at the same low .13 opacity
    used in light mode barely showed against the dark bar instead of matching
    the key's boosted .24. Both bar overlays now get the identical treatment
-   their key swatches already had. */
+   their key swatches already had. v2 (2026-07-30): .bl-prev/.bl-kprev switched
+   from a filled tint to a dashed outline (see above), so their dark-mode fix
+   is now the same border-color swap as .bl-band/.bl-kband, not an opacity bump. */
 @media (prefers-color-scheme: dark){
   :root:not(.theme-light) .wn-mark{filter:invert(1)}
   :root:not(.theme-light) .bl-band{border-color:var(--ink);box-shadow:none}
   :root:not(.theme-light) .bl-kband{border-color:var(--ink);box-shadow:none}
-  :root:not(.theme-light) .bl-prev{opacity:.24}
-  :root:not(.theme-light) .bl-kprev{opacity:.24}
+  :root:not(.theme-light) .bl-prev{border-color:var(--ink);box-shadow:none}
+  :root:not(.theme-light) .bl-kprev{border-color:var(--ink);box-shadow:none}
 }
 :root.theme-dark .wn-mark{filter:invert(1)}
 :root.theme-dark .bl-band{border-color:var(--ink);box-shadow:none}
 :root.theme-dark .bl-kband{border-color:var(--ink);box-shadow:none}
-:root.theme-dark .bl-prev{opacity:.24}
-:root.theme-dark .bl-kprev{opacity:.24}
+:root.theme-dark .bl-prev{border-color:var(--ink);box-shadow:none}
+:root.theme-dark .bl-kprev{border-color:var(--ink);box-shadow:none}
 .safety-foot{font-size:calc(14px * var(--type-scale));line-height:1.5;color:var(--muted);margin:12px 0 0;display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:nowrap}
 .safety-foot b{font-weight:500;color:var(--ink-80)}
 .safety-foot .st-marks{margin-left:1px}
@@ -722,6 +732,24 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    instead, and since the row's other two children (the glyphs) don't grow either,
    the whole group now sits left-aligned as one unit rather than spanning the card. */
 .cb-arrow-hero{flex:0 0 auto;width:64px;height:28px;display:block}
+/* BUG FIX (2026-07-30, Justin: "i don't see the animation... on any card" —
+   'getting back to safety', 'your most common shift', and 'is practice
+   helping?' all use this hero glyph treatment): the 2026-07-29 hero redesign
+   swapped the old .cb-path/.cb-arrow pair (which DID self-animate — see
+   cbDraw/cbPop above) for .cb-g/.cb-arrow-hero, but never gave the new
+   elements any animation of their own — these 3 cards have been rendering
+   fully-static since that redesign shipped. Same narrative the old pair had:
+   the FROM glyph appears, the arrow travels left-to-right to connect it to
+   the TO glyph, which resolves in as the payoff. */
+@media (prefers-reduced-motion:no-preference){
+  .cb-glyphs-hero .cb-g{animation:cbHeroGIn .4s var(--ease) both}
+  .cb-glyphs-hero .cb-g:first-child{animation-delay:.05s}
+  .cb-glyphs-hero .cb-g:last-child{animation-delay:.75s}
+  .cb-glyphs-hero .cb-arrow-hero{transform-origin:left center;animation:cbHeroArrowIn .5s .35s var(--ease) both}
+}
+@keyframes cbHeroGIn{from{opacity:0;transform:translateY(6px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes cbHeroArrowIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-arrow-hero{animation:none;opacity:1;transform:none}
 .cb-line-lead{font-size:calc(18px * var(--type-scale));line-height:1.5;color:var(--ink);font-weight:500;margin:0 0 12px}
 .wk-mark{display:inline-flex;align-items:center;justify-content:center;height:20px}
 .wk-mark .snb-ico{height:19px;width:auto;display:block}
@@ -1701,6 +1729,19 @@ body.reduce-motion .settle-ico{transition:none}
 @keyframes chartArea{from{opacity:0}to{opacity:.1}}
 body:not(.reduce-motion) .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
 body:not(.reduce-motion) .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
+/* 2026-07-30 (Justin: "'your states over time' has a great opportunity for
+   animation"): the line already drew itself here (see above), but that was
+   the ONLY thing that ever animated on this chart — the dots, date labels,
+   and state legend all just appeared instantly, and (separately) chartInner's
+   self-draw was gated to mode==='safety', a dead code path, so in practice
+   this chart never animated at all. Dots now pop in one-by-one, in sequence,
+   right as the line finishes drawing past them (delays are set inline per-dot
+   in JS since they land at different points along a 1.05s draw); the date
+   labels and the legend/scale footer fade in right after the last dot lands. */
+@keyframes cptIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+body:not(.reduce-motion) .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
+body:not(.reduce-motion) .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
+body:not(.reduce-motion) .legend[style*="animation-delay"],body:not(.reduce-motion) .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
 
 
 /* brand logo as a live state read — color only, lockup fixed (added 2026-06-27) */
@@ -1748,11 +1789,18 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
    and the then/now labels sit outside the svg as plain flex rows, left/right-
    aligned to match the line's endpoints, since positioning 2 fixed points
    doesn't need real chart-label logic. */
+/* BUG FIX (2026-07-30, Justin: "it's tiny! it should take up as much visual
+   space as 'your states over time'. use the same visual language"): the svg
+   used to carry a hardcoded height:120px, which fought the shared .chart
+   class's own width:100%;height:auto (the same rule chartInner's states-over-
+   time svg relies on to fill the card). The viewBox is now literally the same
+   320×132 chartInner uses, so at the same card width the two charts render at
+   the same visual weight — removing the fixed height was the actual fix; the
+   viewBox match just keeps the proportions (and curve prominence) consistent too. */
 .gr-line-wrap{margin:8px 0 0}
 .gr-line-vals{display:flex;justify-content:space-between;align-items:center;margin:0 0 2px}
 .gr-line-val{display:flex;align-items:center;gap:4px;font-size:calc(15px * var(--type-scale));font-weight:600;color:var(--ink)}
 .gr-line-val-now{font-size:calc(17px * var(--type-scale))}
-.gr-line-svg{height:120px}
 .gr-line-labs{display:flex;justify-content:space-between;font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:2px}
 /* value-above-bar label, shared by the growth mini-chart and the solo axis cards:
    one small consistent convention (the number sits above its own bar) instead of

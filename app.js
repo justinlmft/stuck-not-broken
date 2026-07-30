@@ -3957,22 +3957,34 @@
     const curveCmds=_smoothCurve(pts);
     const linePath=N===1?`M ${pts[0].x} ${pts[0].y} L ${pts[0].x+0.1} ${pts[0].y}`:`M ${pts[0].x} ${pts[0].y} ${curveCmds}`;
     const areaPath=N===1?`M ${pts[0].x} ${baseY} L ${pts[0].x} ${pts[0].y} L ${pts[0].x+0.1} ${pts[0].y} L ${pts[0].x+0.1} ${baseY} Z`:`M ${pts[0].x} ${baseY} L ${pts[0].x} ${pts[0].y} ${curveCmds} L ${pts[pts.length-1].x} ${baseY} Z`;
-    const maxL=Math.min(6,N), seen=new Set(), labs=[];
-    for(let i=0;i<maxL;i++){ const idx=Math.round(i*(N-1)/(maxL-1||1)); if(seen.has(idx))continue; seen.add(idx); labs.push(`<text x="${xOf(idx).toFixed(1)}" y="${H-8}" text-anchor="${idx===0?'start':idx===N-1?'end':'middle'}" class="cx">${B[idx].label}</text>`); }
+    const maxL=Math.min(6,N), seen=new Set(), labIdxs=[];
+    for(let i=0;i<maxL;i++){ const idx=Math.round(i*(N-1)/(maxL-1||1)); if(seen.has(idx))continue; seen.add(idx); labIdxs.push(idx); }
+    // gain (2026-07-30, Justin: "'your states over time' has a great opportunity
+    // for animation" — it had NONE: this used to gate the self-draw entirely on
+    // mode==='safety', a mode that's dead code in current rendering (only 'states'
+    // ever reaches the screen), so the line never once drew itself. 'safety' mode
+    // keeps its narrative-gated behavior (only draws on a real rise) in case it's
+    // ever revived; 'states' just always gets the reveal — it's not telling a
+    // gain/loss story, it's a general "here's your timeline" chart.
+    const gain = mode==='safety' ? (N>=2 && (B[N-1].avg - B[0].avg) > 0.04) : N>=2;
+    const labs=labIdxs.map((idx,li)=>`<text x="${xOf(idx).toFixed(1)}" y="${H-8}" text-anchor="${idx===0?'start':idx===N-1?'end':'middle'}" class="cx"${gain?` style="animation-delay:${1150+li*60}ms"`:''}>${B[idx].label}</text>`);
     // monochrome intensity gradient: height encodes safety; color deepens with it (no state hues)
     const ramp=(v)=>{ v=Math.max(0,Math.min(1,v)); const LO=[206,200,187],HI=[58,55,48]; return `rgb(${LO.map((c,i)=>Math.round(c+(HI[i]-c)*v)).join(',')})`; };
-    const dots=pts.map(p=>`<circle class="cpt" data-i="${p.i}" cx="${p.x}" cy="${p.y}" r="3.6" fill="${mode==='safety'?ramp(p.b.avg):STATE_COLOR(p.b.dom)}" stroke="var(--bone)" stroke-width="1.6"></circle>`).join('');
+    // dots pop in AFTER the line finishes drawing (chartDraw is 1.05s) — each one
+    // landing in sequence along the path feels like the line is "placing" them,
+    // rather than everything appearing at once the instant the draw completes.
+    const dots=pts.map(p=>`<circle class="cpt" data-i="${p.i}" cx="${p.x}" cy="${p.y}" r="3.6" fill="${mode==='safety'?ramp(p.b.avg):STATE_COLOR(p.b.dom)}" stroke="var(--bone)" stroke-width="1.6"${gain?` style="animation-delay:${950+p.i*60}ms"`:''}></circle>`).join('');
     let defs, lineSvg, footer;
     const stops=pts.map(p=>`<stop offset="${N===1?0:(p.i/(N-1)).toFixed(3)}" stop-color="${mode==='safety'?ramp(p.b.avg):STATE_COLOR(p.b.dom)}"></stop>`).join('');
     defs=`<defs><linearGradient id="cline" x1="${padL}" y1="0" x2="${padL+plotW}" y2="0" gradientUnits="userSpaceOnUse">${stops}</linearGradient></defs>`;
     lineSvg=`<path class="cline-area" d="${areaPath}" fill="url(#cline)" opacity=".1"></path><path class="cline-path" pathLength="1" d="${linePath}" fill="none" stroke="url(#cline)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"></path>`;
+    const footerDelay=gain?` style="animation-delay:${1150+labIdxs.length*60}ms"`:'';
     if(mode==='safety'){
-      footer=`<div class="arc-scale"><span>less safety</span><span class="arc-scale-bar"></span><span>more</span></div>`;
+      footer=`<div class="arc-scale"${footerDelay}><span>less safety</span><span class="arc-scale-bar"></span><span>more</span></div>`;
     } else {
       const states=[...new Set(B.map(b=>b.dom))];
-      footer=`<div class="legend">${states.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_NAME(k)}</span>`).join('')}</div>`;
+      footer=`<div class="legend"${footerDelay}>${states.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_NAME(k)}</span>`).join('')}</div>`;
     }
-    const gain = mode==='safety' && N>=2 && (B[N-1].avg - B[0].avg) > 0.04;   // a real safety rise -> the line draws itself as a payoff
     // the floating "Jul 27 \u00b7 play/motivation" readout (2026-07-30, Justin: "this
     // is just floating there") is CUT \u2014 it defaulted to the latest point with no
     // visual line tying it to that dot, and the legend + line already carry
@@ -4683,7 +4695,11 @@
             const sV=Math.round(startV*100), rV=Math.round(recentV*100);
             const startColor=safetyColor(startV), recentColor=safetyColor(recentV);
             const heart=ico('heart',{cls:'gr-val-glyph',color:recentColor});
-            const W=240,H=130,padX=30,padTop=18,padBot=18;
+            // W/H match chartInner's own viewBox (2026-07-30, Justin: "it's tiny!
+            // it should take up as much visual space as 'your states over time'.
+            // use the same visual language") — at the same rendered card width,
+            // the two charts now carry the same visual weight.
+            const W=320,H=132,padX=26,padTop=20,padBot=20;
             const x0=padX, x1=W-padX, midX=(x0+x1)/2, baseY=padTop+(H-padTop-padBot);
             const yOf=v=>padTop+(1-Math.max(0,Math.min(1,v)))*(H-padTop-padBot);
             const y0=yOf(startV), y1=yOf(recentV);
@@ -4695,8 +4711,8 @@
                   <defs><linearGradient id="glGrad" x1="${x0}" y1="0" x2="${x1}" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${startColor}"></stop><stop offset="1" stop-color="${recentColor}"></stop></linearGradient></defs>
                   <path class="cline-area" d="${areaPath}" fill="url(#glGrad)" opacity=".1"></path>
                   <path class="cline-path" pathLength="1" d="${curvePath}" fill="none" stroke="url(#glGrad)" stroke-width="3.4" stroke-linecap="round"></path>
-                  <circle class="cpt" cx="${x0}" cy="${y0}" r="4.2" fill="${startColor}" stroke="var(--bone)" stroke-width="1.8"></circle>
-                  <circle class="cpt" cx="${x1}" cy="${y1}" r="5.4" fill="${recentColor}" stroke="var(--bone)" stroke-width="2"></circle>
+                  <circle class="cpt" cx="${x0}" cy="${y0}" r="4.2" fill="${startColor}" stroke="var(--bone)" stroke-width="1.8" style="animation-delay:150ms"></circle>
+                  <circle class="cpt" cx="${x1}" cy="${y1}" r="5.4" fill="${recentColor}" stroke="var(--bone)" stroke-width="2" style="animation-delay:950ms"></circle>
                 </svg>
                 <div class="gr-line-labs"><span>then</span><span>now</span></div>
               </div>`;
