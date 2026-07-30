@@ -206,6 +206,24 @@
     return arr;
   }
 
+  // _relWhen(ms): a lowercase, roughly-relative time phrase for a past timestamp
+  // (2026-07-31, Justin: "'then' should say the time period, like 'last month'" —
+  // the growth card's "then" point is an average over the FIRST k check-ins,
+  // not tied to the 7/30/90/all period toggle, so it needs its own real-date-
+  // based phrase rather than reusing the toggle-driven 'last week'/'last month'
+  // labels the baseline-variation card uses). Coarse on purpose — this is a
+  // caption, not a timestamp.
+  function _relWhen(ms){
+    const days = Math.max(0, Math.round((Date.now()-ms)/86400000));
+    if(days<3) return 'a few days ago';
+    if(days<10) return 'last week';
+    if(days<45) return 'last month';
+    if(days<75) return '2 months ago';
+    if(days<400) return Math.round(days/30)+' months ago';
+    const yrs = Math.round(days/365);
+    return yrs<=1 ? 'a year ago' : yrs+' years ago';
+  }
+
   // The three brand marks ARE the three nervous-system axes. heart=safety,
   // bolt=fight-or-flight, x=shutdown. One vocabulary across check-in, you-tab, feedback.
   // front-facing labels are FELT language (anyone can rate them, no theory needed);
@@ -4679,27 +4697,38 @@
       // of an N-point polyline. Layout otherwise unchanged: share button -> big
       // visual first (.cb-journey, standard hero rhythm) -> one bold
       // cb-line-lead sentence -> a small cb-fine footnote.
-      // "then" is left as the plain word for now — Justin flagged that whether it
-      // should tie to the 7/30/90/all period toggle (vs. a fixed "a month ago"-style
-      // label) is still open; defaulting to the always-all-time comparison this card
-      // has always used rather than guessing at period-awareness.
+      // "then" (2026-07-31, Justin: "'then' should say the time period, like
+      // 'last month'"): the comparison itself is still always-all-time (start
+      // bucket vs recent bucket, not tied to the 7/30/90/all period toggle —
+      // that question is separate and still open), but the LABEL now names
+      // when the "then" bucket actually was, from the real average timestamp
+      // of those check-ins (_relWhen), instead of the bare word "then".
       let growthHead='';
       (function(){
         const tn=Store.tenure();
         if(allCs.length>=8 && tn.days>=5 && tn.stage!=='start' && tn.stage!=='early'){
           const k=Math.max(2,Math.floor(allCs.length/4));
-          const startV=avg(allCs.slice(0,k).map(x=>x.v)), recentV=avg(allCs.slice(-k).map(x=>x.v));
+          const startCs=allCs.slice(0,k), recentCs=allCs.slice(-k);
+          const startV=avg(startCs.map(x=>x.v)), recentV=avg(recentCs.map(x=>x.v));
           const g=Math.round((recentV-startV)*100), up=g>=3, down=g<=-3;
           // a dip is never the headline here — that conversation lives in the reader.
           if(!down){
             const sV=Math.round(startV*100), rV=Math.round(recentV*100);
             const startColor=safetyColor(startV), recentColor=safetyColor(recentV);
             const heart=ico('heart',{cls:'gr-val-glyph',color:recentColor});
+            const thenLabel=_relWhen(avg(startCs.map(x=>x.t)));
             // W/H match chartInner's own viewBox (2026-07-30, Justin: "it's tiny!
             // it should take up as much visual space as 'your states over time'.
             // use the same visual language") — at the same rendered card width,
             // the two charts now carry the same visual weight.
-            const W=320,H=132,padX=26,padTop=20,padBot=20;
+            // BUG FIX (2026-07-31, Justin: "the graph should go all the way to
+            // the margin of the card, aligned with 'then' and 'now'"): padX=26
+            // (8% inset) left the line/dots visibly indented from where the
+            // then/now text sits (flush to the card's own content edges, 0
+            // extra padding of their own). Cut to just enough clearance for
+            // the larger "now" dot's own radius+stroke (5.4+1) so nothing
+            // clips, without the old decorative margin.
+            const W=320,H=132,padX=7,padTop=20,padBot=20;
             const x0=padX, x1=W-padX, midX=(x0+x1)/2, baseY=padTop+(H-padTop-padBot);
             const yOf=v=>padTop+(1-Math.max(0,Math.min(1,v)))*(H-padTop-padBot);
             const y0=yOf(startV), y1=yOf(recentV);
@@ -4726,7 +4755,7 @@
                   <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${sV}%</span>
                   <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${heart}${rV}%</span>
                 </div>
-                <div class="gr-line-labs"><span>then</span><span>now</span></div>
+                <div class="gr-line-labs"><span>${thenLabel}</span><span>now</span></div>
               </div>`;
             growthHead=`<div class="cb-journey">${chart}</div>
               <p class="cb-line cb-line-lead">your average safety has ${up?'grown':'held steady'} since you started.</p>

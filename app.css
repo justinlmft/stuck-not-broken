@@ -677,11 +677,18 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 /* BUG FIX (2026-07-31, Justin: "still not seeing the staggered bar animations"):
    _staggerDelays' per-column value was being set as an inline `animation-delay`
    on `.rc-col` — but `.rc-col` has no animation of its own; only its child
-   `.rc-bar` animates (riseIn), with no delay of its own, so every bar rose in
+   `.rc-bar` animates, with no delay of its own, so every bar rose in
    on the same beat regardless of the computed stagger. Same `--sd` custom-
    property convention as distrow-fill/help-fill: set on the column, consumed
-   by the element that actually animates. */
-.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;animation:riseIn .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+   by the element that actually animates.
+   UPDATE (2026-07-31, Justin: "better, but they should animate upward, not just
+   appear"): riseIn (opacity+7px translateY) reads as a fade, not a bar growing
+   in. `.rc-bar`'s own height is already its real value (set inline per column),
+   so scaling it from 0 anchored at the BOTTOM (transform-origin) makes it grow
+   up from the baseline to that height, like an actual bar chart animating in —
+   `rc-lb`'s label below is unaffected, only the bar scales. */
+.rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;transform-origin:bottom center;animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+@keyframes rcGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 .rc-lb{font-size:calc(11px * var(--type-scale));color:var(--muted);display:flex;align-items:center;justify-content:center}
 .rc-col-best .rc-lb{color:var(--ink);font-weight:600}
 .rc-lb .seg-ico{width:15px;height:15px;color:inherit}
@@ -715,7 +722,18 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 /* 2026-07-29b (Justin: "that's the star here. make them dominant."): a second bump,
    56px wasn't enough — these are now the single biggest thing on the card, bigger than
    the panel-title itself. */
-.cb-glyphs-hero .st-mark{width:88px;height:88px}
+/* BUG FIX (2026-07-31, Justin: "the heart glyphs seem smaller than the others"):
+   forcing every mark into the same 88x88 SQUARE box didn't actually make them
+   the same size — the heart's own viewBox is notably wider-than-tall
+   (aspect 1.24) versus bolt/x (~0.95-0.98, nearly square), so inside an
+   identical square box with the SVG default preserveAspectRatio (xMidYMid
+   meet), the heart is width-constrained and letterboxes vertically, rendering
+   at ~71px tall while bolt/x fill the full 88px height. Matching a fixed
+   WIDTH made them different heights. Match height instead (the dimension
+   that actually reads as "size" in a horizontal glyph row) and let width
+   size itself off each icon's own aspect ratio — no letterboxing, no
+   squishing, every mark actually 88px tall. */
+.cb-glyphs-hero .st-mark{width:auto;height:88px}
 /* BUG FIX (2026-07-29d, Justin: "why is the defense glyph so dang small??"): freeze/
    play/stillness render as TWO marks (.st-pair) instead of one — e.g. freeze = bolt +
    x. A later, equal-specificity rule (.st-pair .st-mark{width:14px}, for the small
@@ -738,7 +756,7 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    the exact regression this bug-fix already covers, just re-triggered by
    removing the override instead of by never having it.
 */
-.cb-glyphs-hero .st-pair .st-mark{width:88px;height:88px}
+.cb-glyphs-hero .st-pair .st-mark{width:auto;height:88px}
 .cb-glyphs-hero .st-pair{gap:0}
 /* the single unified arrow shape (shaft + head, one path, one gradient — see
    cbHeroArrowSVG in app.js) replacing the old bar+separate-arrowhead pair */
