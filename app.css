@@ -80,15 +80,15 @@
 /* Device-appropriate type ramp (re-enabled with fluid Phase 2, 2026-07-19):
    reading distance grows with the screen, so the whole scale rides up together.
    Compact 1.133 stays = the ~17px HIG body on phones. */
-/* ---- THE SIZE-CLASS SPLIT (Justin's call, 2026-07-30b; DQA D226/D227/D228/D231) ----
-   "regular" is (min-width:720px) and (min-height:600px). The height half is what stops a
-   rotated iPhone (844x390 ... 956x440) from taking the desktop rail, the 680 cap, the 18px
-   type ramp and the practice tab's .p-split-view. Compact is the exact negation:
-   (max-width:719.98px), (max-height:599.98px) — both halves must move together or a
-   landscape phone matches NEITHER and lands in an unstyled gap.
-   Every phone landscape is under 600 tall; every tablet landscape (iPad 1024x768) and every
-   normal desktop window is over it, so nothing that was "regular" before stops being one. */
-@media (min-width:720px) and (min-height:600px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
+/* ---- THE SIZE-CLASS SPLIT — REVERTED TO WIDTH-ONLY (Justin, 2026-07-30d) ----
+   2026-07-30b this was `(min-width:720px) and (min-height:600px)`, so a rotated iPhone stayed a
+   phone. Justin tested it: "The phone sideways is uncomfortable. It should behave more like the
+   desktop browser version when in its side." So a landscape phone takes the REGULAR composition
+   again — rail, 680 cap, 18px ramp — which is what uses an 844x390 viewport well.
+   The real defect DQA found underneath D226 was never the breakpoint: it was that the >=720
+   practice screen rendered NO heading for paid accounts (app.js `deskHeading`). That is fixed
+   separately, so landscape now gets the desktop composition WITH its screen title. */
+@media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
 @media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;touch-action:manipulation}
@@ -115,7 +115,7 @@ button{font:inherit;color:inherit}
 }
 #screen{display:flex;flex-direction:column;flex:1;min-height:0}
 
-@media (min-width:720px) and (min-height:600px){
+@media (min-width:720px){
   .shell{max-width:var(--shell)}
   /* one interface, recomposed: the same appbar/scroll/tabbar children lay out
      as [rail | header-over-content] — no markup changes, grid does the work. */
@@ -192,7 +192,7 @@ button{font:inherit;color:inherit}
    and restores the "next card peeks in" affordance the 92% was there for.
    (Pre-existing — live prod does the same — folded in here per Justin
    2026-07-24: "anything that is not accounted for in beta needs to be there.") */
-@media (min-width:720px) and (min-height:600px) and (max-width:1119.98px){
+@media (min-width:720px) and (max-width:1119.98px){
   #screen .carousel{gap:18px}
   #screen .carousel > .panel{flex:0 0 min(92%,520px)}
 }
@@ -203,7 +203,7 @@ button{font:inherit;color:inherit}
 /* .ax-big/.ax-flav/.ax-note (old mobilized/immobilized combined-card chips)
    retired 2026-07-29 — those 2 cards became 5 solo-state axis cards built on the
    shared rc-chart/rc-val system instead (see .ax-solo-chart below). */
-@media (min-width:720px) and (min-height:600px) and (hover:hover){
+@media (min-width:720px) and (hover:hover){
   #screen > .tabbar button:hover{color:var(--ink);background:none}
   #screen > .tabbar button.on:hover{background:none}
 }
@@ -2399,7 +2399,7 @@ body.reduce-motion .lv-breathe{animation:none}
    breathing too, so tapping the ring never reverts to the old
    centered column (breath animates in place, no layout jump).
    ============================================================ */
-@media (min-width:720px) and (min-height:600px){
+@media (min-width:720px){
   #screen .today.tb{
     max-width:1080px;
     margin-inline:0;                       /* left-anchor (cancel the centering cap) */
@@ -2459,7 +2459,7 @@ body.reduce-motion .lv-breathe{animation:none}
    ============================================================ */
 
 /* --- 720-1059: one left-anchored column (the split doesn't fit yet) --- */
-@media (min-width:720px) and (min-height:600px) and (max-width:1059.98px){
+@media (min-width:720px) and (max-width:1059.98px){
   #screen .today.tb.mh{
     display:flex;
     flex-direction:column;
@@ -2537,7 +2537,7 @@ body.reduce-motion .lv-breathe{animation:none}
    .p-split-view) — mobile <720 renders the original flow and is
    untouched.
    ============================================================ */
-@media (min-width:720px) and (min-height:600px){
+@media (min-width:720px){
   #screen .p-split-view{max-width:1080px;margin-inline:0}
   /* The list column is a FIXED width in BOTH states so it never reflows when you
      pick a practice — the detail pane just appears to its right. */
@@ -2661,7 +2661,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 
 /* The reader keeps the left rail on desktop (same as every other
    screen); on mobile it stays immersive with just the back button. */
-@media (max-width:719.98px), (max-height:599.98px){ .reader-rail{display:none} }
+@media (max-width:719.98px){ .reader-rail{display:none} }
 
 /* ============================================================
    DESKTOP READER COMPOSITION (>=720) — reading column + contents rail.
@@ -2677,8 +2677,8 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    is a flex column that reproduces the prior child spacing exactly.
    ============================================================ */
 .read-flow{display:flex;flex-direction:column}
-@media (max-width:719.98px), (max-height:599.98px){ .read-aside{display:none} }
-@media (min-width:720px) and (min-height:600px){
+@media (max-width:719.98px){ .read-aside{display:none} }
+@media (min-width:720px){
   /* a middle spacer column carries the gutter so the reader's inline
      style="gap:0" (which would zero a grid column-gap) can't collapse it. */
   #screen .view.read:has(.read-aside){
@@ -2707,7 +2707,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 /* Desktop heading alignment (Justin 2026-07-20): every screen's first heading sits
    on the same top line as the rail's first word. An empty eyebrow above a heading
    must not add height, or the heading drops below the line. */
-@media (min-width:720px) and (min-height:600px){
+@media (min-width:720px){
   .scr-head .eyebrow:empty{display:none}
 }
 /* You ledger: the heading tops the screen (aligned with the rail); the week/all
@@ -2736,7 +2736,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    practice + context folds -> save) form the right column. Flush
    top + left; compact <720 untouched.
    ============================================================ */
-@media (min-width:720px) and (min-height:600px){
+@media (min-width:720px){
   #screen .view.checkin2{
     max-width:1080px;margin-inline:0;
     display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
@@ -2991,7 +2991,7 @@ body.reduce-motion .ob-foot::before{transition:none}
 .ob-mark{display:block;width:46px;height:auto;margin:6px 0 2px;color:var(--ink)}
 .ob-sign+.ob-mark{margin-top:4px}
 /* desktop: the sheet becomes a centred card rather than a full-width band */
-@media (min-width:720px) and (min-height:600px){
+@media (min-width:720px){
   .ob-card{left:50%;right:auto;bottom:50%;width:min(92%,520px);transform:translate(-50%,50%);
     border-radius:18px;border:1px solid var(--hairline);padding:26px 28px 22px;max-height:min(78vh,660px)}
   .ob-card.anim{animation:obFade .28s var(--ease)}
