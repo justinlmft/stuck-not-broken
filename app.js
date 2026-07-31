@@ -229,9 +229,9 @@
   // front-facing labels are FELT language (anyone can rate them, no theory needed);
   // the state names appear in the readout below, where the app does the teaching.
   const AXIS_ICON = {
-    v:   { icon:'heart', state:'safety',      sub:'connected to yourself, others, & where you are' },
-    sym: { icon:'bolt',  state:'fightflight', sub:'restless, wound up, ready to move' },
-    dor: { icon:'x',     state:'shutdown',    sub:'numb, heavy, checked out' },
+    v:   { icon:'heart', state:'safety',      sub:'Connected to yourself, others, & where you are' },
+    sym: { icon:'bolt',  state:'fightflight', sub:'Restless, wound up, ready to move' },
+    dor: { icon:'x',     state:'shutdown',    sub:'Numb, heavy, checked out' },
   };
   const ico = (k,o) => (window.iconSVG ? window.iconSVG(k,o) : '');
   // every state is one or two axes — so every state is one or two marks.
@@ -1175,11 +1175,11 @@
     // silence guestLaunch actually passes, so the promised times are the real times.
     const estTiny = estMinutes('micro', 2), estFull = estMinutes('mindfulness', 4);
     const OPTS = [
-      { key:'micro',       open:true,  title:'a tiny practice',          sub:`about ${estTiny} min · one sense, done` },
-      { key:'mindfulness', open:true,  title:'simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
-      { key:'anchoring',   open:false, title:'connect with safety',      sub:'settling in through your senses' },
-      { key:'most',        open:false, title:'practice self-regulation', sub:'the deepest, meeting what is hard' },
-      { key:'more',        open:false, title:'more practices',           sub:'standalone guided practices' },
+      { key:'micro',       open:true,  title:'A tiny practice',          sub:`about ${estTiny} min · one sense, done` },
+      { key:'mindfulness', open:true,  title:'Simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
+      { key:'anchoring',   open:false, title:'Connect with safety',      sub:'Settling in through your senses' },
+      { key:'most',        open:false, title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
+      { key:'more',        open:false, title:'More practices',           sub:'Standalone guided practices' },
     ];
     const card = (o)=> o.open ? `
       <button class="wincard p-opt g-opt" data-gkey="${o.key}">
@@ -1498,7 +1498,7 @@
   // it answers the question they actually asked instead of pitching at them.
   const SUB_WHAT = {
     matching: 'practices built from your check-ins',
-    practice: 'the other practices',
+    practice: 'The other practices',
     patterns: 'the patterns across your check-ins',
     reader:   'the reader',
   };
@@ -2312,7 +2312,7 @@
     // ---- dynamic post-breath third button (choreographed) ----
     clearTimeout(_mhMorphTimer); clearTimeout(_mhStepTimer); _mhAfterBreath = null;
     const _launchMicro = ()=>{ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'Micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
       third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
@@ -3309,10 +3309,10 @@
   // Challenge appetite levels for the check-in (mirror Store.CHALLENGE_LEVELS), each
   // with a one-line read of what choosing it means.
   const CH_LEVELS = (window.Store && Store.CHALLENGE_LEVELS) || [
-    { v:0.12, key:'settle',  label:'just settle' },
-    { v:0.40, key:'gentle',  label:'gently' },
-    { v:0.65, key:'meet',    label:'meet me' },
-    { v:0.90, key:'stretch', label:'stretch me' },
+    { v:0.12, key:'settle',  label:'Just Settle' },
+    { v:0.40, key:'gentle',  label:'Gently' },
+    { v:0.65, key:'meet',    label:'Meet Me' },
+    { v:0.90, key:'stretch', label:'Stretch Me' },
   ];
   const CH_CAP = {
     settle:  'Just connecting to the external present moment and your natural breath. No pressure. Just presence.',
@@ -3953,7 +3953,7 @@
 
   // ---------------------------------------------------------------- CURRENT OVER TIME
   let playTimer=null;
-  const PERIODS=[{key:'7',label:'week',days:7},{key:'30',label:'month',days:30},{key:'90',label:'90 days',days:90},{key:'all',label:'all',days:null}];
+  const PERIODS=[{key:'7',label:'Week',days:7},{key:'30',label:'Month',days:30},{key:'90',label:'90 days',days:90},{key:'all',label:'All',days:null}];
   let activePeriod='all';
   let chartMode='safety';
   function filterByPeriod(cs,days){ if(!days) return cs; const cut=Date.now()-days*864e5; return cs.filter(c=>c.t>=cut); }
@@ -4221,7 +4221,7 @@
   }
   function _openShareText(txt){
     const url=location.href;
-    if(navigator.share){ navigator.share({title:'stuck not broken', text:txt, url}).catch(()=>{}); return; }
+    if(navigator.share){ navigator.share({title:'Stuck Not Broken', text:txt, url}).catch(()=>{}); return; }
     const enc=encodeURIComponent(txt);
     const host=document.querySelector('.shell')||document.body;
     const old=document.getElementById('share-sheet'); if(old) old.remove();
@@ -5284,8 +5284,8 @@
     safety:      { headline:'safety',        color:'#F4D58D', about:"Safety is your nervous system open and online, not braced for anything. It spends its energy on rest, connection, and repair instead of defense. Safety isn't the absence of hard emotions. It's having enough capacity inside to meet them.", whenDrops: null },
     fightflight: { headline:'flight/fight',color:'#E89B9B', about:"Flight/fight is mobilizing energy without enough safety yet. Your body picked up danger and mobilized to handle it. Flight first, the urge to escape, anxiety. Then fight, the urge to push back, anger. It's protection, not a flaw, even when it spills onto people you care about.", whenDrops:"Move a little on purpose, a short walk, shake out your hands, push your palms against a wall. Give the energy somewhere to go, then name the feeling under it. A long, slow exhale helps too.", practice:{practiceKey:'anchoring',sense:'movement',silence:8} },
     shutdown:    { headline:'shutdown',       color:'#A3C0DD', about:"Shutdown is the oldest brake your body has, heavy, flat, far away. Your system powered down to protect you when things got to be too much. A lot of what gets called depression is the body in shutdown. It isn't weakness, and it isn't who you are.", whenDrops:"Very small, very low demand. One sip of water, a dimmer light, one thing you can see or hear right now. You don't force your way out of shutdown. You add a little safety, and the body lets some energy come back.", practice:{practiceKey:'mindfulness',sense:'touch',silence:8} },
-    play:        { headline:'play/motivation', sub:'regulated mobilization', color:'#E8A871', about:"Play is safety and energy at the same time, the social, mobilized kind shared with people you trust. On your own, the same drive shows up as motivation. It's the same fuel as flight/fight, with safety mixed in, so it runs as creativity and drive instead of defense.", whenDrops:"If the safety thins and the energy stays, watch for the tip toward flight/fight. Keep a little safety in the mix, slow down enough to feel it, and aim the energy at one thing that matters.", practice:{practiceKey:'anchoring',sense:'touch',silence:8} },
-    stillness:   { headline:'stillness/intimacy', sub:'regulated immobilization', color:'#9FC498', about:"Stillness is the body slowed and quiet, without fear. The same powering-down as shutdown, but with safety mixed in, so it restores instead of collapses. On your own it's stillness; shared with someone safe, it's intimacy. A deeply regulated state.", whenDrops:"If the quiet starts to feel flat or heavy or scared instead of restful, that's the cue to add a small bit of safety, not to force yourself up and out.", practice:{practiceKey:'anchoring',sense:'sound',silence:8} },
+    play:        { headline:'play/motivation', sub:'Regulated mobilization', color:'#E8A871', about:"Play is safety and energy at the same time, the social, mobilized kind shared with people you trust. On your own, the same drive shows up as motivation. It's the same fuel as flight/fight, with safety mixed in, so it runs as creativity and drive instead of defense.", whenDrops:"If the safety thins and the energy stays, watch for the tip toward flight/fight. Keep a little safety in the mix, slow down enough to feel it, and aim the energy at one thing that matters.", practice:{practiceKey:'anchoring',sense:'touch',silence:8} },
+    stillness:   { headline:'stillness/intimacy', sub:'Regulated immobilization', color:'#9FC498', about:"Stillness is the body slowed and quiet, without fear. The same powering-down as shutdown, but with safety mixed in, so it restores instead of collapses. On your own it's stillness; shared with someone safe, it's intimacy. A deeply regulated state.", whenDrops:"If the quiet starts to feel flat or heavy or scared instead of restful, that's the cue to add a small bit of safety, not to force yourself up and out.", practice:{practiceKey:'anchoring',sense:'sound',silence:8} },
     freeze:      { headline:'freeze',         color:'#B89AC4', about:"Freeze is a mixed state, flight/fight energy held down by shutdown. Gas and brake at once. It isn't a deeper shutdown, it's both pedals down, which is why it can feel panicked and paralyzed at the same time. A braced, protective state, not nothing.", whenDrops:"The smallest movement, plus a cue of safety. Let your eyes go where they want, then wiggle your toes or roll your wrists, slow. Don't force it, that adds gas to a slammed brake. Get smaller and safer.", practice:{practiceKey:'anchoring',sense:'touch',silence:10} },   // spectrum fix 2026-07-03: freeze starts at safety, never pendulation
   };
 
@@ -5417,20 +5417,20 @@
   }
   // ---------------------------------------------------------------- PRACTICE CHOOSER DATA
   const P_OPTS=[
-    {key:'micro',      title:'a tiny practice',          sub:'about two minutes, one sense, done'},
-    {key:'mindfulness',title:'simple mindfulness',       sub:'the gentlest, a calm place to start'},
-    {key:'anchoring',  title:'connect with safety',      sub:'settling in through your senses'},
-    {key:'most',       title:'practice self-regulation', sub:'the deepest, meeting what is hard'},
-    {key:'more',       title:'more practices',           sub:'standalone guided practices'},
+    {key:'micro',      title:'A tiny practice',          sub:'About two minutes, one sense, done'},
+    {key:'mindfulness',title:'Simple mindfulness',       sub:'The gentlest, a calm place to start'},
+    {key:'anchoring',  title:'Connect with safety',      sub:'Settling in through your senses'},
+    {key:'most',       title:'Practice self-regulation', sub:'The deepest, meeting what is hard'},
+    {key:'more',       title:'More practices',           sub:'Standalone guided practices'},
   ];
   const P_SENSES=['touch','sound','sight','movement','imagination'];
   const P_SKILLS=[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']];
   const P_SILENCE=[[4,'a little'],[8,'some'],[12,'a lot']];
   const P_MEDS=[
-    {id:'uye',                 title:'Use Your Ears',       est:'~10 min', sub:'grounding through sound'},
-    {id:'eye',                 title:'Use Your Eyes',       est:'~9 min',  sub:'grounding through sight'},
-    {id:'daily-dysregulation', title:'Daily Dysregulation', est:'~16 min', sub:'meeting a recent activation'},
-    {id:'outside-the-cave',    title:'Outside the Cave',    est:'~32 min', sub:'a deeper imagery journey'},
+    {id:'uye',                 title:'Use Your Ears',       est:'~10 min', sub:'Grounding through sound'},
+    {id:'eye',                 title:'Use Your Eyes',       est:'~9 min',  sub:'Grounding through sight'},
+    {id:'daily-dysregulation', title:'Daily Dysregulation', est:'~16 min', sub:'Meeting a recent activation'},
+    {id:'outside-the-cave',    title:'Outside the Cave',    est:'~32 min', sub:'A deeper imagery journey'},
   ];
   let pState=null;
   // set by a caller that wants the NEXT tabPractice() to seed pState from a specific
@@ -5471,9 +5471,9 @@
   // headers ('shape your own' / 'guided sessions') carry the grouping; each row is
   // just its icon + name. (openDialSheet omits the sub line when o.sub is absent.)
   const MK_TYPE_GROUPS = ()=>[
-    { label:'shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
-    { label:'guided practices', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
-    { label:null, opts:[{ val:'surprise', menu:'surprise me', ico:MK_TYPE_ICO.surprise }] },
+    { label:'Shape Your Own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
+    { label:'Guided Practices', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
+    { label:null, opts:[{ val:'surprise', menu:'Surprise Me', ico:MK_TYPE_ICO.surprise }] },
   ];
 
   // Practice opens on a personalized "for you" view: a context line tuned to the
@@ -5697,7 +5697,7 @@
           // "working with <feeling>" is meaningless for the obstacles skill — omit it there
           if(pState.skill!=='obstacles'){
             const emo = Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion);
-            s += `, working with ${dial('emotion', emo?emo.label:'whatever surfaces')}`;
+            s += `, working with ${dial('emotion', emo?emo.label:'Whatever surfaces')}`;
           }
           if(pState.skill==='balancing' || pState.skill==='pendulation'){
             s += pState.holdWatch
@@ -5777,10 +5777,10 @@
           paintMaker();
         });
       } else if(kind==='emotion'){
-        const opts=[{val:'',menu:'whatever surfaces',sub:'let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:f.label,sub:f.hint})));
+        const opts=[{val:'',menu:'Whatever surfaces',sub:'Let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:f.label,sub:f.hint})));
         openDialSheet('working with', [{opts}], pState.emotion||'', tkCls, (v)=>{ pState.emotion=v||null; paintMaker(); });
       } else if(kind==='hold'){
-        const opts=[{val:'off',menu:'skip hold & watch'},{val:'30',menu:'hold & watch for 30 sec'},{val:'60',menu:'hold & watch for 1 min'},{val:'90',menu:'hold & watch for 90 sec'},{val:'120',menu:'hold & watch for 2 min'}];
+        const opts=[{val:'off',menu:'Skip hold & watch'},{val:'30',menu:'Hold & watch for 30 sec'},{val:'60',menu:'Hold & watch for 1 min'},{val:'90',menu:'Hold & watch for 90 sec'},{val:'120',menu:'Hold & watch for 2 min'}];
         openDialSheet('hold & watch', [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tkCls, (v)=>{
           if(v==='off'){ pState.holdWatch=false; } else { pState.holdWatch=true; pState.holdSeconds=+v; }
           paintMaker();
@@ -5788,7 +5788,7 @@
       } else if(kind==='silence'){
         openDialSheet('How much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
       } else if(kind==='length'){
-        openDialSheet('How long?', [{opts:[{val:'false',menu:'a complete practice'},{val:'true',menu:'open-ended'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
+        openDialSheet('How long?', [{opts:[{val:'false',menu:'A complete practice'},{val:'true',menu:'Open-ended'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
       }
     }
 
@@ -6060,7 +6060,7 @@
       const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
       const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
       const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'Most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
     };
 
     const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>{
@@ -6203,10 +6203,10 @@
   // logged onto the session like completion feedback. No guilt, fully skippable,
   // then lands back on the practice tab.
   const EXIT_OPTS = [
-    { key:'exit-hard',       label:'it was too hard right now' },
-    { key:'exit-easy',       label:'it was too easy' },
-    { key:'exit-distracted', label:'i got pulled away' },
-    { key:'exit-enough',     label:'i got what i needed' },
+    { key:'exit-hard',       label:'It was too hard right now' },
+    { key:'exit-easy',       label:'It was too easy' },
+    { key:'exit-distracted', label:'I got pulled away' },
+    { key:'exit-enough',     label:'I got what I needed' },
   ];
   function renderExitReason(){
     setHTML(`
@@ -6229,11 +6229,11 @@
   // Post-practice: a gentle read of how the body landed. Logged onto the session
   // (feeds the advisor over time), then a soft hand-off to a check-in or back home.
   const FB_OPTS = [
-    { key:'more',    label:'more connected and present' },
-    { key:'same',    label:'about the same' },
-    { key:'less',    label:'less connected and present' },
-    { key:'struggle',label:'struggled with this one' },
-    { key:'unsure',  label:'not sure' },
+    { key:'more',    label:'More connected and present' },
+    { key:'same',    label:'About the same' },
+    { key:'less',    label:'Less connected and present' },
+    { key:'struggle',label:'Struggled with this one' },
+    { key:'unsure',  label:'Not sure' },
   ];
   function renderFeedback(reco){
     // v2: the body-feeling answer now SELECTS (instead of advancing), and an

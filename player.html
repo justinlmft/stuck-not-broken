@@ -904,10 +904,10 @@ const TRACK={mindfulness:'ink',anchoring:'sky',most:'amber',more:'ink'};
    the repo (packs/ + clips/). 'track' reuses the woven colour (anchoring=sky/heart, most=amber). */
 const PACKS_BASE=BASE.replace(/clips\/?$/,'packs/');
 const MEDS={
- 'uye':{title:'Use Your Ears',cue:'grounding through sound',track:'anchoring',est:'~10 min',file:'uye.pack.json'},
- 'eye':{title:'Use Your Eyes',cue:'grounding through sight',track:'anchoring',est:'~9 min',file:'eye.pack.json'},
- 'daily-dysregulation':{title:'Daily Dysregulation',cue:'meeting a recent activation',track:'most',est:'~16 min',file:'daily-dysregulation.pack.json'},
- 'outside-the-cave':{title:'Outside the Cave',cue:'a deeper imagery journey to connect with non-safety',track:'most',est:'~32 min',file:'outside-the-cave.pack.json'}
+ 'uye':{title:'Use Your Ears',cue:'Grounding through sound',track:'anchoring',est:'~10 min',file:'uye.pack.json'},
+ 'eye':{title:'Use Your Eyes',cue:'Grounding through sight',track:'anchoring',est:'~9 min',file:'eye.pack.json'},
+ 'daily-dysregulation':{title:'Daily Dysregulation',cue:'Meeting a recent activation',track:'most',est:'~16 min',file:'daily-dysregulation.pack.json'},
+ 'outside-the-cave':{title:'Outside the Cave',cue:'A deeper imagery journey to connect with non-safety',track:'most',est:'~32 min',file:'outside-the-cave.pack.json'}
 };
 const MEDS_ORDER=['uye','eye','daily-dysregulation','outside-the-cave'];   // gentlest first
 /* skills offered within self-regulation (like the anchor menu) */
@@ -915,15 +915,15 @@ const SKILLS={
   most:[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']]
 };
 const EXP={
- micro:{key:'micro',t:'A tiny practice',cue:'about two minutes, one sense, done',d:"",sense:'touch',silence:2,gentle:true,mind:false,tier:0,
+ micro:{key:'micro',t:'A tiny practice',cue:'About two minutes, one sense, done',d:"",sense:'touch',silence:2,gentle:true,mind:false,tier:0,
    sum:"The smallest practice there is. Arrive, one breath, one sense, done. About two minutes."},
- mindfulness:{key:'mindfulness',t:'Practice simple mindfulness',cue:'the simplest. a calm place to start',d:"",sense:'touch',silence:8,gentle:true,mind:true,tier:0,
+ mindfulness:{key:'mindfulness',t:'Practice simple mindfulness',cue:'The simplest. A calm place to start',d:"",sense:'touch',silence:8,gentle:true,mind:true,tier:0,
    sum:"A super simple practice to connect with the present moment as it is through the senses and the breath. No pressure. Just presence."},
- anchoring:{key:'anchoring',t:'Connect with safety',cue:'a step in: settling into safety',d:'',sense:'touch',silence:8,gentle:true,mind:false,tier:1,
+ anchoring:{key:'anchoring',t:'Connect with safety',cue:'A step in: settling into safety',d:'',sense:'touch',silence:8,gentle:true,mind:false,tier:1,
    sum:"Connect into safety through your {sense}, and stay there a while."},
- most:{key:'most',t:'Practice self-regulation',cue:'the deepest: meeting what is hard',d:"",sense:'touch',skill:'imagery',descDefense:false,holdWatch:false,holdSeconds:60,silence:4,gentle:false,mind:false,tier:3,
+ most:{key:'most',t:'Practice self-regulation',cue:'The deepest: meeting what is hard',d:"",sense:'touch',skill:'imagery',descDefense:false,holdWatch:false,holdSeconds:60,silence:4,gentle:false,mind:false,tier:3,
    sum:"Intentionally and compassionately hold safety and non-safety."},
- more:{key:'more',t:'More practices',cue:'standalone guided practices',d:"",standalone:true,silence:8,mind:false,tier:9,
+ more:{key:'more',t:'More practices',cue:'Standalone guided practices',d:"",standalone:true,silence:8,mind:false,tier:9,
    sum:"Full guided practices. Pick one and begin."}
 };
 let practices=[fresh('mindfulness')];
