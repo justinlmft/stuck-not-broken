@@ -144,9 +144,6 @@ button{font:inherit;color:inherit}
   #screen > .appbar{width:100%;max-width:var(--col);margin-inline:auto}
   #screen .view,#screen .today{width:100%;max-width:var(--col);margin-inline:auto}
 
-  /* floating new-check-in recedes to a corner pill (it no longer sits over a tab bar) */
-  .shell .fab{left:auto;right:30px;bottom:28px;width:auto;padding:0 24px}
-
   /* install nudge is phone-in-browser only (Justin, 2026-07-10) — never on desktop */
   #screen .install-nudge{display:none}
 
@@ -922,16 +919,13 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
 .filter-bar .play-filter.seg{flex:1;margin-bottom:0}
 .filter-bar .set-gear{flex:none;margin-left:0}
 .ci-add svg{stroke-width:2}
-/* floating new check-in (positioned within the shell) */
+/* .shell is the positioning context for the overlays below (.share-sheet, .p7-sheet, the
+   install nudge). It used to also anchor a floating "new check-in" button — RETIRED
+   2026-07-30b at Justin's call ("cut it", DQA D232/D233): the button, its CSS, its dead
+   show-fab animation and the ten places app.js removed a class nothing ever added are all
+   gone. The now-screen's own check-in CTA was always the real entry point.
+   NOTE: .refl-aa-fab (the reader's Aa text-size control) is a DIFFERENT control. It stays. */
 .shell{position:relative}
-.fab{position:absolute;left:22px;right:22px;bottom:78px;height:50px;border-radius:14px;border:1px solid var(--hairline);background:var(--bone);color:var(--ink);display:none;align-items:center;justify-content:center;gap:8px;cursor:pointer;z-index:40;box-shadow:0 4px 16px var(--shade-soft);transition:transform .16s var(--ease),box-shadow .16s}
-body.show-fab .fab{display:flex}
-.fab svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;flex:none}
-.fab-lbl{font-size:calc(15px * var(--type-scale));font-weight:500;letter-spacing:.004em;white-space:nowrap}
-.fab:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.14)}
-.fab:active{transform:scale(.985)}
-@media (prefers-reduced-motion:no-preference){ body.show-fab .fab{animation:fabIn .34s var(--ease)} }
-@keyframes fabIn{from{transform:translateY(14px);opacity:0}55%{opacity:1}to{transform:none;opacity:1}}
 /* share sheet (desktop / no native share) */
 .share-sheet{position:absolute;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim-off);transition:background .22s}
 .share-sheet.on{background:rgba(40,38,32,.32)}

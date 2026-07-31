@@ -620,7 +620,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -1014,7 +1014,7 @@
   //              read there (no "before"), so it leads to the reflection, not a compare.
   function guestCheckin(mode, err){
     mode = mode || 'before';
-    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    clearFigures(); document.body.classList.remove('in-practice');
     let v=50, s=50, d=50;   // symmetric midpoints; nothing suggested
     const gsQ = gsGet().q;
     const qIdx = (mode==='after' && gsQ) ? { v:gsQ.v, sym:gsQ.sym, dor:gsQ.dor }
@@ -1338,7 +1338,7 @@
   // on the form AFTER the choice — that's the moment of consent.
   let _offerViewed = false;
   function guestOffer(){
-    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    clearFigures(); document.body.classList.remove('in-practice');
     if(!_offerViewed){ _offerViewed = true; gtrack('offer_view', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); }
     root.innerHTML = `
       <header class="appbar"></header>
@@ -2087,7 +2087,7 @@
     if(tab === 'today') maybeInstallNudge();
     if(tab === 'today') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
     maybeTrialBanner();
-    document.body.classList.remove('show-fab');
+   
   }
   // install affordances: a quiet settings row + an optional dismissable today nudge
   function installRowInner(){
@@ -3338,7 +3338,7 @@
   // change a recent check-in: pick from the last few, then edit it in place
   function screenChangeCheckin(){
     const recent = Store.checkins().slice(-6).reverse();
-    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    clearFigures(); document.body.classList.remove('in-practice');
     const rows = recent.length ? recent.map((c,i)=>`<div class="ci-row"><button class="change-row ci-edit" data-i="${i}" type="button"><span class="change-when">${relTime(c.t)}</span><span class="change-mark">${stateMarks(c.dom)}<span class="change-state">${STATE_NAME(c.dom)}</span></span><span class="wc-go">${CHEV}</span></button><button class="pr-del ci-del" data-t="${c.t}" type="button">remove</button></div>`).join('') : '<p class="panel-empty">no check-ins to change yet.</p>';
     setHTML(`
       <header class="appbar"><button class="backbtn" id="cc-back">back</button></header>
@@ -3362,7 +3362,7 @@
     'exit-hard':'too hard right now', 'exit-easy':'too easy', 'exit-distracted':'got pulled away', 'exit-enough':'got what they needed' })[k] || ''; }
   function screenManagePractices(){
     const recent = Store.sessions().slice(-8).reverse();
-    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    clearFigures(); document.body.classList.remove('in-practice');
     const rows = recent.length
       ? recent.map(s => {
           const fb = s.feedback ? ` · ${escapeHtml(_fbShort(s.feedback))}` : '';
@@ -3387,7 +3387,7 @@
   }
   function screenCheckin(editRec){
     if(editRec && typeof editRec.t!=='number') editRec = null;   // the today-card onclick passes its click EVENT as editRec; an event is not a check-in to edit -> start a fresh check-in (fixes "change your check-in" / "NaNd ago" / silent no-save)
-    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    clearFigures(); document.body.classList.remove('in-practice');
     root.innerHTML = `
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
@@ -3723,7 +3723,7 @@
   function _liveNext(s){ const done=_liveDone(s); return _liveReadings(s).find(r=>!done.has(r.ref+':'+r.phase))||null; }
   function _liveShell(inner){
     _livePollStop();
-    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    clearFigures(); document.body.classList.remove('in-practice');
     root.innerHTML = `<header class="appbar"></header><div class="scroll" id="content"></div>`;
     $('#content').innerHTML = inner;
   }
@@ -5521,7 +5521,7 @@
     // It is the paid line. Guard here as well as at the call sites (defense in depth).
     if(!paidNow()) return gateSubscribe('matching');
     from = from || 'practice';   // where "back" returns to: the chooser, or today's row
-    clearFigures(); document.body.classList.remove('in-practice'); document.body.classList.remove('show-fab');
+    clearFigures(); document.body.classList.remove('in-practice');
     currentTab = 'practice';
     const tk = trackOf(reco.practiceKey);
     const planNm = Store.getName();
@@ -6713,7 +6713,7 @@
   }
   function relTime(t){ const m=Math.round((Date.now()-t)/60000); if(m<1)return 'just now'; if(m<60)return m+' min ago'; const h=Math.round(m/60); if(h<24)return h+'h ago'; const d=Math.round(h/24); return d+'d ago'; }
 
-  (function(){ const fab=document.getElementById('fab-checkin'); if(fab) fab.addEventListener('click',()=>{ if(Store.user()) screenCheckin(); }); })();
+  // (the floating new-check-in button was retired 2026-07-30b — DQA D232; see app.css .shell)
   applyPrefs();
   // light up any triglyph as it enters the DOM: fill eases from the neutral tone into the active
   // axis color(s), so the brand mark settles into your state on each render. Reduce-motion -> instant.
