@@ -126,8 +126,8 @@
   function openElsewhereMsg(){
     // Only ever shown inside a real in-app webview now.
     return isiOS()
-      ? 'to install, open this page in your browser first (not this in-app window), then tap the share icon and choose "add to home screen."'
-      : 'to install, open this page in your browser first (not this in-app window), then use the menu and choose "add to home screen."';
+      ? 'to install, open this page in your browser first (not this in-app window), then tap the share icon and choose "Add to Home Screen."'
+      : 'to install, open this page in your browser first (not this in-app window), then use the menu and choose "Add to Home Screen."';
   }
   // one source of truth for install state: installed | button | ios-share | open-elsewhere | other
   function installState(){
@@ -332,13 +332,13 @@
       + `</div>`;
   }
   // check-in method label/caption/preview — shared between settings and the onboarding
-  // "how do you want to check in?" card so the two never drift (hoisted 2026-07-28;
+  // "How do you want to check in?" card so the two never drift (hoisted 2026-07-28;
   // was previously a settings-only closure).
   const METHOD_LABEL = { sliders:'questions', states:'state picker', numbers:'number sliders' };
   const METHOD_CAP = {
-    sliders:'best for someone who has a hard time identifying their state. simply answer a few quick questions with three sliders.',
-    numbers:'use numbers to check in. best for the person that thinks concretely.',
-    states:'choose your state, then fine-tune it with sliders. best for someone familiar with their states and able to name them.' };
+    sliders:'Best for someone who has a hard time identifying their state. Simply answer a few quick questions with three sliders.',
+    numbers:'Use numbers to check in. Best for the person that thinks concretely.',
+    states:'Choose your state, then fine-tune it with sliders. Best for someone familiar with their states and able to name them.' };
   // a small, non-interactive taste of the chosen method. ink only (it illustrates the
   // control, not a real reading), no glyph; the scale labels sit flush to the rail, and
   // numbers mode shows the value on the right exactly like the live slider.
@@ -373,10 +373,10 @@
   // "what to expect" paragraph and anywhere else a skill needs explaining
   const SKILL_CAP = {
     validate:   "name one thing you're feeling, say that it's real, and see that it makes sense given your life.",
-    imagery:    'give a challenging feeling a shape in your mind and invite it in, a little at a time.',
-    obstacles:  'notice what gets in the way of feeling safe, and meet it with some kindness.',
-    balancing:  'hold something pleasant and something challenging at the same time, giving each some room.',
-    pendulation:'move gently back and forth between a pleasant feeling and a more challenging one, so your body learns the way back.',
+    imagery:    'Give a challenging feeling a shape in your mind and invite it in, a little at a time.',
+    obstacles:  'Notice what gets in the way of feeling safe, and meet it with some kindness.',
+    balancing:  'Hold something pleasant and something challenging at the same time, giving each some room.',
+    pendulation:'Move gently back and forth between a pleasant feeling and a more challenging one, so your body learns the way back.',
   };
   const silLabel = (n) => n<=4 ? 'a little' : n>=12 ? 'a lot' : 'some';
 
@@ -391,46 +391,46 @@
   // and the existing blend logic names it. Copy is Justin-owned (approved 2026-07-02).
   const CI_BANK = {
     v: [
-      'pick up a call from a friend?',
-      'sit quietly with someone you like?',
-      'laugh at something silly?',
+      'Pick up a call from a friend?',
+      'Sit quietly with someone you like?',
+      'Laugh at something silly?',
       "tell someone how you're really doing?",
-      'make eye contact and mean it?',
-      'enjoy a song you love?',
-      'let someone help you with something?',
+      'Make eye contact and mean it?',
+      'Enjoy a song you love?',
+      'Let someone help you with something?',
       "be curious about a stranger's story?",
-      'say yes to a last-minute invitation?',
-      "give someone your full attention for a minute?",
-      'accept a compliment without deflecting?',
+      'Say yes to a last-minute invitation?',
+      "Give someone your full attention for a minute?",
+      'Accept a compliment without deflecting?',
       "feel glad someone's nearby?",
     ],
     sym: [
-      'relax your shoulders and keep them relaxed?',
-      'take one slow breath?',
-      'slow your thoughts down?',
-      'unclench your jaw?',
-      'wait in a slow line without getting annoyed?',
-      'set the to-do list aside for ten minutes?',
-      'leave a small worry alone for now?',
-      'be okay with having nothing to do?',
-      'read a full page without skimming?',
-      'let someone finish their sentence without jumping in?',
-      'leave your phone alone for a while?',
-      'do one thing at a time?',
+      'Relax your shoulders and keep them relaxed?',
+      'Take one slow breath?',
+      'Slow your thoughts down?',
+      'Unclench your jaw?',
+      'Wait in a slow line without getting annoyed?',
+      'Set the to-do list aside for ten minutes?',
+      'Leave a small worry alone for now?',
+      'Be okay with having nothing to do?',
+      'Read a full page without skimming?',
+      'Let someone finish their sentence without jumping in?',
+      'Leave your phone alone for a while?',
+      'Do one thing at a time?',
     ],
     dor: [
-      'get up and cross the room?',
-      'answer a question with your full attention?',
-      'start the next small thing on your list?',
-      'step outside for a minute?',
+      'Get up and cross the room?',
+      'Answer a question with your full attention?',
+      'Start the next small thing on your list?',
+      'Step outside for a minute?',
       "reply to a text that's been waiting?",
-      'make a small decision, like what to eat?',
-      'stand up and stretch?',
+      'Make a small decision, like what to eat?',
+      'Stand up and stretch?',
       "look around and notice what's in the room?",
-      'say what you need right now?',
-      'get yourself a glass of water?',
-      'care about how the rest of the day goes?',
-      'look forward to something tomorrow?',
+      'Say what you need right now?',
+      'Get yourself a glass of water?',
+      'Care about how the rest of the day goes?',
+      'Look forward to something tomorrow?',
     ],
   };
   // Mirror readout: play the person's own report back in plain speech — no state
@@ -569,8 +569,8 @@
     mindfulness: ()=>"a calm voice helps you connect to the present moment using your senses and your body's natural breathing rhythm. no pressure, just presence. can be used anywhere, even when moving.",
     anchoring: (sense)=>`you'll bring your attention to ${sense||'your senses'} and connect with the present moment, identifying how safety feels in the body and spending time with it. good for moments to practice feeling safety or where your system is drifting into defense. best if done in an environment with less distraction. feel free to move or not.`,
     most: ()=>"you'll intentionally and compassionately turn your attention toward an emotion that is more challenging while staying connected to the present moment and anchored in safety. best done in an environment free of distraction and more comfort.",
-    micro: ()=>'a very short present-moment connection practice, built for the middle of a busy day. use this anywhere and doing anything.',
-    more: ()=>'a full, standalone guided practice, played start to finish.',
+    micro: ()=>'A very short present-moment connection practice, built for the middle of a busy day. Use this anywhere and doing anything.',
+    more: ()=>'A full, standalone guided practice, played start to finish.',
   };
   const aboutOf = (k, sense) => { const f = PRACTICE_ABOUT[k]; return f ? f(sense) : ''; };
   // the builder's dynamic "what to expect": assembled from the SAME slots the plan
@@ -602,7 +602,7 @@
     if(key==='most' && holdWatch && (skill==='balancing' || skill==='pendulation'))
       bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
-    if(openEnded) bits.push('it keeps going until you choose to stop.');
+    if(openEnded) bits.push('It keeps going until you choose to stop.');
     // practice DESCRIPTIONS read in normal (sentence) case on every surface (Justin
     // 2026-07-25). The plan screen and the 7b maker explainer already proper-case
     // their "what to expect"; this is the ONLY description surface that was still
@@ -685,7 +685,7 @@
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
     // ('success' is the retired trial return; kept so an in-flight old link still lands.)
-    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('your subscription is active.'); } else if(co==='cancel'){ if(Store.trackEvent) Store.trackEvent('checkout_cancel', {}); } } }catch(e){}
+    try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('Your subscription is active.'); } else if(co==='cancel'){ if(Store.trackEvent) Store.trackEvent('checkout_cancel', {}); } } }catch(e){}
     // The whole-app paywall is GONE (2026-07-13): free is unconditional, no time limit,
     // no card. Nobody is ever locked out. Subscribing is a choice made in settings or on
     // the offer screen, never a wall. Store.hasAccess() is now always true.
@@ -786,7 +786,7 @@
             <span class="gb-txt" id="gb-txt" aria-live="polite">Take one breath first.</span>
           </button>
           <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">You\u2019re joining a live practice. Sign in to check in.</div>':''}
-          <h1 style="margin:10px 0 12px">${up?'an app to guide you through emotional regulation.':'your nervous system, over time.'}</h1>
+          <h1 style="margin:10px 0 12px">${up?'An app to guide you through emotional regulation.':'Your nervous system, over time.'}</h1>
           <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices tuned to you, and watch your patterns become visible over time.</p>
           <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
           ${up ? '<div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
@@ -797,7 +797,7 @@
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">New here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a Check-in, No Account Needed</button>'}
           ${up?`<p class="fineprint" style="margin-top:10px">by creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
-          <p class="fineprint">${up?'already have an account?':'new here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
+          <p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
           ${up?'':'<p class="fineprint" style="margin-top:6px">The breath above needs no account. The rest of the app does. It keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">Forgot Your Password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}
@@ -817,7 +817,7 @@
     $('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
     const fg=$('#forgot'); if(fg) fg.onclick = ()=>{
       const email=$('#em').value.trim();
-      if(!email){ lastEmail=email; return screenSignIn('enter your email above first, then tap "forgot your password?"'); }
+      if(!email){ lastEmail=email; return screenSignIn('enter your email above first, then tap "Forgot your password?"'); }
       lastEmail=email;
       screenSignIn(null, true);
       Promise.resolve(Store.resetPassword(email)).then(res=>{
@@ -843,7 +843,7 @@
     }
     function submit(){
       const email=$('#em').value.trim(), pw=$('#pw').value;
-      if(!email || (Store.cloud() && !pw)){ lastEmail=email; screenSignIn('enter your email and a password.'); return; }
+      if(!email || (Store.cloud() && !pw)){ lastEmail=email; screenSignIn('Enter your email and a password.'); return; }
       lastEmail=email;
       const nm = up ? (($('#nm')||{}).value||'').trim() : '';
       screenSignIn(null, true);
@@ -880,7 +880,7 @@
       setTxt("that's the heart of it. come on in.");
       setTimeout(()=>{
         if(ring){ ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation=''; }
-        setTxt('take one breath first.');
+        setTxt('Take one breath first.');
         _gbRunning=false;
       }, 3200);
     };
@@ -1231,7 +1231,7 @@
   // ---- guest practice launch + tabbar-free shell ----
   function guestLaunch(key){
     if(key!=='mindfulness' && key!=='micro'){   // hard guard: guests get only the two mindfulness practices
-      showToast('that one opens once you have an account.'); return guestPracticePick();
+      showToast('That one opens once you have an account.'); return guestPracticePick();
     }
     // Generic, non-personalized defaults. Silence values are load-bearing: the pick
     // screen promised "about 2 min / about 6 min" from PRACTICE_EST — micro runs on its
@@ -1244,9 +1244,9 @@
     // the /stuck door reaches here with no session yet (its first write is the session
     // log at practice end) — mint now so that write has somewhere to land.
     ensureGuestSession().then(res=>{
-      if(res && res.error){ showToast('something went wrong. please try again.'); return guestPracticePick(); }
+      if(res && res.error){ showToast('Something went wrong. Please try again.'); return guestPracticePick(); }
       guestPracticeShell(src, reco);
-    }).catch(()=>{ showToast('something went wrong. please try again.'); guestPracticePick(); });
+    }).catch(()=>{ showToast('Something went wrong. Please try again.'); guestPracticePick(); });
   }
   // Same as practiceShell, but with NO tabbar — a guest must not gain tab access
   // (and its 'most' path) mid-practice. Back returns to the guest pick screen.
@@ -1331,7 +1331,7 @@
   }
 
   // ---- the offer (replaces the old save-invite screen) ----
-  // "two ways to keep going." — no body; the cards do the work. Paid leads; the free
+  // "Two ways to keep going." — no body; the cards do the work. Paid leads; the free
   // card is SAME weight, no fade — free has to be genuinely takeable, or the honest-
   // offer stance is decorative. No trial: free or paid, nothing between (Justin,
   // 07-13). No urgency, no countdowns, no discounts. Email + password + consent come
@@ -1382,7 +1382,7 @@
         </div>
       </div>`;
     wirePlanPicker();
-    // "already have an account?" — the offer screen was the one place in the guest flow
+    // "Already have an account?" — the offer screen was the one place in the guest flow
     // with no way back to an existing account, so a returning subscriber on a new device
     // or browser hit a wall that only offered to sell them what they already own. Same
     // operation as "leave without saving" (sign the anonymous session out, land on the
@@ -1432,7 +1432,7 @@
     $('#g-go').onclick = submit;
     function submit(){
       const email=($('#em').value||'').trim(), pw=$('#pw').value;
-      if(!email || (Store.cloud() && !pw)){ lastEmail=email; return guestAccountForm(mode, 'enter your email and a password.'); }
+      if(!email || (Store.cloud() && !pw)){ lastEmail=email; return guestAccountForm(mode, 'Enter your email and a password.'); }
       lastEmail=email;
       const nm = (($('#nm')||{}).value||'').trim();
       guestAccountForm(mode, null, true);
@@ -1608,7 +1608,7 @@
     if(busy) return;
     const submit=()=>{
       const pw=$('#npw').value;
-      if(!pw || pw.length<6) return screenNewPassword('use at least six characters.');
+      if(!pw || pw.length<6) return screenNewPassword('Use at least six characters.');
       screenNewPassword(null, true);
       Promise.resolve(Store.updatePassword(pw)).then(res=>{
         if(res && res.error) return screenNewPassword(res.error);
@@ -1618,7 +1618,7 @@
         // loop with a pointer back home instead of quietly continuing here.
         const standalone = (navigator.standalone===true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
         if(!standalone) return screenResetDone();
-        showToast('password updated.'); currentTab='today'; route();
+        showToast('Password updated.'); currentTab='today'; route();
       }).catch(e=>screenNewPassword(String((e&&e.message)||e)));
     };
     $('#npw-go').onclick=submit;
@@ -1640,14 +1640,14 @@
   function screenPolicy(which, from){
     const isPriv = which==='privacy';
     const eyebrow = isPriv ? 'privacy policy' : 'terms of use';
-    const title = isPriv ? 'what we keep, and what we don’t.' : 'how to get the most out of this app.';
+    const title = isPriv ? 'What we keep, and what we don’t.' : 'How to get the most out of this app.';
     const lede = isPriv
-      ? 'written in plain language.'
-      : 'transparency before you begin.';
+      ? 'Written in plain language.'
+      : 'Transparency before you begin.';
     const sections = isPriv ? [
-      ['what we keep','this app keeps track of your email, in-app preferences and check-ins.'],
-      ['why','so your account works, your history is here on every device you sign in from, to track progress, and make custom recommendations.'],
-      ['what stays anonymous','an anonymous copy of check-ins and practice data also exists, with no name, no email, and none of your written notes. it cannot be traced back to you, even by us.'],
+      ['what we keep','This app keeps track of your email, in-app preferences and check-ins.'],
+      ['why','So your account works, your history is here on every device you sign in from, to track progress, and make custom recommendations.'],
+      ['what stays anonymous','An anonymous copy of check-ins and practice data also exists, with no name, no email, and none of your written notes. It cannot be traced back to you, even by us.'],
       ['what the anonymous copy is for','two things, and only these: learning whether this app actually helps people, and sharing de-identified examples of what progress can look like (for instance, "one member\'s reported safety rose from 20% to 60% over six months"). never advertising, never sold.'],
       ['who sees it',"your identified data: only you. it isn't sold or given away, and no advertisers see it. justin works with the anonymous copy to study whether the app helps and to improve it."],
       ['your control','you can delete your data, or your whole account, any time from settings (your data > delete my account). deleting removes everything that identifies you, permanently. the anonymous copy stays, unlinked, forever.']
@@ -2250,7 +2250,7 @@
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
     // post-breath slot (r7 2026-07-24; revised 2026-07-28 per Justin: (1) "check in again"
-    // should never sit alone once you've checked in, (2) "two more minutes?" should appear
+    // should never sit alone once you've checked in, (2) "Two more minutes?" should appear
     // after a breath even when you haven't checked in yet — it never did, since the second
     // row didn't exist at all in the not-checked-in markup). RESTING/default content: the
     // reader doorway when a reflection is waiting; else, once checked in, the "two more
@@ -2318,7 +2318,7 @@
       third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
 
       // RESTING state: the reader doorway when a reflection is waiting; else, once
-      // checked in, the "two more minutes?" invite (2026-07-28: never collapses once
+      // checked in, the "Two more minutes?" invite (2026-07-28: never collapses once
       // there's a check-in to keep company — the row only collapses to nothing before
       // any check-in exists, when mhRestKind is genuinely null). On load and ~10s after
       // a breath.
@@ -2338,7 +2338,7 @@
         else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showRest, 480); }   // fade micro out, swap to rest content, fade in
       };
 
-      // TRANSIENT post-breath nudge: show "two more minutes?" for ~10s, then revert to
+      // TRANSIENT post-breath nudge: show "Two more minutes?" for ~10s, then revert to
       // the resting state. (1) check-in shortens to the plus, (2) the invite eases in.
       const _postBreath = ()=>{
         const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
@@ -3315,10 +3315,10 @@
     { v:0.90, key:'stretch', label:'stretch me' },
   ];
   const CH_CAP = {
-    settle:  'just connecting to the external present moment and your natural breath. no pressure. just presence.',
+    settle:  'Just connecting to the external present moment and your natural breath. No pressure. Just presence.',
     gentle:  "simple mindfulness but taken a step further through connecting with safety in your body if it's there.",
-    meet:    'anchor into safety, then use beginner skills to gently connect with defense.',
-    stretch: 'anchor into safety, then use advanced skills to connect with defense at a deeper level. more potential for self-regulation, but more challenge. only approach this with a strong safety baseline.',
+    meet:    'Anchor into safety, then use beginner skills to gently connect with defense.',
+    stretch: 'Anchor into safety, then use advanced skills to connect with defense at a deeper level. More potential for self-regulation, but more challenge. Only approach this with a strong safety baseline.',
   };
   // short labels for the segmented control (the nuance lives in the caption below)
   const CH_SHORT = { settle:'simple mindfulness', gentle:'safety-focused', meet:'beginner defense', stretch:'advanced defense' };
@@ -3479,7 +3479,7 @@
 
         <div class="scr-head">
           <p class="eyebrow">${escapeHtml(_ciEyebrow)}</p>
-          <h2 class="scr-h">${_ciStates?'how are you, right now?':'right now, how easy would it be to&hellip;'}</h2>
+          <h2 class="scr-h">${_ciStates?'How are you, right now?':'right now, how easy would it be to&hellip;'}</h2>
         </div>
 
         <div class="ci-block">
@@ -3522,9 +3522,9 @@
     // stay quiet until an axis is set — color responds to what the person SET, never to
     // defaults. edits show everything at once. rail + glyph + clause move together (r2).
     const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
-    const _idleMsg = _ciStates ? 'pick a state above, then fine-tune. this line mirrors what you set.'   // 🖊
-      : (_ciNumbers ? 'move a slider, and this line mirrors the number you set.'                // 🖊
-      : 'move the sliders, and this line will mirror what you set.');                            // 🖊
+    const _idleMsg = _ciStates ? 'Pick a state above, then fine-tune. This line mirrors what you set.'   // 🖊
+      : (_ciNumbers ? 'Move a slider, and this line mirrors the number you set.'                // 🖊
+      : 'Move the sliders, and this line will mirror what you set.');                            // 🖊
     function refresh(){
       const colOf = ciAxisColorFn(v, s, d, axTouched);
       // states mode paints the same way, but only once the fine-tune block is open
@@ -3778,18 +3778,18 @@
     if(!s || !s.id){
       const c=_liveCache();
       if(c && c.code===join.code) s=c;                       // offline blip: run on the cached copy
-      else if(s && s.error && s.error!=='not found') return _liveEnd('we couldn’t reach the live practice','check your connection, then open the app again. your place is saved.');   // 🖊
-      else return _liveEnd('we couldn’t find that live practice','the code may have been mistyped, or the practice may be over. nothing is lost.');   // 🖊
+      else if(s && s.error && s.error!=='not found') return _liveEnd('we couldn’t reach the live practice','Check your connection, then open the app again. Your place is saved.');   // 🖊
+      else return _liveEnd('we couldn’t find that live practice','The code may have been mistyped, or the practice may be over. Nothing is lost.');   // 🖊
     }
     try{ localStorage.setItem('snb_live_sess', JSON.stringify(s)); }catch(e){}
     // capacity builders are an academy practice; mindful moments are for everyone. 🖊
     if(s.type==='capacity-builder'){
       const e=(Store.entitlement&&Store.entitlement())||{};
-      if(!(e.sub||e.circle||e.legacy)) return _liveEnd('this one is an academy practice','capacity builders are part of the unstucking academy. mindful moments are open to everyone, and you’re always welcome there.');
+      if(!(e.sub||e.circle||e.legacy)) return _liveEnd('this one is an academy practice','Capacity builders are part of the unstucking academy. Mindful moments are open to everyone, and you’re always welcome there.');
     }
     const next=_liveNext(s);
     if(!next) return screenLiveTrail(s);
-    if(!s.live) return _liveDone(s).size ? screenLiveTrail(s) : _liveEnd('this live practice has ended','it’s okay to have missed it. the practices in the app are always here.');   // 🖊
+    if(!s.live) return _liveDone(s).size ? screenLiveTrail(s) : _liveEnd('this live practice has ended','It’s okay to have missed it. The practices in the app are always here.');   // 🖊
     const name=LIVE_NAME[s.type]||'live practice';
     const openReading = r => {
       _livePollStop();
@@ -3837,7 +3837,7 @@
           <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
           <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'settling':escapeHtml(STATE_NAME(domKey))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
-          <p class="scr-lede">${more?'your check-in is saved. head back to the live practice now. this screen will wait here, ready for your next check-in after the practice.':'your check-in is saved. that was the last one for this practice.'}</p>
+          <p class="scr-lede">${more?'Your check-in is saved. Head back to the live practice now. This screen will wait here, ready for your next check-in after the practice.':'Your check-in is saved. That was the last one for this practice.'}</p>
         </div>
         <div class="actionbar"><button class="btn block" id="lv-on">${more?'okay':'see what you noticed'}</button></div>
       </div>`);
@@ -3896,16 +3896,16 @@
         // THE COPY IS SESSION-AUTHORED: the builder sends host + invite at Present
         // (updatable without an app deploy). Built-in lines are only the fallback. 🖊
         const who = s.type==='capacity-builder'
-          ? 'you’re an unstucking academy co-regulation student and welcome to join.'
-          : (e.circle ? 'you’re an unstucking academy student and welcome to join.'      // 🖊 variant
-          :  e.sub    ? 'you’re a subscriber and welcome to join.'                        // 🖊 variant
-          :             'you’re a free subscriber and welcome to join.');
+          ? 'You’re an unstucking academy co-regulation student and welcome to join.'
+          : (e.circle ? 'You’re an unstucking academy student and welcome to join.'      // 🖊 variant
+          :  e.sub    ? 'You’re a subscriber and welcome to join.'                        // 🖊 variant
+          :             'You’re a free subscriber and welcome to join.');
         const line = s.invite ? escapeHtml(s.invite)
           : ('right now, '+escapeHtml(s.host||'justin')+' is hosting a '+escapeHtml(LIVE_NAME[s.type]||'live')+' practice. '+who);
         const el=document.createElement('div');
         el.className='lv-pop';
         const room=(typeof s.room==='string' && /^https?:\/\/\S+$/i.test(s.room.trim())) ? s.room.trim() : null;   // builder-published live room URL (Option A: link out only)
-        const head=room?'join us live!':"we're practicing live";   // 🖊 no room → don't over-promise
+        const head=room?'Join us live!':"we're practicing live";   // 🖊 no room → don't over-promise
         const btns=room
           ? '<button class="btn block" id="lv-n-watch">watch live &rarr;</button><button class="btn quiet block" id="lv-n-join">just check in</button>'
           : '<button class="btn block" id="lv-n-join">check in &rarr;</button>';
@@ -4976,7 +4976,7 @@
             // "your records" card CUT ENTIRELY (Justin 2026-07-29: "it's useless").
             slides.push(['mix','your state mix', `
               ${shareBtn('mix')}<h2 class="panel-title">your state mix</h2>
-              <p class="panel-sub">${activePeriod==='all'?'your state averages, all time.':'your check-in averages, over '+periodPhrase+'.'}</p>
+              <p class="panel-sub">${activePeriod==='all'?'Your state averages, all time.':'your check-in averages, over '+periodPhrase+'.'}</p>
               <div class="dist-bars">${mixHTML}</div>`]);
             if(fl){
               slides.push(['flavors','your flavors of safety', `
@@ -5016,7 +5016,7 @@
               <div class="chart-wrap" data-cmode="states">${chartInner('states', arcBuckets, safetyColor)}</div>`]);
             }
             if(practiceHead){
-              slides.push(['practice','is practice helping?', `
+              slides.push(['practice','Is practice helping?', `
               ${shareBtn('practice')}${practiceHead}`]);
             }
             // axis cards, v2 (2026-07-29 redesign, final: "make these into separate
@@ -5091,7 +5091,7 @@
 
           <a class="you-reader" id="you-reader" href="#">
             <h3 class="yr-h">Your reflection</h3>
-            <p class="yr-lede">${_reflText || 'the personal read of your patterns, in plain language.'}</p>
+            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p>
             <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
 
@@ -5167,7 +5167,7 @@
           // animation (gated behind `.panel-in`, see app.css) immediately.
           const _ylPanel = wrap.querySelector('.yl-detail'); if(_ylPanel) _ylPanel.classList.add('panel-in');
           // desktop top-alignment: lift the week/all toggle to the row just under the
-          // heading, so "what your check-ins show." tops the screen on the same line
+          // heading, so "What your check-ins show." tops the screen on the same line
           // as the rail's first word (Justin 2026-07-20). Compact carousel untouched.
           const _fb = c.querySelector('.filter-bar'), _ylh = wrap.querySelector('.yl-h');
           if(_fb && _ylh) _ylh.after(_fb);
@@ -5760,7 +5760,7 @@
     function openDial(kind){
       const k=pState.mkKey; const tkCls='track-'+trackOf(k).cls;
       if(kind==='type'){
-        openDialSheet('what would you like to practice?', MK_TYPE_GROUPS(), k, tkCls, (v)=>{
+        openDialSheet('What would you like to practice?', MK_TYPE_GROUPS(), k, tkCls, (v)=>{
           pState.mkKey=v;
           // entering self-regulation: make sure the seeded dials are valid for it
           if(v==='most'){ if(!pState.skill) pState.skill='imagery'; if(!pState.sense) pState.sense='touch'; }
@@ -5771,7 +5771,7 @@
         const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
         openDialSheet('anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tkCls, (v)=>{ pState.sense=v; paintMaker(); });
       } else if(kind==='skill'){
-        openDialSheet('which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tkCls, (v)=>{
+        openDialSheet('Which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tkCls, (v)=>{
           pState.skill=v;
           if(v!=='balancing' && v!=='pendulation') pState.holdWatch=false;   // hold & watch only applies to these
           paintMaker();
@@ -5786,9 +5786,9 @@
           paintMaker();
         });
       } else if(kind==='silence'){
-        openDialSheet('how much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
+        openDialSheet('How much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
       } else if(kind==='length'){
-        openDialSheet('how long?', [{opts:[{val:'false',menu:'a complete practice'},{val:'true',menu:'open-ended'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
+        openDialSheet('How long?', [{opts:[{val:'false',menu:'a complete practice'},{val:'true',menu:'open-ended'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
       }
     }
 
@@ -5805,7 +5805,7 @@
         const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
         renderPlan({ practiceKey:'most', sense:rsense, skill:rskill, silence:rsilence,
                      holdWatch:rhw, holdWatchTargetSeconds:(rhw?rhs:null),
-                     reason:'a surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
+                     reason:'A surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
         return;
       }
       if(mkIsSession(k)){
@@ -5880,7 +5880,7 @@
           <p class="dash-prompt">working with anything today?</p>
           <div class="p-chips">${[['','let it surface']].concat(Store.EMOTION_FAMILIES.map(f=>[f.key,f.label])).map(([v,l])=>
             `<button class="p-chip${(pState.emotion||'')===v?' on':''}" data-emo="${escapeHtml(v)}">${escapeHtml(l)}</button>`).join('')}</div>
-          <p class="ch-cap" id="p-emo-hint">${(()=>{const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);return f?escapeHtml(f.hint):'choosing ahead of time helps you notice it when it arrives. optional.';})()}</p>
+          <p class="ch-cap" id="p-emo-hint">${(()=>{const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);return f?escapeHtml(f.hint):'Choosing ahead of time helps you notice it when it arrives. Optional.';})()}</p>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup" id="p-hw-group" style="${(skill==='balancing'||skill==='pendulation')?'':'display:none'}">
           <p class="dash-prompt">add hold &amp; watch?</p>
@@ -5937,8 +5937,8 @@
     // heading-friendly short names: "adjust your safety practice", never
     // "adjust your connect with safety practice" / "your a tiny practice practice"
     const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
-    const heading = !key ? (_paid ? '' : 'pick a practice.')
-      : (key==='more' ? 'choose a practice.'
+    const heading = !key ? (_paid ? '' : 'Pick a practice.')
+      : (key==='more' ? 'Choose a practice.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
     // free: the full menu in the real order, nothing hidden — the base-plan practices are
     // FADED INK ONLY (same card, same fill, no padlock, no dashes), exactly as the guest
@@ -5977,10 +5977,10 @@
       // renders on the right. No navigation, no bottom bleed. Reuses the exact same
       // refine/meds markup + handlers + begin flow as mobile. ----
       // D135 / the defect underneath D226 (fixed 2026-07-30d): this used to be
-      // `_paid ? '' : 'pick a practice.'`, so a paid account got NO .scr-head, no heading and
+      // `_paid ? '' : 'Pick a practice.'`, so a paid account got NO .scr-head, no heading and
       // no eyebrow on the >=720 practice screen — the one screen in the app with no title.
       // It only became obvious once a rotated phone started landing here. Every screen gets a head.
-      const deskHeading = 'pick a practice.';
+      const deskHeading = 'Pick a practice.';
       c.innerHTML=`<div class="view p-view p-split-view${key?' has-detail':''}${key?' track-'+trackOf(key).cls:''}">
       ${deskHeading?`<div class="scr-head">
         <p class="eyebrow"></p>
@@ -6029,7 +6029,7 @@
       c.querySelectorAll('[data-emo]').forEach(r=>r.classList.toggle('on',(r.dataset.emo||null)===pState.emotion));
       const h=$('#p-emo-hint');
       if(h){ const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);
-        h.textContent = f ? f.hint : 'choosing ahead of time helps you notice it when it arrives. optional.'; }
+        h.textContent = f ? f.hint : 'Choosing ahead of time helps you notice it when it arrives. Optional.'; }
     });
     c.querySelectorAll('[data-holdwatch]').forEach(b=>b.onclick=()=>{
       pState.holdWatch=b.dataset.holdwatch==='true';
@@ -6237,7 +6237,7 @@
   ];
   function renderFeedback(reco){
     // v2: the body-feeling answer now SELECTS (instead of advancing), and an
-    // optional "did anything surface?" family row sits beneath it — both save on
+    // optional "Did anything surface?" family row sits beneath it — both save on
     // continue. surfaced uses the same curated families as the customizer (plus
     // settled), so regulation becomes visible: what came up vs what they chose.
     const isMost = reco && reco.practiceKey==='most';
@@ -6284,11 +6284,11 @@
   function fbThanks(val){
     // closing line in Justin's voice — the report tunes the tone, never judges it
     const CLOSE = {
-      more:    { h:'something shifted toward connection.', s:"that's worth a small pat on your nervous system's back." },
-      same:    { h:'no major change, but you showed up.',  s:"that's a solid rep and your system thanks you for it." },
-      less:    { h:'you stayed with it.',                  s:"that's not nothing. imperfect practice is still practice. take the next one easier and work your way back. don't rush it." },
-      struggle:{ h:'hard ones are still practice.',        s:"you're still here. you showed up. struggling with practices is very normal. come back to it when you're ready, but maybe focus on an easier skill. customize the next practice to your content." },
-      unsure:  { h:'not knowing is allowed.',             s:'you still showed up. well done. stay curious and open for the next one.' },
+      more:    { h:'Something shifted toward connection.', s:"that's worth a small pat on your nervous system's back." },
+      same:    { h:'No major change, but you showed up.',  s:"that's a solid rep and your system thanks you for it." },
+      less:    { h:'You stayed with it.',                  s:"that's not nothing. imperfect practice is still practice. take the next one easier and work your way back. don't rush it." },
+      struggle:{ h:'Hard ones are still practice.',        s:"you're still here. you showed up. struggling with practices is very normal. come back to it when you're ready, but maybe focus on an easier skill. customize the next practice to your content." },
+      unsure:  { h:'Not knowing is allowed.',             s:'You still showed up. Well done. Stay curious and open for the next one.' },
     };
     const cl = CLOSE[val] || CLOSE.same;
     setHTML(`
@@ -6519,14 +6519,14 @@
       segTh.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     });
     // practice scene: the caption mirrors the choice, same as the switches. 🖊
-    const SCENE_CAP={ '':'a different scene each time. the app chooses.',
-      circles:'the slow circles, as now.',
-      drift:'soft specks drifting upward, each at its own pace.',
-      pond:'still water, a ripple now and then.',
-      reeds:'reeds swaying in an uneven breeze.',
-      breeze:'strands carried sideways on a light wind, each at its own speed.',
-      sunbeam:'a still beam of light, dust hanging in it. appears in dark mode.',
-      fireflies:'small lights arriving and leaving on their own time. appears in dark mode.' };
+    const SCENE_CAP={ '':'A different scene each time. The app chooses.',
+      circles:'The slow circles, as now.',
+      drift:'Soft specks drifting upward, each at its own pace.',
+      pond:'Still water, a ripple now and then.',
+      reeds:'Reeds swaying in an uneven breeze.',
+      breeze:'Strands carried sideways on a light wind, each at its own speed.',
+      sunbeam:'A still beam of light, dust hanging in it. Appears in dark mode.',
+      fireflies:'Small lights arriving and leaving on their own time. Appears in dark mode.' };
     const scCap=$('#scene-cap'); const scVal=$('#scene-val');
     const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'surprise me':v; };
     _scSet(psc);
@@ -6543,24 +6543,24 @@
     // "animations" reads in the positive: switch ON = animations on. the caption
     // mirrors the current state so the row explains itself either way. 🖊
     const _motionCap = on=>{ const el=$('#motion-cap'); if(el) el.textContent = on
-      ? 'animations are on.'
+      ? 'Animations are on.'
       : "animations are off. this turns off the app's decorative movement. breathing practices keep their full timing; words carry the pace instead."; };
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
     const _hapCap = on=>{ const el=$('#hap-cap'); if(el) el.textContent = on
-      ? 'haptics are on. the app answers your taps with a tiny buzz.'
-      : 'haptics are off. the app never vibrates.'; };
+      ? 'Haptics are on. The app answers your taps with a tiny buzz.'
+      : 'Haptics are off. The app never vibrates.'; };
     _hapCap(hp);
     bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); _hapCap(on); });
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
-      ? 'your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
-      : 'your share cards go out with no state signature.'; };
+      ? 'Your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
+      : 'Your share cards go out with no state signature.'; };
     _glyphCap(gl!=='0');
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
     const _liveCap = on=>{ const el=$('#live-cap'); if(el) el.textContent = on
-      ? 'when a live practice is happening, the today screen offers a quiet invitation to check in alongside it.'
-      : 'the app never mentions live practices. joining by link or code still works.'; };
+      ? 'When a live practice is happening, the today screen offers a quiet invitation to check in alongside it.'
+      : 'The app never mentions live practices. Joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });
     { const _lc=$('#live-code'); if(_lc) _lc.onclick=()=>screenLiveCode(); }
@@ -6570,13 +6570,13 @@
     const setOff = (t)=>{ if(offStatus) offStatus.textContent = t; };
     // plain state-mirroring captions (Justin 2026-07-05): the line always says
     // what is true RIGHT NOW, in the plainest words we have. 🖊
-    const OFF_ON_TXT  = 'every practice is saved on this device, they all play without a connection.';
+    const OFF_ON_TXT  = 'Every practice is saved on this device, they all play without a connection.';
     const OFF_OFF_TXT = 'practices play over the internet. turn this on to save them all to this device (about 94 mb, best on wi-fi), so they play with no connection at all.';
     setOff(localStorage.getItem(OFFLINE_FLAG)==='1' ? OFF_ON_TXT : OFF_OFF_TXT);
     (async ()=>{
       if(localStorage.getItem(OFFLINE_FLAG)==='1'){
         const mani = await offlineManifest(); const have = await offlineCachedCount();
-        setOff(mani.length && have>=mani.length ? OFF_ON_TXT : 'your device cleared the offline copy. turn this on again to re-save it.');
+        setOff(mani.length && have>=mani.length ? OFF_ON_TXT : 'Your device cleared the offline copy. Turn this on again to re-save it.');
       }
     })();
     let offBusy = false;
@@ -6595,10 +6595,10 @@
           const have = await offlineCachedCount();
           if(res.quota || have < urls.length) setOff("didn't all fit. saved "+have+" of "+urls.length+". free up some space and turn this on again.");
           else setOff(OFF_ON_TXT);
-        }catch(e){ setOff('download failed. check your connection and try again.'); }
+        }catch(e){ setOff('Download failed. Check your connection and try again.'); }
         offBusy = false;
       } else {
-        offBusy = true; await clearOffline(); localStorage.removeItem(OFFLINE_FLAG); setOff('offline copy removed. practices play over the internet again.'); offBusy = false;
+        offBusy = true; await clearOffline(); localStorage.removeItem(OFFLINE_FLAG); setOff('Offline copy removed. Practices play over the internet again.'); offBusy = false;
       }
     };
     const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
@@ -6613,7 +6613,7 @@
       if(!confirm('Sign out? Your check-ins are saved to your account and will be here when you sign back in.')) return;
       await Store.signOut(); currentTab='today'; route();
     };
-    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'t be undone. your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
+    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'T be undone. Your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
     // full in-app account deletion (the privacy policy promises it): a clear
     // confirm screen, then the delete-account edge function erases everything
     // server-side, instantly. 🖊 copy below is a draft for Justin to own.
