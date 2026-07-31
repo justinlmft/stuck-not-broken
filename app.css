@@ -33,14 +33,6 @@
   /* set per-element by JS; declared here so no var() in the sheet is undefined. */
   --radius:8px; --halo:var(--hairline); --fresh-col:var(--s-safety); --ink-30:var(--muted);
   --rail:var(--bone-deep);
-  /* HERO CARD (Justin, 2026-07-30f: "stick with 1 - ink"). The You-tab cards that carry a state
-     colour as their headline word were unreadable on bone — the safety gold measured 1.352:1.
-     The colour is not the problem, the surface was: the same gold reads 11.58:1 on ink. So the
-     hero cards invert. These are scoped as LOCAL OVERRIDES of --ink/--muted/--bone etc. on the
-     card itself (see the .panel:has() rule), which means every descendant that already reads
-     those tokens flips automatically instead of needing its own dark variant. */
-  --hero-bg:#1A1F2A; --hero-bg-deep:#242A38; --hero-ink:#FAF9F5; --hero-ink-80:#D6D3CC;
-  --hero-muted:#A8A49B; --hero-line:#333A4A; --hero-dim:#4A505E;
   --ink-faded:rgba(26,31,42,.25);   /* untouched check-in rails: present, clearly not "done" */
 
   /* ---------- fluid interface tokens (Phase 1, 2026-07-10) ----------
@@ -889,18 +881,6 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
 .play-filter.seg .period-pill:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 /* share buttons on stat cards */
 .panel{position:relative}
-/* The hero cards: any panel carrying a state-coloured headline word or the hero glyph journey.
-   :has() is already used elsewhere in this sheet, so no new support assumption. Redefining the
-   TOKENS locally (rather than restating every colour) is what makes .panel-title, .rc-lb,
-   .rc-hero-title, .panel-share, the empty-bar --bone-deep and the tri-glyph's --tg-dim all come
-   along for free. --tg-dim especially: on a dark card the old pale sand would have been the
-   BRIGHTEST thing on it, inverting lit-vs-unlit all over again. */
-.panel:has(.rc-hero-word),.panel:has(.cb-journey){
-  --ink:var(--hero-ink); --ink-80:var(--hero-ink-80); --muted:var(--hero-muted);
-  --bone:var(--hero-bg); --bone-deep:var(--hero-bg-deep); --raised:var(--hero-bg);
-  --hairline:var(--hero-line); --tg-dim:var(--hero-dim);
-  background:var(--hero-bg); border-color:var(--hero-line); color:var(--hero-ink);
-}
 /* clear the share button fully: right padding for the title line AND a min-height
    so the subtitle starts BELOW the button (the sub has no right padding) */
 .panel-title{padding-right:56px;min-height:38px;display:flex;align-items:flex-start}
@@ -1815,8 +1795,6 @@ body.reduce-motion .settle-ico{transition:none}
   /* dark: the pastels read fine on the dark bg, so the text shades map back to them */
   --s-safety-tx:var(--s-safety); --s-fight-tx:var(--s-fight); --s-shutdown-tx:var(--s-shutdown);
   --s-play-tx:var(--s-play); --s-still-tx:var(--s-still); --s-freeze-tx:var(--s-freeze);
-  --hero-bg:#2F3137; --hero-bg-deep:#3A3D44; --hero-ink:#ECEAE3; --hero-ink-80:#C5C3BC;
-  --hero-muted:#C0BCB2; --hero-line:#464A52; --hero-dim:#565961;
   }
 }
 :root.theme-dark{
@@ -1834,8 +1812,6 @@ body.reduce-motion .settle-ico{transition:none}
   /* dark: the pastels read fine on the dark bg, so the text shades map back to them */
   --s-safety-tx:var(--s-safety); --s-fight-tx:var(--s-fight); --s-shutdown-tx:var(--s-shutdown);
   --s-play-tx:var(--s-play); --s-still-tx:var(--s-still); --s-freeze-tx:var(--s-freeze);
-  --hero-bg:#2F3137; --hero-bg-deep:#3A3D44; --hero-ink:#ECEAE3; --hero-ink-80:#C5C3BC;
-  --hero-muted:#C0BCB2; --hero-line:#464A52; --hero-dim:#565961;
 }
 
 

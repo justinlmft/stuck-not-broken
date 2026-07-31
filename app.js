@@ -160,7 +160,7 @@
 
   const STATE_COLOR = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].color : '#D8D2C2');
   const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'settling');
-  // mute(): drops a colour's opacity so a de-emphasized
+  // mute(): blends a color toward the card background (--bone) so a de-emphasized
   // chart bar reads as a genuinely softer version of ITS OWN hue, not a differently-
   // hued pale tint. Used by the You-tab bar charts to make the winning bar/segment
   // the obvious one (Justin 2026-07-29: "dull the colors of the other days and
@@ -182,15 +182,11 @@
     return [216,210,194]; // fallback ~ --hairline
   }
   function mute(color, strength){
-    strength = strength==null ? 0.62 : strength; // fraction of the colour that is dropped
-    // 2026-07-30f: this used to BLEND toward a hard-coded --bone [250,249,245]. That was fine
-    // while every card was bone, but the hero cards are ink now, and blending toward white on a
-    // dark card would have made the DE-EMPHASISED bars the brightest thing on it — the exact
-    // inverse of what mute() is for. Alpha composites over whatever is actually behind the bar,
-    // so it is correct on bone, on ink, and in dark mode with no call site knowing the surface.
-    // Visually identical on bone: blending 62% toward the bg == 38% alpha over that same bg.
+    strength = strength==null ? 0.62 : strength; // fraction blended TOWARD the bg (higher = duller)
+    const bg = [250,249,245]; // --bone
     const c = _hexOrRgbToRgb(color);
-    return `rgba(${c[0]},${c[1]},${c[2]},${(1 - strength).toFixed(3)})`;
+    const out = c.map((v,i)=>Math.round(v + (bg[i]-v)*strength));
+    return `rgb(${out[0]},${out[1]},${out[2]})`;
   }
   // _staggerDelays(): per-column animation-delay (ms) so a bar chart's secondary
   // columns cascade in fast, left-to-right in their own natural order, and the
