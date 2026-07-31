@@ -260,8 +260,13 @@
   function triGlyph(key){
     const col = STATE_COLOR(key), I = window.SNB_ICONS||{};
     const active = (STATE_AXES[key]||[]).map(a=>a[0]);
+    // 'neutral' (and anything else with no axes) lights nothing, so all three marks used to
+    // fall to --tg-dim and the glyph read as switched-off — measured BELOW the lit safety
+    // mark's own contrast. Justin, 2026-07-30b: "neutral should be ink." The class carries
+    // it in CSS so it flips with the theme (DQA D236).
+    const neutral = !active.length;
     const paths = TRI_ORDER.map(m=>`<path class="tg-m" data-m="${m}"${active.indexOf(m)>=0?` data-col="${col}"`:''} d="${(I[m]&&I[m].d)||''}"></path>`).join('');
-    return `<svg class="triglyph" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
+    return `<svg class="triglyph${neutral?' tg-neutral':''}" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
   }
   // the full brand lockup with every mark in its own axis color — the "all of you"
   // logo (vs triGlyph, which lights only the active state). used by the live popup.
@@ -5825,7 +5830,10 @@
     // practice. On pick, that card lights up, the others fade + lose their outline,
     // and its adjust/what-to-expect reveals on the right. (Mobile <720 keeps key=null
     // and its full-screen flow unchanged.)
-    const desk = !!(window.matchMedia && window.matchMedia('(min-width:720px)').matches);
+    // Must stay IDENTICAL to app.css's regular size class (see the size-class comment at
+    // the top of app.css). Width alone put every rotated iPhone on the desktop split view,
+    // which is what took #p7-toggle and .scr-head off the practice tab (DQA D226).
+    const desk = !!(window.matchMedia && window.matchMedia('(min-width:720px) and (min-height:600px)').matches);
 
     // 7b — paid members on mobile get the "make my own" sentence-maker (redesign,
     // 2026-07-24). Free accounts and desktop keep the existing chooser below,

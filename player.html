@@ -330,6 +330,20 @@ body.playing .brand{display:none}
 .adj-step{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(21px * var(--type-scale));line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color var(--ease) .2s}
 .adj-step:hover{color:var(--ink)}
 .adj-step:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* D277 (DQA 2026-07-30; Justin: "use your judgment", 2026-07-30b). Measured: the silence
+   pill gets 4 of 6 columns = 183.2px at 320 wide, and its own content (label 55.5 +
+   stepper 124.4 + 18px padding) needs 197 — so the stepper poked 13.7px out of the pill.
+   360 and 390 already have ~5px of slack and are untouched here.
+   What I did NOT do, and why: giving silence its own full-width row is the robust fix, but
+   it adds ~64px to the control bar, and I could not measure the running scene's real
+   vertical budget at 320x568 headlessly (the scene needs live audio state). Shipping an
+   unverified +64px into the player's controls on the smallest phone is the riskier move.
+   The 44px stepper floor and the word "silence" both stay; only dead padding gives. */
+@media (max-width:359.98px){
+  .adj.silence{padding:0 2px 0 6px}   /* 18px of gutter -> 8px */
+  .adj-stepper{gap:0}                 /* 4px */
+  .adj-val{min-width:2em}             /* 2.6px */
+}
 .captoggle{padding:0 14px;cursor:pointer}
 .captoggle .cc{font-weight:500;letter-spacing:.1em;color:var(--muted);transition:color var(--ease) .2s}
 .captoggle .cc-state{color:var(--muted);transition:color var(--ease) .2s}
