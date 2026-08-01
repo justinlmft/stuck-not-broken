@@ -2822,6 +2822,12 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-top > .mh-peri svg{width:34px;height:34px;stroke-width:1.3}
 .mh-greet{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em;margin:0;text-wrap:pretty}
 .mh-state{display:inline-flex;align-items:center;gap:11px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 6px}
+/* 2026-08-01 (Justin: "the morning card now has an icon under the leading bar. put this above the
+   bar"). The time-of-day icon used to sit INSIDE the state row, so checked-in read as
+   [icon][glyph][chev] on one line while not-checked-in had the icon stacked above the greeting.
+   The icon is now a sibling ABOVE the row in both states, so the card has one composition.
+   It is aria-hidden decorative, so moving it out of the button costs nothing semantically. */
+.mh-top > .mh-peri{margin-bottom:2px}
 .mh-state .mh-peri{display:inline-flex;color:var(--ink)}
 .mh-state .mh-peri svg{width:24px;height:24px}
 .mh-state .mh-glyph{display:inline-flex}

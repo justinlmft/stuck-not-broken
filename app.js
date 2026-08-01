@@ -75,15 +75,15 @@
     const _segD=t=>{const h=new Date(t).getHours();return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late';};
     Store.firstCheckinT=()=>cs.length?cs[0].t:null;
     Store.tenure=()=>{const days=Math.round((_sod(Date.now())-_sod(cs[0].t))/864e5);const wc=cs.filter(c=>Date.now()-c.t<=7*864e5).length;return {count:cs.length,days:days,windowCount:wc,sinceLast:0,returning:false,stage:'established'};};
-    Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'Rising':d<-0.12?'falling':'steady',n:a.length};};
+    Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'rising':d<-0.12?'falling':'steady',n:a.length};};
     Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};w.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/w.length*100));let reg=0;w.forEach(c=>{if(REG[c.dom])reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};a.forEach(x=>c2[x.dom]=(c2[x.dom]||0)+1);return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
       return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:w.length-reg,regShare:reg/w.length,lean:reg/w.length>=0.6?'regulated':reg/w.length<=0.4?'dysregulated':'even',avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>!REG[d]),regStates:order.filter(d=>REG[d])};};
-    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',deltaPct:0,cur:cur.avgV};const d=cur.avgV-prev.avgV;return {dir:d>0.05?'Up':d<-0.05?'down':'flat',deltaPct:Math.round(d*100),cur:cur.avgV,prev:prev.avgV};};
+    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',deltaPct:0,cur:cur.avgV};const d=cur.avgV-prev.avgV;return {dir:d>0.05?'up':d<-0.05?'down':'flat',deltaPct:Math.round(d*100),cur:cur.avgV,prev:prev.avgV};};
     Store.recovery=()=>{if(cs.length<12)return null;const gaps=[];let i=0;while(i<cs.length){if(!REG[cs[i].dom]){let j=i,st=0,f=false;while(j<cs.length){if(REG[cs[j].dom]){f=true;break;}j++;st++;}if(f)gaps.push(st);i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length}:null;};
     Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
     Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
     Store.timeOfDay=()=>null;
-    Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'Up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
+    Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
     Store.today=()=>{const d=new Date();d.setHours(0,0,0,0);return Store.dayArc(d.getTime());};
     Store.practiceEffect=()=>{const t=ss.filter(s=>s.domBefore);if(t.length<6)return null;let moved=0,tot=0;t.forEach(s=>{const nx=cs.find(c=>c.t>s.t);if(!nx)return;tot++;if(RANK[nx.dom]>RANK[s.domBefore])moved++;});return tot>=6?{moved:moved,total:tot,rate:moved/tot}:null;};
     Store.practiceInsights=()=>{const g={};ss.forEach(s=>{if(!s.practiceKey||!s.domBefore)return;const nx=cs.find(c=>c.t>s.t);if(!nx)return;const k=s.practiceKey+'|'+s.domBefore+'|'+_segD(s.t);const o=g[k]||(g[k]={practiceKey:s.practiceKey,dom:s.domBefore,seg:_segD(s.t),moved:0,total:0});o.total++;if(RANK[nx.dom]>RANK[s.domBefore])o.moved++;});return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4).map(o=>Object.assign(o,{rate:o.moved/o.total})).sort((a,b)=>b.total-a.total||b.rate-a.rate);};
@@ -795,7 +795,7 @@
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
           ${up?'<p class="fineprint" style="margin-top:12px;text-align:center">Already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">Log in</button></p>':''}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">New here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a check-in, no account needed</button>'}
-          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> And <a href="#" data-policy="privacy">Privacy policy</a>.</p>
+          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> and <a href="#" data-policy="privacy">Privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
           <p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
           ${up?'':'<p class="fineprint" style="margin-top:6px">The breath above needs no account. The rest of the app does. It keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
@@ -1166,7 +1166,7 @@
     clearFigures(); document.body.classList.remove('in-practice');
     const P_ICO = {
       micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      Mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
       anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
       most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
       more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
@@ -1293,7 +1293,7 @@
       // Justin's example ("You're feeling more connected. Doing things is about the
       // same. And your energy settled."). 🖊 clause bank assembled from that example +
       // the mirror's vocabulary; flag any clause that reads off and I'll adjust.
-      const cv = mv>0 ? "You're feeling more connected"        : mv<0 ? 'connecting feels harder right now'          : 'connecting is about the same';
+      const cv = mv>0 ? "you're feeling more connected"        : mv<0 ? 'connecting feels harder right now'          : 'connecting is about the same';
       const cd = md<0 ? 'doing things feels more within reach' : md>0 ? 'doing things takes more effort right now'   : 'doing things is about the same';
       const cs = ms<0 ? 'your energy settled'                  : ms>0 ? "there's more energy in your body"           : 'your energy is about the same';
       const cap = (t)=>t.charAt(0).toUpperCase()+t.slice(1);
@@ -1361,9 +1361,9 @@
           <details class="offer-more">
             <summary>What you get when you subscribe ▾</summary>
             <div class="offer-more-body">
-              <p><b>Practices:</b> Get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
-              <p><b>Analytics:</b> The more you check in, the more you learn about yourself. Identify what time of day, what day of the week, and even what season of the year bring you the most safety or the most challenge. See how practices affect your system and which ones help the most.</p>
-              <p><b>Personal reader:</b> Your check-ins and analytics create your personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
+              <p><b>Practices:</b> get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
+              <p><b>Analytics:</b> the more you check in, the more you learn about yourself. Identify what time of day, what day of the week, and even what season of the year bring you the most safety or the most challenge. See how practices affect your system and which ones help the most.</p>
+              <p><b>Personal reader:</b> your check-ins and analytics create your personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
             </div>
           </details>
         </div>
@@ -1417,7 +1417,7 @@
           <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="new-password"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(paid?'continue to payment':'create account')}</button>
-          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> And <a href="#" data-policy="privacy">Privacy policy</a>.</p>
+          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> and <a href="#" data-policy="privacy">Privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>
           <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-back" style="font-size:inherit;padding:2px">Back</button></p>
         </div>
@@ -1575,7 +1575,7 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">Almost there</p>
         <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a confirmation link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap it, then come back here to sign in.</p>
+        <p class="lede" style="margin-bottom:24px">We sent a confirmation link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap it, then come back here to sign in.</p>
         <button class="btn block" id="back2">Back to sign in</button>
       </div></div>`);
     $('#back2').onclick=()=>{ authMode='in'; screenSignIn(); };
@@ -1587,7 +1587,7 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">Reset link sent</p>
         <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a password reset link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap the link and you'll come back here to choose a new password. It can take a couple of minutes to arrive.</p>
+        <p class="lede" style="margin-bottom:24px">We sent a password reset link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap the link and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
         <button class="btn block" id="back3">Back to sign in</button>
       </div></div>`);
     $('#back3').onclick=()=>{ authMode='in'; screenSignIn(); };
@@ -2124,13 +2124,13 @@
   function tabIcon(t, on){
     if(on) return ({
       today:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path fill="none" d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
-      Practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
-      Current:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
+      practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
+      current:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
     }[t]||'');
     return ({
     today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
-    Practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    Current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
+    practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
   }[t]||''); }
   function tabBtn(t,label){ const on=currentTab===t; return `<button data-t="${t}" class="${on?'on':''}" aria-label="${label}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${label}</span></button>`; }
   const content = () => $('#content');
@@ -2147,9 +2147,9 @@
   function segIco(seg){
     const P={
       morning:'<path d="M12 9a4 4 0 014 4H8a4 4 0 014-4z"/><path d="M12 4v2M5.3 6.8l1.4 1.4M18.7 6.8l-1.4 1.4M3 13h2M19 13h2M5 17h14"/>',
-      Afternoon:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>',
-      Evening:'<path d="M19 13.5A7.5 7.5 0 0110.5 5 7.5 7.5 0 1019 13.5z"/><path d="M17.5 4.5l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z"/>',
-      Late:'<path d="M12 3l.9 2.6L15.5 6.5l-2.6.9L12 10l-.9-2.6L8.5 6.5l2.6-.9z"/><path d="M18 12l.6 1.8 1.8.6-1.8.6L18 16.8l-.6-1.8-1.8-.6 1.8-.6z"/><path d="M7 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'
+      afternoon:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>',
+      evening:'<path d="M19 13.5A7.5 7.5 0 0110.5 5 7.5 7.5 0 1019 13.5z"/><path d="M17.5 4.5l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z"/>',
+      late:'<path d="M12 3l.9 2.6L15.5 6.5l-2.6.9L12 10l-.9-2.6L8.5 6.5l2.6-.9z"/><path d="M18 12l.6 1.8 1.8.6-1.8.6L18 16.8l-.6-1.8-1.8-.6 1.8-.6z"/><path d="M7 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'
     };
     return P[seg]?'<svg class="seg-ico" viewBox="0 0 24 24" aria-hidden="true">'+P[seg]+'</svg>':'';
   }
@@ -2273,7 +2273,7 @@
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
-            ? `<button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            ? `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
             : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
         <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
@@ -2293,7 +2293,7 @@
                <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="check in again" title="check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
                ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
-             <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
+             <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
           : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
              <div class="mh-secondrow no-checkin" id="mh-2nd">
                <button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
@@ -2485,7 +2485,7 @@
     const labels=[['morning',0.18],['midday',0.45],['evening',0.74],['late',0.96]].map(o=>`<text x="${(padL+o[1]*(W-padL-padR)).toFixed(0)}" y="${H-8}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="Inter">${o[0]}</text>`).join('');
     const present=moments.map(m=>m.dom).filter((d,i,a)=>a.indexOf(d)===i);
     const leg=present.map(d=>`<span class="mtl-key"><span class="mtl-sw" style="background:${STATE_COLOR(d)}"></span>${escapeHtml(STATE_NAME(d))}</span>`).join('')+
-      (sessions.length?`<span class="mtl-key"><span class="mtl-ring"></span>Practice</span>`:'');
+      (sessions.length?`<span class="mtl-key"><span class="mtl-ring"></span>practice</span>`:'');
     return `<div class="mtl"><svg viewBox="0 0 ${W} ${H}" class="mtl-svg" role="img" aria-label="your check-ins today, placed by time and safety, colored by state">${axis}${line}${rings}${dots}${labels}</svg><div class="mtl-legend">${leg}</div></div>`;
   }
   // compact dots for the today card: today's moments in order, newest ringed.
@@ -2982,7 +2982,7 @@
     const freq={}; cs.forEach(c=>freq[c.dom]=(freq[c.dom]||0)+1);
     let dom=null,bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
     const share = Math.round(bestN/n*100);
-    const dv = cs[n-1].v - cs[0].v; const dir = dv>0.08?'Rising' : dv<-0.08?'falling' : 'steady';
+    const dv = cs[n-1].v - cs[0].v; const dir = dv>0.08?'rising' : dv<-0.08?'falling' : 'steady';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
     const sd = Math.sqrt(cs.reduce((s,c)=>s+(c.v-avgV)*(c.v-avgV),0)/n);
     const variance = sd>0.18 ? 'shifts' : 'consistent';
@@ -4640,7 +4640,7 @@
       if(paced.length>=4){
         const k=Math.max(1,Math.floor(paced.length/3));
         const d = avg(paced.slice(-k).map(x=>x.v)) - avg(paced.slice(0,k).map(x=>x.v));
-        dir = d>0.08?'Rising':d<-0.08?'falling':'steady';
+        dir = d>0.08?'rising':d<-0.08?'falling':'steady';
       }
       const rising = dir==='rising';
 
@@ -4711,7 +4711,7 @@
         Store.sessions().filter(s=>s&&s.domBefore&&_PE_RANK[s.domBefore]!=null).forEach(s=>{ domCounts[s.domBefore]=(domCounts[s.domBefore]||0)+1; });
         const modeDom=Object.keys(domCounts).sort((a,b)=>domCounts[b]-domCounts[a])[0] || 'fightflight';
         practiceHead=`<div class="cb-journey">${cbGlyphViz(modeDom, 'safety', null, 'hero')}</div>
-          <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> Of the time.</p>
+          <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> of the time.</p>
           <p class="cb-fine">(${pe.total} check-in${pe.total===1?'':'s'} within a few hours of practicing${pi?`; most reliably after ${Store.practiceLabel(pi.practiceKey)} ${segPhrase(pi.seg)}, about ${Math.round(pi.rate*20)*5}% of the time`:''})</p>`;
       })();
 
@@ -4853,7 +4853,7 @@
               slides.push(['comeback','getting back to safety', `
               ${shareBtn('comeback')}
               <div class="cb-journey">${cbGlyphViz(from, 'safety', null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(from)}</b>, Then recover into <b>Safety</b>.</p>
+              <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(from)}</b>, then recover into <b>Safety</b>.</p>
               ${tripCount}`]);
             }
             // the separate "your safety baseline" slide is retired (§7.2): its longer-window
@@ -4894,7 +4894,7 @@
               // rc-hero-title sentence right below it. Array label stays for a11y.
               slides.push(['times','your most regulated day', `
               ${shareBtn('times')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${wd.label}</b> Is your most regulated day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${wd.label}</b> is your most regulated day.</p>
               ${chart}
               <p class="cb-line">${wd.pct}% of your <b>${wd.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4910,7 +4910,7 @@
               }).join('')}</div>`;
               slides.push(['daypart','your most regulated time of day', `
               ${shareBtn('daypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${dp.seg}</b> Is your most regulated time of day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${dp.seg}</b> is your most regulated time of day.</p>
               ${chart}
               <p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4934,7 +4934,7 @@
               }).join('')}</div>`;
               slides.push(['leastDay','your least regulated day', `
               ${shareBtn('leastDay')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstColor}">${wdLeast.label}</b> Has the least regulation.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstColor}">${wdLeast.label}</b> has the least regulation.</p>
               ${chart}
               <p class="cb-line">${wdLeast.pct}% of your <b>${wdLeast.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4958,7 +4958,7 @@
               }).join('')}</div>`;
               slides.push(['leastDaypart','your least regulated time of day', `
               ${shareBtn('leastDaypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${dpLeast.seg}</b> Has the least regulation.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${dpLeast.seg}</b> has the least regulation.</p>
               ${chart}
               <p class="cb-line">${dpLeast.pct}% of your <b>${dpLeast.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4970,7 +4970,7 @@
               slides.push(['shift','your most common shift', `
               ${shareBtn('shift')}
               <div class="cb-journey">${cbGlyphViz(trn.a, trn.b, null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">Your state most often shifts from <b>${nm(trn.a)}</b> To <b>${nm(trn.b)}</b>.</p>
+              <p class="cb-line cb-line-lead">Your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>.</p>
               <p class="cb-fine">(${trn.count} time${trn.count===1?'':'s'} so far)</p>`]);
             }
             // "your records" card CUT ENTIRELY (Justin 2026-07-29: "it's useless").
@@ -5058,7 +5058,7 @@
               }).join('')}</div>`;
               slides.push(['ax-'+key, segName+' is your most '+adj+' time of day', `
               ${shareBtn('ax-'+key)}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${segName}</b> Is your most <b>${adj}</b> Time of day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${segName}</b> is your most <b>${adj}</b> time of day.</p>
               ${chart}`]);
             };
             ['play','fightflight','stillness','shutdown','freeze'].forEach(_axSoloSlide);
@@ -5137,17 +5137,17 @@
           window._youLedgerKey=key;
           const _I={
             safety:'<span class="yl-ic tri"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            Comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
-            Mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
-            Times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
+            comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
+            mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
+            times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
             // mobilized/immobilized (2 combined cards) retired for 5 solo-state axis
             // cards (2026-07-29 redesign) — same two stand-in glyphs reused per card
             // since a bespoke icon per state wasn't part of this round's redesign.
             'ax-play':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'Ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'Ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'Ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'Ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>'
+            'ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
+            'ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            'ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            'ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>'
             // 'records' icon entry removed — the card is cut (2026-07-29: "it's useless").
           };
           const cur=all.find(s=>s[0]===key);
@@ -5459,11 +5459,11 @@
   // per-type glyphs for the picker (currentColor: muted at rest, track ink when selected)
   const MK_TYPE_ICO = {
     micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
-    Mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
-    Anchoring:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.6-8.3A4.4 4.4 0 0 1 12 6.8a4.4 4.4 0 0 1 8.6 4.9C18.5 15.8 12 20 12 20z"/></svg>',
-    Most:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
-    Session:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    Surprise:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
+    mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
+    anchoring:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.6-8.3A4.4 4.4 0 0 1 12 6.8a4.4 4.4 0 0 1 8.6 4.9C18.5 15.8 12 20 12 20z"/></svg>',
+    most:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
+    session:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    surprise:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
   };
   // the type picker, grouped for the brand sheet — rows carry an icon + a one-line
   // description; the label-less last group renders as a plain divider before "surprise".
@@ -5651,7 +5651,7 @@
       <button class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" type="button">
         <span class="wc-text">
           <span class="tuned-kicker">Made for you</span>
-          <span class="wc-title"><span class="tuned-name">${nameLead}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> Custom practice</span>
+          <span class="wc-title"><span class="tuned-name">${nameLead}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
           <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
           ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
@@ -5669,7 +5669,7 @@
     const toggle=$('#p7-toggle');
     const paintToggle=()=>{
       const open=pState.makerOpen;
-      toggle.textContent = open ? 'hide' : 'make my own';
+      toggle.textContent = open ? 'Hide' : 'Make my own';
       toggle.setAttribute('aria-expanded', open?'true':'false');
     };
     paintToggle();
@@ -5845,7 +5845,7 @@
     // headphones for the session library — each in its track's ink color.
     const P_ICO = {
       micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      Mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
       anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
       // self-regulation meets BOTH defenses, so it carries both marks (bolt + x)
       most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
