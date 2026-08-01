@@ -160,6 +160,14 @@
 
   const STATE_COLOR = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].color : '#D8D2C2');
   const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'settling');
+  // CAP(): sentence-case a value that STARTS a label, heading, cell or button.
+  // State names and dayparts are common nouns — they stay lowercase MID-SENTENCE
+  // ("you commonly dip into shutdown"), and take a capital only where their
+  // position demands it. One rule, applied at the call site, because only the call
+  // site knows whether the word starts something. Never mutate the source strings:
+  // STATE_NAME/segLabel are read mid-sentence in a dozen places.
+  const CAP = (s) => { s = String(s == null ? '' : s); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+  const STATE_LABEL = (key) => CAP(STATE_NAME(key));
   // mute(): blends a color toward the card background (--bone) so a de-emphasized
   // chart bar reads as a genuinely softer version of ITS OWN hue, not a differently-
   // hued pale tint. Used by the You-tab bar charts to make the winning bar/segment
@@ -343,7 +351,7 @@
   // control, not a real reading), no glyph; the scale labels sit flush to the rail, and
   // numbers mode shows the value on the right exactly like the live slider.
   const _methodPreview=(m)=>{
-    if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}</div>`;
+    if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_LABEL(k)}</span></button>`).join('')}</div>`;
     const numbered = m==='numbers';
     const sc = numbered ? ['0','10'] : ['harder','easier'];
     return `<div class="ci-prev${numbered?' has-num':''}" aria-hidden="true">
@@ -1312,9 +1320,9 @@
         </div>
         <div class="ba-body">
           <div class="ba-pair">
-            <div class="ba-col"><div class="ba-glyph">${triGlyph(da.key)}</div><div class="ba-state">${escapeHtml(STATE_NAME(da.key))}</div></div>
+            <div class="ba-col"><div class="ba-glyph">${triGlyph(da.key)}</div><div class="ba-state">${escapeHtml(STATE_LABEL(da.key))}</div></div>
             <div class="ba-arrow" aria-hidden="true">→</div>
-            <div class="ba-col"><div class="ba-glyph">${triGlyph(db.key)}</div><div class="ba-state">${escapeHtml(STATE_NAME(db.key))}</div></div>
+            <div class="ba-col"><div class="ba-glyph">${triGlyph(db.key)}</div><div class="ba-state">${escapeHtml(STATE_LABEL(db.key))}</div></div>
           </div>
           <p class="scr-lede">${escapeHtml(body)}</p>
           <p class="scr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular practice.</p>
@@ -1832,9 +1840,9 @@
         h:'Practice defaults',
         body:'<p class="ob-p">You can change these any time you want, but this sets the defaults for now.</p>'
            + '<p class="ob-fine" style="margin:10px 0 3px">Connect to the present moment through</p>'
-           + '<div class="ob-chips" data-group="sense">'+[['touch','touch'],['sound','sound'],['sight','sight'],['movement','movement'],['imagination','imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
+           + '<div class="ob-chips" data-group="sense">'+[['touch','Touch'],['sound','Sound'],['sight','Sight'],['movement','Movement'],['imagination','Imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
            + '<p class="ob-fine" style="margin:14px 0 3px">How much silence</p>'
-           + '<div class="ob-chips" data-group="silence">'+[[4,'a little'],[8,'some'],[14,'a lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
+           + '<div class="ob-chips" data-group="silence">'+[[4,'A little'],[8,'Some'],[14,'A lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
 
       { id:'name', tab:'practice', kind:'center',
         h:'What should the app call you?',
@@ -2132,7 +2140,7 @@
     practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
     current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
   }[t]||''); }
-  function tabBtn(t,label){ const on=currentTab===t; return `<button data-t="${t}" class="${on?'on':''}" aria-label="${label}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${label}</span></button>`; }
+  function tabBtn(t,label){ const on=currentTab===t, L=CAP(label); return `<button data-t="${t}" class="${on?'on':''}" aria-label="${L}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
   const content = () => $('#content');
 
   // ---------------------------------------------------------------- TODAY
@@ -2176,39 +2184,39 @@
     // a wide pool for variety; exclamation lines are skipped for shutdown/freeze
     // arrivals (the quiet filter below), so keep plenty of soft lines in the mix.
     let pool = name ? [
-      `hi, ${name}.`,
-      `hey again, ${name}.`,
+      `Hi, ${name}.`,
+      `Hey again, ${name}.`,
       `${name}'s back!`,
-      `good ${seg}, ${name}.`,
-      `welcome back, ${name}.`,
-      `hey there, ${name}.`,
-      `glad you're here, ${name}.`,
-      `hello again, ${name}.`,
-      `you made it back, ${name}!`,
-      `settle in, ${name}.`,
-      `you got this, ${name}.`,
-      `good to see you, ${name}.`,
-      `no rush today, ${name}.`,
-      `one breath at a time, ${name}.`,
-      `the ring's ready when you are, ${name}.`,
-      `take what you need, ${name}.`,
-      `here we are again, ${name}.`,
-      `you showed up, ${name}. that counts.`,
-      `this ${seg} is yours, ${name}.`
+      `Good ${seg}, ${name}.`,
+      `Welcome back, ${name}.`,
+      `Hey there, ${name}.`,
+      `Glad you're here, ${name}.`,
+      `Hello again, ${name}.`,
+      `You made it back, ${name}!`,
+      `Settle in, ${name}.`,
+      `You got this, ${name}.`,
+      `Good to see you, ${name}.`,
+      `No rush today, ${name}.`,
+      `One breath at a time, ${name}.`,
+      `The ring's ready when you are, ${name}.`,
+      `Take what you need, ${name}.`,
+      `Here we are again, ${name}.`,
+      `You showed up, ${name}. That counts.`,
+      `This ${seg} is yours, ${name}.`
     ] : [
-      `hi again.`,
-      `welcome back.`,
-      `good ${seg}.`,
-      `there you are.`,
-      `you made it back!`,
-      `settle in.`,
-      `glad you're here.`,
-      `good to see you.`,
-      `no rush today.`,
-      `one breath at a time.`,
-      `the ring's ready when you are.`,
-      `take what you need.`,
-      `here we are again.`
+      `Hi again.`,
+      `Welcome back.`,
+      `Good ${seg}.`,
+      `There you are.`,
+      `You made it back!`,
+      `Settle in.`,
+      `Glad you're here.`,
+      `Good to see you.`,
+      `No rush today.`,
+      `One breath at a time.`,
+      `The ring's ready when you are.`,
+      `Take what you need.`,
+      `Here we are again.`
     ];
     // shutdown/freeze arrivals get the quiet lines only — no exclamation energy
     if(quiet) pool = pool.filter(t=>t.indexOf('!')===-1);
@@ -2237,7 +2245,7 @@
     const dom  = checkedIn ? last.dom : null;
     const halo = checkedIn ? STATE_COLOR(dom) : 'var(--hairline)';
     const stateHTML = checkedIn
-      ? `<button class="tb-state tb-state-line" id="tb-state"><span class="tb-glyph">${triGlyph(dom)}</span><span class="tb-state-txt">${STATE_NAME(dom)} · this ${segLabel(segOf(last.t))}</span><span class="tb-chev">${CHEV}</span></button>`
+      ? `<button class="tb-state tb-state-line" id="tb-state"><span class="tb-glyph">${triGlyph(dom)}</span><span class="tb-state-txt">${STATE_LABEL(dom)} · this ${segLabel(segOf(last.t))}</span><span class="tb-chev">${CHEV}</span></button>`
       : `<button class="tb-state tb-state-cta" id="tb-state"><span class="tb-glyph">${triGlyph('neutral')}</span><span class="tb-state-txt">Check in. How are you?</span><span class="tb-chev">${CHEV}</span></button>`;
 
     const pracName   = escapeHtml(Store.practiceLabel(reco.practiceKey));
@@ -2273,10 +2281,10 @@
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
-            ? `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><button class="mh-state" id="mh-state" type="button" aria-label="what ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            ? `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><button class="mh-state" id="mh-state" type="button" aria-label="What ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
             : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
-        <button class="tb-breath" id="tb-breath" aria-label="take one intentional breath">
+        <button class="tb-breath" id="tb-breath" aria-label="Take one intentional breath">
           <span class="tb-stage">
             <span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(dom)}</span>
           </span>
@@ -2290,7 +2298,7 @@
       <div class="mh-foot">
         ${checkedIn
           ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
-               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="check in again" title="check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
+               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="Check in again" title="Check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
                ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
@@ -2484,7 +2492,7 @@
       `<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--hairline)" stroke-width="1"/>`;
     const labels=[['morning',0.18],['midday',0.45],['evening',0.74],['late',0.96]].map(o=>`<text x="${(padL+o[1]*(W-padL-padR)).toFixed(0)}" y="${H-8}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="Inter">${o[0]}</text>`).join('');
     const present=moments.map(m=>m.dom).filter((d,i,a)=>a.indexOf(d)===i);
-    const leg=present.map(d=>`<span class="mtl-key"><span class="mtl-sw" style="background:${STATE_COLOR(d)}"></span>${escapeHtml(STATE_NAME(d))}</span>`).join('')+
+    const leg=present.map(d=>`<span class="mtl-key"><span class="mtl-sw" style="background:${STATE_COLOR(d)}"></span>${escapeHtml(STATE_LABEL(d))}</span>`).join('')+
       (sessions.length?`<span class="mtl-key"><span class="mtl-ring"></span>practice</span>`:'');
     return `<div class="mtl"><svg viewBox="0 0 ${W} ${H}" class="mtl-svg" role="img" aria-label="your check-ins today, placed by time and safety, colored by state">${axis}${line}${rings}${dots}${labels}</svg><div class="mtl-legend">${leg}</div></div>`;
   }
@@ -2507,7 +2515,7 @@
     const states = (order||[]).filter(k=>dist && dist[k]>0);
     if(!states.length) return '';
     const segs = states.map(k=>`<div style="width:${dist[k]}%;background:${STATE_COLOR(k)}"></div>`).join('');
-    const legend = states.map(k=>`<span class="vz-key"><span class="vz-sw" style="background:${STATE_COLOR(k)}"></span>${escapeHtml(STATE_NAME(k))} ${dist[k]}%</span>`).join('');
+    const legend = states.map(k=>`<span class="vz-key"><span class="vz-sw" style="background:${STATE_COLOR(k)}"></span>${escapeHtml(STATE_LABEL(k))} ${dist[k]}%</span>`).join('');
     return `<div class="sec-viz"><div class="mix-bar">${segs}</div><div class="vz-legend">${legend}</div></div>`;
   }
   // "what that state is": the brand triGlyph lit to the dominant state — the state's face.
@@ -2888,7 +2896,7 @@
     const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
     // fresh-section share: the same image cards the You tab shares
     (function(){
-      const _sig = 'stuck not broken · stucknotbroken.com/stuck';
+      const _sig = 'Stuck Not Broken · stucknotbroken.com/stuck';
       root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
         const which=b.dataset.shareSec;
         if(which==='blog-pats' && patterns){
@@ -3339,7 +3347,7 @@
   function screenChangeCheckin(){
     const recent = Store.checkins().slice(-6).reverse();
     clearFigures(); document.body.classList.remove('in-practice');
-    const rows = recent.length ? recent.map((c,i)=>`<div class="ci-row"><button class="change-row ci-edit" data-i="${i}" type="button"><span class="change-when">${relTime(c.t)}</span><span class="change-mark">${stateMarks(c.dom)}<span class="change-state">${STATE_NAME(c.dom)}</span></span><span class="wc-go">${CHEV}</span></button><button class="pr-del ci-del" data-t="${c.t}" type="button">Remove</button></div>`).join('') : '<p class="panel-empty">No check-ins to change yet.</p>';
+    const rows = recent.length ? recent.map((c,i)=>`<div class="ci-row"><button class="change-row ci-edit" data-i="${i}" type="button"><span class="change-when">${relTime(c.t)}</span><span class="change-mark">${stateMarks(c.dom)}<span class="change-state">${STATE_LABEL(c.dom)}</span></span><span class="wc-go">${CHEV}</span></button><button class="pr-del ci-del" data-t="${c.t}" type="button">Remove</button></div>`).join('') : '<p class="panel-empty">No check-ins to change yet.</p>';
     setHTML(`
       <header class="appbar"><button class="backbtn" id="cc-back">Back</button></header>
       <div class="scroll"><div class="view" style="gap:14px">
@@ -3468,7 +3476,7 @@
     const _ciInput = _ciStates
       ? `<p class="ci4-states-lede">Tap the state that fits right now.</p>
           <div class="ci-ovr-chips ci4-states">
-            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_NAME(k)}</span></button>`).join('')}
+            ${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_LABEL(k)}</span></button>`).join('')}
           </div>
           <div class="ci-tune" id="ci-tune"${editRec?'':' hidden'}>
             <p class="ci-tune-lede">Fine-tune anything that isn't quite right.</p>
@@ -3835,7 +3843,7 @@
         <div class="scr-head">
           <p class="eyebrow">What you described</p>
           <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
-          <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'settling':escapeHtml(STATE_NAME(domKey))}</h1>
+          <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'Settling':escapeHtml(STATE_LABEL(domKey))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
           <p class="scr-lede">${more?'Your check-in is saved. Head back to the live practice now. This screen will wait here, ready for your next check-in after the practice.':'Your check-in is saved. That was the last one for this practice.'}</p>
         </div>
@@ -4031,7 +4039,7 @@
       footer=`<div class="arc-scale"${footerDelay}><span>Less safety</span><span class="arc-scale-bar"></span><span>More</span></div>`;
     } else {
       const states=[...new Set(B.map(b=>b.dom))];
-      footer=`<div class="legend"${footerDelay}>${states.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_NAME(k)}</span>`).join('')}</div>`;
+      footer=`<div class="legend"${footerDelay}>${states.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_LABEL(k)}</span>`).join('')}</div>`;
     }
     // the floating "Jul 27 \u00b7 play/motivation" readout (2026-07-30, Justin: "this
     // is just floating there") is CUT \u2014 it defaulted to the latest point with no
@@ -4249,7 +4257,7 @@
     let best=null;
     Object.keys(by).forEach(d=>{ const a=by[d]; if(a.length>=3){ const p=_safeShare(a); if(best==null||p>best.pct) best={ day:+d, pct:p }; } });
     if(!best) return null;
-    const names=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    const names=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     return { label:names[best.day], idx:best.day, pct:best.pct };
   }
   // mirror of _weekdayPattern, but the LEAST-regulated day (Justin 2026-07-29d).
@@ -4261,7 +4269,7 @@
     let worst=null;
     Object.keys(by).forEach(d=>{ const a=by[d]; if(a.length>=3){ const p=_safeShare(a); if(worst==null||p<worst.pct) worst={ day:+d, pct:p }; } });
     if(!worst) return null;
-    const names=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    const names=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     return { label:names[worst.day], idx:worst.day, pct:worst.pct };
   }
   // flavors of safety: among the check-ins that carry safety, which safe state they land in
@@ -4545,7 +4553,7 @@
         return `<div class="deep-row hx-row">
           <span class="deep-lbl hx-time">${fmtTime(x.t)}</span>
           <span class="hx-body">
-            <span class="hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">'+escapeHtml(STATE_NAME(dom))+'</span>' : ''}</span>
+            <span class="hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">'+escapeHtml(STATE_LABEL(dom))+'</span>' : ''}</span>
             ${mirror ? `<span class="hx-mirror">${escapeHtml(mirror)}</span>` : ''}
           </span>
         </div>`;
@@ -4555,8 +4563,8 @@
 
     c.innerHTML = `<div class="view play-view">
       <div class="filter-bar" style="justify-content:flex-end">
-        <button class="set-gear ci-add" id="add-ci" type="button" aria-label="new check in" title="new check in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
-        <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
+        <button class="set-gear ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        <button class="set-gear" id="set-btn" type="button" aria-label="Settings" title="Settings">${GEAR_SVG}</button>
       </div>
       <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
@@ -4590,13 +4598,13 @@
         const ax = AXIS_ICON[{safety:'v',fightflight:'sym',shutdown:'dor'}[st]];
         return `<button class="map-row" type="button" data-state-detail="${st}">
           <span class="map-ico">${ico(ax.icon,{color:STATE_COLOR(st)})}</span>
-          <span class="map-text"><span class="map-name">${STATE_NAME(st)}</span><span class="map-sub">${ax.sub}</span></span>
+          <span class="map-text"><span class="map-name">${STATE_LABEL(st)}</span><span class="map-sub">${ax.sub}</span></span>
           <span class="wc-go">${CHEV}</span>
         </button>`;
       }).join('');
       c.innerHTML = `<div class="view play-view">
         <div class="filter-bar" style="justify-content:flex-end">
-          <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
+          <button class="set-gear" id="set-btn" type="button" aria-label="Settings" title="Settings">${GEAR_SVG}</button>
         </div>
         <div class="map-empty">
         <p class="map-lede">Your three nervous-system states.</p>
@@ -4651,7 +4659,7 @@
       const mixHTML=ranked.map(([key,n],i)=>{
         const pct=Math.round(n/total*100);
         return `<button class="distrow" data-state-detail="${key}" style="--sd:${i*50}ms">
-          <span class="distrow-top"><span class="distrow-name">${stateMarks(key)}${({play:'play/motivation',stillness:'stillness'}[key])||STATE_NAME(key)}</span><span class="distrow-pct">${pct}%</span></span>
+          <span class="distrow-top"><span class="distrow-name">${stateMarks(key)}${CAP(({play:'play/motivation',stillness:'stillness'}[key])||STATE_NAME(key))}</span><span class="distrow-pct">${pct}%</span></span>
           <span class="distrow-track"><span class="distrow-fill" style="width:${Math.max(pct,2)}%;background:${STATE_COLOR(key)}"></span></span>
         </button>`;
       }).join('');
@@ -4794,7 +4802,7 @@
         }
       })();
       const SHARE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg>';
-      const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="share this card">${SHARE_ICON}</button>`;
+      const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="Share this card">${SHARE_ICON}</button>`;
       // hoisted card signals (slides render them; the share cards draw them)
       const rec = _windowRecovery(cs);
       const rt  = rec ? _recoveryTrend() : null;
@@ -4819,16 +4827,16 @@
       // a state could have rows and still never show as a filter chip). Canonical UI order.
       const _stateOrder=['safety','play','fightflight','stillness','freeze','shutdown'];
       const _present=_stateOrder.filter(s=>cs.some(x=>x.dom===s));
-      const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">All</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_NAME(s)}</span></button>`).join('');
+      const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">All</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_LABEL(s)}</span></button>`).join('');
       c.innerHTML=`
         <div class="view play-view">
           <div class="filter-bar">
             ${visPer.length>1?`<div class="play-filter seg">${visPer.map(p=>`<button class="period-pill${activePeriod===p.key?' on':''}" data-period="${p.key}">${p.label}</button>`).join('')}</div>`:''}
-            <button class="set-gear ci-add" id="add-ci" type="button" aria-label="new check in" title="new check in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
-            <button class="set-gear" id="set-btn" type="button" aria-label="settings" title="settings">${GEAR_SVG}</button>
+            <button class="set-gear ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+            <button class="set-gear" id="set-btn" type="button" aria-label="Settings" title="Settings">${GEAR_SVG}</button>
           </div>
 
-          <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="your patterns: swipe or use the dots below">${(function(){
+          <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="Your patterns: swipe or use the dots below">${(function(){
             // slides assemble dynamically, wins first. a safety DIP is never
             // animated or headlined here (it lives, gently worded, in the reader).
             const slides = [];
@@ -4853,7 +4861,7 @@
               slides.push(['comeback','getting back to safety', `
               ${shareBtn('comeback')}
               <div class="cb-journey">${cbGlyphViz(from, 'safety', null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(from)}</b>, then recover into <b>Safety</b>.</p>
+              <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(from)}</b>, then recover into <b>safety</b>.</p>
               ${tripCount}`]);
             }
             // the separate "your safety baseline" slide is retired (§7.2): its longer-window
@@ -4910,7 +4918,7 @@
               }).join('')}</div>`;
               slides.push(['daypart','your most regulated time of day', `
               ${shareBtn('daypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${dp.seg}</b> is your most regulated time of day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${CAP(dp.seg)}</b> is your most regulated time of day.</p>
               ${chart}
               <p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4958,7 +4966,7 @@
               }).join('')}</div>`;
               slides.push(['leastDaypart','your least regulated time of day', `
               ${shareBtn('leastDaypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${dpLeast.seg}</b> has the least regulation.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${CAP(dpLeast.seg)}</b> has the least regulation.</p>
               ${chart}
               <p class="cb-line">${dpLeast.pct}% of your <b>${dpLeast.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4976,12 +4984,12 @@
             // "your records" card CUT ENTIRELY (Justin 2026-07-29: "it's useless").
             slides.push(['mix','your state mix', `
               ${shareBtn('mix')}<h2 class="panel-title">Your state mix</h2>
-              <p class="panel-sub">${activePeriod==='all'?'Your state averages, all time.':'your check-in averages, over '+periodPhrase+'.'}</p>
+              <p class="panel-sub">${activePeriod==='all'?'Your state averages, all time.':'Your check-in averages, over '+periodPhrase+'.'}</p>
               <div class="dist-bars">${mixHTML}</div>`]);
             if(fl){
               slides.push(['flavors','your flavors of safety', `
               ${shareBtn('flavors')}<h2 class="panel-title">Your flavors of safety</h2>
-              <p class="panel-sub">this is what your safety looks like over ${periodPhrase}.</p>
+              <p class="panel-sub">This is what your safety looks like over ${periodPhrase}.</p>
               <div class="help-bars">${fl.map((r,i)=>`<div class="help-row" style="--sd:${i*50}ms"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
             }
             if(ce || csl){
@@ -4997,7 +5005,7 @@
               slides.push(['context','your top context', `
               ${shareBtn('context')}<h2 class="panel-title">Your top context</h2>
               ${bars}${links}
-              ${pe?`<p class="ctx-practice">practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
+              ${pe?`<p class="ctx-practice">Practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
             // the day-by-day line-chart version of "your safety changes" is CUT
             // (Justin 2026-07-29d: "we don't need it. cut it altogether. ugly anyway.")
@@ -5058,7 +5066,7 @@
               }).join('')}</div>`;
               slides.push(['ax-'+key, segName+' is your most '+adj+' time of day', `
               ${shareBtn('ax-'+key)}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${segName}</b> is your most <b>${adj}</b> time of day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${CAP(segName)}</b> is your most <b>${adj}</b> time of day.</p>
               ${chart}`]);
             };
             ['play','fightflight','stillness','shutdown','freeze'].forEach(_axSoloSlide);
@@ -5084,10 +5092,10 @@
             const picked = sorted.slice(0,4);
             window._youSlides = _wide ? [] : picked.map(s=>s[1]);
             if(_wide) return '';
-            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${s[1]}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
+            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
 
-          <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${lb}"></button>`).join('')}</div>
+          <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
 
           <a class="you-reader" id="you-reader" href="#">
             <h3 class="yr-h">Your reflection</h3>
@@ -5100,11 +5108,11 @@
           <div class="deep">
             <div class="deep-block">
               <h3 class="deep-h">Time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${segLabel(seg)}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
+              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${CAP(segLabel(seg))}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">Day by day</h3>
-              ${['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
+              ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
               <p class="deep-foot">% = check-ins where a safe state leads.</p>
             </div>
             <div class="deep-block">
@@ -5116,9 +5124,9 @@
             </div>
             <div class="deep-block">
               <h3 class="deep-h">How you practice</h3>
-              ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">you return to</span><span class="deep-val">${Store.practiceLabel(L.favPractice)}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">Anchored through</span><span class="deep-val">${L.favSense}</span></div>`;return h;})()}
+              ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">You return to</span><span class="deep-val">${CAP(Store.practiceLabel(L.favPractice))}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">Anchored through</span><span class="deep-val">${CAP(L.favSense)}</span></div>`;return h;})()}
               ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">Time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
-              ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'late at night':segLabel(s)}</span></div>`;})()}
+              ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'Late at night':CAP(segLabel(s))}</span></div>`;})()}
             </div>
           </div>
           <button class="change-link" id="change-ci" type="button">Change a recent check-in</button>
@@ -5156,7 +5164,7 @@
           // pills above already say the window, the list already invites choice.
           wrap.innerHTML='<h2 class="yl-h">What your check-ins show.</h2>'
             +'<nav class="yl-list" aria-label="what your check-ins show">'
-            +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+s[1]+'</span></button>').join('')
+            +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+CAP(s[1])+'</span></button>').join('')
             +'</nav>'
             +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
           cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
@@ -5194,21 +5202,21 @@
       (function(){ const fb=c.querySelector('#you-filter'); if(!fb) return; const chips=fb.querySelectorAll('.you-chip'); const rows=c.querySelectorAll('.deep-row[data-state]'); chips.forEach(ch=>ch.addEventListener('click',()=>{ const f=ch.dataset.f; chips.forEach(x=>x.classList.toggle('on',x===ch)); rows.forEach(r=>{ const ds=r.getAttribute('data-state'); r.classList.toggle('dim', f!=='all' && ds!==f); }); })); })();
       // per-card share text — each card shares what IT shows, in a hopeful register
       const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
-      const _sig = 'stuck not broken · stucknotbroken.com/stuck';
+      const _sig = 'Stuck Not Broken · stucknotbroken.com/stuck';
       // share copy never repeats the number the visual already shows (Justin 2026-07-05: "redundant").
       const SHARE_TXT = {
-        safety:  `the states i spend the most time in lately. i'm learning my nervous system's language. ${_sig}`,
-        mix:     `my state mix lately. i'm mapping my nervous system, state by state. ${_sig}`,
-        comeback:`after a dip, my nervous system finds its way back to safety. ${_sig}`,
-        day:     `my safety over time, and how far it's come since i started. ${_sig}`,
-        practice:`i'm tracking whether practice actually moves my nervous system. the data is answering. ${_sig}`,
-        states:  `my states over time, period by period. ${_sig}`,
+        safety:  `The states I spend the most time in lately. I'm learning my nervous system's language. ${_sig}`,
+        mix:     `My state mix lately. I'm mapping my nervous system, state by state. ${_sig}`,
+        comeback:`After a dip, my nervous system finds its way back to safety. ${_sig}`,
+        day:     `My safety over time, and how far it's come since I started. ${_sig}`,
+        practice:`I'm tracking whether practice actually moves my nervous system. The data is answering. ${_sig}`,
+        states:  `My states over time, period by period. ${_sig}`,
         times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
         daypart: dp?`${dp.pct}% of my ${dp.seg} check-ins have safety in them. ${_sig}`:'',
-        shift:   trn?`my nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. i can see the pattern now. ${_sig}`:'',
-        flavors: (fl&&fl.length)?`my safety comes in flavors. lately it's mostly ${fl[0].label}. ${_sig}`:'',
-        context: ce?`safety in my weeks tagged “${ce.label}”, next to a typical week. ${_sig}`:'',
-        started: growthHead?`how far i've come since i started. ${_sig}`:'',
+        shift:   trn?`My nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. I can see the pattern now. ${_sig}`:'',
+        flavors: (fl&&fl.length)?`My safety comes in flavors. Lately it's mostly ${fl[0].label}. ${_sig}`:'',
+        context: ce?`Safety in my weeks tagged “${ce.label}”, next to a typical week. ${_sig}`:'',
+        started: growthHead?`How far I've come since I started. ${_sig}`:'',
       };
       // each share image carries the card's visual, not just words
       const SHARE_VIZ = {
@@ -5303,7 +5311,7 @@
     $('#content').innerHTML = `<div class="view read sd-view">
         <div class="scr-head sd-head">
           <span class="sd-marks">${triGlyph(key)}</span>
-          <h2 class="scr-h">${escapeHtml(d.headline)}</h2>
+          <h2 class="scr-h">${escapeHtml(CAP(d.headline))}</h2>
         </div>
         ${d.sub ? `<p class="sd-sub" style="font-size:calc(13px * var(--type-scale));opacity:.55;margin:-2px 0 14px;letter-spacing:.02em">${escapeHtml(d.sub)}</p>` : ''}
         <p class="sd-body">${escapeHtml(d.about)}</p>
@@ -5348,7 +5356,7 @@
           <span class="stat-row-lbl">Most often in</span>
           <span class="stat-row-val">
             ${stateMarks(topKey)}
-            ${STATE_NAME(topKey)} <span style="color:var(--muted);font-weight:400">${topPct}%</span>
+            ${STATE_LABEL(topKey)} <span style="color:var(--muted);font-weight:400">${topPct}%</span>
             <span style="color:var(--hairline);margin-left:2px">›</span>
           </span>
         </button>
@@ -5373,7 +5381,7 @@
           <span class="stat-row-lbl">${s.seg}</span>
           <span class="stat-row-val">
             ${stateMarks(s.key)}
-            ${STATE_NAME(s.key)}
+            ${STATE_LABEL(s.key)}
           </span>
         </div>`).join('')}
       </div>`:''}
@@ -5383,7 +5391,7 @@
   }
   function legendHTML(cs){
     const present = [...new Set(cs.map(c=>c.dom))];
-    return `<div class="statelegend">${present.map(k=>`<span class="it">${stateMarks(k)}${STATE_NAME(k)}</span>`).join('')}</div>`;
+    return `<div class="statelegend">${present.map(k=>`<span class="it">${stateMarks(k)}${STATE_LABEL(k)}</span>`).join('')}</div>`;
   }
 
   // ---------------------------------------------------------------- PRACTICE
@@ -5651,9 +5659,9 @@
       <button class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" type="button">
         <span class="wc-text">
           <span class="tuned-kicker">Made for you</span>
-          <span class="wc-title"><span class="tuned-name">${nameLead}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
+          <span class="wc-title"><span class="tuned-name">${CAP(nameLead)}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
           <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
-          ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
+          ${_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
@@ -5929,7 +5937,7 @@
           <span class="wc-title">${tunedHeading}</span>
           <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
           <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
-          ${_tEst ? `<span class="tuned-meta">about ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
+          ${_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
@@ -6603,7 +6611,7 @@
     };
     const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
     // version line: read the ?v= off the live script tag so it never drifts from a deploy
-    try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version'); if(ve) ve.textContent='stuck not broken · app v'+(vm?vm[1]:'dev'); }catch(e){}
+    try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version'); if(ve) ve.textContent='Stuck Not Broken · app v'+(vm?vm[1]:'dev'); }catch(e){}
     $('#export').onclick = ()=>{
       const blob = new Blob([JSON.stringify(Store.checkins(),null,2)],{type:'application/json'});
       const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-checkins.json'; a.click();
