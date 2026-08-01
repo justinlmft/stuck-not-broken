@@ -330,6 +330,20 @@ body.playing .brand{display:none}
 .adj-step{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(21px * var(--type-scale));line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color var(--ease) .2s}
 .adj-step:hover{color:var(--ink)}
 .adj-step:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* D277 (DQA 2026-07-30; Justin: "use your judgment", 2026-07-30b). Measured: the silence
+   pill gets 4 of 6 columns = 183.2px at 320 wide, and its own content (label 55.5 +
+   stepper 124.4 + 18px padding) needs 197 — so the stepper poked 13.7px out of the pill.
+   360 and 390 already have ~5px of slack and are untouched here.
+   What I did NOT do, and why: giving silence its own full-width row is the robust fix, but
+   it adds ~64px to the control bar, and I could not measure the running scene's real
+   vertical budget at 320x568 headlessly (the scene needs live audio state). Shipping an
+   unverified +64px into the player's controls on the smallest phone is the riskier move.
+   The 44px stepper floor and the word "silence" both stay; only dead padding gives. */
+@media (max-width:359.98px){
+  .adj.silence{padding:0 2px 0 6px}   /* 18px of gutter -> 8px */
+  .adj-stepper{gap:0}                 /* 4px */
+  .adj-val{min-width:2em}             /* 2.6px */
+}
 .captoggle{padding:0 14px;cursor:pointer}
 .captoggle .cc{font-weight:500;letter-spacing:.1em;color:var(--muted);transition:color var(--ease) .2s}
 .captoggle .cc-state{color:var(--muted);transition:color var(--ease) .2s}
@@ -455,13 +469,13 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   <div class="popout" id="popout">
     <button class="popout-link" id="popoutlink" type="button">
       <span class="ttl">Open the full-screen app ↗</span>
-      <span class="sub">no menus, just the practice</span>
+      <span class="sub">No menus, just the practice</span>
     </button>
     <button class="popout-x" id="popoutx" type="button" aria-label="dismiss">×</button>
   </div>
   <!-- shown only on the standalone page in iOS Safari, not yet installed -->
   <div class="installhint" id="installhint">
-    <span class="ttl">Keep this handy: tap <b>share</b>, then <b>add to home screen</b>.</span>
+    <span class="ttl">Keep this handy: tap <b>Share</b>, then <b>Add to Home Screen</b>.</span>
     <button class="popout-x" id="installx" type="button" aria-label="dismiss">×</button>
   </div>
   <header class="brand">
@@ -487,15 +501,15 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       <div class="reveal" id="reveal"><div class="reveal-inner">
       <div class="refine">
         <div class="block" id="sensewrap">
-          <span class="eyebrow">anchor your attention with</span>
+          <span class="eyebrow">Anchor your attention with</span>
           <div class="chips" id="senses"></div>
         </div>
         <div class="block" id="skillwrap">
-          <span class="eyebrow">the skill to practice</span>
+          <span class="eyebrow">The skill to practice</span>
           <div class="chips" id="skills"></div>
         </div>
         <div class="block" id="medwrap" style="display:none">
-          <span class="eyebrow">choose a practice</span>
+          <span class="eyebrow">Choose a practice</span>
           <div class="medlist" id="meds"></div>
         </div>
       </div>
@@ -504,23 +518,23 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
         <summary><span class="tw" aria-hidden="true"></span> more options</summary>
         <div class="adjust-body">
           <div class="block">
-            <span class="eyebrow">how much silence?</span>
+            <span class="eyebrow">How much silence?</span>
             <div class="chips" id="sils"></div>
           </div>
           <div class="block" id="descdefwrap">
-            <span class="eyebrow">describe the defense?</span>
+            <span class="eyebrow">Describe the defense?</span>
             <div class="chips" id="descdefs"></div>
           </div>
           <div class="block" id="holdwatchwrap">
-            <span class="eyebrow">hold &amp; watch?</span>
+            <span class="eyebrow">Hold &amp; watch?</span>
             <div class="chips" id="holdwatches"></div>
           </div>
           <div class="block" id="holddurwrap">
-            <span class="eyebrow">how long to hold &amp; watch?</span>
+            <span class="eyebrow">How long to hold &amp; watch?</span>
             <div class="chips" id="holddurs"></div>
           </div>
           <div class="block" id="lenwrap">
-            <span class="eyebrow">length</span>
+            <span class="eyebrow">Length</span>
             <div class="chips" id="lens"></div>
           </div>
         </div>
@@ -529,9 +543,9 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
       <div class="foot">
         <p class="summary" id="summary"></p>
-        <p class="begin-help" id="beginhelp">not sure? this is the simplest place to start.</p>
-        <button class="surprise-all" id="surprise" type="button">surprise me</button>
-        <button class="btn primary" id="begin">begin</button>
+        <p class="begin-help" id="beginhelp">Not sure? This is the simplest place to start.</p>
+        <button class="surprise-all" id="surprise" type="button">Surprise me</button>
+        <button class="btn primary" id="begin">Begin</button>
       </div>
     </div>
   </main>
@@ -550,14 +564,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       <div class="controlbar">
         <div class="adjgroup">
         <div class="adj silence">
-          <span class="adj-label">silence</span>
+          <span class="adj-label">Silence</span>
           <span class="adj-stepper">
             <button class="adj-step" id="lesssil" aria-label="less silence">−</button>
             <span class="adj-val" id="silnow"></span>
             <button class="adj-step" id="moresil" aria-label="more silence">+</button>
           </span>
         </div>
-        <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc">CC</span><span class="cc-state" id="capstate">off</span></button>
+        <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc">CC</span><span class="cc-state" id="capstate">Off</span></button>
         </div>
       <button class="transport mini prevclip" id="prevclip" type="button" aria-label="previous section"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.6" y="5.5" width="2.4" height="13" rx="1.1"></rect><path d="M18.4 6 L10 12 L18.4 18 Z" fill="currentColor"></path></svg></button>
       <button class="transport mini rewind" id="rewind" type="button" aria-label="back 5 seconds"><span class="rw" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.2a8.8 8.8 0 1 1-8.2 5.6"></path><path d="M9.1 2.6 L5.4 5.9 L9.0 9.0"></path></svg><span class="rw5">5</span></span></button>
@@ -565,19 +579,19 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       </div>
       <!-- endings: graceful close, and a quiet escape -->
       <div class="endings">
-        <button class="btn quiet endbtn" id="endbtn">begin ease out</button>
-        <button class="endnow" id="stopbtn" aria-label="end now">end now</button>
+        <button class="btn quiet endbtn" id="endbtn">Begin ease out</button>
+        <button class="endnow" id="stopbtn" aria-label="end now">End now</button>
       </div>
     </div>
     <!-- gentle completion state -->
     <div class="done" id="done">
-      <button class="btn quiet" id="againbtn">go again</button>
-      <button class="btn quiet" id="overbtn">choose another</button>
-      <button class="endnow" id="restbtn">end</button>
+      <button class="btn quiet" id="againbtn">Go again</button>
+      <button class="btn quiet" id="overbtn">Choose another</button>
+      <button class="endnow" id="restbtn">End</button>
     </div>
     <!-- terminal rest: ending is an honored, complete choice -->
     <div class="rest" id="rest">
-      <button class="endnow" id="restagain">begin again</button>
+      <button class="endnow" id="restagain">Begin again</button>
     </div>
     <!-- a rest between stacked meditations: waits for play -->
     <div class="brk" id="brk">
@@ -585,7 +599,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       <button class="iconbtn" id="contbtn" aria-label="continue"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
     </div>
     <!-- shown only if clips can't load -->
-    <p class="conn" id="conn">having trouble connecting. hang on…</p>
+    <p class="conn" id="conn">Having trouble connecting. Hang on…</p>
     </div>
   </main>
 </div>
@@ -890,10 +904,10 @@ const TRACK={mindfulness:'ink',anchoring:'sky',most:'amber',more:'ink'};
    the repo (packs/ + clips/). 'track' reuses the woven colour (anchoring=sky/heart, most=amber). */
 const PACKS_BASE=BASE.replace(/clips\/?$/,'packs/');
 const MEDS={
- 'uye':{title:'Use Your Ears',cue:'grounding through sound',track:'anchoring',est:'~10 min',file:'uye.pack.json'},
- 'eye':{title:'Use Your Eyes',cue:'grounding through sight',track:'anchoring',est:'~9 min',file:'eye.pack.json'},
- 'daily-dysregulation':{title:'Daily Dysregulation',cue:'meeting a recent activation',track:'most',est:'~16 min',file:'daily-dysregulation.pack.json'},
- 'outside-the-cave':{title:'Outside the Cave',cue:'a deeper imagery journey to connect with non-safety',track:'most',est:'~32 min',file:'outside-the-cave.pack.json'}
+ 'uye':{title:'Use your ears',cue:'Grounding through sound',track:'anchoring',est:'~10 min',file:'uye.pack.json'},
+ 'eye':{title:'Use your eyes',cue:'Grounding through sight',track:'anchoring',est:'~9 min',file:'eye.pack.json'},
+ 'daily-dysregulation':{title:'Daily dysregulation',cue:'Meeting a recent activation',track:'most',est:'~16 min',file:'daily-dysregulation.pack.json'},
+ 'outside-the-cave':{title:'Outside the cave',cue:'A deeper imagery journey to connect with non-safety',track:'most',est:'~32 min',file:'outside-the-cave.pack.json'}
 };
 const MEDS_ORDER=['uye','eye','daily-dysregulation','outside-the-cave'];   // gentlest first
 /* skills offered within self-regulation (like the anchor menu) */
@@ -901,15 +915,15 @@ const SKILLS={
   most:[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']]
 };
 const EXP={
- micro:{key:'micro',t:'A tiny practice',cue:'about two minutes, one sense, done',d:"",sense:'touch',silence:2,gentle:true,mind:false,tier:0,
+ micro:{key:'micro',t:'A tiny practice',cue:'About two minutes, one sense, done',d:"",sense:'touch',silence:2,gentle:true,mind:false,tier:0,
    sum:"The smallest practice there is. Arrive, one breath, one sense, done. About two minutes."},
- mindfulness:{key:'mindfulness',t:'Practice simple mindfulness',cue:'the simplest. a calm place to start',d:"",sense:'touch',silence:8,gentle:true,mind:true,tier:0,
+ mindfulness:{key:'mindfulness',t:'Practice simple mindfulness',cue:'The simplest. A calm place to start',d:"",sense:'touch',silence:8,gentle:true,mind:true,tier:0,
    sum:"A super simple practice to connect with the present moment as it is through the senses and the breath. No pressure. Just presence."},
- anchoring:{key:'anchoring',t:'Connect with safety',cue:'a step in: settling into safety',d:'',sense:'touch',silence:8,gentle:true,mind:false,tier:1,
+ anchoring:{key:'anchoring',t:'Connect with safety',cue:'A step in: settling into safety',d:'',sense:'touch',silence:8,gentle:true,mind:false,tier:1,
    sum:"Connect into safety through your {sense}, and stay there a while."},
- most:{key:'most',t:'Practice self-regulation',cue:'the deepest: meeting what is hard',d:"",sense:'touch',skill:'imagery',descDefense:false,holdWatch:false,holdSeconds:60,silence:4,gentle:false,mind:false,tier:3,
+ most:{key:'most',t:'Practice self-regulation',cue:'The deepest: meeting what is hard',d:"",sense:'touch',skill:'imagery',descDefense:false,holdWatch:false,holdSeconds:60,silence:4,gentle:false,mind:false,tier:3,
    sum:"Intentionally and compassionately hold safety and non-safety."},
- more:{key:'more',t:'More practices',cue:'standalone guided practices',d:"",standalone:true,silence:8,mind:false,tier:9,
+ more:{key:'more',t:'More practices',cue:'Standalone guided practices',d:"",standalone:true,silence:8,mind:false,tier:9,
    sum:"Full guided practices. Pick one and begin."}
 };
 let practices=[fresh('mindfulness')];
@@ -1155,7 +1169,7 @@ function renderTest(){
   let rows='';
   for(let i=0;i<SEQ.length;i++)
     rows+='<div class="row" data-i="'+i+'"><span class="n">'+(i+1)+'</span><span class="b">'+SEQ[i]+'</span><span class="ph">'+(PH[i]||'')+'</span></div>';
-  tl.innerHTML='<div class="hd"><span>test view · sequence</span><span>'+SEQ.length+' clips'+(LOOP?' · loops':'')+'</span></div><div class="plan">'+plan+'</div>'+rows;
+  tl.innerHTML='<div class="hd"><span>Test view · sequence</span><span>'+SEQ.length+' clips'+(LOOP?' · loops':'')+'</span></div><div class="plan">'+plan+'</div>'+rows;
 }
 function updateTest(){
   const tl=$('testlist');if(!tl)return;
@@ -1320,7 +1334,7 @@ function startStandalone(){
   };
   if(PACKCACHE[id])return begin(PACKCACHE[id]);
   fetch(PACKS_BASE+MEDS[id].file).then(r=>r.json()).then(p=>{PACKCACHE[id]=p;begin(p);})
-   .catch(()=>{$('summary').innerHTML='<b>could not load that practice. check your connection.</b>';});
+   .catch(()=>{$('summary').innerHTML='<b>Could not load that practice. Check your connection.</b>';});
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

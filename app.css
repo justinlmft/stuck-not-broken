@@ -80,6 +80,14 @@
 /* Device-appropriate type ramp (re-enabled with fluid Phase 2, 2026-07-19):
    reading distance grows with the screen, so the whole scale rides up together.
    Compact 1.133 stays = the ~17px HIG body on phones. */
+/* ---- THE SIZE-CLASS SPLIT — REVERTED TO WIDTH-ONLY (Justin, 2026-07-30d) ----
+   2026-07-30b this was `(min-width:720px) and (min-height:600px)`, so a rotated iPhone stayed a
+   phone. Justin tested it: "The phone sideways is uncomfortable. It should behave more like the
+   desktop browser version when in its side." So a landscape phone takes the REGULAR composition
+   again — rail, 680 cap, 18px ramp — which is what uses an 844x390 viewport well.
+   The real defect DQA found underneath D226 was never the breakpoint: it was that the >=720
+   practice screen rendered NO heading for paid accounts (app.js `deskHeading`). That is fixed
+   separately, so landscape now gets the desktop composition WITH its screen title. */
 @media (min-width:720px){ :root{ --type-fluid:1.2; } }    /* regular: ~18px */
 @media (min-width:1120px){ :root{ --type-fluid:1.267; } } /* wide:    ~19px */
 *{box-sizing:border-box}
@@ -135,9 +143,6 @@ button{font:inherit;color:inherit}
   /* content and header hold a calm centered column — never stretched wall to wall */
   #screen > .appbar{width:100%;max-width:var(--col);margin-inline:auto}
   #screen .view,#screen .today{width:100%;max-width:var(--col);margin-inline:auto}
-
-  /* floating new-check-in recedes to a corner pill (it no longer sits over a tab bar) */
-  .shell .fab{left:auto;right:30px;bottom:28px;width:auto;padding:0 24px}
 
   /* install nudge is phone-in-browser only (Justin, 2026-07-10) — never on desktop */
   #screen .install-nudge{display:none}
@@ -326,7 +331,7 @@ p{margin:0;text-wrap:pretty}
 .field input{font:inherit;font-size:calc(15px * var(--type-scale));padding:11px 13px;border:1px solid var(--hairline);
   border-radius:10px;background:var(--field);color:var(--ink)}
 .field input:focus{outline:2px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
-.plan{border:1px solid var(--hairline);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:border-color .2s var(--ease)}
+.plan{background:var(--raised);border:1px solid var(--hairline);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:4px;cursor:pointer;transition:border-color .2s var(--ease)}
 .plan:hover{border-color:var(--ink-80)}
 .plan.on{border-color:var(--ink);border-width:2px;padding:17px}
 .plan .price{font-size:calc(21px * var(--type-scale));font-weight:600;letter-spacing:-.02em}
@@ -336,7 +341,10 @@ p{margin:0;text-wrap:pretty}
 .plan:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .plans{display:flex;flex-direction:column;gap:12px;margin:18px 0 22px}
 .fineprint{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:14px;line-height:1.5}
-.fineprint a{color:var(--link);text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:2px}
+.fineprint a{position:relative;color:var(--link);text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:2px}
+/* D276: the fineprint policy links are 41x16 of ink. Pad the hit box out to >=44 tall
+   without moving the text, the way .linkbtn / .change-link already do. */
+.fineprint a::before{content:'';position:absolute;inset:-14px -6px}
 .fineprint a:hover{text-decoration-color:var(--link)}
 .autherr{font-size:calc(13.5px * var(--type-scale));color:var(--danger);margin:4px 0 0;line-height:1.45}
 
@@ -359,7 +367,7 @@ p{margin:0;text-wrap:pretty}
 .bh-stage{display:flex;align-items:center;justify-content:center;width:100%;position:relative}
 .bh-rowwrap{position:relative;width:100%;margin-top:12px}
 .bh-row{display:flex;align-items:center;gap:14px;width:100%;transition:opacity .6s var(--ease)}
-.bh-phase{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.08em;text-transform:lowercase;opacity:0;transition:opacity .7s var(--ease);pointer-events:none}
+.bh-phase{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.08em;opacity:0;transition:opacity .7s var(--ease);pointer-events:none}
 .bh-phase.show{opacity:1}
 .breathhero:active{background:var(--press)}
 .breathhero:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -401,7 +409,7 @@ body.breathing .breathhero .bh-row{opacity:0}
 @keyframes t-breathe{0%,100%{transform:scale(.86);opacity:.5}50%{transform:scale(1.06);opacity:.66}}
 @media (prefers-reduced-motion:reduce){.wc-ring{animation:none;transform:scale(.96)}}
 /* state label (current-tab timeline) */
-.state-name{font-size:calc(13px * var(--type-scale));font-weight:500;letter-spacing:.04em;text-transform:lowercase;color:var(--ink-80)}
+.state-name{font-size:calc(13px * var(--type-scale));font-weight:500;letter-spacing:.04em;color:var(--ink-80)}
 /* tappable today rows now carry a single right-chevron affordance (replaces blue links) */
 .wc-go{flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:transform .18s var(--ease),color .2s var(--ease)}
 .wc-go svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -433,7 +441,7 @@ body.breathing .breathhero .bh-row{opacity:0}
 .slider .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .slider .nm{font-size:calc(14px * var(--type-scale));font-weight:500}
 .slider .nm .sub{font-weight:400;color:var(--muted);font-size:calc(13px * var(--type-scale));margin-left:7px}
-.slider .amt{font-size:calc(12px * var(--type-scale));color:var(--muted);letter-spacing:.04em;text-transform:lowercase}
+.slider .amt{font-size:calc(12px * var(--type-scale));color:var(--muted);letter-spacing:.04em}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;cursor:pointer;margin:0;touch-action:pan-y}
 input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--bone-deep),var(--rail,var(--bone-deep)));transition:background .3s var(--ease)}
 input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:linear-gradient(90deg,var(--bone-deep),var(--rail,var(--bone-deep)));transition:background .3s var(--ease)}
@@ -540,9 +548,9 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
    low opacity. Now an outline like .bl-band, just dashed and a touch thinner
    (1.5px vs 2px) and a shade shorter (20px vs 26px) so the two are easy to
    tell apart at a glance without one going invisible. */
-.bl-prev{position:absolute;top:50%;height:20px;transform:translateY(-50%);border-radius:999px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.18);background:none;z-index:0}
-.bl-band{position:absolute;top:50%;height:26px;transform:translateY(-50%);border-radius:999px;border:2px solid var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.22);z-index:1}
-.bl-dot{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:var(--ink);border:2.5px solid var(--bone);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(26,31,42,.3);z-index:2}
+.bl-prev{position:absolute;top:50%;height:20px;transform:translateY(-50%);border-radius:999px;border:1.5px dashed var(--bone);box-shadow:0 0 0 1px var(--shade);background:none;z-index:0}
+.bl-band{position:absolute;top:50%;height:26px;transform:translateY(-50%);border-radius:999px;border:2px solid var(--bone);box-shadow:0 0 0 1px var(--shade);z-index:1}
+.bl-dot{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:var(--ink);border:2.5px solid var(--bone);transform:translate(-50%,-50%);box-shadow:0 1px 3px var(--shade-deep);z-index:2}
 .bl-ticks{display:flex;margin:10px 0 0}
 .bl-ticks span{flex:1;font-size:calc(9.5px * var(--type-scale));color:var(--muted);text-align:center;line-height:1.2}
 .bl-key{border-top:1px solid var(--hairline);margin:15px 0 0;padding:13px 0 0;display:grid;gap:10px}
@@ -611,7 +619,7 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .safety-num-val{display:inline-block}
 /* legend */
 .legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:14px}
-.lg-it{display:flex;align-items:center;gap:6px;font-size:calc(12px * var(--type-scale));color:var(--muted);text-transform:lowercase}
+.lg-it{display:flex;align-items:center;gap:6px;font-size:calc(12px * var(--type-scale));color:var(--muted)}
 .lg-dot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block}
 /* does practice help */
 .help-bars{display:flex;flex-direction:column;gap:16px;margin-top:6px}
@@ -632,7 +640,7 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    count is the evidence" led to the parenthetical below; this is the CLAIM's own
    number, so it earns a place on the visual itself). */
 .cb-steps{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-evenly;padding:0 5px}
-.cb-step{width:5px;height:5px;border-radius:50%;background:var(--bone);box-shadow:0 0 0 1px rgba(26,31,42,.08);opacity:0;animation:cbStepPop .35s var(--ease) both}
+.cb-step{width:5px;height:5px;border-radius:50%;background:var(--bone);box-shadow:0 0 0 1px var(--shade-soft);opacity:0;animation:cbStepPop .35s var(--ease) both}
 @keyframes cbStepPop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
 /* the actual arrowhead (was missing entirely — the gradient bar alone left direction
    only implied by color, easy to misread at a glance, e.g. .cb-dot/.cb-end were dead
@@ -662,15 +670,15 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .deep-block{padding:2px 0 10px}
 /* proper section subheads, not caps eyebrows (Justin 2026-07-05; HIG: content
    sections get real headers — eyebrows are for metadata, not structure) */
-.deep-h{font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);text-transform:lowercase;letter-spacing:0;margin:0 0 8px}
+.deep-h{font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);letter-spacing:0;margin:0 0 8px}
 .deep-block{padding:8px 0 14px}
 .deep-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--bone-deep)}
 .deep-row:last-child{border-bottom:0}
-.deep-lbl{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);text-transform:lowercase}
-.deep-val{font-size:calc(13.5px * var(--type-scale));color:var(--ink);display:inline-flex;align-items:center;gap:7px;justify-content:flex-end;text-transform:lowercase}
+.deep-lbl{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80)}
+.deep-val{font-size:calc(13.5px * var(--type-scale));color:var(--ink);display:inline-flex;align-items:center;gap:7px;justify-content:flex-end}
 .deep-none{color:var(--muted)}
 .deep-pct{font-size:calc(12px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
-.deep-foot{font-size:calc(12px * var(--type-scale));color:var(--muted);margin:8px 0 0;text-transform:lowercase}
+.deep-foot{font-size:calc(12px * var(--type-scale));color:var(--muted);margin:8px 0 0}
 /* you-tab card visuals (2026-07-05): week strip + streak dots */
 .wk-strip{display:flex;gap:8px;align-items:flex-end;margin:12px 0 16px}
 .wk-cell{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;min-height:34px;justify-content:flex-end}
@@ -688,7 +696,7 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    The day/time name is a block-level "hero word," oversized against the tail sentence
    that trails it, same big-word/small-caption pattern as the growth card's numbers. */
 .rc-hero-title{font-size:calc(15.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:2px 0 18px}
-.rc-hero-word{display:block;font-size:calc(34px * var(--type-scale));font-weight:600;line-height:1.15;margin:0 0 3px;text-transform:capitalize}
+.rc-hero-word{display:block;font-size:calc(34px * var(--type-scale));font-weight:600;line-height:1.15;margin:0 0 3px}
 .rc-chart{display:flex;gap:8px;align-items:flex-end;margin:0 0 16px;height:90px}
 .rc-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:8px;height:100%}
 /* BUG FIX (2026-07-31, Justin: "still not seeing the staggered bar animations"):
@@ -717,7 +725,12 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
    stuck invisible if JS/IntersectionObserver fails, same contract as the
    other two gated-animation patterns already in this file. */
 .rc-bar{display:block;width:100%;border-radius:5px 5px 3px 3px;transform-origin:bottom center}
-.panel.panel-in .rc-bar{animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+/* D269 (DQA 2026-07-30): this ran under prefers-reduced-motion:reduce — no media
+   query and no class gate. The end state IS the natural state (transform-origin
+   bottom, real height inline per column), so skipping the animation lands correctly. */
+@media (prefers-reduced-motion:no-preference){
+  .panel.panel-in .rc-bar{animation:rcGrow .45s var(--ease) both;animation-delay:var(--sd,0ms)}
+}
 @keyframes rcGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
 .rc-lb{font-size:calc(11px * var(--type-scale));color:var(--muted);display:flex;align-items:center;justify-content:center}
 .rc-col-best .rc-lb{color:var(--ink);font-weight:600}
@@ -841,7 +854,7 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
 .dist-bars{display:flex;flex-direction:column;gap:14px}
 .distrow{display:flex;flex-direction:column;gap:7px;width:100%;background:none;border:0;padding:2px 0;cursor:pointer;color:inherit;font:inherit;text-align:left}
 .distrow-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.distrow-name{font-size:calc(15px * var(--type-scale));color:var(--ink-80);text-transform:lowercase}
+.distrow-name{font-size:calc(15px * var(--type-scale));color:var(--ink-80)}
 .distrow-pct{font-size:calc(13.5px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
 .distrow-track{height:12px;background:var(--bone-deep);border-radius:6px;overflow:hidden;width:100%}
 .distrow-fill{display:block;height:100%;border-radius:6px;transition:width .55s var(--ease)}
@@ -862,7 +875,7 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
    Same overflow fix as .set-seg — flex-wrap lets pills drop to a second line at
    large type-scale instead of overflowing the row (2026-07-21). */
 .play-filter.seg{display:flex;flex-wrap:wrap;gap:3px;background:var(--bone-deep);border-radius:11px;padding:3px;margin-bottom:16px}
-.play-filter.seg .period-pill{flex:1;border:0;border-radius:8px;padding:12px 0;font-size:calc(13px * var(--type-scale));color:var(--muted);background:transparent;white-space:nowrap}
+.play-filter.seg .period-pill{flex:1;min-width:44px;border:0;border-radius:8px;padding:12px 0;font-size:calc(13px * var(--type-scale));color:var(--muted);background:transparent;white-space:nowrap}
 .play-filter.seg .period-pill:hover{border:0;color:var(--ink-80)}
 .play-filter.seg .period-pill.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .play-filter.seg .period-pill:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -906,16 +919,13 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
 .filter-bar .play-filter.seg{flex:1;margin-bottom:0}
 .filter-bar .set-gear{flex:none;margin-left:0}
 .ci-add svg{stroke-width:2}
-/* floating new check-in (positioned within the shell) */
+/* .shell is the positioning context for the overlays below (.share-sheet, .p7-sheet, the
+   install nudge). It used to also anchor a floating "new check-in" button — RETIRED
+   2026-07-30b at Justin's call ("cut it", DQA D232/D233): the button, its CSS, its dead
+   show-fab animation and the ten places app.js removed a class nothing ever added are all
+   gone. The now-screen's own check-in CTA was always the real entry point.
+   NOTE: .refl-aa-fab (the reader's Aa text-size control) is a DIFFERENT control. It stays. */
 .shell{position:relative}
-.fab{position:absolute;left:22px;right:22px;bottom:78px;height:50px;border-radius:14px;border:1px solid var(--hairline);background:var(--bone);color:var(--ink);display:none;align-items:center;justify-content:center;gap:8px;cursor:pointer;z-index:40;box-shadow:0 4px 16px var(--shade-soft);transition:transform .16s var(--ease),box-shadow .16s}
-body.show-fab .fab{display:flex}
-.fab svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;flex:none}
-.fab-lbl{font-size:calc(15px * var(--type-scale));font-weight:500;letter-spacing:.004em;white-space:nowrap}
-.fab:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.14)}
-.fab:active{transform:scale(.985)}
-@media (prefers-reduced-motion:no-preference){ body.show-fab .fab{animation:fabIn .34s var(--ease)} }
-@keyframes fabIn{from{transform:translateY(14px);opacity:0}55%{opacity:1}to{transform:none;opacity:1}}
 /* share sheet (desktop / no native share) */
 .share-sheet{position:absolute;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;background:var(--scrim-off);transition:background .22s}
 .share-sheet.on{background:rgba(40,38,32,.32)}
@@ -980,7 +990,7 @@ body.show-fab .fab{display:flex}
 .tabbar button{flex:1;background:none;border:0;cursor:pointer;padding:8px 6px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--muted);transition:color .2s var(--ease);min-height:52px;position:relative;border-radius:15px}
 .tabbar button .ic{display:flex}
 .tabbar button .ic svg{width:23px;height:23px;display:block}
-.tabbar button .lb{font-size:calc(11.5px * var(--type-scale));letter-spacing:.01em;text-transform:lowercase}
+.tabbar button .lb{font-size:calc(11.5px * var(--type-scale));letter-spacing:.01em}
 .tabbar button.on{color:var(--ink);font-weight:500}
 /* HIG tab bar: active = full-ink icon + label (no top indicator bar) */
 .tabbar button:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
@@ -1004,7 +1014,7 @@ body.in-practice .tabbar{display:none}
 .refl-sheet.open{transform:translateY(0);opacity:1;pointer-events:auto}
 .refl-controlbar{display:flex;align-items:center;gap:12px}
 .refl-adjstack{display:flex;flex-direction:column;gap:8px;flex:1;min-width:0}
-.refl-adj{display:flex;align-items:center;gap:2px;height:44px;border:1px solid var(--hairline);border-radius:12px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;text-transform:lowercase;color:var(--muted);padding:0 4px 0 12px;transition:border-color .2s var(--ease)}
+.refl-adj{display:flex;align-items:center;gap:2px;height:44px;border:1px solid var(--hairline);border-radius:12px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--muted);padding:0 4px 0 12px;transition:border-color .2s var(--ease)}
 .refl-adj-label{color:var(--muted);flex:1}
 .refl-adj-stepper{display:inline-flex;align-items:center;gap:0}
 .refl-step{width:40px;height:40px;border-radius:50%;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(20px * var(--type-scale));line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color .2s var(--ease);flex:none}
@@ -1012,7 +1022,7 @@ body.in-practice .tabbar{display:none}
 .refl-step:disabled{opacity:.3;cursor:default}
 .refl-step:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:50%}
 .refl-sval{color:var(--ink-80);font-variant-numeric:tabular-nums;min-width:2.2em;text-align:center;font-size:calc(13px * var(--type-scale))}
-.refl-nav{flex:none;width:72px;align-self:stretch;border:1px solid var(--hairline);border-radius:12px;background:transparent;font:inherit;font-size:calc(12px * var(--type-scale));letter-spacing:.06em;text-transform:lowercase;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:border-color .2s var(--ease),color .2s var(--ease)}
+.refl-nav{flex:none;width:72px;align-self:stretch;border:1px solid var(--hairline);border-radius:12px;background:transparent;font:inherit;font-size:calc(12px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .refl-nav-arrow{display:block;width:8px;height:8px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px)}
 .refl-nav:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:12px}
 
@@ -1321,8 +1331,8 @@ body.reduce-motion .p7-shape{animation:none}
 .plan-view.track-self   .plan-hl{color:var(--track-self)}
 .plan-shape{display:flex;flex-direction:column;border-top:1px solid var(--hairline);margin-bottom:28px}
 .plan-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--bone-deep)}
-.plan-k{font-size:calc(13px * var(--type-scale));color:var(--muted);text-transform:lowercase;letter-spacing:.02em;flex:none}
-.plan-v{font-size:calc(14.5px * var(--type-scale));font-weight:500;color:var(--ink);text-transform:lowercase;text-align:right;white-space:nowrap}
+.plan-k{font-size:calc(13px * var(--type-scale));color:var(--muted);letter-spacing:.02em;flex:none}
+.plan-v{font-size:calc(14.5px * var(--type-scale));font-weight:500;color:var(--ink);text-align:right;white-space:nowrap}
 /* primary actions sit in a sticky bar pinned to the bottom of the scrollport (above the
    tab bar) so they stay in thumb reach and never scroll out of view. content fades in
    under the bar. when content is short, margin-top:auto still pushes the bar to the foot. */
@@ -1453,7 +1463,7 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 @keyframes ciClauseIn{from{opacity:.45}to{opacity:1}}
 /* overflow-wrap so a long single-word option (scene names) breaks instead of
    running out of its own half-width cell at the large Dynamic Type steps. */
-.ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;overflow-wrap:anywhere;transition:border-color .2s var(--ease),color .2s var(--ease)}
+.ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;overflow-wrap:break-word;transition:border-color .2s var(--ease),color .2s var(--ease)}
 .ch-opt:hover{border-color:var(--ink-80)}
 .ch-opt.on{border-color:var(--ink);border-width:2px;padding:12px 7px;color:var(--ink);font-weight:500}
 .ch-opt:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -1540,8 +1550,8 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 /* the walkthrough row caption shipped with no rule at all, so it inherited body size
    and read louder than its own label. Matches .ch-cap, the settings caption elsewhere. */
 .gs-cap{font-size:calc(13.5px * var(--type-scale));line-height:1.5;color:var(--muted);text-wrap:pretty}
-.gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
-.gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0}
+.gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink);min-width:0;text-align:right;overflow-wrap:break-word}
+.gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0;min-height:44px}
 .gs-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
 .gs-sw+.gs-sw{border-top:1px solid var(--hairline)}
 .gs-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
@@ -1718,7 +1728,7 @@ body.reduce-motion .slider-ico{transition:none}
 .map-ico{flex:0 0 26px;width:26px;height:26px;display:flex;align-items:center;justify-content:center}
 .map-ico .snb-ico{width:26px;height:26px}
 .map-text{display:flex;flex-direction:column;gap:2px}
-.map-name{font-size:calc(15.5px * var(--type-scale));font-weight:500;color:var(--ink);text-transform:lowercase}
+.map-name{font-size:calc(15.5px * var(--type-scale));font-weight:500;color:var(--ink)}
 .map-sub{font-size:calc(13.5px * var(--type-scale));color:var(--muted)}
 .map-foot{font-size:calc(13.5px * var(--type-scale));color:var(--muted);line-height:1.5;margin:0 0 22px;max-width:34ch}
 .map-empty .btn{align-self:flex-start}
@@ -1820,8 +1830,13 @@ body.reduce-motion .settle-ico{transition:none}
    sequence (line, area, dots, date labels, legend) played once at render —
    invisible to anyone who hadn't swiped to that card yet in the carousel.
    Gated behind `.panel-in`, same convention/fallback as `.rc-bar` above. */
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
+/* D157 / D158 / D270 (DQA 2026-07-30): body:not(.reduce-motion) alone ignored the OS
+   setting, because app.js only ever set that class from the in-app switch. app.js now
+   ORs prefers-reduced-motion into the class; this media query is the second belt. */
+@media (prefers-reduced-motion:no-preference){
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-path{stroke-dasharray:1;animation:chartDraw 1.05s var(--ease) forwards}
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-area{animation:chartArea .85s var(--ease) .2s both}
+}
 /* 2026-07-30 (Justin: "'your states over time' has a great opportunity for
    animation"): the line already drew itself here (see above), but that was
    the ONLY thing that ever animated on this chart — the dots, date labels,
@@ -1832,14 +1847,26 @@ body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cline-area{animation:
    in JS since they land at different points along a 1.05s draw); the date
    labels and the legend/scale footer fade in right after the last dot lands. */
 @keyframes cptIn{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
-body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
-body:not(.reduce-motion) .panel.panel-in .legend[style*="animation-delay"],body:not(.reduce-motion) .panel.panel-in .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
+/* D270 (and its two unlisted siblings, .cx / .legend+.arc-scale, same defect). NOTE:
+   these three set opacity:0 as the animation's start state, so they MUST NOT simply be
+   dropped under reduce-motion or the dots and labels would never appear. The @media
+   wrapper removes the opacity:0 along with the animation, landing on the end state. */
+@media (prefers-reduced-motion:no-preference){
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cpt{transform-box:fill-box;transform-origin:center;opacity:0;animation:cptIn .3s var(--ease) both}
+  body:not(.reduce-motion) .panel.panel-in .chart.draw-gain .cx{opacity:0;animation:riseIn .4s var(--ease) both}
+  body:not(.reduce-motion) .panel.panel-in .legend[style*="animation-delay"],body:not(.reduce-motion) .panel.panel-in .arc-scale[style*="animation-delay"]{opacity:0;animation:riseIn .45s var(--ease) both}
+}
 
 
 /* brand logo as a live state read — color only, lockup fixed (added 2026-06-27) */
 .triglyph{height:1em;width:auto;display:inline-block;vertical-align:middle;overflow:visible}
 .tg-m{fill:var(--tg-dim);transition:fill .62s var(--ease)}
+/* D236 (Justin's call, 2026-07-30b: "neutral should be ink"). A neutral reading has no
+   axis to light, so every mark used to fall to --tg-dim and the whole glyph read as
+   switched-off. Ink says "this is you, no state is leading" instead of "nothing here".
+   Set by triGlyph() whenever the key has no STATE_AXES entry, so it covers the You-tab
+   reflection, both share surfaces, the onboarding cards and the today-screen CTA at once. */
+.triglyph.tg-neutral .tg-m{fill:var(--ink)}
 body.reduce-motion .tg-m{transition:none}
 .sd-head .sd-marks .triglyph{height:46px}
 .safety-foot .tg-host{flex:none;display:inline-flex}
@@ -1935,9 +1962,9 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 /* change a recent check-in: picker list + entry link */
 .change-link{display:block;margin:12px 0 2px;align-self:flex-start;text-align:left;background:none;border:0;color:var(--link);font:inherit;font-size:calc(13px * var(--type-scale));cursor:pointer;text-decoration:underline;text-decoration-color:var(--link-soft);text-underline-offset:3px}
 .change-list{display:flex;flex-direction:column;gap:8px}
-.change-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--bone-deep);border:1px solid var(--hairline);border-radius:12px;padding:13px 14px;cursor:pointer;color:var(--ink)}
-.change-when{flex:1;font-size:calc(14px * var(--type-scale));font-weight:500}
-.change-mark{display:flex;align-items:center;gap:7px;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
+.change-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;width:100%;min-width:0;text-align:left;background:var(--bone-deep);border:1px solid var(--hairline);border-radius:12px;padding:13px 14px;cursor:pointer;color:var(--ink)}
+.change-when{flex:1;min-width:0;overflow-wrap:break-word;font-size:calc(14px * var(--type-scale));font-weight:500}
+.change-mark{display:flex;align-items:center;min-width:0;overflow-wrap:break-word;gap:7px;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
 .change-row .wc-go{flex:none;display:flex}
 .change-row .wc-go svg{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ci-when{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin:2px 0 0}
@@ -2139,7 +2166,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .tb-halo.b{width:86%;height:86%;animation-delay:.6s;opacity:.32}
 .tb-ring{width:170px;height:170px;border-radius:50%;border:1.5px solid var(--ink);opacity:.72;display:flex;align-items:center;justify-content:center;animation:t-breathe 9s var(--ease) infinite;transition:width .6s var(--ease),height .6s var(--ease);will-change:transform,opacity}
 .tb-core{width:8px;height:8px;border-radius:50%;background:var(--ink);opacity:.7}
-.tb-below{position:relative;display:flex;align-items:center;justify-content:center;min-height:46px;overflow:hidden;transition:opacity .4s var(--ease),max-height .6s var(--ease),margin .6s var(--ease);max-height:calc(80px * var(--type-scale))}
+.tb-below{position:relative;display:flex;align-items:center;justify-content:center;min-height:46px;overflow:hidden;transition:opacity .4s var(--ease),max-height .6s var(--ease),margin .6s var(--ease);max-height:calc(160px * var(--type-scale))}
 /* .tb-txt (the resting "take a breath" label) and .tb-phase (the in/out cue) are
    SIBLINGS INSIDE .tb-stage and occupy the SAME centred box — .tb-phase is
    absolutely centred directly on top of .tb-txt. They are kept apart by opacity
@@ -2160,7 +2187,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
   transition:opacity .4s var(--ease), visibility 0s linear .4s}
 .tb-line{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink)}
 .tb-hint{font-size:calc(13px * var(--type-scale));color:var(--muted)}
-.tb-phase{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.12em;text-transform:lowercase;opacity:0;visibility:hidden;pointer-events:none;
+.tb-phase{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink-80);letter-spacing:.12em;opacity:0;visibility:hidden;pointer-events:none;
   /* leaving: go immediately */
   transition:opacity .7s var(--ease), visibility 0s linear .7s}
 .tb-phase.show{opacity:1;visibility:visible;
@@ -2737,7 +2764,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .you-reader .yr-lede{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:7px 0 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .you-reader .yr-go{display:flex;align-items:center;gap:11px;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)}
 .you-reader .yr-glyph{flex:none;display:inline-flex;opacity:.7;transform:scale(.82);transform-origin:left center}
-.you-reader .yr-txt{font-size:calc(14.5px * var(--type-scale));color:var(--ink);font-weight:500;flex:1}
+.you-reader .yr-txt{font-size:calc(14.5px * var(--type-scale));color:var(--ink);font-weight:500;flex:1;min-width:0;overflow-wrap:break-word}
 .you-reader .yr-arw{color:var(--muted);flex:none;display:inline-flex}
 .you-reader .yr-arw svg{width:20px;height:20px}
 .you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px -22px 4px;padding:12px 22px}
@@ -2795,6 +2822,12 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-top > .mh-peri svg{width:34px;height:34px;stroke-width:1.3}
 .mh-greet{font-size:calc(19px * var(--type-scale));font-weight:600;color:var(--ink);letter-spacing:-.01em;margin:0;text-wrap:pretty}
 .mh-state{display:inline-flex;align-items:center;gap:11px;background:transparent;border:0;color:var(--ink);font:inherit;cursor:pointer;padding:6px 6px}
+/* 2026-08-01 (Justin: "the morning card now has an icon under the leading bar. put this above the
+   bar"). The time-of-day icon used to sit INSIDE the state row, so checked-in read as
+   [icon][glyph][chev] on one line while not-checked-in had the icon stacked above the greeting.
+   The icon is now a sibling ABOVE the row in both states, so the card has one composition.
+   It is aria-hidden decorative, so moving it out of the button costs nothing semantically. */
+.mh-top > .mh-peri{margin-bottom:2px}
 .mh-state .mh-peri{display:inline-flex;color:var(--ink)}
 .mh-state .mh-peri svg{width:24px;height:24px}
 .mh-state .mh-glyph{display:inline-flex}
@@ -2872,16 +2905,16 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 @keyframes obStepIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 /* "what's new" one-time card (returning users, state-math rework) */
 .wn-scrim{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
-  padding:24px 18px calc(24px + env(safe-area-inset-bottom));background:var(--scrim,rgba(26,31,42,.42));
+  padding:calc(24px + env(safe-area-inset-top)) 18px calc(24px + env(safe-area-inset-bottom));background:var(--scrim);
   overflow-y:auto}
 .wn-card{background:var(--bone);border:1px solid var(--hairline);border-radius:16px;
-  width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px rgba(26,31,42,.18);
+  width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px var(--shade);
   max-height:100%;overflow-y:auto}
 .wn-mark{height:26px;display:block;margin:0 0 16px}
 .wn-h{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}
 .wn-p{font-size:calc(14.5px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
 .wn-list{margin:0 0 14px;padding-left:20px;display:grid;gap:8px}
-.wn-list li{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty}
+.wn-list li{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty;min-width:0;overflow-wrap:break-word}
 .wn-sig{font-size:calc(14.5px * var(--type-scale));color:var(--ink);margin:0 0 20px;font-weight:500}
 .wn-card .btn.block{width:100%}
 .ob-card{position:absolute;box-sizing:border-box;background:var(--bone);border:1px solid var(--hairline);

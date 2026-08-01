@@ -75,12 +75,12 @@ if (window.SNB_IS_STAGING) {
   document.addEventListener('DOMContentLoaded', function () {
     try {
       const b = document.createElement('div');
-      b.textContent = 'beta: test data, not your real account';
+      b.textContent = 'Beta: test data, not your real account';
       b.setAttribute('role', 'status');
       b.style.cssText = [
         'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:2147483647',
         'font:500 11px/1 Inter,system-ui,sans-serif', 'letter-spacing:.08em',
-        'text-transform:lowercase', 'text-align:center',
+        'text-align:center',
         'padding:4px 8px', 'padding-top:max(4px,env(safe-area-inset-top))',
         'background:#D29A4A', 'color:#1A1F2A', 'pointer-events:none',
       ].join(';');
