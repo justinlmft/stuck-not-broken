@@ -475,7 +475,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   </div>
   <!-- shown only on the standalone page in iOS Safari, not yet installed -->
   <div class="installhint" id="installhint">
-    <span class="ttl">Keep this handy: tap <b>Share</b>, then <b>Add to Home Screen</b>.</span>
+    <span class="ttl">Keep this handy: tap <b>Share</b>, Then <b>Add to Home Screen</b>.</span>
     <button class="popout-x" id="installx" type="button" aria-label="dismiss">×</button>
   </div>
   <header class="brand">
@@ -515,7 +515,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       </div>
 
       <details class="adjust" id="adjust">
-        <summary><span class="tw" aria-hidden="true"></span> More Options</summary>
+        <summary><span class="tw" aria-hidden="true"></span> More options</summary>
         <div class="adjust-body">
           <div class="block">
             <span class="eyebrow">How much silence?</span>
@@ -526,11 +526,11 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
             <div class="chips" id="descdefs"></div>
           </div>
           <div class="block" id="holdwatchwrap">
-            <span class="eyebrow">hold &amp; watch?</span>
+            <span class="eyebrow">Hold &amp; watch?</span>
             <div class="chips" id="holdwatches"></div>
           </div>
           <div class="block" id="holddurwrap">
-            <span class="eyebrow">how long to hold &amp; watch?</span>
+            <span class="eyebrow">How long to hold &amp; watch?</span>
             <div class="chips" id="holddurs"></div>
           </div>
           <div class="block" id="lenwrap">
@@ -544,7 +544,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       <div class="foot">
         <p class="summary" id="summary"></p>
         <p class="begin-help" id="beginhelp">Not sure? This is the simplest place to start.</p>
-        <button class="surprise-all" id="surprise" type="button">Surprise Me</button>
+        <button class="surprise-all" id="surprise" type="button">Surprise me</button>
         <button class="btn primary" id="begin">Begin</button>
       </div>
     </div>
@@ -579,19 +579,19 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       </div>
       <!-- endings: graceful close, and a quiet escape -->
       <div class="endings">
-        <button class="btn quiet endbtn" id="endbtn">Begin Ease Out</button>
-        <button class="endnow" id="stopbtn" aria-label="end now">End Now</button>
+        <button class="btn quiet endbtn" id="endbtn">Begin ease out</button>
+        <button class="endnow" id="stopbtn" aria-label="end now">End now</button>
       </div>
     </div>
     <!-- gentle completion state -->
     <div class="done" id="done">
-      <button class="btn quiet" id="againbtn">Go Again</button>
-      <button class="btn quiet" id="overbtn">Choose Another</button>
+      <button class="btn quiet" id="againbtn">Go again</button>
+      <button class="btn quiet" id="overbtn">Choose another</button>
       <button class="endnow" id="restbtn">End</button>
     </div>
     <!-- terminal rest: ending is an honored, complete choice -->
     <div class="rest" id="rest">
-      <button class="endnow" id="restagain">Begin Again</button>
+      <button class="endnow" id="restagain">Begin again</button>
     </div>
     <!-- a rest between stacked meditations: waits for play -->
     <div class="brk" id="brk">
@@ -904,10 +904,10 @@ const TRACK={mindfulness:'ink',anchoring:'sky',most:'amber',more:'ink'};
    the repo (packs/ + clips/). 'track' reuses the woven colour (anchoring=sky/heart, most=amber). */
 const PACKS_BASE=BASE.replace(/clips\/?$/,'packs/');
 const MEDS={
- 'uye':{title:'Use Your Ears',cue:'Grounding through sound',track:'anchoring',est:'~10 min',file:'uye.pack.json'},
- 'eye':{title:'Use Your Eyes',cue:'Grounding through sight',track:'anchoring',est:'~9 min',file:'eye.pack.json'},
- 'daily-dysregulation':{title:'Daily Dysregulation',cue:'Meeting a recent activation',track:'most',est:'~16 min',file:'daily-dysregulation.pack.json'},
- 'outside-the-cave':{title:'Outside the Cave',cue:'A deeper imagery journey to connect with non-safety',track:'most',est:'~32 min',file:'outside-the-cave.pack.json'}
+ 'uye':{title:'Use your ears',cue:'Grounding through sound',track:'anchoring',est:'~10 min',file:'uye.pack.json'},
+ 'eye':{title:'Use your eyes',cue:'Grounding through sight',track:'anchoring',est:'~9 min',file:'eye.pack.json'},
+ 'daily-dysregulation':{title:'Daily dysregulation',cue:'Meeting a recent activation',track:'most',est:'~16 min',file:'daily-dysregulation.pack.json'},
+ 'outside-the-cave':{title:'Outside the cave',cue:'A deeper imagery journey to connect with non-safety',track:'most',est:'~32 min',file:'outside-the-cave.pack.json'}
 };
 const MEDS_ORDER=['uye','eye','daily-dysregulation','outside-the-cave'];   // gentlest first
 /* skills offered within self-regulation (like the anchor menu) */

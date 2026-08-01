@@ -75,15 +75,15 @@
     const _segD=t=>{const h=new Date(t).getHours();return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late';};
     Store.firstCheckinT=()=>cs.length?cs[0].t:null;
     Store.tenure=()=>{const days=Math.round((_sod(Date.now())-_sod(cs[0].t))/864e5);const wc=cs.filter(c=>Date.now()-c.t<=7*864e5).length;return {count:cs.length,days:days,windowCount:wc,sinceLast:0,returning:false,stage:'established'};};
-    Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'rising':d<-0.12?'falling':'steady',n:a.length};};
+    Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'Rising':d<-0.12?'falling':'steady',n:a.length};};
     Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};w.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/w.length*100));let reg=0;w.forEach(c=>{if(REG[c.dom])reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};a.forEach(x=>c2[x.dom]=(c2[x.dom]||0)+1);return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
       return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:w.length-reg,regShare:reg/w.length,lean:reg/w.length>=0.6?'regulated':reg/w.length<=0.4?'dysregulated':'even',avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>!REG[d]),regStates:order.filter(d=>REG[d])};};
-    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',deltaPct:0,cur:cur.avgV};const d=cur.avgV-prev.avgV;return {dir:d>0.05?'up':d<-0.05?'down':'flat',deltaPct:Math.round(d*100),cur:cur.avgV,prev:prev.avgV};};
+    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',deltaPct:0,cur:cur.avgV};const d=cur.avgV-prev.avgV;return {dir:d>0.05?'Up':d<-0.05?'down':'flat',deltaPct:Math.round(d*100),cur:cur.avgV,prev:prev.avgV};};
     Store.recovery=()=>{if(cs.length<12)return null;const gaps=[];let i=0;while(i<cs.length){if(!REG[cs[i].dom]){let j=i,st=0,f=false;while(j<cs.length){if(REG[cs[j].dom]){f=true;break;}j++;st++;}if(f)gaps.push(st);i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length}:null;};
     Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
     Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
     Store.timeOfDay=()=>null;
-    Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
+    Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'Up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
     Store.today=()=>{const d=new Date();d.setHours(0,0,0,0);return Store.dayArc(d.getTime());};
     Store.practiceEffect=()=>{const t=ss.filter(s=>s.domBefore);if(t.length<6)return null;let moved=0,tot=0;t.forEach(s=>{const nx=cs.find(c=>c.t>s.t);if(!nx)return;tot++;if(RANK[nx.dom]>RANK[s.domBefore])moved++;});return tot>=6?{moved:moved,total:tot,rate:moved/tot}:null;};
     Store.practiceInsights=()=>{const g={};ss.forEach(s=>{if(!s.practiceKey||!s.domBefore)return;const nx=cs.find(c=>c.t>s.t);if(!nx)return;const k=s.practiceKey+'|'+s.domBefore+'|'+_segD(s.t);const o=g[k]||(g[k]={practiceKey:s.practiceKey,dom:s.domBefore,seg:_segD(s.t),moved:0,total:0});o.total++;if(RANK[nx.dom]>RANK[s.domBefore])o.moved++;});return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4).map(o=>Object.assign(o,{rate:o.moved/o.total})).sort((a,b)=>b.total-a.total||b.rate-a.rate);};
@@ -499,7 +499,7 @@
       +`<span class="ci-clause" style="color:${txOf('v')}">${bV}</span>`
       +`<span class="ci-join">, </span>`
       +`<span class="ci-clause" style="color:${txOf('sym')}">${bS}</span>`
-      +`<span class="ci-join">, and </span>`
+      +`<span class="ci-join">, And </span>`
       +`<span class="ci-clause" style="color:${txOf('dor')}">${bD}</span>`
       +`<span class="ci-join">.</span>`;
   }
@@ -793,13 +793,13 @@
           <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
-          ${up?'<p class="fineprint" style="margin-top:12px;text-align:center">Already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">Log In</button></p>':''}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">New here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a Check-in, No Account Needed</button>'}
-          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
+          ${up?'<p class="fineprint" style="margin-top:12px;text-align:center">Already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">Log in</button></p>':''}
+          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">New here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a check-in, no account needed</button>'}
+          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> And <a href="#" data-policy="privacy">Privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
           <p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
           ${up?'':'<p class="fineprint" style="margin-top:6px">The breath above needs no account. The rest of the app does. It keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">Forgot Your Password?</button></p>'}
+          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">Forgot your password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}
         </div>
       </div>`);
@@ -1030,7 +1030,7 @@
     $('#content').innerHTML = `<div class="view checkin2 ci4">
         <div class="scr-head">
           <p class="eyebrow">${mode==='before' ? 'before your practice' : 'after your practice'}</p>
-          <h2 class="scr-h">right now, how easy would it be to&hellip;</h2>
+          <h2 class="scr-h">Right now, how easy would it be to&hellip;</h2>
         </div>
         <div class="ci-block">
           <div class="ci4-scale" aria-hidden="true"><span>Harder</span><span>Easier</span></div>
@@ -1039,16 +1039,16 @@
             ${ci4SliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 100-s)}
             ${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
-          ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">Change the Questions</button>'}
+          ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
           <div class="ci-reading" id="ci-reading" hidden></div>
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
           <button class="btn block" id="g-ci-save">${mode==='after' ? 'see what changed' : 'see what you described'}</button>
-          ${mode==='post' ? '<button class="navlink" id="g-ci-skip" style="align-self:center">Not Now</button>' : ''}
-          ${entry ? `<p class="fineprint" style="text-align:center;margin:2px 0 0">nothing is saved unless you decide to create an account.</p>
-          <p class="fineprint" style="text-align:center;margin:0">already have an account? <button class="linkbtn" id="g-ci-signin" style="font-size:inherit;padding:2px">sign in</button></p>` : ''}
+          ${mode==='post' ? '<button class="navlink" id="g-ci-skip" style="align-self:center">Not now</button>' : ''}
+          ${entry ? `<p class="fineprint" style="text-align:center;margin:2px 0 0">Nothing is saved unless you decide to create an account.</p>
+          <p class="fineprint" style="text-align:center;margin:0">Already have an account? <button class="linkbtn" id="g-ci-signin" style="font-size:inherit;padding:2px">Sign in</button></p>` : ''}
         </div>
       </div>`;
     const readout = $('#ci-readout');
@@ -1060,7 +1060,7 @@
       if(readout){
         const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
         if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
-        else { readout.innerHTML = '<span class="ci-idle">move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
+        else { readout.innerHTML = '<span class="ci-idle">Move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
       }
       const reading = $('#ci-reading');
       if(reading){
@@ -1144,7 +1144,7 @@
         <div class="actionbar">
           ${_guestPracticed
             ? '<button class="btn block" id="g-rf-next">Next</button>'
-            : '<button class="btn block" id="g-rf-practice">Try My Practice</button><button class="navlink" id="g-rf-save" style="align-self:center">Keep This Check-in</button>'}
+            : '<button class="btn block" id="g-rf-practice">Try my practice</button><button class="navlink" id="g-rf-save" style="align-self:center">Keep this check-in</button>'}
         </div>
       </div>`;
     // post-practice (the /stuck door's offered check-in): the way on is the offer
@@ -1166,7 +1166,7 @@
     clearFigures(); document.body.classList.remove('in-practice');
     const P_ICO = {
       micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+      Mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
       anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
       most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
       more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
@@ -1261,7 +1261,7 @@
     let _wlDone=false;
     const _wlTimeout=setTimeout(()=>{
       if(_wlDone||!_wl) return;
-      _wl.innerHTML='<span class="wl-txt">can’t load the practice right now. check your connection and try again.</span><button class="set-quiet actionbar-aux" id="wl-back" style="margin-top:14px">back</button>';
+      _wl.innerHTML='<span class="wl-txt">Can’t load the practice right now. Check your connection and try again.</span><button class="set-quiet actionbar-aux" id="wl-back" style="margin-top:14px">Back</button>';
       const b=document.getElementById('wl-back'); if(b) b.onclick=()=>guestPracticePick();
     }, 10000);
     if(_wf&&_wl) _wf.addEventListener('load',()=>{ _wlDone=true; clearTimeout(_wlTimeout); _wl.classList.add('gone'); setTimeout(()=>{ try{_wl.remove();}catch(e){} },600); });
@@ -1293,7 +1293,7 @@
       // Justin's example ("You're feeling more connected. Doing things is about the
       // same. And your energy settled."). 🖊 clause bank assembled from that example +
       // the mirror's vocabulary; flag any clause that reads off and I'll adjust.
-      const cv = mv>0 ? "you're feeling more connected"        : mv<0 ? 'connecting feels harder right now'          : 'connecting is about the same';
+      const cv = mv>0 ? "You're feeling more connected"        : mv<0 ? 'connecting feels harder right now'          : 'connecting is about the same';
       const cd = md<0 ? 'doing things feels more within reach' : md>0 ? 'doing things takes more effort right now'   : 'doing things is about the same';
       const cs = ms<0 ? 'your energy settled'                  : ms>0 ? "there's more energy in your body"           : 'your energy is about the same';
       const cap = (t)=>t.charAt(0).toUpperCase()+t.slice(1);
@@ -1323,7 +1323,7 @@
         </div>
         <div class="actionbar">
           <button class="btn block" id="g-ba-next">Next</button>
-          <button class="navlink" id="g-ba-no" style="align-self:center">No Thanks</button>
+          <button class="navlink" id="g-ba-no" style="align-self:center">No thanks</button>
         </div>
       </div>`;
     $('#g-ba-next').onclick = ()=>guestOffer();
@@ -1356,7 +1356,7 @@
             <li>Your personal reader, from the moment to the day to the week and beyond</li>
           </ul>
           ${planPickerHTML()}
-          <button class="btn block" id="g-of-sub">Subscribe Now</button>
+          <button class="btn block" id="g-of-sub">Subscribe now</button>
           <p class="fineprint" style="margin-top:10px">renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses.</p>
           <details class="offer-more">
             <summary>What you get when you subscribe ▾</summary>
@@ -1374,11 +1374,11 @@
             <li>Both mindfulness practices, the short one and the full one, as often as you want</li>
             <li>Your check-in history, saved</li>
           </ul>
-          <button class="btn block quiet" id="g-of-free">Continue Free</button>
+          <button class="btn block quiet" id="g-of-free">Continue free</button>
         </div>
-        <p class="fineprint" style="text-align:center;margin:14px 0 0">Already have an account? <button class="linkbtn" id="g-of-signin" style="font-size:inherit;padding:2px">Sign In</button></p>
+        <p class="fineprint" style="text-align:center;margin:14px 0 0">Already have an account? <button class="linkbtn" id="g-of-signin" style="font-size:inherit;padding:2px">Sign in</button></p>
         <div class="actionbar">
-          <button class="navlink" id="g-of-leave" style="align-self:center">Leave Without Saving</button>
+          <button class="navlink" id="g-of-leave" style="align-self:center">Leave without saving</button>
         </div>
       </div>`;
     wirePlanPicker();
@@ -1417,7 +1417,7 @@
           <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="new-password"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(paid?'continue to payment':'create account')}</button>
-          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
+          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> And <a href="#" data-policy="privacy">Privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>
           <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-back" style="font-size:inherit;padding:2px">Back</button></p>
         </div>
@@ -1555,7 +1555,7 @@
           <p class="fineprint" style="margin-bottom:18px">your card is charged today. it renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses. what you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':'subscribe'}</button>
-          <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">Not Now</button></p>
+          <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">Not now</button></p>
         </div>
       </div>`);
     if(busy) return;
@@ -1575,8 +1575,8 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">Almost there</p>
         <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a confirmation link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap it, then come back here to sign in.</p>
-        <button class="btn block" id="back2">Back to Sign In</button>
+        <p class="lede" style="margin-bottom:24px">We sent a confirmation link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap it, then come back here to sign in.</p>
+        <button class="btn block" id="back2">Back to sign in</button>
       </div></div>`);
     $('#back2').onclick=()=>{ authMode='in'; screenSignIn(); };
   }
@@ -1587,8 +1587,8 @@
       <div class="view gate"><div class="gate-body" style="text-align:center">
         <p class="eyebrow">Reset link sent</p>
         <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a password reset link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap the link and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
-        <button class="btn block" id="back3">Back to Sign In</button>
+        <p class="lede" style="margin-bottom:24px">We sent a password reset link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap the link and you'll come back here to choose a new password. It can take a couple of minutes to arrive.</p>
+        <button class="btn block" id="back3">Back to sign in</button>
       </div></div>`);
     $('#back3').onclick=()=>{ authMode='in'; screenSignIn(); };
   }
@@ -1631,7 +1631,7 @@
         <p class="eyebrow">All set</p>
         <h1 style="margin:12px 0 12px">Password updated.</h1>
         <p class="lede" style="margin-bottom:24px">You can close this tab. Open the app from your Home Screen and sign in with your new password if it asks.</p>
-        <button class="btn block" id="reset-done-continue">Or Keep Going Here</button>
+        <button class="btn block" id="reset-done-continue">Or keep going here</button>
       </div></div>`);
     $('#reset-done-continue').onclick=()=>{ currentTab='today'; route(); };
   }
@@ -1731,7 +1731,7 @@
         <p class="wn-p">I changed some math stuff in the background to give you the best experience possible and to help you achieve even more levels of insight and regulation.</p>
         <p class="wn-p">Thanks for being an early SNB app user!</p>
         <p class="wn-sig">Justin</p>
-        <button class="btn block" id="wn-ok" type="button">Got It</button>
+        <button class="btn block" id="wn-ok" type="button">Got it</button>
       </div>`;
     // D271 (DQA 2026-07-30): this was aria-modal="true" with no focus management at all
     // — initial focus stayed on <body>, Tab reached six controls BEHIND the scrim before
@@ -1853,7 +1853,7 @@
         h:'Here\u2019s what opened up',
         body:'<p class="ob-p">Enjoy exploring on your own. Here’s a brief rundown.</p>'+obUnlockList()
            + '<p class="ob-p" style="margin-top:12px">The walkthrough is in settings whenever you want it.</p>',
-        actions:[{label:'Okay, in I go',kind:'primary',go:'end'}] }
+        actions:[{label:'Okay, in i go',kind:'primary',go:'end'}] }
     ];
   }
   function obMarkSVG(){
@@ -1925,7 +1925,7 @@
     html += '<div class="ob-card'+(first?' anim':' step')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
       + '<div class="ob-top">'
       + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
-          + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>back</button>' : '<span></span>')
+          + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>Back</button>' : '<span></span>')
       + '<span></span><span class="ob-toppad"></span></div>'
       + '<div class="ob-body">'
       + '<h2 class="ob-h">'+escapeHtml(st.h)+'</h2>'
@@ -2092,11 +2092,11 @@
   // install affordances: a quiet settings row + an optional dismissable today nudge
   function installRowInner(){
     const s = installState();
-    if(s==='installed') return '<span class="val" style="font-weight:400">installed</span>';
-    if(s==='button') return '<button class="set-quiet in-go" type="button">install this app</button>';
-    if(s==='ios-share') return '<span class="ios-hint">to install: tap the share icon, then choose add to home screen.</span>';
+    if(s==='installed') return '<span class="val" style="font-weight:400">Installed</span>';
+    if(s==='button') return '<button class="set-quiet in-go" type="button">Install this app</button>';
+    if(s==='ios-share') return '<span class="ios-hint">To install: tap the share icon, then choose add to Home Screen.</span>';
     if(s==='open-elsewhere') return '<span class="ios-hint">'+openElsewhereMsg()+'</span>';
-    return '<span class="ios-hint">to install: open your browser menu and choose install or add to home screen.</span>';
+    return '<span class="ios-hint">To install: open your browser menu and choose install or add to Home Screen.</span>';
   }
   function maybeInstallNudge(){
     // android/chrome: native install button (beforeinstallprompt). iOS never fires
@@ -2105,10 +2105,10 @@
     const c = content(); if(!c || document.getElementById('install-nudge')) return;
     const b = document.createElement('div'); b.className = 'install-nudge'; b.id = 'install-nudge';
     b.innerHTML = s==='button'
-      ? '<span class="in-txt">install the SNB app.</span><span class="in-actions"><button type="button" class="in-go">install</button><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>'
+      ? '<span class="in-txt">Install the SNB app.</span><span class="in-actions"><button type="button" class="in-go">Install</button><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>'
       : s==='open-elsewhere'
         ? '<span class="in-txt">'+openElsewhereMsg()+'</span><span class="in-actions"><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>'
-        : '<span class="in-txt">install the app: tap the share icon, then <b>add to home screen</b>.</span><span class="in-actions"><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>';
+        : '<span class="in-txt">Install the app: tap the share icon, then <b>Add to Home Screen</b>.</span><span class="in-actions"><button type="button" class="in-x" aria-label="dismiss">\u00d7</button></span>';
     c.insertBefore(b, c.firstChild);
     const g = b.querySelector('.in-go'); if(g) g.onclick = promptInstall;
     const x = b.querySelector('.in-x'); if(x) x.onclick = ()=>{ try{ localStorage.setItem('snb_install_nudge','dismissed'); }catch(_){} b.remove(); };
@@ -2124,13 +2124,13 @@
   function tabIcon(t, on){
     if(on) return ({
       today:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path fill="none" d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
-      practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
-      current:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
+      Practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
+      Current:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
     }[t]||'');
     return ({
     today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
-    practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
+    Practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    Current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
   }[t]||''); }
   function tabBtn(t,label){ const on=currentTab===t; return `<button data-t="${t}" class="${on?'on':''}" aria-label="${label}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${label}</span></button>`; }
   const content = () => $('#content');
@@ -2147,9 +2147,9 @@
   function segIco(seg){
     const P={
       morning:'<path d="M12 9a4 4 0 014 4H8a4 4 0 014-4z"/><path d="M12 4v2M5.3 6.8l1.4 1.4M18.7 6.8l-1.4 1.4M3 13h2M19 13h2M5 17h14"/>',
-      afternoon:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>',
-      evening:'<path d="M19 13.5A7.5 7.5 0 0110.5 5 7.5 7.5 0 1019 13.5z"/><path d="M17.5 4.5l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z"/>',
-      late:'<path d="M12 3l.9 2.6L15.5 6.5l-2.6.9L12 10l-.9-2.6L8.5 6.5l2.6-.9z"/><path d="M18 12l.6 1.8 1.8.6-1.8.6L18 16.8l-.6-1.8-1.8-.6 1.8-.6z"/><path d="M7 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'
+      Afternoon:'<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18"/>',
+      Evening:'<path d="M19 13.5A7.5 7.5 0 0110.5 5 7.5 7.5 0 1019 13.5z"/><path d="M17.5 4.5l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z"/>',
+      Late:'<path d="M12 3l.9 2.6L15.5 6.5l-2.6.9L12 10l-.9-2.6L8.5 6.5l2.6-.9z"/><path d="M18 12l.6 1.8 1.8.6-1.8.6L18 16.8l-.6-1.8-1.8-.6 1.8-.6z"/><path d="M7 14l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>'
     };
     return P[seg]?'<svg class="seg-ico" viewBox="0 0 24 24" aria-hidden="true">'+P[seg]+'</svg>':'';
   }
@@ -2290,7 +2290,7 @@
       <div class="mh-foot">
         ${checkedIn
           ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
-               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="check in again" title="check in again"><span class="mh-ci-full">check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
+               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="check in again" title="check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
                ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'see your recommended practice' : 'choose a practice'}</button>`
@@ -2298,7 +2298,7 @@
              <div class="mh-secondrow no-checkin" id="mh-2nd">
                <button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
              </div>
-             <button class="btn quiet block mh-primary" id="mh-cta" type="button">check in</button>`}
+             <button class="btn quiet block mh-primary" id="mh-cta" type="button">Check in</button>`}
       </div>
     </div>`;
 
@@ -2828,7 +2828,7 @@
           <h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>
           ${sec.paras.map((t,i)=> (sec.id==='blog-6' && i===sec.paras.length-1) ? PQ(t) : P(t)).join('')}
           ${sectionViz(sec.id, vizCtx)}
-          ${_shareable[sec.id]?`<button class="linkbtn sec-share" type="button" data-share-sec="${sec.id}">share this →</button>`:''}
+          ${_shareable[sec.id]?`<button class="linkbtn sec-share" type="button" data-share-sec="${sec.id}">Share this →</button>`:''}
         </section>`).join('');
       bodyHTML = `
         ${lead}
@@ -2842,14 +2842,14 @@
     // the visiting section (week / quarter / year) — one at a time, above the essay
     const visit = buildVisitSection();
     const hasArchive = (Store.mints && Store.mints().length > 0);
-    const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">Past Reflections →</button>` : '';
+    const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">Past reflections →</button>` : '';
     // the reader closes into a practice: when you've finished reading what your
     // check-ins are saying, the practice shaped from them is one tap away (the plan
     // reader, then begin). links to the SAME recommendation as the practice tab.
     const reco = (Store.recommend && Store.recommend()) || null;
     const practiceCTA = reco ? `<div class="read-to-practice">
             <p class="read-p" style="margin:0 0 12px">When you're ready, here is the practice shaped from these check-ins.</p>
-            <button class="btn block" id="read-begin-practice" type="button">The Practice Made for You</button>
+            <button class="btn block" id="read-begin-practice" type="button">The practice made for you</button>
           </div>` : '';
     // quiet read-time line (HIG: set expectations; a reluctant reader wants the size of the ask)
     const _rtWords = String(todayBlock+visit.html+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
@@ -2982,7 +2982,7 @@
     const freq={}; cs.forEach(c=>freq[c.dom]=(freq[c.dom]||0)+1);
     let dom=null,bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
     const share = Math.round(bestN/n*100);
-    const dv = cs[n-1].v - cs[0].v; const dir = dv>0.08?'rising' : dv<-0.08?'falling' : 'steady';
+    const dv = cs[n-1].v - cs[0].v; const dir = dv>0.08?'Rising' : dv<-0.08?'falling' : 'steady';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
     const sd = Math.sqrt(cs.reduce((s,c)=>s+(c.v-avgV)*(c.v-avgV),0)/n);
     const variance = sd>0.18 ? 'shifts' : 'consistent';
@@ -3309,10 +3309,10 @@
   // Challenge appetite levels for the check-in (mirror Store.CHALLENGE_LEVELS), each
   // with a one-line read of what choosing it means.
   const CH_LEVELS = (window.Store && Store.CHALLENGE_LEVELS) || [
-    { v:0.12, key:'settle',  label:'Just Settle' },
+    { v:0.12, key:'settle',  label:'Just settle' },
     { v:0.40, key:'gentle',  label:'Gently' },
-    { v:0.65, key:'meet',    label:'Meet Me' },
-    { v:0.90, key:'stretch', label:'Stretch Me' },
+    { v:0.65, key:'meet',    label:'Meet me' },
+    { v:0.90, key:'stretch', label:'Stretch me' },
   ];
   const CH_CAP = {
     settle:  'Just connecting to the external present moment and your natural breath. No pressure. Just presence.',
@@ -3339,7 +3339,7 @@
   function screenChangeCheckin(){
     const recent = Store.checkins().slice(-6).reverse();
     clearFigures(); document.body.classList.remove('in-practice');
-    const rows = recent.length ? recent.map((c,i)=>`<div class="ci-row"><button class="change-row ci-edit" data-i="${i}" type="button"><span class="change-when">${relTime(c.t)}</span><span class="change-mark">${stateMarks(c.dom)}<span class="change-state">${STATE_NAME(c.dom)}</span></span><span class="wc-go">${CHEV}</span></button><button class="pr-del ci-del" data-t="${c.t}" type="button">Remove</button></div>`).join('') : '<p class="panel-empty">no check-ins to change yet.</p>';
+    const rows = recent.length ? recent.map((c,i)=>`<div class="ci-row"><button class="change-row ci-edit" data-i="${i}" type="button"><span class="change-when">${relTime(c.t)}</span><span class="change-mark">${stateMarks(c.dom)}<span class="change-state">${STATE_NAME(c.dom)}</span></span><span class="wc-go">${CHEV}</span></button><button class="pr-del ci-del" data-t="${c.t}" type="button">Remove</button></div>`).join('') : '<p class="panel-empty">No check-ins to change yet.</p>';
     setHTML(`
       <header class="appbar"><button class="backbtn" id="cc-back">Back</button></header>
       <div class="scroll"><div class="view" style="gap:14px">
@@ -3369,7 +3369,7 @@
           const ended = (s.completed===false || s.endedEarly) ? ' · ended early' : '';
           return `<div class="pr-row"><span class="pr-main"><span class="change-when">${relTime(s.t)}</span><span class="pr-label">${escapeHtml(Store.practiceLabel(s.practiceKey))}${fb}${ended}</span></span><button class="pr-del" data-t="${s.t}" type="button">Remove</button></div>`;
         }).join('')
-      : '<p class="panel-empty">no practices to manage yet.</p>';
+      : '<p class="panel-empty">No practices to manage yet.</p>';
     setHTML(`
       <header class="appbar"><button class="backbtn" id="mp-back">Back</button></header>
       <div class="scroll"><div class="view" style="gap:14px">
@@ -3484,7 +3484,7 @@
 
         <div class="ci-block">
           ${_ciInput}
-          ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">Change the Questions</button>'}
+          ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
           <p class="ci-readout ci-readout4" id="ci-readout"></p>
           <div class="ci-reading" id="ci-reading" hidden></div>
           ${_yng?'<p class="fineprint" style="margin-top:10px">Check in whenever you like: when you’re off, when you’re good, any part of day. Every check-in teaches the app your system.</p>':''}
@@ -3500,12 +3500,12 @@
           return `
         <div class="ci-block ci-challenge ci-ctx ci-fold" id="fold-ctx">
           <button class="ci-fold-btn" id="fold-ctx-btn" type="button" aria-expanded="false" aria-controls="fold-ctx-body">
-            <span class="ci-fold-lk">add context to this check-in</span><span class="stats-tog-icon">+</span>
+            <span class="ci-fold-lk">Add context to this check-in</span><span class="stats-tog-icon">+</span>
           </button>
           <div class="stats-body" id="fold-ctx-body">
             <div class="set-seg ci-ctx-seg" role="tablist" aria-label="context direction">
-              <button type="button" class="on" data-ctxdir="more" role="tab" aria-selected="true">i've had more of</button>
-              <button type="button" data-ctxdir="less" role="tab" aria-selected="false">i've had less of</button>
+              <button type="button" class="on" data-ctxdir="more" role="tab" aria-selected="true">I've had more of</button>
+              <button type="button" data-ctxdir="less" role="tab" aria-selected="false">I've had less of</button>
             </div>
             <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-more" role="tabpanel">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelMore.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="more" aria-pressed="${ctxSelMore.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
             <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-less" role="tabpanel" hidden>${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelLess.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="less" aria-pressed="${ctxSelLess.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
@@ -3752,12 +3752,12 @@
     _liveShell(`<div class="view fb-view">
         <div class="scr-head"><p class="eyebrow">Live practice</p>
         <h2 class="scr-h">${h}</h2><p class="scr-lede">${lede}</p></div>
-        <div class="actionbar"><button class="btn block" id="lv-out">Back to the App</button></div>
+        <div class="actionbar"><button class="btn block" id="lv-out">Back to the app</button></div>
       </div>`);
     $('#lv-out').onclick = ()=>{ _liveClear(); app('today'); };
   }
   function screenLiveCode(){
-    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">live practice</p><h2 class="scr-h">join with a code</h2><p class="scr-lede">enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">back</button></div></div>');
+    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">Join with a code</h2><p class="scr-lede">Enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">Join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">Back</button></div></div>');
     var inp=$('#lc-in'); if(inp) inp.focus();
     var go=function(){
       var v=((inp&&inp.value)||'').trim().toUpperCase();
@@ -3773,7 +3773,7 @@
 
   async function screenLive(){
     const join = _liveJoin(); if(!join) return app(currentTab);
-    _liveShell(`<div class="view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">one moment&hellip;</h2></div></div>`);
+    _liveShell(`<div class="view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">One moment&hellip;</h2></div></div>`);
     let s = await Store.liveFetch(join.code);
     if(!s || !s.id){
       const c=_liveCache();
@@ -3814,9 +3814,9 @@
         </div>
         <div class="actionbar">
           ${first
-            ? '<button class="btn block" id="lv-go">Check In</button>'
-            : '<button class="navlink" id="lv-go" style="align-self:center">Check in Now</button>'}
-          <button class="navlink" id="lv-leave" style="align-self:center">Leave This Live Practice</button>
+            ? '<button class="btn block" id="lv-go">Check in</button>'
+            : '<button class="navlink" id="lv-go" style="align-self:center">Check in now</button>'}
+          <button class="navlink" id="lv-leave" style="align-self:center">Leave this live practice</button>
         </div>
       </div>`);
     // self-paced door (Justin 2026-07-17): nobody is ever locked out of checking in by
@@ -3863,7 +3863,7 @@
         <div class="scr-head"><h2 class="scr-h">Your practice results</h2></div>
         <div class="lv-trail2">${row}</div>
         <div class="actionbar">
-          ${keyed.length?'<button class="btn block" id="lv-share">Share This</button>':''}
+          ${keyed.length?'<button class="btn block" id="lv-share">Share this</button>':''}
           <button class="navlink" id="lv-done" style="align-self:center">Done</button>
         </div>
       </div>`);
@@ -3907,15 +3907,15 @@
         const room=(typeof s.room==='string' && /^https?:\/\/\S+$/i.test(s.room.trim())) ? s.room.trim() : null;   // builder-published live room URL (Option A: link out only)
         const head=room?'Join us live!':"we're practicing live";   // 🖊 no room → don't over-promise
         const btns=room
-          ? '<button class="btn block" id="lv-n-watch">watch live &rarr;</button><button class="btn quiet block" id="lv-n-join">just check in</button>'
-          : '<button class="btn block" id="lv-n-join">check in &rarr;</button>';
+          ? '<button class="btn block" id="lv-n-watch">Watch live &rarr;</button><button class="btn quiet block" id="lv-n-join">Just check in</button>'
+          : '<button class="btn block" id="lv-n-join">Check in &rarr;</button>';
         el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="${head}">
           <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
           <p class="lv-pop-h">${head}</p>
           <p class="lv-pop-b">${line}</p>
           ${btns}
-          <button class="set-quiet" id="lv-n-no">Not Now</button>
-          <button class="set-quiet lv-pop-off" id="lv-n-off">Turn Off These Notifications</button>
+          <button class="set-quiet" id="lv-n-no">Not now</button>
+          <button class="set-quiet lv-pop-off" id="lv-n-off">Turn off these notifications</button>
         </div>`;
         document.body.appendChild(el);
         const _close=()=>{ sessionStorage.setItem('snb_live_seen', s.code); el.remove(); };
@@ -3953,7 +3953,7 @@
 
   // ---------------------------------------------------------------- CURRENT OVER TIME
   let playTimer=null;
-  const PERIODS=[{key:'7',label:'Week',days:7},{key:'30',label:'Month',days:30},{key:'90',label:'90 Days',days:90},{key:'all',label:'All',days:null}];
+  const PERIODS=[{key:'7',label:'Week',days:7},{key:'30',label:'Month',days:30},{key:'90',label:'90 days',days:90},{key:'all',label:'All',days:null}];
   let activePeriod='all';
   let chartMode='safety';
   function filterByPeriod(cs,days){ if(!days) return cs; const cut=Date.now()-days*864e5; return cs.filter(c=>c.t>=cut); }
@@ -4226,7 +4226,7 @@
     const host=document.querySelector('.shell')||document.body;
     const old=document.getElementById('share-sheet'); if(old) old.remove();
     const s=document.createElement('div'); s.id='share-sheet'; s.className='share-sheet';
-    s.innerHTML=`<div class="ss-card"><p class="ss-h">Share your progress</p><a class="ss-opt" href="sms:?&body=${enc}">Message</a><a class="ss-opt" href="mailto:?subject=${encodeURIComponent('my progress')}&body=${enc}">Email</a><a class="ss-opt" href="https://twitter.com/intent/tweet?text=${enc}" target="_blank" rel="noopener">Post to X</a><button class="ss-opt" type="button" data-copy="1">Copy</button><button class="ss-cancel" type="button">Cancel</button></div>`;
+    s.innerHTML=`<div class="ss-card"><p class="ss-h">Share your progress</p><a class="ss-opt" href="sms:?&body=${enc}">Message</a><a class="ss-opt" href="mailto:?subject=${encodeURIComponent('my progress')}&body=${enc}">Email</a><a class="ss-opt" href="https://twitter.com/intent/tweet?text=${enc}" target="_blank" rel="noopener">Post to x</a><button class="ss-opt" type="button" data-copy="1">Copy</button><button class="ss-cancel" type="button">Cancel</button></div>`;
     host.appendChild(s);
     requestAnimationFrame(()=>s.classList.add('on'));
     const close=()=>{ s.classList.remove('on'); setTimeout(()=>{ if(s.parentNode) s.remove(); },240); };
@@ -4561,13 +4561,13 @@
       <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">your times of day, your week, your numbers &middot; on the base plan</span>
+          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; on the base plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
         <h3 class="yr-h">Your reflection</h3>
         <p class="yr-lede">The personal read of your patterns, in plain language.</p>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">read your full reflection &middot; on the base plan</span></span>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">Read your full reflection &middot; on the base plan</span></span>
       </a>
       <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">Your check-ins.</h2></div>
       <div class="deep">${dayHTML}</div>
@@ -4602,7 +4602,7 @@
         <p class="map-lede">Your three nervous-system states.</p>
         <div class="map-rows">${teach}</div>
         <p class="map-foot">Check in twice, and your patterns start to show here.</p>
-        <button class="btn" id="goci">Check In</button></div></div>`;
+        <button class="btn" id="goci">Check in</button></div></div>`;
       $('#goci').onclick = screenCheckin;
       const sb0=$('#set-btn'); if(sb0) sb0.onclick = screenSettings;
       c.querySelectorAll('[data-state-detail]').forEach(b=>b.onclick=()=>screenStateDetail(b.dataset.stateDetail));
@@ -4640,7 +4640,7 @@
       if(paced.length>=4){
         const k=Math.max(1,Math.floor(paced.length/3));
         const d = avg(paced.slice(-k).map(x=>x.v)) - avg(paced.slice(0,k).map(x=>x.v));
-        dir = d>0.08?'rising':d<-0.08?'falling':'steady';
+        dir = d>0.08?'Rising':d<-0.08?'falling':'steady';
       }
       const rising = dir==='rising';
 
@@ -4711,7 +4711,7 @@
         Store.sessions().filter(s=>s&&s.domBefore&&_PE_RANK[s.domBefore]!=null).forEach(s=>{ domCounts[s.domBefore]=(domCounts[s.domBefore]||0)+1; });
         const modeDom=Object.keys(domCounts).sort((a,b)=>domCounts[b]-domCounts[a])[0] || 'fightflight';
         practiceHead=`<div class="cb-journey">${cbGlyphViz(modeDom, 'safety', null, 'hero')}</div>
-          <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> of the time.</p>
+          <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> Of the time.</p>
           <p class="cb-fine">(${pe.total} check-in${pe.total===1?'':'s'} within a few hours of practicing${pi?`; most reliably after ${Store.practiceLabel(pi.practiceKey)} ${segPhrase(pi.seg)}, about ${Math.round(pi.rate*20)*5}% of the time`:''})</p>`;
       })();
 
@@ -4833,7 +4833,7 @@
             // animated or headlined here (it lives, gently worded, in the reader).
             const slides = [];
             slides.push(['safety','the level of safety in your system', `
-              ${shareBtn('safety')}<h2 class="panel-title">the level of safety in your system</h2>
+              ${shareBtn('safety')}<h2 class="panel-title">The level of safety in your system</h2>
               <p class="panel-sub">the state you spend the most time in, over ${periodPhrase}.</p>
               ${_blCardHTML(bl, _blNow, _blPrev)}`]);
             if(rec){
@@ -4853,7 +4853,7 @@
               slides.push(['comeback','getting back to safety', `
               ${shareBtn('comeback')}
               <div class="cb-journey">${cbGlyphViz(from, 'safety', null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">you commonly dip into <b>${STATE_NAME(from)}</b>, then recover into <b>safety</b>.</p>
+              <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(from)}</b>, Then recover into <b>Safety</b>.</p>
               ${tripCount}`]);
             }
             // the separate "your safety baseline" slide is retired (§7.2): its longer-window
@@ -4894,7 +4894,7 @@
               // rc-hero-title sentence right below it. Array label stays for a11y.
               slides.push(['times','your most regulated day', `
               ${shareBtn('times')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${wd.label}</b> is your most regulated day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${wd.label}</b> Is your most regulated day.</p>
               ${chart}
               <p class="cb-line">${wd.pct}% of your <b>${wd.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4910,7 +4910,7 @@
               }).join('')}</div>`;
               slides.push(['daypart','your most regulated time of day', `
               ${shareBtn('daypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${dp.seg}</b> is your most regulated time of day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${dp.seg}</b> Is your most regulated time of day.</p>
               ${chart}
               <p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4934,7 +4934,7 @@
               }).join('')}</div>`;
               slides.push(['leastDay','your least regulated day', `
               ${shareBtn('leastDay')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstColor}">${wdLeast.label}</b> has the least regulation.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstColor}">${wdLeast.label}</b> Has the least regulation.</p>
               ${chart}
               <p class="cb-line">${wdLeast.pct}% of your <b>${wdLeast.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4958,7 +4958,7 @@
               }).join('')}</div>`;
               slides.push(['leastDaypart','your least regulated time of day', `
               ${shareBtn('leastDaypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${dpLeast.seg}</b> has the least regulation.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${dpLeast.seg}</b> Has the least regulation.</p>
               ${chart}
               <p class="cb-line">${dpLeast.pct}% of your <b>${dpLeast.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
             }
@@ -4970,17 +4970,17 @@
               slides.push(['shift','your most common shift', `
               ${shareBtn('shift')}
               <div class="cb-journey">${cbGlyphViz(trn.a, trn.b, null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>.</p>
+              <p class="cb-line cb-line-lead">Your state most often shifts from <b>${nm(trn.a)}</b> To <b>${nm(trn.b)}</b>.</p>
               <p class="cb-fine">(${trn.count} time${trn.count===1?'':'s'} so far)</p>`]);
             }
             // "your records" card CUT ENTIRELY (Justin 2026-07-29: "it's useless").
             slides.push(['mix','your state mix', `
-              ${shareBtn('mix')}<h2 class="panel-title">your state mix</h2>
+              ${shareBtn('mix')}<h2 class="panel-title">Your state mix</h2>
               <p class="panel-sub">${activePeriod==='all'?'Your state averages, all time.':'your check-in averages, over '+periodPhrase+'.'}</p>
               <div class="dist-bars">${mixHTML}</div>`]);
             if(fl){
               slides.push(['flavors','your flavors of safety', `
-              ${shareBtn('flavors')}<h2 class="panel-title">your flavors of safety</h2>
+              ${shareBtn('flavors')}<h2 class="panel-title">Your flavors of safety</h2>
               <p class="panel-sub">this is what your safety looks like over ${periodPhrase}.</p>
               <div class="help-bars">${fl.map((r,i)=>`<div class="help-row" style="--sd:${i*50}ms"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
             }
@@ -4988,14 +4988,14 @@
               const bars = ce ? `
               <p class="panel-sub">safety in the weeks you tagged “${escapeHtml(ce.label)}”, next to a typical week.</p>
               <div class="help-bars">
-                <div class="help-row" style="--sd:0ms"><span class="help-lbl">tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
-                <div class="help-row" style="--sd:50ms"><span class="help-lbl">typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
-              </div>` : `<p class="panel-sub">what you tag as having the biggest impact, by the state you were in.</p>`;
+                <div class="help-row" style="--sd:0ms"><span class="help-lbl">Tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
+                <div class="help-row" style="--sd:50ms"><span class="help-lbl">Typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
+              </div>` : `<p class="panel-sub">What you tag as having the biggest impact, by the state you were in.</p>`;
               const links = csl ? `
               ${csl.safe?`<p class="cb-line"${ce?' style="margin-top:16px"':''}>Tagged most around your safe check-ins: <b>${escapeHtml(csl.safe.label)}</b>.</p>`:''}
               ${csl.def?`<p class="cb-line">Tagged most around defense: <b>${escapeHtml(csl.def.label)}</b>.</p>`:''}` : '';
               slides.push(['context','your top context', `
-              ${shareBtn('context')}<h2 class="panel-title">your top context</h2>
+              ${shareBtn('context')}<h2 class="panel-title">Your top context</h2>
               ${bars}${links}
               ${pe?`<p class="ctx-practice">practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
@@ -5011,8 +5011,8 @@
             }
             if(arcBuckets){
               slides.push(['states','your states over time', `
-              ${shareBtn('states')}<h2 class="panel-title">your states over time</h2>
-              <p class="panel-sub">the state each stretch of time leaned toward.</p>
+              ${shareBtn('states')}<h2 class="panel-title">Your states over time</h2>
+              <p class="panel-sub">The state each stretch of time leaned toward.</p>
               <div class="chart-wrap" data-cmode="states">${chartInner('states', arcBuckets, safetyColor)}</div>`]);
             }
             if(practiceHead){
@@ -5058,7 +5058,7 @@
               }).join('')}</div>`;
               slides.push(['ax-'+key, segName+' is your most '+adj+' time of day', `
               ${shareBtn('ax-'+key)}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${segName}</b> is your most <b>${adj}</b> time of day.</p>
+              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${segName}</b> Is your most <b>${adj}</b> Time of day.</p>
               ${chart}`]);
             };
             ['play','fightflight','stillness','shutdown','freeze'].forEach(_axSoloSlide);
@@ -5111,18 +5111,18 @@
               <h3 class="deep-h">Your numbers</h3>
               <div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'\u2014'}</span></div>
               <div class="deep-row"><span class="deep-lbl">Check-ins</span><span class="deep-val">${allCs.length}</span></div>
-              ${(function(){const n=Store.sessions().filter(s=>s&&s.completed).length;return n?`<div class="deep-row"><span class="deep-lbl">practices completed</span><span class="deep-val">${n}</span></div>`:'';})()}
-              ${rec?`<div class="deep-row"><span class="deep-lbl">comebacks made</span><span class="deep-val">${rec.n}</span></div>`:''}
+              ${(function(){const n=Store.sessions().filter(s=>s&&s.completed).length;return n?`<div class="deep-row"><span class="deep-lbl">Practices completed</span><span class="deep-val">${n}</span></div>`:'';})()}
+              ${rec?`<div class="deep-row"><span class="deep-lbl">Comebacks made</span><span class="deep-val">${rec.n}</span></div>`:''}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">How you practice</h3>
-              ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">you return to</span><span class="deep-val">${Store.practiceLabel(L.favPractice)}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">anchored through</span><span class="deep-val">${L.favSense}</span></div>`;return h;})()}
-              ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
-              ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">best time for it</span><span class="deep-val">${s==='late'?'late at night':segLabel(s)}</span></div>`;})()}
+              ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">you return to</span><span class="deep-val">${Store.practiceLabel(L.favPractice)}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">Anchored through</span><span class="deep-val">${L.favSense}</span></div>`;return h;})()}
+              ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">Time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
+              ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'late at night':segLabel(s)}</span></div>`;})()}
             </div>
           </div>
-          <button class="change-link" id="change-ci" type="button">Change a Recent Check-in</button>
-          ${Store.sessions().length ? '<button class="change-link" id="manage-pr" type="button">Manage Your Practices</button>' : ''}
+          <button class="change-link" id="change-ci" type="button">Change a recent check-in</button>
+          ${Store.sessions().length ? '<button class="change-link" id="manage-pr" type="button">Manage your practices</button>' : ''}
         </div>`;
 
       // ---- desktop ledger (2026-07-19): wide screens get the pattern cards as a
@@ -5137,24 +5137,24 @@
           window._youLedgerKey=key;
           const _I={
             safety:'<span class="yl-ic tri"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
-            mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
-            times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
+            Comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
+            Mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
+            Times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
             // mobilized/immobilized (2 combined cards) retired for 5 solo-state axis
             // cards (2026-07-29 redesign) — same two stand-in glyphs reused per card
             // since a bespoke icon per state wasn't part of this round's redesign.
             'ax-play':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>'
+            'Ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
+            'Ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            'Ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
+            'Ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>'
             // 'records' icon entry removed — the card is cut (2026-07-29: "it's useless").
           };
           const cur=all.find(s=>s[0]===key);
           const wrap=document.createElement('div'); wrap.className='you-ledger';
           // heading approved verbatim (Justin, 2026-07-19) — no sub: the period
           // pills above already say the window, the list already invites choice.
-          wrap.innerHTML='<h2 class="yl-h">what your check-ins show.</h2>'
+          wrap.innerHTML='<h2 class="yl-h">What your check-ins show.</h2>'
             +'<nav class="yl-list" aria-label="what your check-ins show">'
             +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+s[1]+'</span></button>').join('')
             +'</nav>'
@@ -5308,7 +5308,7 @@
         ${d.sub ? `<p class="sd-sub" style="font-size:calc(13px * var(--type-scale));opacity:.55;margin:-2px 0 14px;letter-spacing:.02em">${escapeHtml(d.sub)}</p>` : ''}
         <p class="sd-body">${escapeHtml(d.about)}</p>
         ${d.whenDrops ? `<div class="sd-when">
-          <p class="sd-when-label">when safety drops</p>
+          <p class="sd-when-label">When safety drops</p>
           <p class="sd-body">${escapeHtml(d.whenDrops)}</p>
         </div>` : ''}
       </div>`;
@@ -5366,7 +5366,7 @@
       </div>
       ${segRows.length>=2?`
       <div class="hr"></div>
-      <p class="eyebrow" style="margin:0 0 12px">by time of day</p>
+      <p class="eyebrow" style="margin:0 0 12px">By time of day</p>
       <div class="stat-rows">
         ${segRows.map(s=>`
         <div class="stat-row">
@@ -5408,7 +5408,7 @@
     let _wlDone=false;
     const _wlTimeout=setTimeout(()=>{
       if(_wlDone||!_wl) return;
-      _wl.innerHTML='<span class="wl-txt">can’t load the practice right now. check your connection and try again.</span><button class="set-quiet actionbar-aux" id="wl-back" style="margin-top:14px">back</button>';
+      _wl.innerHTML='<span class="wl-txt">Can’t load the practice right now. Check your connection and try again.</span><button class="set-quiet actionbar-aux" id="wl-back" style="margin-top:14px">Back</button>';
       const b=document.getElementById('wl-back'); if(b) b.onclick=()=>app('practice');
     }, 10000);
     if(_wf&&_wl) _wf.addEventListener('load',()=>{ _wlDone=true; clearTimeout(_wlTimeout); _wl.classList.add('gone'); setTimeout(()=>{ try{_wl.remove();}catch(e){} },600); });
@@ -5427,10 +5427,10 @@
   const P_SKILLS=[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']];
   const P_SILENCE=[[4,'a little'],[8,'some'],[12,'a lot']];
   const P_MEDS=[
-    {id:'uye',                 title:'Use Your Ears',       est:'~10 min', sub:'Grounding through sound'},
-    {id:'eye',                 title:'Use Your Eyes',       est:'~9 min',  sub:'Grounding through sight'},
-    {id:'daily-dysregulation', title:'Daily Dysregulation', est:'~16 min', sub:'Meeting a recent activation'},
-    {id:'outside-the-cave',    title:'Outside the Cave',    est:'~32 min', sub:'A deeper imagery journey'},
+    {id:'uye',                 title:'Use your ears',       est:'~10 min', sub:'Grounding through sound'},
+    {id:'eye',                 title:'Use your eyes',       est:'~9 min',  sub:'Grounding through sight'},
+    {id:'daily-dysregulation', title:'Daily dysregulation', est:'~16 min', sub:'Meeting a recent activation'},
+    {id:'outside-the-cave',    title:'Outside the cave',    est:'~32 min', sub:'A deeper imagery journey'},
   ];
   let pState=null;
   // set by a caller that wants the NEXT tabPractice() to seed pState from a specific
@@ -5459,11 +5459,11 @@
   // per-type glyphs for the picker (currentColor: muted at rest, track ink when selected)
   const MK_TYPE_ICO = {
     micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
-    mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
-    anchoring:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.6-8.3A4.4 4.4 0 0 1 12 6.8a4.4 4.4 0 0 1 8.6 4.9C18.5 15.8 12 20 12 20z"/></svg>',
-    most:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
-    session:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    surprise:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
+    Mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
+    Anchoring:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.6-8.3A4.4 4.4 0 0 1 12 6.8a4.4 4.4 0 0 1 8.6 4.9C18.5 15.8 12 20 12 20z"/></svg>',
+    Most:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
+    Session:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
+    Surprise:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
   };
   // the type picker, grouped for the brand sheet — rows carry an icon + a one-line
   // description; the label-less last group renders as a plain divider before "surprise".
@@ -5471,9 +5471,9 @@
   // headers ('shape your own' / 'guided sessions') carry the grouping; each row is
   // just its icon + name. (openDialSheet omits the sub line when o.sub is absent.)
   const MK_TYPE_GROUPS = ()=>[
-    { label:'Shape Your Own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
-    { label:'Guided Practices', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
-    { label:null, opts:[{ val:'surprise', menu:'Surprise Me', ico:MK_TYPE_ICO.surprise }] },
+    { label:'Shape your own', opts:MK_SHAPED.map(k=>({ val:k, menu:MK_TYPE_MENU[k], ico:MK_TYPE_ICO[k] })) },
+    { label:'Guided practices', opts:P_MEDS.map(m=>({ val:m.id, menu:m.title, ico:MK_TYPE_ICO.session })) },
+    { label:null, opts:[{ val:'surprise', menu:'Surprise me', ico:MK_TYPE_ICO.surprise }] },
   ];
 
   // Practice opens on a personalized "for you" view: a context line tuned to the
@@ -5567,7 +5567,7 @@
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
       </div>
       <div class="plan-actions">
-        <button class="set-quiet actionbar-aux" id="plan-change">Change This Practice</button>
+        <button class="set-quiet actionbar-aux" id="plan-change">Change this practice</button>
         <button class="btn block" id="plan-begin">Begin</button>
       </div>
     </div>`;
@@ -5845,7 +5845,7 @@
     // headphones for the session library — each in its track's ink color.
     const P_ICO = {
       micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
+      Mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
       anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
       // self-regulation meets BOTH defenses, so it carries both marks (bolt + x)
       most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
@@ -5869,37 +5869,37 @@
     const refineHTML=(key&&key!=='more')?`
       <div class="p-refine">
         ${key!=='mindfulness'?`<div class="p-rgroup">
-          <p class="dash-prompt">what would you like to anchor with?</p>
+          <p class="dash-prompt">What would you like to anchor with?</p>
           <div class="p-chips">${senseList.map(s=>chip(s,s,'sense',s===sense)).join('')}</div>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup">
-          <p class="dash-prompt">which skill do you want to practice?</p>
+          <p class="dash-prompt">Which skill do you want to practice?</p>
           <div class="p-chips">${P_SKILLS.map(([v,l])=>chip(l,v,'skill',v===skill)).join('')}</div>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup">
-          <p class="dash-prompt">working with anything today?</p>
+          <p class="dash-prompt">Working with anything today?</p>
           <div class="p-chips">${[['','let it surface']].concat(Store.EMOTION_FAMILIES.map(f=>[f.key,f.label])).map(([v,l])=>
             `<button class="p-chip${(pState.emotion||'')===v?' on':''}" data-emo="${escapeHtml(v)}">${escapeHtml(l)}</button>`).join('')}</div>
           <p class="ch-cap" id="p-emo-hint">${(()=>{const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);return f?escapeHtml(f.hint):'Choosing ahead of time helps you notice it when it arrives. Optional.';})()}</p>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup" id="p-hw-group" style="${(skill==='balancing'||skill==='pendulation')?'':'display:none'}">
-          <p class="dash-prompt">add hold &amp; watch?</p>
+          <p class="dash-prompt">Add hold &amp; watch?</p>
           <div class="p-chips">${[[true,'hold & watch'],[false,'skip it']].map(([v,l])=>chip(l,v,'holdwatch',v===!!pState.holdWatch)).join('')}</div>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup" id="p-hd-group" style="${((skill==='balancing'||skill==='pendulation')&&pState.holdWatch)?'':'display:none'}">
-          <p class="dash-prompt">how long to hold &amp; watch?</p>
+          <p class="dash-prompt">How long to hold &amp; watch?</p>
           <div class="p-chips">${[[30,'30 sec'],[60,'1 min'],[90,'90 sec'],[120,'2 min']].map(([v,l])=>chip(l,v,'holdsec',v===pState.holdSeconds)).join('')}</div>
         </div>`:''}
         ${key!=='micro'?`<div class="p-rgroup">
-          <p class="dash-prompt">how much silence between guidance?</p>
+          <p class="dash-prompt">How much silence between guidance?</p>
           <div class="p-chips">${P_SILENCE.map(([v,l])=>chip(l,v,'sil',v===silence)).join('')}</div>
         </div>`:''}
         ${key==='most'?`<div class="p-rgroup">
-          <p class="dash-prompt">how long would you like to practice?</p>
+          <p class="dash-prompt">How long would you like to practice?</p>
           <div class="p-chips">${[[false,'a complete practice'],[true,'open-ended']].map(([v,l])=>chip(l,v,'open',v===!!pState.open)).join('')}</div>
         </div>`:''}
         <p class="ch-cap p-expect" id="p-expect">${expectText(key, sense, skill, silence, pState.holdWatch, pState.holdSeconds, pState.open)}</p>
-        ${key==='most'?'<button class="p-surprise" id="p-surprise">Surprise Me</button>':''}
+        ${key==='most'?'<button class="p-surprise" id="p-surprise">Surprise me</button>':''}
       </div>`:'';
 
     const medsHTML=key==='more'?`
@@ -5950,7 +5950,7 @@
         : selCard(o, `data-pkey="${o.key}"`, key===o.key && !pState.tunedSel);
     }).join('');
     const freeFoot = (!_paid && !key)
-      ? '<p class="fineprint" style="text-align:center;margin:14px 2px 0;opacity:.72">practices built from your check-ins are on the base plan.</p>'
+      ? '<p class="fineprint" style="text-align:center;margin:14px 2px 0;opacity:.72">Practices built from your check-ins are on the base plan.</p>'
       : '';
 
     if(!desk){
@@ -5967,8 +5967,8 @@
           : `${refineHTML}${medsHTML}`}
       </div>
       ${key?`<div class="actionbar">
-        <button class="set-quiet actionbar-aux" id="p-cancel">back</button>
-        <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>begin</button>
+        <button class="set-quiet actionbar-aux" id="p-cancel">Back</button>
+        <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>Begin</button>
       </div>`:''}
     </div>`;
     } else {
@@ -5993,7 +5993,7 @@
         <div class="p-detail-col">
           ${key ? `${refineHTML}${medsHTML}
             <div class="actionbar p-detail-bar">
-              <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>begin</button>
+              <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>Begin</button>
             </div>` : ''}
         </div>
       </div>
@@ -6206,7 +6206,7 @@
     { key:'exit-hard',       label:'It was too hard right now' },
     { key:'exit-easy',       label:'It was too easy' },
     { key:'exit-distracted', label:'I got pulled away' },
-    { key:'exit-enough',     label:'I got what I needed' },
+    { key:'exit-enough',     label:'I got what i needed' },
   ];
   function renderExitReason(){
     setHTML(`
@@ -6254,8 +6254,8 @@
           ${FB_OPTS.map(o=>`<button class="fb-opt" data-fb="${o.key}">${o.label}</button>`).join('')}
         </div>
         ${isMost?`<div class="fb-surf">
-          <p class="dash-prompt">did anything surface?</p>
-          <p class="ch-cap">whatever showed up while you practiced, even if it wasn’t what you chose. pick any that fit. optional.</p>
+          <p class="dash-prompt">Did anything surface?</p>
+          <p class="ch-cap">Whatever showed up while you practiced, even if it wasn’t what you chose. Pick any that fit. Optional.</p>
           <div class="p-chips">${Store.EMOTION_SURFACED.map(emoChip).join('')}</div>
         </div>`:''}
         <button class="btn block" id="fb-continue" disabled style="margin-top:18px">Continue</button>
@@ -6305,8 +6305,8 @@
         </div>
         <p class="settle-note">Safety doesn't erase the rest. It just holds them.</p>
         <div class="fb-after">
-          <button class="btn block" id="fb-checkin">Check in Now</button>
-          <button class="navlink" id="fb-home" style="align-self:center">Back to Today</button>
+          <button class="btn block" id="fb-checkin">Check in now</button>
+          <button class="navlink" id="fb-home" style="align-self:center">Back to today</button>
         </div>
       </div></div>`);
     requestAnimationFrame(()=>{ const s=root.querySelector('.settle'); if(s) s.classList.add('on'); });
@@ -6396,8 +6396,8 @@
               <p class="gs-lbl2">How you enter your state</p>
               <div class="set-seg" id="seg-method">
                 <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>Questions</button>
-                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Number Sliders</button>
-                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State Picker</button>
+                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Number sliders</button>
+                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State picker</button>
               </div>
               <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
               <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
@@ -6406,7 +6406,7 @@
 
           <div class="gs-card">
             <div class="gs-sw" style="padding-bottom:4px"><span class="gs-lbl">The walkthrough</span>
-              <button class="linkbtn" id="set-walkthrough" type="button">Walk Me Through It</button></div>
+              <button class="linkbtn" id="set-walkthrough" type="button">Walk me through it</button></div>
             <p class="gs-cap" style="margin:0 0 2px">The member walkthrough, again. It changes nothing on its own.</p>
           </div>
 
@@ -6425,7 +6425,7 @@
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
             <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'surprise me':psc}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
-              <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise Me</button>
+              <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
               <div class="scene-grid" style="margin-top:8px">
                 ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
               </div>
@@ -6442,7 +6442,7 @@
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
             ${_hapIsIOS()?'<p class="gs-fine">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
             ${isStandalone()?'':`<div class="set-row-inline" id="install-row" style="margin-top:12px">${installRowInner()}</div>`}
-            <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">Join a Live Practice with a Code</button></div>
+            <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">Join a live practice with a code</button></div>
           </div>
 
           <div class="gs-card">
@@ -6450,9 +6450,9 @@
             ${gsSw('sw-glyph','state glyph on shared images',gl!=='0')}
             <p class="gs-fine">A personal touch on the cards you share: your dominant state's mark, added in the corner. Off means the cards share the reflection alone.</p>
             <div class="gs-actions" style="margin-top:14px">
-              <button class="set-quiet" id="export">Export Your Check-ins</button>
-              <button class="set-quiet" id="privacy">How Your Data Is Handled</button>
-              <button class="set-quiet" id="signout">Sign Out</button>
+              <button class="set-quiet" id="export">Export your check-ins</button>
+              <button class="set-quiet" id="privacy">How your data is handled</button>
+              <button class="set-quiet" id="signout">Sign out</button>
             </div>
           </div>
 
@@ -6460,20 +6460,20 @@
             // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
             // never worded as though the free account is deficient. 🖊 copy draft.
             if(b && b.sub_status==='active')
-              return `<div class="gs-card"><p class="gs-h">subscription</p><p class="gs-note">your subscription is active. change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">manage, change, or cancel subscription</button></div>`;
+              return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your subscription is active. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
             // legacy / Academy accounts have the whole base plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
             var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.circle)
-              return `<div class="gs-card"><p class="gs-h">your plan</p><p class="gs-note" style="margin:0">you're a co-regulator in the unstucking academy. the full app comes included with your membership, as a thank you for practicing with us. nothing to pay for here.</p></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">You're a co-regulator in the unstucking academy. The full app comes included with your membership, as a thank you for practicing with us. Nothing to pay for here.</p></div>`;
             if(ent.legacy)
-              return `<div class="gs-card"><p class="gs-h">your plan</p><p class="gs-note" style="margin:0">everything is included on your account. you were here before the base plan existed, so all of it is yours.</p></div>`;
-            return `<div class="gs-card"><p class="gs-h">subscription</p><p class="gs-note">you're on the free plan. it has no time limit.</p><button class="set-quiet" id="go-sub">subscribe &middot; monthly or annual</button></div>`; })()}
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account. You were here before the base plan existed, so all of it is yours.</p></div>`;
+            return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
 
           <div class="gs-danger">
-            <button class="set-quiet set-quiet-danger" id="reset">Reset My Data</button>
-            <button class="set-quiet set-quiet-danger" id="delacct">Delete My Account</button>
+            <button class="set-quiet set-quiet-danger" id="reset">Reset my data</button>
+            <button class="set-quiet set-quiet-danger" id="delacct">Delete my account</button>
           </div>
 
           <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
@@ -6629,7 +6629,7 @@
         <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
         <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-        <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep My Account</button>
+        <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep my account</button>
         <p class="fineprint" style="margin-top:12px;text-align:center"><button class="linkbtn" id="del-go" style="font-size:inherit;padding:2px"${busy?' disabled':''}>${busy?'deleting…':'delete my account and all of my data'}</button></p>
       </div></div>`);
     $('#del-keep').onclick = ()=>{ if(!busy) screenSettings(); };
