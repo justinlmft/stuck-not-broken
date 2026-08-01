@@ -300,8 +300,12 @@
     const paths = TRI_ORDER.map(m=>`<path d="${(I[m]&&I[m].d)||''}"></path>`).join('');
     return `<svg class="pf-mark${cls?' '+cls:''}" viewBox="${TRI_VB}" fill="currentColor" aria-hidden="true">${paths}</svg>`;
   }
-  // appended to every You-tab card by the panel builders (not hand-added per slide,
-  // so a new card can never ship without it).
+  // Appended to the SHARE CLONE only, never to the live card (Justin 2026-08-01: "remove
+  // the footer from the in-app card? i only want it on the shared version"). In the app the
+  // foot was a wordmark repeated on every card for someone who already has the app open and
+  // does not need telling; on a picture leaving for someone else's feed it is the only thing
+  // saying where this came from. Added in _shareClone, so a new card gets it for free and no
+  // slide has to remember it.
   function panelFoot(){
     return `<div class="panel-foot">${brandFootMark()}<span class="pf-nm">${BRAND_FOOT}</span></div>`;
   }
@@ -4355,6 +4359,9 @@
     c.querySelectorAll('.panel-share').forEach(e=>e.remove());
     if(!withData) c.querySelectorAll('.rc-chart,.bl-wrap,.bl-key,.cb-journey,.cb-viz,.distrows,.gr-line,.chart,canvas,svg.chart').forEach(e=>e.remove());
     _toFirstPerson(c);
+    // the brand foot lives here and nowhere else. `.panel-foot{margin-top:auto}` pins it to
+    // the square's bottom edge, exactly as it did when it sat on the card.
+    c.insertAdjacentHTML('beforeend', panelFoot());
     // The card's own 24/22px padding is right for a panel sitting in a scroll view with
     // other chrome around it. A shared picture has NO chrome — it is the whole frame — so
     // that padding reads as cramped once it is edge to edge (Justin 2026-08-01: "give it
@@ -5316,7 +5323,7 @@
             const picked = sorted.slice(0,4);
             window._youSlides = _wide ? [] : picked.map(s=>s[1]);
             if(_wide) return '';
-            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}${panelFoot()}</section>`).join('');
+            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
 
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
@@ -5390,7 +5397,7 @@
             +'<nav class="yl-list" aria-label="what your check-ins show">'
             +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+CAP(s[1])+'</span></button>').join('')
             +'</nav>'
-            +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+panelFoot()+'</section>';
+            +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
           cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
           cvEl.parentNode.insertBefore(wrap, cvEl);
           // the desktop ledger shows exactly one card at a time (not a swipe
