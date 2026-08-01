@@ -286,6 +286,26 @@
     const paths = TRI_ORDER.map(m=>`<path class="tl-m" data-m="${m}"${ink?' style="fill:var(--ink)"':' fill="'+cols[m]+'"'} d="${(I[m]&&I[m].d)||''}"></path>`).join('');
     return `<svg class="trilogo${cls?' '+cls:''}" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
   }
+  // ── the brand foot ──────────────────────────────────────────────────────────
+  // Justin 2026-08-01: "add the app's tri-glyph logo to the bottom with 'Stuck Not
+  // Broken app'... discreet, and on every card." ONE definition of the words and ONE
+  // of the lockup, shared by the DOM footer and the share-image painter, so the card
+  // and its shared picture cannot drift apart. The glyph is INK, not the colour
+  // lockup: the standing rule (Justin 2026-07-17) is that glyphs stay ink until they
+  // carry DATA, and a signature carries none. It renders with fill="currentColor" so
+  // the colour lives entirely in CSS and follows the theme.
+  const BRAND_FOOT = 'Stucknotbroken.com/app';
+  function brandFootMark(cls){
+    const I = window.SNB_ICONS||{};
+    const paths = TRI_ORDER.map(m=>`<path d="${(I[m]&&I[m].d)||''}"></path>`).join('');
+    return `<svg class="pf-mark${cls?' '+cls:''}" viewBox="${TRI_VB}" fill="currentColor" aria-hidden="true">${paths}</svg>`;
+  }
+  // appended to every You-tab card by the panel builders (not hand-added per slide,
+  // so a new card can never ship without it).
+  function panelFoot(){
+    return `<div class="panel-foot">${brandFootMark()}<span class="pf-nm">${BRAND_FOOT}</span></div>`;
+  }
+
   function stateMarks(key){
     const ax = STATE_AXES[key];
     if(!ax) return `<span class="st-dot" style="background:${STATE_COLOR(key)}"></span>`;
@@ -2900,10 +2920,10 @@
       root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
         const which=b.dataset.shareSec;
         if(which==='blog-pats' && patterns){
-          if(patterns.day){ openShare(`${patterns.day.pct}% of my ${patterns.day.label} check-ins have safety in them. ${_sig}`, { kind:'days', idx:patterns.day.idx }); return; }
-          if(patterns.shift){ openShare(`my nervous system's most common shift: ${STATE_NAME(patterns.shift.a)} to ${STATE_NAME(patterns.shift.b)}. i can see the pattern now. ${_sig}`, { kind:'path', a:patterns.shift.a, b:patterns.shift.b }); return; }
+          if(patterns.day){ openShare(`${patterns.day.pct}% of my ${patterns.day.label} check-ins have safety in them. ${_sig}`); return; }
+          if(patterns.shift){ openShare(`my nervous system's most common shift: ${STATE_NAME(patterns.shift.a)} to ${STATE_NAME(patterns.shift.b)}. i can see the pattern now. ${_sig}`); return; }
         }
-        if(which==='blog-zoom' && vizCtx.zoomPct!=null){ openShare(`my safety baseline this month. ${_sig}`, { kind:'meter', pct:vizCtx.zoomPct }); return; }
+        if(which==='blog-zoom' && vizCtx.zoomPct!=null){ openShare(`my safety baseline this month. ${_sig}`); return; }
       }));
     })();
     if(visit.wire) visit.wire();
@@ -3876,8 +3896,7 @@
         </div>
       </div>`);
     const sh=$('#lv-share'); if(sh) sh.onclick=()=>openShare(
-      s.type==='capacity-builder' ? 'I practiced capacity building today.' : 'I practiced mindfulness today.',   // 🖊 CB variant
-      { kind:'trail', rows: keyed.map(r=>({ key:r.key })) });
+      s.type==='capacity-builder' ? 'I practiced capacity building today.' : 'I practiced mindfulness today.');   // 🖊 CB variant
     $('#lv-done').onclick = ()=>{ _liveClear(); app('today'); showToast('saved with your check-ins'); };
   }
   // the "we're live" nudge: small, invitational, always rejectable, off-switch in settings.
@@ -4051,181 +4070,386 @@
   // N-4: share as the designed card — a branded 1080×1080 image (bone, state dots,
   // the line, wordmark) via the system share sheet when file-sharing is supported;
   // falls back to the text path below otherwise.
-  // brand glyphs on canvas: the tri-lockup (active marks in state color) + single marks.
-  // Path2D consumes the same SVG path data icons.js renders in-app.
-  function _cnvGlyph(x, key, cx, cy, h){
-    try{
-      const I=window.SNB_ICONS||{}; const vb=String(TRI_VB).split(/\s+/).map(Number);
-      const s=h/vb[3], w=vb[2]*s;
-      const active=(STATE_AXES[key]||[]).map(a=>a[0]);
-      x.save(); x.translate(cx-w/2, cy-h/2); x.scale(s,s); x.translate(-vb[0],-vb[1]);
-      TRI_ORDER.forEach(m=>{ const icn=I[m]; if(!icn) return;
-        x.fillStyle = active.indexOf(m)>=0 ? STATE_COLOR(key) : '#E3DFD2';
-        x.fill(new Path2D(icn.d));
-      });
-      x.restore(); return true;
-    }catch(e){ return false; }
+  // ── the share image IS the card ─────────────────────────────────────────────
+  // Justin 2026-08-01: "make sure the shareable version of the card matches the card
+  // design exactly. Right now, it is different."
+  //
+  // It used to be a bespoke 1080×1080 layout with its own type, its own signature glyph
+  // and a hand-drawn stand-in for each card's visual (`SHARE_VIZ`). Those stand-ins were
+  // the whole problem: they were written once and never moved again, so by the time of
+  // this pass the "times" card had become a bar chart while its share picture was still
+  // drawing the retired dot strip, and the safety card had become a spectrum band while
+  // its picture drew three bars. Matching them by hand would just restart that clock.
+  //
+  // So the painter no longer draws a version of the card — it PAINTS THE CARD. The panel
+  // is cloned off-screen at a fixed width, the browser lays it out, and the clone's own
+  // computed geometry is rasterised: boxes (fill, gradient, border, radius), inline SVG
+  // (including gradient fills), and text placed line box by line box using Range rects,
+  // so line breaks, weights and colours are the browser's, not a re-implementation.
+  // A new card, or a redesign of an old one, is carried for free.
+  //
+  // Why not foreignObject (the usual "just screenshot the DOM" trick): it is unreliable
+  // on iOS Safari, which is where this app is actually shared from, and it fails blank
+  // rather than loudly. This walks the DOM and draws primitives, so it works everywhere
+  // canvas does.
+  const _SS = 2.6;
+  const _sspx = (v) => Math.round(v*_SS);
+  const _SFONT = (w,px) => w+' '+_sspx(px)+'px Inter, system-ui, sans-serif';
+  // The card talks TO you; a shared picture talks ABOUT you, to someone else. So the
+  // clone is rewritten to the first person before it is painted — "Saturday is YOUR most
+  // regulated day" reads as "…is MY most regulated day" once it is on someone's feed
+  // (Justin 2026-08-01: "that makes more sense for sharing"). This is the one deliberate
+  // difference between the card and its picture, and it is only ever applied to the
+  // throwaway clone — the live card is never touched.
+  // Ordered longest-first so "yourself"/"you're"/"your" are consumed before bare "you",
+  // and object position ("to you") is handled before subject position.
+  const _FP = [
+    [/\byourselves\b/g,'ourselves'], [/\bYourselves\b/g,'Ourselves'],
+    [/\byourself\b/g,'myself'],      [/\bYourself\b/g,'Myself'],
+    [/\byou're\b/gi,"I'm"],          [/\byou've\b/gi,"I've"],
+    [/\byou'll\b/gi,"I'll"],         [/\byou'd\b/gi,"I'd"],
+    [/\byours\b/g,'mine'],           [/\bYours\b/g,'Mine'],
+    [/\byour\b/g,'my'],              [/\bYour\b/g,'My'],
+    [/\b(to|for|with|about|like|than|suits?)\s+you\b/gi, (m,w)=>w+' me'],
+    [/\byou are\b/gi,'I am'],        [/\byou were\b/gi,'I was'],
+    [/\byou\b/g,'I'],                [/\bYou\b/g,'I'],
+  ];
+  function _firstPerson(str){
+    let out=String(str);
+    _FP.forEach(([re,to])=>{ out = out.replace(re, to); });
+    return out;
   }
-  function _cnvMark(x, m, color, cx, cy, h){
-    try{
-      const icn=(window.SNB_ICONS||{})[m]; if(!icn) return false;
-      const vb=icn.vb.split(/\s+/).map(Number); const s=h/vb[3], w=vb[2]*s;
-      x.save(); x.translate(cx-w/2, cy-h/2); x.scale(s,s); x.translate(-vb[0],-vb[1]);
-      x.fillStyle=color; x.fill(new Path2D(icn.d)); x.restore(); return true;
-    }catch(e){ return false; }
+  function _toFirstPerson(root){
+    const tw=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let n; const hits=[];
+    while((n=tw.nextNode())) hits.push(n);
+    hits.forEach(n=>{ const v=n.nodeValue; if(!v || !/you|your/i.test(v)) return;
+      const nv=_firstPerson(v); if(nv!==v) n.nodeValue=nv; });
   }
-  // draws a card's visual onto the share canvas; returns the y where text may begin.
-  // everything left-aligned at the shared margin, like the app (Justin 2026-07-05)
-  const _SHL = 120;   // share-card left margin
-  function _shareViz(x, W, viz){
-    const L=_SHL;
-    const rr=(bx,by,bw,bh,r)=>{ x.beginPath(); x.moveTo(bx+r,by); x.arcTo(bx+bw,by,bx+bw,by+bh,r); x.arcTo(bx+bw,by+bh,bx,by+bh,r); x.arcTo(bx,by+bh,bx,by,r); x.arcTo(bx,by,bx+bw,by,r); x.closePath(); };
-    if(viz.kind==='meter'){
-      x.fillStyle='#1A1F2A'; x.font='500 170px Inter, system-ui, sans-serif'; x.textAlign='left';
-      x.fillText(viz.big || (viz.pct+'%'), L, 320);
-      if(viz.pct!=null){
-        const bw=W-2*L, by=360;
-        x.fillStyle='#F0EEE7'; rr(L,by,bw,28,14); x.fill();
-        x.fillStyle='#F4D58D'; rr(L,by,Math.max(28,bw*viz.pct/100),28,14); x.fill();
-        return 490;
-      }
-      return 400;
+  function _shareTokens(){
+    let cs=null; try{ cs=getComputedStyle(document.documentElement); }catch(e){}
+    const g=(n,f)=>{ try{ return ((cs&&cs.getPropertyValue(n))||'').trim()||f; }catch(e){ return f; } };
+    return { bone:g('--bone','#FAF9F5'), boneDeep:g('--bone-deep','#F0EEE7'),
+             hairline:g('--hairline','#D8D2C2'), ink:g('--ink','#1A1F2A'),
+             ink80:g('--ink-80','#3A3F4A'), muted:g('--muted','#4E4A41') };
+  }
+  function _rr(x,bx,by,bw,bh,r){
+    const R = Array.isArray(r) ? r : [r,r,r,r];
+    const m = Math.min(bw,bh)/2;
+    const c = R.map(v=>Math.max(0,Math.min(v,m)));
+    x.beginPath();
+    x.moveTo(bx+c[0],by);
+    x.lineTo(bx+bw-c[1],by); x.arcTo(bx+bw,by,bx+bw,by+c[1],c[1]);
+    x.lineTo(bx+bw,by+bh-c[2]); x.arcTo(bx+bw,by+bh,bx+bw-c[2],by+bh,c[2]);
+    x.lineTo(bx+c[3],by+bh); x.arcTo(bx,by+bh,bx,by+bh-c[3],c[3]);
+    x.lineTo(bx,by+c[0]); x.arcTo(bx,by,bx+c[0],by,c[0]);
+    x.closePath();
+  }
+  const _isPaint = (c) => !!c && c!=='none' && c!=='transparent' && !/rgba\([^)]*,\s*0\s*\)$/.test(c);
+  const _px = (v) => parseFloat(v)||0;
+  // computed background-image -> a canvas gradient across the element's box.
+  // Chrome normalises to `linear-gradient(<deg>deg, rgb(..) <pos>, ...)`; the `to right`
+  // and bare-two-colour forms are handled too.
+  function _cnvGradient(x, img, X, Y, W, H){
+    if(!img || img.indexOf('linear-gradient')<0) return null;
+    const inner = img.slice(img.indexOf('linear-gradient(')+16, img.lastIndexOf(')'));
+    const parts=[]; let depth=0, cur='';
+    for(const ch of inner){
+      if(ch==='(') depth++; if(ch===')') depth--;
+      if(ch===',' && !depth){ parts.push(cur.trim()); cur=''; } else cur+=ch;
     }
-    if(viz.kind==='trail'){
-      // live practice results (redesigned with Justin 2026-07-17): each state as its
-      // OWN mark(s) in the state color, a hairline arrow between reads, no labels —
-      // the arrow tells the story. rows=[{key}], 2 (MM) to 4 (CB).
-      const rows=viz.rows||[]; const n=rows.length; if(!n) return 260;
-      const y=310, mh=(n>2?100:150), mgap=Math.round(mh*.14), arrW=(n>2?64:96), agap=(n>2?22:34);
-      const marksOf=k=>(STATE_AXES[k]||[]).map(a=>a[0]);
-      const wOf=k=>{ const ms=marksOf(k); return ms.length*mh + (ms.length-1)*mgap; };
-      const total=rows.reduce((t,r)=>t+wOf(r.key),0) + (n-1)*(arrW+2*agap);
-      let cx=(W-total)/2;
-      rows.forEach((r,i)=>{
-        const ms=marksOf(r.key), col=STATE_COLOR(r.key);
-        ms.forEach((m,mi)=>{ _cnvMark(x, m, col, cx+mh/2+mi*(mh+mgap), y, mh); });
-        cx+=wOf(r.key);
-        if(i<n-1){
-          const ax0=cx+agap, ax1=ax0+arrW;
-          x.strokeStyle='#D8D2C2'; x.lineWidth=8; x.lineCap='round'; x.lineJoin='round';
-          x.beginPath(); x.moveTo(ax0,y); x.lineTo(ax1-16,y); x.stroke();
-          x.beginPath(); x.moveTo(ax1-30,y-15); x.lineTo(ax1-8,y); x.lineTo(ax1-30,y+15); x.stroke();
-          cx+=arrW+2*agap;
+    if(cur.trim()) parts.push(cur.trim());
+    let deg=180;
+    if(/^[-\d.]+deg$/.test(parts[0])){ deg=parseFloat(parts.shift()); }
+    else if(/^to\s/.test(parts[0])){ const d=parts.shift();
+      deg = /right/.test(d) ? 90 : /left/.test(d) ? 270 : /top/.test(d) ? 0 : 180; }
+    const stops = parts.map(s=>{
+      const mm = s.match(/^(.*?)(?:\s+([-\d.]+)%)?$/);
+      return { c:(mm&&mm[1]||s).trim(), p:(mm&&mm[2]!=null)?parseFloat(mm[2])/100:null };
+    }).filter(s=>_isPaint(s.c));
+    if(stops.length<2) return null;
+    stops.forEach((s,i)=>{ if(s.p==null) s.p = i/(stops.length-1); });
+    // css angle: 0deg points up, clockwise. project onto the box.
+    const rad=(deg-90)*Math.PI/180, cx=X+W/2, cy=Y+H/2;
+    const L=(Math.abs(W*Math.cos(rad))+Math.abs(H*Math.sin(rad)))/2;
+    const g=x.createLinearGradient(cx-Math.cos(rad)*L, cy-Math.sin(rad)*L, cx+Math.cos(rad)*L, cy+Math.sin(rad)*L);
+    stops.forEach(s=>{ try{ g.addColorStop(Math.max(0,Math.min(1,s.p)), s.c); }catch(e){} });
+    return g;
+  }
+  // paints one inline <svg> — every path/rect/circle in it — into the box the browser
+  // gave that svg. Honours viewBox, preserveAspectRatio (meet | none) and url(#grad) fills.
+  function _cnvSvg(x, svg, X, Y, W, H){
+    let vb=(svg.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);
+    if(vb.length!==4 || vb.some(isNaN)) vb=[0,0,W,H];
+    const none = (svg.getAttribute('preserveAspectRatio')||'').indexOf('none')>=0;
+    let sx=W/vb[2], sy=H/vb[3], tx=X, ty=Y;
+    if(!none){ const s=Math.min(sx,sy); tx=X+(W-vb[2]*s)/2; ty=Y+(H-vb[3]*s)/2; sx=sy=s; }
+    const map=(px,py)=>[tx+(px-vb[0])*sx, ty+(py-vb[1])*sy];
+    const paint=(el,spec)=>{   // el is needed for objectBoundingBox gradients
+      if(!spec || spec==='none') return null;
+      const um=String(spec).match(/url\(["']?#([^"')]+)["']?\)/);
+      if(!um) return _isPaint(spec) ? spec : null;
+      const gd=svg.querySelector('#'+CSS.escape(um[1]));
+      if(!gd) return null;
+      const stops=[...gd.querySelectorAll('stop')].map(st=>({
+        o:parseFloat(st.getAttribute('offset')||'0'),
+        c:(getComputedStyle(st).stopColor||st.getAttribute('stop-color')||'#000') }));
+      if(!stops.length) return null;
+      // the paths are filled with the canvas transformed INTO viewBox space, so the
+      // gradient's coordinates must be in viewBox space too — mapping them to canvas
+      // pixels first (the first cut) collapsed the arrow to one flat colour.
+      const ubb = (gd.getAttribute('gradientUnits')||'objectBoundingBox')!=='userSpaceOnUse';
+      let bb={x:vb[0],y:vb[1],w:vb[2],h:vb[3]};
+      if(ubb){ try{ const bx=el.getBBox(); if(bx && bx.width) bb={x:bx.x,y:bx.y,w:bx.width,h:bx.height}; }catch(e){} }
+      const gx=(v,d,ax)=>{ const n=parseFloat(v==null?d:v);
+        if(!ubb) return n;
+        return (ax==='x'? bb.x+bb.w*n : bb.y+bb.h*n); };
+      const g=x.createLinearGradient(
+        gx(gd.getAttribute('x1'), ubb?'0':String(vb[0]), 'x'),
+        gx(gd.getAttribute('y1'), ubb?'0':String(vb[1]), 'y'),
+        gx(gd.getAttribute('x2'), ubb?'1':String(vb[0]+vb[2]), 'x'),
+        gx(gd.getAttribute('y2'), ubb?'0':String(vb[1]), 'y'));
+      stops.forEach(s=>{ try{ g.addColorStop(Math.max(0,Math.min(1,s.o)), s.c); }catch(e){} });
+      return g;
+    };
+    x.save();
+    x.setTransform(sx,0,0,sy, tx-vb[0]*sx, ty-vb[1]*sy);
+    svg.querySelectorAll('path,circle,rect,line,polyline,polygon,ellipse').forEach(el=>{
+      const cs=getComputedStyle(el);
+      if(cs.display==='none'||cs.visibility==='hidden') return;
+      let p=null;
+      try{
+        const tag=el.tagName.toLowerCase();
+        if(tag==='path') p=new Path2D(el.getAttribute('d')||'');
+        else{
+          p=new Path2D();
+          if(tag==='circle') p.arc(+el.getAttribute('cx')||0, +el.getAttribute('cy')||0, +el.getAttribute('r')||0, 0, 7);
+          else if(tag==='ellipse') p.ellipse(+el.getAttribute('cx')||0, +el.getAttribute('cy')||0, +el.getAttribute('rx')||0, +el.getAttribute('ry')||0, 0,0,7);
+          else if(tag==='rect') p.rect(+el.getAttribute('x')||0, +el.getAttribute('y')||0, +el.getAttribute('width')||0, +el.getAttribute('height')||0);
+          else if(tag==='line'){ p.moveTo(+el.getAttribute('x1')||0,+el.getAttribute('y1')||0); p.lineTo(+el.getAttribute('x2')||0,+el.getAttribute('y2')||0); }
+          else{ const pts=(el.getAttribute('points')||'').trim().split(/[\s,]+/).map(Number);
+                for(let i=0;i+1<pts.length;i+=2){ i?p.lineTo(pts[i],pts[i+1]):p.moveTo(pts[i],pts[i+1]); }
+                if(tag==='polygon') p.closePath(); }
         }
-      });
-      return y+mh/2+70;
-    }
-    if(viz.kind==='path'){
-      // a/b are STATE KEYS: endpoints render ONLY the state's own active marks
-      const y=300, x1=L+90, x2=W-L-90;
-      const ca=STATE_COLOR(viz.a), cb=STATE_COLOR(viz.b);
-      const g=x.createLinearGradient(x1,0,x2,0); g.addColorStop(0,ca); g.addColorStop(1,cb);
-      x.strokeStyle=g; x.lineWidth=7; x.beginPath(); x.moveTo(x1+100,y); x.lineTo(x2-100,y); x.stroke();
-      const marks=(k,cx)=>{ const ax=(STATE_AXES[k]||[]).map(a=>a[0]); const h=72, gap=14;
-        let tw=0; const ws=ax.map(m=>{ const vb=(window.SNB_ICONS[m].vb).split(/\s+/).map(Number); const w=h*vb[2]/vb[3]; tw+=w; return w; }); tw+=gap*(ax.length-1);
-        let px=cx-tw/2;
-        const ok=ax.every((m,i)=>{ const r=_cnvMark(x,m,STATE_COLOR(k),px+ws[i]/2,y,h); px+=ws[i]+gap; return r; });
-        if(!ok){ x.fillStyle=STATE_COLOR(k); x.beginPath(); x.arc(cx,y,34,0,7); x.fill(); }
-      };
-      marks(viz.a,x1); marks(viz.b,x2);
-      return 460;
-    }
-    if(viz.kind==='days'){
-      const lbs=['s','m','t','w','t','f','s'], y=300, gap=112, x0=L+30;
-      lbs.forEach((lb,i)=>{
-        const on=i===viz.idx;
-        if(on){ if(!_cnvMark(x,'heart','#F4D58D',x0+i*gap,y,64)){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,34,0,7); x.fill(); } }
-        else { x.fillStyle='#F0EEE7'; x.beginPath(); x.arc(x0+i*gap,y,22,0,7); x.fill(); }
-        x.fillStyle='#5E5A4E'; x.font='400 30px Inter, system-ui, sans-serif'; x.textAlign='center';
-        x.fillText(lb, x0+i*gap, y+92);
-      });
-      return 480;
-    }
-    if(viz.kind==='streak'){
-      const y=300, gap=64, x0=L+22;
-      for(let i=0;i<viz.n;i++){ x.fillStyle='#F4D58D'; x.beginPath(); x.arc(x0+i*gap,y,22,0,7); x.fill(); }
-      return 380;
-    }
-    if(viz.kind==='bars'){
-      const bw=W-2*L-110; let by=260;
-      viz.rows.slice(0,3).forEach(r=>{
-        x.fillStyle='#F0EEE7'; rr(L,by,bw,26,13); x.fill();
-        x.fillStyle=r.color; rr(L,by,Math.max(26,bw*r.pct/100),26,13); x.fill();
-        x.fillStyle='#5E5A4E'; x.font='400 28px Inter, system-ui, sans-serif'; x.textAlign='left';
-        x.fillText(r.pct+'%', L+bw+18, by+23);
-        by+=72;
-      });
-      return by+60;
-    }
-    return null;
+      }catch(e){ return; }
+      const op=parseFloat(cs.opacity); if(!isNaN(op) && op<1) x.globalAlpha=op;
+      const f=paint(el, cs.fill); if(f){ x.fillStyle=f; x.fill(p, cs.fillRule==='evenodd'?'evenodd':'nonzero'); }
+      const st=paint(el, cs.stroke), sw=_px(cs.strokeWidth);
+      if(st && sw>0){ x.strokeStyle=st; x.lineWidth=sw;
+        x.lineCap=cs.strokeLinecap||'butt'; x.lineJoin=cs.strokeLinejoin||'miter'; x.stroke(p); }
+      x.globalAlpha=1;
+    });
+    x.restore();
   }
-  async function shareCardImage(txt, viz){
+  // every text node, split into its real line boxes via Range rects — so the picture
+  // breaks lines exactly where the card does, in the same weight and colour.
+  function _cnvText(x, root, O, S){
+    const tw=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    let n;
+    while((n=tw.nextNode())){
+      const raw=n.nodeValue; if(!raw || !raw.trim()) continue;
+      const par=n.parentElement; if(!par) continue;
+      const cs=getComputedStyle(par);
+      if(cs.display==='none'||cs.visibility==='hidden'||parseFloat(cs.opacity)===0) continue;
+      const fs=_px(cs.fontSize);
+      const font=(cs.fontStyle&&cs.fontStyle!=='normal'?cs.fontStyle+' ':'')+cs.fontWeight+' '+fs+'px '+cs.fontFamily;
+      // The string for a line is accumulated from exactly the characters the browser
+      // gave a real box to — never sliced by index and never trimmed. Whitespace that
+      // the browser COLLAPSED (a space at a line edge) has a zero-size rect and is
+      // dropped; whitespace it KEPT (the space before a bold word) has a real rect and
+      // is kept. Slicing-then-trimming instead, as the first cut did, deleted spaces
+      // that were genuinely there and welded "most" onto "playful".
+      const r=document.createRange();
+      const lines=[]; let cur=null;
+      for(let i=0;i<raw.length;i++){
+        let rect=null;
+        try{ r.setStart(n,i); r.setEnd(n,i+1); rect=r.getBoundingClientRect(); }catch(e){ continue; }
+        if(!rect || (!rect.width && !rect.height)) continue;
+        if(!cur || Math.abs(rect.top-cur.top)>1){
+          if(cur) lines.push(cur);
+          cur={t:raw[i], top:rect.top, bottom:rect.bottom, left:rect.left, right:rect.right};
+        } else { cur.t+=raw[i]; cur.right=Math.max(cur.right,rect.right);
+                 cur.bottom=Math.max(cur.bottom,rect.bottom); cur.left=Math.min(cur.left,rect.left); }
+      }
+      if(cur) lines.push(cur);
+      if(!lines.length) continue;
+      const op=parseFloat(cs.opacity);
+      x.save();
+      if(!isNaN(op) && op<1) x.globalAlpha=op;
+      x.fillStyle=cs.color; x.textAlign='left'; x.textBaseline='middle';
+      x.font=(cs.fontWeight+' '+Math.round(fs*S)+'px '+cs.fontFamily);
+      lines.forEach(L=>{
+        const str=L.t;
+        if(!str) return;
+        const tx=O.x+(L.left-O.l)*S, ty=O.y+((L.top+L.bottom)/2-O.t)*S;
+        // Canvas metrics and the browser's own layout do not agree exactly (hinting,
+        // kerning, the rounding in the scaled font size), and the error ACCUMULATES
+        // across a line — enough that "is your most " overran the start of the next
+        // text node and ate the space before a bold word. Pinning each line to the
+        // width the browser actually gave it removes the drift entirely, so adjacent
+        // text nodes can neither collide nor drift apart.
+        const target=(L.right-L.left)*S, m=x.measureText(str).width;
+        const k=(m>0 && target>0) ? Math.max(0.7, Math.min(1.35, target/m)) : 1;
+        x.save(); x.translate(tx,ty); if(k!==1) x.scale(k,1); x.fillText(str,0,0); x.restore();
+      });
+      x.restore();
+    }
+  }
+  // boxes: background colour, background gradient, border, radius — in tree order.
+  function _cnvBoxes(x, root, O, S){
+    (function walk(el){
+      const cs=getComputedStyle(el);
+      if(cs.display==='none'||cs.visibility==='hidden') return;
+      const op=parseFloat(cs.opacity); if(op===0) return;
+      const r=el.getBoundingClientRect();
+      const X=O.x+(r.left-O.l)*S, Y=O.y+(r.top-O.t)*S, W=r.width*S, H=r.height*S;
+      if(el.tagName.toLowerCase()==='svg'){ if(W>0&&H>0){ x.save(); if(op<1) x.globalAlpha=op; _cnvSvg(x, el, X, Y, W, H); x.restore(); } return; }
+      if(W>0 && H>0){
+        x.save(); if(op<1) x.globalAlpha=op;
+        const rad=['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius'].map(k=>_px(cs[k])*S);
+        if(_isPaint(cs.backgroundColor)){ x.fillStyle=cs.backgroundColor; _rr(x,X,Y,W,H,rad); x.fill(); }
+        const g=_cnvGradient(x, cs.backgroundImage, X, Y, W, H);
+        if(g){ x.fillStyle=g; _rr(x,X,Y,W,H,rad); x.fill(); }
+        const bw=['borderTopWidth','borderRightWidth','borderBottomWidth','borderLeftWidth'].map(k=>_px(cs[k]));
+        const bc=['borderTopColor','borderRightColor','borderBottomColor','borderLeftColor'].map(k=>cs[k]);
+        const bs=['borderTopStyle','borderRightStyle','borderBottomStyle','borderLeftStyle'].map(k=>cs[k]);
+        const uniform = bw.every(v=>v===bw[0]) && bc.every(v=>v===bc[0]) && bs.every(v=>v===bs[0]);
+        if(uniform && bw[0]>0 && bs[0]!=='none' && _isPaint(bc[0])){
+          x.strokeStyle=bc[0]; x.lineWidth=bw[0]*S;
+          if(bs[0]==='dashed') x.setLineDash([bw[0]*S*3, bw[0]*S*2]);
+          _rr(x, X+bw[0]*S/2, Y+bw[0]*S/2, W-bw[0]*S, H-bw[0]*S, rad.map(v=>Math.max(0,v-bw[0]*S/2))); x.stroke();
+          x.setLineDash([]);
+        } else {
+          const seg=[[X,Y,X+W,Y],[X+W,Y,X+W,Y+H],[X,Y+H,X+W,Y+H],[X,Y,X,Y+H]];
+          bw.forEach((w,i)=>{ if(w>0 && bs[i]!=='none' && _isPaint(bc[i])){
+            x.strokeStyle=bc[i]; x.lineWidth=w*S; x.beginPath();
+            x.moveTo(seg[i][0],seg[i][1]); x.lineTo(seg[i][2],seg[i][3]); x.stroke(); } });
+        }
+        x.restore();
+      }
+      [...el.children].forEach(walk);
+    })(root);
+  }
+  // clone the panel off-screen so we can lay it out at a width that suits a square
+  // picture without disturbing what the user is looking at. `.panel-in` is dropped:
+  // the base rules (see app.css, the rcGrow/cbHeroGIn blocks) are deliberately the
+  // FINAL state with no hidden start, so the clone is fully drawn the instant it lands.
+  // The picture is SQUARE and the card's contents adapt to fill it (Justin 2026-08-01:
+  // "let's not place the card inside of the square. Let the contents adapt to the square
+  // instead. same layout, but the rounded corners are not going to work"). So the clone is
+  // laid out in a SQUARE box, not at a card's natural proportions: same stylesheet, same
+  // order, same type ramp, but the box it flows into is 1:1. `.panel-foot{margin-top:auto}`
+  // still pins the foot to the bottom edge, so the layout reads exactly as it does in-app —
+  // it just has a square to breathe into. The card's own frame (radius + hairline) is
+  // dropped: at full bleed a border would just trace the image edge.
+  //
+  // Choosing the side length: a wider box wraps the text into fewer lines, so content
+  // height falls as the side grows — monotone enough to bisect. Find the smallest square
+  // the content actually fits in, so type stays as large as it can be.
+  function _shareClone(panel, withData){
+    const host=document.createElement('div');
+    host.className='share-clone-host';
+    host.setAttribute('style','position:fixed;left:-99999px;top:0;z-index:-1;pointer-events:none');
+    const c=panel.cloneNode(true);
+    c.classList.remove('panel-in');
+    c.querySelectorAll('.panel-share').forEach(e=>e.remove());
+    if(!withData) c.querySelectorAll('.rc-chart,.bl-wrap,.bl-key,.cb-journey,.cb-viz,.distrows,.gr-line,.chart,canvas,svg.chart').forEach(e=>e.remove());
+    _toFirstPerson(c);
+    // The card's own 24/22px padding is right for a panel sitting in a scroll view with
+    // other chrome around it. A shared picture has NO chrome — it is the whole frame — so
+    // that padding reads as cramped once it is edge to edge (Justin 2026-08-01: "give it
+    // more visual spacing in the margins"). Padding is set as a FRACTION of the square's
+    // side, so the margin scales with the picture instead of being a fixed guess, and it
+    // is applied inside the bisection because it changes how the text wraps.
+    const base='flex:0 0 auto;margin:0;border-radius:0;border:0;box-shadow:none;';
+    const styleAt=(w,h)=>base+'width:'+w+'px;height:'+h+';padding:'+Math.round(w*0.095)+'px '+Math.round(w*0.085)+'px;';
+    c.setAttribute('style', styleAt(420,'auto'));
+    host.appendChild(c); document.body.appendChild(host);
+    // bisect for the smallest square side that holds the content
+    let lo=320, hi=820, side=hi;
+    for(let i=0;i<8;i++){
+      const mid=Math.round((lo+hi)/2);
+      c.setAttribute('style', styleAt(mid,'auto'));
+      if(c.scrollHeight<=mid){ side=mid; hi=mid-1; } else { lo=mid+1; }
+      if(lo>hi) break;
+    }
+    c.setAttribute('style', styleAt(side, side+'px'));
+    return {host, card:c};
+  }
+  async function shareCardImage(txt, panel){
+    let clone=null;
     try{
-      // the canvas only uses Inter if it's actually loaded — otherwise it silently
-      // falls back and the card "loses the styling" (Justin 2026-07-05). load first.
-      try{ if(document.fonts && document.fonts.load){ await Promise.all(['500 54px Inter','500 170px Inter','400 30px Inter','400 26px Inter','500 34px Inter'].map(f=>document.fonts.load(f))); } }catch(_){}
+      try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(_){}
+      const T=_shareTokens();
       const W=1080,H=1080,cv=document.createElement('canvas'); cv.width=W; cv.height=H;
       const x=cv.getContext('2d'); if(!x) return false;
-      x.fillStyle='#FAF9F5'; x.fillRect(0,0,W,H);
-      x.strokeStyle='#D8D2C2'; x.lineWidth=3; x.strokeRect(48,48,W-96,H-96);
-      const L=_SHL;
-      const vizBottom = viz ? _shareViz(x, W, viz) : null;
-      // adaptive text block: left-aligned like the app; shrink type until the whole
-      // message fits above the signature + footer — lines never collide.
-      // NOTE the regex must NOT eat the sentence's final period (that was the
-      // missing-period bug on shared cards, Justin 2026-07-05).
-      x.fillStyle='#1A1F2A'; x.textAlign='left';
-      const body=String(txt).replace(/\s*stuck not broken( · app\.stucknotbroken\.com)?\s*$/i,'').trim();
-      const wrap=(fs)=>{
-        x.font='500 '+fs+'px Inter, system-ui, sans-serif';
-        const words=body.split(/\s+/), out=[]; let line='';
-        words.forEach(w=>{ const t=line?line+' '+w:w; if(x.measureText(t).width>W-2*L&&line){ out.push(line); line=w; } else line=t; });
-        if(line) out.push(line);
-        return out;
-      };
-      const top = vizBottom ? vizBottom+56 : 260;
-      const bottomLimit = H-330;                          // room for the glyph signature + footer below
-      let fs=54, lh=Math.round(54*1.42), lines=wrap(fs);
-      while(lines.length*lh > (bottomLimit-top) && fs>34){ fs-=4; lh=Math.round(fs*1.42); lines=wrap(fs); }
-      const maxL=Math.max(1, Math.floor((bottomLimit-top)/lh));
-      if(lines.length>maxL){ lines=lines.slice(0,maxL); lines[maxL-1]=lines[maxL-1].replace(/\s+\S*$/,'')+'…'; }
-      const blockH=lines.length*lh;
-      const startY = (vizBottom ? top : Math.max(top,(bottomLimit+top-blockH)/2)) + Math.round(lh*0.75);
-      x.font='500 '+fs+'px Inter, system-ui, sans-serif';
-      lines.forEach((l,i)=>x.fillText(l,L,startY+i*lh));
-      // the user's state glyph sits UNDER the declaration — a signature (Justin
-      // 2026-07-05). optional via settings; falls back to the small brand dots.
-      const sigY = startY - Math.round(lh*0.75) + blockH + 58;
-      let drewGlyph=false;
-      try{
-        if(localStorage.getItem('snb_share_glyph')!=='0'){
-          // the signature is the state the body keeps coming back to: the most
-          // common state over a trailing 90-day window, recomputed at share time
-          // so it moves with every check-in (Justin 2026-07-05). thin window
-          // falls back to all-time so new accounts still get a signature.
-          const _cut=Date.now()-90*864e5;
-          let _arr=Store.checkins().filter(c=>c.dom&&c.dom!=='neutral'&&c.t>=_cut);
-          if(!_arr.length) _arr=Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');
-          const m={}; _arr.forEach(c=>{ m[c.dom]=(m[c.dom]||0)+1; });
-          const idKey=Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
-          if(idKey){ const vb=String(TRI_VB).split(/\s+/).map(Number); const gw=52*vb[2]/vb[3]; drewGlyph=_cnvGlyph(x, idKey, L+gw/2, sigY, 52); }
+      x.fillStyle=T.bone; x.fillRect(0,0,W,H);
+      if(panel){
+        // the "your data on shared images" switch (Settings → Your data) used to hide a
+        // bespoke signature glyph that no longer exists. It now governs the thing that
+        // actually carries personal data: the card's reading. Words and design still go.
+        let withData=true; try{ withData = localStorage.getItem('snb_share_glyph')!=='0'; }catch(e){}
+        clone=_shareClone(panel, withData);
+        await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+        const r=clone.card.getBoundingClientRect();
+        if(r.width>0 && r.height>0){
+          // full bleed: the clone is already square, so it maps 1:1 onto the canvas.
+          const S=Math.min(W/r.width, H/r.height);
+          const O={ l:r.left, t:r.top, x:(W-r.width*S)/2, y:(H-r.height*S)/2 };
+          _cnvBoxes(x, clone.card, O, S);
+          _cnvText(x, clone.card, O, S);
+          clone.host.remove(); clone=null;
+          const blob=await new Promise(r2=>cv.toBlob(r2,'image/png'));
+          if(!blob) return false;
+          const file=new File([blob],'stuck-not-broken.png',{type:'image/png'});
+          // the picture says it all; no canned caption is attached to a card share.
+          if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file]}); return true; }
+          return false;
         }
-      }catch(e){}
-      if(!drewGlyph) ['#F4D58D','#E89B9B','#A3C0DD'].forEach((c,i)=>{ x.fillStyle=c; x.beginPath(); x.arc(L+12+i*36,sigY,11,0,7); x.fill(); });
-      x.textAlign='left';
-      x.fillStyle='#5E5A4E'; x.font='500 34px Inter, system-ui, sans-serif';
-      x.fillText('the Stuck Not Broken app',L,H-186);
-      x.fillStyle='#928F87'; x.font='400 26px Inter, system-ui, sans-serif';
-      x.fillText('download at stucknotbroken.com/stuck',L,H-138);
+        clone.host.remove(); clone=null;
+      }
+      // no card in hand (the week card, the live-practice popup, the pattern shares):
+      // a plain card in the same clothes — bone, hairline, the sentence, the brand foot.
+      const CX=100, CY=100, CW=W-200, CH=H-200, padX=_sspx(22), padY=_sspx(24), innerW=CW-2*padX;
+      x.fillStyle=T.bone; _rr(x,CX,CY,CW,CH,_sspx(16)); x.fill();
+      x.strokeStyle=T.hairline; x.lineWidth=_sspx(1); _rr(x,CX,CY,CW,CH,_sspx(16)); x.stroke();
+      const body=String(txt||'').replace(/\s*stuck not broken( · (app\.)?stucknotbroken\.com(\/stuck)?)?\s*$/i,'').trim();
+      const fs=21, lh=Math.round(_sspx(fs)*1.45);
+      x.font=_SFONT('500',fs); x.fillStyle=T.ink; x.textAlign='left'; x.textBaseline='alphabetic';
+      const words=body.split(/\s+/).filter(Boolean), lines=[]; let line='';
+      words.forEach(w=>{ const t=line?line+' '+w:w;
+        if(x.measureText(t).width>innerW && line){ lines.push(line); line=w; } else line=t; });
+      if(line) lines.push(line);
+      lines.slice(0,10).forEach((l,i)=>x.fillText(l, CX+padX, CY+padY+lh*0.78+i*lh));
+      const fh=_sspx(13), fy=CY+CH-padY-fh;
+      const vb=String(TRI_VB).split(/\s+/).map(Number), sc=fh/vb[3], gw=vb[2]*sc, I=window.SNB_ICONS||{};
+      x.save(); x.globalAlpha=0.7;
+      x.save(); x.translate(CX+padX, fy); x.scale(sc,sc); x.translate(-vb[0],-vb[1]);
+      x.fillStyle=T.muted; TRI_ORDER.forEach(m=>{ const ic=I[m]; if(ic) x.fill(new Path2D(ic.d)); });
+      x.restore();
+      x.fillStyle=T.muted; x.font=_SFONT('400',11);
+      x.fillText(BRAND_FOOT, CX+padX+gw+_sspx(7), fy+fh*0.85);
+      x.restore();
       const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
       if(!blob) return false;
       const file=new File([blob],'stuck-not-broken.png',{type:'image/png'});
       if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], text:txt}); return true; }
-    }catch(e){ if(e && e.name==='AbortError') return true; }   // user closed the sheet: done
+    }catch(e){ if(e && e.name==='AbortError') return true; }
+    finally{ try{ if(clone && clone.host) clone.host.remove(); }catch(e){} }
     return false;
   }
-  function openShare(txt, viz){
-    shareCardImage(txt, viz).then(ok=>{ if(!ok) _openShareText(txt); });
+  function openShare(txt, panel){
+    shareCardImage(txt, panel).then(ok=>{ if(!ok) _openShareText(txt || _cardWords(panel)); });
+  }
+  // the card's own words, in the first person — used only when the device cannot share a
+  // file at all, so the text sheet still says something true rather than nothing.
+  function _cardWords(panel){
+    if(!panel) return 'Stuck Not Broken · stucknotbroken.com/app';
+    const pick=(sel)=>{ const e=panel.querySelector(sel); return e ? e.textContent.replace(/\s+/g,' ').trim() : ''; };
+    const head=[pick('.panel-title'), pick('.rc-hero-word'), pick('.rc-hero-title')].filter(Boolean).join(' ');
+    const line=pick('.cb-line-lead')||pick('.cb-line')||pick('.panel-sub');
+    const body=[head, line].filter(Boolean).join(' — ');
+    return (_firstPerson(body||'My nervous system, over time.')+' · stucknotbroken.com/app').trim();
   }
   function _openShareText(txt){
     const url=location.href;
@@ -5092,7 +5316,7 @@
             const picked = sorted.slice(0,4);
             window._youSlides = _wide ? [] : picked.map(s=>s[1]);
             if(_wide) return '';
-            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
+            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}${panelFoot()}</section>`).join('');
           })()}</div>
 
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
@@ -5166,7 +5390,7 @@
             +'<nav class="yl-list" aria-label="what your check-ins show">'
             +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+CAP(s[1])+'</span></button>').join('')
             +'</nav>'
-            +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
+            +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+panelFoot()+'</section>';
           cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
           cvEl.parentNode.insertBefore(wrap, cvEl);
           // the desktop ledger shows exactly one card at a time (not a swipe
@@ -5200,39 +5424,14 @@
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
       // state chips filter the data rows (dim non-matching); range change re-renders and resets to all
       (function(){ const fb=c.querySelector('#you-filter'); if(!fb) return; const chips=fb.querySelectorAll('.you-chip'); const rows=c.querySelectorAll('.deep-row[data-state]'); chips.forEach(ch=>ch.addEventListener('click',()=>{ const f=ch.dataset.f; chips.forEach(x=>x.classList.toggle('on',x===ch)); rows.forEach(r=>{ const ds=r.getAttribute('data-state'); r.classList.toggle('dim', f!=='all' && ds!==f); }); })); })();
-      // per-card share text — each card shares what IT shows, in a hopeful register
-      const _topNm = ({play:'regulated mobility',stillness:'regulated immobility'}[topState])||STATE_NAME(topState||'safety');
-      const _sig = 'Stuck Not Broken · stucknotbroken.com/stuck';
-      // share copy never repeats the number the visual already shows (Justin 2026-07-05: "redundant").
-      const SHARE_TXT = {
-        safety:  `The states I spend the most time in lately. I'm learning my nervous system's language. ${_sig}`,
-        mix:     `My state mix lately. I'm mapping my nervous system, state by state. ${_sig}`,
-        comeback:`After a dip, my nervous system finds its way back to safety. ${_sig}`,
-        day:     `My safety over time, and how far it's come since I started. ${_sig}`,
-        practice:`I'm tracking whether practice actually moves my nervous system. The data is answering. ${_sig}`,
-        states:  `My states over time, period by period. ${_sig}`,
-        times:   wd?`${wd.pct}% of my ${wd.label} check-ins have safety in them. ${_sig}`:'',
-        daypart: dp?`${dp.pct}% of my ${dp.seg} check-ins have safety in them. ${_sig}`:'',
-        shift:   trn?`My nervous system's most common shift: ${STATE_NAME(trn.a)} to ${STATE_NAME(trn.b)}. I can see the pattern now. ${_sig}`:'',
-        flavors: (fl&&fl.length)?`My safety comes in flavors. Lately it's mostly ${fl[0].label}. ${_sig}`:'',
-        context: ce?`Safety in my weeks tagged “${ce.label}”, next to a typical week. ${_sig}`:'',
-        started: growthHead?`How far I've come since I started. ${_sig}`:'',
-      };
-      // each share image carries the card's visual, not just words
-      const SHARE_VIZ = {
-        safety:  { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
-        day:     { kind:'meter', pct:safetyPct },
-        comeback:rec?{ kind:'path', a:(dip||'fightflight'), b:'safety' }:null,
-        times:   wd?{ kind:'days', idx:wd.idx }:null,
-        daypart: null,
-        shift:   trn?{ kind:'path', a:trn.a, b:trn.b }:null,
-        flavors: fl?{ kind:'bars', rows:fl.map(r=>({ color:STATE_COLOR(r.key), pct:r.pct })) }:null,
-        context: ce?{ kind:'bars', rows:[{ color:STATE_COLOR('safety'), pct:ce.tagPct },{ color:'#D8D2C2', pct:ce.typPct }] }:null,
-        mix:     { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
-        states:  { kind:'bars', rows:ranked.slice(0,3).map(([k,n])=>({ color:STATE_COLOR(k), pct:Math.round(n/total*100) })) },
-        started: { kind:'meter', pct:safetyPct },
-      };
-      c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation(); const k=b.dataset.share; openShare(SHARE_TXT[k]||SHARE_TXT.safety, SHARE_VIZ[k]||null); }));
+      // SHARE_TXT is GONE, and so is SHARE_VIZ (2026-08-01). Both were parallel decks that
+      // had to be kept in step with the cards by hand, and both had drifted: SHARE_VIZ still
+      // drew the 'times' card's RETIRED dot strip long after it became a bar chart, and
+      // SHARE_TXT wrote its own sentence for a card whose own words say it better. The
+      // picture is the card now, rewritten to the first person (_toFirstPerson), and the
+      // no-file-sharing fallback quotes those same words rather than a third version.
+      c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation();
+        openShare(null, b.closest('.panel')); }));
       c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
 
@@ -6443,9 +6642,9 @@
 
           <div class="gs-card">
             <p class="gs-h">App</p>
-            ${gsSw('sw-live','live practice invitations',lv!=='0')}
-            ${gsSw('sw-haptics','haptics',hp)}
-            ${gsSw('sw-offline','save practices for offline',offOn)}
+            ${gsSw('sw-live','Live practice invitations',lv!=='0')}
+            ${gsSw('sw-haptics','Haptics',hp)}
+            ${gsSw('sw-offline','Save practices for offline',offOn)}
             <p class="gs-fine" id="offline-status"></p>
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
             ${_hapIsIOS()?'<p class="gs-fine">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
@@ -6455,8 +6654,8 @@
 
           <div class="gs-card">
             <p class="gs-h">Your data</p>
-            ${gsSw('sw-glyph','state glyph on shared images',gl!=='0')}
-            <p class="gs-fine">A personal touch on the cards you share: your dominant state's mark, added in the corner. Off means the cards share the reflection alone.</p>
+            ${gsSw('sw-glyph','Charts on shared images',gl!=='0')}
+            <p class="gs-fine">A card you share goes out as a picture of that card. On means the picture includes its chart. Off leaves the chart out — the card's words still go, and some of them name numbers.</p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins</button>
               <button class="set-quiet" id="privacy">How your data is handled</button>
@@ -6560,9 +6759,11 @@
       : 'Haptics are off. The app never vibrates.'; };
     _hapCap(hp);
     bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); _hapCap(on); });
+    // says exactly what it does: the switch removes the CHART, not every number —
+    // several cards name a figure in their sentence, and that sentence still goes.
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
-      ? 'Your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
-      : 'Your share cards go out with no state signature.'; };
+      ? 'Your shared cards include the chart you see on the card.'
+      : 'Your shared cards leave the chart out. The words still go, including any numbers in them.'; };
     _glyphCap(gl!=='0');
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
