@@ -353,7 +353,7 @@
   const _methodPreview=(m)=>{
     if(m==='states') return `<div class="ci-ovr-chips">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k=>`<button type="button" class="ci-ovr-opt" tabindex="-1" aria-hidden="true">${stateMarks(k)}<span>${STATE_LABEL(k)}</span></button>`).join('')}</div>`;
     const numbered = m==='numbers';
-    const sc = numbered ? ['0','10'] : ['harder','easier'];
+    const sc = numbered ? ['0','10'] : ['Harder','Easier'];
     return `<div class="ci-prev${numbered?' has-num':''}" aria-hidden="true">
         <div class="ci-prev-scale"><span class="ci-prev-lbls"><span>${sc[0]}</span><span>${sc[1]}</span></span></div>
         <div class="ci-prev-row"><input type="range" class="ci-prev-range" min="0" max="100" value="62" tabindex="-1">${numbered?'<span class="ci-prev-num">6</span>':''}</div>
@@ -402,15 +402,15 @@
       'Pick up a call from a friend?',
       'Sit quietly with someone you like?',
       'Laugh at something silly?',
-      "tell someone how you're really doing?",
+      "Tell someone how you're really doing?",
       'Make eye contact and mean it?',
       'Enjoy a song you love?',
       'Let someone help you with something?',
-      "be curious about a stranger's story?",
+      "Be curious about a stranger's story?",
       'Say yes to a last-minute invitation?',
       "Give someone your full attention for a minute?",
       'Accept a compliment without deflecting?',
-      "feel glad someone's nearby?",
+      "Feel glad someone's nearby?",
     ],
     sym: [
       'Relax your shoulders and keep them relaxed?',
@@ -431,10 +431,10 @@
       'Answer a question with your full attention?',
       'Start the next small thing on your list?',
       'Step outside for a minute?',
-      "reply to a text that's been waiting?",
+      "Reply to a text that's been waiting?",
       'Make a small decision, like what to eat?',
       'Stand up and stretch?',
-      "look around and notice what's in the room?",
+      "Look around and notice what's in the room?",
       'Say what you need right now?',
       'Get yourself a glass of water?',
       'Care about how the rest of the day goes?',
@@ -468,7 +468,7 @@
       <div class="slider-main">
         <p class="q" id="q-${key}">${scenario}</p>
         <div class="sl-row">
-          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="${plain?('how much '+scenario):('how easy would it be to '+scenario)}">
+          <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="${plain?('How much '+scenario):('How easy would it be to '+scenario)}">
           ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
         </div>
       </div>
@@ -1088,7 +1088,7 @@
       ['v','sym','dor'].forEach(ax=>{
         qIdx[ax] = ciRand(ax, qIdx[ax]);
         const q = root.querySelector('#q-'+ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
-        const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
+        const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','How easy would it be to '+CI_BANK[ax][qIdx[ax]]);
       });
     };
     const skip = $('#g-ci-skip'); if(skip) skip.onclick = ()=>guestOffer();
@@ -2417,14 +2417,14 @@
     if(!reduce) ring.style.transform = 'scale(.86)';
     ring.style.opacity = '.5';
     later(()=>{
-      if(phase){ phase.textContent='in'; phase.classList.add('show'); }
+      if(phase){ phase.textContent='In'; phase.classList.add('show'); }
       if(reduce){ ring.style.transition = 'opacity 4s'; ring.style.opacity = '.85'; }
       else{
         ring.style.transition = 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
         ring.style.transform = 'scale(1.28)'; ring.style.opacity = '.8';
       }
       later(()=>{
-        if(phase) phase.textContent='out';
+        if(phase) phase.textContent='Out';
         if(reduce){ ring.style.transition = 'opacity 6s'; ring.style.opacity = '.45'; }
         else{
           ring.style.transition = 'transform 6s cubic-bezier(.4,0,.5,1), opacity 6s';
@@ -2617,7 +2617,7 @@
     const sel = _ctxLoad()[key]||[];
     return `<div class="wr-ctx" data-key="${escapeHtml(key)}">
       <p class="wr-ctx-q">${escapeHtml(q)}</p>
-      <div class="wr-chiprow">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${sel.indexOf(o)>=0?' on':''}" data-ctx="${escapeHtml(o)}" aria-pressed="${sel.indexOf(o)>=0?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
+      <div class="wr-chiprow">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${sel.indexOf(o)>=0?' on':''}" data-ctx="${escapeHtml(o)}" aria-pressed="${sel.indexOf(o)>=0?'true':'false'}">${escapeHtml(CAP(o))}</button>`).join('')}</div>
     </div>`;
   }
   function _wireCtxChips(key){
@@ -3444,7 +3444,7 @@
     // the saved reading and the trend line never seam across methods (Justin 2026-07-24).
     const ciMethod = (localStorage.getItem('snb_checkin_method')||'sliders');
     const _ciStates = ciMethod==='states', _ciNumbers = ciMethod==='numbers';
-    const _ciScale = _ciNumbers ? ['0','10'] : ['harder','easier'];
+    const _ciScale = _ciNumbers ? ['0','10'] : ['Harder','Easier'];
     // one ci4 slider row: glyph anchors, question leads, single shared scale above.
     // numbers mode shows a live 0-10 badge reading the SAME slider value (ease), so the
     // number and the hard→easy position are one datum — Justin's alignment requirement.
@@ -3487,7 +3487,7 @@
 
         <div class="scr-head">
           <p class="eyebrow">${escapeHtml(_ciEyebrow)}</p>
-          <h2 class="scr-h">${_ciStates?'How are you, right now?':'right now, how easy would it be to&hellip;'}</h2>
+          <h2 class="scr-h">${_ciStates?'How are you, right now?':'Right now, how easy would it be to&hellip;'}</h2>
         </div>
 
         <div class="ci-block">
@@ -3511,18 +3511,18 @@
             <span class="ci-fold-lk">Add context to this check-in</span><span class="stats-tog-icon">+</span>
           </button>
           <div class="stats-body" id="fold-ctx-body">
-            <div class="set-seg ci-ctx-seg" role="tablist" aria-label="context direction">
+            <div class="set-seg ci-ctx-seg" role="tablist" aria-label="Context direction">
               <button type="button" class="on" data-ctxdir="more" role="tab" aria-selected="true">I've had more of</button>
               <button type="button" data-ctxdir="less" role="tab" aria-selected="false">I've had less of</button>
             </div>
-            <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-more" role="tabpanel">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelMore.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="more" aria-pressed="${ctxSelMore.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
-            <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-less" role="tabpanel" hidden>${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelLess.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="less" aria-pressed="${ctxSelLess.has(o)?'true':'false'}">${escapeHtml(o)}</button>`).join('')}</div>
-            <p class="ch-cap ci-ctx-cap">helps track what's adding to (or taking from) the states you feel over time. shows up later in your patterns.</p>
+            <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-more" role="tabpanel">${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelMore.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="more" aria-pressed="${ctxSelMore.has(o)?'true':'false'}">${escapeHtml(CAP(o))}</button>`).join('')}</div>
+            <div class="wr-chiprow ci-ctx-row" id="ci-ctx-row-less" role="tabpanel" hidden>${CTX_OPTS.map(o=>`<button type="button" class="wr-chip${ctxSelLess.has(o)?' on':''}" data-ctx="${escapeHtml(o)}" data-ctxdir="less" aria-pressed="${ctxSelLess.has(o)?'true':'false'}">${escapeHtml(CAP(o))}</button>`).join('')}</div>
+            <p class="ch-cap ci-ctx-cap">Helps track what's adding to (or taking from) the states you feel over time. Shows up later in your patterns.</p>
           </div>
         </div>`;
         })()}
 
-        <div class="actionbar"><button class="btn block" id="save">${editRec?'save changes':'save check-in'}</button></div>
+        <div class="actionbar"><button class="btn block" id="save">${editRec?'Save changes':'Save check-in'}</button></div>
       </div>`;
 
     const readout = $('#ci-readout');
@@ -3579,7 +3579,7 @@
       ['v','sym','dor'].forEach(ax=>{
         qIdx[ax] = ciRand(ax, qIdx[ax]);
         const q = root.querySelector('#q-'+ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
-        const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','how easy would it be to '+CI_BANK[ax][qIdx[ax]]);
+        const sl = $('#sl-'+ax); if(sl) sl.setAttribute('aria-label','How easy would it be to '+CI_BANK[ax][qIdx[ax]]);
       });
     };
     // pick-a-state input method (moved here from the old inline override; the chooser
@@ -3952,7 +3952,7 @@
       <span class="slider-ico-wrap">${icon}</span>
       <div class="slider-main">
         <p class="q" id="q-${key}">${scenario}</p>
-        <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="how easy would it be to ${scenario}">
+        <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="How easy would it be to ${scenario}">
         <div class="anchors" aria-hidden="true"><span>Hard</span><span>Easy</span></div>
       </div>
     </div>`;
