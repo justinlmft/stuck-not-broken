@@ -995,14 +995,30 @@ function build(c){
         if(c.holdWatch)add('HOLD-WATCH','holding both');   // optional hold-both, chosen in the customizer
         add('PEND-SAFETY','back to safety');
       }else if(skill==='imagery'){
-        ['IMG-01','IMG-02','IMG-03','IMG-04','IMG-05','IMG-06'].forEach(b=>add(b,'giving it an image'));
+        // IMG-06 is not another imagery beat — it is the BRIDGE OUT ("invite this emotion to
+        // be with you while you reconnect with the external world with me"). It has to be the
+        // LAST thing before the close, so the safety return lands BEFORE it, not after.
+        // Justin caught this from a practice on 2026-08-01: the old order was IMG-06 ->
+        // PEND-SAFETY -> CLOSE-01, which announced the reconnection, pulled you back inward
+        // to safety, then reconnected you a second time — out, in, out. Now it is one outward
+        // movement, and it matches what PINTRO-IMAGERY already promises: "invite it to stay
+        // with us AS WE RECONNECT."
+        ['IMG-01','IMG-02','IMG-03','IMG-04','IMG-05'].forEach(b=>add(b,'giving it an image'));
         add('PEND-SAFETY','back to safety');
+        // ...but an OPEN practice never scripts an ending — buildPlan drops the whole CLOSE
+        // block and loops back to INVITE-01 until the user stops. A bridge OUT inside a loop
+        // body would promise a reconnection that never comes, then send them back inward, so
+        // IMG-06 is closing material and travels with the close.
+        if(!c.open)add('IMG-06','bringing it with you');
       }else if(skill==='obstacles'){
         loopBase='OBST-01';
         add('OBST-01','what gets in the way');add('MIND-09-CAPCHECK','a capacity check');
         add('OBSTACLE-STATEMENTS','steadying words');
-        add('OBST-02','validate it');add('OBST-03','normalize it');add('OBST-04','give it an image');add('OBST-05','invite it');
+        add('OBST-02','validate it');add('OBST-03','normalize it');add('OBST-04','give it an image');
+        // same shape as imagery: OBST-05 is the bridge out ("invite the obstacle to be with
+        // you while you reconnect with the external world"), so safety comes back first.
         add('PEND-SAFETY','back to safety');
+        if(!c.open)add('OBST-05','bringing it with you');   // closing material — see IMG-06 above
       }else{ // pendulation
         add('PEND-SAFETY','back to safety');add('PEND-SAFETY-Q','noticing safety');
         add('PEND-DEFENSE','toward the harder side');add('PEND-DEFENSE-Q','noticing it');add('PEND-SAFE-REMIND','you are safe');
