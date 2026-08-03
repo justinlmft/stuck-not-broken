@@ -827,6 +827,47 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 */
 .cb-glyphs-hero .st-pair .st-mark{width:auto;height:clamp(48px, 27vw - 40px, 88px)}
 .cb-glyphs-hero .st-pair{gap:0}
+/* BUG FIX (2026-08-01c, Justin: "i just did a share of the 'commonly dip' card and
+   it cut off the heart"). The two rules above size the hero glyphs off the VIEWPORT
+   (27vw), which is right for the live carousel and wrong the moment the card is
+   rendered anywhere else. The share picture lays a CLONE of the card out in an
+   off-screen SQUARE 320-420px wide (`_shareClone` bisects for the smallest square
+   the content fits in) — a box with no relationship to the viewport. So on any
+   device wide enough for 27vw to reach the 88px cap, the row is sized for a 430px+
+   viewport but laid out in a ~318-348px box. Measured worst case (a blended dip,
+   which renders as a touching PAIR, so three marks in the row) the safety heart
+   ends up to 20px PAST the content edge — and because the canvas painter maps the
+   clone 1:1 onto the 1080px square, the overhang is simply clipped. The heart is
+   last in the row, so the heart is what gets cut.
+   `_shareClone`'s bisection cannot catch this: it grows the square until the
+   content fits by HEIGHT (`scrollHeight <= mid`), and scrollHeight says nothing
+   about horizontal overflow.
+   Fix: inside the clone only, size the glyphs off their own CONTAINER, so the row
+   fits by construction at whatever square the bisection lands on. Scoped to
+   `.share-clone-host` so the live card keeps the exact sizing Justin has already
+   signed off across several rounds — this changes the picture, not the app.
+   The budget is the row's worst-case geometry, MEASURED per state rather than
+   estimated (harness: force mark height to 100px, read total mark width back).
+   Sum-of-mark-widths per unit height: fightflight 2.18, shutdown 2.22, freeze
+   3.16, play 3.42, STILLNESS 3.45. The worst case is NOT freeze (bolt + x + heart)
+   as it first appears — play and stillness pair their second mark with a HEART,
+   and the heart's viewBox is much wider than tall (aspect 1.24 vs ~0.95-0.98 for
+   bolt and x), so those rows carry TWO hearts and run ~9% wider than freeze. A
+   first pass at this fix budgeted 3.2 and still clipped stillness. Using 3.5 with
+   the fixed 78px (64px arrow + 2 x 7px gaps) rounded to 80px for margin.
+   One budget for every state, so a shared card renders its glyphs at the same size
+   regardless of which state the person dips into — the same "no mark is ever
+   smaller than another" rule the sizing above already follows.
+   Verified by rendering the actual clone for all six dip states: the heart clears
+   the content edge in every case, where before stillness and play were cut. Bonus:
+   the picture is now identical whatever device it is shared from, since nothing in
+   the clone reads the viewport any more.
+   Container-query units are Safari 16+ / Chrome 105+. An older browser drops this
+   declaration as invalid and simply keeps the vw rules above — today's behaviour,
+   no worse than it is now. */
+.share-clone-host .cb-journey{container-type:inline-size}
+.share-clone-host .cb-glyphs-hero .st-mark,
+.share-clone-host .cb-glyphs-hero .st-pair .st-mark{height:clamp(48px, (100cqw - 80px)/3.5, 88px)}
 /* the single unified arrow shape (shaft + head, one path, one gradient — see
    cbHeroArrowSVG in app.js) replacing the old bar+separate-arrowhead pair */
 /* BUG FIX (2026-07-29 redesign: "on desktop, the arrow head stretches and it looks

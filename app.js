@@ -5076,7 +5076,6 @@
               <p class="panel-sub">the state you spend the most time in, over ${periodPhrase}.</p>
               ${_blCardHTML(bl, _blNow, _blPrev)}`]);
             if(rec){
-              const phrase = rec.avg<=1.5 ? 'a check-in or two' : 'about '+Math.round(rec.avg)+' check-ins';
               const from = dip || 'fightflight';
               // v2 (2026-07-29 redesign, final round: "a lot of info crammed into the
               // card... restrict it to one sentence"). One lead sentence carries the
@@ -5084,7 +5083,15 @@
               // trend all fold into one small parenthetical footnote below, same tier
               // as the shift card's fine print — so the two hero-glyph cards match.
               const fasterTail = (rt && rt.dir==='faster') ? `, and it's taking less time lately` : '';
-              const tripCount = `<p class="cb-fine">(${phrase} each time, ${rec.n} time${rec.n===1?'':'s'} over ${periodPhrase}${fasterTail})</p>`;
+              // the recovery-length clause is CUT (Justin 2026-08-01c: "the 'a check-in or
+              // two each time' is meaningless, cut it and just stick to the 'x times over
+              // the last x time period'"). Counting someone's recovery in check-ins measures
+              // how often THEY happened to open the app, not how long they actually took —
+              // so the number moved with their logging habit, not their nervous system. The
+              // trip count and the period are both real, so those are what the line says now.
+              // (The same phrase is still used in the reader essay, from-justin.js ~1019 —
+              // that copy is Justin-owned, flagged to him, not changed here.)
+              const tripCount = `<p class="cb-fine">(${rec.n} time${rec.n===1?'':'s'} over ${periodPhrase}${fasterTail})</p>`;
               // title cut (Justin 2026-07-29c: "not needed... prefer the images carry
               // the visual weight not the titles"). The slide's array label ('getting
               // back to safety') stays — still used for the carousel dots' aria-label
