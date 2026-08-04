@@ -1491,7 +1491,7 @@
     // pendulation; introduced on the strongest cleared skill; dropped again the
     // session after it went badly. never on a dialed-down / stepped-down session.
     let desc = false, descIntro = false;
-    if(rg.descUnlocked && !dialDown && !droppedRung && ['imagery','balancing','pendulation'].indexOf(skill) >= 0){
+    if(rg.descUnlocked && !dialDown && !droppedRung && ['balancing','pendulation'].indexOf(skill) >= 0){
       if(rg.descGoing && rg.descGoing.lastBad) desc = false;
       else { desc = true; descIntro = !(rg.descGoing && rg.descGoing.tried); if(descIntro && rg.strongest) skill = rg.strongest; }
     }

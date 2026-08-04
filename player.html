@@ -932,15 +932,58 @@ let picked=false;   // has the user actively chosen a practice this visit? (driv
 let cfg=practices[active];
 function fresh(k){return {...EXP[k],open:false,pack:null};}
 
+/* ── the four obstacle statements (2026-08-04) ─────────────────────────────────
+   OBST-01 promises "I'm going to read four statements", and script v3 §7 says the player
+   picks 4 of the 16 affirmations — but OBSTACLE-STATEMENTS was a single beat, and
+   playCurrent() rand()s ONE file out of the manifest. So the practice announced four and
+   played one, then asked which of them you reacted to. Deal the 16 into four buckets once
+   per load and emit four beats: rand() then picks one per bucket, so you always get four,
+   always distinct, and each gets the full chosen silence to land in. */
+const OBST_STMT_IDS=['OBSTACLE-STATEMENTS-1','OBSTACLE-STATEMENTS-2','OBSTACLE-STATEMENTS-3','OBSTACLE-STATEMENTS-4'];
+(function dealStatements(){
+  const all=(MAN['OBSTACLE-STATEMENTS']||[]).slice();
+  if(all.length<4)return;                                   // fallback: leave the single beat alone
+  for(let i=all.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[all[i],all[j]]=[all[j],all[i]];}
+  const per=Math.floor(all.length/4);
+  OBST_STMT_IDS.forEach((id,i)=>{
+    MAN[id]=all.slice(i*per,(i===3?all.length:(i+1)*per));
+    DUR[id]=DUR['OBSTACLE-STATEMENTS']||2.8;
+  });
+})();
+/* ── DESC chunks, split per question (2026-08-04) ──────────────────────────────
+   Each DESC chunk was recorded as ONE continuous pass with the pauses baked in
+   (script v3 §10), so the listener's chosen silence only ever applied once, at the
+   very end — Justin set 8s and got the 3-5s he happened to leave in the booth.
+   The takes are now sliced at those pauses into one clip per question, so gapAfter()
+   holds the FULL chosen silence after every question. Ids are take-locked
+   (DESC-OBJ-TOUCH-a-01) because the takes do not share a question list: DESC-DEFENSE-a
+   has 5 questions and -b has 6, and -b asks "does it extend outward" where -a asks
+   about temperature. A chunk picks ONE take, then plays that take's questions. */
+Object.assign(MAN,{"DESC-DEFENSE-a-01":["DESC-DEFENSE-a-01.mp3"],"DESC-DEFENSE-a-02":["DESC-DEFENSE-a-02.mp3"],"DESC-DEFENSE-a-03":["DESC-DEFENSE-a-03.mp3"],"DESC-DEFENSE-a-04":["DESC-DEFENSE-a-04.mp3"],"DESC-DEFENSE-a-05":["DESC-DEFENSE-a-05.mp3"],"DESC-DEFENSE-b-01":["DESC-DEFENSE-b-01.mp3"],"DESC-DEFENSE-b-02":["DESC-DEFENSE-b-02.mp3"],"DESC-DEFENSE-b-03":["DESC-DEFENSE-b-03.mp3"],"DESC-DEFENSE-b-04":["DESC-DEFENSE-b-04.mp3"],"DESC-DEFENSE-b-05":["DESC-DEFENSE-b-05.mp3"],"DESC-DEFENSE-b-06":["DESC-DEFENSE-b-06.mp3"],"DESC-OBJ-IMAGINATION-a-01":["DESC-OBJ-IMAGINATION-a-01.mp3"],"DESC-OBJ-IMAGINATION-a-02":["DESC-OBJ-IMAGINATION-a-02.mp3"],"DESC-OBJ-IMAGINATION-a-03":["DESC-OBJ-IMAGINATION-a-03.mp3"],"DESC-OBJ-IMAGINATION-a-04":["DESC-OBJ-IMAGINATION-a-04.mp3"],"DESC-OBJ-IMAGINATION-b-01":["DESC-OBJ-IMAGINATION-b-01.mp3"],"DESC-OBJ-IMAGINATION-b-02":["DESC-OBJ-IMAGINATION-b-02.mp3"],"DESC-OBJ-IMAGINATION-b-03":["DESC-OBJ-IMAGINATION-b-03.mp3"],"DESC-OBJ-IMAGINATION-b-04":["DESC-OBJ-IMAGINATION-b-04.mp3"],"DESC-OBJ-IMAGINATION-b-05":["DESC-OBJ-IMAGINATION-b-05.mp3"],"DESC-OBJ-MOVEMENT-a-01":["DESC-OBJ-MOVEMENT-a-01.mp3"],"DESC-OBJ-MOVEMENT-a-02":["DESC-OBJ-MOVEMENT-a-02.mp3"],"DESC-OBJ-MOVEMENT-a-03":["DESC-OBJ-MOVEMENT-a-03.mp3"],"DESC-OBJ-MOVEMENT-a-04":["DESC-OBJ-MOVEMENT-a-04.mp3"],"DESC-OBJ-SIGHT-a-01":["DESC-OBJ-SIGHT-a-01.mp3"],"DESC-OBJ-SIGHT-a-02":["DESC-OBJ-SIGHT-a-02.mp3"],"DESC-OBJ-SIGHT-a-03":["DESC-OBJ-SIGHT-a-03.mp3"],"DESC-OBJ-SIGHT-a-04":["DESC-OBJ-SIGHT-a-04.mp3"],"DESC-OBJ-SOUND-a-01":["DESC-OBJ-SOUND-a-01.mp3"],"DESC-OBJ-SOUND-a-02":["DESC-OBJ-SOUND-a-02.mp3"],"DESC-OBJ-SOUND-a-03":["DESC-OBJ-SOUND-a-03.mp3"],"DESC-OBJ-SOUND-a-04":["DESC-OBJ-SOUND-a-04.mp3"],"DESC-OBJ-SOUND-a-05":["DESC-OBJ-SOUND-a-05.mp3"],"DESC-OBJ-TOUCH-a-01":["DESC-OBJ-TOUCH-a-01.mp3"],"DESC-OBJ-TOUCH-a-02":["DESC-OBJ-TOUCH-a-02.mp3"],"DESC-OBJ-TOUCH-a-03":["DESC-OBJ-TOUCH-a-03.mp3"],"DESC-OBJ-TOUCH-a-04":["DESC-OBJ-TOUCH-a-04.mp3"],"DESC-SAFETY-a-01":["DESC-SAFETY-a-01.mp3"],"DESC-SAFETY-a-02":["DESC-SAFETY-a-02.mp3"],"DESC-SAFETY-a-03":["DESC-SAFETY-a-03.mp3"],"DESC-SAFETY-a-04":["DESC-SAFETY-a-04.mp3"],"DESC-SAFETY-a-05":["DESC-SAFETY-a-05.mp3"],"DESC-SAFETY-b-01":["DESC-SAFETY-b-01.mp3"],"DESC-SAFETY-b-02":["DESC-SAFETY-b-02.mp3"],"DESC-SAFETY-b-03":["DESC-SAFETY-b-03.mp3"],"DESC-SAFETY-b-04":["DESC-SAFETY-b-04.mp3"],"DESC-SAFETY-b-05":["DESC-SAFETY-b-05.mp3"]});
+Object.assign(DUR,{"DESC-DEFENSE-a-01":5.51,"DESC-DEFENSE-a-02":1.33,"DESC-DEFENSE-a-03":1.93,"DESC-DEFENSE-a-04":1.46,"DESC-DEFENSE-a-05":4.23,"DESC-DEFENSE-b-01":11.08,"DESC-DEFENSE-b-02":6.35,"DESC-DEFENSE-b-03":4.83,"DESC-DEFENSE-b-04":4.0,"DESC-DEFENSE-b-05":5.28,"DESC-DEFENSE-b-06":5.43,"DESC-OBJ-IMAGINATION-a-01":5.25,"DESC-OBJ-IMAGINATION-a-02":1.33,"DESC-OBJ-IMAGINATION-a-03":1.49,"DESC-OBJ-IMAGINATION-a-04":1.93,"DESC-OBJ-IMAGINATION-b-01":1.49,"DESC-OBJ-IMAGINATION-b-02":1.49,"DESC-OBJ-IMAGINATION-b-03":1.91,"DESC-OBJ-IMAGINATION-b-04":2.27,"DESC-OBJ-IMAGINATION-b-05":2.04,"DESC-OBJ-MOVEMENT-a-01":7.89,"DESC-OBJ-MOVEMENT-a-02":4.52,"DESC-OBJ-MOVEMENT-a-03":3.6,"DESC-OBJ-MOVEMENT-a-04":6.27,"DESC-OBJ-SIGHT-a-01":3.63,"DESC-OBJ-SIGHT-a-02":1.36,"DESC-OBJ-SIGHT-a-03":1.49,"DESC-OBJ-SIGHT-a-04":1.91,"DESC-OBJ-SOUND-a-01":6.56,"DESC-OBJ-SOUND-a-02":2.69,"DESC-OBJ-SOUND-a-03":1.85,"DESC-OBJ-SOUND-a-04":4.47,"DESC-OBJ-SOUND-a-05":5.62,"DESC-OBJ-TOUCH-a-01":3.68,"DESC-OBJ-TOUCH-a-02":1.38,"DESC-OBJ-TOUCH-a-03":1.44,"DESC-OBJ-TOUCH-a-04":2.09,"DESC-SAFETY-a-01":1.99,"DESC-SAFETY-a-02":2.09,"DESC-SAFETY-a-03":2.64,"DESC-SAFETY-a-04":2.35,"DESC-SAFETY-a-05":5.49,"DESC-SAFETY-b-01":2.59,"DESC-SAFETY-b-02":1.57,"DESC-SAFETY-b-03":1.7,"DESC-SAFETY-b-04":1.49,"DESC-SAFETY-b-05":3.84});
+const DESC_TAKES={"DESC-DEFENSE":["a","b"],"DESC-OBJ-IMAGINATION":["a","b"],"DESC-OBJ-MOVEMENT":["a"],"DESC-OBJ-SIGHT":["a"],"DESC-OBJ-SOUND":["a"],"DESC-OBJ-TOUCH":["a"],"DESC-SAFETY":["a","b"]};
+const DESC_ELEMENTS={"DESC-DEFENSE":{"a":["DESC-DEFENSE-a-01","DESC-DEFENSE-a-02","DESC-DEFENSE-a-03","DESC-DEFENSE-a-04","DESC-DEFENSE-a-05"],"b":["DESC-DEFENSE-b-01","DESC-DEFENSE-b-02","DESC-DEFENSE-b-03","DESC-DEFENSE-b-04","DESC-DEFENSE-b-05","DESC-DEFENSE-b-06"]},"DESC-OBJ-IMAGINATION":{"a":["DESC-OBJ-IMAGINATION-a-01","DESC-OBJ-IMAGINATION-a-02","DESC-OBJ-IMAGINATION-a-03","DESC-OBJ-IMAGINATION-a-04"],"b":["DESC-OBJ-IMAGINATION-b-01","DESC-OBJ-IMAGINATION-b-02","DESC-OBJ-IMAGINATION-b-03","DESC-OBJ-IMAGINATION-b-04","DESC-OBJ-IMAGINATION-b-05"]},"DESC-OBJ-MOVEMENT":{"a":["DESC-OBJ-MOVEMENT-a-01","DESC-OBJ-MOVEMENT-a-02","DESC-OBJ-MOVEMENT-a-03","DESC-OBJ-MOVEMENT-a-04"]},"DESC-OBJ-SIGHT":{"a":["DESC-OBJ-SIGHT-a-01","DESC-OBJ-SIGHT-a-02","DESC-OBJ-SIGHT-a-03","DESC-OBJ-SIGHT-a-04"]},"DESC-OBJ-SOUND":{"a":["DESC-OBJ-SOUND-a-01","DESC-OBJ-SOUND-a-02","DESC-OBJ-SOUND-a-03","DESC-OBJ-SOUND-a-04","DESC-OBJ-SOUND-a-05"]},"DESC-OBJ-TOUCH":{"a":["DESC-OBJ-TOUCH-a-01","DESC-OBJ-TOUCH-a-02","DESC-OBJ-TOUCH-a-03","DESC-OBJ-TOUCH-a-04"]},"DESC-SAFETY":{"a":["DESC-SAFETY-a-01","DESC-SAFETY-a-02","DESC-SAFETY-a-03","DESC-SAFETY-a-04","DESC-SAFETY-a-05"],"b":["DESC-SAFETY-b-01","DESC-SAFETY-b-02","DESC-SAFETY-b-03","DESC-SAFETY-b-04","DESC-SAFETY-b-05"]}};
+/* Add one DESC chunk as SEPARATE beats — one per question — so gapAfter() holds the
+   listener's full chosen silence after each. Picks ONE take and plays that take's questions
+   (never mixes takes: see the note above). Falls back to the whole-chunk clip if the split
+   clips aren't present, so an older audio cache still plays something sane. */
+function addDesc(chunk,phase,add){
+  const takes=DESC_TAKES[chunk];
+  if(takes&&takes.length){
+    const ids=DESC_ELEMENTS[chunk][rand(takes)];
+    if(ids&&ids.length&&ids.every(has)){ids.forEach(id=>add(id,phase));return;}
+  }
+  add(chunk,phase);                                   // fallback: the original grouped clip
+}
 /* ====== sequence building — canonical flow (see meditation-weaver-FLOW-SPEC.md) ====== */
 function anchorBlock(c,add){
   let first=null;
   senseFront(c.sense).forEach((b,i)=>{add(b,'anchoring');if(i===0)first=b;});   // sense-specific front (the anchor)
-  add('DESC-OBJ-'+c.sense.toUpperCase(),'noticing the object');                   // describe the object — right after the anchor
+  addDesc('DESC-OBJ-'+c.sense.toUpperCase(),'noticing the object',add);           // describe the object — right after the anchor
   TAIL_BODY.forEach(b=>add(b,'settling in the body'));                            // breath, posture, smile, connect
   add('MIND-09-CAPCHECK','a capacity check');                                     // CAP-CHECK after connect
   TAIL_SAFETY.forEach(b=>add(b,'finding safety'));                                // name -> general -> specific
-  add('DESC-SAFETY','describing safety');                                         // describe safety
+  addDesc('DESC-SAFETY','describing safety',add);                                 // describe safety
   return first;
 }
 function build(c){
@@ -963,8 +1006,17 @@ function build(c){
     add('MIND-06','sight');add('MIND-07','an emotion');add('MIND-08','an invitation');
   }else{
     const defense=(c.key==='most'), skill=c.skill;
-    const usesInvite=defense&&skill!=='obstacles'&&skill!=='validate';   // obstacles, validate & anchoring skip intent-set / invite
-    if(usesInvite)add('INTENT-SET','setting an intention');
+    // INTENT-SET and the INVITE-* block are TWO DIFFERENT THINGS and gate separately
+    // (Justin, 2026-08-04). INTENT-SET (script §4) sets the intention before the practice —
+    // it belongs to imagery, balancing and pendulating. The INVITE-01..06 arc is a deeper,
+    // separate movement (name -> normalize -> permit -> intensity -> body generally -> body
+    // specifically) and belongs to BALANCING and PENDULATING only, because those two need a
+    // located sensation to move toward and away from. It does NOT belong to imagery &
+    // invitation: §6 gives imagery its own self-contained IMG-01..06 arc. Anchoring, validate
+    // and obstacles take neither.
+    const usesIntent=defense&&skill!=='obstacles'&&skill!=='validate';   // imagery, balancing, pendulating
+    const usesInvite=defense&&(skill==='balancing'||skill==='pendulation');
+    if(usesIntent)add('INTENT-SET','setting an intention');
     // validate & normalize (the first rung, 2026-07-06) has no recorded PINTRO of
     // its own yet — it goes straight to arriving; a v2 script can add one later.
     if(!(defense&&skill==='validate'))
@@ -979,7 +1031,7 @@ function build(c){
         add('INVITE-01','inviting what is hard');add('INVITE-02','it makes sense');add('INVITE-03','letting it be');
         add('INVITE-04','its intensity');add('INVITE-05','where it lives');add('INVITE-06','more specifically');
         add('NUMB-OK','permission');
-        if(c.descDefense)add('DESC-DEFENSE','describing the defense');   // optional, under 'more options'
+        if(c.descDefense)addDesc('DESC-DEFENSE','describing the defense',add);   // optional, under 'more options'
       }
       if(skill==='validate'){
         // validate & normalize — Justin's first self-regulation rung (2026-07-06),
@@ -995,29 +1047,44 @@ function build(c){
         if(c.holdWatch)add('HOLD-WATCH','holding both');   // optional hold-both, chosen in the customizer
         add('PEND-SAFETY','back to safety');
       }else if(skill==='imagery'){
-        // IMG-06 is not another imagery beat — it is the BRIDGE OUT ("invite this emotion to
-        // be with you while you reconnect with the external world with me"). It has to be the
-        // LAST thing before the close, so the safety return lands BEFORE it, not after.
-        // Justin caught this from a practice on 2026-08-01: the old order was IMG-06 ->
-        // PEND-SAFETY -> CLOSE-01, which announced the reconnection, pulled you back inward
-        // to safety, then reconnected you a second time — out, in, out. Now it is one outward
-        // movement, and it matches what PINTRO-IMAGERY already promises: "invite it to stay
-        // with us AS WE RECONNECT."
-        ['IMG-01','IMG-02','IMG-03','IMG-04','IMG-05'].forEach(b=>add(b,'giving it an image'));
-        add('PEND-SAFETY','back to safety');
-        // ...but an OPEN practice never scripts an ending — buildPlan drops the whole CLOSE
-        // block and loops back to INVITE-01 until the user stops. A bridge OUT inside a loop
-        // body would promise a reconnection that never comes, then send them back inward, so
-        // IMG-06 is closing material and travels with the close.
+        // Script §6: Imagery & Invitation is IMG-01 -> IMG-06 and NOTHING ELSE. It carries its
+        // own validate (IMG-01) and normalize (IMG-02) at the TOP, before any contact with the
+        // feeling — that ordering IS the skill, not a detail of it.
+        // Justin caught this from a practice on 2026-08-04: the builder was prepending the §4
+        // INVITE-01..06 arc to every non-obstacles defense skill, which (a) dragged an imagery
+        // practice through intensity, body-generally and body-specifically — somatic witnessing
+        // that belongs to balancing/pendulating, well past what imagery should ask for — and
+        // (b) left IMG-01/IMG-02 duplicating validate & normalize on the FAR SIDE of that
+        // witnessing, so the practice validated, went deep, then validated again. Validate and
+        // normalize have to land BEFORE any witnessing of defense, general or specific.
+        // PEND-* is pendulation's, not imagery's, and is gone from here too: IMG-06 ("invite it
+        // to be with you while you reconnect with the world around you") IS the whole ending,
+        // and it is what PINTRO-IMAGERY already promises.
+        loopBase='IMG-01';
+        add('IMG-01','validating what is here');
+        add('NUMB-OK','permission');                       // right after the naming — for the person with nothing to name
+        add('IMG-02','normalizing it');
+        add('IMG-03','giving it an image');
+        add('IMG-04','where it is');
+        add('IMG-05','what it is doing');
+        // an OPEN practice never scripts an ending — buildPlan drops the whole CLOSE block and
+        // loops back to loopBase (IMG-01) until the user stops. IMG-06 is the bridge OUT, so it
+        // would promise a reconnection that never comes: it is closing material and travels
+        // with the close.
         if(!c.open)add('IMG-06','bringing it with you');
       }else if(skill==='obstacles'){
+        // Script §7, and the same two corrections as imagery (Justin, 2026-08-04):
+        //  · MIND-09-CAPCHECK is CUT. OBST-01 announces "I'm going to read four statements,
+        //    notice what comes up" — a capacity check between that promise and the statements
+        //    breaks the setup in half. CAP-GATE already fires immediately before this block,
+        //    and the anchor already ran one, so this was the third capacity check in one sitting.
+        //  · PEND-SAFETY is CUT. PEND-* belongs to pendulation. OBST-05 is the bridge out
+        //    ("invite the obstacle to be with you while you reconnect"), and a safety return in
+        //    front of it interrupted the reconnection exactly the way it did in imagery.
         loopBase='OBST-01';
-        add('OBST-01','what gets in the way');add('MIND-09-CAPCHECK','a capacity check');
-        add('OBSTACLE-STATEMENTS','steadying words');
+        add('OBST-01','what gets in the way');
+        OBST_STMT_IDS.forEach(id=>add(id,'steadying words'));   // four statements, four beats
         add('OBST-02','validate it');add('OBST-03','normalize it');add('OBST-04','give it an image');
-        // same shape as imagery: OBST-05 is the bridge out ("invite the obstacle to be with
-        // you while you reconnect with the external world"), so safety comes back first.
-        add('PEND-SAFETY','back to safety');
         if(!c.open)add('OBST-05','bringing it with you');   // closing material — see IMG-06 above
       }else{ // pendulation
         add('PEND-SAFETY','back to safety');add('PEND-SAFETY-Q','noticing safety');
@@ -1107,8 +1174,10 @@ function renderSetup(){
   if(sk){const kw=$('skills');kw.innerHTML='';
     sk.forEach(([v,lbl])=>{const p=chip(lbl,v===cfg.skill);p.onclick=()=>{cfg.skill=v;renderSetup();};kw.appendChild(p);});}
   $('surprise').style.display=cfg.key==='most'?'inline-flex':'none';   // one shuffle for the whole self-regulation refinement
-  // describe-the-defense toggle — only for invite-based defense skills
-  const showDD=cfg.key==='most'&&['imagery','balancing','pendulation'].indexOf(cfg.skill)>=0;
+  // describe-the-defense toggle — only for the invite-based defense skills. NOT imagery
+  // (2026-08-04): DESC-DEFENSE asks about "that non-safety emotion in that one place in your
+  // body", which only exists once INVITE-06 has located it, and imagery no longer runs INVITE.
+  const showDD=cfg.key==='most'&&['balancing','pendulation'].indexOf(cfg.skill)>=0;
   $('descdefwrap').style.display=showDD?'block':'none';
   if(showDD){const dw=$('descdefs');dw.innerHTML='';
     [[true,'describe it'],[false,'skip it']].forEach(([v,lbl])=>{const p=chip(lbl,v===!!cfg.descDefense);p.onclick=()=>{cfg.descDefense=v;renderSetup();};dw.appendChild(p);});}
@@ -1148,7 +1217,7 @@ $('adjust').addEventListener('toggle',()=>{
 /* one 'surprise me' shuffles the whole self-regulation refinement — anchor, skill, silence, description (never length) */
 $('surprise').onclick=()=>{
   cfg.sense=rand(allSenses);cfg.skill=rand(SKILLS.most.map(x=>x[0]));cfg.silence=rand(SIL.map(x=>x[0]));
-  cfg.descDefense=['imagery','balancing','pendulation'].indexOf(cfg.skill)>=0?rand([true,false]):false;
+  cfg.descDefense=['balancing','pendulation'].indexOf(cfg.skill)>=0?rand([true,false]):false;
   cfg.holdWatch=['balancing','pendulation'].indexOf(cfg.skill)>=0?rand([true,false]):false;
   cfg.holdSeconds=rand([30,60,90,120]);
   renderSetup();
@@ -2067,7 +2136,7 @@ function postToHost(event){
     const sense=q.get('sense'); if(sense&&allSenses.indexOf(sense)>=0)c.sense=sense;
     const skill=q.get('skill'); if(skill&&SKILLS.most&&SKILLS.most.some(x=>x[0]===skill))c.skill=skill;
     // host-driven describe-the-defense preset (recommender v2; rung-gated in store.js)
-    if(q.get('descdef')==='1'&&['imagery','balancing','pendulation'].indexOf(c.skill)>=0)c.descDefense=true;
+    if(q.get('descdef')==='1'&&['balancing','pendulation'].indexOf(c.skill)>=0)c.descDefense=true;
     if(q.get('holdwatch')==='1')c.holdWatch=true;   // host-driven hold-both selection
     const hs=parseInt(q.get('holdsecs'),10); if([30,60,90,120].indexOf(hs)>=0)c.holdSeconds=hs;   // host-driven hold-both duration
     if(q.get('open')==='1')c.open=true;   // host-driven open-ended / practice indefinitely

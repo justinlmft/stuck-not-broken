@@ -5725,8 +5725,11 @@
 
   // Estimated session length in minutes, by practice + chosen silence. Derived
   // from the player's own clip durations + gap rules (DUR/build/gapAfter in
-  // player.html), computed offline; midpoints across senses/skills.
-  const PRACTICE_EST = { micro:{4:2,8:2,12:2}, mindfulness:{4:6,8:7,12:8}, anchoring:{4:8,8:9,12:11}, most:{4:11,8:13,12:15} };
+  // player.html), averaged across senses/skills. NOT hand-maintained any more:
+  // regenerate with `node harness/seq/estimate.js` after any change to build(),
+  // to the clip set, or to the gap rules, and paste the line it prints.
+  // Last regenerated 2026-08-04 (DESC chunks split per question; INVITE removed from imagery).
+  const PRACTICE_EST = { micro:{4:2,8:2,12:2}, mindfulness:{4:6,8:7,12:8}, anchoring:{4:8,8:10,12:12}, most:{4:10,8:13,12:15} };
   function estMinutes(key, sil){
     const t = PRACTICE_EST[key]; if(!t) return null;
     const s = [4,8,12].reduce((b,x)=>Math.abs(x-(sil||8))<Math.abs(b-(sil||8))?x:b, 8);
