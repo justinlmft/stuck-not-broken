@@ -476,8 +476,6 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .river{display:flex;height:34px;border-radius:6px;overflow:hidden;margin-top:6px}
 .river .seg{flex:1;min-width:3px}
 .river-cap{display:flex;justify-content:space-between;font-size:calc(11.5px * var(--type-scale));color:var(--muted);margin-top:7px}
-.statelegend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:18px}
-.statelegend .it{display:inline-flex;align-items:center;gap:6px;font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
 
 /* empty states */
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;flex:1;color:var(--muted);padding:30px 10px}
@@ -1557,6 +1555,9 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 .set-seg button.on{background:var(--raised);color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .set-seg button:hover{color:var(--ink-80)}
 .set-seg button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* D287: the check-in context tabs carry whole clauses ("I've had more of") —
+   nowrap makes their min-content wider than 320 @200% type; let them wrap */
+.ci-ctx-seg button{white-space:normal;min-width:0;overflow-wrap:break-word}
 /* action tiers: export reads as a link (it produces something), sign out is a quiet
    neutral action, reset is a muted destructive option set apart below. */
 .set-actions{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
@@ -2019,6 +2020,9 @@ body.reduce-motion .g-glyph .tg-m{animation:none;transition:none}
 .change-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;width:100%;min-width:0;text-align:left;background:var(--bone-deep);border:1px solid var(--hairline);border-radius:12px;padding:13px 14px;cursor:pointer;color:var(--ink)}
 .change-when{flex:1;min-width:0;overflow-wrap:break-word;font-size:calc(14px * var(--type-scale));font-weight:500}
 .change-mark{display:flex;align-items:center;min-width:0;overflow-wrap:break-word;gap:7px;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
+/* D288: the state-name span is itself a flex item — without min-width:0 its
+   min-content width spills ~20px at 320 @200% type (same class as D160/D161) */
+.change-mark .change-state{min-width:0;overflow-wrap:anywhere}
 .change-row .wc-go{flex:none;display:flex}
 .change-row .wc-go svg{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ci-when{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin:2px 0 0}
