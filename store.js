@@ -104,8 +104,8 @@
   let sync = { state: 'idle', pending: 0, error: null };  // 'idle' | 'syncing' | 'error'
 
   const cacheKey = () => 'snb_cache_' + (auth.user ? auth.user.id : 'anon');
-  function saveCache(){ try { localStorage.setItem(cacheKey(), JSON.stringify({ data, outbox })); } catch(e){} }
-  function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; } _reconcile(); }
+  function saveCache(){ try { localStorage.setItem(cacheKey(), JSON.stringify({ data, outbox, links })); } catch(e){} }
+  function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; links = Array.isArray(o.links)?o.links:[]; } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } _reconcile(); }
 
   // ---- sync plumbing (merge, live-session gating, loud failure) ----
   function notify(){ try{ onChange && onChange(); }catch(e){} }
@@ -177,25 +177,143 @@
     }catch(e){}
   }
 
+  // ---- practice pairing (2026-08-07) ------------------------------------------------
+  // A check-in only answers "did this practice do anything" if we know WHICH practice it
+  // belongs to and WHEN in the arc it was taken. Live sessions have had that since 07-17
+  // (live_session_id + phase); ordinary in-app practices had neither, so pairs were
+  // reconstructed by timestamp guesswork downstream. Now the app states it:
+  //   before   — the read that drove the recommendation, stamped at launch
+  //   after    — the read taken right after the practice
+  //   followup — the ~3h read. NOT the same measurement: the immediate lift in safety
+  //              fades, the drop in sympathetic does not. Two effects, two rows.
+  const AFTER_MS  = 45*6e4;               // 'after' window: 0–45 min past the practice
+  const FOLLOW_LO = 90*6e4;               // 'followup' window: 90 min …
+  const FOLLOW_HI = 6*36e5;               //                    … 6 h (the ~3h read, generously bracketed)
+  const BEFORE_MS = 90*6e4;               // how stale the driving check-in may be at launch
+
+  function _uuid(){
+    try{ if(global.crypto && global.crypto.randomUUID) return global.crypto.randomUUID(); }catch(e){}
+    try{
+      const b = new Uint8Array(16); global.crypto.getRandomValues(b);
+      b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80;
+      const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');
+      return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+    }catch(e){}
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch=>{
+      const r=Math.random()*16|0; return (ch==='x'?r:(r&0x3|0x8)).toString(16); });
+  }
+  function newSessionId(){ return _uuid(); }
+  // a data-clear name for what was practiced. Mirrors the live flow's practice_ref.
+  function practiceRefOf(s){
+    if(!s || !s.practiceKey) return null;
+    return (s.practiceKey==='most' && s.skill) ? ('most:'+s.skill) : s.practiceKey;
+  }
+  // The rung a practice IS, for when no challenge appetite was recorded. 221 of 288
+  // sessions had a null challenge_level because it was derived only from the check-in's
+  // appetite slider, which is usually left alone. The practice itself always knows.
+  // 'more' = the standalone guided meditations, which sit off the rung ladder entirely.
+  // It gets its own honest label rather than being forced onto a rung it isn't on.
+  const _PRACTICE_RUNG = { micro:'simple mindfulness', mindfulness:'simple mindfulness', anchoring:'safety-focused', more:'guided meditation' };
+  function rungForPractice(s){
+    if(!s || !s.practiceKey) return null;
+    if(s.practiceKey==='most') return (s.skill==='balancing'||s.skill==='pendulation') ? 'advanced defense' : 'beginner defense';
+    return _PRACTICE_RUNG[s.practiceKey] || null;
+  }
+  // Which phase does a check-in taken at `t` belong to? Looks only at the most recent
+  // session that has an id, and only fills a phase that session doesn't already have —
+  // so a second read inside the same window never overwrites the first.
+  function _phaseFor(t){
+    let s = null;
+    for(const x of data.sessions){ if(x && x.id && typeof x.t==='number' && x.t<=t && (!s || x.t>s.t)) s=x; }
+    if(!s) return null;
+    const d = t - s.t;
+    let phase = null;
+    if(d >= 0 && d <= AFTER_MS) phase = 'after';
+    else if(d >= FOLLOW_LO && d <= FOLLOW_HI) phase = 'followup';
+    if(!phase) return null;
+    if(data.checkins.some(c => c && c.session_id===s.id && c.phase===phase)) return null;   // already have that reading
+    return { session_id:s.id, phase, practice_ref:practiceRefOf(s) };
+  }
+  // Stamp the check-in that drove this practice as its 'before'. Called at launch, when
+  // the session row does not exist yet — the cloud write is deferred (see _flushLinks).
+  function markPracticeBefore(sessionId, practiceRef){
+    if(!sessionId) return null;
+    const now = Date.now();
+    let c = null;
+    for(const x of data.checkins){ if(x && typeof x.t==='number' && x.t<=now && (!c || x.t>c.t)) c=x; }
+    if(!c) return null;
+    if(now - c.t > BEFORE_MS) return null;             // too stale to call it this practice's before
+    if(c.session_id || c.phase || c.live_session_id) return null;   // already spoken for
+    _linkCheckin(c.t, { session_id:sessionId, phase:'before', practice_ref:(practiceRef||null) });
+    return c.t;
+  }
+  // Deferred check-in links. session_id is a real FK, so an UPDATE that names a session
+  // the cloud has not seen yet fails. Links therefore wait, on disk, until their session
+  // row has actually synced — then they go up. Nothing is lost across a reload.
+  let links = [];
+  function _linkCheckin(t, fields){
+    const i = data.checkins.findIndex(x=>x && x.t===t); if(i<0) return;
+    Object.assign(data.checkins[i], fields);
+    const oi = outbox.checkins.findIndex(x=>x && x.t===t);
+    if(oi>=0){ Object.assign(outbox.checkins[oi], fields); saveCache(); return; }   // rides the pending INSERT
+    links.push({ t, fields });
+    saveCache();
+    if(CLOUD) flush();
+  }
+  function _sessionSynced(id){
+    if(!id) return false;
+    if(outbox.sessions.some(s=>s && s.id===id)) return false;      // still queued — its row isn't there yet
+    return data.sessions.some(s=>s && s.id===id);
+  }
+  async function _flushLinks(){
+    if(!links.length || !auth.user) return true;
+    let ok = true;
+    for(const l of links.slice()){
+      if(!_sessionSynced(l.fields && l.fields.session_id)) continue;   // wait for the session row
+      const { error } = await sb.from('checkins').update(l.fields).eq('user_id', auth.user.id).eq('t', l.t);
+      if(error){ console.warn('[store] link failed', error); ok = false; continue; }
+      const i = links.indexOf(l); if(i>=0) links.splice(i,1);
+    }
+    saveCache();
+    return ok;
+  }
+
   // ---- row mappers (cloud columns are snake_case) ----
   const rowToCheckin = r => { const c = { t:r.t, v:r.v, sym:r.sym, dor:r.dor, fr:r.fr, note:r.note, dom:r.dom,
     challenge:(typeof r.challenge==='number'?r.challenge:null), source:(r.source||null) };
     // live check-in tags (2026-07-17, Live-Checkin-Plan Phase 1) — carried both ways so
     // the live flow's "which readings are done" survives a device switch.
-    if(r.live_session_id){ c.live_session_id=r.live_session_id; c.practice_ref=r.practice_ref||null; c.phase=r.phase||null; c.joined=r.joined||null; }
+    if(r.live_session_id){ c.live_session_id=r.live_session_id; c.joined=r.joined||null; }
+    // in-app practice link (2026-08-07): session_id + phase + practice_ref make every
+    // ordinary practice produce the same clean pairing the live flow already produced.
+    if(r.session_id) c.session_id=r.session_id;
+    if(r.phase) c.phase=r.phase;
+    if(r.practice_ref) c.practice_ref=r.practice_ref;
     return c; };
   const checkinToRow = c => { const r = { user_id:auth.user.id, t:c.t, v:c.v, sym:c.sym, dor:c.dor, fr:c.fr||0, note:c.note||'', dom:c.dom,
     challenge:(typeof c.challenge==='number'?c.challenge:null), source:(c.source||null) };
-    // only include the live columns when set: prod's checkins table gains them in the
-    // live-checkin migration — never send the keys on an ordinary check-in.
-    if(c.live_session_id){ r.live_session_id=c.live_session_id; r.practice_ref=c.practice_ref||null; r.phase=c.phase||null; r.joined=c.joined||null; }
+    // The pairing columns are ALWAYS emitted, null when unset. PostgREST rejects a bulk
+    // insert whose objects don't share a key set ("All object keys must match"), so a
+    // batch holding one tagged and one untagged check-in used to fail as a whole and the
+    // outbox would stick forever. (Latent since the live columns went in — an offline
+    // queue mixing a live and an ordinary check-in hit the same wall.)
+    // session_id is a FK, so it only ever goes up once the session row itself is in the
+    // cloud — see _flushLinks + the sessions-first flush order.
+    r.live_session_id = c.live_session_id || null;
+    r.joined          = c.live_session_id ? (c.joined||null) : null;
+    r.session_id      = c.session_id || null;
+    r.phase           = c.phase || null;
+    r.practice_ref    = c.practice_ref || null;
     return r; };
   // practice_label = a data-clear name for the practice track. The internal key 'most' is
   // opaque, so it is stored as 'self-regulation' (the app's own word for that track); the
   // other keys are already self-explanatory and pass through unchanged.
   const practiceLabelFor = k => (k==='most' ? 'self-regulation' : (k||null));
-  const rowToSession = r => ({ t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
-  const sessionToRow = s => ({ user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null) });
+  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
+  // id is minted on the CLIENT (newSessionId) so a check-in can be tagged with the
+  // session it belongs to before the session row has ever reached the cloud. Sending it
+  // explicitly just overrides the table's gen_random_uuid() default.
+  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null) });
 
   // ---- lifecycle ----
   async function init(cb){
@@ -470,8 +588,13 @@
     flushing = true;
     let ok = true;
     try{
-      if(outbox.checkins.length) ok = await flushTable('checkins', outbox.checkins, checkinToRow);
-      if(ok && outbox.sessions.length) ok = await flushTable('sessions', outbox.sessions, sessionToRow);
+      // SESSIONS FIRST, always: checkins.session_id is a foreign key, so a check-in that
+      // names a session the cloud hasn't got yet is rejected and the whole batch sticks.
+      // (This order was the other way round before the practice-pairing work.)
+      outbox.sessions.forEach(s=>{ if(s && !s.id) s.id = _uuid(); });   // legacy queued rows predate client-minted ids
+      if(outbox.sessions.length) ok = await flushTable('sessions', outbox.sessions, sessionToRow);
+      if(ok) ok = await _flushLinks();
+      if(ok && outbox.checkins.length) ok = await flushTable('checkins', outbox.checkins, checkinToRow);
     } finally {
       flushing = false;
     }
@@ -613,7 +736,7 @@
   }
   async function signOut(){
     if(CLOUD){ try{ await sb.auth.signOut(); }catch(e){} } else { clearProfile(); }
-    auth.user = null; data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] };
+    auth.user = null; data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] }; links = [];
     setSync('idle');
   }
   function user(){ return auth.user; }
@@ -633,6 +756,13 @@
                   source:(c.source||null) };   // e.g. 'post-practice' — lets practiceEffect use clean before/after pairs
     // live check-in tags ride along only when the check-in happened inside a live session
     if(c.live_session_id){ rec.live_session_id=c.live_session_id; rec.practice_ref=c.practice_ref||null; rec.phase=c.phase||null; rec.joined=c.joined||null; }
+    else {
+      // in-app practice: the app states which practice this reading belongs to and where
+      // in the arc it sits, instead of leaving it to be guessed from timestamps later.
+      // An explicit caller-supplied link always wins over the inferred one.
+      const link = (c.session_id ? { session_id:c.session_id, phase:(c.phase||null), practice_ref:(c.practice_ref||null) } : _phaseFor(rec.t));
+      if(link && link.session_id){ rec.session_id=link.session_id; rec.phase=link.phase||null; rec.practice_ref=link.practice_ref||null; }
+    }
     data.checkins.push(rec);
     if(CLOUD && auth.user){ outbox.checkins.push(rec); setSync('syncing'); }
     saveCache(); if(CLOUD) flush();
@@ -678,12 +808,18 @@
   // ---- sessions ----
   function addSession(s){
     const rec = Object.assign({ t:Date.now() }, s);
+    // every session carries an id from the moment it exists, so the check-ins around it
+    // can name it. launchWeaver mints it early (to tag the 'before' read); anything that
+    // logs a session without one gets it here.
+    if(!rec.id) rec.id = _uuid();
     // stamp practice depth = the challenge appetite for this session. Prefer the value the
     // recommender/customizer carried; fall back to the driving check-in's appetite. Store a
     // human-readable level label too, so any reader (person or model) sees the depth without
     // decoding the 0–0.9 number. Skill × challengeLevel = the skill-by-depth signal.
     if(typeof rec.challenge !== 'number'){ const lc = lastCheckin(); rec.challenge = (lc && typeof lc.challenge==='number') ? lc.challenge : null; }
-    rec.challengeLevel = (typeof rec.challenge==='number') ? challengeLabel(rec.challenge) : null;
+    // never null: the appetite slider is usually left alone, so fall back to the rung the
+    // practice itself IS. A session with no level can't be used on the challenge axis at all.
+    rec.challengeLevel = (typeof rec.challenge==='number') ? challengeLabel(rec.challenge) : rungForPractice(rec);
     rec.practiceLabel = practiceLabelFor(rec.practiceKey);
     data.sessions.push(rec);
     if(CLOUD && auth.user){ outbox.sessions.push(rec); setSync('syncing'); }
@@ -1720,7 +1856,7 @@
     if(CLOUD && auth.user){
       try{ await sb.from('checkins').delete().eq('user_id', auth.user.id); await sb.from('sessions').delete().eq('user_id', auth.user.id); await sb.from('contexts').delete().eq('user_id', auth.user.id); }catch(e){}
     }
-    data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] }; saveCache();
+    data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] }; links = []; saveCache();
   }
 
   // ---- contexts (answerable prompt chips, 2026-07-04) ------------------------
@@ -1773,6 +1909,7 @@
     mints, hasMint, saveMint,
     learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, spectrum, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
+    newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
     rungs, rungStory, rungMovement, skillDesc, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,

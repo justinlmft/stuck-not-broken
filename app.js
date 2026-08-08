@@ -1297,7 +1297,7 @@
       const b=document.getElementById('wl-back'); if(b) b.onclick=()=>guestPracticePick();
     }, 10000);
     if(_wf&&_wl) _wf.addEventListener('load',()=>{ _wlDone=true; clearTimeout(_wlTimeout); _wl.classList.add('gone'); setTimeout(()=>{ try{_wl.remove();}catch(e){} },600); });
-    window._pendingReco = reco;
+    window._pendingReco = beginPractice(reco);
   }
 
   // ---- what changed (before/after) ----
@@ -5611,6 +5611,24 @@
   // The player (player.html) is embedded full-bleed with no top chrome — the bottom
   // tab bar is the only navigation, and it hides once a session is playing. The
   // practice tab opens the player's own 4-option chooser (incl. "More meditations").
+  // Practice pairing (2026-08-07). Every practice gets an id BEFORE it starts, so the
+  // check-in that drove it can be stamped as that practice's 'before' read. The 'after'
+  // and the ~3h 'followup' reads are then tagged automatically in Store.addCheckin.
+  // Both shells (tabbar + guest) funnel through here — it is the one place a practice begins.
+  function beginPractice(reco){
+    const r = reco || (Store.recommend && Store.recommend()) || null;
+    try{
+      if(r && Store.newSessionId){
+        r.sessionId = Store.newSessionId();
+        // the ref is taken from the reco as launched; an in-player skill change can make it
+        // slightly coarser than the session's own skill, which is why session_id, not this,
+        // is what the pairing actually joins on.
+        r.practiceRef = Store.practiceRefOf ? Store.practiceRefOf(r) : null;
+        Store.markPracticeBefore(r.sessionId, r.practiceRef);
+      }
+    }catch(e){}
+    return r;
+  }
   function practiceShell(src, reco){
     haptic('start');               // soft tap as the practice begins (Begin tap = user gesture)
     currentTab = 'practice';
@@ -5634,7 +5652,7 @@
     }, 10000);
     if(_wf&&_wl) _wf.addEventListener('load',()=>{ _wlDone=true; clearTimeout(_wlTimeout); _wl.classList.add('gone'); setTimeout(()=>{ try{_wl.remove();}catch(e){} },600); });
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
-    window._pendingReco = reco || Store.recommend();   // so a completed session still shows the “you came back” screen
+    window._pendingReco = beginPractice(reco);   // so a completed session still shows the “you came back” screen
   }
   // ---------------------------------------------------------------- PRACTICE CHOOSER DATA
   const P_OPTS=[
@@ -6409,7 +6427,7 @@
     // beginner vs advanced self-regulation: the tier-3 skills (balancing/pendulation) = advanced.
     // (re-sourced off the retired 0.55 challenge appetite → skill-based, §7.4.)
     const _selfRegLevel = _isMost ? ((_skill==='pendulation' || _skill==='balancing') ? 'advanced' : 'beginner') : null;
-    Store.addSession({ practiceKey:reco.practiceKey, skill:_skill, sense:reco.sense, silence:reco.silence,
+    Store.addSession({ id:(reco.sessionId||null), practiceKey:reco.practiceKey, skill:_skill, sense:reco.sense, silence:reco.silence,
       completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null,
       challenge:(typeof reco.challenge==='number' ? reco.challenge : null),
       selfRegLevel:_selfRegLevel,
