@@ -2424,6 +2424,13 @@ body.reduce-motion .lv-pop-card{animation:none}
 @keyframes lvArr{from{stroke-dashoffset:80}to{stroke-dashoffset:0}}
 .lv-g{animation:lvGpop .5s calc(.15s + var(--i,0)*.55s) cubic-bezier(.34,1.4,.64,1) both}
 .lv-arr path{stroke-dasharray:80;animation:lvArr .5s .45s ease-out both}
+/* a capacity builder has FOUR readings, not two (2026-08-10). At the full scale
+   the trail is ~500px tall and runs off a 320x568 screen, and the reveal takes
+   2.2s. Shrink the trail and tighten the stagger once there are more than two. */
+.lv-trail2.many{gap:8px;margin:18px 8px}
+.lv-trail2.many .lv-mark{height:40px}
+.lv-trail2.many .lv-arr{width:16px;height:30px}
+.lv-trail2.many .lv-g{animation-delay:calc(.12s + var(--i,0)*.34s)}
 @media (prefers-reduced-motion:reduce){.lv-g,.lv-arr path{animation:none;stroke-dasharray:none}}
 body.reduce-motion .lv-g,body.reduce-motion .lv-arr path{animation:none;stroke-dasharray:none}
 /* popup: tri-glyph logo, marks arriving one by one; card springs in with a small overshoot */

@@ -3832,8 +3832,12 @@
     const openReading = r => {
       _livePollStop();
       window._ciSource='live';
+      // name the PRACTICE, not just the session: a capacity builder has four
+      // readings across three practices, so "live · capacity builder · after"
+      // three times would tell you nothing. Falls back to the session name, so
+      // a mindful moment reads exactly as it did before. (2026-08-10)
       window._liveCtx = { id:s.id, practice_ref:r.ref, phase:r.phase, joined:(join.joined||'self'),
-        eyebrow:'live · '+name+' · '+(r.phase==='before'?'before':'after') };
+        eyebrow:'live · '+((r.label||name).toLowerCase())+' · '+(r.phase==='before'?'before':'after') };
       screenCheckin();
     };
     // the deck drives (Justin 2026-07-17): if the current slide IS an undone check-in
@@ -3875,7 +3879,7 @@
           <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
           <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'Settling':escapeHtml(STATE_LABEL(domKey))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
-          <p class="scr-lede">${more?'Your check-in is saved. Head back to the live practice now. This screen will wait here, ready for your next check-in after the practice.':'Your check-in is saved. That was the last one for this practice.'}</p>
+          <p class="scr-lede">${more?'Your check-in is saved. Head back to the live practice now. This screen will wait here, ready for your next check-in.':'Your check-in is saved. That was the last one.'}</p>
         </div>
         <div class="actionbar"><button class="btn block" id="lv-on">${more?'okay':'see what you noticed'}</button></div>
       </div>`);
@@ -3899,7 +3903,7 @@
     const row=keyed.map((r,i)=>`${i?arrow:''}<span class="lv-g" style="--i:${i}">${mk(r.key)}</span>`).join('');
     _liveShell(`<div class="view fb-view">
         <div class="scr-head"><h2 class="scr-h">Your practice results</h2></div>
-        <div class="lv-trail2">${row}</div>
+        <div class="lv-trail2${keyed.length>2?' many':''}">${row}</div>
         <div class="actionbar">
           ${keyed.length?'<button class="btn block" id="lv-share">Share this</button>':''}
           <button class="navlink" id="lv-done" style="align-self:center">Done</button>
