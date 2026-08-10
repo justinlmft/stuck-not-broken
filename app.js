@@ -490,7 +490,7 @@
     return `<div class="slider${plain?' slider-plain':''}" data-axis="${key}">
       <span class="slider-ico-wrap">${icon}</span>
       <div class="slider-main">
-        <p class="q" id="q-${key}">${scenario}</p>
+        <p class="q" id="q-${key}">${plain?CAP(scenario):scenario}</p>
         <div class="sl-row">
           <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="${plain?('How much '+scenario):('How easy would it be to '+scenario)}">
           ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
@@ -531,7 +531,7 @@
       +`<span class="ci-clause" style="color:${txOf('v')}">${bV}</span>`
       +`<span class="ci-join">, </span>`
       +`<span class="ci-clause" style="color:${txOf('sym')}">${bS}</span>`
-      +`<span class="ci-join">, And </span>`
+      +`<span class="ci-join">, and </span>`
       +`<span class="ci-clause" style="color:${txOf('dor')}">${bD}</span>`
       +`<span class="ci-join">.</span>`;
   }
@@ -824,12 +824,12 @@
           ${up ? '<div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
           <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(up?'create account':'sign in')}</button>
+          <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':(up?'Create account':'Sign in')}</button>
           ${up?'<p class="fineprint" style="margin-top:12px;text-align:center">Already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">Log in</button></p>':''}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">New here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a check-in, no account needed</button>'}
-          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> and <a href="#" data-policy="privacy">Privacy policy</a>.</p>
-          <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>`:''}
-          <p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'sign in':'create an account'}</button></p>
+          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
+          <p class="fineprint" style="margin-top:6px">An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>`:''}
+          <p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'Sign in':'Create an account'}</button></p>
           ${up?'':'<p class="fineprint" style="margin-top:6px">The breath above needs no account. The rest of the app does. It keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">Forgot your password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}
@@ -1061,7 +1061,7 @@
     const gcb = $('#g-ci-back'); if(gcb) gcb.onclick = ()=>guestLeave();
     $('#content').innerHTML = `<div class="view checkin2 ci4">
         <div class="scr-head">
-          <p class="eyebrow">${mode==='before' ? 'before your practice' : 'after your practice'}</p>
+          <p class="eyebrow">${mode==='before' ? 'Before your practice' : 'After your practice'}</p>
           <h2 class="scr-h">Right now, how easy would it be to&hellip;</h2>
         </div>
         <div class="ci-block">
@@ -1077,7 +1077,7 @@
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
-          <button class="btn block" id="g-ci-save">${mode==='after' ? 'see what changed' : 'see what you described'}</button>
+          <button class="btn block" id="g-ci-save">${mode==='after' ? 'See what changed' : 'See what you described'}</button>
           ${mode==='post' ? '<button class="navlink" id="g-ci-skip" style="align-self:center">Not now</button>' : ''}
           ${entry ? `<p class="fineprint" style="text-align:center;margin:2px 0 0">Nothing is saved unless you decide to create an account.</p>
           <p class="fineprint" style="text-align:center;margin:0">Already have an account? <button class="linkbtn" id="g-ci-signin" style="font-size:inherit;padding:2px">Sign in</button></p>` : ''}
@@ -1122,7 +1122,7 @@
       Promise.resolve(Store.user() ? Store.signOut() : null).then(go).catch(go);
     };
     $('#g-ci-save').onclick = (e)=>{
-      const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'one moment…';
+      const btn = e.currentTarget; btn.disabled = true; btn.textContent = 'One moment…';
       // source = the DOOR the person came through (?src=, validated; 'direct' if none).
       // Supersedes the flat 'guest' bucket (GMS 2026-07-13): once there is more than one
       // door, a single bucket can't tell us which one produced anything. Guest-origin is
@@ -1169,7 +1169,7 @@
         <div class="scr-head">
           <p class="eyebrow">What you described</p>
           <div class="g-glyph">${triGlyph(dom.key)}</div>
-          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(name)}</h1>
+          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(CAP(name))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
           ${_guestPracticed ? '' : '<p class="scr-lede">Now that you\'ve checked in, you\'re ready for your practice.</p>'}
         </div>
@@ -1389,7 +1389,7 @@
           </ul>
           ${planPickerHTML()}
           <button class="btn block" id="g-of-sub">Subscribe now</button>
-          <p class="fineprint" style="margin-top:10px">renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses.</p>
+          <p class="fineprint" style="margin-top:10px">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
           <details class="offer-more">
             <summary>What you get when you subscribe ▾</summary>
             <div class="offer-more-body">
@@ -1448,9 +1448,9 @@
           <div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
           <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="new-password"></div>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':(paid?'continue to payment':'create account')}</button>
-          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">Terms</a> and <a href="#" data-policy="privacy">Privacy policy</a>.</p>
-          <p class="fineprint" style="margin-top:6px">an anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. it can never be traced back to you.</p>
+          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':(paid?'Continue to payment':'Create account')}</button>
+          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
+          <p class="fineprint" style="margin-top:6px">An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>
           <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-back" style="font-size:inherit;padding:2px">Back</button></p>
         </div>
       </div>`);
@@ -1581,12 +1581,12 @@
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
           <p class="eyebrow">The base plan</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'choose your plan'}</h1>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'Choose your plan'}</h1>
           <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
           ${planPickerHTML()}
-          <p class="fineprint" style="margin-bottom:18px">your card is charged today. it renews automatically at the interval you pick; cancel anytime from settings. no refunds or pauses. what you use now stays free either way, with no time limit.</p>
+          <p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'one moment…':'subscribe'}</button>
+          <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'One moment…':'Subscribe'}</button>
           <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">Not now</button></p>
         </div>
       </div>`);
@@ -1635,7 +1635,7 @@
         <p class="lede" style="margin-bottom:24px">You're signed in. Pick a new password and you're done.</p>
         <div class="field"><label for="npw">New password</label><input id="npw" type="password" autocomplete="new-password"></div>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-        <button class="btn block" id="npw-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'one moment…':'save password'}</button>
+        <button class="btn block" id="npw-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':'Save password'}</button>
       </div></div>`);
     if(busy) return;
     const submit=()=>{
@@ -1680,14 +1680,14 @@
       ['what we keep','This app keeps track of your email, in-app preferences and check-ins.'],
       ['why','So your account works, your history is here on every device you sign in from, to track progress, and make custom recommendations.'],
       ['what stays anonymous','An anonymous copy of check-ins and practice data also exists, with no name, no email, and none of your written notes. It cannot be traced back to you, even by us.'],
-      ['what the anonymous copy is for','two things, and only these: learning whether this app actually helps people, and sharing de-identified examples of what progress can look like (for instance, "one member\'s reported safety rose from 20% to 60% over six months"). never advertising, never sold.'],
-      ['who sees it',"your identified data: only you. it isn't sold or given away, and no advertisers see it. justin works with the anonymous copy to study whether the app helps and to improve it."],
-      ['your control','you can delete your data, or your whole account, any time from settings (your data > delete my account). deleting removes everything that identifies you, permanently. the anonymous copy stays, unlinked, forever.']
+      ['what the anonymous copy is for','Two things, and only these: learning whether this app actually helps people, and sharing de-identified examples of what progress can look like (for instance, "one member\'s reported safety rose from 20% to 60% over six months"). Never advertising, never sold.'],
+      ['who sees it',"Your identified data: only you. It isn't sold or given away, and no advertisers see it. Justin works with the anonymous copy to study whether the app helps and to improve it."],
+      ['your control','You can delete your data, or your whole account, any time from settings (your data > delete my account). Deleting removes everything that identifies you, permanently. The anonymous copy stays, unlinked, forever.']
     ] : [
-      ['what this is',"a tool for noticing your daily experiences through the lens of the nervous system and practicing your way back to safety. it isn't medical care, diagnosis, or therapy, nor should it replace any of those or other professional services."],
-      ['in a crisis','if you’re in danger or thinking about harming yourself, contact the 988 Suicide &amp; Crisis Lifeline or your local emergency services. this app can’t help in an emergency.'],
-      ['be gentle',"everyone is different. there's no failing here, and no streak to keep. use the app as you want and when you want. practice at your cadence."],
-      ['changes',"justin may (and will) update the app and these terms over time. updates keep the app working, and you'll hear about changes in the app or by email."]
+      ['what this is',"A tool for noticing your daily experiences through the lens of the nervous system and practicing your way back to safety. It isn't medical care, diagnosis, or therapy, nor should it replace any of those or other professional services."],
+      ['in a crisis','If you’re in danger or thinking about harming yourself, contact the 988 Suicide &amp; Crisis Lifeline or your local emergency services. This app can’t help in an emergency.'],
+      ['be gentle',"Everyone is different. There's no failing here, and no streak to keep. Use the app as you want and when you want. Practice at your cadence."],
+      ['changes',"Justin may (and will) update the app and these terms over time. Updates keep the app working, and you'll hear about changes in the app or by email."]
     ];
     const PP=(t)=>`<p style="font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${t}</p>`;
     setHTML(`
@@ -1703,7 +1703,7 @@
             <p class="eyebrow" style="margin:0">${h}</p>
             ${PP(b)}
           </div>`).join('')}
-          <p class="fineprint" style="margin-top:4px">plain-language draft for this design. the final ${isPriv?'privacy policy':'terms'} will replace this before launch.</p>
+          <p class="fineprint" style="margin-top:4px">Plain-language draft for this design. The final ${isPriv?'privacy policy':'terms'} will replace this before launch.</p>
         </div>
       </div>`);
     $('#policy-back').onclick = ()=>{ if(from==='settings'){ screenSettings(); } else { authMode='up'; screenSignIn(); } };
@@ -1943,7 +1943,7 @@
     obTrack('orient_step', { step: st.id });
     const seq = OB_STEPS.filter(s=>!s.standalone && s.id!=='welcome' && s.id!=='done');
     const pos = seq.map(s=>s.id).indexOf(st.id);
-    const actions = st.actions || [{ label:(pos===seq.length-1?'done':'next'), kind:'primary', go:'next' }];
+    const actions = st.actions || [{ label:(pos===seq.length-1?'Done':'Next'), kind:'primary', go:'next' }];
     const showSkip = !st.actions;
     // dims/hole fade in on EVERY step now, not just the first (the .anim classes existed
     // in CSS but were never applied past the first paint, so a spotlight moving to a new
@@ -2326,7 +2326,7 @@
                ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
-          : `<p class="mh-noci">no check-in this ${segLabel(seg)} yet</p>
+          : `<p class="mh-noci">No check-in this ${segLabel(seg)} yet</p>
              <div class="mh-secondrow no-checkin" id="mh-2nd">
                <button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
              </div>
@@ -2919,6 +2919,9 @@
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
     // fresh-section share: the same image cards the You tab shares
+    // VOICE, intentional (Justin): share strings are FIRST-PERSON and lowercase-start
+    // ("my nervous system's most common shift…") — the user speaking, not the app.
+    // Do not "correct" them in a sentence-case sweep.
     (function(){
       const _sig = 'Stuck Not Broken · stucknotbroken.com/stuck';
       root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
@@ -3030,7 +3033,7 @@
     const doms = Object.keys(freq).sort((a,b)=>freq[b]-freq[a]);     // doms[0] = the week's dominant state (lights the triGlyph)
     const traj = dir==='rising' ? 'leaned toward safe' : dir==='falling' ? 'kept showing up all week' : 'stayed with it all week';
     const card = {
-      dateLabel: 'week of ' + new Date(ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}),
+      dateLabel: 'Week of ' + new Date(ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}),
       n: n, dir: dir, traj: traj, doms: doms
     };
     const summary = issue.dek || ((issue.bullets && issue.bullets[0]) ? issue.bullets[0].text : (n + ' check-ins this week.'));
@@ -3095,7 +3098,7 @@
         const note = FromJustin.quarterly({ stats:st, baseline:Store.baselineDelta(start,end), recovery:(Store.recovery?Store.recovery():null), mark:mark,
           emotion:(Store.emotionPatterns?Store.emotionPatterns(start,end):null), movement:(Store.rungMovement?Store.rungMovement(start,end):null) });
         if(note && note.text){
-          const lead = mark==='year'?'a year' : mark==='half'?'6 months' : 'a quarter';
+          const lead = mark==='year'?'A year' : mark==='half'?'6 months' : 'A quarter';
           const label = lead + ' to ' + new Date(end-1).toLocaleDateString(undefined,{ month:'long', day:'numeric', year:'numeric' });
           Store.saveMint({ tier:'quarterly', date:key, dateMs:start, text:note.text, data:{ label, mark } });
         }
@@ -3180,8 +3183,11 @@
   // shows less (render-level prune, data intact).
   function _archRow(m, extraClass, sub){
     const tierLabel = { weekly:'weekly', monthly:'monthly', quarterly:'quarterly' }[m.tier] || '';
-    const label = (m.tier==='weekly') ? ((m.data&&m.data.card&&m.data.card.dateLabel) || fmtMintDate(m.dateMs))
+    let label = (m.tier==='weekly') ? ((m.data&&m.data.card&&m.data.card.dateLabel) || fmtMintDate(m.dateMs))
                 : (m.data&&m.data.label) ? m.data.label : fmtMintDate(m.dateMs);
+    // minted labels are frozen at mint time; older mints predate the sentence-case
+    // sweep ("week of July 12"), so sentence-case at render, not just at mint
+    label = String(label).charAt(0).toUpperCase() + String(label).slice(1);
     const tag = tierLabel ? `<span class="arch-tag">${tierLabel}</span>` : '';
     // mock-parity (Justin's QA): weekly/monthly/quarterly rows are label-only —
     // the date IS the information; only dailies keep a one-line memory cue
@@ -3213,7 +3219,7 @@
       });
       if(pinned){
         const qst = Store.periodStats(prevQStart, curQStart);
-        pinnedSub = (qst && qst.lean==='dysregulated') ? 'the week you found your way back' : 'the most safety of your quarter';
+        pinnedSub = (qst && qst.lean==='dysregulated') ? 'The week you found your way back' : 'The most safety of your quarter';
       }
     }
     const dailies    = all.filter(m=>m.tier==='daily'   && m.dateMs>=weekStart);
@@ -3246,15 +3252,15 @@
     const G = m=>_archRow(m,'arch-ghost');
     const ghostsHTML = ghosts.sort((a,b)=>b.dateMs-a.dateMs).map(G).join('');
     const parts = [];
-    if(dailies.length)  parts.push(EYEB('this week') + dailies.map(m=>_archRow(m)).join(''));
-    if(currents.length || ghosts.length) parts.push(EYEB('this quarter') + currents.map(m=>_archRow(m)).join('') + ghostsHTML);
+    if(dailies.length)  parts.push(EYEB('This week') + dailies.map(m=>_archRow(m)).join(''));
+    if(currents.length || ghosts.length) parts.push(EYEB('This quarter') + currents.map(m=>_archRow(m)).join('') + ghostsHTML);
     if(pinned || quarterlies.length || dropQ){
-      parts.push(EYEB('quarters')
+      parts.push(EYEB('Quarters')
         + (pinned ? _archRow(pinned,'',pinnedSub) : '')
         + quarterlies.map(m=>_archRow(m, (arriving&&m.id===arriving.id)?'arch-in':'')).join('')
         + (dropQ ? _archRow(dropQ,'arch-ghost') : ''));
     }
-    if(annual) parts.push(EYEB('your year') + _archRow(annual));
+    if(annual) parts.push(EYEB('Your year') + _archRow(annual));
     const rows = parts.length ? parts.join('')
       : `<p style="font-size:calc(15px * var(--type-scale));line-height:1.6;color:var(--muted);margin:8px 0 0">Your reflections will collect here as each day and week closes.</p>`;
     setHTML(`
@@ -3793,7 +3799,7 @@
     var inp=$('#lc-in'); if(inp) inp.focus();
     var go=function(){
       var v=((inp&&inp.value)||'').trim().toUpperCase();
-      if(!/^[A-Z0-9]{4,10}$/.test(v)){ var m=$('#lc-msg'); if(m) m.textContent='that doesn\u2019t look like a code. it\u2019s a few letters and numbers.'; return; }
+      if(!/^[A-Z0-9]{4,10}$/.test(v)){ var m=$('#lc-msg'); if(m) m.textContent='That doesn\u2019t look like a code. It\u2019s a few letters and numbers.'; return; }
       try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:v, joined:'self', t:Date.now() })); }catch(e){}
       if(!Store.user() && Store.cloud()){ authMode = knownDevice() ? 'in' : 'up'; return screenSignIn(); }
       screenLive();
@@ -3810,18 +3816,18 @@
     if(!s || !s.id){
       const c=_liveCache();
       if(c && c.code===join.code) s=c;                       // offline blip: run on the cached copy
-      else if(s && s.error && s.error!=='not found') return _liveEnd('we couldn’t reach the live practice','Check your connection, then open the app again. Your place is saved.');   // 🖊
-      else return _liveEnd('we couldn’t find that live practice','The code may have been mistyped, or the practice may be over. Nothing is lost.');   // 🖊
+      else if(s && s.error && s.error!=='not found') return _liveEnd('We couldn’t reach the live practice','Check your connection, then open the app again. Your place is saved.');   // 🖊
+      else return _liveEnd('We couldn’t find that live practice','The code may have been mistyped, or the practice may be over. Nothing is lost.');   // 🖊
     }
     try{ localStorage.setItem('snb_live_sess', JSON.stringify(s)); }catch(e){}
     // capacity builders are an academy practice; mindful moments are for everyone. 🖊
     if(s.type==='capacity-builder'){
       const e=(Store.entitlement&&Store.entitlement())||{};
-      if(!(e.sub||e.circle||e.legacy)) return _liveEnd('this one is an academy practice','Capacity builders are part of the unstucking academy. Mindful moments are open to everyone, and you’re always welcome there.');
+      if(!(e.sub||e.circle||e.legacy)) return _liveEnd('This one is an academy practice','Capacity builders are part of the unstucking academy. Mindful moments are open to everyone, and you’re always welcome there.');
     }
     const next=_liveNext(s);
     if(!next) return screenLiveTrail(s);
-    if(!s.live) return _liveDone(s).size ? screenLiveTrail(s) : _liveEnd('this live practice has ended','It’s okay to have missed it. The practices in the app are always here.');   // 🖊
+    if(!s.live) return _liveDone(s).size ? screenLiveTrail(s) : _liveEnd('This live practice has ended','It’s okay to have missed it. The practices in the app are always here.');   // 🖊
     const name=LIVE_NAME[s.type]||'live practice';
     const openReading = r => {
       _livePollStop();
@@ -3839,10 +3845,10 @@
     const first=_liveDone(s).size===0;
     _liveShell(`<div class="view fb-view">
         <div class="scr-head">
-          <p class="eyebrow">live &middot; ${escapeHtml(name)}</p>
+          <p class="eyebrow">Live &middot; ${escapeHtml(name)}</p>
           <div class="lv-wait-logo">${triLogo('lv-breathe', true)}</div>
-          <h2 class="scr-h" style="margin-top:14px">${first?'we’re getting started':'enjoy the practice'}</h2>
-          <p class="scr-lede">your ${first?'':'next '}check-in will open here on its own.</p>
+          <h2 class="scr-h" style="margin-top:14px">${first?'We’re getting started':'Enjoy the practice'}</h2>
+          <p class="scr-lede">Your ${first?'':'next '}check-in will open here on its own.</p>
         </div>
         <div class="actionbar">
           ${first
@@ -5027,7 +5033,7 @@
                 <div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div>
               </div>`;
             growthHead=`<div class="cb-journey">${chart}</div>
-              <p class="cb-line cb-line-lead">your average safety has ${up?'grown':'held steady'} since you started.</p>
+              <p class="cb-line cb-line-lead">Your average safety has ${up?'grown':'held steady'} since you started.</p>
               <p class="cb-fine">(${tn.days} days between your first and most recent check-ins)</p>`;
           }
         }
@@ -5073,7 +5079,7 @@
             const slides = [];
             slides.push(['safety','the level of safety in your system', `
               ${shareBtn('safety')}<h2 class="panel-title">The level of safety in your system</h2>
-              <p class="panel-sub">the state you spend the most time in, over ${periodPhrase}.</p>
+              <p class="panel-sub">The state you spend the most time in, over ${periodPhrase}.</p>
               ${_blCardHTML(bl, _blNow, _blPrev)}`]);
             if(rec){
               const from = dip || 'fightflight';
@@ -5535,78 +5541,6 @@
       </div>`;
   }
 
-  function statsHTML(cs){
-    if(cs.length<3) return `<p style="font-size:11.5px;color:var(--hairline);text-align:right;margin-top:8px">${cs.length} check-in${cs.length===1?'':'s'}</p>`;
-    const freq={};cs.forEach(c=>{freq[c.dom]=(freq[c.dom]||0)+1;});
-    const topEntries=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
-    const [topKey,topCount]=topEntries[0];
-    const topPct=Math.round(topCount/cs.length*100);
-    const avgV=cs.reduce((s,c)=>s+c.v,0)/cs.length;
-    const avgPct=Math.round(avgV*100);
-    const tr=Store.trend();
-    const trendTxt=tr.dir==='rising'?'rising':tr.dir==='falling'?'dipping':'steady';
-    const trendArrow=tr.dir==='rising'?'↑':tr.dir==='falling'?'↓':'→';
-    const variance=cs.reduce((s,c)=>s+(c.v-avgV)**2,0)/cs.length;
-    const stdDev=Math.sqrt(variance);
-    const volTxt=stdDev>0.22?'shifts a lot':stdDev>0.12?'some variation':'fairly consistent';
-    const SEGS=['morning','afternoon','evening','late'];
-    const segRows=SEGS.map(seg=>{
-      const arr=cs.filter(c=>segOf(c.t)===seg);
-      if(arr.length<2) return null;
-      const f={};arr.forEach(c=>{f[c.dom]=(f[c.dom]||0)+1;});
-      const [sk]=Object.entries(f).sort((a,b)=>b[1]-a[1])[0];
-      return {seg,key:sk};
-    }).filter(Boolean);
-    return `
-      <div class="hr"></div>
-      <button class="stats-toggle" id="p-stats-toggle" aria-expanded="false">
-        <span class="eyebrow" style="margin:0">Your patterns</span>
-        <span class="stats-tog-icon">+</span>
-      </button>
-      <div class="stats-body" id="p-stats-body">
-      <div class="stat-rows" style="margin-top:8px">
-        <button class="stat-row stat-row-tap" data-state-detail="${topKey}">
-          <span class="stat-row-lbl">Most often in</span>
-          <span class="stat-row-val">
-            ${stateMarks(topKey)}
-            ${STATE_LABEL(topKey)} <span style="color:var(--muted);font-weight:400">${topPct}%</span>
-            <span style="color:var(--hairline);margin-left:2px">›</span>
-          </span>
-        </button>
-        <div class="stat-row">
-          <span class="stat-row-lbl">Average safety</span>
-          <span class="stat-row-val">
-            <span class="safety-track"><span class="safety-fill" style="width:${avgPct}%"></span></span>
-            ${avgPct}% <span class="stat-trend">${trendArrow} ${trendTxt}</span>
-          </span>
-        </div>
-        <div class="stat-row">
-          <span class="stat-row-lbl">Consistency</span>
-          <span class="stat-row-val" style="color:var(--muted);font-weight:400">${volTxt}</span>
-        </div>
-      </div>
-      ${segRows.length>=2?`
-      <div class="hr"></div>
-      <p class="eyebrow" style="margin:0 0 12px">By time of day</p>
-      <div class="stat-rows">
-        ${segRows.map(s=>`
-        <div class="stat-row">
-          <span class="stat-row-lbl">${s.seg}</span>
-          <span class="stat-row-val">
-            ${stateMarks(s.key)}
-            ${STATE_LABEL(s.key)}
-          </span>
-        </div>`).join('')}
-      </div>`:''}
-      <p style="font-size:11.5px;color:var(--hairline);text-align:right;margin-top:14px">${cs.length} check-in${cs.length===1?'':'s'}</p>
-      </div>
-    `;
-  }
-  function legendHTML(cs){
-    const present = [...new Set(cs.map(c=>c.dom))];
-    return `<div class="statelegend">${present.map(k=>`<span class="it">${stateMarks(k)}${STATE_LABEL(k)}</span>`).join('')}</div>`;
-  }
-
   // ---------------------------------------------------------------- PRACTICE
   // The player (player.html) is embedded full-bleed with no top chrome — the bottom
   // tab bar is the only navigation, and it hides once a session is playing. The
@@ -5847,7 +5781,7 @@
         const sel = String(o.val)===String(current);
         rows+=`<button class="p7-opt${o.ico?' rich':''}${sel?' sel':''}" type="button" data-val="${escapeHtml(String(o.val))}">
           ${o.ico?`<span class="p7-opt-ico" aria-hidden="true">${o.ico}</span>`:''}
-          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(o.menu)}</span>${o.sub?`<span class="p7-opt-sub">${escapeHtml(o.sub)}</span>`:''}</span>
+          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(String(o.menu)))}</span>${o.sub?`<span class="p7-opt-sub">${escapeHtml(CAP(String(o.sub)))}</span>`:''}</span>
           <svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>
         </button>`;
       });
@@ -5931,7 +5865,7 @@
     function sentenceHTML(){
       const k = pState.mkKey;
       const typeLabel = mkPill(k);
-      let s = `a ${dial('type', typeLabel || 'choose', typeLabel ? '' : 'is-empty')} practice`;
+      let s = `A ${dial('type', typeLabel || 'choose', typeLabel ? '' : 'is-empty')} practice`;
       if(MK_SHAPED.indexOf(k)>=0){
         if(k!=='mindfulness') s += `, anchored through ${dial('sense', pState.sense)}`;
         if(k==='most'){
@@ -6011,7 +5945,7 @@
         });
       } else if(kind==='sense'){
         const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
-        openDialSheet('anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tkCls, (v)=>{ pState.sense=v; paintMaker(); });
+        openDialSheet('Anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tkCls, (v)=>{ pState.sense=v; paintMaker(); });
       } else if(kind==='skill'){
         openDialSheet('Which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tkCls, (v)=>{
           pState.skill=v;
@@ -6020,10 +5954,10 @@
         });
       } else if(kind==='emotion'){
         const opts=[{val:'',menu:'Whatever surfaces',sub:'Let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:f.label,sub:f.hint})));
-        openDialSheet('working with', [{opts}], pState.emotion||'', tkCls, (v)=>{ pState.emotion=v||null; paintMaker(); });
+        openDialSheet('Working with', [{opts}], pState.emotion||'', tkCls, (v)=>{ pState.emotion=v||null; paintMaker(); });
       } else if(kind==='hold'){
         const opts=[{val:'off',menu:'Skip hold & watch'},{val:'30',menu:'Hold & watch for 30 sec'},{val:'60',menu:'Hold & watch for 1 min'},{val:'90',menu:'Hold & watch for 90 sec'},{val:'120',menu:'Hold & watch for 2 min'}];
-        openDialSheet('hold & watch', [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tkCls, (v)=>{
+        openDialSheet('Hold & watch', [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tkCls, (v)=>{
           if(v==='off'){ pState.holdWatch=false; } else { pState.holdWatch=true; pState.holdSeconds=+v; }
           paintMaker();
         });
@@ -6665,11 +6599,11 @@
               <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">Dark</span></button>
             </div>
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
-            <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'surprise me':psc}</span> ${_svgChev}</span></button>
+            <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
               <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
               <div class="scene-grid" style="margin-top:8px">
-                ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s}</button>`).join('')}
+                ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</button>`).join('')}
               </div>
               <p class="rs-cap" id="scene-cap"></p>
             </div></div>
@@ -6690,7 +6624,7 @@
           <div class="gs-card">
             <p class="gs-h">Your data</p>
             ${gsSw('sw-glyph','Charts on shared images',gl!=='0')}
-            <p class="gs-fine">A card you share goes out as a picture of that card. On means the picture includes its chart. Off leaves the chart out — the card's words still go, and some of them name numbers.</p>
+            <p class="gs-fine">A card you share goes out as a picture of that card. On means the picture includes its chart. Off leaves the chart out. The card's words still go, and some of them name numbers.</p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins</button>
               <button class="set-quiet" id="privacy">How your data is handled</button>
@@ -6749,7 +6683,7 @@
     (function(){ const btn=$('#scene-btn'), body=$('#scene-body');
       if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
-    const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='one moment…';
+    const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='One moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
         .catch(e=>{ mgs.disabled=false; mgs.textContent=t; showToast(String((e&&e.message)||e)); }); };
     const segText=$('#seg-text'); if(segText) segText.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{
@@ -6770,7 +6704,7 @@
       sunbeam:'A still beam of light, dust hanging in it. Appears in dark mode.',
       fireflies:'Small lights arriving and leaving on their own time. Appears in dark mode.' };
     const scCap=$('#scene-cap'); const scVal=$('#scene-val');
-    const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'surprise me':v; };
+    const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'Surprise me':v.charAt(0).toUpperCase()+v.slice(1); };
     _scSet(psc);
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene);
@@ -6786,7 +6720,7 @@
     // mirrors the current state so the row explains itself either way. 🖊
     const _motionCap = on=>{ const el=$('#motion-cap'); if(el) el.textContent = on
       ? 'Animations are on.'
-      : "animations are off. this turns off the app's decorative movement. breathing practices keep their full timing; words carry the pace instead."; };
+      : "Animations are off. This turns off the app's decorative movement. Breathing practices keep their full timing; words carry the pace instead."; };
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
     const _hapCap = on=>{ const el=$('#hap-cap'); if(el) el.textContent = on
@@ -6874,7 +6808,7 @@
         <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
         <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep my account</button>
-        <p class="fineprint" style="margin-top:12px;text-align:center"><button class="linkbtn" id="del-go" style="font-size:inherit;padding:2px"${busy?' disabled':''}>${busy?'deleting…':'delete my account and all of my data'}</button></p>
+        <p class="fineprint" style="margin-top:12px;text-align:center"><button class="linkbtn" id="del-go" style="font-size:inherit;padding:2px"${busy?' disabled':''}>${busy?'Deleting…':'Delete my account and all of my data'}</button></p>
       </div></div>`);
     $('#del-keep').onclick = ()=>{ if(!busy) screenSettings(); };
     if(busy) return;
