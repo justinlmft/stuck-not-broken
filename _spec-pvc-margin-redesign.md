@@ -123,9 +123,9 @@ same 33/75 edges.
 - No defense ≥ 33 → plain **Safety — Low / Moderate / High**.
 - Existing quiet guard stays (all circuits < 0.12 → "quiet", ○).
 
-Flavour threshold: the shipped fight/flight margin of 20 is a *difference* and therefore
-not scale-free; the ratio conversion (leader ≥ ~1.4× the other, which reproduces 20 at
-typical levels) is proposed but **open** — Justin hasn't called it.
+Flavour threshold — **decided (Justin, this session): ratio.** S and D count as level
+unless the leader is ≥ ~1.4× the other. The shipped difference-of-20 was confirmed (●) but
+is not scale-free; 1.4× reproduces it at typical mid-scale levels (conversion ◆).
 
 ## 6. The boards (script-verified, tax at weight 1.0)
 
@@ -163,15 +163,22 @@ defined by behaviour and context we don't measure).
   fight/flight-persona question that was pending when the tax came up.
 - Ratios/margins over fixed numbers wherever nothing was measured; lift scales with
   missing ventral.
+- Flavour threshold is a **ratio** (leader ≥ ~1.4×), not a fixed difference.
+- The tax takes the **simplest form**: the smaller defense, discounted by safety
+  (`min(S,D) × (1−V)`, weight 1.0). Asked how fast conflict cost should grow with level,
+  Justin's answer was "it depends on how much safety is in the system" — which is the
+  `(1−V)` discount, already in the form — and beyond that, "I don't know." Nothing
+  measured can answer it either, so per house rule: simplest version, marked, moved on.
 - "Fixate" / "Fold" are not terms in use — strike the nicknames from spec §8 on next touch.
 
-**Open — needs Justin's nod or a fit:**
-- tax weight (1.0 provisional ◆)
-- λ, the lift scale (◆; fit path = `followup` check-ins, NOT the RTM-contaminated gradient)
-- cost fraction (½ provisional ◆)
-- flavour threshold as ratio (~1.4×) vs shipped difference (20)
-- context *loads* (+20/+40 to Demand): deliberately NOT ratio-ified yet — scaling threat
-  with the victim's capacity is a clinical claim nobody has made. Parked.
+**Provisional by necessity — nothing left for Justin to decide today; data decides later:**
+- tax weight 1.0 ◆. Recorded instinct (Justin): near-level defenses in the moderate or
+  high bands may cost *more* than this simplest pricing. Priced by data when it exists,
+  not by feel.
+- λ, the lift scale ◆ (fit path = `followup` check-ins, NOT the RTM-contaminated gradient)
+- cost fraction ½ ◆ (nearly inert in trajectories; low stakes)
+- context *loads* (+20/+40 to Demand): deliberately NOT ratio-ified — scaling threat with
+  the person's capacity is a clinical claim nobody has made. Parked.
 
 ## 8. Consequences to say out loud
 
@@ -197,12 +204,12 @@ defined by behaviour and context we don't measure).
 | capacity/defense rate | 0.7 / 0.3 | ◆ shipped RM §2.1, untouched (ω = 3/7 in disguise) |
 | a, k (old knobs) | dropped | were ◆ unfitted; k caused failure 1 |
 | tax form | min(S,D)·(1−V) | ○ shipped parts recombined (app freeze core ● + §1.4 gate) |
-| tax weight | 1.0 | ◆ unfitted, provisional |
+| tax weight | 1.0 | ◆ simplest form, provisional; escalation instinct recorded, waits on data |
 | lift form | λ·(1−V) | ◆ Justin's rule, PVT-aligned; shape visible in data but RTM-confounded |
 | λ | — | unfitted; `followup` check-ins are the fit path |
 | cost | ½ × toDef(level) | ◆ fraction unfitted; replaces flat table (nearly inert, low-risk) |
 | band edges | 33 / 75 | ● BPQ-SF-confirmed, inherited unchanged |
-| flavour threshold | 20 diff → ~1.4× ratio? | ● confirmed as difference; ratio conversion OPEN |
+| flavour threshold | leader ≥ ~1.4× | DECIDED ratio (Justin); ● confirmed as difference of 20, conversion ◆ |
 | blend/underneath threshold | 33 | = shipped band edge (replaces old 0.3125 ◆) |
 | quiet guard | 0.12 | ○ existing engine |
 | severity normalizer | 0.3 (= one full defense) | ○ structural |
