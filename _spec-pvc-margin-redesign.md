@@ -95,13 +95,25 @@ the ceiling is inherent (`min ≤ 1` means the tax can never exceed `1−V` — 
 *is* missing ventral).
 
 ⚠ **Consequence stated, not hidden:** the flat floor means sub-33 co-activation costs
-nothing. Functional fight/flight (42/72/25, dorsal 25 = background) returns to the line
-at **+0.003** — the linear placeholder had tipped it to −0.040, and the S-shape undoes
-that. The deep-shutdown board 12/23/75 (sympathetic 23 = background) reads Moderate
-(sev 70), not High. **The shape was chosen for its mechanism, not to produce reads** —
-re-bending it to force a persona defense-side would be fitting to a target, the exact
-trap the old formula died in. If functional fight/flight is clinically defense-governed,
-that is a question about the persona's ◆ numbers, not the tax.
+nothing. The deep-shutdown board 12/23/75 (sympathetic 23 = background) reads Moderate
+(sev 70), not High. And functional fight/flight (42/72/25, dorsal 25 = background)
+returned to the line at +0.003. **The shape was chosen for its mechanism, not to produce
+reads** — we declined to re-bend it, and put the persona question back to the expert.
+
+**Resolved, expert round 7 — both halves:**
+- **The knife's edge is the point.** A margin hovering near zero (~±0.05) is the
+  mathematical signature of a *functional* state: operational, socially masked, zero
+  reserve — one neuroceptive cue from dropping down the ladder. Kept as the meaning of
+  "functional" in this model.
+- **But the chronic profile moves.** There is no "clean" sympathetic defense in a
+  chronically retuned system: chronic mobilisation carries visceral dorsal cross-talk
+  (gut distress, bracing, shallow breath), so its dorsal reading sits *above* the
+  housekeeping floor. Profile revised **42/72/25 → 42/72/36** (expert's range 36–40).
+- ⚠ Arithmetic correction, ours: the expert quoted the tax *without* the ramp it endorsed
+  (tax 20.9, margin ≈ −0.11). With the ramp, dorsal 36 sits just above the floor and pays
+  almost no tax — the flip is driven by the raw dorsal load itself: **margin −0.031,
+  severity 10, Fight/Flight — Low** (at dorsal 40: −0.047, sev 16). The verdict stands;
+  the mechanism credit belonged to the load, not the tax. Direction identical either way.
 
 ### 4.2 The ceiling — emergent, not added
 
@@ -181,7 +193,7 @@ reproduces it at typical mid-scale levels (conversion ◆).
 | 100/100/100 | +0.100 | Safety — Low, freeze underneath |
 | functional freeze 35/55/55 | −0.142 | Freeze — Moderate (sev 48) |
 | functional shutdown 35/25/68 | −0.034 | Shutdown — Low (sev 11) |
-| functional fight/flight 42/72/25 | +0.003 | on the line: Safety — Low, sympathetic underneath |
+| functional fight/flight 42/72/36 (revised r7) | −0.031 | Fight/Flight — Low (sev 10) |
 | deep-shutdown board 12/23/75 | −0.210 | Shutdown — Moderate (sev 70) |
 | 0/0/75 | −0.225 | Shutdown — High (sev 75, edge exact) |
 | heavy conflict 15/70/75 | −0.502 | Freeze — High |
@@ -191,8 +203,10 @@ reproduces it at typical mid-scale levels (conversion ◆).
 | healthy 90/10/5 | +0.584 | Safety — High |
 
 **Failure 1, resolved** — by sign; the ventral gate keeps it resolved under the tax.
-**Failure 2** — functional freeze and functional shutdown read defense-governed;
-functional fight/flight sits on the line (see §4.1 ⚠).
+**Failure 2, resolved** — all three functional personas read defense-governed at Low or
+Moderate severity: stuck-but-running, correctly on the defense side of the line, with the
+severity a functional person would recognise. (Fight/flight required the round-7 profile
+revision — see §4.1.)
 **Appease, settled** — all-three-high (2.4% of check-ins ●) stops falling through the
 §1.3 tie to "play" and reads "Safety — Low, freeze underneath". The words appease/fawn
 stay unclaimed (Justin's ruling: defined by behaviour and context we don't measure).
@@ -208,6 +222,12 @@ stay unclaimed (Justin's ruling: defined by behaviour and context we don't measu
   pending this consultation; the expert's mechanism-grounded shape supersedes it.)
 - The `(1−V)` guardrail: prices holding, never restricts momentary reactivity.
 - "Fixate" / "Fold" are not terms in use — strike the nicknames from spec §8 on next touch.
+
+**Decided (expert round 7, needs Justin's formal adoption since personas are canonical):**
+- Functional fight/flight persona revised **42/72/25 → 42/72/36** (chronic mobilisation
+  carries visceral dorsal cross-talk above the housekeeping floor; expert range 36–40).
+- Interpretive note adopted: margin ≈ 0 (±0.05) is the signature of a *functional* state —
+  operational, masked, zero reserve.
 
 **Provisional by necessity — data decides later:**
 - λ, the lift scale ◆ (fit path = `followup` check-ins, NOT the RTM-contaminated gradient)
