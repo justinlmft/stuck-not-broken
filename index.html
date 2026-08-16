@@ -12,27 +12,38 @@
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Stuck Not Broken · app</title>
-<link rel="stylesheet" href="app.css?v=184">
+<link rel="stylesheet" href="app.css?v=187">
 </head>
 <body>
   <div class="shell">
     <div id="screen"><div class="boot" aria-hidden="true"><span class="boot-ring"></span></div></div>
   </div>
-  <script src="current.js?v=7"></script>
+  <script src="current.js?v=8"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=6"></script>
-  <script src="store.js?v=71"></script>
+  <script src="store.js?v=73"></script>
   <script src="from-justin.js?v=16"></script>
   <script src="icons.js"></script>
-  <script src="app.js?v=234"></script>
+  <script src="app.js?v=238"></script>
   <script>
   /* installable PWA: register the /app/-scoped service worker; reload once when a
      new shell takes control so updates propagate without a manual reinstall. */
   if('serviceWorker' in navigator){
-    let _swReloaded=false;
-    navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(!_swReloaded){_swReloaded=true;location.reload();} });
+    /* 2026-08-16 — never reload, and never even check for an update, while a practice
+       is running. The #weaver iframe is the tell. Full reasoning in player.html. */
+    let _swReloaded=false, _swPendingReload=false;
+    var _practiceOpen=function(){ try{ return !!document.getElementById('weaver'); }catch(e){ return false; } };
+    function _reloadNow(){ if(_swReloaded) return; _swReloaded=true; location.reload(); }
+    function _reloadWhenSafe(){
+      if(!_practiceOpen()){ _reloadNow(); return; }
+      if(_swPendingReload) return;
+      _swPendingReload=true;
+      var iv=setInterval(function(){ if(!_practiceOpen()){ clearInterval(iv); _reloadNow(); } }, 2000);
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', _reloadWhenSafe);
     function showUpdateToast(reg){
       if(document.getElementById('update-toast')) return;
+      if(_practiceOpen()) return;            // never float a toast over a running practice
       var b=document.createElement('div'); b.id='update-toast'; b.className='update-toast';
       b.innerHTML='<span>A new version is ready.</span><button type="button">Refresh</button>';
       document.body.appendChild(b);
@@ -48,7 +59,11 @@
            updates — you had to fully close and relaunch. Now every return to
            the foreground checks; skipWaiting + the controllerchange reload
            above do the rest, so updates apply within seconds of resuming. */
-        document.addEventListener('visibilitychange',function(){ if(!document.hidden){ try{reg.update();}catch(e){} } });
+        document.addEventListener('visibilitychange',function(){
+          if(document.hidden) return;
+          if(_practiceOpen()) return;        // waking the screen mid-practice must not trigger an update
+          try{reg.update();}catch(e){}
+        });
       }).catch(function(){});
     });
   }

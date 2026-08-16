@@ -597,6 +597,29 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .bl-kprev{width:26px;height:13px;border-radius:5px;border:1.5px dashed var(--ink-80);background:none}
 .bl-wrap.early .bl-bar{filter:grayscale(.5);opacity:.55}
 .bl-early{font-size:calc(12.5px * var(--type-scale));color:var(--ink-80);margin:16px 0 0;text-wrap:pretty}
+/* the pre-baseline card is what MOST people see: median check-ins per user is 2,
+   and only 11 of 141 clear the n>=8 gate in any 30-day window (prod, 2026-08-16).
+   So it is the primary state, not an edge case. It shows the axis (dimmed, and
+   learnable) with NOTHING plotted on it — no dot, no band. Before the gate the
+   dot sits at _blPosOf(null) = dead centre, which reads as "you are exactly
+   balanced": a confident claim about the person made from no data. Empty is the
+   honest render, and the second line says so out loud so the blank reads as
+   deliberate rather than broken. */
+/* one-time naming-change note. Calm, centred, dismissible, shown once. */
+.wn-root{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(0,0,0,.42);opacity:0;transition:opacity .45s var(--ease)}
+.wn-root.on{opacity:1}
+.wn-card{background:var(--bone);border-radius:18px;padding:26px 24px 22px;max-width:400px;width:100%;
+  box-shadow:0 8px 40px var(--shade-deep);max-height:82vh;overflow:auto}
+/* the mark signs the card: this announcement is from Justin, not the app voice. */
+.wn-mark-wrap{display:flex;justify-content:center;margin:0 0 14px}
+.wn-mark-wrap .ob-mark{width:52px;height:auto;color:var(--ink-80)}
+.wn-h{font-size:calc(21px * var(--type-scale));font-weight:500;letter-spacing:-.01em;line-height:1.24;
+  color:var(--ink);margin:0 0 12px;text-wrap:pretty}
+.wn-p{font-size:calc(15px * var(--type-scale));line-height:1.62;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
+.wn-card .btn{margin-top:8px}
+body.reduce-motion .wn-root{transition:none}
+.bl-early-sub{font-size:calc(11.5px * var(--type-scale));color:var(--muted);margin:8px 0 0;line-height:1.5;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
    swatches sit on the dark card, so give them light/legible marks there.
    BUG FIX (2026-07-30, Justin: "'state variation this month' shows white in
@@ -2991,6 +3014,9 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
   width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px var(--shade);
   max-height:100%;overflow-y:auto}
 .wn-mark{height:26px;display:block;margin:0 0 16px}
+/* the mark signs the card: this announcement is from Justin, not the app voice. */
+.wn-mark-wrap{display:flex;justify-content:center;margin:0 0 14px}
+.wn-mark-wrap .ob-mark{width:52px;height:auto;color:var(--ink-80)}
 .wn-h{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}
 .wn-p{font-size:calc(14.5px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
 .wn-list{margin:0 0 14px;padding-left:20px;display:grid;gap:8px}

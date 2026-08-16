@@ -41,6 +41,47 @@
   }
   const MARK = './assets/logo/snb-mark-ink.svg';
 
+  /* ── the margin read, applied to stored check-ins ──────────────────────────
+     Progress is measured on quantities, not on state names (Justin, 2026-08-16).
+
+     A check-in's state name is DERIVED here, never trusted from storage, so one
+     naming rule covers all history instead of two stitched at a deploy date.
+     `margin = 0.7*v - 0.3*(sym + dor + tax)` — sign gives the side, size gives
+     the qualifier. Never rendered as a number: margins stay internal, the person
+     is their own scale.
+
+     'neutral' is the one stored name that survives. It records that no axis was
+     touched (see the check-in save), which the numbers cannot tell you, and the
+     code there already calls it "not a read". So neutral is excluded from every
+     margin statistic — numerator, denominator and sample count alike.
+     ⚠ A neutral row's v/sym/dor are NOT reliably midpoints (a few prod rows span
+     0..1), so never infer values from the flag — only ever exclude on it.        */
+  // Which side of the line each NAME sits on. Not a heuristic: under the margin
+  // rule safety/play/stillness can only arise when margin >= 0, and
+  // shutdown/freeze/fight-flight only when margin < 0. So this is a fact about
+  // the naming rule, used where we need to describe names rather than count them.
+  const SAFETY_SIDE  = { safety:1, play:1, stillness:1 };
+  const DEFENSE_SIDE = { shutdown:1, freeze:1, fightflight:1 };
+  function _isRead(c){ return !!c && c.dom !== 'neutral' && typeof c.v === 'number'; }
+  function _reads(arr){ return (arr||[]).filter(_isRead); }
+  function _cDom(c){
+    if(!c) return null;
+    if(c.dom === 'neutral') return 'neutral';
+    try{ return window.PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
+  }
+  function _cMargin(c){
+    if(!_isRead(c)) return null;
+    try{ return window.PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; }
+  }
+  // safety-governed: capacity covers load in this same reading. Replaces the
+  // REG={safety,play,stillness} bucket lookup, which asked which word won.
+  function _cReg(c){ const m=_cMargin(c); return m != null && m >= 0; }
+  function _meanMargin(arr){
+    const r=_reads(arr), n=r.length; if(!n) return null;
+    let t=0; for(let i=0;i<n;i++) t+=_cMargin(r[i]);
+    return t/n;
+  }
+
   // ── demo mode ─────────────────────────────────────────────────────
   // Loads ~4 months of sample check-ins for review/demo only. Never persisted,
   // never touches a real account's data. Enable: localStorage.snb_demo='1' or #demo.
@@ -76,10 +117,10 @@
     Store.firstCheckinT=()=>cs.length?cs[0].t:null;
     Store.tenure=()=>{const days=Math.round((_sod(Date.now())-_sod(cs[0].t))/864e5);const wc=cs.filter(c=>Date.now()-c.t<=7*864e5).length;return {count:cs.length,days:days,windowCount:wc,sinceLast:0,returning:false,stage:'established'};};
     Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'rising':d<-0.12?'falling':'steady',n:a.length};};
-    Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};w.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/w.length*100));let reg=0;w.forEach(c=>{if(REG[c.dom])reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};a.forEach(x=>c2[x.dom]=(c2[x.dom]||0)+1);return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
-      return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:w.length-reg,regShare:reg/w.length,lean:reg/w.length>=0.6?'regulated':reg/w.length<=0.4?'dysregulated':'even',avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>!REG[d]),regStates:order.filter(d=>REG[d])};};
+    Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};_reads(w).forEach(c=>{const k=_cDom(c);cnt[k]=(cnt[k]||0)+1;});const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const nR=_reads(w).length||1;const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/nR*100));let reg=0;const rd=_reads(w);rd.forEach(c=>{if(_cReg(c))reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};_reads(a).forEach(x=>{const k=_cDom(x);c2[k]=(c2[k]||0)+1;});return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
+      return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:nR-reg,nRead:nR,regShare:reg/nR,lean:reg/nR>=0.6?'regulated':reg/nR<=0.4?'dysregulated':'even',meanMargin:_meanMargin(w),avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>DEFENSE_SIDE[d]),regStates:order.filter(d=>SAFETY_SIDE[d])};};
     Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',deltaPct:0,cur:cur.avgV};const d=cur.avgV-prev.avgV;return {dir:d>0.05?'up':d<-0.05?'down':'flat',deltaPct:Math.round(d*100),cur:cur.avgV,prev:prev.avgV};};
-    Store.recovery=()=>{if(cs.length<12)return null;const gaps=[];let i=0;while(i<cs.length){if(!REG[cs[i].dom]){let j=i,st=0,f=false;while(j<cs.length){if(REG[cs[j].dom]){f=true;break;}j++;st++;}if(f)gaps.push(st);i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length}:null;};
+    Store.recovery=()=>{const r=_reads(cs);if(r.length<12)return null;const gaps=[],depths=[];let i=0;while(i<r.length){if(!_cReg(r[i])){let j=i,st=0,f=false,low=0;while(j<r.length){const m=_cMargin(r[j]);if(m!=null&&m<low)low=m;if(_cReg(r[j])){f=true;break;}j++;st++;}if(f){gaps.push(st);depths.push(low);}i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length,deepest:Math.min.apply(null,depths),avgDepth:depths.reduce((x,y)=>x+y,0)/depths.length}:null;};
     Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
     Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
     Store.timeOfDay=()=>null;
@@ -2103,7 +2144,41 @@
     if(nameEl) nameEl.addEventListener('change', e=>{ if(Store.setName) Store.setName(e.target.value.trim()); });
   }
 
-  function app(tab){
+  /* ── one-time note after the naming change (2026-08-16) ────────────────────────────
+   Own root and own key; deliberately NOT wired into the onboarding step machine, which
+   has its own sequencing. Shown once, to existing users only: the whole point is that
+   PAST names may read differently now, which is meaningless to someone with no history.
+   Never over onboarding. Copy stays at "the language is clearer" per Justin — the
+   internals are an internal argument, not something to tell people about their own past.
+   The third line is the one that actually prevents confusion: reflections minted before
+   today keep their original wording and will not always match the re-read names. */
+function whatsNewNaming(){
+  try{ if(localStorage.getItem('snb_whatsnew_naming')==='1') return; }catch(e){ return; }
+  if(document.getElementById('wn-root')) return;
+  if(document.getElementById('ob-root')) return;                 // never over onboarding
+  try{ if(!(Store.checkins && Store.checkins().length)) return; }catch(e){ return; }
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  /* Justin's copy, 2026-08-16, used as written. Two deliberate departures from the
+     standing in-app copy rules, both because THIS card is signed by him rather than
+     spoken by the app: first person ("I've made"), and the mark as a sign-off. The
+     no-first-person rule exists so the reader never sounds like Justin talking; a
+     product announcement from the person who built it is the one place it should. */
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="App Updates">'
+    + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+    + '<h2 class="wn-h">App Updates</h2>'
+    + '<p class="wn-p">I’ve made some significant changes to how the app’s background math works.</p>'
+    + '<p class="wn-p">How this affects you: the check-in state naming is clearer. Instead of the one-dimensional state name, it now identifies the state and the level of it. Plus, it will name the secondary state. This should result in more clarity and deeper insights.</p>'
+    + '<p class="wn-p">This will change the Reflections reader from here on as well. Your past Reflections won’t change though.</p>'
+    + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ try{ localStorage.setItem('snb_whatsnew_naming','1'); }catch(e){} d.remove(); };
+  const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_naming_seen',{}); }catch(e){}
+}
+addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewNaming(); }catch(e){} }, 1400); });
+
+function app(tab){
     currentTab = tab;
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); mintWeeks(); mintMonths(); mintQuarters(); }
     const u = Store.user();
@@ -2980,14 +3055,16 @@
   // windowed equivalent of Store.weekMix() over an explicit set of in-window check-ins
   function _windowMix(cs){
     const n=cs.length; if(n<6) return null;                 // weekMix self-gates >=6; below that no secondary lines
-    const cnt={}; cs.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);
+    const cnt={}; _reads(cs).forEach(c=>{const k=_cDom(c); cnt[k]=(cnt[k]||0)+1;});
     const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
     const dom=order[0], second=order[1]||null;
-    const REG={safety:1,play:1,stillness:1}, DYS={fightflight:1,shutdown:1,freeze:1};
-    let reg=0; cs.forEach(c=>{ if(REG[c.dom]) reg++; });
-    const regShare=reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
-    return { n, dom, domShare:Math.round(cnt[dom]/n*100), second, secondShare: second?Math.round(cnt[second]/n*100):0,
-             reg, dys:n-reg, regShare, lean, distinct:order.length, defenseStates:order.filter(d=>DYS[d]) };
+    // regulated = margin >= 0, same quantity that picks the name. Neutral rows are
+    // not reads and leave the sample entirely (numerator and denominator).
+    const rd=_reads(cs); const nR=rd.length||1;
+    let reg=0; rd.forEach(c=>{ if(_cReg(c)) reg++; });
+    const regShare=reg/nR, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
+    return { n, dom, domShare:Math.round(cnt[dom]/nR*100), second, secondShare: second?Math.round(cnt[second]/nR*100):0,
+             reg, dys:nR-reg, nRead:nR, regShare, lean, distinct:order.length, meanMargin:_meanMargin(cs), defenseStates:order.filter(d=>DEFENSE_SIDE[d]) };
   }
   // windowed equivalent of Store.recovery() over an explicit set of in-window check-ins
   // (Store.recovery() is always all-time, no period param — so the "getting back to
@@ -4618,39 +4695,82 @@
   // Window comes from the you-tab time toggle (days), so the same card serves
   // every timescale the person picks.
   const _BL_ORDER = ['shutdown','freeze','fightflight','play','safety','stillness'];
-  const _blIdx = k => _BL_ORDER.indexOf(k);
-  const _blPos = idx => (idx + 0.5) / 6;                 // 0..1 center of a state's sixth
-  function _blBand(idxs){
-    const s = idxs.slice().sort((a,b)=>a-b);
-    const q = p => { const i=(s.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return s[lo]+(s[hi]-s[lo])*(i-lo); };
-    // central mass (p16..p84), padded half a segment so a single-state span still shows width
-    return { lo: Math.max(0, _blPos(q(0.16)) - 1/12), hi: Math.min(1, _blPos(q(0.84)) + 1/12) };
+  /* ── the baseline, on margin (Justin, 2026-08-16) ──────────────────────────
+     This card used to plot the median position on the ordinal axis above: every
+     check-in's stored NAME became an index 0-5 and the dot was the middle one.
+     Two problems with that. Ordinal positions have no distance — shutdown->freeze
+     was the same size step as safety->stillness. And the order contradicted the
+     model at the top: stillness sat above safety, but stillness 80/10/60 has
+     margin +0.350 against safety 90/10/5 at +0.585, so moving safety->stillness
+     climbed the card while the actual margin fell. (_PE_RANK ordered those two
+     the other way round, so the two cards disagreed with each other.)
+
+     Now the axis is margin, rescaled per side exactly as the read's qualifier is:
+     one full defense below the line, the person's own full ventral above it.
+     Centre is margin 0 — capacity exactly covering load.
+
+     No number is ever printed. The dot is a position and the band is a spread;
+     margins stay internal and the person stays their own scale.
+
+     THE GATE IS ITS OWN THING. The you-tab toggle is a viewing preference; a
+     baseline is a statistical claim, so it does not inherit that window. It needs
+     n >= 8 reads across at least 28 days. Below that the card returns early with
+     the count and the shortfall, and the caller shows a pre-baseline state — which
+     is what most people will see, at a median of ~2 check-ins per user.
+     Neutral rows are not reads: they are excluded from the mean AND from the
+     count, because a check-in that cannot inform the mean must not buy confidence
+     in it.                                                                      */
+  const _BL_MIN_N = 8, _BL_MIN_DAYS = 28;
+  // margin -> 0..1. Continuous at the centre; each side on its own scale.
+  function _blPosOf(m){
+    if(m == null) return 0.5;
+    return m >= 0 ? 0.5 + 0.5*Math.min(1, m/0.7)
+                  : 0.5 - 0.5*Math.min(1, -m/0.3);
+  }
+  function _blBandOf(margins){
+    const a = margins.slice().sort((x,y)=>x-y);
+    const q = p => { const i=(a.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i); return a[lo]+(a[hi]-a[lo])*(i-lo); };
+    // central mass (p16..p84), padded a little so a tight cluster still shows width
+    return { lo: Math.max(0, _blPosOf(q(0.16)) - 1/24), hi: Math.min(1, _blPosOf(q(0.84)) + 1/24) };
   }
   // pure: allCs + the active window's length in days (null = all time)
   function _baselineBar(allCs, days){
     const now = Date.now();
-    const nn = c => c.dom && c.dom !== 'neutral' && _blIdx(c.dom) >= 0;
-    const idxsOf = arr => arr.filter(nn).map(c => _blIdx(c.dom));
-    const cur = days==null ? idxsOf(allCs) : idxsOf(allCs.filter(c => c.t >= now - days*864e5));
-    const n = cur.length;
-    const cnt = {}; cur.forEach(i => cnt[i] = (cnt[i]||0)+1);
-    let modeIdx = null, mb = -1; Object.keys(cnt).forEach(k => { if(cnt[k] > mb){ mb = cnt[k]; modeIdx = +k; } });
-    if(n < 4) return { early:true, n, dotPos: modeIdx!=null ? _blPos(modeIdx) : 0.5 };
-    const band = _blBand(cur);
+    // the baseline window is at least 28 days regardless of what the toggle says
+    const win = (days == null) ? null : Math.max(days, _BL_MIN_DAYS);
+    const inWin = win == null ? _reads(allCs) : _reads(allCs.filter(c => c.t >= now - win*864e5));
+    const margins = inWin.map(_cMargin).filter(m => m != null);
+    const n = margins.length;
+    const mean = n ? margins.reduce((x,y)=>x+y,0)/n : null;
+
+    if(n < _BL_MIN_N)
+      return { early:true, n, need:_BL_MIN_N - n, minN:_BL_MIN_N, minDays:_BL_MIN_DAYS,
+               windowDays:win, dotPos:_blPosOf(mean) };
+
+    // the label is still a name — a descriptive word for where the middle sits, not
+    // a measurement. Derived from circuit values like every other name now.
+    const cnt = {}; inWin.forEach(c => { const k=_cDom(c); if(k && k!=='neutral') cnt[k]=(cnt[k]||0)+1; });
+    let modeState = null, mb = -1;
+    Object.keys(cnt).forEach(k => { if(cnt[k] > mb){ mb = cnt[k]; modeState = k; } });
+
+    const band = _blBandOf(margins);
     let prev = null;
-    if(days != null){
-      const p = idxsOf(allCs.filter(c => c.t >= now - 2*days*864e5 && c.t < now - days*864e5));
-      if(p.length >= 4) prev = _blBand(p);
+    if(win != null){
+      const pm = _reads(allCs.filter(c => c.t >= now - 2*win*864e5 && c.t < now - win*864e5))
+                   .map(_cMargin).filter(m => m != null);
+      if(pm.length >= _BL_MIN_N) prev = _blBandOf(pm);      // like-for-like: same gate both windows
     }
-    return { early:false, n, dotPos:_blPos(modeIdx), modeState:_BL_ORDER[modeIdx], bandLo:band.lo, bandHi:band.hi, prev };
+    return { early:false, n, windowDays:win, dotPos:_blPosOf(mean), modeState:modeState,
+             bandLo:band.lo, bandHi:band.hi, prev };
   }
   // renders the card body (everything under the panel-sub). phrases name the window.
   function _blCardHTML(bl, nowPhrase, prevPhrase){
     const pc = x => (x*100).toFixed(1);
     const ticks = `<div class="bl-ticks">${['shutdown','freeze','flight/<br>fight','play','safety','stillness'].map(t=>`<span>${t}</span>`).join('')}</div>`;
     if(bl.early){
-      return `<div class="bl-wrap early"><div class="bl-bar"><span class="bl-dot" style="left:${pc(bl.dotPos)}%"></span></div>${ticks}</div>
-        <p class="bl-early"><b>This is still early.</b> It becomes clearer with more check-ins over the next few weeks.</p>`;
+      return `<div class="bl-wrap early"><div class="bl-bar"></div>${ticks}</div>
+        <p class="bl-early"><b>Your baseline is still forming.</b> ${bl.n===0?`It takes ${bl.minN} check-ins to draw.`:`${bl.n} of ${bl.minN} check-ins so far. ${bl.need===1?'One more':bl.need+' more'} and it fills in.`}</p>
+    <p class="bl-early-sub">It will show where your system tends to sit, and how much it moves from there. Until there is enough to draw from, it stays empty rather than guessing.</p>`;
     }
     const prevEl = bl.prev ? `<span class="bl-prev" style="left:${pc(bl.prev.lo)}%;width:${pc(bl.prev.hi-bl.prev.lo)}%"></span>` : '';
     const band = `<span class="bl-band" style="left:${pc(bl.bandLo)}%;width:${pc(bl.bandHi-bl.bandLo)}%"></span>`;
@@ -4722,34 +4842,81 @@
   // nothing about the practice — only pairs within 12 hours count, so the stat
   // never claims a correlation the timing can't support. computed from raw data;
   // store.js untouched.
-  const _PE_WIN = 12*36e5;
-  const _PE_RANK = { shutdown:0, freeze:0, fightflight:1, play:2, stillness:2, safety:3 };
-  function _peWindowed(){
-    const ss = Store.sessions().filter(s=>s&&s.domBefore&&_PE_RANK[s.domBefore]!=null);
-    if(!ss.length) return null;
-    const cs = Store.checkins();
-    let moved=0, total=0;
-    ss.forEach(s=>{
-      const next = cs.find(c=>c.t>s.t && c.t-s.t<=_PE_WIN && c.dom && _PE_RANK[c.dom]!=null);
-      if(!next) return;
-      total++;
-      if(_PE_RANK[next.dom]>_PE_RANK[s.domBefore]) moved++;
+  /* ── practice effect, on margin ────────────────────────────────────────────
+     Was: RANK[after] > RANK[before] on state NAMES, over a flat 12-hour window.
+     Two defects that fix themselves here.
+
+     1. The ladder collapsed real movement. RANK scored shutdown and freeze both
+        0, play and stillness both 2 — so shutdown -> freeze registered as no
+        change at all. Margin is continuous and signed; nothing collapses.
+     2. Time proximity, not the actual pairing. store.js already binds a check-in
+        to its session with session_id + phase ('before' 0-90 min ahead of launch,
+        'after' 0-45 min past it, 'followup' 90 min - 6 h). Those bound pairs were
+        sitting unused while the number was computed by "next check-in within 12h".
+
+     We now pair by session_id/phase and report the margin delta. `after` and
+     `followup` are DIFFERENT measurements — the immediate lift in safety fades,
+     the drop in sympathetic does not — so they are never merged into one number.
+
+     domBefore is no longer consulted: it is a bare name with no circuit values,
+     so it could not be re-derived. The bound 'before' check-in carries v/sym/dor
+     and gives a real margin.
+
+     ⚠ The >=6 gate below is inherited and is sized for estimating a RATE from
+     binary outcomes. A signed continuous delta carries considerably more per
+     observation, so this threshold is almost certainly too conservative now —
+     left as-is deliberately rather than guessed at, pending real pair volume.   */
+  const _PE_WIN = 12*36e5;                    // legacy fallback window, see _peLegacyPair
+  // pairs: {before, after, followup} margins for one session, from bound check-ins
+  function _pePairs(){
+    const cs = Store.checkins(), out = [];
+    const bySess = {};
+    cs.forEach(c=>{
+      if(!c || !c.session_id || !c.phase) return;
+      const b = bySess[c.session_id] || (bySess[c.session_id] = {});
+      // first of each phase wins; store.js already bounds the windows
+      if(!b[c.phase]) b[c.phase] = c;
     });
-    return total>=6 ? { moved, total, rate:moved/total } : null;
+    Store.sessions().forEach(s=>{
+      const b = s && s.id ? bySess[s.id] : null;
+      if(!b || !b.before) return;
+      const mB = _cMargin(b.before);
+      if(mB == null) return;
+      const mA = b.after ? _cMargin(b.after) : null;
+      const mF = b.followup ? _cMargin(b.followup) : null;
+      if(mA == null && mF == null) return;
+      out.push({ session:s, practiceKey:s.practiceKey||null, t:s.t, beforeCheckin:b.before,
+                 before:mB, after:mA, followup:mF,
+                 dAfter: mA==null?null:mA-mB, dFollowup: mF==null?null:mF-mB });
+    });
+    return out;
+  }
+  function _peWindowed(){
+    const pairs = _pePairs().filter(p=>p.dAfter!=null);
+    const total = pairs.length;
+    if(total < 6) return null;
+    let moved=0, sum=0;
+    pairs.forEach(p=>{ sum += p.dAfter; if(p.dAfter > 0) moved++; });
+    // `moved`/`rate` kept so existing callers and copy keep working; `mean` is the
+    // measure that actually carries the information.
+    return { moved, total, rate:moved/total, mean:sum/total };
   }
   function _peInsightsWindowed(){
-    const ss = Store.sessions().filter(s=>s&&s.practiceKey&&s.domBefore&&_PE_RANK[s.domBefore]!=null);
-    if(!ss.length) return [];
-    const cs = Store.checkins(), g={};
-    ss.forEach(s=>{
-      const next = cs.find(c=>c.t>s.t && c.t-s.t<=_PE_WIN && c.dom && _PE_RANK[c.dom]!=null);
-      if(!next) return;
-      const k=s.practiceKey+'|'+s.domBefore+'|'+segOf(s.t);
-      const o=g[k]||(g[k]={practiceKey:s.practiceKey,dom:s.domBefore,seg:segOf(s.t),moved:0,total:0});
-      o.total++;
-      if(_PE_RANK[next.dom]>_PE_RANK[s.domBefore]) o.moved++;
+    const g={};
+    _pePairs().forEach(p=>{
+      if(!p.practiceKey || p.dAfter==null) return;
+      // grouped by the state they went IN with, derived from that check-in's own
+      // circuit values rather than a stored name
+      const dom = _cDom(p.beforeCheckin);
+      if(!dom) return;
+      const k=p.practiceKey+'|'+dom+'|'+segOf(p.t);
+      const o=g[k]||(g[k]={practiceKey:p.practiceKey,dom:dom,seg:segOf(p.t),moved:0,total:0,sum:0});
+      o.total++; o.sum += p.dAfter;
+      if(p.dAfter > 0) o.moved++;
     });
-    return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4).map(o=>Object.assign(o,{rate:o.moved/o.total})).sort((a,b)=>b.total-a.total||b.rate-a.rate);
+    return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4)
+      .map(o=>Object.assign(o,{rate:o.moved/o.total, mean:o.sum/o.total}))
+      .sort((a,b)=>b.total-a.total||b.mean-a.mean);
   }
   // context ↔ state link: which tag gets named most around safe check-ins, and which
   // around defense. only per-check-in ('c') tags carry a state, so only they count.
