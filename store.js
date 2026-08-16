@@ -992,9 +992,30 @@
   }
 
   // ---- richer for-you signals (read by the blog; all self-gating on min data) ----
+  /* ── the margin read (Justin, 2026-08-16) ──────────────────────────────────
+     Progress is measured on quantities, not on state names. A check-in's name is
+     DERIVED from its own v/sym/dor, so one rule covers all history.
+     margin = 0.7*v - 0.3*(sym + dor + tax); >= 0 means capacity covers load in
+     that same reading. Never surfaced as a number — margins stay internal.
+     'neutral' rows are not reads and are excluded everywhere (these functions
+     already filtered them, which is why the filters below are unchanged).
+     ⚠ Never infer values from the neutral flag: a few rows carry non-midpoints. */
+  function _mgn(c){
+    if(!c || c.dom === 'neutral' || typeof c.v !== 'number') return null;
+    try{ return PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; }
+  }
+  function _dm(c){
+    if(!c || typeof c.v !== 'number') return c && c.dom || null;
+    if(c.dom === 'neutral') return 'neutral';
+    try{ return PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
+  }
+  function _isReg(c){ const m = _mgn(c); return m != null && m >= 0; }
+
   const _REG = { safety:1, play:1, stillness:1 };          // regulated dominants
   const _DYS = { fightflight:1, shutdown:1, freeze:1 };     // dysregulated / defensive dominants
-  const _RANK = { shutdown:0, freeze:0, fightflight:1, play:2, stillness:2, safety:3 }; // "steadier" ladder
+  // (retired 2026-08-16) the _RANK "steadier" ladder scored shutdown and freeze both 0
+  // and play and stillness both 2, so real movement between them registered as none.
+  // Replaced by the margin delta, which is continuous and signed.
 
   // weekMix: the window's state distribution — the 2nd-most-common state and the
   // regulated:dysregulated balance. Powers section 1's secondary-state + balance lines.
@@ -1005,10 +1026,10 @@
     const cs = data.checkins.filter(c => c.t >= cut && c.dom && c.dom !== 'neutral');
     const n = cs.length;
     if(n < 6) return null;                                  // too few in-window to claim a mix
-    const cnt = {}; cs.forEach(c => { cnt[c.dom] = (cnt[c.dom]||0) + 1; });
+    const cnt = {}; cs.forEach(c => { const k=_dm(c); cnt[k] = (cnt[k]||0) + 1; });
     const order = Object.keys(cnt).sort((a,b) => cnt[b]-cnt[a]);
     const dom = order[0], second = order[1] || null;
-    let reg=0, dys=0; cs.forEach(c => { if(_REG[c.dom]) reg++; else if(_DYS[c.dom]) dys++; });
+    let reg=0, dys=0; cs.forEach(c => { if(_isReg(c)) reg++; else dys++; });
     const lean = reg>dys ? 'regulated' : dys>reg ? 'dysregulated' : 'even';
     return { n, dom, domShare:Math.round(cnt[dom]/n*100), second,
              secondShare: second ? Math.round(cnt[second]/n*100) : 0,
@@ -1021,34 +1042,60 @@
   function recovery(){
     const cs = data.checkins.filter(c => c.dom && c.dom !== 'neutral');
     if(cs.length < 12) return null;
-    const gaps = []; let i = 0;
+    const gaps = [], depths = []; let i = 0;
     while(i < cs.length){
-      if(!_REG[cs[i].dom]){                                 // entered a harder state
-        let j = i, steps = 0, found = false;
-        while(j < cs.length){ if(_REG[cs[j].dom]){ found = true; break; } j++; steps++; }
-        if(found) gaps.push(steps);                         // check-ins in the dip before steadier ground
+      if(!_isReg(cs[i])){                                   // margin went under: load exceeds capacity
+        let j = i, steps = 0, found = false, low = 0;
+        while(j < cs.length){
+          const m = _mgn(cs[j]); if(m != null && m < low) low = m;
+          if(_isReg(cs[j])){ found = true; break; } j++; steps++;
+        }
+        if(found){ gaps.push(steps); depths.push(low); }     // check-ins under the line, and how far under
         i = j;
       } else i++;
     }
     if(gaps.length < 3) return null;                         // need several completed recoveries
-    return { avg: gaps.reduce((a,b)=>a+b,0)/gaps.length, n: gaps.length };
+    // depth is the part the old name-walk could not see: "how far under" as well as "how long"
+    return { avg: gaps.reduce((a,b)=>a+b,0)/gaps.length, n: gaps.length,
+             deepest: Math.min.apply(null, depths),
+             avgDepth: depths.reduce((a,b)=>a+b,0)/depths.length };
   }
 
   // practiceEffect: of the check-ins that follow a practice session, how often the next one
   // reads steadier than the state they went in with. Closes the read->practice->steadier loop.
-  function practiceEffect(){
-    const ss = data.sessions.filter(s => s.domBefore && _RANK[s.domBefore] != null);
-    if(!ss.length) return null;
-    const cs = data.checkins;
-    let moved=0, total=0;
-    ss.forEach(s => {
-      const next = cs.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
-      if(!next) return;
-      total++;
-      if(_RANK[next.dom] > _RANK[s.domBefore]) moved++;
+  // Pairs by session_id + phase — the binding this file already does — rather than
+  // by "next check-in after". domBefore is not consulted: it is a bare name with no
+  // circuit values, so it cannot be re-derived; the bound 'before' check-in can.
+  // 'after' and 'followup' stay separate measurements and are never merged.
+  function _pePairs(){
+    const bySess = {};
+    data.checkins.forEach(c => {
+      if(!c || !c.session_id || !c.phase) return;
+      const b = bySess[c.session_id] || (bySess[c.session_id] = {});
+      if(!b[c.phase]) b[c.phase] = c;
     });
-    if(total < 6) return null;                               // enough paired session->check-in
-    return { moved, total, rate: moved/total };
+    const out = [];
+    data.sessions.forEach(s => {
+      const b = s && s.id ? bySess[s.id] : null;
+      if(!b || !b.before) return;
+      const mB = _mgn(b.before); if(mB == null) return;
+      const mA = b.after ? _mgn(b.after) : null;
+      const mF = b.followup ? _mgn(b.followup) : null;
+      if(mA == null && mF == null) return;
+      out.push({ session:s, practiceKey:s.practiceKey||null, t:s.t, beforeCheckin:b.before,
+                 before:mB, after:mA, followup:mF,
+                 dAfter: mA==null?null:mA-mB, dFollowup: mF==null?null:mF-mB });
+    });
+    return out;
+  }
+  function practiceEffect(){
+    const pairs = _pePairs().filter(p => p.dAfter != null);
+    const total = pairs.length;
+    if(total < 6) return null;
+    let moved=0, sum=0;
+    pairs.forEach(p => { sum += p.dAfter; if(p.dAfter > 0) moved++; });
+    // rate kept for existing callers; mean is the measure that carries the information
+    return { moved, total, rate: moved/total, mean: sum/total };
   }
 
   // momentDeltas: the live-session before/after spine (§7.1 "moment self-regulation", §7.4 step 6).
@@ -1062,7 +1109,7 @@
   //
   // Per pair: dConn (v_after − v_before), defBefore/defAfter = the larger of the two defense axes
   // (mobilization, immobilization) at each end, dDef (negative = defense eased), the two dominant
-  // keys, and rankDelta on the existing _RANK ladder. No framing, no "good/bad" — the caller decides.
+  // keys, and marginDelta (continuous, signed). No framing, no "good/bad" — the caller decides.
   function momentDeltas(){
     const cs = data.checkins.filter(c => c.live_session_id && c.practice_ref && c.phase &&
                                           typeof c.v==='number' && typeof c.sym==='number' && typeof c.dor==='number');
@@ -1078,14 +1125,15 @@
       if(!before) return;
       const after = g.find(c => c.phase === 'after' && c.t >= before.t);
       if(!after) return;
-      const rb = _RANK[before.dom], ra = _RANK[after.dom];
+      const rb = _mgn(before), ra = _mgn(after);   // margins, not ladder positions
       pairs.push({
         sessionId: before.live_session_id, practiceRef: before.practice_ref,
         tBefore: before.t, tAfter: after.t,
         vBefore: before.v, vAfter: after.v, dConn: after.v - before.v,
         defBefore: def(before), defAfter: def(after), dDef: def(after) - def(before),
-        domBefore: before.dom, domAfter: after.dom,
-        rankDelta: (rb != null && ra != null) ? ra - rb : null,
+        domBefore: _dm(before), domAfter: _dm(after),
+        marginBefore: rb, marginAfter: ra,
+        marginDelta: (rb != null && ra != null) ? ra - rb : null,
       });
     });
     pairs.sort((a,b) => a.tAfter - b.tAfter);
@@ -1100,22 +1148,19 @@
   // handful of paired observations can support. Trend data, not a diagnosis or a promise.
   const _INSIGHT_MIN_N = 4;
   function practiceInsights(){
-    const ss = data.sessions.filter(s => s.practiceKey && s.domBefore && _RANK[s.domBefore] != null);
-    if(!ss.length) return [];
-    const cs = data.checkins;
     const groups = {};
-    ss.forEach(s => {
-      const next = cs.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
-      if(!next) return;
-      const key = s.practiceKey + '|' + s.domBefore + '|' + _segOf(s.t);
-      const g = groups[key] || (groups[key] = { practiceKey:s.practiceKey, dom:s.domBefore, seg:_segOf(s.t), moved:0, total:0 });
-      g.total++;
-      if(_RANK[next.dom] > _RANK[s.domBefore]) g.moved++;
+    _pePairs().forEach(p => {
+      if(!p.practiceKey || p.dAfter == null) return;
+      const dom = _dm(p.beforeCheckin); if(!dom || dom === 'neutral') return;
+      const key = p.practiceKey + '|' + dom + '|' + _segOf(p.t);
+      const g = groups[key] || (groups[key] = { practiceKey:p.practiceKey, dom:dom, seg:_segOf(p.t), moved:0, total:0, sum:0 });
+      g.total++; g.sum += p.dAfter;
+      if(p.dAfter > 0) g.moved++;
     });
     return Object.keys(groups).map(k => groups[k])
       .filter(g => g.total >= _INSIGHT_MIN_N)
-      .map(g => Object.assign(g, { rate: g.moved / g.total }))
-      .sort((a,b) => b.total - a.total || b.rate - a.rate);
+      .map(g => Object.assign(g, { rate: g.moved / g.total, mean: g.sum / g.total }))
+      .sort((a,b) => b.total - a.total || b.mean - a.mean);
   }
 
   // ---- outcome ledger (recommender v2, Justin's rulings 2026-07-06) -----------
@@ -1125,10 +1170,13 @@
   // recommend). A next check-in that reads steadier also counts as good — so
   // pre-07-06 history (no after_feeling column) still earns credit.
   function _exitOf(s){ return s ? (s.exitReason || ((/^exit-/.test(s.feedback||'')) ? s.feedback : null)) : null; }
+  // "moved up" is now a real quantity: did margin improve across this session's own
+  // bound before/after pair. The old version compared a stored name against the next
+  // check-in at any distance, on a ladder that scored shutdown and freeze equal.
   function _movedUp(s){
-    if(!s || !s.domBefore || _RANK[s.domBefore]==null) return false;
-    const next = data.checkins.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
-    return !!next && _RANK[next.dom] > _RANK[s.domBefore];
+    if(!s || !s.id) return false;
+    const p = _pePairs().find(x => x.session && x.session.id === s.id);
+    return !!p && p.dAfter != null && p.dAfter > 0;
   }
   // one session -> 'good' | 'bad' | 'neutral' | null (no readable outcome)
   function _outcomeOf(s){
