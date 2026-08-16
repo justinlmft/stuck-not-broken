@@ -1032,6 +1032,23 @@ function build(c){
     if(defense){
       add('CURIOSITY-01','staying curious');             // interest gate
       add('CAP-GATE','going further');                   // capacity gate — AFTER safety, BEFORE any defense
+      /* CAP-GATE asks "do you have the capacity and the genuine willingness to go there right
+         now?" and until 2026-08-15 nothing answered a NO. The gate had no branch, and the
+         mid-practice controls are only pause / back-5s / previous section / begin ease out /
+         end now — so a no had nowhere to go but out of the practice. Meanwhile STOP-OK was
+         recorded, sat in MANIFEST, ORDER and DUR, and was never add()ed by build(): the one clip
+         that says "you have full permission to stop… anchoring in safety is already a success"
+         had never played for anyone. It is the gate's own answer — CAP-GATE-a ends "staying with
+         safety is a complete practice all on its own" — so it belongs immediately after it.
+         Gap: CAP-GATE keeps its short 1.5s hold (SHORT_BASE) as the beat between question and
+         permission; STOP-OK then takes the listener's FULL chosen silence, which is the real
+         pause to decide in. clipState() leaves both on 'safety' (blue), which is right — this
+         beat points back toward safety, not into defense.
+         This is the audio half only. A ROUTED no — the gate sending the listener into validate
+         & normalize (IMG-01/IMG-02 + NUMB-OK + PEND-SAFETY) instead of ending — is still open;
+         it needs a control, not just a clip. See STATUS "the capacity gate asks a question the
+         app gives no way to answer". */
+      add('STOP-OK','permission to stop');
       if(usesInvite){
         loopBase='INVITE-01';                            // open-ended loop returns here
         add('INVITE-01','inviting what is hard');add('INVITE-02','it makes sense');add('INVITE-03','letting it be');

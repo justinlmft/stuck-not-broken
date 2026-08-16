@@ -52,13 +52,28 @@
   --space-sub:var(--sp-7);      /* between sub-sections */
   --space-section:var(--sp-8);  /* between sections */
 
-  /* layout — clamp() is what makes it fluid instead of breakpoint-bolted */
+  /* layout — clamp() is what makes it fluid instead of breakpoint-bolted.
+     ⚠ READ BEFORE "CLEANING UP" THE UNUSED ONES (checked 2026-08-15).
+     --pad-x, --gap, --section and --measure have ZERO var() consumers in app.css, app.js and
+     player.html. They are NOT dead code — they are Phase-1 staging from WEB-APP-FLUID-PLAN.md,
+     which ported the token block ahead of Fluid Phases 2-6. Those phases were never built, so
+     the landing pads sit unused. Deleting them throws away the groundwork; wiring them changes
+     desktop layout on every screen and is a design decision, not a tidy-up.
+     This is what DQA logged as deviation-register §14 row 4 ("WAFP names tokens with zero
+     consumers"), and it is the same root cause as DQA §B (seven primary left edges at >=1024,
+     221px spread) and the five ad-hoc content caps below (1080 / min(--page,980) / --col /
+     980 / 560). All three are one open item: Fluid Phase 2 never shipped. Finish it or
+     formally drop it — but do not resolve it one symptom at a time. See STATUS.
+     Live and consumed: --page (2), --col (2), --shell (1). */
   --page:1120px;                          /* focal content cap */
   --shell:1240px;                         /* shell cap (rail + content), Phase 2 */
-  --pad-x:clamp(20px,5vw,40px);
-  --gap:clamp(20px,4vw,32px);
-  --section:clamp(64px,9vw,112px);
-  --measure:66ch;                         /* reading line length; text is never full-bleed */
+  --pad-x:clamp(20px,5vw,40px);           /* staged for Fluid Phase 2 — no consumers yet */
+  --gap:clamp(20px,4vw,32px);             /* staged for Fluid Phase 2 — no consumers yet */
+  --section:clamp(64px,9vw,112px);        /* staged for Fluid Phase 2 — no consumers yet */
+  --measure:66ch;                         /* staged for Fluid Phase 2 — no consumers yet.
+                                             NOTE: "text is never full-bleed" is therefore an
+                                             INTENT, not a shipped behaviour. Reading measure is
+                                             currently uncapped on wide screens. */
   --col:680px;                            /* capped content column on regular/wide (Phase 2) */
 
   /* type ramp — device-appropriate body (Justin, 2026-07-10): ~17px phone -> ~19px wide.

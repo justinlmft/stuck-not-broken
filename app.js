@@ -2874,7 +2874,7 @@
     // the visiting section (week / quarter / year) — one at a time, above the essay
     const visit = buildVisitSection();
     const hasArchive = (Store.mints && Store.mints().length > 0);
-    const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">Past reflections →</button>` : '';
+    const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">Past Reflections →</button>` : '';
     // the reader closes into a practice: when you've finished reading what your
     // check-ins are saying, the practice shaped from them is one tap away (the plan
     // reader, then begin). links to the SAME recommendation as the practice tab.
@@ -2901,9 +2901,9 @@
         <div class="view read" style="gap:0">
           <div class="read-flow">
             <div class="scr-head read-head">
-              <h1 class="read-h1">Your reflections</h1>
+              <h1 class="read-h1">Your Reflections</h1>
               <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
-              ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="past reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
+              ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="Past Reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
             </div>
             ${todayBlock}
             ${visit.html}
@@ -3267,7 +3267,7 @@
       <header class="appbar"><button class="backbtn" id="arch-back">Back</button></header>
       <div class="scroll">
         <div class="view read" style="gap:0">
-          <h1 class="read-h1">Past reflections</h1>
+          <h1 class="read-h1">Past Reflections</h1>
           ${caption}
           ${rows}
         </div>
@@ -3381,7 +3381,7 @@
     setHTML(`
       <header class="appbar"><button class="backbtn" id="cc-back">Back</button></header>
       <div class="scroll"><div class="view" style="gap:14px">
-        <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Change a check-in</h2></div>
+        <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Change a Check-in</h2></div>
         <p class="map-sub" style="margin:0">Tap a recent check-in to adjust it, or remove one you didn't mean to keep.</p>
         <div class="change-list">${rows}</div>
       </div></div>`);
@@ -3411,7 +3411,7 @@
     setHTML(`
       <header class="appbar"><button class="backbtn" id="mp-back">Back</button></header>
       <div class="scroll"><div class="view" style="gap:14px">
-        <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Manage your practices</h2></div>
+        <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Manage Your Practices</h2></div>
         <p class="map-sub" style="margin:0">Remove a logged practice you didn't mean to keep, like a test. This can't be undone.</p>
         <div class="change-list">${rows}</div>
       </div></div>`);
@@ -3795,7 +3795,7 @@
     $('#lv-out').onclick = ()=>{ _liveClear(); app('today'); };
   }
   function screenLiveCode(){
-    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">Join with a code</h2><p class="scr-lede">Enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">Join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">Back</button></div></div>');
+    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">Join with a Code</h2><p class="scr-lede">Enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">Join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">Back</button></div></div>');
     var inp=$('#lc-in'); if(inp) inp.focus();
     var go=function(){
       var v=((inp&&inp.value)||'').trim().toUpperCase();
@@ -3902,7 +3902,7 @@
     const mk=k=>`<span class="lv-mk">${(STATE_AXES[k]||[]).map(([icn])=>ico(icn,{cls:'lv-mark',color:STATE_COLOR(k)})).join('')}</span>`;
     const row=keyed.map((r,i)=>`${i?arrow:''}<span class="lv-g" style="--i:${i}">${mk(r.key)}</span>`).join('');
     _liveShell(`<div class="view fb-view">
-        <div class="scr-head"><h2 class="scr-h">Your practice results</h2></div>
+        <div class="scr-head"><h2 class="scr-h">Your Practice Results</h2></div>
         <div class="lv-trail2${keyed.length>2?' many':''}">${row}</div>
         <div class="actionbar">
           ${keyed.length?'<button class="btn block" id="lv-share">Share this</button>':''}
@@ -4814,7 +4814,7 @@
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
-        <h3 class="yr-h">Your reflection</h3>
+        <h3 class="yr-h">Your Reflection</h3>
         <p class="yr-lede">The personal read of your patterns, in plain language.</p>
         <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">Read your full reflection &middot; on the base plan</span></span>
       </a>
@@ -5346,7 +5346,7 @@
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
 
           <a class="you-reader" id="you-reader" href="#">
-            <h3 class="yr-h">Your reflection</h3>
+            <h3 class="yr-h">Your Reflection</h3>
             <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p>
             <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
