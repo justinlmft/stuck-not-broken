@@ -1,12 +1,14 @@
 # PVC margin redesign — proposal for agreement
 
-**2026-08-15, revised after expert consultation round 6 (co-activation cost and the
-defense ceiling).** Status: PROPOSED — package agreed in discussion with Justin and
-endorsed in shape by the PVT expert; unfitted weights marked. **No code has been
-touched.** The engine (`snb-business: Projects/Web Designer/_mockup-pvc-per-state-sliders.html`)
-still ships the old `min(a,b) × 1.6` naming rule; the app (`current.js`) still ships its
-own weights. Provenance marks follow the spec's §0 key: ● measured · ▲ inferred ·
-◆ asserted · ○ structural.
+**2026-08-15. Status: AGREED IN SUBSTANCE — implementation-ready.** Consultation rounds
+6–7 with the PVT expert are closed; every open question has an answer or a named data
+path. **This document is the source of truth for the redesign — a new coding session
+needs nothing outside it plus the shipped spec** (`snb-business:
+Projects/Web Designer/_spec-regulation-math.md`). **No code has been touched yet.** The
+engine (`snb-business: Projects/Web Designer/_mockup-pvc-per-state-sliders.html`) still
+ships the old `min(a,b) × 1.6` naming rule; the app (`current.js` in this repo) still
+ships its own weights. §10 below is the implementation handoff. Provenance marks follow
+the spec's §0 key: ● measured · ▲ inferred · ◆ asserted · ○ structural.
 
 Frame (decided, upstream): two defenses only — sympathetic (one system, one slider) and
 dorsal. Ventral is not a defense; it does the holding. Margin decides which state; margin
@@ -114,6 +116,15 @@ reads** — we declined to re-bend it, and put the persona question back to the 
   almost no tax — the flip is driven by the raw dorsal load itself: **margin −0.031,
   severity 10, Fight/Flight — Low** (at dorsal 40: −0.047, sev 16). The verdict stands;
   the mechanism credit belonged to the load, not the tax. Direction identical either way.
+- **Scope of the claim — chronicity, not coupling.** Dorsal does NOT rise because
+  sympathetic rises; it rises because the system stays mobilised over *time* (diffuse
+  autonomic retuning → visceral cross-talk). Acute sympathetic can be clean. Therefore
+  **no coupling is added to the formula — the sliders stay independent** and a reported
+  72/25 is taken at the person's word (it reads as an acute picture). Testable
+  prediction, on data we already collect: users whose sympathetic stays high across many
+  check-ins should drift upward in dorsal; spike-and-recover users should not. High-S
+  with housekeeping-D vs high-S with elevated-D is also a candidate fingerprint for the
+  acute-vs-stuck label (§7).
 
 ### 4.2 The ceiling — emergent, not added
 
@@ -200,7 +211,7 @@ reproduces it at typical mid-scale levels (conversion ◆).
 | appease band 80/80/80 | +0.032 | Safety — Low, freeze underneath |
 | stillness 80/10/60 | +0.350 | Stillness / intimacy — Moderate |
 | play 70/50/10 | +0.310 | Play / motivation — Moderate |
-| healthy 90/10/5 | +0.584 | Safety — High |
+| healthy 90/10/5 | +0.585 | Safety — High |
 
 **Failure 1, resolved** — by sign; the ventral gate keeps it resolved under the tax.
 **Failure 2, resolved** — all three functional personas read defense-governed at Low or
@@ -282,16 +293,53 @@ implementable now. Not part of this redesign; queued behind it.
 Nothing fitted to cohort percentages; nothing tuned to a target read — including
 declining to bend the tax floor to move the fight/flight persona (§4.1 ⚠).
 
-## 10. What happens on "yes"
+## 10. Implementation handoff
 
-1. Implement in the mockup engine: one sympathetic slider, `stateName()` replaced by the
-   margin read, bars keep `min(S,D)` as freeze intensity; lift and cost switch to the
-   missing-ventral / proportional forms behind the same UI.
-2. Recompute §5/§8 milestone weeks under the new arithmetic.
-3. Engine-side (chronic) pass: replace `DEFENSE_CEIL` / `SAFETY_CEIL` / `FF_PEAK` with
-   capacity-relative bounds under the §4 guardrail.
-4. Fold the app/web divergence (§9 item 6): app weights and web naming become downstream
-   renderings of the same margin.
-5. Write the agreed package into the spec as the new §1.2, retiring `min(a,b) × 1.6`, and
-   strike the §8 persona nicknames.
-6. Queue the acute-vs-stuck labelling behind the redesign (§7).
+Justin gave the go 2026-08-15. Final formulas, copy-ready (all inputs 0–1):
+
+```
+ramp(x)   = smoothstep((x − 0.33) / (0.75 − 0.33))     // clamped 3x²−2x³
+tax(v,s,d)= min(s,d) × ramp(min(s,d)) × (1 − v)
+margin    = 0.7·v − 0.3·(s + d + tax)
+
+STATE     margin ≥ 0 → safety-governed · margin < 0 → defense-governed
+          (guard first: max(v,s,d) < 0.12 → "quiet")
+SEVERITY  defense side: (−margin / 0.3) × 100, bands Low <33 ≤ Moderate <75 ≤ High
+QUAL      safety side:  (margin / 0.7) × 100, same bands
+FLAVOUR   level unless max(s,d) ≥ 1.4 × min(s,d); level → freeze/both,
+          s leads → sympathetic, d leads → dorsal
+READS     defense side: "Freeze / Fight-Flight / Shutdown — <band>"
+          safety side, qual ≥ 33 & a defense ≥ 0.33 → blend names
+            (s leads → play/motivation, d leads → stillness/intimacy)
+          safety side, qual < 33 & a defense ≥ 0.33 → "Safety — Low, <X> underneath"
+          else plain "Safety — <band>"
+RM side   lift = λ·(1−v) (λ unfitted) · engage cost = ½·toDef(level)
+```
+
+**Where it lands, in order:**
+
+1. **App (`current.js`, this repo)** — ✅ DONE on this branch (2026-08-16). The margin
+   package is the naming engine: `PVCurrent.marginOf()` exposes the full read;
+   `dominantOf()` keeps its historical shape (stored check-in keys stay valid) but names
+   by margin; `readingOf()` speaks the balance from the real margin (knife's edge ≤0.05
+   reads "about even"; the safety-with-energy clause fires on the underneath case) and
+   carries a `label` field ("freeze — moderate"). Rendering weights untouched;
+   `min(s,d)` stays the freeze-intensity readout. Shell v403 / current.js v8. Verified
+   against every board in §6 by node test.
+2. **Mockup engine (`snb-business: Projects/Web Designer/_mockup-pvc-per-state-sliders.html`)**
+   — needs a session with snb-business write access (this session is read-only there):
+   one sympathetic slider (fight/flight merged, both-slider UI retired), `stateName()`
+   replaced by the margin read, RM lift/cost switched to the missing-ventral /
+   proportional forms, then §5/§8 milestone weeks recomputed under the new arithmetic.
+3. **Engine chronic pass** — replace `DEFENSE_CEIL` / `SAFETY_CEIL` / `FF_PEAK` with
+   capacity-relative bounds, under the §4 guardrail (bound the trait, never the reaction).
+4. **Master spec (`_spec-regulation-math.md`, snb-business)** — edits pending, exact list:
+   new §1.2 = the block above, retiring `min(a,b) × 1.6` and the 0.3125 threshold;
+   §8 persona table: fight/flight → 42/72/36 (r7), strike the "Fixate"/"Fold" nicknames;
+   §2.2 cost table → proportional form (resolves the −15/−20 conflict); §2.6 flavour →
+   ratio 1.4×; log rounds 6–7 outcomes in §9.
+5. **Queue behind all of it:** acute-vs-stuck labelling (§7), using the high-S dorsal
+   fingerprint (§4.1) among its signals.
+
+House rules bind every step: nothing fitted to cohort percentages or target reads; no
+momentary-vs-baseline comparisons; provenance marks maintained.

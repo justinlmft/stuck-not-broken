@@ -34,6 +34,50 @@
     shutdown:    { name: 'shutdown',      color: BASE.blue,     weight: (v,s,d) => d * (1 - v) * (1 - s) },
   };
 
+  /* ── Margin package — the agreed naming engine ────────────────────────────
+     Spec: _spec-pvc-margin-redesign.md (agreed 2026-08-15, expert rounds 6–7).
+     The state is named by CONTAINMENT, not by the loudest circuit:
+       margin = 0.7·v − 0.3·(s + d + tax)      capacity minus load, RM's 70/30 rate
+       tax    = min(s,d) × ramp(min) × (1−v)   unheld co-activation: flat below the
+                33 band edge, full weight by 75, gated by missing ventral
+     margin ≥ 0 → safety-governed (safety / play / stillness)
+     margin < 0 → defense-governed (fight-flight / shutdown / freeze)
+     Severity/qualifier = the margin rescaled to each side's reachable range, banded
+     at the shipped 33/75 edges. Flavour = the s:d ratio — level unless the leader
+     is ≥ 1.4× the other. Rendering weights in STATES are untouched; min(s,d) stays
+     the freeze-intensity readout. Sliders are never restricted — the margin prices,
+     it does not gate (acute reactivity is adaptive, not pathological). */
+  const EDGE_LOW = 0.33, EDGE_HIGH = 0.75;   // shipped band edges (BPQ-SF-confirmed)
+  const FLAVOUR_RATIO = 1.4;                 // ratio form of the confirmed 20-point flavour margin
+  const QUIET = 0.12;                        // quiet guard: all circuits under this = no name
+  function smoothstep(x){ x = Math.max(0, Math.min(1, x)); return x*x*(3 - 2*x); }
+  function bandOf(x){ return x >= EDGE_HIGH*100 ? 'high' : x >= EDGE_LOW*100 ? 'moderate' : 'low'; }
+  function coTax(v,s,d){
+    const mn = Math.min(s,d);
+    return mn * smoothstep((mn - EDGE_LOW)/(EDGE_HIGH - EDGE_LOW)) * (1 - v);
+  }
+  function marginRead(v,s,d){
+    const margin = 0.7*v - 0.3*(s + d + coTax(v,s,d));
+    if(Math.max(v,s,d) < QUIET)
+      return { side:'quiet', key:'neutral', margin, severity:0, qual:0, band:null, under:null, label:'quiet' };
+    const level = Math.max(s,d) < FLAVOUR_RATIO * Math.min(s,d);
+    if(margin < 0){
+      const severity = -margin/0.3*100;      // equivalent-single-defense units
+      const key = level ? 'freeze' : (s > d ? 'fightflight' : 'shutdown');
+      const band = bandOf(Math.min(severity, 100));
+      return { side:'defense', key, margin, severity, qual:0, band, under:null,
+               label: STATES[key].name + ' — ' + band };
+    }
+    const qual = margin/0.7*100;             // equivalent-own-ventral units
+    const defensePresent = Math.max(s,d) >= EDGE_LOW;
+    let key = 'safety', under = null;
+    if(defensePresent && qual >= EDGE_LOW*100 && !level) key = (s > d) ? 'play' : 'stillness';
+    else if(defensePresent) under = level ? 'freeze' : (s > d ? 'sympathetic' : 'dorsal');
+    const band = bandOf(Math.min(qual, 100));
+    return { side:'safety', key, margin, severity:0, qual, band, under,
+             label: STATES[key].name + ' — ' + band + (under ? ', ' + under + ' underneath' : '') };
+  }
+
   // Gentle, present-tense, never-an-identity readouts (brand guardrail #4/#5).
   const READOUTS = {
     stillness:   'your system is resting in stillness right now. safe enough to be still.',
@@ -183,7 +227,7 @@
     }
     function clamp(x){return Math.max(0,Math.min(1,x||0));}
 
-    function dominant(){ return score(cur.v,cur.sym,cur.dor); }
+    function dominant(){ return createCurrent.dominantOf(cur.v,cur.sym,cur.dor); }
     function readout(){const d=dominant();return READOUTS[d.key]||READOUTS.neutral;}
 
     paint(0,0,0);
@@ -192,7 +236,31 @@
 
   // expose state metadata for other screens (timeline colors, names)
   createCurrent.STATES = STATES;
-  createCurrent.dominantOf = function(v,s,d){ return score(v,s,d); };
+
+  // the raw margin read — full package for any screen that wants the numbers
+  // (and, later, the acute-vs-stuck labelling). All inputs 0..1.
+  createCurrent.marginOf = function(v,s,d){ return marginRead(v,s,d); };
+
+  // dominantOf keeps its historical shape (key/name/color/w/strength/gap/second)
+  // so every stored check-in and caller still works, but the NAME now comes from
+  // the margin, not from the loudest weight. `second`/`gap` still come from the
+  // intensity ranking — when the margin's name and the loudest circuit disagree
+  // (e.g. safety holding a level freeze), the honest "with some X" clause below
+  // gets exactly that X.
+  createCurrent.dominantOf = function(v,s,d){
+    const r = marginRead(v,s,d);
+    if(r.key === 'neutral')
+      return Object.assign({}, NEUTRAL, { margin:r.margin, side:r.side, band:null, under:null, label:r.label });
+    const st = STATES[r.key];
+    const sc = score(v,s,d);
+    const strength = Math.min(1, (r.side === 'defense' ? r.severity : r.qual) / 100);
+    return { key:r.key, name:st.name, color:st.color, w:strength, strength,
+             gap: sc.key === r.key ? sc.gap : 0,
+             second: sc.key !== r.key ? sc.key : sc.second,
+             secondW: sc.key !== r.key ? sc.w : sc.secondW,
+             margin:r.margin, side:r.side, severity:r.severity, qual:r.qual,
+             band:r.band, under:r.under, label:r.label };
+  };
 
   // readout computed directly from values (not the figure's eased state) — so
   // callers get the correct sentence the instant inputs change, with no lag.
@@ -217,22 +285,24 @@
     const mid = x => x>=0.40 && x<=0.60;
     if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:'nothing is obvious to you right now. no worries.', balance:null };
     const dom = createCurrent.dominantOf(v,s,d);
-    if(dom.key==='neutral') return { tie:false, dominant:READOUTS.neutral, balance:null };
+    if(dom.key==='neutral') return { tie:false, dominant:READOUTS.neutral, balance:null, label:'quiet' };
     const nm = _READ_NAME[dom.key] || dom.key;
     const secNm = dom.second ? (_READ_NAME[dom.second] || dom.second) : null;
     let dominant;
     if(dom.strength < _FAINT) dominant = `you’re reporting mostly ${nm}, but not much (and that’s okay).`;
-    else if(dom.gap < _CLOSE && secNm) dominant = `mostly ${nm}, with some ${secNm}, too.`;
+    else if(dom.gap < _CLOSE && secNm && dom.second !== dom.key) dominant = `mostly ${nm}, with some ${secNm}, too.`;
     else dominant = `you’re reporting mostly ${nm}.`;
-    // safety-vs-defense balance — the leading indicator of nearing dysregulation.
-    // defense = the louder defensive axis (matches the baseline metric + moment gate).
-    const def = Math.max(s, d), margin = v - def;
+    // safety-vs-defense balance — spoken from the REAL containment margin now, not
+    // the old v-minus-loudest shorthand. The "safety with a lot of energy" clause
+    // fires exactly on the margin's own case for it: safety-governed with a real
+    // defense running underneath. A margin hovering near zero is the knife's edge —
+    // functional, running at capacity — and reads "about even".
     let balance;
-    if(v >= 0.40 && def >= 0.60) balance = 'there’s safety in the system with a lot of energy, too. safety may come and go. (and that’s normal.)';
-    else if(margin > 0.15) balance = 'you’ve got more safety than defense in your system.';
-    else if(margin < -0.15) balance = 'you’ve got more defense than safety in your system right now.';
-    else balance = 'safety and defense are about even right now.';
-    return { tie:false, dominant, balance };
+    if(dom.side === 'safety' && dom.under) balance = 'there’s safety in the system with a lot of energy, too. safety may come and go. (and that’s normal.)';
+    else if(Math.abs(dom.margin) <= 0.05) balance = 'safety and defense are about even right now.';
+    else if(dom.margin > 0) balance = 'you’ve got more safety than defense in your system.';
+    else balance = 'you’ve got more defense than safety in your system right now.';
+    return { tie:false, dominant, balance, label:dom.label };
   };
 
   global.PVCurrent = createCurrent;

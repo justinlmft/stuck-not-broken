@@ -1,5 +1,12 @@
 # Consultation note to the PVT expert — co-activation cost and the defense ceiling
 
+**STATUS: CLOSED.** Rounds 6–7 answered 2026-08-15: S-shape endorsed and adopted
+(anchored at the shipped 33/75 edges); ceiling shown emergent (naive form collided with
+the settled stillness mechanic and was not adopted); acute/chronic guardrail adopted;
+functional fight/flight persona revised 42/72/25 → 42/72/36 (chronic visceral cross-talk;
+chronicity, not S-D coupling). All outcomes and the implementation handoff live in
+`_spec-pvc-margin-redesign.md`. This file is kept as the consultation record only.
+
 **From:** Justin (Stuck Not Broken) · 2026-08-15
 **Continuation of:** the five review rounds concluded 2026-08-13 (mobilisation coefficient,
 stillness floor, freeze recalibration, allostatic erosion, the from-scratch model). You know
