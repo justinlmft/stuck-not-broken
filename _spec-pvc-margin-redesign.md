@@ -240,6 +240,27 @@ stay unclaimed (Justin's ruling: defined by behaviour and context we don't measu
 - Interpretive note adopted: margin ≈ 0 (±0.05) is the signature of a *functional* state —
   operational, masked, zero reserve.
 
+**Decided (Justin, 2026-08-16, after the coupling debate — round 8):**
+- **Inputs stay free. No dynamic slider bounds, ever silent ones least of all.** The
+  expert proposed coupled input ceilings (Smax/Dmax/Vmax); tested against settled ground
+  they forbid its own fight/flight persona (needs S 72, cap 64.6), forbid confirmed
+  stillness (V 80 / D 60, cap 62 — while its own Dmax rationale cites that exact board),
+  erase the 51% freeze-with-safety cohort and the 2.4% appease population, and are
+  order-dependent (what you may report depends on drag order). Silently moving a set
+  slider rewrites a self-report and invisibly corrupts every downstream finding.
+  The biology the bounds wanted is already in the model at the read layer: Rule 1 = the
+  emergent ceiling (§4.2), Rule 2 = the co-activation tax (§4.1).
+- **Somatic-mapping onboarding rejected** — it is an assessment, and self-recognition is
+  never an assessment (hard product constraint, master spec §10). "Maybe some day."
+- **Forced safety/defense movement belongs in the simulation layer only** (a
+  what-happens-next animation seeded by a check-in) — the trajectory engine already
+  carries the measured pieces (mobilisation rise, stillness settling, OVERREACH).
+- **Display split (from the severity-is-not-intensity discussion):** the qualifier is
+  shown as **"defensive load — low/moderate/high" on a NEUTRAL-colored bar**, separate
+  from **"dominant state"** which carries the name and the state color. Raw sliders keep
+  showing raw intensity. The margin meter is the visible see-saw — raising any defense
+  visibly drains it. Copy nuance: load here means load *beyond what safety is holding*.
+
 **Provisional by necessity — data decides later:**
 - λ, the lift scale ◆ (fit path = `followup` check-ins, NOT the RTM-contaminated gradient)
 - cost fraction ½ ◆ (nearly inert in trajectories; low stakes)

@@ -53,6 +53,12 @@ denied again, stop and tell Justin; do not work around it.
    - Chronic pass: `DEFENSE_CEIL` / `SAFETY_CEIL` / `FF_PEAK` → capacity-relative bounds.
      Guardrail (expert, binding): `(1−V)` bounds the TRAIT, never the momentary reaction —
      raw sliders are never gated, acute reactivity is never restricted.
+   - Display split (decided, round 8): qualifier renders as **"defensive load —
+     low/moderate/high" on a NEUTRAL bar**; **"dominant state"** carries the name and the
+     state color; the margin meter is the visible see-saw. Never a state-colored
+     magnitude bar. Input sliders are FREE — no dynamic bounds, no silent adjustment of
+     anything the user set (decided against expert advice, with arithmetic — redesign
+     doc §7 round 8).
 
 3. **Verify before claiming.** Script the §6 boards against the migrated engine — every
    read must match the redesign doc's table. The expert itself forgot the ramp in round 7;
