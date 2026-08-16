@@ -1,0 +1,148 @@
+diff --git a/Projects/Web Designer/_spec-regulation-math.md b/Projects/Web Designer/_spec-regulation-math.md
+index 7b6a429..c859843 100644
+--- a/Projects/Web Designer/_spec-regulation-math.md	
++++ b/Projects/Web Designer/_spec-regulation-math.md	
+@@ -54,21 +54,32 @@ Three pure, three blends. Blend colour is the two-circuit mix:
+ | safety | ventral alone |
+ | stillness / intimacy | ventral + dorsal |
+ 
+-**Naming rule** (per-branch model, `stateKeyFrom`):
++**Naming rule — REPLACED 2026-08-15/16 (margin redesign, agreed + expert rounds 6–7).**
++The state is now named by *containment*, not by the loudest circuit. Shipped in the app
++(`stuck-not-broken: current.js` v8, branch `claude/polyvagal-margin-redesign-7ejgb9`); the
++mockup engine below still carries the old rule pending migration. Full derivation,
++decisions and provenance: `_spec-pvc-margin-redesign.md` (stuck-not-broken repo).
+ 
+ ```
+-m.play      = min(1, min(py, pr) × 1.6)
+-m.stillness = min(1, min(py, pb) × 1.6)
+-m.freeze    = min(1, min(pr, pb) × 1.6)
++ramp(x)  = smoothstep((x − 0.33) / (0.75 − 0.33))      clamped 3x²−2x³
++tax      = min(pr, pb) × ramp(min(pr, pb)) × (1 − py)   unheld co-activation, S-shaped
++margin   = 0.7·py − 0.3·(pr + pb + tax)                 capacity − load, RM's 70/30 rate
+ 
+-if max(m) ≥ 0.5  → that blend
+-else             → whichever of (py, pr, pb) is largest
++margin ≥ 0 → safety-governed:  safety / play / stillness   (blend when the leading
++             defense ≥ 0.33 and qualifier ≥ 33; below that, "safety — low, X underneath")
++margin < 0 → defense-governed: fight-flight / shutdown / freeze
++QUALIFIER  defense side: severity = −margin/0.3 ×100 (single-defense units)
++           safety side:  qualifier = margin/0.7 ×100 (own-ventral units)
++           both banded at the shipped 33 / 75 edges
++FLAVOUR    level (freeze) unless the leader is ≥ 1.4× the other (ratio form of the
++           confirmed 20-point margin) · quiet guard: all circuits < 0.12
+ ```
+ 
+-◆ **The 1.6 amplifier and the 0.5 threshold are both asserted.** They set how much co-activation is
+-required before a state is *called* a blend rather than the dominant pure state. Nothing measured
+-informs either number. **Question for you: is a blend the right call at min(py,pr) ≈ 0.31, which is
+-what 0.5/1.6 works out to?**
++○ ω = 0.3/0.7 is RM's shipped `toDef/toCap` asymmetry, not a new constant. The old 1.6
++amplifier, the 0.5 blend threshold (≈0.3125 co-activation) and the open question below it
++are retired with the rule. Sympathetic is one slider and counts **once** in the load.
++`min(pr, pb)` stays the freeze-*intensity* readout (cohort r = 0.79 ●) — naming and
++intensity are now different questions.
+ 
+ ### 1.3 Two control models
+ 
+@@ -180,7 +191,12 @@ only the higher one answers.
+ ◆ **Unresolved conflict in the source spec.** It carries two cost tables that disagree at the top
+ band — "cost per defense engaged: high −15" and "blend cost per defense: high −20". Both are marked
+ "needs Justin's nod". We use −15 because it is the only value that reproduces the spec's own worked
+-example. **This needs a decision and you may have a view on which is clinically right.**
++example.
++
++**RESOLVED 2026-08-15 (margin redesign): the flat table is retired.** Engagement cost
++becomes proportional — `cost = ½ × toDef(level)` (fraction ◆ unfitted) — so cost scales in
++the person's own units, the band cliffs disappear, and the −15/−20 conflict evaporates with
++the table. Low-risk: the table is nearly inert in trajectories (§9). Engine migration pending.
+ 
+ ### 2.3 Worked example (from the spec, reproduced by the code)
+ 
+@@ -225,7 +241,14 @@ flavour = null         if both 0
+ ```
+ 
+ ◆ A system regulating up through sympathetic passes through both, and either can lead into
+-motivation/play, so we refuse to name a flavour on a small gap. The margin of 20 is asserted.
++motivation/play, so we refuse to name a flavour on a small gap. The margin of 20 is asserted
++(later ● confirmed, §9).
++
++**REVISED 2026-08-15 (margin redesign): the threshold becomes a ratio** — no flavour named
++unless the leader is ≥ 1.4× the other — because a fixed difference is not scale-free on
++subjective self-anchored sliders. 1.4× reproduces the confirmed 20 at typical mid-scale
++levels (conversion ◆). The same rule now also arbitrates sympathetic-vs-dorsal for the
++margin read's flavour.
+ 
+ ---
+ 
+@@ -497,12 +520,21 @@ extreme boards we had been testing against.
+ 
+ | persona | ventral | sympathetic | dorsal | → functional | regulated | stillness |
+ |---|---|---|---|---|---|---|
+-| functional freeze ("Fixate") | 35 | 55 | 55 | 50w | 65w | 70w |
+-| functional shutdown ("Fold") | 35 | 25 | 68 | 18w | 31w | 36w |
+-| functional fight/flight | 42 | 72 | 25 | 28w | 42w | 47w |
++| functional freeze | 35 | 55 | 55 | 50w | 65w | 70w |
++| functional shutdown | 35 | 25 | 68 | 18w | 31w | 36w |
++| functional fight/flight | 42 | 72 | **36** | 28w | 42w | 47w |
+ 
+ Unsupported, no practice context. With a co-regulative other these compress by roughly 3×.
+ 
++**Revised 2026-08-16 (expert round 7).** Fight/flight dorsal 25 → **36**: there is no
++"clean" sympathetic defense in a chronically retuned system — chronic mobilisation carries
++visceral dorsal cross-talk (gut distress, bracing, shallow breath) above the housekeeping
++floor. Chronicity drives it, not sympathetic level — no coupling exists in the model and
++the sliders stay independent; an acute 72/25 reading is taken at the person's word.
++⚠ The week-counts above were computed under the old double-count/flat-lift engine and
++shift under the margin package — recompute on engine migration, do not quote. The old
++nicknames ("Fixate"/"Fold") are struck — not terms in use.
++
+ ## 9. What review settled, and what is still open
+ 
+ Four rounds with a PVT expert (source-grounded on the primary literature) plus two independent
+@@ -668,6 +700,20 @@ more cohorts through the weekly survey already running would identify α (78 tra
+ needed for t=2.0). App retention past 2.7 days mean unlocks the rest. No further expert review moves
+ any of it.
+ 
++### Rounds 6–7: the margin redesign (2026-08-15/16)
++
++A sixth and seventh consultation, targeted on the new naming margin (full record:
++`_spec-pvc-margin-redesign.md` and `_note-to-pvt-expert-margin-tax.md`, stuck-not-broken).
++
++| | |
++|---|---|
++| **Adopted** | S-shaped co-activation cost (flat below 33, escalating, saturating), anchored at the shipped band edges — zero new constants |
++| **Shown emergent** | the defense ceiling: max uncontained severity falls linearly with ventral, zero at V ≥ 90 — the expert's `(1−V)` ceiling formula was NOT adopted raw (it collides with the confirmed stillness mechanic) |
++| **Guardrail** | `(1−V)` prices the cost of *holding* defense; it never restricts momentary reactivity |
++| **Revised** | functional fight/flight persona dorsal 25 → 36 (chronic visceral cross-talk); margin ≈ 0 (±0.05) recorded as the signature of a *functional* state |
++| **Corrected** | the expert's round-7 arithmetic ignored the ramp it endorsed; with the ramp the persona flip is driven by the raw dorsal load (margin −0.031), not the tax |
++| **Testable** | users whose sympathetic stays high across check-ins should drift up in dorsal; spike-and-recover users should not |
++
+ ### Still ours to answer
+ 
+ 1. **`LOW_DEFENSE_DROP = 0.15`** — cohort data suggests real movement is 1.6–2.8× faster, but
+@@ -676,14 +722,20 @@ any of it.
+ 3. **Appease / fawn.** 2.4% of real check-ins show all three circuits high, and currently come out
+    labelled "play". Justin's ruling: appease and fawn are defined by behaviour and external context we
+    do not measure, so we cannot name them from three autonomic values. The mislabel stands, parked.
+-4. **The blend threshold** (0.3125) — untested; cohort data suggests our freeze cutoff may be slightly
+-   *high*, missing 34% of reported freeze.
++4. ~~The blend threshold (0.3125)~~ — **retired 2026-08-15** with the old naming rule; the
++   margin read's blend gate is the shipped 33 band edge.
+ 5. **Retention is the binding constraint on everything longitudinal.** It blocks `LOW_DEFENSE_DROP`,
+    longitudinal stuckness, and now erosion — three separate open questions, one cause. App retention
+    is **2.7 days mean**, with 15 of 124 users reaching a 7-day span. No amount of expert review moves
+    this; more people checking in for longer does.
+-6. **The app/web freeze formula divergence.** App: `least(sym,dor) × (1−v)`. Web: `min(sym,dor) × 1.6`.
+-   Cohort data prefers the ungated core (0.788 vs 0.665). Parked pending the master formula.
++6. ~~The app/web freeze formula divergence~~ — **resolved in direction 2026-08-16**: both
++   become downstream renderings of the margin package. The app ships it (`current.js` v8);
++   `min(sym,dor)` survives as the freeze-*intensity* readout (the cohort-preferred ungated
++   core); the mockup engine migration is the remaining step.
++7. **New, from the margin redesign:** λ (headroom lift scale) and the ½ cost fraction —
++   unfitted, `followup` check-ins are the path; the mockup engine migration itself
++   (one sympathetic slider, margin naming, lift/cost forms, milestone recompute); and the
++   acute-vs-stuck label, queued behind it.
+ 
+ ## 10. What this model deliberately does not do
+ 

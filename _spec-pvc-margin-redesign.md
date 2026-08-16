@@ -333,11 +333,14 @@ RM side   lift = λ·(1−v) (λ unfitted) · engage cost = ½·toDef(level)
    proportional forms, then §5/§8 milestone weeks recomputed under the new arithmetic.
 3. **Engine chronic pass** — replace `DEFENSE_CEIL` / `SAFETY_CEIL` / `FF_PEAK` with
    capacity-relative bounds, under the §4 guardrail (bound the trait, never the reaction).
-4. **Master spec (`_spec-regulation-math.md`, snb-business)** — edits pending, exact list:
-   new §1.2 = the block above, retiring `min(a,b) × 1.6` and the 0.3125 threshold;
-   §8 persona table: fight/flight → 42/72/36 (r7), strike the "Fixate"/"Fold" nicknames;
-   §2.2 cost table → proportional form (resolves the −15/−20 conflict); §2.6 flavour →
-   ratio 1.4×; log rounds 6–7 outcomes in §9.
+4. **Master spec (`_spec-regulation-math.md`, snb-business)** — ✅ WRITTEN, awaiting
+   apply: this session had read-only access to snb-business (the write-access grant was
+   platform-blocked), so the five edits (new §1.2 margin rule; §8 persona 42/72/36 +
+   nicknames struck; §2.2 cost → proportional; §2.6 flavour → ratio; §9 rounds 6–7 log)
+   are shipped as `_patch-spec-regulation-math-margin.patch` in THIS repo's root.
+   Apply from any machine with snb-business write access:
+   `cd <snb-business clone> && git pull && git apply <path-to>/_patch-spec-regulation-math-margin.patch && git commit -am "Spec: margin redesign (rounds 6-7)" && git push`
+   Or grant a session push access to snb-business and it applies + pushes directly.
 5. **Queue behind all of it:** acute-vs-stuck labelling (§7), using the high-S dorsal
    fingerprint (§4.1) among its signals.
 
