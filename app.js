@@ -4734,8 +4734,9 @@
     const pc = x => (x*100).toFixed(1);
     const ticks = `<div class="bl-ticks">${['shutdown','freeze','flight/<br>fight','play','safety','stillness'].map(t=>`<span>${t}</span>`).join('')}</div>`;
     if(bl.early){
-      return `<div class="bl-wrap early"><div class="bl-bar"><span class="bl-dot" style="left:${pc(bl.dotPos)}%"></span></div>${ticks}</div>
-        <p class="bl-early"><b>This is still early.</b> It becomes clearer with more check-ins over the next few weeks.</p>`;
+      return `<div class="bl-wrap early"><div class="bl-bar"></div>${ticks}</div>
+        <p class="bl-early"><b>Your baseline is still forming.</b> ${bl.n===0?`It takes ${bl.minN} check-ins to draw.`:`${bl.n} of ${bl.minN} check-ins so far. ${bl.need===1?'One more':bl.need+' more'} and it fills in.`}</p>
+    <p class="bl-early-sub">It will show where your system tends to sit, and how much it moves from there. Until there is enough to draw from, it stays empty rather than guessing.</p>`;
     }
     const prevEl = bl.prev ? `<span class="bl-prev" style="left:${pc(bl.prev.lo)}%;width:${pc(bl.prev.hi-bl.prev.lo)}%"></span>` : '';
     const band = `<span class="bl-band" style="left:${pc(bl.bandLo)}%;width:${pc(bl.bandHi-bl.bandLo)}%"></span>`;

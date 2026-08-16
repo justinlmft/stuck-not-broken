@@ -597,6 +597,15 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .bl-kprev{width:26px;height:13px;border-radius:5px;border:1.5px dashed var(--ink-80);background:none}
 .bl-wrap.early .bl-bar{filter:grayscale(.5);opacity:.55}
 .bl-early{font-size:calc(12.5px * var(--type-scale));color:var(--ink-80);margin:16px 0 0;text-wrap:pretty}
+/* the pre-baseline card is what MOST people see: median check-ins per user is 2,
+   and only 11 of 141 clear the n>=8 gate in any 30-day window (prod, 2026-08-16).
+   So it is the primary state, not an edge case. It shows the axis (dimmed, and
+   learnable) with NOTHING plotted on it — no dot, no band. Before the gate the
+   dot sits at _blPosOf(null) = dead centre, which reads as "you are exactly
+   balanced": a confident claim about the person made from no data. Empty is the
+   honest render, and the second line says so out loud so the blank reads as
+   deliberate rather than broken. */
+.bl-early-sub{font-size:calc(11.5px * var(--type-scale));color:var(--muted);margin:8px 0 0;line-height:1.5;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
    swatches sit on the dark card, so give them light/legible marks there.
    BUG FIX (2026-07-30, Justin: "'state variation this month' shows white in
