@@ -2158,11 +2158,17 @@ function whatsNewNaming(){
   if(document.getElementById('ob-root')) return;                 // never over onboarding
   try{ if(!(Store.checkins && Store.checkins().length)) return; }catch(e){ return; }
   const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
-  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="What changed">'
-    + '<h2 class="wn-h">The naming is clearer now</h2>'
-    + '<p class="wn-p">The app reads your check-ins a little differently. It works straight from the numbers you set, so the name it gives a state follows what you actually reported.</p>'
-    + '<p class="wn-p">Some of your past check-ins may be named differently than they were before. Nothing you recorded has changed. The same readings are just being read more carefully.</p>'
-    + '<p class="wn-p">Reflections written before today keep their original wording, so they will not always match. They are a record of what was said at the time.</p>'
+  /* Justin's copy, 2026-08-16, used as written. Two deliberate departures from the
+     standing in-app copy rules, both because THIS card is signed by him rather than
+     spoken by the app: first person ("I've made"), and the mark as a sign-off. The
+     no-first-person rule exists so the reader never sounds like Justin talking; a
+     product announcement from the person who built it is the one place it should. */
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="App Updates">'
+    + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+    + '<h2 class="wn-h">App Updates</h2>'
+    + '<p class="wn-p">I’ve made some significant changes to how the app’s background math works.</p>'
+    + '<p class="wn-p">How this affects you: the check-in state naming is clearer. Instead of the one-dimensional state name, it now identifies the state and the level of it. Plus, it will name the secondary state. This should result in more clarity and deeper insights.</p>'
+    + '<p class="wn-p">This will change the Reflections reader from here on as well. Your past Reflections won’t change though.</p>'
     + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
   document.body.appendChild(d);
   requestAnimationFrame(()=>d.classList.add('on'));

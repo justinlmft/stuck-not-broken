@@ -611,6 +611,9 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .wn-root.on{opacity:1}
 .wn-card{background:var(--bone);border-radius:18px;padding:26px 24px 22px;max-width:400px;width:100%;
   box-shadow:0 8px 40px var(--shade-deep);max-height:82vh;overflow:auto}
+/* the mark signs the card: this announcement is from Justin, not the app voice. */
+.wn-mark-wrap{display:flex;justify-content:center;margin:0 0 14px}
+.wn-mark-wrap .ob-mark{width:52px;height:auto;color:var(--ink-80)}
 .wn-h{font-size:calc(21px * var(--type-scale));font-weight:500;letter-spacing:-.01em;line-height:1.24;
   color:var(--ink);margin:0 0 12px;text-wrap:pretty}
 .wn-p{font-size:calc(15px * var(--type-scale));line-height:1.62;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
@@ -3011,6 +3014,9 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
   width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px var(--shade);
   max-height:100%;overflow-y:auto}
 .wn-mark{height:26px;display:block;margin:0 0 16px}
+/* the mark signs the card: this announcement is from Justin, not the app voice. */
+.wn-mark-wrap{display:flex;justify-content:center;margin:0 0 14px}
+.wn-mark-wrap .ob-mark{width:52px;height:auto;color:var(--ink-80)}
 .wn-h{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}
 .wn-p{font-size:calc(14.5px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
 .wn-list{margin:0 0 14px;padding-left:20px;display:grid;gap:8px}
