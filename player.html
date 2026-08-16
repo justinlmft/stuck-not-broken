@@ -2171,12 +2171,32 @@ function postToHost(event){
 </script>
 <script>
 if('serviceWorker' in navigator){
-  /* when a new service worker takes control, reload once so the updated shell shows
-     immediately — no manual reinstall needed for future updates. */
-  let _swReloaded=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(!_swReloaded){_swReloaded=true;location.reload();} });
+  /* ── 2026-08-16 — THE DISAPPEARING-PRACTICE BUG (reported by Michelle) ──────────────
+     This block used to reload UNCONDITIONALLY on controllerchange. Chain, all ours:
+       1. index.html called reg.update() on EVERY visibilitychange — every screen wake.
+       2. sw.js called self.skipWaiting() unconditionally on install, so a newly
+          discovered version took control immediately instead of waiting.
+       3. activate -> clients.claim() -> 'controllerchange' in EVERY client, including
+          this iframe with a meditation playing.
+       4. location.reload() destroyed the practice. Not paused, gone, and never
+          recorded, because a session is only reported by postToHost() at the end.
+     Which is the report verbatim: "if I touch it or swipe up to get it active again,
+     the meditation practice abruptly ends... my practice does not get recorded, even
+     if I'm right near the end." It fired often this month only because we shipped often.
+     A shell update is NEVER urgent enough to end someone's practice. Defer it. */
+  let _swReloaded=false, _swPendingReload=false;
+  const _inPractice=()=>{ try{ return !!(typeof playing!=='undefined' && playing
+                                && !(typeof finished!=='undefined' && finished)); }catch(e){ return false; } };
+  const _reloadNow=()=>{ if(_swReloaded)return; _swReloaded=true; location.reload(); };
+  const _reloadWhenSafe=()=>{
+    if(!_inPractice()){ _reloadNow(); return; }
+    if(_swPendingReload) return;
+    _swPendingReload=true;
+    const iv=setInterval(()=>{ if(!_inPractice()){ clearInterval(iv); _reloadNow(); } }, 2000);
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', _reloadWhenSafe);
   addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(reg=>{ try{reg.update();}catch(e){} }).catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg=>{ try{ if(!_inPractice()) reg.update(); }catch(e){} }).catch(()=>{});
   });
 }
 </script>

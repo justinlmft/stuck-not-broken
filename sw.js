@@ -5,7 +5,7 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v408';
+const SHELL_VERSION = 'snb-app-shell-v409';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
@@ -18,7 +18,13 @@ const SCOPE_PATH = new URL(self.registration.scope).pathname;
 const isAudio = (url) => /\/(clips|packs)\//.test(url.pathname);
 
 self.addEventListener('install', (e) => {
-  self.skipWaiting();
+  /* 2026-08-16 — NO unconditional skipWaiting. It meant any newly discovered version
+     seized control the moment it installed; activate -> clients.claim() then fired
+     'controllerchange' in every open client, and the player iframe reloaded itself in
+     the middle of a live meditation (see player.html). It also made the update-toast
+     dead code: reg.waiting never populated, so the user was never offered the choice.
+     A first install still activates immediately — there is no waiting phase when there
+     is no active worker — so nothing is slower for new users. */
   e.waitUntil(caches.open(SHELL_VERSION).then((c) => c.addAll(SHELL).catch(() => {})));
 });
 
