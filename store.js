@@ -239,11 +239,21 @@
   function markPracticeBefore(sessionId, practiceRef){
     if(!sessionId) return null;
     const now = Date.now();
-    let c = null;
-    for(const x of data.checkins){ if(x && typeof x.t==='number' && x.t<=now && (!c || x.t>c.t)) c=x; }
+    /* 2026-08-16 — WALK BACK instead of giving up on the newest reading.
+       This used to take the single most recent check-in, then bail if it was stale or
+       already tagged. Measured on prod: of 45 sessions since 2026-08-07 with no 'before'
+       read, 27 had a check-in inside the window (median gap 13 minutes), and 14 of those
+       failed for exactly one reason — the NEWEST reading was already spoken for, usually
+       as the PREVIOUS practice's 'after'. An earlier, unclaimed reading was sitting right
+       there in the same window and we never looked at it.
+       This is the biggest limiter on practice-effect: a pair needs a before, and only 40%
+       of sessions had one. Same window, same rule about never stealing a reading that
+       already belongs to another session. We just stop giving up at the first candidate. */
+    const c = data.checkins
+      .filter(x => x && typeof x.t === 'number' && x.t <= now && (now - x.t) <= BEFORE_MS)
+      .sort((a, b) => b.t - a.t)
+      .find(x => !x.session_id && !x.phase && !x.live_session_id);
     if(!c) return null;
-    if(now - c.t > BEFORE_MS) return null;             // too stale to call it this practice's before
-    if(c.session_id || c.phase || c.live_session_id) return null;   // already spoken for
     _linkCheckin(c.t, { session_id:sessionId, phase:'before', practice_ref:(practiceRef||null) });
     return c.t;
   }

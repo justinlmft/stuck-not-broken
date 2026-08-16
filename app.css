@@ -605,6 +605,17 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
    balanced": a confident claim about the person made from no data. Empty is the
    honest render, and the second line says so out loud so the blank reads as
    deliberate rather than broken. */
+/* one-time naming-change note. Calm, centred, dismissible, shown once. */
+.wn-root{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(0,0,0,.42);opacity:0;transition:opacity .45s var(--ease)}
+.wn-root.on{opacity:1}
+.wn-card{background:var(--bone);border-radius:18px;padding:26px 24px 22px;max-width:400px;width:100%;
+  box-shadow:0 8px 40px var(--shade-deep);max-height:82vh;overflow:auto}
+.wn-h{font-size:calc(21px * var(--type-scale));font-weight:500;letter-spacing:-.01em;line-height:1.24;
+  color:var(--ink);margin:0 0 12px;text-wrap:pretty}
+.wn-p{font-size:calc(15px * var(--type-scale));line-height:1.62;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
+.wn-card .btn{margin-top:8px}
+body.reduce-motion .wn-root{transition:none}
 .bl-early-sub{font-size:calc(11.5px * var(--type-scale));color:var(--muted);margin:8px 0 0;line-height:1.5;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
    swatches sit on the dark card, so give them light/legible marks there.

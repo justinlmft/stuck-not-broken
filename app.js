@@ -2144,7 +2144,35 @@
     if(nameEl) nameEl.addEventListener('change', e=>{ if(Store.setName) Store.setName(e.target.value.trim()); });
   }
 
-  function app(tab){
+  /* ── one-time note after the naming change (2026-08-16) ────────────────────────────
+   Own root and own key; deliberately NOT wired into the onboarding step machine, which
+   has its own sequencing. Shown once, to existing users only: the whole point is that
+   PAST names may read differently now, which is meaningless to someone with no history.
+   Never over onboarding. Copy stays at "the language is clearer" per Justin — the
+   internals are an internal argument, not something to tell people about their own past.
+   The third line is the one that actually prevents confusion: reflections minted before
+   today keep their original wording and will not always match the re-read names. */
+function whatsNewNaming(){
+  try{ if(localStorage.getItem('snb_whatsnew_naming')==='1') return; }catch(e){ return; }
+  if(document.getElementById('wn-root')) return;
+  if(document.getElementById('ob-root')) return;                 // never over onboarding
+  try{ if(!(Store.checkins && Store.checkins().length)) return; }catch(e){ return; }
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="What changed">'
+    + '<h2 class="wn-h">The naming is clearer now</h2>'
+    + '<p class="wn-p">The app reads your check-ins a little differently. It works straight from the numbers you set, so the name it gives a state follows what you actually reported.</p>'
+    + '<p class="wn-p">Some of your past check-ins may be named differently than they were before. Nothing you recorded has changed. The same readings are just being read more carefully.</p>'
+    + '<p class="wn-p">Reflections written before today keep their original wording, so they will not always match. They are a record of what was said at the time.</p>'
+    + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ try{ localStorage.setItem('snb_whatsnew_naming','1'); }catch(e){} d.remove(); };
+  const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_naming_seen',{}); }catch(e){}
+}
+addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewNaming(); }catch(e){} }, 1400); });
+
+function app(tab){
     currentTab = tab;
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); mintWeeks(); mintMonths(); mintQuarters(); }
     const u = Store.user();
