@@ -855,9 +855,14 @@ function plog(tag, extra){
     try{ e.st = [playing?'playing':'', paused?'paused':'', inGap?'inGap':'',
                  _inSilence?'sil':'', inBreak?'break':'', finished?'fin':'']
                  .filter(Boolean).join(','); }catch(err){ e.st = '?'; }
-    _plog.push(e);
-    if(_plog.length > 400) _plog.splice(0, _plog.length - 400);
-    localStorage.setItem(_LOG_KEY, JSON.stringify(_plog));
+    /* 2026-08-17 — read-modify-write EVERY time. Holding the array in memory and
+       rewriting it wholesale silently erased every host: line the top document appended
+       after this page loaded, which is exactly the window that matters. */
+    let rows = [];
+    try{ rows = JSON.parse(localStorage.getItem(_LOG_KEY)) || []; }catch(err){ rows = []; }
+    rows.push(e);
+    if(rows.length > 400) rows.splice(0, rows.length - 400);
+    localStorage.setItem(_LOG_KEY, JSON.stringify(rows));
   }catch(e){}
 }
 ['play','pause','playing','waiting','stalled','suspend','ended','error','emptied','abort']
@@ -870,7 +875,9 @@ if(/(^|[?&])log=1(&|$)/.test(location.search)){
   addEventListener('load', () => {
     const pre = document.createElement('pre');
     pre.style.cssText = 'position:fixed;inset:0;z-index:99999;margin:0;padding:12px;overflow:auto;background:#111;color:#eee;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;-webkit-user-select:text;user-select:text';
-    pre.textContent = _plog.map(e => [e.t, e.vis, e.tag, 'pos='+e.pos, 'ap='+e.ap, e.st, e.src, e.x].filter(Boolean).join('  ')).join('\n') || '(no events recorded yet)';
+    let rows = [];
+    try{ rows = JSON.parse(localStorage.getItem(_LOG_KEY)) || []; }catch(e){ rows = []; }
+    pre.textContent = rows.map(e => [e.t, e.vis, e.tag, 'pos='+e.pos, 'ap='+e.ap, e.st, e.src, e.x].filter(Boolean).join('  ')).join('\n') || '(no events recorded yet)';
     document.body.appendChild(pre);
   });
 }
