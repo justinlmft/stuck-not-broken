@@ -2904,6 +2904,33 @@ function app(tab){
       rung:(Store.rungStory?Store.rungStory():null)
     }) : null;
 
+    /* 2026-08-17 — the reader names the state the way a check-in does now: the state
+       the essay is about, with a qualifier, and the runner-up when it is a real share
+       of the period. One modelling call here is mine and is FLAGGED: a period has no
+       single v/sym/dor, so the qualifier is banded from the MEAN margin across the same
+       base window the essay uses, while the state stays the modal one. The two answer
+       different questions — how contained you were on average, and where you sat most
+       often — so they cannot contradict each other. The runner-up is a share of the
+       period, not a within-moment underneath, so it reads "with some x", not
+       "x underneath". Silent when there is nothing to say. */
+    let readState = '';
+    if(issue && dom && base.length){
+      const ms = base.map(c => { try{ return window.PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; } })
+                     .filter(m => typeof m === 'number' && isFinite(m));
+      if(ms.length){
+        const mean = ms.reduce((a,b) => a+b, 0) / ms.length;
+        const pct  = mean < 0 ? -mean/0.3*100 : mean/0.7*100;
+        const band = pct >= 75 ? 'high' : pct >= 33 ? 'moderate' : 'low';
+        const freq = {}; base.forEach(c => { if(c && c.dom) freq[c.dom] = (freq[c.dom]||0)+1; });
+        const rest = Object.keys(freq).filter(k => k !== dom && k !== 'neutral')
+                           .sort((x,y) => freq[y]-freq[x]);
+        const secondKey = (rest.length && freq[rest[0]]/base.length >= 0.20) ? rest[0] : null;
+        readState = '<p class="read-state">' + escapeHtml(
+          STATE_LABEL(dom) + ' — ' + band + (secondKey ? ', with some ' + STATE_NAME(secondKey) : '')
+        ) + '</p>';
+      }
+    }
+
     // per-section visuals: computed from the reader's own recent signals so each picture
     // illustrates the words of its section (mix bar, state glyph, trend line, personal fork).
     const _now = Date.now();
@@ -2979,6 +3006,7 @@ function app(tab){
             <div class="scr-head read-head">
               <h1 class="read-h1">Your Reflections</h1>
               <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
+              ${readState}
               ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="Past Reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
             </div>
             ${todayBlock}
