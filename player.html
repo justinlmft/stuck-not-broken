@@ -987,7 +987,13 @@ function anchorBlock(c,add){
   senseFront(c.sense).forEach((b,i)=>{add(b,'anchoring');if(i===0)first=b;});   // sense-specific front (the anchor)
   addDesc('DESC-OBJ-'+c.sense.toUpperCase(),'noticing the object',add);           // describe the object — right after the anchor
   TAIL_BODY.forEach(b=>add(b,'settling in the body'));                            // breath, posture, smile, connect
-  add('MIND-09-CAPCHECK','a capacity check');                                     // CAP-CHECK after connect
+  // Defense practices only. anchorBlock() runs for EVERY non-mind practice, so this also fired
+  // in safety-anchoring practices — asking "do you have the willingness to continue" when the
+  // only thing left to continue into is more safety. There is nothing to gate. The real gate is
+  // CAP-GATE, added below under if(defense), and it names what it gates: "this next part moves
+  // toward harder feelings." (Justin, 2026-08-17: "we don't need a cap-check in a safety
+  // anchoring practice. But I got one.")
+  if(c.key === 'most') add('MIND-09-CAPCHECK','a capacity check');                 // CAP-CHECK after connect
   TAIL_SAFETY.forEach(b=>add(b,'finding safety'));                                // name -> general -> specific
   addDesc('DESC-SAFETY','describing safety',add);                                 // describe safety
   return first;
