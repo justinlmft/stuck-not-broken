@@ -2172,6 +2172,7 @@ function whatsNewNaming(){
     + '<p class="wn-p">I’ve made some significant changes to how the app’s background math works.</p>'
     + '<p class="wn-p">How this affects you: the check-in state naming is clearer. Instead of the one-dimensional state name, it now identifies the state and the level of it. Plus, it will name the secondary state. This should result in more clarity and deeper insights.</p>'
     + '<p class="wn-p">This will change the Reflections reader from here on as well. Your past Reflections won’t change though.</p>'
+    + '<p class="wn-p">I also fixed an issue where the practice would cut off if your screen locked.</p>'
     + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
   document.body.appendChild(d);
   requestAnimationFrame(()=>d.classList.add('on'));
