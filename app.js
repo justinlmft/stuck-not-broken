@@ -1113,8 +1113,8 @@
             ${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
           ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           <div class="ci-reading" id="ci-reading" hidden></div>
+          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
@@ -1139,9 +1139,11 @@
       if(reading){
         if(axTouched.v && axTouched.sym && axTouched.dor){
           const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-          reading.innerHTML = (rd.label ? `<span class="ci-reading-name">${rd.label}</span>` : '')
-            + `<span class="ci-reading-dom">${rd.dominant}</span>`
-            + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
+          /* 2026-08-17 — the name IS the reading (Justin). "You're reporting mostly x"
+             restated the name, and the balance line restated the margin the qualifier
+             already carries; the mirror below says the rest. The sentence is kept only
+             as the dead-centre fallback, where there is no name to give. */
+          reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
           reading.hidden = false;
         } else reading.hidden = true;
       }
@@ -3629,8 +3631,8 @@ function app(tab){
         <div class="ci-block">
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           <div class="ci-reading" id="ci-reading" hidden></div>
+          <p class="ci-readout ci-readout4" id="ci-readout"></p>
           ${_yng?'<p class="fineprint" style="margin-top:10px">Check in whenever you like: when you’re off, when you’re good, any part of day. Every check-in teaches the app your system.</p>':''}
         </div>
 
@@ -3698,9 +3700,11 @@ function app(tab){
       if(reading){
         if(axTouched.v && axTouched.sym && axTouched.dor){
           const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-          reading.innerHTML = (rd.label ? `<span class="ci-reading-name">${rd.label}</span>` : '')
-            + `<span class="ci-reading-dom">${rd.dominant}</span>`
-            + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
+          /* 2026-08-17 — the name IS the reading (Justin). "You're reporting mostly x"
+             restated the name, and the balance line restated the margin the qualifier
+             already carries; the mirror below says the rest. The sentence is kept only
+             as the dead-centre fallback, where there is no name to give. */
+          reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
           reading.hidden = false;
         } else reading.hidden = true;
       }
