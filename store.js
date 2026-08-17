@@ -1365,11 +1365,11 @@
       .sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(!n) return null;
-    const cnt={}; cs.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);
+    const cnt={}; cs.forEach(c=>{ const k=_dm(c); cnt[k]=(cnt[k]||0)+1; });
     const order = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
     const dist={}; order.forEach(k=>dist[k]=Math.round(cnt[k]/n*100));
     const dom = order[0], second = order[1] || null;
-    let reg=0; cs.forEach(c=>{ if(_REGDOM[c.dom]) reg++; });
+    let reg=0; cs.forEach(c=>{ if(_isReg(c)) reg++; });   // margin >= 0, not a name bucket
     const regShare = reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
     // §7.2 canonical baseline inputs — connection RELATIVE TO DEFENSE, one place, one definition.
@@ -1383,6 +1383,14 @@
     const defOf = c => Math.max(c.sym||0, c.dor||0);
     const avgDef = cs.reduce((s,c)=>s+defOf(c),0)/n;
     const avgMargin = avgV - avgDef;
+    /* ⚠ NAME COLLISION, flagged not resolved (2026-08-17). `avgMargin` above is §7.2's
+       definition — connection minus the LOUDER defense, unweighted. The naming engine's
+       margin is a different quantity: 0.7*v - 0.3*(sym + dor + tax), which counts BOTH
+       defenses, applies RM's 70/30 exchange rate, and charges the co-activation tax.
+       Two things called margin will drift, the way freeze_blend drifted. Added as
+       `meanMargin` rather than redefining §7.2's, because that section is canonical and
+       changing it is Justin's call, not a refactor. */
+    const meanMargin = cs.reduce((s2,c)=>{ const m=_mgn(c); return s2 + (m==null?0:m); },0)/n;
     const sdV = Math.sqrt(cs.reduce((s,c)=>{ const d=c.v-avgV; return s+d*d; },0)/n);
     // then vs now: first third vs last third of the window's average safety
     const third = Math.max(1, Math.floor(n/3));
@@ -1394,10 +1402,10 @@
     let bestDow=null, bestDowAvg=-1;
     Object.keys(dow).forEach(d=>{ const a=dow[d]; if(a.length>=3){ const m=a.reduce((s,v)=>s+v,0)/a.length; if(m>bestDowAvg){ bestDowAvg=m; bestDow=+d; } } });
     // then-vs-now dominant state (first vs last third), for the identity arc
-    const domOf = arr => { const c2={}; arr.forEach(x=>c2[x.dom]=(c2[x.dom]||0)+1); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
+    const domOf = arr => { const c2={}; arr.forEach(x=>{ const k=_dm(x); c2[k]=(c2[k]||0)+1; }); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
     return {
       n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
-      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgMargin, sdV, firstAvg, lastAvg,
+      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgMargin, meanMargin, sdV, firstAvg, lastAvg,
       firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
       bestDow, defenseStates: order.filter(d=>_DYSDOM[d]), regStates: order.filter(d=>_REGDOM[d])
     };
