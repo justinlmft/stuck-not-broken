@@ -82,40 +82,8 @@ if (window.SNB_IS_STAGING) {
         'font:500 11px/1 Inter,system-ui,sans-serif', 'letter-spacing:.08em',
         'text-align:center',
         'padding:4px 8px', 'padding-top:max(4px,env(safe-area-inset-top))',
-        'background:#D29A4A', 'color:#1A1F2A', 'pointer-events:auto', 'cursor:pointer',
+        'background:#D29A4A', 'color:#1A1F2A', 'pointer-events:none',
       ].join(';');
-      /* 2026-08-17 — tap the beta bar to read the player trace. An installed PWA has no
-         address bar AND its own storage container, so player.html?log=1 is unreachable
-         from inside the app — which is the only place the practice actually runs. This
-         is staging-only by construction: the whole block sits inside SNB_IS_STAGING. */
-      b.addEventListener('click', function () {
-        const open = document.getElementById('snb-logview');
-        if (open) { open.remove(); return; }
-        let rows = [];
-        try { rows = JSON.parse(localStorage.getItem('snb_player_log')) || []; } catch (e) {}
-        const text = rows.map(function (e) {
-          return [e.t, e.vis, e.tag, 'pos=' + e.pos, 'ap=' + e.ap, e.st, e.src, e.x].filter(Boolean).join('  ');
-        }).join('\n') || '(no player events recorded in this app yet)';
-        const w = document.createElement('div');
-        w.id = 'snb-logview';
-        w.style.cssText = 'position:fixed;inset:0;z-index:2147483646;background:#111;color:#eee;display:flex;flex-direction:column';
-        const bar = document.createElement('div');
-        bar.style.cssText = 'display:flex;gap:8px;padding:calc(6px + env(safe-area-inset-top)) 10px 6px;background:#000;flex:none';
-        const mk = function (label, fn) {
-          const x = document.createElement('button');
-          x.textContent = label;
-          x.style.cssText = 'font:500 12px Inter,system-ui,sans-serif;padding:7px 12px;border:0;border-radius:8px;background:#eee;color:#111';
-          x.onclick = fn; return x;
-        };
-        bar.appendChild(mk('Copy', function () { try { navigator.clipboard.writeText(text); this.textContent = 'Copied'; } catch (e) {} }));
-        bar.appendChild(mk('Clear', function () { try { localStorage.removeItem('snb_player_log'); } catch (e) {} w.remove(); }));
-        bar.appendChild(mk('Close', function () { w.remove(); }));
-        const pre = document.createElement('pre');
-        pre.style.cssText = 'margin:0;padding:10px;overflow:auto;flex:1;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;-webkit-user-select:text;user-select:text';
-        pre.textContent = text;
-        w.appendChild(bar); w.appendChild(pre);
-        document.body.appendChild(w);
-      });
       document.body.appendChild(b);
     } catch (e) {}
   });

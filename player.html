@@ -834,53 +834,6 @@ DUR={"INTRO-01":11.1,
 /* ====== helpers ====== */
 const $=id=>document.getElementById(id);
 const au=$('au');
-/* ---- LOCK-SCREEN INSTRUMENTATION (2026-08-17, temporary) ---------------------------
-   Every lock-screen bug in this file's history was found by instrumenting the device and
-   reading the log; every one reasoned about from the source instead was called wrong.
-   Justin, 2026-08-17: audio survives the lock, then stops the moment he returns to the
-   app. Two mechanisms in here could do that and there is no way to tell them apart
-   without a trace. This records media + visibility events to localStorage and changes
-   nothing else. Read it on the device at player.html?log=1. Remove once known. */
-const _LOG_KEY = 'snb_player_log';
-let _plog = [];
-try{ _plog = JSON.parse(localStorage.getItem(_LOG_KEY)) || []; }catch(e){ _plog = []; }
-function plog(tag, extra){
-  try{
-    const e = { t:new Date().toISOString().slice(11,23), tag:tag,
-                vis: document.hidden ? 'hidden' : 'visible',
-                pos: +(au.currentTime||0).toFixed(2),
-                ap: au.paused ? 1 : 0, ae: au.ended ? 1 : 0,
-                src: String(au.currentSrc||au.src||'').split('/').pop().slice(0,26),
-                x: extra||'' };
-    try{ e.st = [playing?'playing':'', paused?'paused':'', inGap?'inGap':'',
-                 _inSilence?'sil':'', inBreak?'break':'', finished?'fin':'']
-                 .filter(Boolean).join(','); }catch(err){ e.st = '?'; }
-    /* 2026-08-17 — read-modify-write EVERY time. Holding the array in memory and
-       rewriting it wholesale silently erased every host: line the top document appended
-       after this page loaded, which is exactly the window that matters. */
-    let rows = [];
-    try{ rows = JSON.parse(localStorage.getItem(_LOG_KEY)) || []; }catch(err){ rows = []; }
-    rows.push(e);
-    if(rows.length > 400) rows.splice(0, rows.length - 400);
-    localStorage.setItem(_LOG_KEY, JSON.stringify(rows));
-  }catch(e){}
-}
-['play','pause','playing','waiting','stalled','suspend','ended','error','emptied','abort']
-  .forEach(ev => au.addEventListener(ev, () => plog('au:'+ev)));
-document.addEventListener('visibilitychange', () => plog('vis:'+(document.hidden?'hide':'show')));
-plog('boot', 'nav='+((performance.getEntriesByType&&(performance.getEntriesByType('navigation')[0]||{}).type)||'?')+' embed='+(location.search.indexOf('embed=1')>=0?1:0));
-addEventListener('pagehide', e => plog('pagehide', 'persisted='+(e.persisted?1:0)));
-addEventListener('pageshow', e => plog('pageshow', 'persisted='+(e.persisted?1:0)));
-if(/(^|[?&])log=1(&|$)/.test(location.search)){
-  addEventListener('load', () => {
-    const pre = document.createElement('pre');
-    pre.style.cssText = 'position:fixed;inset:0;z-index:99999;margin:0;padding:12px;overflow:auto;background:#111;color:#eee;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap;-webkit-user-select:text;user-select:text';
-    let rows = [];
-    try{ rows = JSON.parse(localStorage.getItem(_LOG_KEY)) || []; }catch(e){ rows = []; }
-    pre.textContent = rows.map(e => [e.t, e.vis, e.tag, 'pos='+e.pos, 'ap='+e.ap, e.st, e.src, e.x].filter(Boolean).join('  ')).join('\n') || '(no events recorded yet)';
-    document.body.appendChild(pre);
-  });
-}
 
 au.preload='auto';
 const rand=a=>a[Math.floor(Math.random()*a.length)];
