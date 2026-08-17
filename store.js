@@ -393,7 +393,7 @@
   // app is gated on it yet; it keeps membership status current for when a
   // paid tier exists.
   function checkMembership(){
-    if(!CLOUD || !auth.user){ _hydrated = true; return; }
+    if(!CLOUD || !auth.user) return;
     try{
       const cfg = global.SNB_CONFIG || {};
       if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return;
@@ -600,8 +600,20 @@
   // cloud read has FINISHED, whatever it returned. Set on every terminal path, including
   // failure — a network error must not gate a genuinely new member out of orientation.
   // (Justin, 2026-08-17: re-added beta to his phone, got orientation despite 128 check-ins.)
-  let _hydrated = false;
-  function hydrated(){ return _hydrated; }
+  // Tracks WHICH user's cloud read has completed, not merely 'a read happened'. The first
+  // version of this was a plain boolean set on every terminal path — including the
+  // !auth.user early return, which on a fresh install runs at first paint, BEFORE sign-in.
+  // That set the flag true before any read had occurred, so the gate was a no-op and
+  // orientation still replayed. Keyed to the user id, a signed-out first paint can no
+  // longer satisfy it. (Justin, 2026-08-17: deleted and re-added, welcome popped again.)
+  let _hydratedFor = null;
+  function hydrated(){
+    try{
+      if(!CLOUD) return true;                      // on-device mode has nothing to wait for
+      const u = auth.user; if(!u) return false;    // signed out — no history to have loaded
+      return _hydratedFor === u.id;
+    }catch(e){ return false; }
+  }
 
   async function hydrate(){
     if(!CLOUD || !auth.user) return;
@@ -609,7 +621,7 @@
     await flush();                                   // push anything queued offline first
     try{
       const session = await ensureSession();         // a real GET, not the local cache, must be authenticated
-      if(!session){ setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', 'no session'); _hydrated = true; return; }
+      if(!session){ setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', 'no session'); _hydratedFor = auth.user && auth.user.id; return; }
       const [cs, ss] = await Promise.all([
         sb.from('checkins').select('*').order('t', { ascending:true }),
         sb.from('sessions').select('*').order('t', { ascending:true }),
@@ -622,11 +634,11 @@
       _reconcile();                                    // re-apply deletions + edits over whatever the cloud just merged back
       saveCache();
       setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', (cs.error||ss.error)||null);
-      _hydrated = true;                              // cloud read done — orientation may now decide
+      _hydratedFor = auth.user && auth.user.id;      // cloud read done for THIS user — orientation may now decide
       if(changed) notify();                          // re-render once fresh data lands (post-init / post-refresh)
       migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
 
-    }catch(e){ _hydrated = true; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
+    }catch(e){ _hydratedFor = auth.user && auth.user.id; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
   }
 
   let flushing = false;
