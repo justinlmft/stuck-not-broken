@@ -1410,14 +1410,23 @@
       bestDow, defenseStates: order.filter(d=>_DYSDOM[d]), regStates: order.filter(d=>_REGDOM[d])
     };
   }
-  // baselineDelta: change in average safety between two windows (this period vs the one before).
+  /* baselineDelta: change between two windows (this period vs the one before).
+     2026-08-17 — moved from avgV onto meanMargin, Justin's call. Progress runs on the
+     margin everywhere else; a long-range note that still asserted "your average
+     connection moved" was the last surface claiming something different. The copy it
+     feeds is purely directional (up / down / flat, no numbers), so it survives the swap
+     unchanged: margin up IS safety sitting further ahead of defense. `cur`/`prev` are
+     margins now, not connection — nothing reads them today, but do not mix them into a
+     "% safety" sentence, which is regShare's job. The 0.05 dir threshold is unchanged
+     and is FLAGGED for Claude Code: margin spans roughly -0.9..+0.7 where avgV spanned
+     0..1, so the same number is now a slightly smaller move and 'flat' narrows. */
   function baselineDelta(startMs, endMs){
     const span = endMs - startMs;
     const cur = periodStats(startMs, endMs), prev = periodStats(startMs-span, startMs);
     if(!cur) return null;
-    if(!prev) return { dir:'new', deltaPct:0, cur:cur.avgV };
-    const d = cur.avgV - prev.avgV;
-    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100), cur:cur.avgV, prev:prev.avgV };
+    if(!prev) return { dir:'new', deltaPct:0, cur:cur.meanMargin };
+    const d = cur.meanMargin - prev.meanMargin;
+    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100), cur:cur.meanMargin, prev:prev.meanMargin };
   }
 
   // ---- mint store: dated, immutable reflections (the archive / keepsake moat) ----
