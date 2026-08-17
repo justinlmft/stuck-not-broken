@@ -97,6 +97,32 @@
   }catch(e){ _src = 'direct'; }
   function src(){ return _src; }
 
+  /* 2026-08-17 — coarse platform on every event, so "how many Android users do we have"
+     is a query instead of a guess. Buckets only — ios / android / desktop / other — plus
+     whether the app is running installed rather than in a browser tab. The user-agent
+     string itself is never stored and nothing here narrows toward a person; it is the
+     same shape of label as `src`: about the device class, not the human. Added because
+     the whole audio path in player.html is built against iOS quirks and we had no idea
+     whether that mattered to 2% of people or 30%. iPadOS reports itself as a Mac, so the
+     touch-point check catches it. */
+  const _plat = (function(){
+    try{
+      const ua = navigator.userAgent || '';
+      if(/android/i.test(ua)) return 'android';
+      if(/iphone|ipod/i.test(ua)) return 'ios';
+      if(/ipad/i.test(ua)) return 'ipados';
+      if(/macintosh|mac os x/i.test(ua) && (navigator.maxTouchPoints||0) > 1) return 'ipados';
+      if(/macintosh|windows|linux|cros/i.test(ua)) return 'desktop';
+      return 'other';
+    }catch(e){ return 'other'; }
+  })();
+  const _installed = (function(){
+    try{
+      if(navigator.standalone === true) return true;                       // iOS home-screen
+      return !!(global.matchMedia && global.matchMedia('(display-mode: standalone)').matches);
+    }catch(e){ return false; }
+  })();
+
   let auth = { user: null };            // {id, email}
   let data = { checkins: [], sessions: [] };
   let outbox = { checkins: [], sessions: [] };
@@ -535,7 +561,7 @@
   function _evWrite(a){ try{ localStorage.setItem(EV_PENDING, JSON.stringify(a.slice(-200))); }catch(e){} }
   function trackEvent(name, meta){
     if(!CLOUD || !name) return;
-    const row = { name:String(name), meta: Object.assign({}, meta||{}, { src:_src }), t:new Date().toISOString() };
+    const row = { name:String(name), meta: Object.assign({}, meta||{}, { src:_src, plat:_plat, pwa:_installed }), t:new Date().toISOString() };
     if(!auth.user){ const q=_evRead(); q.push(row); _evWrite(q); return; }
     try{ sb.from('events').insert(Object.assign({ user_id: auth.user.id }, row)).then(()=>{}, ()=>{}); }catch(e){}
   }
@@ -557,7 +583,7 @@
   function _trackEventNow(name, meta){
     if(!CLOUD || !name) return Promise.resolve();
     if(!auth.user){ trackEvent(name, meta); return Promise.resolve(); }
-    const row = { user_id: auth.user.id, name:String(name), meta: Object.assign({}, meta||{}, { src:_src }), t:new Date().toISOString() };
+    const row = { user_id: auth.user.id, name:String(name), meta: Object.assign({}, meta||{}, { src:_src, plat:_plat, pwa:_installed }), t:new Date().toISOString() };
     try{ return sb.from('events').insert(row).then(()=>{}, ()=>{}); }catch(e){ return Promise.resolve(); }
   }
   async function openPortal(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res; }
