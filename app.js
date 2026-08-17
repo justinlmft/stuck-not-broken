@@ -1139,7 +1139,8 @@
       if(reading){
         if(axTouched.v && axTouched.sym && axTouched.dor){
           const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-          reading.innerHTML = `<span class="ci-reading-dom">${rd.dominant}</span>`
+          reading.innerHTML = (rd.label ? `<span class="ci-reading-name">${rd.label}</span>` : '')
+            + `<span class="ci-reading-dom">${rd.dominant}</span>`
             + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
           reading.hidden = false;
         } else reading.hidden = true;
@@ -3669,7 +3670,8 @@ function app(tab){
       if(reading){
         if(axTouched.v && axTouched.sym && axTouched.dor){
           const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-          reading.innerHTML = `<span class="ci-reading-dom">${rd.dominant}</span>`
+          reading.innerHTML = (rd.label ? `<span class="ci-reading-name">${rd.label}</span>` : '')
+            + `<span class="ci-reading-dom">${rd.dominant}</span>`
             + (rd.balance ? `<span class="ci-reading-bal">${rd.balance}</span>` : '');
           reading.hidden = false;
         } else reading.hidden = true;
