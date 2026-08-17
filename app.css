@@ -1464,7 +1464,7 @@ body.reduce-motion .p7-shape{animation:none}
 /* ---- check-in v2 (no animated figure — the live readout is the system's answer; fits one screen) ---- */
 .checkin2{display:flex;flex-direction:column;gap:12px;padding:22px 22px 14px}
 .checkin2 .scr-head{margin-bottom:12px}
-.ci-readout{display:flex;align-items:center;gap:9px;font-size:calc(14.5px * var(--type-scale));line-height:1.45;color:var(--ink-80);margin:6px 0 0;padding-top:12px;border-top:1px solid var(--bone-deep)}
+.ci-readout{display:flex;align-items:center;gap:9px;font-size:calc(14.5px * var(--type-scale));line-height:1.45;color:var(--ink-80);margin:14px 0 0}
 .ci-readtext{text-align:left}
 .ci-readout b{font-weight:500;color:var(--ink)}
 .ci-dot{flex:none;width:11px;height:11px;border-radius:50%}
@@ -1543,10 +1543,10 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 .slider-plain .q{font-weight:500;letter-spacing:.01em}
 /* §7.3 two honest readings under the check-in: names the state, never grades it */
 .ci-reading{margin:10px 0 0;display:flex;flex-direction:column;gap:3px}
-/* the hairline belongs above the block, not between the name and the mirror: the name
-   takes it when it is showing, and hands it back to the mirror when it is not. */
-.ci-reading:not([hidden]){margin-top:6px;padding-top:12px;border-top:1px solid var(--bone-deep)}
-.ci-reading:not([hidden]) + .ci-readout{margin-top:10px;padding-top:0;border-top:none}
+/* 2026-08-17 — no hairline above the reading. It was a 1px --bone-deep rule that read as
+   an artefact rather than a divider (Justin: "essentially invisible"); the space does the
+   separating now. */
+.ci-reading:not([hidden]) + .ci-readout{margin-top:10px}
 /* 2026-08-17 — the state name and its qualifier sit ABOVE the reading sentence (Justin).
    Sentence case, composed in current.js; the sentence below stays as it was. */
 .ci-reading-name{font-size:calc(16.5px * var(--type-scale));line-height:1.3;color:var(--ink);font-weight:600;letter-spacing:-0.01em;text-wrap:pretty;margin-bottom:1px}
@@ -1916,9 +1916,13 @@ body.reduce-motion .settle-ico{transition:none}
 
 
 /* gentle update toast: persistent "a new version is ready" prompt (var-driven; themes in dark) */
-.update-toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,8px);display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--bone);font-size:calc(13.5px * var(--type-scale));padding:8px 10px 8px 17px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease);z-index:61;box-shadow:0 8px 24px var(--shade);max-width:calc(100% - 32px)}
+/* 2026-08-17 — sized down and un-pilled. At 999px the toast became a tall lozenge the
+   moment the label wrapped (which it does at larger type scales), and it ran nearly the
+   full width on a phone. Now: a capped, compact card that survives one or two lines. */
+.update-toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,8px);display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--bone);font-size:calc(13px * var(--type-scale));line-height:1.35;padding:9px 9px 9px 15px;border-radius:14px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease);z-index:61;box-shadow:0 8px 24px var(--shade);width:max-content;max-width:min(330px,calc(100% - 40px))}
+.update-toast span{flex:1 1 auto;min-width:0;text-wrap:pretty}
 .update-toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-.update-toast button{font:inherit;font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink);background:var(--bone);border:0;border-radius:999px;padding:6px 13px;cursor:pointer;flex:none}
+.update-toast button{font:inherit;font-size:calc(12.5px * var(--type-scale));font-weight:500;color:var(--ink);background:var(--bone);border:0;border-radius:9px;padding:6px 12px;cursor:pointer;flex:none}
 @media (prefers-reduced-motion:reduce){.update-toast{transition:opacity .25s var(--ease)}}
 
 
