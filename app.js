@@ -2422,7 +2422,12 @@ function app(tab){
     // ---- dynamic post-breath third button (choreographed) ----
     clearTimeout(_mhMorphTimer); clearTimeout(_mhStepTimer); _mhAfterBreath = null;
     const _launchMicro = ()=>{ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'Micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
+      /* 'micro' lowercase. The player matches this against its own keys, which are all
+         lowercase, so 'Micro' fell through to the default script and the "Two more
+         minutes?" invite launched a seven-minute practice (Michelle, 2026-08-15;
+         reproduced by Justin 2026-08-17 after an earlier fix of mine failed to land).
+         Note practiceKey below is already lowercase — the two disagreeing IS the bug. */
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
       third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
@@ -6441,7 +6446,7 @@ function app(tab){
       const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
       const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
       const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'Most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
     };
 
     const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>{

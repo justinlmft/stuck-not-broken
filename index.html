@@ -24,7 +24,7 @@
   <script src="store.js?v=77"></script>
   <script src="from-justin.js?v=16"></script>
   <script src="icons.js"></script>
-  <script src="app.js?v=243"></script>
+  <script src="app.js?v=244"></script>
   <script>
   /* installable PWA: register the /app/-scoped service worker; reload once when a
      new shell takes control so updates propagate without a manual reinstall. */
@@ -48,7 +48,14 @@
       b.innerHTML='<span>A new version is ready.</span><button type="button">Refresh</button>';
       document.body.appendChild(b);
       requestAnimationFrame(function(){ b.classList.add('on'); });
-      b.querySelector('button').onclick=function(){ var w=reg.waiting; if(w){ w.postMessage({type:'SKIP_WAITING'}); } else { location.reload(); } b.classList.remove('on'); };
+      /* 2026-08-17 — the tap has to look like it did something. It used to hide the toast
+         immediately and then sit there while the worker swapped, which read as a dead
+         button. Now the toast stays put and the button says so until the reload lands. */
+      b.querySelector('button').onclick=function(){
+        var btn=this; btn.disabled=true; btn.textContent='Refreshing…';
+        var w=reg.waiting;
+        if(w){ w.postMessage({type:'SKIP_WAITING'}); } else { location.reload(); }
+      };
     }
     addEventListener('load',()=>{
       navigator.serviceWorker.register('sw.js').then(function(reg){
