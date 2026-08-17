@@ -1376,20 +1376,20 @@
     // These retire regShare as the user-facing baseline (regShare stays only as an internal signal
     // for the spectrum() ladder). "defense" is the louder of the two defensive axes per check-in
     // (max of mobilization, immobilization) — the same single-scalar defense the moment gate and the
-    // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgMargin = connection
+    // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgSafetyLead = connection
     // minus defense, the signed "how far is safety ahead of defense" the spoken baseline reports
     // (never a %, never against 100 — §7.2). sdV = connection-number fluctuation (§7.6: SD of v),
     // for the person's own-range axis. All population stats over the same window/weighting as avgV.
     const defOf = c => Math.max(c.sym||0, c.dor||0);
     const avgDef = cs.reduce((s,c)=>s+defOf(c),0)/n;
-    const avgMargin = avgV - avgDef;
-    /* ⚠ NAME COLLISION, flagged not resolved (2026-08-17). `avgMargin` above is §7.2's
-       definition — connection minus the LOUDER defense, unweighted. The naming engine's
-       margin is a different quantity: 0.7*v - 0.3*(sym + dor + tax), which counts BOTH
-       defenses, applies RM's 70/30 exchange rate, and charges the co-activation tax.
-       Two things called margin will drift, the way freeze_blend drifted. Added as
-       `meanMargin` rather than redefining §7.2's, because that section is canonical and
-       changing it is Justin's call, not a refactor. */
+    const avgSafetyLead = avgV - avgDef;
+    /* RENAMED 2026-08-17, was `avgMargin`. This is §7.2's quantity — connection minus
+       the LOUDER defense, unweighted — and it is NOT the naming engine's margin, which
+       counts both defenses, applies RM's 70/30 exchange rate and charges the
+       co-activation tax. They had come to share a word, which is how freeze_blend
+       drifted. Renamed rather than redefined: §7.2 is canonical, and nothing outside
+       this file read it (verified across all six app scripts), so the rename was free.
+       The engine's quantity is `meanMargin`, below. */
     const meanMargin = cs.reduce((s2,c)=>{ const m=_mgn(c); return s2 + (m==null?0:m); },0)/n;
     const sdV = Math.sqrt(cs.reduce((s,c)=>{ const d=c.v-avgV; return s+d*d; },0)/n);
     // then vs now: first third vs last third of the window's average safety
@@ -1405,7 +1405,7 @@
     const domOf = arr => { const c2={}; arr.forEach(x=>{ const k=_dm(x); c2[k]=(c2[k]||0)+1; }); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
     return {
       n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
-      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgMargin, meanMargin, sdV, firstAvg, lastAvg,
+      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgSafetyLead, meanMargin, sdV, firstAvg, lastAvg,
       firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
       bestDow, defenseStates: order.filter(d=>_DYSDOM[d]), regStates: order.filter(d=>_REGDOM[d])
     };
@@ -1426,6 +1426,19 @@
     if(!cur) return null;
     if(!prev) return { dir:'new', deltaPct:0, cur:cur.meanMargin };
     const d = cur.meanMargin - prev.meanMargin;
+    /* The +/-0.05 dead-band is UNCHANGED, deliberately, now that d is a margin delta
+       rather than an average-connection delta. Margin's theoretical span is ~1.6, which
+       makes 0.05 look like a smaller slice than it was — but that span needs v=0 with
+       both defenses maxed, a board nobody reports. Across the twelve verified §6 boards
+       margin runs -0.502..+0.585, a practical span of 1.087, so 0.05 is 4.6% of it
+       against 5.0% for avgV over 0..1. The band transfers essentially untouched, so
+       there is nothing to re-tune and no new constant to invent.
+       Known asymmetry, recorded not fixed: margin is asymmetric about zero (0.3 per
+       full defense, 0.7 per full ventral), so 0.05 is a sixth of a full defense
+       downward but a fourteenth of full ventral upward — a symmetric band therefore
+       trips more readily toward 'down'. Setting that properly needs observed
+       period-over-period variance, which is the same data gate as λ and the ½ cost
+       fraction. Guessing an asymmetric band now would be fitting to nothing. */
     return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100), cur:cur.meanMargin, prev:prev.meanMargin };
   }
 
@@ -1520,7 +1533,7 @@
   // Matrix: App Designer/Reader-Rework/practice-decision-matrix.md.
   // ---- §7.4–7.5 tier model (connection-vs-defense, absolute levels) ----------
   // GUARDRAIL (Justin 2026-07-27): the tier gates read safety (avgV) and defense
-  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgMargin. A positive
+  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgSafetyLead. A positive
   // margin on low absolute safety must not unlock a tier.
   function _byDay(cs){ const m={}; cs.forEach(c=>{ const k=new Date(c.t).toDateString(); (m[k]=m[k]||[]).push(c); }); return m; }
   // Consistency (§7.5, window resolved §7.6): a stable FLOOR that holds through
