@@ -347,14 +347,27 @@ RM side   lift = λ·(1−v) (λ unfitted) · engage cost = ½·toDef(level)
    carries a `label` field ("freeze — moderate"). Rendering weights untouched;
    `min(s,d)` stays the freeze-intensity readout. Shell v403 / current.js v8. Verified
    against every board in §6 by node test.
-2. **Mockup engine (`snb-business: Projects/Web Designer/_mockup-pvc-per-state-sliders.html`)**
-   — needs a session with snb-business write access (this session is read-only there):
-   one sympathetic slider (fight/flight merged, both-slider UI retired), `stateName()`
-   replaced by the margin read, RM lift/cost switched to the missing-ventral /
-   proportional forms, then §5/§8 milestone weeks recomputed under the new arithmetic.
-3. **Engine chronic pass** — replace `DEFENSE_CEIL` / `SAFETY_CEIL` / `FF_PEAK` with
-   capacity-relative bounds, under the §4 guardrail (bound the trait, never the reaction).
-4. **Master spec (`_spec-regulation-math.md`, snb-business)** — ✅ WRITTEN, awaiting
+2. **Mockup engine** — ✅ DONE 2026-08-16 (`snb-business` c996824 + 60550e3). One
+   sympathetic slider (counts once in every demand sum), `stateName()` and the 1.6 rule
+   replaced by the margin read, lift → `λ·(1−V)` with λ = 1.595745 PROVISIONAL-◆ set by
+   *scale preservation* (mean lift across the three §8 personas equals the old flat value
+   exactly), cost → `½·toDef(level)`. All twelve §6 boards verified against the migrated
+   engine; continuity swept at 20k points, no cliffs.
+   ⚠ **§8 milestone weeks recomputed and NOT tuned back** — unsupported, ceiling high:
+   freeze 42/67/90, shutdown 13/32/47, fight/flight 13/39/57. The fight/flight move is the
+   round-7 persona revision (dorsal 25 → 36), not the package: at dorsal 25 that persona
+   read *functional at week 0*, which was the artifact the expert flagged.
+   ⚠ **Doc erratum:** §6 above lists functional freeze at "sev 48". Its own quoted margin
+   (−0.142) yields **47**; the exact margin is −0.142452 → 47.48. The engine is right and
+   the table row is the error.
+3. **Engine chronic pass** — ✅ DONE 2026-08-16. `DEFENSE_CEIL` / `SAFETY_CEIL` / `FF_PEAK`
+   are capacity-relative, bounding the TRAIT only. The expert's raw `MaxDefense × (1−V)`
+   was **not** adopted: at V = 80 it caps dorsal at 20 while the confirmed stillness
+   mechanic targets 60. Raw sliders are never gated and nothing the user sets is ever
+   silently moved (round 8).
+4. **Master spec (`_spec-regulation-math.md`, snb-business)** — ✅ APPLIED 2026-08-16
+   (c996824), plus a §9 "Round 8" entry recording the progress-measurement change below.
+   Original note kept for the record: ✅ WRITTEN, awaiting
    apply: this session had read-only access to snb-business (the write-access grant was
    platform-blocked), so the five edits (new §1.2 margin rule; §8 persona 42/72/36 +
    nicknames struck; §2.2 cost → proportional; §2.6 flavour → ratio; §9 rounds 6–7 log)
@@ -367,3 +380,62 @@ RM side   lift = λ·(1−v) (λ unfitted) · engage cost = ½·toDef(level)
 
 House rules bind every step: nothing fitted to cohort percentages or target reads; no
 momentary-vs-baseline comparisons; provenance marks maintained.
+
+---
+
+## 11. Round 8 — progress stops being measured on state names (2026-08-16/17)
+
+The naming redesign fixed what a reading is *called*. An audit then found every **progress**
+claim was still counting words. Justin's ruling: **progress is measured on real quantities.**
+
+Two ordinal scales built on the six names, in one file, ordered the same states **opposite
+ways** — `_PE_RANK` put safety above stillness, `_BL_ORDER` put stillness above safety. Users
+had cards contradicting each other. The reason is the argument for the whole change: **a named
+state has no position.** Stillness at 80/10/60 and at 60/10/55 are one word with different
+held capacity, so any name-scale must invent an order, and two inventions disagree.
+
+**Shipped (stuck-not-broken `beta`):**
+- `dom` **derived** from each check-in's own v/sym/dor at read time, never read from storage —
+  one rule across all history. Past names change; announced, not hidden.
+- `neutral` is the one stored name kept: it records that no axis was touched, which numbers
+  cannot tell you. Excluded from mean, numerator, denominator **and** sample count — a
+  check-in that cannot inform the mean must not buy confidence in it. ⚠ Never infer values
+  from the flag; a few rows carry non-midpoints.
+- Regulated share → `margin ≥ 0` (was a `REG` bucket lookup), all three sites.
+- Practice effect → `margin_after − margin_before`, paired by `session_id`/`phase`, the
+  binding the store already did and nothing consumed. `domBefore` is not consulted: a bare
+  name with no circuit values cannot be re-derived. `after` and `followup` stay separate.
+- Recovery → check-ins until margin crosses back above zero, **plus how far under**.
+- Baseline card → mean margin, rescaled per side as the qualifier is; gate decoupled from the
+  viewing toggle at **n ≥ 8 over ≥ 28 days** (a toggle is a preference, a baseline is a claim).
+- `baselineDelta` → margin direction, both the member and guest-shim copies.
+- Retired: the `_RANK` / `_PE_RANK` ladder (shutdown and freeze both 0, play and stillness
+  both 2 — real movement registered as none).
+- Transitions stay **categorical** by design and stop being framed as progress.
+
+**Margins are never rendered as a number.** They drive positions, bands and directions only;
+the product's no-scores rule is untouched.
+
+**Naming language (Justin, 2026-08-17):** "with some X", never "X underneath". X is a
+**state** (`shutdown`, `flight/fight`), not a circuit — users have never seen the ANS circuit
+words outside the figure. Defense-side `under` added and approved: symmetric with the safety
+side, freeze exempt because freeze already *is* both. Sentence case throughout.
+
+**A period is not a reading.** "Name — band" over a window is a category error: the band is a
+property of one reading. A modal name is a *frequency* claim and is honest; the qualifier is
+not. Reported separately, never fused.
+
+**Two name collisions, one bug class.** `freeze_blend` (database) computed the ventral-gated
+freeze weight — the version cohort data **rejected**, r = 0.665 gated against 0.788 ungated —
+while the spec had ruled for the ungated core. And `periodStats` exported `avgMargin`, §7.2's
+connection-minus-louder-defense, beside the engine's margin. Renamed `avgSafetyLead`; §7.2 is
+canonical and was not redefined. Two quantities sharing one word is how both drifted.
+
+**Still unfitted, same data gate — `followup` volume, not opinion:** λ, the ½ cost fraction,
+the practice-effect `n ≥ 6` gate (sized for a binary rate, too conservative for a continuous
+delta), and the ±0.05 direction dead-band's asymmetry (margin is asymmetric about zero, so a
+symmetric band trips more readily toward "down").
+
+**Parked by Justin:** the Functional / Regulated / Presence milestones stay out of the app.
+They are the predictive layer, headed for dynamic self-regulation plans, and he wants to
+experiment before shipping.
