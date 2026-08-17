@@ -52,13 +52,28 @@
   --space-sub:var(--sp-7);      /* between sub-sections */
   --space-section:var(--sp-8);  /* between sections */
 
-  /* layout — clamp() is what makes it fluid instead of breakpoint-bolted */
+  /* layout — clamp() is what makes it fluid instead of breakpoint-bolted.
+     ⚠ READ BEFORE "CLEANING UP" THE UNUSED ONES (checked 2026-08-15).
+     --pad-x, --gap, --section and --measure have ZERO var() consumers in app.css, app.js and
+     player.html. They are NOT dead code — they are Phase-1 staging from WEB-APP-FLUID-PLAN.md,
+     which ported the token block ahead of Fluid Phases 2-6. Those phases were never built, so
+     the landing pads sit unused. Deleting them throws away the groundwork; wiring them changes
+     desktop layout on every screen and is a design decision, not a tidy-up.
+     This is what DQA logged as deviation-register §14 row 4 ("WAFP names tokens with zero
+     consumers"), and it is the same root cause as DQA §B (seven primary left edges at >=1024,
+     221px spread) and the five ad-hoc content caps below (1080 / min(--page,980) / --col /
+     980 / 560). All three are one open item: Fluid Phase 2 never shipped. Finish it or
+     formally drop it — but do not resolve it one symptom at a time. See STATUS.
+     Live and consumed: --page (2), --col (2), --shell (1). */
   --page:1120px;                          /* focal content cap */
   --shell:1240px;                         /* shell cap (rail + content), Phase 2 */
-  --pad-x:clamp(20px,5vw,40px);
-  --gap:clamp(20px,4vw,32px);
-  --section:clamp(64px,9vw,112px);
-  --measure:66ch;                         /* reading line length; text is never full-bleed */
+  --pad-x:clamp(20px,5vw,40px);           /* staged for Fluid Phase 2 — no consumers yet */
+  --gap:clamp(20px,4vw,32px);             /* staged for Fluid Phase 2 — no consumers yet */
+  --section:clamp(64px,9vw,112px);        /* staged for Fluid Phase 2 — no consumers yet */
+  --measure:66ch;                         /* staged for Fluid Phase 2 — no consumers yet.
+                                             NOTE: "text is never full-bleed" is therefore an
+                                             INTENT, not a shipped behaviour. Reading measure is
+                                             currently uncapped on wide screens. */
   --col:680px;                            /* capped content column on regular/wide (Phase 2) */
 
   /* type ramp — device-appropriate body (Justin, 2026-07-10): ~17px phone -> ~19px wide.
@@ -582,6 +597,29 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .bl-kprev{width:26px;height:13px;border-radius:5px;border:1.5px dashed var(--ink-80);background:none}
 .bl-wrap.early .bl-bar{filter:grayscale(.5);opacity:.55}
 .bl-early{font-size:calc(12.5px * var(--type-scale));color:var(--ink-80);margin:16px 0 0;text-wrap:pretty}
+/* the pre-baseline card is what MOST people see: median check-ins per user is 2,
+   and only 11 of 141 clear the n>=8 gate in any 30-day window (prod, 2026-08-16).
+   So it is the primary state, not an edge case. It shows the axis (dimmed, and
+   learnable) with NOTHING plotted on it — no dot, no band. Before the gate the
+   dot sits at _blPosOf(null) = dead centre, which reads as "you are exactly
+   balanced": a confident claim about the person made from no data. Empty is the
+   honest render, and the second line says so out loud so the blank reads as
+   deliberate rather than broken. */
+/* one-time naming-change note. Calm, centred, dismissible, shown once. */
+.wn-root{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;
+  background:rgba(0,0,0,.42);opacity:0;transition:opacity .45s var(--ease)}
+.wn-root.on{opacity:1}
+.wn-card{background:var(--bone);border-radius:18px;padding:26px 24px 22px;max-width:400px;width:100%;
+  box-shadow:0 8px 40px var(--shade-deep);max-height:82vh;overflow:auto}
+/* the mark signs the card: this announcement is from Justin, not the app voice. */
+.wn-mark-wrap{display:flex;justify-content:center;margin:0 0 14px}
+.wn-mark-wrap .ob-mark{width:52px;height:auto;color:var(--ink-80)}
+.wn-h{font-size:calc(21px * var(--type-scale));font-weight:500;letter-spacing:-.01em;line-height:1.24;
+  color:var(--ink);margin:0 0 12px;text-wrap:pretty}
+.wn-p{font-size:calc(15px * var(--type-scale));line-height:1.62;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
+.wn-card .btn{margin-top:8px}
+body.reduce-motion .wn-root{transition:none}
+.bl-early-sub{font-size:calc(11.5px * var(--type-scale));color:var(--muted);margin:8px 0 0;line-height:1.5;text-wrap:pretty}
 /* dark-mode fixes: the ink mark inverts to stay visible; the key's outline + grey
    swatches sit on the dark card, so give them light/legible marks there.
    BUG FIX (2026-07-30, Justin: "'state variation this month' shows white in
@@ -1426,7 +1464,7 @@ body.reduce-motion .p7-shape{animation:none}
 /* ---- check-in v2 (no animated figure — the live readout is the system's answer; fits one screen) ---- */
 .checkin2{display:flex;flex-direction:column;gap:12px;padding:22px 22px 14px}
 .checkin2 .scr-head{margin-bottom:12px}
-.ci-readout{display:flex;align-items:center;gap:9px;font-size:calc(14.5px * var(--type-scale));line-height:1.45;color:var(--ink-80);margin:6px 0 0;padding-top:12px;border-top:1px solid var(--bone-deep)}
+.ci-readout{display:flex;align-items:center;gap:9px;font-size:calc(14.5px * var(--type-scale));line-height:1.45;color:var(--ink-80);margin:14px 0 0}
 .ci-readtext{text-align:left}
 .ci-readout b{font-weight:500;color:var(--ink)}
 .ci-dot{flex:none;width:11px;height:11px;border-radius:50%}
@@ -1505,6 +1543,13 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 .slider-plain .q{font-weight:500;letter-spacing:.01em}
 /* §7.3 two honest readings under the check-in: names the state, never grades it */
 .ci-reading{margin:10px 0 0;display:flex;flex-direction:column;gap:3px}
+/* 2026-08-17 — no hairline above the reading. It was a 1px --bone-deep rule that read as
+   an artefact rather than a divider (Justin: "essentially invisible"); the space does the
+   separating now. */
+.ci-reading:not([hidden]) + .ci-readout{margin-top:10px}
+/* 2026-08-17 — the state name and its qualifier sit ABOVE the reading sentence (Justin).
+   Sentence case, composed in current.js; the sentence below stays as it was. */
+.ci-reading-name{font-size:calc(16.5px * var(--type-scale));line-height:1.3;color:var(--ink);font-weight:600;letter-spacing:-0.01em;text-wrap:pretty;margin-bottom:1px}
 .ci-reading-dom{font-size:calc(14.5px * var(--type-scale));line-height:1.45;color:var(--ink);font-weight:500;text-wrap:pretty}
 .ci-reading-bal{font-size:calc(13px * var(--type-scale));line-height:1.45;color:var(--muted);text-wrap:pretty}
 .ci-readout4{display:block;line-height:1.55}
@@ -1871,9 +1916,13 @@ body.reduce-motion .settle-ico{transition:none}
 
 
 /* gentle update toast: persistent "a new version is ready" prompt (var-driven; themes in dark) */
-.update-toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,8px);display:flex;align-items:center;gap:12px;background:var(--ink);color:var(--bone);font-size:calc(13.5px * var(--type-scale));padding:8px 10px 8px 17px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease);z-index:61;box-shadow:0 8px 24px var(--shade);max-width:calc(100% - 32px)}
+/* 2026-08-17 — sized down and un-pilled. At 999px the toast became a tall lozenge the
+   moment the label wrapped (which it does at larger type scales), and it ran nearly the
+   full width on a phone. Now: a capped, compact card that survives one or two lines. */
+.update-toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,8px);display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--bone);font-size:calc(13px * var(--type-scale));line-height:1.35;padding:9px 9px 9px 15px;border-radius:14px;opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .25s var(--ease);z-index:61;box-shadow:0 8px 24px var(--shade);width:max-content;max-width:min(330px,calc(100% - 40px))}
+.update-toast span{flex:1 1 auto;min-width:0;text-wrap:pretty}
 .update-toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
-.update-toast button{font:inherit;font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink);background:var(--bone);border:0;border-radius:999px;padding:6px 13px;cursor:pointer;flex:none}
+.update-toast button{font:inherit;font-size:calc(12.5px * var(--type-scale));font-weight:500;color:var(--ink);background:var(--bone);border:0;border-radius:9px;padding:6px 12px;cursor:pointer;flex:none}
 @media (prefers-reduced-motion:reduce){.update-toast{transition:opacity .25s var(--ease)}}
 
 
@@ -2110,6 +2159,10 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .read-h2{font-size:calc(17px * var(--type-scale));font-weight:600;line-height:1.3;color:var(--ink);margin:0 0 9px}
 .read-date{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:0 0 10px}
 .read-time{font-size:calc(12px * var(--type-scale));color:var(--muted);margin:-8px 0 16px}
+/* 2026-08-17 — the reader's state line: same job as the check-in name line, one level up
+   in the hierarchy because it names the whole period rather than one moment. */
+.read-state{font-size:calc(19px * var(--type-scale));line-height:1.3;color:var(--ink);font-weight:600;letter-spacing:-0.015em;margin:0 0 4px;text-wrap:pretty}
+.read-state-sub{font-size:calc(14px * var(--type-scale));line-height:1.45;color:var(--muted);margin:0 0 16px;text-wrap:pretty}
 /* reader-beauty pass: pull-quote (gold rail cut per Justin 2026-07-03) + minted seal (watermark cut) */
 .read-pq{margin:18px 0 14px;padding:3px 0;border-left:none;font-size:calc(18px * var(--type-scale));line-height:1.55;font-weight:500;color:var(--ink);text-wrap:pretty;font-style:normal}
 /* reader body copy — classes so the text-size setting reaches it (was inline px in app.js) */
@@ -2976,6 +3029,9 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
   width:min(100%,460px);padding:26px 24px 22px;box-shadow:0 8px 30px var(--shade);
   max-height:100%;overflow-y:auto}
 .wn-mark{height:26px;display:block;margin:0 0 16px}
+/* the mark signs the card: this announcement is from Justin, not the app voice. */
+.wn-mark-wrap{display:flex;justify-content:center;margin:0 0 14px}
+.wn-mark-wrap .ob-mark{width:52px;height:auto;color:var(--ink-80)}
 .wn-h{font-size:calc(20px * var(--type-scale));font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 12px}
 .wn-p{font-size:calc(14.5px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:0 0 12px;text-wrap:pretty}
 .wn-list{margin:0 0 14px;padding-left:20px;display:grid;gap:8px}

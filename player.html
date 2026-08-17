@@ -1032,6 +1032,23 @@ function build(c){
     if(defense){
       add('CURIOSITY-01','staying curious');             // interest gate
       add('CAP-GATE','going further');                   // capacity gate — AFTER safety, BEFORE any defense
+      /* CAP-GATE asks "do you have the capacity and the genuine willingness to go there right
+         now?" and until 2026-08-15 nothing answered a NO. The gate had no branch, and the
+         mid-practice controls are only pause / back-5s / previous section / begin ease out /
+         end now — so a no had nowhere to go but out of the practice. Meanwhile STOP-OK was
+         recorded, sat in MANIFEST, ORDER and DUR, and was never add()ed by build(): the one clip
+         that says "you have full permission to stop… anchoring in safety is already a success"
+         had never played for anyone. It is the gate's own answer — CAP-GATE-a ends "staying with
+         safety is a complete practice all on its own" — so it belongs immediately after it.
+         Gap: CAP-GATE keeps its short 1.5s hold (SHORT_BASE) as the beat between question and
+         permission; STOP-OK then takes the listener's FULL chosen silence, which is the real
+         pause to decide in. clipState() leaves both on 'safety' (blue), which is right — this
+         beat points back toward safety, not into defense.
+         This is the audio half only. A ROUTED no — the gate sending the listener into validate
+         & normalize (IMG-01/IMG-02 + NUMB-OK + PEND-SAFETY) instead of ending — is still open;
+         it needs a control, not just a clip. See STATUS "the capacity gate asks a question the
+         app gives no way to answer". */
+      add('STOP-OK','permission to stop');
       if(usesInvite){
         loopBase='INVITE-01';                            // open-ended loop returns here
         add('INVITE-01','inviting what is hard');add('INVITE-02','it makes sense');add('INVITE-03','letting it be');
@@ -1812,7 +1829,10 @@ function _stallCheck(){
    So: degrade gracefully. The moment the screen comes back, pick the practice up exactly where it
    was, without the person having to touch anything. */
 document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden || !playing || paused || finished || inBreak) return;
+  // 2026-08-17 — a silence gap is not a stall. During a gap the element is playing
+  // silence-30s.wav and advance() can swap the source inside this very probe window, so
+  // "has the clock moved" is not a question with a reliable answer here.
+  if(document.hidden || !playing || paused || finished || inBreak || inGap || _inSilence) return;
   // give WebKit a beat to restore its own session, then check whether sound is actually happening
   setTimeout(()=>{
     if(document.hidden || !playing || paused) return;
@@ -2154,12 +2174,32 @@ function postToHost(event){
 </script>
 <script>
 if('serviceWorker' in navigator){
-  /* when a new service worker takes control, reload once so the updated shell shows
-     immediately — no manual reinstall needed for future updates. */
-  let _swReloaded=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(!_swReloaded){_swReloaded=true;location.reload();} });
+  /* ── 2026-08-16 — THE DISAPPEARING-PRACTICE BUG (reported by Michelle) ──────────────
+     This block used to reload UNCONDITIONALLY on controllerchange. Chain, all ours:
+       1. index.html called reg.update() on EVERY visibilitychange — every screen wake.
+       2. sw.js called self.skipWaiting() unconditionally on install, so a newly
+          discovered version took control immediately instead of waiting.
+       3. activate -> clients.claim() -> 'controllerchange' in EVERY client, including
+          this iframe with a meditation playing.
+       4. location.reload() destroyed the practice. Not paused, gone, and never
+          recorded, because a session is only reported by postToHost() at the end.
+     Which is the report verbatim: "if I touch it or swipe up to get it active again,
+     the meditation practice abruptly ends... my practice does not get recorded, even
+     if I'm right near the end." It fired often this month only because we shipped often.
+     A shell update is NEVER urgent enough to end someone's practice. Defer it. */
+  let _swReloaded=false, _swPendingReload=false;
+  const _inPractice=()=>{ try{ return !!(typeof playing!=='undefined' && playing
+                                && !(typeof finished!=='undefined' && finished)); }catch(e){ return false; } };
+  const _reloadNow=()=>{ if(_swReloaded)return; _swReloaded=true; location.reload(); };
+  const _reloadWhenSafe=()=>{
+    if(!_inPractice()){ _reloadNow(); return; }
+    if(_swPendingReload) return;
+    _swPendingReload=true;
+    const iv=setInterval(()=>{ if(!_inPractice()){ clearInterval(iv); _reloadNow(); } }, 2000);
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', _reloadWhenSafe);
   addEventListener('load',()=>{
-    navigator.serviceWorker.register('sw.js').then(reg=>{ try{reg.update();}catch(e){} }).catch(()=>{});
+    navigator.serviceWorker.register('sw.js').then(reg=>{ try{ if(!_inPractice()) reg.update(); }catch(e){} }).catch(()=>{});
   });
 }
 </script>

@@ -97,6 +97,32 @@
   }catch(e){ _src = 'direct'; }
   function src(){ return _src; }
 
+  /* 2026-08-17 — coarse platform on every event, so "how many Android users do we have"
+     is a query instead of a guess. Buckets only — ios / android / desktop / other — plus
+     whether the app is running installed rather than in a browser tab. The user-agent
+     string itself is never stored and nothing here narrows toward a person; it is the
+     same shape of label as `src`: about the device class, not the human. Added because
+     the whole audio path in player.html is built against iOS quirks and we had no idea
+     whether that mattered to 2% of people or 30%. iPadOS reports itself as a Mac, so the
+     touch-point check catches it. */
+  const _plat = (function(){
+    try{
+      const ua = navigator.userAgent || '';
+      if(/android/i.test(ua)) return 'android';
+      if(/iphone|ipod/i.test(ua)) return 'ios';
+      if(/ipad/i.test(ua)) return 'ipados';
+      if(/macintosh|mac os x/i.test(ua) && (navigator.maxTouchPoints||0) > 1) return 'ipados';
+      if(/macintosh|windows|linux|cros/i.test(ua)) return 'desktop';
+      return 'other';
+    }catch(e){ return 'other'; }
+  })();
+  const _installed = (function(){
+    try{
+      if(navigator.standalone === true) return true;                       // iOS home-screen
+      return !!(global.matchMedia && global.matchMedia('(display-mode: standalone)').matches);
+    }catch(e){ return false; }
+  })();
+
   let auth = { user: null };            // {id, email}
   let data = { checkins: [], sessions: [] };
   let outbox = { checkins: [], sessions: [] };
@@ -239,11 +265,21 @@
   function markPracticeBefore(sessionId, practiceRef){
     if(!sessionId) return null;
     const now = Date.now();
-    let c = null;
-    for(const x of data.checkins){ if(x && typeof x.t==='number' && x.t<=now && (!c || x.t>c.t)) c=x; }
+    /* 2026-08-16 — WALK BACK instead of giving up on the newest reading.
+       This used to take the single most recent check-in, then bail if it was stale or
+       already tagged. Measured on prod: of 45 sessions since 2026-08-07 with no 'before'
+       read, 27 had a check-in inside the window (median gap 13 minutes), and 14 of those
+       failed for exactly one reason — the NEWEST reading was already spoken for, usually
+       as the PREVIOUS practice's 'after'. An earlier, unclaimed reading was sitting right
+       there in the same window and we never looked at it.
+       This is the biggest limiter on practice-effect: a pair needs a before, and only 40%
+       of sessions had one. Same window, same rule about never stealing a reading that
+       already belongs to another session. We just stop giving up at the first candidate. */
+    const c = data.checkins
+      .filter(x => x && typeof x.t === 'number' && x.t <= now && (now - x.t) <= BEFORE_MS)
+      .sort((a, b) => b.t - a.t)
+      .find(x => !x.session_id && !x.phase && !x.live_session_id);
     if(!c) return null;
-    if(now - c.t > BEFORE_MS) return null;             // too stale to call it this practice's before
-    if(c.session_id || c.phase || c.live_session_id) return null;   // already spoken for
     _linkCheckin(c.t, { session_id:sessionId, phase:'before', practice_ref:(practiceRef||null) });
     return c.t;
   }
@@ -279,7 +315,7 @@
   }
 
   // ---- row mappers (cloud columns are snake_case) ----
-  const rowToCheckin = r => { const c = { t:r.t, v:r.v, sym:r.sym, dor:r.dor, fr:r.fr, note:r.note, dom:r.dom,
+  const rowToCheckin = r => { const c = { t:r.t, v:r.v, sym:r.sym, dor:r.dor, note:r.note, dom:r.dom,
     challenge:(typeof r.challenge==='number'?r.challenge:null), source:(r.source||null) };
     // live check-in tags (2026-07-17, Live-Checkin-Plan Phase 1) — carried both ways so
     // the live flow's "which readings are done" survives a device switch.
@@ -290,7 +326,7 @@
     if(r.phase) c.phase=r.phase;
     if(r.practice_ref) c.practice_ref=r.practice_ref;
     return c; };
-  const checkinToRow = c => { const r = { user_id:auth.user.id, t:c.t, v:c.v, sym:c.sym, dor:c.dor, fr:c.fr||0, note:c.note||'', dom:c.dom,
+  const checkinToRow = c => { const r = { user_id:auth.user.id, t:c.t, v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:c.dom,
     challenge:(typeof c.challenge==='number'?c.challenge:null), source:(c.source||null) };
     // The pairing columns are ALWAYS emitted, null when unset. PostgREST rejects a bulk
     // insert whose objects don't share a key set ("All object keys must match"), so a
@@ -525,7 +561,7 @@
   function _evWrite(a){ try{ localStorage.setItem(EV_PENDING, JSON.stringify(a.slice(-200))); }catch(e){} }
   function trackEvent(name, meta){
     if(!CLOUD || !name) return;
-    const row = { name:String(name), meta: Object.assign({}, meta||{}, { src:_src }), t:new Date().toISOString() };
+    const row = { name:String(name), meta: Object.assign({}, meta||{}, { src:_src, plat:_plat, pwa:_installed }), t:new Date().toISOString() };
     if(!auth.user){ const q=_evRead(); q.push(row); _evWrite(q); return; }
     try{ sb.from('events').insert(Object.assign({ user_id: auth.user.id }, row)).then(()=>{}, ()=>{}); }catch(e){}
   }
@@ -547,7 +583,7 @@
   function _trackEventNow(name, meta){
     if(!CLOUD || !name) return Promise.resolve();
     if(!auth.user){ trackEvent(name, meta); return Promise.resolve(); }
-    const row = { user_id: auth.user.id, name:String(name), meta: Object.assign({}, meta||{}, { src:_src }), t:new Date().toISOString() };
+    const row = { user_id: auth.user.id, name:String(name), meta: Object.assign({}, meta||{}, { src:_src, plat:_plat, pwa:_installed }), t:new Date().toISOString() };
     try{ return sb.from('events').insert(row).then(()=>{}, ()=>{}); }catch(e){ return Promise.resolve(); }
   }
   async function openPortal(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res; }
@@ -751,7 +787,7 @@
     const dom = (c.dom && (c.dom==='neutral' || PVCurrent.STATES[c.dom])) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
     // time and fed to the recommender. Synced to the cloud `challenge` column via checkinToRow.
-    const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, fr:c.freeze||0, note:c.note||'', dom:dom.key,
+    const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:dom.key,
                   challenge:(typeof c.challenge==='number'?c.challenge:null),
                   source:(c.source||null) };   // e.g. 'post-practice' — lets practiceEffect use clean before/after pairs
     // live check-in tags ride along only when the check-in happened inside a live session
@@ -775,17 +811,17 @@
     const old = data.checkins[i];
     // expert override: an explicit, valid state key wins over the inferred one
     const dom = (c.dom && PVCurrent.STATES[c.dom]) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
-    const rec = Object.assign({}, old, { v:c.v, sym:c.sym, dor:c.dor, fr:(c.freeze!=null?c.freeze:old.fr)||0, dom:dom.key,
+    const rec = Object.assign({}, old, { v:c.v, sym:c.sym, dor:c.dor, dom:dom.key,
                 challenge:(typeof c.challenge==='number'?c.challenge:old.challenge) });
     data.checkins[i] = rec;
     const oi = outbox.checkins.findIndex(x=>x.t===t);
     if(oi>=0) outbox.checkins[oi] = rec;                          // still un-synced: the outbox INSERT carries the edit
     saveCache();
     if(CLOUD && auth.user && oi<0){                                // already synced: UPDATE the cloud row, keep a pending overlay
-      _setEdit(t, { v:rec.v, sym:rec.sym, dor:rec.dor, fr:rec.fr, dom:rec.dom, challenge:rec.challenge });
+      _setEdit(t, { v:rec.v, sym:rec.sym, dor:rec.dor, dom:rec.dom, challenge:rec.challenge });
       try{
         // .then() is required or the request never sends; on success drop the overlay.
-        sb.from('checkins').update({ v:rec.v, sym:rec.sym, dor:rec.dor, fr:rec.fr, dom:rec.dom, challenge:rec.challenge }).eq('user_id', auth.user.id).eq('t', t)
+        sb.from('checkins').update({ v:rec.v, sym:rec.sym, dor:rec.dor, dom:rec.dom, challenge:rec.challenge }).eq('user_id', auth.user.id).eq('t', t)
           .then(function(res){ if(res && !res.error) _clearEdit(t); }, function(){});
       }catch(e){}
     }
@@ -992,9 +1028,30 @@
   }
 
   // ---- richer for-you signals (read by the blog; all self-gating on min data) ----
+  /* ── the margin read (Justin, 2026-08-16) ──────────────────────────────────
+     Progress is measured on quantities, not on state names. A check-in's name is
+     DERIVED from its own v/sym/dor, so one rule covers all history.
+     margin = 0.7*v - 0.3*(sym + dor + tax); >= 0 means capacity covers load in
+     that same reading. Never surfaced as a number — margins stay internal.
+     'neutral' rows are not reads and are excluded everywhere (these functions
+     already filtered them, which is why the filters below are unchanged).
+     ⚠ Never infer values from the neutral flag: a few rows carry non-midpoints. */
+  function _mgn(c){
+    if(!c || c.dom === 'neutral' || typeof c.v !== 'number') return null;
+    try{ return PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; }
+  }
+  function _dm(c){
+    if(!c || typeof c.v !== 'number') return c && c.dom || null;
+    if(c.dom === 'neutral') return 'neutral';
+    try{ return PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
+  }
+  function _isReg(c){ const m = _mgn(c); return m != null && m >= 0; }
+
   const _REG = { safety:1, play:1, stillness:1 };          // regulated dominants
   const _DYS = { fightflight:1, shutdown:1, freeze:1 };     // dysregulated / defensive dominants
-  const _RANK = { shutdown:0, freeze:0, fightflight:1, play:2, stillness:2, safety:3 }; // "steadier" ladder
+  // (retired 2026-08-16) the _RANK "steadier" ladder scored shutdown and freeze both 0
+  // and play and stillness both 2, so real movement between them registered as none.
+  // Replaced by the margin delta, which is continuous and signed.
 
   // weekMix: the window's state distribution — the 2nd-most-common state and the
   // regulated:dysregulated balance. Powers section 1's secondary-state + balance lines.
@@ -1005,10 +1062,10 @@
     const cs = data.checkins.filter(c => c.t >= cut && c.dom && c.dom !== 'neutral');
     const n = cs.length;
     if(n < 6) return null;                                  // too few in-window to claim a mix
-    const cnt = {}; cs.forEach(c => { cnt[c.dom] = (cnt[c.dom]||0) + 1; });
+    const cnt = {}; cs.forEach(c => { const k=_dm(c); cnt[k] = (cnt[k]||0) + 1; });
     const order = Object.keys(cnt).sort((a,b) => cnt[b]-cnt[a]);
     const dom = order[0], second = order[1] || null;
-    let reg=0, dys=0; cs.forEach(c => { if(_REG[c.dom]) reg++; else if(_DYS[c.dom]) dys++; });
+    let reg=0, dys=0; cs.forEach(c => { if(_isReg(c)) reg++; else dys++; });
     const lean = reg>dys ? 'regulated' : dys>reg ? 'dysregulated' : 'even';
     return { n, dom, domShare:Math.round(cnt[dom]/n*100), second,
              secondShare: second ? Math.round(cnt[second]/n*100) : 0,
@@ -1021,34 +1078,60 @@
   function recovery(){
     const cs = data.checkins.filter(c => c.dom && c.dom !== 'neutral');
     if(cs.length < 12) return null;
-    const gaps = []; let i = 0;
+    const gaps = [], depths = []; let i = 0;
     while(i < cs.length){
-      if(!_REG[cs[i].dom]){                                 // entered a harder state
-        let j = i, steps = 0, found = false;
-        while(j < cs.length){ if(_REG[cs[j].dom]){ found = true; break; } j++; steps++; }
-        if(found) gaps.push(steps);                         // check-ins in the dip before steadier ground
+      if(!_isReg(cs[i])){                                   // margin went under: load exceeds capacity
+        let j = i, steps = 0, found = false, low = 0;
+        while(j < cs.length){
+          const m = _mgn(cs[j]); if(m != null && m < low) low = m;
+          if(_isReg(cs[j])){ found = true; break; } j++; steps++;
+        }
+        if(found){ gaps.push(steps); depths.push(low); }     // check-ins under the line, and how far under
         i = j;
       } else i++;
     }
     if(gaps.length < 3) return null;                         // need several completed recoveries
-    return { avg: gaps.reduce((a,b)=>a+b,0)/gaps.length, n: gaps.length };
+    // depth is the part the old name-walk could not see: "how far under" as well as "how long"
+    return { avg: gaps.reduce((a,b)=>a+b,0)/gaps.length, n: gaps.length,
+             deepest: Math.min.apply(null, depths),
+             avgDepth: depths.reduce((a,b)=>a+b,0)/depths.length };
   }
 
   // practiceEffect: of the check-ins that follow a practice session, how often the next one
   // reads steadier than the state they went in with. Closes the read->practice->steadier loop.
-  function practiceEffect(){
-    const ss = data.sessions.filter(s => s.domBefore && _RANK[s.domBefore] != null);
-    if(!ss.length) return null;
-    const cs = data.checkins;
-    let moved=0, total=0;
-    ss.forEach(s => {
-      const next = cs.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
-      if(!next) return;
-      total++;
-      if(_RANK[next.dom] > _RANK[s.domBefore]) moved++;
+  // Pairs by session_id + phase — the binding this file already does — rather than
+  // by "next check-in after". domBefore is not consulted: it is a bare name with no
+  // circuit values, so it cannot be re-derived; the bound 'before' check-in can.
+  // 'after' and 'followup' stay separate measurements and are never merged.
+  function _pePairs(){
+    const bySess = {};
+    data.checkins.forEach(c => {
+      if(!c || !c.session_id || !c.phase) return;
+      const b = bySess[c.session_id] || (bySess[c.session_id] = {});
+      if(!b[c.phase]) b[c.phase] = c;
     });
-    if(total < 6) return null;                               // enough paired session->check-in
-    return { moved, total, rate: moved/total };
+    const out = [];
+    data.sessions.forEach(s => {
+      const b = s && s.id ? bySess[s.id] : null;
+      if(!b || !b.before) return;
+      const mB = _mgn(b.before); if(mB == null) return;
+      const mA = b.after ? _mgn(b.after) : null;
+      const mF = b.followup ? _mgn(b.followup) : null;
+      if(mA == null && mF == null) return;
+      out.push({ session:s, practiceKey:s.practiceKey||null, t:s.t, beforeCheckin:b.before,
+                 before:mB, after:mA, followup:mF,
+                 dAfter: mA==null?null:mA-mB, dFollowup: mF==null?null:mF-mB });
+    });
+    return out;
+  }
+  function practiceEffect(){
+    const pairs = _pePairs().filter(p => p.dAfter != null);
+    const total = pairs.length;
+    if(total < 6) return null;
+    let moved=0, sum=0;
+    pairs.forEach(p => { sum += p.dAfter; if(p.dAfter > 0) moved++; });
+    // rate kept for existing callers; mean is the measure that carries the information
+    return { moved, total, rate: moved/total, mean: sum/total };
   }
 
   // momentDeltas: the live-session before/after spine (§7.1 "moment self-regulation", §7.4 step 6).
@@ -1062,7 +1145,7 @@
   //
   // Per pair: dConn (v_after − v_before), defBefore/defAfter = the larger of the two defense axes
   // (mobilization, immobilization) at each end, dDef (negative = defense eased), the two dominant
-  // keys, and rankDelta on the existing _RANK ladder. No framing, no "good/bad" — the caller decides.
+  // keys, and marginDelta (continuous, signed). No framing, no "good/bad" — the caller decides.
   function momentDeltas(){
     const cs = data.checkins.filter(c => c.live_session_id && c.practice_ref && c.phase &&
                                           typeof c.v==='number' && typeof c.sym==='number' && typeof c.dor==='number');
@@ -1078,14 +1161,15 @@
       if(!before) return;
       const after = g.find(c => c.phase === 'after' && c.t >= before.t);
       if(!after) return;
-      const rb = _RANK[before.dom], ra = _RANK[after.dom];
+      const rb = _mgn(before), ra = _mgn(after);   // margins, not ladder positions
       pairs.push({
         sessionId: before.live_session_id, practiceRef: before.practice_ref,
         tBefore: before.t, tAfter: after.t,
         vBefore: before.v, vAfter: after.v, dConn: after.v - before.v,
         defBefore: def(before), defAfter: def(after), dDef: def(after) - def(before),
-        domBefore: before.dom, domAfter: after.dom,
-        rankDelta: (rb != null && ra != null) ? ra - rb : null,
+        domBefore: _dm(before), domAfter: _dm(after),
+        marginBefore: rb, marginAfter: ra,
+        marginDelta: (rb != null && ra != null) ? ra - rb : null,
       });
     });
     pairs.sort((a,b) => a.tAfter - b.tAfter);
@@ -1100,22 +1184,19 @@
   // handful of paired observations can support. Trend data, not a diagnosis or a promise.
   const _INSIGHT_MIN_N = 4;
   function practiceInsights(){
-    const ss = data.sessions.filter(s => s.practiceKey && s.domBefore && _RANK[s.domBefore] != null);
-    if(!ss.length) return [];
-    const cs = data.checkins;
     const groups = {};
-    ss.forEach(s => {
-      const next = cs.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
-      if(!next) return;
-      const key = s.practiceKey + '|' + s.domBefore + '|' + _segOf(s.t);
-      const g = groups[key] || (groups[key] = { practiceKey:s.practiceKey, dom:s.domBefore, seg:_segOf(s.t), moved:0, total:0 });
-      g.total++;
-      if(_RANK[next.dom] > _RANK[s.domBefore]) g.moved++;
+    _pePairs().forEach(p => {
+      if(!p.practiceKey || p.dAfter == null) return;
+      const dom = _dm(p.beforeCheckin); if(!dom || dom === 'neutral') return;
+      const key = p.practiceKey + '|' + dom + '|' + _segOf(p.t);
+      const g = groups[key] || (groups[key] = { practiceKey:p.practiceKey, dom:dom, seg:_segOf(p.t), moved:0, total:0, sum:0 });
+      g.total++; g.sum += p.dAfter;
+      if(p.dAfter > 0) g.moved++;
     });
     return Object.keys(groups).map(k => groups[k])
       .filter(g => g.total >= _INSIGHT_MIN_N)
-      .map(g => Object.assign(g, { rate: g.moved / g.total }))
-      .sort((a,b) => b.total - a.total || b.rate - a.rate);
+      .map(g => Object.assign(g, { rate: g.moved / g.total, mean: g.sum / g.total }))
+      .sort((a,b) => b.total - a.total || b.mean - a.mean);
   }
 
   // ---- outcome ledger (recommender v2, Justin's rulings 2026-07-06) -----------
@@ -1125,10 +1206,13 @@
   // recommend). A next check-in that reads steadier also counts as good — so
   // pre-07-06 history (no after_feeling column) still earns credit.
   function _exitOf(s){ return s ? (s.exitReason || ((/^exit-/.test(s.feedback||'')) ? s.feedback : null)) : null; }
+  // "moved up" is now a real quantity: did margin improve across this session's own
+  // bound before/after pair. The old version compared a stored name against the next
+  // check-in at any distance, on a ladder that scored shutdown and freeze equal.
   function _movedUp(s){
-    if(!s || !s.domBefore || _RANK[s.domBefore]==null) return false;
-    const next = data.checkins.find(c => c.t > s.t && c.dom && _RANK[c.dom] != null);
-    return !!next && _RANK[next.dom] > _RANK[s.domBefore];
+    if(!s || !s.id) return false;
+    const p = _pePairs().find(x => x.session && x.session.id === s.id);
+    return !!p && p.dAfter != null && p.dAfter > 0;
   }
   // one session -> 'good' | 'bad' | 'neutral' | null (no readable outcome)
   function _outcomeOf(s){
@@ -1307,24 +1391,32 @@
       .sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(!n) return null;
-    const cnt={}; cs.forEach(c=>cnt[c.dom]=(cnt[c.dom]||0)+1);
+    const cnt={}; cs.forEach(c=>{ const k=_dm(c); cnt[k]=(cnt[k]||0)+1; });
     const order = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
     const dist={}; order.forEach(k=>dist[k]=Math.round(cnt[k]/n*100));
     const dom = order[0], second = order[1] || null;
-    let reg=0; cs.forEach(c=>{ if(_REGDOM[c.dom]) reg++; });
+    let reg=0; cs.forEach(c=>{ if(_isReg(c)) reg++; });   // margin >= 0, not a name bucket
     const regShare = reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
     // §7.2 canonical baseline inputs — connection RELATIVE TO DEFENSE, one place, one definition.
     // These retire regShare as the user-facing baseline (regShare stays only as an internal signal
     // for the spectrum() ladder). "defense" is the louder of the two defensive axes per check-in
     // (max of mobilization, immobilization) — the same single-scalar defense the moment gate and the
-    // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgMargin = connection
+    // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgSafetyLead = connection
     // minus defense, the signed "how far is safety ahead of defense" the spoken baseline reports
     // (never a %, never against 100 — §7.2). sdV = connection-number fluctuation (§7.6: SD of v),
     // for the person's own-range axis. All population stats over the same window/weighting as avgV.
     const defOf = c => Math.max(c.sym||0, c.dor||0);
     const avgDef = cs.reduce((s,c)=>s+defOf(c),0)/n;
-    const avgMargin = avgV - avgDef;
+    const avgSafetyLead = avgV - avgDef;
+    /* RENAMED 2026-08-17, was `avgMargin`. This is §7.2's quantity — connection minus
+       the LOUDER defense, unweighted — and it is NOT the naming engine's margin, which
+       counts both defenses, applies RM's 70/30 exchange rate and charges the
+       co-activation tax. They had come to share a word, which is how freeze_blend
+       drifted. Renamed rather than redefined: §7.2 is canonical, and nothing outside
+       this file read it (verified across all six app scripts), so the rename was free.
+       The engine's quantity is `meanMargin`, below. */
+    const meanMargin = cs.reduce((s2,c)=>{ const m=_mgn(c); return s2 + (m==null?0:m); },0)/n;
     const sdV = Math.sqrt(cs.reduce((s,c)=>{ const d=c.v-avgV; return s+d*d; },0)/n);
     // then vs now: first third vs last third of the window's average safety
     const third = Math.max(1, Math.floor(n/3));
@@ -1336,22 +1428,44 @@
     let bestDow=null, bestDowAvg=-1;
     Object.keys(dow).forEach(d=>{ const a=dow[d]; if(a.length>=3){ const m=a.reduce((s,v)=>s+v,0)/a.length; if(m>bestDowAvg){ bestDowAvg=m; bestDow=+d; } } });
     // then-vs-now dominant state (first vs last third), for the identity arc
-    const domOf = arr => { const c2={}; arr.forEach(x=>c2[x.dom]=(c2[x.dom]||0)+1); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
+    const domOf = arr => { const c2={}; arr.forEach(x=>{ const k=_dm(x); c2[k]=(c2[k]||0)+1; }); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
     return {
       n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
-      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgMargin, sdV, firstAvg, lastAvg,
+      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgSafetyLead, meanMargin, sdV, firstAvg, lastAvg,
       firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
       bestDow, defenseStates: order.filter(d=>_DYSDOM[d]), regStates: order.filter(d=>_REGDOM[d])
     };
   }
-  // baselineDelta: change in average safety between two windows (this period vs the one before).
+  /* baselineDelta: change between two windows (this period vs the one before).
+     2026-08-17 — moved from avgV onto meanMargin, Justin's call. Progress runs on the
+     margin everywhere else; a long-range note that still asserted "your average
+     connection moved" was the last surface claiming something different. The copy it
+     feeds is purely directional (up / down / flat, no numbers), so it survives the swap
+     unchanged: margin up IS safety sitting further ahead of defense. `cur`/`prev` are
+     margins now, not connection — nothing reads them today, but do not mix them into a
+     "% safety" sentence, which is regShare's job. The 0.05 dir threshold is unchanged
+     and is FLAGGED for Claude Code: margin spans roughly -0.9..+0.7 where avgV spanned
+     0..1, so the same number is now a slightly smaller move and 'flat' narrows. */
   function baselineDelta(startMs, endMs){
     const span = endMs - startMs;
     const cur = periodStats(startMs, endMs), prev = periodStats(startMs-span, startMs);
     if(!cur) return null;
-    if(!prev) return { dir:'new', deltaPct:0, cur:cur.avgV };
-    const d = cur.avgV - prev.avgV;
-    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100), cur:cur.avgV, prev:prev.avgV };
+    if(!prev) return { dir:'new', deltaPct:0, cur:cur.meanMargin };
+    const d = cur.meanMargin - prev.meanMargin;
+    /* The +/-0.05 dead-band is UNCHANGED, deliberately, now that d is a margin delta
+       rather than an average-connection delta. Margin's theoretical span is ~1.6, which
+       makes 0.05 look like a smaller slice than it was — but that span needs v=0 with
+       both defenses maxed, a board nobody reports. Across the twelve verified §6 boards
+       margin runs -0.502..+0.585, a practical span of 1.087, so 0.05 is 4.6% of it
+       against 5.0% for avgV over 0..1. The band transfers essentially untouched, so
+       there is nothing to re-tune and no new constant to invent.
+       Known asymmetry, recorded not fixed: margin is asymmetric about zero (0.3 per
+       full defense, 0.7 per full ventral), so 0.05 is a sixth of a full defense
+       downward but a fourteenth of full ventral upward — a symmetric band therefore
+       trips more readily toward 'down'. Setting that properly needs observed
+       period-over-period variance, which is the same data gate as λ and the ½ cost
+       fraction. Guessing an asymmetric band now would be fitting to nothing. */
+    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100), cur:cur.meanMargin, prev:prev.meanMargin };
   }
 
   // ---- mint store: dated, immutable reflections (the archive / keepsake moat) ----
@@ -1445,7 +1559,7 @@
   // Matrix: App Designer/Reader-Rework/practice-decision-matrix.md.
   // ---- §7.4–7.5 tier model (connection-vs-defense, absolute levels) ----------
   // GUARDRAIL (Justin 2026-07-27): the tier gates read safety (avgV) and defense
-  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgMargin. A positive
+  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgSafetyLead. A positive
   // margin on low absolute safety must not unlock a tier.
   function _byDay(cs){ const m={}; cs.forEach(c=>{ const k=new Date(c.t).toDateString(); (m[k]=m[k]||[]).push(c); }); return m; }
   // Consistency (§7.5, window resolved §7.6): a stable FLOOR that holds through
