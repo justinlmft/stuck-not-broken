@@ -7126,7 +7126,17 @@ function app(tab){
    A running practice owns the screen. Fresh data is already in the store either way, and
    the screen that follows a practice (feedback / exit reason) renders from it. */
 function routeSafe(){
-  if(document.getElementById('weaver')) return;   // never redraw over a live practice
+  if(document.getElementById('weaver')) return;    // a live practice owns the screen
+  /* 2026-08-17, second half of the same bug (Justin, on device): finish a practice while
+     the phone is still LOCKED and renderFeedback() draws the after-practice check-in
+     while hidden — then the unlock fires the token refresh, route() runs because the
+     weaver is already gone, and the check-in is wiped before it is ever seen. Unlock
+     mid-practice instead and the refresh lands while the weaver is still up, the guard
+     above holds, and the check-in survives. That is exactly the two results he got.
+     .fb-view is every transient flow screen: post-practice feedback, exit reason,
+     thanks, the guest offer and reflection, and the live-practice screens. None of them
+     should ever be replaced by a background repaint the person did not ask for. */
+  if(document.querySelector('.fb-view')) return;   // and so do the screens that follow it
   route();
 }
 Store.init(routeSafe);
