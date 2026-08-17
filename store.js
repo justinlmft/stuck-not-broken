@@ -393,7 +393,7 @@
   // app is gated on it yet; it keeps membership status current for when a
   // paid tier exists.
   function checkMembership(){
-    if(!CLOUD || !auth.user) return;
+    if(!CLOUD || !auth.user){ _hydrated = true; return; }
     try{
       const cfg = global.SNB_CONFIG || {};
       if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return;
@@ -592,13 +592,24 @@
   function writeProfile(p){ try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch(e){} }
   function clearProfile(){ try { localStorage.removeItem(PROFILE_KEY); } catch(e){} }
 
+  // Orientation asks "has this person been here before?" and answers it from check-in
+  // history. But hydrate() is async — two network reads deep — while isPaid() resolves
+  // from the billing cache the moment auth lands. That leaves a window where paid is
+  // true and data.checkins is still empty, and a returning member on a fresh install
+  // gets walked through orientation again. This flag closes the window: it means the
+  // cloud read has FINISHED, whatever it returned. Set on every terminal path, including
+  // failure — a network error must not gate a genuinely new member out of orientation.
+  // (Justin, 2026-08-17: re-added beta to his phone, got orientation despite 128 check-ins.)
+  let _hydrated = false;
+  function hydrated(){ return _hydrated; }
+
   async function hydrate(){
     if(!CLOUD || !auth.user) return;
     setSync('syncing');
     await flush();                                   // push anything queued offline first
     try{
       const session = await ensureSession();         // a real GET, not the local cache, must be authenticated
-      if(!session){ setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', 'no session'); return; }
+      if(!session){ setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', 'no session'); _hydrated = true; return; }
       const [cs, ss] = await Promise.all([
         sb.from('checkins').select('*').order('t', { ascending:true }),
         sb.from('sessions').select('*').order('t', { ascending:true }),
@@ -611,10 +622,11 @@
       _reconcile();                                    // re-apply deletions + edits over whatever the cloud just merged back
       saveCache();
       setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', (cs.error||ss.error)||null);
+      _hydrated = true;                              // cloud read done — orientation may now decide
       if(changed) notify();                          // re-render once fresh data lands (post-init / post-refresh)
       migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
 
-    }catch(e){ console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
+    }catch(e){ _hydrated = true; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
   }
 
   let flushing = false;
@@ -2028,7 +2040,7 @@
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
-    hasAccess, isPaid, entitlement, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    hasAccess, isPaid, hydrated, entitlement, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, setPref, getPref,
     liveFetch, livePoll,
   };
