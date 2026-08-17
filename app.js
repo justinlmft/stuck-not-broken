@@ -2906,30 +2906,30 @@ function app(tab){
       rung:(Store.rungStory?Store.rungStory():null)
     }) : null;
 
-    /* 2026-08-17 — the reader names the state the way a check-in does now: the state
-       the essay is about, with a qualifier, and the runner-up when it is a real share
-       of the period. One modelling call here is mine and is FLAGGED: a period has no
-       single v/sym/dor, so the qualifier is banded from the MEAN margin across the same
-       base window the essay uses, while the state stays the modal one. The two answer
-       different questions — how contained you were on average, and where you sat most
-       often — so they cannot contradict each other. The runner-up is a share of the
-       period, not a within-moment underneath, so it reads "with some x", not
-       "x underneath". Silent when there is nothing to say. */
+    /* 2026-08-17 — TWO CLAIMS, NEVER FUSED. A band is a property of one reading: capacity
+       against load in that same moment. A period is not a reading, so it has no band, and
+       joining a modal state to a mean margin produced things like "Shutdown — low" with the
+       qualifier computed on the safety scale (four check-ins at shutdown near zero, three at
+       safety well positive: modal state defense, mean margin positive). Averaging the circuits
+       instead is no better — 90/10/10 and 10/90/10 average to a state nobody was ever in.
+       So the reader states a FREQUENCY claim and a QUANTITY claim side by side, each true on
+       its own. Both come straight out of periodStats, which already defines them; the 25%
+       threshold for naming the runner-up is the one from-justin.js already uses for the same
+       clause. Credit: Claude Code caught the category error. */
     let readState = '';
-    if(issue && dom && base.length){
-      const ms = base.map(c => { try{ return window.PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; } })
-                     .filter(m => typeof m === 'number' && isFinite(m));
-      if(ms.length){
-        const mean = ms.reduce((a,b) => a+b, 0) / ms.length;
-        const pct  = mean < 0 ? -mean/0.3*100 : mean/0.7*100;
-        const band = pct >= 75 ? 'high' : pct >= 33 ? 'moderate' : 'low';
-        const freq = {}; base.forEach(c => { if(c && c.dom) freq[c.dom] = (freq[c.dom]||0)+1; });
-        const rest = Object.keys(freq).filter(k => k !== dom && k !== 'neutral')
-                           .sort((x,y) => freq[y]-freq[x]);
-        const secondKey = (rest.length && freq[rest[0]]/base.length >= 0.20) ? rest[0] : null;
-        readState = '<p class="read-state">' + escapeHtml(
-          STATE_LABEL(dom) + ' — ' + band + (secondKey ? ', with some ' + STATE_NAME(secondKey) : '')
-        ) + '</p>';
+    if(issue && Store.periodStats){
+      const ps = Store.periodStats(Date.now() - 7*864e5, Date.now());
+      if(ps && ps.n >= 2 && ps.dom){
+        const sec  = (ps.second && ps.secondShare >= 25) ? ps.second : null;
+        const most = 'Most of your check-ins were ' + STATE_NAME(ps.dom)
+                   + (sec ? ', with some ' + STATE_NAME(sec) : '') + '.';
+        const ahead = ps.reg === 0
+          ? 'Safety was never ahead of defense across your ' + ps.n + ' check-ins.'
+          : ps.reg === ps.n
+            ? 'Safety was ahead of defense in every one of your ' + ps.n + ' check-ins.'
+            : 'Safety was ahead of defense in ' + ps.reg + ' of your ' + ps.n + ' check-ins.';
+        readState = '<p class="read-state">' + escapeHtml(most) + '</p>'
+                  + '<p class="read-state-sub">' + escapeHtml(ahead) + '</p>';
       }
     }
 

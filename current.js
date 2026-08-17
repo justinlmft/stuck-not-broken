@@ -97,25 +97,12 @@
     neutral:     'notice where your system is right now. there is no wrong answer.',
   };
 
-  // Score all six states and return the winner enriched with the honesty
-  // signals §7.3 needs: `strength` (the winner's own weight, 0..1 — low means a
-  // faint winner, e.g. safety winning on almost no connection) and `gap` (how
-  // far ahead of second place, small means a close race). `second`/`secondW`
-  // name the runner-up so mixed-state copy can say "mostly x with a bit of y".
-  // `key`/`name`/`color`/`w` are unchanged, so every existing caller still works.
-  const NEUTRAL = { key:'neutral', name:'settling', color:'#D8D2C2', w:0, strength:0, gap:0, second:null, secondW:0 };
-  function score(v,s,d){
-    let best={key:'neutral',name:'',color:'#D8D2C2',w:-1}, second={key:null,w:-1};
-    for(const k in STATES){
-      const w=STATES[k].weight(v,s,d);
-      if(w>best.w){ second=best; best={key:k,name:STATES[k].name,color:STATES[k].color,w}; }
-      else if(w>second.w){ second={key:k,w}; }
-    }
-    if(best.w<0.06) return NEUTRAL;
-    return { key:best.key, name:best.name, color:best.color, w:best.w,
-             strength:best.w, gap:best.w-Math.max(0,second.w),
-             second:second.key, secondW:Math.max(0,second.w) };
-  }
+  /* 2026-08-17 — `score()` and the fat NEUTRAL are gone with the fields they fed
+     (`strength`, `gap`, `second`, `secondW`). They were scaffolding for the sentence
+     forms the check-in reading no longer uses, and `gap` in particular was a loaded
+     field: it was forced to 0 in exactly the case a caller would have cared about.
+     The weights themselves are untouched — paint() still reads STATES[k].weight. */
+  const NEUTRAL = { key:'neutral', name:'settling', color:'#D8D2C2', w:0 };
 
   function hexToRgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
   function rgbToHex(a){return '#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
@@ -249,23 +236,17 @@
   // (and, later, the acute-vs-stuck labelling). All inputs 0..1.
   createCurrent.marginOf = function(v,s,d){ return marginRead(v,s,d); };
 
-  // dominantOf keeps its historical shape (key/name/color/w/strength/gap/second)
-  // so every stored check-in and caller still works, but the NAME now comes from
-  // the margin, not from the loudest weight. `second`/`gap` still come from the
-  // intensity ranking. Nothing in the app reads them today — the label carries the
-  // secondary — but they are the honest signal for anything that wants to know the
-  // margin's name and the loudest circuit disagree (e.g. safety holding a level freeze).
+  // dominantOf keeps the shape every stored check-in and caller relies on
+  // (key/name/color/w), but the NAME comes from the margin, not the loudest weight.
+  // Everything past `w` is the margin package: the numbers, the band, the secondary
+  // running underneath, and `label` — the composed name the app actually renders.
   createCurrent.dominantOf = function(v,s,d){
     const r = marginRead(v,s,d);
     if(r.key === 'neutral')
       return Object.assign({}, NEUTRAL, { margin:r.margin, side:r.side, band:null, under:null, label:r.label });
     const st = STATES[r.key];
-    const sc = score(v,s,d);
-    const strength = Math.min(1, (r.side === 'defense' ? r.severity : r.qual) / 100);
-    return { key:r.key, name:st.name, color:st.color, w:strength, strength,
-             gap: sc.key === r.key ? sc.gap : 0,
-             second: sc.key !== r.key ? sc.key : sc.second,
-             secondW: sc.key !== r.key ? sc.w : sc.secondW,
+    const w  = Math.min(1, (r.side === 'defense' ? r.severity : r.qual) / 100);
+    return { key:r.key, name:st.name, color:st.color, w,
              margin:r.margin, side:r.side, severity:r.severity, qual:r.qual,
              band:r.band, under:r.under, label:r.label };
   };
