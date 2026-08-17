@@ -785,10 +785,10 @@
         }
       }
       if((force || (paidNow() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
-      // already-oriented returning users get the one-time "what's new" card instead (the
-      // state-math rework changed naming + recommendations; explain it once). Mutually
-      // exclusive with onboarding, which only fires for !oriented.
-      else if(oriented() && !whatsNewSeen() && !_liveJoin()) setTimeout(()=>{ if(!_ob.on && !document.getElementById('wn-scrim')) showWhatsNew(); }, 80);
+      // The old state-math "what's new" card is RETIRED (Justin, 2026-08-17: "There should
+      // only ever be one"). It fired from here while whatsNewNaming() fired off 'load', with
+      // a separate key, and neither checked for the other's root — so a fresh storage
+      // container showed BOTH. whatsNewNaming() at the bottom of this file is now the only one.
     }catch(e){}
     return _r;
   }
@@ -1778,7 +1778,22 @@
   // is structurally impossible on app.stucknotbroken.com — there is no flag to forget.
   function _obTestAllowed(){ try{ return location.hostname !== 'app.stucknotbroken.com'; }catch(e){ return false; } }
   function _obKey(){ const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_oriented_'+u; }
-  function oriented(){ try{ return localStorage.getItem(_obKey())||''; }catch(e){ return ''; } }
+  // Re-adding the PWA to the home screen hands the app a BRAND NEW storage container:
+  // localStorage is empty even though the person has used the app for months, so the local
+  // flag alone replays orientation at the worst possible moment. Server history is the
+  // durable signal — anyone with a check-in on this account has self-evidently already been
+  // through this. Backfill the local flag so the derivation runs once, not on every route.
+  // (Justin, 2026-08-17: re-added the app to his home screen and got walked through again.)
+  function _orientedByHistory(){
+    try{ return !!(Store.user() && Store.checkins && Store.checkins().length); }catch(e){ return false; }
+  }
+  function oriented(){
+    let v = '';
+    try{ v = localStorage.getItem(_obKey()) || ''; }catch(e){ v = ''; }
+    if(v) return v;
+    if(_orientedByHistory()){ try{ localStorage.setItem(_obKey(), 'history'); }catch(e){} return 'history'; }
+    return '';
+  }
   function setOriented(v){ try{ localStorage.setItem(_obKey(), v); }catch(e){}
     try{ if(Store.setPref) Store.setPref('oriented', v); }catch(e){} }
   function obTrack(name, meta){ try{ if(Store.trackEvent) Store.trackEvent(name, meta||{}); }catch(e){} }

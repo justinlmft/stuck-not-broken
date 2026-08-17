@@ -1,7 +1,7 @@
 {
-  "name": "Stuck Not Broken",
-  "short_name": "SNB",
-  "description": "Your nervous system, over time. Check in, watch it change, and build your way to safety.",
+  "name": "SNB Beta (test data)",
+  "short_name": "SNB Beta",
+  "description": "STAGING build. Test data, not your real account. The real app is app.stucknotbroken.com.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
