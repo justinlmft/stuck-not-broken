@@ -52,6 +52,7 @@
   const QUIET = 0.12;                        // quiet guard: all circuits under this = no name
   function smoothstep(x){ x = Math.max(0, Math.min(1, x)); return x*x*(3 - 2*x); }
   const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;   // labels read in Sentence case
+  const sent = t => t ? t.replace(/(^|[.!?]\s+\(?)([a-z])/g, (m,a,b) => a + b.toUpperCase()) : t;   // and so do the sentences
   function bandOf(x){ return x >= EDGE_HIGH*100 ? 'high' : x >= EDGE_LOW*100 ? 'moderate' : 'low'; }
   function coTax(v,s,d){
     const mn = Math.min(s,d);
@@ -70,8 +71,8 @@
          circuit is still present at the 33 band edge, name it. Freeze already IS both
          circuits held at once, so it has no separate underneath. */
       const under = level ? null
-                  : (s > d ? (d >= EDGE_LOW ? 'dorsal' : null)
-                           : (s >= EDGE_LOW ? 'sympathetic' : null));
+                  : (s > d ? (d >= EDGE_LOW ? 'shutdown' : null)
+                           : (s >= EDGE_LOW ? 'flight/fight' : null));
       return { side:'defense', key, margin, severity, qual:0, band, under,
                label: cap(STATES[key].name) + ' — ' + band + (under ? ', ' + under + ' underneath' : '') };
     }
@@ -79,7 +80,7 @@
     const defensePresent = Math.max(s,d) >= EDGE_LOW;
     let key = 'safety', under = null;
     if(defensePresent && qual >= EDGE_LOW*100 && !level) key = (s > d) ? 'play' : 'stillness';
-    else if(defensePresent) under = level ? 'freeze' : (s > d ? 'sympathetic' : 'dorsal');
+    else if(defensePresent) under = level ? 'freeze' : (s > d ? 'flight/fight' : 'shutdown');
     const band = bandOf(Math.min(qual, 100));
     return { side:'safety', key, margin, severity:0, qual, band, under,
              label: cap(STATES[key].name) + ' — ' + band + (under ? ', ' + under + ' underneath' : '') };
@@ -290,9 +291,9 @@
     // never at the connection-high / others-default corner (that person IS reporting
     // something — full connection). §7.3.
     const mid = x => x>=0.40 && x<=0.60;
-    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:'nothing is obvious to you right now. no worries.', balance:null };
+    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:sent('nothing is obvious to you right now. no worries.'), balance:null };
     const dom = createCurrent.dominantOf(v,s,d);
-    if(dom.key==='neutral') return { tie:false, dominant:READOUTS.neutral, balance:null, label:'Quiet' };
+    if(dom.key==='neutral') return { tie:false, dominant:sent(READOUTS.neutral), balance:null, label:'Quiet' };
     const nm = _READ_NAME[dom.key] || dom.key;
     const secNm = dom.second ? (_READ_NAME[dom.second] || dom.second) : null;
     let dominant;
@@ -309,7 +310,7 @@
     else if(Math.abs(dom.margin) <= 0.05) balance = 'safety and defense are about even right now.';
     else if(dom.margin > 0) balance = 'you’ve got more safety than defense in your system.';
     else balance = 'you’ve got more defense than safety in your system right now.';
-    return { tie:false, dominant, balance, label:dom.label };
+    return { tie:false, dominant:sent(dominant), balance:sent(balance), label:dom.label };
   };
 
   global.PVCurrent = createCurrent;
