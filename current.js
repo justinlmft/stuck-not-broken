@@ -65,8 +65,14 @@
       const severity = -margin/0.3*100;      // equivalent-single-defense units
       const key = level ? 'freeze' : (s > d ? 'fightflight' : 'shutdown');
       const band = bandOf(Math.min(severity, 100));
-      return { side:'defense', key, margin, severity, qual:0, band, under:null,
-               label: STATES[key].name + ' — ' + band };
+      /* Secondary, symmetric with the safety branch below: when the quieter defense
+         circuit is still present at the 33 band edge, name it. Freeze already IS both
+         circuits held at once, so it has no separate underneath. */
+      const under = level ? null
+                  : (s > d ? (d >= EDGE_LOW ? 'dorsal' : null)
+                           : (s >= EDGE_LOW ? 'sympathetic' : null));
+      return { side:'defense', key, margin, severity, qual:0, band, under,
+               label: STATES[key].name + ' — ' + band + (under ? ', ' + under + ' underneath' : '') };
     }
     const qual = margin/0.7*100;             // equivalent-own-ventral units
     const defensePresent = Math.max(s,d) >= EDGE_LOW;
@@ -269,40 +275,18 @@
     return READOUTS[dom.key] || READOUTS.neutral;
   };
 
-  // §7.3 — the two honest readings under a check-in. Consumes the strength/gap that
-  // dominantOf now carries so the app can speak WITHOUT overclaiming: a faint winner
-  // (a regulated LABEL that needed almost no connection) says so; a close race names
-  // the mix instead of committing to a coin-flip; a true dead-centre says nothing is
-  // obvious. NEVER a score or a rank — it names, it does not grade (standing guardrail).
-  // Returns { tie, dominant, balance } strings; copy is Justin-owned draft from the map.
-  const _READ_NAME = { safety:'safety', play:'play', stillness:'stillness', fightflight:'flight/fight', freeze:'freeze', shutdown:'shutdown' };
-  const _FAINT = 0.18;   // winner weight below this = "not much of it"
-  const _CLOSE = 0.02;   // gap to second below this = a close race (map: ~2%)
+  /* 2026-08-17 — Justin's ruling: the reading IS the name, not a sentence about it.
+     Primary state with its qualifier, plus the secondary when there is one. The two
+     old lines are gone deliberately: "you're reporting mostly x" restated the name,
+     and the safety-vs-defense balance restated the margin the band already carries.
+     The dead-centre case still says nothing is obvious — naming nothing is honest,
+     inventing a name is not. Never a score, never a rank (standing guardrail). */
   createCurrent.readingOf = function(v,s,d){
-    // the genuine centre: all three axes sitting mid, nothing pulling. fires here ONLY,
-    // never at the connection-high / others-default corner (that person IS reporting
-    // something — full connection). §7.3.
     const mid = x => x>=0.40 && x<=0.60;
-    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:'nothing is obvious to you right now. no worries.', balance:null };
+    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:'nothing is obvious to you right now. no worries.', balance:null, label:null };
     const dom = createCurrent.dominantOf(v,s,d);
     if(dom.key==='neutral') return { tie:false, dominant:READOUTS.neutral, balance:null, label:'quiet' };
-    const nm = _READ_NAME[dom.key] || dom.key;
-    const secNm = dom.second ? (_READ_NAME[dom.second] || dom.second) : null;
-    let dominant;
-    if(dom.strength < _FAINT) dominant = `you’re reporting mostly ${nm}, but not much (and that’s okay).`;
-    else if(dom.gap < _CLOSE && secNm && dom.second !== dom.key) dominant = `mostly ${nm}, with some ${secNm}, too.`;
-    else dominant = `you’re reporting mostly ${nm}.`;
-    // safety-vs-defense balance — spoken from the REAL containment margin now, not
-    // the old v-minus-loudest shorthand. The "safety with a lot of energy" clause
-    // fires exactly on the margin's own case for it: safety-governed with a real
-    // defense running underneath. A margin hovering near zero is the knife's edge —
-    // functional, running at capacity — and reads "about even".
-    let balance;
-    if(dom.side === 'safety' && dom.under) balance = 'there’s safety in the system with a lot of energy, too. safety may come and go. (and that’s normal.)';
-    else if(Math.abs(dom.margin) <= 0.05) balance = 'safety and defense are about even right now.';
-    else if(dom.margin > 0) balance = 'you’ve got more safety than defense in your system.';
-    else balance = 'you’ve got more defense than safety in your system right now.';
-    return { tie:false, dominant, balance, label:dom.label };
+    return { tie:false, dominant:dom.label, balance:null, label:dom.label };
   };
 
   global.PVCurrent = createCurrent;
