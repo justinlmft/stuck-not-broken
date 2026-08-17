@@ -7117,5 +7117,17 @@ function app(tab){
   // reset-link arrivals: supabase fires PASSWORD_RECOVERY after it consumes the
   // token from the URL; the hash check in _recovery covers the load-time race.
   try{ if(Store.onPasswordRecovery) Store.onPasswordRecovery(()=>{ _recovery=true; if(Store.user()) screenNewPassword(); }); }catch(e){}
-  Store.init(route);
+  /* 2026-08-17 — MEASURED on device, not reasoned about (player trace 18:02:08.798 ->
+   18:02:10.175). Coming back to the app after a screen lock makes Supabase refresh the
+   auth token; TOKEN_REFRESHED -> hydrate() -> notify() -> route(), and route() re-renders
+   the current screen, which replaces the DOM the practice iframe lives in. The audio was
+   still sounding at the instant it was destroyed, which is why every "the audio stopped"
+   theory was wrong: nothing stopped it, the whole player was thrown away underneath it.
+   A running practice owns the screen. Fresh data is already in the store either way, and
+   the screen that follows a practice (feedback / exit reason) renders from it. */
+function routeSafe(){
+  if(document.getElementById('weaver')) return;   // never redraw over a live practice
+  route();
+}
+Store.init(routeSafe);
 })();
