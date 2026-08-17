@@ -74,7 +74,7 @@
                   : (s > d ? (d >= EDGE_LOW ? 'shutdown' : null)
                            : (s >= EDGE_LOW ? 'flight/fight' : null));
       return { side:'defense', key, margin, severity, qual:0, band, under,
-               label: cap(STATES[key].name) + ' — ' + band + (under ? ', ' + under + ' underneath' : '') };
+               label: cap(STATES[key].name) + ' — ' + band + (under ? ', with some ' + under : '') };
     }
     const qual = margin/0.7*100;             // equivalent-own-ventral units
     const defensePresent = Math.max(s,d) >= EDGE_LOW;
@@ -83,7 +83,7 @@
     else if(defensePresent) under = level ? 'freeze' : (s > d ? 'flight/fight' : 'shutdown');
     const band = bandOf(Math.min(qual, 100));
     return { side:'safety', key, margin, severity:0, qual, band, under,
-             label: cap(STATES[key].name) + ' — ' + band + (under ? ', ' + under + ' underneath' : '') };
+             label: cap(STATES[key].name) + ' — ' + band + (under ? ', with some ' + under : '') };
   }
 
   // Gentle, present-tense, never-an-identity readouts (brand guardrail #4/#5).
