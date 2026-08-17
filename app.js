@@ -784,7 +784,9 @@
           history.replaceState(null,'',location.pathname);
         }
       }
-      if((force || (paidNow() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
+      // Decide only once the cloud read has finished. Without this, orientation fires in
+      // the gap between "paid is known" and "history has loaded" — see Store.hydrated().
+      if((force || (paidNow() && _obHydrated() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
       // The old state-math "what's new" card is RETIRED (Justin, 2026-08-17: "There should
       // only ever be one"). It fired from here while whatsNewNaming() fired off 'load', with
       // a separate key, and neither checked for the other's root — so a fresh storage
@@ -1784,6 +1786,8 @@
   // durable signal — anyone with a check-in on this account has self-evidently already been
   // through this. Backfill the local flag so the derivation runs once, not on every route.
   // (Justin, 2026-08-17: re-added the app to his home screen and got walked through again.)
+  // Defaults to true when Store predates hydrated(), so this can never hard-lock orientation.
+  function _obHydrated(){ try{ return !Store.hydrated || Store.hydrated(); }catch(e){ return true; } }
   function _orientedByHistory(){
     try{ return !!(Store.user() && Store.checkins && Store.checkins().length); }catch(e){ return false; }
   }
