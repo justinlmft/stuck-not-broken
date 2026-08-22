@@ -234,15 +234,34 @@
     if(!s || !s.practiceKey) return null;
     return (s.practiceKey==='most' && s.skill) ? ('most:'+s.skill) : s.practiceKey;
   }
+  // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
+  // The ONE source of the challenge_level vocabulary (cloud column included). The
+  // practice-rung map below derives from it, so a wording change here cannot fork the
+  // column's vocabulary between the appetite path and the practice-rung fallback.
+  // (practiceLabelFor / PRACTICE_LABEL are a DIFFERENT vocabulary — practice display
+  // names, not challenge levels — do not merge them into this.)
+  const CHALLENGE_LEVELS = [
+    { v:0.12, key:'settle',  label:'simple mindfulness' },
+    { v:0.40, key:'gentle',  label:'safety-focused' },
+    { v:0.65, key:'meet',    label:'beginner defense' },
+    { v:0.90, key:'stretch', label:'advanced defense' },
+  ];
+  function challengeLabel(v){
+    if(v==null||isNaN(v)) return null;
+    let b=CHALLENGE_LEVELS[0];
+    for(const l of CHALLENGE_LEVELS){ if(Math.abs(l.v-v)<Math.abs(b.v-v)) b=l; }
+    return b.label;
+  }
+  const _CHL = {}; CHALLENGE_LEVELS.forEach(l => _CHL[l.key] = l.label);
   // The rung a practice IS, for when no challenge appetite was recorded. 221 of 288
   // sessions had a null challenge_level because it was derived only from the check-in's
   // appetite slider, which is usually left alone. The practice itself always knows.
   // 'more' = the standalone guided meditations, which sit off the rung ladder entirely.
   // It gets its own honest label rather than being forced onto a rung it isn't on.
-  const _PRACTICE_RUNG = { micro:'simple mindfulness', mindfulness:'simple mindfulness', anchoring:'safety-focused', more:'guided meditation' };
+  const _PRACTICE_RUNG = { micro:_CHL.settle, mindfulness:_CHL.settle, anchoring:_CHL.gentle, more:'guided meditation' };
   function rungForPractice(s){
     if(!s || !s.practiceKey) return null;
-    if(s.practiceKey==='most') return (s.skill==='balancing'||s.skill==='pendulation') ? 'advanced defense' : 'beginner defense';
+    if(s.practiceKey==='most') return (s.skill==='balancing'||s.skill==='pendulation') ? _CHL.stretch : _CHL.meet;
     return _PRACTICE_RUNG[s.practiceKey] || null;
   }
   // Which phase does a check-in taken at `t` belong to? Looks only at the most recent
@@ -1015,14 +1034,14 @@
   }
   function tenure(){
     const cs = data.checkins, count = cs.length;
-    if(!count) return { count:0, days:0, windowCount:0, sinceLast:null, returning:false, stage:'start' };
+    if(!count) return { count:0, days:0, windowCount:0, returning:false, stage:'start' };
     const now = Date.now(), DAY = 86400000;
     const sd = t => { const d=new Date(t); d.setHours(0,0,0,0); return d.getTime(); };
     const days = Math.round((sd(now) - sd(cs[0].t)) / DAY);          // calendar days since the first check-in
     const windowCount = cs.filter(c => now - c.t <= 7*DAY).length;   // check-ins inside the last 7 days
     const sinceLast = Math.floor((now - cs[count-1].t) / DAY);       // whole days since the most recent check-in
     const returning = count >= 5 && sinceLast >= 4 && windowCount <= 2; // has history but just back from a gap
-    return { count, days, windowCount, sinceLast, returning, stage: _stageFor({count, days, windowCount}) };
+    return { count, days, windowCount, returning, stage: _stageFor({count, days, windowCount}) };
   }
 
   // ---- richer for-you signals (read by the blog; all self-gating on min data) ----
@@ -1044,6 +1063,9 @@
     try{ return PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
   }
   function _isReg(c){ const m = _mgn(c); return m != null && m >= 0; }
+  // the louder defense axis — the single-scalar defense the tier ceilings read (§7.5).
+  // NOT the naming engine's margin (which weighs both axes + the co-activation tax).
+  const _defOf = c => Math.max(c.sym||0, c.dor||0);
 
   const _DYS = { fightflight:1, shutdown:1, freeze:1 };     // dysregulated / defensive dominants
   // (retired 2026-08-16) the _RANK "steadier" ladder scored shutdown and freeze both 0
@@ -1053,9 +1075,8 @@
   // weekMix: the window's state distribution — the 2nd-most-common state and the
   // regulated:dysregulated balance. Powers section 1's secondary-state + balance lines.
   // Computed the same way the reader picks its window-dominant, so `second` never equals it.
-  function weekMix(days){
-    days = days || 7;
-    const cut = Date.now() - days*86400000;
+  function weekMix(){
+    const cut = Date.now() - 7*86400000;   // fixed trailing week — no caller ever passed a window
     const cs = data.checkins.filter(c => c.t >= cut && c.dom && c.dom !== 'neutral');
     const n = cs.length;
     if(n < 6) return null;                                  // too few in-window to claim a mix
@@ -1150,7 +1171,6 @@
     // group by session + practice, keeping the earliest 'before' and the earliest 'after' after it
     const groups = {};
     cs.forEach(c => { const k = c.live_session_id + ' ' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
-    const def = c => Math.max(c.sym, c.dor);
     const pairs = [];
     Object.keys(groups).forEach(k => {
       const g = groups[k].slice().sort((a,b) => a.t - b.t);
@@ -1163,7 +1183,7 @@
         sessionId: before.live_session_id, practiceRef: before.practice_ref,
         tBefore: before.t, tAfter: after.t,
         vBefore: before.v, vAfter: after.v, dConn: after.v - before.v,
-        defBefore: def(before), defAfter: def(after), dDef: def(after) - def(before),
+        defBefore: _defOf(before), defAfter: _defOf(after), dDef: _defOf(after) - _defOf(before),
         domBefore: _dm(before), domAfter: _dm(after),
         marginBefore: rb, marginAfter: ra,
         marginDelta: (rb != null && ra != null) ? ra - rb : null,
@@ -1362,7 +1382,6 @@
 
   // periodStats: aggregate signals over an arbitrary window [startMs, endMs). Powers the
   // monthly + quarterly reflections (the long-range altitudes). All deterministic, on-device.
-  const _REGDOM = { safety:1, play:1, stillness:1 }, _DYSDOM = { fightflight:1, shutdown:1, freeze:1 };
   function periodStats(startMs, endMs){
     const cs = data.checkins
       .filter(c => c && typeof c.t==='number' && c.t>=startMs && c.t<endMs && c.dom && c.dom!=='neutral')
@@ -1376,30 +1395,17 @@
     let reg=0; cs.forEach(c=>{ if(_isReg(c)) reg++; });   // margin >= 0, not a name bucket
     const regShare = reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
-    // §7.2 canonical baseline inputs — connection RELATIVE TO DEFENSE, one place, one definition.
-    // These retire regShare as the user-facing baseline (regShare stays as an internal
-    // signal). "defense" is the louder of the two defensive axes per check-in
-    // (max of mobilization, immobilization) — the same single-scalar defense the moment gate and the
-    // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgSafetyLead = connection
-    // minus defense, the signed "how far is safety ahead of defense" the spoken baseline reports
-    // (never a %, never against 100 — §7.2). sdV = connection-number fluctuation (§7.6: SD of v),
-    // for the person's own-range axis. All population stats over the same window/weighting as avgV.
-    const defOf = c => Math.max(c.sym||0, c.dor||0);
-    const avgDef = cs.reduce((s,c)=>s+defOf(c),0)/n;
-    const avgSafetyLead = avgV - avgDef;
-    /* RENAMED 2026-08-17, was `avgMargin`. This is §7.2's quantity — connection minus
-       the LOUDER defense, unweighted — and it is NOT the naming engine's margin, which
-       counts both defenses, applies RM's 70/30 exchange rate and charges the
-       co-activation tax. They had come to share a word, which is how freeze_blend
-       drifted. Renamed rather than redefined: §7.2 is canonical, and nothing outside
-       this file read it (verified across all six app scripts), so the rename was free.
-       The engine's quantity is `meanMargin`, below. */
+    // Baseline inputs. avgDef = the louder defense axis, averaged (the §7.5 tier
+    // ceilings read avgV and avgDef as two independent ABSOLUTE numbers). meanMargin =
+    // the naming engine's margin, averaged — the progress axis. sdV = connection-number
+    // fluctuation (§7.6: SD of v) — STAGED for the own-range axis, no reader yet.
+    // (§7.2's avgSafetyLead — avgV minus avgDef, unweighted — was removed 2026-08-22:
+    // no reader anywhere. It is NOT the engine's margin; recompute it from avgV/avgDef
+    // if §7.2's spoken baseline ever ships.)
+    const avgDef = cs.reduce((s,c)=>s+_defOf(c),0)/n;
     const meanMargin = cs.reduce((s2,c)=>{ const m=_mgn(c); return s2 + (m==null?0:m); },0)/n;
     const sdV = Math.sqrt(cs.reduce((s,c)=>{ const d=c.v-avgV; return s+d*d; },0)/n);
-    // then vs now: first third vs last third of the window's average safety
-    const third = Math.max(1, Math.floor(n/3));
-    const firstAvg = cs.slice(0,third).reduce((s,c)=>s+c.v,0)/third;
-    const lastAvg  = cs.slice(-third).reduce((s,c)=>s+c.v,0)/third;
+    const third = Math.max(1, Math.floor(n/3));   // first/last third — the then-vs-now windows
     const days = new Set(cs.map(c=>new Date(c.t).toDateString())).size;
     // day-of-week rhythm: the weekday whose check-ins average the most safety (>=3 samples)
     const dow={}; cs.forEach(c=>{ const d=new Date(c.t).getDay(); (dow[d]=dow[d]||[]).push(c.v); });
@@ -1409,9 +1415,9 @@
     const domOf = arr => { const c2={}; arr.forEach(x=>{ const k=_dm(x); c2[k]=(c2[k]||0)+1; }); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
     return {
       n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
-      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgSafetyLead, meanMargin, sdV, firstAvg, lastAvg,
+      reg, dys:n-reg, regShare, lean, avgV, avgDef, meanMargin, sdV,
       firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
-      bestDow, defenseStates: order.filter(d=>_DYSDOM[d]), regStates: order.filter(d=>_REGDOM[d])
+      bestDow, defenseStates: order.filter(d=>_DYS[d])
     };
   }
   /* baselineDelta: change between two windows (this period vs the one before).
@@ -1419,16 +1425,15 @@
      margin everywhere else; a long-range note that still asserted "your average
      connection moved" was the last surface claiming something different. The copy it
      feeds is purely directional (up / down / flat, no numbers), so it survives the swap
-     unchanged: margin up IS safety sitting further ahead of defense. `cur`/`prev` are
-     margins now, not connection — nothing reads them today, but do not mix them into a
-     "% safety" sentence, which is regShare's job. The 0.05 dir threshold is unchanged
+     unchanged: margin up IS safety sitting further ahead of defense. The 0.05 dir
+     threshold is unchanged
      and is FLAGGED for Claude Code: margin spans roughly -0.9..+0.7 where avgV spanned
      0..1, so the same number is now a slightly smaller move and 'flat' narrows. */
   function baselineDelta(startMs, endMs){
     const span = endMs - startMs;
     const cur = periodStats(startMs, endMs), prev = periodStats(startMs-span, startMs);
     if(!cur) return null;
-    if(!prev) return { dir:'new', deltaPct:0, cur:cur.meanMargin };
+    if(!prev) return { dir:'new', deltaPct:0 };
     const d = cur.meanMargin - prev.meanMargin;
     /* The +/-0.05 dead-band is UNCHANGED, deliberately, now that d is a margin delta
        rather than an average-connection delta. Margin's theoretical span is ~1.6, which
@@ -1443,7 +1448,7 @@
        trips more readily toward 'down'. Setting that properly needs observed
        period-over-period variance, which is the same data gate as λ and the ½ cost
        fraction. Guessing an asymmetric band now would be fitting to nothing. */
-    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100), cur:cur.meanMargin, prev:prev.meanMargin };
+    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100) };
   }
 
   // ---- mint store: dated, immutable reflections (the archive / keepsake moat) ----
@@ -1466,8 +1471,8 @@
 
   // ---- §7.4–7.5 tier model (connection-vs-defense, absolute levels) ----------
   // GUARDRAIL (Justin 2026-07-27): the tier gates read safety (avgV) and defense
-  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgSafetyLead. A positive
-  // margin on low absolute safety must not unlock a tier.
+  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never any margin/lead quantity.
+  // A positive margin on low absolute safety must not unlock a tier.
   function _byDay(cs){ const m={}; cs.forEach(c=>{ const k=new Date(c.t).toDateString(); (m[k]=m[k]||[]).push(c); }); return m; }
   // Consistency (§7.5, window resolved §7.6): a stable FLOOR that holds through
   // variance — NOT low variance. Parameterized by the floor level being tested.
@@ -1503,10 +1508,10 @@
   // no self-reg skill today — if either defense axis is very hot, or the freeze
   // quadrant (both axes up). Targets the quadrant, not a sum.
   function momentGate(last){
-    if(!last) return { open:false, hot:false };
+    if(!last) return { open:false };
     const s = last.sym, d = last.dor;
     const closed = s >= 0.75 || d >= 0.75 || (s >= 0.40 && d >= 0.40);
-    return { open:!closed, hot:closed, sym:s, dor:d };
+    return { open:!closed };
   }
   // The ceiling tier the WEEK earns (§7.5). Week gates the ceiling; the moment gate
   // (above) gates whether any of it is offered TODAY. `cleared` is rungs().cleared.
@@ -1674,19 +1679,8 @@
   const _SKILL_WORD = { validate:'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
   function _skillWord(k){ return _SKILL_WORD[k] || k; }
 
-  // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
-  const CHALLENGE_LEVELS = [
-    { v:0.12, key:'settle',  label:'simple mindfulness' },
-    { v:0.40, key:'gentle',  label:'safety-focused' },
-    { v:0.65, key:'meet',    label:'beginner defense' },
-    { v:0.90, key:'stretch', label:'advanced defense' },
-  ];
-  function challengeLabel(v){
-    if(v==null||isNaN(v)) return null;
-    let b=CHALLENGE_LEVELS[0];
-    for(const l of CHALLENGE_LEVELS){ if(Math.abs(l.v-v)<Math.abs(b.v-v)) b=l; }
-    return b.label;
-  }
+  // (CHALLENGE_LEVELS + challengeLabel moved up beside _PRACTICE_RUNG, 2026-08-22 —
+  // one vocabulary, one source, see the comment there.)
   // post-practice: stamp how the body felt afterward onto the last session
   // Stamp fields onto an already-logged session and get them to the cloud. Mirrors
   // updateCheckin's outbox-aware pattern: if the INSERT is still queued, edit it in place
@@ -1760,8 +1754,8 @@
   // feeling. TWO args = explicit window (used by minted period reflections, so a closed
   // month/quarter/year computes over THAT span and can freeze). <=1 arg = rolling last-N-
   // days (default 28) for the live weekly/monthly reader. families = share of naming-
-  // sessions each group surfaced in (percentages, never X-of-N). alignRate = share where
-  // intent landed among surfaced. connectedPct = share where connected surfaced. topFamily
+  // sessions each group surfaced in (percentages, never X-of-N). connectedPct = share
+  // where connected surfaced. topFamily
   // = most-surfaced group (ties broken by EMOTION_SURFACED order, deterministic). When
   // n>=6, `shift` compares the window's first third vs last third (for the "what surfaces
   // changed over the span" period beat). Gated at >=4 naming-sessions. Reported, NEVER
@@ -1783,8 +1777,6 @@
     const { fam, conn } = tally(ss);
     const families = {}; Object.keys(fam).forEach(k => { if(fam[k]) families[k] = Math.round(fam[k]/n*100); });
     const topFamily = topOf(ss);
-    const withIntent = ss.filter(s => s.emotionIntent);
-    let aligned=0; withIntent.forEach(s => { if(setsOf(s).indexOf(s.emotionIntent)>=0) aligned++; });
     let shift = null;
     if(n >= 6){
       const third = Math.max(1, Math.floor(n/3));
@@ -1793,9 +1785,7 @@
                 connectedFirstPct: Math.round(tally(first).conn/first.length*100),
                 connectedLastPct: Math.round(tally(last).conn/last.length*100) };
     }
-    return { n, families, topFamily,
-             alignRate: withIntent.length ? aligned/withIntent.length : null, alignN: withIntent.length,
-             connectedPct: Math.round(conn/n*100), shift };
+    return { n, families, topFamily, connectedPct: Math.round(conn/n*100), shift };
   }
   // rungMovement(startMs, endMs): the self-regulation skill practiced at the window's
   // start vs its end (from 'most' sessions with a skill inside the window). Powers the
