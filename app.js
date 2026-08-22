@@ -5184,7 +5184,7 @@ function app(tab){
         // own most-common dip state) — the claim itself is the RATE below, not
         // a promise that practice always starts from this exact state.
         const domCounts={};
-        Store.sessions().filter(s=>s&&s.domBefore&&_PE_RANK[s.domBefore]!=null).forEach(s=>{ domCounts[s.domBefore]=(domCounts[s.domBefore]||0)+1; });
+        _pePairs().forEach(p=>{ const d=_cDom(p.beforeCheckin); if(d && d!=='neutral') domCounts[d]=(domCounts[d]||0)+1; });
         const modeDom=Object.keys(domCounts).sort((a,b)=>domCounts[b]-domCounts[a])[0] || 'fightflight';
         practiceHead=`<div class="cb-journey">${cbGlyphViz(modeDom, 'safety', null, 'hero')}</div>
           <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> of the time.</p>
