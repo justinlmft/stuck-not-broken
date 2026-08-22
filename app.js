@@ -540,7 +540,7 @@
   }
   // each axis's colour = its slider-rail colour: faded ink when untouched, the axis's
   // own colour once set, the blend's colour when it joins an active two-axis blend.
-  // rails, glyphs and the mirror clauses all use this, so they move together.
+  // rails and glyphs both use this, so they move together.
   function ciAxisColorFn(v, s, d, axTouched){
     const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
     const core = STATE_CORE[dom.key] || [];
@@ -548,32 +548,6 @@
     const all = axTouched.v && axTouched.sym && axTouched.dor;
     return ax => !axTouched[ax] ? 'var(--ink-faded)'
       : (all && core.length>1 && core.includes(ax)) ? STATE_COLOR(dom.key) : own[ax];
-  }
-  // TEXT shades of the axis colours (the pastels used on rails/glyphs fail contrast as
-  // text on bone; these keep the hue but are darkened to ~6-7:1, dark-mode maps back to
-  // the pastels). same faded/own/blend logic as the rails so the clause still "matches"
-  // its slider by hue, just readable (2026-07-24 r4).
-  const STATE_TEXT_VAR = { safety:'var(--s-safety-tx)', fightflight:'var(--s-fight-tx)', shutdown:'var(--s-shutdown-tx)', play:'var(--s-play-tx)', stillness:'var(--s-still-tx)', freeze:'var(--s-freeze-tx)' };
-  const AXIS_OWN_TX = () => ({ v:STATE_TEXT_VAR.safety, sym:STATE_TEXT_VAR.fightflight, dor:STATE_TEXT_VAR.shutdown });
-  function ciAxisTextColorFn(v, s, d, axTouched){
-    const dom = window.PVCurrent.dominantOf(v/100, s/100, d/100);
-    const core = STATE_CORE[dom.key] || [];
-    const own = AXIS_OWN_TX();
-    const all = axTouched.v && axTouched.sym && axTouched.dor;
-    return ax => !axTouched[ax] ? 'var(--muted)'
-      : (all && core.length>1 && core.includes(ax)) ? (STATE_TEXT_VAR[dom.key]||'var(--ink)') : own[ax];
-  }
-  // the live "you're reporting" line, each clause tinted by a READABLE text shade that
-  // matches its slider's hue (txOf); untouched clauses read muted.
-  function ciMirrorColoredHTML(v, s, d, txOf){
-    const bV=CI_MIRROR.v[ciBucket(v/100)], bS=CI_MIRROR.sym[ciBucket(s/100)], bD=CI_MIRROR.dor[ciBucket(d/100)];
-    return `<span class="ci-join">You're reporting: </span>`
-      +`<span class="ci-clause" style="color:${txOf('v')}">${bV}</span>`
-      +`<span class="ci-join">, </span>`
-      +`<span class="ci-clause" style="color:${txOf('sym')}">${bS}</span>`
-      +`<span class="ci-join">, and </span>`
-      +`<span class="ci-clause" style="color:${txOf('dor')}">${bD}</span>`
-      +`<span class="ci-join">.</span>`;
   }
   // settings disclosure open/close with a measured max-height glide (reliable on iOS
   // WebKit). opening animates 0 → scrollHeight then releases to `none` so later content
@@ -1114,8 +1088,7 @@
             ${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
           ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <div class="ci-reading" id="ci-reading" hidden></div>
-          <p class="ci-readout ci-readout4" id="ci-readout"></p>
+          <div class="ci-reading" id="ci-reading"></div>
           ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
         <div class="actionbar">
@@ -1125,28 +1098,19 @@
           <p class="fineprint" style="text-align:center;margin:0">Already have an account? <button class="linkbtn" id="g-ci-signin" style="font-size:inherit;padding:2px">Sign in</button></p>` : ''}
         </div>
       </div>`;
-    const readout = $('#ci-readout');
     const axTouched = {};
     function refresh(){
       setIcoLvl('v',v); setIcoLvl('sym',s); setIcoLvl('dor',d);
       const colOf = ciAxisColorFn(v, s, d, axTouched);
       ciPaintSliders(colOf);   // rails + anchoring glyphs move together
-      if(readout){
-        const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
-        else { readout.innerHTML = '<span class="ci-idle">Move the sliders, and this line will mirror what you set.</span>'; readout.classList.add('ci-readout-idle'); }
-      }
       const reading = $('#ci-reading');
       if(reading){
-        if(axTouched.v && axTouched.sym && axTouched.dor){
-          const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-          /* 2026-08-17 — the name IS the reading (Justin). "You're reporting mostly x"
-             restated the name, and the balance line restated the margin the qualifier
-             already carries; the mirror below says the rest. The sentence is kept only
-             as the dead-centre fallback, where there is no name to give. */
-          reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
-          reading.hidden = false;
-        } else reading.hidden = true;
+        /* 2026-08-17 — the name IS the reading (Justin). 2026-08-22 — it always shows:
+           untouched sliders are the person's answer, so there is always a state to
+           name. Dead-centre keeps its sentence, the one case with no name to give. */
+        const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
+        reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
+        reading.hidden = false;
       }
     }
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
@@ -3657,8 +3621,7 @@ function app(tab){
         <div class="ci-block">
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <div class="ci-reading" id="ci-reading" hidden></div>
-          <p class="ci-readout ci-readout4" id="ci-readout"></p>
+          <div class="ci-reading" id="ci-reading"></div>
           ${_yng?'<p class="fineprint" style="margin-top:10px">Check in whenever you like: when you’re off, when you’re good, any part of day. Every check-in teaches the app your system.</p>':''}
         </div>
 
@@ -3689,14 +3652,10 @@ function app(tab){
         <div class="actionbar"><button class="btn block" id="save">${editRec?'Save changes':'Save check-in'}</button></div>
       </div>`;
 
-    const readout = $('#ci-readout');
-    // fresh check-ins start neutral (Justin 2026-07-05): rails, glyphs and the mirror
-    // stay quiet until an axis is set — color responds to what the person SET, never to
-    // defaults. edits show everything at once. rail + glyph + clause move together (r2).
+    // fresh check-ins start neutral (Justin 2026-07-05): rails and glyphs stay quiet
+    // until an axis is set — color responds to what the person SET, never to defaults.
+    // edits show everything at once. rail + glyph move together (r2).
     const axTouched = editRec ? { v:1, sym:1, dor:1 } : {};
-    const _idleMsg = _ciStates ? 'Pick a state above, then fine-tune. This line mirrors what you set.'   // 🖊
-      : (_ciNumbers ? 'Move a slider, and this line mirrors the number you set.'                // 🖊
-      : 'Move the sliders, and this line will mirror what you set.');                            // 🖊
     function refresh(){
       const colOf = ciAxisColorFn(v, s, d, axTouched);
       // states mode paints the same way, but only once the fine-tune block is open
@@ -3715,24 +3674,15 @@ function app(tab){
         ciPaintSliders(colOf);   // rails + anchoring glyphs take the same colour
         if(_ciNumbers){ ['v','sym','dor'].forEach(ax=>{ const el=$('#sl-'+ax), nb=$('#num-'+ax); if(el&&nb) nb.textContent = Math.round((+el.value)/10); }); }
       }
-      if(readout){
-        const anyTouched = axTouched.v||axTouched.sym||axTouched.dor;
-        if(anyTouched){ readout.innerHTML = ciMirrorColoredHTML(v, s, d, ciAxisTextColorFn(v, s, d, axTouched)); readout.classList.remove('ci-readout-idle'); }
-        else { readout.innerHTML = `<span class="ci-idle">${_idleMsg}</span>`; readout.classList.add('ci-readout-idle'); }
-      }
-      // §7.3 — the two honest readings, once all three axes are set (a reading needs the
-      // whole picture; a partial report is not named). Names the state, never grades it.
+      // §7.3 — the reading, always shown (2026-08-22): untouched sliders are the
+      // person's answer, so there is always a state to name. Names, never grades.
       const reading = $('#ci-reading');
       if(reading){
-        if(axTouched.v && axTouched.sym && axTouched.dor){
-          const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-          /* 2026-08-17 — the name IS the reading (Justin). "You're reporting mostly x"
-             restated the name, and the balance line restated the margin the qualifier
-             already carries; the mirror below says the rest. The sentence is kept only
-             as the dead-centre fallback, where there is no name to give. */
-          reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
-          reading.hidden = false;
-        } else reading.hidden = true;
+        /* 2026-08-17 — the name IS the reading (Justin). Dead-centre keeps its
+           sentence, the one case with no name to give. */
+        const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
+        reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
+        reading.hidden = false;
       }
     }
     // Bound in every method now: in states mode the same three sliders are the fine-tune.
