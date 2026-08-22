@@ -1073,7 +1073,6 @@
   }
   function _isReg(c){ const m = _mgn(c); return m != null && m >= 0; }
 
-  const _REG = { safety:1, play:1, stillness:1 };          // regulated dominants
   const _DYS = { fightflight:1, shutdown:1, freeze:1 };     // dysregulated / defensive dominants
   // (retired 2026-08-16) the _RANK "steadier" ladder scored shutdown and freeze both 0
   // and play and stillness both 2, so real movement between them registered as none.
@@ -1357,25 +1356,6 @@
     if(ratio < 0.5) return HOLD_STEPS[Math.max(i-1, 0)];
     return cur;
   }
-  // ---- daypart capacity: does this hour of the day historically run low on
-  // safety for this person? Used as a DAMPENER only (Justin 2026-07-06): a low
-  // daypart withholds the moment's +1 lift in spectrum(); it never pushes below
-  // what the current check-in reports, and it never re-locks cleared rungs.
-  function daypartLow(){
-    const cs = data.checkins;
-    if(cs.length < 8) return false;
-    const seg = _segOf(Date.now());
-    let n=0, sum=0, N=0, SUM=0;
-    cs.forEach(c => { if(typeof c.v!=='number') return; N++; SUM+=c.v; if(_segOf(c.t)===seg){ n++; sum+=c.v; } });
-    if(n < 4 || !N) return false;
-    return (sum/n) < (SUM/N) - 0.12;
-  }
-  // overall rated-outcome share — extra evidence for the Baseline estimate.
-  function _overallOutcomes(){
-    let good=0, bad=0, rated=0;
-    data.sessions.forEach(s => { const o=_outcomeOf(s); if(o==='good'){good++;rated++;} else if(o==='bad'){bad++;rated++;} else if(o==='neutral'){rated++;} });
-    return { good, bad, rated };
-  }
 
   // dayArc: any one calendar day's moments as an arc — the atom of the reflections
   // system. Returns that day's check-ins in order, within-day direction (by
@@ -1425,8 +1405,8 @@
     const regShare = reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
     // §7.2 canonical baseline inputs — connection RELATIVE TO DEFENSE, one place, one definition.
-    // These retire regShare as the user-facing baseline (regShare stays only as an internal signal
-    // for the spectrum() ladder). "defense" is the louder of the two defensive axes per check-in
+    // These retire regShare as the user-facing baseline (regShare stays as an internal
+    // signal). "defense" is the louder of the two defensive axes per check-in
     // (max of mobilization, immobilization) — the same single-scalar defense the moment gate and the
     // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgSafetyLead = connection
     // minus defense, the signed "how far is safety ahead of defense" the spoken baseline reports
@@ -1511,78 +1491,7 @@
     return true;
   }
 
-  // ---- recommender (simulated AI) ----
-  // superseded 2026-07-03 by the Safety Spectrum recommend() below; kept for reference.
-  function _legacyRecommend(){
-    const last = lastCheckin();
-    const L = learned();
-    const tr = trend();
-    // how far the person wants to go: this check-in's stated appetite, else their
-    // recent average, else a balanced default. This is the new lever the advisor reads.
-    let want = (last && typeof last.challenge==='number') ? last.challenge
-               : (L.challengeAvg!=null ? L.challengeAvg : 0.55);
-    if(!last){
-      return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
-        'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
-    }
-    // first few days: keep the practice gentle and build from there, unless they explicitly asked to stretch.
-    const _tn = tenure();
-    const early = (_tn.stage==='start' || _tn.stage==='early') && !(typeof last.challenge==='number' && last.challenge>=0.78);
-    if(early) want = Math.min(want, 0.55);
-    // one-session nudge from the last early-exit reason (expires once a new session logs)
-    if(L.lastExit==='exit-hard') want = Math.min(want, 0.4);
-    else if(L.lastExit==='exit-easy') want = Math.min(0.95, want + 0.15);
-    const dom = last.dom;
-    const sense = prefSense() || L.favSense || 'touch';
-    const moreSilence = L.endsEarlyOften ? 12 : 8;
-    if(dom==='shutdown' || dom==='freeze'){
-      let reason = dom==='shutdown'
-        ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
-        : "a lot is frozen within. let's practice through settling, then look for safety.";
-      if(tr && tr.dir==='falling') reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
-      else if(want>=0.78) reason += ' you asked to go further, and we will, by settling first.';
-      return cfg('anchoring', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
-    }
-    if(dom==='fightflight' || dom==='play'){
-      let reason = dom==='play'
-        ? "there's safety with some energy within. a good opportunity to practice noticing."
-        : "a lot of energy within. we'll slow down and let some of it settle before anything else.";
-      if(want<=0.3) reason = dom==='play'
-        ? "energy with safety mixed in. you asked to keep it gentle, so let's see if we can find more calm."
-        : "a lot of energy within you, and you asked for gentle. we'll only settle for now.";
-      return cfg('mindfulness', null, sense, moreSilence, reason, 'settle the charge');
-    }
-    // safe / regulated — this is where the challenge appetite has the most room to act
-    if(want<=0.35 || early){
-      const reason = early
-        ? "you have real safety here. you're just getting started, so let's keep these first few gentle and connect with the calm within."
-        : "you have real safety, and you asked to keep it gentle. let's connect more deeply with calm.";
-      return cfg('anchoring', null, sense, moreSilence, reason, early ? 'gentle start' : 'stay gentle');
-    }
-    const skill = want>=0.78 ? 'pendulation' : (L.favSkill || 'imagery');
-    let reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
-    if(want>=0.78) reason = "you have safety, and you asked for more challenge. let's use that capacity to connect with non-safety.";
-    else if(L.sessionsDone>=3 && L.favPractice==='most') reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
-    return cfg('most', skill, sense, want>=0.78?4:(L.endsEarlyOften?8:6), reason, 'room to go deeper');
 
-    function cfg(practiceKey, skill, sense, silence, reason, tag){
-      const pSil = prefSilence();
-      let sil = (pSil!=null?pSil:silence);
-      // fold in what the last early exit told us, and say so plainly
-      if(L.lastExit==='exit-distracted'){ sil = Math.min(sil, 4); reason += " shorter silences this time, so it's easier to stay with."; }
-      else if(L.lastExit==='exit-hard'){ reason += " last one was a lot, so we're keeping this one easier."; }
-      else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
-      return { practiceKey, skill, sense, silence: sil, reason, tag,
-               adapted: (L.sessionsDone>0 || L.challengeN>0), domBefore: last?last.dom:null, challenge: want };
-    }
-  }
-
-  // ---- Safety Spectrum (Justin's model, 2026-07-03) ---------------------------
-  // Baseline = predictable safety activation over weeks (Point 1 minimal, 2 mild,
-  // 3 moderate, 4 strong), estimated from history. Moment = the current check-in,
-  // which slides the working point up or down. The working point sets the practice
-  // ceiling; the state only flavors the session.
-  // Matrix: App Designer/Reader-Rework/practice-decision-matrix.md.
   // ---- §7.4–7.5 tier model (connection-vs-defense, absolute levels) ----------
   // GUARDRAIL (Justin 2026-07-27): the tier gates read safety (avgV) and defense
   // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgSafetyLead. A positive
@@ -1639,38 +1548,6 @@
     return 0;
   }
 
-  function spectrum(){
-    const now = Date.now();
-    const st = periodStats(now - 28*864e5, now);
-    const L = learned();
-    const last = lastCheckin();
-    let baseline = 2, confidence = 'low';                 // thin data: benefit of the doubt, gentle default
-    if(st && st.n >= 8){
-      confidence = 'ok';
-      const pe = practiceEffect(), rec = recovery();
-      // v2: rated session outcomes (after-feeling / moved-up) join practiceEffect
-      // and recovery as Point-3 evidence — the Baseline now reads what the person
-      // REPORTED, not only what the next check-in implied.
-      const oc = _overallOutcomes();
-      const outcomesGood = oc.rated >= 4 && (oc.good / oc.rated) >= 0.5;
-      baseline = 1;
-      if(st.regShare >= 0.25) baseline = 2;
-      if(st.regShare >= 0.5 && L.sessionsDone >= 3 && (rec != null || (pe && pe.rate >= 0.5) || outcomesGood)) baseline = 3;
-      if(st.regShare >= 0.75 && L.sessionsDone >= 8) baseline = 4;
-    }
-    let working = baseline, lifted = false;
-    if(last){
-      if(_REG[last.dom] && last.v >= 0.6){ working = Math.min(4, baseline + 1); lifted = working > baseline; } // strong safety Moment
-      else if(_DYS[last.dom] && last.v <= 0.25) working = Math.max(1, baseline - 1);   // deep defense Moment
-    }
-    // daypart dampener (Justin 2026-07-06): in an hour that historically runs low
-    // on safety, the Moment's +1 lift is withheld — today's ceiling sits at the
-    // Baseline in their thin hours. Never pushes below what the check-in reports.
-    const dpLow = daypartLow();
-    if(dpLow && lifted){ working = baseline; lifted = false; }
-    return { baseline, working, moment: last ? { dom:last.dom, v:last.v } : null, confidence, daypartLow: dpLow };
-  }
-
   // ---- recommender (Safety Spectrum model, 2026-07-03) ------------------------
   // The working Spectrum point sets the ceiling; appetite chooses within it, never
   // above it. Pendulation gate: Point 3+, advanced-defense appetite, and a few
@@ -1715,7 +1592,6 @@
     // guardrail), capped by whichever skills the rung ladder has cleared.
     const rg = rungs();
     ceiling = skillCeiling(bw, rg.cleared);
-    const dpNote = '';   // daypart dampener retired: the week + moment gates set the ceiling now
 
     // ceiling 0 (safety below the 40% week floor), or a falling trend: anchor into safety and
     // let that be enough today (Scheme A band 2 — rebuild before reaching further).
@@ -1757,7 +1633,7 @@
       if(dn){ skill = dn; droppedRung = true; } else leftTrack = true;
     }
     if(leftTrack){
-      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. the ladder will be right where you left it." + dpNote;
+      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. the ladder will be right where you left it.";
       return cfg('anchoring', null, sense, 12, reason, 'a gentler practice');
     }
     // (pendulation no longer gated on appetite — the tier ceiling + the cap above are what
@@ -1804,7 +1680,6 @@
     } else {
       reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
     }
-    reason += dpNote;
     // silence: the 0.55-appetite 4s default is re-sourced to the deepest tier (ceiling 3).
     const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
     return cfg('most', skill, sense, sil3, reason, dialDown ? 'same rung, smaller dose' : droppedRung ? 'one step easier' : 'room to go deeper',
@@ -2074,7 +1949,7 @@
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
-    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, spectrum, practiceLabel, reset, getName, setName,
+    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
     rungs, rungStory, rungMovement, skillDesc, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
