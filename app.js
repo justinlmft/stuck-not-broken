@@ -123,7 +123,6 @@
     Store.recovery=()=>{const r=_reads(cs);if(r.length<12)return null;const gaps=[],depths=[];let i=0;while(i<r.length){if(!_cReg(r[i])){let j=i,st=0,f=false,low=0;while(j<r.length){const m=_cMargin(r[j]);if(m!=null&&m<low)low=m;if(_cReg(r[j])){f=true;break;}j++;st++;}if(f){gaps.push(st);depths.push(low);}i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length,deepest:Math.min.apply(null,depths),avgDepth:depths.reduce((x,y)=>x+y,0)/depths.length}:null;};
     Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
     Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
-    Store.timeOfDay=()=>null;
     Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
     Store.today=()=>{const d=new Date();d.setHours(0,0,0,0);return Store.dayArc(d.getTime());};
     Store.practiceEffect=()=>{const t=ss.filter(s=>s.domBefore);if(t.length<6)return null;let moved=0,tot=0;t.forEach(s=>{const nx=cs.find(c=>c.t>s.t);if(!nx)return;tot++;if(RANK[nx.dom]>RANK[s.domBefore])moved++;});return tot>=6?{moved:moved,total:tot,rate:moved/tot}:null;};
@@ -1798,8 +1797,7 @@
     if(_orientedByHistory()){ try{ localStorage.setItem(_obKey(), 'history'); }catch(e){} return 'history'; }
     return '';
   }
-  function setOriented(v){ try{ localStorage.setItem(_obKey(), v); }catch(e){}
-    try{ if(Store.setPref) Store.setPref('oriented', v); }catch(e){} }
+  function setOriented(v){ try{ localStorage.setItem(_obKey(), v); }catch(e){} }
   function obTrack(name, meta){ try{ if(Store.trackEvent) Store.trackEvent(name, meta||{}); }catch(e){} }
 
   // ---- "what's new" one-time card (returning users, after the state-math rework) ----

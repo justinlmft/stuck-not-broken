@@ -941,9 +941,6 @@
     const count = (arr,key)=>{const m={};arr.forEach(s=>{const k=s[key];if(k)m[k]=(m[k]||0)+1;});return m;};
     const top = (m)=>Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
     const earlyRate = data.sessions.length ? data.sessions.filter(s=>s.endedEarly).length/data.sessions.length : 0;
-    const chs = data.checkins.map(c=>c.challenge).filter(v=>typeof v==='number');
-    const recentCh = chs.slice(-8);
-    const challengeAvg = recentCh.length ? recentCh.reduce((s,v)=>s+v,0)/recentCh.length : null;
     // if the MOST RECENT session ended early with a stated reason (exit-hard /
     // exit-easy / exit-distracted / exit-enough), surface it — the advisor nudges
     // the very next practice off it, then it naturally expires with the next session.
@@ -953,13 +950,9 @@
     const lastExit = (lastS && lastS.endedEarly)
       ? (lastS.exitReason || ((/^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null))
       : null;
-    // how the body landed after the most recent session (more/same/less/struggle/
-    // unsure) — a completed session that was a struggle steps the next one down
-    // exactly like a too-hard exit (Justin 2026-07-06: finishing != going well).
-    const lastAfter = lastS ? (lastS.afterFeeling || null) : null;
     return { favSense: top(count(done,'sense')), favSkill: top(count(done,'skill')), favPractice: top(count(done,'practiceKey')),
              sessionsDone: done.length, endsEarlyOften: earlyRate >= 0.4 && data.sessions.length >= 3,
-             challengeAvg, challengeN: chs.length, lastExit, lastAfter };
+             lastExit };
   }
 
   // ---- trend ----
@@ -1003,29 +996,11 @@
     return { a:bestK.slice(0,i), b:bestK.slice(i+1), count:bestN, total };
   }
 
-  // ---- time-of-day: a daypart that skews toward one state vs the overall baseline ----
-  // _segOf is shared: timeOfDay() (below) and practiceInsights() both bucket by the same
-  // four dayparts, so a check-in and a practice session land in the same "evening" etc.
+  // ---- dayparts ----
+  // _segOf buckets by four dayparts so a check-in and a practice session land in the
+  // same "evening" etc. (practiceInsights slices by it; the old timeOfDay() reader was
+  // removed 2026-08-22 — no caller anywhere, only the demo engine's stub remembered it).
   function _segOf(t){ const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; }
-  // Returns {seg,dom,n} for the daypart most over-represented by a single state, or null.
-  function timeOfDay(){
-    const cs = data.checkins;
-    if(cs.length < 6) return null;
-    const bySeg = {}, overall = {}; let N=0;
-    cs.forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const s=_segOf(c.t); (bySeg[s]=bySeg[s]||{})[c.dom]=(bySeg[s][c.dom]||0)+1; overall[c.dom]=(overall[c.dom]||0)+1; N++; });
-    if(N < 6) return null;
-    let best=null;
-    for(const s in bySeg){
-      const sc=bySeg[s]; let sn=0; for(const d in sc) sn+=sc[d];
-      if(sn < 3) continue;                                      // enough check-ins in this daypart
-      for(const d in sc){
-        const segShare=sc[d]/sn, baseShare=overall[d]/N, lift=segShare-baseShare;
-        if(segShare < 0.5 || lift < 0.15) continue;             // dominates the daypart AND over-represented vs baseline
-        if(!best || lift>best.lift) best={ seg:s, dom:d, n:sc[d], lift };
-      }
-    }
-    return best ? { seg:best.seg, dom:best.dom, n:best.n } : null;
-  }
 
   // ---- tenure: how long they've been here + how much data exists, as an honest "stage" ----
   // Drives the for-you blog's time-framing and depth (and the daily card + practice rec) so
@@ -1765,12 +1740,8 @@
     _stampSession(s.t, { emotionSurfaced:v }, { emotion_surfaced:v }); }
 
   // ---- reader bridge + signals (recommender-v2 data -> the reader) ------------
-  // emotion group -> the state it's evidence of. Reader-only: capture stays plain,
-  // and the math NEVER scores this (more-safety is the only scored outcome). Group
-  // grain — the user picks a family, never a specific feeling. Grouping is from our
-  // internal SSIEC (rage->fear, regret->sad); the name "SSIEC" is never user-facing.
-  const EMOTION_STATE = { anxious:'fightflight', angry:'fightflight', sad:'shutdown', fear:'freeze', connected:'safety' };
-  function emotionStateOf(key){ return EMOTION_STATE[key] || null; }
+  // (the exported emotion→state bridge map was removed 2026-08-22 — no callers;
+  // from-justin.js carries its own copy of that grouping for reader copy.)
   // emotionShift(session): per-session beat for the daily reader. Reports the family
   // they set out to work with (intent) and the families they named afterward
   // (surfaced) — both facts THEY gave. diverged = intent set and not among surfaced.
@@ -1856,10 +1827,6 @@
   function prefSense(){ try{ return localStorage.getItem('snb_pref_sense')||null; }catch(e){ return null; } }
   function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
   function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
-  // a small named-preference bag, mirrored into the cloud preferences row. Used by the
-  // member onboarding's `oriented` flag so it survives a new device (item 114).
-  function setPref(k,v){ try{ localStorage.setItem('snb_pref_'+k, String(v)); }catch(e){} }
-  function getPref(k){ try{ return localStorage.getItem('snb_pref_'+k)||''; }catch(e){ return ''; } }
   function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
   // default sense/silence also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
@@ -1946,15 +1913,15 @@
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
-    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
+    learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
     rungs, rungStory, rungMovement, skillDesc, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
-    emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
+    emotionShift, emotionPatterns,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
     isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
-    trackEvent, flushEvents, src, SRC_ALLOW, setPref, getPref,
+    trackEvent, flushEvents, src, SRC_ALLOW,
     liveFetch, livePoll,
   };
 })(window);
