@@ -341,10 +341,11 @@
     r.phase           = c.phase || null;
     r.practice_ref    = c.practice_ref || null;
     return r; };
-  // practice_label = a data-clear name for the practice track. The internal key 'most' is
-  // opaque, so it is stored as 'self-regulation' (the app's own word for that track); the
-  // other keys are already self-explanatory and pass through unchanged.
-  const practiceLabelFor = k => (k==='most' ? 'self-regulation' : (k||null));
+  // practice_label = a data-clear name for the practice track. The internal keys 'most'
+  // and 'more' are opaque, so they are stored as 'self-regulation' and 'guided meditation'
+  // (matching _PRACTICE_RUNG and PRACTICE_LABEL — one vocabulary, three maps, see the
+  // cross-references at each); the other keys are self-explanatory and pass through.
+  const practiceLabelFor = k => (k==='most' ? 'self-regulation' : k==='more' ? 'guided meditation' : (k||null));
   const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
   // id is minted on the CLIENT (newSessionId) so a check-in can be tagged with the
   // session it belongs to before the session row has ever reached the cloud. Sending it
@@ -1969,7 +1970,10 @@
              moved: from!==to, advanced: (fi>=0 && ti>=0) ? ti>fi : null, n: ms.length };
   }
 
-  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
+  // 'more' matches practiceLabelFor + _PRACTICE_RUNG ('guided meditation') — before
+  // 2026-08-22 it was missing here, so the first completed meditation would have
+  // rendered the literal key "more" in practice history and the "You return to" line.
+  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation', more:'guided meditation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
 
   // ---- name ----
