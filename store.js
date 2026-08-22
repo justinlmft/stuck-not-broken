@@ -421,34 +421,32 @@
   async function fetchBilling(){
     if(!CLOUD || !auth.user) return;
     try{
-      const [rowRes, cohRes, entRes] = await Promise.all([
+      // (the is_trial_cohort RPC still exists server-side; the client stopped calling
+      // it 2026-08-22 — nothing ever consumed the answer. Same date: the cached
+      // trialEnd/cohort fields went with it — there is no trial any more.)
+      const [rowRes, entRes] = await Promise.all([
         sb.from('billing').select('*').eq('user_id', auth.user.id).maybeSingle(),
-        sb.rpc('is_trial_cohort'),
         sb.from('entitlements').select('circle_member,legacy').eq('user_id', auth.user.id).maybeSingle(),
       ]);
       auth.billing = (rowRes && rowRes.data) || null;
-      auth.isCohort = !!(cohRes && cohRes.data);
       const ent = (entRes && entRes.data) || null;
       auth.ent = { circle: !!(ent && ent.circle_member), legacy: !!(ent && ent.legacy) };
-      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null, trialEnd: auth.billing ? auth.billing.trial_end : null,
-                           cohort: auth.isCohort, circle: auth.ent.circle, legacy: auth.ent.legacy, at: Date.now() });
+      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, at: Date.now() });
       if(typeof notify === 'function') notify();
     }catch(e){ /* keep last-known cache */ }
   }
   function billing(){
     if(auth.billing) return auth.billing;
     const c = _readBillingCache();
-    return c ? { sub_status:c.status, trial_end:c.trialEnd } : null;
+    return c ? { sub_status:c.status } : null;
   }
   function _billingActive(){ const b = billing(); return !!(b && (b.sub_status==='trialing' || b.sub_status==='active')); }
-  function isCohort(){ if(typeof auth.isCohort==='boolean') return auth.isCohort; const c=_readBillingCache(); return c ? !!c.cohort : false; }
-
-  // FREE IS UNCONDITIONAL (2026-07-13). Nobody is ever blocked out of the app by a
-  // paywall: free has no time limit and no card. So hasAccess() is always true — the
-  // whole-app gate is dead and is not coming back.
-  function hasAccess(){ return true; }
 
   // ---- the free/paid FEATURE line (2026-07-13) ----
+  // FREE IS UNCONDITIONAL (2026-07-13): nobody is ever blocked out of the app by a
+  // paywall — free has no time limit and no card. (The old whole-app hasAccess()
+  // gate was removed 2026-08-22; it had returned a bare `true` since 07-13.)
   // What free is, forever: unlimited check-ins, the immediate state read, the two
   // mindfulness practices, their own saved check-in history. Nothing a guest ever
   // touched is taken away — that is a hard rule, not a preference.
@@ -546,7 +544,6 @@
     return res;
   }
   async function startGuestCheckout(plan){ return startCheckout('guest', plan); }
-  const startTrial = startCheckout;   // legacy alias — there is no trial any more
   // ---- funnel events (on-ramp instrumentation, GMS 2026-07-13) ----
   // Fire-and-forget, write-only (RLS: insert-own only; nothing reads it client-side).
   // offer_view / subscribe_click / continue_free ride through here so conversion
@@ -1956,7 +1953,7 @@
     emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
-    hasAccess, isPaid, hydrated, entitlement, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, setPref, getPref,
     liveFetch, livePoll,
   };
