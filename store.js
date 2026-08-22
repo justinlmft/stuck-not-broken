@@ -1880,6 +1880,26 @@
   // unless the legacy migration flag names a DIFFERENT uid: then it is that person's
   // data and is left alone (their own deleteAccount purge now removes it).
   const CTX_LEGACY = 'snb-contexts', CTX_FLAG_LEGACY = 'snb-ctx-migrated';
+  // Adopt the unowned legacy blob only when the device shows no sign of a DIFFERENT
+  // person: any user-scoped store key for another uid (their cache, mints, name…)
+  // means the blob may be theirs — leave it. Guest traces ('anon') never block:
+  // guest-then-sign-up is exactly the path adoption exists for. A previous user who
+  // deleted their account leaves no trace — and no blob either (the purge removes
+  // both prefixes), so that case is clean without this check.
+  function _ctxOtherUserTrace(uid){
+    try{
+      const pres = ['snb_cache_','snb_mint_','snb_name_','snb_ent_checked_','snb_billing_',
+                    'snb_deleted_sessions_','snb_deleted_checkins_','snb_pending_checkin_edits_',
+                    'snb_ctx_migrated_','snb_ctx_','snb_oriented_'];
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i)||'';
+        for(const p of pres){
+          if(k.indexOf(p)===0){ const id=k.slice(p.length); if(id && id!=='anon' && id!==uid) return true; break; }
+        }
+      }
+    }catch(e){}
+    return false;
+  }
   function _ctxKey(){ return 'snb_ctx_' + (auth.user ? auth.user.id : 'anon'); }
   function _ctxFlagKey(){ return 'snb_ctx_migrated_' + (auth.user ? auth.user.id : 'anon'); }
   function _ctxAdoptLegacy(cur){
@@ -1889,6 +1909,7 @@
       const owner = localStorage.getItem(CTX_FLAG_LEGACY);          // uid that lifted the legacy blob, if any
       if(!auth.user) return Object.assign({}, legacy, cur);         // signed out: read-through only, adopt nothing
       if(owner && owner !== auth.user.id) return cur;               // someone else's data — leave it be
+      if(!owner && _ctxOtherUserTrace(auth.user.id)) return cur;    // unowned blob + another person's traces — leave it
       Object.keys(legacy).forEach(k => { if(!(k in cur)) cur[k] = legacy[k]; });
       localStorage.setItem(_ctxKey(), JSON.stringify(cur));
       if(owner === auth.user.id) localStorage.setItem(_ctxFlagKey(), '1');   // carry the already-migrated marker over
