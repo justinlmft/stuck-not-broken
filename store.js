@@ -137,15 +137,16 @@
   function notify(){ try{ onChange && onChange(); }catch(e){} }
   function setSync(state, error){
     sync.state = state;
-    sync.error = error || null;
+    sync.error = error || null;   // diagnostic only — nothing reads it yet (syncStatus exposes state+pending; the toast keys off state)
     sync.pending = outbox.checkins.length + outbox.sessions.length;
     renderSyncToast();
   }
 
-  // union check-in / session lists by timestamp. Later args win on shared
-  // fields (cloud is authoritative for v/sym/dor/dom/...), but local-only fields
-  // (e.g. `challenge`, which has no cloud column yet) are preserved. This is what
-  // keeps an un-synced check-in visible instead of being wiped by a cloud read.
+  // union check-in / session lists by timestamp. Later args win on shared fields
+  // (cloud is authoritative for v/sym/dor/dom/...), while any field the cloud row
+  // doesn't carry survives the merge. This is what keeps an un-synced check-in
+  // visible instead of being wiped by a cloud read. (`challenge` was once the
+  // local-only example here — it has had a cloud column since 2026-07.)
   function unionByT(...lists){
     const m = new Map();
     for(const list of lists){ if(!list) continue; for(const r of list){ if(r && r.t!=null){ m.set(r.t, Object.assign({}, m.get(r.t), r)); } } }
@@ -234,15 +235,34 @@
     if(!s || !s.practiceKey) return null;
     return (s.practiceKey==='most' && s.skill) ? ('most:'+s.skill) : s.practiceKey;
   }
+  // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
+  // The ONE source of the challenge_level vocabulary (cloud column included). The
+  // practice-rung map below derives from it, so a wording change here cannot fork the
+  // column's vocabulary between the appetite path and the practice-rung fallback.
+  // (practiceLabelFor / PRACTICE_LABEL are a DIFFERENT vocabulary — practice display
+  // names, not challenge levels — do not merge them into this.)
+  const CHALLENGE_LEVELS = [
+    { v:0.12, key:'settle',  label:'simple mindfulness' },
+    { v:0.40, key:'gentle',  label:'safety-focused' },
+    { v:0.65, key:'meet',    label:'beginner defense' },
+    { v:0.90, key:'stretch', label:'advanced defense' },
+  ];
+  function challengeLabel(v){
+    if(v==null||isNaN(v)) return null;
+    let b=CHALLENGE_LEVELS[0];
+    for(const l of CHALLENGE_LEVELS){ if(Math.abs(l.v-v)<Math.abs(b.v-v)) b=l; }
+    return b.label;
+  }
+  const _CHL = {}; CHALLENGE_LEVELS.forEach(l => _CHL[l.key] = l.label);
   // The rung a practice IS, for when no challenge appetite was recorded. 221 of 288
   // sessions had a null challenge_level because it was derived only from the check-in's
   // appetite slider, which is usually left alone. The practice itself always knows.
   // 'more' = the standalone guided meditations, which sit off the rung ladder entirely.
   // It gets its own honest label rather than being forced onto a rung it isn't on.
-  const _PRACTICE_RUNG = { micro:'simple mindfulness', mindfulness:'simple mindfulness', anchoring:'safety-focused', more:'guided meditation' };
+  const _PRACTICE_RUNG = { micro:_CHL.settle, mindfulness:_CHL.settle, anchoring:_CHL.gentle, more:'guided meditation' };
   function rungForPractice(s){
     if(!s || !s.practiceKey) return null;
-    if(s.practiceKey==='most') return (s.skill==='balancing'||s.skill==='pendulation') ? 'advanced defense' : 'beginner defense';
+    if(s.practiceKey==='most') return (s.skill==='balancing'||s.skill==='pendulation') ? _CHL.stretch : _CHL.meet;
     return _PRACTICE_RUNG[s.practiceKey] || null;
   }
   // Which phase does a check-in taken at `t` belong to? Looks only at the most recent
@@ -341,10 +361,11 @@
     r.phase           = c.phase || null;
     r.practice_ref    = c.practice_ref || null;
     return r; };
-  // practice_label = a data-clear name for the practice track. The internal key 'most' is
-  // opaque, so it is stored as 'self-regulation' (the app's own word for that track); the
-  // other keys are already self-explanatory and pass through unchanged.
-  const practiceLabelFor = k => (k==='most' ? 'self-regulation' : (k||null));
+  // practice_label = a data-clear name for the practice track. The internal keys 'most'
+  // and 'more' are opaque, so they are stored as 'self-regulation' and 'guided meditation'
+  // (matching _PRACTICE_RUNG and PRACTICE_LABEL — one vocabulary, three maps, see the
+  // cross-references at each); the other keys are self-explanatory and pass through.
+  const practiceLabelFor = k => (k==='most' ? 'self-regulation' : k==='more' ? 'guided meditation' : (k||null));
   const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
   // id is minted on the CLIENT (newSessionId) so a check-in can be tagged with the
   // session it belongs to before the session row has ever reached the cloud. Sending it
@@ -420,34 +441,32 @@
   async function fetchBilling(){
     if(!CLOUD || !auth.user) return;
     try{
-      const [rowRes, cohRes, entRes] = await Promise.all([
+      // (the is_trial_cohort RPC still exists server-side; the client stopped calling
+      // it 2026-08-22 — nothing ever consumed the answer. Same date: the cached
+      // trialEnd/cohort fields went with it — there is no trial any more.)
+      const [rowRes, entRes] = await Promise.all([
         sb.from('billing').select('*').eq('user_id', auth.user.id).maybeSingle(),
-        sb.rpc('is_trial_cohort'),
         sb.from('entitlements').select('circle_member,legacy').eq('user_id', auth.user.id).maybeSingle(),
       ]);
       auth.billing = (rowRes && rowRes.data) || null;
-      auth.isCohort = !!(cohRes && cohRes.data);
       const ent = (entRes && entRes.data) || null;
       auth.ent = { circle: !!(ent && ent.circle_member), legacy: !!(ent && ent.legacy) };
-      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null, trialEnd: auth.billing ? auth.billing.trial_end : null,
-                           cohort: auth.isCohort, circle: auth.ent.circle, legacy: auth.ent.legacy, at: Date.now() });
+      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, at: Date.now() });
       if(typeof notify === 'function') notify();
     }catch(e){ /* keep last-known cache */ }
   }
   function billing(){
     if(auth.billing) return auth.billing;
     const c = _readBillingCache();
-    return c ? { sub_status:c.status, trial_end:c.trialEnd } : null;
+    return c ? { sub_status:c.status } : null;
   }
   function _billingActive(){ const b = billing(); return !!(b && (b.sub_status==='trialing' || b.sub_status==='active')); }
-  function isCohort(){ if(typeof auth.isCohort==='boolean') return auth.isCohort; const c=_readBillingCache(); return c ? !!c.cohort : false; }
-
-  // FREE IS UNCONDITIONAL (2026-07-13). Nobody is ever blocked out of the app by a
-  // paywall: free has no time limit and no card. So hasAccess() is always true — the
-  // whole-app gate is dead and is not coming back.
-  function hasAccess(){ return true; }
 
   // ---- the free/paid FEATURE line (2026-07-13) ----
+  // FREE IS UNCONDITIONAL (2026-07-13): nobody is ever blocked out of the app by a
+  // paywall — free has no time limit and no card. (The old whole-app hasAccess()
+  // gate was removed 2026-08-22; it had returned a bare `true` since 07-13.)
   // What free is, forever: unlimited check-ins, the immediate state read, the two
   // mindfulness practices, their own saved check-in history. Nothing a guest ever
   // touched is taken away — that is a hard rule, not a preference.
@@ -545,7 +564,6 @@
     return res;
   }
   async function startGuestCheckout(plan){ return startCheckout('guest', plan); }
-  const startTrial = startCheckout;   // legacy alias — there is no trial any more
   // ---- funnel events (on-ramp instrumentation, GMS 2026-07-13) ----
   // Fire-and-forget, write-only (RLS: insert-own only; nothing reads it client-side).
   // offer_view / subscribe_click / continue_free ride through here so conversion
@@ -626,16 +644,16 @@
         sb.from('checkins').select('*').order('t', { ascending:true }),
         sb.from('sessions').select('*').order('t', { ascending:true }),
       ]);
-      let changed = false;
+      let fetched = false;   // a cloud read succeeded — no diffing, so notify() runs after every good hydrate
       // MERGE (union by t), never overwrite: local + still-queued outbox + cloud.
       // An un-synced check-in stays visible and is never lost to a cloud read.
-      if(!cs.error){ data.checkins = unionByT(data.checkins, outbox.checkins, (cs.data||[]).map(rowToCheckin)); changed = true; }
-      if(!ss.error){ data.sessions = unionByT(data.sessions, outbox.sessions, (ss.data||[]).map(rowToSession)); changed = true; }
+      if(!cs.error){ data.checkins = unionByT(data.checkins, outbox.checkins, (cs.data||[]).map(rowToCheckin)); fetched = true; }
+      if(!ss.error){ data.sessions = unionByT(data.sessions, outbox.sessions, (ss.data||[]).map(rowToSession)); fetched = true; }
       _reconcile();                                    // re-apply deletions + edits over whatever the cloud just merged back
       saveCache();
       setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', (cs.error||ss.error)||null);
       _hydratedFor = auth.user && auth.user.id;      // cloud read done for THIS user — orientation may now decide
-      if(changed) notify();                          // re-render once fresh data lands (post-init / post-refresh)
+      if(fetched) notify();                          // re-render once fresh data lands (post-init / post-refresh)
       migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
 
     }catch(e){ _hydratedFor = auth.user && auth.user.id; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
@@ -790,7 +808,8 @@
         }
       }
       await signOut();   // clears in-memory data; server session is already gone
-      try{ Object.keys(localStorage).filter(k=>k.indexOf('snb_')===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+      // both prefixes: current keys are snb_ (underscore); pre-2026-08-22 context keys were snb- (dash)
+      try{ Object.keys(localStorage).filter(k=>k.indexOf('snb_')===0 || k.indexOf('snb-')===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
       return {};
     }catch(e){ return { error:String((e&&e.message)||e) }; }
   }
@@ -805,10 +824,12 @@
 
   // ---- check-ins ----
   function addCheckin(c){
-    // explicit state key wins over the inferred one. 'neutral' is accepted too
-    // (2026-07-06): an all-untouched midpoint save counts as "settling", never
-    // the 50/50/50 tie-break's accidental stillness.
-    const dom = (c.dom && (c.dom==='neutral' || PVCurrent.STATES[c.dom])) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // 'neutral' is the ONLY explicit key accepted (2026-08-22; was any valid state
+    // name — a branch nothing ever exercised): an all-untouched midpoint save counts
+    // as "settling", a user signal, not a classification (2026-07-06). Every state
+    // NAME derives from the circuit values — one rule for all history (B1), and no
+    // future caller can quietly reopen the stored-vs-derived split.
+    const dom = (c.dom==='neutral') ? { key:'neutral' } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
     // time and fed to the recommender. Synced to the cloud `challenge` column via checkinToRow.
     const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:dom.key,
@@ -833,8 +854,14 @@
     const i = data.checkins.findIndex(x=>x.t===t);
     if(i<0) return null;
     const old = data.checkins[i];
-    // expert override: an explicit, valid state key wins over the inferred one
-    const dom = (c.dom && PVCurrent.STATES[c.dom]) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // 'neutral' is the only explicit key accepted (matching addCheckin). And an edit
+    // that leaves a "settling" row's sliders exactly where they were KEEPS 'neutral' —
+    // recomputing would put a state name in the person's mouth they never reported
+    // (pre-2026-08-22 a no-change Save on a neutral row silently renamed it: an
+    // all-midpoint row came back "safety, with some freeze"). Moving any slider is a
+    // real report and takes on a derived name.
+    const untouched = old.dom==='neutral' && c.v===old.v && c.sym===old.sym && c.dor===old.dor;
+    const dom = (c.dom==='neutral' || untouched) ? { key:'neutral' } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     const rec = Object.assign({}, old, { v:c.v, sym:c.sym, dor:c.dor, dom:dom.key,
                 challenge:(typeof c.challenge==='number'?c.challenge:old.challenge) });
     data.checkins[i] = rec;
@@ -942,9 +969,6 @@
     const count = (arr,key)=>{const m={};arr.forEach(s=>{const k=s[key];if(k)m[k]=(m[k]||0)+1;});return m;};
     const top = (m)=>Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
     const earlyRate = data.sessions.length ? data.sessions.filter(s=>s.endedEarly).length/data.sessions.length : 0;
-    const chs = data.checkins.map(c=>c.challenge).filter(v=>typeof v==='number');
-    const recentCh = chs.slice(-8);
-    const challengeAvg = recentCh.length ? recentCh.reduce((s,v)=>s+v,0)/recentCh.length : null;
     // if the MOST RECENT session ended early with a stated reason (exit-hard /
     // exit-easy / exit-distracted / exit-enough), surface it — the advisor nudges
     // the very next practice off it, then it naturally expires with the next session.
@@ -954,16 +978,16 @@
     const lastExit = (lastS && lastS.endedEarly)
       ? (lastS.exitReason || ((/^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null))
       : null;
-    // how the body landed after the most recent session (more/same/less/struggle/
-    // unsure) — a completed session that was a struggle steps the next one down
-    // exactly like a too-hard exit (Justin 2026-07-06: finishing != going well).
-    const lastAfter = lastS ? (lastS.afterFeeling || null) : null;
     return { favSense: top(count(done,'sense')), favSkill: top(count(done,'skill')), favPractice: top(count(done,'practiceKey')),
              sessionsDone: done.length, endsEarlyOften: earlyRate >= 0.4 && data.sessions.length >= 3,
-             challengeAvg, challengeN: chs.length, lastExit, lastAfter };
+             lastExit };
   }
 
   // ---- trend ----
+  // Still measures v (connection) while the rest of the progress story runs on the
+  // margin (2026-08-16 rework) — migrating trend()/dayArc() onto margin changes what
+  // the app tells people about their own progress, so it is DEFERRED to its own pass
+  // with Justin's eyes on the copy.
   function trend(){
     const cs = data.checkins.slice(-5);
     if(!cs.length) return null;
@@ -972,14 +996,19 @@
     // classify the classifications (Justin 2026-07-06): the trend state is the
     // MODAL dom of the window, ties broken by recency — never a classification
     // of averaged axes (fight↔shutdown oscillation could average into a
-    // "freeze" the person never once reported).
-    const cnt={}; cs.forEach(c=>{ if(c.dom && c.dom!=='neutral') cnt[c.dom]=(cnt[c.dom]||0)+1; });
+    // "freeze" the person never once reported). Each row's dom is DERIVED per
+    // read (_dm — B1, 2026-08-22): one naming rule covers all history.
+    const cnt={}; cs.forEach(c=>{ const k=_dm(c); if(k && k!=='neutral') cnt[k]=(cnt[k]||0)+1; });
     let dk=null;
-    for(let i=cs.length-1;i>=0;i--){ const k=cs[i].dom; if(!k||k==='neutral') continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
+    for(let i=cs.length-1;i>=0;i--){ const k=_dm(cs[i]); if(!k||k==='neutral') continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
     const dom = dk
       ? { key:dk, name:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].name)||dk, color:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].color)||null }
       : PVCurrent.dominantOf(v,sym,dor);
     let dir='steady';
+    // ±0.12 is a v-scale band (connection, 0..1). baselineDelta's ±0.05 is a
+    // margin-scale band — a different scale. The four movement thresholds in this
+    // file (0.12 here, 0.08/0.04 in dayArc, 0.05 in baselineDelta) are NOT a set
+    // and must not be "harmonized".
     if(cs.length>=2){ const d=cs[cs.length-1].v - cs[0].v; dir = d>0.12?'rising':d<-0.12?'falling':'steady'; }
     return { v, sym, dor, dom, dir, n:cs.length };
   }
@@ -987,12 +1016,13 @@
   // ---- transitions: the state-change the person tends to make most ----
   // Returns the most common ordered pair of consecutive, DIFFERENT dominant states
   // across their check-in history, or null until there's enough of a pattern to claim.
+  // States are derived per row (_dm — B1, 2026-08-22), never read from the stored name.
   function transitions(){
     const cs = data.checkins;
     if(cs.length < 6) return null;                              // not enough history to claim a shape
     const pairs = {}; let total = 0;
     for(let i=1;i<cs.length;i++){
-      const a=cs[i-1].dom, b=cs[i].dom;
+      const a=_dm(cs[i-1]), b=_dm(cs[i]);
       if(!a||!b||a===b||a==='neutral'||b==='neutral') continue; // only real state changes count
       const k=a+'>'+b; pairs[k]=(pairs[k]||0)+1; total++;
     }
@@ -1004,29 +1034,11 @@
     return { a:bestK.slice(0,i), b:bestK.slice(i+1), count:bestN, total };
   }
 
-  // ---- time-of-day: a daypart that skews toward one state vs the overall baseline ----
-  // _segOf is shared: timeOfDay() (below) and practiceInsights() both bucket by the same
-  // four dayparts, so a check-in and a practice session land in the same "evening" etc.
+  // ---- dayparts ----
+  // _segOf buckets by four dayparts so a check-in and a practice session land in the
+  // same "evening" etc. (practiceInsights slices by it; the old timeOfDay() reader was
+  // removed 2026-08-22 — no caller anywhere, only the demo engine's stub remembered it).
   function _segOf(t){ const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; }
-  // Returns {seg,dom,n} for the daypart most over-represented by a single state, or null.
-  function timeOfDay(){
-    const cs = data.checkins;
-    if(cs.length < 6) return null;
-    const bySeg = {}, overall = {}; let N=0;
-    cs.forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const s=_segOf(c.t); (bySeg[s]=bySeg[s]||{})[c.dom]=(bySeg[s][c.dom]||0)+1; overall[c.dom]=(overall[c.dom]||0)+1; N++; });
-    if(N < 6) return null;
-    let best=null;
-    for(const s in bySeg){
-      const sc=bySeg[s]; let sn=0; for(const d in sc) sn+=sc[d];
-      if(sn < 3) continue;                                      // enough check-ins in this daypart
-      for(const d in sc){
-        const segShare=sc[d]/sn, baseShare=overall[d]/N, lift=segShare-baseShare;
-        if(segShare < 0.5 || lift < 0.15) continue;             // dominates the daypart AND over-represented vs baseline
-        if(!best || lift>best.lift) best={ seg:s, dom:d, n:sc[d], lift };
-      }
-    }
-    return best ? { seg:best.seg, dom:best.dom, n:best.n } : null;
-  }
 
   // ---- tenure: how long they've been here + how much data exists, as an honest "stage" ----
   // Drives the for-you blog's time-framing and depth (and the daily card + practice rec) so
@@ -1041,14 +1053,14 @@
   }
   function tenure(){
     const cs = data.checkins, count = cs.length;
-    if(!count) return { count:0, days:0, windowCount:0, sinceLast:null, returning:false, stage:'start' };
+    if(!count) return { count:0, days:0, windowCount:0, returning:false, stage:'start' };
     const now = Date.now(), DAY = 86400000;
     const sd = t => { const d=new Date(t); d.setHours(0,0,0,0); return d.getTime(); };
     const days = Math.round((sd(now) - sd(cs[0].t)) / DAY);          // calendar days since the first check-in
     const windowCount = cs.filter(c => now - c.t <= 7*DAY).length;   // check-ins inside the last 7 days
     const sinceLast = Math.floor((now - cs[count-1].t) / DAY);       // whole days since the most recent check-in
     const returning = count >= 5 && sinceLast >= 4 && windowCount <= 2; // has history but just back from a gap
-    return { count, days, windowCount, sinceLast, returning, stage: _stageFor({count, days, windowCount}) };
+    return { count, days, windowCount, returning, stage: _stageFor({count, days, windowCount}) };
   }
 
   // ---- richer for-you signals (read by the blog; all self-gating on min data) ----
@@ -1070,8 +1082,10 @@
     try{ return PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
   }
   function _isReg(c){ const m = _mgn(c); return m != null && m >= 0; }
+  // the louder defense axis — the single-scalar defense the tier ceilings read (§7.5).
+  // NOT the naming engine's margin (which weighs both axes + the co-activation tax).
+  const _defOf = c => Math.max(c.sym||0, c.dor||0);
 
-  const _REG = { safety:1, play:1, stillness:1 };          // regulated dominants
   const _DYS = { fightflight:1, shutdown:1, freeze:1 };     // dysregulated / defensive dominants
   // (retired 2026-08-16) the _RANK "steadier" ladder scored shutdown and freeze both 0
   // and play and stillness both 2, so real movement between them registered as none.
@@ -1080,20 +1094,21 @@
   // weekMix: the window's state distribution — the 2nd-most-common state and the
   // regulated:dysregulated balance. Powers section 1's secondary-state + balance lines.
   // Computed the same way the reader picks its window-dominant, so `second` never equals it.
-  function weekMix(days){
-    days = days || 7;
-    const cut = Date.now() - days*86400000;
+  function weekMix(){
+    const cut = Date.now() - 7*86400000;   // fixed trailing week — no caller ever passed a window
     const cs = data.checkins.filter(c => c.t >= cut && c.dom && c.dom !== 'neutral');
     const n = cs.length;
     if(n < 6) return null;                                  // too few in-window to claim a mix
     const cnt = {}; cs.forEach(c => { const k=_dm(c); cnt[k] = (cnt[k]||0) + 1; });
     const order = Object.keys(cnt).sort((a,b) => cnt[b]-cnt[a]);
     const dom = order[0], second = order[1] || null;
-    let reg=0, dys=0; cs.forEach(c => { if(_isReg(c)) reg++; else dys++; });
+    // only readable rows vote: a null margin (no v) is no reading at all, never a
+    // defense-side count (2026-08-22). regShare is over readable rows for the same reason.
+    let reg=0, dys=0; cs.forEach(c => { const m=_mgn(c); if(m==null) return; if(m>=0) reg++; else dys++; });
     const lean = reg>dys ? 'regulated' : dys>reg ? 'dysregulated' : 'even';
     return { n, dom, domShare:Math.round(cnt[dom]/n*100), second,
              secondShare: second ? Math.round(cnt[second]/n*100) : 0,
-             reg, dys, regShare:Math.round(reg/n*100), lean, distinct:order.length,
+             reg, dys, regShare:Math.round(reg/Math.max(1,reg+dys)*100), lean, distinct:order.length,
              defenseStates: order.filter(d => _DYS[d]) };       // actual non-safety states present, by frequency
   }
 
@@ -1104,11 +1119,16 @@
     if(cs.length < 12) return null;
     const gaps = [], depths = []; let i = 0;
     while(i < cs.length){
-      if(!_isReg(cs[i])){                                   // margin went under: load exceeds capacity
+      const mi = _mgn(cs[i]);
+      if(mi == null){ i++; continue; }                       // unreadable row: no reading, never a dip (2026-08-22)
+      if(mi < 0){                                           // margin went under: load exceeds capacity
         let j = i, steps = 0, found = false, low = 0;
         while(j < cs.length){
-          const m = _mgn(cs[j]); if(m != null && m < low) low = m;
-          if(_isReg(cs[j])){ found = true; break; } j++; steps++;
+          const m = _mgn(cs[j]);
+          if(m == null){ j++; continue; }                    // unreadable rows neither extend nor end the dip
+          if(m < low) low = m;
+          if(m >= 0){ found = true; break; }
+          j++; steps++;
         }
         if(found){ gaps.push(steps); depths.push(low); }     // check-ins under the line, and how far under
         i = j;
@@ -1154,7 +1174,8 @@
     if(total < 6) return null;
     let moved=0, sum=0;
     pairs.forEach(p => { sum += p.dAfter; if(p.dAfter > 0) moved++; });
-    // rate kept for existing callers; mean is the measure that carries the information
+    // rate is what every current caller reads; mean (the average margin delta) is
+    // STAGED for the reader — computed and returned, no consumer yet (2026-08-22)
     return { moved, total, rate: moved/total, mean: sum/total };
   }
 
@@ -1177,7 +1198,6 @@
     // group by session + practice, keeping the earliest 'before' and the earliest 'after' after it
     const groups = {};
     cs.forEach(c => { const k = c.live_session_id + ' ' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
-    const def = c => Math.max(c.sym, c.dor);
     const pairs = [];
     Object.keys(groups).forEach(k => {
       const g = groups[k].slice().sort((a,b) => a.t - b.t);
@@ -1190,7 +1210,7 @@
         sessionId: before.live_session_id, practiceRef: before.practice_ref,
         tBefore: before.t, tAfter: after.t,
         vBefore: before.v, vAfter: after.v, dConn: after.v - before.v,
-        defBefore: def(before), defAfter: def(after), dDef: def(after) - def(before),
+        defBefore: _defOf(before), defAfter: _defOf(after), dDef: _defOf(after) - _defOf(before),
         domBefore: _dm(before), domAfter: _dm(after),
         marginBefore: rb, marginAfter: ra,
         marginDelta: (rb != null && ra != null) ? ra - rb : null,
@@ -1355,30 +1375,13 @@
     if(ratio < 0.5) return HOLD_STEPS[Math.max(i-1, 0)];
     return cur;
   }
-  // ---- daypart capacity: does this hour of the day historically run low on
-  // safety for this person? Used as a DAMPENER only (Justin 2026-07-06): a low
-  // daypart withholds the moment's +1 lift in spectrum(); it never pushes below
-  // what the current check-in reports, and it never re-locks cleared rungs.
-  function daypartLow(){
-    const cs = data.checkins;
-    if(cs.length < 8) return false;
-    const seg = _segOf(Date.now());
-    let n=0, sum=0, N=0, SUM=0;
-    cs.forEach(c => { if(typeof c.v!=='number') return; N++; SUM+=c.v; if(_segOf(c.t)===seg){ n++; sum+=c.v; } });
-    if(n < 4 || !N) return false;
-    return (sum/n) < (SUM/N) - 0.12;
-  }
-  // overall rated-outcome share — extra evidence for the Baseline estimate.
-  function _overallOutcomes(){
-    let good=0, bad=0, rated=0;
-    data.sessions.forEach(s => { const o=_outcomeOf(s); if(o==='good'){good++;rated++;} else if(o==='bad'){bad++;rated++;} else if(o==='neutral'){rated++;} });
-    return { good, bad, rated };
-  }
 
   // dayArc: any one calendar day's moments as an arc — the atom of the reflections
   // system. Returns that day's check-ins in order, within-day direction (by
   // safety/ventral), that day's sessions, and any practice deltas (a session
   // sitting between two reads). From moment one. `today()` is dayArc of today.
+  // Like trend(), still measures v while the progress story runs on margin —
+  // migration deferred (see the trend() note).
   function dayArc(t0){
     const tEnd = t0 + 864e5;
     const moments = data.checkins
@@ -1389,6 +1392,8 @@
       .sort((a,b)=>a.t-b.t);
     const n = moments.length;
     let dir = null;
+    // ±0.08 (dir) and +0.04 (rose, below) are v-scale bands — not a set with
+    // baselineDelta's margin-scale ±0.05 (see the trend() note).
     if(n>=2){ const d = moments[n-1].v - moments[0].v; dir = d>0.08?'up' : d<-0.08?'down' : 'steady'; }
     // practice deltas: the read just before a session vs the first read after it
     const deltas = [];
@@ -1408,7 +1413,6 @@
 
   // periodStats: aggregate signals over an arbitrary window [startMs, endMs). Powers the
   // monthly + quarterly reflections (the long-range altitudes). All deterministic, on-device.
-  const _REGDOM = { safety:1, play:1, stillness:1 }, _DYSDOM = { fightflight:1, shutdown:1, freeze:1 };
   function periodStats(startMs, endMs){
     const cs = data.checkins
       .filter(c => c && typeof c.t==='number' && c.t>=startMs && c.t<endMs && c.dom && c.dom!=='neutral')
@@ -1419,33 +1423,23 @@
     const order = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
     const dist={}; order.forEach(k=>dist[k]=Math.round(cnt[k]/n*100));
     const dom = order[0], second = order[1] || null;
-    let reg=0; cs.forEach(c=>{ if(_isReg(c)) reg++; });   // margin >= 0, not a name bucket
-    const regShare = reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
+    // margin >= 0, not a name bucket — and only readable rows vote: a null margin
+    // (no v) is no reading at all, never a defense-side count (2026-08-22).
+    let reg=0, dysN=0; cs.forEach(c=>{ const m=_mgn(c); if(m==null) return; if(m>=0) reg++; else dysN++; });
+    const nRead = reg+dysN;
+    const regShare = nRead ? reg/nRead : 0, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
-    // §7.2 canonical baseline inputs — connection RELATIVE TO DEFENSE, one place, one definition.
-    // These retire regShare as the user-facing baseline (regShare stays only as an internal signal
-    // for the spectrum() ladder). "defense" is the louder of the two defensive axes per check-in
-    // (max of mobilization, immobilization) — the same single-scalar defense the moment gate and the
-    // tier ceilings read (§7.5 "defense ≤60%"). avgDef = the level of defense; avgSafetyLead = connection
-    // minus defense, the signed "how far is safety ahead of defense" the spoken baseline reports
-    // (never a %, never against 100 — §7.2). sdV = connection-number fluctuation (§7.6: SD of v),
-    // for the person's own-range axis. All population stats over the same window/weighting as avgV.
-    const defOf = c => Math.max(c.sym||0, c.dor||0);
-    const avgDef = cs.reduce((s,c)=>s+defOf(c),0)/n;
-    const avgSafetyLead = avgV - avgDef;
-    /* RENAMED 2026-08-17, was `avgMargin`. This is §7.2's quantity — connection minus
-       the LOUDER defense, unweighted — and it is NOT the naming engine's margin, which
-       counts both defenses, applies RM's 70/30 exchange rate and charges the
-       co-activation tax. They had come to share a word, which is how freeze_blend
-       drifted. Renamed rather than redefined: §7.2 is canonical, and nothing outside
-       this file read it (verified across all six app scripts), so the rename was free.
-       The engine's quantity is `meanMargin`, below. */
+    // Baseline inputs. avgDef = the louder defense axis, averaged (the §7.5 tier
+    // ceilings read avgV and avgDef as two independent ABSOLUTE numbers). meanMargin =
+    // the naming engine's margin, averaged — the progress axis. sdV = connection-number
+    // fluctuation (§7.6: SD of v) — STAGED for the own-range axis, no reader yet.
+    // (§7.2's avgSafetyLead — avgV minus avgDef, unweighted — was removed 2026-08-22:
+    // no reader anywhere. It is NOT the engine's margin; recompute it from avgV/avgDef
+    // if §7.2's spoken baseline ever ships.)
+    const avgDef = cs.reduce((s,c)=>s+_defOf(c),0)/n;
     const meanMargin = cs.reduce((s2,c)=>{ const m=_mgn(c); return s2 + (m==null?0:m); },0)/n;
     const sdV = Math.sqrt(cs.reduce((s,c)=>{ const d=c.v-avgV; return s+d*d; },0)/n);
-    // then vs now: first third vs last third of the window's average safety
-    const third = Math.max(1, Math.floor(n/3));
-    const firstAvg = cs.slice(0,third).reduce((s,c)=>s+c.v,0)/third;
-    const lastAvg  = cs.slice(-third).reduce((s,c)=>s+c.v,0)/third;
+    const third = Math.max(1, Math.floor(n/3));   // first/last third — the then-vs-now windows
     const days = new Set(cs.map(c=>new Date(c.t).toDateString())).size;
     // day-of-week rhythm: the weekday whose check-ins average the most safety (>=3 samples)
     const dow={}; cs.forEach(c=>{ const d=new Date(c.t).getDay(); (dow[d]=dow[d]||[]).push(c.v); });
@@ -1455,26 +1449,25 @@
     const domOf = arr => { const c2={}; arr.forEach(x=>{ const k=_dm(x); c2[k]=(c2[k]||0)+1; }); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
     return {
       n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
-      reg, dys:n-reg, regShare, lean, avgV, avgDef, avgSafetyLead, meanMargin, sdV, firstAvg, lastAvg,
+      reg, dys:dysN, regShare, lean, avgV, avgDef, meanMargin, sdV,
       firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
-      bestDow, defenseStates: order.filter(d=>_DYSDOM[d]), regStates: order.filter(d=>_REGDOM[d])
+      bestDow, defenseStates: order.filter(d=>_DYS[d])
     };
   }
   /* baselineDelta: change between two windows (this period vs the one before).
-     2026-08-17 — moved from avgV onto meanMargin, Justin's call. Progress runs on the
-     margin everywhere else; a long-range note that still asserted "your average
-     connection moved" was the last surface claiming something different. The copy it
+     2026-08-17 — moved from avgV onto meanMargin, Justin's call. (Correction
+     2026-08-22: this was NOT the last v-based surface — trend() and dayArc() still
+     measure v; their migration is deferred, see the notes there.) The copy it
      feeds is purely directional (up / down / flat, no numbers), so it survives the swap
-     unchanged: margin up IS safety sitting further ahead of defense. `cur`/`prev` are
-     margins now, not connection — nothing reads them today, but do not mix them into a
-     "% safety" sentence, which is regShare's job. The 0.05 dir threshold is unchanged
-     and is FLAGGED for Claude Code: margin spans roughly -0.9..+0.7 where avgV spanned
-     0..1, so the same number is now a slightly smaller move and 'flat' narrows. */
+     unchanged: margin up IS safety sitting further ahead of defense. The 0.05 dir
+     threshold is unchanged and is a MARGIN-scale band: margin spans roughly -0.9..+0.7
+     where avgV spanned 0..1, so the same number is now a slightly smaller move and
+     'flat' narrows. */
   function baselineDelta(startMs, endMs){
     const span = endMs - startMs;
     const cur = periodStats(startMs, endMs), prev = periodStats(startMs-span, startMs);
     if(!cur) return null;
-    if(!prev) return { dir:'new', deltaPct:0, cur:cur.meanMargin };
+    if(!prev) return { dir:'new', deltaPct:0 };
     const d = cur.meanMargin - prev.meanMargin;
     /* The +/-0.05 dead-band is UNCHANGED, deliberately, now that d is a margin delta
        rather than an average-connection delta. Margin's theoretical span is ~1.6, which
@@ -1489,7 +1482,7 @@
        trips more readily toward 'down'. Setting that properly needs observed
        period-over-period variance, which is the same data gate as λ and the ½ cost
        fraction. Guessing an asymmetric band now would be fitting to nothing. */
-    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100), cur:cur.meanMargin, prev:prev.meanMargin };
+    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100) };
   }
 
   // ---- mint store: dated, immutable reflections (the archive / keepsake moat) ----
@@ -1509,82 +1502,11 @@
     return true;
   }
 
-  // ---- recommender (simulated AI) ----
-  // superseded 2026-07-03 by the Safety Spectrum recommend() below; kept for reference.
-  function _legacyRecommend(){
-    const last = lastCheckin();
-    const L = learned();
-    const tr = trend();
-    // how far the person wants to go: this check-in's stated appetite, else their
-    // recent average, else a balanced default. This is the new lever the advisor reads.
-    let want = (last && typeof last.challenge==='number') ? last.challenge
-               : (L.challengeAvg!=null ? L.challengeAvg : 0.55);
-    if(!last){
-      return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
-        'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
-    }
-    // first few days: keep the practice gentle and build from there, unless they explicitly asked to stretch.
-    const _tn = tenure();
-    const early = (_tn.stage==='start' || _tn.stage==='early') && !(typeof last.challenge==='number' && last.challenge>=0.78);
-    if(early) want = Math.min(want, 0.55);
-    // one-session nudge from the last early-exit reason (expires once a new session logs)
-    if(L.lastExit==='exit-hard') want = Math.min(want, 0.4);
-    else if(L.lastExit==='exit-easy') want = Math.min(0.95, want + 0.15);
-    const dom = last.dom;
-    const sense = prefSense() || L.favSense || 'touch';
-    const moreSilence = L.endsEarlyOften ? 12 : 8;
-    if(dom==='shutdown' || dom==='freeze'){
-      let reason = dom==='shutdown'
-        ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
-        : "a lot is frozen within. let's practice through settling, then look for safety.";
-      if(tr && tr.dir==='falling') reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
-      else if(want>=0.78) reason += ' you asked to go further, and we will, by settling first.';
-      return cfg('anchoring', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
-    }
-    if(dom==='fightflight' || dom==='play'){
-      let reason = dom==='play'
-        ? "there's safety with some energy within. a good opportunity to practice noticing."
-        : "a lot of energy within. we'll slow down and let some of it settle before anything else.";
-      if(want<=0.3) reason = dom==='play'
-        ? "energy with safety mixed in. you asked to keep it gentle, so let's see if we can find more calm."
-        : "a lot of energy within you, and you asked for gentle. we'll only settle for now.";
-      return cfg('mindfulness', null, sense, moreSilence, reason, 'settle the charge');
-    }
-    // safe / regulated — this is where the challenge appetite has the most room to act
-    if(want<=0.35 || early){
-      const reason = early
-        ? "you have real safety here. you're just getting started, so let's keep these first few gentle and connect with the calm within."
-        : "you have real safety, and you asked to keep it gentle. let's connect more deeply with calm.";
-      return cfg('anchoring', null, sense, moreSilence, reason, early ? 'gentle start' : 'stay gentle');
-    }
-    const skill = want>=0.78 ? 'pendulation' : (L.favSkill || 'imagery');
-    let reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
-    if(want>=0.78) reason = "you have safety, and you asked for more challenge. let's use that capacity to connect with non-safety.";
-    else if(L.sessionsDone>=3 && L.favPractice==='most') reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
-    return cfg('most', skill, sense, want>=0.78?4:(L.endsEarlyOften?8:6), reason, 'room to go deeper');
 
-    function cfg(practiceKey, skill, sense, silence, reason, tag){
-      const pSil = prefSilence();
-      let sil = (pSil!=null?pSil:silence);
-      // fold in what the last early exit told us, and say so plainly
-      if(L.lastExit==='exit-distracted'){ sil = Math.min(sil, 4); reason += " shorter silences this time, so it's easier to stay with."; }
-      else if(L.lastExit==='exit-hard'){ reason += " last one was a lot, so we're keeping this one easier."; }
-      else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
-      return { practiceKey, skill, sense, silence: sil, reason, tag,
-               adapted: (L.sessionsDone>0 || L.challengeN>0), domBefore: last?last.dom:null, challenge: want };
-    }
-  }
-
-  // ---- Safety Spectrum (Justin's model, 2026-07-03) ---------------------------
-  // Baseline = predictable safety activation over weeks (Point 1 minimal, 2 mild,
-  // 3 moderate, 4 strong), estimated from history. Moment = the current check-in,
-  // which slides the working point up or down. The working point sets the practice
-  // ceiling; the state only flavors the session.
-  // Matrix: App Designer/Reader-Rework/practice-decision-matrix.md.
   // ---- §7.4–7.5 tier model (connection-vs-defense, absolute levels) ----------
   // GUARDRAIL (Justin 2026-07-27): the tier gates read safety (avgV) and defense
-  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never avgSafetyLead. A positive
-  // margin on low absolute safety must not unlock a tier.
+  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never any margin/lead quantity.
+  // A positive margin on low absolute safety must not unlock a tier.
   function _byDay(cs){ const m={}; cs.forEach(c=>{ const k=new Date(c.t).toDateString(); (m[k]=m[k]||[]).push(c); }); return m; }
   // Consistency (§7.5, window resolved §7.6): a stable FLOOR that holds through
   // variance — NOT low variance. Parameterized by the floor level being tested.
@@ -1620,10 +1542,10 @@
   // no self-reg skill today — if either defense axis is very hot, or the freeze
   // quadrant (both axes up). Targets the quadrant, not a sum.
   function momentGate(last){
-    if(!last) return { open:false, hot:false };
+    if(!last) return { open:false };
     const s = last.sym, d = last.dor;
     const closed = s >= 0.75 || d >= 0.75 || (s >= 0.40 && d >= 0.40);
-    return { open:!closed, hot:closed, sym:s, dor:d };
+    return { open:!closed };
   }
   // The ceiling tier the WEEK earns (§7.5). Week gates the ceiling; the moment gate
   // (above) gates whether any of it is offered TODAY. `cleared` is rungs().cleared.
@@ -1635,38 +1557,6 @@
     if(s >= 0.45 && d <= 0.60 && cleared && cleared.validate && cleared.imagery) return 2;
     if(s >= 0.40) return 1;
     return 0;
-  }
-
-  function spectrum(){
-    const now = Date.now();
-    const st = periodStats(now - 28*864e5, now);
-    const L = learned();
-    const last = lastCheckin();
-    let baseline = 2, confidence = 'low';                 // thin data: benefit of the doubt, gentle default
-    if(st && st.n >= 8){
-      confidence = 'ok';
-      const pe = practiceEffect(), rec = recovery();
-      // v2: rated session outcomes (after-feeling / moved-up) join practiceEffect
-      // and recovery as Point-3 evidence — the Baseline now reads what the person
-      // REPORTED, not only what the next check-in implied.
-      const oc = _overallOutcomes();
-      const outcomesGood = oc.rated >= 4 && (oc.good / oc.rated) >= 0.5;
-      baseline = 1;
-      if(st.regShare >= 0.25) baseline = 2;
-      if(st.regShare >= 0.5 && L.sessionsDone >= 3 && (rec != null || (pe && pe.rate >= 0.5) || outcomesGood)) baseline = 3;
-      if(st.regShare >= 0.75 && L.sessionsDone >= 8) baseline = 4;
-    }
-    let working = baseline, lifted = false;
-    if(last){
-      if(_REG[last.dom] && last.v >= 0.6){ working = Math.min(4, baseline + 1); lifted = working > baseline; } // strong safety Moment
-      else if(_DYS[last.dom] && last.v <= 0.25) working = Math.max(1, baseline - 1);   // deep defense Moment
-    }
-    // daypart dampener (Justin 2026-07-06): in an hour that historically runs low
-    // on safety, the Moment's +1 lift is withheld — today's ceiling sits at the
-    // Baseline in their thin hours. Never pushes below what the check-in reports.
-    const dpLow = daypartLow();
-    if(dpLow && lifted){ working = baseline; lifted = false; }
-    return { baseline, working, moment: last ? { dom:last.dom, v:last.v } : null, confidence, daypartLow: dpLow };
   }
 
   // ---- recommender (Safety Spectrum model, 2026-07-03) ------------------------
@@ -1687,7 +1577,10 @@
       return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
         'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
     }
-    const dom = last.dom;
+    // derived, not the stored name (B1, 2026-08-22): a pre-rework row keeps its old
+    // label in the cloud but is READ by today's rule — matters for someone returning
+    // after a gap whose most recent check-in predates the rework.
+    const dom = _dm(last);
     const dys = _DYS[dom];
     const sense = prefSense() || L.favSense || 'touch';
     const sil = L.endsEarlyOften ? 12 : 8;
@@ -1713,7 +1606,6 @@
     // guardrail), capped by whichever skills the rung ladder has cleared.
     const rg = rungs();
     ceiling = skillCeiling(bw, rg.cleared);
-    const dpNote = '';   // daypart dampener retired: the week + moment gates set the ceiling now
 
     // ceiling 0 (safety below the 40% week floor), or a falling trend: anchor into safety and
     // let that be enough today (Scheme A band 2 — rebuild before reaching further).
@@ -1755,7 +1647,7 @@
       if(dn){ skill = dn; droppedRung = true; } else leftTrack = true;
     }
     if(leftTrack){
-      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. the ladder will be right where you left it." + dpNote;
+      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. the ladder will be right where you left it.";
       return cfg('anchoring', null, sense, 12, reason, 'a gentler practice');
     }
     // (pendulation no longer gated on appetite — the tier ceiling + the cap above are what
@@ -1802,7 +1694,6 @@
     } else {
       reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
     }
-    reason += dpNote;
     // silence: the 0.55-appetite 4s default is re-sourced to the deepest tier (ceiling 3).
     const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
     return cfg('most', skill, sense, sil3, reason, dialDown ? 'same rung, smaller dose' : droppedRung ? 'one step easier' : 'room to go deeper',
@@ -1815,7 +1706,7 @@
       else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedRung))){ reason += " last one was a lot, so we're keeping this one easier."; }
       else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
       return Object.assign({ practiceKey, skill, sense, silence: sil2, reason, tag,
-               adapted: (L.sessionsDone>0), domBefore: last?last.dom:null, challenge: null,
+               adapted: (L.sessionsDone>0), domBefore: last?_dm(last):null, challenge: null,
                descDefense: false, holdWatch: false, holdWatchTargetSeconds: null,
                tier: { ceiling, safety: bw.lowData?null:bw.safety, defense: bw.lowData?null:bw.defense,
                        consistent: !!bw.consistent50, gateOpen: !!gate.open } }, extras || {});
@@ -1825,19 +1716,8 @@
   const _SKILL_WORD = { validate:'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
   function _skillWord(k){ return _SKILL_WORD[k] || k; }
 
-  // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
-  const CHALLENGE_LEVELS = [
-    { v:0.12, key:'settle',  label:'simple mindfulness' },
-    { v:0.40, key:'gentle',  label:'safety-focused' },
-    { v:0.65, key:'meet',    label:'beginner defense' },
-    { v:0.90, key:'stretch', label:'advanced defense' },
-  ];
-  function challengeLabel(v){
-    if(v==null||isNaN(v)) return null;
-    let b=CHALLENGE_LEVELS[0];
-    for(const l of CHALLENGE_LEVELS){ if(Math.abs(l.v-v)<Math.abs(b.v-v)) b=l; }
-    return b.label;
-  }
+  // (CHALLENGE_LEVELS + challengeLabel moved up beside _PRACTICE_RUNG, 2026-08-22 —
+  // one vocabulary, one source, see the comment there.)
   // post-practice: stamp how the body felt afterward onto the last session
   // Stamp fields onto an already-logged session and get them to the cloud. Mirrors
   // updateCheckin's outbox-aware pattern: if the INSERT is still queued, edit it in place
@@ -1891,12 +1771,8 @@
     _stampSession(s.t, { emotionSurfaced:v }, { emotion_surfaced:v }); }
 
   // ---- reader bridge + signals (recommender-v2 data -> the reader) ------------
-  // emotion group -> the state it's evidence of. Reader-only: capture stays plain,
-  // and the math NEVER scores this (more-safety is the only scored outcome). Group
-  // grain — the user picks a family, never a specific feeling. Grouping is from our
-  // internal SSIEC (rage->fear, regret->sad); the name "SSIEC" is never user-facing.
-  const EMOTION_STATE = { anxious:'fightflight', angry:'fightflight', sad:'shutdown', fear:'freeze', connected:'safety' };
-  function emotionStateOf(key){ return EMOTION_STATE[key] || null; }
+  // (the exported emotion→state bridge map was removed 2026-08-22 — no callers;
+  // from-justin.js carries its own copy of that grouping for reader copy.)
   // emotionShift(session): per-session beat for the daily reader. Reports the family
   // they set out to work with (intent) and the families they named afterward
   // (surfaced) — both facts THEY gave. diverged = intent set and not among surfaced.
@@ -1915,8 +1791,8 @@
   // feeling. TWO args = explicit window (used by minted period reflections, so a closed
   // month/quarter/year computes over THAT span and can freeze). <=1 arg = rolling last-N-
   // days (default 28) for the live weekly/monthly reader. families = share of naming-
-  // sessions each group surfaced in (percentages, never X-of-N). alignRate = share where
-  // intent landed among surfaced. connectedPct = share where connected surfaced. topFamily
+  // sessions each group surfaced in (percentages, never X-of-N). connectedPct = share
+  // where connected surfaced. topFamily
   // = most-surfaced group (ties broken by EMOTION_SURFACED order, deterministic). When
   // n>=6, `shift` compares the window's first third vs last third (for the "what surfaces
   // changed over the span" period beat). Gated at >=4 naming-sessions. Reported, NEVER
@@ -1938,8 +1814,6 @@
     const { fam, conn } = tally(ss);
     const families = {}; Object.keys(fam).forEach(k => { if(fam[k]) families[k] = Math.round(fam[k]/n*100); });
     const topFamily = topOf(ss);
-    const withIntent = ss.filter(s => s.emotionIntent);
-    let aligned=0; withIntent.forEach(s => { if(setsOf(s).indexOf(s.emotionIntent)>=0) aligned++; });
     let shift = null;
     if(n >= 6){
       const third = Math.max(1, Math.floor(n/3));
@@ -1948,9 +1822,7 @@
                 connectedFirstPct: Math.round(tally(first).conn/first.length*100),
                 connectedLastPct: Math.round(tally(last).conn/last.length*100) };
     }
-    return { n, families, topFamily,
-             alignRate: withIntent.length ? aligned/withIntent.length : null, alignN: withIntent.length,
-             connectedPct: Math.round(conn/n*100), shift };
+    return { n, families, topFamily, connectedPct: Math.round(conn/n*100), shift };
   }
   // rungMovement(startMs, endMs): the self-regulation skill practiced at the window's
   // start vs its end (from 'most' sessions with a skill inside the window). Powers the
@@ -1968,7 +1840,10 @@
              moved: from!==to, advanced: (fi>=0 && ti>=0) ? ti>fi : null, n: ms.length };
   }
 
-  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
+  // 'more' matches practiceLabelFor + _PRACTICE_RUNG ('guided meditation') — before
+  // 2026-08-22 it was missing here, so the first completed meditation would have
+  // rendered the literal key "more" in practice history and the "You return to" line.
+  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation', more:'guided meditation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
 
   // ---- name ----
@@ -1979,10 +1854,6 @@
   function prefSense(){ try{ return localStorage.getItem('snb_pref_sense')||null; }catch(e){ return null; } }
   function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
   function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
-  // a small named-preference bag, mirrored into the cloud preferences row. Used by the
-  // member onboarding's `oriented` flag so it survives a new device (item 114).
-  function setPref(k,v){ try{ localStorage.setItem('snb_pref_'+k, String(v)); }catch(e){} }
-  function getPref(k){ try{ return localStorage.getItem('snb_pref_'+k)||''; }catch(e){ return ''; } }
   function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
   // default sense/silence also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
@@ -1998,12 +1869,57 @@
   }
 
   // ---- contexts (answerable prompt chips, 2026-07-04) ------------------------
-  // localStorage 'snb-contexts' is the write-through cache (app.js renders from it);
-  // rows upsert to public.contexts keyed (user_id, period_key) so the data follows
-  // the account and feeds the analytics mirror. Fire-and-forget, like membership.
-  const CTX_LS = 'snb-contexts';
-  function _ctxAll(){ try{ return JSON.parse(localStorage.getItem(CTX_LS))||{}; }catch(e){ return {}; } }
-  function _ctxWrite(m){ try{ localStorage.setItem(CTX_LS, JSON.stringify(m)); }catch(e){} }
+  // The localStorage cache app.js renders from; rows upsert to public.contexts keyed
+  // (user_id, period_key) so the data follows the account and feeds the analytics
+  // mirror. Fire-and-forget, like membership.
+  // PER-USER since 2026-08-22: the old shared 'snb-contexts' blob was the one store
+  // cache not namespaced by user id, and its dash prefix escaped the deleteAccount
+  // purge — on a shared device migrateContexts() could lift one person's answers into
+  // the next person's cloud rows. Now keyed like every other cache (snb_ctx_<uid>).
+  // The legacy shared blob is adopted into the signed-in user's key on first read —
+  // unless the legacy migration flag names a DIFFERENT uid: then it is that person's
+  // data and is left alone (their own deleteAccount purge now removes it).
+  const CTX_LEGACY = 'snb-contexts', CTX_FLAG_LEGACY = 'snb-ctx-migrated';
+  // Adopt the unowned legacy blob only when the device shows no sign of a DIFFERENT
+  // person: any user-scoped store key for another uid (their cache, mints, name…)
+  // means the blob may be theirs — leave it. Guest traces ('anon') never block:
+  // guest-then-sign-up is exactly the path adoption exists for. A previous user who
+  // deleted their account leaves no trace — and no blob either (the purge removes
+  // both prefixes), so that case is clean without this check.
+  function _ctxOtherUserTrace(uid){
+    try{
+      const pres = ['snb_cache_','snb_mint_','snb_name_','snb_ent_checked_','snb_billing_',
+                    'snb_deleted_sessions_','snb_deleted_checkins_','snb_pending_checkin_edits_',
+                    'snb_ctx_migrated_','snb_ctx_','snb_oriented_'];
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i)||'';
+        for(const p of pres){
+          if(k.indexOf(p)===0){ const id=k.slice(p.length); if(id && id!=='anon' && id!==uid) return true; break; }
+        }
+      }
+    }catch(e){}
+    return false;
+  }
+  function _ctxKey(){ return 'snb_ctx_' + (auth.user ? auth.user.id : 'anon'); }
+  function _ctxFlagKey(){ return 'snb_ctx_migrated_' + (auth.user ? auth.user.id : 'anon'); }
+  function _ctxAdoptLegacy(cur){
+    try{
+      const legacy = JSON.parse(localStorage.getItem(CTX_LEGACY) || 'null');
+      if(!legacy || typeof legacy !== 'object') return cur;
+      const owner = localStorage.getItem(CTX_FLAG_LEGACY);          // uid that lifted the legacy blob, if any
+      if(!auth.user) return Object.assign({}, legacy, cur);         // signed out: read-through only, adopt nothing
+      if(owner && owner !== auth.user.id) return cur;               // someone else's data — leave it be
+      if(!owner && _ctxOtherUserTrace(auth.user.id)) return cur;    // unowned blob + another person's traces — leave it
+      Object.keys(legacy).forEach(k => { if(!(k in cur)) cur[k] = legacy[k]; });
+      localStorage.setItem(_ctxKey(), JSON.stringify(cur));
+      if(owner === auth.user.id) localStorage.setItem(_ctxFlagKey(), '1');   // carry the already-migrated marker over
+      localStorage.removeItem(CTX_LEGACY);
+      localStorage.removeItem(CTX_FLAG_LEGACY);
+      return cur;
+    }catch(e){ return cur; }
+  }
+  function _ctxAll(){ try{ return _ctxAdoptLegacy(JSON.parse(localStorage.getItem(_ctxKey()))||{}); }catch(e){ return {}; } }
+  function _ctxWrite(m){ try{ localStorage.setItem(_ctxKey(), JSON.stringify(m)); }catch(e){} }
   function saveContexts(periodKey, question, labels){
     labels = (labels||[]).slice();
     const m=_ctxAll(); m[periodKey]=labels; _ctxWrite(m);
@@ -2025,17 +1941,17 @@
       if(changed) _ctxWrite(m);
     }catch(e){}
   }
-  // one-time: lift any pre-cloud local answers up (never overwrites cloud rows)
+  // one-time per user: lift any pre-cloud local answers up (never overwrites cloud rows)
   function migrateContexts(){
     if(!CLOUD || !auth.user) return;
     try{
-      const flag='snb-ctx-migrated';
-      if(localStorage.getItem(flag)===auth.user.id) return;
+      const flag=_ctxFlagKey();
+      if(localStorage.getItem(flag)) return;
       const m=_ctxAll(), keys=Object.keys(m);
-      if(!keys.length){ localStorage.setItem(flag, auth.user.id); return; }
+      if(!keys.length){ localStorage.setItem(flag, '1'); return; }
       const rows=keys.map(k=>({ user_id:auth.user.id, period_key:k, labels:m[k]||[] }));
       sb.from('contexts').upsert(rows, { onConflict:'user_id,period_key', ignoreDuplicates:true })
-        .then(function(){ try{ localStorage.setItem(flag, auth.user.id); }catch(e){} }, function(){});
+        .then(function(){ try{ localStorage.setItem(flag, '1'); }catch(e){} }, function(){});
     }catch(e){}
   }
 
@@ -2045,15 +1961,15 @@
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
-    learned, trend, transitions, timeOfDay, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, spectrum, practiceLabel, reset, getName, setName,
+    learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
     rungs, rungStory, rungMovement, skillDesc, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
-    emotionShift, emotionPatterns, emotionStateOf, EMOTION_STATE,
+    emotionShift, emotionPatterns,
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
-    hasAccess, isPaid, hydrated, entitlement, billing, isCohort, startCheckout, startTrial, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
-    trackEvent, flushEvents, src, SRC_ALLOW, setPref, getPref,
+    isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    trackEvent, flushEvents, src, SRC_ALLOW,
     liveFetch, livePoll,
   };
 })(window);
