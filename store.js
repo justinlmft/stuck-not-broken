@@ -824,10 +824,12 @@
 
   // ---- check-ins ----
   function addCheckin(c){
-    // explicit state key wins over the inferred one. 'neutral' is accepted too
-    // (2026-07-06): an all-untouched midpoint save counts as "settling", never
-    // the 50/50/50 tie-break's accidental stillness.
-    const dom = (c.dom && (c.dom==='neutral' || PVCurrent.STATES[c.dom])) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // 'neutral' is the ONLY explicit key accepted (2026-08-22; was any valid state
+    // name — a branch nothing ever exercised): an all-untouched midpoint save counts
+    // as "settling", a user signal, not a classification (2026-07-06). Every state
+    // NAME derives from the circuit values — one rule for all history (B1), and no
+    // future caller can quietly reopen the stored-vs-derived split.
+    const dom = (c.dom==='neutral') ? { key:'neutral' } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
     // time and fed to the recommender. Synced to the cloud `challenge` column via checkinToRow.
     const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:dom.key,
@@ -852,8 +854,14 @@
     const i = data.checkins.findIndex(x=>x.t===t);
     if(i<0) return null;
     const old = data.checkins[i];
-    // expert override: an explicit, valid state key wins over the inferred one
-    const dom = (c.dom && PVCurrent.STATES[c.dom]) ? { key: c.dom } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // 'neutral' is the only explicit key accepted (matching addCheckin). And an edit
+    // that leaves a "settling" row's sliders exactly where they were KEEPS 'neutral' —
+    // recomputing would put a state name in the person's mouth they never reported
+    // (pre-2026-08-22 a no-change Save on a neutral row silently renamed it: an
+    // all-midpoint row came back "safety, with some freeze"). Moving any slider is a
+    // real report and takes on a derived name.
+    const untouched = old.dom==='neutral' && c.v===old.v && c.sym===old.sym && c.dor===old.dor;
+    const dom = (c.dom==='neutral' || untouched) ? { key:'neutral' } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
     const rec = Object.assign({}, old, { v:c.v, sym:c.sym, dor:c.dor, dom:dom.key,
                 challenge:(typeof c.challenge==='number'?c.challenge:old.challenge) });
     data.checkins[i] = rec;
@@ -988,10 +996,11 @@
     // classify the classifications (Justin 2026-07-06): the trend state is the
     // MODAL dom of the window, ties broken by recency — never a classification
     // of averaged axes (fight↔shutdown oscillation could average into a
-    // "freeze" the person never once reported).
-    const cnt={}; cs.forEach(c=>{ if(c.dom && c.dom!=='neutral') cnt[c.dom]=(cnt[c.dom]||0)+1; });
+    // "freeze" the person never once reported). Each row's dom is DERIVED per
+    // read (_dm — B1, 2026-08-22): one naming rule covers all history.
+    const cnt={}; cs.forEach(c=>{ const k=_dm(c); if(k && k!=='neutral') cnt[k]=(cnt[k]||0)+1; });
     let dk=null;
-    for(let i=cs.length-1;i>=0;i--){ const k=cs[i].dom; if(!k||k==='neutral') continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
+    for(let i=cs.length-1;i>=0;i--){ const k=_dm(cs[i]); if(!k||k==='neutral') continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
     const dom = dk
       ? { key:dk, name:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].name)||dk, color:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].color)||null }
       : PVCurrent.dominantOf(v,sym,dor);
@@ -1007,12 +1016,13 @@
   // ---- transitions: the state-change the person tends to make most ----
   // Returns the most common ordered pair of consecutive, DIFFERENT dominant states
   // across their check-in history, or null until there's enough of a pattern to claim.
+  // States are derived per row (_dm — B1, 2026-08-22), never read from the stored name.
   function transitions(){
     const cs = data.checkins;
     if(cs.length < 6) return null;                              // not enough history to claim a shape
     const pairs = {}; let total = 0;
     for(let i=1;i<cs.length;i++){
-      const a=cs[i-1].dom, b=cs[i].dom;
+      const a=_dm(cs[i-1]), b=_dm(cs[i]);
       if(!a||!b||a===b||a==='neutral'||b==='neutral') continue; // only real state changes count
       const k=a+'>'+b; pairs[k]=(pairs[k]||0)+1; total++;
     }
@@ -1092,11 +1102,13 @@
     const cnt = {}; cs.forEach(c => { const k=_dm(c); cnt[k] = (cnt[k]||0) + 1; });
     const order = Object.keys(cnt).sort((a,b) => cnt[b]-cnt[a]);
     const dom = order[0], second = order[1] || null;
-    let reg=0, dys=0; cs.forEach(c => { if(_isReg(c)) reg++; else dys++; });
+    // only readable rows vote: a null margin (no v) is no reading at all, never a
+    // defense-side count (2026-08-22). regShare is over readable rows for the same reason.
+    let reg=0, dys=0; cs.forEach(c => { const m=_mgn(c); if(m==null) return; if(m>=0) reg++; else dys++; });
     const lean = reg>dys ? 'regulated' : dys>reg ? 'dysregulated' : 'even';
     return { n, dom, domShare:Math.round(cnt[dom]/n*100), second,
              secondShare: second ? Math.round(cnt[second]/n*100) : 0,
-             reg, dys, regShare:Math.round(reg/n*100), lean, distinct:order.length,
+             reg, dys, regShare:Math.round(reg/Math.max(1,reg+dys)*100), lean, distinct:order.length,
              defenseStates: order.filter(d => _DYS[d]) };       // actual non-safety states present, by frequency
   }
 
@@ -1107,11 +1119,16 @@
     if(cs.length < 12) return null;
     const gaps = [], depths = []; let i = 0;
     while(i < cs.length){
-      if(!_isReg(cs[i])){                                   // margin went under: load exceeds capacity
+      const mi = _mgn(cs[i]);
+      if(mi == null){ i++; continue; }                       // unreadable row: no reading, never a dip (2026-08-22)
+      if(mi < 0){                                           // margin went under: load exceeds capacity
         let j = i, steps = 0, found = false, low = 0;
         while(j < cs.length){
-          const m = _mgn(cs[j]); if(m != null && m < low) low = m;
-          if(_isReg(cs[j])){ found = true; break; } j++; steps++;
+          const m = _mgn(cs[j]);
+          if(m == null){ j++; continue; }                    // unreadable rows neither extend nor end the dip
+          if(m < low) low = m;
+          if(m >= 0){ found = true; break; }
+          j++; steps++;
         }
         if(found){ gaps.push(steps); depths.push(low); }     // check-ins under the line, and how far under
         i = j;
@@ -1406,8 +1423,11 @@
     const order = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
     const dist={}; order.forEach(k=>dist[k]=Math.round(cnt[k]/n*100));
     const dom = order[0], second = order[1] || null;
-    let reg=0; cs.forEach(c=>{ if(_isReg(c)) reg++; });   // margin >= 0, not a name bucket
-    const regShare = reg/n, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
+    // margin >= 0, not a name bucket — and only readable rows vote: a null margin
+    // (no v) is no reading at all, never a defense-side count (2026-08-22).
+    let reg=0, dysN=0; cs.forEach(c=>{ const m=_mgn(c); if(m==null) return; if(m>=0) reg++; else dysN++; });
+    const nRead = reg+dysN;
+    const regShare = nRead ? reg/nRead : 0, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
     const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
     // Baseline inputs. avgDef = the louder defense axis, averaged (the §7.5 tier
     // ceilings read avgV and avgDef as two independent ABSOLUTE numbers). meanMargin =
@@ -1429,7 +1449,7 @@
     const domOf = arr => { const c2={}; arr.forEach(x=>{ const k=_dm(x); c2[k]=(c2[k]||0)+1; }); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
     return {
       n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
-      reg, dys:n-reg, regShare, lean, avgV, avgDef, meanMargin, sdV,
+      reg, dys:dysN, regShare, lean, avgV, avgDef, meanMargin, sdV,
       firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
       bestDow, defenseStates: order.filter(d=>_DYS[d])
     };
@@ -1557,7 +1577,10 @@
       return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
         'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
     }
-    const dom = last.dom;
+    // derived, not the stored name (B1, 2026-08-22): a pre-rework row keeps its old
+    // label in the cloud but is READ by today's rule — matters for someone returning
+    // after a gap whose most recent check-in predates the rework.
+    const dom = _dm(last);
     const dys = _DYS[dom];
     const sense = prefSense() || L.favSense || 'touch';
     const sil = L.endsEarlyOften ? 12 : 8;
@@ -1683,7 +1706,7 @@
       else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedRung))){ reason += " last one was a lot, so we're keeping this one easier."; }
       else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
       return Object.assign({ practiceKey, skill, sense, silence: sil2, reason, tag,
-               adapted: (L.sessionsDone>0), domBefore: last?last.dom:null, challenge: null,
+               adapted: (L.sessionsDone>0), domBefore: last?_dm(last):null, challenge: null,
                descDefense: false, holdWatch: false, holdWatchTargetSeconds: null,
                tier: { ceiling, safety: bw.lowData?null:bw.safety, defense: bw.lowData?null:bw.defense,
                        consistent: !!bw.consistent50, gateOpen: !!gate.open } }, extras || {});
