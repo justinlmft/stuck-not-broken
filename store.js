@@ -790,7 +790,8 @@
         }
       }
       await signOut();   // clears in-memory data; server session is already gone
-      try{ Object.keys(localStorage).filter(k=>k.indexOf('snb_')===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+      // both prefixes: current keys are snb_ (underscore); pre-2026-08-22 context keys were snb- (dash)
+      try{ Object.keys(localStorage).filter(k=>k.indexOf('snb_')===0 || k.indexOf('snb-')===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
       return {};
     }catch(e){ return { error:String((e&&e.message)||e) }; }
   }
@@ -1998,12 +1999,36 @@
   }
 
   // ---- contexts (answerable prompt chips, 2026-07-04) ------------------------
-  // localStorage 'snb-contexts' is the write-through cache (app.js renders from it);
-  // rows upsert to public.contexts keyed (user_id, period_key) so the data follows
-  // the account and feeds the analytics mirror. Fire-and-forget, like membership.
-  const CTX_LS = 'snb-contexts';
-  function _ctxAll(){ try{ return JSON.parse(localStorage.getItem(CTX_LS))||{}; }catch(e){ return {}; } }
-  function _ctxWrite(m){ try{ localStorage.setItem(CTX_LS, JSON.stringify(m)); }catch(e){} }
+  // The localStorage cache app.js renders from; rows upsert to public.contexts keyed
+  // (user_id, period_key) so the data follows the account and feeds the analytics
+  // mirror. Fire-and-forget, like membership.
+  // PER-USER since 2026-08-22: the old shared 'snb-contexts' blob was the one store
+  // cache not namespaced by user id, and its dash prefix escaped the deleteAccount
+  // purge — on a shared device migrateContexts() could lift one person's answers into
+  // the next person's cloud rows. Now keyed like every other cache (snb_ctx_<uid>).
+  // The legacy shared blob is adopted into the signed-in user's key on first read —
+  // unless the legacy migration flag names a DIFFERENT uid: then it is that person's
+  // data and is left alone (their own deleteAccount purge now removes it).
+  const CTX_LEGACY = 'snb-contexts', CTX_FLAG_LEGACY = 'snb-ctx-migrated';
+  function _ctxKey(){ return 'snb_ctx_' + (auth.user ? auth.user.id : 'anon'); }
+  function _ctxFlagKey(){ return 'snb_ctx_migrated_' + (auth.user ? auth.user.id : 'anon'); }
+  function _ctxAdoptLegacy(cur){
+    try{
+      const legacy = JSON.parse(localStorage.getItem(CTX_LEGACY) || 'null');
+      if(!legacy || typeof legacy !== 'object') return cur;
+      const owner = localStorage.getItem(CTX_FLAG_LEGACY);          // uid that lifted the legacy blob, if any
+      if(!auth.user) return Object.assign({}, legacy, cur);         // signed out: read-through only, adopt nothing
+      if(owner && owner !== auth.user.id) return cur;               // someone else's data — leave it be
+      Object.keys(legacy).forEach(k => { if(!(k in cur)) cur[k] = legacy[k]; });
+      localStorage.setItem(_ctxKey(), JSON.stringify(cur));
+      if(owner === auth.user.id) localStorage.setItem(_ctxFlagKey(), '1');   // carry the already-migrated marker over
+      localStorage.removeItem(CTX_LEGACY);
+      localStorage.removeItem(CTX_FLAG_LEGACY);
+      return cur;
+    }catch(e){ return cur; }
+  }
+  function _ctxAll(){ try{ return _ctxAdoptLegacy(JSON.parse(localStorage.getItem(_ctxKey()))||{}); }catch(e){ return {}; } }
+  function _ctxWrite(m){ try{ localStorage.setItem(_ctxKey(), JSON.stringify(m)); }catch(e){} }
   function saveContexts(periodKey, question, labels){
     labels = (labels||[]).slice();
     const m=_ctxAll(); m[periodKey]=labels; _ctxWrite(m);
@@ -2025,17 +2050,17 @@
       if(changed) _ctxWrite(m);
     }catch(e){}
   }
-  // one-time: lift any pre-cloud local answers up (never overwrites cloud rows)
+  // one-time per user: lift any pre-cloud local answers up (never overwrites cloud rows)
   function migrateContexts(){
     if(!CLOUD || !auth.user) return;
     try{
-      const flag='snb-ctx-migrated';
-      if(localStorage.getItem(flag)===auth.user.id) return;
+      const flag=_ctxFlagKey();
+      if(localStorage.getItem(flag)) return;
       const m=_ctxAll(), keys=Object.keys(m);
-      if(!keys.length){ localStorage.setItem(flag, auth.user.id); return; }
+      if(!keys.length){ localStorage.setItem(flag, '1'); return; }
       const rows=keys.map(k=>({ user_id:auth.user.id, period_key:k, labels:m[k]||[] }));
       sb.from('contexts').upsert(rows, { onConflict:'user_id,period_key', ignoreDuplicates:true })
-        .then(function(){ try{ localStorage.setItem(flag, auth.user.id); }catch(e){} }, function(){});
+        .then(function(){ try{ localStorage.setItem(flag, '1'); }catch(e){} }, function(){});
     }catch(e){}
   }
 

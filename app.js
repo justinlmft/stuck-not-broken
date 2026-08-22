@@ -2738,8 +2738,11 @@ function app(tab){
   // section, multi-select, skippable. LOCAL-ONLY for now — cloud column waits for
   // the next Supabase round (do not sync from here).
   const CTX_OPTS = ['work','family','friends','partner','hobbies','spiritual','nature','body & movement','rest','practice','something else']; // 🖊
-  function _ctxLoad(){ try{ return JSON.parse(localStorage.getItem('snb-contexts'))||{}; }catch(e){ return {}; } }
-  function _ctxSave(m){ try{ localStorage.setItem('snb-contexts', JSON.stringify(m)); }catch(e){} }
+  // same per-user key store.js owns (2026-08-22; was the shared 'snb-contexts' blob —
+  // store.js adopts that legacy blob into the signed-in user's key on first read)
+  function _ctxLsKey(){ try{ return 'snb_ctx_' + ((Store.user()&&Store.user().id)||'anon'); }catch(e){ return 'snb_ctx_anon'; } }
+  function _ctxLoad(){ try{ return JSON.parse(localStorage.getItem(_ctxLsKey()))||{}; }catch(e){ return {}; } }
+  function _ctxSave(m){ try{ localStorage.setItem(_ctxLsKey(), JSON.stringify(m)); }catch(e){} }
   function _ctxChipsHTML(q, key){
     const sel = _ctxLoad()[key]||[];
     return `<div class="wr-ctx" data-key="${escapeHtml(key)}">
