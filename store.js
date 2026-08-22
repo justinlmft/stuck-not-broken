@@ -137,15 +137,16 @@
   function notify(){ try{ onChange && onChange(); }catch(e){} }
   function setSync(state, error){
     sync.state = state;
-    sync.error = error || null;
+    sync.error = error || null;   // diagnostic only — nothing reads it yet (syncStatus exposes state+pending; the toast keys off state)
     sync.pending = outbox.checkins.length + outbox.sessions.length;
     renderSyncToast();
   }
 
-  // union check-in / session lists by timestamp. Later args win on shared
-  // fields (cloud is authoritative for v/sym/dor/dom/...), but local-only fields
-  // (e.g. `challenge`, which has no cloud column yet) are preserved. This is what
-  // keeps an un-synced check-in visible instead of being wiped by a cloud read.
+  // union check-in / session lists by timestamp. Later args win on shared fields
+  // (cloud is authoritative for v/sym/dor/dom/...), while any field the cloud row
+  // doesn't carry survives the merge. This is what keeps an un-synced check-in
+  // visible instead of being wiped by a cloud read. (`challenge` was once the
+  // local-only example here — it has had a cloud column since 2026-07.)
   function unionByT(...lists){
     const m = new Map();
     for(const list of lists){ if(!list) continue; for(const r of list){ if(r && r.t!=null){ m.set(r.t, Object.assign({}, m.get(r.t), r)); } } }
@@ -643,16 +644,16 @@
         sb.from('checkins').select('*').order('t', { ascending:true }),
         sb.from('sessions').select('*').order('t', { ascending:true }),
       ]);
-      let changed = false;
+      let fetched = false;   // a cloud read succeeded — no diffing, so notify() runs after every good hydrate
       // MERGE (union by t), never overwrite: local + still-queued outbox + cloud.
       // An un-synced check-in stays visible and is never lost to a cloud read.
-      if(!cs.error){ data.checkins = unionByT(data.checkins, outbox.checkins, (cs.data||[]).map(rowToCheckin)); changed = true; }
-      if(!ss.error){ data.sessions = unionByT(data.sessions, outbox.sessions, (ss.data||[]).map(rowToSession)); changed = true; }
+      if(!cs.error){ data.checkins = unionByT(data.checkins, outbox.checkins, (cs.data||[]).map(rowToCheckin)); fetched = true; }
+      if(!ss.error){ data.sessions = unionByT(data.sessions, outbox.sessions, (ss.data||[]).map(rowToSession)); fetched = true; }
       _reconcile();                                    // re-apply deletions + edits over whatever the cloud just merged back
       saveCache();
       setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', (cs.error||ss.error)||null);
       _hydratedFor = auth.user && auth.user.id;      // cloud read done for THIS user — orientation may now decide
-      if(changed) notify();                          // re-render once fresh data lands (post-init / post-refresh)
+      if(fetched) notify();                          // re-render once fresh data lands (post-init / post-refresh)
       migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
 
     }catch(e){ _hydratedFor = auth.user && auth.user.id; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
@@ -975,6 +976,10 @@
   }
 
   // ---- trend ----
+  // Still measures v (connection) while the rest of the progress story runs on the
+  // margin (2026-08-16 rework) — migrating trend()/dayArc() onto margin changes what
+  // the app tells people about their own progress, so it is DEFERRED to its own pass
+  // with Justin's eyes on the copy.
   function trend(){
     const cs = data.checkins.slice(-5);
     if(!cs.length) return null;
@@ -991,6 +996,10 @@
       ? { key:dk, name:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].name)||dk, color:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].color)||null }
       : PVCurrent.dominantOf(v,sym,dor);
     let dir='steady';
+    // ±0.12 is a v-scale band (connection, 0..1). baselineDelta's ±0.05 is a
+    // margin-scale band — a different scale. The four movement thresholds in this
+    // file (0.12 here, 0.08/0.04 in dayArc, 0.05 in baselineDelta) are NOT a set
+    // and must not be "harmonized".
     if(cs.length>=2){ const d=cs[cs.length-1].v - cs[0].v; dir = d>0.12?'rising':d<-0.12?'falling':'steady'; }
     return { v, sym, dor, dom, dir, n:cs.length };
   }
@@ -1148,7 +1157,8 @@
     if(total < 6) return null;
     let moved=0, sum=0;
     pairs.forEach(p => { sum += p.dAfter; if(p.dAfter > 0) moved++; });
-    // rate kept for existing callers; mean is the measure that carries the information
+    // rate is what every current caller reads; mean (the average margin delta) is
+    // STAGED for the reader — computed and returned, no consumer yet (2026-08-22)
     return { moved, total, rate: moved/total, mean: sum/total };
   }
 
@@ -1353,6 +1363,8 @@
   // system. Returns that day's check-ins in order, within-day direction (by
   // safety/ventral), that day's sessions, and any practice deltas (a session
   // sitting between two reads). From moment one. `today()` is dayArc of today.
+  // Like trend(), still measures v while the progress story runs on margin —
+  // migration deferred (see the trend() note).
   function dayArc(t0){
     const tEnd = t0 + 864e5;
     const moments = data.checkins
@@ -1363,6 +1375,8 @@
       .sort((a,b)=>a.t-b.t);
     const n = moments.length;
     let dir = null;
+    // ±0.08 (dir) and +0.04 (rose, below) are v-scale bands — not a set with
+    // baselineDelta's margin-scale ±0.05 (see the trend() note).
     if(n>=2){ const d = moments[n-1].v - moments[0].v; dir = d>0.08?'up' : d<-0.08?'down' : 'steady'; }
     // practice deltas: the read just before a session vs the first read after it
     const deltas = [];
@@ -1421,14 +1435,14 @@
     };
   }
   /* baselineDelta: change between two windows (this period vs the one before).
-     2026-08-17 — moved from avgV onto meanMargin, Justin's call. Progress runs on the
-     margin everywhere else; a long-range note that still asserted "your average
-     connection moved" was the last surface claiming something different. The copy it
+     2026-08-17 — moved from avgV onto meanMargin, Justin's call. (Correction
+     2026-08-22: this was NOT the last v-based surface — trend() and dayArc() still
+     measure v; their migration is deferred, see the notes there.) The copy it
      feeds is purely directional (up / down / flat, no numbers), so it survives the swap
      unchanged: margin up IS safety sitting further ahead of defense. The 0.05 dir
-     threshold is unchanged
-     and is FLAGGED for Claude Code: margin spans roughly -0.9..+0.7 where avgV spanned
-     0..1, so the same number is now a slightly smaller move and 'flat' narrows. */
+     threshold is unchanged and is a MARGIN-scale band: margin spans roughly -0.9..+0.7
+     where avgV spanned 0..1, so the same number is now a slightly smaller move and
+     'flat' narrows. */
   function baselineDelta(startMs, endMs){
     const span = endMs - startMs;
     const cur = periodStats(startMs, endMs), prev = periodStats(startMs-span, startMs);
