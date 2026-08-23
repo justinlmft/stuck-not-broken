@@ -98,43 +98,44 @@
     // localStorage.snb_demo='1' or #demo in the URL. Never persisted.
     let on=false; try{ if(localStorage.getItem('snb_demo')==='1' || /(^|[#&])demo\b/.test(location.hash)) on=true; }catch(e){}
     if(!on || !window.PVCurrent) return;
-    const cs=[], ss=[];
-    for(let d=130; d>=0; d--){
-      if(Math.random()<0.32) continue;
+    // C-strategy (2026-08-22, App Designer): the demo overrides ONLY the data source.
+    // A deterministic ~4-month dataset is seeded into the REAL store (Store.seedDemo,
+    // never persisted), and every derived read — trend, dayArc, periodStats, patterns,
+    // practiceEffect, recommend — runs the shipped engine on it. Drift between what
+    // review sees and what the product computes is structurally impossible now; an
+    // engine bug detonates in review instead of hiding behind a hand-written mirror.
+    // Deterministic PRNG (mulberry32) so every demo run shows the same account.
+    const rnd = (function(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; })(42);
+    const cl=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
+    const cs=[], ss=[]; let sid=0;
+    const mk=(d, off, bias)=>{
       const prog=(130-d)/130, base=0.34+prog*0.42;
-      const v=Math.max(.05,Math.min(.95, base+(Math.random()-0.5)*0.38));
-      const sym=Math.max(0,Math.min(.9,(1-v)*Math.random()*1.1));
-      const dor=Math.max(0,Math.min(.9,(1-v)*Math.random()*0.95));
-      const dom=window.PVCurrent.dominantOf(v,sym,dor);
-      const t=Date.now()-d*864e5-Math.floor(Math.random()*8)*36e5;
-      const challenge=Math.max(0.1,Math.min(0.95, 0.45+prog*0.25+(Math.random()-0.5)*0.4));
-      cs.push({t,v,sym,dor,fr:0,note:'',dom:dom.key,challenge});
-      if(Math.random()<0.42) ss.push({t:t+18e5,practiceKey:'mindfulness',skill:null,sense:'touch',silence:8,completed:true,endedEarly:false,minutes:9,domBefore:dom.key});
+      const v=cl(base+(rnd()-0.5)*0.38+(bias||0), .05, .95);
+      const sym=cl((1-v)*rnd()*1.1, 0, .9);
+      const dor=cl((1-v)*rnd()*0.95, 0, .9);
+      const t=Date.now()-d*864e5-off;
+      const challenge=cl(0.45+prog*0.25+(rnd()-0.5)*0.4, 0.1, 0.95);
+      return { t, v, sym, dor, note:'', dom:window.PVCurrent.dominantOf(v,sym,dor).key, challenge };
+    };
+    for(let d=130; d>=0; d--){
+      if(rnd()<0.30) continue;
+      const c1=mk(d, Math.floor(rnd()*8)*36e5);
+      cs.push(c1);
+      if(rnd()<0.45){
+        // a practice with BOUND before/after check-ins, so the real pair engine
+        // (_pePairs / practiceEffect / the You-tab journey card) runs its true path —
+        // including the >=6-pair branch that once hid the _PE_RANK crash from review.
+        const id='demo-s-'+(sid++);
+        ss.push({ id, t:c1.t+6e5, practiceKey: rnd()<0.5?'mindfulness':'micro', skill:null, sense:'touch',
+                  silence:8, completed:true, endedEarly:false, minutes:9, domBefore:c1.dom });
+        c1.session_id=id; c1.phase='before';
+        const c2=mk(d, 0, 0.10+rnd()*0.12);   // after-practice: modestly more room, honestly noisy
+        c2.t=c1.t+21e5; c2.session_id=id; c2.phase='after';
+        cs.push(c2);
+      }
     }
-    cs.sort((a,b)=>a.t-b.t);
-    Store.checkins=()=>cs.slice();
-    Store.sessions=()=>ss.slice();
+    Store.seedDemo(cs, ss);
     try{ const _rn=Store.getName(); Store.getName=()=>_rn||'Sam'; }catch(e){}   // demo name in-memory only; never persisted
-    // demo must feed the DERIVED reads too (2026-07-05 fix): the internal store stays
-    // empty in demo, so every function that reads data.checkins directly returned null —
-    // gated You-tab cards vanished and the reader crashed on trend().dir. These overrides
-    // recompute the same signals from the demo arrays. In-memory only, review-only.
-    const REG={safety:1,play:1,stillness:1}, RANK={shutdown:0,freeze:0,fightflight:1,play:2,stillness:2,safety:3};
-    const _sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime();};
-    const _segD=t=>{const h=new Date(t).getHours();return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late';};
-    Store.firstCheckinT=()=>cs.length?cs[0].t:null;
-    Store.tenure=()=>{const days=Math.round((_sod(Date.now())-_sod(cs[0].t))/864e5);const wc=cs.filter(c=>Date.now()-c.t<=7*864e5).length;return {count:cs.length,days:days,windowCount:wc,sinceLast:0,returning:false,stage:'established'};};
-    Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'rising':d<-0.12?'falling':'steady',n:a.length};};
-    Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};_reads(w).forEach(c=>{const k=_cDom(c);cnt[k]=(cnt[k]||0)+1;});const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const nR=_reads(w).length||1;const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/nR*100));let reg=0;const rd=_reads(w);rd.forEach(c=>{if(_cReg(c))reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};_reads(a).forEach(x=>{const k=_cDom(x);c2[k]=(c2[k]||0)+1;});return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
-      return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:nR-reg,nRead:nR,regShare:reg/nR,lean:reg/nR>=0.6?'regulated':reg/nR<=0.4?'dysregulated':'even',meanMargin:_meanMargin(w),avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>DEFENSE_SIDE[d]),regStates:order.filter(d=>SAFETY_SIDE[d])};};
-    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',cur:cur.meanMargin};const d=cur.meanMargin-prev.meanMargin;return {dir:d>0.05?'up':d<-0.05?'down':'flat',cur:cur.meanMargin,prev:prev.meanMargin};};
-    Store.recovery=()=>{const r=_reads(cs);if(r.length<12)return null;const gaps=[],depths=[];let i=0;while(i<r.length){if(!_cReg(r[i])){let j=i,st=0,f=false,low=0;while(j<r.length){const m=_cMargin(r[j]);if(m!=null&&m<low)low=m;if(_cReg(r[j])){f=true;break;}j++;st++;}if(f){gaps.push(st);depths.push(low);}i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length,deepest:Math.min.apply(null,depths),avgDepth:depths.reduce((x,y)=>x+y,0)/depths.length}:null;};
-    Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
-    Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
-    Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
-    Store.today=()=>{const d=new Date();d.setHours(0,0,0,0);return Store.dayArc(d.getTime());};
-    Store.practiceEffect=()=>{const t=ss.filter(s=>s.domBefore);if(t.length<6)return null;let moved=0,tot=0;t.forEach(s=>{const nx=cs.find(c=>c.t>s.t);if(!nx)return;tot++;if(RANK[nx.dom]>RANK[s.domBefore])moved++;});return tot>=6?{moved:moved,total:tot,rate:moved/tot}:null;};
-    Store.practiceInsights=()=>{const g={};ss.forEach(s=>{if(!s.practiceKey||!s.domBefore)return;const nx=cs.find(c=>c.t>s.t);if(!nx)return;const k=s.practiceKey+'|'+s.domBefore+'|'+_segD(s.t);const o=g[k]||(g[k]={practiceKey:s.practiceKey,dom:s.domBefore,seg:_segD(s.t),moved:0,total:0});o.total++;if(RANK[nx.dom]>RANK[s.domBefore])o.moved++;});return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4).map(o=>Object.assign(o,{rate:o.moved/o.total})).sort((a,b)=>b.total-a.total||b.rate-a.rate);};
   })();
 
   // ── audio autoplay unlock ─────────────────────────────────────────

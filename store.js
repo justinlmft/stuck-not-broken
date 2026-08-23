@@ -130,7 +130,17 @@
   let sync = { state: 'idle', pending: 0, error: null };  // 'idle' | 'syncing' | 'error'
 
   const cacheKey = () => 'snb_cache_' + (auth.user ? auth.user.id : 'anon');
-  function saveCache(){ try { localStorage.setItem(cacheKey(), JSON.stringify({ data, outbox, links })); } catch(e){} }
+  // demo/review seeding (C-strategy, 2026-08-22): replace the in-memory data with a
+  // synthetic dataset so every derived read runs the REAL engine — drift between demo
+  // and product math becomes structurally impossible. Never persisted: while seeded,
+  // saveCache and flush are no-ops, so nothing reaches localStorage or the cloud.
+  let _demoSeeded = false;
+  function seedDemo(rows, sess){
+    _demoSeeded = true;
+    data = { checkins: (rows||[]).slice().sort((a,b)=>a.t-b.t), sessions: (sess||[]).slice().sort((a,b)=>a.t-b.t) };
+    outbox = { checkins: [], sessions: [] };
+  }
+  function saveCache(){ if(_demoSeeded) return; try { localStorage.setItem(cacheKey(), JSON.stringify({ data, outbox, links })); } catch(e){} }
   function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; links = Array.isArray(o.links)?o.links:[]; } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } _reconcile(); }
 
   // ---- sync plumbing (merge, live-session gating, loud failure) ----
@@ -661,6 +671,7 @@
 
   let flushing = false;
   async function flush(){
+    if(_demoSeeded) return;
     if(!CLOUD || !auth.user) return;
     if(flushing) return;                 // a flush is already in flight; it will drain the outbox
     flushing = true;
@@ -1955,7 +1966,7 @@
   global.Store = {
     init, signUp, signIn, signInAnonymously, isAnonymous, linkIdentity, signOut, user, cloud, syncStatus,
     resetPassword, updatePassword, onPasswordRecovery, deleteAccount,
-    addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc,
+    addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc, seedDemo,
     periodStats, baselineDelta, firstCheckinT,
     mints, hasMint, saveMint,
     learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
