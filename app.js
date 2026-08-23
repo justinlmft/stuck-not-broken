@@ -52,17 +52,16 @@
 
      No stored name is trusted — every row derives (Ruling 2, 2026-08-22: untouched
      sliders are the person's answer, so the engine always names what they left).
-     'neutral' now only ever means the computed QUIET guard fired (all circuits
-     floored): no readable margin — capacity and load both absent — so those rows
-     are excluded from every margin statistic (D-A) while still counting as
-     check-ins (tenure, streaks).                                                 */
+     Every row with numbers is a read (Ruling 2b removed the QUIET guard — "it's
+     not a state"); a stored 'neutral' is legacy data the engine no longer
+     consults, and dominantOf always returns one of the six real states.          */
   // Which side of the line each NAME sits on. Not a heuristic: under the margin
   // rule safety/play/stillness can only arise when margin >= 0, and
   // shutdown/freeze/fight-flight only when margin < 0. So this is a fact about
   // the naming rule, used where we need to describe names rather than count them.
   const SAFETY_SIDE  = { safety:1, play:1, stillness:1 };
   const DEFENSE_SIDE = { shutdown:1, freeze:1, fightflight:1 };
-  function _isRead(c){ return !!c && typeof c.v === 'number' && _cDom(c) !== 'neutral'; }
+  function _isRead(c){ return !!c && typeof c.v === 'number'; }
   function _reads(arr){ return (arr||[]).filter(_isRead); }
   function _cDom(c){
     if(!c) return null;
@@ -98,43 +97,44 @@
     // localStorage.snb_demo='1' or #demo in the URL. Never persisted.
     let on=false; try{ if(localStorage.getItem('snb_demo')==='1' || /(^|[#&])demo\b/.test(location.hash)) on=true; }catch(e){}
     if(!on || !window.PVCurrent) return;
-    const cs=[], ss=[];
-    for(let d=130; d>=0; d--){
-      if(Math.random()<0.32) continue;
+    // C-strategy (2026-08-22, App Designer): the demo overrides ONLY the data source.
+    // A deterministic ~4-month dataset is seeded into the REAL store (Store.seedDemo,
+    // never persisted), and every derived read — trend, dayArc, periodStats, patterns,
+    // practiceEffect, recommend — runs the shipped engine on it. Drift between what
+    // review sees and what the product computes is structurally impossible now; an
+    // engine bug detonates in review instead of hiding behind a hand-written mirror.
+    // Deterministic PRNG (mulberry32) so every demo run shows the same account.
+    const rnd = (function(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; })(42);
+    const cl=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
+    const cs=[], ss=[]; let sid=0;
+    const mk=(d, off, bias)=>{
       const prog=(130-d)/130, base=0.34+prog*0.42;
-      const v=Math.max(.05,Math.min(.95, base+(Math.random()-0.5)*0.38));
-      const sym=Math.max(0,Math.min(.9,(1-v)*Math.random()*1.1));
-      const dor=Math.max(0,Math.min(.9,(1-v)*Math.random()*0.95));
-      const dom=window.PVCurrent.dominantOf(v,sym,dor);
-      const t=Date.now()-d*864e5-Math.floor(Math.random()*8)*36e5;
-      const challenge=Math.max(0.1,Math.min(0.95, 0.45+prog*0.25+(Math.random()-0.5)*0.4));
-      cs.push({t,v,sym,dor,fr:0,note:'',dom:dom.key,challenge});
-      if(Math.random()<0.42) ss.push({t:t+18e5,practiceKey:'mindfulness',skill:null,sense:'touch',silence:8,completed:true,endedEarly:false,minutes:9,domBefore:dom.key});
+      const v=cl(base+(rnd()-0.5)*0.38+(bias||0), .05, .95);
+      const sym=cl((1-v)*rnd()*1.1, 0, .9);
+      const dor=cl((1-v)*rnd()*0.95, 0, .9);
+      const t=Date.now()-d*864e5-off;
+      const challenge=cl(0.45+prog*0.25+(rnd()-0.5)*0.4, 0.1, 0.95);
+      return { t, v, sym, dor, note:'', dom:window.PVCurrent.dominantOf(v,sym,dor).key, challenge };
+    };
+    for(let d=130; d>=0; d--){
+      if(rnd()<0.30) continue;
+      const c1=mk(d, Math.floor(rnd()*8)*36e5);
+      cs.push(c1);
+      if(rnd()<0.45){
+        // a practice with BOUND before/after check-ins, so the real pair engine
+        // (_pePairs / practiceEffect / the You-tab journey card) runs its true path —
+        // including the >=6-pair branch that once hid the _PE_RANK crash from review.
+        const id='demo-s-'+(sid++);
+        ss.push({ id, t:c1.t+6e5, practiceKey: rnd()<0.5?'mindfulness':'micro', skill:null, sense:'touch',
+                  silence:8, completed:true, endedEarly:false, minutes:9, domBefore:c1.dom });
+        c1.session_id=id; c1.phase='before';
+        const c2=mk(d, 0, 0.10+rnd()*0.12);   // after-practice: modestly more room, honestly noisy
+        c2.t=c1.t+21e5; c2.session_id=id; c2.phase='after';
+        cs.push(c2);
+      }
     }
-    cs.sort((a,b)=>a.t-b.t);
-    Store.checkins=()=>cs.slice();
-    Store.sessions=()=>ss.slice();
+    Store.seedDemo(cs, ss);
     try{ const _rn=Store.getName(); Store.getName=()=>_rn||'Sam'; }catch(e){}   // demo name in-memory only; never persisted
-    // demo must feed the DERIVED reads too (2026-07-05 fix): the internal store stays
-    // empty in demo, so every function that reads data.checkins directly returned null —
-    // gated You-tab cards vanished and the reader crashed on trend().dir. These overrides
-    // recompute the same signals from the demo arrays. In-memory only, review-only.
-    const REG={safety:1,play:1,stillness:1}, RANK={shutdown:0,freeze:0,fightflight:1,play:2,stillness:2,safety:3};
-    const _sod=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime();};
-    const _segD=t=>{const h=new Date(t).getHours();return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late';};
-    Store.firstCheckinT=()=>cs.length?cs[0].t:null;
-    Store.tenure=()=>{const days=Math.round((_sod(Date.now())-_sod(cs[0].t))/864e5);const wc=cs.filter(c=>Date.now()-c.t<=7*864e5).length;return {count:cs.length,days:days,windowCount:wc,sinceLast:0,returning:false,stage:'established'};};
-    Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'rising':d<-0.12?'falling':'steady',n:a.length};};
-    Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};_reads(w).forEach(c=>{const k=_cDom(c);cnt[k]=(cnt[k]||0)+1;});const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const nR=_reads(w).length||1;const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/nR*100));let reg=0;const rd=_reads(w);rd.forEach(c=>{if(_cReg(c))reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};_reads(a).forEach(x=>{const k=_cDom(x);c2[k]=(c2[k]||0)+1;});return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
-      return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:nR-reg,nRead:nR,regShare:reg/nR,lean:reg/nR>=0.6?'regulated':reg/nR<=0.4?'dysregulated':'even',meanMargin:_meanMargin(w),avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>DEFENSE_SIDE[d]),regStates:order.filter(d=>SAFETY_SIDE[d])};};
-    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',cur:cur.meanMargin};const d=cur.meanMargin-prev.meanMargin;return {dir:d>0.05?'up':d<-0.05?'down':'flat',cur:cur.meanMargin,prev:prev.meanMargin};};
-    Store.recovery=()=>{const r=_reads(cs);if(r.length<12)return null;const gaps=[],depths=[];let i=0;while(i<r.length){if(!_cReg(r[i])){let j=i,st=0,f=false,low=0;while(j<r.length){const m=_cMargin(r[j]);if(m!=null&&m<low)low=m;if(_cReg(r[j])){f=true;break;}j++;st++;}if(f){gaps.push(st);depths.push(low);}i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length,deepest:Math.min.apply(null,depths),avgDepth:depths.reduce((x,y)=>x+y,0)/depths.length}:null;};
-    Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
-    Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
-    Store.dayArc=(t0)=>{const tEnd=t0+864e5;const m=cs.filter(c=>c.t>=t0&&c.t<tEnd).sort((a,b)=>a.t-b.t);const se=ss.filter(s=>s.t>=t0&&s.t<tEnd).sort((a,b)=>a.t-b.t);let dir=null;if(m.length>=2){const d=m[m.length-1].v-m[0].v;dir=d>0.08?'up':d<-0.08?'down':'steady';}return {moments:m,sessions:se,n:m.length,dir:dir,deltas:[],first:m[0]||null,last:m[m.length-1]||null};};
-    Store.today=()=>{const d=new Date();d.setHours(0,0,0,0);return Store.dayArc(d.getTime());};
-    Store.practiceEffect=()=>{const t=ss.filter(s=>s.domBefore);if(t.length<6)return null;let moved=0,tot=0;t.forEach(s=>{const nx=cs.find(c=>c.t>s.t);if(!nx)return;tot++;if(RANK[nx.dom]>RANK[s.domBefore])moved++;});return tot>=6?{moved:moved,total:tot,rate:moved/tot}:null;};
-    Store.practiceInsights=()=>{const g={};ss.forEach(s=>{if(!s.practiceKey||!s.domBefore)return;const nx=cs.find(c=>c.t>s.t);if(!nx)return;const k=s.practiceKey+'|'+s.domBefore+'|'+_segD(s.t);const o=g[k]||(g[k]={practiceKey:s.practiceKey,dom:s.domBefore,seg:_segD(s.t),moved:0,total:0});o.total++;if(RANK[nx.dom]>RANK[s.domBefore])o.moved++;});return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4).map(o=>Object.assign(o,{rate:o.moved/o.total})).sort((a,b)=>b.total-a.total||b.rate-a.rate);};
   })();
 
   // ── audio autoplay unlock ─────────────────────────────────────────
@@ -750,7 +750,8 @@
     try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('Your subscription is active.'); } else if(co==='cancel'){ if(Store.trackEvent) Store.trackEvent('checkout_cancel', {}); } } }catch(e){}
     // The whole-app paywall is GONE (2026-07-13): free is unconditional, no time limit,
     // no card. Nobody is ever locked out. Subscribing is a choice made in settings or on
-    // the offer screen, never a wall. Store.hasAccess() is now always true.
+    // the offer screen, never a wall. (The old whole-app Store.hasAccess() gate is
+    // gone entirely — D7: no function by that name exists any more.)
     // live check-in (Live-Checkin-Plan Phase 1): while a join is pending, the app opens
     // straight to the live flow — the seams (open when cued, slide, swipe back) depend on it.
     if(_liveJoin()) return screenLive();
@@ -1124,8 +1125,7 @@
         /* 2026-08-17 — the name IS the reading (Justin). 2026-08-22 — it always shows:
            untouched sliders are the person's answer, so there is always a state to
            name. Dead-centre keeps its sentence, the one case with no name to give. */
-        const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-        reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
+        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
         reading.hidden = false;
       }
     }
@@ -2193,7 +2193,6 @@ function app(tab){
     ({ now:tabNow, you:tabYou, practice:tabPractice }[tab] || tabNow)();
     if(tab === 'now') maybeInstallNudge();
     if(tab === 'now') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
-    maybeTrialBanner();
    
   }
   // install affordances: a quiet settings row + an optional dismissable today nudge
@@ -2225,7 +2224,6 @@ function app(tab){
   // accident; with no card taken until someone chooses to subscribe, that can't happen.
   // Left as a no-op (call sites unchanged) rather than removed, so the deletion is one
   // reversible decision and not a scatter of edits. The `.trial-banner` CSS is now unused.
-  function maybeTrialBanner(){ /* no trial exists any more */ }
   // active tab = FILLED symbol (the iOS convention: selection reads at a glance,
   // not just by tint); inactive = outline.
   function tabIcon(t, on){
@@ -2625,45 +2623,8 @@ function app(tab){
   // "what that state is": the brand triGlyph lit to the dominant state — the state's face.
   function stateGlyphViz(dom){ return `<div class="sec-viz sec-glyph">${triGlyph(dom)}</div>`; }
   // "your movement": a smooth safety trend line over the recent days.
-  function trendArc(dayV){
-    const pts = _smoothV((dayV||[]).filter(d=>d && typeof d.v==='number'));
-    if(pts.length<2) return '';
-    const W=320,H=84,padL=8,padR=8,top=14,bot=64;
-    const maxX = Math.max.apply(null, pts.map(p=>p.x)) || 1;
-    const fx = x => padL + (x/maxX)*(W-padL-padR);
-    const P = pts.map(p=>`${fx(p.x).toFixed(1)},${_safeToY(p.v,top,bot).toFixed(1)}`);
-    const last = pts[pts.length-1];
-    return `<div class="sec-viz"><div class="vz-cap">Your safety, recently</div><svg viewBox="0 0 ${W} ${H}" class="vz-svg" role="img" aria-label="your safety trend over recent days">`+
-      `<line x1="${padL}" y1="${bot}" x2="${W-padR}" y2="${bot}" stroke="var(--hairline)" stroke-width="1"/>`+
-      `<polyline points="${P.join(' ')}" fill="none" stroke="#D29A4A" stroke-width="2.5"/>`+
-      `<polyline points="${P.join(' ')} ${fx(last.x).toFixed(1)},${bot} ${padL},${bot}" fill="#F4D58D" fill-opacity="0.14" stroke="none"/>`+
-      `<circle cx="${fx(last.x).toFixed(1)}" cy="${_safeToY(last.v,top,bot).toFixed(1)}" r="3.5" fill="#D29A4A"/>`+
-      `</svg></div>`;
-  }
   // "the fork ahead": the person's real trajectory flowing into a split — up toward more
   // safety, down toward THEIR most-common defense state. Both equal weight: awareness, not a prediction.
-  function forkViz(dayV, dom, defenseState){
-    const pts = _smoothV((dayV||[]).filter(d=>d && typeof d.v==='number'));
-    if(pts.length<2 || !dom) return '';
-    const W=320,H=124,padL=8,top=16,bot=104;
-    const maxX = Math.max.apply(null, pts.map(p=>p.x)) || 1;
-    const nodeX = padL + 0.52*(W-2*padL);                       // split sits mid-canvas
-    const fx = x => padL + (x/maxX)*(nodeX-padL);               // real line spans left half, into the node
-    const traj = pts.map(p=>`${fx(p.x).toFixed(1)},${_safeToY(p.v,top,bot).toFixed(1)}`);
-    const ny = _safeToY(pts[pts.length-1].v, top, bot);
-    const upEnd = top+8, downEnd = bot-8, bx = W-8;
-    const defCol = defenseState ? STATE_COLOR(defenseState) : '#A3C0DD';
-    const defName = defenseState ? STATE_NAME(defenseState) : 'defense';
-    return `<div class="sec-viz"><svg viewBox="0 0 ${W} ${H}" class="vz-svg" role="img" aria-label="a forking path from your current level toward more safety or toward ${escapeHtml(defName)}">`+
-      `<line x1="${padL}" y1="${bot}" x2="${W-8}" y2="${bot}" stroke="var(--hairline)" stroke-width="1"/>`+
-      `<polyline points="${traj.join(' ')}" fill="none" stroke="#D29A4A" stroke-width="2.5"/>`+
-      `<path d="M${nodeX},${ny.toFixed(1)} C${(nodeX+60).toFixed(0)},${(ny-8).toFixed(0)} ${(bx-60)},${upEnd+8} ${bx},${upEnd}" fill="none" stroke="#9FC498" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round"/>`+
-      `<path d="M${nodeX},${ny.toFixed(1)} C${(nodeX+60).toFixed(0)},${(ny+8).toFixed(0)} ${(bx-60)},${downEnd-8} ${bx},${downEnd}" fill="none" stroke="${defCol}" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round"/>`+
-      `<circle cx="${nodeX}" cy="${ny.toFixed(1)}" r="6" fill="${STATE_COLOR(dom)}" stroke="#D29A4A" stroke-width="1.5"/>`+
-      `<text x="${bx}" y="${upEnd-4}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Inter">Toward more safety</text>`+
-      `<text x="${bx}" y="${downEnd+13}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Inter">toward ${escapeHtml(defName)}</text>`+
-      `</svg></div>`;
-  }
   // route a section id to its visual (from the reader's real signals)
   function sectionViz(id, c){
     if(!c) return '';
@@ -2809,7 +2770,7 @@ function app(tab){
       if(pv && FromJustin.periodSection) return _visitSectionHTML(FromJustin.periodSection(pv.ctx), pv.key);
       if(dow!==0 && dow!==1) return { html:'', wire:null };
       const ws = _sundayStart(now) - WEEK_MS, we = ws + WEEK_MS;
-      const cs = Store.checkins().filter(c=>{const k=_cDom(c);return c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&k&&k!=='neutral';}).sort((a,b)=>a.t-b.t);
+      const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&!!_cDom(c)).sort((a,b)=>a.t-b.t);
       if(!cs.length) return { html:'', wire:null };
       const st = Store.periodStats(ws, we), prev = Store.periodStats(ws-WEEK_MS, ws);
       let shiftDir=null;
@@ -2941,11 +2902,9 @@ function app(tab){
     // per-section visuals: computed from the reader's own recent signals so each picture
     // illustrates the words of its section (mix bar, state glyph, trend line, personal fork).
     const _now = Date.now();
-    const dayV = [];
-    for(let i=13;i>=0;i--){ const d=new Date(_now - i*864e5); d.setHours(0,0,0,0); const a=Store.dayArc?Store.dayArc(d.getTime()):null; if(a && a.n) dayV.push({ x:(13-i), v:a.moments.reduce((s,m)=>s+m.v,0)/a.n }); }
     const _ps = Store.periodStats ? Store.periodStats(_now-7*864e5, _now) : null;
     const _base28 = Store.periodStats ? Store.periodStats(_now-28*864e5, _now) : null;
-    const vizCtx = { dom:dom, dayV:dayV, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null,
+    const vizCtx = { dom:dom, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null,
                      patterns:patterns, zoomPct:(_base28&&_base28.n>=8)?Math.round(_base28.regShare*100):null };
     const P = (t)=> t ? `<p class="read-p">${boldHtml(t)}</p>` : '';
     // the daily note now lives in the today block above; only fall back to a lead
@@ -3109,7 +3068,7 @@ function app(tab){
   // Justin 2026-07-28: "trip-count moved to a parenthetical at the bottom with the
   // real time period" — this is the "real time period" half of that fix.)
   function _windowRecovery(cs){
-    const wcs = cs.filter(c=>{const k=_cDom(c);return k&&k!=='neutral';});
+    const wcs = cs.filter(c=>!!_cDom(c));
     if(wcs.length<12) return null;
     const gaps=[]; let i=0;
     while(i<wcs.length){
@@ -3124,7 +3083,7 @@ function app(tab){
   function weeklyIssueFor(ws){
     if(!FromJustin.blog) return null;
     const we = ws + WEEK_MS;
-    const cs = Store.checkins().filter(c=>{ const k=_rowKey(c); return c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&k; }).sort((a,b)=>a.t-b.t);
+    const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&!!_rowKey(c)).sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(n < 3) return null;                                   // sparse week: skip minting in v1
     const freq={}; cs.forEach(c=>{ const k=_rowKey(c); freq[k]=(freq[k]||0)+1; });
@@ -3680,8 +3639,8 @@ function app(tab){
       // the chips above are not just the input, they are a live readout: as the sliders
       // move, the highlighted state follows the numbers. Otherwise someone can tune their
       // way well out of the state they tapped while that chip still sits lit (Justin,
-      // 2026-07-26). dominantOf can land on 'neutral', which is no chip: honest, so the
-      // row simply goes quiet rather than pretending.
+      // 2026-07-26). dominantOf always names one of the six real states now (2b), so
+      // exactly one chip is always lit once the tune block is open.
       if(_ciStates && _tuneOpen){
         const dk = window.PVCurrent.dominantOf(v/100, s/100, d/100).key;
         root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x.dataset.ovr===dk));
@@ -3697,8 +3656,7 @@ function app(tab){
       if(reading){
         /* 2026-08-17 — the name IS the reading (Justin). Dead-centre keeps its
            sentence, the one case with no name to give. */
-        const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-        reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
+        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
         reading.hidden = false;
       }
     }
@@ -4096,10 +4054,8 @@ function app(tab){
   function bindSlider(key,fn){ const el=$('#sl-'+key); el.addEventListener('input',()=>fn(+el.value)); }
 
   // ---------------------------------------------------------------- CURRENT OVER TIME
-  let playTimer=null;
   const PERIODS=[{key:'7',label:'Week',days:7},{key:'30',label:'Month',days:30},{key:'90',label:'90 days',days:90},{key:'all',label:'All',days:null}];
   let activePeriod='all';
-  let chartMode='safety';
   function filterByPeriod(cs,days){ if(!days) return cs; const cut=Date.now()-days*864e5; return cs.filter(c=>c.t>=cut); }
   function groupByDay(arr){
     const map={};
@@ -4600,7 +4556,7 @@ function app(tab){
   // outside reader, and usable by a professional. Every card names its own metric.
   // per-row keys DERIVE (A4, 2026-08-22): stored dom is neither a stats nor a display
   // source. A derived key is always a real state; rows that cannot derive drop out.
-  const _rowKey = c => { const k=_cDom(c); return k && k!=='neutral' ? k : null; };
+  const _rowKey = c => _cDom(c) || null;
   function _safeShare(arr){
     let r=0, n=0;
     (arr||[]).forEach(c=>{ const k=_rowKey(c); if(!k) return; n++; if(_REGDOMS[k]) r++; });
@@ -4740,8 +4696,9 @@ function app(tab){
      was the same size step as safety->stillness. And the order contradicted the
      model at the top: stillness sat above safety, but stillness 80/10/60 has
      margin +0.350 against safety 90/10/5 at +0.585, so moving safety->stillness
-     climbed the card while the actual margin fell. (_PE_RANK ordered those two
-     the other way round, so the two cards disagreed with each other.)
+     climbed the card while the actual margin fell. (The retired _PE_RANK ladder —
+     gone from the code entirely — ordered those two the other way round, so the
+     two cards disagreed with each other.)
 
      Now the axis is margin, rescaled per side exactly as the read's qualifier is:
      one full defense below the line, the person's own full ventral above it.
@@ -4787,7 +4744,7 @@ function app(tab){
 
     // the label is still a name — a descriptive word for where the middle sits, not
     // a measurement. Derived from circuit values like every other name now.
-    const cnt = {}; inWin.forEach(c => { const k=_cDom(c); if(k && k!=='neutral') cnt[k]=(cnt[k]||0)+1; });
+    const cnt = {}; inWin.forEach(c => { const k=_cDom(c); if(k) cnt[k]=(cnt[k]||0)+1; });
     let modeState = null, mb = -1;
     Object.keys(cnt).forEach(k => { if(cnt[k] > mb){ mb = cnt[k]; modeState = k; } });
 
@@ -5123,10 +5080,8 @@ function app(tab){
         const c=a[1].map((x,i)=>Math.round(x+(b[1][i]-x)*t));
         return `rgb(${c[0]},${c[1]},${c[2]})`;
       }
-      let dayByDay, arcBuckets=null;
-      if(paced.length<3){
-        dayByDay=`<p class="panel-empty">A few more days of check-ins, and your timeline fills in here.</p>`;
-      } else {
+      let arcBuckets=null;
+      if(paced.length>=3){
         const minT=paced[0].t, maxT=paced[paced.length-1].t, spanD=(maxT-minT)/864e5;
         const unit = spanD>75?'month': spanD>21?'week':'day';
         const keyOf=(t)=>{ const d=new Date(t); if(unit==='month') return d.getFullYear()+'-'+d.getMonth(); if(unit==='week'){ const o=new Date(d); o.setHours(0,0,0,0); o.setDate(o.getDate()-o.getDay()); return o.getTime(); } return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); };
@@ -5134,9 +5089,6 @@ function app(tab){
         const bmap=new Map();
         paced.forEach(p=>{ const k=keyOf(p.t); if(!bmap.has(k)) bmap.set(k,{t:p.t,vs:[],dom:{}}); const bb=bmap.get(k); bb.vs.push(p.v); bb.dom[p.dom]=(bb.dom[p.dom]||0)+1; });
         arcBuckets=[...bmap.values()].sort((a,b)=>a.t-b.t).map(b=>({t:b.t, label:labOf(b.t), avg:b.vs.reduce((s,v)=>s+v,0)/b.vs.length, dom:Object.entries(b.dom).sort((x,y)=>y[1]-x[1])[0][0]}));
-        // two charts, two cards (Justin 2026-07-05): the safety line and the states
-        // view were two different stories crammed behind a toggle — separated.
-        dayByDay=`<div class="chart-wrap" data-cmode="safety">${chartInner('safety', arcBuckets, safetyColor)}</div>`;
       }
 
       // ---- is practice helping: before vs after practice, windowed ----
@@ -5165,7 +5117,7 @@ function app(tab){
         // own most-common dip state) — the claim itself is the RATE below, not
         // a promise that practice always starts from this exact state.
         const domCounts={};
-        _pePairs().forEach(p=>{ const d=_cDom(p.beforeCheckin); if(d && d!=='neutral') domCounts[d]=(domCounts[d]||0)+1; });
+        _pePairs().forEach(p=>{ const d=_cDom(p.beforeCheckin); if(d) domCounts[d]=(domCounts[d]||0)+1; });
         const modeDom=Object.keys(domCounts).sort((a,b)=>domCounts[b]-domCounts[a])[0] || 'fightflight';
         practiceHead=`<div class="cb-journey">${cbGlyphViz(modeDom, 'safety', null, 'hero')}</div>
           <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> of the time.</p>
@@ -5464,11 +5416,8 @@ function app(tab){
               ${pe?`<p class="ctx-practice">Practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
             // the day-by-day line-chart version of "your safety changes" is CUT
-            // (Justin 2026-07-29d: "we don't need it. cut it altogether. ugly anyway.")
-            // — the dot-track version below is the only "your safety changes" now, so
-            // the title collision flagged on 2026-07-28/29 is moot. `dayByDay` (built
-            // above, shared nowhere else) is now dead — left computed rather than
-            // restructuring the shared arcBuckets block that 'states' below still uses.
+            // (Justin 2026-07-29d) — the dot-track below is the only one. Its dead
+            // pre-rendered HTML is gone (E7); arcBuckets survives for 'states' below.
             if(growthHead){
               slides.push(['started','your safety changes', `
               ${shareBtn('started')}${growthHead}`]);
@@ -5536,8 +5485,8 @@ function app(tab){
             const _defN = _recent.filter(x=>{ const k=_rowKey(x); return k && !_REGDOMS[k]; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const _ORDER = _tender
-              ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','baseline','mix','context','started','states','shift','safety']
-              : ['safety','comeback','started','baseline','times','daypart','leastDay','leastDaypart','shift','mix','flavors','context','states','practice'];
+              ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','mix','context','started','states','shift','safety']
+              : ['safety','comeback','started','times','daypart','leastDay','leastDaypart','shift','mix','flavors','context','states','practice'];
             const _rank = k=>{ const i=_ORDER.indexOf(k); return i<0?99:i; };
             const sorted = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0]));
             // desktop ledger (2026-07-19): at wide the carousel stays empty and a
@@ -5643,11 +5592,10 @@ function app(tab){
         try{ matchMedia('(min-width:1120px)').addEventListener('change',()=>{ try{ if(currentTab==='you') app('you'); }catch(e){} }); }catch(e){}
       }
 
-      function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; } const p=$('#ot-play'); if(p) p.innerHTML='<svg viewBox="0 0 24 24"><path d="M8 6 L18 12 L8 18 Z"/></svg>'; }
 
       // panels peek (see CSS): one snap unit = a panel's width + the 14px gap
       const snapUnit = (cv)=>{ const p=cv&&cv.firstElementChild; return p ? p.offsetWidth+14 : (cv?cv.clientWidth:1)||1; };
-      c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ stopPlay(); const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const _dd=c.querySelectorAll('#dots .dot-i'); const i=Math.max(0,Math.min(_dd.length-1,Math.round(sl/snapUnit(nv)))); _dd.forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
+      c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const _dd=c.querySelectorAll('#dots .dot-i'); const i=Math.max(0,Math.min(_dd.length-1,Math.round(sl/snapUnit(nv)))); _dd.forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
       const setBtn=$('#set-btn'); if(setBtn) setBtn.onclick=screenSettings;
       const chgBtn=$('#change-ci'); if(chgBtn) chgBtn.onclick=screenChangeCheckin;
       const mpBtn=$('#manage-pr'); if(mpBtn) mpBtn.onclick=screenManagePractices;
@@ -6811,6 +6759,7 @@ function app(tab){
               <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">Dark</span></button>
             </div>
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
+            <p class="ch-cap" id="motion-cap" style="margin:6px 0 0"></p>
             <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
               <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
@@ -6824,7 +6773,9 @@ function app(tab){
           <div class="gs-card">
             <p class="gs-h">App</p>
             ${gsSw('sw-live','Live practice invitations',lv!=='0')}
+            <p class="ch-cap" id="live-cap" style="margin:6px 0 0"></p>
             ${gsSw('sw-haptics','Haptics',hp)}
+            <p class="ch-cap" id="hap-cap" style="margin:6px 0 0"></p>
             ${gsSw('sw-offline','Save practices for offline',offOn)}
             <p class="gs-fine" id="offline-status"></p>
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
@@ -6836,6 +6787,7 @@ function app(tab){
           <div class="gs-card">
             <p class="gs-h">Your data</p>
             ${gsSw('sw-glyph','Charts on shared images',gl!=='0')}
+            <p class="ch-cap" id="glyph-cap" style="margin:6px 0 0"></p>
             <p class="gs-fine">A card you share goes out as a picture of that card. On means the picture includes its chart. Off leaves the chart out. The card's words still go, and some of them name numbers.</p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins</button>
@@ -6949,7 +6901,7 @@ function app(tab){
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
     const _liveCap = on=>{ const el=$('#live-cap'); if(el) el.textContent = on
-      ? 'When a live practice is happening, the today screen offers a quiet invitation to check in alongside it.'
+      ? 'When a live practice is happening, the Now screen offers a quiet invitation to check in alongside it.'
       : 'The app never mentions live practices. Joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });

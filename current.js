@@ -21,8 +21,9 @@
   // weight() returns 0..1 strength of that state given circuit presences.
   const STATES = {
     // stillness = immobilization WITH significant safety — the exact symmetric case of play.
-    // Same ruling applied (v >= 0.40): below that it is not stillness, it is shutdown. FLAGGED for
-    // Justin — he ruled play explicitly; this extends the identical logic to the other safe blend.
+    // Same ruling applied (v >= 0.40): below that it is not stillness, it is shutdown. Extends
+    // Justin's explicit play ruling to the symmetric safe blend; surfaced in the 2026-08-22
+    // sweep (D5) and left standing — these weights feed paint() only, never the naming.
     stillness:   { name: 'stillness',     color: MIX.stillness, weight: (v,s,d) => v < 0.40 ? 0 : Math.min(v, d) * (1 - s) },
     safety:      { name: 'safety',        color: BASE.yellow,   weight: (v,s,d) => v * (1 - s) * (1 - d) },
     // play = mobilization WITH significant safety. Justin's ruling (2026-07-28): below ~40%
@@ -93,7 +94,6 @@
     fightflight: 'there is a lot of mobilizing energy moving right now. flight/fight.',
     freeze:      'a lot is moving and holding still at once right now. this is freeze.',
     shutdown:    'your system is pulling toward shutdown right now. it is protecting you.',
-    neutral:     'notice where your system is right now. there is no wrong answer.',
   };
 
   /* 2026-08-17 — `score()` and the fat NEUTRAL are gone with the fields they fed
@@ -101,7 +101,6 @@
      forms the check-in reading no longer uses, and `gap` in particular was a loaded
      field: it was forced to 0 in exactly the case a caller would have cared about.
      The weights themselves are untouched — paint() still reads STATES[k].weight. */
-  const NEUTRAL = { key:'neutral', name:'Quiet', color:'#D8D2C2', w:0 };
 
   function hexToRgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
   function rgbToHex(a){return '#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
@@ -222,7 +221,7 @@
     function clamp(x){return Math.max(0,Math.min(1,x||0));}
 
     function dominant(){ return createCurrent.dominantOf(cur.v,cur.sym,cur.dor); }
-    function readout(){const d=dominant();return READOUTS[d.key]||READOUTS.neutral;}
+    function readout(){const d=dominant();return READOUTS[d.key]||'';}
 
     paint(0,0,0);
     return {set,dominant,readout,destroy(){if(raf)cancelAnimationFrame(raf);mount.removeChild(svg);}};
@@ -241,8 +240,6 @@
   // running underneath, and `label` — the composed name the app actually renders.
   createCurrent.dominantOf = function(v,s,d){
     const r = marginRead(v,s,d);
-    if(r.key === 'neutral')
-      return Object.assign({}, NEUTRAL, { margin:r.margin, side:r.side, band:null, under:null, label:r.label });
     const st = STATES[r.key];
     const w  = Math.min(1, (r.side === 'defense' ? r.severity : r.qual) / 100);
     return { key:r.key, name:st.name, color:st.color, w,
@@ -254,7 +251,7 @@
   // callers get the correct sentence the instant inputs change, with no lag.
   createCurrent.readoutOf = function(v,s,d){
     const dom = createCurrent.dominantOf(v,s,d);
-    return READOUTS[dom.key] || READOUTS.neutral;
+    return READOUTS[dom.key] || '';
   };
 
   /* §7.3 — the reading under a check-in. It is the NAME: the state, its qualifier, and
@@ -264,9 +261,9 @@
      reading IS what history will show. NEVER a score or a rank — it names, it does
      not grade (standing guardrail). */
   createCurrent.readingOf = function(v,s,d){
-    const dom = createCurrent.dominantOf(v,s,d);
-    if(dom.key==='neutral') return { tie:false, dominant:sent(READOUTS.neutral), balance:null, label:'Quiet' };
-    return { tie:false, dominant:null, balance:null, label:dom.label };
+    // one name, always (Ruling 2b + E pass): the label is the whole reading now —
+    // the tie/dominant/neutral shapes died with the guards that produced them.
+    return { label: createCurrent.dominantOf(v,s,d).label };
   };
 
   global.PVCurrent = createCurrent;
