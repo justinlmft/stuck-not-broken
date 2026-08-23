@@ -199,7 +199,7 @@
     const row = document.getElementById('install-row');
     if(row){ row.innerHTML = installRowInner(); const g = row.querySelector('.in-go'); if(g) g.onclick = promptInstall; }
     if(isStandalone() || !(canInstall() || isiOS())){ const n = document.getElementById('install-nudge'); if(n) n.remove(); }
-    else if(currentTab === 'today') maybeInstallNudge();
+    else if(currentTab === 'now') maybeInstallNudge();
   }
   // long-press on chrome shouldn't pop the browser menu; inline text links keep theirs
   document.addEventListener('contextmenu', (e)=>{ const t = e.target; if(t && t.closest && t.closest('.tabbar,.fab,.breathhero,.set-seg,svg,button:not(.linkbtn)')) e.preventDefault(); }, false);
@@ -756,9 +756,9 @@
     if(_liveJoin()) return screenLive();
     // N-2: Home-Screen shortcut deep links (manifest shortcuts). consumed once.
     let h=''; try{ h=(location.hash||'').replace('#',''); if(h) history.replaceState(null,'',location.pathname+location.search); }catch(e){}
-    if(h==='checkin'){ app('today'); return screenCheckin(); }
+    if(h==='checkin'){ app('now'); return screenCheckin(); }
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
-    if(h==='breath'){ return app('today'); }   // lands on the ring, ready to tap
+    if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
     const _r = app(currentTab);
     // MEMBER ONBOARDING (item 114): gate on paid && not yet oriented. Deliberately NOT
     // the ?checkout= return param — someone who closes the tab at Stripe and comes back
@@ -783,7 +783,7 @@
     }catch(e){}
     return _r;
   }
-  let currentTab = 'today';
+  let currentTab = 'now';
   let authMode = 'in';
   let lastEmail = '';
   // captured at load, before the hash is consumed anywhere; also set by the
@@ -923,10 +923,10 @@
           const plan = _planChoice;
           return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
             Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
-              if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your account is ready. you can subscribe from settings."); }
+              if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your account is ready. you can subscribe from settings."); }
             }));
         }
-        currentTab='today'; route();
+        currentTab='now'; route();
       }).catch(e=>screenSignIn(String((e&&e.message)||e)));
     }
   }
@@ -1507,10 +1507,10 @@
         return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>{
           if(paid){
             return Promise.resolve(Store.startGuestCheckout ? Store.startGuestCheckout(_planChoice) : { error:'unavailable' }).then(r=>{
-              if(r && r.error){ currentTab='today'; route(); showToast("couldn't open the payment page right now. your free account is ready."); }
+              if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your free account is ready."); }
             });
           }
-          currentTab='today'; route();
+          currentTab='now'; route();
         });
       }).catch(e=>guestAccountForm(mode, String((e&&e.message)||e)));
     }
@@ -1674,7 +1674,7 @@
         // loop with a pointer back home instead of quietly continuing here.
         const standalone = (navigator.standalone===true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
         if(!standalone) return screenResetDone();
-        showToast('Password updated.'); currentTab='today'; route();
+        showToast('Password updated.'); currentTab='now'; route();
       }).catch(e=>screenNewPassword(String((e&&e.message)||e)));
     };
     $('#npw-go').onclick=submit;
@@ -1689,7 +1689,7 @@
         <p class="lede" style="margin-bottom:24px">You can close this tab. Open the app from your Home Screen and sign in with your new password if it asks.</p>
         <button class="btn block" id="reset-done-continue">Or keep going here</button>
       </div></div>`);
-    $('#reset-done-continue').onclick=()=>{ currentTab='today'; route(); };
+    $('#reset-done-continue').onclick=()=>{ currentTab='now'; route(); };
   }
   // In-app reader for the create-account disclaimers. Back returns to the
   // create-account screen (authMode='up'), never into the main app.
@@ -1866,7 +1866,7 @@
     // Kept short on purpose. The card gives reading room to the body and never to the
     // buttons, so long copy costs the scroll, not the action.
     OB_STEPS = [
-      { id:'welcome', tab:'today', kind:'center',
+      { id:'welcome', tab:'now', kind:'center',
         h:'Welcome',
         body:'<p class="ob-p">Thank you for subscribing. Three things just opened up for you:</p>'
            + '<ol class="ob-list"><li>Practices created just for you</li>'
@@ -1881,15 +1881,15 @@
         h:'Your practice maker',
         body:'<p class="ob-p">This opens the practice maker. Want more silence? No problem. A certain visual? Sure thing. Do it all here.</p>' },
 
-      { id:'reader', tab:'current', kind:'spot', target:'#you-reader', pad:8,
+      { id:'reader', tab:'you', kind:'spot', target:'#you-reader', pad:8,
         h:'Your personal reader',
         body:'<p class="ob-p">Your personal reader changes based on your check-ins and practices. Over the moments, days, weeks, and beyond, it will have more and more information about you to learn from and build insight from.</p>' },
 
-      { id:'stats', tab:'current', kind:'spot', target:'#carousel', pad:6,
+      { id:'stats', tab:'you', kind:'spot', target:'#carousel', pad:6,
         h:'Deep data insights',
         body:'<p class="ob-p">Find snapshot results of your data. Check-ins and practices accumulate here.</p>' },
 
-      { id:'method', tab:'current', kind:'center',
+      { id:'method', tab:'you', kind:'center',
         h:'How do you want to check in?',
         // preview + fixed-height wrap (Justin 2026-07-28): a real taste of the control
         // itself, not just a caption, and a min-height floor so picking between the much
@@ -1913,7 +1913,7 @@
         body:'<p class="ob-p">(Or leave it blank.)</p>'
            + '<input class="ob-name" id="ob-name" type="text" placeholder="your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
 
-      { id:'done', tab:'today', kind:'center',
+      { id:'done', tab:'now', kind:'center',
         h:'Done.',
         body:'<p class="ob-p">And that’s it. Check in, do a practice, check in again. It gets more and more yours every time.</p>'
            + '<p class="ob-sign">Justin</p>'
@@ -1921,7 +1921,7 @@
         fine:'All of this is in settings, and the walkthrough is there if you want it again.',
         actions:[{label:'Take me in',kind:'primary',go:'end'}] },
 
-      { id:'decline', tab:'today', kind:'center', standalone:true,
+      { id:'decline', tab:'now', kind:'center', standalone:true,
         h:'Here\u2019s what opened up',
         body:'<p class="ob-p">Enjoy exploring on your own. Here’s a brief rundown.</p>'+obUnlockList()
            + '<p class="ob-p" style="margin-top:12px">The walkthrough is in settings whenever you want it.</p>',
@@ -2187,12 +2187,12 @@ function app(tab){
       </header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
       </nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
-    ({ today:tabToday, current:tabCurrent, practice:tabPractice }[tab] || tabToday)();
-    if(tab === 'today') maybeInstallNudge();
-    if(tab === 'today') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
+    ({ now:tabNow, you:tabYou, practice:tabPractice }[tab] || tabNow)();
+    if(tab === 'now') maybeInstallNudge();
+    if(tab === 'now') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
     maybeTrialBanner();
    
   }
@@ -2230,16 +2230,16 @@ function app(tab){
   // not just by tint); inactive = outline.
   function tabIcon(t, on){
     if(on) return ({
-      today:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path fill="none" d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
+      now:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path fill="none" d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
       practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
-      current:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
+      you:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
     }[t]||'');
     return ({
-    today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
+    now:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
     practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    current:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
+    you:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
   }[t]||''); }
-  function tabBtn(t,label){ const on=currentTab===t, L=CAP(label); return `<button data-t="${t}" class="${on?'on':''}" aria-label="${L}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
+  function tabBtn(t){ const on=currentTab===t, L=CAP(t); return `<button data-t="${t}" class="${on?'on':''}" aria-label="${L}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
   const content = () => $('#content');
 
   // ---------------------------------------------------------------- TODAY
@@ -2278,7 +2278,7 @@ function app(tab){
   }
 
   let breathing = false;
-  let todayGreet = null, todayGreetName = null;
+  let nowGreet = null, nowGreetName = null;
   function pickGreeting(seg, name, quiet){
     // a wide pool for variety; exclamation lines are skipped for shutdown/freeze
     // arrivals (the quiet filter below), so keep plenty of soft lines in the mix.
@@ -2325,7 +2325,7 @@ function app(tab){
     try{ localStorage.setItem('snb_greet_i', i); }catch(e){}
     return pool[i];
   }
-  function tabToday(){
+  function tabNow(){
     const c = content();
     const _paid = paidNow();
     const last = Store.lastCheckin();
@@ -2333,8 +2333,8 @@ function app(tab){
     const done = winsDone();
     const nm = Store.getName();
     const seg = segOf(Date.now());
-    if(todayGreet===null || todayGreetName!==nm){ const _q = !!(last && (last.dom==='shutdown'||last.dom==='freeze')); todayGreet = pickGreeting(segLabel(seg), nm ? escapeHtml(nm) : '', _q); todayGreetName = nm; }
-    const greet = todayGreet;
+    if(nowGreet===null || nowGreetName!==nm){ const _q = !!(last && (last.dom==='shutdown'||last.dom==='freeze')); nowGreet = pickGreeting(segLabel(seg), nm ? escapeHtml(nm) : '', _q); nowGreetName = nm; }
+    const greet = nowGreet;
 
     // state readout doubles as the check-in control: outlined full-width when
     // you've checked in THIS PART OF DAY (shows your state), a filled capsule CTA
@@ -2376,7 +2376,7 @@ function app(tab){
     // breath ring, with ONE outlined invitation at the bottom. No dividers, nothing
     // dominating the centering screen. The reader/reflection is its own surface now
     // (the You-tab reader band); the recommended practice is the single capsule.
-    c.innerHTML = `<div class="view today tb mh${settled?' breathed':''}${young?' young':''}">
+    c.innerHTML = `<div class="view now tb mh${settled?' breathed':''}${young?' young':''}">
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
@@ -2414,7 +2414,7 @@ function app(tab){
     // the You tab ("change a recent check-in"). The single capsule is the practice.
     const mhState = c.querySelector('#mh-state'); if(mhState) mhState.onclick = ()=> screenStateDetail(dom);
     const mhCheck = c.querySelector('#mh-checkin'); if(mhCheck) mhCheck.onclick = screenCheckin;
-    const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'today') : app('practice'); };
+    const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'now') : app('practice'); };
 
     // ---- dynamic post-breath third button (choreographed) ----
     clearTimeout(_mhMorphTimer); clearTimeout(_mhStepTimer); _mhAfterBreath = null;
@@ -2481,7 +2481,7 @@ function app(tab){
   // instead of scale — motion is never the only signal.
   function runBreath(){
     if(breathing) return;
-    const view  = content().querySelector('.today.tb');
+    const view  = content().querySelector('.now.tb');
     const ring  = document.getElementById('tring');
     const phase = document.getElementById('tb-phase');
     if(!view || !ring) return;
@@ -3025,8 +3025,8 @@ function app(tab){
           ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
         </div>
       </div>
-      <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
-    $('#deep-back').onclick = ()=>app('today');
+      <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
+    $('#deep-back').onclick = ()=>app('now');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
     // fresh-section share: the same image cards the You tab shares
@@ -3420,7 +3420,7 @@ function app(tab){
             ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
           </div>
         </div>
-        <nav class="tabbar reader-rail" id="tabs">${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}</nav>`);
+        <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
       $('#me-back').onclick = screenArchive;
       $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
       const sb = $('#me-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
@@ -3500,7 +3500,7 @@ function app(tab){
         <p class="map-sub" style="margin:0">Tap a recent check-in to adjust it, or remove one you didn't mean to keep.</p>
         <div class="change-list">${rows}</div>
       </div></div>`);
-    $('#cc-back').onclick=()=>app('current');
+    $('#cc-back').onclick=()=>app('you');
     root.querySelectorAll('.ci-edit').forEach(b=>b.onclick=()=>screenCheckin(recent[+b.dataset.i]));
     root.querySelectorAll('.ci-del').forEach(b=>b.onclick=()=>{
       const t = +b.dataset.t;
@@ -3530,7 +3530,7 @@ function app(tab){
         <p class="map-sub" style="margin:0">Remove a logged practice you didn't mean to keep, like a test. This can't be undone.</p>
         <div class="change-list">${rows}</div>
       </div></div>`);
-    $('#mp-back').onclick=()=>app('current');
+    $('#mp-back').onclick=()=>app('you');
     root.querySelectorAll('.pr-del').forEach(b=>b.onclick=()=>{
       const t = +b.dataset.t;
       if(confirm('Remove this practice? This cannot be undone.')){
@@ -3545,7 +3545,7 @@ function app(tab){
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
@@ -3808,7 +3808,7 @@ function app(tab){
           Store.saveContexts(kLess, "i've had less of", arrLess);
         }
       }catch(e){} };
-      if(editRec){ Store.updateCheckin(editRec.t, vals); _saveCtx(editRec.t); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('current'); showToast('check-in updated'); return; }
+      if(editRec){ Store.updateCheckin(editRec.t, vals); _saveCtx(editRec.t); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('you'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
       _saveCtx(rec.t);
       ciSaveQ(rec.t, qIdx);
@@ -3825,7 +3825,7 @@ function app(tab){
       }
       // T-2: the FIRST check-in lands back on Today, where the halo has just taken
       // their state color — a visible payoff, not the You tab's "check in twice" nag
-      app(Store.checkins().length >= 2 ? 'current' : 'today');
+      app(Store.checkins().length >= 2 ? 'you' : 'now');
       actionSnack('checked in', 'change', ()=>screenCheckin(rec));
     };
   }
@@ -3895,7 +3895,7 @@ function app(tab){
         <h2 class="scr-h">${h}</h2><p class="scr-lede">${lede}</p></div>
         <div class="actionbar"><button class="btn block" id="lv-out">Back to the app</button></div>
       </div>`);
-    $('#lv-out').onclick = ()=>{ _liveClear(); app('today'); };
+    $('#lv-out').onclick = ()=>{ _liveClear(); app('now'); };
   }
   function screenLiveCode(){
     _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">Join with a Code</h2><p class="scr-lede">Enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">Join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">Back</button></div></div>');
@@ -3969,7 +3969,7 @@ function app(tab){
     // after that it recedes to the quiet link and the deck leads.
     _livePollStart(join);
     $('#lv-go').onclick = ()=>openReading(next);
-    $('#lv-leave').onclick = ()=>{ _livePollStop(); try{ sessionStorage.setItem('snb_live_seen', join.code); }catch(e){} _liveClear(); app('today'); showToast('you can rejoin any time with the code'); };   // 🖊
+    $('#lv-leave').onclick = ()=>{ _livePollStop(); try{ sessionStorage.setItem('snb_live_seen', join.code); }catch(e){} _liveClear(); app('now'); showToast('you can rejoin any time with the code'); };   // 🖊
   }
   // immediately after each live reading: their state, mirrored back. 🖊
   function screenLiveMoment(rec){
@@ -4014,7 +4014,7 @@ function app(tab){
       </div>`);
     const sh=$('#lv-share'); if(sh) sh.onclick=()=>openShare(
       s.type==='capacity-builder' ? 'I practiced capacity building today.' : 'I practiced mindfulness today.');   // 🖊 CB variant
-    $('#lv-done').onclick = ()=>{ _liveClear(); app('today'); showToast('saved with your check-ins'); };
+    $('#lv-done').onclick = ()=>{ _liveClear(); app('now'); showToast('saved with your check-ins'); };
   }
   // the "we're live" nudge: small, invitational, always rejectable, off-switch in settings.
   // free-for-all events show for everyone; member events only to members (kind, no upsell).
@@ -4032,7 +4032,7 @@ function app(tab){
         const s=r.live.find(x=>x.type!=='capacity-builder' || e.sub||e.circle||e.legacy);
         if(!s) return;
         if(sessionStorage.getItem('snb_live_seen')===s.code) return;
-        if(currentTab!=='today' || !document.querySelector('#content .view')) return;   // still on today?
+        if(currentTab!=='now' || !document.querySelector('#content .view')) return;   // still on Now?
         if(document.querySelector('.lv-pop')) return;                                   // never stack two
         // a POP-UP, not a card (Justin 2026-07-17): white on purpose against the bone
         // app, the tri-glyph logo on top, marks arriving one by one — significant and
@@ -5035,7 +5035,7 @@ function app(tab){
     const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); gateSubscribe('reader'); };
   }
 
-  function tabCurrent(){
+  function tabYou(){
     const c = content();
     const ab=document.querySelector('.appbar');
     if(ab) ab.innerHTML='';
@@ -5640,7 +5640,7 @@ function app(tab){
       }
       if(!window._youMqlBound){
         window._youMqlBound=true;
-        try{ matchMedia('(min-width:1120px)').addEventListener('change',()=>{ try{ if(currentTab==='current') app('current'); }catch(e){} }); }catch(e){}
+        try{ matchMedia('(min-width:1120px)').addEventListener('change',()=>{ try{ if(currentTab==='you') app('you'); }catch(e){} }); }catch(e){}
       }
 
       function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; } const p=$('#ot-play'); if(p) p.innerHTML='<svg viewBox="0 0 24 24"><path d="M8 6 L18 12 L8 18 Z"/></svg>'; }
@@ -5735,9 +5735,9 @@ function app(tab){
       <header class="appbar"><button class="backbtn" id="sd-back">Back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
       </nav>`;
-    $('#sd-back').onclick = ()=>app('current');
+    $('#sd-back').onclick = ()=>app('you');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     $('#content').innerHTML = `<div class="view read sd-view">
         <div class="scr-head sd-head">
@@ -5784,7 +5784,7 @@ function app(tab){
         <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
       </div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
       </nav>`);
     // quiet placeholder until the player document has loaded (it then shows its
     // own "preparing your audio" line) — never a blank screen after "begin".
@@ -5908,7 +5908,7 @@ function app(tab){
     // The plan reader IS the matching, rendered — "why this practice, for you, now".
     // It is the paid line. Guard here as well as at the call sites (defense in depth).
     if(!paidNow()) return gateSubscribe('matching');
-    from = from || 'practice';   // where "back" returns to: the chooser, or today's row
+    from = from || 'practice';   // where "back" returns to: the chooser, or the Now tab's row
     clearFigures(); document.body.classList.remove('in-practice');
     currentTab = 'practice';
     const tk = trackOf(reco.practiceKey);
@@ -5934,7 +5934,7 @@ function app(tab){
       <header class="appbar"><button class="backbtn" id="plan-back">Back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
       </nav>`;
     $('#plan-back').onclick = ()=>app(from);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -6667,7 +6667,7 @@ function app(tab){
       if(surfSel.size){ try{ Store.noteSurfaced(Array.from(surfSel)); }catch(e){} }
       haptic('save'); fbThanks(fbSel);
     };
-    const sk=$('#fb-skip'); if(sk) sk.onclick=()=>app('today');
+    const sk=$('#fb-skip'); if(sk) sk.onclick=()=>app('now');
   }
   function fbThanks(val){
     // closing line in Justin's voice — the report tunes the tone, never judges it
@@ -6701,7 +6701,7 @@ function app(tab){
     // N-7: a check-in started from here is tagged post-practice, so "is practice
     // helping?" can use clean before/after pairs instead of day-level inference
     $('#fb-checkin').onclick = ()=>{ window._ciSource='post-practice'; screenCheckin(); };
-    $('#fb-home').onclick = ()=>app('today');
+    $('#fb-home').onclick = ()=>app('now');
   }
 
   // ---------------------------------------------------------------- YOU
@@ -6733,12 +6733,12 @@ function app(tab){
 
   function screenSettings(){
     clearFigures(); document.body.classList.remove('in-practice');
-    currentTab='current';
+    currentTab='you';
     root.innerHTML = `
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('today','now')}${tabBtn('practice','practice')}${tabBtn('current','you')}
+        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const u=Store.user();
@@ -6868,7 +6868,7 @@ function app(tab){
         </div>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
-    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('today'); setTimeout(()=>startOnboarding(true), 80); };
+    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding(true), 80); };
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same
     // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
@@ -7001,9 +7001,9 @@ function app(tab){
     $('#signout').onclick = async ()=>{
       // one accidental tap used to sign you straight out (Justin, 2026-07-05)
       if(!confirm('Sign out? Your check-ins are saved to your account and will be here when you sign back in.')) return;
-      await Store.signOut(); currentTab='today'; route();
+      await Store.signOut(); currentTab='now'; route();
     };
-    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'t be undone. Your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
+    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'t be undone. Your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('now'); } };
     // full in-app account deletion (the privacy policy promises it): a clear
     // confirm screen, then the delete-account edge function erases everything
     // server-side, instantly. 🖊 copy below is a draft for Justin to own.
@@ -7041,11 +7041,11 @@ function app(tab){
         <p class="lede" style="margin-bottom:24px">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
         <button class="btn block" id="del-done">Okay</button>
       </div></div>`);
-    $('#del-done').onclick = ()=>{ authMode='in'; lastEmail=''; currentTab='today'; route(); };
+    $('#del-done').onclick = ()=>{ authMode='in'; lastEmail=''; currentTab='now'; route(); };
   }
 
   // ---------------------------------------------------------------- delegated nav (trend "see all")
-  document.addEventListener('click',(e)=>{ if(e.target && e.target.id==='seeall'){ app('current'); } });
+  document.addEventListener('click',(e)=>{ if(e.target && e.target.id==='seeall'){ app('you'); } });
 
   // apple-style large title: heading holds still during rubber-band (position:sticky
   // in css) and fades over the first ~70px of scroll. Delegated capture listener so
