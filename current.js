@@ -49,7 +49,6 @@
      it does not gate (acute reactivity is adaptive, not pathological). */
   const EDGE_LOW = 0.33, EDGE_HIGH = 0.75;   // shipped band edges (BPQ-SF-confirmed)
   const FLAVOUR_RATIO = 1.4;                 // ratio form of the confirmed 20-point flavour margin
-  const QUIET = 0.12;                        // quiet guard: all circuits under this = no name
   function smoothstep(x){ x = Math.max(0, Math.min(1, x)); return x*x*(3 - 2*x); }
   const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;   // labels read in Sentence case
   const sent = t => t ? t.replace(/(^|[.!?]\s+\(?)([a-z])/g, (m,a,b) => a + b.toUpperCase()) : t;   // and so do the sentences
@@ -60,8 +59,8 @@
   }
   function marginRead(v,s,d){
     const margin = 0.7*v - 0.3*(s + d + coTax(v,s,d));
-    if(Math.max(v,s,d) < QUIET)
-      return { side:'quiet', key:'neutral', margin, severity:0, qual:0, band:null, under:null, label:'Quiet' };
+    // No quiet guard (Ruling, 2026-08-22: "it's not a state" — a non-state must not
+    // exist). An all-floored board calculates normally and names from its values.
     const level = Math.max(s,d) < FLAVOUR_RATIO * Math.min(s,d);
     if(margin < 0){
       const severity = -margin/0.3*100;      // equivalent-single-defense units
@@ -259,18 +258,12 @@
   };
 
   /* §7.3 — the reading under a check-in. It is the NAME: the state, its qualifier, and
-     the secondary when there is one, all composed in marginRead as `label`. The three
-     sentence forms that used to live here are gone — they restated the name, the
-     qualifier and the margin that the label already carries, and the mirror line above
-     the reading says the rest. Two cases still have no name to give and get a sentence:
-     a true dead-centre, and the quiet guard. NEVER a score or a rank — it names, it
-     does not grade (standing guardrail). */
+     the secondary when there is one, all composed in marginRead as `label`. One name,
+     everywhere (Ruling, 2026-08-22): the dead-centre sentence is gone — it made the
+     check-in screen and history describe the same check-in two different ways. The
+     reading IS what history will show. NEVER a score or a rank — it names, it does
+     not grade (standing guardrail). */
   createCurrent.readingOf = function(v,s,d){
-    // the genuine centre: all three axes sitting mid, nothing pulling. fires here ONLY,
-    // never at the connection-high / others-default corner (that person IS reporting
-    // something — full connection). §7.3.
-    const mid = x => x>=0.40 && x<=0.60;
-    if(mid(v)&&mid(s)&&mid(d)) return { tie:true, dominant:sent('nothing is obvious to you right now. no worries.'), balance:null, label:null };
     const dom = createCurrent.dominantOf(v,s,d);
     if(dom.key==='neutral') return { tie:false, dominant:sent(READOUTS.neutral), balance:null, label:'Quiet' };
     return { tie:false, dominant:null, balance:null, label:dom.label };
