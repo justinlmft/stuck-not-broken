@@ -954,9 +954,6 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
 .overtime{margin-bottom:6px}
 .ot-head{display:flex;align-items:center;gap:10px;margin-bottom:11px}
 .ot-readout{flex:1;font-size:calc(12.5px * var(--type-scale));color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
-.ot-play{flex:none;width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ink);background:transparent;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.ot-play svg{width:13px;height:13px;fill:var(--ink)}
-.ot-play:active{background:var(--bone-deep)}
 .ot-strip{display:flex;align-items:flex-end;gap:4px;height:64px;overflow:hidden}
 .ot-bar{flex:1;min-width:1px;border:0;border-radius:3px 3px 0 0;padding:0;cursor:pointer;opacity:.85;transition:opacity .2s var(--ease)}
 .ot-bar.on{opacity:1;transform:scaleY(1.05);transform-origin:bottom}

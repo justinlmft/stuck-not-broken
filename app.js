@@ -2195,7 +2195,6 @@ function app(tab){
     ({ now:tabNow, you:tabYou, practice:tabPractice }[tab] || tabNow)();
     if(tab === 'now') maybeInstallNudge();
     if(tab === 'now') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
-    maybeTrialBanner();
    
   }
   // install affordances: a quiet settings row + an optional dismissable today nudge
@@ -2227,7 +2226,6 @@ function app(tab){
   // accident; with no card taken until someone chooses to subscribe, that can't happen.
   // Left as a no-op (call sites unchanged) rather than removed, so the deletion is one
   // reversible decision and not a scatter of edits. The `.trial-banner` CSS is now unused.
-  function maybeTrialBanner(){ /* no trial exists any more */ }
   // active tab = FILLED symbol (the iOS convention: selection reads at a glance,
   // not just by tint); inactive = outline.
   function tabIcon(t, on){
@@ -2627,45 +2625,8 @@ function app(tab){
   // "what that state is": the brand triGlyph lit to the dominant state — the state's face.
   function stateGlyphViz(dom){ return `<div class="sec-viz sec-glyph">${triGlyph(dom)}</div>`; }
   // "your movement": a smooth safety trend line over the recent days.
-  function trendArc(dayV){
-    const pts = _smoothV((dayV||[]).filter(d=>d && typeof d.v==='number'));
-    if(pts.length<2) return '';
-    const W=320,H=84,padL=8,padR=8,top=14,bot=64;
-    const maxX = Math.max.apply(null, pts.map(p=>p.x)) || 1;
-    const fx = x => padL + (x/maxX)*(W-padL-padR);
-    const P = pts.map(p=>`${fx(p.x).toFixed(1)},${_safeToY(p.v,top,bot).toFixed(1)}`);
-    const last = pts[pts.length-1];
-    return `<div class="sec-viz"><div class="vz-cap">Your safety, recently</div><svg viewBox="0 0 ${W} ${H}" class="vz-svg" role="img" aria-label="your safety trend over recent days">`+
-      `<line x1="${padL}" y1="${bot}" x2="${W-padR}" y2="${bot}" stroke="var(--hairline)" stroke-width="1"/>`+
-      `<polyline points="${P.join(' ')}" fill="none" stroke="#D29A4A" stroke-width="2.5"/>`+
-      `<polyline points="${P.join(' ')} ${fx(last.x).toFixed(1)},${bot} ${padL},${bot}" fill="#F4D58D" fill-opacity="0.14" stroke="none"/>`+
-      `<circle cx="${fx(last.x).toFixed(1)}" cy="${_safeToY(last.v,top,bot).toFixed(1)}" r="3.5" fill="#D29A4A"/>`+
-      `</svg></div>`;
-  }
   // "the fork ahead": the person's real trajectory flowing into a split — up toward more
   // safety, down toward THEIR most-common defense state. Both equal weight: awareness, not a prediction.
-  function forkViz(dayV, dom, defenseState){
-    const pts = _smoothV((dayV||[]).filter(d=>d && typeof d.v==='number'));
-    if(pts.length<2 || !dom) return '';
-    const W=320,H=124,padL=8,top=16,bot=104;
-    const maxX = Math.max.apply(null, pts.map(p=>p.x)) || 1;
-    const nodeX = padL + 0.52*(W-2*padL);                       // split sits mid-canvas
-    const fx = x => padL + (x/maxX)*(nodeX-padL);               // real line spans left half, into the node
-    const traj = pts.map(p=>`${fx(p.x).toFixed(1)},${_safeToY(p.v,top,bot).toFixed(1)}`);
-    const ny = _safeToY(pts[pts.length-1].v, top, bot);
-    const upEnd = top+8, downEnd = bot-8, bx = W-8;
-    const defCol = defenseState ? STATE_COLOR(defenseState) : '#A3C0DD';
-    const defName = defenseState ? STATE_NAME(defenseState) : 'defense';
-    return `<div class="sec-viz"><svg viewBox="0 0 ${W} ${H}" class="vz-svg" role="img" aria-label="a forking path from your current level toward more safety or toward ${escapeHtml(defName)}">`+
-      `<line x1="${padL}" y1="${bot}" x2="${W-8}" y2="${bot}" stroke="var(--hairline)" stroke-width="1"/>`+
-      `<polyline points="${traj.join(' ')}" fill="none" stroke="#D29A4A" stroke-width="2.5"/>`+
-      `<path d="M${nodeX},${ny.toFixed(1)} C${(nodeX+60).toFixed(0)},${(ny-8).toFixed(0)} ${(bx-60)},${upEnd+8} ${bx},${upEnd}" fill="none" stroke="#9FC498" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round"/>`+
-      `<path d="M${nodeX},${ny.toFixed(1)} C${(nodeX+60).toFixed(0)},${(ny+8).toFixed(0)} ${(bx-60)},${downEnd-8} ${bx},${downEnd}" fill="none" stroke="${defCol}" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round"/>`+
-      `<circle cx="${nodeX}" cy="${ny.toFixed(1)}" r="6" fill="${STATE_COLOR(dom)}" stroke="#D29A4A" stroke-width="1.5"/>`+
-      `<text x="${bx}" y="${upEnd-4}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Inter">Toward more safety</text>`+
-      `<text x="${bx}" y="${downEnd+13}" text-anchor="end" font-size="9" fill="var(--muted)" font-family="Inter">toward ${escapeHtml(defName)}</text>`+
-      `</svg></div>`;
-  }
   // route a section id to its visual (from the reader's real signals)
   function sectionViz(id, c){
     if(!c) return '';
@@ -2943,11 +2904,9 @@ function app(tab){
     // per-section visuals: computed from the reader's own recent signals so each picture
     // illustrates the words of its section (mix bar, state glyph, trend line, personal fork).
     const _now = Date.now();
-    const dayV = [];
-    for(let i=13;i>=0;i--){ const d=new Date(_now - i*864e5); d.setHours(0,0,0,0); const a=Store.dayArc?Store.dayArc(d.getTime()):null; if(a && a.n) dayV.push({ x:(13-i), v:a.moments.reduce((s,m)=>s+m.v,0)/a.n }); }
     const _ps = Store.periodStats ? Store.periodStats(_now-7*864e5, _now) : null;
     const _base28 = Store.periodStats ? Store.periodStats(_now-28*864e5, _now) : null;
-    const vizCtx = { dom:dom, dayV:dayV, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null,
+    const vizCtx = { dom:dom, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null,
                      patterns:patterns, zoomPct:(_base28&&_base28.n>=8)?Math.round(_base28.regShare*100):null };
     const P = (t)=> t ? `<p class="read-p">${boldHtml(t)}</p>` : '';
     // the daily note now lives in the today block above; only fall back to a lead
@@ -4098,10 +4057,8 @@ function app(tab){
   function bindSlider(key,fn){ const el=$('#sl-'+key); el.addEventListener('input',()=>fn(+el.value)); }
 
   // ---------------------------------------------------------------- CURRENT OVER TIME
-  let playTimer=null;
   const PERIODS=[{key:'7',label:'Week',days:7},{key:'30',label:'Month',days:30},{key:'90',label:'90 days',days:90},{key:'all',label:'All',days:null}];
   let activePeriod='all';
-  let chartMode='safety';
   function filterByPeriod(cs,days){ if(!days) return cs; const cut=Date.now()-days*864e5; return cs.filter(c=>c.t>=cut); }
   function groupByDay(arr){
     const map={};
@@ -5126,10 +5083,8 @@ function app(tab){
         const c=a[1].map((x,i)=>Math.round(x+(b[1][i]-x)*t));
         return `rgb(${c[0]},${c[1]},${c[2]})`;
       }
-      let dayByDay, arcBuckets=null;
-      if(paced.length<3){
-        dayByDay=`<p class="panel-empty">A few more days of check-ins, and your timeline fills in here.</p>`;
-      } else {
+      let arcBuckets=null;
+      if(paced.length>=3){
         const minT=paced[0].t, maxT=paced[paced.length-1].t, spanD=(maxT-minT)/864e5;
         const unit = spanD>75?'month': spanD>21?'week':'day';
         const keyOf=(t)=>{ const d=new Date(t); if(unit==='month') return d.getFullYear()+'-'+d.getMonth(); if(unit==='week'){ const o=new Date(d); o.setHours(0,0,0,0); o.setDate(o.getDate()-o.getDay()); return o.getTime(); } return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); };
@@ -5137,9 +5092,6 @@ function app(tab){
         const bmap=new Map();
         paced.forEach(p=>{ const k=keyOf(p.t); if(!bmap.has(k)) bmap.set(k,{t:p.t,vs:[],dom:{}}); const bb=bmap.get(k); bb.vs.push(p.v); bb.dom[p.dom]=(bb.dom[p.dom]||0)+1; });
         arcBuckets=[...bmap.values()].sort((a,b)=>a.t-b.t).map(b=>({t:b.t, label:labOf(b.t), avg:b.vs.reduce((s,v)=>s+v,0)/b.vs.length, dom:Object.entries(b.dom).sort((x,y)=>y[1]-x[1])[0][0]}));
-        // two charts, two cards (Justin 2026-07-05): the safety line and the states
-        // view were two different stories crammed behind a toggle — separated.
-        dayByDay=`<div class="chart-wrap" data-cmode="safety">${chartInner('safety', arcBuckets, safetyColor)}</div>`;
       }
 
       // ---- is practice helping: before vs after practice, windowed ----
@@ -5467,11 +5419,8 @@ function app(tab){
               ${pe?`<p class="ctx-practice">Practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
             }
             // the day-by-day line-chart version of "your safety changes" is CUT
-            // (Justin 2026-07-29d: "we don't need it. cut it altogether. ugly anyway.")
-            // — the dot-track version below is the only "your safety changes" now, so
-            // the title collision flagged on 2026-07-28/29 is moot. `dayByDay` (built
-            // above, shared nowhere else) is now dead — left computed rather than
-            // restructuring the shared arcBuckets block that 'states' below still uses.
+            // (Justin 2026-07-29d) — the dot-track below is the only one. Its dead
+            // pre-rendered HTML is gone (E7); arcBuckets survives for 'states' below.
             if(growthHead){
               slides.push(['started','your safety changes', `
               ${shareBtn('started')}${growthHead}`]);
@@ -5539,8 +5488,8 @@ function app(tab){
             const _defN = _recent.filter(x=>{ const k=_rowKey(x); return k && !_REGDOMS[k]; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const _ORDER = _tender
-              ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','baseline','mix','context','started','states','shift','safety']
-              : ['safety','comeback','started','baseline','times','daypart','leastDay','leastDaypart','shift','mix','flavors','context','states','practice'];
+              ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','mix','context','started','states','shift','safety']
+              : ['safety','comeback','started','times','daypart','leastDay','leastDaypart','shift','mix','flavors','context','states','practice'];
             const _rank = k=>{ const i=_ORDER.indexOf(k); return i<0?99:i; };
             const sorted = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0]));
             // desktop ledger (2026-07-19): at wide the carousel stays empty and a
@@ -5646,11 +5595,10 @@ function app(tab){
         try{ matchMedia('(min-width:1120px)').addEventListener('change',()=>{ try{ if(currentTab==='you') app('you'); }catch(e){} }); }catch(e){}
       }
 
-      function stopPlay(){ if(playTimer){ clearInterval(playTimer); playTimer=null; } const p=$('#ot-play'); if(p) p.innerHTML='<svg viewBox="0 0 24 24"><path d="M8 6 L18 12 L8 18 Z"/></svg>'; }
 
       // panels peek (see CSS): one snap unit = a panel's width + the 14px gap
       const snapUnit = (cv)=>{ const p=cv&&cv.firstElementChild; return p ? p.offsetWidth+14 : (cv?cv.clientWidth:1)||1; };
-      c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ stopPlay(); const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const _dd=c.querySelectorAll('#dots .dot-i'); const i=Math.max(0,Math.min(_dd.length-1,Math.round(sl/snapUnit(nv)))); _dd.forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
+      c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const _dd=c.querySelectorAll('#dots .dot-i'); const i=Math.max(0,Math.min(_dd.length-1,Math.round(sl/snapUnit(nv)))); _dd.forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
       const setBtn=$('#set-btn'); if(setBtn) setBtn.onclick=screenSettings;
       const chgBtn=$('#change-ci'); if(chgBtn) chgBtn.onclick=screenChangeCheckin;
       const mpBtn=$('#manage-pr'); if(mpBtn) mpBtn.onclick=screenManagePractices;
