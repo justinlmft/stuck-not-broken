@@ -157,7 +157,7 @@ button{font:inherit;color:inherit}
 
   /* content and header hold a calm centered column — never stretched wall to wall */
   #screen > .appbar{width:100%;max-width:var(--col);margin-inline:auto}
-  #screen .view,#screen .today{width:100%;max-width:var(--col);margin-inline:auto}
+  #screen .view,#screen .now{width:100%;max-width:var(--col);margin-inline:auto}
 
   /* install nudge is phone-in-browser only (Justin, 2026-07-10) — never on desktop */
   #screen .install-nudge{display:none}
@@ -172,7 +172,7 @@ button{font:inherit;color:inherit}
   /* vertical rhythm: screens open with a settled top band instead of hugging
      the appbar — composed whitespace, not leftover phone layout */
   #screen .view{padding-top:clamp(30px,6vh,64px)}
-  #screen .today{padding-top:clamp(26px,5vh,56px)}
+  #screen .now{padding-top:clamp(26px,5vh,56px)}
 
   /* short screens: sticky footers (check-in CTA, plan actions, From Justin)
      sit with their content at a calm distance instead of stranding at the
@@ -233,8 +233,8 @@ button{font:inherit;color:inherit}
 
 .scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 /* app-like: content scrolls but never shows a scrollbar rail (matches the carousel) */
-.scroll,.today,.gate{scrollbar-width:none}
-.scroll::-webkit-scrollbar,.today::-webkit-scrollbar,.gate::-webkit-scrollbar{display:none}
+.scroll,.now,.gate{scrollbar-width:none}
+.scroll::-webkit-scrollbar,.now::-webkit-scrollbar,.gate::-webkit-scrollbar{display:none}
 /* +1px: every screen is always minutely scrollable, so iOS rubber-band overscroll
    works even when content fits — the native "screen gives when you pull" feel.
    overscroll-behavior:contain on .scroll keeps the bounce local (shell never moves). */
@@ -370,8 +370,8 @@ p{margin:0;text-wrap:pretty}
 
 /* ---------- today: progressive stack of three daily wins ---------- */
 /* ---------- today: one grounded column ---------- */
-.today{height:100%;display:flex;flex-direction:column;gap:11px;padding:22px 22px 18px;overflow-y:auto}
-.today-greet{display:flex;flex-direction:column;gap:2px}
+.now{height:100%;display:flex;flex-direction:column;gap:11px;padding:22px 22px 18px;overflow-y:auto}
+.now-greet{display:flex;flex-direction:column;gap:2px}
 .t-greet{font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink);margin:0;line-height:1.2}
 .wincard{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:transparent;border:1px solid var(--hairline);border-radius:14px;padding:17px 18px;cursor:pointer;color:inherit;transition:border-color .2s var(--ease),box-shadow .2s var(--ease),opacity .45s var(--ease),padding .45s var(--ease)}
 .wincard:active{background:var(--bone-deep)}
@@ -392,10 +392,10 @@ p{margin:0;text-wrap:pretty}
 .bh-hint{font-size:calc(12.5px * var(--type-scale));color:var(--muted);margin-top:5px;letter-spacing:.02em;transition:opacity .4s ease}
 .breathhero.is-done .bh-hint{display:none}
 /* breathing focus: every other element fades so only the ring remains, and the tile dissolves */
-.today-greet,.from-justin,.appbar,.tabbar,.today > *{transition:opacity .9s var(--ease)}
+.now-greet,.from-justin,.appbar,.tabbar,.now > *{transition:opacity .9s var(--ease)}
 body.breathing .appbar,
 body.breathing .tabbar,
-body.breathing .today:not(.tb) > :not(.breathhero){opacity:0;pointer-events:none}
+body.breathing .now:not(.tb) > :not(.breathhero){opacity:0;pointer-events:none}
 body.breathing .breathhero{background:transparent}
 body.breathing .breathhero .bh-row{opacity:0}
 /* completed cards shrink and fade back */
@@ -1464,9 +1464,7 @@ body.reduce-motion .p7-shape{animation:none}
 /* ---- check-in v2 (no animated figure — the live readout is the system's answer; fits one screen) ---- */
 .checkin2{display:flex;flex-direction:column;gap:12px;padding:22px 22px 14px}
 .checkin2 .scr-head{margin-bottom:12px}
-.ci-readout{display:flex;align-items:center;gap:9px;font-size:calc(14.5px * var(--type-scale));line-height:1.45;color:var(--ink-80);margin:14px 0 0}
 .ci-readtext{text-align:left}
-.ci-readout b{font-weight:500;color:var(--ink)}
 .ci-dot{flex:none;width:11px;height:11px;border-radius:50%}
 .ci-block{display:flex;flex-direction:column;gap:8px}
 .checkin2 .sliders{gap:16px}
@@ -1516,7 +1514,6 @@ body.reduce-motion .p7-shape{animation:none}
 .ci-fold-lk{font-size:calc(14px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-decoration-color:var(--underline-quiet);text-underline-offset:3px;transition:color .15s var(--ease),text-decoration-color .15s var(--ease)}
 .ci-fold-btn:hover .ci-fold-lk{color:var(--ink);text-decoration-color:var(--ink)}
 .ci-fold .stats-body.open{padding:6px 0 4px}
-.ci-readout-idle{color:var(--muted);font-style:normal}
 /* check-in redesign (turn 4, 2026-07-24): one shared harder/easier scale, calmer
    sliders (glyph anchors, question leads), and a live "you're reporting" mirror
    whose clauses tint to each axis's own color. numbers mode shares the same slider
@@ -1546,18 +1543,11 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 /* 2026-08-17 — no hairline above the reading. It was a 1px --bone-deep rule that read as
    an artefact rather than a divider (Justin: "essentially invisible"); the space does the
    separating now. */
-.ci-reading:not([hidden]) + .ci-readout{margin-top:10px}
 /* 2026-08-17 — the state name and its qualifier sit ABOVE the reading sentence (Justin).
    Sentence case, composed in current.js; the sentence below stays as it was. */
 .ci-reading-name{font-size:calc(16.5px * var(--type-scale));line-height:1.3;color:var(--ink);font-weight:600;letter-spacing:-0.01em;text-wrap:pretty;margin-bottom:1px}
 .ci-reading-dom{font-size:calc(14.5px * var(--type-scale));line-height:1.45;color:var(--ink);font-weight:500;text-wrap:pretty}
 .ci-reading-bal{font-size:calc(13px * var(--type-scale));line-height:1.45;color:var(--muted);text-wrap:pretty}
-.ci-readout4{display:block;line-height:1.55}
-.ci-readout4 .ci-join{color:var(--muted)}
-.ci-readout4 .ci-clause{font-weight:500;transition:color .35s var(--ease)}
-.ci-readout4 .ci-idle{color:var(--muted)}
-@media (prefers-reduced-motion:no-preference){.ci-readout4 .ci-clause{animation:ciClauseIn .35s var(--ease)}}
-@keyframes ciClauseIn{from{opacity:.45}to{opacity:1}}
 /* overflow-wrap so a long single-word option (scene names) breaks instead of
    running out of its own half-width cell at the large Dynamic Type steps. */
 .ch-opt{font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;background:transparent;color:var(--ink-80);border:1px solid var(--hairline);border-radius:11px;padding:13px 8px;text-align:center;line-height:1.25;overflow-wrap:break-word;transition:border-color .2s var(--ease),color .2s var(--ease)}
@@ -1718,7 +1708,6 @@ body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:no
 /* plan-why/plan-about removed from this 17px group: the plan screen now uses the
    reader's 15px body register (see .plan-why/.plan-about below) */
 .wc-reason,.wc-fj-text{font-size:calc(14px * var(--type-scale))}
-.ci-readout,.map-sub,.map-foot,.panel-sub,.panel-empty,
 .deep-val,.deep-lbl,.ch-cap,.trend-cap,.settle-note,.set-quiet{font-size:calc(15px * var(--type-scale))}
 .map-lede{font-size:calc(17px * var(--type-scale))}
 .dash-prompt{font-size:calc(15px * var(--type-scale))}
@@ -2243,7 +2232,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
    when not), practice + reflections quiet at the foot. After a breath the
    instruction recedes, the ring quiets, and the cards open into the freed space.
    ============================================================================ */
-.today.tb{display:flex;flex-direction:column;gap:0;padding:22px 22px 18px;height:100%;overflow-y:auto}
+.now.tb{display:flex;flex-direction:column;gap:0;padding:22px 22px 18px;height:100%;overflow-y:auto}
 .tb-head{margin:2px 0 0;transition:opacity .6s var(--ease)}
 .tb-greet{font-size:calc(17px * var(--type-scale));font-weight:500;color:var(--ink);letter-spacing:-.005em;text-wrap:pretty}
 
@@ -2271,7 +2260,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
    so the RING (not the ring+text block) is the optical center between the
    check-in divider and the cards. collapses with the hint when settled. */
 .tb-breath::before{content:"";height:46px;flex:none;transition:height .6s var(--ease)}
-.today.tb.breathed .tb-breath::before{height:0}
+.now.tb.breathed .tb-breath::before{height:0}
 .tb-stage{position:relative;width:222px;height:222px;display:flex;align-items:center;justify-content:center;transition:width .6s var(--ease),height .6s var(--ease)}
 .tb-halo{position:absolute;width:100%;height:100%;border-radius:50%;border:2px solid var(--halo,var(--hairline));opacity:.5;animation:bloom 9s var(--ease) infinite;will-change:transform,opacity}
 .tb-halo.b{width:86%;height:86%;animation-delay:.6s;opacity:.32}
@@ -2293,7 +2282,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 .tb-txt{display:flex;flex-direction:column;gap:6px;opacity:1;visibility:visible;
   /* arriving: wait for .tb-phase (.7s) to clear first */
   transition:opacity .4s var(--ease) .7s, visibility 0s linear .7s}
-.today.tb.breathing .tb-txt{opacity:0;visibility:hidden;pointer-events:none;
+.now.tb.breathing .tb-txt{opacity:0;visibility:hidden;pointer-events:none;
   /* leaving: go immediately, and stop painting the instant we hit 0 */
   transition:opacity .4s var(--ease), visibility 0s linear .4s}
 .tb-line{font-size:calc(19px * var(--type-scale));font-weight:500;color:var(--ink)}
@@ -2330,52 +2319,52 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
 
 /* breathing: the ring is the whole screen — everything else clears, incl. the tab bar */
 body.breathing .tabbar{opacity:0;pointer-events:none}
-.today.tb.breathing .tb-head,
-.today.tb.breathing .tb-cluster,
-.today.tb.breathing .tb-foot,
+.now.tb.breathing .tb-head,
+.now.tb.breathing .tb-cluster,
+.now.tb.breathing .tb-foot,
 /* (the .breathing hide for .tb-txt now lives with the staggered crossfade above —
    this duplicate was opacity-only and would have re-broken the overlap fix) */
-.today.tb.breathing .tb-ring{animation:none}
-.today.tb.breathing .tb-halo{animation:none;opacity:.42}
+.now.tb.breathing .tb-ring{animation:none}
+.now.tb.breathing .tb-halo{animation:none;opacity:.42}
 
 /* settled (breath taken): instruction gone, ring quiets — but the hero keeps
    filling so the cards stay anchored (no bottom void); reason shows in full */
-.today.tb.breathed .tb-stage{width:132px;height:132px}
-.today.tb.breathed .tb-ring{width:104px;height:104px;animation-duration:13s;opacity:.5}
-.today.tb.breathed .tb-halo{animation-duration:13s;opacity:.4}
-.today.tb.breathed .tb-below{opacity:0;max-height:0;min-height:0;margin:0}
-.today.tb.breathed .tb-foot{margin-top:8px}
+.now.tb.breathed .tb-stage{width:132px;height:132px}
+.now.tb.breathed .tb-ring{width:104px;height:104px;animation-duration:13s;opacity:.5}
+.now.tb.breathed .tb-halo{animation-duration:13s;opacity:.4}
+.now.tb.breathed .tb-below{opacity:0;max-height:0;min-height:0;margin:0}
+.now.tb.breathed .tb-foot{margin-top:8px}
 /* settled: the quieted ring hands its space to the two actions — roomier rows, larger text */
-.today.tb.breathed .tb-row{padding:22px 18px}
-.today.tb.breathed .tb-row-title{font-size:calc(17px * var(--type-scale))}
-.today.tb.breathed .tb-row-sub{font-size:calc(14.5px * var(--type-scale))}
-.today.tb.breathed .tb-refl{-webkit-line-clamp:3;font-size:calc(14.5px * var(--type-scale))}
-.today.tb.breathed .tb-reason{max-height:200px;opacity:1;margin-top:5px}
+.now.tb.breathed .tb-row{padding:22px 18px}
+.now.tb.breathed .tb-row-title{font-size:calc(17px * var(--type-scale))}
+.now.tb.breathed .tb-row-sub{font-size:calc(14.5px * var(--type-scale))}
+.now.tb.breathed .tb-refl{-webkit-line-clamp:3;font-size:calc(14.5px * var(--type-scale))}
+.now.tb.breathed .tb-reason{max-height:200px;opacity:1;margin-top:5px}
 
 /* a visible way out of the breath: a faint line fades in a moment after the
    breath starts (tap-anywhere-to-cancel is wired in runBreath) */
 .tb-esc{font-size:calc(12px * var(--type-scale));color:var(--muted);opacity:0;transition:opacity .8s var(--ease);pointer-events:none;margin-top:4px}
-.today.tb.breathing .tb-esc{opacity:.6;transition-delay:2.2s}
+.now.tb.breathing .tb-esc{opacity:.6;transition-delay:2.2s}
 
 /* post-breath micro offer: the slot is COLLAPSED at rest (the ring keeps that
    space) and opens with the settle transition — it is already full-height by
    the time the button fades in, so the button itself never pushes anything */
 .tb-more-slot{min-height:0;flex:none;display:flex;align-items:center;justify-content:center;transition:min-height .6s var(--ease)}
-.today.tb.breathed .tb-more-slot{min-height:50px}
+.now.tb.breathed .tb-more-slot{min-height:50px}
 .tb-more{display:none;font:inherit;font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);background:none;border:1px solid var(--hairline);border-radius:999px;cursor:pointer;padding:10px 18px;margin:0;transition:border-color .2s var(--ease),background .15s var(--ease)}
-.today.tb.breathed .tb-more{display:inline-flex;animation:tcRise .5s .3s var(--ease) both}
+.now.tb.breathed .tb-more{display:inline-flex;animation:tcRise .5s .3s var(--ease) both}
 @media(hover:hover){.tb-more:hover{border-color:var(--ink-80);color:var(--ink)}}
 .tb-more:active{background:var(--press)}
 .tb-more:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:999px}
-.today.tb.breathing .tb-more{display:none}
-@media (prefers-reduced-motion:reduce){.today.tb.breathed .tb-more{animation:none}}
+.now.tb.breathing .tb-more{display:none}
+@media (prefers-reduced-motion:reduce){.now.tb.breathed .tb-more{animation:none}}
 
 /* first-week accounts: the settled ring keeps its faint hint so a returning
    new user still knows the circle is tappable */
-.today.tb.breathed.young .tb-below{opacity:1;max-height:calc(46px * var(--type-scale));min-height:0;margin:0}
-.today.tb.breathed.young .tb-txt{opacity:1;visibility:visible}
-.today.tb.breathed.young .tb-line{display:none}
-.today.tb.breathed.young .tb-hint{opacity:.55}
+.now.tb.breathed.young .tb-below{opacity:1;max-height:calc(46px * var(--type-scale));min-height:0;margin:0}
+.now.tb.breathed.young .tb-txt{opacity:1;visibility:visible}
+.now.tb.breathed.young .tb-line{display:none}
+.now.tb.breathed.young .tb-hint{opacity:.55}
 
 @keyframes bloom{0%,100%{transform:scale(.96);opacity:.30}50%{transform:scale(1.05);opacity:.55}}
 @media (prefers-reduced-motion:reduce){.tb-halo,.tb-ring{animation:none;transform:scale(.98)}}
@@ -2518,7 +2507,7 @@ body.reduce-motion .lv-breathe{animation:none}
    centered column (breath animates in place, no layout jump).
    ============================================================ */
 @media (min-width:720px){
-  #screen .today.tb{
+  #screen .now.tb{
     max-width:1080px;
     margin-inline:0;                       /* left-anchor (cancel the centering cap) */
     display:grid;
@@ -2528,7 +2517,7 @@ body.reduce-motion .lv-breathe{animation:none}
     row-gap:14px;
     padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
   }
-  #screen .today.tb .tb-hero{
+  #screen .now.tb .tb-hero{
     grid-column:1 / 7;                      /* breath owns the left columns */
     grid-row:1 / span 4;
     align-self:start;
@@ -2539,10 +2528,10 @@ body.reduce-motion .lv-breathe{animation:none}
     width:100%;
     padding-top:0;                          /* lifted to sit level with the greeting/check-in */
   }
-  #screen .today.tb .tb-head{grid-column:7 / 13;grid-row:1;align-self:start;margin:0 0 4px}
-  #screen .today.tb .tb-cluster{grid-column:7 / 13;grid-row:2;align-self:start;margin:0}
-  #screen .today.tb .tb-foot{grid-column:7 / 13;grid-row:3;align-self:start;margin:0}
-  #screen .today.tb .tb-more-slot{grid-column:7 / 13;grid-row:4;align-self:start;margin:0}
+  #screen .now.tb .tb-head{grid-column:7 / 13;grid-row:1;align-self:start;margin:0 0 4px}
+  #screen .now.tb .tb-cluster{grid-column:7 / 13;grid-row:2;align-self:start;margin:0}
+  #screen .now.tb .tb-foot{grid-column:7 / 13;grid-row:3;align-self:start;margin:0}
+  #screen .now.tb .tb-more-slot{grid-column:7 / 13;grid-row:4;align-self:start;margin:0}
 }
 
 /* ============================================================
@@ -2578,7 +2567,7 @@ body.reduce-motion .lv-breathe{animation:none}
 
 /* --- 720-1059: one left-anchored column (the split doesn't fit yet) --- */
 @media (min-width:720px) and (max-width:1059.98px){
-  #screen .today.tb.mh{
+  #screen .now.tb.mh{
     display:flex;
     flex-direction:column;
     justify-content:flex-start;   /* flush top */
@@ -2586,30 +2575,30 @@ body.reduce-motion .lv-breathe{animation:none}
     max-width:560px;
     margin-inline:0;              /* left-anchored, matching Practice / Check-in */
   }
-  #screen .today.tb.mh .tb-hero{
+  #screen .now.tb.mh .tb-hero{
     flex:none;
     width:100%;
     justify-content:flex-start;
     align-items:center;           /* the ring stays centred in its own column */
   }
-  #screen .today.tb.mh .tb-stage{width:240px;height:240px}
-  #screen .today.tb.mh.breathed .tb-stage{width:206px;height:206px}
-  #screen .today.tb.mh .mh-foot{width:100%;margin-top:clamp(18px,3vh,32px)}
+  #screen .now.tb.mh .tb-stage{width:240px;height:240px}
+  #screen .now.tb.mh.breathed .tb-stage{width:206px;height:206px}
+  #screen .now.tb.mh .mh-foot{width:100%;margin-top:clamp(18px,3vh,32px)}
 }
 
 /* --- >=1060: the two-column composition, flush top + left --- */
 @media (min-width:1060px){
-  #screen .today.tb.mh{align-content:start}
-  #screen .today.tb.mh .tb-hero{
+  #screen .now.tb.mh{align-content:start}
+  #screen .now.tb.mh .tb-hero{
     grid-column:1 / 7;
     grid-row:1;
     align-self:start;             /* flush top */
     align-items:center;           /* ring centred inside the left field */
   }
   /* a desktop window can hold a more generous ring than a phone */
-  #screen .today.tb.mh .tb-stage{width:250px;height:250px}
-  #screen .today.tb.mh.breathed .tb-stage{width:214px;height:214px}
-  #screen .today.tb.mh .mh-foot{
+  #screen .now.tb.mh .tb-stage{width:250px;height:250px}
+  #screen .now.tb.mh.breathed .tb-stage{width:214px;height:214px}
+  #screen .now.tb.mh .mh-foot{
     grid-column:7 / 13;
     grid-row:1;
     align-self:start;             /* flush top, level with the state pill */
@@ -2617,9 +2606,9 @@ body.reduce-motion .lv-breathe{animation:none}
     width:100%;
     margin-top:0;                 /* the field is already capped by the 1080 grid */
   }
-  #screen .today.tb.mh .mh-foot .btn{min-height:52px}
+  #screen .now.tb.mh .mh-foot .btn{min-height:52px}
   /* the no-check-in-yet line reads as a left-aligned lead-in here, not a caption */
-  #screen .today.tb.mh .mh-noci{text-align:left}
+  #screen .now.tb.mh .mh-noci{text-align:left}
 }
 
 /* CHECK-IN KEEPS ITS WORDS ON DESKTOP (2026-07-24, Justin: "make sure the desktop
@@ -2635,14 +2624,14 @@ body.reduce-motion .lv-breathe{animation:none}
 @media (min-width:1100px){
   /* wraps rather than being squeezed below min-content at the large Dynamic Type
      steps (flex-shrink on a nowrap .btn overran it 44px at 200%) */
-  #screen .today.tb.mh .mh-secondrow.revealed .mh-checkin{flex:0 1 auto;white-space:normal;text-wrap:balance}
-  #screen .today.tb.mh .mh-secondrow.revealed .mh-ci-full{display:inline}
-  #screen .today.tb.mh .mh-secondrow.revealed .mh-checkin .mh-ci-plus{display:none}
+  #screen .now.tb.mh .mh-secondrow.revealed .mh-checkin{flex:0 1 auto;white-space:normal;text-wrap:balance}
+  #screen .now.tb.mh .mh-secondrow.revealed .mh-ci-full{display:inline}
+  #screen .now.tb.mh .mh-secondrow.revealed .mh-checkin .mh-ci-plus{display:none}
 }
 /* 1100-1199 both labels fit only just; trimming the side padding (words AND the read
    glyph both stay) keeps them on one line instead of wrapping the reader. */
 @media (min-width:1100px) and (max-width:1199.98px){
-  #screen .today.tb.mh .mh-secondrow .btn{padding-left:14px;padding-right:14px}
+  #screen .now.tb.mh .mh-secondrow .btn{padding-left:14px;padding-right:14px}
 }
 
 /* ============================================================
@@ -2923,14 +2912,14 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 @keyframes brInAct{0%,100%{transform:scale(.975)}50%{transform:scale(1.006)}}
 @keyframes brInQui{0%,100%{transform:scale(.987)}50%{transform:scale(1.001)}}
 /* tap → gather: during the guided breath all three lock to one calm ink wave */
-.today.tb.breathing .br-g{animation:none}
-.today.tb.breathing .br-c{stroke:var(--ink);stroke-opacity:.5;stroke-width:1.5}
-.today.tb.breathing .br-dot{fill:var(--ink);fill-opacity:.5}
+.now.tb.breathing .br-g{animation:none}
+.now.tb.breathing .br-c{stroke:var(--ink);stroke-opacity:.5;stroke-width:1.5}
+.now.tb.breathing .br-dot{fill:var(--ink);fill-opacity:.5}
 @media (prefers-reduced-motion:reduce){.br-g{animation:none!important}}
 
 /* ---- moment-home: the calm centered "now" (2026-07-23) ---------------------
    Period icon + state (or greeting) over the ring, one outlined capsule below. */
-.today.tb.mh .tb-hero{gap:18px}
+.now.tb.mh .tb-hero{gap:18px}
 .mh-top{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;transition:opacity .9s var(--ease)}
 .mh-peri{color:var(--ink);display:inline-flex}
 .mh-peri svg{width:24px;height:24px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
@@ -2994,12 +2983,12 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .mh-secondrow.mh-noanim .mh-checkin,.mh-secondrow.mh-noanim .mh-third{transition:none}
 body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 /* during the breath, the top + capsule clear so only the ring remains */
-.today.tb.mh.breathing .mh-top,
-.today.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}
+.now.tb.mh.breathing .mh-top,
+.now.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}
 /* settled (after a breath): keep the ring generous and full-strength, not the tiny
    faint puck the old single-ring settle used — the ladder needs room to read */
-.today.tb.mh.breathed .tb-stage{width:190px;height:190px}
-.today.tb.mh.breathed .tb-ring.br-stage{width:100%;height:100%;opacity:1}
+.now.tb.mh.breathed .tb-stage{width:190px;height:190px}
+.now.tb.mh.breathed .tb-ring.br-stage{width:100%;height:100%;opacity:1}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MEMBER ONBOARDING (item 114, 2026-07-26) — the app's first modal pattern.
