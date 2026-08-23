@@ -837,8 +837,8 @@
   function addCheckin(c){
     // The state name ALWAYS derives from the circuit values — one rule for all
     // history, no caller-supplied key accepted (Ruling 2, 2026-08-22: untouched
-    // sliders are the person's answer; the engine names what they left). dominantOf
-    // returns 'neutral' only from the computed QUIET guard (all circuits floored).
+    // sliders are the person's answer; the engine names what they left). Since
+    // Ruling 2b removed the QUIET guard, every board names a real state.
     const dom = PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
     // time and fed to the recommender. Synced to the cloud `challenge` column via checkinToRow.
@@ -1004,9 +1004,9 @@
     // of averaged axes (fight↔shutdown oscillation could average into a
     // "freeze" the person never once reported). Each row's dom is DERIVED per
     // read (_dm — B1, 2026-08-22): one naming rule covers all history.
-    const cnt={}; cs.forEach(c=>{ const k=_dm(c); if(k && k!=='neutral') cnt[k]=(cnt[k]||0)+1; });
+    const cnt={}; cs.forEach(c=>{ const k=_dm(c); if(k) cnt[k]=(cnt[k]||0)+1; });
     let dk=null;
-    for(let i=cs.length-1;i>=0;i--){ const k=_dm(cs[i]); if(!k||k==='neutral') continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
+    for(let i=cs.length-1;i>=0;i--){ const k=_dm(cs[i]); if(!k) continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
     const dom = dk
       ? { key:dk, name:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].name)||dk, color:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].color)||null }
       : PVCurrent.dominantOf(v,sym,dor);
@@ -1029,7 +1029,7 @@
     const pairs = {}; let total = 0;
     for(let i=1;i<cs.length;i++){
       const a=_dm(cs[i-1]), b=_dm(cs[i]);
-      if(!a||!b||a===b||a==='neutral'||b==='neutral') continue; // only real state changes count
+      if(!a||!b||a===b) continue;                              // only real state changes count
       const k=a+'>'+b; pairs[k]=(pairs[k]||0)+1; total++;
     }
     if(total < 3) return null;
@@ -1075,14 +1075,11 @@
      DERIVED from its own v/sym/dor, so one rule covers all history.
      margin = 0.7*v - 0.3*(sym + dor + tax); >= 0 means capacity covers load in
      that same reading. Never surfaced as a number — margins stay internal.
-     Quiet rows — the engine's computed no-name read (all circuits floored) — have
-     no readable margin: the formula lands near 0 there because capacity AND load
-     are both absent, not because capacity covers load. So they are excluded from
-     every margin statistic (D-A, 2026-08-22) while still counting as check-ins
-     (tenure, streaks). Names never come from storage — _dm derives every row. */
+     Every row with numbers is a read (Ruling 2b: the QUIET guard is gone — 'it's
+     not a state'). Names never come from storage — _dm derives every row; the
+     stored dom is legacy data the engine no longer consults. */
   function _mgn(c){
     if(!c || typeof c.v !== 'number') return null;
-    if(_dm(c) === 'neutral') return null;                    // computed Quiet: not a readable margin (D-A)
     try{ return PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; }
   }
   function _dm(c){
@@ -1104,7 +1101,7 @@
   // Computed the same way the reader picks its window-dominant, so `second` never equals it.
   function weekMix(){
     const cut = Date.now() - 7*86400000;   // fixed trailing week — no caller ever passed a window
-    const cs = data.checkins.filter(c => { const k=_dm(c); return c.t >= cut && k && k !== 'neutral'; });
+    const cs = data.checkins.filter(c => c.t >= cut && !!_dm(c));
     const n = cs.length;
     if(n < 6) return null;                                  // too few in-window to claim a mix
     const cnt = {}; cs.forEach(c => { const k=_dm(c); cnt[k] = (cnt[k]||0) + 1; });
@@ -1123,7 +1120,7 @@
   // recovery: after a dip out of a regulated state, how many check-ins until a regulated
   // one returns. The hope signal — only trustworthy with real history + several round-trips.
   function recovery(){
-    const cs = data.checkins.filter(c => { const k=_dm(c); return k && k !== 'neutral'; });
+    const cs = data.checkins.filter(c => !!_dm(c));
     if(cs.length < 12) return null;
     const gaps = [], depths = []; let i = 0;
     while(i < cs.length){
@@ -1239,7 +1236,7 @@
     const groups = {};
     _pePairs().forEach(p => {
       if(!p.practiceKey || p.dAfter == null) return;
-      const dom = _dm(p.beforeCheckin); if(!dom || dom === 'neutral') return;
+      const dom = _dm(p.beforeCheckin); if(!dom) return;
       const key = p.practiceKey + '|' + dom + '|' + _segOf(p.t);
       const g = groups[key] || (groups[key] = { practiceKey:p.practiceKey, dom:dom, seg:_segOf(p.t), moved:0, total:0, sum:0 });
       g.total++; g.sum += p.dAfter;
@@ -1393,7 +1390,7 @@
   function dayArc(t0){
     const tEnd = t0 + 864e5;
     const moments = data.checkins
-      .filter(c => { const k=_dm(c); return c && typeof c.t==='number' && c.t>=t0 && c.t<tEnd && k && k!=='neutral'; })
+      .filter(c => c && typeof c.t==='number' && c.t>=t0 && c.t<tEnd && !!_dm(c))
       .sort((a,b)=>a.t-b.t);
     const sess = data.sessions
       .filter(s => s && typeof s.t==='number' && s.t>=t0 && s.t<tEnd)
@@ -1423,7 +1420,7 @@
   // monthly + quarterly reflections (the long-range altitudes). All deterministic, on-device.
   function periodStats(startMs, endMs){
     const cs = data.checkins
-      .filter(c => { const k=_dm(c); return c && typeof c.t==='number' && c.t>=startMs && c.t<endMs && k && k!=='neutral'; })
+      .filter(c => c && typeof c.t==='number' && c.t>=startMs && c.t<endMs && !!_dm(c))
       .sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(!n) return null;
@@ -1538,7 +1535,7 @@
   // honest low-data path. safety = avgV, defense = avgDef (both absolute).
   function baselineWeek(){
     const now = Date.now();
-    const cs = data.checkins.filter(c => { const k=_dm(c); return c.t >= now - 7*864e5 && c.t <= now && k && k !== 'neutral'; }).sort((a,b)=>a.t-b.t);
+    const cs = data.checkins.filter(c => c.t >= now - 7*864e5 && c.t <= now && !!_dm(c)).sort((a,b)=>a.t-b.t);
     if(cs.length < 4) return { lowData:true, n:cs.length };
     // periodStats uses a strict `< endMs`; pass now+1 so a check-in stamped at exactly `now`
     // (e.g. the one that just triggered this) is counted here too. Guard the null just in case.

@@ -953,7 +953,7 @@
   function blog(ctx0){
     ctx0 = ctx0 || {};
     const dom = ctx0.dom || ((global.Store&&Store.lastCheckin)?(Store.lastCheckin()||{}).dom:null);
-    if(!dom || dom==='neutral' || !ESSAYS[dom]) return null;
+    if(!dom || !ESSAYS[dom]) return null;
     const tn = ctx0.tenure || ((global.Store&&Store.tenure)?Store.tenure():null) || { stage:'week', returning:false };
     const stage = ctx0.stage || tn.stage || 'week';
     const ctx = Object.assign({}, ctx0, { dom:dom, stateName: STATE_NAMES[dom]||dom, stage:stage });

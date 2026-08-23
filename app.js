@@ -52,17 +52,16 @@
 
      No stored name is trusted — every row derives (Ruling 2, 2026-08-22: untouched
      sliders are the person's answer, so the engine always names what they left).
-     'neutral' now only ever means the computed QUIET guard fired (all circuits
-     floored): no readable margin — capacity and load both absent — so those rows
-     are excluded from every margin statistic (D-A) while still counting as
-     check-ins (tenure, streaks).                                                 */
+     Every row with numbers is a read (Ruling 2b removed the QUIET guard — "it's
+     not a state"); a stored 'neutral' is legacy data the engine no longer
+     consults, and dominantOf always returns one of the six real states.          */
   // Which side of the line each NAME sits on. Not a heuristic: under the margin
   // rule safety/play/stillness can only arise when margin >= 0, and
   // shutdown/freeze/fight-flight only when margin < 0. So this is a fact about
   // the naming rule, used where we need to describe names rather than count them.
   const SAFETY_SIDE  = { safety:1, play:1, stillness:1 };
   const DEFENSE_SIDE = { shutdown:1, freeze:1, fightflight:1 };
-  function _isRead(c){ return !!c && typeof c.v === 'number' && _cDom(c) !== 'neutral'; }
+  function _isRead(c){ return !!c && typeof c.v === 'number'; }
   function _reads(arr){ return (arr||[]).filter(_isRead); }
   function _cDom(c){
     if(!c) return null;
@@ -1126,8 +1125,7 @@
         /* 2026-08-17 — the name IS the reading (Justin). 2026-08-22 — it always shows:
            untouched sliders are the person's answer, so there is always a state to
            name. Dead-centre keeps its sentence, the one case with no name to give. */
-        const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-        reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
+        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
         reading.hidden = false;
       }
     }
@@ -2772,7 +2770,7 @@ function app(tab){
       if(pv && FromJustin.periodSection) return _visitSectionHTML(FromJustin.periodSection(pv.ctx), pv.key);
       if(dow!==0 && dow!==1) return { html:'', wire:null };
       const ws = _sundayStart(now) - WEEK_MS, we = ws + WEEK_MS;
-      const cs = Store.checkins().filter(c=>{const k=_cDom(c);return c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&k&&k!=='neutral';}).sort((a,b)=>a.t-b.t);
+      const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&!!_cDom(c)).sort((a,b)=>a.t-b.t);
       if(!cs.length) return { html:'', wire:null };
       const st = Store.periodStats(ws, we), prev = Store.periodStats(ws-WEEK_MS, ws);
       let shiftDir=null;
@@ -3070,7 +3068,7 @@ function app(tab){
   // Justin 2026-07-28: "trip-count moved to a parenthetical at the bottom with the
   // real time period" — this is the "real time period" half of that fix.)
   function _windowRecovery(cs){
-    const wcs = cs.filter(c=>{const k=_cDom(c);return k&&k!=='neutral';});
+    const wcs = cs.filter(c=>!!_cDom(c));
     if(wcs.length<12) return null;
     const gaps=[]; let i=0;
     while(i<wcs.length){
@@ -3085,7 +3083,7 @@ function app(tab){
   function weeklyIssueFor(ws){
     if(!FromJustin.blog) return null;
     const we = ws + WEEK_MS;
-    const cs = Store.checkins().filter(c=>{ const k=_rowKey(c); return c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&k; }).sort((a,b)=>a.t-b.t);
+    const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&!!_rowKey(c)).sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(n < 3) return null;                                   // sparse week: skip minting in v1
     const freq={}; cs.forEach(c=>{ const k=_rowKey(c); freq[k]=(freq[k]||0)+1; });
@@ -3641,8 +3639,8 @@ function app(tab){
       // the chips above are not just the input, they are a live readout: as the sliders
       // move, the highlighted state follows the numbers. Otherwise someone can tune their
       // way well out of the state they tapped while that chip still sits lit (Justin,
-      // 2026-07-26). dominantOf can land on 'neutral', which is no chip: honest, so the
-      // row simply goes quiet rather than pretending.
+      // 2026-07-26). dominantOf always names one of the six real states now (2b), so
+      // exactly one chip is always lit once the tune block is open.
       if(_ciStates && _tuneOpen){
         const dk = window.PVCurrent.dominantOf(v/100, s/100, d/100).key;
         root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x.dataset.ovr===dk));
@@ -3658,8 +3656,7 @@ function app(tab){
       if(reading){
         /* 2026-08-17 — the name IS the reading (Justin). Dead-centre keeps its
            sentence, the one case with no name to give. */
-        const rd = window.PVCurrent.readingOf(v/100, s/100, d/100);
-        reading.innerHTML = `<span class="ci-reading-name">${rd.label || rd.dominant}</span>`;
+        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
         reading.hidden = false;
       }
     }
@@ -4559,7 +4556,7 @@ function app(tab){
   // outside reader, and usable by a professional. Every card names its own metric.
   // per-row keys DERIVE (A4, 2026-08-22): stored dom is neither a stats nor a display
   // source. A derived key is always a real state; rows that cannot derive drop out.
-  const _rowKey = c => { const k=_cDom(c); return k && k!=='neutral' ? k : null; };
+  const _rowKey = c => _cDom(c) || null;
   function _safeShare(arr){
     let r=0, n=0;
     (arr||[]).forEach(c=>{ const k=_rowKey(c); if(!k) return; n++; if(_REGDOMS[k]) r++; });
@@ -4747,7 +4744,7 @@ function app(tab){
 
     // the label is still a name — a descriptive word for where the middle sits, not
     // a measurement. Derived from circuit values like every other name now.
-    const cnt = {}; inWin.forEach(c => { const k=_cDom(c); if(k && k!=='neutral') cnt[k]=(cnt[k]||0)+1; });
+    const cnt = {}; inWin.forEach(c => { const k=_cDom(c); if(k) cnt[k]=(cnt[k]||0)+1; });
     let modeState = null, mb = -1;
     Object.keys(cnt).forEach(k => { if(cnt[k] > mb){ mb = cnt[k]; modeState = k; } });
 
@@ -5120,7 +5117,7 @@ function app(tab){
         // own most-common dip state) — the claim itself is the RATE below, not
         // a promise that practice always starts from this exact state.
         const domCounts={};
-        _pePairs().forEach(p=>{ const d=_cDom(p.beforeCheckin); if(d && d!=='neutral') domCounts[d]=(domCounts[d]||0)+1; });
+        _pePairs().forEach(p=>{ const d=_cDom(p.beforeCheckin); if(d) domCounts[d]=(domCounts[d]||0)+1; });
         const modeDom=Object.keys(domCounts).sort((a,b)=>domCounts[b]-domCounts[a])[0] || 'fightflight';
         practiceHead=`<div class="cb-journey">${cbGlyphViz(modeDom, 'safety', null, 'hero')}</div>
           <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> of the time.</p>
