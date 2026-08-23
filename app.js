@@ -6759,6 +6759,7 @@ function app(tab){
               <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">Dark</span></button>
             </div>
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
+            <p class="ch-cap" id="motion-cap" style="margin:6px 0 0"></p>
             <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
               <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
@@ -6772,7 +6773,9 @@ function app(tab){
           <div class="gs-card">
             <p class="gs-h">App</p>
             ${gsSw('sw-live','Live practice invitations',lv!=='0')}
+            <p class="ch-cap" id="live-cap" style="margin:6px 0 0"></p>
             ${gsSw('sw-haptics','Haptics',hp)}
+            <p class="ch-cap" id="hap-cap" style="margin:6px 0 0"></p>
             ${gsSw('sw-offline','Save practices for offline',offOn)}
             <p class="gs-fine" id="offline-status"></p>
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
@@ -6784,6 +6787,7 @@ function app(tab){
           <div class="gs-card">
             <p class="gs-h">Your data</p>
             ${gsSw('sw-glyph','Charts on shared images',gl!=='0')}
+            <p class="ch-cap" id="glyph-cap" style="margin:6px 0 0"></p>
             <p class="gs-fine">A card you share goes out as a picture of that card. On means the picture includes its chart. Off leaves the chart out. The card's words still go, and some of them name numbers.</p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins</button>
@@ -6897,7 +6901,7 @@ function app(tab){
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
     const _liveCap = on=>{ const el=$('#live-cap'); if(el) el.textContent = on
-      ? 'When a live practice is happening, the today screen offers a quiet invitation to check in alongside it.'
+      ? 'When a live practice is happening, the Now screen offers a quiet invitation to check in alongside it.'
       : 'The app never mentions live practices. Joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });

@@ -9,7 +9,7 @@ const SHELL_VERSION = 'snb-app-shell-v454';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=193', './app.js?v=263', './icons.js', './current.js?v=17',
+  './', './index.html', './app.css?v=193', './app.js?v=263', './icons.js?v=2', './current.js?v=17',
   './config.js?v=8', './store.js?v=84', './from-justin.js?v=18', './player.html',
   './clips/silence-30s.wav', './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
