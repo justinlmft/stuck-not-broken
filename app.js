@@ -118,7 +118,7 @@
     Store.trend=()=>{const a=cs.slice(-5);if(!a.length)return null;const m=k=>a.reduce((s,c)=>s+c[k],0)/a.length;const d=a[a.length-1].v-a[0].v;return {v:m('v'),sym:m('sym'),dor:m('dor'),dom:a[a.length-1].dom,dir:d>0.12?'rising':d<-0.12?'falling':'steady',n:a.length};};
     Store.periodStats=(s0,e0)=>{const w=cs.filter(c=>c.t>=s0&&c.t<e0);if(!w.length)return null;const cnt={};_reads(w).forEach(c=>{const k=_cDom(c);cnt[k]=(cnt[k]||0)+1;});const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);const nR=_reads(w).length||1;const dist={};order.forEach(k=>dist[k]=Math.round(cnt[k]/nR*100));let reg=0;const rd=_reads(w);rd.forEach(c=>{if(_cReg(c))reg++;});const avgV=w.reduce((s,c)=>s+c.v,0)/w.length;const third=Math.max(1,Math.floor(w.length/3));const fa=w.slice(0,third).reduce((s,c)=>s+c.v,0)/third,la=w.slice(-third).reduce((s,c)=>s+c.v,0)/third;const domOf=a=>{const c2={};_reads(a).forEach(x=>{const k=_cDom(x);c2[k]=(c2[k]||0)+1;});return Object.keys(c2).sort((p,q)=>c2[q]-c2[p])[0]||null;};
       return {n:w.length,days:new Set(w.map(c=>new Date(c.t).toDateString())).size,dom:order[0],domShare:dist[order[0]],second:order[1]||null,secondShare:order[1]?dist[order[1]]:0,dist:dist,order:order,reg:reg,dys:nR-reg,nRead:nR,regShare:reg/nR,lean:reg/nR>=0.6?'regulated':reg/nR<=0.4?'dysregulated':'even',meanMargin:_meanMargin(w),avgV:avgV,firstAvg:fa,lastAvg:la,firstDom:domOf(w.slice(0,third)),lastDom:domOf(w.slice(-third)),bestDow:null,defenseStates:order.filter(d=>DEFENSE_SIDE[d]),regStates:order.filter(d=>SAFETY_SIDE[d])};};
-    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',deltaPct:0,cur:cur.meanMargin};const d=cur.meanMargin-prev.meanMargin;return {dir:d>0.05?'up':d<-0.05?'down':'flat',deltaPct:Math.round(d*100),cur:cur.meanMargin,prev:prev.meanMargin};};
+    Store.baselineDelta=(s0,e0)=>{const span=e0-s0,cur=Store.periodStats(s0,e0),prev=Store.periodStats(s0-span,s0);if(!cur)return null;if(!prev)return {dir:'new',cur:cur.meanMargin};const d=cur.meanMargin-prev.meanMargin;return {dir:d>0.05?'up':d<-0.05?'down':'flat',cur:cur.meanMargin,prev:prev.meanMargin};};
     Store.recovery=()=>{const r=_reads(cs);if(r.length<12)return null;const gaps=[],depths=[];let i=0;while(i<r.length){if(!_cReg(r[i])){let j=i,st=0,f=false,low=0;while(j<r.length){const m=_cMargin(r[j]);if(m!=null&&m<low)low=m;if(_cReg(r[j])){f=true;break;}j++;st++;}if(f){gaps.push(st);depths.push(low);}i=j;}else i++;}return gaps.length>=3?{avg:gaps.reduce((x,y)=>x+y,0)/gaps.length,n:gaps.length,deepest:Math.min.apply(null,depths),avgDepth:depths.reduce((x,y)=>x+y,0)/depths.length}:null;};
     Store.transitions=()=>{if(cs.length<6)return null;const p={};let tot=0;for(let i=1;i<cs.length;i++){const a=cs[i-1].dom,b=cs[i].dom;if(!a||!b||a===b)continue;p[a+'>'+b]=(p[a+'>'+b]||0)+1;tot++;}if(tot<3)return null;const e=Object.entries(p).sort((x,y)=>y[1]-x[1])[0];if(!e||e[1]<2)return null;const k=e[0].indexOf('>');return {a:e[0].slice(0,k),b:e[0].slice(k+1),count:e[1],total:tot};};
     Store.weekMix=(days)=>{const cut=Date.now()-(days||7)*864e5;const st=Store.periodStats(cut,Date.now());if(!st||st.n<6)return null;return {n:st.n,dom:st.dom,domShare:st.domShare,second:st.second,secondShare:st.secondShare,reg:st.reg,dys:st.dys,regShare:Math.round(st.regShare*100),lean:st.lean,distinct:st.order.length,defenseStates:st.defenseStates};};
@@ -198,7 +198,15 @@
   ['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev, e=>e.preventDefault(), {passive:false}));
 
   const STATE_COLOR = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].color : '#D8D2C2');
-  const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'Quiet');
+  // An unknown key is a BUG, not a display case (ruled 2026-08-22): render a visibly
+  // broken em-dash instead of inventing a friendly non-state, and name the key in the
+  // console — once per key per session, so a re-rendering list can't bury the signal.
+  const _unknownStateKeys = new Set();
+  const STATE_NAME  = (key) => {
+    if(window.PVCurrent.STATES[key]) return window.PVCurrent.STATES[key].name;
+    if(!_unknownStateKeys.has(key)){ _unknownStateKeys.add(key); try{ console.error('STATE_NAME: unknown state key', key); }catch(e){} }
+    return '—';
+  };
   // CAP(): sentence-case a value that STARTS a label, heading, cell or button.
   // State names and dayparts are common nouns — they stay lowercase MID-SENTENCE
   // ("you commonly dip into shutdown"), and take a capital only where their
@@ -2324,7 +2332,7 @@ function app(tab){
     // when you haven't — it reverts each segment (morning/afternoon/evening/late)
     // so every new stretch of the day invites a fresh check-in.
     const checkedIn = !!(last && sameDay(last.t) && segOf(last.t)===segOf(Date.now()));
-    const dom  = checkedIn ? last.dom : null;
+    const dom  = checkedIn ? _cDom(last) : null;
     const halo = checkedIn ? STATE_COLOR(dom) : 'var(--hairline)';
     const stateHTML = checkedIn
       ? `<button class="tb-state tb-state-line" id="tb-state"><span class="tb-glyph">${triGlyph(dom)}</span><span class="tb-state-txt">${STATE_LABEL(dom)} · this ${segLabel(segOf(last.t))}</span><span class="tb-chev">${CHEV}</span></button>`
@@ -2566,7 +2574,7 @@ function app(tab){
     const cl=x=>x<0?0:x>1?1:x;
     const fx=t=>padL + cl((t-t0)/span)*(W-padL-padR);
     const fy=v=>padT + (1-cl(v))*(H-padT-padB);
-    const pts=moments.map(m=>({x:fx(m.t),y:fy(m.v),dom:m.dom}));
+    const pts=moments.map(m=>({x:fx(m.t),y:fy(m.v),dom:_cDom(m)}));
     const vAt=t=>{ const a=moments; if(t<=a[0].t) return a[0].v; if(t>=a[a.length-1].t) return a[a.length-1].v;
       for(let i=1;i<a.length;i++){ if(t<=a[i].t){ const f=(t-a[i-1].t)/((a[i].t-a[i-1].t)||1); return a[i-1].v+(a[i].v-a[i-1].v)*f; } } return a[a.length-1].v; };
     const midY=(padT+(H-padT-padB)/2).toFixed(0);
@@ -2578,7 +2586,7 @@ function app(tab){
       `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="var(--hairline)" stroke-width="1"/>`+
       `<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--hairline)" stroke-width="1"/>`;
     const labels=[['morning',0.18],['midday',0.45],['evening',0.74],['late',0.96]].map(o=>`<text x="${(padL+o[1]*(W-padL-padR)).toFixed(0)}" y="${H-8}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="Inter">${o[0]}</text>`).join('');
-    const present=moments.map(m=>m.dom).filter((d,i,a)=>a.indexOf(d)===i);
+    const present=moments.map(m=>_cDom(m)).filter((d,i,a)=>d&&a.indexOf(d)===i);
     const leg=present.map(d=>`<span class="mtl-key"><span class="mtl-sw" style="background:${STATE_COLOR(d)}"></span>${escapeHtml(STATE_LABEL(d))}</span>`).join('')+
       (sessions.length?`<span class="mtl-key"><span class="mtl-ring"></span>practice</span>`:'');
     return `<div class="mtl"><svg viewBox="0 0 ${W} ${H}" class="mtl-svg" role="img" aria-label="your check-ins today, placed by time and safety, colored by state">${axis}${line}${rings}${dots}${labels}</svg><div class="mtl-legend">${leg}</div></div>`;
@@ -2587,7 +2595,7 @@ function app(tab){
   function momentDots(moments){
     const ms=(moments||[]).filter(m=>m&&m.dom).slice(-8);
     if(!ms.length) return '';
-    return `<span class="md-row" aria-hidden="true">${ms.map((m,i)=>`<span class="md-dot${i===ms.length-1?' md-new':''}" style="background:${STATE_COLOR(m.dom)}"></span>`).join('')}</span>`;
+    return `<span class="md-row" aria-hidden="true">${ms.map((m,i)=>`<span class="md-dot${i===ms.length-1?' md-new':''}" style="background:${STATE_COLOR(_cDom(m))}"></span>`).join('')}</span>`;
   }
 
   // ---- for-you reader section visuals: each pictures the words of its section ----
@@ -2844,11 +2852,11 @@ function app(tab){
     const base = wk.length ? wk : cs;
     let dom=null, share=null, dir=null, variance=null, streak=0;
     if(base.length){
-      const freq={}; base.forEach(c=>{ freq[c.dom]=(freq[c.dom]||0)+1; });
+      const freq={}; let nk=0; base.forEach(c=>{ const k=_rowKey(c); if(!k) return; nk++; freq[k]=(freq[k]||0)+1; });
       let bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
-      share = Math.round((freq[dom]||0)/base.length*100);
+      share = nk ? Math.round((freq[dom]||0)/nk*100) : null;
     }
-    if(!dom && last) dom = last.dom;
+    if(!dom && last) dom = _cDom(last);
     if(cs.length>=2){ const _tr=Store.trend(); dir=_tr?_tr.dir:null; }   // null-safe: never crash the reader
     if(base.length>=3){
       const avgV=base.reduce((s,c)=>s+c.v,0)/base.length;
@@ -2859,10 +2867,10 @@ function app(tab){
 
     // essay-model signals (reader rework 2026-07-03): counts woven into sentences,
     // freeze->shutdown drift, and the dominant non-safety state for the safety essay.
-    let f2s = 0; const _wkSorted = base.slice().sort((a,b)=>a.t-b.t);
-    for(let i=1;i<_wkSorted.length;i++){ if(_wkSorted[i-1].dom==='freeze' && _wkSorted[i].dom==='shutdown') f2s++; }
+    let f2s = 0; const _wkKeys = base.slice().sort((a,b)=>a.t-b.t).map(_rowKey);
+    for(let i=1;i<_wkKeys.length;i++){ if(_wkKeys[i-1]==='freeze' && _wkKeys[i]==='shutdown') f2s++; }
     const _DYSD = { fightflight:1, shutdown:1, freeze:1 };
-    const _defCnt = {}; cs.forEach(c=>{ if(c && _DYSD[c.dom]) _defCnt[c.dom]=(_defCnt[c.dom]||0)+1; });
+    const _defCnt = {}; cs.forEach(c=>{ const k=_rowKey(c); if(k && _DYSD[k]) _defCnt[k]=(_defCnt[k]||0)+1; });
     const defDom = Object.keys(_defCnt).sort((a,b)=>_defCnt[b]-_defCnt[a])[0] || null;
     // patterns: the written version of the You-tab stats (same helpers, full history).
     // each self-gates; the section only appears when >=2 signals are real.
@@ -3107,10 +3115,10 @@ function app(tab){
   function weeklyIssueFor(ws){
     if(!FromJustin.blog) return null;
     const we = ws + WEEK_MS;
-    const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);
+    const cs = Store.checkins().filter(c=>{ const k=_rowKey(c); return c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&k; }).sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(n < 3) return null;                                   // sparse week: skip minting in v1
-    const freq={}; cs.forEach(c=>freq[c.dom]=(freq[c.dom]||0)+1);
+    const freq={}; cs.forEach(c=>{ const k=_rowKey(c); freq[k]=(freq[k]||0)+1; });
     let dom=null,bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
     const share = Math.round(bestN/n*100);
     const dv = cs[n-1].v - cs[0].v; const dir = dv>0.08?'rising' : dv<-0.08?'falling' : 'steady';
@@ -3955,13 +3963,13 @@ function app(tab){
   // immediately after each live reading: their state, mirrored back. 🖊
   function screenLiveMoment(rec){
     const s=_liveCache();
-    const domKey = (rec.dom && rec.dom!=='neutral') ? rec.dom : window.PVCurrent.dominantOf(rec.v, rec.sym, rec.dor).key;
+    const domKey = _cDom(rec);
     const more = s ? !!_liveNext(s) : false;
     _liveShell(`<div class="view fb-view">
         <div class="scr-head">
           <p class="eyebrow">What you described</p>
-          <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
-          <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'Quiet':escapeHtml(STATE_LABEL(domKey))}</h1>
+          <div class="g-glyph">${triGlyph(domKey)}</div>
+          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(STATE_LABEL(domKey))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
           <p class="scr-lede">${more?'Your check-in is saved. Head back to the live practice now. This screen will wait here, ready for your next check-in.':'Your check-in is saved. That was the last one.'}</p>
         </div>
@@ -4087,7 +4095,12 @@ function app(tab){
     arr.forEach(c=>{ const k=new Date(c.t).toDateString(); if(!map[k]) map[k]=[]; map[k].push(c); });
     return Object.values(map).map(g=>{
       const n=g.length, last=g[n-1];
-      return {...last, v:g.reduce((s,c)=>s+c.v,0)/n, sym:g.reduce((s,c)=>s+c.sym,0)/n, dor:g.reduce((s,c)=>s+c.dor,0)/n};
+      // day dom = the MODAL derived dominant of the day's rows, ties to recency (A6,
+      // 2026-08-22) — never the stored name of one check-in stapled to averaged axes,
+      // and never a classification of the averaged values.
+      const cnt={}; g.forEach(c=>{ const k=_rowKey(c); if(k) cnt[k]=(cnt[k]||0)+1; });
+      let dk=null; for(let i=n-1;i>=0;i--){ const k=_rowKey(g[i]); if(!k) continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
+      return {...last, dom:dk, v:g.reduce((s,c)=>s+c.v,0)/n, sym:g.reduce((s,c)=>s+c.sym,0)/n, dor:g.reduce((s,c)=>s+c.dor,0)/n};
     });
   }
   function periodLabel(key){ return PERIODS.find(p=>p.key===key)?.label||'all time'; }
@@ -4155,7 +4168,7 @@ function app(tab){
     if(mode==='safety'){
       footer=`<div class="arc-scale"${footerDelay}><span>Less safety</span><span class="arc-scale-bar"></span><span>More</span></div>`;
     } else {
-      const states=[...new Set(B.map(b=>b.dom))];
+      const states=[...new Set(B.map(b=>b.dom))].filter(Boolean);
       footer=`<div class="legend"${footerDelay}>${states.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_LABEL(k)}</span>`).join('')}</div>`;
     }
     // the floating "Jul 27 \u00b7 play/motivation" readout (2026-07-30, Justin: "this
@@ -4574,7 +4587,14 @@ function app(tab){
   // ONE metric across all pattern cards (clarity + consistency, Justin 2026-07-05):
   // "the share of check-ins that land in a safe state" — countable, plain to an
   // outside reader, and usable by a professional. Every card names its own metric.
-  function _safeShare(arr){ if(!arr.length) return null; let r=0; arr.forEach(c=>{ if(_REGDOMS[c.dom]) r++; }); return Math.round(r/arr.length*100); }
+  // per-row keys DERIVE (A4, 2026-08-22): stored dom is neither a stats nor a display
+  // source. A derived key is always a real state; rows that cannot derive drop out.
+  const _rowKey = c => { const k=_cDom(c); return k && k!=='neutral' ? k : null; };
+  function _safeShare(arr){
+    let r=0, n=0;
+    (arr||[]).forEach(c=>{ const k=_rowKey(c); if(!k) return; n++; if(_REGDOMS[k]) r++; });
+    return n ? Math.round(r/n*100) : null;
+  }
   function _weekdayPattern(cs){
     if(cs.length < 14) return null;
     const by={};
@@ -4640,21 +4660,21 @@ function app(tab){
   }
   // which defense state the dips most often start in — colors + glyphs the comeback card
   function _topDipState(){
-    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');   // stored filter kept until A4 derives this helper (Ruling 2)
+    const ks = Store.checkins().map(_rowKey).filter(Boolean);
     const cnt={}; let inDip=false;
-    cs.forEach(c=>{ if(!_REGDOMS[c.dom]){ if(!inDip){ cnt[c.dom]=(cnt[c.dom]||0)+1; inDip=true; } } else inDip=false; });
+    ks.forEach(k=>{ if(!_REGDOMS[k]){ if(!inDip){ cnt[k]=(cnt[k]||0)+1; inDip=true; } } else inDip=false; });
     const e=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
     return (e&&e[1]>=3)?e[0]:null;
   }
   // recovery trend over full history: early episodes vs recent episodes.
   // a slowing never headlines (copy rule: dips live in the reader, gently).
   function _recoveryTrend(){
-    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');   // stored filter kept until A4 derives this helper (Ruling 2)
-    if(cs.length<12) return null;
+    const ks = Store.checkins().map(_rowKey).filter(Boolean);
+    if(ks.length<12) return null;
     const eps=[]; let i=0;
-    while(i<cs.length){
-      if(!_REGDOMS[cs[i].dom]){ let j=i, steps=0, found=false;
-        while(j<cs.length){ if(_REGDOMS[cs[j].dom]){ found=true; break; } j++; steps++; }
+    while(i<ks.length){
+      if(!_REGDOMS[ks[i]]){ let j=i, steps=0, found=false;
+        while(j<ks.length){ if(_REGDOMS[ks[j]]){ found=true; break; } j++; steps++; }
         if(found) eps.push(steps); i=j;
       } else i++;
     }
@@ -4671,21 +4691,21 @@ function app(tab){
   // arbitrarily old week the essay isn't otherwise discussing (Justin 2026-07-28).
   // The You-tab stats-card call stays unbounded (a legitimate all-time personal best).
   function _personalRecords(allCs, maxWeeksBack){
-    const cs = allCs.filter(c=>c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);   // stored filter kept until A4 derives this helper (Ruling 2)
+    const cs = allCs.filter(c=>_rowKey(c)).sort((a,b)=>a.t-b.t);
     if(cs.length<12) return null;
     const wk={}; cs.forEach(c=>{ const ws=_sundayStart(c.t); (wk[ws]=wk[ws]||[]).push(c); });
     const curWs=_sundayStart(Date.now());
     const oldestWs = maxWeeksBack!=null ? (curWs - maxWeeksBack*7*864e5) : -Infinity;
     let bw=null;
     Object.keys(wk).forEach(ws=>{ if(+ws===curWs || +ws<oldestWs) return; const a=wk[ws];
-      if(a.length>=4){ const reg=a.filter(c=>_REGDOMS[c.dom]).length/a.length; if(!bw||reg>bw.share) bw={ ws:+ws, share:reg }; } });
+      if(a.length>=4){ const reg=a.filter(c=>_REGDOMS[_rowKey(c)]).length/a.length; if(!bw||reg>bw.share) bw={ ws:+ws, share:reg }; } });
     const bestWeek = bw ? { label:new Date(bw.ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}), pct:Math.round(bw.share*100), ws:bw.ws } : null;
     // fastest comeback: the shortest completed dip->safety trip (a recovery record)
     let fastest=null, n=0, i=0;
     while(i<cs.length){
-      if(!_REGDOMS[cs[i].dom]){ let j=i, steps=0, found=false;
-        while(j<cs.length){ if(_REGDOMS[cs[j].dom]){ found=true; break; } j++; steps++; }
-        if(found){ n++; if(!fastest||steps<fastest.steps) fastest={ steps, dom:cs[i].dom }; }
+      if(!_REGDOMS[_rowKey(cs[i])]){ let j=i, steps=0, found=false;
+        while(j<cs.length){ if(_REGDOMS[_rowKey(cs[j])]){ found=true; break; } j++; steps++; }
+        if(found){ n++; if(!fastest||steps<fastest.steps) fastest={ steps, dom:_rowKey(cs[i]) }; }
         i=j;
       } else i++;
     }
@@ -4829,8 +4849,8 @@ function app(tab){
     const tagged=Object.keys(wkTags);
     if(tagged.length<2) return null;
     const weeks={};
-    Store.checkins().forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });   // stored filter kept until A4 derives this helper (Ruling 2)
-    const share=ws=>{ const a=weeks[ws]; if(!a||a.length<3) return null; return a.filter(c=>_REGDOMS[c.dom]).length/a.length; };
+    Store.checkins().forEach(c=>{ if(!_rowKey(c)) return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });
+    const share=ws=>{ const a=weeks[ws]; if(!a||a.length<3) return null; return a.filter(c=>_REGDOMS[_rowKey(c)]).length/a.length; };
     const all=Object.keys(weeks).map(ws=>share(+ws)).filter(v=>v!=null);
     if(all.length<3) return null;
     const typPct=Math.round(all.reduce((s,v)=>s+v,0)/all.length*100);
@@ -4929,7 +4949,7 @@ function app(tab){
   // around defense. only per-check-in ('c') tags carry a state, so only they count.
   function _contextStateLink(){
     const m=_ctxLoad();
-    const byT={}; Store.checkins().forEach(c=>{ if(c&&c.dom&&c.dom!=='neutral') byT[c.t]=c.dom; });   // stored filter kept until A4 derives this helper (Ruling 2)
+    const byT={}; Store.checkins().forEach(c=>{ const k=_rowKey(c); if(k) byT[c.t]=k; });
     const safe={}, def={};
     Object.keys(m).forEach(k=>{
       if(k[0]!=='c'||!(m[k]||[]).length) return;
@@ -4963,7 +4983,10 @@ function app(tab){
       const label = sameDay(d.getTime()) ? 'today'
         : d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }).toLowerCase();
       const rows = byDay[k].map(x=>{
-        const dom = x.dom || (window.PVCurrent.dominantOf(x.v, x.sym, x.dor)||{}).key;
+        // derives (A4, 2026-08-22) — supersedes the free-history stored-name exception
+        // ("exactly as they recorded them"): its rationale no longer holds after B1
+        // (one naming rule for all history) + Ruling 2 (the stored category is gone).
+        const dom = _cDom(x);
         const mirror = ciMirror(x.v, x.sym, x.dor);
         return `<div class="deep-row hx-row">
           <span class="deep-lbl hx-time">${fmtTime(x.t)}</span>
@@ -5039,7 +5062,7 @@ function app(tab){
     if(!paidNow()) return tabHistoryFree(c, allCs);
 
     const avg = a => a.length ? a.reduce((s,v)=>s+v,0)/a.length : 0;
-    const domOf = arr => { const m={}; arr.forEach(x=>{m[x.dom]=(m[x.dom]||0)+1;}); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:null; };
+    const domOf = arr => { const m={}; arr.forEach(x=>{ const k=_rowKey(x); if(k) m[k]=(m[k]||0)+1; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:null; };
 
     function render(){
       const _span = Store.tenure().days;
@@ -5068,8 +5091,8 @@ function app(tab){
       const rising = dir==='rising';
 
       // ---- mix (time-bound) ----
-      const counts={}; cs.forEach(x=>{counts[x.dom]=(counts[x.dom]||0)+1;});
-      const total=cs.length||1;
+      const counts={}; let total=0; cs.forEach(x=>{ const k=_rowKey(x); if(!k) return; counts[k]=(counts[k]||0)+1; total++; });
+      total = total||1;
       const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
       const mixHTML=ranked.map(([key,n],i)=>{
         const pct=Math.round(n/total*100);
@@ -5241,7 +5264,7 @@ function app(tab){
       // the states that happen to dominate a daypart/weekday bucket (that undercounted —
       // a state could have rows and still never show as a filter chip). Canonical UI order.
       const _stateOrder=['safety','play','fightflight','stillness','freeze','shutdown'];
-      const _present=_stateOrder.filter(s=>cs.some(x=>x.dom===s));
+      const _present=_stateOrder.filter(s=>cs.some(x=>_rowKey(x)===s));
       const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">All</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_LABEL(s)}</span></button>`).join('');
       c.innerHTML=`
         <div class="view play-view">
@@ -5464,7 +5487,7 @@ function app(tab){
               const pcts = _AX_SEGS.map((sg,i)=>{
                 const sub=cs.filter(x=>segOf(x.t)===sg);
                 if(sub.length<4) return null;
-                const hits=sub.filter(x=>x.dom===key).length;
+                const hits=sub.filter(x=>_rowKey(x)===key).length;
                 const pct=Math.round(hits/sub.length*100);
                 if(hits>=3 && pct>bestPct){ bestPct=pct; best=i; bestN=hits; }
                 return pct;
@@ -5499,7 +5522,7 @@ function app(tab){
             // percentage hero steps back — same honest data, kinder sequence.
             // when steady or rising, the safety story leads as before.
             const _recent = allCs.slice(-6);
-            const _defN = _recent.filter(x=>x.dom && x.dom!=='neutral' && !_REGDOMS[x.dom]).length;   // stored filter kept until A4 derives this helper (Ruling 2)
+            const _defN = _recent.filter(x=>{ const k=_rowKey(x); return k && !_REGDOMS[k]; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const _ORDER = _tender
               ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','baseline','mix','context','started','states','shift','safety']
@@ -6969,7 +6992,7 @@ function app(tab){
       if(!confirm('Sign out? Your check-ins are saved to your account and will be here when you sign back in.')) return;
       await Store.signOut(); currentTab='today'; route();
     };
-    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'T be undone. Your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
+    $('#reset').onclick = async ()=>{ if(confirm('Clear all your check-ins and practice history? This can\'t be undone. Your account stays, but the data is gone for good.')){ await Store.reset(); try{ Object.keys(localStorage).filter(k=>k.startsWith('snb_breath_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} app('today'); } };
     // full in-app account deletion (the privacy policy promises it): a clear
     // confirm screen, then the delete-account edge function erases everything
     // server-side, instantly. 🖊 copy below is a draft for Justin to own.

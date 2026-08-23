@@ -826,7 +826,7 @@
         'Thawing doesn\'t announce itself. It shows up small. A breath that goes deeper on its own. A stretch that happens without deciding to. The urge to move starting to feel more like wanting to than having to.',
         'But what about the other direction? If the tension leaves but you\'re just left feeling flat, numb, empty, and distant, that\'s not a thaw. That\'s more like shutdown. That\'s the brake aspect of a freeze becoming more dominant and the entire system slipping into collapse. And yes, it\'s very possible that a system can fluctuate between freeze and shutdown.'
       ];
-      if(ctx.dir==='rising') shift.push('Your data is already showing some evidence of a thaw happening. You\'re reporting more safety in your check-ins toward the end of this week than you were at the start. It\'s small, sure. But it\'s real.');
+      if(ctx.dir==='rising') shift.push('Your data is already showing some evidence of a thaw happening. You\'re reporting more safety in your last few check-ins than you were before. It\'s small, sure. But it\'s real.');
       if((ctx.f2s||0)>=2) shift.push('Your check-ins this week suggest more of the shutdown flavor of things. This is by no means a failure. A system in freeze tends to do better with small, regular doses of practice primarily focusing on simple mindfulness and safety.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
@@ -858,7 +858,7 @@
         'Something that people mistake all the time is that irritability is a bad thing. But it\'s potentially a very strong sign of coming out of shutdown. It\'s a signal that the immobilization is easing, and mobilization is returning to the system. So, as you add safety and the body tries to regulate, irritability may surface. If enough safety is in the system, shutdown beautifully merges with it to form stillness.',
         'Another potential of shutdown shifting is an increase in freeze. As mobilization comes into the system, it\'s possible the shutdown does not ease, and instead co-exists with the re-emerged flight/fight activation. That combination makes freeze. Freeze is immobile like shutdown, but it\'s tense, not collapsed.'
       ];
-      if(ctx.dir==='rising') shift.push('Your data is already showing more safety coming in. You\'re reporting more of it in your check-ins toward the end of this week than you were at the start. It\'s a small shift. In shutdown, small shifts are the whole game.');
+      if(ctx.dir==='rising') shift.push('Your data is already showing more safety coming in. You\'re reporting more of it in your last few check-ins than you were before. It\'s a small shift. In shutdown, small shifts are the whole game.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'Very small, very low demand. One sip of tea. A dimmer light. One thing you can hear without trying. You don\'t climb out of shutdown by forcing it. You offer your body a small cue of safety, and it may allow a little more energy back in. Pay close attention to a breath that wants to be bigger, an ankle that wants to stretch, or a bit of motivation to do the thing you\'ve wanted to do forever.',
@@ -888,7 +888,7 @@
         'As mobilized flight/fight combines with safety, the urgency settles more and more. Some things that are actually urgent still get your urgent attention, but with more patience. And the other stuff... it can wait without everything falling apart. With safety, your mobilization turns into motivation to create and get stuff done. With others, you\'re more likely to play and share in fun.',
         'But what if there isn\'t enough safety in the system? If not, then flight/fight continues to be anxious and angry. Over time, it will lean more toward shutdown or possibly freeze. No, it\'s not a character defect. It\'s just a system that needs more safety.'
       ];
-      if(ctx.dir==='rising') shift.push('You\'re reporting more safety in your check-ins toward the end of this week than you were at the start. Not a big drop in charge, but a real one.');
+      if(ctx.dir==='rising') shift.push('You\'re reporting more safety in your last few check-ins than you were before. Not a big drop in charge, but a real one.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'Move a little, on purpose. Thirty seconds of shaking out your hands, a quick walk, palms pushed against a wall. Give the energy somewhere to go, then name the feeling underneath it. Naming it is a solid first step to letting it move through instead of running you.',
@@ -918,7 +918,7 @@
         'One tell is anxiousness or irritability creeping into what started as motivation. Keep an eye out for it and try to notice it when it\'s small. If not, safety tends to slip away and then you\'re in more flight/fight activation without the safety to direct it. Behaviorally, you might snap at people, fun becomes loud competition, and creativity becomes perfectionism.',
         'That\'s not a reason to hold back, though. It\'s just worth knowing where the edge is. The energy is good. The safety is what keeps it good.'
       ];
-      if(ctx.dir==='rising') shift.push('And your check-ins say the mix is holding. You\'re reporting more safety toward the end of this week than you were at the start. Keep spending the energy the way you have been.');
+      if(ctx.dir==='rising') shift.push('And your check-ins say the mix is holding. You\'re reporting more safety in your last few check-ins than you were before. Keep spending the energy the way you have been.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'Aim it before it scatters. Pick the one thing that matters most and give it ten minutes. You don\'t have to finish it, just begin. Keep a little mindfulness attached to the movement while you do, enough to actually feel it.',
@@ -948,7 +948,7 @@
         'Ask yourself if the immobility within you is restful and comfortable... or not. If it starts feeling flat, heavy, or far away instead, that\'s the safety thinning out and stillness drifting toward its harder twin, shutdown. Same slowed-down body, opposite experience. Shutdown\'s pull is to isolate and disconnect. Stillness\'s pull is to rest and connect.',
         'If you notice that drift, the move isn\'t to force yourself up and out. It\'s to reach for a little safety: a familiar voice, a safe person nearby, one thing in the room that feels good to look at.'
       ];
-      if(ctx.dir==='rising') shift.push('Your check-ins back the restful reading. You\'re reporting more safety toward the end of this week than you were at the start. Slow and quiet, which suits this state.');
+      if(ctx.dir==='rising') shift.push('Your check-ins back the restful reading. You\'re reporting more safety in your last few check-ins than you were before. Slow and quiet, which suits this state.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'You don\'t have to deserve this through overworking. Sink into it and follow your system where it wants to take you. Five minutes with no task and no phone counts.',
@@ -979,7 +979,7 @@
         'But what about the early signs of it thinning out? Your patience might get thinner. You might feel a bit more anxious or irritable. Maybe more distant. It really depends mostly on what your dominant non-safety state is. As safety recedes, your dominant underlying state comes more to the surface. It\'s not good or bad. It\'s maybe an indication of your safety state\'s strength. Frustrating? Maybe. But also encouraging? Hopefully.'
       ];
       if(ctx.defDom && DEFENSE_TELL[ctx.defDom]) shift.push('For you, lately, that underlying state has been ' + _feltName(ctx.defDom) + '. So the early tell to watch for is ' + DEFENSE_TELL[ctx.defDom] + ' creeping back in.');
-      if(ctx.dir==='rising') shift.push('Your data says this state is getting stronger. You\'re reporting more safety in your check-ins toward the end of this week than you were at the start. Safety adds a little at a time and keeps building. Keep it up.');
+      if(ctx.dir==='rising') shift.push('Your data says this state is getting stronger. You\'re reporting more safety in your last few check-ins than you were before. Safety adds a little at a time and keeps building. Keep it up.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'Notice it on purpose. Where exactly do you feel... settled or calm? Playful or motivated? Those emotions are a great sign of safety, but pay attention. If you can notice what safety feels like in your body, then you\'re anchored into it and deepening the experience. As best you can, look inward and really feel the safety within you. How does your body breathe in safety? What\'s your posture like? Are you more likely to smile? To hug someone?',
@@ -1201,7 +1201,7 @@
     const o = { DOM:_feltName(st.dom), PCT:st.domShare, DAY: st.bestDow!=null?_DOW[st.bestDow]:'' };
     const parts = [ cycle('mo-open', MONTHLY.opener), _fillMQ(cycle('mo-where', MONTHLY.where), o) ];
     const bd = ctx0.baseline;
-    if(bd && bd.dir && bd.dir!=='new' && MONTHLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('mo-base:'+bd.dir, MONTHLY.baseline[bd.dir]), { PCT:Math.abs(bd.deltaPct) }));
+    if(bd && bd.dir && bd.dir!=='new' && MONTHLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('mo-base:'+bd.dir, MONTHLY.baseline[bd.dir]), {}));
     if(st.bestDow!=null) parts.push(_fillMQ(cycle('mo-dow', MONTHLY.rhythm_dow), o));
     const rec = ctx0.recovery;
     if(rec && rec.avg!=null) parts.push(_fillMQ(cycle('mo-rec', MONTHLY.recovery), { N:_recoveryPhrase(rec) }));
@@ -1249,7 +1249,7 @@
     else if(reg[st.firstDom] && reg[st.lastDom]) tnKey='steady_reg';
     parts.push(_fillMQ(cycle('q-tn:'+tnKey, QUARTERLY.thennow[tnKey]), o));
     const bd = ctx0.baseline;
-    if(bd && bd.dir && bd.dir!=='new' && QUARTERLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('q-base:'+bd.dir, QUARTERLY.baseline[bd.dir]), Object.assign({}, o, { PCT:Math.abs(bd.deltaPct) })));
+    if(bd && bd.dir && bd.dir!=='new' && QUARTERLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('q-base:'+bd.dir, QUARTERLY.baseline[bd.dir]), o));
     const rec = ctx0.recovery;
     if(rec && rec.avg!=null) parts.push(_fillMQ(cycle('q-rec', QUARTERLY.recovery), { N:_recoveryPhrase(rec) }));
     parts.push(_fillMQ(cycle('q-tot', QUARTERLY.totals), o));
