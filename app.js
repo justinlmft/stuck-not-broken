@@ -5086,8 +5086,8 @@ function app(tab){
       const rising = dir==='rising';
 
       // ---- mix (time-bound) ----
-      const counts={}; cs.forEach(x=>{counts[x.dom]=(counts[x.dom]||0)+1;});
-      const total=cs.length||1;
+      const counts={}; let total=0; cs.forEach(x=>{ const k=_rowKey(x); if(!k) return; counts[k]=(counts[k]||0)+1; total++; });
+      total = total||1;
       const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
       const mixHTML=ranked.map(([key,n],i)=>{
         const pct=Math.round(n/total*100);
@@ -5259,7 +5259,7 @@ function app(tab){
       // the states that happen to dominate a daypart/weekday bucket (that undercounted —
       // a state could have rows and still never show as a filter chip). Canonical UI order.
       const _stateOrder=['safety','play','fightflight','stillness','freeze','shutdown'];
-      const _present=_stateOrder.filter(s=>cs.some(x=>x.dom===s));
+      const _present=_stateOrder.filter(s=>cs.some(x=>_rowKey(x)===s));
       const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">All</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_LABEL(s)}</span></button>`).join('');
       c.innerHTML=`
         <div class="view play-view">
@@ -5482,7 +5482,7 @@ function app(tab){
               const pcts = _AX_SEGS.map((sg,i)=>{
                 const sub=cs.filter(x=>segOf(x.t)===sg);
                 if(sub.length<4) return null;
-                const hits=sub.filter(x=>x.dom===key).length;
+                const hits=sub.filter(x=>_rowKey(x)===key).length;
                 const pct=Math.round(hits/sub.length*100);
                 if(hits>=3 && pct>bestPct){ bestPct=pct; best=i; bestN=hits; }
                 return pct;
