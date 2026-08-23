@@ -2852,11 +2852,11 @@ function app(tab){
     const base = wk.length ? wk : cs;
     let dom=null, share=null, dir=null, variance=null, streak=0;
     if(base.length){
-      const freq={}; base.forEach(c=>{ freq[c.dom]=(freq[c.dom]||0)+1; });
+      const freq={}; let nk=0; base.forEach(c=>{ const k=_rowKey(c); if(!k) return; nk++; freq[k]=(freq[k]||0)+1; });
       let bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
-      share = Math.round((freq[dom]||0)/base.length*100);
+      share = nk ? Math.round((freq[dom]||0)/nk*100) : null;
     }
-    if(!dom && last) dom = last.dom;
+    if(!dom && last) dom = _cDom(last);
     if(cs.length>=2){ const _tr=Store.trend(); dir=_tr?_tr.dir:null; }   // null-safe: never crash the reader
     if(base.length>=3){
       const avgV=base.reduce((s,c)=>s+c.v,0)/base.length;
@@ -2867,10 +2867,10 @@ function app(tab){
 
     // essay-model signals (reader rework 2026-07-03): counts woven into sentences,
     // freeze->shutdown drift, and the dominant non-safety state for the safety essay.
-    let f2s = 0; const _wkSorted = base.slice().sort((a,b)=>a.t-b.t);
-    for(let i=1;i<_wkSorted.length;i++){ if(_wkSorted[i-1].dom==='freeze' && _wkSorted[i].dom==='shutdown') f2s++; }
+    let f2s = 0; const _wkKeys = base.slice().sort((a,b)=>a.t-b.t).map(_rowKey);
+    for(let i=1;i<_wkKeys.length;i++){ if(_wkKeys[i-1]==='freeze' && _wkKeys[i]==='shutdown') f2s++; }
     const _DYSD = { fightflight:1, shutdown:1, freeze:1 };
-    const _defCnt = {}; cs.forEach(c=>{ if(c && _DYSD[c.dom]) _defCnt[c.dom]=(_defCnt[c.dom]||0)+1; });
+    const _defCnt = {}; cs.forEach(c=>{ const k=_rowKey(c); if(k && _DYSD[k]) _defCnt[k]=(_defCnt[k]||0)+1; });
     const defDom = Object.keys(_defCnt).sort((a,b)=>_defCnt[b]-_defCnt[a])[0] || null;
     // patterns: the written version of the You-tab stats (same helpers, full history).
     // each self-gates; the section only appears when >=2 signals are real.
@@ -3115,10 +3115,10 @@ function app(tab){
   function weeklyIssueFor(ws){
     if(!FromJustin.blog) return null;
     const we = ws + WEEK_MS;
-    const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);
+    const cs = Store.checkins().filter(c=>{ const k=_rowKey(c); return c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&k; }).sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(n < 3) return null;                                   // sparse week: skip minting in v1
-    const freq={}; cs.forEach(c=>freq[c.dom]=(freq[c.dom]||0)+1);
+    const freq={}; cs.forEach(c=>{ const k=_rowKey(c); freq[k]=(freq[k]||0)+1; });
     let dom=null,bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
     const share = Math.round(bestN/n*100);
     const dv = cs[n-1].v - cs[0].v; const dir = dv>0.08?'rising' : dv<-0.08?'falling' : 'steady';
