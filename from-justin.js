@@ -1059,7 +1059,8 @@
   }
 
   // ---- emotion + rung reader beats (recommender-v2 data -> reader, 2026-07-07) --
-  // Group->state bridge for user-facing copy. Mirrors Store.EMOTION_STATE; the word
+  // Group->state bridge for user-facing copy. Keyed to the same emotion groups as
+  // Store.EMOTION_FAMILIES (there is no Store.EMOTION_STATE — D7); the word
   // "SSIEC" is internal and never shown. Bridges are offered as a lens ("could be"),
   // never scored — more-safety stays the only scored axis. Straw phrasing 🖊 Justin owns;
   // the Direction-1 per-session template and the change-data conditional are his approved copy.

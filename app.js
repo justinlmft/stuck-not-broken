@@ -751,7 +751,8 @@
     try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('Your subscription is active.'); } else if(co==='cancel'){ if(Store.trackEvent) Store.trackEvent('checkout_cancel', {}); } } }catch(e){}
     // The whole-app paywall is GONE (2026-07-13): free is unconditional, no time limit,
     // no card. Nobody is ever locked out. Subscribing is a choice made in settings or on
-    // the offer screen, never a wall. Store.hasAccess() is now always true.
+    // the offer screen, never a wall. (The old whole-app Store.hasAccess() gate is
+    // gone entirely — D7: no function by that name exists any more.)
     // live check-in (Live-Checkin-Plan Phase 1): while a join is pending, the app opens
     // straight to the live flow — the seams (open when cued, slide, swipe back) depend on it.
     if(_liveJoin()) return screenLive();
@@ -4741,8 +4742,9 @@ function app(tab){
      was the same size step as safety->stillness. And the order contradicted the
      model at the top: stillness sat above safety, but stillness 80/10/60 has
      margin +0.350 against safety 90/10/5 at +0.585, so moving safety->stillness
-     climbed the card while the actual margin fell. (_PE_RANK ordered those two
-     the other way round, so the two cards disagreed with each other.)
+     climbed the card while the actual margin fell. (The retired _PE_RANK ladder —
+     gone from the code entirely — ordered those two the other way round, so the
+     two cards disagreed with each other.)
 
      Now the axis is margin, rescaled per side exactly as the read's qualifier is:
      one full defense below the line, the person's own full ventral above it.
