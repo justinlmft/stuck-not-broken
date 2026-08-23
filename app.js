@@ -4095,7 +4095,12 @@ function app(tab){
     arr.forEach(c=>{ const k=new Date(c.t).toDateString(); if(!map[k]) map[k]=[]; map[k].push(c); });
     return Object.values(map).map(g=>{
       const n=g.length, last=g[n-1];
-      return {...last, v:g.reduce((s,c)=>s+c.v,0)/n, sym:g.reduce((s,c)=>s+c.sym,0)/n, dor:g.reduce((s,c)=>s+c.dor,0)/n};
+      // day dom = the MODAL derived dominant of the day's rows, ties to recency (A6,
+      // 2026-08-22) — never the stored name of one check-in stapled to averaged axes,
+      // and never a classification of the averaged values.
+      const cnt={}; g.forEach(c=>{ const k=_rowKey(c); if(k) cnt[k]=(cnt[k]||0)+1; });
+      let dk=null; for(let i=n-1;i>=0;i--){ const k=_rowKey(g[i]); if(!k) continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
+      return {...last, dom:dk, v:g.reduce((s,c)=>s+c.v,0)/n, sym:g.reduce((s,c)=>s+c.sym,0)/n, dor:g.reduce((s,c)=>s+c.dor,0)/n};
     });
   }
   function periodLabel(key){ return PERIODS.find(p=>p.key===key)?.label||'all time'; }
@@ -4163,7 +4168,7 @@ function app(tab){
     if(mode==='safety'){
       footer=`<div class="arc-scale"${footerDelay}><span>Less safety</span><span class="arc-scale-bar"></span><span>More</span></div>`;
     } else {
-      const states=[...new Set(B.map(b=>b.dom))];
+      const states=[...new Set(B.map(b=>b.dom))].filter(Boolean);
       footer=`<div class="legend"${footerDelay}>${states.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_LABEL(k)}</span>`).join('')}</div>`;
     }
     // the floating "Jul 27 \u00b7 play/motivation" readout (2026-07-30, Justin: "this
