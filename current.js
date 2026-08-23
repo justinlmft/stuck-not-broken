@@ -102,7 +102,7 @@
      forms the check-in reading no longer uses, and `gap` in particular was a loaded
      field: it was forced to 0 in exactly the case a caller would have cared about.
      The weights themselves are untouched — paint() still reads STATES[k].weight. */
-  const NEUTRAL = { key:'neutral', name:'settling', color:'#D8D2C2', w:0 };
+  const NEUTRAL = { key:'neutral', name:'Quiet', color:'#D8D2C2', w:0 };
 
   function hexToRgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
   function rgbToHex(a){return '#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}

@@ -50,23 +50,22 @@
      the qualifier. Never rendered as a number: margins stay internal, the person
      is their own scale.
 
-     'neutral' is the one stored name that survives. It records that no axis was
-     touched (see the check-in save), which the numbers cannot tell you, and the
-     code there already calls it "not a read". So neutral is excluded from every
-     margin statistic — numerator, denominator and sample count alike.
-     ⚠ A neutral row's v/sym/dor are NOT reliably midpoints (a few prod rows span
-     0..1), so never infer values from the flag — only ever exclude on it.        */
+     No stored name is trusted — every row derives (Ruling 2, 2026-08-22: untouched
+     sliders are the person's answer, so the engine always names what they left).
+     'neutral' now only ever means the computed QUIET guard fired (all circuits
+     floored): no readable margin — capacity and load both absent — so those rows
+     are excluded from every margin statistic (D-A) while still counting as
+     check-ins (tenure, streaks).                                                 */
   // Which side of the line each NAME sits on. Not a heuristic: under the margin
   // rule safety/play/stillness can only arise when margin >= 0, and
   // shutdown/freeze/fight-flight only when margin < 0. So this is a fact about
   // the naming rule, used where we need to describe names rather than count them.
   const SAFETY_SIDE  = { safety:1, play:1, stillness:1 };
   const DEFENSE_SIDE = { shutdown:1, freeze:1, fightflight:1 };
-  function _isRead(c){ return !!c && c.dom !== 'neutral' && typeof c.v === 'number'; }
+  function _isRead(c){ return !!c && typeof c.v === 'number' && _cDom(c) !== 'neutral'; }
   function _reads(arr){ return (arr||[]).filter(_isRead); }
   function _cDom(c){
     if(!c) return null;
-    if(c.dom === 'neutral') return 'neutral';
     try{ return window.PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
   }
   function _cMargin(c){
@@ -199,7 +198,7 @@
   ['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev, e=>e.preventDefault(), {passive:false}));
 
   const STATE_COLOR = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].color : '#D8D2C2');
-  const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'settling');
+  const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'Quiet');
   // CAP(): sentence-case a value that STARTS a label, heading, cell or button.
   // State names and dayparts are common nouns — they stay lowercase MID-SENTENCE
   // ("you commonly dip into shutdown"), and take a capital only where their
@@ -1138,7 +1137,6 @@
       // still identifiable — it is exactly the Store.SRC_ALLOW set, which no signed-in
       // write can produce (those use 'post-practice' or null).
       const vals = { v:v/100, sym:s/100, dor:d/100, source:Store.src() };
-      if(!(axTouched.v||axTouched.sym||axTouched.dor)) vals.dom='neutral';   // untouched midpoints = settling, never a tie-break state
       // the anonymous session mints HERE, at first write — not at page-load.
       ensureGuestSession().then(res=>{
         if(res && res.error) return guestCheckin(mode, res.error);
@@ -2794,7 +2792,7 @@ function app(tab){
       if(pv && FromJustin.periodSection) return _visitSectionHTML(FromJustin.periodSection(pv.ctx), pv.key);
       if(dow!==0 && dow!==1) return { html:'', wire:null };
       const ws = _sundayStart(now) - WEEK_MS, we = ws + WEEK_MS;
-      const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);
+      const cs = Store.checkins().filter(c=>{const k=_cDom(c);return c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&k&&k!=='neutral';}).sort((a,b)=>a.t-b.t);
       if(!cs.length) return { html:'', wire:null };
       const st = Store.periodStats(ws, we), prev = Store.periodStats(ws-WEEK_MS, ws);
       let shiftDir=null;
@@ -3079,8 +3077,8 @@ function app(tab){
     const cnt={}; _reads(cs).forEach(c=>{const k=_cDom(c); cnt[k]=(cnt[k]||0)+1;});
     const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
     const dom=order[0], second=order[1]||null;
-    // regulated = margin >= 0, same quantity that picks the name. Neutral rows are
-    // not reads and leave the sample entirely (numerator and denominator).
+    // regulated = margin >= 0, same quantity that picks the name. Computed-Quiet rows
+    // are not readable margins (D-A) and leave the sample entirely (num and denom).
     const rd=_reads(cs); const nR=rd.length||1;
     let reg=0; rd.forEach(c=>{ if(_cReg(c)) reg++; });
     const regShare=reg/nR, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
@@ -3094,7 +3092,7 @@ function app(tab){
   // Justin 2026-07-28: "trip-count moved to a parenthetical at the bottom with the
   // real time period" — this is the "real time period" half of that fix.)
   function _windowRecovery(cs){
-    const wcs = cs.filter(c=>c.dom&&c.dom!=='neutral');
+    const wcs = cs.filter(c=>{const k=_cDom(c);return k&&k!=='neutral';});
     if(wcs.length<12) return null;
     const gaps=[]; let i=0;
     while(i<wcs.length){
@@ -3773,9 +3771,6 @@ function app(tab){
       const _lc = window._liveCtx || null;
       if(_lc && !editRec){ vals.live_session_id=_lc.id; vals.practice_ref=_lc.practice_ref; vals.phase=_lc.phase; vals.joined=_lc.joined||'self'; }
       if(ch!=null) vals.challenge = ch;                  // null = "whatever you recommend": let the recommender decide
-      // untouched midpoints are not a read: never let the 50/50/50 tie-break
-      // invent "stillness" — an all-untouched fresh save counts as settling.
-      if(!(axTouched.v||axTouched.sym||axTouched.dor) && !editRec) vals.dom='neutral';
       window._ciSource = null;
       // context is saved keyed to the exact check-in, split by direction:
       //   c{t}+ = "i've had more of"   c{t}- = "i've had less of"
@@ -3964,7 +3959,7 @@ function app(tab){
         <div class="scr-head">
           <p class="eyebrow">What you described</p>
           <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
-          <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'Settling':escapeHtml(STATE_LABEL(domKey))}</h1>
+          <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'Quiet':escapeHtml(STATE_LABEL(domKey))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
           <p class="scr-lede">${more?'Your check-in is saved. Head back to the live practice now. This screen will wait here, ready for your next check-in.':'Your check-in is saved. That was the last one.'}</p>
         </div>
@@ -4643,7 +4638,7 @@ function app(tab){
   }
   // which defense state the dips most often start in — colors + glyphs the comeback card
   function _topDipState(){
-    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');
+    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');   // stored filter kept until A4 derives this helper (Ruling 2)
     const cnt={}; let inDip=false;
     cs.forEach(c=>{ if(!_REGDOMS[c.dom]){ if(!inDip){ cnt[c.dom]=(cnt[c.dom]||0)+1; inDip=true; } } else inDip=false; });
     const e=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
@@ -4652,7 +4647,7 @@ function app(tab){
   // recovery trend over full history: early episodes vs recent episodes.
   // a slowing never headlines (copy rule: dips live in the reader, gently).
   function _recoveryTrend(){
-    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');
+    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');   // stored filter kept until A4 derives this helper (Ruling 2)
     if(cs.length<12) return null;
     const eps=[]; let i=0;
     while(i<cs.length){
@@ -4674,7 +4669,7 @@ function app(tab){
   // arbitrarily old week the essay isn't otherwise discussing (Justin 2026-07-28).
   // The You-tab stats-card call stays unbounded (a legitimate all-time personal best).
   function _personalRecords(allCs, maxWeeksBack){
-    const cs = allCs.filter(c=>c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);
+    const cs = allCs.filter(c=>c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);   // stored filter kept until A4 derives this helper (Ruling 2)
     if(cs.length<12) return null;
     const wk={}; cs.forEach(c=>{ const ws=_sundayStart(c.t); (wk[ws]=wk[ws]||[]).push(c); });
     const curWs=_sundayStart(Date.now());
@@ -4727,9 +4722,9 @@ function app(tab){
      n >= 8 reads across at least 28 days. Below that the card returns early with
      the count and the shortfall, and the caller shows a pre-baseline state — which
      is what most people will see, at a median of ~2 check-ins per user.
-     Neutral rows are not reads: they are excluded from the mean AND from the
-     count, because a check-in that cannot inform the mean must not buy confidence
-     in it.                                                                      */
+     Computed-Quiet rows are not readable margins (D-A): they are excluded from the
+     mean AND from the count, because a check-in that cannot inform the mean must
+     not buy confidence in it.                                                   */
   const _BL_MIN_N = 8, _BL_MIN_DAYS = 28;
   // margin -> 0..1. Continuous at the centre; each side on its own scale.
   function _blPosOf(m){
@@ -4832,7 +4827,7 @@ function app(tab){
     const tagged=Object.keys(wkTags);
     if(tagged.length<2) return null;
     const weeks={};
-    Store.checkins().forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });
+    Store.checkins().forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });   // stored filter kept until A4 derives this helper (Ruling 2)
     const share=ws=>{ const a=weeks[ws]; if(!a||a.length<3) return null; return a.filter(c=>_REGDOMS[c.dom]).length/a.length; };
     const all=Object.keys(weeks).map(ws=>share(+ws)).filter(v=>v!=null);
     if(all.length<3) return null;
@@ -4932,7 +4927,7 @@ function app(tab){
   // around defense. only per-check-in ('c') tags carry a state, so only they count.
   function _contextStateLink(){
     const m=_ctxLoad();
-    const byT={}; Store.checkins().forEach(c=>{ if(c&&c.dom&&c.dom!=='neutral') byT[c.t]=c.dom; });
+    const byT={}; Store.checkins().forEach(c=>{ if(c&&c.dom&&c.dom!=='neutral') byT[c.t]=c.dom; });   // stored filter kept until A4 derives this helper (Ruling 2)
     const safe={}, def={};
     Object.keys(m).forEach(k=>{
       if(k[0]!=='c'||!(m[k]||[]).length) return;
@@ -5502,7 +5497,7 @@ function app(tab){
             // percentage hero steps back — same honest data, kinder sequence.
             // when steady or rising, the safety story leads as before.
             const _recent = allCs.slice(-6);
-            const _defN = _recent.filter(x=>x.dom && x.dom!=='neutral' && !_REGDOMS[x.dom]).length;
+            const _defN = _recent.filter(x=>x.dom && x.dom!=='neutral' && !_REGDOMS[x.dom]).length;   // stored filter kept until A4 derives this helper (Ruling 2)
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const _ORDER = _tender
               ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','baseline','mix','context','started','states','shift','safety']

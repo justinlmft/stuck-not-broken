@@ -824,12 +824,11 @@
 
   // ---- check-ins ----
   function addCheckin(c){
-    // 'neutral' is the ONLY explicit key accepted (2026-08-22; was any valid state
-    // name — a branch nothing ever exercised): an all-untouched midpoint save counts
-    // as "settling", a user signal, not a classification (2026-07-06). Every state
-    // NAME derives from the circuit values — one rule for all history (B1), and no
-    // future caller can quietly reopen the stored-vs-derived split.
-    const dom = (c.dom==='neutral') ? { key:'neutral' } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // The state name ALWAYS derives from the circuit values — one rule for all
+    // history, no caller-supplied key accepted (Ruling 2, 2026-08-22: untouched
+    // sliders are the person's answer; the engine names what they left). dominantOf
+    // returns 'neutral' only from the computed QUIET guard (all circuits floored).
+    const dom = PVCurrent.dominantOf(c.v, c.sym, c.dor);
     // challenge = the level of challenge the person wants today (0..1). Tracked over
     // time and fed to the recommender. Synced to the cloud `challenge` column via checkinToRow.
     const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:dom.key,
@@ -854,14 +853,10 @@
     const i = data.checkins.findIndex(x=>x.t===t);
     if(i<0) return null;
     const old = data.checkins[i];
-    // 'neutral' is the only explicit key accepted (matching addCheckin). And an edit
-    // that leaves a "settling" row's sliders exactly where they were KEEPS 'neutral' —
-    // recomputing would put a state name in the person's mouth they never reported
-    // (pre-2026-08-22 a no-change Save on a neutral row silently renamed it: an
-    // all-midpoint row came back "safety, with some freeze"). Moving any slider is a
-    // real report and takes on a derived name.
-    const untouched = old.dom==='neutral' && c.v===old.v && c.sym===old.sym && c.dor===old.dor;
-    const dom = (c.dom==='neutral' || untouched) ? { key:'neutral' } : PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // Same rule as addCheckin: derive always (Ruling 2, 2026-08-22 — supersedes the
+    // 'neutral'-preserving edit guard that shipped earlier the same day; the sliders
+    // as they sit ARE the report, whether or not this edit moved them).
+    const dom = PVCurrent.dominantOf(c.v, c.sym, c.dor);
     const rec = Object.assign({}, old, { v:c.v, sym:c.sym, dor:c.dor, dom:dom.key,
                 challenge:(typeof c.challenge==='number'?c.challenge:old.challenge) });
     data.checkins[i] = rec;
@@ -1069,16 +1064,18 @@
      DERIVED from its own v/sym/dor, so one rule covers all history.
      margin = 0.7*v - 0.3*(sym + dor + tax); >= 0 means capacity covers load in
      that same reading. Never surfaced as a number — margins stay internal.
-     'neutral' rows are not reads and are excluded everywhere (these functions
-     already filtered them, which is why the filters below are unchanged).
-     ⚠ Never infer values from the neutral flag: a few rows carry non-midpoints. */
+     Quiet rows — the engine's computed no-name read (all circuits floored) — have
+     no readable margin: the formula lands near 0 there because capacity AND load
+     are both absent, not because capacity covers load. So they are excluded from
+     every margin statistic (D-A, 2026-08-22) while still counting as check-ins
+     (tenure, streaks). Names never come from storage — _dm derives every row. */
   function _mgn(c){
-    if(!c || c.dom === 'neutral' || typeof c.v !== 'number') return null;
+    if(!c || typeof c.v !== 'number') return null;
+    if(_dm(c) === 'neutral') return null;                    // computed Quiet: not a readable margin (D-A)
     try{ return PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; }
   }
   function _dm(c){
     if(!c || typeof c.v !== 'number') return c && c.dom || null;
-    if(c.dom === 'neutral') return 'neutral';
     try{ return PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
   }
   function _isReg(c){ const m = _mgn(c); return m != null && m >= 0; }
@@ -1096,7 +1093,7 @@
   // Computed the same way the reader picks its window-dominant, so `second` never equals it.
   function weekMix(){
     const cut = Date.now() - 7*86400000;   // fixed trailing week — no caller ever passed a window
-    const cs = data.checkins.filter(c => c.t >= cut && c.dom && c.dom !== 'neutral');
+    const cs = data.checkins.filter(c => { const k=_dm(c); return c.t >= cut && k && k !== 'neutral'; });
     const n = cs.length;
     if(n < 6) return null;                                  // too few in-window to claim a mix
     const cnt = {}; cs.forEach(c => { const k=_dm(c); cnt[k] = (cnt[k]||0) + 1; });
@@ -1115,7 +1112,7 @@
   // recovery: after a dip out of a regulated state, how many check-ins until a regulated
   // one returns. The hope signal — only trustworthy with real history + several round-trips.
   function recovery(){
-    const cs = data.checkins.filter(c => c.dom && c.dom !== 'neutral');
+    const cs = data.checkins.filter(c => { const k=_dm(c); return k && k !== 'neutral'; });
     if(cs.length < 12) return null;
     const gaps = [], depths = []; let i = 0;
     while(i < cs.length){
@@ -1385,7 +1382,7 @@
   function dayArc(t0){
     const tEnd = t0 + 864e5;
     const moments = data.checkins
-      .filter(c => c && typeof c.t==='number' && c.t>=t0 && c.t<tEnd && c.dom && c.dom!=='neutral')
+      .filter(c => { const k=_dm(c); return c && typeof c.t==='number' && c.t>=t0 && c.t<tEnd && k && k!=='neutral'; })
       .sort((a,b)=>a.t-b.t);
     const sess = data.sessions
       .filter(s => s && typeof s.t==='number' && s.t>=t0 && s.t<tEnd)
@@ -1415,7 +1412,7 @@
   // monthly + quarterly reflections (the long-range altitudes). All deterministic, on-device.
   function periodStats(startMs, endMs){
     const cs = data.checkins
-      .filter(c => c && typeof c.t==='number' && c.t>=startMs && c.t<endMs && c.dom && c.dom!=='neutral')
+      .filter(c => { const k=_dm(c); return c && typeof c.t==='number' && c.t>=startMs && c.t<endMs && k && k!=='neutral'; })
       .sort((a,b)=>a.t-b.t);
     const n = cs.length;
     if(!n) return null;
@@ -1530,7 +1527,7 @@
   // honest low-data path. safety = avgV, defense = avgDef (both absolute).
   function baselineWeek(){
     const now = Date.now();
-    const cs = data.checkins.filter(c => c.t >= now - 7*864e5 && c.t <= now && c.dom && c.dom !== 'neutral').sort((a,b)=>a.t-b.t);
+    const cs = data.checkins.filter(c => { const k=_dm(c); return c.t >= now - 7*864e5 && c.t <= now && k && k !== 'neutral'; }).sort((a,b)=>a.t-b.t);
     if(cs.length < 4) return { lowData:true, n:cs.length };
     // periodStats uses a strict `< endMs`; pass now+1 so a check-in stamped at exactly `now`
     // (e.g. the one that just triggered this) is counted here too. Guard the null just in case.
