@@ -1201,7 +1201,7 @@
     const o = { DOM:_feltName(st.dom), PCT:st.domShare, DAY: st.bestDow!=null?_DOW[st.bestDow]:'' };
     const parts = [ cycle('mo-open', MONTHLY.opener), _fillMQ(cycle('mo-where', MONTHLY.where), o) ];
     const bd = ctx0.baseline;
-    if(bd && bd.dir && bd.dir!=='new' && MONTHLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('mo-base:'+bd.dir, MONTHLY.baseline[bd.dir]), { PCT:Math.abs(bd.deltaPct) }));
+    if(bd && bd.dir && bd.dir!=='new' && MONTHLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('mo-base:'+bd.dir, MONTHLY.baseline[bd.dir]), {}));
     if(st.bestDow!=null) parts.push(_fillMQ(cycle('mo-dow', MONTHLY.rhythm_dow), o));
     const rec = ctx0.recovery;
     if(rec && rec.avg!=null) parts.push(_fillMQ(cycle('mo-rec', MONTHLY.recovery), { N:_recoveryPhrase(rec) }));
@@ -1249,7 +1249,7 @@
     else if(reg[st.firstDom] && reg[st.lastDom]) tnKey='steady_reg';
     parts.push(_fillMQ(cycle('q-tn:'+tnKey, QUARTERLY.thennow[tnKey]), o));
     const bd = ctx0.baseline;
-    if(bd && bd.dir && bd.dir!=='new' && QUARTERLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('q-base:'+bd.dir, QUARTERLY.baseline[bd.dir]), Object.assign({}, o, { PCT:Math.abs(bd.deltaPct) })));
+    if(bd && bd.dir && bd.dir!=='new' && QUARTERLY.baseline[bd.dir]) parts.push(_fillMQ(cycle('q-base:'+bd.dir, QUARTERLY.baseline[bd.dir]), o));
     const rec = ctx0.recovery;
     if(rec && rec.avg!=null) parts.push(_fillMQ(cycle('q-rec', QUARTERLY.recovery), { N:_recoveryPhrase(rec) }));
     parts.push(_fillMQ(cycle('q-tot', QUARTERLY.totals), o));

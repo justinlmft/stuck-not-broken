@@ -1464,7 +1464,7 @@
     const span = endMs - startMs;
     const cur = periodStats(startMs, endMs), prev = periodStats(startMs-span, startMs);
     if(!cur) return null;
-    if(!prev) return { dir:'new', deltaPct:0 };
+    if(!prev) return { dir:'new' };
     const d = cur.meanMargin - prev.meanMargin;
     /* The +/-0.05 dead-band is UNCHANGED, deliberately, now that d is a margin delta
        rather than an average-connection delta. Margin's theoretical span is ~1.6, which
@@ -1479,7 +1479,7 @@
        trips more readily toward 'down'. Setting that properly needs observed
        period-over-period variance, which is the same data gate as λ and the ½ cost
        fraction. Guessing an asymmetric band now would be fitting to nothing. */
-    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat', deltaPct: Math.round(d*100) };
+    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat' };
   }
 
   // ---- mint store: dated, immutable reflections (the archive / keepsake moat) ----
