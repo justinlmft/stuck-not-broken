@@ -80,6 +80,15 @@
     let t=0; for(let i=0;i<n;i++) t+=_cMargin(r[i]);
     return t/n;
   }
+  // recommend() has blanked screens twice (B2, Pass 3): a failure here must cost the
+  // card, never the tab. Reported loudly in the console, never swallowed. Callers
+  // that must render SOME practice pass needShape=true and get the same 'anchoring'
+  // default the maker already falls back to defensively.
+  function _recommendSafe(needShape){
+    try{ const r = Store.recommend && Store.recommend(); if(r) return r; }
+    catch(e){ try{ console.error('Store.recommend() failed — rendering without it:', e); }catch(_){} }
+    return needShape ? { practiceKey:'anchoring', silence:8, reason:null } : null;
+  }
 
   // ── demo mode ─────────────────────────────────────────────────────
   // Loads ~4 months of sample check-ins for review/demo only. Never persisted,
@@ -2320,7 +2329,7 @@ function app(tab){
     const c = content();
     const _paid = paidNow();
     const last = Store.lastCheckin();
-    const reco = Store.recommend();
+    const reco = _recommendSafe(true);
     const done = winsDone();
     const nm = Store.getName();
     const seg = segOf(Date.now());
@@ -2979,7 +2988,7 @@ function app(tab){
     // the reader closes into a practice: when you've finished reading what your
     // check-ins are saying, the practice shaped from them is one tap away (the plan
     // reader, then begin). links to the SAME recommendation as the practice tab.
-    const reco = (Store.recommend && Store.recommend()) || null;
+    const reco = _recommendSafe();
     const practiceCTA = reco ? `<div class="read-to-practice">
             <p class="read-p" style="margin:0 0 12px">When you're ready, here is the practice shaped from these check-ins.</p>
             <button class="btn block" id="read-begin-practice" type="button">The practice made for you</button>
@@ -3711,14 +3720,16 @@ function app(tab){
     // now lives in settings → "your check-in"): tapping a state sets the underlying
     // v/sym/dor — the SAME three numbers the sliders capture — so the saved reading
     // and the trend line never seam across methods. teaching copy shows in place.
-    const STATE_AXES={ safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15],
-                       stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
+    // B3 (Pass 3): was locally named STATE_AXES, shadowing the module-level icon map of
+    // the same name with a different shape — one edit to the "wrong" one away from a bug.
+    const STATE_PRESETS={ safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15],
+                          stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
     if(_ciStates){
       // the six presets are the STARTING POINT. Tapping one opens the sliders sitting
       // exactly where that state puts them, and every later nudge is the person's own
       // reading — same v/sym/dor the slider method saves, at full resolution.
       root.querySelectorAll('.ci-ovr-opt').forEach(b=>b.onclick=()=>{
-        const k=b.dataset.ovr, ax=STATE_AXES[k];
+        const k=b.dataset.ovr, ax=STATE_PRESETS[k];
         root.querySelectorAll('.ci-ovr-opt').forEach(x=>x.classList.toggle('on', x===b));
         if(!ax) return;
         axTouched.v=1; axTouched.sym=1; axTouched.dor=1;
@@ -5751,7 +5762,7 @@ function app(tab){
   // and the ~3h 'followup' reads are then tagged automatically in Store.addCheckin.
   // Both shells (tabbar + guest) funnel through here — it is the one place a practice begins.
   function beginPractice(reco){
-    const r = reco || (Store.recommend && Store.recommend()) || null;
+    const r = reco || _recommendSafe();
     try{
       if(r && Store.newSessionId){
         r.sessionId = Store.newSessionId();
@@ -6009,7 +6020,7 @@ function app(tab){
   // standalone session or "surprise" collapses every dial but the type.
   function renderMaker7b(animateIn){
     const c=content();
-    const reco = Store.recommend();
+    const reco = _recommendSafe(true);
     const rtk = trackOf(reco.practiceKey);
     // defensive: some entry paths (e.g. the plan screen's "change this practice") seed
     // pState without a maker type. Never open the maker on a blank practice type.
@@ -6290,7 +6301,7 @@ function app(tab){
     const canBegin=!!(key&&(key!=='more'||med));
 
     const _paid = paidNow();
-    const reco = Store.recommend();
+    const reco = _recommendSafe(true);
     const tk = trackOf(reco.practiceKey);
     const tunedNm = Store.getName();
     const tunedHeading = tunedNm ? `${escapeHtml(tunedNm)}'s custom practice` : 'your custom practice';
