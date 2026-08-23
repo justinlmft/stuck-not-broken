@@ -3473,7 +3473,9 @@ function app(tab){
   function screenChangeCheckin(){
     const recent = Store.checkins().slice(-6).reverse();
     clearFigures(); document.body.classList.remove('in-practice');
-    const rows = recent.length ? recent.map((c,i)=>`<div class="ci-row"><button class="change-row ci-edit" data-i="${i}" type="button"><span class="change-when">${relTime(c.t)}</span><span class="change-mark">${stateMarks(c.dom)}<span class="change-state">${STATE_LABEL(c.dom)}</span></span><span class="wc-go">${CHEV}</span></button><button class="pr-del ci-del" data-t="${c.t}" type="button">Remove</button></div>`).join('') : '<p class="panel-empty">No check-ins to change yet.</p>';
+    // display derives (B1 / Ruling 2): stored dom is not a display source — a legacy
+    // stored-'neutral' row here rendered the STATE_NAME fallback word to real users.
+    const rows = recent.length ? recent.map((c,i)=>`<div class="ci-row"><button class="change-row ci-edit" data-i="${i}" type="button"><span class="change-when">${relTime(c.t)}</span><span class="change-mark">${stateMarks(_cDom(c))}<span class="change-state">${STATE_LABEL(_cDom(c))}</span></span><span class="wc-go">${CHEV}</span></button><button class="pr-del ci-del" data-t="${c.t}" type="button">Remove</button></div>`).join('') : '<p class="panel-empty">No check-ins to change yet.</p>';
     setHTML(`
       <header class="appbar"><button class="backbtn" id="cc-back">Back</button></header>
       <div class="scroll"><div class="view" style="gap:14px">
