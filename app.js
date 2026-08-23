@@ -4424,15 +4424,26 @@ function app(tab){
   // Choosing the side length: a wider box wraps the text into fewer lines, so content
   // height falls as the side grows — monotone enough to bisect. Find the smallest square
   // the content actually fits in, so type stays as large as it can be.
-  function _shareClone(panel, withData){
+  function _shareClone(panel, sigKey){
     const host=document.createElement('div');
     host.className='share-clone-host';
     host.setAttribute('style','position:fixed;left:-99999px;top:0;z-index:-1;pointer-events:none');
     const c=panel.cloneNode(true);
     c.classList.remove('panel-in');
     c.querySelectorAll('.panel-share').forEach(e=>e.remove());
-    if(!withData) c.querySelectorAll('.rc-chart,.bl-wrap,.bl-key,.cb-journey,.cb-viz,.distrows,.gr-line,.chart,canvas,svg.chart').forEach(e=>e.remove());
     _toFirstPerson(c);
+    // the share signature, restored (Justin: "the glyph never should have died") — the
+    // user's state glyph sits UNDER the declaration, a signature (original spec,
+    // 2026-07-05; recovered 2026-08-22). Optional via settings (snb_share_glyph);
+    // when off or unknowable, the ink brand foot below is the only mark, exactly the
+    // original's fallback. Coloured because it carries a READING (the 2026-07-17 rule:
+    // glyphs stay ink until they carry data) — brandFootMark stays ink.
+    if(sigKey){
+      const lead = c.querySelector('.cb-line-lead');
+      const sig = `<div class="share-sig">${triGlyph(sigKey)}</div>`;
+      if(lead) lead.insertAdjacentHTML('afterend', sig);
+      else c.insertAdjacentHTML('beforeend', sig);
+    }
     // the brand foot lives here and nowhere else. `.panel-foot{margin-top:auto}` pins it to
     // the square's bottom edge, exactly as it did when it sat on the card.
     c.insertAdjacentHTML('beforeend', panelFoot());
@@ -4466,11 +4477,12 @@ function app(tab){
       const x=cv.getContext('2d'); if(!x) return false;
       x.fillStyle=T.bone; x.fillRect(0,0,W,H);
       if(panel){
-        // the "your data on shared images" switch (Settings → Your data) used to hide a
-        // bespoke signature glyph that no longer exists. It now governs the thing that
-        // actually carries personal data: the card's reading. Words and design still go.
-        let withData=true; try{ withData = localStorage.getItem('snb_share_glyph')!=='0'; }catch(e){}
-        clone=_shareClone(panel, withData);
+        // the share signature: the state the body keeps coming back to — the DERIVED
+        // modal state over a trailing 90-day window, recomputed at share time so it
+        // moves with every check-in; a thin window falls back to all-time so new
+        // accounts still get one (recovered spec, 2026-07-05 / restored 2026-08-22).
+        let sigOn=true; try{ sigOn = localStorage.getItem('snb_share_glyph')!=='0'; }catch(e){}
+        clone=_shareClone(panel, sigOn ? _signatureKey() : null);
         await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
         const r=clone.card.getBoundingClientRect();
         if(r.width>0 && r.height>0){
@@ -4556,7 +4568,16 @@ function app(tab){
   // outside reader, and usable by a professional. Every card names its own metric.
   // per-row keys DERIVE (A4, 2026-08-22): stored dom is neither a stats nor a display
   // source. A derived key is always a real state; rows that cannot derive drop out.
-  const _rowKey = c => _cDom(c) || null;
+  const _rowKey = c => (c && typeof c.v === 'number') ? (_cDom(c) || null) : null;   // no numbers = no read (null would coerce to a margin of 0 and derive 'safety')
+  // the share signature's state: derived 90-day modal, all-time when the window is
+  // thin (<3 readable rows), null when nothing is readable (caller shows no signature).
+  function _signatureKey(){
+    const count = arr => { const m={}; (arr||[]).forEach(c=>{ const k=_rowKey(c); if(k) m[k]=(m[k]||0)+1; }); return Object.entries(m).sort((a,b)=>b[1]-a[1]); };
+    const all = Store.checkins();
+    let e = count(all.filter(c=>c && c.t >= Date.now()-90*864e5));
+    if(!e.length || e.reduce((s,x)=>s+x[1],0) < 3) e = count(all);
+    return e.length ? e[0][0] : null;
+  }
   function _safeShare(arr){
     let r=0, n=0;
     (arr||[]).forEach(c=>{ const k=_rowKey(c); if(!k) return; n++; if(_REGDOMS[k]) r++; });
@@ -6786,7 +6807,7 @@ function app(tab){
 
           <div class="gs-card">
             <p class="gs-h">Your data</p>
-            ${gsSw('sw-glyph','Charts on shared images',gl!=='0')}
+            ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
             <p class="ch-cap" id="glyph-cap" style="margin:6px 0 0"></p>
             <p class="gs-fine">A card you share goes out as a picture of that card. On means the picture includes its chart. Off leaves the chart out. The card's words still go, and some of them name numbers.</p>
             <div class="gs-actions" style="margin-top:14px">
@@ -6892,11 +6913,10 @@ function app(tab){
       : 'Haptics are off. The app never vibrates.'; };
     _hapCap(hp);
     bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); _hapCap(on); });
-    // says exactly what it does: the switch removes the CHART, not every number —
-    // several cards name a figure in their sentence, and that sentence still goes.
+    // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
-      ? 'Your shared cards include the chart you see on the card.'
-      : 'Your shared cards leave the chart out. The words still go, including any numbers in them.'; };
+      ? 'Your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
+      : 'Your share cards go out with no state signature.'; };
     _glyphCap(gl!=='0');
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
