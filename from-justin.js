@@ -331,7 +331,6 @@
       ]
     },
     "neutral": {
-      "label": "settling",
       "promptPolicy": "open",
       "pieces": [
         {
