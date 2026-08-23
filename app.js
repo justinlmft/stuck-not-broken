@@ -198,7 +198,15 @@
   ['gesturestart','gesturechange','gestureend'].forEach(ev=>document.addEventListener(ev, e=>e.preventDefault(), {passive:false}));
 
   const STATE_COLOR = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].color : '#D8D2C2');
-  const STATE_NAME  = (key) => (window.PVCurrent.STATES[key] ? window.PVCurrent.STATES[key].name : 'Quiet');
+  // An unknown key is a BUG, not a display case (ruled 2026-08-22): render a visibly
+  // broken em-dash instead of inventing a friendly non-state, and name the key in the
+  // console — once per key per session, so a re-rendering list can't bury the signal.
+  const _unknownStateKeys = new Set();
+  const STATE_NAME  = (key) => {
+    if(window.PVCurrent.STATES[key]) return window.PVCurrent.STATES[key].name;
+    if(!_unknownStateKeys.has(key)){ _unknownStateKeys.add(key); try{ console.error('STATE_NAME: unknown state key', key); }catch(e){} }
+    return '—';
+  };
   // CAP(): sentence-case a value that STARTS a label, heading, cell or button.
   // State names and dayparts are common nouns — they stay lowercase MID-SENTENCE
   // ("you commonly dip into shutdown"), and take a capital only where their
@@ -2324,7 +2332,7 @@ function app(tab){
     // when you haven't — it reverts each segment (morning/afternoon/evening/late)
     // so every new stretch of the day invites a fresh check-in.
     const checkedIn = !!(last && sameDay(last.t) && segOf(last.t)===segOf(Date.now()));
-    const dom  = checkedIn ? last.dom : null;
+    const dom  = checkedIn ? _cDom(last) : null;
     const halo = checkedIn ? STATE_COLOR(dom) : 'var(--hairline)';
     const stateHTML = checkedIn
       ? `<button class="tb-state tb-state-line" id="tb-state"><span class="tb-glyph">${triGlyph(dom)}</span><span class="tb-state-txt">${STATE_LABEL(dom)} · this ${segLabel(segOf(last.t))}</span><span class="tb-chev">${CHEV}</span></button>`
@@ -2566,7 +2574,7 @@ function app(tab){
     const cl=x=>x<0?0:x>1?1:x;
     const fx=t=>padL + cl((t-t0)/span)*(W-padL-padR);
     const fy=v=>padT + (1-cl(v))*(H-padT-padB);
-    const pts=moments.map(m=>({x:fx(m.t),y:fy(m.v),dom:m.dom}));
+    const pts=moments.map(m=>({x:fx(m.t),y:fy(m.v),dom:_cDom(m)}));
     const vAt=t=>{ const a=moments; if(t<=a[0].t) return a[0].v; if(t>=a[a.length-1].t) return a[a.length-1].v;
       for(let i=1;i<a.length;i++){ if(t<=a[i].t){ const f=(t-a[i-1].t)/((a[i].t-a[i-1].t)||1); return a[i-1].v+(a[i].v-a[i-1].v)*f; } } return a[a.length-1].v; };
     const midY=(padT+(H-padT-padB)/2).toFixed(0);
@@ -2578,7 +2586,7 @@ function app(tab){
       `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="var(--hairline)" stroke-width="1"/>`+
       `<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--hairline)" stroke-width="1"/>`;
     const labels=[['morning',0.18],['midday',0.45],['evening',0.74],['late',0.96]].map(o=>`<text x="${(padL+o[1]*(W-padL-padR)).toFixed(0)}" y="${H-8}" text-anchor="middle" font-size="9" fill="var(--muted)" font-family="Inter">${o[0]}</text>`).join('');
-    const present=moments.map(m=>m.dom).filter((d,i,a)=>a.indexOf(d)===i);
+    const present=moments.map(m=>_cDom(m)).filter((d,i,a)=>d&&a.indexOf(d)===i);
     const leg=present.map(d=>`<span class="mtl-key"><span class="mtl-sw" style="background:${STATE_COLOR(d)}"></span>${escapeHtml(STATE_LABEL(d))}</span>`).join('')+
       (sessions.length?`<span class="mtl-key"><span class="mtl-ring"></span>practice</span>`:'');
     return `<div class="mtl"><svg viewBox="0 0 ${W} ${H}" class="mtl-svg" role="img" aria-label="your check-ins today, placed by time and safety, colored by state">${axis}${line}${rings}${dots}${labels}</svg><div class="mtl-legend">${leg}</div></div>`;
@@ -2587,7 +2595,7 @@ function app(tab){
   function momentDots(moments){
     const ms=(moments||[]).filter(m=>m&&m.dom).slice(-8);
     if(!ms.length) return '';
-    return `<span class="md-row" aria-hidden="true">${ms.map((m,i)=>`<span class="md-dot${i===ms.length-1?' md-new':''}" style="background:${STATE_COLOR(m.dom)}"></span>`).join('')}</span>`;
+    return `<span class="md-row" aria-hidden="true">${ms.map((m,i)=>`<span class="md-dot${i===ms.length-1?' md-new':''}" style="background:${STATE_COLOR(_cDom(m))}"></span>`).join('')}</span>`;
   }
 
   // ---- for-you reader section visuals: each pictures the words of its section ----
@@ -3955,13 +3963,13 @@ function app(tab){
   // immediately after each live reading: their state, mirrored back. 🖊
   function screenLiveMoment(rec){
     const s=_liveCache();
-    const domKey = (rec.dom && rec.dom!=='neutral') ? rec.dom : window.PVCurrent.dominantOf(rec.v, rec.sym, rec.dor).key;
+    const domKey = _cDom(rec);
     const more = s ? !!_liveNext(s) : false;
     _liveShell(`<div class="view fb-view">
         <div class="scr-head">
           <p class="eyebrow">What you described</p>
-          <div class="g-glyph">${rec.dom==='neutral'?'':triGlyph(domKey)}</div>
-          <h1 class="scr-h" style="margin-top:14px">${rec.dom==='neutral'?'Quiet':escapeHtml(STATE_LABEL(domKey))}</h1>
+          <div class="g-glyph">${triGlyph(domKey)}</div>
+          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(STATE_LABEL(domKey))}</h1>
           <p class="scr-lede">${escapeHtml(ciMirror(rec.v, rec.sym, rec.dor))}</p>
           <p class="scr-lede">${more?'Your check-in is saved. Head back to the live practice now. This screen will wait here, ready for your next check-in.':'Your check-in is saved. That was the last one.'}</p>
         </div>
@@ -4574,7 +4582,14 @@ function app(tab){
   // ONE metric across all pattern cards (clarity + consistency, Justin 2026-07-05):
   // "the share of check-ins that land in a safe state" — countable, plain to an
   // outside reader, and usable by a professional. Every card names its own metric.
-  function _safeShare(arr){ if(!arr.length) return null; let r=0; arr.forEach(c=>{ if(_REGDOMS[c.dom]) r++; }); return Math.round(r/arr.length*100); }
+  // per-row keys DERIVE (A4, 2026-08-22): stored dom is neither a stats nor a display
+  // source. A derived key is always a real state; rows that cannot derive drop out.
+  const _rowKey = c => { const k=_cDom(c); return k && k!=='neutral' ? k : null; };
+  function _safeShare(arr){
+    let r=0, n=0;
+    (arr||[]).forEach(c=>{ const k=_rowKey(c); if(!k) return; n++; if(_REGDOMS[k]) r++; });
+    return n ? Math.round(r/n*100) : null;
+  }
   function _weekdayPattern(cs){
     if(cs.length < 14) return null;
     const by={};
@@ -4640,21 +4655,21 @@ function app(tab){
   }
   // which defense state the dips most often start in — colors + glyphs the comeback card
   function _topDipState(){
-    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');   // stored filter kept until A4 derives this helper (Ruling 2)
+    const ks = Store.checkins().map(_rowKey).filter(Boolean);
     const cnt={}; let inDip=false;
-    cs.forEach(c=>{ if(!_REGDOMS[c.dom]){ if(!inDip){ cnt[c.dom]=(cnt[c.dom]||0)+1; inDip=true; } } else inDip=false; });
+    ks.forEach(k=>{ if(!_REGDOMS[k]){ if(!inDip){ cnt[k]=(cnt[k]||0)+1; inDip=true; } } else inDip=false; });
     const e=Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0];
     return (e&&e[1]>=3)?e[0]:null;
   }
   // recovery trend over full history: early episodes vs recent episodes.
   // a slowing never headlines (copy rule: dips live in the reader, gently).
   function _recoveryTrend(){
-    const cs = Store.checkins().filter(c=>c.dom&&c.dom!=='neutral');   // stored filter kept until A4 derives this helper (Ruling 2)
-    if(cs.length<12) return null;
+    const ks = Store.checkins().map(_rowKey).filter(Boolean);
+    if(ks.length<12) return null;
     const eps=[]; let i=0;
-    while(i<cs.length){
-      if(!_REGDOMS[cs[i].dom]){ let j=i, steps=0, found=false;
-        while(j<cs.length){ if(_REGDOMS[cs[j].dom]){ found=true; break; } j++; steps++; }
+    while(i<ks.length){
+      if(!_REGDOMS[ks[i]]){ let j=i, steps=0, found=false;
+        while(j<ks.length){ if(_REGDOMS[ks[j]]){ found=true; break; } j++; steps++; }
         if(found) eps.push(steps); i=j;
       } else i++;
     }
@@ -4671,21 +4686,21 @@ function app(tab){
   // arbitrarily old week the essay isn't otherwise discussing (Justin 2026-07-28).
   // The You-tab stats-card call stays unbounded (a legitimate all-time personal best).
   function _personalRecords(allCs, maxWeeksBack){
-    const cs = allCs.filter(c=>c.dom&&c.dom!=='neutral').sort((a,b)=>a.t-b.t);   // stored filter kept until A4 derives this helper (Ruling 2)
+    const cs = allCs.filter(c=>_rowKey(c)).sort((a,b)=>a.t-b.t);
     if(cs.length<12) return null;
     const wk={}; cs.forEach(c=>{ const ws=_sundayStart(c.t); (wk[ws]=wk[ws]||[]).push(c); });
     const curWs=_sundayStart(Date.now());
     const oldestWs = maxWeeksBack!=null ? (curWs - maxWeeksBack*7*864e5) : -Infinity;
     let bw=null;
     Object.keys(wk).forEach(ws=>{ if(+ws===curWs || +ws<oldestWs) return; const a=wk[ws];
-      if(a.length>=4){ const reg=a.filter(c=>_REGDOMS[c.dom]).length/a.length; if(!bw||reg>bw.share) bw={ ws:+ws, share:reg }; } });
+      if(a.length>=4){ const reg=a.filter(c=>_REGDOMS[_rowKey(c)]).length/a.length; if(!bw||reg>bw.share) bw={ ws:+ws, share:reg }; } });
     const bestWeek = bw ? { label:new Date(bw.ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}), pct:Math.round(bw.share*100), ws:bw.ws } : null;
     // fastest comeback: the shortest completed dip->safety trip (a recovery record)
     let fastest=null, n=0, i=0;
     while(i<cs.length){
-      if(!_REGDOMS[cs[i].dom]){ let j=i, steps=0, found=false;
-        while(j<cs.length){ if(_REGDOMS[cs[j].dom]){ found=true; break; } j++; steps++; }
-        if(found){ n++; if(!fastest||steps<fastest.steps) fastest={ steps, dom:cs[i].dom }; }
+      if(!_REGDOMS[_rowKey(cs[i])]){ let j=i, steps=0, found=false;
+        while(j<cs.length){ if(_REGDOMS[_rowKey(cs[j])]){ found=true; break; } j++; steps++; }
+        if(found){ n++; if(!fastest||steps<fastest.steps) fastest={ steps, dom:_rowKey(cs[i]) }; }
         i=j;
       } else i++;
     }
@@ -4829,8 +4844,8 @@ function app(tab){
     const tagged=Object.keys(wkTags);
     if(tagged.length<2) return null;
     const weeks={};
-    Store.checkins().forEach(c=>{ if(!c.dom||c.dom==='neutral') return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });   // stored filter kept until A4 derives this helper (Ruling 2)
-    const share=ws=>{ const a=weeks[ws]; if(!a||a.length<3) return null; return a.filter(c=>_REGDOMS[c.dom]).length/a.length; };
+    Store.checkins().forEach(c=>{ if(!_rowKey(c)) return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });
+    const share=ws=>{ const a=weeks[ws]; if(!a||a.length<3) return null; return a.filter(c=>_REGDOMS[_rowKey(c)]).length/a.length; };
     const all=Object.keys(weeks).map(ws=>share(+ws)).filter(v=>v!=null);
     if(all.length<3) return null;
     const typPct=Math.round(all.reduce((s,v)=>s+v,0)/all.length*100);
@@ -4929,7 +4944,7 @@ function app(tab){
   // around defense. only per-check-in ('c') tags carry a state, so only they count.
   function _contextStateLink(){
     const m=_ctxLoad();
-    const byT={}; Store.checkins().forEach(c=>{ if(c&&c.dom&&c.dom!=='neutral') byT[c.t]=c.dom; });   // stored filter kept until A4 derives this helper (Ruling 2)
+    const byT={}; Store.checkins().forEach(c=>{ const k=_rowKey(c); if(k) byT[c.t]=k; });
     const safe={}, def={};
     Object.keys(m).forEach(k=>{
       if(k[0]!=='c'||!(m[k]||[]).length) return;
@@ -4963,7 +4978,10 @@ function app(tab){
       const label = sameDay(d.getTime()) ? 'today'
         : d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }).toLowerCase();
       const rows = byDay[k].map(x=>{
-        const dom = x.dom || (window.PVCurrent.dominantOf(x.v, x.sym, x.dor)||{}).key;
+        // derives (A4, 2026-08-22) — supersedes the free-history stored-name exception
+        // ("exactly as they recorded them"): its rationale no longer holds after B1
+        // (one naming rule for all history) + Ruling 2 (the stored category is gone).
+        const dom = _cDom(x);
         const mirror = ciMirror(x.v, x.sym, x.dor);
         return `<div class="deep-row hx-row">
           <span class="deep-lbl hx-time">${fmtTime(x.t)}</span>
@@ -5039,7 +5057,7 @@ function app(tab){
     if(!paidNow()) return tabHistoryFree(c, allCs);
 
     const avg = a => a.length ? a.reduce((s,v)=>s+v,0)/a.length : 0;
-    const domOf = arr => { const m={}; arr.forEach(x=>{m[x.dom]=(m[x.dom]||0)+1;}); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:null; };
+    const domOf = arr => { const m={}; arr.forEach(x=>{ const k=_rowKey(x); if(k) m[k]=(m[k]||0)+1; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:null; };
 
     function render(){
       const _span = Store.tenure().days;
@@ -5499,7 +5517,7 @@ function app(tab){
             // percentage hero steps back — same honest data, kinder sequence.
             // when steady or rising, the safety story leads as before.
             const _recent = allCs.slice(-6);
-            const _defN = _recent.filter(x=>x.dom && x.dom!=='neutral' && !_REGDOMS[x.dom]).length;   // stored filter kept until A4 derives this helper (Ruling 2)
+            const _defN = _recent.filter(x=>{ const k=_rowKey(x); return k && !_REGDOMS[k]; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const _ORDER = _tender
               ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','baseline','mix','context','started','states','shift','safety']
