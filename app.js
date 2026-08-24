@@ -6809,7 +6809,6 @@ function app(tab){
             <p class="gs-h">Your data</p>
             ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
             <p class="ch-cap" id="glyph-cap" style="margin:6px 0 0"></p>
-            <p class="gs-fine">A card you share goes out as a picture of that card. On means the picture includes its chart. Off leaves the chart out. The card's words still go, and some of them name numbers.</p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins</button>
               <button class="set-quiet" id="privacy">How your data is handled</button>
