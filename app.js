@@ -362,8 +362,20 @@
   // does not need telling; on a picture leaving for someone else's feed it is the only thing
   // saying where this came from. Added in _shareClone, so a new card gets it for free and no
   // slide has to remember it.
-  function panelFoot(){
-    return `<div class="panel-foot">${brandFootMark()}<span class="pf-nm">${BRAND_FOOT}</span></div>`;
+  // the share signature lives IN the foot (Justin, 2026-08-22: "make the glyph in the
+  // bottom left into the dynamic one"): with a signature state, the foot mark is the
+  // user's 90-day glyph, coloured because it carries a reading; without one (toggle
+  // off, or nothing readable) it falls back to the ink brand mark — one glyph, always.
+  // Fills are INLINE, never observer-lit: this markup is born inside the offscreen
+  // share clone and the canvas snapshots before the observer's .62s ease delivers.
+  function _sigFootMark(key){
+    const col = STATE_COLOR(key), I = window.SNB_ICONS||{};
+    const active = (STATE_AXES[key]||[]).map(a=>a[0]);
+    const paths = TRI_ORDER.map(m=>`<path style="fill:${active.indexOf(m)>=0?col:'var(--tg-dim)'}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
+    return `<svg class="pf-mark" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
+  }
+  function panelFoot(sigKey){
+    return `<div class="panel-foot">${sigKey ? _sigFootMark(sigKey) : brandFootMark()}<span class="pf-nm">${BRAND_FOOT}</span></div>`;
   }
 
   function stateMarks(key){
@@ -4432,28 +4444,12 @@ function app(tab){
     c.classList.remove('panel-in');
     c.querySelectorAll('.panel-share').forEach(e=>e.remove());
     _toFirstPerson(c);
-    // the share signature, restored (Justin: "the glyph never should have died") — the
-    // user's state glyph sits UNDER the declaration, a signature (original spec,
-    // 2026-07-05; recovered 2026-08-22). Optional via settings (snb_share_glyph);
-    // when off or unknowable, the ink brand foot below is the only mark, exactly the
-    // original's fallback. Coloured because it carries a READING (the 2026-07-17 rule:
-    // glyphs stay ink until they carry data) — brandFootMark stays ink.
-    if(sigKey){
-      // fills are INLINE, not observer-lit: the live-DOM glyphs get their colour from
-      // the mount observer with a .62s ease, but this markup is born inside the clone
-      // and the canvas snapshots two frames later — observer colour arrives too late
-      // and the signature shipped as dim ink (Justin's beta catch, 2026-08-22).
-      const col = STATE_COLOR(sigKey), I = window.SNB_ICONS||{};
-      const active = (STATE_AXES[sigKey]||[]).map(a=>a[0]);
-      const paths = TRI_ORDER.map(m=>`<path style="fill:${active.indexOf(m)>=0?col:'var(--tg-dim)'}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
-      const sig = `<div class="share-sig"><svg class="triglyph" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg></div>`;
-      const lead = c.querySelector('.cb-line-lead');
-      if(lead) lead.insertAdjacentHTML('afterend', sig);
-      else c.insertAdjacentHTML('beforeend', sig);
-    }
+    // the share signature (Justin: "the glyph never should have died") rides in the
+    // brand foot below — see panelFoot(sigKey). Optional via settings; recomputed at
+    // share time from the derived 90-day modal state.
     // the brand foot lives here and nowhere else. `.panel-foot{margin-top:auto}` pins it to
     // the square's bottom edge, exactly as it did when it sat on the card.
-    c.insertAdjacentHTML('beforeend', panelFoot());
+    c.insertAdjacentHTML('beforeend', panelFoot(sigKey));
     // The card's own 24/22px padding is right for a panel sitting in a scroll view with
     // other chrome around it. A shared picture has NO chrome — it is the whole frame — so
     // that padding reads as cramped once it is edge to edge (Justin 2026-08-01: "give it
