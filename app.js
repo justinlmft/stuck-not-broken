@@ -4439,8 +4439,15 @@ function app(tab){
     // original's fallback. Coloured because it carries a READING (the 2026-07-17 rule:
     // glyphs stay ink until they carry data) — brandFootMark stays ink.
     if(sigKey){
+      // fills are INLINE, not observer-lit: the live-DOM glyphs get their colour from
+      // the mount observer with a .62s ease, but this markup is born inside the clone
+      // and the canvas snapshots two frames later — observer colour arrives too late
+      // and the signature shipped as dim ink (Justin's beta catch, 2026-08-22).
+      const col = STATE_COLOR(sigKey), I = window.SNB_ICONS||{};
+      const active = (STATE_AXES[sigKey]||[]).map(a=>a[0]);
+      const paths = TRI_ORDER.map(m=>`<path style="fill:${active.indexOf(m)>=0?col:'var(--tg-dim)'}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
+      const sig = `<div class="share-sig"><svg class="triglyph" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg></div>`;
       const lead = c.querySelector('.cb-line-lead');
-      const sig = `<div class="share-sig">${triGlyph(sigKey)}</div>`;
       if(lead) lead.insertAdjacentHTML('afterend', sig);
       else c.insertAdjacentHTML('beforeend', sig);
     }
