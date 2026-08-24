@@ -2367,7 +2367,7 @@ function app(tab){
     // first-week accounts keep a faint affordance hint under the settled ring
     let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
     // post-breath slot (r7 2026-07-24; revised 2026-07-28 per Justin: (1) "check in again"
-    // should never sit alone once you've checked in, (2) "Two more minutes?" should appear
+    // should never sit alone once you've checked in, (2) "Do a 2 minute practice" should appear
     // after a breath even when you haven't checked in yet — it never did, since the second
     // row didn't exist at all in the not-checked-in markup). RESTING/default content: the
     // reader doorway when a reflection is waiting; else, once checked in, the "two more
@@ -2379,7 +2379,7 @@ function app(tab){
     const mhThird = true;
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">Your reflection is ready</span>`   // 🖊
-      : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Two more minutes?</span>`;          // 🖊
+      : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Do a 2 minute practice</span>`;          // 🖊
 
     // moment-home (2026-07-23): the "now" screen settles to a calm center — the
     // period icon + your state (or a greeting before you've checked in) over the
@@ -2440,7 +2440,7 @@ function app(tab){
       third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
 
       // RESTING state: the reader doorway when a reflection is waiting; else, once
-      // checked in, the "Two more minutes?" invite (2026-07-28: never collapses once
+      // checked in, the "Do a 2 minute practice" invite (2026-07-28: never collapses once
       // there's a check-in to keep company — the row only collapses to nothing before
       // any check-in exists, when mhRestKind is genuinely null). On load and ~10s after
       // a breath.
@@ -2460,7 +2460,7 @@ function app(tab){
         else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showRest, 480); }   // fade micro out, swap to rest content, fade in
       };
 
-      // TRANSIENT post-breath nudge: show "Two more minutes?" for ~10s, then revert to
+      // TRANSIENT post-breath nudge: show "Do a 2 minute practice" for ~10s, then revert to
       // the resting state. (1) check-in shortens to the plus, (2) the invite eases in.
       const _postBreath = ()=>{
         const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
