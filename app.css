@@ -547,10 +547,6 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
    no matter how tall the card's content runs. The mark is ink via currentColor, never the
    colour lockup — glyphs stay ink until they carry data. The share-image painter draws this
    same row from the same BRAND_FOOT string and the same TRI_ORDER paths. */
-/* the share signature (restored 2026-08-22): the user's 90-day modal state glyph,
-   under the card's declaration on the SHARE CLONE only. Coloured — it carries a reading. */
-.share-sig{display:flex;justify-content:center;margin:16px 0 2px}
-.share-sig .triglyph{width:52px;height:52px}
 .panel-foot{margin-top:auto;padding-top:18px;display:flex;align-items:center;gap:7px;color:var(--muted);opacity:.7}
 .panel-foot .pf-mark{height:13px;width:auto;flex:0 0 auto;overflow:visible;display:block}
 .panel-foot .pf-nm{font-size:calc(11px * var(--type-scale));line-height:1;letter-spacing:.01em;white-space:nowrap}
