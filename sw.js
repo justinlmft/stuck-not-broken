@@ -5,7 +5,7 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v462';
+const SHELL_VERSION = 'snb-app-shell-v463';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
@@ -15,7 +15,19 @@ const SHELL = [
 ];
 
 const SCOPE_PATH = new URL(self.registration.scope).pathname;
-const isAudio = (url) => /\/(clips|packs)\//.test(url.pathname);
+/* 2026-08-30 — captions.json is NOT audio, and treating it as audio was a real trap.
+   Anything matching isAudio() is served cache-first out of AUDIO_CACHE, which is deliberately
+   never versioned and never evicted. That is correct for clips: an mp3 name never changes
+   content, so a stale cache entry is never wrong. captions.json is the one MUTABLE file living
+   under clips/ — so once a client had cached it, a corrected transcript could never reach them.
+   Not by a shell bump, not by a new worker, not by anything short of clearing site data.
+   It now falls through to the shell network-first path: corrections propagate on the next
+   load, and offline still works because the fallback does a global caches.match().
+   Justin, 2026-08-30 — fix this BEFORE the new audio ships, because that is when captions get
+   written from the real read and are most likely to need correcting.
+   Scoped to captions*.json on purpose: packs/*.pack.json stay on the audio path, unchanged.
+   See ENGINE-CONTRACT.md §A5. */
+const isAudio = (url) => /\/(clips|packs)\//.test(url.pathname) && !/\/captions[^/]*\.json$/.test(url.pathname);
 
 self.addEventListener('install', (e) => {
   /* 2026-08-17 — skipWaiting is BACK. Removing it on 08-16 did stop the player reloading
