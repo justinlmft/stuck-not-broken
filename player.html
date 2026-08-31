@@ -1196,8 +1196,16 @@ function renderSetup(){
   $('medwrap').style.display='none';
   // anchor sense (only when the practice uses a chosen sense)
   $('sensewrap').style.display=cfg.mind?'none':'block';
+  // micro keeps its decisions tiny: three senses only. Movement and imagination need the full
+  // anchoring ladder, and build('micro') has no mapping for them — it falls through to MIND-05,
+  // so picking either silently played the TOUCH clip under the phase label "touch". The screen
+  // offered a choice the builder ignored. app.js has restricted the tiny practice to these three
+  // since its chooser was built (senseList, ~line 6240); this makes the player agree with the
+  // app that launches it. (Justin, 2026-08-30.) See ENGINE-CONTRACT.md §B3.
+  const senseList = cfg.key==='micro' ? ['touch','sound','sight'] : allSenses;
+  if(senseList.indexOf(cfg.sense)<0) cfg.sense=senseList[0];   // defensive: never leave a sense selected that this practice cannot play
   if(!cfg.mind){const sw=$('senses');sw.innerHTML='';
-    allSenses.forEach(s=>{const p=chip(s,s===cfg.sense);p.onclick=()=>{cfg.sense=s;renderSetup();};sw.appendChild(p);});}
+    senseList.forEach(s=>{const p=chip(s,s===cfg.sense);p.onclick=()=>{cfg.sense=s;renderSetup();};sw.appendChild(p);});}
   // skill menu (the deeper practices)
   const sk=SKILLS[cfg.key];
   $('skillwrap').style.display=sk?'block':'none';
@@ -2173,7 +2181,8 @@ function postToHost(event){
   const pk=q.get('practice');
   if(pk&&EXP[pk]&&!EXP[pk].standalone){                 // host only drives the woven practices, never the packs
     const c=fresh(pk);
-    const sense=q.get('sense'); if(sense&&allSenses.indexOf(sense)>=0)c.sense=sense;
+    const _senses = pk==='micro' ? ['touch','sound','sight'] : allSenses;   // see renderSetup: micro plays only these three
+    const sense=q.get('sense'); if(sense&&_senses.indexOf(sense)>=0)c.sense=sense;
     const skill=q.get('skill'); if(skill&&SKILLS.most&&SKILLS.most.some(x=>x[0]===skill))c.skill=skill;
     // host-driven describe-the-defense preset (recommender v2; rung-gated in store.js)
     if(q.get('descdef')==='1'&&['balancing','pendulation'].indexOf(c.skill)>=0)c.descDefense=true;
