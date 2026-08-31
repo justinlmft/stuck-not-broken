@@ -1196,8 +1196,16 @@ function renderSetup(){
   $('medwrap').style.display='none';
   // anchor sense (only when the practice uses a chosen sense)
   $('sensewrap').style.display=cfg.mind?'none':'block';
+  // micro keeps its decisions tiny: three senses only. Movement and imagination need the full
+  // anchoring ladder, and build('micro') has no mapping for them — it falls through to MIND-05,
+  // so picking either silently played the TOUCH clip under the phase label "touch". The screen
+  // offered a choice the builder ignored. app.js has restricted the tiny practice to these three
+  // since its chooser was built (senseList, ~line 6240); this makes the player agree with the
+  // app that launches it. (Justin, 2026-08-30.) See ENGINE-CONTRACT.md §B3.
+  const senseList = cfg.key==='micro' ? ['touch','sound','sight'] : allSenses;
+  if(senseList.indexOf(cfg.sense)<0) cfg.sense=senseList[0];   // defensive: never leave a sense selected that this practice cannot play
   if(!cfg.mind){const sw=$('senses');sw.innerHTML='';
-    allSenses.forEach(s=>{const p=chip(s,s===cfg.sense);p.onclick=()=>{cfg.sense=s;renderSetup();};sw.appendChild(p);});}
+    senseList.forEach(s=>{const p=chip(s,s===cfg.sense);p.onclick=()=>{cfg.sense=s;renderSetup();};sw.appendChild(p);});}
   // skill menu (the deeper practices)
   const sk=SKILLS[cfg.key];
   $('skillwrap').style.display=sk?'block':'none';
@@ -1224,10 +1232,17 @@ function renderSetup(){
   // silence
   const sv=$('sils');sv.innerHTML='';
   SIL.forEach(([v,lbl])=>{const p=chip(lbl,v===cfg.silence);p.onclick=()=>{cfg.silence=v;renderSetup();};sv.appendChild(p);});
-  // length — only meaningful for the final practice
-  const isLast=active===practices.length-1;
-  $('lenwrap').style.display=isLast?'block':'none';
-  if(isLast){const lw=$('lens');lw.innerHTML='';
+  // length — only meaningful for the final practice, and NEVER for the tiny practice.
+  // (Justin, 2026-08-30.) A Tiny practice is two minutes and done, so open-ended was never
+  // meaningful for it — and it was actively broken: build('micro') returns loopBase:null, so
+  // buildPlan() stripped CLOSE-01 and OUTRO for an open-ended last practice and then skipped
+  // the loop assignment (guarded on b.loopBase). The result was a two-clip practice —
+  // MIND-02, one sense clip — that stopped dead in silence with no close and no sign-off.
+  // Nothing errored. See ENGINE-CONTRACT.md §B2.
+  if(cfg.key==='micro'&&cfg.open)cfg.open=false;   // defensive: nothing may leave a tiny practice open-ended
+  const showLen=active===practices.length-1&&cfg.key!=='micro';
+  $('lenwrap').style.display=showLen?'block':'none';
+  if(showLen){const lw=$('lens');lw.innerHTML='';
     [[false,'a complete practice'],[true,'open-ended']].forEach(([v,lbl])=>{const p=chip(lbl,v===cfg.open);p.onclick=()=>{cfg.open=v;renderSetup();};lw.appendChild(p);});}
   // summary
   const o=buildPlan();
@@ -2166,13 +2181,14 @@ function postToHost(event){
   const pk=q.get('practice');
   if(pk&&EXP[pk]&&!EXP[pk].standalone){                 // host only drives the woven practices, never the packs
     const c=fresh(pk);
-    const sense=q.get('sense'); if(sense&&allSenses.indexOf(sense)>=0)c.sense=sense;
+    const _senses = pk==='micro' ? ['touch','sound','sight'] : allSenses;   // see renderSetup: micro plays only these three
+    const sense=q.get('sense'); if(sense&&_senses.indexOf(sense)>=0)c.sense=sense;
     const skill=q.get('skill'); if(skill&&SKILLS.most&&SKILLS.most.some(x=>x[0]===skill))c.skill=skill;
     // host-driven describe-the-defense preset (recommender v2; rung-gated in store.js)
     if(q.get('descdef')==='1'&&['balancing','pendulation'].indexOf(c.skill)>=0)c.descDefense=true;
     if(q.get('holdwatch')==='1')c.holdWatch=true;   // host-driven hold-both selection
     const hs=parseInt(q.get('holdsecs'),10); if([30,60,90,120].indexOf(hs)>=0)c.holdSeconds=hs;   // host-driven hold-both duration
-    if(q.get('open')==='1')c.open=true;   // host-driven open-ended / practice indefinitely
+    if(q.get('open')==='1'&&pk!=='micro')c.open=true;   // host-driven open-ended; never for the tiny practice (see renderSetup). autostart=1 skips renderSetup, so this guard is load-bearing, not a duplicate.
     const sil=parseInt(q.get('silence'),10); if(!isNaN(sil))c.silence=sil;
     practices=[c];active=0;picked=true;cfg=practices[active];
   }
