@@ -662,9 +662,13 @@
     // guided portion, then notes it keeps going until you stop — a fixed "about N
     // minutes" ignored the open-ended toggle before (fix 2026-07-24).
     const openEnded = (key==='most' && !!open);
-    const timePhrase = openEnded
-      ? (est ? `, about ${est} minutes of guidance, then open-ended` : ', open-ended')
-      : (est ? `, about ${est} minutes` : '');
+    // An open-ended practice states NO duration at all (Justin, 2026-08-30: selecting
+    // open-ended "still says a time limit in the explainer"). est comes from the static
+    // PRACTICE_EST table, which assumes the closing sequence runs; buildPlan() DROPS the
+    // closes for an open-ended run and loops instead, so any number here is both wrong and
+    // a promise the practice does not keep. player.html already shows no minutes for an
+    // open-ended run - this makes the app agree with the thing it launches.
+    const timePhrase = openEnded ? ', open-ended' : (est ? `, about ${est} minutes` : '');
     const bits = [
       `${head}${timePhrase}.`,
       aboutOf(key, sense),
@@ -5898,7 +5902,7 @@ function app(tab){
       reco.holdWatch ? `${hl('holding both')} for ${hl(holdDurWords(reco.holdWatchTargetSeconds||30))}` : null,
       `with ${hl(silLabel(reco.silence))} silence between guidance`,
       chLabel ? `challenge level at ${hl(chLabel)}` : null,
-      planEst ? `about ${hl(planEst+' minutes')} in all` : null,
+      reco.openEnded ? `${hl('open-ended')}, so it keeps going until you choose to stop` : (planEst ? `about ${hl(planEst+' minutes')} in all` : null),
     ].filter(Boolean);
     const joinList = (a)=> a.length<=1 ? (a[0]||'') : a.slice(0,-1).join(', ')+' and '+a[a.length-1];
     const shapedSentence = shapeBits.length ? `Tuned for you, ${joinList(shapeBits)}.` : '';
@@ -6013,7 +6017,7 @@ function app(tab){
           <span class="tuned-kicker">Made for you</span>
           <span class="wc-title"><span class="tuned-name">${CAP(nameLead)}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
           <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
-          ${_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
+          ${reco.openEnded ? `<span class="tuned-meta">Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : (_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : '')}
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
@@ -6083,9 +6087,8 @@ function app(tab){
       const bits = [];
       // opening: what it is + how long (the type + length are user choices → bold)
       const head = /^a /.test(label) ? `A ${b(label.replace(/^a /,''))}` : `A guided ${b(label)} practice`;
-      const timePhrase = openEnded
-        ? (est ? `, about ${b(est+' minutes')} of guidance, then ${b('open-ended')}` : `, ${b('open-ended')}`)
-        : (est ? `, about ${b(est+' minutes')}` : '');
+      // no duration for an open-ended practice - see expectText() above, same reason
+      const timePhrase = openEnded ? `, ${b('open-ended')}` : (est ? `, about ${b(est+' minutes')}` : '');
       bits.push(head + timePhrase + '.');
       // the approved "about" prose, proper-cased; bold the anchor sense where anchoring names it
       let about = escapeHtml(properCase(aboutOf(k, pState.sense)));
@@ -6289,7 +6292,7 @@ function app(tab){
           <span class="wc-title">${tunedHeading}</span>
           <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
           <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
-          ${_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : ''}
+          ${reco.openEnded ? `<span class="tuned-meta">Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : (_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : '')}
         </span>
         <span class="wc-go">${CHEV}</span>
       </button>`;
