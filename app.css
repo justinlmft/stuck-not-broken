@@ -3149,3 +3149,17 @@ body.reduce-motion .ob-foot::before{transition:none}
 .rd-lbl b{font-weight:500;color:var(--ink)}
 .rd-lbl .st-marks{display:inline-flex;gap:2px;margin-bottom:2px}
 .rd-lbl .st-mark{width:12px;height:12px}
+/* see-data + swipe: an open disclosure must not stretch its neighbours, and the
+   disclosure itself must never widen a card (2026-09-07 beta review, items 2 and 5) */
+.carousel.sd-open{align-items:flex-start}
+.see-data,.sd-body,.sd-row{max-width:100%;min-width:0;box-sizing:border-box}
+.see-data{overflow:hidden}
+.sd-val{white-space:normal;overflow-wrap:anywhere}
+.sd-row{flex-wrap:wrap}
+.rd-row,.rd-mini{min-width:0}
+#screen .carousel > .panel{max-width:100%}
+/* a hero row of two PAIRED glyphs plus the arrow (e.g. play -> stillness on the
+   "most common shift" card) ran past the card edge on a phone; pairs take smaller
+   marks so four marks and the arrow fit inside a 92%-wide card (2026-09-07). */
+.cb-glyphs-hero .st-pair .st-mark{height:clamp(40px, 19vw - 30px, 88px)}
+.cb-glyphs-hero{max-width:100%}

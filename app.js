@@ -5045,7 +5045,6 @@ function app(tab){
     const body = rows.filter(r=>r && r[1]!=null && r[1]!=='').map(r=>`<div class="sd-row"><span class="sd-lbl">${r[0]}</span><span class="sd-val">${r[1]}</span></div>`).join('');
     return `<details class="see-data"><summary class="sd-sum"><span>See the data</span></summary><div class="sd-body">${body}${n!=null?`<div class="sd-row sd-n"><span class="sd-lbl">Check-ins in this window</span><span class="sd-val">${n}</span></div>`:''}${how?`<p class="sd-how">${how}</p>`:''}</div></details>`;
   }
-  const _SD_MARGIN_HOW = 'Margin is safety minus defense: 0.7 × connection, less 0.3 × (fight/flight + shutdown), less a little more when both defenses are up together. Above zero is the safety side.';
   // before/after pairs for the You tab: the session-bound pairs the app records now,
   // PLUS the older post-practice check-ins that were saved before sessions were bound
   // (source 'post-practice', paired with the check-in before it if within 3 hours).
@@ -5054,7 +5053,8 @@ function app(tab){
     const inWin = new Set(cs.map(c=>c.t));
     const out = _pePairs().filter(p=>p.dAfter!=null && inWin.has(p.beforeCheckin.t)).map(p=>{
       const b=p.beforeCheckin, a=(function(){ const all=Store.checkins(); return all.find(x=>x.session_id===b.session_id && x.phase==='after'); })();
-      return { key:p.practiceKey||null, t:p.t, before:b, after:a, dm:p.dAfter, followup:p.dFollowup, seg:segOf(p.t), dom:_cDom(b) };
+      const f=(function(){ const all=Store.checkins(); return all.find(x=>x.session_id===b.session_id && x.phase==='followup'); })();
+      return { key:p.practiceKey||null, t:p.t, before:b, after:a, fu:f||null, dm:p.dAfter, followup:p.dFollowup, seg:segOf(p.t), dom:_cDom(b) };
     });
     const bound = new Set(out.map(p=>p.after&&p.after.t));
     const all = _reads(Store.checkins()).slice().sort((a,b)=>a.t-b.t);
@@ -5063,7 +5063,7 @@ function app(tab){
       if(a.source!=='post-practice' || bound.has(a.t) || a.phase) continue;
       if(!inWin.has(b.t) || a.t-b.t > 3*3600e3) continue;
       const mA=_yM(a), mB=_yM(b); if(mA==null||mB==null) continue;
-      out.push({ key:null, t:a.t, before:b, after:a, dm:mA-mB, followup:null, seg:segOf(a.t), dom:_cDom(b) });
+      out.push({ key:null, t:a.t, before:b, after:a, fu:null, dm:mA-mB, followup:null, seg:segOf(a.t), dom:_cDom(b) });
     }
     return out;
   }
@@ -5093,11 +5093,11 @@ function app(tab){
   function _yBuckets(cs, keyOf, keys, minN){
     return keys.map(k=>{
       const a=_reads(cs).filter(c=>keyOf(c)===k);
-      if(a.length<minN) return { key:k, n:a.length, m:null, lo:null, hi:null, dom:null };
+      if(a.length<minN) return { key:k, n:a.length, m:null, lo:null, hi:null, dom:null, cs:a };
       const ms=a.map(_yM).filter(m=>m!=null);
       const cnt={}; a.forEach(c=>{ const d=_cDom(c); if(d) cnt[d]=(cnt[d]||0)+1; });
       const dom=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0]||null;
-      return { key:k, n:a.length, m:_yAvg(ms), lo:_yPct(ms,0.16), hi:_yPct(ms,0.84), dom };
+      return { key:k, n:a.length, m:_yAvg(ms), lo:_yPct(ms,0.16), hi:_yPct(ms,0.84), dom, cs:a };
     });
   }
   const _yBest = b => { let bi=-1, bm=-Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.m>bm){ bm=x.m; bi=i; } }); return bi; };
@@ -5105,6 +5105,14 @@ function app(tab){
   const _DAY_LONG=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const _READ_NAME={ v:'connection', sym:'fight/flight', dor:'shutdown' };
   const _READ_STATE={ v:'safety', sym:'fightflight', dor:'shutdown' };
+  // the numbers people have a reference point for: their own three sliders, 0 to 100
+  // (Justin 2026-09-07: "the margin numbers on their own don't mean much"). No margin
+  // figure and no formula appears in "See the data"; the picture carries the margin.
+  const _yTrio = arr => arr.length ? `${_yRead(_yAvg(arr.map(c=>c.v)))} · ${_yRead(_yAvg(arr.map(c=>c.sym)))} · ${_yRead(_yAvg(arr.map(c=>c.dor)))}` : null;
+  const _ySh = d => d==null ? '—' : (d>=0?'+':'−')+Math.abs(Math.round(d*100));
+  const _yTrioShift = (pairs, aOf, bOf) => pairs.length ? `${_ySh(_yAvg(pairs.map(p=>bOf(p).v-aOf(p).v)))} · ${_ySh(_yAvg(pairs.map(p=>bOf(p).sym-aOf(p).sym)))} · ${_ySh(_yAvg(pairs.map(p=>bOf(p).dor-aOf(p).dor)))}` : null;
+  const _SD_TRIO = 'Each row is connection · fight/flight · shutdown, averaged from your check-ins, on the 0 to 100 scale you check in with.';
+  const _SD_SHIFT = 'Each row is connection · fight/flight · shutdown: how far each moved, on the 0 to 100 scale you check in with.';
 
   // builds the pool for one period. returns [[key, label, html, signature], …]
   function youCards(cs, allCs, periodPhrase, activePeriod, days){
@@ -5122,13 +5130,12 @@ function app(tab){
       const _blPrev=({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod]||null;
       const win=_reads(days==null?allCs:allCs.filter(c=>c.t>=Date.now()-Math.max(days,_BL_MIN_DAYS)*864e5));
       const ms=win.map(_yM).filter(m=>m!=null);
-      const rows=[['Your average margin',_yNum(_yAvg(ms))],['Where most check-ins fell',ms.length?_yNum(_yPct(ms,0.16))+' to '+_yNum(_yPct(ms,0.84)):null],
-        ['Connection, on average',_yRead(_yAvg(win.map(c=>c.v)))],['Fight/flight, on average',_yRead(_yAvg(win.map(c=>c.sym)))],['Shutdown, on average',_yRead(_yAvg(win.map(c=>c.dor)))]];
+      const rows=[['Connection, on average',_yRead(_yAvg(win.map(c=>c.v)))],['Fight/flight, on average',_yRead(_yAvg(win.map(c=>c.sym)))],['Shutdown, on average',_yRead(_yAvg(win.map(c=>c.dor)))]];
       push('safety','where your system sits',`
         ${shareBtn('safety')}<h2 class="panel-title">Where your system sits</h2>
         <p class="panel-sub">The state you spend the most time in, over ${periodPhrase}.</p>
         ${_blCardHTML(bl,_blNow,_blPrev)}
-        ${bl.early?'':_seeData(rows,_SD_MARGIN_HOW+' The window is at least 28 days.',win.length)}`, bl.early?'early':Math.round((bl.dotPos||0)*100));
+        ${bl.early?'':_seeData(rows,'Your three states averaged over at least 28 days, on the 0 to 100 scale you check in with.',win.length)}`, bl.early?'early':Math.round((bl.dotPos||0)*100));
     })();
 
     // 2 · day by day (replaces best day + least day)
@@ -5144,7 +5151,7 @@ function app(tab){
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${_DAY_LONG[bi]}</b> is your most regulated day.</p>
         ${chart}
         <p class="cb-line">Your safety runs highest on ${_DAY_LONG[bi]}s, over ${periodPhrase}.${wide}</p>
-        ${_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:_yNum(x.m)+(x.lo!=null?` <span class="sd-rng">(${_yNum(x.lo)} to ${_yNum(x.hi)}, ${x.n})</span>`:'')]), 'Bar height is the average margin for that day; the tick is the low end of its usual range. '+_SD_MARGIN_HOW, n)}`,
+        ${_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n)}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
     })();
 
@@ -5161,7 +5168,7 @@ function app(tab){
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${CAP(segLabel(_YOU_SEG[bi]))}</b> is your most regulated time of day.</p>
         ${chart}
         <p class="cb-line">Your safety runs highest ${_YOU_SEG[bi]==='late'?'late at night':'in the '+_YOU_SEG[bi]}, over ${periodPhrase}.${wide}</p>
-        ${_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:_yNum(x.m)+(x.lo!=null?` <span class="sd-rng">(${_yNum(x.lo)} to ${_yNum(x.hi)}, ${x.n})</span>`:'')]), 'Bar height is the average margin for that part of the day; the tick is the low end of its usual range. '+_SD_MARGIN_HOW, n)}`,
+        ${_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n)}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
     })();
 
@@ -5171,13 +5178,13 @@ function app(tab){
       const rt=_recoveryTrend(); const dip=_topDipState()||'fightflight';
       const fasterTail=(rt && rt.dir==='faster')?`, and it's taking less time lately`:'';
       const dips=reads.filter(c=>{ const m=_yM(c); return m!=null && m<0; });
-      const rows=[['Dips that ended in safety',rec.n],['Check-ins on the defense side',dips.length],['Lowest margin in this window',dips.length?_yNum(Math.min.apply(null,dips.map(_yM))):null]];
+      const rows=[['Dips that ended in safety',rec.n],['Check-ins in a defensive state',dips.length]];
       push('comeback','getting back to safety',`
         ${shareBtn('comeback')}
         <div class="cb-journey">${cbGlyphViz(dip,'safety',null,'hero')}</div>
         <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(dip)}</b>, then recover into <b>safety</b>.</p>
         <p class="cb-fine">(${rec.n} time${rec.n===1?'':'s'} over ${periodPhrase}${fasterTail})</p>
-        ${_seeData(rows,'A dip is a run of check-ins below zero margin that ends with one above it.',n)}`, rec.n+':'+dip);
+        ${_seeData(rows,'A dip is a run of defensive check-ins that ends with a safe one.',n)}`, rec.n+':'+dip);
     })();
 
     // 5 · where you started (margin, not only connection; all-time, like before)
@@ -5217,9 +5224,9 @@ function app(tab){
           <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${stateMarks(dom0)}</span>
           <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${stateMarks(dom1)}</span>
         </div><div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div></div></div>
-        <p class="cb-line cb-line-lead">Your margin has ${up?'grown':'held steady'} since you started.</p>
+        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'held steady'} since you started.</p>
         <p class="cb-fine">(${tn.days} days between your first and most recent check-ins)</p>
-        ${_seeData([['Average margin, '+thenLabel,_yNum(m0)],['Average margin now',_yNum(m1)],['Check-ins in each end',k]],'The first quarter of your check-ins against the most recent quarter. '+_SD_MARGIN_HOW)}`, Math.round(g*100));
+        ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],'Your first check-ins against your most recent ones. '+_SD_TRIO)}`, Math.round(g*100));
     })();
 
     // 6 · what a practice does (three reading shifts, before to after)
@@ -5234,33 +5241,33 @@ function app(tab){
       const bars=rowsD.map(([k,d],i)=>{ const w=Math.max(4,Math.min(100,Math.round(Math.abs(d)*250))); const dirTxt=d>=0?'up':'down'; return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${stateMarks(_READ_STATE[k])}${CAP(_READ_NAME[k])}</span><span class="help-track"><span class="help-fill" style="width:${w}%;background:${STATE_COLOR(_READ_STATE[k])}"></span></span><span class="help-pct">${dirTxt}</span></div>`; }).join('');
       push('practice','what a practice does',`
         ${shareBtn('practice')}<h2 class="panel-title">What a practice does</h2>
-        <p class="panel-sub">Your three readings, before a practice and after it.</p>
+        <p class="panel-sub">Your three states, before a practice and after it.</p>
         <div class="help-bars">${bars}</div>
-        <p class="cb-line" style="margin-top:16px">After you practice, <b>${bigTxt}</b>. Your margin rose ${rose} time${rose===1?'':'s'} of ${pairs.length}.</p>
-        ${_seeData([['Average margin shift',_yNum(dm)],['Connection shift',(dv>=0?'+':'−')+Math.abs(Math.round(dv*100))],['Fight/flight shift',(ds>=0?'+':'−')+Math.abs(Math.round(ds*100))],['Shutdown shift',(dd>=0?'+':'−')+Math.abs(Math.round(dd*100))],['Practices with a before and after',pairs.length]],'Each pair is a check-in before a practice and one within a few hours after it. Bar length is the size of the shift; the word says its direction.')}`,
+        <p class="cb-line" style="margin-top:16px">After you practice, <b>${bigTxt}</b>. You moved toward safety ${rose} time${rose===1?'':'s'} of ${pairs.length}.</p>
+        ${_seeData([['Connection',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it, on the 0 to 100 scale you check in with.')}`,
         pairs.length+':'+Math.round((dm||0)*100));
     })();
 
     // 7 · which practice moves you most
     (function(){
-      const g={}; pairs.forEach(p=>{ if(!p.key) return; (g[p.key]=g[p.key]||[]).push(p.dm); });
-      const rows=Object.keys(g).filter(k=>g[k].length>=3).map(k=>({key:k,n:g[k].length,mean:_yAvg(g[k])})).sort((a,b)=>b.mean-a.mean);
+      const g={}; pairs.forEach(p=>{ if(!p.key) return; (g[p.key]=g[p.key]||[]).push(p); });
+      const rows=Object.keys(g).filter(k=>g[k].length>=3).map(k=>({key:k,n:g[k].length,mean:_yAvg(g[k].map(p=>p.dm)),ps:g[k]})).sort((a,b)=>b.mean-a.mean);
       if(rows.length<2) return;
       const top=rows[0]; const mx=Math.max.apply(null,rows.map(r=>Math.abs(r.mean)))||1;
       const bars=rows.map((r,i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${CAP(Store.practiceLabel(r.key))}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(4,Math.round(Math.abs(r.mean)/mx*100))}%;background:${r.mean>=0?STATE_COLOR('safety'):STATE_COLOR('fightflight')}"></span></span><span class="help-pct">${r.mean>=0?'up':'down'}</span></div>`).join('');
       push('practiceRank','which practice moves you most',`
         ${shareBtn('practiceRank')}<h2 class="panel-title">Which practice moves you most</h2>
-        <p class="panel-sub">How far each practice shifts your margin, over ${periodPhrase}.</p>
+        <p class="panel-sub">How far each practice moves you toward safety, over ${periodPhrase}.</p>
         <div class="help-bars">${bars}</div>
         <p class="cb-line" style="margin-top:16px"><b>${CAP(Store.practiceLabel(top.key))}</b> moves you the most.</p>
-        ${_seeData(rows.map(r=>[CAP(Store.practiceLabel(r.key)),_yNum(r.mean)+` <span class="sd-rng">(${r.n} practice${r.n===1?'':'s'})</span>`]),'Average margin shift from before to after, per practice. A practice is listed once it has three pairs.')}`,
+        ${_seeData(rows.map(r=>[CAP(Store.practiceLabel(r.key)),`${_yTrioShift(r.ps,p=>p.before,p=>p.after)} <span class="sd-rng">(${r.n})</span>`]),_SD_SHIFT+' A practice is listed once it has three pairs.')}`,
         rows.map(r=>r.key+Math.round(r.mean*100)).join(','));
     })();
 
     // 8 · practice from where (practice × starting state × time of day)
     (function(){
-      const g={}; pairs.forEach(p=>{ if(!p.key||!p.dom) return; const k=p.key+'|'+p.dom+'|'+p.seg; (g[k]=g[k]||{key:p.key,dom:p.dom,seg:p.seg,ds:[]}).ds.push(p.dm); });
-      const rows=Object.values(g).filter(o=>o.ds.length>=4).map(o=>Object.assign(o,{n:o.ds.length,mean:_yAvg(o.ds)})).sort((a,b)=>b.mean-a.mean);
+      const g={}; pairs.forEach(p=>{ if(!p.key||!p.dom) return; const k=p.key+'|'+p.dom+'|'+p.seg; (g[k]=g[k]||{key:p.key,dom:p.dom,seg:p.seg,ps:[]}).ps.push(p); });
+      const rows=Object.values(g).filter(o=>o.ps.length>=4).map(o=>Object.assign(o,{n:o.ps.length,mean:_yAvg(o.ps.map(p=>p.dm))})).sort((a,b)=>b.mean-a.mean);
       if(!rows.length) return;
       const top=rows[0]; const when=top.seg==='late'?'late at night':'in the '+top.seg;
       push('practiceFrom','which practice works from where',`
@@ -5268,7 +5275,7 @@ function app(tab){
         <div class="cb-journey">${cbGlyphViz(top.dom,'safety',null,'hero')}</div>
         <p class="cb-line cb-line-lead">From <b>${nm(top.dom)}</b> ${when}, <b>${Store.practiceLabel(top.key)}</b> moves you the most.</p>
         <p class="cb-fine">(${top.n} practices that started there)</p>
-        ${_seeData(rows.slice(0,5).map(r=>[`${CAP(Store.practiceLabel(r.key))}, from ${nm(r.dom)}, ${r.seg==='late'?'late night':r.seg}`,_yNum(r.mean)+` <span class="sd-rng">(${r.n})</span>`]),'Average margin shift, grouped by the practice, the state you started in, and the time of day. A group is listed once it has four pairs.')}`,
+        ${_seeData(rows.slice(0,5).map(r=>[`${CAP(Store.practiceLabel(r.key))}, from ${nm(r.dom)}, ${r.seg==='late'?'late night':r.seg}`,`${_yTrioShift(r.ps,p=>p.before,p=>p.after)} <span class="sd-rng">(${r.n})</span>`]),_SD_SHIFT+' Grouped by the practice, the state you started in, and the time of day.')}`,
         top.key+top.dom+top.seg+Math.round(top.mean*100));
     })();
 
@@ -5281,14 +5288,14 @@ function app(tab){
         return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}<b>${dirTxt}</b></div></div>`; };
       const trend=(k)=>w[w.length-1][KM[k]]-w[0][KM[k]];
       const changes=[['v',trend('v')],['sym',-trend('sym')],['dor',-trend('dor')]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
-      const lead = Math.abs(changes[0][1])<0.06 ? 'All three readings are holding steady.' : (changes[0][0]==='v' ? `Your connection reading has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} reading has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
-      push('readings','each reading over time',`
-        ${shareBtn('readings')}<h2 class="panel-title">Each reading over time</h2>
+      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your connection has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
+      push('readings','each state over time',`
+        ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
         <p class="panel-sub">Connection, fight/flight and shutdown, from the start of ${periodPhrase==='all time'?'your check-ins':periodPhrase} to now.</p>
         <div class="rd-row">${mini('v','connection','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
         <div class="gr-line-labs"><span>${w[0].label}</span><span>Now</span></div>
         <p class="cb-line" style="margin-top:14px">${lead}</p>
-        ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yRead(x.v)} · ${_yRead(x.s)} · ${_yRead(x.d)} <span class="sd-rng">(${x.cs.length})</span>`]),'Each row is connection · fight/flight · shutdown, averaged over a third of the window, on the 0 to 100 scale you check in with.',n)}`,
+        ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yRead(x.v)} · ${_yRead(x.s)} · ${_yRead(x.d)} <span class="sd-rng">(${x.cs.length})</span>`]),_SD_TRIO+' Each row is a third of the window.',n)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
     })();
 
@@ -5299,14 +5306,14 @@ function app(tab){
       const share=arr=>arr.filter(c=>Math.min(c.sym,c.dor)>0.33).length/arr.length;
       const vals=w.map(x=>share(x.cs)); const last=vals.length-1;
       const total=reads.filter(c=>Math.min(c.sym,c.dor)>0.33).length;
-      const dir = vals[last]-vals[0] < -0.08 ? 'less often lately' : vals[last]-vals[0] > 0.08 ? 'more often lately' : 'about as often as before';
+      const dir = vals[last]-vals[0] < -0.08 ? 'less often' : vals[last]-vals[0] > 0.08 ? 'more often' : 'about as often';
       const chart=`<div class="rc-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(8,Math.round(v*80))}px;background:${i===last?STATE_COLOR('freeze'):mute(STATE_COLOR('freeze'))}"></span><span class="rc-lb">${i===0?w[0].label:i===last?'now':''}</span></div>`).join('')}</div>`;
-      push('coact','both defenses at once',`
+      push('coact','how often freeze shows up',`
         ${shareBtn('coact')}
-        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('freeze')}">${CAP(dir)}</b> both defenses rise together.</p>
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('freeze')}">Freeze</b> is showing up ${dir}${dir==='about as often'?' as before':' lately'}.</p>
         ${chart}
-        <p class="cb-line">Fight/flight and shutdown were both up in ${total} of your ${n} check-ins, over ${periodPhrase}.</p>
-        ${_seeData(w.map((x,i)=>[`${x.label}${i===last?' to now':''}`, `${Math.round(vals[i]*100)}% <span class="sd-rng">(${x.cs.length})</span>`]),'A check-in counts when fight/flight and shutdown are both above a third. This is the blend the margin taxes a little extra.',n)}`,
+        <p class="cb-line">Freeze is fight/flight and shutdown up at the same time. That blend was in ${total} of your ${n} check-ins, over ${periodPhrase}.</p>
+        ${_seeData(w.map((x,i)=>[`${x.label}${i===last?' to now':''}`, `${Math.round(vals[i]*100)}% of check-ins <span class="sd-rng">(${x.cs.length})</span>`]),'A check-in counts as freeze here when fight/flight and shutdown are both up together.',n)}`,
         vals.map(v=>Math.round(v*100)).join(','));
     })();
 
@@ -5323,7 +5330,7 @@ function app(tab){
         <p class="panel-sub">The shift right after a practice, next to where you were hours later.</p>
         ${bars}
         <p class="cb-line" style="margin-top:16px">The lift from practice <b>${txt}</b> by your follow-up check-in.</p>
-        ${_seeData([['Average shift right after',_yNum(_yAvg(fu.map(p=>p.dm)))],['Average shift at follow-up',_yNum(_yAvg(fu.map(p=>p.followup)))],['Follow-ups that held',`${held} of ${fu.length}`]],'A follow-up holds when its margin shift is within five points of the shift right after the practice.')}`,
+        ${_seeData([['Right after',_yTrioShift(fu.filter(p=>p.fu),p=>p.before,p=>p.after)],['Hours later',_yTrioShift(fu.filter(p=>p.fu),p=>p.before,p=>p.fu)],['Follow-ups that held',`${held} of ${fu.length}`]],_SD_SHIFT+' Both rows measure from the check-in before the practice.')}`,
         fu.length+':'+held);
     })();
 
@@ -5343,10 +5350,10 @@ function app(tab){
       const bars=`<div class="help-bars"><div class="help-row" style="--sd:0ms"><span class="help-lbl">Safest days</span><span class="help-track"><span class="help-fill" style="width:${Math.round(top.hi*100)}%;background:${STATE_COLOR('safety')}"></span></span><span class="help-pct"></span></div><div class="help-row" style="--sd:60ms"><span class="help-lbl">Other days</span><span class="help-track"><span class="help-fill" style="width:${Math.max(3,Math.round(top.lo*100))}%;background:var(--hairline)"></span></span><span class="help-pct"></span></div></div>`;
       push('safeDays','your safest days had more of',`
         ${shareBtn('safeDays')}<h2 class="panel-title">Your safest days had more of</h2>
-        <p class="panel-sub">How often you tagged “${escapeHtml(top.t)}” on your highest-margin check-ins, next to the rest.</p>
+        <p class="panel-sub">How often you tagged “${escapeHtml(top.t)}” on your safest check-ins, next to the rest.</p>
         ${bars}
         <p class="cb-line" style="margin-top:16px">Your safest check-ins came with more <b>${escapeHtml(top.t)}</b>.</p>
-        ${_seeData(scored.slice(0,4).map(x=>[escapeHtml(x.t),`${Math.round(x.hi*100)}% of safest, ${Math.round(x.lo*100)}% of the rest`]),'Your highest-margin quarter of tagged check-ins against the other three quarters.',tagged.length)}`,
+        ${_seeData(scored.slice(0,4).map(x=>[escapeHtml(x.t),`${Math.round(x.hi*100)}% of safest, ${Math.round(x.lo*100)}% of the rest`]),'Your safest quarter of tagged check-ins against the other three quarters.',tagged.length)}`,
         top.t+Math.round(top.d*100));
     })();
 
@@ -5368,13 +5375,12 @@ function app(tab){
       const cnt={}; def.forEach(c=>{ const d=_cDom(c); if(d) cnt[d]=(cnt[d]||0)+1; });
       const home=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]; if(!home) return;
       const s=_yAvg(def.map(c=>c.sym)), d=_yAvg(def.map(c=>c.dor));
-      const louder = s>d ? 'fight/flight reads louder than shutdown' : d>s ? 'shutdown reads louder than fight/flight' : 'fight/flight and shutdown read about the same';
-      push('defense','where your system lives in defense',`
+      push('defense','your most common defensive state',`
         ${shareBtn('defense')}
         <div class="cb-journey"><div class="cb-viz cb-glyphs cb-glyphs-hero" aria-hidden="true"><span class="cb-g">${stateMarks(home)}</span></div></div>
-        <p class="cb-line cb-line-lead">When your system goes into defense, it mostly lives in <b>${nm(home)}</b>.</p>
-        <p class="cb-fine">(${cnt[home]} of ${def.length} defense-side check-ins, over ${periodPhrase}; ${louder})</p>
-        ${_seeData(Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>[CAP(nm(k)),`${cnt[k]} time${cnt[k]===1?'':'s'}`]).concat([['Fight/flight in defense, on average',_yRead(s)],['Shutdown in defense, on average',_yRead(d)],['Average margin in defense',_yNum(_yAvg(def.map(_yM)))]]),'Defense-side check-ins are the ones below zero margin. '+_SD_MARGIN_HOW,def.length)}`,
+        <p class="cb-line cb-line-lead"><b>${CAP(nm(home))}</b> is your most common defensive state.</p>
+        <p class="cb-fine">(${cnt[home]} of ${def.length} defensive check-ins, over ${periodPhrase})</p>
+        ${_seeData(Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>[CAP(nm(k)),`${cnt[k]} time${cnt[k]===1?'':'s'}`]).concat([['In those check-ins, on average',_yTrio(def)]]),_SD_TRIO,def.length)}`,
         home+':'+cnt[home]+':'+def.length);
     })();
 
@@ -5592,6 +5598,20 @@ function app(tab){
 
       const carousel=$('#carousel'); const dots=c.querySelectorAll('#dots .dot-i');
       if(carousel){ carousel.addEventListener('scroll',()=>{ const i=Math.max(0,Math.min(dots.length-1,Math.round(carousel.scrollLeft/snapUnit(carousel)))); dots.forEach((d,j)=>d.classList.toggle('on',j===i)); },{passive:true}); }
+      // "See the data" and the swipe (Justin 2026-09-07): an open disclosure makes the
+      // whole row taller, so every other card showed blank space. While one is open the
+      // row aligns to the top instead of stretching, and swiping away from the open card
+      // closes it, so the row settles back to its normal height.
+      if(carousel){
+        const _sdSync=()=>{ carousel.classList.toggle('sd-open', !!carousel.querySelector('.see-data[open]')); };
+        carousel.querySelectorAll('.see-data').forEach(d=>d.addEventListener('toggle',_sdSync));
+        let _sdT=null;
+        carousel.addEventListener('scroll',()=>{ clearTimeout(_sdT); _sdT=setTimeout(()=>{
+          const i=Math.max(0,Math.round(carousel.scrollLeft/snapUnit(carousel)));
+          carousel.querySelectorAll('.panel').forEach((p,j)=>{ if(j!==i) p.querySelectorAll('.see-data[open]').forEach(d=>{ d.open=false; }); });
+          _sdSync();
+        },140); },{passive:true});
+      }
       // the dots are real controls: tap one to go to that card (keyboard/switch reachable too)
       dots.forEach((d,j)=>d.addEventListener('click',()=>{ if(!carousel) return;
         const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
