@@ -5036,7 +5036,7 @@ function app(tab){
   const _yM = c => _cMargin(c);
   // whole-number margin for the data rows: −30..+70, signed, so the sign carries the side
   const _yNum = m => m==null ? '—' : (m>=0?'+':'−')+Math.abs(Math.round(m*100));
-  const _yRead = v => v==null ? '—' : String(Math.round(v*100));
+  const _yRead = v => v==null ? '—' : Math.round(v*100)+'%';
   // bar height on the shared rc-chart (12..80px) from a margin on the −0.3..+0.7 rail
   const _yBarH = m => m==null ? 12 : Math.max(12, Math.round(12 + (Math.max(-0.3,Math.min(0.7,m))+0.3)*68));
   const _yWin = (cs,n) => { const a=_reads(cs); if(a.length<n) return null; return a; };
@@ -5109,10 +5109,10 @@ function app(tab){
   // (Justin 2026-09-07: "the margin numbers on their own don't mean much"). No margin
   // figure and no formula appears in "See the data"; the picture carries the margin.
   const _yTrio = arr => arr.length ? `${_yRead(_yAvg(arr.map(c=>c.v)))} · ${_yRead(_yAvg(arr.map(c=>c.sym)))} · ${_yRead(_yAvg(arr.map(c=>c.dor)))}` : null;
-  const _ySh = d => d==null ? '—' : (d>=0?'+':'−')+Math.abs(Math.round(d*100));
+  const _ySh = d => d==null ? '—' : (d>=0?'+':'−')+Math.abs(Math.round(d*100))+'%';
   const _yTrioShift = (pairs, aOf, bOf) => pairs.length ? `${_ySh(_yAvg(pairs.map(p=>bOf(p).v-aOf(p).v)))} · ${_ySh(_yAvg(pairs.map(p=>bOf(p).sym-aOf(p).sym)))} · ${_ySh(_yAvg(pairs.map(p=>bOf(p).dor-aOf(p).dor)))}` : null;
-  const _SD_TRIO = 'Each row is connection · fight/flight · shutdown, averaged from your check-ins, on the 0 to 100 scale you check in with.';
-  const _SD_SHIFT = 'Each row is connection · fight/flight · shutdown: how far each moved, on the 0 to 100 scale you check in with.';
+  const _SD_TRIO = 'Each row is connection · fight/flight · shutdown, averaged across those check-ins.';
+  const _SD_SHIFT = 'Each row is connection · fight/flight · shutdown: how far each moved.';
 
   // builds the pool for one period. returns [[key, label, html, signature], …]
   function youCards(cs, allCs, periodPhrase, activePeriod, days){
@@ -5130,12 +5130,12 @@ function app(tab){
       const _blPrev=({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod]||null;
       const win=_reads(days==null?allCs:allCs.filter(c=>c.t>=Date.now()-Math.max(days,_BL_MIN_DAYS)*864e5));
       const ms=win.map(_yM).filter(m=>m!=null);
-      const rows=[['Connection, on average',_yRead(_yAvg(win.map(c=>c.v)))],['Fight/flight, on average',_yRead(_yAvg(win.map(c=>c.sym)))],['Shutdown, on average',_yRead(_yAvg(win.map(c=>c.dor)))]];
+      const rows=[['Connection',_yRead(_yAvg(win.map(c=>c.v)))],['Fight/flight',_yRead(_yAvg(win.map(c=>c.sym)))],['Shutdown',_yRead(_yAvg(win.map(c=>c.dor)))]];
       push('safety','where your system sits',`
         ${shareBtn('safety')}<h2 class="panel-title">Where your system sits</h2>
         <p class="panel-sub">The state you spend the most time in, over ${periodPhrase}.</p>
         ${_blCardHTML(bl,_blNow,_blPrev)}
-        ${bl.early?'':_seeData(rows,'Your three states averaged over at least 28 days, on the 0 to 100 scale you check in with.',win.length)}`, bl.early?'early':Math.round((bl.dotPos||0)*100));
+        ${bl.early?'':_seeData(rows,'Your three states, averaged over at least 28 days.',win.length)}`, bl.early?'early':Math.round((bl.dotPos||0)*100));
     })();
 
     // 2 · day by day (replaces best day + least day)
@@ -5150,7 +5150,7 @@ function app(tab){
         ${shareBtn('day')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${_DAY_LONG[bi]}</b> is your most regulated day.</p>
         ${chart}
-        <p class="cb-line">Your safety runs highest on ${_DAY_LONG[bi]}s, over ${periodPhrase}.${wide}</p>
+        <p class="cb-line">Your safety level is highest on ${_DAY_LONG[bi]}s, over ${periodPhrase}.${wide}</p>
         ${_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n)}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
     })();
@@ -5167,7 +5167,7 @@ function app(tab){
         ${shareBtn('daypart')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${CAP(segLabel(_YOU_SEG[bi]))}</b> is your most regulated time of day.</p>
         ${chart}
-        <p class="cb-line">Your safety runs highest ${_YOU_SEG[bi]==='late'?'late at night':'in the '+_YOU_SEG[bi]}, over ${periodPhrase}.${wide}</p>
+        <p class="cb-line">Your safety level is highest ${_YOU_SEG[bi]==='late'?'late at night':'in the '+_YOU_SEG[bi]}, over ${periodPhrase}.${wide}</p>
         ${_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n)}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
     })();
@@ -5244,7 +5244,7 @@ function app(tab){
         <p class="panel-sub">Your three states, before a practice and after it.</p>
         <div class="help-bars">${bars}</div>
         <p class="cb-line" style="margin-top:16px">After you practice, <b>${bigTxt}</b>. You moved toward safety ${rose} time${rose===1?'':'s'} of ${pairs.length}.</p>
-        ${_seeData([['Connection',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it, on the 0 to 100 scale you check in with.')}`,
+        ${_seeData([['Connection',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it.')}`,
         pairs.length+':'+Math.round((dm||0)*100));
     })();
 
@@ -5295,7 +5295,7 @@ function app(tab){
         <div class="rd-row">${mini('v','connection','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
         <div class="gr-line-labs"><span>${w[0].label}</span><span>Now</span></div>
         <p class="cb-line" style="margin-top:14px">${lead}</p>
-        ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yRead(x.v)} · ${_yRead(x.s)} · ${_yRead(x.d)} <span class="sd-rng">(${x.cs.length})</span>`]),_SD_TRIO+' Each row is a third of the window.',n)}`,
+        ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yRead(x.v)} · ${_yRead(x.s)} · ${_yRead(x.d)} <span class="sd-rng">(${x.cs.length})</span>`]),'Each row is a third of the window: connection · fight/flight · shutdown.',n)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
     })();
 
@@ -5380,7 +5380,7 @@ function app(tab){
         <div class="cb-journey"><div class="cb-viz cb-glyphs cb-glyphs-hero" aria-hidden="true"><span class="cb-g">${stateMarks(home)}</span></div></div>
         <p class="cb-line cb-line-lead"><b>${CAP(nm(home))}</b> is your most common defensive state.</p>
         <p class="cb-fine">(${cnt[home]} of ${def.length} defensive check-ins, over ${periodPhrase})</p>
-        ${_seeData(Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>[CAP(nm(k)),`${cnt[k]} time${cnt[k]===1?'':'s'}`]).concat([['In those check-ins, on average',_yTrio(def)]]),_SD_TRIO,def.length)}`,
+        ${_seeData(Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>[CAP(nm(k)),`${cnt[k]} time${cnt[k]===1?'':'s'}`]).concat([['In those check-ins',_yTrio(def)]]),_SD_TRIO,def.length)}`,
         home+':'+cnt[home]+':'+def.length);
     })();
 
