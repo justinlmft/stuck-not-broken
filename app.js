@@ -5261,7 +5261,7 @@ function app(tab){
       const rows=Object.keys(g).filter(k=>g[k].length>=3).map(k=>({key:k,n:g[k].length,mean:_yAvg(g[k].map(p=>p.dm)),ps:g[k]})).sort((a,b)=>b.mean-a.mean);
       if(rows.length<2) return;
       const top=rows[0]; const mx=Math.max.apply(null,rows.map(r=>Math.abs(r.mean)))||1;
-      const bars=rows.map((r,i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${CAP(Store.practiceLabel(r.key))}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(4,Math.round(Math.abs(r.mean)/mx*100))}%;background:${r.mean>=0?STATE_COLOR('safety'):STATE_COLOR('fightflight')}"></span></span><span class="help-pct">${r.mean>=0?'up':'down'}</span></div>`).join('');
+      const bars=rows.map((r,i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${CAP(Store.practiceLabel(r.key))}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(4,Math.round(Math.abs(r.mean)/mx*100))}%;background:${r.mean>=0?STATE_COLOR('safety'):STATE_COLOR('fightflight')}"></span></span><span class="help-pct"></span></div>`).join('');
       push('practiceRank','which practice moves you most',`
         ${shareBtn('practiceRank')}<h2 class="panel-title">Which practice moves you most</h2>
         <p class="panel-sub">How far each practice moves you toward safety, over ${periodPhrase}.</p>
@@ -5292,7 +5292,7 @@ function app(tab){
       const KM={v:'v',sym:'s',dor:'d'};
       const mini=(k,name,st)=>{ const vals=w.map(x=>x[KM[k]]); const mx=Math.max.apply(null,vals)||1; const last=vals.length-1;
         const dirTxt = vals[last]-vals[0] > 0.06 ? 'rising' : vals[last]-vals[0] < -0.06 ? 'falling' : 'steady';
-        return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-axis" aria-hidden="true"><span>${w[0].label}</span><span>now</span></div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}<b>${dirTxt}</b></div></div>`; };
+        return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-axis" aria-hidden="true"><span>${w[0].label}</span><span>now</span></div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}</div></div>`; };
       const trend=(k)=>w[w.length-1][KM[k]]-w[0][KM[k]];
       const changes=[['v',trend('v')],['sym',-trend('sym')],['dor',-trend('dor')]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
       const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your connection has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
