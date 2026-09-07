@@ -3173,3 +3173,10 @@ body.reduce-motion .ob-foot::before{transition:none}
 .sd-head{border-bottom:1px solid var(--hairline);padding-bottom:5px}
 .sd-rng{min-width:34px;text-align:right}
 .sd-rng-ph{visibility:hidden}
+/* cards stay blank until swiped to (2026-09-07): the peeking next card showed its
+   glyphs before its entrance ran. Content is invisible until .panel-in, which the
+   carousel adds when the card is mostly on screen (or at once under Reduce Motion).
+   Scoped to the carousel so the share clone and the desktop ledger are untouched. */
+.carousel .panel:not(.panel-in) > *{opacity:0}
+.carousel .panel.panel-in > *{opacity:1}
+.rc-legend{margin:-6px 0 14px}

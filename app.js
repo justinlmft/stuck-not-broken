@@ -5088,11 +5088,15 @@ function app(tab){
     return `<div class="rc-chart" aria-hidden="true">${buckets.map((b,i)=>{
       const best=i===bestIdx, has=b.m!=null;
       const h=_yBarH(b.m);
-      const bg=!has?'var(--bone-deep)':best?(bestColor||STATE_COLOR('safety')):mute(STATE_COLOR(b.dom||'safety'));
+      // each bar wears the state that led that bucket (Justin 2026-09-07: the bars should
+      // reflect the flavour of the safety: play, safety, stillness); the best bar at full
+      // strength, the rest muted
+      const bg=!has?'var(--bone-deep)':best?STATE_COLOR(b.dom||'safety'):mute(STATE_COLOR(b.dom||'safety'));
       const lo=(has&&b.lo!=null)?`<i class="rc-lo" style="bottom:${Math.min(h-3,_yBarH(b.lo))}px"></i>`:'';
       return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${delays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}">${lo}</span><span class="rc-lb">${labelOf(b,i)}</span></div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>${_yLegend(buckets)}`;
   }
+  const _yLegend = buckets => { const ks=[]; buckets.forEach(b=>{ if(b.m!=null && b.dom && ks.indexOf(b.dom)<0) ks.push(b.dom); }); return ks.length ? `<div class="legend rc-legend">${ks.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_LABEL(k)}</span>`).join('')}</div>` : ''; };
   function _yBuckets(cs, keyOf, keys, minN){
     return keys.map(k=>{
       const a=_reads(cs).filter(c=>keyOf(c)===k);
@@ -5151,7 +5155,7 @@ function app(tab){
       const wide = (wi>=0 && wi!==bi) ? ` Your range swings widest on ${_DAY_LONG[wi]}s.` : '';
       push('day','your most regulated day',`
         ${shareBtn('day')}
-        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${_DAY_LONG[bi]}</b> is your most regulated day.</p>
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${_DAY_LONG[bi]}</b> is your most regulated day.</p>
         ${chart}
         <p class="cb-line">Your safety level is highest on ${_DAY_LONG[bi]}s, over ${periodPhrase}.${wide}</p>
         ${_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
@@ -5168,7 +5172,7 @@ function app(tab){
       const wide = (wi>=0 && wi!==bi) ? ` It swings widest ${_YOU_SEG[wi]==='late'?'late at night':'in the '+_YOU_SEG[wi]}.` : '';
       push('daypart','your most regulated time of day',`
         ${shareBtn('daypart')}
-        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${CAP(segLabel(_YOU_SEG[bi]))}</b> is your most regulated time of day.</p>
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${CAP(segLabel(_YOU_SEG[bi]))}</b> is your most regulated time of day.</p>
         ${chart}
         <p class="cb-line">Your safety level is highest ${_YOU_SEG[bi]==='late'?'late at night':'in the '+_YOU_SEG[bi]}, over ${periodPhrase}.${wide}</p>
         ${_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
