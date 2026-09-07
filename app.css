@@ -3161,5 +3161,15 @@ body.reduce-motion .ob-foot::before{transition:none}
 /* a hero row of two PAIRED glyphs plus the arrow (e.g. play -> stillness on the
    "most common shift" card) ran past the card edge on a phone; pairs take smaller
    marks so four marks and the arrow fit inside a 92%-wide card (2026-09-07). */
-.cb-glyphs-hero .st-pair .st-mark{height:clamp(40px, 19vw - 30px, 88px)}
+.cb-glyphs-hero:has(.st-pair) .st-mark,.cb-glyphs-hero:has(.st-pair) .st-pair .st-mark{height:clamp(40px, 19vw - 30px, 88px)}
 .cb-glyphs-hero{max-width:100%}
+/* See the data: three state columns under a glyph header row */
+.sd-val{display:inline-flex;align-items:center;gap:8px}
+.sd-trio{display:inline-grid;grid-template-columns:repeat(3,minmax(44px,auto));gap:10px;justify-items:end}
+.sd-trio b{font-weight:500;font-variant-numeric:tabular-nums}
+.sd-head .sd-trio b{display:inline-flex;justify-content:flex-end;width:100%}
+.sd-head .st-mark{width:14px;height:14px}
+.sd-head .st-marks{display:inline-flex}
+.sd-head{border-bottom:1px solid var(--hairline);padding-bottom:5px}
+.sd-rng{min-width:34px;text-align:right}
+.sd-rng-ph{visibility:hidden}
