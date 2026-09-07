@@ -5292,15 +5292,14 @@ function app(tab){
       const KM={v:'v',sym:'s',dor:'d'};
       const mini=(k,name,st)=>{ const vals=w.map(x=>x[KM[k]]); const mx=Math.max.apply(null,vals)||1; const last=vals.length-1;
         const dirTxt = vals[last]-vals[0] > 0.06 ? 'rising' : vals[last]-vals[0] < -0.06 ? 'falling' : 'steady';
-        return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}<b>${dirTxt}</b></div></div>`; };
+        return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-axis" aria-hidden="true"><span>${w[0].label}</span><span>now</span></div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}<b>${dirTxt}</b></div></div>`; };
       const trend=(k)=>w[w.length-1][KM[k]]-w[0][KM[k]];
       const changes=[['v',trend('v')],['sym',-trend('sym')],['dor',-trend('dor')]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
       const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your connection has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
       push('readings','each state over time',`
         ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
-        <p class="panel-sub">Connection, fight/flight and shutdown, from the start of ${periodPhrase==='all time'?'your check-ins':periodPhrase} to now.</p>
+        <p class="panel-sub">Each state in three stretches of time, from the start of ${periodPhrase==='all time'?'your check-ins':periodPhrase} to now.</p>
         <div class="rd-row">${mini('v','connection','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
-        <div class="gr-line-labs"><span>${w[0].label}</span><span>Now</span></div>
         <p class="cb-line" style="margin-top:14px">${lead}</p>
         ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),'Each row is a third of the window.',n,true)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));

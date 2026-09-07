@@ -3180,3 +3180,5 @@ body.reduce-motion .ob-foot::before{transition:none}
 .carousel .panel:not(.panel-in) > *{opacity:0}
 .carousel .panel.panel-in > *{opacity:1}
 .rc-legend{margin:-6px 0 14px}
+/* each small state chart carries its own then/now axis (2026-09-07) */
+.rd-axis{display:flex;justify-content:space-between;gap:4px;font-size:calc(10px * var(--type-scale));color:var(--muted);border-top:1px solid var(--hairline);padding-top:4px;margin-top:-2px;white-space:nowrap}
