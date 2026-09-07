@@ -5310,13 +5310,13 @@ function app(tab){
       const vals=w.map(x=>share(x.cs)); const last=vals.length-1;
       const total=reads.filter(c=>Math.min(c.sym,c.dor)>0.33).length;
       const dir = vals[last]-vals[0] < -0.08 ? 'less often' : vals[last]-vals[0] > 0.08 ? 'more often' : 'about as often';
-      const chart=`<div class="rc-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(8,Math.round(v*80))}px;background:${i===last?STATE_COLOR('freeze'):mute(STATE_COLOR('freeze'))}"></span><span class="rc-lb">${i===0?w[0].label:i===last?'now':''}</span></div>`).join('')}</div>`;
+      const chart=`<div class="rc-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(8,Math.round(v*80))}px;background:${i===last?STATE_COLOR('freeze'):mute(STATE_COLOR('freeze'))}"></span><span class="rc-lb">${i===last?'now':'from '+w[i].label}</span></div>`).join('')}</div>`;
       push('coact','how often freeze shows up',`
         ${shareBtn('coact')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('freeze')}">Freeze</b> is showing up ${dir}${dir==='about as often'?' as before':' lately'}.</p>
         ${chart}
-        <p class="cb-line">Freeze is fight/flight and shutdown up at the same time. That blend was in ${total} of your ${n} check-ins, over ${periodPhrase}.</p>
-        ${_seeData(w.map((x,i)=>[`${x.label}${i===last?' to now':''}`, `${Math.round(vals[i]*100)}% of check-ins <span class="sd-rng">(${x.cs.length})</span>`]),'A check-in counts as freeze here when fight/flight and shutdown are both up together.',n)}`,
+        <p class="cb-line">Freeze is fight/flight and shutdown up at the same time. That blend was in ${total} of your ${n} check-ins, over ${periodPhrase}. Each bar is a third of that time.</p>
+        ${_seeData(w.map((x,i)=>[`From ${x.label}${i===last?' to now':''}`, `${Math.round(vals[i]*100)}% of check-ins <span class="sd-rng">(${x.cs.length})</span>`]),'A check-in counts as freeze here when fight/flight and shutdown are both up together.',n)}`,
         vals.map(v=>Math.round(v*100)).join(','));
     })();
 
