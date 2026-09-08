@@ -5161,7 +5161,7 @@ function app(tab){
         ${shareBtn('day')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${_DAY_LONG[bi]}</b> is your most regulated day.</p>
         ${chart}
-        <p class="cb-line">Your safety level is highest on ${_DAY_LONG[bi]}s, over ${periodPhrase}.${wide}</p>
+        ${wide?`<p class="cb-line">${wide.trim()}</p>`:''}
         ${_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
     })();
@@ -5173,12 +5173,12 @@ function app(tab){
       const bi=_yBest(b); if(bi<0) return;
       const wi=_yWidest(b);
       const chart=_yBarChart(b, bi, (x)=>segIco(x.key));
-      const wide = (wi>=0 && wi!==bi) ? ` It swings widest ${_YOU_SEG[wi]==='late'?'late at night':'in the '+_YOU_SEG[wi]}.` : '';
+      const wide = (wi>=0 && wi!==bi) ? ` Your range swings widest ${_YOU_SEG[wi]==='late'?'late at night':'in the '+_YOU_SEG[wi]}.` : '';
       push('daypart','your most regulated time of day',`
         ${shareBtn('daypart')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${CAP(segLabel(_YOU_SEG[bi]))}</b> is your most regulated time of day.</p>
         ${chart}
-        <p class="cb-line">Your safety level is highest ${_YOU_SEG[bi]==='late'?'late at night':'in the '+_YOU_SEG[bi]}, over ${periodPhrase}.${wide}</p>
+        ${wide?`<p class="cb-line">${wide.trim()}</p>`:''}
         ${_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
     })();
@@ -5253,7 +5253,7 @@ function app(tab){
       push('practice','what a practice does',`
         ${shareBtn('practice')}<h2 class="panel-title">What a practice does</h2>
         <div class="help-bars">${bars}</div>
-        <p class="cb-line" style="margin-top:16px">After you practice, <b>${bigTxt}</b>. You moved toward safety ${rose} time${rose===1?'':'s'} of ${pairs.length}.</p>
+        <p class="cb-line" style="margin-top:16px">You moved toward safety <b>${rose} time${rose===1?'':'s'} of ${pairs.length}</b>.</p>
         ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it.')}`,
         pairs.length+':'+Math.round((dm||0)*100));
     })();
@@ -5269,7 +5269,6 @@ function app(tab){
         ${shareBtn('practiceRank')}<h2 class="panel-title">Which practice moves you most</h2>
         <p class="panel-sub">${CAP(periodPhrase)}.</p>
         <div class="help-bars">${bars}</div>
-        <p class="cb-line" style="margin-top:16px"><b>${CAP(Store.practiceLabel(top.key))}</b> moves you the most.</p>
         ${_seeData(rows.map(r=>[CAP(Store.practiceLabel(r.key)),`${_yTrioShift(r.ps,p=>p.before,p=>p.after)} <span class="sd-rng">(${r.n})</span>`]),_SD_SHIFT+' A practice is listed once it has three pairs.', null, true)}`,
         rows.map(r=>r.key+Math.round(r.mean*100)).join(','));
     })();
@@ -5302,7 +5301,6 @@ function app(tab){
       push('readings','each state over time',`
         ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
         <div class="rd-row">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
-        <p class="cb-line" style="margin-top:14px">${lead}</p>
         ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),'Each row is a third of the window.',n,true)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
     })();
@@ -5320,7 +5318,7 @@ function app(tab){
         ${shareBtn('coact')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('freeze')}">Freeze</b> is showing up ${dir}${dir==='about as often'?' as before':' lately'}.</p>
         ${chart}
-        <p class="cb-line">Freeze is fight/flight and shutdown up at the same time. That blend was in ${total} of your ${n} check-ins, over ${periodPhrase}. Each bar is a third of that time.</p>
+        <p class="cb-line">Fight/flight and shutdown up at the same time, in <b>${total} of your ${n}</b> check-ins.</p>
         ${_seeData(w.map((x,i)=>[`From ${x.label}${i===last?' to now':''}`, `${Math.round(vals[i]*100)}% of check-ins <span class="sd-rng">(${x.cs.length})</span>`]),'A check-in counts as freeze here when fight/flight and shutdown are both up together.',n)}`,
         vals.map(v=>Math.round(v*100)).join(','));
     })();
@@ -5336,7 +5334,7 @@ function app(tab){
       push('holds','does the lift hold',`
         ${shareBtn('holds')}<h2 class="panel-title">Does the lift hold?</h2>
         ${bars}
-        <p class="cb-line" style="margin-top:16px">The lift from practice <b>${txt}</b> by your follow-up check-in.</p>
+        <p class="cb-line" style="margin-top:16px">It <b>${txt}</b>.</p>
         ${_seeData([['Right after',_yTrioShift(fu.filter(p=>p.fu),p=>p.before,p=>p.after)],['Hours later',_yTrioShift(fu.filter(p=>p.fu),p=>p.before,p=>p.fu)],['Follow-ups that held',`${held} of ${fu.length}`]],_SD_SHIFT+' Both rows measure from the check-in before the practice.', null, true)}`,
         fu.length+':'+held);
     })();
@@ -5356,9 +5354,8 @@ function app(tab){
       const top=scored[0];
       const bars=`<div class="help-bars"><div class="help-row" style="--sd:0ms"><span class="help-lbl">Safest days</span><span class="help-track"><span class="help-fill" style="width:${Math.round(top.hi*100)}%;background:${STATE_COLOR('safety')}"></span></span><span class="help-pct"></span></div><div class="help-row" style="--sd:60ms"><span class="help-lbl">Other days</span><span class="help-track"><span class="help-fill" style="width:${Math.max(3,Math.round(top.lo*100))}%;background:var(--hairline)"></span></span><span class="help-pct"></span></div></div>`;
       push('safeDays','your safest days had more of',`
-        ${shareBtn('safeDays')}<h2 class="panel-title">Your safest days had more of</h2>
+        ${shareBtn('safeDays')}<h2 class="panel-title">Your safest days had more <b>${escapeHtml(top.t)}</b></h2>
         ${bars}
-        <p class="cb-line" style="margin-top:16px">Your safest check-ins came with more <b>${escapeHtml(top.t)}</b>.</p>
         ${_seeData(scored.slice(0,4).map(x=>[escapeHtml(x.t),`${Math.round(x.hi*100)}% of safest, ${Math.round(x.lo*100)}% of the rest`]),'Your safest quarter of tagged check-ins against the other three quarters.',tagged.length)}`,
         top.t+Math.round(top.d*100));
     })();
