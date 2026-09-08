@@ -5393,26 +5393,43 @@ function app(tab){
     return out;
   }
 
-  // rotation: four per visit, drawn so a card you saw last time with nothing changed
-  // waits its turn; a card whose reading changed since you last saw it comes first.
-  // (Justin 2026-09-07: "it's repetitive with the same ones over and over").
+  // the daily hand (Justin 2026-09-07, "your idea is what i was thinking. make it so"):
+  // four cards are drawn once per day per period and stay put; tapping the tab again
+  // shows the same four. Tomorrow's hand is drawn the same way as before — anything
+  // whose reading changed since it was last seen first, then never-seen, then the
+  // least recently shown. Two exceptions: a check-in or practice that changes a card
+  // already in the hand redraws the hand at once (the point of a card is to reflect
+  // what just happened), and a pool of four or fewer has nothing to rotate.
   function youPick(cards, period, tender){
-    const key='snb_you_seen:'+period;
-    let seen={}; try{ seen=JSON.parse(localStorage.getItem(key))||{}; }catch(e){ seen={}; }
+    const key='snb_you_hand:'+period;
+    let st={}; try{ st=JSON.parse(localStorage.getItem(key))||{}; }catch(e){ st={}; }
+    const seen=st.seen||{};
+    const today=(function(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); })();
     const base = tender
       ? ['comeback','defense','day','daypart','practice','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
       : ['safety','day','practice','readings','comeback','daypart','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
     const rank=k=>{ const i=base.indexOf(k); return i<0?99:i; };
-    const at=c=>{ const s=seen[c[0]]; return (s && typeof s.at==='number') ? s.at : 0; };
-    const tier=c=>{ const s=seen[c[0]]; if(s==null) return 1; return (s.s===c[3]) ? 2 : 0; };
-    const sorted=cards.slice().sort((a,b)=>tier(a)-tier(b) || (tier(a)===2 ? at(a)-at(b) : 0) || rank(a[0])-rank(b[0]));
-    const picked=sorted.slice(0,4);
-    // remember what was shown and when, forgetting what is no longer in the pool
-    const now=Date.now(); const next={};
-    picked.forEach(c=>{ next[c[0]]={s:c[3],at:now}; });
-    cards.forEach(c=>{ if(seen[c[0]]!=null && !(c[0] in next)) next[c[0]]=seen[c[0]]; });
-    try{ localStorage.setItem(key, JSON.stringify(next)); }catch(e){}
-    return { picked, all: cards.slice().sort((a,b)=>rank(a[0])-rank(b[0])) };
+    const byKey={}; cards.forEach(c=>{ byKey[c[0]]=c; });
+    const all=cards.slice().sort((a,b)=>rank(a[0])-rank(b[0]));
+    let picked=null;
+    if(cards.length<=4){
+      picked=all;
+    } else if(st.day===today && Array.isArray(st.hand) && st.hand.length && st.hand.every(k=>byKey[k])){
+      const changed=st.hand.some(k=>(st.sigs||{})[k]!==byKey[k][3]);
+      if(!changed) picked=st.hand.map(k=>byKey[k]);
+    }
+    if(!picked){
+      const at=c=>{ const s=seen[c[0]]; return (s && typeof s.at==='number') ? s.at : 0; };
+      const tier=c=>{ const s=seen[c[0]]; if(s==null) return 1; return (s.s===c[3]) ? 2 : 0; };
+      picked=cards.slice().sort((a,b)=>tier(a)-tier(b) || (tier(a)===2 ? at(a)-at(b) : 0) || rank(a[0])-rank(b[0])).slice(0,4);
+    }
+    // remember the hand, what each card said, and when each card was last shown
+    const now=Date.now(); const sigs={}; const nextSeen={};
+    picked.forEach(c=>{ sigs[c[0]]=c[3]; nextSeen[c[0]]={s:c[3],at:(seen[c[0]] && seen[c[0]].s===c[3] && st.day===today) ? seen[c[0]].at : now}; });
+    cards.forEach(c=>{ if(seen[c[0]]!=null && !(c[0] in nextSeen)) nextSeen[c[0]]=seen[c[0]]; });
+    try{ localStorage.setItem(key, JSON.stringify({ day:today, hand:picked.map(c=>c[0]), sigs, seen:nextSeen })); }catch(e){}
+    try{ localStorage.removeItem('snb_you_seen:'+period); }catch(e){}
+    return { picked, all };
   }
 
   function tabYou(){
