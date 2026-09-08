@@ -5201,8 +5201,12 @@ function app(tab){
     // 5 · where you started (margin, not only connection; all-time, like before)
     (function(){
       const tn=Store.tenure();
-      const all=_reads(allCs);
-      if(all.length<8 || tn.days<5 || tn.stage==='start' || tn.stage==='early') return;
+      const isAll=(days==null);
+      const all=_reads(isAll?allCs:cs).slice().sort((x,y)=>x.t-y.t);
+      if(all.length<G(8,6,4)) return;
+      if(isAll && (tn.days<5 || tn.stage==='start' || tn.stage==='early')) return;
+      const spanDays=Math.round((all[all.length-1].t-all[0].t)/86400000);
+      if(!isAll && spanDays<3) return;
       const k=Math.max(2,Math.floor(all.length/4));
       const startCs=all.slice(0,k), recentCs=all.slice(-k);
       const m0=_yAvg(startCs.map(_yM)), m1=_yAvg(recentCs.map(_yM));
@@ -5235,9 +5239,8 @@ function app(tab){
           <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${stateMarks(dom0)}</span>
           <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${stateMarks(dom1)}</span>
         </div><div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div></div></div>
-        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'held steady'} since you started.</p>
-        <p class="cb-fine">(${tn.days} days between your first and most recent check-ins)</p>
-        ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],'Your first check-ins against your most recent ones.', null, true)}`, Math.round(g*100));
+        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'held steady'} ${isAll?'since you started':'over '+periodPhrase}.</p>
+        ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],isAll?'Your first check-ins against your most recent ones.':'Your earliest check-ins in this window against your most recent ones.', null, true)}`, Math.round(g*100));
     })();
 
     // 6 · what a practice does (three reading shifts, before to after)
