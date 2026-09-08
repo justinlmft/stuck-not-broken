@@ -2192,7 +2192,36 @@ function whatsNewNaming(){
   const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_naming_seen',{}); }catch(e){}
 }
-addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewNaming(); }catch(e){} }, 1400); });
+// 2026-09-08 · the You tab announcement. Runs for one week from ship (through
+// 2026-09-15), once per device, for everyone signed in or not, paying or not
+// (Justin: "All users should see this"). Copy is Justin's, used as written; the
+// You-tab line is a link that closes the card and opens the tab. The naming card
+// above is retired — anyone who never saw it gets this one instead.
+const _WN_YOU_KEY='snb_whatsnew_you_2026_09';
+const _WN_YOU_UNTIL=Date.UTC(2026,8,16);   // exclusive: last showing is 2026-09-15 anywhere on earth
+function whatsNewYou(){
+  if(Date.now()>=_WN_YOU_UNTIL) return;
+  try{ if(localStorage.getItem(_WN_YOU_KEY)==='1') return; }catch(e){ return; }
+  if(document.getElementById('wn-root')) return;
+  if(document.getElementById('ob-root')) return;                 // never over onboarding
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="App Update">'
+    + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+    + '<h2 class="wn-h">App Update:</h2>'
+    + '<p class="wn-p">The You tab just got better. Every day, you will see cards highlighting your data. Get different insights each day!</p>'
+    + '<p class="wn-p"><button class="set-quiet wn-go" id="wn-go-you" type="button">Go to the You tab &rsaquo;</button></p>'
+    + '<h2 class="wn-h">Coming Next:</h2>'
+    + '<p class="wn-p">The audio practice player will get even better soon.</p>'
+    + '<p class="wn-p">What to expect: much deeper practice with more variation, more skills, better audio, and interactivity!</p>'
+    + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ try{ localStorage.setItem(_WN_YOU_KEY,'1'); }catch(e){} d.remove(); };
+  const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
+  const g=d.querySelector('#wn-go-you'); if(g) g.onclick=()=>{ close(); try{ app('you'); }catch(e){} };
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_you_seen',{}); }catch(e){}
+}
+addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewYou(); }catch(e){} }, 1400); });
 
 function app(tab){
     currentTab = tab;

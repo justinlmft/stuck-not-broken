@@ -3024,6 +3024,8 @@ body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
 .wn-list li{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty;min-width:0;overflow-wrap:break-word}
 .wn-sig{font-size:calc(14.5px * var(--type-scale));color:var(--ink);margin:0 0 20px;font-weight:500}
 .wn-card .btn.block{width:100%}
+.wn-card .wn-h+.wn-h,.wn-card .wn-p+.wn-h{margin-top:18px}
+.wn-go{padding:0;color:var(--ink);font-weight:500;font-size:calc(15px * var(--type-scale))}
 .ob-card{position:absolute;box-sizing:border-box;background:var(--bone);border:1px solid var(--hairline);
   font-family:'Inter',system-ui,-apple-system,sans-serif;
   left:0;right:0;bottom:0;border-radius:20px 20px 0 0;border-left:0;border-right:0;border-bottom:0;
