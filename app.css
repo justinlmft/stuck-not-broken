@@ -3140,7 +3140,7 @@ body.reduce-motion .ob-foot::before{transition:none}
 .sd-how{font-size:calc(12px * var(--type-scale));line-height:1.5;color:var(--muted);margin:10px 0 0;text-wrap:pretty}
 /* the low-end tick on a margin bar: where the bucket's usual range bottoms out */
 .rc-bar{position:relative}
-.rc-lo{position:absolute;left:18%;right:18%;height:2px;background:var(--ink);opacity:.45;border-radius:1px}
+.rc-lo{position:absolute;left:16%;right:16%;height:2px;background:var(--ink);opacity:.55;border-radius:1px;box-shadow:0 0 0 1px var(--bone);z-index:1}
 /* three small reading charts side by side (connection · fight/flight · shutdown) */
 .rd-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:4px 0 6px}
 .rd-mini{display:flex;flex-direction:column;gap:6px}

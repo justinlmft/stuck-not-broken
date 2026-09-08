@@ -5092,7 +5092,7 @@ function app(tab){
       // reflect the flavour of the safety: play, safety, stillness); the best bar at full
       // strength, the rest muted
       const bg=!has?'var(--bone-deep)':best?STATE_COLOR(b.dom||'safety'):mute(STATE_COLOR(b.dom||'safety'));
-      const lo=(has&&b.lo!=null)?`<i class="rc-lo" style="bottom:${Math.min(h-3,_yBarH(b.lo))}px"></i>`:'';
+      const lo=(has&&b.lo!=null)?`<i class="rc-lo" style="bottom:${Math.max(3,Math.min(h-5,_yBarH(b.lo)))}px"></i>`:'';
       return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${delays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}">${lo}</span><span class="rc-lb">${labelOf(b,i)}</span></div>`;
     }).join('')}</div>${_yLegend(buckets)}`;
   }
@@ -5104,13 +5104,13 @@ function app(tab){
       const ms=a.map(_yM).filter(m=>m!=null);
       const cnt={}; a.forEach(c=>{ const d=_cDom(c); if(d) cnt[d]=(cnt[d]||0)+1; });
       const dom=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0]||null;
-      return { key:k, n:a.length, m:_yAvg(ms), lo:_yPct(ms,0.16), hi:_yPct(ms,0.84), dom, cs:a };
+      return { key:k, n:a.length, m:_yPct(ms,0.5), lo:_yPct(ms,0.16), hi:_yPct(ms,0.84), dom, cs:a };
     });
   }
   const _yBest = b => { let bi=-1, bm=-Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.m>bm){ bm=x.m; bi=i; } }); return bi; };
   const _yWidest = b => { let bi=-1, bw=-Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.lo!=null && x.hi!=null && (x.hi-x.lo)>bw){ bw=x.hi-x.lo; bi=i; } }); return bi; };
   const _DAY_LONG=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const _READ_NAME={ v:'connection', sym:'fight/flight', dor:'shutdown' };
+  const _READ_NAME={ v:'safety', sym:'fight/flight', dor:'shutdown' };
   const _READ_STATE={ v:'safety', sym:'fightflight', dor:'shutdown' };
   // the numbers people have a reference point for: their own three sliders, 0 to 100
   // (Justin 2026-09-07: "the margin numbers on their own don't mean much"). No margin
@@ -5124,6 +5124,10 @@ function app(tab){
   // builds the pool for one period. returns [[key, label, html, signature], …]
   function youCards(cs, allCs, periodPhrase, activePeriod, days){
     const out=[];
+    // gates scale with the window (Justin 2026-09-07: Week and Month showed two cards):
+    // a week cannot clear the all-time minimums, so the per-bucket and per-card
+    // thresholds shrink with the period. G(all, month, week).
+    const G=(a,m,w)=> days==null||days>30 ? a : days>7 ? m : w;
     const push=(key,label,html,sig)=>out.push([key,label,html,String(sig)]);
     const reads=_reads(cs);
     const n=reads.length;
@@ -5137,7 +5141,7 @@ function app(tab){
       const _blPrev=({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod]||null;
       const win=_reads(days==null?allCs:allCs.filter(c=>c.t>=Date.now()-Math.max(days,_BL_MIN_DAYS)*864e5));
       const ms=win.map(_yM).filter(m=>m!=null);
-      const rows=[['Connection',_yRead(_yAvg(win.map(c=>c.v)))],['Fight/flight',_yRead(_yAvg(win.map(c=>c.sym)))],['Shutdown',_yRead(_yAvg(win.map(c=>c.dor)))]];
+      const rows=[['Safety',_yRead(_yAvg(win.map(c=>c.v)))],['Fight/flight',_yRead(_yAvg(win.map(c=>c.sym)))],['Shutdown',_yRead(_yAvg(win.map(c=>c.dor)))]];
       push('safety','your state range',`
         ${shareBtn('safety')}<h2 class="panel-title">Your state range</h2>
         <p class="panel-sub">${CAP(periodPhrase)}.</p>
@@ -5147,8 +5151,8 @@ function app(tab){
 
     // 2 · day by day (replaces best day + least day)
     (function(){
-      if(n<14) return;
-      const b=_yBuckets(cs, c=>new Date(c.t).getDay(), [0,1,2,3,4,5,6], 3);
+      if(n<G(14,8,5)) return;
+      const b=_yBuckets(cs, c=>new Date(c.t).getDay(), [0,1,2,3,4,5,6], G(3,2,1));
       const bi=_yBest(b); if(bi<0) return;
       const wi=_yWidest(b);
       const chart=_yBarChart(b, bi, (x,i)=>['s','m','t','w','t','f','s'][i]);
@@ -5164,8 +5168,8 @@ function app(tab){
 
     // 3 · time of day (replaces best time + least time)
     (function(){
-      if(n<12) return;
-      const b=_yBuckets(cs, c=>segOf(c.t), _YOU_SEG, 3);
+      if(n<G(12,8,5)) return;
+      const b=_yBuckets(cs, c=>segOf(c.t), _YOU_SEG, G(3,2,1));
       const bi=_yBest(b); if(bi<0) return;
       const wi=_yWidest(b);
       const chart=_yBarChart(b, bi, (x)=>segIco(x.key));
@@ -5239,18 +5243,18 @@ function app(tab){
     // 6 · what a practice does (three reading shifts, before to after)
     const pairs=_yPairs(cs);
     (function(){
-      if(pairs.length<6) return;
+      if(pairs.length<G(6,4,3)) return;
       const dv=_yAvg(pairs.map(p=>p.after.v-p.before.v)), ds=_yAvg(pairs.map(p=>p.after.sym-p.before.sym)), dd=_yAvg(pairs.map(p=>p.after.dor-p.before.dor));
       const dm=_yAvg(pairs.map(p=>p.dm)); const rose=pairs.filter(p=>p.dm>0).length;
       const rowsD=[['v',dv],['sym',ds],['dor',dd]];
       const biggest=rowsD.slice().sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
-      const bigTxt = biggest[0]==='v' ? 'connection rises the most' : `${_READ_NAME[biggest[0]]} drops the most`;
+      const bigTxt = biggest[0]==='v' ? 'safety rises the most' : `${_READ_NAME[biggest[0]]} drops the most`;
       const bars=rowsD.map(([k,d],i)=>{ const w=Math.max(4,Math.min(100,Math.round(Math.abs(d)*250))); const dirTxt=d>=0?'up':'down'; return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${stateMarks(_READ_STATE[k])}${CAP(_READ_NAME[k])}</span><span class="help-track"><span class="help-fill" style="width:${w}%;background:${STATE_COLOR(_READ_STATE[k])}"></span></span><span class="help-pct">${dirTxt}</span></div>`; }).join('');
       push('practice','what a practice does',`
         ${shareBtn('practice')}<h2 class="panel-title">What a practice does</h2>
         <div class="help-bars">${bars}</div>
         <p class="cb-line" style="margin-top:16px">After you practice, <b>${bigTxt}</b>. You moved toward safety ${rose} time${rose===1?'':'s'} of ${pairs.length}.</p>
-        ${_seeData([['Connection',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it.')}`,
+        ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it.')}`,
         pairs.length+':'+Math.round((dm||0)*100));
     })();
 
@@ -5287,17 +5291,17 @@ function app(tab){
 
     // 9 · each reading over time (three small charts, oldest to newest)
     (function(){
-      const w=_yWindows(cs, 8); if(!w) return;
+      const w=_yWindows(cs, G(8,4,2)); if(!w) return;
       const KM={v:'v',sym:'s',dor:'d'};
       const mini=(k,name,st)=>{ const vals=w.map(x=>x[KM[k]]); const mx=Math.max.apply(null,vals)||1; const last=vals.length-1;
         const dirTxt = vals[last]-vals[0] > 0.06 ? 'rising' : vals[last]-vals[0] < -0.06 ? 'falling' : 'steady';
         return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-axis" aria-hidden="true"><span>${w[0].label}</span><span>now</span></div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}</div></div>`; };
       const trend=(k)=>w[w.length-1][KM[k]]-w[0][KM[k]];
       const changes=[['v',trend('v')],['sym',-trend('sym')],['dor',-trend('dor')]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
-      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your connection has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
+      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your safety has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
       push('readings','each state over time',`
         ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
-        <div class="rd-row">${mini('v','connection','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
+        <div class="rd-row">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
         <p class="cb-line" style="margin-top:14px">${lead}</p>
         ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),'Each row is a third of the window.',n,true)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
@@ -5305,8 +5309,8 @@ function app(tab){
 
     // 10 · both defenses at once
     (function(){
-      if(n<20) return;
-      const w=_yWindows(cs, 6); if(!w) return;
+      if(n<G(20,12,6)) return;
+      const w=_yWindows(cs, G(6,4,2)); if(!w) return;
       const share=arr=>arr.filter(c=>Math.min(c.sym,c.dor)>0.33).length/arr.length;
       const vals=w.map(x=>share(x.cs)); const last=vals.length-1;
       const total=reads.filter(c=>Math.min(c.sym,c.dor)>0.33).length;
@@ -5373,7 +5377,7 @@ function app(tab){
     // 14 · where your system lives in defense
     (function(){
       const def=reads.filter(c=>{ const m=_yM(c); return m!=null && m<0; });
-      if(def.length<6) return;
+      if(def.length<G(6,4,3)) return;
       const cnt={}; def.forEach(c=>{ const d=_cDom(c); if(d) cnt[d]=(cnt[d]||0)+1; });
       const home=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]; if(!home) return;
       const s=_yAvg(def.map(c=>c.sym)), d=_yAvg(def.map(c=>c.dor));
