@@ -3088,8 +3088,8 @@ function app(tab){
     if(wcs.length<12) return null;
     const gaps=[]; let i=0;
     while(i<wcs.length){
-      if(!_REGDOMS[wcs[i].dom]){ let j=i, steps=0, found=false;
-        while(j<wcs.length){ if(_REGDOMS[wcs[j].dom]){ found=true; break; } j++; steps++; }
+      if(!_REGDOMS[_cDom(wcs[i])]){ let j=i, steps=0, found=false;
+        while(j<wcs.length){ if(_REGDOMS[_cDom(wcs[j])]){ found=true; break; } j++; steps++; }
         if(found) gaps.push(steps); i=j;
       } else i++;
     }
@@ -4447,6 +4447,7 @@ function app(tab){
     const c=panel.cloneNode(true);
     c.classList.remove('panel-in');
     c.querySelectorAll('.panel-share').forEach(e=>e.remove());
+    c.querySelectorAll('.see-data').forEach(e=>e.remove());   // numbers never ride on a shared picture
     _toFirstPerson(c);
     // the share signature (Justin: "the glyph never should have died") rides in the
     // brand foot below — see panelFoot(sigKey). Optional via settings; recomputed at
@@ -4976,8 +4977,8 @@ function app(tab){
     cs.forEach(x=>{ const k = new Date(x.t).toDateString(); (byDay[k] = byDay[k] || []).push(x); });
     const dayHTML = Object.keys(byDay).map(k=>{
       const d = new Date(k);
-      const label = sameDay(d.getTime()) ? 'today'
-        : d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }).toLowerCase();
+      // no "today" on screen (Justin, 2026-09-05): the date names the day, every day
+      const label = d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }).toLowerCase();
       const rows = byDay[k].map(x=>{
         // derives (A4, 2026-08-22) — supersedes the free-history stored-name exception
         // ("exactly as they recorded them"): its rationale no longer holds after B1
@@ -5018,6 +5019,417 @@ function app(tab){
     const sb1=$('#set-btn'); if(sb1) sb1.onclick = screenSettings;
     const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
     const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); gateSubscribe('reader'); };
+  }
+
+  // ── You-tab pattern cards, rebuilt on margin (2026-09-07, Justin: "margin number
+  // should be the default backbone... averages are fine where appropriate... more
+  // minutia that is usable"). Every card below is computed from the numeric margin
+  // (_cMargin) or the three readings themselves, never from a count of state labels;
+  // the labels only ever name a picture. Cards stay number-less on their face (Justin:
+  // "the majority of these images are strong enough without the numbers"); the numbers
+  // live behind a per-card "See the data" disclosure that opens in place and does not
+  // stay open. Every card follows the period pills and re-renders on change.
+  // ─────────────────────────────────────────────────────────────────────────────
+  const _YOU_SEG = ['morning','afternoon','evening','late'];
+  const _yAvg = a => a.length ? a.reduce((s,v)=>s+v,0)/a.length : null;
+  const _yPct = (a,p) => { if(!a.length) return null; const s=a.slice().sort((x,y)=>x-y); const i=Math.max(0,Math.min(s.length-1,Math.round(p*(s.length-1)))); return s[i]; };
+  const _yM = c => _cMargin(c);
+  // whole-number margin for the data rows: −30..+70, signed, so the sign carries the side
+  const _yNum = m => m==null ? '—' : (m>=0?'+':'−')+Math.abs(Math.round(m*100));
+  const _yRead = v => v==null ? '—' : Math.round(v*100)+'%';
+  // bar height on the shared rc-chart (12..80px) from a margin on the −0.3..+0.7 rail
+  const _yBarH = m => m==null ? 12 : Math.max(12, Math.round(12 + (Math.max(-0.3,Math.min(0.7,m))+0.3)*68));
+  const _yWin = (cs,n) => { const a=_reads(cs); if(a.length<n) return null; return a; };
+  // the disclosure under a card. rows = [[label, value], …]; how = one plain sentence.
+  function _seeData(rows, how, n, trio){
+    // trio: the rows carry three state columns, so the three glyphs head them
+    // (Justin 2026-09-07: "use the glyphs as table headers above those columns")
+    const head = trio ? `<div class="sd-row sd-head"><span class="sd-lbl"></span><span class="sd-val"><span class="sd-trio">${['safety','fightflight','shutdown'].map(k=>`<b>${stateMarks(k)}</b>`).join('')}</span><span class="sd-rng sd-rng-ph"></span></span></div>` : '';
+    const body = rows.filter(r=>r && r[1]!=null && r[1]!=='').map(r=>`<div class="sd-row"><span class="sd-lbl">${r[0]}</span><span class="sd-val">${r[1]}</span></div>`).join('');
+    return `<details class="see-data"><summary class="sd-sum"><span>See the data</span></summary><div class="sd-body">${head}${body}${n!=null?`<div class="sd-row sd-n"><span class="sd-lbl">Check-ins in this window</span><span class="sd-val">${n}</span></div>`:''}${how?`<p class="sd-how">${how}</p>`:''}</div></details>`;
+  }
+  // before/after pairs for the You tab: the session-bound pairs the app records now,
+  // PLUS the older post-practice check-ins that were saved before sessions were bound
+  // (source 'post-practice', paired with the check-in before it if within 3 hours).
+  // Those older ones carry no practice name, so they only ever feed the overall card.
+  function _yPairs(cs){
+    const inWin = new Set(cs.map(c=>c.t));
+    const out = _pePairs().filter(p=>p.dAfter!=null && inWin.has(p.beforeCheckin.t)).map(p=>{
+      const b=p.beforeCheckin, a=(function(){ const all=Store.checkins(); return all.find(x=>x.session_id===b.session_id && x.phase==='after'); })();
+      const f=(function(){ const all=Store.checkins(); return all.find(x=>x.session_id===b.session_id && x.phase==='followup'); })();
+      return { key:p.practiceKey||null, t:p.t, before:b, after:a, fu:f||null, dm:p.dAfter, followup:p.dFollowup, seg:segOf(p.t), dom:_cDom(b) };
+    });
+    const bound = new Set(out.map(p=>p.after&&p.after.t));
+    const all = _reads(Store.checkins()).slice().sort((a,b)=>a.t-b.t);
+    for(let i=1;i<all.length;i++){
+      const a=all[i], b=all[i-1];
+      if(a.source!=='post-practice' || bound.has(a.t) || a.phase) continue;
+      if(!inWin.has(b.t) || a.t-b.t > 3*3600e3) continue;
+      const mA=_yM(a), mB=_yM(b); if(mA==null||mB==null) continue;
+      out.push({ key:null, t:a.t, before:b, after:a, fu:null, dm:mA-mB, followup:null, seg:segOf(a.t), dom:_cDom(b) });
+    }
+    return out;
+  }
+  // three equal time windows across the period (or the data), oldest first
+  function _yWindows(cs, minEach){
+    const a=_reads(cs).slice().sort((x,y)=>x.t-y.t);
+    if(a.length<minEach*3) return null;
+    const t0=a[0].t, t1=a[a.length-1].t, span=Math.max(1,t1-t0);
+    const w=[[],[],[]];
+    a.forEach(c=>{ const i=Math.min(2,Math.floor((c.t-t0)/span*3)); w[i].push(c); });
+    if(w.some(x=>x.length<minEach)) return null;
+    const lab=arr=>new Date(arr[0].t).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    return w.map(arr=>({ cs:arr, label:lab(arr), m:_yAvg(arr.map(_yM)), v:_yAvg(arr.map(c=>c.v)), s:_yAvg(arr.map(c=>c.sym)), d:_yAvg(arr.map(c=>c.dor)) }));
+  }
+  // one bar per bucket, margin-scaled; best bar in the safety colour, the rest muted in
+  // that bucket's own state colour; a small tick marks the low end of the bucket's usual range
+  function _yBarChart(buckets, bestIdx, labelOf, bestColor){
+    const delays=_staggerDelays(buckets.length, bestIdx);
+    return `<div class="rc-chart" aria-hidden="true">${buckets.map((b,i)=>{
+      const best=i===bestIdx, has=b.m!=null;
+      const h=_yBarH(b.m);
+      // each bar wears the state that led that bucket (Justin 2026-09-07: the bars should
+      // reflect the flavour of the safety: play, safety, stillness); the best bar at full
+      // strength, the rest muted
+      const bg=!has?'var(--bone-deep)':best?STATE_COLOR(b.dom||'safety'):mute(STATE_COLOR(b.dom||'safety'));
+      const lo=(has&&b.lo!=null)?`<i class="rc-lo" style="bottom:${Math.max(3,Math.min(h-5,_yBarH(b.lo)))}px"></i>`:'';
+      return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${delays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}">${lo}</span><span class="rc-lb">${labelOf(b,i)}</span></div>`;
+    }).join('')}</div>${_yLegend(buckets)}`;
+  }
+  const _yLegend = buckets => { const ks=[]; buckets.forEach(b=>{ if(b.m!=null && b.dom && ks.indexOf(b.dom)<0) ks.push(b.dom); }); return ks.length ? `<div class="legend rc-legend">${ks.map(k=>`<span class="lg-it">${stateMarks(k)}${STATE_LABEL(k)}</span>`).join('')}</div>` : ''; };
+  function _yBuckets(cs, keyOf, keys, minN){
+    return keys.map(k=>{
+      const a=_reads(cs).filter(c=>keyOf(c)===k);
+      if(a.length<minN) return { key:k, n:a.length, m:null, lo:null, hi:null, dom:null, cs:a };
+      const ms=a.map(_yM).filter(m=>m!=null);
+      const cnt={}; a.forEach(c=>{ const d=_cDom(c); if(d) cnt[d]=(cnt[d]||0)+1; });
+      const dom=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0]||null;
+      return { key:k, n:a.length, m:_yPct(ms,0.5), lo:_yPct(ms,0.16), hi:_yPct(ms,0.84), dom, cs:a };
+    });
+  }
+  const _yBest = b => { let bi=-1, bm=-Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.m>bm){ bm=x.m; bi=i; } }); return bi; };
+  const _yWidest = b => { let bi=-1, bw=-Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.lo!=null && x.hi!=null && (x.hi-x.lo)>bw){ bw=x.hi-x.lo; bi=i; } }); return bi; };
+  const _DAY_LONG=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const _READ_NAME={ v:'safety', sym:'fight/flight', dor:'shutdown' };
+  const _READ_STATE={ v:'safety', sym:'fightflight', dor:'shutdown' };
+  // the numbers people have a reference point for: their own three sliders, 0 to 100
+  // (Justin 2026-09-07: "the margin numbers on their own don't mean much"). No margin
+  // figure and no formula appears in "See the data"; the picture carries the margin.
+  const _yTrio = arr => arr.length ? `<span class="sd-trio"><b>${_yRead(_yAvg(arr.map(c=>c.v)))}</b><b>${_yRead(_yAvg(arr.map(c=>c.sym)))}</b><b>${_yRead(_yAvg(arr.map(c=>c.dor)))}</b></span>` : null;
+  const _ySh = d => d==null ? '—' : (d>=0?'+':'−')+Math.abs(Math.round(d*100))+'%';
+  const _yTrioShift = (pairs, aOf, bOf) => pairs.length ? `<span class="sd-trio"><b>${_ySh(_yAvg(pairs.map(p=>bOf(p).v-aOf(p).v)))}</b><b>${_ySh(_yAvg(pairs.map(p=>bOf(p).sym-aOf(p).sym)))}</b><b>${_ySh(_yAvg(pairs.map(p=>bOf(p).dor-aOf(p).dor)))}</b></span>` : null;
+  const _SD_TRIO = '';
+  const _SD_SHIFT = 'How far each state moved.';
+
+  // builds the pool for one period. returns [[key, label, html, signature], …]
+  function youCards(cs, allCs, periodPhrase, activePeriod, days){
+    const out=[];
+    // gates scale with the window (Justin 2026-09-07: Week and Month showed two cards):
+    // a week cannot clear the all-time minimums, so the per-bucket and per-card
+    // thresholds shrink with the period. G(all, month, week).
+    const G=(a,m,w)=> days==null||days>30 ? a : days>7 ? m : w;
+    const push=(key,label,html,sig)=>out.push([key,label,html,String(sig)]);
+    const reads=_reads(cs);
+    const n=reads.length;
+    const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="Share this card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg></button>`;
+    const nm = k => STATE_NAME(k);   // plain state names on cards (Justin 2026-09-07); the reader keeps its own wording
+
+    // 1 · where your system sits (baseline: the dot and ring on the rail, previous window dashed)
+    (function(){
+      const bl=_baselineBar(allCs, days);
+      const _blNow=({'7':'this week','30':'this month','90':'these 90 days','all':'all time'})[activePeriod]||'this window';
+      const _blPrev=({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod]||null;
+      const win=_reads(days==null?allCs:allCs.filter(c=>c.t>=Date.now()-Math.max(days,_BL_MIN_DAYS)*864e5));
+      const ms=win.map(_yM).filter(m=>m!=null);
+      const rows=[['Safety',_yRead(_yAvg(win.map(c=>c.v)))],['Fight/flight',_yRead(_yAvg(win.map(c=>c.sym)))],['Shutdown',_yRead(_yAvg(win.map(c=>c.dor)))]];
+      push('safety','your state range',`
+        ${shareBtn('safety')}<h2 class="panel-title">Your state range</h2>
+        <p class="panel-sub">${CAP(periodPhrase)}.</p>
+        ${_blCardHTML(bl,_blNow,_blPrev)}
+        ${bl.early?'':_seeData(rows,'Your three states, averaged over at least 28 days.',win.length)}`, bl.early?'early':Math.round((bl.dotPos||0)*100));
+    })();
+
+    // 2 · day by day (replaces best day + least day)
+    (function(){
+      if(n<G(14,8,5)) return;
+      const b=_yBuckets(cs, c=>new Date(c.t).getDay(), [0,1,2,3,4,5,6], G(3,2,1));
+      const bi=_yBest(b); if(bi<0) return;
+      const wi=_yWidest(b);
+      const chart=_yBarChart(b, bi, (x,i)=>['s','m','t','w','t','f','s'][i]);
+      const wide = (wi>=0 && wi!==bi) ? ` Your range swings widest on ${_DAY_LONG[wi]}s.` : '';
+      push('day','your most regulated day',`
+        ${shareBtn('day')}
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${_DAY_LONG[bi]}</b> is your most regulated day.</p>
+        ${chart}
+        ${wide?`<p class="cb-line">${wide.trim()}</p>`:''}
+        ${_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
+        bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
+    })();
+
+    // 3 · time of day (replaces best time + least time)
+    (function(){
+      if(n<G(12,8,5)) return;
+      const b=_yBuckets(cs, c=>segOf(c.t), _YOU_SEG, G(3,2,1));
+      const bi=_yBest(b); if(bi<0) return;
+      const wi=_yWidest(b);
+      const chart=_yBarChart(b, bi, (x)=>segIco(x.key));
+      const wide = (wi>=0 && wi!==bi) ? ` Your range swings widest ${_YOU_SEG[wi]==='late'?'late at night':'in the '+_YOU_SEG[wi]}.` : '';
+      push('daypart','your most regulated time of day',`
+        ${shareBtn('daypart')}
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${CAP(segLabel(_YOU_SEG[bi]))}</b> is your most regulated time of day.</p>
+        ${chart}
+        ${wide?`<p class="cb-line">${wide.trim()}</p>`:''}
+        ${_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
+        bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
+    })();
+
+    // 4 · comebacks (kept; the counting now derives every row the same way)
+    (function(){
+      const rec=_windowRecovery(cs); if(!rec) return;
+      const rt=_recoveryTrend(); const dip=_topDipState()||'fightflight';
+      const fasterTail=(rt && rt.dir==='faster')?`, and it's taking less time lately`:'';
+      const dips=reads.filter(c=>{ const m=_yM(c); return m!=null && m<0; });
+      const rows=[['Dips that ended in safety',rec.n],['Check-ins in a defensive state',dips.length]];
+      push('comeback','getting back to safety',`
+        ${shareBtn('comeback')}
+        <div class="cb-journey">${cbGlyphViz(dip,'safety',null,'hero')}</div>
+        <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(dip)}</b>, then recover into <b>safety</b>.</p>
+        <p class="cb-fine">(${rec.n} time${rec.n===1?'':'s'} over ${periodPhrase}${fasterTail})</p>
+        ${_seeData(rows,'A dip is a run of defensive check-ins that ends with a safe one.',n)}`, rec.n+':'+dip);
+    })();
+
+    // 5 · where you started (margin, not only connection; all-time, like before)
+    (function(){
+      const tn=Store.tenure();
+      const isAll=(days==null);
+      const all=_reads(isAll?allCs:cs).slice().sort((x,y)=>x.t-y.t);
+      if(all.length<G(8,6,4)) return;
+      if(isAll && (tn.days<5 || tn.stage==='start' || tn.stage==='early')) return;
+      const spanDays=Math.round((all[all.length-1].t-all[0].t)/86400000);
+      if(!isAll && spanDays<3) return;
+      const k=Math.max(2,Math.floor(all.length/4));
+      const startCs=all.slice(0,k), recentCs=all.slice(-k);
+      const m0=_yAvg(startCs.map(_yM)), m1=_yAvg(recentCs.map(_yM));
+      if(m0==null||m1==null) return;
+      const g=m1-m0, up=g>=0.03, down=g<=-0.03;
+      if(down) return;            // a dip is never the headline here; that conversation lives in the reader
+      const p0=_blPosOf(m0), p1=_blPosOf(m1);
+      const col=p=>p<0.5?STATE_COLOR('shutdown'):p<0.75?STATE_COLOR('play'):STATE_COLOR('safety');
+      const c0=col(p0), c1=col(p1);
+      const thenLabel=_relWhen(_yAvg(startCs.map(x=>x.t)));
+      const W=320,H=132,padX=7,padTop=20,padBot=20;
+      const x0=padX,x1=W-padX,midX=(x0+x1)/2,baseY=padTop+(H-padTop-padBot);
+      const yOf=p=>padTop+(1-Math.max(0,Math.min(1,p)))*(H-padTop-padBot);
+      const y0=yOf(p0), y1=yOf(p1);
+      const curve=`M ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1}`;
+      const area=`M ${x0} ${baseY} L ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1} L ${x1} ${baseY} Z`;
+      const dom0=(function(){ const c={}; startCs.forEach(x=>{ const d=_cDom(x); if(d) c[d]=(c[d]||0)+1; }); return Object.keys(c).sort((a,b)=>c[b]-c[a])[0]||'safety'; })();
+      const dom1=(function(){ const c={}; recentCs.forEach(x=>{ const d=_cDom(x); if(d) c[d]=(c[d]||0)+1; }); return Object.keys(c).sort((a,b)=>c[b]-c[a])[0]||'safety'; })();
+      const lx0=(x0/W*100).toFixed(2), ly0=(y0/H*100).toFixed(2), lx1=(x1/W*100).toFixed(2), ly1=(y1/H*100).toFixed(2);
+      push('started','your safety changes',`
+        ${shareBtn('started')}
+        <div class="cb-journey"><div class="gr-line-wrap"><div class="gr-line-box">
+          <svg viewBox="0 0 ${W} ${H}" class="chart gr-line-svg draw-gain" preserveAspectRatio="xMidYMid meet">
+            <defs><linearGradient id="glGrad" x1="${x0}" y1="0" x2="${x1}" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c0}"></stop><stop offset="1" stop-color="${c1}"></stop></linearGradient></defs>
+            <path class="cline-area" d="${area}" fill="url(#glGrad)" opacity=".1"></path>
+            <path class="cline-path" pathLength="1" d="${curve}" fill="none" stroke="url(#glGrad)" stroke-width="3.4" stroke-linecap="round"></path>
+            <circle class="cpt" cx="${x0}" cy="${y0}" r="4.2" fill="${c0}" stroke="var(--bone)" stroke-width="1.8" style="animation-delay:150ms"></circle>
+            <circle class="cpt" cx="${x1}" cy="${y1}" r="5.4" fill="${c1}" stroke="var(--bone)" stroke-width="2" style="animation-delay:950ms"></circle>
+          </svg>
+          <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${stateMarks(dom0)}</span>
+          <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${stateMarks(dom1)}</span>
+        </div><div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div></div></div>
+        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'held steady'} ${isAll?'since you started':'over '+periodPhrase}.</p>
+        ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],isAll?'Your first check-ins against your most recent ones.':'Your earliest check-ins in this window against your most recent ones.', null, true)}`, Math.round(g*100));
+    })();
+
+    // 6 · what a practice does (three reading shifts, before to after)
+    const pairs=_yPairs(cs);
+    (function(){
+      if(pairs.length<G(6,4,3)) return;
+      const dv=_yAvg(pairs.map(p=>p.after.v-p.before.v)), ds=_yAvg(pairs.map(p=>p.after.sym-p.before.sym)), dd=_yAvg(pairs.map(p=>p.after.dor-p.before.dor));
+      const dm=_yAvg(pairs.map(p=>p.dm)); const rose=pairs.filter(p=>p.dm>0).length;
+      const rowsD=[['v',dv],['sym',ds],['dor',dd]];
+      const biggest=rowsD.slice().sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
+      const bigTxt = biggest[0]==='v' ? 'safety rises the most' : `${_READ_NAME[biggest[0]]} drops the most`;
+      const bars=rowsD.map(([k,d],i)=>{ const w=Math.max(4,Math.min(100,Math.round(Math.abs(d)*250))); const dirTxt=d>=0?'up':'down'; return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${stateMarks(_READ_STATE[k])}${CAP(_READ_NAME[k])}</span><span class="help-track"><span class="help-fill" style="width:${w}%;background:${STATE_COLOR(_READ_STATE[k])}"></span></span><span class="help-pct">${dirTxt}</span></div>`; }).join('');
+      push('practice','what a practice does',`
+        ${shareBtn('practice')}<h2 class="panel-title">What a practice does</h2>
+        <div class="help-bars">${bars}</div>
+        <p class="cb-line" style="margin-top:16px">You moved toward safety <b>${rose} time${rose===1?'':'s'} of ${pairs.length}</b>.</p>
+        ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it.')}`,
+        pairs.length+':'+Math.round((dm||0)*100));
+    })();
+
+    // 7 · which practice moves you most
+    (function(){
+      const g={}; pairs.forEach(p=>{ if(!p.key) return; (g[p.key]=g[p.key]||[]).push(p); });
+      const rows=Object.keys(g).filter(k=>g[k].length>=3).map(k=>({key:k,n:g[k].length,mean:_yAvg(g[k].map(p=>p.dm)),ps:g[k]})).sort((a,b)=>b.mean-a.mean);
+      if(rows.length<2) return;
+      const top=rows[0]; const mx=Math.max.apply(null,rows.map(r=>Math.abs(r.mean)))||1;
+      const bars=rows.map((r,i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${CAP(Store.practiceLabel(r.key))}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(4,Math.round(Math.abs(r.mean)/mx*100))}%;background:${r.mean>=0?STATE_COLOR('safety'):STATE_COLOR('fightflight')}"></span></span><span class="help-pct"></span></div>`).join('');
+      push('practiceRank','which practice moves you most',`
+        ${shareBtn('practiceRank')}<h2 class="panel-title">Which practice moves you most</h2>
+        <p class="panel-sub">${CAP(periodPhrase)}.</p>
+        <div class="help-bars">${bars}</div>
+        ${_seeData(rows.map(r=>[CAP(Store.practiceLabel(r.key)),`${_yTrioShift(r.ps,p=>p.before,p=>p.after)} <span class="sd-rng">(${r.n})</span>`]),_SD_SHIFT+' A practice is listed once it has three pairs.', null, true)}`,
+        rows.map(r=>r.key+Math.round(r.mean*100)).join(','));
+    })();
+
+    // 8 · practice from where (practice × starting state × time of day)
+    (function(){
+      const g={}; pairs.forEach(p=>{ if(!p.key||!p.dom) return; const k=p.key+'|'+p.dom+'|'+p.seg; (g[k]=g[k]||{key:p.key,dom:p.dom,seg:p.seg,ps:[]}).ps.push(p); });
+      const rows=Object.values(g).filter(o=>o.ps.length>=4).map(o=>Object.assign(o,{n:o.ps.length,mean:_yAvg(o.ps.map(p=>p.dm))})).sort((a,b)=>b.mean-a.mean);
+      if(!rows.length) return;
+      const top=rows[0]; const when=top.seg==='late'?'late at night':'in the '+top.seg;
+      push('practiceFrom','which practice works from where',`
+        ${shareBtn('practiceFrom')}
+        <div class="cb-journey">${cbGlyphViz(top.dom,'safety',null,'hero')}</div>
+        <p class="cb-line cb-line-lead">From <b>${nm(top.dom)}</b> ${when}, <b>${Store.practiceLabel(top.key)}</b> moves you the most.</p>
+        <p class="cb-fine">(${top.n} practices that started there)</p>
+        ${_seeData(rows.slice(0,5).map(r=>[`${CAP(Store.practiceLabel(r.key))}, from ${nm(r.dom)}, ${r.seg==='late'?'late night':r.seg}`,`${_yTrioShift(r.ps,p=>p.before,p=>p.after)} <span class="sd-rng">(${r.n})</span>`]),_SD_SHIFT+' Grouped by the practice, the state you started in, and the time of day.', null, true)}`,
+        top.key+top.dom+top.seg+Math.round(top.mean*100));
+    })();
+
+    // 9 · each reading over time (three small charts, oldest to newest)
+    (function(){
+      const w=_yWindows(cs, G(8,4,2)); if(!w) return;
+      const KM={v:'v',sym:'s',dor:'d'};
+      const mini=(k,name,st)=>{ const vals=w.map(x=>x[KM[k]]); const mx=Math.max.apply(null,vals)||1; const last=vals.length-1;
+        const dirTxt = vals[last]-vals[0] > 0.06 ? 'rising' : vals[last]-vals[0] < -0.06 ? 'falling' : 'steady';
+        return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-axis" aria-hidden="true"><span>${w[0].label}</span><span>now</span></div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}</div></div>`; };
+      const trend=(k)=>w[w.length-1][KM[k]]-w[0][KM[k]];
+      const changes=[['v',trend('v')],['sym',-trend('sym')],['dor',-trend('dor')]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your safety has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
+      push('readings','each state over time',`
+        ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
+        <div class="rd-row">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
+        ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),'Each row is a third of the window.',n,true)}`,
+        w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
+    })();
+
+    // 10 · both defenses at once
+    (function(){
+      if(n<G(20,12,6)) return;
+      const w=_yWindows(cs, G(6,4,2)); if(!w) return;
+      const share=arr=>arr.filter(c=>Math.min(c.sym,c.dor)>0.33).length/arr.length;
+      const vals=w.map(x=>share(x.cs)); const last=vals.length-1;
+      const total=reads.filter(c=>Math.min(c.sym,c.dor)>0.33).length;
+      const dir = vals[last]-vals[0] < -0.08 ? 'less often' : vals[last]-vals[0] > 0.08 ? 'more often' : 'about as often';
+      const chart=`<div class="rc-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(8,Math.round(v*80))}px;background:${i===last?STATE_COLOR('freeze'):mute(STATE_COLOR('freeze'))}"></span><span class="rc-lb">${i===last?'now':'from '+w[i].label}</span></div>`).join('')}</div>`;
+      push('coact','how often freeze shows up',`
+        ${shareBtn('coact')}
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('freeze')}">Freeze</b> is showing up ${dir}${dir==='about as often'?' as before':' lately'}.</p>
+        ${chart}
+        <p class="cb-line">Fight/flight and shutdown up at the same time, in <b>${total} of your ${n}</b> check-ins.</p>
+        ${_seeData(w.map((x,i)=>[`From ${x.label}${i===last?' to now':''}`, `${Math.round(vals[i]*100)}% of check-ins <span class="sd-rng">(${x.cs.length})</span>`]),'A check-in counts as freeze here when fight/flight and shutdown are both up together.',n)}`,
+        vals.map(v=>Math.round(v*100)).join(','));
+    })();
+
+    // 11 · does the lift hold (after vs follow-up)
+    (function(){
+      const fu=pairs.filter(p=>p.followup!=null && p.after);
+      if(fu.length<6) return;
+      const held=fu.filter(p=>p.followup>=p.dm-0.05).length;
+      const hold=held/fu.length;
+      const txt = hold>=0.6 ? 'tends to hold' : hold>=0.4 ? 'sometimes holds' : 'tends to fade';
+      const bars=`<div class="help-bars"><div class="help-row" style="--sd:0ms"><span class="help-lbl">Right after</span><span class="help-track"><span class="help-fill" style="width:${Math.max(4,Math.min(100,Math.round(_yAvg(fu.map(p=>p.dm))*250)))}%;background:${STATE_COLOR('safety')}"></span></span><span class="help-pct"></span></div><div class="help-row" style="--sd:60ms"><span class="help-lbl">Hours later</span><span class="help-track"><span class="help-fill" style="width:${Math.max(4,Math.min(100,Math.round(Math.max(0,_yAvg(fu.map(p=>p.followup)))*250)))}%;background:${mute(STATE_COLOR('safety'),0.35)}"></span></span><span class="help-pct"></span></div></div>`;
+      push('holds','does the lift hold',`
+        ${shareBtn('holds')}<h2 class="panel-title">Does the lift hold?</h2>
+        ${bars}
+        <p class="cb-line" style="margin-top:16px">It <b>${txt}</b>.</p>
+        ${_seeData([['Right after',_yTrioShift(fu.filter(p=>p.fu),p=>p.before,p=>p.after)],['Hours later',_yTrioShift(fu.filter(p=>p.fu),p=>p.before,p=>p.fu)],['Follow-ups that held',`${held} of ${fu.length}`]],_SD_SHIFT+' Both rows measure from the check-in before the practice.', null, true)}`,
+        fu.length+':'+held);
+    })();
+
+    // 12 · your safest days had more of (context tags on high-margin check-ins)
+    (function(){
+      const m=_ctxLoad(); const byT={}; reads.forEach(c=>{ const mm=_yM(c); if(mm!=null) byT[c.t]=mm; });
+      const tagged=[]; Object.keys(m).forEach(k=>{ const mm=/^c(\d+)(\+?)$/.exec(k); if(!mm||!(m[k]||[]).length) return; const t=Number(mm[1]); if(mm[2]===''&&('c'+t+'+') in m) return; if(!(t in byT)) return; tagged.push({t, m:byT[t], tags:m[k]}); });
+      if(tagged.length<6) return;
+      const ms=tagged.map(x=>x.m).sort((a,b)=>a-b); const cut=ms[Math.floor(ms.length*0.75)];
+      const hi=tagged.filter(x=>x.m>=cut), lo=tagged.filter(x=>x.m<cut);
+      if(hi.length<2||lo.length<2) return;
+      const rate=(arr,tag)=>arr.filter(x=>x.tags.indexOf(tag)>=0).length/arr.length;
+      const tags=[...new Set(tagged.flatMap(x=>x.tags))];
+      const scored=tags.map(t=>({t, hi:rate(hi,t), lo:rate(lo,t), d:rate(hi,t)-rate(lo,t)})).filter(x=>x.hi>=0.4).sort((a,b)=>b.d-a.d);
+      if(!scored.length||scored[0].d<0.2) return;
+      const top=scored[0];
+      const bars=`<div class="help-bars"><div class="help-row" style="--sd:0ms"><span class="help-lbl">Safest days</span><span class="help-track"><span class="help-fill" style="width:${Math.round(top.hi*100)}%;background:${STATE_COLOR('safety')}"></span></span><span class="help-pct"></span></div><div class="help-row" style="--sd:60ms"><span class="help-lbl">Other days</span><span class="help-track"><span class="help-fill" style="width:${Math.max(3,Math.round(top.lo*100))}%;background:var(--hairline)"></span></span><span class="help-pct"></span></div></div>`;
+      push('safeDays','your safest days had more of',`
+        ${shareBtn('safeDays')}<h2 class="panel-title">Your safest days had more <b>${escapeHtml(top.t)}</b></h2>
+        ${bars}
+        ${_seeData(scored.slice(0,4).map(x=>[escapeHtml(x.t),`${Math.round(x.hi*100)}% of safest, ${Math.round(x.lo*100)}% of the rest`]),'Your safest quarter of tagged check-ins against the other three quarters.',tagged.length)}`,
+        top.t+Math.round(top.d*100));
+    })();
+
+    // 13 · most common shift (kept as it was; Justin: "it has a great design and animation")
+    (function(){
+      const trn=(Store.transitions?Store.transitions():null); if(!trn) return;
+      push('shift','your most common shift',`
+        ${shareBtn('shift')}
+        <div class="cb-journey">${cbGlyphViz(trn.a,trn.b,null,'hero')}</div>
+        <p class="cb-line cb-line-lead">Your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>.</p>
+        <p class="cb-fine">(${trn.count} time${trn.count===1?'':'s'} so far)</p>
+        ${_seeData([['This shift',`${trn.count} times`]],'Counted from one check-in to the next whenever the named state changed.')}`, trn.a+trn.b+trn.count);
+    })();
+
+    // 14 · where your system lives in defense
+    (function(){
+      const def=reads.filter(c=>{ const m=_yM(c); return m!=null && m<0; });
+      if(def.length<G(6,4,3)) return;
+      const cnt={}; def.forEach(c=>{ const d=_cDom(c); if(d) cnt[d]=(cnt[d]||0)+1; });
+      const home=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0]; if(!home) return;
+      const s=_yAvg(def.map(c=>c.sym)), d=_yAvg(def.map(c=>c.dor));
+      push('defense','your most common defensive state',`
+        ${shareBtn('defense')}
+        <div class="cb-journey"><div class="cb-viz cb-glyphs cb-glyphs-hero" aria-hidden="true"><span class="cb-g">${stateMarks(home)}</span></div></div>
+        <p class="cb-line cb-line-lead"><b>${CAP(nm(home))}</b> is your most common defensive state.</p>
+        <p class="cb-fine">(${cnt[home]} of ${def.length} defensive check-ins, over ${periodPhrase})</p>
+        ${_seeData(Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).map(k=>[CAP(nm(k)),`${cnt[k]} time${cnt[k]===1?'':'s'}`]).concat([['In those check-ins',_yTrio(def)]]),_SD_TRIO,def.length,true)}`,
+        home+':'+cnt[home]+':'+def.length);
+    })();
+
+    return out;
+  }
+
+  // the daily hand (Justin 2026-09-07, "your idea is what i was thinking. make it so"):
+  // four cards are drawn once per day per period and stay put; tapping the tab again
+  // shows the same four. Tomorrow's hand is drawn the same way as before — anything
+  // whose reading changed since it was last seen first, then never-seen, then the
+  // least recently shown. Two exceptions: a check-in or practice that changes a card
+  // already in the hand redraws the hand at once (the point of a card is to reflect
+  // what just happened), and a pool of four or fewer has nothing to rotate.
+  function youPick(cards, period, tender){
+    const key='snb_you_hand:'+period;
+    let st={}; try{ st=JSON.parse(localStorage.getItem(key))||{}; }catch(e){ st={}; }
+    const seen=st.seen||{};
+    const today=(function(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); })();
+    const base = tender
+      ? ['comeback','defense','day','daypart','practice','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
+      : ['safety','day','practice','readings','comeback','daypart','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
+    const rank=k=>{ const i=base.indexOf(k); return i<0?99:i; };
+    const byKey={}; cards.forEach(c=>{ byKey[c[0]]=c; });
+    const all=cards.slice().sort((a,b)=>rank(a[0])-rank(b[0]));
+    let picked=null;
+    if(cards.length<=4){
+      picked=all;
+    } else if(st.day===today && Array.isArray(st.hand) && st.hand.length && st.hand.every(k=>byKey[k])){
+      const changed=st.hand.some(k=>(st.sigs||{})[k]!==byKey[k][3]);
+      if(!changed) picked=st.hand.map(k=>byKey[k]);
+    }
+    if(!picked){
+      const at=c=>{ const s=seen[c[0]]; return (s && typeof s.at==='number') ? s.at : 0; };
+      const tier=c=>{ const s=seen[c[0]]; if(s==null) return 1; return (s.s===c[3]) ? 2 : 0; };
+      picked=cards.slice().sort((a,b)=>tier(a)-tier(b) || (tier(a)===2 ? at(a)-at(b) : 0) || rank(a[0])-rank(b[0])).slice(0,4);
+    }
+    // remember the hand, what each card said, and when each card was last shown
+    const now=Date.now(); const sigs={}; const nextSeen={};
+    picked.forEach(c=>{ sigs[c[0]]=c[3]; nextSeen[c[0]]={s:c[3],at:(seen[c[0]] && seen[c[0]].s===c[3] && st.day===today) ? seen[c[0]].at : now}; });
+    cards.forEach(c=>{ if(seen[c[0]]!=null && !(c[0] in nextSeen)) nextSeen[c[0]]=seen[c[0]]; });
+    try{ localStorage.setItem(key, JSON.stringify({ day:today, hand:picked.map(c=>c[0]), sigs, seen:nextSeen })); }catch(e){}
+    try{ localStorage.removeItem('snb_you_seen:'+period); }catch(e){}
+    return { picked, all };
   }
 
   function tabYou(){
@@ -5072,191 +5484,10 @@ function app(tab){
       // "all" used to render as "during the last all" — a live grammar bug)
       const periodPhrase = ({'7':'the last 7 days','30':'the last 30 days','90':'the last 90 days','all':'all time'})[activePeriod] || 'all time';
 
-      // ---- safety hero + trend over the window ----
-      const safetyPct = Math.round(avg(cs.map(x=>x.v))*100);
-      const vsAll = cs.map(x=>x.v);
-      const hiPct = vsAll.length?Math.round(Math.max.apply(null,vsAll)*100):0;
-      const loPct = vsAll.length?Math.round(Math.min.apply(null,vsAll)*100):0;
       const topState = domOf(cs);
-      let dir='steady';
-      if(paced.length>=4){
-        const k=Math.max(1,Math.floor(paced.length/3));
-        const d = avg(paced.slice(-k).map(x=>x.v)) - avg(paced.slice(0,k).map(x=>x.v));
-        dir = d>0.08?'rising':d<-0.08?'falling':'steady';
-      }
-      const rising = dir==='rising';
-
-      // ---- mix (time-bound) ----
-      const counts={}; let total=0; cs.forEach(x=>{ const k=_rowKey(x); if(!k) return; counts[k]=(counts[k]||0)+1; total++; });
-      total = total||1;
-      const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-      const mixHTML=ranked.map(([key,n],i)=>{
-        const pct=Math.round(n/total*100);
-        return `<button class="distrow" data-state-detail="${key}" style="--sd:${i*50}ms">
-          <span class="distrow-top"><span class="distrow-name">${stateMarks(key)}${CAP(({play:'play/motivation',stillness:'stillness'}[key])||STATE_NAME(key))}</span><span class="distrow-pct">${pct}%</span></span>
-          <span class="distrow-track"><span class="distrow-fill" style="width:${Math.max(pct,2)}%;background:${STATE_COLOR(key)}"></span></span>
-        </button>`;
-      }).join('');
-
-      // ---- day by day: a flowing ribbon — warmer = more safety ----
-      function safetyColor(v){
-        const stops=[[0,[163,192,221]],[0.5,[159,196,152]],[1,[244,213,141]]];
-        v=Math.max(0,Math.min(1,v));
-        let a=stops[0],b=stops[stops.length-1];
-        for(let i=0;i<stops.length-1;i++){ if(v>=stops[i][0]&&v<=stops[i+1][0]){a=stops[i];b=stops[i+1];break;} }
-        const t=(v-a[0])/((b[0]-a[0])||1);
-        const c=a[1].map((x,i)=>Math.round(x+(b[1][i]-x)*t));
-        return `rgb(${c[0]},${c[1]},${c[2]})`;
-      }
-      let arcBuckets=null;
-      if(paced.length>=3){
-        const minT=paced[0].t, maxT=paced[paced.length-1].t, spanD=(maxT-minT)/864e5;
-        const unit = spanD>75?'month': spanD>21?'week':'day';
-        const keyOf=(t)=>{ const d=new Date(t); if(unit==='month') return d.getFullYear()+'-'+d.getMonth(); if(unit==='week'){ const o=new Date(d); o.setHours(0,0,0,0); o.setDate(o.getDate()-o.getDay()); return o.getTime(); } return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); };
-        const labOf=(t)=>{ const d=new Date(t); return unit==='month'?d.toLocaleDateString(undefined,{month:'short'}):d.toLocaleDateString(undefined,{month:'short',day:'numeric'}); };
-        const bmap=new Map();
-        paced.forEach(p=>{ const k=keyOf(p.t); if(!bmap.has(k)) bmap.set(k,{t:p.t,vs:[],dom:{}}); const bb=bmap.get(k); bb.vs.push(p.v); bb.dom[p.dom]=(bb.dom[p.dom]||0)+1; });
-        arcBuckets=[...bmap.values()].sort((a,b)=>a.t-b.t).map(b=>({t:b.t, label:labOf(b.t), avg:b.vs.reduce((s,v)=>s+v,0)/b.vs.length, dom:Object.entries(b.dom).sort((x,y)=>y[1]-x[1])[0][0]}));
-      }
-
-      // ---- is practice helping: before vs after practice, windowed ----
-      // v2 (2026-07-30 redesign, Justin: "what are we trying to show? how
-      // practice shifts state? ... this should be purely before and after
-      // practice measurement based"). v1 compared average safety on any day
-      // that HAD a practice session vs any day that didn't — but that included
-      // check-ins that happened BEFORE that day's practice, and counted days
-      // where practice happened with no check-in ever logged after it. It
-      // measured correlation with a calendar day, never the practice's actual
-      // effect. Rebuilt entirely on _peWindowed()/_peInsightsWindowed(): a
-      // check-in only counts if it lands within 12 hours AFTER a practice
-      // session that has a recorded before-state — a real before/after pair.
-      // Same hero treatment as "getting back to safety" (Justin's ask): glyph
-      // visual first, one bold lead sentence, small footnote — no bars.
-      let practiceHead='';
-      (function(){
-        const pe=_peWindowed();
-        if(!pe) return;
-        const pis=_peInsightsWindowed();
-        const pi=pis && pis.length ? pis[0] : null;
-        const segPhrase = s => s==='late' ? 'late at night' : 'in the '+segLabel(s);
-        const pct=Math.round(pe.rate*20)*5;
-        // most common pre-practice state across the windowed sessions, purely
-        // for the glyph pair (mirrors how "getting back to safety" picks its
-        // own most-common dip state) — the claim itself is the RATE below, not
-        // a promise that practice always starts from this exact state.
-        const domCounts={};
-        _pePairs().forEach(p=>{ const d=_cDom(p.beforeCheckin); if(d) domCounts[d]=(domCounts[d]||0)+1; });
-        const modeDom=Object.keys(domCounts).sort((a,b)=>domCounts[b]-domCounts[a])[0] || 'fightflight';
-        practiceHead=`<div class="cb-journey">${cbGlyphViz(modeDom, 'safety', null, 'hero')}</div>
-          <p class="cb-line cb-line-lead">After you practice, you move toward more safety about <b>${pct}%</b> of the time.</p>
-          <p class="cb-fine">(${pe.total} check-in${pe.total===1?'':'s'} within a few hours of practicing${pi?`; most reliably after ${Store.practiceLabel(pi.practiceKey)} ${segPhrase(pi.seg)}, about ${Math.round(pi.rate*20)*5}% of the time`:''})</p>`;
-      })();
-
-      // ---- growth: safety now vs when you started (all-time, not period-filtered) ----
-      // v5 (2026-07-30, Justin: "make this into a line graph instead... a nice
-      // smooth line using the colors of the safety activation, like the states
-      // over time one"). Still the same 2-point then/now comparison (Justin
-      // confirmed: restyle the existing 2 points, not a fuller multi-point
-      // history — a fuller day-by-day version of this exact card was cut
-      // yesterday for looking "ugly"). Drawn with the same gradient/self-draw
-      // mechanics as the states-over-time chart (safetyColor, .cline-path/
-      // .cline-area/.cpt), just a cubic-bezier S-curve between 2 points instead
-      // of an N-point polyline. Layout otherwise unchanged: share button -> big
-      // visual first (.cb-journey, standard hero rhythm) -> one bold
-      // cb-line-lead sentence -> a small cb-fine footnote.
-      // "then" (2026-07-31, Justin: "'then' should say the time period, like
-      // 'last month'"): the comparison itself is still always-all-time (start
-      // bucket vs recent bucket, not tied to the 7/30/90/all period toggle —
-      // that question is separate and still open), but the LABEL now names
-      // when the "then" bucket actually was, from the real average timestamp
-      // of those check-ins (_relWhen), instead of the bare word "then".
-      let growthHead='';
-      (function(){
-        const tn=Store.tenure();
-        if(allCs.length>=8 && tn.days>=5 && tn.stage!=='start' && tn.stage!=='early'){
-          const k=Math.max(2,Math.floor(allCs.length/4));
-          const startCs=allCs.slice(0,k), recentCs=allCs.slice(-k);
-          const startV=avg(startCs.map(x=>x.v)), recentV=avg(recentCs.map(x=>x.v));
-          const g=Math.round((recentV-startV)*100), up=g>=3, down=g<=-3;
-          // a dip is never the headline here — that conversation lives in the reader.
-          if(!down){
-            const sV=Math.round(startV*100), rV=Math.round(recentV*100);
-            const startColor=safetyColor(startV), recentColor=safetyColor(recentV);
-            const heart=ico('heart',{cls:'gr-val-glyph',color:recentColor});
-            const thenLabel=_relWhen(avg(startCs.map(x=>x.t)));
-            // W/H match chartInner's own viewBox (2026-07-30, Justin: "it's tiny!
-            // it should take up as much visual space as 'your states over time'.
-            // use the same visual language") — at the same rendered card width,
-            // the two charts now carry the same visual weight.
-            // BUG FIX (2026-07-31, Justin: "the graph should go all the way to
-            // the margin of the card, aligned with 'then' and 'now'"): padX=26
-            // (8% inset) left the line/dots visibly indented from where the
-            // then/now text sits (flush to the card's own content edges, 0
-            // extra padding of their own). Cut to just enough clearance for
-            // the larger "now" dot's own radius+stroke (5.4+1) so nothing
-            // clips, without the old decorative margin.
-            const W=320,H=132,padX=7,padTop=20,padBot=20;
-            const x0=padX, x1=W-padX, midX=(x0+x1)/2, baseY=padTop+(H-padTop-padBot);
-            const yOf=v=>padTop+(1-Math.max(0,Math.min(1,v)))*(H-padTop-padBot);
-            const y0=yOf(startV), y1=yOf(recentV);
-            const curvePath=`M ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1}`;
-            const areaPath=`M ${x0} ${baseY} L ${x0} ${y0} C ${midX} ${y0} ${midX} ${y1} ${x1} ${y1} L ${x1} ${baseY} Z`;
-            // value labels sit directly above their own point (2026-07-31, Justin:
-            // "the safety increase one... has floating percentages" — same "value
-            // above the bar, tied to it" rule as .rc-val, not a detached header row).
-            // Positioned as a % of the svg's own box so they track the actual point
-            // regardless of viewport width; start label left-aligned to its point
-            // (room to grow rightward), end label right-aligned to its point (it
-            // sits near the chart's right edge, so it must grow leftward instead).
-            const lx0=(x0/W*100).toFixed(2), ly0=(y0/H*100).toFixed(2);
-            const lx1=(x1/W*100).toFixed(2), ly1=(y1/H*100).toFixed(2);
-            const chart=`<div class="gr-line-wrap">
-                <div class="gr-line-box">
-                  <svg viewBox="0 0 ${W} ${H}" class="chart gr-line-svg draw-gain" preserveAspectRatio="xMidYMid meet">
-                    <defs><linearGradient id="glGrad" x1="${x0}" y1="0" x2="${x1}" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${startColor}"></stop><stop offset="1" stop-color="${recentColor}"></stop></linearGradient></defs>
-                    <path class="cline-area" d="${areaPath}" fill="url(#glGrad)" opacity=".1"></path>
-                    <path class="cline-path" pathLength="1" d="${curvePath}" fill="none" stroke="url(#glGrad)" stroke-width="3.4" stroke-linecap="round"></path>
-                    <circle class="cpt" cx="${x0}" cy="${y0}" r="4.2" fill="${startColor}" stroke="var(--bone)" stroke-width="1.8" style="animation-delay:150ms"></circle>
-                    <circle class="cpt" cx="${x1}" cy="${y1}" r="5.4" fill="${recentColor}" stroke="var(--bone)" stroke-width="2" style="animation-delay:950ms"></circle>
-                  </svg>
-                  <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${sV}%</span>
-                  <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${heart}${rV}%</span>
-                </div>
-                <div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div>
-              </div>`;
-            growthHead=`<div class="cb-journey">${chart}</div>
-              <p class="cb-line cb-line-lead">Your average safety has ${up?'grown':'held steady'} since you started.</p>
-              <p class="cb-fine">(${tn.days} days between your first and most recent check-ins)</p>`;
-          }
-        }
-      })();
-      const SHARE_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M5 12v7h14v-7"/></svg>';
-      const shareBtn=(k)=>`<button class="panel-share" type="button" data-share="${k}" aria-label="Share this card">${SHARE_ICON}</button>`;
-      // hoisted card signals (slides render them; the share cards draw them)
-      const rec = _windowRecovery(cs);
-      const rt  = rec ? _recoveryTrend() : null;
-      const dip = _topDipState();
-      const bl  = _baselineBar(allCs, days);
-      const _blNow  = ({'7':'this week','30':'this month','90':'these 90 days','all':'all time'})[activePeriod] || 'this window';
-      const _blPrev = ({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod] || null;
-      const wd  = _weekdayPattern(cs), dp = _daypartPattern(cs);
-      const wdLeast = _weekdayPatternWorst(cs);
-      const dpLeast = _daypartPatternWorst(cs);
-      const trn = (Store.transitions ? Store.transitions() : null);
-      const fl  = _safetyFlavors(cs);
-      const ce  = _contextEffect();
-      const pe  = ce ? _peWindowed() : null;
-      const csl = _contextStateLink();
-      // reader-on-top + filterable data (2026-07-23 refine): the daily reader line
-      // becomes the personal-reflection entry; state chips filter the data rows.
+      // reader-on-top: the daily reader line is the personal-reflection entry
       const _r=(FromJustin&&(FromJustin.daily?FromJustin.daily():(FromJustin.today?FromJustin.today():null)))||null;
       const _reflText=(_r&&_r.text)?escapeHtml(_r.text):'';
-      // the filter must offer every state that actually has a row in this period, not just
-      // the states that happen to dominate a daypart/weekday bucket (that undercounted —
-      // a state could have rows and still never show as a filter chip). Canonical UI order.
-      const _stateOrder=['safety','play','fightflight','stillness','freeze','shutdown'];
-      const _present=_stateOrder.filter(s=>cs.some(x=>_rowKey(x)===s));
-      const _chipsHTML=`<button type="button" class="you-chip plain on" data-f="all">All</button>`+_present.map(s=>`<button type="button" class="you-chip" data-f="${s}">${stateMarks(s)}<span>${STATE_LABEL(s)}</span></button>`).join('');
       c.innerHTML=`
         <div class="view play-view">
           <div class="filter-bar">
@@ -5266,263 +5497,19 @@ function app(tab){
           </div>
 
           <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="Your patterns: swipe or use the dots below">${(function(){
-            // slides assemble dynamically, wins first. a safety DIP is never
-            // animated or headlined here (it lives, gently worded, in the reader).
-            const slides = [];
-            slides.push(['safety','the level of safety in your system', `
-              ${shareBtn('safety')}<h2 class="panel-title">The level of safety in your system</h2>
-              <p class="panel-sub">The state you spend the most time in, over ${periodPhrase}.</p>
-              ${_blCardHTML(bl, _blNow, _blPrev)}`]);
-            if(rec){
-              const from = dip || 'fightflight';
-              // v2 (2026-07-29 redesign, final round: "a lot of info crammed into the
-              // card... restrict it to one sentence"). One lead sentence carries the
-              // whole claim (dip -> recover); the check-in count, trip count, and
-              // trend all fold into one small parenthetical footnote below, same tier
-              // as the shift card's fine print — so the two hero-glyph cards match.
-              const fasterTail = (rt && rt.dir==='faster') ? `, and it's taking less time lately` : '';
-              // the recovery-length clause is CUT (Justin 2026-08-01c: "the 'a check-in or
-              // two each time' is meaningless, cut it and just stick to the 'x times over
-              // the last x time period'"). Counting someone's recovery in check-ins measures
-              // how often THEY happened to open the app, not how long they actually took —
-              // so the number moved with their logging habit, not their nervous system. The
-              // trip count and the period are both real, so those are what the line says now.
-              // (The same phrase is still used in the reader essay, from-justin.js ~1019 —
-              // that copy is Justin-owned, flagged to him, not changed here.)
-              const tripCount = `<p class="cb-fine">(${rec.n} time${rec.n===1?'':'s'} over ${periodPhrase}${fasterTail})</p>`;
-              // title cut (Justin 2026-07-29c: "not needed... prefer the images carry
-              // the visual weight not the titles"). The slide's array label ('getting
-              // back to safety') stays — still used for the carousel dots' aria-label
-              // and window._youAll, just not printed as a visible <h2> anymore.
-              slides.push(['comeback','getting back to safety', `
-              ${shareBtn('comeback')}
-              <div class="cb-journey">${cbGlyphViz(from, 'safety', null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">You commonly dip into <b>${STATE_NAME(from)}</b>, then recover into <b>safety</b>.</p>
-              ${tripCount}`]);
-            }
-            // the separate "your safety baseline" slide is retired (§7.2): its longer-window
-            // view is now just a wider choice on the time toggle above — one card, one metric.
-            // split (Justin 2026-07-28): "your most regulated times" conflated a weekday
-            // pattern and a time-of-day pattern into one card sharing a single (weekday-only)
-            // visual — the daypart claim had no visual of its own. Two cards, each with its
-            // own strip: weekdays keep the existing week-dot strip, daypart gets a matching
-            // 4-segment strip using the same sun/moon glyphs already used elsewhere (segIco).
-            // both strips below now read as a tiny bar chart, not a single highlight: every
-            // cell that has enough check-ins gets sized + tinted by ITS OWN safety %, using
-            // the same low→high safetyColor ramp as the day-by-day chart above (one color
-            // language across cards, not a new palette). The winning cell keeps the heart
-            // mark on top so the headline claim is still legible at a glance (Justin
-            // 2026-07-28: "ask what each card is trying to express... use glyphs, bars,
-            // icons within our color constraints").
-            // v2 (2026-07-29, Claude Design's layout-hierarchy pass): real bar charts,
-            // not dot strips — height = that day/daypart's safety %, color = that day/
-            // daypart's own dominant state (identity), led by a big "it's ___" headline
-            // instead of a subtitle sentence. Period phrase folds into the caption line
-            // since the subtitle line is gone (still period-honest, just relocated).
-            // headline restructure (2026-07-29b, Justin: subject-first phrasing, visual
-            // weight and the card's safety color on the day/time name itself). The
-            // winning bar is now forced to the safety color too — previously it took
-            // whatever state happened to be that day's plurality vote, which could
-            // (and did) disagree with the gold headline word right above it.
-            if(wd){
-              const wdPcts=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?_safeShare(a):null; });
-              const wdDom=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?domOf(a):null; });
-              const wdDelays = _staggerDelays(7, wd.idx);
-              const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
-                const pct=wdPcts[i], dom=wdDom[i], best=i===wd.idx;
-                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${wdDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
-              }).join('')}</div>`;
-              // title cut (Justin 2026-07-29c): "your most regulated day" repeated the
-              // rc-hero-title sentence right below it. Array label stays for a11y.
-              slides.push(['times','your most regulated day', `
-              ${shareBtn('times')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${wd.label}</b> is your most regulated day.</p>
-              ${chart}
-              <p class="cb-line">${wd.pct}% of your <b>${wd.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
-            }
-            if(dp){
-              const segs=['morning','afternoon','evening','late'];
-              const dpDom=segs.map(seg=>{ const a=cs.filter(x=>segOf(x.t)===seg); return a.length>=3?domOf(a):null; });
-              const dpDelays = _staggerDelays(segs.length, segs.indexOf(dp.key));
-              const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
-                const pct=_daypartPct(cs,seg), dom=dpDom[i], best=seg===dp.key;
-                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?STATE_COLOR('safety'):mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${dpDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
-              }).join('')}</div>`;
-              slides.push(['daypart','your most regulated time of day', `
-              ${shareBtn('daypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${CAP(dp.seg)}</b> is your most regulated time of day.</p>
-              ${chart}
-              <p class="cb-line">${dp.pct}% of your <b>${dp.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
-            }
-            // "least regulated day" (Justin 2026-07-29d: "same style we have as the most
-            // regulated one"). Same rc-chart bar structure as 'times' above, but there's no
-            // single "bad" state the way safety is the one "good" state — so the headline
-            // word and winning bar use THAT day's own dominant state color, not a fixed one.
-            // Skipped when it'd just repeat the most-regulated-day card (same day, or no
-            // most-regulated-day card to contrast against).
-            if(wdLeast && (!wd || wdLeast.idx!==wd.idx)){
-              const wlPcts=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?_safeShare(a):null; });
-              const wlDom=[0,1,2,3,4,5,6].map(d=>{ const a=cs.filter(x=>new Date(x.t).getDay()===d); return a.length>=3?domOf(a):null; });
-              const worstDom = wlDom[wdLeast.idx];
-              const worstColor = worstDom ? STATE_COLOR(worstDom) : '#D8D2C2';
-              const wlDelays = _staggerDelays(7, wdLeast.idx);
-              const chart = `<div class="rc-chart" aria-hidden="true">${['s','m','t','w','t','f','s'].map((lb,i)=>{
-                const pct=wlPcts[i], dom=wlDom[i], best=i===wdLeast.idx;
-                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?worstColor:mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${wlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${lb}</span></div>`;
-              }).join('')}</div>`;
-              slides.push(['leastDay','your least regulated day', `
-              ${shareBtn('leastDay')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstColor}">${wdLeast.label}</b> has the least regulation.</p>
-              ${chart}
-              <p class="cb-line">${wdLeast.pct}% of your <b>${wdLeast.label}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
-            }
-            // "least regulated time of day" (Justin 2026-07-29e: "do a least regulated time
-            // of day as well"). Mirrors 'daypart' the same way 'leastDay' mirrors 'times' —
-            // same rc-chart/segIco structure, headline + winning bar use that daypart's own
-            // dominant state color (no single "bad" state to anchor on). Skipped when it'd
-            // just repeat the most-regulated-time-of-day card.
-            if(dpLeast && (!dp || dpLeast.key!==dp.key)){
-              const segs=['morning','afternoon','evening','late'];
-              const dlDom=segs.map(seg=>{ const a=cs.filter(x=>segOf(x.t)===seg); return a.length>=3?domOf(a):null; });
-              const worstSegIdx=segs.indexOf(dpLeast.key);
-              const worstDpDom = dlDom[worstSegIdx];
-              const worstDpColor = worstDpDom ? STATE_COLOR(worstDpDom) : '#D8D2C2';
-              const dlDelays = _staggerDelays(segs.length, worstSegIdx);
-              const chart = `<div class="rc-chart" aria-hidden="true">${segs.map((seg,i)=>{
-                const pct=_daypartPct(cs,seg), dom=dlDom[i], best=seg===dpLeast.key;
-                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg=pct==null?'var(--bone-deep)':best?worstDpColor:mute(STATE_COLOR(dom));
-                return `<div class="rc-col${best?' rc-col-best':''}" style="--sd:${dlDelays[i]}ms"><span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(seg)}</span></div>`;
-              }).join('')}</div>`;
-              slides.push(['leastDaypart','your least regulated time of day', `
-              ${shareBtn('leastDaypart')}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${worstDpColor}">${CAP(dpLeast.seg)}</b> has the least regulation.</p>
-              ${chart}
-              <p class="cb-line">${dpLeast.pct}% of your <b>${dpLeast.seg}</b> check-ins have safety in them, over ${periodPhrase}.</p>`]);
-            }
-            if(trn){
-              const nm = k => ({play:'regulated mobility',stillness:'regulated immobility'}[k])||STATE_NAME(k);
-              // hero treatment (2026-07-29 redesign: "needs the same treatment as
-              // 'getting back to safety'") — same cb-journey hero glyphs + one lead
-              // sentence + small parenthetical footnote, title cut.
-              slides.push(['shift','your most common shift', `
-              ${shareBtn('shift')}
-              <div class="cb-journey">${cbGlyphViz(trn.a, trn.b, null, 'hero')}</div>
-              <p class="cb-line cb-line-lead">Your state most often shifts from <b>${nm(trn.a)}</b> to <b>${nm(trn.b)}</b>.</p>
-              <p class="cb-fine">(${trn.count} time${trn.count===1?'':'s'} so far)</p>`]);
-            }
-            // "your records" card CUT ENTIRELY (Justin 2026-07-29: "it's useless").
-            slides.push(['mix','your state mix', `
-              ${shareBtn('mix')}<h2 class="panel-title">Your state mix</h2>
-              <p class="panel-sub">${activePeriod==='all'?'Your state averages, all time.':'Your check-in averages, over '+periodPhrase+'.'}</p>
-              <div class="dist-bars">${mixHTML}</div>`]);
-            if(fl){
-              slides.push(['flavors','your flavors of safety', `
-              ${shareBtn('flavors')}<h2 class="panel-title">Your flavors of safety</h2>
-              <p class="panel-sub">This is what your safety looks like over ${periodPhrase}.</p>
-              <div class="help-bars">${fl.map((r,i)=>`<div class="help-row" style="--sd:${i*50}ms"><span class="help-lbl">${stateMarks(r.key)}${r.label}</span><span class="help-track"><span class="help-fill" style="width:${Math.max(r.pct,3)}%;background:${STATE_COLOR(r.key)}"></span></span><span class="help-pct">${r.pct}%</span></div>`).join('')}</div>`]);
-            }
-            if(ce || csl){
-              const bars = ce ? `
-              <p class="panel-sub">safety in the weeks you tagged “${escapeHtml(ce.label)}”, next to a typical week.</p>
-              <div class="help-bars">
-                <div class="help-row" style="--sd:0ms"><span class="help-lbl">Tagged weeks</span><span class="help-track"><span class="help-fill" style="width:${ce.tagPct}%;background:var(--s-safety)"></span></span><span class="help-pct">${ce.tagPct}%</span></div>
-                <div class="help-row" style="--sd:50ms"><span class="help-lbl">Typical week</span><span class="help-track"><span class="help-fill" style="width:${ce.typPct}%;background:var(--hairline)"></span></span><span class="help-pct">${ce.typPct}%</span></div>
-              </div>` : `<p class="panel-sub">What you tag as having the biggest impact, by the state you were in.</p>`;
-              const links = csl ? `
-              ${csl.safe?`<p class="cb-line"${ce?' style="margin-top:16px"':''}>Tagged most around your safe check-ins: <b>${escapeHtml(csl.safe.label)}</b>.</p>`:''}
-              ${csl.def?`<p class="cb-line">Tagged most around defense: <b>${escapeHtml(csl.def.label)}</b>.</p>`:''}` : '';
-              slides.push(['context','your top context', `
-              ${shareBtn('context')}<h2 class="panel-title">Your top context</h2>
-              ${bars}${links}
-              ${pe?`<p class="ctx-practice">Practice, for the record: check-ins within a few hours of practicing show more safety about ${Math.round(pe.rate*20)*5}% of the time.</p>`:''}`]);
-            }
-            // the day-by-day line-chart version of "your safety changes" is CUT
-            // (Justin 2026-07-29d) — the dot-track below is the only one. Its dead
-            // pre-rendered HTML is gone (E7); arcBuckets survives for 'states' below.
-            if(growthHead){
-              slides.push(['started','your safety changes', `
-              ${shareBtn('started')}${growthHead}`]);
-            }
-            if(arcBuckets){
-              slides.push(['states','your states over time', `
-              ${shareBtn('states')}<h2 class="panel-title">Your states over time</h2>
-              <p class="panel-sub">The state each stretch of time leaned toward.</p>
-              <div class="chart-wrap" data-cmode="states">${chartInner('states', arcBuckets, safetyColor)}</div>`]);
-            }
-            if(practiceHead){
-              slides.push(['practice','Is practice helping?', `
-              ${shareBtn('practice')}${practiceHead}`]);
-            }
-            // axis cards, v2 (2026-07-29 redesign, final: "make these into separate
-            // cards... i'd rather see these as cards with immediate info and
-            // shareability"). The old 2-card "most mobilized/immobilized time of
-            // day" + blended flavor chips are retired in favor of 5 minimal solo-
-            // state cards (play, flight/fight, stillness, shutdown, freeze), each
-            // with its OWN real per-daypart share and its own bar chart — same
-            // rc-hero-word pattern as times/daypart, same mute()-dulled losing bars.
-            // A more in-depth cross-referencing/filtering system is a future pass
-            // (Justin: "we can create that another time").
-            const _AX_SEGS = ['morning','afternoon','evening','late'];
-            const _axSoloPattern = (key) => {
-              let best=-1, bestPct=-1, bestN=0;
-              const pcts = _AX_SEGS.map((sg,i)=>{
-                const sub=cs.filter(x=>segOf(x.t)===sg);
-                if(sub.length<4) return null;
-                const hits=sub.filter(x=>_rowKey(x)===key).length;
-                const pct=Math.round(hits/sub.length*100);
-                if(hits>=3 && pct>bestPct){ bestPct=pct; best=i; bestN=hits; }
-                return pct;
-              });
-              if(best<0) return null;
-              return { pcts, best, pct:pcts[best], n:bestN };
-            };
-            const _AX_ADJ = { play:'playful', fightflight:'flight/fight', stillness:'still', shutdown:'shutdown', freeze:'frozen' };
-            const _axSoloSlide = (key) => {
-              const pat = _axSoloPattern(key);
-              if(!pat) return;
-              const color = STATE_COLOR(key), glyph = stateMarks(key), adj = _AX_ADJ[key] || key;
-              const segName = segLabel(_AX_SEGS[pat.best]);
-              const axDelays = _staggerDelays(_AX_SEGS.length, pat.best);
-              const chart = `<div class="rc-chart ax-solo-chart" aria-hidden="true">${_AX_SEGS.map((sg,i)=>{
-                const pct=pat.pcts[i], isBest=i===pat.best;
-                const h=pct!=null?Math.max(12,Math.round(pct/100*80)):12;
-                const bg = pct==null?'var(--bone-deep)':isBest?color:mute(color);
-                const val = isBest ? `<span class="rc-val">${glyph}${pct}%</span>` : '';
-                return `<div class="rc-col${isBest?' rc-col-best':''}" style="--sd:${axDelays[i]}ms">${val}<span class="rc-bar" style="height:${h}px;background:${bg}"></span><span class="rc-lb">${segIco(sg)}</span></div>`;
-              }).join('')}</div>`;
-              slides.push(['ax-'+key, segName+' is your most '+adj+' time of day', `
-              ${shareBtn('ax-'+key)}
-              <p class="rc-hero-title"><b class="rc-hero-word" style="color:${color}">${CAP(segName)}</b> is your most <b>${adj}</b> time of day.</p>
-              ${chart}`]);
-            };
-            ['play','fightflight','stillness','shutdown','freeze'].forEach(_axSoloSlide);
-            // capacity-aware carousel (2026-07-05): AT MOST 4 cards, chosen for
-            // what the data supports and what the person has room for right now.
-            // when recent check-ins lean defensive, the cards that say "dips end"
-            // lead (comeback, regulated times, records, practice) and the
-            // percentage hero steps back — same honest data, kinder sequence.
-            // when steady or rising, the safety story leads as before.
+            // the pool is built on margin (youCards) and four are drawn per visit
+            // (youPick). when recent check-ins lean defensive, the cards that say
+            // "dips end" lead and the baseline hero steps back — same honest data,
+            // kinder sequence.
             const _recent = allCs.slice(-6);
-            const _defN = _recent.filter(x=>{ const k=_rowKey(x); return k && !_REGDOMS[k]; }).length;
+            const _defN = _recent.filter(x=>{ const m=_cMargin(x); return m!=null && m<0; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
-            const _ORDER = _tender
-              ? ['comeback','times','daypart','leastDay','leastDaypart','practice','flavors','mix','context','started','states','shift','safety']
-              : ['safety','comeback','started','times','daypart','leastDay','leastDaypart','shift','mix','flavors','context','states','practice'];
-            const _rank = k=>{ const i=_ORDER.indexOf(k); return i<0?99:i; };
-            const sorted = slides.slice().sort((a,b)=>_rank(a[0])-_rank(b[0]));
+            const pk = youPick(youCards(cs, allCs, periodPhrase, activePeriod, days), activePeriod, _tender);
             // desktop ledger (2026-07-19): at wide the carousel stays empty and a
-            // one-card-at-a-time ledger is built after render — ALL cards listed,
-            // one shown, so the capacity-aware pacing survives the big screen.
-            window._youAll = sorted;
+            // one-card-at-a-time ledger is built after render — ALL cards listed.
+            window._youAll = pk.all;
             const _wide = window.matchMedia && matchMedia('(min-width:1120px)').matches;
-            const picked = sorted.slice(0,4);
+            const picked = pk.picked;
             window._youSlides = _wide ? [] : picked.map(s=>s[1]);
             if(_wide) return '';
             return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
@@ -5536,24 +5523,13 @@ function app(tab){
             <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
 
-          <div class="you-filter" id="you-filter"><div class="you-chips">${_chipsHTML}</div></div>
-
           <div class="deep">
-            <div class="deep-block">
-              <h3 class="deep-h">Time of day</h3>
-              ${['morning','afternoon','evening','late'].map(seg=>{ const sub=cs.filter(x=>segOf(x.t)===seg); const k=domOf(sub); const pct=_daypartPct(cs,seg); return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${segIco(seg)}${CAP(segLabel(seg))}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
-            </div>
-            <div class="deep-block">
-              <h3 class="deep-h">Day by day</h3>
-              ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((nm,d)=>{ const sub=cs.filter(x=>new Date(x.t).getDay()===d); const k=sub.length>=3?domOf(sub):null; const pct=sub.length>=3?_safeShare(sub):null; return `<div class="deep-row" data-state="${k||''}"><span class="deep-lbl">${nm}</span><span class="deep-val">${pct!=null?`<span class="deep-pct">${pct}%</span>`:''}${k?`<span class="deep-tap" data-state-detail="${k}" style="cursor:pointer">${stateMarks(k)}</span>`:'<span class="deep-none">\u00b7</span>'}</span></div>`; }).join('')}
-              <p class="deep-foot">% = check-ins where a safe state leads.</p>
-            </div>
             <div class="deep-block">
               <h3 class="deep-h">Your numbers</h3>
               <div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'\u2014'}</span></div>
               <div class="deep-row"><span class="deep-lbl">Check-ins</span><span class="deep-val">${allCs.length}</span></div>
               ${(function(){const n=Store.sessions().filter(s=>s&&s.completed).length;return n?`<div class="deep-row"><span class="deep-lbl">Practices completed</span><span class="deep-val">${n}</span></div>`:'';})()}
-              ${rec?`<div class="deep-row"><span class="deep-lbl">Comebacks made</span><span class="deep-val">${rec.n}</span></div>`:''}
+              ${(function(){const r=_windowRecovery(cs);return r?`<div class="deep-row"><span class="deep-lbl">Comebacks made</span><span class="deep-val">${r.n}</span></div>`:'';})()}
             </div>
             <div class="deep-block">
               <h3 class="deep-h">How you practice</h3>
@@ -5630,8 +5606,6 @@ function app(tab){
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
-      // state chips filter the data rows (dim non-matching); range change re-renders and resets to all
-      (function(){ const fb=c.querySelector('#you-filter'); if(!fb) return; const chips=fb.querySelectorAll('.you-chip'); const rows=c.querySelectorAll('.deep-row[data-state]'); chips.forEach(ch=>ch.addEventListener('click',()=>{ const f=ch.dataset.f; chips.forEach(x=>x.classList.toggle('on',x===ch)); rows.forEach(r=>{ const ds=r.getAttribute('data-state'); r.classList.toggle('dim', f!=='all' && ds!==f); }); })); })();
       // SHARE_TXT is GONE, and so is SHARE_VIZ (2026-08-01). Both were parallel decks that
       // had to be kept in step with the cards by hand, and both had drifted: SHARE_VIZ still
       // drew the 'times' card's RETIRED dot strip long after it became a bar chart, and
@@ -5640,11 +5614,27 @@ function app(tab){
       // no-file-sharing fallback quotes those same words rather than a third version.
       c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation();
         openShare(null, b.closest('.panel')); }));
-      c.querySelectorAll('.distrow').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
+      // "See the data" opens in place and never stays open: it is a <details> that
+      // every re-render closes again. Its toggle is scoped so a swipe still swipes.
+      c.querySelectorAll('.see-data').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
 
       const carousel=$('#carousel'); const dots=c.querySelectorAll('#dots .dot-i');
       if(carousel){ carousel.addEventListener('scroll',()=>{ const i=Math.max(0,Math.min(dots.length-1,Math.round(carousel.scrollLeft/snapUnit(carousel)))); dots.forEach((d,j)=>d.classList.toggle('on',j===i)); },{passive:true}); }
+      // "See the data" and the swipe (Justin 2026-09-07): an open disclosure makes the
+      // whole row taller, so every other card showed blank space. While one is open the
+      // row aligns to the top instead of stretching, and swiping away from the open card
+      // closes it, so the row settles back to its normal height.
+      if(carousel){
+        const _sdSync=()=>{ carousel.classList.toggle('sd-open', !!carousel.querySelector('.see-data[open]')); };
+        carousel.querySelectorAll('.see-data').forEach(d=>d.addEventListener('toggle',_sdSync));
+        let _sdT=null;
+        carousel.addEventListener('scroll',()=>{ clearTimeout(_sdT); _sdT=setTimeout(()=>{
+          const i=Math.max(0,Math.round(carousel.scrollLeft/snapUnit(carousel)));
+          carousel.querySelectorAll('.panel').forEach((p,j)=>{ if(j!==i) p.querySelectorAll('.see-data[open]').forEach(d=>{ d.open=false; }); });
+          _sdSync();
+        },140); },{passive:true});
+      }
       // the dots are real controls: tap one to go to that card (keyboard/switch reachable too)
       dots.forEach((d,j)=>d.addEventListener('click',()=>{ if(!carousel) return;
         const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
@@ -5672,25 +5662,6 @@ function app(tab){
         }
       }catch(e){}
 
-      // gentle count-up to the safety figure — the card's one breath of life,
-      // and only the first time it's shown per page load (not on every period/tab switch).
-      if(!window._snbSafetyCounted){
-        window._snbSafetyCounted = true;
-        const el=c.querySelector('.safety-num-val');
-        if(el){
-          const target=safetyPct, dur=1100, t0=Date.now();
-          const ease=x=>1-Math.pow(1-x,3);
-          const calm=document.body.classList.contains('reduce-motion')||matchMedia('(prefers-reduced-motion:reduce)').matches;
-          if(calm){ el.textContent=target; }
-          else { el.textContent='0';
-            const timer=setInterval(()=>{ if(!el.isConnected){ clearInterval(timer); return; }
-              const p=Math.min(1,(Date.now()-t0)/dur);
-              el.textContent=Math.round(target*ease(p));
-              if(p>=1){ el.textContent=target; clearInterval(timer); }
-            }, 32);
-          }
-        }
-      }
     }
 
     render();
