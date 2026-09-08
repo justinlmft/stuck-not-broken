@@ -2192,7 +2192,36 @@ function whatsNewNaming(){
   const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_naming_seen',{}); }catch(e){}
 }
-addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewNaming(); }catch(e){} }, 1400); });
+// 2026-09-08 · the You tab announcement. Runs for one week from ship (through
+// 2026-09-15), once per device, for everyone signed in or not, paying or not
+// (Justin: "All users should see this"). Copy is Justin's, used as written; the
+// You-tab line is a link that closes the card and opens the tab. The naming card
+// above is retired — anyone who never saw it gets this one instead.
+const _WN_YOU_KEY='snb_whatsnew_you_2026_09';
+const _WN_YOU_UNTIL=Date.UTC(2026,8,16);   // exclusive: last showing is 2026-09-15 anywhere on earth
+function whatsNewYou(){
+  if(Date.now()>=_WN_YOU_UNTIL) return;
+  try{ if(localStorage.getItem(_WN_YOU_KEY)==='1') return; }catch(e){ return; }
+  if(document.getElementById('wn-root')) return;
+  if(document.getElementById('ob-root')) return;                 // never over onboarding
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="App Update">'
+    + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+    + '<h2 class="wn-h">App Update:</h2>'
+    + '<p class="wn-p">The You tab just got better. Every day, you will see cards highlighting your data. Get different insights each day!</p>'
+    + '<p class="wn-p"><button class="set-quiet wn-go" id="wn-go-you" type="button">Go to the You tab &rsaquo;</button></p>'
+    + '<h2 class="wn-h">Coming Next:</h2>'
+    + '<p class="wn-p">The audio practice player will get even better soon.</p>'
+    + '<p class="wn-p">What to expect: much deeper practice with more variation, more skills, better audio, and interactivity!</p>'
+    + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ try{ localStorage.setItem(_WN_YOU_KEY,'1'); }catch(e){} d.remove(); };
+  const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
+  const g=d.querySelector('#wn-go-you'); if(g) g.onclick=()=>{ close(); try{ app('you'); }catch(e){} };
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_you_seen',{}); }catch(e){}
+}
+addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewYou(); }catch(e){} }, 1400); });
 
 function app(tab){
     currentTab = tab;
@@ -5108,7 +5137,7 @@ function app(tab){
     });
   }
   const _yBest = b => { let bi=-1, bm=-Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.m>bm){ bm=x.m; bi=i; } }); return bi; };
-  const _yWidest = b => { let bi=-1, bw=-Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.lo!=null && x.hi!=null && (x.hi-x.lo)>bw){ bw=x.hi-x.lo; bi=i; } }); return bi; };
+  const _yLow = b => { let bi=-1, bm=Infinity; b.forEach((x,i)=>{ if(x.m!=null && x.m<bm){ bm=x.m; bi=i; } }); return bi; };
   const _DAY_LONG=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const _READ_NAME={ v:'safety', sym:'fight/flight', dor:'shutdown' };
   const _READ_STATE={ v:'safety', sym:'fightflight', dor:'shutdown' };
@@ -5154,16 +5183,22 @@ function app(tab){
       if(n<G(14,8,5)) return;
       const b=_yBuckets(cs, c=>new Date(c.t).getDay(), [0,1,2,3,4,5,6], G(3,2,1));
       const bi=_yBest(b); if(bi<0) return;
-      const wi=_yWidest(b);
-      const chart=_yBarChart(b, bi, (x,i)=>['s','m','t','w','t','f','s'][i]);
-      const wide = (wi>=0 && wi!==bi) ? ` Your range swings widest on ${_DAY_LONG[wi]}s.` : '';
+      const dayLbl=(x,i)=>['s','m','t','w','t','f','s'][i];
+      const data=_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true);
       push('day','your most regulated day',`
         ${shareBtn('day')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${_DAY_LONG[bi]}</b> is your most regulated day.</p>
-        ${chart}
-        ${wide?`<p class="cb-line">${wide.trim()}</p>`:''}
-        ${_seeData(b.map(x=>[_DAY_LONG[x.key], x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
+        ${_yBarChart(b, bi, dayLbl)}
+        ${data}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
+      // the mirror (Justin 2026-09-08): the same picture with the lowest day lit instead
+      const li=_yLow(b);
+      if(li>=0 && li!==bi) push('dayLow','your least regulated day',`
+        ${shareBtn('dayLow')}
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[li].dom||'safety')}">${_DAY_LONG[li]}</b> is your least regulated day.</p>
+        ${_yBarChart(b, li, dayLbl)}
+        ${data}`,
+        li+':'+Math.round((b[li].m||0)*100)+':'+n);
     })();
 
     // 3 · time of day (replaces best time + least time)
@@ -5171,16 +5206,21 @@ function app(tab){
       if(n<G(12,8,5)) return;
       const b=_yBuckets(cs, c=>segOf(c.t), _YOU_SEG, G(3,2,1));
       const bi=_yBest(b); if(bi<0) return;
-      const wi=_yWidest(b);
-      const chart=_yBarChart(b, bi, (x)=>segIco(x.key));
-      const wide = (wi>=0 && wi!==bi) ? ` Your range swings widest ${_YOU_SEG[wi]==='late'?'late at night':'in the '+_YOU_SEG[wi]}.` : '';
+      const segLbl=(x)=>segIco(x.key);
+      const data=_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true);
       push('daypart','your most regulated time of day',`
         ${shareBtn('daypart')}
         <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[bi].dom||'safety')}">${CAP(segLabel(_YOU_SEG[bi]))}</b> is your most regulated time of day.</p>
-        ${chart}
-        ${wide?`<p class="cb-line">${wide.trim()}</p>`:''}
-        ${_seeData(b.map(x=>[CAP(segLabel(x.key)), x.m==null?null:`${_yTrio(x.cs)} <span class="sd-rng">(${x.n})</span>`]), _SD_TRIO, n, true)}`,
+        ${_yBarChart(b, bi, segLbl)}
+        ${data}`,
         bi+':'+Math.round((b[bi].m||0)*100)+':'+n);
+      const li=_yLow(b);
+      if(li>=0 && li!==bi) push('daypartLow','your least regulated time of day',`
+        ${shareBtn('daypartLow')}
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b[li].dom||'safety')}">${CAP(segLabel(_YOU_SEG[li]))}</b> is your least regulated time of day.</p>
+        ${_yBarChart(b, li, segLbl)}
+        ${data}`,
+        li+':'+Math.round((b[li].m||0)*100)+':'+n);
     })();
 
     // 4 · comebacks (kept; the counting now derives every row the same way)
@@ -5406,8 +5446,8 @@ function app(tab){
     const seen=st.seen||{};
     const today=(function(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); })();
     const base = tender
-      ? ['comeback','defense','day','daypart','practice','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
-      : ['safety','day','practice','readings','comeback','daypart','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
+      ? ['comeback','defense','day','daypart','dayLow','daypartLow','practice','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
+      : ['safety','day','practice','readings','comeback','daypart','dayLow','daypartLow','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
     const rank=k=>{ const i=base.indexOf(k); return i<0?99:i; };
     const byKey={}; cards.forEach(c=>{ byKey[c[0]]=c; });
     const all=cards.slice().sort((a,b)=>rank(a[0])-rank(b[0]));
