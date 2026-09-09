@@ -5803,8 +5803,6 @@ function app(tab){
               ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'Late at night':CAP(segLabel(s))}</span></div>`;})()}
             </div>
           </div>
-          <button class="change-link" id="change-ci" type="button">Change a recent check-in</button>
-          ${Store.sessions().length ? '<button class="change-link" id="manage-pr" type="button">Manage your practices</button>' : ''}
         </div>`;
 
       // ---- desktop ledger (2026-07-19): wide screens get the pattern cards as a
@@ -5817,20 +5815,14 @@ function app(tab){
           const all=window._youAll;
           let key=window._youLedgerKey; if(!all.some(s=>s[0]===key)) key=all[0][0];
           window._youLedgerKey=key;
+          // 2026-09-09 (Justin): the glyph icons in this list "look terrible" — every entry is a dot
+          // now, coloured by its state where the card is about one state, hairline otherwise.
+          const _dot=(c)=>'<span class="yl-ic"><span class="yl-dot"'+(c?' style="background:'+c+'"':'')+'></span></span>';
           const _I={
-            safety:'<span class="yl-ic tri"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
-            mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
-            times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
-            // mobilized/immobilized (2 combined cards) retired for 5 solo-state axis
-            // cards (2026-07-29 redesign) — same two stand-in glyphs reused per card
-            // since a bespoke icon per state wasn't part of this round's redesign.
-            'ax-play':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>'
-            // 'records' icon entry removed — the card is cut (2026-07-29: "it's useless").
+            safety:_dot(STATE_COLOR('safety')), comeback:_dot(STATE_COLOR('safety')), safeDays:_dot(STATE_COLOR('safety')),
+            started:_dot(STATE_COLOR('safety')), holds:_dot(STATE_COLOR('safety')), coact:_dot(STATE_COLOR('freeze')),
+            'ax-play':_dot(STATE_COLOR('play')), 'ax-fightflight':_dot(STATE_COLOR('fightflight')), 'ax-stillness':_dot(STATE_COLOR('stillness')),
+            'ax-shutdown':_dot(STATE_COLOR('shutdown')), 'ax-freeze':_dot(STATE_COLOR('freeze')),
           };
           const cur=all.find(s=>s[0]===key);
           const wrap=document.createElement('div'); wrap.className='you-ledger';
@@ -5866,8 +5858,6 @@ function app(tab){
       const snapUnit = (cv)=>{ const p=cv&&cv.firstElementChild; return p ? p.offsetWidth+14 : (cv?cv.clientWidth:1)||1; };
       c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const _dd=c.querySelectorAll('#dots .dot-i'); const i=Math.max(0,Math.min(_dd.length-1,Math.round(sl/snapUnit(nv)))); _dd.forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
       const setBtn=$('#set-btn'); if(setBtn) setBtn.onclick=screenSettings;
-      const chgBtn=$('#change-ci'); if(chgBtn) chgBtn.onclick=screenChangeCheckin;
-      const mpBtn=$('#manage-pr'); if(mpBtn) mpBtn.onclick=screenManagePractices;
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
@@ -7021,7 +7011,7 @@ function app(tab){
               <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">Dark</span></button>
             </div>
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
-            <p class="ch-cap" id="motion-cap" style="margin:6px 0 0"></p>
+            <p class="ch-cap" id="motion-cap"></p>
             <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
               <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
@@ -7035,9 +7025,9 @@ function app(tab){
           <div class="gs-card">
             <p class="gs-h">App</p>
             ${gsSw('sw-live','Live practice invitations',lv!=='0')}
-            <p class="ch-cap" id="live-cap" style="margin:6px 0 0"></p>
+            <p class="ch-cap" id="live-cap"></p>
             ${gsSw('sw-haptics','Haptics',hp)}
-            <p class="ch-cap" id="hap-cap" style="margin:6px 0 0"></p>
+            <p class="ch-cap" id="hap-cap"></p>
             ${gsSw('sw-offline','Save practices for offline',offOn)}
             <p class="gs-fine" id="offline-status"></p>
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
@@ -7050,7 +7040,7 @@ function app(tab){
           <div class="gs-card">
             <p class="gs-h">Your data</p>
             ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
-            <p class="ch-cap" id="glyph-cap" style="margin:6px 0 0"></p>
+            <p class="ch-cap" id="glyph-cap"></p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins</button>
               <button class="set-quiet" id="privacy">How your data is handled</button>
@@ -7152,7 +7142,7 @@ function app(tab){
     // mirrors the current state so the row explains itself either way. 🖊
     const _motionCap = on=>{ const el=$('#motion-cap'); if(el) el.textContent = on
       ? 'Animations are on.'
-      : "Animations are off. This turns off the app's decorative movement. Breathing practices keep their full timing; words carry the pace instead."; };
+      : "Animations are off. This turns off the app's decorative movement. "; };
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
     const _hapCap = on=>{ const el=$('#hap-cap'); if(el) el.textContent = on
