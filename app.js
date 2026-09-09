@@ -7034,7 +7034,7 @@ function app(tab){
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
             ${_hapIsIOS()?'<p class="gs-fine">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
             ${isStandalone()?'':`<div class="set-row-inline" id="install-row" style="margin-top:12px">${installRowInner()}</div>`}
-            ${pushRowInner()?`<div class="set-row-inline" id="push-row" style="margin-top:12px">${pushRowInner()}</div>`:''}
+            ${pushRowInner()?`<div class="set-row-inline" id="push-row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--hairline)">${pushRowInner()}</div>`:''}
             <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">Join a live practice with a code</button></div>
           </div>
 
