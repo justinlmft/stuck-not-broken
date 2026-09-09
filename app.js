@@ -434,7 +434,7 @@
   // check-in method label/caption/preview — shared between settings and the onboarding
   // "How do you want to check in?" card so the two never drift (hoisted 2026-07-28;
   // was previously a settings-only closure).
-  const METHOD_LABEL = { sliders:'questions', states:'state picker', numbers:'number sliders' };
+  const METHOD_LABEL = { sliders:'questions', states:'state', numbers:'numbers' };   // Justin 2026-09-09: 'Numbers' / 'State'
   const METHOD_CAP = {
     sliders:'Best for someone who has a hard time identifying their state. Simply answer a few quick questions with three sliders.',
     numbers:'Use numbers to check in. Best for the person that thinks concretely.',
@@ -2222,6 +2222,34 @@ function whatsNewYou(){
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_you_seen',{}); }catch(e){}
 }
 addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewYou(); }catch(e){} }, 1400); });
+// Notifications announcement (2026-09-09). Same frame as the You-tab card; shows once per device to
+// every signed-in member, but never on the same load as the You-tab card and never over onboarding.
+// 🖊 copy draft. It only points at Settings → Notifications; the browser is asked there, from a tap.
+const _WN_PUSH_KEY='snb_whatsnew_push_2026_09';
+function whatsNewPush(){
+  try{ if(localStorage.getItem(_WN_PUSH_KEY)==='1') return; }catch(e){ return; }
+  try{ if(!Store.user() || (Store.isAnonymous&&Store.isAnonymous())) return; }catch(e){ return; }
+  if(document.getElementById('wn-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  try{ if(Date.now()<_WN_YOU_UNTIL && localStorage.getItem(_WN_YOU_KEY)!=='1') return; }catch(e){}   // the You-tab card goes first
+  if(typeof pushState==='function' && pushState()==='unsupported') return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="App Update">'
+    + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+    + '<h2 class="wn-h">App Update:</h2>'
+    + '<p class="wn-p">Notifications are here! Choose exactly what and when you want to be notified about. This app is intentionally non-addictive, so you have total control.</p>'
+    + '<p class="wn-p"><button class="set-quiet wn-go" id="wn-go-push" type="button">Choose your notifications &rsaquo;</button></p>'
+    + '<p class="wn-p" style="margin-top:6px"><b>Also new:</b><br>The You tab has new data cards that rotate daily.</p>'
+    + '<p class="wn-p"><button class="set-quiet wn-go" id="wn-go-you" type="button">Check out today\'s cards &rsaquo;</button></p>'
+    + '<button class="btn block" id="wn-ok" type="button">No thanks</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ try{ localStorage.setItem(_WN_PUSH_KEY,'1'); }catch(e){} d.remove(); };
+  const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
+  const g=d.querySelector('#wn-go-push'); if(g) g.onclick=()=>{ close(); try{ screenNotifications(); }catch(e){} };
+  const y=d.querySelector('#wn-go-you'); if(y) y.onclick=()=>{ close(); try{ app('you'); }catch(e){} };
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_push_seen',{}); }catch(e){}
+}
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewPush(); }catch(e){} }, ms)); });   // auth lands async; the card is idempotent
 
 function app(tab){
     currentTab = tab;
@@ -2264,6 +2292,205 @@ function app(tab){
     const g = b.querySelector('.in-go'); if(g) g.onclick = promptInstall;
     const x = b.querySelector('.in-x'); if(x) x.onclick = ()=>{ try{ localStorage.setItem('snb_install_nudge','dismissed'); }catch(_){} b.remove(); };
   }
+  // ── web push (2026-09-09) ──────────────────────────────────────────────────────────────
+  // Three kinds, all off until the person turns them on in Settings → Notifications (Justin,
+  // 2026-09-09: "the user needs to have control"): a reminder to check in a few hours after a
+  // practice (skipped if they already checked in again; never 9pm–8am), check-in reminders at
+  // the dayparts and times they pick, and a practice reminder at a time and on the days they
+  // pick. Nothing escalates, nothing counts, a missed reminder does not repeat. The browser
+  // permission is asked ONCE, from a tap, from the Notifications screen (or the one-time
+  // announcement card that points there). Dismissed → the switch just reverts. Denied → the
+  // screen says where to turn it back on. iPhone: push only works from the installed app, so
+  // an uninstalled iPhone gets the install hint, not a dead prompt. The after-practice pop-up
+  // that asked for permission was removed the same day (Justin: it promised a comparison that
+  // only exists if they checked in before, and gated the feature behind one moment).
+  // Server side: push_subscriptions + push_prefs (RLS, own rows), snb-push edge function on a
+  // 15-minute cron. Events: push_granted / push_denied / push_dismissed / push_prefs client-side,
+  // push_sent server-side, push_opened on tap, whatsnew_push_seen for the announcement.
+  const PUSH_KEY = 'snb_push';                       // {state, asks, at, routed}
+  const PUSH_REASK_DAYS = 3;                         // one later re-ask, not before this
+  const pushSupported = () => { try{ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }catch(e){ return false; } };
+  function pushRead(){ try{ return JSON.parse(localStorage.getItem(PUSH_KEY)||'{}')||{}; }catch(e){ return {}; } }
+  function pushWrite(patch){ const p=Object.assign(pushRead(), patch||{}, { at:Date.now() }); try{ localStorage.setItem(PUSH_KEY, JSON.stringify(p)); }catch(e){} return p; }
+  const pushTrack = (name, meta) => { try{ if(Store.trackEvent) Store.trackEvent(name, Object.assign({ perm:(window.Notification&&Notification.permission)||'n/a' }, meta||{})); }catch(e){} };
+  const pushIsMember = () => { try{ return !!Store.user() && !(Store.isAnonymous && Store.isAnonymous()); }catch(e){ return false; } };
+  const pushPlat = () => { try{ const ua=navigator.userAgent||''; if(/android/i.test(ua)) return 'android'; if(/iphone|ipod/i.test(ua)) return 'ios'; if(/ipad/i.test(ua) || (/macintosh/i.test(ua) && (navigator.maxTouchPoints||0)>1)) return 'ipados'; if(/macintosh|windows|linux|cros/i.test(ua)) return 'desktop'; return 'other'; }catch(e){ return 'other'; } };
+  const pushTz = () => { try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){ return null; } };
+  // ---- the person's choices (push_prefs row, cached locally for instant render) ----
+  const PUSH_PREFS_KEY = 'snb_push_prefs';
+  const PUSH_DAYPARTS = [['morning','Morning','09:00'],['afternoon','Afternoon','14:00'],['evening','Evening','19:00'],['late','Late night','22:00']];
+  const PUSH_DAYS = ['S','M','T','W','T','F','S'];
+  function pushPrefsDefault(){ return { followup:false, checkin_times:{}, practice_time:null, practice_days:[0,1,2,3,4,5,6] }; }
+  function pushPrefsRead(){ try{ return Object.assign(pushPrefsDefault(), JSON.parse(localStorage.getItem(PUSH_PREFS_KEY)||'{}')||{}); }catch(e){ return pushPrefsDefault(); } }
+  async function pushPrefsSave(patch){
+    const p = Object.assign(pushPrefsRead(), patch||{});
+    try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){}
+    const u = Store.user();
+    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
+    return p;
+  }
+  async function pushPrefsLoad(){
+    const u = Store.user(); if(!u || !window.sb) return pushPrefsRead();
+    try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days').eq('user_id', u.id).maybeSingle();
+      if(r && r.data){ const p=Object.assign(pushPrefsDefault(), r.data); try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){} return p; }
+    }catch(e){}
+    return pushPrefsRead();
+  }
+  const pushAnyOn = (p) => !!(p.followup || Object.keys(p.checkin_times||{}).length || p.practice_time);
+  function pushKeyBytes(b64u){
+    const s = (b64u||'').replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - (b64u||'').length % 4) % 4);
+    const bin = atob(s); const out = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+    return out;
+  }
+  // where this device stands, in one word: on | off | blocked | install | unsupported
+  function pushState(){
+    if(!pushSupported()) return (isiOS() && !isStandalone()) ? 'install' : 'unsupported';
+    if(isiOS() && !isStandalone()) return 'install';
+    try{ if(Notification.permission==='denied') return 'blocked'; }catch(e){}
+    const p = pushRead();
+    return (p.state==='granted' && Notification.permission==='granted') ? 'on' : 'off';
+  }
+  // save this device's subscription under the signed-in member (RLS: own rows only)
+  async function pushSaveSub(sub){
+    const u = Store.user(); if(!u || !window.sb || !sub) return false;
+    const j = sub.toJSON ? sub.toJSON() : sub;
+    const row = { user_id:u.id, endpoint:j.endpoint, p256dh:(j.keys&&j.keys.p256dh)||'', auth:(j.keys&&j.keys.auth)||'',
+                  platform:pushPlat(), pwa:isStandalone(), tz:pushTz(), ua:(navigator.userAgent||'').slice(0,200),
+                  last_seen_at:new Date().toISOString(), revoked_at:null, revoke_reason:null, fail_count:0 };
+    try{ const r = await window.sb.from('push_subscriptions').upsert(row, { onConflict:'endpoint' }); return !r.error; }catch(e){ return false; }
+  }
+  async function pushSubscribe(){
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:pushKeyBytes(window.SNB_VAPID_PUBLIC_KEY||'') });
+    const ok = await pushSaveSub(sub);
+    if(!ok) throw new Error('save failed');
+    return sub;
+  }
+  // The gesture path. MUST run inside a user tap (iOS refuses otherwise). Returns the
+  // resulting state word and records the outcome — this is the one place permission is asked.
+  async function pushRequest(origin){
+    let perm='default';
+    try{ perm = await Notification.requestPermission(); }catch(e){ try{ perm = Notification.permission; }catch(e2){} }
+    if(perm==='granted'){
+      try{ await pushSubscribe(); pushWrite({ state:'granted' }); pushTrack('push_granted', { origin }); return 'on'; }
+      catch(e){ pushWrite({ state:'error' }); pushTrack('push_error', { origin, reason:String(e&&e.message||e).slice(0,80) }); return 'off'; }
+    }
+    if(perm==='denied'){ pushWrite({ state:'denied' }); pushTrack('push_denied', { origin }); return 'blocked'; }
+    // the system dialog was closed without an answer — counts as a dismissal, one re-ask later
+    const p=pushRead(); pushWrite({ state:'dismissed', asks:(p.asks||0)+1 }); pushTrack('push_dismissed', { origin, system:true }); return 'off';
+  }
+  async function pushTurnOff(){
+    try{ const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription();
+      if(sub){ try{ if(window.sb && Store.user()) await window.sb.from('push_subscriptions').update({ revoked_at:new Date().toISOString(), revoke_reason:'user' }).eq('endpoint', sub.endpoint); }catch(e){} try{ await sub.unsubscribe(); }catch(e){} }
+    }catch(e){}
+    pushWrite({ state:'off' }); pushTrack('push_off', {});
+  }
+  // keep the stored row fresh (endpoints rotate; tz changes) — silent, on every signed-in load
+  function pushSyncExisting(){
+    try{
+      if(!pushSupported() || !pushIsMember() || Notification.permission!=='granted') return;
+      navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).then(sub=>{ if(sub) pushSaveSub(sub); }).catch(()=>{});
+    }catch(e){}
+  }
+  // the follow-up note opened the app: ?push=<delivery id> — count it, then let #checkin route
+  function pushConsumeOpen(){
+    try{
+      const q=new URLSearchParams(location.search); const id=q.get('push'); if(!id) return;
+      q.delete('push'); history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():'')+location.hash);
+      pushTrack('push_opened', { delivery:id });
+      const _mark=()=>{ try{ if(window.sb && Store.user()) window.sb.from('push_deliveries').update({ opened_at:new Date().toISOString() }).eq('id', id).then(()=>{}, ()=>{}); }catch(e){} };
+      if(Store.user()) _mark(); else setTimeout(_mark, 2500);
+    }catch(e){}
+  }
+  // Settings → Notifications. Everything off unless the person turns it on (Justin, 2026-09-09:
+  // "the user needs to have control"). Turning the first thing on is what asks the browser.
+  function pushRowInner(){
+    const s = pushState(); if(s==='unsupported') return '';
+    const p = pushPrefsRead();
+    const status = s==='install' ? 'Needs the installed app' : s==='blocked' ? 'Off in your device settings' : (s==='on' && pushAnyOn(p)) ? 'On' : 'Off';
+    return `<span class="gs-lbl">Notifications</span><span class="val" style="font-weight:400;margin-left:auto">${status}</span> <button class="set-quiet push-open" type="button" style="margin-left:10px">Choose &rsaquo;</button>`;
+  }
+  function pushBindRow(){ const row=document.getElementById('push-row'); if(!row) return; const b=row.querySelector('.push-open'); if(b) b.onclick=()=>screenNotifications(); }
+  async function screenNotifications(){
+    const prefs = await pushPrefsLoad();
+    const s = pushState();
+    const timeIn = (id, val, dis) => `<input type="time" id="${id}" value="${val||''}" ${dis?'disabled':''} style="font:inherit;font-size:calc(15px * var(--type-scale));background:transparent;border:0;border-bottom:1px solid var(--hairline);color:var(--ink);padding:6px 0;min-height:44px">`;
+    const sw = (id,label,on,dis) => `<div class="gs-sw"><span class="gs-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}" ${dis?'disabled style="opacity:.45"':''}><span class="set-sw-knob"></span></button></div>`;
+    const dis = (s==='install' || s==='blocked' || s==='unsupported');
+    const hint = s==='install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
+               : s==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
+               : s==='unsupported' ? 'This browser cannot show notifications from the app.'
+               : 'Nothing is on unless you choose it. A reminder you miss does not repeat, and nothing here counts or keeps score.';
+    const days = (prefs.practice_days||[]);
+    // each daypart's time is limited to that daypart (Justin: 3pm is not a morning slot)
+    const LIM = { morning:['05:00','11:59'], afternoon:['12:00','16:59'], evening:['17:00','21:59'], late:['22:00','23:59'] };
+    const timeIn2 = (id, val, dis, lim) => `<input type="time" id="${id}" value="${val||''}" ${lim?`min="${lim[0]}" max="${lim[1]}"`:''} ${dis?'disabled':''} style="font:inherit;font-size:calc(15px * var(--type-scale));background:transparent;border:0;border-bottom:1px solid var(--hairline);color:var(--ink);padding:6px 0;min-height:44px">`;
+    setHTML(`
+      <header class="appbar"><button class="backbtn" id="nt-back" type="button">Settings</button></header>
+      <div class="scroll"><div class="view settings-view">
+        <div class="scr-head">
+          <p class="eyebrow"></p>
+          <h2 class="scr-h">Notifications</h2>
+          <p class="scr-lede" id="nt-hint">${hint}</p>
+        </div>
+        <div class="gs">
+        <div class="gs-card">
+          <p class="gs-h">After practice reminder</p>
+          <p class="gs-note">You'll receive a reminder to check-in within a few hours of a practice if you have not already. This helps track how effective the practices are. (No reminders are sent between 9pm and 8am.)</p>
+          ${sw('nt-followup','After practice reminder', !!prefs.followup, dis)}
+        </div>
+        <div class="gs-card">
+          <p class="gs-h">Check-in reminders</p>
+          <p class="gs-note">You'll receive a reminder to check-in for each time period that you select. More check-ins provide more clarity about how your system shows up throughout the day and helps the app to recommend practices best suited for you.</p>
+          ${PUSH_DAYPARTS.map(d=>{ const on = !!(prefs.checkin_times||{})[d[0]]; return sw('nt-ci-'+d[0], d[1], on, dis) + `<div id="nt-cit-${d[0]}" style="${on?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-'+d[0], (prefs.checkin_times||{})[d[0]]||d[2], dis, LIM[d[0]])}</div>`; }).join('')}
+          <p class="gs-fine">You'll receive one reminder for each time period you choose.</p>
+        </div>
+        <div class="gs-card">
+          <p class="gs-h">Practice reminder</p>
+          <p class="gs-note">You'll receive a reminder to practice on the days and the time of your choosing.</p>
+          ${sw('nt-practice','Practice reminder', !!prefs.practice_time, dis)}
+          <div id="nt-prt" style="${prefs.practice_time?'':'display:none'}">
+            ${timeIn2('nt-time-practice', prefs.practice_time||'08:00', dis, null)}
+            <div class="p-chips" style="margin-top:12px">${PUSH_DAYS.map((d,i)=>`<button class="p-chip nt-day${days.indexOf(i)>=0?' on':''}" type="button" data-day="${i}" aria-pressed="${days.indexOf(i)>=0}" aria-label="${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][i]}" style="padding:9px 13px">${d}</button>`).join('')}</div>
+          </div>
+        </div>
+        ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-card"><p class="gs-h">Beta</p><div class="gs-actions"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div></div>' : ''}
+        </div>
+      </div></div>`);
+    const back=$('#nt-back'); if(back) back.onclick=()=>screenSettings();
+    // permission is asked the first time anything is switched on; a refusal reverts the switch
+    let cur = prefs;
+    const ensure = async ()=>{ if(pushState()==='on') return true; const r = await pushRequest('settings'); if(r==='on') return true; const h=$('#nt-hint'); if(h) h.innerHTML = r==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.' : 'Notifications were not turned on. You can try again any time.'; return false; };
+    const bindSw2=(id,fn)=>{ const b=$('#'+id); if(!b) return; b.onclick=async()=>{ if(b.disabled) return; const on=!b.classList.contains('on'); b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false'); if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); }; };
+    const save = (patch)=>{ pushPrefsSave(patch).then(p=>{ cur=p; }); pushTrack('push_prefs', { followup:!!(patch.followup!==undefined?patch.followup:cur.followup) }); };
+    bindSw2('nt-followup', on=>save({ followup:on }));
+    PUSH_DAYPARTS.forEach(d=>{
+      const box=$('#nt-cit-'+d[0]), inp=$('#nt-time-'+d[0]);
+      bindSw2('nt-ci-'+d[0], on=>{ if(box) box.style.display=on?'':'none'; const ct=Object.assign({}, cur.checkin_times||{}); if(on) ct[d[0]]=(inp&&inp.value)||d[2]; else delete ct[d[0]]; save({ checkin_times:ct }); });
+      if(inp) inp.onchange=()=>{ const lim=LIM[d[0]]; if(inp.value && lim){ if(inp.value<lim[0]) inp.value=lim[0]; if(inp.value>lim[1]) inp.value=lim[1]; } const ct=Object.assign({}, cur.checkin_times||{}); if(ct[d[0]]!==undefined && inp.value){ ct[d[0]]=inp.value; save({ checkin_times:ct }); } };
+    });
+    { const box=$('#nt-prt'), inp=$('#nt-time-practice');
+      bindSw2('nt-practice', on=>{ if(box) box.style.display=on?'':'none'; save({ practice_time: on ? ((inp&&inp.value)||'08:00') : null }); });
+      if(inp) inp.onchange=()=>{ if(cur.practice_time && inp.value) save({ practice_time:inp.value }); };
+      root.querySelectorAll('.nt-day').forEach(b=>b.onclick=()=>{ const i=+b.dataset.day; const d=(cur.practice_days||[]).slice(); const k=d.indexOf(i); if(k>=0) d.splice(k,1); else d.push(i); d.sort(); b.classList.toggle('on',k<0); b.setAttribute('aria-pressed',String(k<0)); save({ practice_days:d }); });
+    }
+    const t=$('#nt-test'); if(t) t.onclick=async()=>{
+      t.disabled=true; t.textContent='Sending…';
+      try{
+        const { data } = await window.sb.auth.getSession();
+        const tok = data && data.session && data.session.access_token;
+        const r = await fetch(window.SNB_CONFIG.SUPABASE_URL+'/functions/v1/snb-push', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+tok, 'apikey':window.SNB_CONFIG.SUPABASE_ANON_KEY }, body:JSON.stringify({ test:true }) });
+        const j = await r.json().catch(()=>({}));
+        showToast(j && j.ok ? ('sent to '+j.subscriptions+' device'+(j.subscriptions===1?'':'s')) : 'test failed');
+      }catch(e){ showToast('test failed'); }
+      t.disabled=false; t.textContent='Send a test notification';
+    };
+  }
+  // a subscription the browser rotated while the app was closed (sw.js pushsubscriptionchange)
+  try{ if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', ev=>{ const d=ev.data||{}; if(d.type==='PUSH_RESUBSCRIBED' && d.sub) pushSaveSub(d.sub); }); }catch(e){}
+  // ── end web push ─────────────────────────────────────────────────────────────────────
   // RETIRED 2026-07-13 — the trial is gone, so nothing can enter `trialing` and there is
   // no pending charge to warn anyone about. The banner existed to make sure nobody paid by
   // accident; with no card taken until someone chooses to subscribe, that can't happen.
@@ -5578,8 +5805,6 @@ function app(tab){
               ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'Late at night':CAP(segLabel(s))}</span></div>`;})()}
             </div>
           </div>
-          <button class="change-link" id="change-ci" type="button">Change a recent check-in</button>
-          ${Store.sessions().length ? '<button class="change-link" id="manage-pr" type="button">Manage your practices</button>' : ''}
         </div>`;
 
       // ---- desktop ledger (2026-07-19): wide screens get the pattern cards as a
@@ -5592,20 +5817,14 @@ function app(tab){
           const all=window._youAll;
           let key=window._youLedgerKey; if(!all.some(s=>s[0]===key)) key=all[0][0];
           window._youLedgerKey=key;
+          // 2026-09-09 (Justin): the glyph icons in this list "look terrible" — every entry is a dot
+          // now, coloured by its state where the card is about one state, hairline otherwise.
+          const _dot=(c)=>'<span class="yl-ic"><span class="yl-dot"'+(c?' style="background:'+c+'"':'')+'></span></span>';
           const _I={
-            safety:'<span class="yl-ic tri"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            comeback:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M9.5 21s-5.5-3.6-5.5-7.8A3.2 3.2 0 019.5 11a3.2 3.2 0 015.5 2.2c0 4.2-5.5 7.8-5.5 7.8z"/><path d="M20 3.5c.6 4.2-1.6 7.6-4.8 9.6"/><path d="M15.8 9.7l-.6 3.4 3.4-.5"/></svg></span>',
-            mix:'<span class="yl-ic"><svg viewBox="0 0 24 24" style="stroke-width:3"><path d="M12 4a8 8 0 016.9 4" stroke="'+STATE_COLOR('safety')+'"/><path d="M18.9 16a8 8 0 01-13.8 0" stroke="'+STATE_COLOR('fightflight')+'"/><path d="M5.1 8A8 8 0 0112 4" stroke="'+STATE_COLOR('shutdown')+'"/></svg></span>',
-            times:'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.6-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.4-7 10-7 10z"/></svg></span>',
-            // mobilized/immobilized (2 combined cards) retired for 5 solo-state axis
-            // cards (2026-07-29 redesign) — same two stand-in glyphs reused per card
-            // since a bespoke icon per state wasn't part of this round's redesign.
-            'ax-play':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'ax-fightflight':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z"/></svg></span>',
-            'ax-stillness':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'ax-shutdown':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>',
-            'ax-freeze':'<span class="yl-ic"><svg viewBox="0 0 24 24"><path d="M7 7c3 2 7 8 10 10M17 7c-3 2-7 8-10 10M7 7 5.5 5.5M17 7l1.5-1.5M7 17l-1.5 1.5M17 17l1.5 1.5"/></svg></span>'
-            // 'records' icon entry removed — the card is cut (2026-07-29: "it's useless").
+            safety:_dot(STATE_COLOR('safety')), comeback:_dot(STATE_COLOR('safety')), safeDays:_dot(STATE_COLOR('safety')),
+            started:_dot(STATE_COLOR('safety')), holds:_dot(STATE_COLOR('safety')), coact:_dot(STATE_COLOR('freeze')),
+            'ax-play':_dot(STATE_COLOR('play')), 'ax-fightflight':_dot(STATE_COLOR('fightflight')), 'ax-stillness':_dot(STATE_COLOR('stillness')),
+            'ax-shutdown':_dot(STATE_COLOR('shutdown')), 'ax-freeze':_dot(STATE_COLOR('freeze')),
           };
           const cur=all.find(s=>s[0]===key);
           const wrap=document.createElement('div'); wrap.className='you-ledger';
@@ -5641,8 +5860,6 @@ function app(tab){
       const snapUnit = (cv)=>{ const p=cv&&cv.firstElementChild; return p ? p.offsetWidth+14 : (cv?cv.clientWidth:1)||1; };
       c.querySelectorAll('.period-pill').forEach(b=>b.addEventListener('click',()=>{ const cv=$('#carousel'); const sl=cv?cv.scrollLeft:0; activePeriod=b.dataset.period; render(); const nv=$('#carousel'); if(nv){ nv.scrollLeft=sl; const _dd=c.querySelectorAll('#dots .dot-i'); const i=Math.max(0,Math.min(_dd.length-1,Math.round(sl/snapUnit(nv)))); _dd.forEach((d,j)=>d.classList.toggle('on',j===i)); } }));
       const setBtn=$('#set-btn'); if(setBtn) setBtn.onclick=screenSettings;
-      const chgBtn=$('#change-ci'); if(chgBtn) chgBtn.onclick=screenChangeCheckin;
-      const mpBtn=$('#manage-pr'); if(mpBtn) mpBtn.onclick=screenManagePractices;
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
@@ -6770,8 +6987,8 @@ function app(tab){
               <p class="gs-lbl2">How you enter your state</p>
               <div class="set-seg" id="seg-method">
                 <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>Questions</button>
-                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Number sliders</button>
-                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State picker</button>
+                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Numbers</button>
+                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State</button>
               </div>
               <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
               <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
@@ -6779,9 +6996,8 @@ function app(tab){
           </div>
 
           <div class="gs-card">
-            <div class="gs-sw" style="padding-bottom:4px"><span class="gs-lbl">The walkthrough</span>
-              <button class="linkbtn" id="set-walkthrough" type="button">Walk me through it</button></div>
-            <p class="gs-cap" style="margin:0 0 2px">The member walkthrough, again. It changes nothing on its own.</p>
+            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Orientation</span>
+              <button class="linkbtn" id="set-walkthrough" type="button">Show me the app orientation</button></div>
           </div>
 
           <div class="gs-card">
@@ -6797,7 +7013,7 @@ function app(tab){
               <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">Dark</span></button>
             </div>
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
-            <p class="ch-cap" id="motion-cap" style="margin:6px 0 0"></p>
+            <p class="ch-cap" id="motion-cap"></p>
             <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
               <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
@@ -6811,21 +7027,21 @@ function app(tab){
           <div class="gs-card">
             <p class="gs-h">App</p>
             ${gsSw('sw-live','Live practice invitations',lv!=='0')}
-            <p class="ch-cap" id="live-cap" style="margin:6px 0 0"></p>
+            <p class="ch-cap" id="live-cap"></p>
             ${gsSw('sw-haptics','Haptics',hp)}
-            <p class="ch-cap" id="hap-cap" style="margin:6px 0 0"></p>
             ${gsSw('sw-offline','Save practices for offline',offOn)}
             <p class="gs-fine" id="offline-status"></p>
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
             ${_hapIsIOS()?'<p class="gs-fine">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
             ${isStandalone()?'':`<div class="set-row-inline" id="install-row" style="margin-top:12px">${installRowInner()}</div>`}
+            ${pushRowInner()?`<div class="set-row-inline" id="push-row" style="margin-top:12px">${pushRowInner()}</div>`:''}
             <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">Join a live practice with a code</button></div>
           </div>
 
           <div class="gs-card">
             <p class="gs-h">Your data</p>
             ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
-            <p class="ch-cap" id="glyph-cap" style="margin:6px 0 0"></p>
+            <p class="ch-cap" id="glyph-cap"></p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins</button>
               <button class="set-quiet" id="privacy">How your data is handled</button>
@@ -6848,16 +7064,22 @@ function app(tab){
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account. You were here before the base plan existed, so all of it is yours.</p></div>`;
             return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
 
-          <div class="gs-danger">
-            <button class="set-quiet set-quiet-danger" id="reset">Reset my data</button>
-            <button class="set-quiet set-quiet-danger" id="delacct">Delete my account</button>
+          <div class="gs-card">
+            <p class="gs-h">Your history</p>
+            <div class="gs-actions">
+              <button class="set-quiet" id="set-change-ci" type="button">Change a recent check-in</button>
+              ${Store.sessions().length ? '<button class="set-quiet" id="set-manage-pr" type="button">Manage your practices</button>' : ''}
+              <button class="set-quiet set-quiet-danger" id="reset">Reset my data</button>
+              <button class="set-quiet set-quiet-danger" id="delacct">Delete my account</button>
+            </div>
           </div>
 
           <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
         </div>
       </div>`;
-    const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding(true), 80); };
+    { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same
     // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
@@ -6921,14 +7143,11 @@ function app(tab){
     // mirrors the current state so the row explains itself either way. 🖊
     const _motionCap = on=>{ const el=$('#motion-cap'); if(el) el.textContent = on
       ? 'Animations are on.'
-      : "Animations are off. This turns off the app's decorative movement. Breathing practices keep their full timing; words carry the pace instead."; };
+      : "Animations are off. This turns off the app's decorative movement. "; };
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
-    const _hapCap = on=>{ const el=$('#hap-cap'); if(el) el.textContent = on
-      ? 'Haptics are on. The app answers your taps with a tiny buzz.'
-      : 'Haptics are off. The app never vibrates.'; };
-    _hapCap(hp);
-    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); _hapCap(on); });
+    // no caption on haptics (Justin 2026-09-09: the switch says it); the buzz on switch-on stays
+    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); });
     // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
       ? 'Your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
@@ -6937,19 +7156,20 @@ function app(tab){
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
     const _liveCap = on=>{ const el=$('#live-cap'); if(el) el.textContent = on
-      ? 'When a live practice is happening, the Now screen offers a quiet invitation to check in alongside it.'
+      ? 'When a live practice is happening, the Now screen will have an optional pop-up to check-in.'
       : 'The app never mentions live practices. Joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });
     { const _lc=$('#live-code'); if(_lc) _lc.onclick=()=>screenLiveCode(); }
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
+    pushBindRow();
     // offline: bulk download / clear, with an honest iOS-eviction check on render
     const segOff = $('#sw-offline'); const offStatus = $('#offline-status');
     const setOff = (t)=>{ if(offStatus) offStatus.textContent = t; };
     // plain state-mirroring captions (Justin 2026-07-05): the line always says
     // what is true RIGHT NOW, in the plainest words we have. 🖊
     const OFF_ON_TXT  = 'Every practice is saved on this device, they all play without a connection.';
-    const OFF_OFF_TXT = 'practices play over the internet. turn this on to save them all to this device (about 94 mb, best on wi-fi), so they play with no connection at all.';
+    const OFF_OFF_TXT = 'Practices play over the internet. Turn this on to save them all to this device (about 94 MB, best on Wi-Fi), so they play with no connection at all.';
     setOff(localStorage.getItem(OFFLINE_FLAG)==='1' ? OFF_ON_TXT : OFF_OFF_TXT);
     (async ()=>{
       if(localStorage.getItem(OFFLINE_FLAG)==='1'){
@@ -7129,5 +7349,7 @@ function routeSafe(){
   if(document.querySelector('.fb-view')) return;   // and so do the screens that follow it
   route();
 }
+try{ pushConsumeOpen(); }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally
 Store.init(routeSafe);
+addEventListener('load',()=>{ setTimeout(()=>{ try{ pushSyncExisting(); }catch(e){} }, 3000); });
 })();
