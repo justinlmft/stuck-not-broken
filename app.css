@@ -1631,7 +1631,7 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
    hold them, which only happens at the large steps. (2026-07-24) */
 #seg-method{flex-wrap:nowrap}
 @media (max-width:520px){ #seg-method{flex-wrap:wrap} }
-.gs-h{font-size:calc(12px * var(--type-scale));font-weight:500;color:var(--muted);margin:0 0 14px}
+.gs-h{font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);margin:0 0 12px;letter-spacing:-.005em}   /* 2026-09-09 (Justin): card headings must outrank their body */
 .gs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
 .gs-k{font-size:calc(14.5px * var(--type-scale));color:var(--muted);flex:none}
 /* the walkthrough row caption shipped with no rule at all, so it inherited body size
@@ -1640,12 +1640,14 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 .gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink);min-width:0;text-align:right;overflow-wrap:break-word}
 .gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0;min-height:44px}
 .gs-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
-.gs-sw+.gs-sw{border-top:1px solid var(--hairline)}
+.gs-sw+.gs-sw,.gs-card>.ch-cap+.gs-sw,.gs-card>.gs-fine+.gs-sw,.gs-card>.gs-note+.gs-sw,.gs-card>div+.gs-sw{border-top:1px solid var(--hairline)}
+.gs-card>.gs-sw+.ch-cap,.gs-card>.gs-sw+.gs-fine{margin:0 0 12px;min-height:0}
+.gs-card>.gs-sw+.ch-cap::before,.gs-card>.gs-sw+.gs-fine::before{content:"\2014\00a0";color:var(--muted)}   /* 2026-09-09 (Justin): no vertical rail against the horizontal dividers; a quiet em dash marks the description instead */   /* 2026-09-09 (Justin): a setting's description is indented under it, and the divider gets the same air above and below */   /* 2026-09-09 (Justin): a divider between every setting in a card, even when a caption sits between */
 .gs-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
 .gs-lbl2{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:0 0 9px}
 .gs-actions{display:flex;flex-direction:column;align-items:flex-start;gap:15px}
 .gs-note{font-size:calc(13.5px * var(--type-scale));color:var(--ink-80);margin:0 0 12px;line-height:1.55}
-.gs-fine{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.5;margin:10px 0 0;text-wrap:pretty}
+.gs-fine{font-size:calc(15px * var(--type-scale));color:var(--ink-80);line-height:1.5;margin:10px 0 0}   /* 2026-09-09 (Justin): same register as .ch-cap, full width (no pretty-wrap ragging) */
 .gs-danger{display:flex;flex-direction:column;align-items:flex-start;gap:15px;padding:6px 4px 0}
 /* inline disclosures */
 .rs-disc-btn{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;background:none;border:0;padding:0;cursor:pointer;font:inherit;color:var(--ink);text-align:left}
@@ -1661,7 +1663,7 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 .rs-disc-body>.disc-inner{padding-top:16px}
 .rs-scene-body>.disc-inner{padding-top:14px}
 body.reduce-motion .rs-disc-body,body.reduce-motion .rs-scene-body{transition:none}
-.rs-cap{font-size:calc(13px * var(--type-scale));color:var(--muted);line-height:1.5;margin:11px 0 0;text-wrap:pretty}
+.rs-cap{font-size:calc(15px * var(--type-scale));color:var(--ink-80);line-height:1.5;margin:11px 0 0}   /* 2026-09-09 (Justin): same register as .ch-cap, full width */
 .rs-preview{margin-top:16px;padding-top:16px;border-top:1px solid var(--bone-deep)}
 /* onboarding's method card: fixed floor height so switching sliders/numbers/states
    doesn't reflow the whole sheet — the state-picker preview (6 wrapped chips) is much
