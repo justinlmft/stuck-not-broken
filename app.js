@@ -434,7 +434,7 @@
   // check-in method label/caption/preview — shared between settings and the onboarding
   // "How do you want to check in?" card so the two never drift (hoisted 2026-07-28;
   // was previously a settings-only closure).
-  const METHOD_LABEL = { sliders:'questions', states:'state picker', numbers:'number sliders' };
+  const METHOD_LABEL = { sliders:'questions', states:'state', numbers:'numbers' };   // Justin 2026-09-09: 'Numbers' / 'State'
   const METHOD_CAP = {
     sliders:'Best for someone who has a hard time identifying their state. Simply answer a few quick questions with three sliders.',
     numbers:'Use numbers to check in. Best for the person that thinks concretely.',
@@ -6987,8 +6987,8 @@ function app(tab){
               <p class="gs-lbl2">How you enter your state</p>
               <div class="set-seg" id="seg-method">
                 <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>Questions</button>
-                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Number sliders</button>
-                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State picker</button>
+                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Numbers</button>
+                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State</button>
               </div>
               <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
               <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
