@@ -57,6 +57,13 @@ window.SNB_CONFIG = {
 };
 window.SNB_ENV = SNB_ENV.name;          // 'prod' | 'staging'
 window.SNB_IS_STAGING = SNB_ENV.name === 'staging';
+/* Web push (2026-09-09). The VAPID PUBLIC key is what the browser hands to the push service
+   when it subscribes; it is public by definition and pairs with the private key held in each
+   project's Vault (vapid_private). One pair per backend, so a staging subscription can never
+   be signed for by prod. Rotating the pair invalidates every existing subscription. */
+window.SNB_VAPID_PUBLIC_KEY = SNB_ENV.name === 'prod'
+  ? 'BAafpSuOzR1j5fJIqz9yGu2biKJPeNmB9iLTLc5Hkhq35U_DnZJT6SJcOklmVm_xr4pjcHack9upqeEvV-PgRbk'
+  : 'BBXAl9vGzaaOST6PHXyzXT9tmX6NWKmeYrJ9lcSj6TBjzEWvDvWrtjGbPIIyqgGnG9PFroHKPcn50Bz_s_t9uJk';
 
 window.sb = null;
 (function () {
