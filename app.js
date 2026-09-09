@@ -5075,7 +5075,7 @@ function app(tab){
     // (Justin 2026-09-07: "use the glyphs as table headers above those columns")
     const head = trio ? `<div class="sd-row sd-head"><span class="sd-lbl"></span><span class="sd-val"><span class="sd-trio">${['safety','fightflight','shutdown'].map(k=>`<b>${stateMarks(k)}</b>`).join('')}</span><span class="sd-rng sd-rng-ph"></span></span></div>` : '';
     const body = rows.filter(r=>r && r[1]!=null && r[1]!=='').map(r=>`<div class="sd-row"><span class="sd-lbl">${r[0]}</span><span class="sd-val">${r[1]}</span></div>`).join('');
-    return `<details class="see-data"><summary class="sd-sum"><span>See the data</span></summary><div class="sd-body">${head}${body}${n!=null?`<div class="sd-row sd-n"><span class="sd-lbl">Check-ins in this window</span><span class="sd-val">${n}</span></div>`:''}${how?`<p class="sd-how">${how}</p>`:''}</div></details>`;
+    return `<details class="see-data"><summary class="sd-sum"><span>See the data</span></summary><div class="sd-body">${head}${body}${n!=null?`<div class="sd-row sd-n"><span class="sd-lbl">Check-ins in this time period</span><span class="sd-val">${n}</span></div>`:''}${how?`<p class="sd-how">${how}</p>`:''}</div></details>`;
   }
   // before/after pairs for the You tab: the session-bound pairs the app records now,
   // PLUS the older post-practice check-ins that were saved before sessions were bound
@@ -5166,7 +5166,7 @@ function app(tab){
     // 1 · where your system sits (baseline: the dot and ring on the rail, previous window dashed)
     (function(){
       const bl=_baselineBar(allCs, days);
-      const _blNow=({'7':'this week','30':'this month','90':'these 90 days','all':'all time'})[activePeriod]||'this window';
+      const _blNow=({'7':'this week','30':'this month','90':'these 90 days','all':'all time'})[activePeriod]||'this time period';
       const _blPrev=({'7':'last week','30':'last month','90':'the 90 days before'})[activePeriod]||null;
       const win=_reads(days==null?allCs:allCs.filter(c=>c.t>=Date.now()-Math.max(days,_BL_MIN_DAYS)*864e5));
       const ms=win.map(_yM).filter(m=>m!=null);
@@ -5175,7 +5175,7 @@ function app(tab){
         ${shareBtn('safety')}<h2 class="panel-title">Your state range</h2>
         <p class="panel-sub">${CAP(periodPhrase)}.</p>
         ${_blCardHTML(bl,_blNow,_blPrev)}
-        ${bl.early?'':_seeData(rows,'Your three states, averaged over at least 28 days.',win.length)}`, bl.early?'early':Math.round((bl.dotPos||0)*100));
+        ${bl.early?'':_seeData(rows,'Your three states, averaged over '+(days==null?'all time':'the last '+Math.max(days,_BL_MIN_DAYS)+' days')+'.',win.length)}`, bl.early?'early':Math.round((bl.dotPos||0)*100));
     })();
 
     // 2 · day by day (replaces best day + least day)
@@ -5280,7 +5280,7 @@ function app(tab){
           <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${stateMarks(dom1)}</span>
         </div><div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div></div></div>
         <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'held steady'} ${isAll?'since you started':'over '+periodPhrase}.</p>
-        ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],isAll?'Your first check-ins against your most recent ones.':'Your earliest check-ins in this window against your most recent ones.', null, true)}`, Math.round(g*100));
+        ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],isAll?'Your first check-ins against your most recent ones.':'Your earliest check-ins in this time period against your most recent ones.', null, true)}`, Math.round(g*100));
     })();
 
     // 6 · what a practice does (three reading shifts, before to after)
@@ -5344,7 +5344,7 @@ function app(tab){
       push('readings','each state over time',`
         ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
         <div class="rd-row">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
-        ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),'Each row is a third of the window.',n,true)}`,
+        ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),null,n,true)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
     })();
 
