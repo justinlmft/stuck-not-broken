@@ -5,12 +5,12 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v480';
+const SHELL_VERSION = 'snb-app-shell-v485';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=207', './app.js?v=288', './icons.js?v=2', './current.js?v=19',
-  './config.js?v=8', './store.js?v=86', './from-justin.js?v=20', './player.html',
+  './', './index.html', './app.css?v=210', './app.js?v=293', './icons.js?v=2', './current.js?v=19',
+  './config.js?v=9', './store.js?v=86', './from-justin.js?v=20', './player.html',
   './clips/silence-30s.wav', './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 
@@ -135,5 +135,58 @@ self.addEventListener('fetch', (e) => {
       if (req.mode === 'navigate') { const idx = await caches.match('./index.html'); if (idx) return idx; }
       throw err;
     }
+  })());
+});
+
+/* ---- web push (2026-09-09) ---------------------------------------------------------------
+   Notes the person chose in Settings (the ~3h follow-up after a practice, check-in reminders,
+   a practice reminder), sent by the snb-push edge function. The payload is JSON {title, body, url, tag, id}. Tapping it opens
+   (or focuses) the app at url — './?push=<id>#checkin' — so app.js can count the open and
+   land on the check-in. Nothing here touches caching or audio. */
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { try { d = { body: e.data ? e.data.text() : '' }; } catch (err2) { d = {}; } }
+  const title = d.title || 'Stuck Not Broken';
+  const opts = {
+    body: d.body || '',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    tag: d.tag || 'snb',
+    renotify: false,
+    data: { url: d.url || './', id: d.id || null },
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const scope = self.registration.scope;
+  let target = scope;
+  try { target = new URL((e.notification.data && e.notification.data.url) || './', scope).href; } catch (err) {}
+  e.waitUntil((async () => {
+    const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of list) {
+      if (c.url && c.url.indexOf(scope) === 0 && 'focus' in c) {
+        try { if ('navigate' in c) await c.navigate(target); } catch (err) {}
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(target);
+  })());
+});
+
+/* The browser rotated the subscription while the app was closed. Re-subscribe with the same
+   server key and hand the new subscription to any open page, which saves it under the member.
+   Best effort: if no page is open, the next signed-in load re-syncs it (app.js pushSyncExisting). */
+self.addEventListener('pushsubscriptionchange', (e) => {
+  e.waitUntil((async () => {
+    try {
+      const old = e.oldSubscription;
+      const key = old && old.options && old.options.applicationServerKey;
+      if (!key) return;
+      const sub = await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+      const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of list) { try { c.postMessage({ type: 'PUSH_RESUBSCRIBED', sub: sub.toJSON() }); } catch (err) {} }
+    } catch (err) {}
   })());
 });
