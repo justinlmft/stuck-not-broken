@@ -1631,7 +1631,7 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
    hold them, which only happens at the large steps. (2026-07-24) */
 #seg-method{flex-wrap:nowrap}
 @media (max-width:520px){ #seg-method{flex-wrap:wrap} }
-.gs-h{font-size:calc(12px * var(--type-scale));font-weight:500;color:var(--muted);margin:0 0 14px}
+.gs-h{font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);margin:0 0 12px;letter-spacing:-.005em}   /* 2026-09-09 (Justin): card headings must outrank their body */
 .gs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
 .gs-k{font-size:calc(14.5px * var(--type-scale));color:var(--muted);flex:none}
 /* the walkthrough row caption shipped with no rule at all, so it inherited body size
@@ -1640,7 +1640,7 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
 .gs-v{font-size:calc(14.5px * var(--type-scale));color:var(--ink);min-width:0;text-align:right;overflow-wrap:break-word}
 .gs-card .gs-row .name-input{text-align:right;border-bottom:0;padding:0;min-height:44px}
 .gs-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0}
-.gs-sw+.gs-sw{border-top:1px solid var(--hairline)}
+.gs-sw+.gs-sw,.gs-card>.ch-cap+.gs-sw,.gs-card>.gs-fine+.gs-sw,.gs-card>.gs-note+.gs-sw,.gs-card>div+.gs-sw{border-top:1px solid var(--hairline)}   /* 2026-09-09 (Justin): a divider between every setting in a card, even when a caption sits between */
 .gs-lbl{font-size:calc(14.5px * var(--type-scale));color:var(--ink)}
 .gs-lbl2{font-size:calc(13px * var(--type-scale));color:var(--muted);margin:0 0 9px}
 .gs-actions{display:flex;flex-direction:column;align-items:flex-start;gap:15px}
