@@ -2222,6 +2222,32 @@ function whatsNewYou(){
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_you_seen',{}); }catch(e){}
 }
 addEventListener('load',()=>{ setTimeout(()=>{ try{ whatsNewYou(); }catch(e){} }, 1400); });
+// Notifications announcement (2026-09-09). Same frame as the You-tab card; shows once per device to
+// every signed-in member, but never on the same load as the You-tab card and never over onboarding.
+// 🖊 copy draft. It only points at Settings → Notifications; the browser is asked there, from a tap.
+const _WN_PUSH_KEY='snb_whatsnew_push_2026_09';
+function whatsNewPush(){
+  try{ if(localStorage.getItem(_WN_PUSH_KEY)==='1') return; }catch(e){ return; }
+  try{ if(!Store.user() || (Store.isAnonymous&&Store.isAnonymous())) return; }catch(e){ return; }
+  if(document.getElementById('wn-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  try{ if(Date.now()<_WN_YOU_UNTIL && localStorage.getItem(_WN_YOU_KEY)!=='1') return; }catch(e){}   // the You-tab card goes first
+  if(typeof pushState==='function' && pushState()==='unsupported') return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="App Update">'
+    + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+    + '<h2 class="wn-h">App Update:</h2>'
+    + '<p class="wn-p">Notifications are here, and you choose what you get: a reminder to check in a few hours after a practice, check-in reminders at the times of day you pick, or a practice reminder on the days you choose.</p>'
+    + '<p class="wn-p">Nothing is on unless you turn it on.</p>'
+    + '<p class="wn-p"><button class="set-quiet wn-go" id="wn-go-push" type="button">Choose your notifications &rsaquo;</button></p>'
+    + '<button class="btn block" id="wn-ok" type="button">Not now</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ try{ localStorage.setItem(_WN_PUSH_KEY,'1'); }catch(e){} d.remove(); };
+  const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
+  const g=d.querySelector('#wn-go-push'); if(g) g.onclick=()=>{ close(); try{ screenNotifications(); }catch(e){} };
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_push_seen',{}); }catch(e){}
+}
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewPush(); }catch(e){} }, ms)); });   // auth lands async; the card is idempotent
 
 function app(tab){
     currentTab = tab;
@@ -2238,7 +2264,6 @@ function app(tab){
     ({ now:tabNow, you:tabYou, practice:tabPractice }[tab] || tabNow)();
     if(tab === 'now') maybeInstallNudge();
     if(tab === 'now') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
-    setTimeout(pushMaybeAsk, 700);                   // one-time notification ask, only after a completed practice
    
   }
   // install affordances: a quiet settings row + an optional dismissable today nudge
@@ -2267,17 +2292,19 @@ function app(tab){
   }
   // ── web push (2026-09-09) ──────────────────────────────────────────────────────────────
   // Three kinds, all off until the person turns them on in Settings → Notifications (Justin,
-  // 2026-09-09: "the user needs to have control"): the ~3h follow-up note after a completed
-  // practice (ROADMAP entry 13 — a mirror, skipped if they already checked in again, never
-  // 9pm–8am), check-in reminders at the dayparts and times they pick, and a practice reminder
-  // at a time and on the days they pick. Nothing escalates, nothing counts, a missed note does
-  // not repeat. The browser permission is asked ONCE, from a tap, with a plain reason in our
-  // voice first: after a completed practice (the pop-up below) or from the Notifications
-  // screen. Dismissed → one later re-ask. Denied → never again, and recorded. iPhone: push only
-  // works from the installed app, so an uninstalled iPhone gets the install hint, not a dead
-  // prompt. Server side: push_subscriptions + push_prefs (RLS, own rows), snb-push edge
-  // function on a 15-minute cron. Events: push_prompt_shown / push_granted / push_denied /
-  // push_dismissed / push_prefs client-side, push_sent server-side, push_opened on tap.
+  // 2026-09-09: "the user needs to have control"): a reminder to check in a few hours after a
+  // practice (skipped if they already checked in again; never 9pm–8am), check-in reminders at
+  // the dayparts and times they pick, and a practice reminder at a time and on the days they
+  // pick. Nothing escalates, nothing counts, a missed reminder does not repeat. The browser
+  // permission is asked ONCE, from a tap, from the Notifications screen (or the one-time
+  // announcement card that points there). Dismissed → the switch just reverts. Denied → the
+  // screen says where to turn it back on. iPhone: push only works from the installed app, so
+  // an uninstalled iPhone gets the install hint, not a dead prompt. The after-practice pop-up
+  // that asked for permission was removed the same day (Justin: it promised a comparison that
+  // only exists if they checked in before, and gated the feature behind one moment).
+  // Server side: push_subscriptions + push_prefs (RLS, own rows), snb-push edge function on a
+  // 15-minute cron. Events: push_granted / push_denied / push_dismissed / push_prefs client-side,
+  // push_sent server-side, push_opened on tap, whatsnew_push_seen for the announcement.
   const PUSH_KEY = 'snb_push';                       // {state, asks, at, routed}
   const PUSH_REASK_DAYS = 3;                         // one later re-ask, not before this
   const pushSupported = () => { try{ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }catch(e){ return false; } };
@@ -2345,7 +2372,7 @@ function app(tab){
     let perm='default';
     try{ perm = await Notification.requestPermission(); }catch(e){ try{ perm = Notification.permission; }catch(e2){} }
     if(perm==='granted'){
-      try{ await pushSubscribe(); pushWrite({ state:'granted' }); pushTrack('push_granted', { origin }); if(origin==='ask') await pushPrefsSave({ followup:true }); return 'on'; }
+      try{ await pushSubscribe(); pushWrite({ state:'granted' }); pushTrack('push_granted', { origin }); return 'on'; }
       catch(e){ pushWrite({ state:'error' }); pushTrack('push_error', { origin, reason:String(e&&e.message||e).slice(0,80) }); return 'off'; }
     }
     if(perm==='denied'){ pushWrite({ state:'denied' }); pushTrack('push_denied', { origin }); return 'blocked'; }
@@ -2375,65 +2402,6 @@ function app(tab){
       if(Store.user()) _mark(); else setTimeout(_mark, 2500);
     }catch(e){}
   }
-  let _pushAskDue = false;                           // set by a completed practice, consumed by the next tab render
-  function pushNoteCompletedPractice(){ _pushAskDue = true; }
-  function pushCanAsk(){
-    if(!_pushAskDue || !pushIsMember()) return false;
-    const s = pushState(); if(s==='on' || s==='blocked' || s==='unsupported') return false;
-    const p = pushRead();
-    if(p.state==='denied' || p.state==='granted') return false;
-    if(s==='install'){ return !p.routed; }          // the install hint shows once per device
-    if(p.state==='dismissed'){ return (p.asks||0) < 2 && (Date.now()-(p.at||0)) > PUSH_REASK_DAYS*864e5; }
-    if(p.state==='error') return (Date.now()-(p.at||0)) > PUSH_REASK_DAYS*864e5;
-    return true;
-  }
-  // The ask itself. Same pop-up frame as the live invitation: ours, not the bare system dialog.
-  // 🖊 copy is draft for Justin. Present-moment, no "today", no streaks, no "levels".
-  function pushMaybeAsk(){
-    try{
-      if(!pushCanAsk()) return;
-      if(document.querySelector('.lv-pop') || document.getElementById('ob-root') || document.getElementById('wn-root')) return;   // never stack
-      _pushAskDue = false;
-      const mode = pushState()==='install' ? 'install' : 'ask';
-      const el=document.createElement('div'); el.className='lv-pop';
-      if(mode==='install'){
-        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="A note a few hours after you practice">
-          <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
-          <p class="lv-pop-h">A note a few hours from now</p>
-          <p class="lv-pop-b">Safety rises right after a practice and fades over a few hours. The drop in fight or flight tends to hold. A second check-in later shows you which is which.</p>
-          <p class="lv-pop-b">On iPhone, the app can only send that note once it is on your Home Screen: tap the share icon, then <b>Add to Home Screen</b>. After your next practice there, it will ask.</p>
-          <button class="btn block" id="push-ok">Got it</button>
-        </div>`;
-        document.body.appendChild(el);
-        pushWrite({ routed:true }); pushTrack('push_prompt_shown', { mode });
-        const _close=()=>el.remove();
-        el.addEventListener('click', ev=>{ if(ev.target===el) _close(); });
-        const ok=el.querySelector('#push-ok'); if(ok) ok.onclick=_close;
-        return;
-      }
-      el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="A note a few hours after you practice">
-        <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
-        <p class="lv-pop-h">A note a few hours from now</p>
-        <p class="lv-pop-b">Safety rises right after a practice and fades over a few hours. The drop in fight or flight tends to hold. A second check-in later shows you which is which.</p>
-        <p class="lv-pop-b">Want the app to send one note when it is time? Only after a practice you finished, never late at night. Any other reminders are yours to choose in Settings.</p>
-        <button class="btn block" id="push-yes">Send me the note</button>
-        <button class="set-quiet" id="push-no">Not now</button>
-      </div>`;
-      document.body.appendChild(el);
-      pushTrack('push_prompt_shown', { mode });
-      const _dismiss=()=>{ const p=pushRead(); pushWrite({ state:'dismissed', asks:(p.asks||0)+1 }); pushTrack('push_dismissed', { origin:'ask' }); el.remove(); };
-      el.addEventListener('click', ev=>{ if(ev.target===el) _dismiss(); });
-      const no=el.querySelector('#push-no'); if(no) no.onclick=_dismiss;
-      const yes=el.querySelector('#push-yes'); if(yes) yes.onclick=()=>{
-        yes.disabled=true; yes.textContent='One moment…';
-        pushRequest('ask').then(s=>{
-          el.remove();
-          if(s==='on') showToast('you will get one note a few hours after a practice');          // 🖊
-          else if(s==='blocked') showToast('notifications are off for this app in your phone settings');   // 🖊
-        });
-      };
-    }catch(e){}
-  }
   // Settings → Notifications. Everything off unless the person turns it on (Justin, 2026-09-09:
   // "the user needs to have control"). Turning the first thing on is what asks the browser.
   function pushRowInner(){
@@ -2452,37 +2420,42 @@ function app(tab){
     const hint = s==='install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
                : s==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
                : s==='unsupported' ? 'This browser cannot show notifications from the app.'
-               : 'Nothing is on unless you choose it. A note you miss does not repeat, and nothing here counts or keeps score.';
+               : 'Nothing is on unless you choose it. A reminder you miss does not repeat, and nothing here counts or keeps score.';
     const days = (prefs.practice_days||[]);
+    // each daypart's time is limited to that daypart (Justin: 3pm is not a morning slot)
+    const LIM = { morning:['05:00','11:59'], afternoon:['12:00','16:59'], evening:['17:00','21:59'], late:['22:00','23:59'] };
+    const timeIn2 = (id, val, dis, lim) => `<input type="time" id="${id}" value="${val||''}" ${lim?`min="${lim[0]}" max="${lim[1]}"`:''} ${dis?'disabled':''} style="font:inherit;font-size:calc(15px * var(--type-scale));background:transparent;border:0;border-bottom:1px solid var(--hairline);color:var(--ink);padding:6px 0;min-height:44px">`;
     setHTML(`
-      <header class="appbar"></header>
-      <div class="scroll"><div class="view fb-view">
+      <header class="appbar"><button class="backbtn" id="nt-back" type="button">Settings</button></header>
+      <div class="scroll"><div class="view settings-view">
         <div class="scr-head">
-          <p class="eyebrow">Settings</p>
+          <p class="eyebrow"></p>
           <h2 class="scr-h">Notifications</h2>
           <p class="scr-lede" id="nt-hint">${hint}</p>
         </div>
+        <div class="gs">
         <div class="gs-card">
-          <p class="gs-h">After a practice</p>
-          ${sw('nt-followup','A note a few hours after a practice', !!prefs.followup, dis)}
-          <p class="gs-fine">Only when you finished the practice and have not checked in since. A second check-in a few hours later shows what held. Never between 9pm and 8am.</p>
+          <p class="gs-h">After practice reminder</p>
+          <p class="gs-note">You'll receive a reminder to check-in within a few hours of a practice if you have not already. This helps track how effective the practices are. (No reminders are sent between 9pm and 8am.)</p>
+          ${sw('nt-followup','After practice reminder', !!prefs.followup, dis)}
         </div>
         <div class="gs-card">
           <p class="gs-h">Check-in reminders</p>
-          ${PUSH_DAYPARTS.map(d=>{ const on = !!(prefs.checkin_times||{})[d[0]]; return sw('nt-ci-'+d[0], d[1], on, dis) + `<div id="nt-cit-${d[0]}" style="${on?'':'display:none'};padding:0 0 10px">${timeIn('nt-time-'+d[0], (prefs.checkin_times||{})[d[0]]||d[2], dis)}</div>`; }).join('')}
-          <p class="gs-fine">One note at each time you pick, in your own time zone.</p>
+          <p class="gs-note">You'll receive a reminder to check-in for each time period that you select. More check-ins provide more clarity about how your system shows up throughout the day and helps the app to recommend practices best suited for you.</p>
+          ${PUSH_DAYPARTS.map(d=>{ const on = !!(prefs.checkin_times||{})[d[0]]; return sw('nt-ci-'+d[0], d[1], on, dis) + `<div id="nt-cit-${d[0]}" style="${on?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-'+d[0], (prefs.checkin_times||{})[d[0]]||d[2], dis, LIM[d[0]])}</div>`; }).join('')}
+          <p class="gs-fine">You'll receive one reminder for each time period you choose.</p>
         </div>
         <div class="gs-card">
           <p class="gs-h">Practice reminder</p>
-          ${sw('nt-practice','A note to practice', !!prefs.practice_time, dis)}
+          <p class="gs-note">You'll receive a reminder to practice on the days and the time of your choosing.</p>
+          ${sw('nt-practice','Practice reminder', !!prefs.practice_time, dis)}
           <div id="nt-prt" style="${prefs.practice_time?'':'display:none'}">
-            ${timeIn('nt-time-practice', prefs.practice_time||'08:00', dis)}
+            ${timeIn2('nt-time-practice', prefs.practice_time||'08:00', dis, null)}
             <div class="p-chips" style="margin-top:12px">${PUSH_DAYS.map((d,i)=>`<button class="p-chip nt-day${days.indexOf(i)>=0?' on':''}" type="button" data-day="${i}" aria-pressed="${days.indexOf(i)>=0}" aria-label="${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][i]}" style="padding:9px 13px">${d}</button>`).join('')}</div>
-            <p class="gs-fine">Which days. Skipping a day changes nothing.</p>
           </div>
         </div>
-        ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div>' : ''}
-        <button class="navlink" id="nt-back" style="align-self:center;margin-top:18px">Back to settings</button>
+        ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-card"><p class="gs-h">Beta</p><div class="gs-actions"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div></div>' : ''}
+        </div>
       </div></div>`);
     const back=$('#nt-back'); if(back) back.onclick=()=>screenSettings();
     // permission is asked the first time anything is switched on; a refusal reverts the switch
@@ -2494,7 +2467,7 @@ function app(tab){
     PUSH_DAYPARTS.forEach(d=>{
       const box=$('#nt-cit-'+d[0]), inp=$('#nt-time-'+d[0]);
       bindSw2('nt-ci-'+d[0], on=>{ if(box) box.style.display=on?'':'none'; const ct=Object.assign({}, cur.checkin_times||{}); if(on) ct[d[0]]=(inp&&inp.value)||d[2]; else delete ct[d[0]]; save({ checkin_times:ct }); });
-      if(inp) inp.onchange=()=>{ const ct=Object.assign({}, cur.checkin_times||{}); if(ct[d[0]]!==undefined && inp.value){ ct[d[0]]=inp.value; save({ checkin_times:ct }); } };
+      if(inp) inp.onchange=()=>{ const lim=LIM[d[0]]; if(inp.value && lim){ if(inp.value<lim[0]) inp.value=lim[0]; if(inp.value>lim[1]) inp.value=lim[1]; } const ct=Object.assign({}, cur.checkin_times||{}); if(ct[d[0]]!==undefined && inp.value){ ct[d[0]]=inp.value; save({ checkin_times:ct }); } };
     });
     { const box=$('#nt-prt'), inp=$('#nt-time-practice');
       bindSw2('nt-practice', on=>{ if(box) box.style.display=on?'':'none'; save({ practice_time: on ? ((inp&&inp.value)||'08:00') : null }); });
@@ -6803,7 +6776,6 @@ function app(tab){
     // anonymous guest (the guest UI cannot produce one; refuse it regardless).
     if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()) return;
     if(window._sessionLogged) return; window._sessionLogged=true;
-    if(completed){ try{ pushNoteCompletedPractice(); }catch(e){} }   // the follow-up note ask, next tab render
     // skills exist only on the self-regulation ('most') track. Gate here at the save
     // boundary so no non-'most' session can inherit a leftover default skill (e.g. the
     // customizer's default 'imagery'). This is the authoritative write for every path.
@@ -7032,9 +7004,8 @@ function app(tab){
           </div>
 
           <div class="gs-card">
-            <div class="gs-sw" style="padding-bottom:4px"><span class="gs-lbl">The walkthrough</span>
-              <button class="linkbtn" id="set-walkthrough" type="button">Walk me through it</button></div>
-            <p class="gs-cap" style="margin:0 0 2px">The member walkthrough, again. It changes nothing on its own.</p>
+            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Orientation</span>
+              <button class="linkbtn" id="set-walkthrough" type="button">Show me the app orientation</button></div>
           </div>
 
           <div class="gs-card">
@@ -7102,9 +7073,14 @@ function app(tab){
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account. You were here before the base plan existed, so all of it is yours.</p></div>`;
             return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
 
-          <div class="gs-danger">
-            <button class="set-quiet set-quiet-danger" id="reset">Reset my data</button>
-            <button class="set-quiet set-quiet-danger" id="delacct">Delete my account</button>
+          <div class="gs-card">
+            <p class="gs-h">Your history</p>
+            <div class="gs-actions">
+              <button class="set-quiet" id="set-change-ci" type="button">Change a recent check-in</button>
+              ${Store.sessions().length ? '<button class="set-quiet" id="set-manage-pr" type="button">Manage your practices</button>' : ''}
+              <button class="set-quiet set-quiet-danger" id="reset">Reset my data</button>
+              <button class="set-quiet set-quiet-danger" id="delacct">Delete my account</button>
+            </div>
           </div>
 
           <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
@@ -7112,6 +7088,7 @@ function app(tab){
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding(true), 80); };
+    { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same
     // v/sym/dor, so switching never seams the trend line (Justin 2026-07-24).
