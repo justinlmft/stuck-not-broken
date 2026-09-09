@@ -2236,15 +2236,17 @@ function whatsNewPush(){
   d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="App Update">'
     + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
     + '<h2 class="wn-h">App Update:</h2>'
-    + '<p class="wn-p">Notifications are here, and you choose what you get: a reminder to check in a few hours after a practice, check-in reminders at the times of day you pick, or a practice reminder on the days you choose.</p>'
-    + '<p class="wn-p">Nothing is on unless you turn it on.</p>'
+    + '<p class="wn-p">Notifications are here! Choose exactly what and when you want to be notified about. This app is intentionally non-addictive, so you have total control.</p>'
     + '<p class="wn-p"><button class="set-quiet wn-go" id="wn-go-push" type="button">Choose your notifications &rsaquo;</button></p>'
-    + '<button class="btn block" id="wn-ok" type="button">Not now</button></div>';
+    + '<p class="wn-p" style="margin-top:6px"><b>Also new:</b><br>The You tab has new data cards that rotate daily.</p>'
+    + '<p class="wn-p"><button class="set-quiet wn-go" id="wn-go-you" type="button">Check out today\'s cards &rsaquo;</button></p>'
+    + '<button class="btn block" id="wn-ok" type="button">No thanks</button></div>';
   document.body.appendChild(d);
   requestAnimationFrame(()=>d.classList.add('on'));
   const close=()=>{ try{ localStorage.setItem(_WN_PUSH_KEY,'1'); }catch(e){} d.remove(); };
   const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
   const g=d.querySelector('#wn-go-push'); if(g) g.onclick=()=>{ close(); try{ screenNotifications(); }catch(e){} };
+  const y=d.querySelector('#wn-go-you'); if(y) y.onclick=()=>{ close(); try{ app('you'); }catch(e){} };
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_push_seen',{}); }catch(e){}
 }
 addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewPush(); }catch(e){} }, ms)); });   // auth lands async; the card is idempotent
@@ -2324,7 +2326,7 @@ function app(tab){
     const p = Object.assign(pushPrefsRead(), patch||{});
     try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){}
     const u = Store.user();
-    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], tz:pushTz(), updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
+    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
     return p;
   }
   async function pushPrefsLoad(){
@@ -7027,7 +7029,6 @@ function app(tab){
             ${gsSw('sw-live','Live practice invitations',lv!=='0')}
             <p class="ch-cap" id="live-cap"></p>
             ${gsSw('sw-haptics','Haptics',hp)}
-            <p class="ch-cap" id="hap-cap"></p>
             ${gsSw('sw-offline','Save practices for offline',offOn)}
             <p class="gs-fine" id="offline-status"></p>
             <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
@@ -7076,7 +7077,7 @@ function app(tab){
           <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
         </div>
       </div>`;
-    const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); });
+    const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding(true), 80); };
     { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
@@ -7145,11 +7146,8 @@ function app(tab){
       : "Animations are off. This turns off the app's decorative movement. "; };
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
-    const _hapCap = on=>{ const el=$('#hap-cap'); if(el) el.textContent = on
-      ? 'Haptics are on. The app answers your taps with a tiny buzz.'
-      : 'Haptics are off. The app never vibrates.'; };
-    _hapCap(hp);
-    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); _hapCap(on); });
+    // no caption on haptics (Justin 2026-09-09: the switch says it); the buzz on switch-on stays
+    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); });
     // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
       ? 'Your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
@@ -7158,7 +7156,7 @@ function app(tab){
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
     const _liveCap = on=>{ const el=$('#live-cap'); if(el) el.textContent = on
-      ? 'When a live practice is happening, the Now screen offers a quiet invitation to check in alongside it.'
+      ? 'When a live practice is happening, the Now screen will have an optional pop-up to check-in.'
       : 'The app never mentions live practices. Joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });
@@ -7171,7 +7169,7 @@ function app(tab){
     // plain state-mirroring captions (Justin 2026-07-05): the line always says
     // what is true RIGHT NOW, in the plainest words we have. 🖊
     const OFF_ON_TXT  = 'Every practice is saved on this device, they all play without a connection.';
-    const OFF_OFF_TXT = 'practices play over the internet. turn this on to save them all to this device (about 94 mb, best on wi-fi), so they play with no connection at all.';
+    const OFF_OFF_TXT = 'Practices play over the internet. Turn this on to save them all to this device (about 94 MB, best on Wi-Fi), so they play with no connection at all.';
     setOff(localStorage.getItem(OFFLINE_FLAG)==='1' ? OFF_ON_TXT : OFF_OFF_TXT);
     (async ()=>{
       if(localStorage.getItem(OFFLINE_FLAG)==='1'){
