@@ -2491,6 +2491,161 @@ function app(tab){
   // a subscription the browser rotated while the app was closed (sw.js pushsubscriptionchange)
   try{ if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', ev=>{ const d=ev.data||{}; if(d.type==='PUSH_RESUBSCRIBED' && d.sub) pushSaveSub(d.sub); }); }catch(e){}
   // ── end web push ─────────────────────────────────────────────────────────────────────
+  // ── tips: "did you know" cards (2026-09-10) ──────────────────────────────────────────
+  // ROADMAP 16, Justin's idea, his words: "offer the user customizations every now and
+  // again, maybe once a week … via a pop-up", and "this system needs to have an 'I don't
+  // want more of these' option so they don't get bothered by it. The same thing we use for
+  // the live practice notifications." So: one card at a time, in the App Update frame
+  // (.wn-root), at most one every 7 days per device, each card shown once per device,
+  // signed-in members only, never on the same load as another card and never over
+  // onboarding or a live-practice pop-up. A card skips itself when what it surfaces is
+  // already on, already chosen, or cannot apply on this device. The first card is NOT
+  // notifications (everyone got the announcement card for that on 2026-09-09).
+  // Order: Justin's fallback list from the entry-16 kickoff, used because no ranked list
+  // had landed in STATUS by 2026-09-10. Haptics is deliberately not on it (no caption,
+  // nothing to explain). "I don't want more of these" sets snb_tips=0 for good; the same
+  // switch is Settings → App → "Tips about settings", exactly the snb_live_nudge pattern.
+  // Events: tip_shown / tip_action / tip_dismissed / tip_off, each with the card id.
+  const TIPS_ON_KEY   = 'snb_tips';        // '0' = off for good; absent/'1' = on
+  const TIPS_SEEN_KEY = 'snb_tips_seen';   // ids already shown on this device
+  const TIPS_LAST_KEY = 'snb_tips_last';   // ms of the last card shown on this device
+  const TIPS_EVERY_MS = 7 * 24 * 60 * 60 * 1000;
+  const _tipLS = (k) => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+  const tipsOn = () => _tipLS(TIPS_ON_KEY) !== '0';
+  function tipsSeen(){ try{ const a=JSON.parse(_tipLS(TIPS_SEEN_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function tipsMarkShown(id){
+    try{ const a=tipsSeen(); if(a.indexOf(id)<0) a.push(id);
+      localStorage.setItem(TIPS_SEEN_KEY, JSON.stringify(a));
+      localStorage.setItem(TIPS_LAST_KEY, String(Date.now()));
+    }catch(e){}
+  }
+  const tipTrack = (name, id) => { try{ if(Store.trackEvent) Store.trackEvent(name, { id:id }); }catch(e){} };
+  const _tipPrefs = () => { try{ return pushPrefsRead(); }catch(e){ return { followup:false, checkin_times:{}, practice_time:null }; } };
+  // only offer a notification card where the browser can actually be asked: not on an
+  // uninstalled iPhone (card 10 covers that), not where the person blocked it in the OS.
+  const _tipPushOpen = () => { try{ const s=pushState(); return s==='off' || s==='on'; }catch(e){ return false; } };
+  function _tipReveal(sel, expand){
+    try{
+      const el = document.querySelector(sel); if(!el) return;
+      if(expand && el.getAttribute('aria-expanded')==='false') el.click();
+      let smooth = true; try{ smooth = !reduceMotionOn(); }catch(e){}
+      el.scrollIntoView({ block:'center', behavior: smooth ? 'smooth' : 'auto' });
+    }catch(e){}
+  }
+  const _tipToSettings = (sel, expand) => { try{ screenSettings(); }catch(e){ return; } setTimeout(()=>_tipReveal(sel, expand), 90); };
+  const _tipToNotifications = () => { try{ screenNotifications(); }catch(e){} };
+  // 🖊 copy drafts. Sentence case, no "today", no "levels", no streaks, no em dashes,
+  // nothing that escalates. Each card says what the app can do and offers the way there.
+  const TIPS = [
+    { id:'method',
+      body:'You can change how you check in. Questions, numbers, or picking a state. All three record the same thing, so switching never breaks your history.',
+      cta:'Choose how you check in',
+      when:()=> _tipLS('snb_checkin_method')===null,
+      act:()=> _tipToSettings('#ci-method-btn', false) },
+    { id:'scene',
+      body:'The moving scene behind a practice can be changed. There are seven of them, or the app can pick a different one each time.',
+      cta:'Choose a scene',
+      when:()=> _tipLS('snb_practice_scene')===null,
+      act:()=> _tipToSettings('#scene-btn', true) },
+    { id:'offline',
+      body:'Practices can be saved onto this device, so they play with no connection at all. About 94 MB, best on Wi-Fi.',
+      cta:'Save practices for offline',
+      when:()=> _tipLS('snb_offline_all')!=='1',
+      act:()=> _tipToSettings('#sw-offline', false) },
+    { id:'checkin_reminders',
+      body:'The app can remind you to check in at the times of day you choose. One reminder for each time period, and nothing repeats if you miss one.',
+      cta:'Set check-in reminders',
+      when:()=> _tipPushOpen() && !Object.keys(_tipPrefs().checkin_times||{}).length,
+      act:_tipToNotifications },
+    { id:'practice_reminder',
+      body:'You can set one practice reminder, on the days and at the time you choose.',
+      cta:'Set a practice reminder',
+      when:()=> _tipPushOpen() && !_tipPrefs().practice_time,
+      act:_tipToNotifications },
+    { id:'textsize',
+      body:'The text in the app can be made larger or smaller. Every screen follows it.',
+      cta:'Change the text size',
+      when:()=> _tipLS('snb_textscale')===null,
+      act:()=> _tipToSettings('#seg-text', false) },
+    { id:'theme',
+      body:'The app can stay light, stay dark, or follow whatever your device is set to.',
+      cta:'Choose a theme',
+      when:()=> _tipLS('snb_theme')===null,
+      act:()=> _tipToSettings('#seg-theme', false) },
+    { id:'glyph',
+      body:'Images you share carry a small signature: the state your body keeps coming back to, from your last three months of check-ins. You can turn that off.',
+      cta:'See the setting',
+      when:()=> _tipLS('snb_share_glyph')!=='0',
+      act:()=> _tipToSettings('#sw-glyph', false) },
+    { id:'followup',
+      body:'After a practice, the app can send one note a few hours later, so you can see how the practice held. Only if you have not checked in since, and never between 9pm and 8am.',
+      cta:'Turn on the after-practice reminder',
+      when:()=> _tipPushOpen() && !_tipPrefs().followup,
+      act:_tipToNotifications },
+    { id:'install',
+      body:'On iPhone, the app can live on your Home Screen. Tap the share icon, then choose add to Home Screen. Notifications only work from there.',
+      cta:'Open settings',
+      when:()=>{ try{ return isiOS() && !isStandalone(); }catch(e){ return false; } },
+      act:()=> _tipToSettings('#install-row', false) }
+  ];
+  // the first card in the list that has not been shown here and still has something to say
+  function tipsPick(){
+    if(!tipsOn()) return null;
+    const seen = tipsSeen();
+    for(let i=0;i<TIPS.length;i++){
+      const t = TIPS[i];
+      if(seen.indexOf(t.id) >= 0) continue;
+      let ok=false; try{ ok = !!t.when(); }catch(e){ ok=false; }
+      if(ok) return t;
+    }
+    return null;
+  }
+  // the weekly gate, on this device
+  function tipsDue(){
+    if(!tipsOn()) return false;
+    try{ if(!Store.user() || (Store.isAnonymous && Store.isAnonymous())) return false; }catch(e){ return false; }
+    const last = +(_tipLS(TIPS_LAST_KEY) || 0);
+    if(last && (Date.now() - last) < TIPS_EVERY_MS) return false;
+    return true;
+  }
+  // an announcement card that has not been dismissed on this device owns this load
+  const _tipOtherCardPending = () => {
+    try{
+      if(typeof _WN_PUSH_KEY === 'string' && _tipLS(_WN_PUSH_KEY) !== '1') return true;
+      if(typeof _WN_YOU_KEY === 'string' && typeof _WN_YOU_UNTIL === 'number'
+         && Date.now() < _WN_YOU_UNTIL && _tipLS(_WN_YOU_KEY) !== '1') return true;
+    }catch(e){}
+    return false;
+  };
+  function tipsMaybeShow(){
+    if(!tipsDue()) return;
+    if(document.getElementById('tip-root') || document.getElementById('wn-root')
+       || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+    if(_tipOtherCardPending()) return;
+    const t = tipsPick(); if(!t) return;
+    const d = document.createElement('div'); d.id='tip-root'; d.className='wn-root';
+    d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Did you know?">'
+      + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+      + '<h2 class="wn-h">Did you know?</h2>'
+      + '<p class="wn-p">' + t.body + '</p>'
+      + '<p class="wn-p"><button class="set-quiet wn-go" id="tip-go" type="button">' + t.cta + ' &rsaquo;</button></p>'
+      + '<button class="btn block" id="tip-later" type="button">Not now</button>'
+      + '<p class="wn-p" style="margin:12px 0 0;text-align:center"><button class="set-quiet" id="tip-off" type="button">I don&rsquo;t want more of these</button></p>'
+      + '</div>';
+    document.body.appendChild(d);
+    requestAnimationFrame(()=>d.classList.add('on'));
+    tipsMarkShown(t.id); tipTrack('tip_shown', t.id);
+    const close = ()=>{ d.remove(); };
+    const go = d.querySelector('#tip-go');
+    if(go) go.onclick = ()=>{ tipTrack('tip_action', t.id); close(); try{ t.act(); }catch(e){} };
+    const later = d.querySelector('#tip-later');
+    if(later) later.onclick = ()=>{ tipTrack('tip_dismissed', t.id); close(); };
+    const off = d.querySelector('#tip-off');
+    if(off) off.onclick = ()=>{ try{ localStorage.setItem(TIPS_ON_KEY,'0'); }catch(e){} tipTrack('tip_off', t.id); close(); };
+  }
+  // late, and after the announcement cards have had their turn (they run at 1.4s / 2.6–15s)
+  addEventListener('load', ()=>{ [22000, 45000].forEach(ms=>setTimeout(()=>{ try{ tipsMaybeShow(); }catch(e){} }, ms)); });
+  // ── end tips ─────────────────────────────────────────────────────────────────────────
   // RETIRED 2026-07-13 — the trial is gone, so nothing can enter `trialing` and there is
   // no pending charge to warn anyone about. The banner existed to make sure nobody paid by
   // accident; with no card taken until someone chooses to subscribe, that can't happen.
@@ -7028,6 +7183,8 @@ function app(tab){
             <p class="gs-h">App</p>
             ${gsSw('sw-live','Live practice invitations',lv!=='0')}
             <p class="ch-cap" id="live-cap"></p>
+            ${gsSw('sw-tips','Tips about settings',tipsOn())}
+            <p class="ch-cap" id="tips-cap"></p>
             ${gsSw('sw-haptics','Haptics',hp)}
             ${gsSw('sw-offline','Save practices for offline',offOn)}
             <p class="gs-fine" id="offline-status"></p>
@@ -7160,6 +7317,13 @@ function app(tab){
       : 'The app never mentions live practices. Joining by link or code still works.'; };
     _liveCap(lv!=='0');
     bindSw('sw-live',   on=>{ localStorage.setItem('snb_live_nudge', on?'1':'0'); _liveCap(on); });
+    // "did you know" cards: same shape as the invitations switch above. Off here means
+    // off for good, until it is turned back on here. 🖊
+    const _tipsCap = on=>{ const el=$('#tips-cap'); if(el) el.textContent = on
+      ? 'Every so often, a pop-up points out one thing the app can do. At most one a week, and each one only once.'
+      : 'The app never offers these.'; };
+    _tipsCap(tipsOn());
+    bindSw('sw-tips',   on=>{ try{ localStorage.setItem(TIPS_ON_KEY, on?'1':'0'); }catch(e){} _tipsCap(on); });
     { const _lc=$('#live-code'); if(_lc) _lc.onclick=()=>screenLiveCode(); }
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
     pushBindRow();
