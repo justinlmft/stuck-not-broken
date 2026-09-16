@@ -703,6 +703,13 @@
       const live = await ensureSession();
       if(live){ ({ error } = await sb.from(table).insert(batch.map(toRow))); }
     }
+    // 2026-09-16 · a lost response. The insert landed in the cloud but the phone never heard
+    // back, so the row stayed queued; every retry since hit the primary key (23505) and the
+    // whole batch stuck behind it — "hasn't synced yet" forever. Session ids are minted on the
+    // client, so a duplicate id IS the same row: skip what the cloud already has, send the rest.
+    if(error && table==='sessions' && String(error.code||'')==='23505'){
+      ({ error } = await sb.from(table).upsert(batch.map(toRow), { onConflict:'id', ignoreDuplicates:true }));
+    }
     if(!error){ queue.splice(0, batch.length); saveCache(); return true; }
     console.warn('[store] sync failed for', table, error);
     return false;
