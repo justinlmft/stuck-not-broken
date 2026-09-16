@@ -7187,7 +7187,7 @@ function app(tab){
             if(ent.circle)
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">You're a co-regulator in the unstucking academy. The full app comes included with your membership, as a thank you for practicing with us. Nothing to pay for here.</p></div>`;
             if(ent.legacy)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account. You were here before the base plan existed, so all of it is yours.</p></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
             return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
 
           <div class="gs-card">
