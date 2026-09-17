@@ -374,7 +374,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
      data.js                47eb2857d0745a96de0c17211c91b720    16383 bytes
-     plan.js                9217f40ab872c3ac88116f6fedbb3ac3    66825 bytes
+     plan.js                e88b5c9ee6e522e231118bfe38165380    68282 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
      host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
@@ -382,8 +382,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
      session.js             c45d30e23bf911824bfdc9bc80e2a065    23762 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                27a9301fbfc84dd52157854cc8e9cfbc    11099 bytes
-     page.js                357671b667c6af637851ef73534945e3    29718 bytes
+     copy.js                d22b1a44732e181a039579239599d6fc    11108 bytes
+     page.js                10b6484de622b6c8aa225cb7a0da6fd0    30095 bytes
 -->
 </head>
 <body>
@@ -1032,7 +1032,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:9217f40ab872c3ac88116f6fedbb3ac3 */
+<script>/* @module plan.js md5:e88b5c9ee6e522e231118bfe38165380 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1848,6 +1848,10 @@ const INTEREST_SAFETY_TAKE = 'e';
 /* the warm-up senses, OUTSIDE-IN: sight (MIND-05), sound (MIND-03). Touch (MIND-04) is the
  * anchor's job in every long practice and does not play in the warm-up. */
 const WARM_UP_SENSES = [4, 2];
+/* the Mindfulness practice's FULL run, outside-in: sight, sound, touch — a breath re-check after
+ * each (Justin, 2026-09-17: the full run IS the Mindfulness practice; the Tiny practice is the
+ * short one) */
+const FULL_RUN_SENSES = [4, 2, 3];
 const MIND_EMOTION = 5;   // MIND-06 — "is there emotion that you're holding onto?"
 const MIND_INVITE = 6;    // MIND-07 — "let it be… invite it to be with us"
 /* the closing, in Justin's 2026-09-07 order: return to the anchor → widen → reconnect to the room
@@ -1935,8 +1939,9 @@ function offerable(comfortable) {
 const RECORD_INTEREST = answer => ({ kind: 'record', field: 'interest', value: answer });
 
 /* The two short practices. Neither reaches the anchor ladder or the curiosity gate: both are
- * pure mindfulness work, and the natural-breathing beat brackets every sense beat. Breath,
- * sense, breath. TAG-MAP §3b.
+ * pure mindfulness work. The Tiny practice is breath, one chosen sense, breath (TAG-MAP §3b);
+ * Mindfulness is the full run — every sense outside-in with a breath re-check after each, then
+ * the emotion pair (Justin, 2026-09-17). It used to be the tiny shape played twice.
  *
  * ✅ They are two practices, not one under two names (Justin, 2026-08-31). Mindfulness has its
  * own setup clip now; it used to open on the tiny practice's, which announced itself as a Tiny
@@ -1954,14 +1959,18 @@ const RECORD_INTEREST = answer => ({ kind: 'record', field: 'interest', value: a
  *      recommender runs on. Worth knowing before someone wonders why a run of tiny practices
  *      moves no numbers. */
 function short(cfg, add, beats, branches) {
-  const senseId = D.MICRO_SENSE[cfg.sense];
-  if (!senseId) {
+  const isMindfulness = cfg.practice === MINDFULNESS;
+  /* ✅ TWO DIFFERENT SHAPES (Justin, 2026-09-17: "the short mindfulness practice is the Tiny
+   * Practice and the full run is Mindfulness"). The Tiny practice is breath, ONE chosen sense,
+   * breath. Mindfulness is the Curriculum Advisor's full run — every sense, outside-in, with a
+   * breath re-check after each, then the emotion pair — the run the anchoring practices gave up
+   * on 2026-09-17 so nothing doubles up. It plays all three senses, so it takes no sense choice. */
+  const senseId = isMindfulness ? null : D.MICRO_SENSE[cfg.sense];
+  if (!isMindfulness && !senseId) {
     // E3.19 — a choice the builder cannot honour must not be offerable. §B3 is what its
     // absence costs: the shipped micro silently plays the touch clip for two of five senses.
-    throw new Error(`plan(): the short practices do not offer the ${cfg.sense} sense`);
+    throw new Error(`plan(): the tiny practice does not offer the ${cfg.sense} sense`);
   }
-  const isMindfulness = cfg.practice === MINDFULNESS;
-  const repeats = isMindfulness ? 2 : 1;
 
   /* 🔴 THE FIRST-PRACTICE INTRO WAS UNREACHABLE. Found 2026-09-01, wiring the page.
    *
@@ -1984,11 +1993,23 @@ function short(cfg, add, beats, branches) {
    * tiny practice is never open-ended and never reaches it. */
   if (cfg.mode === 'open') add(D.ROLE.setupModeOpen, 'opening', { kind: KIND.setup });
   add(D.ROLE.arriveBreath, 'opening');
-  for (let i = 0; i < repeats; i++) {
+  if (isMindfulness) {
+    /* the full run: the natural breath, then sight → check → sound → check → touch → check,
+     * then "is there emotion you're holding onto?" / "let it be". No 0–10 reading (§3b, unchanged:
+     * neither short practice feeds the capacity signal) and no anchor ladder. */
+    const mind = D.FAMILY.mind;
+    add(D.NATURAL_BREATH, 'mindfulness');
+    FULL_RUN_SENSES.forEach(i => {
+      add(mind[i], 'mindfulness');
+      add(D.ROLE.breathCheck, 'mindfulness');
+    });
+    add(mind[MIND_EMOTION], 'mindfulness');
+    add(mind[MIND_INVITE], 'mindfulness');
+  } else {
     add(D.NATURAL_BREATH, 'mindfulness');
     add(senseId, 'mindfulness');
+    add(D.NATURAL_BREATH, 'mindfulness');
   }
-  add(D.NATURAL_BREATH, 'mindfulness');
 
   /* 🔴 E3.10 NAMES THIS CASE, and it was not built. Found 2026-09-01 by the face-down sweep.
    *
@@ -2111,7 +2132,7 @@ function terminatorOf(beats) {
 }
 
 const API = {
-  WARM_UP_SENSES, MIND_EMOTION, MIND_INVITE, CLOSE_ORDER, ENDING_OPEN_NEUTRAL, INTENT_SET_DOUBLED, describeOrder,
+  WARM_UP_SENSES, FULL_RUN_SENSES, MIND_EMOTION, MIND_INVITE, CLOSE_ORDER, ENDING_OPEN_NEUTRAL, INTENT_SET_DOUBLED, describeOrder,
   plan, gapFor, KIND, ANCHORING, MINDFULNESS, TINY, SHORT_PRACTICES,
   SAFETY_LEVELS, SAFETY_HALF_LEVEL, BASE_THROUGH_LEVEL, INTEREST_SAFETY, INTEREST_SAFETY_TAKE,
   BASE_PRACTICES, DEPTHS, DEPTH_OFFERED_BY, DEPTH_OFFERED_BY_PREFIX, DEPTH_SETUP,
@@ -4546,7 +4567,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:27a9301fbfc84dd52157854cc8e9cfbc */
+<script>/* @module copy.js md5:d22b1a44732e181a039579239599d6fc */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -4577,7 +4598,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
  * the script — the two places TAG-MAP already says have to move together. */
 const PRACTICE = Object.freeze({
   micro:       { name: 'Tiny practice',  cue: 'A minute of noticing, wherever you are' },
-  mindfulness: { name: 'Mindfulness',    cue: 'Breath and one sense, a few times over' },
+  mindfulness: { name: 'Mindfulness',    cue: 'Sight, sound and touch, with the breath between' },
 
   anchoring:          { name: 'Connect',            cue: 'Settle into safety and stay there' },
   'validate-safety':  { name: 'Name it',            cue: 'Find safety, and name what it is' },
@@ -4746,7 +4767,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:357671b667c6af637851ef73534945e3 */
+<script>/* @module page.js md5:10b6484de622b6c8aa225cb7a0da6fd0 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -4954,10 +4975,15 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       k => k === cfg.practice, choosePractice);
 
     const short = isShort(cfg.practice);
-    const anchors = D.anchorsFor(short ? D.MICRO : 'full');
+    /* ✅ Mindfulness plays every sense (the full run, Justin 2026-09-17), so it offers no sense
+     * choice — a chip the builder would ignore must not be on the screen (E3.19). The Tiny
+     * practice still asks for its one sense. */
+    const asksSense = cfg.practice !== P.MINDFULNESS;
+    const anchors = asksSense ? D.anchorsFor(short ? D.MICRO : 'full') : [];
     chipRow($('anchors'), anchors.map(k => ({ key: k, label: COPY.ANCHOR[k].name })),
       k => k === (short ? cfg.sense : cfg.anchor),
       k => { if (short) cfg.sense = k; else cfg.anchor = k; });
+    $('eyAnchor').parentNode.classList.toggle('hidden', !asksSense);
 
     /* E4.24 — ONE silence vocabulary. These chips and the in-player stepper walk the same
      * list, so a value chosen here is always a value the stepper can show, and vice versa. */
