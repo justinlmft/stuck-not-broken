@@ -373,8 +373,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               f8946ffc00871cfb0c8f392c15350e1e    21707 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
-     data.js                47eb2857d0745a96de0c17211c91b720    16383 bytes
-     plan.js                a9caa473379bc6bcfa7628046e328ad4    70481 bytes
+     data.js                46477b60109a49784be47e3b3bb2d781    17533 bytes
+     plan.js                231dc8d85f838fc45b59c3d0e504003a    70897 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
      host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
@@ -725,7 +725,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:47eb2857d0745a96de0c17211c91b720 */
+<script>/* @module data.js md5:46477b60109a49784be47e3b3bb2d781 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -795,6 +795,13 @@ const TAKE_TRIMS = Object.freeze({
   'SETUP-ANCHOR-TOUCH-a.mp3': { end: 5.35,   caption: [', so grab it now before we start.', '.'] },
   /* 2026-09-17 (CA review): take A reads the whole sign-off twice; it ends after the first */
   'OUTRO-a.mp3':              { end: 10.2,   caption: [' That\'s it for this one. Really nicely done. Get some water or air or a bit of movement if you need it. I look forward to working with you again in the next one', ''] },
+  /* 2026-09-17 (Justin): the slice glued the second take of the non-safety half-opener ("This is a
+   * non-safety focused practice.") onto the front of this skill clip. At playback the take starts
+   * at "It uses the validating skill"; at cutover the first 2.97 s become SETUP-PRACTICE-DEFENSE-b. */
+  'SETUP-PRACTICE-VALIDATE-DEFENSE-a.mp3': { start: 5.2, caption: ['This is a non-safety focused practice. ', ''] },
+  /* the same doubling on the safety side (Justin, same day): take A opens on a sentence that says
+   * what the half-opener has just said, so the take starts at the practice description. */
+  'SETUP-PRACTICE-INTEREST-SAFETY-a.mp3': { start: 3.8, caption: ['This practice stays in safety from beginning to end. ', ''] },
 });
 function trimFor(file) { return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null; }
 /* the transcript edits that go with the cuts — applied to the loaded captions map, once */
@@ -1011,6 +1018,10 @@ const DELIBERATE_REUSABLES = Object.freeze({
   // (empty as of 2026-08-31 — every clip in the library is now placed by some practice, once
   // the four named ones were read out of the shipped player with harness/seq. An entry here
   // is a promise that a clip is unreachable ON PURPOSE, so it should be hard to earn.)
+  /* Justin, 2026-09-17, on the CA's second pass: "we already have CAP-GATE so this clip may not
+   * have a clear role right now. Just remove it from any practices and we can revisit it another
+   * time on the roadmap." Parked, not cut: the recording stays, and the roadmap decides. */
+  'STOP-OK': 'parked 2026-09-17 (Justin) — the capacity gate\'s buttons are how a person stops; revisit on the roadmap',
 });
 
 // ---------------------------------------------------------------------------
@@ -1032,7 +1043,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:a9caa473379bc6bcfa7628046e328ad4 */
+<script>/* @module plan.js md5:231dc8d85f838fc45b59c3d0e504003a */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1727,8 +1738,8 @@ function plan(cfg) {
     };
     /* ✅ NO STOP-OK AFTER THE GATE (CA review, second pass, 2026-09-17; Justin: "I agree on
      * this"). The gate already says staying with safety is a complete practice and its buttons
-     * are the way to stop; "just say I'm done" does not fit a tap. STOP-OK keeps its one home:
-     * after the base pair in Validating and Normalizing, where there is no gate. */
+     * are the way to stop; "just say I'm done" does not fit a tap. Later the same day Justin
+     * took it out of the base practices too — STOP-OK plays nowhere until the roadmap says. */
   };
 
   /* The mid-Pendulating re-read of the Interest Impulse: CAP-CHECK with ONE target, the spoken
@@ -1801,7 +1812,11 @@ function plan(cfg) {
      * beat, which is the whole base there; in Validate & Normalize it follows the normalizing beat. */
     add(D.ROLE.validateDefense, 'defense');
     if (base.normalize) add(D.ROLE.normalizeDefense, 'defense');
-    add(D.ROLE.stopOk, 'defense');
+    /* ✅ STOP-OK PLAYS NOWHERE NOW (Justin, 2026-09-17, on the CA's second pass): "this one does
+     * not really need to play in the validate, normalize, or imagery & invitation skills… we
+     * already have CAP-GATE so this clip may not have a clear role right now. Just remove it from
+     * any practices and we can revisit it another time on the roadmap." The clip stays recorded
+     * and in the manifest; no practice reaches it. */
     /* ✅ BACK TO SAFETY BEFORE THE END (CA review 2026-09-17, Justin: "yes to pend-safety"). The
      * base practices used to go from naming a non-safety emotion straight into the close or the
      * open ending, leaving the person with what they had just named. Every builder defense
