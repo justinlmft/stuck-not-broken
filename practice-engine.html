@@ -373,9 +373,9 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               f8946ffc00871cfb0c8f392c15350e1e    21707 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
-     data.js                66377d4909b19cae2197ab810725fe48    14123 bytes
+     data.js                7328c72c57267a43a263873b2b18c538    16061 bytes
      plan.js                bae6ef387780ae0812bc40c43a21680c    62577 bytes
-     runtime.js             036d5caf6d6ba27f1d133a5917e2fb49    27598 bytes
+     runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
      host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
@@ -383,7 +383,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      session.js             bdade5976c39dae562447cf4cff5829e    23733 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
      copy.js                27a9301fbfc84dd52157854cc8e9cfbc    11099 bytes
-     page.js                5a12c73c7b023c5ed88131e76ab3293c    29572 bytes
+     page.js                357671b667c6af637851ef73534945e3    29718 bytes
 -->
 </head>
 <body>
@@ -725,7 +725,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:66377d4909b19cae2197ab810725fe48 */
+<script>/* @module data.js md5:7328c72c57267a43a263873b2b18c538 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -773,6 +773,36 @@ const ABSOLUTE_FOLDER = /^[a-z][a-z0-9+.-]*:\/\//i.test(CLIP_FOLDER);
  * an absolute origin in the tests); it is ignored when the folder is already absolute. */
 function clipUrl(base, file) {
   return (ABSOLUTE_FOLDER ? '' : (base || '')) + CLIP_FOLDER + file;
+}
+
+// ---------------------------------------------------------------------------
+// TAKE TRIMS — playback-time cuts, an interim until the audio files are replaced
+// ---------------------------------------------------------------------------
+/* Justin, 2026-09-16 (device walk 1): "trim it to where it needs to be" — MIND-03-e opens
+ * mid-thought ("Which sounds stay?") — and "cut 'grab it now…' and leave the rest" —
+ * SETUP-ANCHOR-TOUCH-a. The trimmed FILES exist (`snb-business`
+ * `Archive/beta-ship-2026-09-16/clips-v2/`, byte-verified) but the live `clips-v2/` on the
+ * deploy repo's `main` could not be written from the cloud session, so the engine makes the
+ * same cuts at playback: `start` is where the take begins (a media fragment, `#t=`, plus a
+ * seek), `end` is where it stops — by POSITION, the same media-event mechanism that cuts the
+ * silent gap file (§A4.2), never a timer. `caption` is the same edit applied to the
+ * transcript line, so what is read matches what is heard.
+ *
+ * 🔴 AT CUTOVER: copy the trimmed files over the originals in the folder rename, then empty
+ * this table. A trim here for a file that has already been replaced would cut it twice. */
+const TAKE_TRIMS = Object.freeze({
+  'MIND-03-e.mp3':            { start: 5.33, caption: ['Which sounds stay? ', ''] },
+  'SETUP-ANCHOR-TOUCH-a.mp3': { end: 5.35,   caption: [', so grab it now before we start.', '.'] },
+});
+function trimFor(file) { return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null; }
+/* the transcript edits that go with the cuts — applied to the loaded captions map, once */
+function applyCaptionTrims(captions) {
+  const out = Object.assign({}, captions || {});
+  Object.keys(TAKE_TRIMS).forEach(file => {
+    const c = TAKE_TRIMS[file].caption;
+    if (c && typeof out[file] === 'string') out[file] = out[file].replace(c[0], c[1]);
+  });
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -991,7 +1021,7 @@ function fileFor(id, take) { return `${must(id)}-${take}.mp3`; }
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  CLIP_FOLDER, clipUrl,
+  CLIP_FOLDER, clipUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices,
 };
 
@@ -2042,7 +2072,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:036d5caf6d6ba27f1d133a5917e2fb49 */
+<script>/* @module runtime.js md5:1dcdc6905c6fd843eea69d034fec5ae9 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -2167,6 +2197,8 @@ class Runtime {
      * "when I went back to relisten, the audio clip changed to another one." Keyed by the beat
      * object, so the two BREATH-CHECK beats in a defense practice still get their own roll. */
     this._dealt = new WeakMap();
+    this._trimStart = 0;            // data.js TAKE_TRIMS — where the current take begins
+    this._trimEnd = 0;              // …and where it is cut, by position (0 = play to `ended`)
 
     this.inGap = false;
     this._inSilence = false;      // a gap is REAL AUDIO, not a timer — §A4.2
@@ -2205,7 +2237,15 @@ class Runtime {
      * `setTimeout` gap did not: iOS suspends JS timers on a locked screen, and the practice
      * died at the first silence with the screen off. */
     au.addEventListener('timeupdate', () => {
-      if (!this._inSilence || !this.playing || this.paused) return;
+      if (!this.playing || this.paused) return;
+      /* a trimmed take ends here, by position — the same media-driven cut as the gap,
+       * so it survives a locked screen; `ended` would come seconds later at the file's end */
+      if (this._trimEnd && !this._inSilence && au.currentTime >= this._trimEnd) {
+        this._trimEnd = 0;
+        this._lastSelfCtl = this.dev.now();
+        return this._onEnded();
+      }
+      if (!this._inSilence) return;
       if (au.currentTime >= this._gapSecs) {
         this._inSilence = false;
         this.inGap = false;
@@ -2377,9 +2417,16 @@ class Runtime {
     this._lastSelfCtl = this.dev.now();
     this._inSilence = false;
     this._endedWhilePaused = false;   // whatever was owed, we are past it
+    /* a trimmed take (data.js TAKE_TRIMS) starts at `start` — a media fragment AND a seek,
+     * so it holds on iOS as well as Chromium — and is cut at `end` by position, in the
+     * timeupdate watcher below, exactly as the silent gap file is (§A4.2) */
+    const file = this.dealtFile(beat);
+    const trim = D.trimFor(file);
+    this._trimStart = (trim && trim.start) || 0;
+    this._trimEnd = (trim && trim.end) || 0;
     try {
-      au.src = D.clipUrl(this.dev.base, this.dealtFile(beat));
-      au.currentTime = 0;
+      au.src = D.clipUrl(this.dev.base, file) + (this._trimStart ? '#t=' + this._trimStart : '');
+      au.currentTime = this._trimStart;
       this._msState('playing');
       this._tryPlay(() => this.armTapToStart());
     } catch (e) {
@@ -2465,6 +2512,7 @@ class Runtime {
     this._lastSelfCtl = this.dev.now();
     this._inSilence = true;
     this._gapSecs = secs;
+    this._trimEnd = 0;               // the gap file is never a trimmed take
     this.onEvent({ type: 'gap', seconds: secs, index: this.idx });
     try {
       if (!/silence-30s\.wav$/.test(au.src || '')) au.src = this.dev.base + C.SILENCE_SRC;
@@ -2604,7 +2652,7 @@ class Runtime {
     if (!this.playing || this.finished) return;
     this._lastSelfCtl = this.dev.now();
     const au = this.dev.audio;
-    try { au.currentTime = Math.max(0, (au.currentTime || 0) - seconds); } catch (e) {}
+    try { au.currentTime = Math.max(this._trimStart || 0, (au.currentTime || 0) - seconds); } catch (e) {}
     if (!this.paused) this._tryPlay(() => this.armTapToStart());
   }
 
@@ -4644,7 +4692,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:5a12c73c7b023c5ed88131e76ab3293c */
+<script>/* @module page.js md5:357671b667c6af637851ef73534945e3 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5027,7 +5075,9 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   // ── captions ──────────────────────────────────────────────────────────────────────────
 
   let CAPTIONS = {};
-  fetch(CAPTIONS_URL).then(r => (r.ok ? r.json() : {})).then(j => { CAPTIONS = j || {}; }).catch(() => {});
+  /* the transcript follows the playback trims in data.js TAKE_TRIMS, so the caption never
+   * shows words that were cut */
+  fetch(CAPTIONS_URL).then(r => (r.ok ? r.json() : {})).then(j => { CAPTIONS = D.applyCaptionTrims(j || {}); }).catch(() => {});
 
   let capFadeT = null, capShown = null;
   function renderCaption(force) {
