@@ -374,7 +374,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
      data.js                47eb2857d0745a96de0c17211c91b720    16383 bytes
-     plan.js                e88b5c9ee6e522e231118bfe38165380    68282 bytes
+     plan.js                a9caa473379bc6bcfa7628046e328ad4    70481 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
      host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
@@ -1032,7 +1032,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:e88b5c9ee6e522e231118bfe38165380 */
+<script>/* @module plan.js md5:a9caa473379bc6bcfa7628046e328ad4 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1314,6 +1314,10 @@ function depthBlock(add, cfg, capacityGate) {
     describeOrder(cfg.plain ? D.FAMILY.descDefensePlain : D.FAMILY.descDefense).forEach(id => add(id, 'defense'));
   }
   add(D.ROLE.numbOkDefense, 'defense');
+  /* ✅ THE BUILDER FOLLOWS THE BODY STEP WITH "HOW IS YOUR BODY BREATHING?" (CA review, second
+   * pass, 2026-09-17). In Pendulating this breath check also stands in for the second capacity
+   * gate that used to sit two beats later (see SKILLS.pendulating). */
+  add(D.ROLE.breathCheck, 'defense');
 }
 
 /* ── slot 3 · the SKILL ────────────────────────────────────────────────────────────
@@ -1357,22 +1361,22 @@ const SKILLS = {
     add(D.ROLE.pendSafety, 'balancing');
   },
 
-  /* Pendulating: two full swings, the literal-safety reminder, three brief swings, and the
-   * same landing. */
+  /* Pendulating: the full swing out and back, the literal-safety reminder on the return, the
+   * capacity re-check, three brief swings ending in safety. */
   pendulating: (add, cfg, prefixed, capacityGate, capacityCheck) => {
     add(D.ROLE.pendSafety, 'pendulating');
-    /* ✅ A SECOND CAPACITY GATE, at the full swing into defense (Justin, 2026-09-05): "in
-     * pendulating, it can occur in the same place, plus during a defense pendulation."
-     * Before the swing, not after — a gate whose branches are ease-out and continue has to be
-     * answerable while continuing is still a choice.
-     *
-     * ⚠️ `branches` is keyed by CLIP ID, so both gates in this practice share one entry. That is
-     * harmless today because their choices and targets are identical, and it is the only place
-     * in the engine where one clip carries a branch twice. If the two ever need different
-     * targets, the branch map has to key by beat index instead. Flagged for whoever wires it. */
-    capacityGate();
-    add(D.ROLE.pendDefense, 'pendulating');
+    /* ✅ "REMIND YOURSELF THAT YOU'RE LITERALLY SAFE" RIGHT AFTER THE RETURN TO SAFETY (CA review,
+     * second pass, 2026-09-17). It used to play after the swing back to the non-safety, with
+     * attention on the wrong side. */
     add(D.ROLE.pendSafeRemind, 'pendulating');
+    /* ✅ THE SECOND CAPACITY GATE IS GONE (CA review, second pass, 2026-09-17). Justin's 09-05
+     * ruling put one here too; the CA's finding: Capacity Builder has ONE gate, before the body,
+     * and this one broke its own "more safety" button — mid-pendulation it rewound to safety in
+     * the body and came forward again through describing, a fourth reading, a second Interest
+     * Impulse and the naming. The breath check the builder puts after the body step (depthBlock)
+     * is what plays in its place, two beats before this swing. CAP-CHECK below is the one
+     * mid-practice re-check, and it has a single consequence. */
+    add(D.ROLE.pendDefense, 'pendulating');
     /* ✅ THE INTEREST IMPULSE IS READ ONCE MORE, HERE (Justin, 2026-09-05, CA item 11: "yes, but
      * only re-ask once, not repeated"). Book 3 treats the impulse as a dose signal — "as long as
      * you still feel it, it's likely okay to continue pendulating; when curiosity lessens or
@@ -1385,7 +1389,9 @@ const SKILLS = {
     add(D.ROLE.pendToSafety, 'pendulating');
     add(D.ROLE.pendToDefense, 'pendulating');
     add(D.ROLE.pendToSafety, 'pendulating');
-    add(D.ROLE.pendSafety, 'pendulating');
+    /* ✅ The landing used to add PEND-SAFETY after the last brief swing — "and back to safety"
+     * followed at once by "bring your attention back to the safety experience" (CA review, second
+     * pass, 2026-09-17: two safety prompts in a row, drop one). The brief swing is the landing. */
   },
 };
 
@@ -1603,6 +1609,10 @@ function plan(cfg) {
    * Justin's direction): the builder's rule is that the breath comes before "choose a non-safety
    * emotion", not after it. It used to open the mindfulness run instead. */
   add(D.ROLE.arriveBreath, 'opening');
+  /* ✅ READING 1 OF 2 (3 in defense work) — right after the intentional breath and BEFORE the
+   * non-safety emotion is chosen (CA review, second pass, 2026-09-17): picking one can lower
+   * safety, so the opening number has to be taken before it. It used to open the warm-up. */
+  add(D.SAFETY_READING, 'opening');
   /* INTENT-SET plays for EVERY self-regulation practice — the three skills AND the two base
    * practices — and never under an obstacles prefix. Justin, 2026-09-05: "it's picking an
    * emotion to pay attention to at the outset. It's very intentional planning. It would not
@@ -1640,15 +1650,15 @@ function plan(cfg) {
    *      doubled up: MIND-04 is the whole touch prompt, and then the touch ladder asked again.
    *      Counting the setup clip, people were asked to find something to hold three times.
    *
-   * The 0–10 reading stays where it was — the first thing after the intentional breath — and the
-   * second reading of the old design (before the ladder) is gone: Justin, 2026-09-17: "0–10 for
+   * The 0–10 reading is the first thing after the intentional breath (see the opening; since the
+   * second pass it comes before INTENT-SET) and the second reading of the old design (before the
+   * ladder) is gone: Justin, 2026-09-17: "0–10 for
    * safety should occur twice: at the beginning and before the impulse check; in defense work it
    * can occur again at the end." See the gate run below for the other two.
    *
    * The sound anchor looks at sound twice (warm-up, then its ladder); Justin: "double sound is
    * fine since it's brief and different levels of attention." */
   const mind = D.FAMILY.mind;
-  add(D.SAFETY_READING, 'mindfulness');                         // reading 1 of 2 (3 in defense)
   WARM_UP_SENSES.forEach(i => add(mind[i], 'mindfulness'));      // sight, sound — outside-in
   add(D.NATURAL_BREATH, 'mindfulness');                          // then the breath
   add(mind[MIND_EMOTION], 'mindfulness');                        // Imagine & Invite
@@ -1715,11 +1725,10 @@ function plan(cfg) {
       moreSafety: REWIND_TO(rewindTarget.id),
       easeOut: EASE_OUT_SPOKEN,
     };
-    /* ⚠️ §3b's defense table does not list this beat, but TAG-MAP §3 records it as wired
-     * since 2026-08-15 and it plays in prod right after the gate — verified in the shipped
-     * `build()`. Dropping a clip that currently plays, silently, is the failure mode this
-     * whole engine exists to end, so it is kept. */
-    add(D.ROLE.stopOk, 'gate');
+    /* ✅ NO STOP-OK AFTER THE GATE (CA review, second pass, 2026-09-17; Justin: "I agree on
+     * this"). The gate already says staying with safety is a complete practice and its buttons
+     * are the way to stop; "just say I'm done" does not fit a tap. STOP-OK keeps its one home:
+     * after the base pair in Validating and Normalizing, where there is no gate. */
   };
 
   /* The mid-Pendulating re-read of the Interest Impulse: CAP-CHECK with ONE target, the spoken
@@ -1750,7 +1759,8 @@ function plan(cfg) {
    * (Justin, 2026-09-17). In the Interest Impulse practice that is after describing safety, which
    * is the before-and-after the CA asked for; in the defense practices it is the number the
    * listener carries into the question. */
-  if (cfg.practice === INTEREST_SAFETY || base || skill) add(D.SAFETY_READING, 'gate');
+  const readingBeforeInterest = cfg.practice === INTEREST_SAFETY || base || skill;
+  if (readingBeforeInterest) add(D.SAFETY_READING, 'gate');
   if (cfg.practice === INTEREST_SAFETY) {
     /* ✅ THE ANSWER IS RECORDED (Justin, 2026-09-05, CA item 2: "yes to A"). The yes/no control
      * stays up, and the answer — with the date — is what the app uses to offer the first defense
@@ -1805,6 +1815,11 @@ function plan(cfg) {
   } else if (!safety && !isAnchoring) {
     cfg.practiceBlock(add, cfg, D);
   }
+  /* ✅ READING 2 OF 2 for the safety practices that never ask the Interest Impulse — Connect and
+   * the safety ladder (CA review, second pass, 2026-09-17: "per the rule, it goes at the end of
+   * anchoring, right before ENDING-OPEN"). Taken at the end of the safety work, right before
+   * the close or the open ending, so every long practice has a before and an after. */
+  if (!readingBeforeInterest && (safety || isAnchoring)) add(D.SAFETY_READING, 'safety');
 
   closing(cfg, add, branches);
   return {
@@ -1852,6 +1867,8 @@ const WARM_UP_SENSES = [4, 2];
  * each (Justin, 2026-09-17: the full run IS the Mindfulness practice; the Tiny practice is the
  * short one) */
 const FULL_RUN_SENSES = [4, 2, 3];
+/* the Mindfulness close: move (CLOSE-05) → kindness (CLOSE-04) → one intentional breath (CLOSE-06) */
+const MINDFULNESS_CLOSE = Object.freeze([4, 3, 5].map(i => D.FAMILY.closes[i]));
 const MIND_EMOTION = 5;   // MIND-06 — "is there emotion that you're holding onto?"
 const MIND_INVITE = 6;    // MIND-07 — "let it be… invite it to be with us"
 /* the closing, in Justin's 2026-09-07 order: return to the anchor → widen → reconnect to the room
@@ -1949,15 +1966,15 @@ const RECORD_INTEREST = answer => ({ kind: 'record', field: 'interest', value: a
  * never share one.
  *
  * Three build constraints follow, and all three are asserted in plan.test.js:
- *   1. the close is the intentional breath ALONE — no close chain, no anchor return, no kind
- *      word, no body movement. The two deliberate breaths bracket the practice with nothing
- *      between them but breath and one sense.
+ *   1. the Tiny practice's close is the intentional breath ALONE — no close chain, no anchor
+ *      return, no kind word, no body movement. Mindfulness closes move → kindness → breath
+ *      (Justin, 2026-09-17); neither returns to an anchor, because neither has one.
  *   2. the sign-off is PINNED to its first take. It is the only pinned take in the system, so
  *      the engine needs a way to ask for a specific take, and a future shuffle-everything
  *      change must not swallow it.
- *   3. neither plays the 0-10 safety reading, so neither feeds the capacity signal the
- *      recommender runs on. Worth knowing before someone wonders why a run of tiny practices
- *      moves no numbers. */
+ *   3. the Tiny practice never plays the 0-10 safety reading, so it feeds no capacity signal.
+ *      Worth knowing before someone wonders why a run of tiny practices moves no numbers.
+ *      Mindfulness reads it twice, at the start and the end (2026-09-17). */
 function short(cfg, add, beats, branches) {
   const isMindfulness = cfg.practice === MINDFULNESS;
   /* ✅ TWO DIFFERENT SHAPES (Justin, 2026-09-17: "the short mindfulness practice is the Tiny
@@ -1994,17 +2011,19 @@ function short(cfg, add, beats, branches) {
   if (cfg.mode === 'open') add(D.ROLE.setupModeOpen, 'opening', { kind: KIND.setup });
   add(D.ROLE.arriveBreath, 'opening');
   if (isMindfulness) {
-    /* the full run: the natural breath, then sight → check → sound → check → touch → check,
-     * then "is there emotion you're holding onto?" / "let it be". No 0–10 reading (§3b, unchanged:
-     * neither short practice feeds the capacity signal) and no anchor ladder. */
+    /* the full run: the reading, the natural breath, then sight → check → sound → check → touch
+     * → check, the reading again. No anchor ladder. */
     const mind = D.FAMILY.mind;
+    /* ✅ SECOND PASS (Justin, 2026-09-17): the 0–10 reading at the start and at the end — with
+     * no Interest Impulse in this practice, those are its two — and NO emotion pair ("cut MIND-06
+     * and MIND-07 from this practice"). */
+    add(D.SAFETY_READING, 'mindfulness');
     add(D.NATURAL_BREATH, 'mindfulness');
     FULL_RUN_SENSES.forEach(i => {
       add(mind[i], 'mindfulness');
       add(D.ROLE.breathCheck, 'mindfulness');
     });
-    add(mind[MIND_EMOTION], 'mindfulness');
-    add(mind[MIND_INVITE], 'mindfulness');
+    add(D.SAFETY_READING, 'mindfulness');
   } else {
     add(D.NATURAL_BREATH, 'mindfulness');
     add(senseId, 'mindfulness');
@@ -2024,12 +2043,14 @@ function short(cfg, add, beats, branches) {
    * ended. So the short practices route to the open ending too, and only the timed run keeps
    * the close-on-the-breath-alone shape §3b describes. */
   if (cfg.mode === 'open') {
-    /* 'breath-only' — §3b: the short practices close on the intentional breath ALONE, no close
-     * chain, no anchor return, no kind word. Finishing one must not hand it a longer ending
-     * than the timed version of the same practice has. */
-    openEnding(add, branches, 'breath-only');
+    /* Finishing hands the practice the same ending its timed twin has: 'breath-only' for the
+     * Tiny practice (§3b: the intentional breath ALONE) and the short chain for Mindfulness. */
+    openEnding(add, branches, isMindfulness ? 'short' : 'breath-only');
   } else {
-    add(D.FAMILY.closes[D.FAMILY.closes.length - 1], 'closing');
+    /* ✅ MINDFULNESS CLOSES WITH MOVE → KINDNESS → BREATH (Justin, 2026-09-17, on the CA's second
+     * pass) — no anchor return (there is no anchor), no widening. The Tiny practice keeps the
+     * intentional breath alone. */
+    (isMindfulness ? MINDFULNESS_CLOSE : [D.FAMILY.closes[D.FAMILY.closes.length - 1]]).forEach(id => add(id, 'closing'));
     add(D.ROLE.outro, 'closing', { take: 'a' });
   }
   return { cfg, level: 0, side: 'mindfulness', beats, branches, terminates: terminatorOf(beats) };
@@ -2132,7 +2153,7 @@ function terminatorOf(beats) {
 }
 
 const API = {
-  WARM_UP_SENSES, FULL_RUN_SENSES, MIND_EMOTION, MIND_INVITE, CLOSE_ORDER, ENDING_OPEN_NEUTRAL, INTENT_SET_DOUBLED, describeOrder,
+  WARM_UP_SENSES, FULL_RUN_SENSES, MINDFULNESS_CLOSE, MIND_EMOTION, MIND_INVITE, CLOSE_ORDER, ENDING_OPEN_NEUTRAL, INTENT_SET_DOUBLED, describeOrder,
   plan, gapFor, KIND, ANCHORING, MINDFULNESS, TINY, SHORT_PRACTICES,
   SAFETY_LEVELS, SAFETY_HALF_LEVEL, BASE_THROUGH_LEVEL, INTEREST_SAFETY, INTEREST_SAFETY_TAKE,
   BASE_PRACTICES, DEPTHS, DEPTH_OFFERED_BY, DEPTH_OFFERED_BY_PREFIX, DEPTH_SETUP,
