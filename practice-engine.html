@@ -373,14 +373,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               f8946ffc00871cfb0c8f392c15350e1e    21707 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
-     data.js                7328c72c57267a43a263873b2b18c538    16061 bytes
-     plan.js                bae6ef387780ae0812bc40c43a21680c    62577 bytes
+     data.js                47eb2857d0745a96de0c17211c91b720    16383 bytes
+     plan.js                9217f40ab872c3ac88116f6fedbb3ac3    66825 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
      host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             bdade5976c39dae562447cf4cff5829e    23733 bytes
+     session.js             c45d30e23bf911824bfdc9bc80e2a065    23762 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
      copy.js                27a9301fbfc84dd52157854cc8e9cfbc    11099 bytes
      page.js                357671b667c6af637851ef73534945e3    29718 bytes
@@ -725,7 +725,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:7328c72c57267a43a263873b2b18c538 */
+<script>/* @module data.js md5:47eb2857d0745a96de0c17211c91b720 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -793,6 +793,8 @@ function clipUrl(base, file) {
 const TAKE_TRIMS = Object.freeze({
   'MIND-03-e.mp3':            { start: 5.33, caption: ['Which sounds stay? ', ''] },
   'SETUP-ANCHOR-TOUCH-a.mp3': { end: 5.35,   caption: [', so grab it now before we start.', '.'] },
+  /* 2026-09-17 (CA review): take A reads the whole sign-off twice; it ends after the first */
+  'OUTRO-a.mp3':              { end: 10.2,   caption: [' That\'s it for this one. Really nicely done. Get some water or air or a bit of movement if you need it. I look forward to working with you again in the next one', ''] },
 });
 function trimFor(file) { return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null; }
 /* the transcript edits that go with the cuts — applied to the loaded captions map, once */
@@ -1030,7 +1032,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:bae6ef387780ae0812bc40c43a21680c */
+<script>/* @module plan.js md5:9217f40ab872c3ac88116f6fedbb3ac3 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1108,7 +1110,10 @@ const SAFETY_LEVELS = [
   { level: 5, practice: 'specific-safety',  beats: () => [D.ROLE.bodySpecificSafety, D.ROLE.numbOk] },
   /* Description can only sit above level 5 because the second question asks about "that one
    * place in your body" — there is no one place until level 5 has found it. */
-  { level: 6, practice: 'describe-safety',  beats: plain => plain ? D.FAMILY.descSafetyPlain : D.FAMILY.descSafety },
+  /* ✅ A breath re-check opens the description, and the last two questions run SOUND then MOVEMENT
+   * (CA review 2026-09-17): the builder asks sound, then movement; the family is numbered the
+   * other way round. `describeOrder()` is the one place that reorder lives. */
+  { level: 6, practice: 'describe-safety',  beats: plain => [D.ROLE.breathCheck].concat(describeOrder(plain ? D.FAMILY.descSafetyPlain : D.FAMILY.descSafety)) },
   /* ✅ LEVEL 7 — the Interest Impulse (Justin, 2026-09-05). "There should actually be a safety
    * practice that ends with this check, then closes out. Add that as its own practice tier."
    *
@@ -1306,7 +1311,7 @@ function depthBlock(add, cfg, capacityGate) {
    * safety" was followed at once by "what colour is it?" — permission contradicted by five questions
    * that presuppose the thing. Book 3 at this depth is describe briefly THEN return to safety. */
   if (rank >= 2) {
-    (cfg.plain ? D.FAMILY.descDefensePlain : D.FAMILY.descDefense).forEach(id => add(id, 'defense'));
+    describeOrder(cfg.plain ? D.FAMILY.descDefensePlain : D.FAMILY.descDefense).forEach(id => add(id, 'defense'));
   }
   add(D.ROLE.numbOkDefense, 'defense');
 }
@@ -1594,6 +1599,10 @@ function plan(cfg) {
   if (cfg.holdWatch) add(D.practices()[HOLD_WATCH].setup, 'opening', { kind: KIND.setup });
 
   if (cfg.mode === 'open') add(D.ROLE.setupModeOpen, 'opening', { kind: KIND.setup });
+  /* ✅ THE INTENTIONAL BREATH IS THE FIRST BEAT AFTER THE SETUP (CA review 2026-09-17, applied on
+   * Justin's direction): the builder's rule is that the breath comes before "choose a non-safety
+   * emotion", not after it. It used to open the mindfulness run instead. */
+  add(D.ROLE.arriveBreath, 'opening');
   /* INTENT-SET plays for EVERY self-regulation practice — the three skills AND the two base
    * practices — and never under an obstacles prefix. Justin, 2026-09-05: "it's picking an
    * emotion to pay attention to at the outset. It's very intentional planning. It would not
@@ -1604,7 +1613,9 @@ function plan(cfg) {
    * anything in"), which left INTENT-TOLERABLE below referring to a choice nobody was asked to
    * make — Justin heard "whatever you chose…" with nothing chosen. His ruling: "intent-set
    * should play for all self-reg practices except obstacles." */
-  if ((skill && !prefixed) || base) add(D.ROLE.intentSet, 'opening');
+  /* ✅ Takes A and C each read a sentence twice in one breath (CA review 2026-09-17), so the
+   * shuffle leaves them out until they are re-cut. */
+  if ((skill && !prefixed) || base) add(D.ROLE.intentSet, 'opening', { pool: poolExcluding(D.ROLE.intentSet, INTENT_SET_DOUBLED) });
   /* ✅ WHICH DEFENSE TO BRING — INTENT-TOLERABLE (Justin, 2026-09-05, CA item 10). The engine
    * titrates how deep a practice goes and said nothing about what the listener brings, so a
    * first-ever defense practice could arrive carrying stuck shame and be validated without a
@@ -1616,31 +1627,32 @@ function plan(cfg) {
    * it arrives from the statements. Once per practice. */
   if ((skill && !prefixed) || base) add(D.ROLE.intentTolerable, 'opening');
 
-  // 1 · the mindfulness opener ──────────────────────────────────────────────────────────
-  /* §3b as written: MIND-01…03, then the breath re-check, then MIND-04…07. The re-check sits
-   * INSIDE the run, which is why the family cannot simply be played end to end.
+  // 1 · the warm-up — a LIGHT pass, because every long practice anchors ──────────────────
+  /* ✅ REWRITTEN 2026-09-17 on the Curriculum Advisor's review, at Justin's direction ("I got
+   * this wrong previously. Follow this directive."). Two things changed:
    *
-   * ✅ 2026-09-16, device walk 1 — Justin: "breath should come between each sense." The three
-   * sense beats are MIND-03 (sound), MIND-04 (touch) and MIND-05 (sight); a breath re-check now
-   * follows sound AND touch, so no sense lands straight on the heels of another. MIND-06/07
-   * (emotion) are not senses and follow sight as before. */
+   *   1. The senses run OUTSIDE-IN — sight → sound → touch (Justin's 2026-09-07 ruling), not the
+   *      MIND-03…05 numbering (sound → touch → sight) this file used to play.
+   *   2. An anchoring practice does NOT get the full mindfulness run. The builder opens with a
+   *      light look at sight and sound, then the breath, then the emotion pair ("Imagine &
+   *      Invite"), then the anchor. The full run — every sense with a breath re-check after each —
+   *      belongs to the practices that do NOT anchor, "so nothing doubles up". In the app it
+   *      doubled up: MIND-04 is the whole touch prompt, and then the touch ladder asked again.
+   *      Counting the setup clip, people were asked to find something to hold three times.
+   *
+   * The 0–10 reading stays where it was — the first thing after the intentional breath — and the
+   * second reading of the old design (before the ladder) is gone: Justin, 2026-09-17: "0–10 for
+   * safety should occur twice: at the beginning and before the impulse check; in defense work it
+   * can occur again at the end." See the gate run below for the other two.
+   *
+   * The sound anchor looks at sound twice (warm-up, then its ladder); Justin: "double sound is
+   * fine since it's brief and different levels of attention." */
   const mind = D.FAMILY.mind;
-  const SENSE_BEATS = [mind[2], mind[3]];   // sound, touch — each hands off through a breath re-check
-  add(D.ROLE.arriveBreath, 'opening');
-  mind.forEach(id => {
-    add(id, 'mindfulness');
-    if (SENSE_BEATS.includes(id)) add(D.ROLE.breathCheck, 'mindfulness');
-  });
-  /* ✅ THE SAFETY READING IS TAKEN TWICE (Justin, 2026-09-05). MIND-01 opens the practice — a
-   * reading taken before any safety work has happened, which is the Curriculum Advisor's point
-   * 11: it was measured once, at the coldest possible moment, and never read again.
-   *
-   * Justin: "it's just an intro to notice safety, but it should be prompted to be checked again,
-   * after the mindfulness sequence and before anchoring into safety." So it is asked again here,
-   * at the threshold of the anchor ladder. The clip needs no new copy — "on a scale of zero to
-   * ten, what's your level of safety right now?" is context-free and true both times — and the
-   * two readings give the recommender a before and an after instead of a single cold number. */
-  add(D.SAFETY_READING, 'mindfulness');
+  add(D.SAFETY_READING, 'mindfulness');                         // reading 1 of 2 (3 in defense)
+  WARM_UP_SENSES.forEach(i => add(mind[i], 'mindfulness'));      // sight, sound — outside-in
+  add(D.NATURAL_BREATH, 'mindfulness');                          // then the breath
+  add(mind[MIND_EMOTION], 'mindfulness');                        // Imagine & Invite
+  add(mind[MIND_INVITE], 'mindfulness');
 
   // 2 · the anchor ladder, the shared tail, the running level's safety beats ────────────
   /* 🔴 THE HAND-OFF COMES BEFORE THE SHARED TAIL. Corrected 2026-09-05 against TAG-MAP §3b
@@ -1690,7 +1702,9 @@ function plan(cfg) {
      * and uses it as exactly this gate. So MIND-01 is asked once more, immediately before the
      * FIRST capacity gate — the moment before the body — and the app shows it beside the
      * question. Pendulating's second gate does not repeat it. The scale stays 0–10. */
-    if (gateReadings === 0) add(D.SAFETY_READING, 'gate');
+    /* 2026-09-17: the reading moved to just before INTEREST-01 (see the axis gate) — Justin:
+     * "at the beginning and before the impulse check; in defense work it can occur again at the
+     * end". The gate itself no longer repeats it. */
     gateReadings += 1;
     /* E5.28 — the capacity gate must be answerable *no*: two buttons, both up for the whole
      * clip AND the silence after it (E4.23). Doing nothing continues.
@@ -1732,6 +1746,11 @@ function plan(cfg) {
    * asks the question, says answering it is the practice, and says plainly that we are not going
    * forward into defense. So it is the ONLY take there, and it never plays inside a defense
    * practice, where its "we're not turning toward the non-safety" would be the opposite lie. */
+  /* ✅ READING 2 OF 2 — immediately before the Interest Impulse question, whoever asks it
+   * (Justin, 2026-09-17). In the Interest Impulse practice that is after describing safety, which
+   * is the before-and-after the CA asked for; in the defense practices it is the number the
+   * listener carries into the question. */
+  if (cfg.practice === INTEREST_SAFETY || base || skill) add(D.SAFETY_READING, 'gate');
   if (cfg.practice === INTEREST_SAFETY) {
     /* ✅ THE ANSWER IS RECORDED (Justin, 2026-09-05, CA item 2: "yes to A"). The yes/no control
      * stays up, and the answer — with the date — is what the app uses to offer the first defense
@@ -1773,8 +1792,16 @@ function plan(cfg) {
     add(D.ROLE.validateDefense, 'defense');
     if (base.normalize) add(D.ROLE.normalizeDefense, 'defense');
     add(D.ROLE.stopOk, 'defense');
+    /* ✅ BACK TO SAFETY BEFORE THE END (CA review 2026-09-17, Justin: "yes to pend-safety"). The
+     * base practices used to go from naming a non-safety emotion straight into the close or the
+     * open ending, leaving the person with what they had just named. Every builder defense
+     * practice brings attention back to safety first. Justin on depth: "just naming it, then
+     * returning to safety. Validating is its own practice." */
+    add(D.ROLE.pendSafety, 'defense');
+    add(D.SAFETY_READING, 'defense');                            // reading 3: defense work, at the end
   } else if (skill) {
     defenseTail(add, cfg, capacityGate, capacityCheck);
+    add(D.SAFETY_READING, 'defense');                            // reading 3: defense work, at the end
   } else if (!safety && !isAnchoring) {
     cfg.practiceBlock(add, cfg, D);
   }
@@ -1816,6 +1843,28 @@ const OBSTACLES_SETUP = Object.freeze({
  * the one place that reads either. Letters, never filenames, and never a clip ID. */
 const TAKE_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 const INTEREST_SAFETY_TAKE = 'e';
+
+/* ── 2026-09-17: the Curriculum Advisor's sequence review, as Justin ruled on it ─────────── */
+/* the warm-up senses, OUTSIDE-IN: sight (MIND-05), sound (MIND-03). Touch (MIND-04) is the
+ * anchor's job in every long practice and does not play in the warm-up. */
+const WARM_UP_SENSES = [4, 2];
+const MIND_EMOTION = 5;   // MIND-06 — "is there emotion that you're holding onto?"
+const MIND_INVITE = 6;    // MIND-07 — "let it be… invite it to be with us"
+/* the closing, in Justin's 2026-09-07 order: return to the anchor → widen → reconnect to the room
+ * → move → kindness → breath. The family is numbered in the order that was replaced. */
+const CLOSE_ORDER = Object.freeze([2, 0, 1, 4, 3, 5].map(i => D.FAMILY.closes[i]));
+/* the two ENDING-OPEN takes that do not send the listener inward ("let it take you where it
+ * needs to", "let your inner world lead" are A and C) */
+const ENDING_OPEN_NEUTRAL = Object.freeze(['b', 'd']);
+/* INTENT-SET takes that read a sentence twice in one breath — out of the shuffle until re-cut */
+const INTENT_SET_DOUBLED = Object.freeze(['a', 'c']);
+/* the describe families are numbered colour, shape, temperature, texture, MOVEMENT, SOUND; the
+ * builder asks sound before movement */
+function describeOrder(family) {
+  const f = family.slice();
+  if (f.length >= 6) { const t = f[4]; f[4] = f[5]; f[5] = t; }
+  return f;
+}
 function poolExcluding(id, excluded) {
   const n = D.takes(id);
   const pool = TAKE_LETTERS.slice(0, n).split('').filter(t => !excluded.includes(t));
@@ -1976,7 +2025,7 @@ const SHORT_PRACTICES = [TINY, MINDFULNESS];
  * — then the sign-off. Open-ended ends at the open ending instead (E3.10). */
 function closing(cfg, add, branches) {
   if (cfg.mode === 'open') return openEnding(add, branches, 'full');
-  D.FAMILY.closes.forEach(id => add(id, 'closing'));
+  CLOSE_ORDER.forEach(id => add(id, 'closing'));
   add(D.ROLE.outro, 'closing');
 }
 
@@ -1984,11 +2033,15 @@ function closing(cfg, add, branches) {
  * because E3.10 says every skill and every practice type routes here and two copies of it is
  * how "every" quietly becomes "most". */
 function openEnding(add, branches, shape) {
-  const first = add(D.ROLE.endingOpen, 'closing', { finishable: true });
-  /* E3.12 — the impulse beat fires in exactly two places: hold & watch (during and after) and
-   * once, early, in the open ending. It is NOT on a timer of its own, which is what makes a
-   * collision with the breath prompts impossible by construction rather than by scheduling. */
-  add(D.ROLE.impulseCheck, 'closing', { finishable: true });
+  /* ✅ 2026-09-17 (CA review): takes A and C of ENDING-OPEN end on "let it take you where it
+   * needs to" / "let your inner world lead" — in a practice meant to stay in safety, with no
+   * curiosity check, that can pull someone toward non-safety. The open ending uses the two
+   * neutral takes everywhere. */
+  const first = add(D.ROLE.endingOpen, 'closing', { finishable: true, pool: ENDING_OPEN_NEUTRAL });
+  /* ✅ NO IMPULSE-CHECK HERE ANY MORE (CA review 2026-09-17). E3.12 had it firing once, early, in
+   * the open ending; in the builder "nothing has to happen here… if an impulse to move shows up"
+   * plays only right before Hold & Watch, at the deepest level. After a plain safety anchor it
+   * was out of place. It keeps its one home: `defenseTail`, before HOLD-WATCH. */
   add(D.ROLE.endingOpenBreath, 'closing', { loop: OPEN_BREATH_LOOP, finishable: true });
 
   /* ✅ TAP TO FINISH (Justin, 2026-09-05). An open-ended practice used to end by evaporating:
@@ -2058,6 +2111,7 @@ function terminatorOf(beats) {
 }
 
 const API = {
+  WARM_UP_SENSES, MIND_EMOTION, MIND_INVITE, CLOSE_ORDER, ENDING_OPEN_NEUTRAL, INTENT_SET_DOUBLED, describeOrder,
   plan, gapFor, KIND, ANCHORING, MINDFULNESS, TINY, SHORT_PRACTICES,
   SAFETY_LEVELS, SAFETY_HALF_LEVEL, BASE_THROUGH_LEVEL, INTEREST_SAFETY, INTEREST_SAFETY_TAKE,
   BASE_PRACTICES, DEPTHS, DEPTH_OFFERED_BY, DEPTH_OFFERED_BY_PREFIX, DEPTH_SETUP,
@@ -3692,7 +3746,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:bdade5976c39dae562447cf4cff5829e */
+<script>/* @module session.js md5:c45d30e23bf911824bfdc9bc80e2a065 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4022,7 +4076,7 @@ class Session {
     const tail = [];
     if (ack) tail.push(this._branchBeat(D.ROLE.easeOutAck, 'closing'));
     tail.push(this._branchBeat(D.ROLE.easeOut, 'closing'));
-    D.FAMILY.closes.forEach(id => tail.push(this._branchBeat(id, 'closing')));
+    P.CLOSE_ORDER.forEach(id => tail.push(this._branchBeat(id, 'closing')));   // Justin's 2026-09-07 order
     tail.push(this._branchBeat(D.ROLE.outro, 'closing'));
     this._replaceTail(tail);
     this.onEvent({ type: 'ease-out', from, ack: !!ack });
