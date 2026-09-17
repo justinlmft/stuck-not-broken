@@ -374,15 +374,15 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
      data.js                66377d4909b19cae2197ab810725fe48    14123 bytes
-     plan.js                917cf41b5da7e274db5b152c9e84cb40    61918 bytes
-     runtime.js             d4fc820f9d821df361374a2bda970375    26854 bytes
+     plan.js                bae6ef387780ae0812bc40c43a21680c    62577 bytes
+     runtime.js             036d5caf6d6ba27f1d133a5917e2fb49    27598 bytes
      host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
      session.js             bdade5976c39dae562447cf4cff5829e    23733 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                193854736138581df390e7e668330159    10923 bytes
+     copy.js                27a9301fbfc84dd52157854cc8e9cfbc    11099 bytes
      page.js                5a12c73c7b023c5ed88131e76ab3293c    29572 bytes
 -->
 </head>
@@ -1000,7 +1000,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:917cf41b5da7e274db5b152c9e84cb40 */
+<script>/* @module plan.js md5:bae6ef387780ae0812bc40c43a21680c */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1564,33 +1564,43 @@ function plan(cfg) {
   if (cfg.holdWatch) add(D.practices()[HOLD_WATCH].setup, 'opening', { kind: KIND.setup });
 
   if (cfg.mode === 'open') add(D.ROLE.setupModeOpen, 'opening', { kind: KIND.setup });
-  /* INTENT-SET plays for the three SKILLS and nothing else, and never under an obstacles
-   * prefix. Justin, 2026-09-05: "it's picking an emotion to pay attention to at the outset.
-   * It's very intentional planning. It would not make sense to play this with Obstacles."
-   * Under a prefix the emotion is not chosen in advance — it arrives from the statements.
+  /* INTENT-SET plays for EVERY self-regulation practice — the three skills AND the two base
+   * practices — and never under an obstacles prefix. Justin, 2026-09-05: "it's picking an
+   * emotion to pay attention to at the outset. It's very intentional planning. It would not
+   * make sense to play this with Obstacles." Under a prefix the emotion is not chosen in
+   * advance — it arrives from the statements.
    *
-   * The two base practices do not take it either: they never invite anything in, so there is
-   * nothing to set an intention about and nothing to permit. */
-  if (skill && !prefixed) add(D.ROLE.intentSet, 'opening');
+   * ✅ 2026-09-16, device walk 1: the base practices had been left out ("they never invite
+   * anything in"), which left INTENT-TOLERABLE below referring to a choice nobody was asked to
+   * make — Justin heard "whatever you chose…" with nothing chosen. His ruling: "intent-set
+   * should play for all self-reg practices except obstacles." */
+  if ((skill && !prefixed) || base) add(D.ROLE.intentSet, 'opening');
   /* ✅ WHICH DEFENSE TO BRING — INTENT-TOLERABLE (Justin, 2026-09-05, CA item 10). The engine
    * titrates how deep a practice goes and said nothing about what the listener brings, so a
    * first-ever defense practice could arrive carrying stuck shame and be validated without a
    * word about scale. The guidance is TOLERABLE, not mild — Justin: "the person should be
    * expanding their tolerance and challenge level, not maintaining the lowest level."
    *
-   * It plays wherever INTENT-SET plays, right after it, and in the two base practices — which
-   * never play INTENT-SET — after the setup. Not under an Obstacles prefix: there the emotion is
-   * not chosen in advance, it arrives from the statements. Once per practice. */
+   * It plays wherever INTENT-SET plays, right after it — since 2026-09-16 that includes the two
+   * base practices. Not under an Obstacles prefix: there the emotion is not chosen in advance,
+   * it arrives from the statements. Once per practice. */
   if ((skill && !prefixed) || base) add(D.ROLE.intentTolerable, 'opening');
 
   // 1 · the mindfulness opener ──────────────────────────────────────────────────────────
-  /* §3b: MIND-01…03, then the breath re-check, then MIND-04…07. The re-check sits INSIDE
-   * the run, which is why the family cannot simply be played end to end. */
+  /* §3b as written: MIND-01…03, then the breath re-check, then MIND-04…07. The re-check sits
+   * INSIDE the run, which is why the family cannot simply be played end to end.
+   *
+   * ✅ 2026-09-16, device walk 1 — Justin: "breath should come between each sense." The three
+   * sense beats are MIND-03 (sound), MIND-04 (touch) and MIND-05 (sight); a breath re-check now
+   * follows sound AND touch, so no sense lands straight on the heels of another. MIND-06/07
+   * (emotion) are not senses and follow sight as before. */
   const mind = D.FAMILY.mind;
+  const SENSE_BEATS = [mind[2], mind[3]];   // sound, touch — each hands off through a breath re-check
   add(D.ROLE.arriveBreath, 'opening');
-  mind.slice(0, 3).forEach(id => add(id, 'mindfulness'));
-  add(D.ROLE.breathCheck, 'mindfulness');
-  mind.slice(3).forEach(id => add(id, 'mindfulness'));
+  mind.forEach(id => {
+    add(id, 'mindfulness');
+    if (SENSE_BEATS.includes(id)) add(D.ROLE.breathCheck, 'mindfulness');
+  });
   /* ✅ THE SAFETY READING IS TAKEN TWICE (Justin, 2026-09-05). MIND-01 opens the practice — a
    * reading taken before any safety work has happened, which is the Curriculum Advisor's point
    * 11: it was measured once, at the coldest possible moment, and never read again.
@@ -2032,7 +2042,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:d4fc820f9d821df361374a2bda970375 */
+<script>/* @module runtime.js md5:036d5caf6d6ba27f1d133a5917e2fb49 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -2150,6 +2160,13 @@ class Runtime {
     this.playing = false;
     this.paused = false;
     this.finished = false;
+
+    /* A beat keeps the reading it was dealt. `fileFor()` shuffles across a clip's takes, and
+     * until 2026-09-16 it was rolled again on every play — so "back" (previousBeat, the lock
+     * screen's previoustrack) replayed the same beat in DIFFERENT words. Justin, device walk 1:
+     * "when I went back to relisten, the audio clip changed to another one." Keyed by the beat
+     * object, so the two BREATH-CHECK beats in a defense practice still get their own roll. */
+    this._dealt = new WeakMap();
 
     this.inGap = false;
     this._inSilence = false;      // a gap is REAL AUDIO, not a timer — §A4.2
@@ -2322,6 +2339,13 @@ class Runtime {
     return D.fileFor(beat.id, TAKE_LETTERS[i]);
   }
 
+  /* the reading this beat plays — dealt once, on first play, and kept for every replay */
+  dealtFile(beat) {
+    let f = this._dealt.get(beat);
+    if (!f) { f = this.fileFor(beat); this._dealt.set(beat, f); }
+    return f;
+  }
+
   variantsOf(beat) {
     const n = D.takes(beat.id);
     return Array.from({ length: n }, (_, i) => D.fileFor(beat.id, TAKE_LETTERS[i]));
@@ -2354,7 +2378,7 @@ class Runtime {
     this._inSilence = false;
     this._endedWhilePaused = false;   // whatever was owed, we are past it
     try {
-      au.src = D.clipUrl(this.dev.base, this.fileFor(beat));
+      au.src = D.clipUrl(this.dev.base, this.dealtFile(beat));
       au.currentTime = 0;
       this._msState('playing');
       this._tryPlay(() => this.armTapToStart());
@@ -4420,7 +4444,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:193854736138581df390e7e668330159 */
+<script>/* @module copy.js md5:27a9301fbfc84dd52157854cc8e9cfbc */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -4582,7 +4606,9 @@ const UI = Object.freeze({
 
   /* the four E5 controls. Each is a spoken option given a visible target, never a new question:
    * the audio has already asked, and the button is the other way of answering. */
-  curiosityNo: 'No, not right now',
+  /* Justin, 2026-09-16 (device walk 1): "make it more explicit" — the soft "No, not right now"
+   * did not say what was being declined. His words. */
+  curiosityNo: 'I\'m not feeling curious about non-safety',
   capacityMoreSafety: 'More time with safety',
   capacityEaseOut: 'Ease out now',
   moreSafetyAgain: 'More time with safety',
