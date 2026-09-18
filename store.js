@@ -141,7 +141,7 @@
     outbox = { checkins: [], sessions: [] };
   }
   function saveCache(){ if(_demoSeeded) return; try { localStorage.setItem(cacheKey(), JSON.stringify({ data, outbox, links })); } catch(e){} }
-  function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; links = Array.isArray(o.links)?o.links:[]; } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } _reconcile(); }
+  function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; links = Array.isArray(o.links)?o.links:[]; _upgradeSaved(data.sessions); _upgradeSaved(outbox.sessions); } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } _reconcile(); }
 
   // ---- sync plumbing (merge, live-session gating, loud failure) ----
   function notify(){ try{ onChange && onChange(); }catch(e){} }
@@ -243,7 +243,7 @@
   // a data-clear name for what was practiced. Mirrors the live flow's practice_ref.
   function practiceRefOf(s){
     if(!s || !s.practiceKey) return null;
-    return (s.practiceKey==='most' && s.skill) ? ('most:'+s.skill) : s.practiceKey;
+    return (s.practiceKey==='self-regulation' && s.skill) ? ('self-regulation:'+s.skill) : s.practiceKey;
   }
   // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
   // The ONE source of the challenge_level vocabulary (cloud column included). The
@@ -272,7 +272,7 @@
   const _PRACTICE_RUNG = { micro:_CHL.settle, mindfulness:_CHL.settle, anchoring:_CHL.gentle, more:'guided meditation' };
   function rungForPractice(s){
     if(!s || !s.practiceKey) return null;
-    if(s.practiceKey==='most') return (s.skill==='balancing'||s.skill==='pendulation') ? _CHL.stretch : _CHL.meet;
+    if(s.practiceKey==='self-regulation') return (s.skill==='balancing'||s.skill==='pendulating') ? _CHL.stretch : _CHL.meet;
     return _PRACTICE_RUNG[s.practiceKey] || null;
   }
   // Which phase does a check-in taken at `t` belong to? Looks only at the most recent
@@ -375,27 +375,25 @@
   // and 'more' are opaque, so they are stored as 'self-regulation' and 'guided meditation'
   // (matching _PRACTICE_RUNG and PRACTICE_LABEL — one vocabulary, three maps, see the
   // cross-references at each); the other keys are self-explanatory and pass through.
-  const practiceLabelFor = k => (k==='most' ? 'self-regulation' : k==='more' ? 'guided meditation' : (k||null));
-  // ---- the session vocabulary, at the cloud boundary (2026-09-18, app migration step 1) ----
-  // Three stored names are being renamed (practice-engine/host.js MIGRATION): the practice key
-  // 'most' becomes 'self-regulation', the skill 'validate' (which was always validate AND
-  // normalize) becomes 'normalize-defense', and 'pendulation' becomes 'pendulating'. Rows in the
-  // cloud will hold the old names until they are migrated, and the new names after. So the
-  // translation happens HERE and only here: every row the app writes goes up in the new
-  // spelling, and every row it reads, in either spelling, comes in as the one vocabulary the rest
-  // of this file and app.js still speak. Nothing past this point can tell which state the
-  // data is in, which is the point: the code and the data can never disagree.
-  // Step 3 (contract) renames the internal vocabulary and retires the read half of this.
-  const _PK_OUT    = { most:'self-regulation' };
-  const _PK_IN     = { 'self-regulation':'most' };
-  const _SKILL_OUT = { validate:'normalize-defense', pendulation:'pendulating' };
-  const _SKILL_IN  = { 'normalize-defense':'validate', pendulating:'pendulation' };
-  const _vocab = (map, v) => (v != null && Object.prototype.hasOwnProperty.call(map, v)) ? map[v] : v;
-  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:_vocab(_PK_IN, r.practice_key), skill:_vocab(_SKILL_IN, r.skill), sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
+  const practiceLabelFor = k => (k==='self-regulation' ? 'self-regulation' : k==='more' ? 'guided meditation' : (k||null));
+  // ---- the session vocabulary (2026-09-18, app migration step 3) ----
+  // The app now speaks the stored names directly: practice key 'self-regulation', skills
+  // 'normalize-defense' and 'pendulating'. Cloud rows are already in them (migrated 2026-09-18)
+  // and the database maps any old name on the way in (trg_sessions_vocab_guard), so nothing is
+  // translated between the app and the cloud. The one thing still read in the old names is this
+  // device's own saved copy, written by an older build: it is upgraded once, as it loads.
+  const _LEGACY_PK    = { most:'self-regulation' };
+  const _LEGACY_SKILL = { validate:'normalize-defense', pendulation:'pendulating' };
+  const _own = (map, v) => (v != null && Object.prototype.hasOwnProperty.call(map, v)) ? map[v] : v;
+  function _upgradeSaved(list){
+    (list||[]).forEach(s => { if(!s) return; s.practiceKey = _own(_LEGACY_PK, s.practiceKey); s.skill = _own(_LEGACY_SKILL, s.skill); });
+    return list;
+  }
+  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
   // id is minted on the CLIENT (newSessionId) so a check-in can be tagged with the
   // session it belongs to before the session row has ever reached the cloud. Sending it
   // explicitly just overrides the table's gen_random_uuid() default.
-  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:_vocab(_PK_OUT, s.practiceKey), skill:_vocab(_SKILL_OUT, s.skill), sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null) });
+  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null) });
 
   // ---- lifecycle ----
   async function init(cb){
@@ -1297,7 +1295,7 @@
   // Justin's self-regulation rung order (his curriculum; validate & normalize is
   // the app's first defense rung as of v2). descDefense is a dial ON TOP of the
   // ladder, and hold & watch sits above that — both gated in recommend().
-  const SKILL_LADDER = ['validate','imagery','obstacles','balancing','pendulation'];
+  const SKILL_LADDER = ['normalize-defense','imagery','obstacles','balancing','pendulating'];
   // per-skill tallies over self-regulation sessions; plain (no describe-the-
   // defense) and desc (with it) are tallied separately, because the descDefense
   // rung only unlocks off PLAIN success at balancing + pendulation.
@@ -1305,7 +1303,7 @@
     const out = {};
     SKILL_LADDER.forEach(k => out[k] = { plain:{good:0,bad:0,n:0,last:[]}, desc:{good:0,bad:0,n:0,last:[]} });
     data.sessions.forEach(s => {
-      if(s.practiceKey!=='most' || !s.skill || !out[s.skill]) return;
+      if(s.practiceKey!=='self-regulation' || !s.skill || !out[s.skill]) return;
       const o = _outcomeOf(s);
       const b = s.descDefense ? out[s.skill].desc : out[s.skill].plain;
       b.n++;
@@ -1330,10 +1328,10 @@
     });
     let next = null;
     for(let i = hi + 1; i < SKILL_LADDER.length; i++){ if(!cleared[SKILL_LADDER[i]]){ next = SKILL_LADDER[i]; break; } }
-    if(hi < 0) next = 'validate';                             // nothing cleared yet: start at the first rung
+    if(hi < 0) next = 'normalize-defense';                             // nothing cleared yet: start at the first rung
     // describe-the-defense unlocks after succeeding at balancing AND pendulation
     // without it (Justin's cohort sequence).
-    const descUnlocked = !!(cleared.balancing && cleared.pendulation);
+    const descUnlocked = !!(cleared.balancing && cleared.pendulating);
     let descGoing = null;                                     // how the dial itself has been going
     if(descUnlocked){
       let g=0, n=0, lastBad=false;
@@ -1343,7 +1341,7 @@
     // strongest cleared skill that can carry the descDefense dial (introduce the
     // dial where they're most solid first).
     let strongest = null, bestRate = -1;
-    ['imagery','balancing','pendulation'].forEach(k => {
+    ['imagery','balancing','pendulating'].forEach(k => {
       if(!cleared[k]) return;
       const p = so[k].plain, r = p.n ? p.good/p.n : 0;
       if(r > bestRate){ bestRate = r; strongest = k; }
@@ -1354,11 +1352,11 @@
   // the skill AND teach what it is (a path to the fuller practice-tab breakdown sits
   // in the reader copy). Straw wording — Justin owns final. Keyed to SKILL_LADDER + dials.
   const SKILL_DESC = {
-    validate:    "letting what's here be here, meeting the emotion without arguing with it",
+    'normalize-defense': "letting what's here be here, meeting the emotion without arguing with it",
     imagery:     'using a mental image to invite some safety',
     obstacles:   'noticing what blocks safety and working with it directly',
     balancing:   'holding some safety and some defense at the same time',
-    pendulation: 'moving toward the defense and back to safety, in small swings',
+    pendulating: 'moving toward the defense and back to safety, in small swings',
     descDefense: 'naming the defense out loud as you feel it',
     holdWatch:   'staying with what surfaces and watching it move, without steering it',
   };
@@ -1369,7 +1367,7 @@
   // not rank. The "what would change the app's recommendation" story is copy in the
   // reader's S6 (the recommender's own step-down/advance logic told plainly).
   function rungStory(){
-    const hasHistory = data.sessions.some(s => s && s.practiceKey==='most');
+    const hasHistory = data.sessions.some(s => s && s.practiceKey==='self-regulation');
     if(!hasHistory) return null;
     const rg = rungs();
     const cleared = SKILL_LADDER.filter(k => rg.cleared[k]);
@@ -1378,7 +1376,7 @@
     // next check-in read steadier (else just 'going well'). Reported, never scored.
     let reason = 'going-well';
     if(rg.strongest){
-      const ms = data.sessions.filter(s => s.practiceKey==='most' && s.skill===rg.strongest).sort((a,b)=>a.t-b.t);
+      const ms = data.sessions.filter(s => s.practiceKey==='self-regulation' && s.skill===rg.strongest).sort((a,b)=>a.t-b.t);
       for(let i=ms.length-1;i>=0;i--){ if(_outcomeOf(ms[i])==='good'){ reason = ms[i].afterFeeling==='more' ? 'more' : (_movedUp(ms[i]) ? 'steadier' : 'going-well'); break; } }
     }
     return { cleared, next: rg.next, strongest: rg.strongest, reason,
@@ -1645,13 +1643,13 @@
     // ceiling >=1 — safety first, then a self-regulation skill capped to the tier the week
     // earned (t1: validating/imagery · t2: +obstacles · t3: +balancing/pendulation).
     // Scheme A band 3; the rung ladder fills the skill slot.
-    const TIER_TOP = { 1:'imagery', 2:'obstacles', 3:'pendulation' };
+    const TIER_TOP = { 1:'imagery', 2:'obstacles', 3:'pendulating' };
     const capIdx = SKILL_LADDER.indexOf(TIER_TOP[ceiling]);
     // ---- what happened last time on this track (graded step-down) ----
     // hard signals (struggle / less / too-hard exit): first one turns the dials
     // down on the SAME rung; a second in a row steps down a rung. soft signals
     // ('same' / 'unsure'): one step easier right away, as a one-session nudge.
-    const mosts = data.sessions.filter(s => s.practiceKey==='most');
+    const mosts = data.sessions.filter(s => s.practiceKey==='self-regulation');
     const lastMost = mosts[mosts.length-1] || null;
     const prevMost = mosts[mosts.length-2] || null;
     const lastAf = lastMost ? (lastMost.afterFeeling || null) : null;
@@ -1661,7 +1659,7 @@
     // default rung: the next uncleared one, else their strongest skill. Then CAP to the
     // tier the week earned — the ladder can propose a rung the week hasn't unlocked; the
     // ceiling holds it back (a rung above the tier drops to the tier's top skill).
-    let skill = rg.next || rg.strongest || L.favSkill || 'validate';
+    let skill = rg.next || rg.strongest || L.favSkill || 'normalize-defense';
     if(SKILL_LADDER.indexOf(skill) > capIdx) skill = SKILL_LADDER[capIdx];
     let dialDown = false, droppedRung = false, leftTrack = false;
     if(hardLast){
@@ -1684,14 +1682,14 @@
     // pendulation; introduced on the strongest cleared skill; dropped again the
     // session after it went badly. never on a dialed-down / stepped-down session.
     let desc = false, descIntro = false;
-    if(rg.descUnlocked && !dialDown && !droppedRung && ['balancing','pendulation'].indexOf(skill) >= 0){
+    if(rg.descUnlocked && !dialDown && !droppedRung && ['balancing','pendulating'].indexOf(skill) >= 0){
       if(rg.descGoing && rg.descGoing.lastBad) desc = false;
       else { desc = true; descIntro = !(rg.descGoing && rg.descGoing.tried); if(descIntro && rg.strongest) skill = rg.strongest; }
     }
     // hold & watch: the top tier (ceiling 3 = safety 50%+ consistent, defense ≤55%) with the
     // describe rung unlocked. Strong safety as the NORM unlocks it; sits above the describe rung.
     let hold = false, holdSecs = null;
-    if(ceiling===3 && rg.descUnlocked && !dialDown && !droppedRung && (skill==='balancing' || skill==='pendulation')){
+    if(ceiling===3 && rg.descUnlocked && !dialDown && !droppedRung && (skill==='balancing' || skill==='pendulating')){
       hold = true; holdSecs = holdTarget();
     }
     // ---- why this practice (evidence named, in order: baseline/moment -> last
@@ -1716,14 +1714,14 @@
       reason = "you have safety here, and your practice history has earned the next step: " + _skillWord(skill) + ". one rung at a time, with the way back always open.";
     } else if(ceiling>=3){
       reason = "you've got steady safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
-    } else if(L.sessionsDone>=3 && L.favPractice==='most'){
+    } else if(L.sessionsDone>=3 && L.favPractice==='self-regulation'){
       reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
     } else {
       reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
     }
     // silence: the 0.55-appetite 4s default is re-sourced to the deepest tier (ceiling 3).
     const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
-    return cfg('most', skill, sense, sil3, reason, dialDown ? 'same rung, smaller dose' : droppedRung ? 'one step easier' : 'room to go deeper',
+    return cfg('self-regulation', skill, sense, sil3, reason, dialDown ? 'same rung, smaller dose' : droppedRung ? 'one step easier' : 'room to go deeper',
                { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedRung });
 
     function cfg(practiceKey, skill, sense, silence, reason, tag, extras){
@@ -1740,7 +1738,7 @@
     }
   }
   // plain word for a skill inside advisor copy (lowercase register)
-  const _SKILL_WORD = { validate:'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
+  const _SKILL_WORD = { 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
   function _skillWord(k){ return _SKILL_WORD[k] || k; }
 
   // (CHALLENGE_LEVELS + challengeLabel moved up beside _PRACTICE_RUNG, 2026-08-22 —
@@ -1852,13 +1850,13 @@
     return { n, families, topFamily, connectedPct: Math.round(conn/n*100), shift };
   }
   // rungMovement(startMs, endMs): the self-regulation skill practiced at the window's
-  // start vs its end (from 'most' sessions with a skill inside the window). Powers the
+  // start vs its end (from 'self-regulation' sessions with a skill inside the window). Powers the
   // period "3 months ago you were practicing X, now Y" arc. Null until two such practices
   // exist in the window. `advanced` is available (ladder index) but the copy stays neutral
   // — forward-then-back is normal (Justin), and the ladder is a sequence, not a score.
   function rungMovement(startMs, endMs){
     const ms = data.sessions
-      .filter(s => s && s.practiceKey==='most' && s.skill && typeof s.t==='number' && s.t>=startMs && s.t<endMs)
+      .filter(s => s && s.practiceKey==='self-regulation' && s.skill && typeof s.t==='number' && s.t>=startMs && s.t<endMs)
       .sort((a,b)=>a.t-b.t);
     if(ms.length < 2) return null;
     const from = ms[0].skill, to = ms[ms.length-1].skill;
@@ -1870,7 +1868,7 @@
   // 'more' matches practiceLabelFor + _PRACTICE_RUNG ('guided meditation') — before
   // 2026-08-22 it was missing here, so the first completed meditation would have
   // rendered the literal key "more" in practice history and the "You return to" line.
-  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation', more:'guided meditation' };
+  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', 'self-regulation':'self-regulation', more:'guided meditation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
 
   // ---- name ----

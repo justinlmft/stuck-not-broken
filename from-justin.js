@@ -877,7 +877,7 @@
   // the Direction-1 per-session template and the change-data conditional are his approved copy.
   const EMO_BRIDGE = { anxious:'flight activation', angry:'fight activation', sad:'a move toward shutdown', fear:'a freeze response', connected:'a sign of safety in the system' };
   const PAT_BRIDGE = { anxious:'mobilized energy, the body geared up to act', angry:'mobilized energy, the body geared up to act', sad:'the body conserving, pulling inward', fear:'energy and brake at once', connected:'a sign of safety' };
-  const _RUNG_WORD = { validate:'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
+  const _RUNG_WORD = { 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
   function _rungWord(k){ return _RUNG_WORD[k] || k; }
   const _artA = w => (/^[aeiou]/i.test(String(w||'')) ? 'an ' : 'a ');
   // per-session shift beat (daily reader). shift = Store.emotionShift(session).

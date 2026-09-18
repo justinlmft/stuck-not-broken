@@ -462,21 +462,21 @@
   const TRACK = {
     mindfulness: { cls:'mind',   color:'var(--track-mind)' },
     anchoring:   { cls:'safety', color:'var(--track-safety)' },
-    most:        { cls:'self',   color:'var(--track-self)' },
+    'self-regulation':        { cls:'self',   color:'var(--track-self)' },
     more:        { cls:'mind',   color:'var(--track-mind)' },
     micro:       { cls:'mind',   color:'var(--track-mind)' },
   };
   const trackOf = (k) => TRACK[k] || TRACK.mindfulness;
-  const SKILL_LABEL = { validate:'validate & normalize', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
+  const SKILL_LABEL = { 'normalize-defense':'validate & normalize', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
   const skillLabel = (k) => SKILL_LABEL[k] || k;
   // plain-language gloss for each skill name — used by the builder's live
   // "what to expect" paragraph and anywhere else a skill needs explaining
   const SKILL_CAP = {
-    validate:   "name one thing you're feeling, say that it's real, and see that it makes sense given your life.",
+    'normalize-defense': "name one thing you're feeling, say that it's real, and see that it makes sense given your life.",
     imagery:    'Give a challenging feeling a shape in your mind and invite it in, a little at a time.',
     obstacles:  'Notice what gets in the way of feeling safe, and meet it with some kindness.',
     balancing:  'Hold something pleasant and something challenging at the same time, giving each some room.',
-    pendulation:'Move gently back and forth between a pleasant feeling and a more challenging one, so your body learns the way back.',
+    pendulating:'Move gently back and forth between a pleasant feeling and a more challenging one, so your body learns the way back.',
   };
   const silLabel = (n) => n<=4 ? 'a little' : n>=12 ? 'a lot' : 'some';
 
@@ -642,7 +642,7 @@
   const PRACTICE_ABOUT = {
     mindfulness: ()=>"a calm voice helps you connect to the present moment using your senses and your body's natural breathing rhythm. no pressure, just presence. can be used anywhere, even when moving.",
     anchoring: (sense)=>`you'll bring your attention to ${sense||'your senses'} and connect with the present moment, identifying how safety feels in the body and spending time with it. good for moments to practice feeling safety or where your system is drifting into defense. best if done in an environment with less distraction. feel free to move or not.`,
-    most: ()=>"you'll intentionally and compassionately turn your attention toward an emotion that is more challenging while staying connected to the present moment and anchored in safety. best done in an environment free of distraction and more comfort.",
+    'self-regulation': ()=>"you'll intentionally and compassionately turn your attention toward an emotion that is more challenging while staying connected to the present moment and anchored in safety. best done in an environment free of distraction and more comfort.",
     micro: ()=>'A very short present-moment connection practice, built for the middle of a busy day. Use this anywhere and doing anything.',
     more: ()=>'A full, standalone guided practice, played start to finish.',
   };
@@ -661,7 +661,7 @@
     // open-ended (self-reg only) has no fixed length: the estimate reflects the
     // guided portion, then notes it keeps going until you stop — a fixed "about N
     // minutes" ignored the open-ended toggle before (fix 2026-07-24).
-    const openEnded = (key==='most' && !!open);
+    const openEnded = (key==='self-regulation' && !!open);
     // An open-ended practice states NO duration at all (Justin, 2026-08-30: selecting
     // open-ended "still says a time limit in the explainer"). est comes from the static
     // PRACTICE_EST table, which assumes the closing sequence runs; buildPlan() DROPS the
@@ -673,11 +673,11 @@
       `${head}${timePhrase}.`,
       aboutOf(key, sense),
     ];
-    if((key==='most'||key==='micro') && sense) bits.push(`your anchor is ${sense}.`);
-    if(key==='most' && skill && SKILL_CAP[skill]) bits.push(SKILL_CAP[skill]);
+    if((key==='self-regulation'||key==='micro') && sense) bits.push(`your anchor is ${sense}.`);
+    if(key==='self-regulation' && skill && SKILL_CAP[skill]) bits.push(SKILL_CAP[skill]);
     // hold & watch is offered only for balancing / pendulation; the line + its duration
     // update live as the user toggles the option and picks a length.
-    if(key==='most' && holdWatch && (skill==='balancing' || skill==='pendulation'))
+    if(key==='self-regulation' && holdWatch && (skill==='balancing' || skill==='pendulating'))
       bits.push(`then hold safety and defense together and watch what unfolds, for ${holdDurWords(holdSeconds)}.`);
     if(key!=='micro') bits.push(`with ${silLabel(silence)} silence between the guidance.`);
     if(openEnded) bits.push('It keeps going until you choose to stop.');
@@ -1009,7 +1009,7 @@
   // ONE practice per guest (Justin 2026-07-10): the taste is a single, honest free
   // practice, not an unlimited library. Once practiced, the way forward is the offer.
   let _guestPracticed = false;
-  // Gates the tabbar-free screens and the hard 'most' refusal in launchWeaver/logSession.
+  // Gates the tabbar-free screens and the hard 'self-regulation' refusal in launchWeaver/logSession.
   //
   // 2026-07-10: this used to require `_guestFlow && isAnonymous()`. That was a latent
   // hole — `_guestFlow` is in-memory, so any page reload cleared it while the person
@@ -1230,7 +1230,7 @@
   // FADED INK ONLY: same card, same fill, no dashes, no padlocks, chevron hidden.
   // Greyed out does not mean filled in. The two open options are the two mindfulness
   // practices; the choice is a time question, never a state match (that's the paid line).
-  // NEVER the 'most' (self-regulation) branch — the hard safety boundary for anonymous
+  // NEVER the 'self-regulation' (self-regulation) branch — the hard safety boundary for anonymous
   // visitors — and no safety anchoring: never demo what you're about to take away.
   function guestPracticePick(){
     // hard stop: one practice per guest. If they've already had it, the only way on is the offer.
@@ -1240,7 +1240,7 @@
       micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
       mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
       anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
-      most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
+      'self-regulation':        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
       more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
     };
     // the two open subs carry the estimate — sourced from PRACTICE_EST at the SAME
@@ -1250,7 +1250,7 @@
       { key:'micro',       open:true,  title:'A tiny practice',          sub:`about ${estTiny} min · one sense, done` },
       { key:'mindfulness', open:true,  title:'Simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
       { key:'anchoring',   open:false, title:'Connect with safety',      sub:'Settling in through your senses' },
-      { key:'most',        open:false, title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
+      { key:'self-regulation',        open:false, title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
       { key:'more',        open:false, title:'More practices',           sub:'Standalone guided practices' },
     ];
     const card = (o)=> o.open ? `
@@ -1321,7 +1321,7 @@
     }).catch(()=>{ showToast('Something went wrong. Please try again.'); guestPracticePick(); });
   }
   // Same as practiceShell, but with NO tabbar — a guest must not gain tab access
-  // (and its 'most' path) mid-practice. Back returns to the guest pick screen.
+  // (and its 'self-regulation' path) mid-practice. Back returns to the guest pick screen.
   function guestPracticeShell(src, reco){
     haptic('start');
     setHTML(`
@@ -6103,7 +6103,24 @@ function app(tab){
     }catch(e){}
     return r;
   }
+  // The old player (player.html) still speaks the old names: practice 'most', skills 'validate'
+  // and 'pendulation'. The app speaks the new ones (app migration step 3, 2026-09-18). Every
+  // launch goes through practiceShell and every report comes back through the message handler,
+  // so those two places are the only translation, and both go when step 4 retires player.html.
+  // (function declarations, so they exist however early a launch happens during load)
+  function _mapName(map, v){ return (v != null && Object.prototype.hasOwnProperty.call(map, v)) ? map[v] : v; }
+  function _toPlayerPractice(k){ return _mapName({ 'self-regulation':'most' }, k); }
+  function _toPlayerSkill(k){ return _mapName({ 'normalize-defense':'validate', pendulating:'pendulation' }, k); }
+  function _fromPlayerSkill(k){ return _mapName({ validate:'normalize-defense', pendulation:'pendulating' }, k); }
+  function _playerSrc(src){
+    if(typeof src !== 'string' || src.indexOf('player.html?') !== 0) return src;
+    const q = new URLSearchParams(src.slice('player.html?'.length));
+    if(q.has('practice')) q.set('practice', _toPlayerPractice(q.get('practice')));
+    if(q.has('skill')) q.set('skill', _toPlayerSkill(q.get('skill')));
+    return 'player.html?' + q.toString();
+  }
   function practiceShell(src, reco){
+    src = _playerSrc(src);
     haptic('start');               // soft tap as the practice begins (Begin tap = user gesture)
     currentTab = 'practice';
     setHTML(`
@@ -6133,11 +6150,11 @@ function app(tab){
     {key:'micro',      title:'A tiny practice',          sub:'About two minutes, one sense, done'},
     {key:'mindfulness',title:'Simple mindfulness',       sub:'The gentlest, a calm place to start'},
     {key:'anchoring',  title:'Connect with safety',      sub:'Settling in through your senses'},
-    {key:'most',       title:'Practice self-regulation', sub:'The deepest, meeting what is hard'},
+    {key:'self-regulation',       title:'Practice self-regulation', sub:'The deepest, meeting what is hard'},
     {key:'more',       title:'More practices',           sub:'Standalone guided practices'},
   ];
   const P_SENSES=['touch','sound','sight','movement','imagination'];
-  const P_SKILLS=[['validate','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulation','pendulation']];
+  const P_SKILLS=[['normalize-defense','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulating','pendulation']];
   const P_SILENCE=[[4,'a little'],[8,'some'],[12,'a lot']];
   const P_MEDS=[
     {id:'uye',                 title:'Use your ears',       est:'~10 min', sub:'Grounding through sound'},
@@ -6157,24 +6174,24 @@ function app(tab){
   // The four shapeable practices (they take dials). Everything else in the type
   // picker — the standalone sessions and "surprise me" — has no dials, so picking
   // one collapses the rest of the sentence.
-  const MK_SHAPED = ['micro','mindfulness','anchoring','most'];
+  const MK_SHAPED = ['micro','mindfulness','anchoring','self-regulation'];
   // the pill (in-sentence) label for each type — kept short so the sentence reads
   // naturally ("a safety practice", not "a connect with safety practice").
-  const MK_TYPE_PILL = { micro:'tiny', mindfulness:'mindfulness', anchoring:'safety', most:'self-regulation', surprise:'surprise' };
+  const MK_TYPE_PILL = { micro:'tiny', mindfulness:'mindfulness', anchoring:'safety', 'self-regulation':'self-regulation', surprise:'surprise' };
   const mkIsSession = (k)=> P_MEDS.some(m=>m.id===k);
   const mkPill = (k)=> MK_TYPE_PILL[k] || (P_MEDS.find(m=>m.id===k)||{}).title || k;
   // full (menu) label for each type. The type picker shows the NAME only — no
   // descriptions (Justin 2026-07-25: "just leave the practice names, like
   // 'connect with safety' and 'self-regulation'").
-  const MK_TYPE_MENU = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation' };
+  const MK_TYPE_MENU = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', 'self-regulation':'self-regulation' };
   // short glosses for the skill picker rows (copy per Justin 2026-07-25)
-  const MK_SKILL_SUB = { validate:'acknowledge defense and briefly put into context', imagery:'give the feeling a shape, invite it in', obstacles:'practice noticing emotions as they arise', balancing:'feel into defense while anchored in safety', pendulation:'shift focus between safety and defense' };
+  const MK_SKILL_SUB = { 'normalize-defense':'acknowledge defense and briefly put into context', imagery:'give the feeling a shape, invite it in', obstacles:'practice noticing emotions as they arise', balancing:'feel into defense while anchored in safety', pendulating:'shift focus between safety and defense' };
   // per-type glyphs for the picker (currentColor: muted at rest, track ink when selected)
   const MK_TYPE_ICO = {
     micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
     mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></svg>',
     anchoring:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 20s-6.5-4.2-8.6-8.3A4.4 4.4 0 0 1 12 6.8a4.4 4.4 0 0 1 8.6 4.9C18.5 15.8 12 20 12 20z"/></svg>',
-    most:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
+    'self-regulation':        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 5 13h5l-1 9 8-11h-5z"/></svg>',
     session:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
     surprise:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9z"/><path d="M18.5 14.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
   };
@@ -6221,7 +6238,7 @@ function app(tab){
   // regenerate with `node harness/seq/estimate.js` after any change to build(),
   // to the clip set, or to the gap rules, and paste the line it prints.
   // Last regenerated 2026-08-04 (DESC chunks split per question; INVITE removed from imagery).
-  const PRACTICE_EST = { micro:{4:2,8:2,12:2}, mindfulness:{4:6,8:7,12:8}, anchoring:{4:8,8:10,12:12}, most:{4:10,8:13,12:15} };
+  const PRACTICE_EST = { micro:{4:2,8:2,12:2}, mindfulness:{4:6,8:7,12:8}, anchoring:{4:8,8:10,12:12}, 'self-regulation':{4:10,8:13,12:15} };
   function estMinutes(key, sil){
     const t = PRACTICE_EST[key]; if(!t) return null;
     const s = [4,8,12].reduce((b,x)=>Math.abs(x-(sil||8))<Math.abs(b-(sil||8))?x:b, 8);
@@ -6408,21 +6425,21 @@ function app(tab){
       let s = `A ${dial('type', typeLabel || 'choose', typeLabel ? '' : 'is-empty')} practice`;
       if(MK_SHAPED.indexOf(k)>=0){
         if(k!=='mindfulness') s += `, anchored through ${dial('sense', pState.sense)}`;
-        if(k==='most'){
+        if(k==='self-regulation'){
           s += `, practicing ${dial('skill', skillLabel(pState.skill))}`;
           // "working with <feeling>" is meaningless for the obstacles skill — omit it there
           if(pState.skill!=='obstacles'){
             const emo = Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion);
             s += `, working with ${dial('emotion', emo?emo.label:'Whatever surfaces')}`;
           }
-          if(pState.skill==='balancing' || pState.skill==='pendulation'){
+          if(pState.skill==='balancing' || pState.skill==='pendulating'){
             s += pState.holdWatch
               ? `, holding &amp; watching for ${dial('hold', holdDurWords(pState.holdSeconds))}`
               : `, ${dial('hold', 'add hold & watch')}`;
           }
         }
         if(k!=='micro') s += `, with ${dial('silence', silLabel(pState.silence))} silence`;
-        if(k==='most') s += `, running ${dial('length', pState.open?'open-ended':'a complete practice')}`;
+        if(k==='self-regulation') s += `, running ${dial('length', pState.open?'open-ended':'a complete practice')}`;
       }
       return s + '.';
     }
@@ -6434,7 +6451,7 @@ function app(tab){
       if(k==='surprise') return "This is a randomly created practice, weaving together various self-regulation skills. This is best for the curious and motivated.";
       if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided practice, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
       const est = estMinutes(k, k==='micro'?2:pState.silence);
-      const openEnded = (k==='most' && !!pState.open);
+      const openEnded = (k==='self-regulation' && !!pState.open);
       const label = Store.practiceLabel(k);
       const bits = [];
       // opening: what it is + how long (the type + length are user choices → bold)
@@ -6446,10 +6463,10 @@ function app(tab){
       let about = escapeHtml(properCase(aboutOf(k, pState.sense)));
       if(k==='anchoring' && pState.sense) about = about.replace(pState.sense, b(pState.sense));
       bits.push(about);
-      if((k==='most'||k==='micro') && pState.sense) bits.push(`Your anchor is ${b(pState.sense)}.`);
-      if(k==='most' && pState.skill && SKILL_CAP[pState.skill]) bits.push(escapeHtml(properCase(SKILL_CAP[pState.skill])));
-      if(k==='most' && pState.skill!=='obstacles' && pState.emotion){ const emo=Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion); if(emo) bits.push(`You're working with ${b(emo.label)}.`); }
-      if(k==='most' && pState.holdWatch && (pState.skill==='balancing'||pState.skill==='pendulation')) bits.push(`Then hold safety and defense together and watch what unfolds, for ${b(holdDurWords(pState.holdSeconds))}.`);
+      if((k==='self-regulation'||k==='micro') && pState.sense) bits.push(`Your anchor is ${b(pState.sense)}.`);
+      if(k==='self-regulation' && pState.skill && SKILL_CAP[pState.skill]) bits.push(escapeHtml(properCase(SKILL_CAP[pState.skill])));
+      if(k==='self-regulation' && pState.skill!=='obstacles' && pState.emotion){ const emo=Store.EMOTION_FAMILIES.find(f=>f.key===pState.emotion); if(emo) bits.push(`You're working with ${b(emo.label)}.`); }
+      if(k==='self-regulation' && pState.holdWatch && (pState.skill==='balancing'||pState.skill==='pendulating')) bits.push(`Then hold safety and defense together and watch what unfolds, for ${b(holdDurWords(pState.holdSeconds))}.`);
       if(k!=='micro') bits.push(`With ${b(silLabel(pState.silence))} silence between the guidance.`);
       if(openEnded) bits.push('It keeps going until you choose to stop.');
       return bits.filter(Boolean).join(' ');
@@ -6478,7 +6495,7 @@ function app(tab){
         openDialSheet('What would you like to practice?', MK_TYPE_GROUPS(), k, tkCls, (v)=>{
           pState.mkKey=v;
           // entering self-regulation: make sure the seeded dials are valid for it
-          if(v==='most'){ if(!pState.skill) pState.skill='imagery'; if(!pState.sense) pState.sense='touch'; }
+          if(v==='self-regulation'){ if(!pState.skill) pState.skill='imagery'; if(!pState.sense) pState.sense='touch'; }
           if(v==='micro' && ['movement','imagination'].indexOf(pState.sense)>=0) pState.sense='touch';
           paintMaker();
         });
@@ -6488,7 +6505,7 @@ function app(tab){
       } else if(kind==='skill'){
         openDialSheet('Which skill?', [{opts:P_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tkCls, (v)=>{
           pState.skill=v;
-          if(v!=='balancing' && v!=='pendulation') pState.holdWatch=false;   // hold & watch only applies to these
+          if(v!=='balancing' && v!=='pendulating') pState.holdWatch=false;   // hold & watch only applies to these
           paintMaker();
         });
       } else if(kind==='emotion'){
@@ -6516,9 +6533,9 @@ function app(tab){
         const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
         const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
         const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
-        const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
+        const rhw=(rskill==='balancing'||rskill==='pendulating')?(Math.random()<0.5):false;
         const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
-        renderPlan({ practiceKey:'most', sense:rsense, skill:rskill, silence:rsilence,
+        renderPlan({ practiceKey:'self-regulation', sense:rsense, skill:rskill, silence:rsilence,
                      holdWatch:rhw, holdWatchTargetSeconds:(rhw?rhs:null),
                      reason:'A surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
         return;
@@ -6529,11 +6546,11 @@ function app(tab){
       }
       const sil = k==='micro' ? 2 : pState.silence;
       const ps={embed:'1',autostart:'1',practice:k,sense:pState.sense,silence:String(sil)};
-      if(k==='most'){ ps.skill=pState.skill;
-        if((pState.skill==='balancing'||pState.skill==='pendulation')&&pState.holdWatch){ ps.holdwatch='1'; ps.holdsecs=String(pState.holdSeconds||60); }
+      if(k==='self-regulation'){ ps.skill=pState.skill;
+        if((pState.skill==='balancing'||pState.skill==='pendulating')&&pState.holdWatch){ ps.holdwatch='1'; ps.holdsecs=String(pState.holdSeconds||60); }
         if(pState.open) ps.open='1';
       }
-      practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:pState.skill,silence:sil,holdWatch:(k==='most'?!!pState.holdWatch:false),holdWatchTargetSeconds:(k==='most'&&pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(k==='most'?!!pState.open:false),emotionIntent:(k==='most'?(pState.emotion||null):null)});
+      practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:pState.skill,silence:sil,holdWatch:(k==='self-regulation'?!!pState.holdWatch:false),holdWatchTargetSeconds:(k==='self-regulation'&&pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
     }
   }
 
@@ -6563,7 +6580,7 @@ function app(tab){
       mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
       anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
       // self-regulation meets BOTH defenses, so it carries both marks (bolt + x)
-      most:        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
+      'self-regulation':        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
       more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
     };
     const selCard=(o,dataAttr,selected)=>`
@@ -6587,21 +6604,21 @@ function app(tab){
           <p class="dash-prompt">What would you like to anchor with?</p>
           <div class="p-chips">${senseList.map(s=>chip(s,s,'sense',s===sense)).join('')}</div>
         </div>`:''}
-        ${key==='most'?`<div class="p-rgroup">
+        ${key==='self-regulation'?`<div class="p-rgroup">
           <p class="dash-prompt">Which skill do you want to practice?</p>
           <div class="p-chips">${P_SKILLS.map(([v,l])=>chip(l,v,'skill',v===skill)).join('')}</div>
         </div>`:''}
-        ${key==='most'?`<div class="p-rgroup">
+        ${key==='self-regulation'?`<div class="p-rgroup">
           <p class="dash-prompt">Working with anything today?</p>
           <div class="p-chips">${[['','let it surface']].concat(Store.EMOTION_FAMILIES.map(f=>[f.key,f.label])).map(([v,l])=>
             `<button class="p-chip${(pState.emotion||'')===v?' on':''}" data-emo="${escapeHtml(v)}">${escapeHtml(l)}</button>`).join('')}</div>
           <p class="ch-cap" id="p-emo-hint">${(()=>{const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);return f?escapeHtml(f.hint):'Choosing ahead of time helps you notice it when it arrives. Optional.';})()}</p>
         </div>`:''}
-        ${key==='most'?`<div class="p-rgroup" id="p-hw-group" style="${(skill==='balancing'||skill==='pendulation')?'':'display:none'}">
+        ${key==='self-regulation'?`<div class="p-rgroup" id="p-hw-group" style="${(skill==='balancing'||skill==='pendulating')?'':'display:none'}">
           <p class="dash-prompt">Add hold &amp; watch?</p>
           <div class="p-chips">${[[true,'hold & watch'],[false,'skip it']].map(([v,l])=>chip(l,v,'holdwatch',v===!!pState.holdWatch)).join('')}</div>
         </div>`:''}
-        ${key==='most'?`<div class="p-rgroup" id="p-hd-group" style="${((skill==='balancing'||skill==='pendulation')&&pState.holdWatch)?'':'display:none'}">
+        ${key==='self-regulation'?`<div class="p-rgroup" id="p-hd-group" style="${((skill==='balancing'||skill==='pendulating')&&pState.holdWatch)?'':'display:none'}">
           <p class="dash-prompt">How long to hold &amp; watch?</p>
           <div class="p-chips">${[[30,'30 sec'],[60,'1 min'],[90,'90 sec'],[120,'2 min']].map(([v,l])=>chip(l,v,'holdsec',v===pState.holdSeconds)).join('')}</div>
         </div>`:''}
@@ -6609,12 +6626,12 @@ function app(tab){
           <p class="dash-prompt">How much silence between guidance?</p>
           <div class="p-chips">${P_SILENCE.map(([v,l])=>chip(l,v,'sil',v===silence)).join('')}</div>
         </div>`:''}
-        ${key==='most'?`<div class="p-rgroup">
+        ${key==='self-regulation'?`<div class="p-rgroup">
           <p class="dash-prompt">How long would you like to practice?</p>
           <div class="p-chips">${[[false,'a complete practice'],[true,'open-ended']].map(([v,l])=>chip(l,v,'open',v===!!pState.open)).join('')}</div>
         </div>`:''}
         <p class="ch-cap p-expect" id="p-expect">${expectText(key, sense, skill, silence, pState.holdWatch, pState.holdSeconds, pState.open)}</p>
-        ${key==='most'?'<button class="p-surprise" id="p-surprise">Surprise me</button>':''}
+        ${key==='self-regulation'?'<button class="p-surprise" id="p-surprise">Surprise me</button>':''}
       </div>`:'';
 
     const medsHTML=key==='more'?`
@@ -6735,8 +6752,8 @@ function app(tab){
       pState.skill=b.dataset.skill;
       c.querySelectorAll('[data-skill]').forEach(r=>r.classList.toggle('on',r.dataset.skill===pState.skill));
       // hold & watch is offered only for balancing / pendulation — show/hide its group as skill changes
-      const hwg=$('#p-hw-group'); if(hwg) hwg.style.display=(pState.skill==='balancing'||pState.skill==='pendulation')?'':'none';
-      const hdg0=$('#p-hd-group'); if(hdg0) hdg0.style.display=((pState.skill==='balancing'||pState.skill==='pendulation')&&pState.holdWatch)?'':'none';
+      const hwg=$('#p-hw-group'); if(hwg) hwg.style.display=(pState.skill==='balancing'||pState.skill==='pendulating')?'':'none';
+      const hdg0=$('#p-hd-group'); if(hdg0) hdg0.style.display=((pState.skill==='balancing'||pState.skill==='pendulating')&&pState.holdWatch)?'':'none';
       updExpect();
     });
     c.querySelectorAll('[data-emo]').forEach(b=>b.onclick=()=>{
@@ -6749,7 +6766,7 @@ function app(tab){
     c.querySelectorAll('[data-holdwatch]').forEach(b=>b.onclick=()=>{
       pState.holdWatch=b.dataset.holdwatch==='true';
       c.querySelectorAll('[data-holdwatch]').forEach(r=>r.classList.toggle('on',(r.dataset.holdwatch==='true')===pState.holdWatch));
-      const hdg=$('#p-hd-group'); if(hdg) hdg.style.display=(pState.holdWatch&&(pState.skill==='balancing'||pState.skill==='pendulation'))?'':'none';
+      const hdg=$('#p-hd-group'); if(hdg) hdg.style.display=(pState.holdWatch&&(pState.skill==='balancing'||pState.skill==='pendulating'))?'':'none';
       updExpect();
     });
     c.querySelectorAll('[data-holdsec]').forEach(b=>b.onclick=()=>{
@@ -6773,9 +6790,9 @@ function app(tab){
       const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
       const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
       const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
-      const rhw=(rskill==='balancing'||rskill==='pendulation')?(Math.random()<0.5):false;
+      const rhw=(rskill==='balancing'||rskill==='pendulating')?(Math.random()<0.5):false;
       const rhs=[30,60,90,120][Math.floor(Math.random()*4)];
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'most',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'most',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
+      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'self-regulation',sense:rsense,silence:String(rsilence),skill:rskill,holdwatch:rhw?'1':'',holdsecs:rhw?String(rhs):''}).toString(),{practiceKey:'self-regulation',sense:rsense,skill:rskill,silence:rsilence,holdWatch:rhw,holdWatchTargetSeconds:(rhw?rhs:null)});
     };
 
     const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>{
@@ -6801,12 +6818,12 @@ function app(tab){
       }else{
         const sil = key==='micro' ? 2 : silence;   // micro runs on fixed short gaps
         const ps={embed:'1',autostart:'1',practice:key,sense,silence:String(sil)};
-        if(key==='most')ps.skill=skill;
-        if(key==='most'&&(skill==='balancing'||skill==='pendulation')&&pState.holdWatch){ps.holdwatch='1';ps.holdsecs=String(pState.holdSeconds||60);}
-        if(key==='most'&&pState.open)ps.open='1';
+        if(key==='self-regulation')ps.skill=skill;
+        if(key==='self-regulation'&&(skill==='balancing'||skill==='pendulating')&&pState.holdWatch){ps.holdwatch='1';ps.holdsecs=String(pState.holdSeconds||60);}
+        if(key==='self-regulation'&&pState.open)ps.open='1';
         src='player.html?'+new URLSearchParams(ps).toString();
       }
-      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch,holdWatchTargetSeconds:(pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(key==='most'?!!pState.open:false),emotionIntent:(key==='most'?(pState.emotion||null):null)});
+      practiceShell(src,{practiceKey:key,sense,skill,silence:(key==='micro'?2:silence),holdWatch:!!pState.holdWatch,holdWatchTargetSeconds:(pState.holdWatch?(pState.holdSeconds||60):null),openEnded:(key==='self-regulation'?!!pState.open:false),emotionIntent:(key==='self-regulation'?(pState.emotion||null):null)});
     };
   }
 
@@ -6816,7 +6833,7 @@ function app(tab){
     // Defense in depth: an anonymous guest must never reach the self-regulation
     // ("most") track — it needs an established safety baseline. The guest UI can't
     // produce this key, but refuse it here regardless.
-    if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()){
+    if(reco && reco.practiceKey==='self-regulation' && Store.isAnonymous && Store.isAnonymous()){
       showToast("that practice opens once you've saved an account."); return;
     }
     // Defense in depth for the free/paid line: a free account can only launch the two
@@ -6827,8 +6844,8 @@ function app(tab){
     if(reco.skill) params.skill = reco.skill;
     // recommender-preset dials ride into the player (both already gate-checked in
     // store.js: describe-the-defense by the rung ladder, hold & watch by baseline 4).
-    if(reco.practiceKey==='most' && reco.descDefense) params.descdef = '1';
-    if(reco.practiceKey==='most' && reco.holdWatch && (reco.skill==='balancing'||reco.skill==='pendulation')){
+    if(reco.practiceKey==='self-regulation' && reco.descDefense) params.descdef = '1';
+    if(reco.practiceKey==='self-regulation' && reco.holdWatch && (reco.skill==='balancing'||reco.skill==='pendulating')){
       params.holdwatch='1'; params.holdsecs=String(reco.holdWatchTargetSeconds||30);
     }
     practiceShell('player.html?'+new URLSearchParams(params).toString(), reco);
@@ -6845,7 +6862,7 @@ function app(tab){
     // the logged session reflects any in-player tweaks (skill/sense/silence/describe-the-
     // defense), the guided meditation chosen, endless mode + loop count, and hold-both time.
     if(m.event === 'complete' || m.event === 'exit'){
-      if(reco.practiceKey==='most' && m.skill!==undefined) reco.skill=m.skill;
+      if(reco.practiceKey==='self-regulation' && m.skill!==undefined) reco.skill=_fromPlayerSkill(m.skill);
       if(m.sense!==undefined && m.sense!==null) reco.sense=m.sense;
       if(typeof m.silence==='number') reco.silence=m.silence;
       if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
@@ -6888,18 +6905,18 @@ function app(tab){
     else if(m.event === 'exit'){ logSession(reco, false, true, m.minutes); renderExitReason(); }
   });
   function logSession(reco, completed, endedEarly, minutes){
-    // Defense in depth: never log a self-regulation ('most') session for an
+    // Defense in depth: never log a self-regulation ('self-regulation') session for an
     // anonymous guest (the guest UI cannot produce one; refuse it regardless).
-    if(reco && reco.practiceKey==='most' && Store.isAnonymous && Store.isAnonymous()) return;
+    if(reco && reco.practiceKey==='self-regulation' && Store.isAnonymous && Store.isAnonymous()) return;
     if(window._sessionLogged) return; window._sessionLogged=true;
-    // skills exist only on the self-regulation ('most') track. Gate here at the save
-    // boundary so no non-'most' session can inherit a leftover default skill (e.g. the
+    // skills exist only on the self-regulation ('self-regulation') track. Gate here at the save
+    // boundary so no non-'self-regulation' session can inherit a leftover default skill (e.g. the
     // customizer's default 'imagery'). This is the authoritative write for every path.
-    const _isMost = reco.practiceKey==='most';
+    const _isMost = reco.practiceKey==='self-regulation';
     const _skill = _isMost ? (reco.skill||null) : null;
     // beginner vs advanced self-regulation: the tier-3 skills (balancing/pendulation) = advanced.
     // (re-sourced off the retired 0.55 challenge appetite → skill-based, §7.4.)
-    const _selfRegLevel = _isMost ? ((_skill==='pendulation' || _skill==='balancing') ? 'advanced' : 'beginner') : null;
+    const _selfRegLevel = _isMost ? ((_skill==='pendulating' || _skill==='balancing') ? 'advanced' : 'beginner') : null;
     Store.addSession({ id:(reco.sessionId||null), practiceKey:reco.practiceKey, skill:_skill, sense:reco.sense, silence:reco.silence,
       completed:!!completed, endedEarly:!!endedEarly, minutes:minutes||null, domBefore:reco.domBefore||null,
       challenge:(typeof reco.challenge==='number' ? reco.challenge : null),
@@ -6955,7 +6972,7 @@ function app(tab){
     // optional "Did anything surface?" family row sits beneath it — both save on
     // continue. surfaced uses the same curated families as the customizer (plus
     // settled), so regulation becomes visible: what came up vs what they chose.
-    const isMost = reco && reco.practiceKey==='most';
+    const isMost = reco && reco.practiceKey==='self-regulation';
     const emoChip = f => `<button class="p-chip fb-emo" data-emosurf="${f.key}">${escapeHtml(f.label)}</button>`;
     setHTML(`
       <header class="appbar"></header>
