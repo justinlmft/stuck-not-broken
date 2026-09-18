@@ -295,6 +295,10 @@ body.playing .brand{display:none}
    Hidden until the capacity gate has gone by, because before that there is nothing to go back to. */
 #moresafety{display:none}
 #player.more-safety #moresafety{display:block}
+/* the open ending owns its own exit: once "I'm done" is up, "Begin ease out" comes down.
+   Two buttons that both end the practice, one of them narrating it as a retreat from material
+   that no longer exists, is what Justin found on 2026-09-17. */
+#player.finishable #easeout{display:none}
 
 /* gentle completion */
 .done{display:none;flex-direction:column;align-items:stretch;gap:10px;width:100%;position:relative;z-index:2}
@@ -370,20 +374,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               f8946ffc00871cfb0c8f392c15350e1e    21707 bytes
+     page.css               146461308496a3cc3bd23f5d6538c55d    21999 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
-     data.js                46477b60109a49784be47e3b3bb2d781    17533 bytes
-     plan.js                231dc8d85f838fc45b59c3d0e504003a    70897 bytes
+     data.js                a571f8f887434c630881a15e5c74cafd    19897 bytes
+     plan.js                b099bfb6609ccece149dc15e4c7cfb3b    73141 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
      host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             c45d30e23bf911824bfdc9bc80e2a065    23762 bytes
+     session.js             5c611277b9394a7b72aa95a94ffced25    30253 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                d22b1a44732e181a039579239599d6fc    11108 bytes
-     page.js                10b6484de622b6c8aa225cb7a0da6fd0    30095 bytes
+     copy.js                b5e77ebd6972e419bbda001a882b7ade    11404 bytes
+     page.js                0b4153948736181fdfed01bfbea6812d    31197 bytes
 -->
 </head>
 <body>
@@ -725,7 +729,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:46477b60109a49784be47e3b3bb2d781 */
+<script>/* @module data.js md5:a571f8f887434c630881a15e5c74cafd */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -802,6 +806,19 @@ const TAKE_TRIMS = Object.freeze({
   /* the same doubling on the safety side (Justin, same day): take A opens on a sentence that says
    * what the half-opener has just said, so the take starts at the practice description. */
   'SETUP-PRACTICE-INTEREST-SAFETY-a.mp3': { start: 3.8, caption: ['This practice stays in safety from beginning to end. ', ''] },
+  /* ✅ NUMB-OK-DEFENSE KEEPS ITS FIRST SENTENCE ONLY (Justin, 2026-09-17, reading the Pendulating
+   * running order: "can we trim out everything and just leave 'And if there's nothing there, that
+   * is fine.'"). Every take ends by sending the listener back to safety, and the very next beat
+   * (BREATH-CHECK, then PEND-SAFETY) does that job properly — so the clip was spending three
+   * sentences to say what the practice was about to do anyway. The reassurance is the whole beat.
+   *
+   * Cut points read off the waveform, each landing inside a natural pause at the sentence end.
+   * 🔴 Justin is checking these BY EAR on beta; the waveform is evidence for where a sentence
+   * ends, never for what should be said, which is the distinction he drew on the intra-clip holds. */
+  'NUMB-OK-DEFENSE-a.mp3': { end: 2.9,  caption: [' We don\'t have to find it. Come back to safety for a moment, and we\'ll carry on from there.', ''] },
+  'NUMB-OK-DEFENSE-b.mp3': { end: 2.75, caption: [' Let it go for now and return to safety, and then we\'ll go on from there.', ''] },
+  'NUMB-OK-DEFENSE-c.mp3': { end: 3.6,  caption: [' We don\'t need to go looking for it. Come back to safety, and we\'ll continue from there.', ''] },
+  'NUMB-OK-DEFENSE-d.mp3': { end: 3.2,  caption: [' Nothing more is asked of you right now. Return to safety for a moment, and then we\'ll carry on together from there.', ''] },
 });
 function trimFor(file) { return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null; }
 /* the transcript edits that go with the cuts — applied to the loaded captions map, once */
@@ -1022,6 +1039,17 @@ const DELIBERATE_REUSABLES = Object.freeze({
    * have a clear role right now. Just remove it from any practices and we can revisit it another
    * time on the roadmap." Parked, not cut: the recording stays, and the roadmap decides. */
   'STOP-OK': 'parked 2026-09-17 (Justin) — the capacity gate\'s buttons are how a person stops; revisit on the roadmap',
+  /* Justin, 2026-09-17, on the Pendulating running order: "CAP-GATE-DEFENSE makes no sense here.
+   * And it would be not useful after INTEREST-01 either. Not sure if this has a use." It asked the
+   * capacity question five beats after INTEREST-01 asked it, both with an exit — §7 rule 7. Its
+   * rewind moved to PERMIT-DEFENSE and its checking job moves to the 0–10 readings in v3. Parked,
+   * not cut: the recording stays and the roadmap decides.
+   *
+   * ⚠️ Note what this costs until v3 lands: STOP-OK was parked on the reasoning that "the capacity
+   * gate's buttons are how a person stops", and the capacity gate is now parked too. So on the
+   * defense side INTEREST-01 is the only spoken offer to stop before the close. That is a
+   * deliberate, dated state, not an oversight. */
+  'CAP-GATE-DEFENSE': 'parked 2026-09-17 (Justin) — redundant with INTEREST-01; rewind moved to PERMIT-DEFENSE, capacity-checking moves to the 0–10 readings in v3',
 });
 
 // ---------------------------------------------------------------------------
@@ -1043,7 +1071,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:231dc8d85f838fc45b59c3d0e504003a */
+<script>/* @module plan.js md5:b099bfb6609ccece149dc15e4c7cfb3b */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1238,7 +1266,7 @@ const DEPTH_OFFERED_BY_PREFIX = ['obstacles'];
  * An OBSTACLES prefix substitutes its own base pair — OBST-02 / OBST-03 — "because they name a
  * reaction to a statement the listener just heard" (script §4). They REPLACE the generic pair;
  * nothing doubles. */
-function defenseBase(add, cfg, prefixed) {
+function defenseBase(add, cfg, prefixed, permitGate) {
   if (prefixed) {
     const obst = D.FAMILY.obstacles;
     add(obst[OBST.promise], 'obstacles');
@@ -1249,7 +1277,14 @@ function defenseBase(add, cfg, prefixed) {
     add(D.ROLE.validateDefense, 'defense');
     add(D.ROLE.normalizeDefense, 'defense');
   }
-  add(D.ROLE.permitDefense, 'defense');
+  /* ✅ PERMIT-DEFENSE CARRIES THE BUTTONS AND THE REWIND NOW (Justin, 2026-09-17: "i think it
+   * deserves a couple buttons"). The clip has always ended "You can say yes or no" with nothing on
+   * screen to say it with — E5.32, audio describing a control that does not exist, the same fault
+   * as the open-ended setup promising a finish button. It is also the right home for the
+   * more-safety rewind the retired capacity gate used to own: "no, it is not okay for this to be
+   * here" is not a reason to stop the practice, it is a reason to go back and build more safety
+   * first. So the question the person is already being asked carries the route. */
+  permitGate();
   add(D.ROLE.intensityDefense, 'defense');
 }
 const IMAGERY = 'imagery';
@@ -1284,12 +1319,23 @@ const OBST = Object.freeze({ promise: 0, validate: 1, normalize: 2, imageryFrom:
  * defense side wants that beat, it needs different words, not the same clip again") is an OPEN
  * copy decision for Justin, and moving a clip that currently plays on the strength of an
  * unresolved question is the failure mode this engine exists to end. */
-function depthBlock(add, cfg, capacityGate) {
+function depthBlock(add, cfg) {
   const depth = cfg.depth;
   if (!depth) return;
   const rank = DEPTHS.indexOf(depth);
   if (rank < 0) throw new Error(`plan(): unknown defense depth ${depth} — expected one of ${DEPTHS.join(', ')}`);
-  /* ✅ THE CAPACITY GATE LIVES HERE NOW (Justin, 2026-09-05): "STOP-OK and CAP-GATE-DEFENSE
+  /* 🔴 THE CAPACITY GATE IS GONE FROM HERE (Justin, 2026-09-17). What follows is the 09-05
+   * reasoning that put it here, kept because it explains what the gate was FOR; the gate itself is
+   * retired and its two jobs moved. See the note above `permitGate` in `plan()`.
+   *
+   * Justin, 2026-09-17, on reading the Pendulating running order: "CAP-GATE-DEFENSE makes no sense
+   * here. And it would be not useful after INTEREST-01 either. Not sure if this has a use." He is
+   * right: INTEREST-01 asks the same question five beats earlier and also offers an exit, which is
+   * §7 rule 7 — a choice whose branches land a clip apart. The capacity-checking work is now done by
+   * the 0–10 readings (a drop into the Low band, and INTENSITY-DEFENSE at 7+), which fire on a
+   * number the person just gave rather than on a generic question at a fixed point.
+   *
+   * The ORIGINAL 09-05 note, for the record: "STOP-OK and CAP-GATE-DEFENSE
    * should only occur later on in Balancing, like when the user checks for defense in their
    * body generally."
    *
@@ -1302,7 +1348,6 @@ function depthBlock(add, cfg, capacityGate) {
    *
    * Only Balancing and Pendulating have a depth, so only they get it. Imagery does not: it never
    * asks the listener into the body. */
-  capacityGate();
   add(D.ROLE.bodyGeneralDefense, 'defense');
   if (rank >= 1) add(D.ROLE.bodySpecificDefense, 'defense');
   /* ✅ THE DEFENSE SIDE'S OWN NOT-FEELING BEAT — `NUMB-OK-DEFENSE`, a different clip with different
@@ -1374,7 +1419,7 @@ const SKILLS = {
 
   /* Pendulating: the full swing out and back, the literal-safety reminder on the return, the
    * capacity re-check, three brief swings ending in safety. */
-  pendulating: (add, cfg, prefixed, capacityGate, capacityCheck) => {
+  pendulating: (add, cfg, prefixed, capacityCheck) => {
     add(D.ROLE.pendSafety, 'pendulating');
     /* ✅ "REMIND YOURSELF THAT YOU'RE LITERALLY SAFE" RIGHT AFTER THE RETURN TO SAFETY (CA review,
      * second pass, 2026-09-17). It used to play after the swing back to the non-safety, with
@@ -1447,12 +1492,12 @@ const HOLD_WATCH_DEPTH = 'description';
  *   • IMPULSE-CHECK plays once inside Hold & Watch, before the hold starts (Justin, 2026-09-05,
  *     CA item 16): the hold is exactly where Book 3 expects spontaneous expression — shakes,
  *     trembles, shudders — and the clip that gives permission for them was not there. */
-function defenseTail(add, cfg, capacityGate, capacityCheck) {
+function defenseTail(add, cfg, permitGate, capacityCheck) {
   const prefixed = cfg.prefix === OBSTACLES_PREFIX;
   const skill = SKILLS[cfg.practice];
-  defenseBase(add, cfg, prefixed);
-  depthBlock(add, cfg, capacityGate);
-  skill(add, cfg, prefixed, capacityGate, capacityCheck);
+  defenseBase(add, cfg, prefixed, permitGate);
+  depthBlock(add, cfg);
+  skill(add, cfg, prefixed, capacityCheck);
   add(D.ROLE.breathCheck, 'defense');
   if (cfg.holdWatch) {
     add(D.ROLE.impulseCheck, cfg.practice);
@@ -1715,26 +1760,34 @@ function plan(cfg) {
   /* E5.26 — a "no" hands into the ease-out and then the close; a "yes" continues. Doing
    * nothing continues the practice, safely assuming an internal yes (Justin, 2026-08-11):
    * the internal answer is the real event, the tap is optional telemetry. */
-  let gateReadings = 0;
-  const capacityGate = () => {
-    /* ✅ THE READING IS TAKEN WHERE THE DECISION IS MADE (Justin, 2026-09-05, CA item 15). Both
-     * earlier 0–10 readings happen before any safety has been found; the capacity question then
-     * arrived with no number attached. Book 3 takes the rating after locating safety in the body
-     * and uses it as exactly this gate. So MIND-01 is asked once more, immediately before the
-     * FIRST capacity gate — the moment before the body — and the app shows it beside the
-     * question. Pendulating's second gate does not repeat it. The scale stays 0–10. */
-    /* 2026-09-17: the reading moved to just before INTEREST-01 (see the axis gate) — Justin:
-     * "at the beginning and before the impulse check; in defense work it can occur again at the
-     * end". The gate itself no longer repeats it. */
-    gateReadings += 1;
-    /* E5.28 — the capacity gate must be answerable *no*: two buttons, both up for the whole
-     * clip AND the silence after it (E4.23). Doing nothing continues.
-     * E5.31 — two targets is the ceiling. */
-    const capacity = add(D.ROLE.capacityGate, 'gate', { choice: 'capacity' });
-    if (!rewindTarget) throw new Error('plan(): the capacity gate offers a rewind with no target beat');
-    branches[capacity.id] = {
-      moreSafety: REWIND_TO(rewindTarget.id),
-      easeOut: EASE_OUT_SPOKEN,
+  /* 🔴 CAP-GATE-DEFENSE IS RETIRED (Justin, 2026-09-17). It asked "do you have the capacity and
+   * the genuine willingness to go there right now?" five beats after INTEREST-01 asked "do you feel
+   * interest or curiosity about your non-safety experiences?", and both offered an exit. Two
+   * capacity questions a clip apart is §7 rule 7, the same fault this engine was built to end.
+   *
+   * Its two jobs were split rather than dropped:
+   *   • "are you up for this?"      → INTEREST-01, which already asks it and asks it better.
+   *   • the more-safety REWIND      → PERMIT-DEFENSE, below — the question the person is already
+   *                                    being asked, whose "no" means exactly "go back for safety".
+   * Catching someone who is actually in trouble moves to the 0–10 readings (a drop into the Low
+   * band, and INTENSITY-DEFENSE at 7+), which fire on a number the person just reported instead of
+   * on a generic question at a fixed point. Justin, 2026-09-17: "we need a whole new strategy for
+   * catching someone in trouble with new audio" — that audio is v3 and is NOT in this build, so
+   * until it lands the readings are still plain beats and INTEREST-01 is the only spoken check.
+   *
+   * The clip stays recorded and in the manifest; it is parked in `data.js` DELIBERATE_REUSABLES
+   * exactly as STOP-OK is, and the roadmap decides its future. */
+  const permitGate = () => {
+    /* E5.28's rule, inherited: the question must be answerable, with the targets up for the whole
+     * clip AND the silence after it (E4.23). Doing nothing continues — the internal answer is the
+     * real event and the tap is optional telemetry (Justin, 2026-08-11).
+     * E5.31 — two targets is the ceiling, and "yes" and "no" are exactly two. */
+    const permit = add(D.ROLE.permitDefense, 'defense', { choice: 'permit' });
+    if (!rewindTarget) throw new Error('plan(): the permit gate offers a rewind with no target beat');
+    branches[permit.id] = {
+      /* "yes" is not listed: it routes nowhere and changes nothing, which is what continuing IS.
+       * Listing it would promise a consequence the builder does not have. */
+      no: REWIND_TO(rewindTarget.id),
     };
     /* ✅ NO STOP-OK AFTER THE GATE (CA review, second pass, 2026-09-17; Justin: "I agree on
      * this"). The gate already says staying with safety is a complete practice and its buttons
@@ -1825,7 +1878,7 @@ function plan(cfg) {
     add(D.ROLE.pendSafety, 'defense');
     add(D.SAFETY_READING, 'defense');                            // reading 3: defense work, at the end
   } else if (skill) {
-    defenseTail(add, cfg, capacityGate, capacityCheck);
+    defenseTail(add, cfg, permitGate, capacityCheck);
     add(D.SAFETY_READING, 'defense');                            // reading 3: defense work, at the end
   } else if (!safety && !isAnchoring) {
     cfg.practiceBlock(add, cfg, D);
@@ -3803,7 +3856,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:c45d30e23bf911824bfdc9bc80e2a065 */
+<script>/* @module session.js md5:5c611277b9394a7b72aa95a94ffced25 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -3854,8 +3907,17 @@ const H = (typeof require === 'function')
 /* The controls a beat can put on screen. A control is named by what it OFFERS, never by the
  * clip that offers it, so the page renders from this and not from an ID. */
 const CONTROL = Object.freeze({
-  CURIOSITY: 'curiosity',   // one target: the spoken "no"
-  CAPACITY: 'capacity',     // two targets: more safety · ease out  (E5.28, E5.31)
+  /* ✅ YES IS A TARGET NOW, NOT JUST NO (Justin, 2026-09-17: "I think a 'yes' button is fine for
+   * someone who wants to physically interact. Include it as an option. It's harmless."). Doing
+   * nothing still continues — the yes button does not change what happens, it gives the person a
+   * way to SAY it, which matters for anyone who needs to do something with their hands. */
+  CURIOSITY: 'curiosity',   // two targets: yes · the spoken "no"
+  /* 🔴 CAPACITY is gone. CAP-GATE-DEFENSE was retired 2026-09-17 (see data.js
+   * DELIBERATE_REUSABLES and the note above `permitGate` in plan.js), so no beat can carry
+   * `choice: 'capacity'` any more and a control nothing can open is dead weight. If the roadmap
+   * brings the clip back, the control comes back with it. */
+  PERMIT: 'permit',         // two targets: yes · no, where no rewinds for more safety
+  FINISH: 'finish',         // one target: the open ending's "I'm done" (E5.32)
   SKIP: 'skip',             // the first-practice intro (E5.34)
   MORE_SAFETY: 'more-safety', // from the transport, for the rest of the defense block (E5.27)
   /* 2026-09-05, the CA review rulings: */
@@ -3869,10 +3931,11 @@ const CONTROL = Object.freeze({
 const MAX_TARGETS = 2;
 
 const OPTIONS = Object.freeze({
-  [CONTROL.CURIOSITY]: Object.freeze(['no']),
-  [CONTROL.CAPACITY]: Object.freeze(['moreSafety', 'easeOut']),
+  [CONTROL.CURIOSITY]: Object.freeze(['yes', 'no']),
+  [CONTROL.PERMIT]: Object.freeze(['yes', 'no']),
   [CONTROL.INTEREST_ANSWER]: Object.freeze(['yes', 'no']),
-  [CONTROL.CAPACITY_CHECK]: Object.freeze(['no']),
+  [CONTROL.CAPACITY_CHECK]: Object.freeze(['yes', 'no']),
+  [CONTROL.FINISH]: Object.freeze(['finish']),
 });
 
 /* Non-repeating shuffle across a clip's takes: walk a shuffled bag, reshuffle when it empties,
@@ -3897,7 +3960,7 @@ function takeCycler(takes, rnd) {
 }
 
 class Session {
-  constructor({ plan, device, onEvent, secondPassTakes } = {}) {
+  constructor({ plan, device, onEvent } = {}) {
     if (!plan || !plan.beats) throw new Error('session(): a plan is required. Build one with plan.js.');
     this.plan = plan;
     this.dev = device;
@@ -3907,7 +3970,6 @@ class Session {
      * It arrives from `copy.js` through the page rather than being read here, because which
      * take says what is a fact about the script and this file is not allowed to know one.
      * Null is the honest default: see the TODO in copy.js. */
-    this.secondPassTakes = secondPassTakes || {};
 
     /* The queue is what actually plays. Every entry carries the index of the plan beat it came
      * from, or null if the branch put it there.
@@ -3925,6 +3987,8 @@ class Session {
     this.rewinds = 0;
     this.loops = 0;
     this.easedOutFrom = null;
+    /* which close chain the listener finished an open practice with, or null. See `_finish`. */
+    this.finishedFrom = null;
     this.completed = false;
     this.holdWatchSeconds = 0;
     /* The Interest Impulse practice's answer — 'yes' | 'no' | null (never asked, or not
@@ -4009,9 +4073,14 @@ class Session {
      * log already use. The rename left this line comparing `interest` to `curiosity`, so the
      * gate's window NEVER OPENED and nobody could answer no. Found by running the suite. */
     if (b.choice === 'interest' || b.choice === CONTROL.CURIOSITY) return CONTROL.CURIOSITY;
-    if (b.choice === CONTROL.CAPACITY) return CONTROL.CAPACITY;
+    if (b.choice === CONTROL.PERMIT) return CONTROL.PERMIT;
     if (b.choice === CONTROL.INTEREST_ANSWER) return CONTROL.INTEREST_ANSWER;
     if (b.choice === CONTROL.CAPACITY_CHECK) return CONTROL.CAPACITY_CHECK;
+    /* 🔴 `finishable` was set by the planner and read by NOTHING until 2026-09-17. See
+     * `_finish` below for what that cost. It is a FLAG, not a `choice`, because it rides every
+     * beat of the open ending including each firing of the breath loop — the card has to stay up
+     * for all of them, and `_openControlFor`'s same-control continuation is what keeps it there. */
+    if (b.finishable) return CONTROL.FINISH;
     if (b.skippable) return CONTROL.SKIP;
     return null;
   }
@@ -4043,7 +4112,7 @@ class Session {
      * must be reachable from the TRANSPORT for the rest of the defense block, not only in the
      * four seconds after the gate asks. That is a separate, longer-lived affordance and it is
      * opened here, once, when the gate that owns the rewind target goes by. */
-    if (control === CONTROL.CAPACITY && !this._transportMoreSafety) {
+    if (control === CONTROL.PERMIT && !this._transportMoreSafety) {
       this._transportMoreSafety = true;
       this.onEvent({ type: 'transport-more-safety', available: true });
     }
@@ -4073,15 +4142,26 @@ class Session {
     this.onEvent({ type: 'answered', control, option });
 
     if (control === CONTROL.CURIOSITY && option === 'no') return this._easeOut(H.EASE_FROM.CURIOSITY, false);
-    if (control === CONTROL.CAPACITY && option === 'easeOut') return this._easeOut(H.EASE_FROM.CAPACITY, false);
-    if (control === CONTROL.CAPACITY && option === 'moreSafety') return this._rewind();
     if (control === CONTROL.CAPACITY_CHECK && option === 'no') return this._easeOut(H.EASE_FROM.CAPACITY_CHECK, false);
+    /* ✅ "no, it is not okay for this to be here" sends the listener back to build more safety, not
+     * out of the practice (Justin, 2026-09-17). This is the rewind the retired capacity gate owned. */
+    if (control === CONTROL.PERMIT && option === 'no') return this._rewind();
+    if (control === CONTROL.FINISH) return this._finish();
     if (control === CONTROL.INTEREST_ANSWER) {
       /* recorded, not routed — the close is next either way (plan.js, the axis gate) */
       this.interestAnswer = option;
       this.onEvent({ type: 'interest-answer', answer: option });
       return true;
     }
+    /* ⚠️ THIS CATCH-ALL MUST STAY LAST. Put above the Interest Impulse block it swallows that
+     * practice's recorded yes — the one answer in the engine that a yes is supposed to STORE — and
+     * the practice completes looking like nobody answered. Caught by session.test.js the first time
+     * it was written in the wrong order, 2026-09-17.
+     *
+     * Every remaining target is a spoken YES that routes nowhere on purpose: continuing is exactly
+     * what doing nothing already does, so the button is a way to SAY yes, never a second meaning for
+     * it. The tap is still announced by the `answered` event above, which is where it is recorded. */
+    if (option === 'yes') return true;
     return false;
   }
 
@@ -4141,6 +4221,71 @@ class Session {
     return true;
   }
 
+  /* 🔴 THE FINISH CONTROL DID NOT EXIST UNTIL 2026-09-17, AND THAT IS WHY THIS COMMENT IS LONG.
+   *
+   * `plan.js` has marked every open-ending beat `finishable: true` and registered
+   * `branches[<first open-ending beat>] = { finish: FINISH_TO_CLOSE(shape) }` since the open ending
+   * was written. NOTHING read either one — no control, no option, no button, at any layer. So an
+   * open-ended practice had exactly one way out: the transport's "Begin ease out", whose clip says
+   * "We'll leave the rest for another time." In an open ending there IS no rest left to leave, and
+   * the people who stayed longest were the only ones who never heard the close chain at all.
+   *
+   * It is E5.32 from both directions at once. SETUP-MODE-OPEN take A promises, out loud, "I'll
+   * guide you through, then hand it over, and you will finish when you're ready" — describing a
+   * button that was never on screen. Justin, 2026-09-17, reading the open-mode running order:
+   * "'We'll leave the rest for another time' does not make sense for ENDING-OPEN. There is no rest
+   * to get to. Playing the full close chain is all we need here."
+   *
+   * 🔴 IT IS NOT THE EASE-OUT AND MUST NEVER SHARE ITS CLIP. Easing out is running out of
+   * capacity; finishing a long open practice that went well is the opposite event and must not be
+   * narrated as a retreat. Two controls, two routes, no shared audio, and no acknowledgment clip
+   * here — nothing needs answering, they asked for the close and the close is the answer. */
+  _finish() {
+    if (this.finishedFrom || this.easedOutFrom) return false;
+    const chain = this._finishChain();
+    if (!chain) return false;
+    this.finishedFrom = chain;
+    const tail = [];
+    /* ✅ THE READING GOES AT THE FRONT OF THE CLOSE (Justin, 2026-09-17: "Maybe we should have a
+     * 0-10 at the end of an open practice when the user decides to stop?" — "agreed on all of the
+     * final reading in an open practice").
+     *
+     * Until now the last number in an open practice was taken BEFORE the open ending began, so
+     * somebody who stayed forty minutes carried a reading from the start of those forty minutes: it
+     * measured the guided part and nothing of the part they actually chose to do. Taken here it is
+     * the true final reading.
+     *
+     * NOT on the ease-out route — someone easing out has just said they are at capacity, and the
+     * exit door is no place for a question.
+     * NOT in the tiny practice — it takes no reading at all (TAG-MAP §3b, settled). `breath-only`
+     * is the tiny practice's chain and the only one that skips it. */
+    if (chain !== 'breath-only') tail.push(this._branchBeat(D.SAFETY_READING, 'closing'));
+    this._closeOrderFor(chain).forEach(id => tail.push(this._branchBeat(id, 'closing')));
+    tail.push(this._branchBeat(D.ROLE.outro, 'closing'));
+    this._replaceTail(tail);
+    /* The breath loop needs no teardown: it lives in the queue and `_replaceTail` truncates the
+     * queue, so replacing the tail IS the teardown. That is the whole reason E3.11 built the loop
+     * out of gaps rather than out of a timer. */
+    this.onEvent({ type: 'finish', chain });
+    this.runtime.nextBeat();
+    return true;
+  }
+
+  /* The chain shape is read from the plan's own branch table, never named here — the two short
+   * practices close on the intentional breath alone and the long ones run the whole chain (§3b),
+   * and which is which is the planner's call, not this file's. */
+  _finishChain() {
+    const b = this.plan.beats.find(x => x.finishable);
+    const branch = b && this.plan.branches[b.id];
+    return (branch && branch.finish && branch.finish.kind === 'close') ? branch.finish.chain : null;
+  }
+
+  _closeOrderFor(chain) {
+    if (chain === 'short') return P.MINDFULNESS_CLOSE;
+    if (chain === 'breath-only') return [D.FAMILY.closes[D.FAMILY.closes.length - 1]];
+    return P.CLOSE_ORDER;
+  }
+
   /* E5.27 — MORE-SAFETY, then back to the general-safety beat and forward through EVERY step
    * again, the capacity gate included, re-validating and re-normalizing. Resuming mid-arc
    * would witness a defense that had not been re-validated since safety was re-established.
@@ -4152,13 +4297,12 @@ class Session {
     this._passes += 1;
     const tail = [this._branchBeat(D.ROLE.moreSafety, 'safety')];
     this.plan.beats.slice(target).forEach((b, i) => {
-      const copy = Object.assign({}, b, { planIndex: target + i, pass: this._passes });
-      /* E5.27 — on a second or later pass the capacity gate should favour a take that leads
-       * with safety being a complete practice. The pin is applied here and nowhere else. */
-      if (copy.choice === CONTROL.CAPACITY && this.secondPassTakes.capacityGate) {
-        copy.take = this.secondPassTakes.capacityGate;
-      }
-      tail.push(copy);
+      /* 🔴 E5.27's second-pass take pin went with the capacity gate (2026-09-17). It made a
+       * second pass favour a CAP-GATE-DEFENSE take that leads with "staying with safety is a
+       * complete practice" — there is no such beat any more, so there is nothing to pin. The
+       * emphasis it was reaching for belongs in the v3 band audio, where a low reading says it
+       * outright instead of hoping a shuffle lands on the right take. */
+      tail.push(Object.assign({}, b, { planIndex: target + i, pass: this._passes }));
     });
     this._replaceTail(tail);
     /* the gate asks again on its own terms — the tap is spent, so the window reopens on the
@@ -4174,11 +4318,15 @@ class Session {
    * would silently mean "rewind to the first one", and which one that is would depend on how
    * the plan happened to be assembled. */
   _rewindTarget() {
-    const gate = this.plan.beats.find(b => b.choice === CONTROL.CAPACITY);
+    const gate = this.plan.beats.find(b => b.choice === CONTROL.PERMIT);
     if (!gate) return -1;
+    /* The branch is keyed by the OPTION the person taps — 'no' — not by a name for what the route
+     * does. It used to be `moreSafety`, which was the capacity gate's option name; when the rewind
+     * moved to PERMIT-DEFENSE on 2026-09-17 the key moved with the option, so the lookup and the
+     * button can never drift apart. */
     const branch = this.plan.branches[gate.id];
-    if (!branch || !branch.moreSafety || branch.moreSafety.kind !== 'rewind') return -1;
-    const to = branch.moreSafety.to;
+    if (!branch || !branch.no || branch.no.kind !== 'rewind') return -1;
+    const to = branch.no.to;
     const hits = this.plan.beats.map((b, i) => (b.id === to ? i : -1)).filter(i => i >= 0);
     if (hits.length !== 1) {
       throw new Error(
@@ -4603,7 +4751,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:d22b1a44732e181a039579239599d6fc */
+<script>/* @module copy.js md5:b5e77ebd6972e419bbda001a882b7ade */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -4767,43 +4915,45 @@ const UI = Object.freeze({
    * the audio has already asked, and the button is the other way of answering. */
   /* Justin, 2026-09-16 (device walk 1): "make it more explicit" — the soft "No, not right now"
    * did not say what was being declined. His words. */
+  /* ✅ EVERY SPOKEN QUESTION NOW HAS BOTH ANSWERS ON SCREEN (Justin, 2026-09-17: "I think a 'yes'
+   * button is fine for someone who wants to physically interact. Include it as an option. It's
+   * harmless."). A yes changes nothing — doing nothing already continues — so these labels say
+   * what the person is AGREEING to, never what the app will now do differently. */
+  curiosityYes: 'I\'m curious about non-safety',
   curiosityNo: 'I\'m not feeling curious about non-safety',
-  capacityMoreSafety: 'More time with safety',
-  capacityEaseOut: 'Ease out now',
   moreSafetyAgain: 'More time with safety',
   /* 2026-09-05 — the Interest Impulse practice's recorded answer, and the mid-Pendulating check */
   interestYes: 'Yes, some interest',
   interestNo: 'No, not right now',
+  capacityCheckYes: 'Yes, keep going',
   capacityCheckNo: 'Ease out now',
+  /* ✅ PERMIT-DEFENSE, 2026-09-17. The clip has always ended "You can say yes or no" with nothing
+   * on screen to say it with. `no` states its consequence plainly, because it HAS one: it goes back
+   * and builds more safety rather than ending the practice. */
+  permitYes: 'Yes, it can be here',
+  permitNo: 'Not yet, more time with safety',
+  /* ✅ The open ending's own exit, 2026-09-17. SETUP-MODE-OPEN take A promises it out loud — "then
+   * hand it over, and you will finish when you're ready" — so the words match the promise. It is
+   * deliberately NOT worded like "Begin ease out": finishing well is not a retreat. */
+  finishNow: 'I\'m done',
   skipIntro: 'Skip the introduction',
 });
 
-/* ── E5.27's second-pass emphasis ─────────────────────────────────────────────────────────
- * "On a second or later pass, CAP-GATE-DEFENSE should favour a take that leads with safety
- * being a complete practice, so continuing stops reading as the default."
- *
- * ✅ RESOLVED 2026-09-01. No such take existed — A, B and C all ENDED on the reassurance and D
- * never mentioned it — so this sat null rather than pointing at the least-wrong reading. Justin
- * then said to write one: take C in the script was rewritten to OPEN with "staying with safety
- * is a complete practice on its own", and this is the letter that pins it.
- *
- * ⚠️ The rewrite is deliberately true on a FIRST hearing too. Takes are shuffled, so C can come
- * up on anyone's first pass; a take that said "you have already been round once" would be
- * wrong there. It leads with the reassurance and claims nothing about history. That is why the
- * pin can be a preference rather than an exclusion — nothing here has to keep C out of the
- * first-pass pool.
- *
- * 🖊 The words are Justin's to approve or replace; this file only says which letter. */
-const SECOND_PASS_TAKE = Object.freeze({ capacityGate: 'c' });
+/* 🔴 E5.27's second-pass emphasis is GONE (2026-09-17). It pinned take 'c' of
+ * CAP-GATE-DEFENSE on a second or later pass, to favour the take that leads with "staying with
+ * safety is a complete practice". That clip is retired (data.js DELIBERATE_REUSABLES), so there is
+ * nothing left to pin. The emphasis it was reaching for belongs in the v3 band audio, where a low
+ * reading says it outright instead of hoping a shuffle lands on the right take.
+ */
 
-const API = { PRACTICE, DEPTH, PREFIX, TRACK, ANCHOR, SILENCE_STEPS, SILENCE_DEFAULT, HOLD_SECONDS_LABEL, UI, SECOND_PASS_TAKE };
+const API = { PRACTICE, DEPTH, PREFIX, TRACK, ANCHOR, SILENCE_STEPS, SILENCE_DEFAULT, HOLD_SECONDS_LABEL, UI };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API;
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:10b6484de622b6c8aa225cb7a0da6fd0 */
+<script>/* @module page.js md5:0b4153948736181fdfed01bfbea6812d */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5099,7 +5249,6 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     device = browserDevice({ audio: $('au'), base: BASE });
     session = new S.Session({
       plan, device,
-      secondPassTakes: COPY.SECOND_PASS_TAKE,
       onEvent: onSessionEvent,
     });
     stall = new ST.StallWatch({
@@ -5162,7 +5311,14 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       case 'resumed': player.classList.remove('paused'); setPauseGlyph(false); revealControls(); break;
       case 'tap-armed': setStarting(COPY.UI.tapToStart); break;
       case 'conn-trouble': player.classList.add('conn-trouble'); break;
-      case 'control-open': openChoice(e.control); break;
+      case 'control-open':
+        openChoice(e.control);
+        /* ✅ THE TRANSPORT EASE-OUT COMES DOWN WHEN THE OPEN ENDING'S OWN EXIT GOES UP
+         * (Justin, 2026-09-17). Before the open ending it is still right — an open practice can be
+         * abandoned partway through the guided part, and there genuinely is rest left to leave.
+         * Inside the open ending the two are the same event, and only one of them says it properly. */
+        if (e.control === 'finish') $('player').classList.add('finishable');
+        break;
       case 'control-close': closeChoice(); break;
       case 'transport-more-safety': player.classList.add('more-safety'); break;
       case 'ease-out': player.classList.remove('more-safety'); break;
@@ -5220,11 +5376,18 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
    * part of the player that is visible without a reveal.
    * E5.33 — silence is never an answer. Nothing here starts a timer and nothing defaults; the
    * card comes down when the session closes the window, and no branch is taken. */
+  /* `quiet` is the styling, not the meaning: it marks a target that is not the path the practice
+   * is already on. A spoken YES is quiet because doing nothing already says it. */
   const CHOICE_BUTTONS = {
-    curiosity: [{ option: 'no', label: () => COPY.UI.curiosityNo, quiet: false }],
-    capacity: [
-      { option: 'moreSafety', label: () => COPY.UI.capacityMoreSafety, quiet: false },
-      { option: 'easeOut', label: () => COPY.UI.capacityEaseOut, quiet: true },
+    curiosity: [
+      { option: 'yes', label: () => COPY.UI.curiosityYes, quiet: true },
+      { option: 'no', label: () => COPY.UI.curiosityNo, quiet: false },
+    ],
+    /* ✅ PERMIT-DEFENSE, 2026-09-17. The clip ends "You can say yes or no" and until now nothing
+     * on screen said it. `no` rewinds for more safety — it does not end the practice. */
+    permit: [
+      { option: 'yes', label: () => COPY.UI.permitYes, quiet: true },
+      { option: 'no', label: () => COPY.UI.permitNo, quiet: false },
     ],
     /* 2026-09-05: the Interest Impulse practice records its yes/no (both quiet — neither is
      * the "right" answer), and CAP-CHECK mid-Pendulating offers the spoken no. */
@@ -5232,7 +5395,12 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       { option: 'yes', label: () => COPY.UI.interestYes, quiet: true },
       { option: 'no', label: () => COPY.UI.interestNo, quiet: true },
     ],
-    'capacity-check': [{ option: 'no', label: () => COPY.UI.capacityCheckNo, quiet: true }],
+    'capacity-check': [
+      { option: 'yes', label: () => COPY.UI.capacityCheckYes, quiet: true },
+      { option: 'no', label: () => COPY.UI.capacityCheckNo, quiet: true },
+    ],
+    /* ✅ The open ending's exit, 2026-09-17 — the button SETUP-MODE-OPEN has always promised. */
+    finish: [{ option: 'finish', label: () => COPY.UI.finishNow, quiet: false }],
     skip: [{ option: 'skip', label: () => COPY.UI.skipIntro, quiet: true }],
   };
 
@@ -5414,7 +5582,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       /* NOT `launch.first` on its own any more — see `host.firstPracticeFrom`. The app's
        * explicit word still wins where it sends one; otherwise the player asks the app's own
        * record how many practices this person has done. */
-      cfg.first = H.firstPracticeFrom(launch, hostMemory());
+      cfg.first = !!launch.first;
       if (launch.prefix) cfg.prefix = launch.prefix;
       if (launch.depth) cfg.depth = launch.depth;
       if (launch.holdWatch) cfg.holdWatch = true;
