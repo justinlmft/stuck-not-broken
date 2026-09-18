@@ -380,14 +380,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      data.js                a571f8f887434c630881a15e5c74cafd    19897 bytes
      plan.js                b099bfb6609ccece149dc15e4c7cfb3b    73141 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
-     host.js                60b9cb1b98365fca9fc5ddfdf7b6910b    35202 bytes
+     host.js                4085a9697ddd7a922f6f9042560d1b4c    35491 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
      session.js             5c611277b9394a7b72aa95a94ffced25    30253 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
      copy.js                b5e77ebd6972e419bbda001a882b7ade    11404 bytes
-     page.js                0b4153948736181fdfed01bfbea6812d    31197 bytes
+     page.js                3519d0473aecd70fb0752c90e84984af    31224 bytes
 -->
 </head>
 <body>
@@ -2910,7 +2910,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:60b9cb1b98365fca9fc5ddfdf7b6910b */
+<script>/* @module host.js md5:4085a9697ddd7a922f6f9042560d1b4c */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3168,7 +3168,7 @@ const MIGRATION = Object.freeze([
          'SEQUENCE here is the shape it needs.' },
   { what: 'rungForPractice', where: 'store.js',
     why: 'a DIFFERENT function that happens to share the word. It only supplies the fallback ' +
-         'label for the challenge_level column — see below. RUNG here replaces it and preserves ' +
+         'label for the challenge_level column — see below. CHALLENGE here replaces it and preserves ' +
          'every existing assignment, but it is the minor of the two.' },
   /* Justin, 2026-08-31: *"the ladder is a metaphor."* It is, and it is a half-dead one — two
    * unrelated functions share the word, and the one that matters is not about ladders at all.
@@ -3214,14 +3214,14 @@ function hostKeyFor(practice) {
   return m;
 }
 
-/* ── the sequence, and the rung ───────────────────────────────────────────────────────────
+/* ── the sequence, and the challenge ──────────────────────────────────────────────────────
  * Justin, 2026-08-31: *"The level referencing isn't needed in the app. I wouldn't worry about
  * it aside from our own depth tracking. It's more about skill sequence the app presents as the
  * user shows mastery."*
  *
  * So levels stay OURS — `plan.js` needs them, because a level-4 practice plays levels 2 and 3
  * first and that is arithmetic, not vocabulary. What the app needs is two different things:
- * the ORDER a track unfolds in, and which of its four existing mastery rungs each step sits on.
+ * the ORDER a track unfolds in, and which of its four existing challenges each step sits on.
  * Neither is a number a person ever sees.
  */
 const SEQUENCE = Object.freeze({
@@ -3254,22 +3254,26 @@ function nextAfter(key) {
   throw new Error(`host(): "${key}" is not in any sequence.`);
 }
 
-/* ── the mastery rung ─────────────────────────────────────────────────────────────────────
- * `store.js` already has a four-rung ladder and it is a good one — it describes the WORK
+/* ── the challenge ────────────────────────────────────────────────────────────────────────
+ * `store.js` already has four challenges and they are good ones — they describe the WORK
  * rather than counting it:
  *
  *   settle  · simple mindfulness      gentle  · safety-focused
  *   meet    · beginner defense        stretch · advanced defense
  *
  * `rungForPractice()` derives it from the practiceKey, and for self-regulation from the skill.
- * With five skills that was a two-line function; with eleven rungs it needs this map, and the
- * map is here rather than there because the engine is what knows the shape of the ladder.
+ * With five skills that was a two-line function; with fifteen practices it needs this map, and
+ * the map is here rather than there because the engine is what knows the shape of the sequence.
+ *
+ * Named CHALLENGE, not RUNG (Justin, 2026-09-18: no metaphor in the code) and not PRACTICE,
+ * which copy.js already uses for the practice names. The value is what store.js writes to the
+ * challenge_level column, so the code and the data use one word.
  *
  * ⚠️ These assignments PRESERVE today's behaviour exactly — anchoring is gentle, balancing and
  * pendulating are stretch, every other self-regulation skill is meet — so no session already
- * logged changes rung. Anything else would silently rewrite history in the efficacy data.
+ * logged changes challenge. Anything else would silently rewrite history in the efficacy data.
  */
-const RUNG = Object.freeze({
+const CHALLENGE = Object.freeze({
   micro: 'settle', mindfulness: 'settle',
 
   anchoring: 'gentle', 'validate-safety': 'gentle', 'normalize-safety': 'gentle',
@@ -3282,11 +3286,11 @@ const RUNG = Object.freeze({
   balancing: 'stretch', pendulating: 'stretch',
 });
 
-function rungFor(practice) {
-  const r = RUNG[practice];
-  if (!r) throw new Error(`host(): "${practice}" sits on no mastery rung. store.js needs one ` +
+function challengeFor(practice) {
+  const c = CHALLENGE[practice];
+  if (!c) throw new Error(`host(): "${practice}" has no challenge. store.js needs one ` +
     'for every practice, or the session logs with a null challenge_level.');
-  return r;
+  return c;
 }
 
 /* ── what actually happened ───────────────────────────────────────────────────────────────
@@ -3488,8 +3492,8 @@ function firstPracticeFrom(launch, memory) {
 
 const API = {
   HOLD_SECONDS, HOST_KEY, SELF, SKILL_RENAMES, PRACTICE_KEY_RENAMES, MIGRATION,
-  SEQUENCE, RUNG, OUTCOME, EASE_FROM, PHASE_ORDER, DEFENSE_PHASES, APP_JS_READS,
-  nextAfter, rungFor,
+  SEQUENCE, CHALLENGE, OUTCOME, EASE_FROM, PHASE_ORDER, DEFENSE_PHASES, APP_JS_READS,
+  nextAfter, challengeFor,
   parseLaunch, allPractices, hostKeyFor, furthestPhase, reachedDefenseIn, completion, screenEvent,
   INTRO_SEEN_KEY, firstPracticeFrom,
 };
@@ -4953,7 +4957,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:0b4153948736181fdfed01bfbea6812d */
+<script>/* @module page.js md5:3519d0473aecd70fb0752c90e84984af */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5582,7 +5586,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       /* NOT `launch.first` on its own any more — see `host.firstPracticeFrom`. The app's
        * explicit word still wins where it sends one; otherwise the player asks the app's own
        * record how many practices this person has done. */
-      cfg.first = !!launch.first;
+      cfg.first = H.firstPracticeFrom(launch, hostMemory());
       if (launch.prefix) cfg.prefix = launch.prefix;
       if (launch.depth) cfg.depth = launch.depth;
       if (launch.holdWatch) cfg.holdWatch = true;
