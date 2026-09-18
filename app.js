@@ -1323,6 +1323,7 @@
   // Same as practiceShell, but with NO tabbar — a guest must not gain tab access
   // (and its 'self-regulation' path) mid-practice. Back returns to the guest pick screen.
   function guestPracticeShell(src, reco){
+    src = _playerSrc(src);          // the same one place that decides where a practice plays
     haptic('start');
     setHTML(`
       <div class="weaver-wrap">
@@ -6103,21 +6104,38 @@ function app(tab){
     }catch(e){}
     return r;
   }
-  // The old player (player.html) still speaks the old names: practice 'most', skills 'validate'
-  // and 'pendulation'. The app speaks the new ones (app migration step 3, 2026-09-18). Every
-  // launch goes through practiceShell and every report comes back through the message handler,
-  // so those two places are the only translation, and both go when step 4 retires player.html.
+  // Where a practice plays (app migration step 4, 2026-09-18). Every practice now runs on the
+  // new engine, practice-engine.html, EXCEPT the guided meditation packs ('more'), which the
+  // engine does not play and which stay on the old player. The app names a self-regulation
+  // practice by its track plus a skill; the engine names it by the skill alone. Every launch
+  // goes through practiceShell, so this is the one place that translation happens.
+  // The old player still speaks the old names, so a pack launch is translated for it too.
   // (function declarations, so they exist however early a launch happens during load)
   function _mapName(map, v){ return (v != null && Object.prototype.hasOwnProperty.call(map, v)) ? map[v] : v; }
   function _toPlayerPractice(k){ return _mapName({ 'self-regulation':'most' }, k); }
   function _toPlayerSkill(k){ return _mapName({ 'normalize-defense':'validate', pendulating:'pendulation' }, k); }
-  function _fromPlayerSkill(k){ return _mapName({ validate:'normalize-defense', pendulation:'pendulating' }, k); }
+  // What came back, in the app's names. The old player reports its old names; the engine reports
+  // Obstacles as imagery with an obstacles prefix, which the app has always counted as 'obstacles'.
+  function _skillBack(m){
+    if(m && m.prefix === 'obstacles' && (m.skill === 'imagery' || m.practice === 'imagery')) return 'obstacles';
+    return _mapName({ validate:'normalize-defense', pendulation:'pendulating' }, m ? m.skill : null);
+  }
+  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first'];
   function _playerSrc(src){
     if(typeof src !== 'string' || src.indexOf('player.html?') !== 0) return src;
     const q = new URLSearchParams(src.slice('player.html?'.length));
-    if(q.has('practice')) q.set('practice', _toPlayerPractice(q.get('practice')));
-    if(q.has('skill')) q.set('skill', _toPlayerSkill(q.get('skill')));
-    return 'player.html?' + q.toString();
+    if(q.get('more') === '1'){            // guided meditation packs: the old player, in its names
+      if(q.has('practice')) q.set('practice', _toPlayerPractice(q.get('practice')));
+      if(q.has('skill')) q.set('skill', _toPlayerSkill(q.get('skill')));
+      return 'player.html?' + q.toString();
+    }
+    const e = new URLSearchParams();
+    const pk = q.get('practice');
+    // self-regulation launches by its skill; 'obstacles' is the engine's accepted spelling of
+    // Obstacles into Imagery, so it passes as it is
+    e.set('practice', pk === 'self-regulation' ? (q.get('skill') || 'imagery') : pk);
+    _ENGINE_PASS.forEach(k => { if(q.has(k) && q.get(k) !== '') e.set(k, q.get(k)); });
+    return 'practice-engine.html?' + e.toString();
   }
   function practiceShell(src, reco){
     src = _playerSrc(src);
@@ -6862,7 +6880,7 @@ function app(tab){
     // the logged session reflects any in-player tweaks (skill/sense/silence/describe-the-
     // defense), the guided meditation chosen, endless mode + loop count, and hold-both time.
     if(m.event === 'complete' || m.event === 'exit'){
-      if(reco.practiceKey==='self-regulation' && m.skill!==undefined) reco.skill=_fromPlayerSkill(m.skill);
+      if(reco.practiceKey==='self-regulation' && m.skill!==undefined) reco.skill=_skillBack(m);
       if(m.sense!==undefined && m.sense!==null) reco.sense=m.sense;
       if(typeof m.silence==='number') reco.silence=m.silence;
       if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
