@@ -869,7 +869,7 @@
     return { id:'blog-pats', heading:_heading(ctx.dom,'What your patterns show',false), paras:parts, fresh:true };
   }
 
-  // ---- emotion + rung reader beats (recommender-v2 data -> reader, 2026-07-07) --
+  // ---- emotion + skill reader beats (recommender-v2 data -> reader, 2026-07-07) --
   // Group->state bridge for user-facing copy. Keyed to the same emotion groups as
   // Store.EMOTION_FAMILIES (there is no Store.EMOTION_STATE — D7); the word
   // "SSIEC" is internal and never shown. Bridges are offered as a lens ("could be"),
@@ -877,8 +877,8 @@
   // the Direction-1 per-session template and the change-data conditional are his approved copy.
   const EMO_BRIDGE = { anxious:'flight activation', angry:'fight activation', sad:'a move toward shutdown', fear:'a freeze response', connected:'a sign of safety in the system' };
   const PAT_BRIDGE = { anxious:'mobilized energy, the body geared up to act', angry:'mobilized energy, the body geared up to act', sad:'the body conserving, pulling inward', fear:'energy and brake at once', connected:'a sign of safety' };
-  const _RUNG_WORD = { 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
-  function _rungWord(k){ return _RUNG_WORD[k] || k; }
+  const _SKILL_WORD = { 'validate-defense':'validating', 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
+  function _skillWord(k){ return _SKILL_WORD[k] || k; }
   const _artA = w => (/^[aeiou]/i.test(String(w||'')) ? 'an ' : 'a ');
   // per-session shift beat (daily reader). shift = Store.emotionShift(session).
   function _emotionShiftLine(shift){
@@ -923,31 +923,42 @@
     const prompt = 'When you set out to work with one type of emotion and a different one shows up, what do you make of that? Do you think this is evidence of self-regulation? Or something else?';
     return { id:'blog-emo', heading:_heading(ctx.dom,'What\'s been surfacing',false), paras:[s, prompt], fresh:true };
   }
-  // rung movement sentence for the period altitudes. mv = Store.rungMovement(win).
-  function _rungMovementLine(mv, whenWord){
+  // skill movement sentence for the period altitudes. mv = Store.skillMovement(win).
+  function _skillMovementLine(mv, whenWord){
     if(!mv || !mv.moved) return '';
-    return whenWord + ' you were practicing ' + _rungWord(mv.from) + ', and now you\'re working with ' + _rungWord(mv.to) + '.';
+    return whenWord + ' you were practicing ' + _skillWord(mv.from) + ', and now you\'re working with ' + _skillWord(mv.to) + '.';
   }
   // essay "your self-regulation practice" section: which skill + why (from the data),
-  // the next skill, and the change-data conditional (Justin-approved). ctx.rung =
-  // Store.rungStory().
-  function _essayRung(ctx){
-    const r = ctx.rung; if(!r || !r.hasHistory) return null;
+  // the next skill, and the change-data conditional (Justin-approved). ctx.skillStory =
+  // Store.skillStory().
+  // The next step's sentence when it starts from Obstacles or goes past the overall depth.
+  // Justin, 2026-09-20: "The next practice presents you with Obstacles and leads you through
+  // Balancing whatever surfaces, finding where it lives in the body." Literal, no metaphor.
+  // The words live in store.js stepPhrase(), shared with the recommendation reasons.
+  function _nextPracticeSentence(key){
+    const ph = (global.Store && Store.stepPhrase) ? Store.stepPhrase(key, true) : null;
+    return ph ? 'The next practice ' + ph + '.' : null;
+  }
+  function _essaySkill(ctx){
+    const r = ctx.skillStory; if(!r || !r.hasHistory) return null;
     const cur = r.strongest || (r.cleared && r.cleared.length ? r.cleared[r.cleared.length-1] : null);
     const parts = [];
     if(cur){
-      let s = 'In your self-regulation practice, you\'ve been working with ' + _rungWord(cur) + (r.curDesc ? ': ' + r.curDesc : '') + '.';
+      let s = 'In your self-regulation practice, you\'ve been working with ' + _skillWord(cur) + (r.curDesc ? ': ' + r.curDesc : '') + '.';
       const because = r.reason==='more' ? 'left you feeling more connected afterward, not less'
                     : r.reason==='steadier' ? 'were followed by check-ins with more safety'
                     : 'have been going well, more than not';
-      s += ' This skill was recommended because your recent ' + _rungWord(cur) + ' practices ' + because + '.';
-      if(r.next) s += ' When you\'re ready to try it, the next skill is ' + _rungWord(r.next) + (r.nextDesc ? ', ' + r.nextDesc : '') + '.';
+      s += ' This skill was recommended because your recent ' + _skillWord(cur) + ' practices ' + because + '.';
+      const nextLine = r.nextKey ? _nextPracticeSentence(r.nextKey) : null;
+      if(nextLine) s += ' ' + nextLine;
+      else if(r.next) s += ' When you\'re ready to try it, the next skill is ' + _skillWord(r.next) + (r.nextDesc ? ', ' + r.nextDesc : '') + '.';
       parts.push(s);
     } else if(r.next){
-      parts.push('In your self-regulation practice, the next skill is ' + _rungWord(r.next) + (r.nextDesc ? ', ' + r.nextDesc : '') + '.');
+      const nextLine = r.nextKey ? _nextPracticeSentence(r.nextKey) : null;
+      parts.push(nextLine || ('In your self-regulation practice, the next skill is ' + _skillWord(r.next) + (r.nextDesc ? ', ' + r.nextDesc : '') + '.'));
     }
-    parts.push('Self-regulation happens incrementally, not all at once. It\'s normal and expected to move forward in practices, and then move backward. The next recommended practices will adapt based on your check-ins. If you report lower safety, the app will ease back into shorter, gentler practices, and more time building safety before moving into defense. If you report safety is holding, the app will build practices with the next skill level challenge.');
-    return { id:'blog-rung', heading:_heading(ctx.dom,'Your self-regulation practice',false), paras:parts, fresh:true };
+    parts.push('Self-regulation happens incrementally, not all at once. It\'s normal and expected to move forward in practices, and then move backward. The next recommended practices will adapt based on your check-ins. If you report lower safety, the app will ease back into shorter, gentler practices, and more time building safety before moving into defense. If you report safety is holding, the app will build practices around the next skill.');
+    return { id:'blog-skill', heading:_heading(ctx.dom,'Your self-regulation practice',false), paras:parts, fresh:true };
   }
 
   function blog(ctx0){
@@ -972,9 +983,9 @@
     // emotion surface patterns sit next to the check-in patterns (both "what's showing up")
     const emo = _essayEmotion(ctx);
     if(emo) secs.splice(pats ? 2 : 1, 0, emo);
-    // the self-regulation rung story + change-data lands late, near "What to try"/"Where this can go"
-    const rung = _essayRung(ctx);
-    if(rung) secs.splice(Math.max(secs.length-1, 0), 0, rung);
+    // the self-regulation skill story + change-data lands late, near "What to try"/"Where this can go"
+    const skillSec = _essaySkill(ctx);
+    if(skillSec) secs.splice(Math.max(secs.length-1, 0), 0, skillSec);
     // the baseline zoom-out gets the same fresh treatment as the patterns section
     // (2026-07-05): its own highlighted section just before the close, instead of
     // hiding as a paragraph inside "Where this can go"
@@ -1020,7 +1031,7 @@
     // emotion mix + self-regulation movement over the month (recommender-v2)
     const emoLine = _periodEmotionLine(ctx0.emotion, 'this month');
     if(emoLine) parts.push(emoLine);
-    const mvLine = _rungMovementLine(ctx0.movement, 'At the start of the month');
+    const mvLine = _skillMovementLine(ctx0.movement, 'At the start of the month');
     if(mvLine) parts.push(mvLine);
     parts.push(cycle('mo-close', MONTHLY.close));
     return { text: parts.join(' '), stats: st };
@@ -1067,7 +1078,7 @@
     parts.push(_fillMQ(cycle('q-tot', QUARTERLY.totals), o));
     // self-regulation arc + emotion mix over the span (recommender-v2)
     const _when = { q:'3 months ago', half:'6 months ago', year:'A year ago' };
-    const mvLine = _rungMovementLine(ctx0.movement, _when[mark] || 'Earlier in this stretch');
+    const mvLine = _skillMovementLine(ctx0.movement, _when[mark] || 'Earlier in this stretch');
     if(mvLine) parts.push(mvLine.charAt(0).toUpperCase() + mvLine.slice(1));
     const emoLine = _periodEmotionLine(ctx0.emotion, _QSPAN[mark] || 'this stretch');
     if(emoLine) parts.push(emoLine);
