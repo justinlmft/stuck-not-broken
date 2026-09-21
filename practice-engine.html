@@ -729,7 +729,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:a571f8f887434c630881a15e5c74cafd */
+<script>/* @module data.js md5:fa1c46d8fa14664d8439fd58afc25ae5 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -814,11 +814,15 @@ const TAKE_TRIMS = Object.freeze({
    *
    * Cut points read off the waveform, each landing inside a natural pause at the sentence end.
    * 🔴 Justin is checking these BY EAR on beta; the waveform is evidence for where a sentence
-   * ends, never for what should be said, which is the distinction he drew on the intra-clip holds. */
-  'NUMB-OK-DEFENSE-a.mp3': { end: 2.9,  caption: [' We don\'t have to find it. Come back to safety for a moment, and we\'ll carry on from there.', ''] },
-  'NUMB-OK-DEFENSE-b.mp3': { end: 2.75, caption: [' Let it go for now and return to safety, and then we\'ll go on from there.', ''] },
+   * ends, never for what should be said, which is the distinction he drew on the intra-clip holds.
+   *
+   * ✅ SET BY EAR (Justin, 2026-09-20, from a clip-check page playing the live takes): a 2.9 → 2.65,
+   * b 2.75 → 3.05 (it was stopping one word short — "that is—" instead of "that is okay"),
+   * c 3.6 kept, d 3.2 → 3.0. */
+  'NUMB-OK-DEFENSE-a.mp3': { end: 2.65, caption: [' We don\'t have to find it. Come back to safety for a moment, and we\'ll carry on from there.', ''] },
+  'NUMB-OK-DEFENSE-b.mp3': { end: 3.05, caption: [' Let it go for now and return to safety, and then we\'ll go on from there.', ''] },
   'NUMB-OK-DEFENSE-c.mp3': { end: 3.6,  caption: [' We don\'t need to go looking for it. Come back to safety, and we\'ll continue from there.', ''] },
-  'NUMB-OK-DEFENSE-d.mp3': { end: 3.2,  caption: [' Nothing more is asked of you right now. Return to safety for a moment, and then we\'ll carry on together from there.', ''] },
+  'NUMB-OK-DEFENSE-d.mp3': { end: 3.0,  caption: [' Nothing more is asked of you right now. Return to safety for a moment, and then we\'ll carry on together from there.', ''] },
 });
 function trimFor(file) { return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null; }
 /* the transcript edits that go with the cuts — applied to the loaded captions map, once */
@@ -1071,7 +1075,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:b099bfb6609ccece149dc15e4c7cfb3b */
+<script>/* @module plan.js md5:d6e8317619ef45f6d298c094b2ada0d4 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1361,15 +1365,17 @@ function depthBlock(add, cfg) {
    * genuinely ambiguous — sometimes a guard, sometimes the start of a dorsal drop — so the clip
    * never says what the blank means, and never reuses the safety words with the nouns swapped.
    *
-   * Fires once, AFTER THE LAST BEAT THE DEPTH REACHED — the body beats at the shallower depths, and
-   * after the five description questions at the description depth (CA, 2026-09-05). It used to sit
-   * between the body beats and the description block, so "we don't have to find it, come back to
-   * safety" was followed at once by "what colour is it?" — permission contradicted by five questions
-   * that presuppose the thing. Book 3 at this depth is describe briefly THEN return to safety. */
+   * Fires once, RIGHT AFTER THE BODY BEATS and BEFORE the description questions (Justin, 2026-09-20,
+   * hearing it on beta: "it should come before describing, after specific. if someone is trying to
+   * describe, they have already found it in their body."). This REVERSES the CA's 2026-09-05
+   * placement, which moved it after the five description questions so that "we don't have to find
+   * it" would not be followed at once by "what colour is it?". Heard in place, the later position
+   * was the worse contradiction: permission not to have found the thing, after answering every
+   * question that describes it. At the shallower depths nothing moves — it already followed the last body beat. */
+  add(D.ROLE.numbOkDefense, 'defense');
   if (rank >= 2) {
     describeOrder(cfg.plain ? D.FAMILY.descDefensePlain : D.FAMILY.descDefense).forEach(id => add(id, 'defense'));
   }
-  add(D.ROLE.numbOkDefense, 'defense');
   /* ✅ THE BUILDER FOLLOWS THE BODY STEP WITH "HOW IS YOUR BODY BREATHING?" (CA review, second
    * pass, 2026-09-17). In Pendulating this breath check also stands in for the second capacity
    * gate that used to sit two beats later (see SKILLS.pendulating). */
@@ -1552,6 +1558,10 @@ function plan(cfg) {
   const beats = [];
   const branches = {};
   const add = (id, phase, opts = {}) => {
+    const reassure = REASSURE_ONCE[id];
+    if (reassure && opts.take === undefined && opts.pool === undefined) {
+      opts = beats.some(b => b.id === id) ? { ...opts, pool: reassure.later } : { ...opts, take: reassure.first };
+    }
     const beat = { id: D.must(id), phase, kind: opts.kind || KIND.beat, ...opts };
     beat.gap = gapFor(beat, silence);
     beats.push(beat);
@@ -1926,6 +1936,19 @@ const OBSTACLES_SETUP = Object.freeze({
  * the one place that reads either. Letters, never filenames, and never a clip ID. */
 const TAKE_LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 const INTEREST_SAFETY_TAKE = 'e';
+
+/* ✅ THE REASSURANCE IS HEARD ONCE PER PRACTICE (Justin, 2026-09-20, on beta: "only one reassuring
+ * clip. more than that feels like too much. it's annoying."). PEND-SAFETY and PEND-DEFENSE are the
+ * "come back and notice what's different" beats, and most of their takes also say some version of
+ * "it's normal for it to have changed" — while Balancing plays PEND-SAFETY twice. So the FIRST time
+ * either beat plays in a plan it is pinned to the one take Justin chose by ear to carry the
+ * reassurance, and every later time it is pooled to the takes that carry none. Chosen 2026-09-20:
+ * safety c ("Any changes are very expected and normal"), non-safety a ("Again, common and okay if
+ * it has"). Bare: safety e; non-safety b and c. A caller that already pins or pools the beat wins. */
+const REASSURE_ONCE = Object.freeze({
+  [D.ROLE.pendSafety]:  Object.freeze({ first: 'c', later: Object.freeze(['e']) }),
+  [D.ROLE.pendDefense]: Object.freeze({ first: 'a', later: Object.freeze(['b', 'c']) }),
+});
 
 /* ── 2026-09-17: the Curriculum Advisor's sequence review, as Justin ruled on it ─────────── */
 /* the warm-up senses, OUTSIDE-IN: sight (MIND-05), sound (MIND-03). Touch (MIND-04) is the

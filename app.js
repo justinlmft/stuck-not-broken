@@ -6561,7 +6561,7 @@ function app(tab){
           if(holdWatchOffered(sk, pState.deepest)){
             s += pState.holdWatch
               ? `, holding &amp; watching for ${dial('hold', holdDurWords(pState.holdSeconds))}`
-              : `, ${dial('hold', 'add hold & watch')}`;
+              : `, ${dial('hold', 'without hold & watch')}`;
           }
         }
         if(k!=='micro') s += `, with ${dial('silence', silLabel(pState.silence))} silence`;
