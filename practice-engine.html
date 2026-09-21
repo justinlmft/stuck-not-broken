@@ -304,12 +304,12 @@ body.playing .brand{display:none}
 .done{display:none;flex-direction:column;align-items:stretch;gap:10px;width:100%;position:relative;z-index:2}
 #player.finished .controls{display:none}
 #player.finished .choicecard{display:none}
-/* ── the 0–10 reading (spec 2026-09-17) ────────────────────────────────────────────────────
-   One line, 0 left and 10 right, nothing chosen until they tap. The chosen number shows large,
-   its numeral is circled, and after the line goes it stays as a circled mark until the next
-   reading — never beside the next one (people answer relative to what they can see). */
-.reading{display:flex;flex-direction:column;gap:4px;width:100%;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-.reading-value{margin:0;min-height:1.15em;text-align:center;font-size:calc(34px * var(--type-scale));line-height:1.1;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+/* ── the 0–10 line (spec 2026-09-17; reworked 2026-09-21) ─────────────────────────────────────
+   The tapped number is circled — a solid disc, so nothing behind it shows through, ringed in the
+   page's own background colour. No large number above the line and no mark left after it: the
+   line fades a few seconds after the last tap (page.js READ_LINGER_MS). */
+.reading{display:flex;flex-direction:column;gap:4px;width:100%;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;transition:opacity .6s var(--ease)}
+.reading.fading{opacity:0}
 .reading-bar{position:relative;height:52px;cursor:pointer;touch-action:manipulation;border-radius:12px}
 .reading-bar::before{content:'';position:absolute;left:14px;right:14px;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:var(--ink-80);opacity:.45}
 .reading-bar:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
@@ -318,12 +318,12 @@ body.playing .brand{display:none}
 .reading.chosen .reading-dot{opacity:1;transform:none}
 .reading-nums{position:relative;height:1.7em;font-size:calc(13px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
 .reading-num{position:absolute;top:0;min-width:1.7em;height:1.7em;line-height:1.7em;text-align:center;transform:translateX(-50%);border-radius:50%;border:1.5px solid transparent}
-.reading-num.on{border-color:var(--ink);color:var(--ink);font-weight:600}
+.reading-num.on{background:var(--ink);border-color:var(--ink);color:var(--bone);font-weight:600;box-shadow:0 0 0 2px var(--bone)}
 .reading-ends{display:flex;justify-content:space-between;padding:0 2px;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
-.readmark{display:none;align-self:center;align-items:center;justify-content:center;width:46px;height:46px;margin:0 0 16px;border-radius:50%;border:2px solid var(--ink);font-size:calc(18px * var(--type-scale));font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
-.readmark.on{display:flex;animation:riseIn .45s var(--ease)}
-#player.choosing .readmark,#player.finished .readmark{display:none}
-@media (prefers-reduced-motion:reduce){.readmark.on{animation:none}.reading-dot{transition:none}}
+@media (prefers-reduced-motion:reduce){.reading,.reading-dot{transition:none}}
+/* "about N min left" (2026-09-21) — the old player's style, above the control bar */
+.timeleft{font-size:calc(12px * var(--type-scale));letter-spacing:.02em;color:var(--muted);text-align:center;margin:0 0 -8px;opacity:.75;min-height:1.2em}
+.timeleft:empty{display:none}
 #player.finished .done{display:flex;animation:riseIn .55s var(--ease)}
 .done .btn{width:100%}
 .rest{display:none;flex-direction:column;align-items:center;position:relative;z-index:2}
@@ -394,20 +394,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               0b83c9d1661f5ed1273538e3723d26c1    24516 bytes
+     page.css               2f26c808dfeb941c140086058cb328f6    24289 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
      data.js                8105c55ace842da6c7e8d083051dc4f4    20917 bytes
-     plan.js                f1b354394c36cad134210d03d0e04c9d    75036 bytes
+     plan.js                839651bd086c3dbfb51e372687991c6d    76049 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
-     host.js                3a753c3dd7e1199d756f8addbcfb1999    35758 bytes
+     host.js                a9e6809ec8b3cb0b9d1b8998f0b96ecb    35912 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             f9678c80f15adb136fc3e535836696ee    32023 bytes
+     session.js             031a4dfb4b95f35f33a3a2925f7b1354    32885 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                657bcb1a4c8973d54c7458c351e8058e    11772 bytes
-     page.js                1be8a249af3ae7e90866c455b79b0001    35512 bytes
+     copy.js                4017d9a8cdaa050d9aa56731b020fe56    12032 bytes
+     page.js                474f430262aaf2e143b25b3b07ba5859    37669 bytes
 -->
 </head>
 <body>
@@ -505,6 +505,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       <div class="choicecard" id="choicecard"></div>
 
       <div class="controls">
+        <!-- "about N min left", above the controls where the old player had it (2026-09-21) -->
+        <p class="timeleft" id="timeleft" aria-live="off"></p>
         <div class="controlbar">
           <div class="adjgroup">
             <div class="adj silence">
@@ -1103,7 +1105,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:f1b354394c36cad134210d03d0e04c9d */
+<script>/* @module plan.js md5:839651bd086c3dbfb51e372687991c6d */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1593,6 +1595,10 @@ function plan(cfg) {
     /* the 0–10 reading carries its capture control, so its gap floors at four seconds like any beat
      * that puts something on screen (E4.22; spec 2026-09-17) */
     if (id === D.SAFETY_READING && opts.choice === undefined) opts = { ...opts, choice: 'reading' };
+    /* ✅ 2026-09-21 (Justin: "For the non-safety intensity, no line rating scale came up. Fix this.")
+     * INTENSITY-DEFENSE asks its own 0–10, so it carries the same line — recorded apart from the
+     * safety readings, because the scale runs the other way (low is the easy end). */
+    if (id === D.ROLE.intensityDefense && opts.choice === undefined) opts = { ...opts, choice: 'intensity' };
     const beat = { id: D.must(id), phase, kind: opts.kind || KIND.beat, ...opts };
     beat.gap = gapFor(beat, silence);
     beats.push(beat);
@@ -1757,6 +1763,13 @@ function plan(cfg) {
    * The sound anchor looks at sound twice (warm-up, then its ladder); Justin: "double sound is
    * fine since it's brief and different levels of attention." */
   const mind = D.FAMILY.mind;
+  /* ✅ THE OBJECT IS FOUND BEFORE THE WARM-UP (Justin, 2026-09-21, on a touch practice: "I just got
+   * prompted to find a physical object in my space after acknowledging an emotion that may already
+   * be there. This should happen earlier"). The touch anchor is the one anchor that needs something
+   * FETCHED, so its first rung — find one thing to hold — moves to the front of the warm-up, and the
+   * ladder later opens on "Now, with that one thing you chose…". Every other anchor is unchanged. */
+  const findFirst = cfg.anchor === 'touch';
+  if (findFirst) add(anchor.ladder[0], 'opening');
   WARM_UP_SENSES.forEach(i => add(mind[i], 'mindfulness'));      // sight, sound — outside-in
   add(D.NATURAL_BREATH, 'mindfulness');                          // then the breath
   add(mind[MIND_EMOTION], 'mindfulness');                        // Imagine & Invite
@@ -1774,7 +1787,7 @@ function plan(cfg) {
    *
    * The copy is the proof: ANCHORING-TOUCH-05 take B ends "…as we shift focus to your breath
    * again", and ANCHORING-SHARED-01-BREATH is that breath beat. */
-  const rungs = anchor.ladder.slice(0, -1);
+  const rungs = anchor.ladder.slice(findFirst ? 1 : 0, -1);
   const handoff = anchor.ladder[anchor.ladder.length - 1];
   rungs.forEach(id => add(id, 'anchoring'));
   add(handoff, 'anchoring');
@@ -2966,7 +2979,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:3a753c3dd7e1199d756f8addbcfb1999 */
+<script>/* @module host.js md5:a9e6809ec8b3cb0b9d1b8998f0b96ecb */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3496,6 +3509,8 @@ function completion({ plan, requested, run }) {
     /* THE 0–10 READINGS (2026-09-20), in the order they were asked: one entry per reading the
      * practice reached, null where it was asked and not answered. Empty when none was reached. */
     safetyReadings: Array.isArray(r.readings) ? r.readings.slice() : [],
+    /* INTENSITY-DEFENSE's 0–10 answers, the same shape (2026-09-21) */
+    intensityReadings: Array.isArray(r.intensities) ? r.intensities.slice() : [],
   };
 
   return payload;
@@ -3919,7 +3934,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:f9678c80f15adb136fc3e535836696ee */
+<script>/* @module session.js md5:031a4dfb4b95f35f33a3a2925f7b1354 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -3987,6 +4002,8 @@ const CONTROL = Object.freeze({
   INTEREST_ANSWER: 'interest-answer', // the Interest Impulse practice: yes · no, both RECORDED, neither routes
   /* 2026-09-20: the 0–10 reading — a CAPTURE with eleven targets, not a choice (see OPTIONS) */
   READING: 'reading',
+  /* 2026-09-21: INTENSITY-DEFENSE's 0–10 — the same line, recorded apart from the safety readings */
+  INTENSITY: 'intensity',
   CAPACITY_CHECK: 'capacity-check',   // CAP-CHECK mid-Pendulating: one target, the spoken "no", eases out
 });
 
@@ -4004,6 +4021,7 @@ const OPTIONS = Object.freeze({
   /* the 0–10 reading: every whole number, nothing pre-selected. It routes nowhere, so the E5.31 cap on
    * how many answers a CHOICE may have does not apply — see `_openControlFor`. */
   [CONTROL.READING]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
+  [CONTROL.INTENSITY]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
 });
 
 /* Non-repeating shuffle across a clip's takes: walk a shuffled bag, reshuffle when it empties,
@@ -4066,6 +4084,8 @@ class Session {
     /* The 0–10 readings, one slot per reading the practice reached, in order; null where it was
      * asked and not answered — silence is never an answer (2026-09-20). */
     this.readings = [];
+    /* INTENSITY-DEFENSE's answers, the same shape: one slot per time it was asked, null = not answered */
+    this.intensities = [];
 
     this._startedAt = null;
     this._holdStartedAt = null;
@@ -4145,6 +4165,7 @@ class Session {
      * gate's window NEVER OPENED and nobody could answer no. Found by running the suite. */
     if (b.choice === 'interest' || b.choice === CONTROL.CURIOSITY) return CONTROL.CURIOSITY;
     if (b.choice === CONTROL.READING || b.id === D.SAFETY_READING) return CONTROL.READING;
+    if (b.choice === CONTROL.INTENSITY || b.id === D.ROLE.intensityDefense) return CONTROL.INTENSITY;
     if (b.choice === CONTROL.PERMIT) return CONTROL.PERMIT;
     if (b.choice === CONTROL.INTEREST_ANSWER) return CONTROL.INTEREST_ANSWER;
     if (b.choice === CONTROL.CAPACITY_CHECK) return CONTROL.CAPACITY_CHECK;
@@ -4175,13 +4196,14 @@ class Session {
     /* The cap governs BRANCHING choices — how much someone can hold with their eyes closed. The 0–10
      * reading is a capture on a line the person already carries in their head, and nothing routes
      * on it (spec 2026-09-17: "that cap governs branching choices, and a reading is a capture"). */
-    if (control !== CONTROL.READING && options.length > MAX_TARGETS) {
+    if (control !== CONTROL.READING && control !== CONTROL.INTENSITY && options.length > MAX_TARGETS) {
       throw new Error(
         `session(): the ${control} control offers ${options.length} targets. E5.31 caps a choice ` +
         'at two — a choice needing three answers becomes two questions.');
     }
     this._control = { index, control, options };
     if (control === CONTROL.READING) { this._control.slot = this.readings.length; this.readings.push(null); }
+    if (control === CONTROL.INTENSITY) { this._control.slot = this.intensities.length; this.intensities.push(null); }
     this.onEvent({ type: 'control-open', control, options, index });
 
     /* E5.27 — because LOOP-GATE is cut, MORE-SAFETY is also the another-round route, so it
@@ -4220,6 +4242,12 @@ class Session {
       const value = Number(option);
       this.readings[c.slot] = value;
       this.onEvent({ type: 'reading', value, slot: c.slot });
+      return true;
+    }
+    if (control === CONTROL.INTENSITY) {
+      const value = Number(option);
+      this.intensities[c.slot] = value;
+      this.onEvent({ type: 'intensity', value, slot: c.slot });
       return true;
     }
     this._answered.add(c.index);
@@ -4506,6 +4534,7 @@ class Session {
       holdWatchSeconds: this.holdWatchSeconds,
       interestAnswer: this.interestAnswer,
       readings: this.readings.slice(),
+      intensities: this.intensities.slice(),
     };
   }
 
@@ -4838,7 +4867,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:657bcb1a4c8973d54c7458c351e8058e */
+<script>/* @module copy.js md5:4017d9a8cdaa050d9aa56731b020fe56 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -5021,6 +5050,11 @@ const UI = Object.freeze({
   readingHigh: 'highest',
   readingAria: 'Your level of safety, 0 to 10',
   readingUnset: 'not answered',
+  intensityAria: 'How intense the non-safety is, 0 to 10',
+  /* "about N min left" above the controls (Justin, 2026-09-21), the old player's own words */
+  timeLeft: 'about {n} min left',
+  timeUnderMinute: 'less than a minute left',
+  timeOpen: 'Open-ended',
   /* ✅ PERMIT-DEFENSE, 2026-09-17. The clip has always ended "You can say yes or no" with nothing
    * on screen to say it with. `no` states its consequence plainly, because it HAS one: it goes back
    * and builds more safety rather than ending the practice. */
@@ -5047,7 +5081,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:1be8a249af3ae7e90866c455b79b0001 */
+<script>/* @module page.js md5:474f430262aaf2e143b25b3b07ba5859 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5394,6 +5428,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
         caption = CAPS.captionFor(CAPTIONS[curFile] || '');
         renderCaption(true);
         setStarting('');
+        showTimeLeft();
         break;
       case 'gap':
         /* the caption belongs to a clip. During the silence there is nothing being said, so
@@ -5414,8 +5449,6 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
         if (e.control === 'finish') $('player').classList.add('finishable');
         break;
       case 'control-close':
-        /* the number they tapped stays on screen after the line goes (Justin, 2026-09-17) */
-        if (e.control === 'reading') readMark(readingNow);
         closeChoice();
         break;
       case 'transport-more-safety': player.classList.add('more-safety'); break;
@@ -5425,12 +5458,44 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     }
   }
 
+  /* ── "about N min left" (Justin, 2026-09-21: "I don't see on beta how much time is left in a
+   * practice. That is usually above the menu buttons.") ────────────────────────────────────────
+   * The old player summed a table of clip lengths. This engine keeps none, so the estimate reads
+   * the transcript: 2.4 words a second is the measured pace across 61 recorded clips (their total
+   * length came out within 1%), plus each beat's own silence. It is display only and never drives
+   * playback. An open practice has no end to count down to, so it says so, as the old player did. */
+  const WORDS_PER_SECOND = 2.4;
+  function beatSeconds(b) {
+    const letters = b.take ? [b.take]
+      : (b.pool && b.pool.length ? b.pool : P.TAKE_LETTERS.slice(0, D.takes(b.id) || 1));
+    let words = 0, heard = 0;
+    letters.forEach(l => {
+      const t = CAPTIONS[D.fileFor(b.id, l)];
+      if (t) { words += String(t).split(/\s+/).filter(Boolean).length; heard++; }
+    });
+    return heard ? Math.max(1, words / heard / WORDS_PER_SECOND) : 4;
+  }
+  function showTimeLeft() {
+    const e = $('timeleft');
+    if (!e) return;
+    if (!session || $('player').classList.contains('finished')) { e.textContent = ''; return; }
+    const q = session.queue, from = Math.max(0, session.runtime.idx);
+    if (q.slice(from).some(b => b.loop)) { e.textContent = COPY.UI.timeOpen; return; }
+    let t = 0;
+    for (let i = from; i < q.length; i++) {
+      t += beatSeconds(q[i]);
+      if (i < q.length - 1) t += q[i].gap || 0;
+    }
+    const m = t / 60;
+    e.textContent = m < 1 ? COPY.UI.timeUnderMinute : COPY.UI.timeLeft.replace('{n}', String(Math.round(m)));
+  }
+
   function finish() {
     const player = $('player');
     player.classList.add('finished');
     player.classList.add('show-controls');
     closeChoice();
-    readMark(null);
+    showTimeLeft();
     if (stall) { stall.stop(); stall = null; }
     post(session.completion(launch.practice ? { practice: launch.practice } : null));
   }
@@ -5438,7 +5503,6 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   function exitNow() {
     if (!session) return;
     closeChoice();
-    readMark(null);
     if (stall) { stall.stop(); stall = null; }
     session.stop();
     post(session.completion(launch.practice ? { practice: launch.practice } : null));
@@ -5478,16 +5542,18 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
    * card comes down when the session closes the window, and no branch is taken. */
   /* `quiet` is the styling, not the meaning: it marks a target that is not the path the practice
    * is already on. A spoken YES is quiet because doing nothing already says it. */
+  /* ✅ 2026-09-21, Justin overriding the above: "don't make one of them highlighted, like it's the
+   * preferred choice. Make them both neutral." Every two-answer card is quiet on both sides now. */
   const CHOICE_BUTTONS = {
     curiosity: [
       { option: 'yes', label: () => COPY.UI.curiosityYes, quiet: true },
-      { option: 'no', label: () => COPY.UI.curiosityNo, quiet: false },
+      { option: 'no', label: () => COPY.UI.curiosityNo, quiet: true },
     ],
     /* ✅ PERMIT-DEFENSE, 2026-09-17. The clip ends "You can say yes or no" and until now nothing
      * on screen said it. `no` rewinds for more safety — it does not end the practice. */
     permit: [
       { option: 'yes', label: () => COPY.UI.permitYes, quiet: true },
-      { option: 'no', label: () => COPY.UI.permitNo, quiet: false },
+      { option: 'no', label: () => COPY.UI.permitNo, quiet: true },
     ],
     /* 2026-09-05: the Interest Impulse practice records its yes/no (both quiet — neither is
      * the "right" answer), and CAP-CHECK mid-Pendulating offers the spoken no. */
@@ -5507,7 +5573,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   function openChoice(control) {
     const card = $('choicecard');
     card.textContent = '';
-    if (control === 'reading') { openReading(card); return; }
+    if (control === 'reading' || control === 'intensity') { openReading(card, control); return; }
     (CHOICE_BUTTONS[control] || []).forEach(spec => {
       const b = el('button', 'choicebtn' + (spec.quiet ? ' quietly' : ''), spec.label());
       b.type = 'button';
@@ -5523,37 +5589,31 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('player').classList.add('choosing');
   }
 
-  /* ── the 0–10 reading ──────────────────────────────────────────────────────────────────────
+  /* ── the 0–10 line ─────────────────────────────────────────────────────────────────────────
    * ✅ Spec 2026-09-17 (claude/reading-control-and-intra-clip-holds-2026-09-17.md §3), ends labelled
    * by Justin 2026-09-20. ONE full-width line, 0 at the left, 10 at the right, and NOTHING chosen: a
    * slider has to start somewhere, which answers for the person (E5.33). Tap a spot and the nearest
-   * whole number is the answer, shown large above the line; tap elsewhere to change it. Not tapping
-   * is free and silent — the practice carries on exactly as it would. When the line goes, the number
-   * they chose stays circled until the next reading is asked; the earlier answer is NEVER on screen
-   * while the next one is being given, because people answer relative to what they can see. */
+   * whole number is circled; tap elsewhere to change it. Not tapping is free and silent.
+   *
+   * ✅ 2026-09-21, Justin after hearing it: no large number above the line and no mark left behind
+   * ("It's enough to see it circled, but it should fade away after a few seconds. Make it continually
+   * clickable and changeable during those few seconds"). So the line stays READ_LINGER_MS after the
+   * LAST tap — every tap in that time changes the answer and restarts the clock — then fades and
+   * goes. Untapped, it stays for the whole window, as before. The same line serves the safety
+   * reading and INTENSITY-DEFENSE ('intensity'); the session records the two apart. */
   const READ_INSET = 14;   // px each side, so 0 and 10 are not under a thumb at the screen edge
-  let readingNow = null, readMarkEl = null;
+  const READ_LINGER_MS = 3000, READ_FADE_MS = 600;
+  let readingNow = null, readFade = null;
   const readingLeft = v => 'calc(' + READ_INSET + 'px + (100% - ' + (2 * READ_INSET) + 'px) * ' + (v / 10) + ')';
 
-  function readMark(v) {
-    if (!readMarkEl) {
-      readMarkEl = el('p', 'readmark');
-      readMarkEl.setAttribute('aria-hidden', 'true');
-      $('choicecard').before(readMarkEl);
-    }
-    readMarkEl.textContent = v == null ? '' : String(v);
-    readMarkEl.classList.toggle('on', v != null);
-  }
-
-  function openReading(card) {
+  function openReading(card, control) {
+    clearTimeout(readFade);
     readingNow = null;
-    readMark(null);
     const wrap = el('div', 'reading');
-    const big = el('p', 'reading-value', '');
     const bar = el('div', 'reading-bar');
     bar.tabIndex = 0;
     bar.setAttribute('role', 'slider');
-    bar.setAttribute('aria-label', COPY.UI.readingAria);
+    bar.setAttribute('aria-label', control === 'intensity' ? COPY.UI.intensityAria : COPY.UI.readingAria);
     bar.setAttribute('aria-valuemin', '0');
     bar.setAttribute('aria-valuemax', '10');
     bar.setAttribute('aria-valuetext', COPY.UI.readingUnset);
@@ -5574,17 +5634,26 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     ends.appendChild(el('span', '', COPY.UI.readingLow));
     ends.appendChild(el('span', '', COPY.UI.readingHigh));
 
+    /* after the last tap: hold, fade, go. A tap during the fade brings it straight back. */
+    const linger = () => {
+      clearTimeout(readFade);
+      wrap.classList.remove('fading');
+      readFade = setTimeout(() => {
+        wrap.classList.add('fading');
+        readFade = setTimeout(() => { if (wrap.parentNode) closeChoice(); }, READ_FADE_MS);
+      }, READ_LINGER_MS);
+    };
     const choose = v => {
       if (isNaN(v)) return;
       v = Math.max(0, Math.min(10, v));
-      if (!session || !session.answer('reading', String(v))) return;
+      if (!session || !session.answer(control, String(v))) return;
       readingNow = v;
       wrap.classList.add('chosen');
-      big.textContent = String(v);
       dot.style.left = readingLeft(v);
       bar.setAttribute('aria-valuenow', String(v));
       bar.setAttribute('aria-valuetext', String(v));
       Array.prototype.forEach.call(nums.children, (s, i) => s.classList.toggle('on', i === v));
+      linger();
     };
     /* stopPropagation for the same reason as the buttons: this tap is an ANSWER, not a request to
      * see the transport */
@@ -5604,7 +5673,6 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       ev.preventDefault();
     });
 
-    wrap.appendChild(big);
     wrap.appendChild(bar);
     wrap.appendChild(nums);
     wrap.appendChild(ends);
@@ -5613,6 +5681,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
 
   function closeChoice() {
+    clearTimeout(readFade);
     $('player').classList.remove('choosing');
     $('choicecard').textContent = '';
   }

@@ -7144,7 +7144,7 @@ function app(tab){
   // the engine's report, logged as it is sent: outcome, where an ease-out came from, the
   // furthest phase, whether the defense half was reached, rewinds, beats played, and the
   // prefix / depth / sequence key / Interest Impulse answer. Columns added 2026-09-19.
-  const ENGINE_REPORT = ['outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings'];   // + the 0–10 answers, 2026-09-20
+  const ENGINE_REPORT = ['outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings','intensityReadings'];   // + the 0–10 answers, 2026-09-20; + intensity, 2026-09-21
   function logSession(reco, completed, endedEarly, minutes){
     // Defense in depth: never log a self-regulation ('self-regulation') session for an
     // anonymous guest (the guest UI cannot produce one; refuse it regardless).
@@ -7179,7 +7179,8 @@ function app(tab){
       beatsPlayed:(typeof reco.beatsPlayed==='number' ? reco.beatsPlayed : null),
       prefix:(reco.prefix||null), depth:(reco.depth||null), offerKey:(reco.offerKey||null),
       interestAnswer:(reco.interestAnswer||null),
-      safetyReadings:(Array.isArray(reco.safetyReadings) ? reco.safetyReadings : null) });
+      safetyReadings:(Array.isArray(reco.safetyReadings) ? reco.safetyReadings : null),
+      intensityReadings:(Array.isArray(reco.intensityReadings) ? reco.intensityReadings : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
   // Early exit: an optional one-tap read on WHY — too hard, too easy, pulled away —
@@ -7260,11 +7261,19 @@ function app(tab){
       if(!fbSel) return;
       try{ Store.noteFeedback(fbSel); }catch(e){}
       if(surfSel.size){ try{ Store.noteSurfaced(Array.from(surfSel)); }catch(e){} }
-      haptic('save'); fbThanks(fbSel);
+      haptic('save'); fbThanks(fbSel, reco);
     };
     const sk=$('#fb-skip'); if(sk) sk.onclick=()=>app('now');
   }
-  function fbThanks(val){
+  // the safety numbers they gave during the practice, in order (Justin, 2026-09-21: "we should
+  // also see the safety numbers that changed from the inputs"). Only the ones they answered; a
+  // practice with none answered shows no line at all.
+  function readingsLine(reco){
+    const said=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number');
+    if(!said.length) return '';
+    return `<p class="scr-lede fb-readings" style="margin-top:14px">Your safety along the way: ${said.map(v=>'<b>'+v+'</b>').join(' → ')}</p>`;
+  }
+  function fbThanks(val, reco){
     // closing line in Justin's voice — the report tunes the tone, never judges it
     const CLOSE = {
       more:    { h:'Something shifted toward connection.', s:"that's worth a small pat on your nervous system's back." },
@@ -7286,6 +7295,7 @@ function app(tab){
           <h1 class="scr-h">${cl.h}</h1>
           <p class="scr-lede">${cl.s}</p>
         </div>
+        ${readingsLine(reco)}
         <p class="settle-note">Safety doesn't erase the rest. It just holds them.</p>
         <div class="fb-after">
           <button class="btn block" id="fb-checkin">Check in now</button>
