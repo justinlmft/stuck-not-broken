@@ -377,8 +377,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               146461308496a3cc3bd23f5d6538c55d    21999 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
-     data.js                a571f8f887434c630881a15e5c74cafd    19897 bytes
-     plan.js                b099bfb6609ccece149dc15e4c7cfb3b    73141 bytes
+     data.js                8105c55ace842da6c7e8d083051dc4f4    20917 bytes
+     plan.js                8e62bb6254c017ece0ef06f1fc3ebcb8    74769 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
      host.js                4085a9697ddd7a922f6f9042560d1b4c    35491 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
@@ -729,7 +729,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:fa1c46d8fa14664d8439fd58afc25ae5 */
+<script>/* @module data.js md5:8105c55ace842da6c7e8d083051dc4f4 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -823,6 +823,14 @@ const TAKE_TRIMS = Object.freeze({
   'NUMB-OK-DEFENSE-b.mp3': { end: 3.05, caption: [' Let it go for now and return to safety, and then we\'ll go on from there.', ''] },
   'NUMB-OK-DEFENSE-c.mp3': { end: 3.6,  caption: [' We don\'t need to go looking for it. Come back to safety, and we\'ll continue from there.', ''] },
   'NUMB-OK-DEFENSE-d.mp3': { end: 3.0,  caption: [' Nothing more is asked of you right now. Return to safety for a moment, and then we\'ll carry on together from there.', ''] },
+  /* 2026-09-20 (Justin, from a listen on beta): two re-reads. Cut points come from word timings
+   * (speech recognition over the clip), each landing in the pause before the kept read.
+   * SIGHT-05-b: "I think 05-b sight is a redo. Keep the 'your' and cut the 'we're' take entirely."
+   * INTENT-SET-c: two complete reads ("Split and keep both set-c ones"); c keeps the second, which
+   * carries the "pay more attention" line, and at cutover the first read (0–5.80 s) becomes
+   * INTENT-SET-f. Re-cut, so plan.js puts c back in the shuffle. */
+  'ANCHORING-SIGHT-05-b.mp3': { start: 3.18, caption: ['Remember, we\'re not controlling our eyes. ', ''] },
+  'INTENT-SET-c.mp3':         { start: 7.1,  caption: ['Choose a non-safety emotion now that you\'d like to invite in later. ', ''] },
 });
 function trimFor(file) { return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null; }
 /* the transcript edits that go with the cuts — applied to the loaded captions map, once */
@@ -1075,7 +1083,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:d6e8317619ef45f6d298c094b2ada0d4 */
+<script>/* @module plan.js md5:8e62bb6254c017ece0ef06f1fc3ebcb8 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1690,7 +1698,8 @@ function plan(cfg) {
    * make — Justin heard "whatever you chose…" with nothing chosen. His ruling: "intent-set
    * should play for all self-reg practices except obstacles." */
   /* ✅ Takes A and C each read a sentence twice in one breath (CA review 2026-09-17), so the
-   * shuffle leaves them out until they are re-cut. */
+   * shuffle left them out until they were re-cut. C was re-cut 2026-09-20 (a start trim in
+   * data.js TAKE_TRIMS) and is back in; A is still out. */
   if ((skill && !prefixed) || base) add(D.ROLE.intentSet, 'opening', { pool: poolExcluding(D.ROLE.intentSet, INTENT_SET_DOUBLED) });
   /* ✅ WHICH DEFENSE TO BRING — INTENT-TOLERABLE (Justin, 2026-09-05, CA item 10). The engine
    * titrates how deep a practice goes and said nothing about what the listener brings, so a
@@ -1968,8 +1977,9 @@ const CLOSE_ORDER = Object.freeze([2, 0, 1, 4, 3, 5].map(i => D.FAMILY.closes[i]
 /* the two ENDING-OPEN takes that do not send the listener inward ("let it take you where it
  * needs to", "let your inner world lead" are A and C) */
 const ENDING_OPEN_NEUTRAL = Object.freeze(['b', 'd']);
-/* INTENT-SET takes that read a sentence twice in one breath — out of the shuffle until re-cut */
-const INTENT_SET_DOUBLED = Object.freeze(['a', 'c']);
+/* INTENT-SET takes that read a sentence twice in one breath — out of the shuffle until re-cut.
+ * C came back 2026-09-20: its start trim skips the first read (data.js TAKE_TRIMS). */
+const INTENT_SET_DOUBLED = Object.freeze(['a']);
 /* the describe families are numbered colour, shape, temperature, texture, MOVEMENT, SOUND; the
  * builder asks sound before movement */
 function describeOrder(family) {
