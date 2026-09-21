@@ -304,6 +304,26 @@ body.playing .brand{display:none}
 .done{display:none;flex-direction:column;align-items:stretch;gap:10px;width:100%;position:relative;z-index:2}
 #player.finished .controls{display:none}
 #player.finished .choicecard{display:none}
+/* ── the 0–10 reading (spec 2026-09-17) ────────────────────────────────────────────────────
+   One line, 0 left and 10 right, nothing chosen until they tap. The chosen number shows large,
+   its numeral is circled, and after the line goes it stays as a circled mark until the next
+   reading — never beside the next one (people answer relative to what they can see). */
+.reading{display:flex;flex-direction:column;gap:4px;width:100%;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.reading-value{margin:0;min-height:1.15em;text-align:center;font-size:calc(34px * var(--type-scale));line-height:1.1;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.reading-bar{position:relative;height:52px;cursor:pointer;touch-action:manipulation;border-radius:12px}
+.reading-bar::before{content:'';position:absolute;left:14px;right:14px;top:50%;height:2px;margin-top:-1px;border-radius:1px;background:var(--ink-80);opacity:.45}
+.reading-bar:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.reading-tick{position:absolute;top:50%;width:2px;height:12px;margin:-6px 0 0 -1px;border-radius:1px;background:var(--ink-80);opacity:.45}
+.reading-dot{position:absolute;top:50%;left:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;background:var(--ink);opacity:0;transform:scale(.6);transition:left .18s var(--ease),opacity .2s var(--ease),transform .2s var(--ease)}
+.reading.chosen .reading-dot{opacity:1;transform:none}
+.reading-nums{position:relative;height:1.7em;font-size:calc(13px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
+.reading-num{position:absolute;top:0;min-width:1.7em;height:1.7em;line-height:1.7em;text-align:center;transform:translateX(-50%);border-radius:50%;border:1.5px solid transparent}
+.reading-num.on{border-color:var(--ink);color:var(--ink);font-weight:600}
+.reading-ends{display:flex;justify-content:space-between;padding:0 2px;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
+.readmark{display:none;align-self:center;align-items:center;justify-content:center;width:46px;height:46px;margin:0 0 16px;border-radius:50%;border:2px solid var(--ink);font-size:calc(18px * var(--type-scale));font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.readmark.on{display:flex;animation:riseIn .45s var(--ease)}
+#player.choosing .readmark,#player.finished .readmark{display:none}
+@media (prefers-reduced-motion:reduce){.readmark.on{animation:none}.reading-dot{transition:none}}
 #player.finished .done{display:flex;animation:riseIn .55s var(--ease)}
 .done .btn{width:100%}
 .rest{display:none;flex-direction:column;align-items:center;position:relative;z-index:2}
@@ -374,20 +394,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               146461308496a3cc3bd23f5d6538c55d    21999 bytes
+     page.css               0b83c9d1661f5ed1273538e3723d26c1    24516 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
      data.js                8105c55ace842da6c7e8d083051dc4f4    20917 bytes
-     plan.js                8e62bb6254c017ece0ef06f1fc3ebcb8    74769 bytes
+     plan.js                f1b354394c36cad134210d03d0e04c9d    75036 bytes
      runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
-     host.js                4085a9697ddd7a922f6f9042560d1b4c    35491 bytes
+     host.js                3a753c3dd7e1199d756f8addbcfb1999    35758 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             5c611277b9394a7b72aa95a94ffced25    30253 bytes
+     session.js             f9678c80f15adb136fc3e535836696ee    32023 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                b5e77ebd6972e419bbda001a882b7ade    11404 bytes
-     page.js                3519d0473aecd70fb0752c90e84984af    31224 bytes
+     copy.js                657bcb1a4c8973d54c7458c351e8058e    11772 bytes
+     page.js                1be8a249af3ae7e90866c455b79b0001    35512 bytes
 -->
 </head>
 <body>
@@ -1083,7 +1103,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:8e62bb6254c017ece0ef06f1fc3ebcb8 */
+<script>/* @module plan.js md5:f1b354394c36cad134210d03d0e04c9d */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1570,6 +1590,9 @@ function plan(cfg) {
     if (reassure && opts.take === undefined && opts.pool === undefined) {
       opts = beats.some(b => b.id === id) ? { ...opts, pool: reassure.later } : { ...opts, take: reassure.first };
     }
+    /* the 0–10 reading carries its capture control, so its gap floors at four seconds like any beat
+     * that puts something on screen (E4.22; spec 2026-09-17) */
+    if (id === D.SAFETY_READING && opts.choice === undefined) opts = { ...opts, choice: 'reading' };
     const beat = { id: D.must(id), phase, kind: opts.kind || KIND.beat, ...opts };
     beat.gap = gapFor(beat, silence);
     beats.push(beat);
@@ -2943,7 +2966,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:4085a9697ddd7a922f6f9042560d1b4c */
+<script>/* @module host.js md5:3a753c3dd7e1199d756f8addbcfb1999 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3470,6 +3493,9 @@ function completion({ plan, requested, run }) {
      * what offers the first defense practice (Justin, 2026-09-05). Null when the practice did
      * not ask, or the person did not answer — silence is never an answer. */
     interestAnswer: r.interestAnswer || null,
+    /* THE 0–10 READINGS (2026-09-20), in the order they were asked: one entry per reading the
+     * practice reached, null where it was asked and not answered. Empty when none was reached. */
+    safetyReadings: Array.isArray(r.readings) ? r.readings.slice() : [],
   };
 
   return payload;
@@ -3893,7 +3919,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:5c611277b9394a7b72aa95a94ffced25 */
+<script>/* @module session.js md5:f9678c80f15adb136fc3e535836696ee */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -3959,6 +3985,8 @@ const CONTROL = Object.freeze({
   MORE_SAFETY: 'more-safety', // from the transport, for the rest of the defense block (E5.27)
   /* 2026-09-05, the CA review rulings: */
   INTEREST_ANSWER: 'interest-answer', // the Interest Impulse practice: yes · no, both RECORDED, neither routes
+  /* 2026-09-20: the 0–10 reading — a CAPTURE with eleven targets, not a choice (see OPTIONS) */
+  READING: 'reading',
   CAPACITY_CHECK: 'capacity-check',   // CAP-CHECK mid-Pendulating: one target, the spoken "no", eases out
 });
 
@@ -3973,6 +4001,9 @@ const OPTIONS = Object.freeze({
   [CONTROL.INTEREST_ANSWER]: Object.freeze(['yes', 'no']),
   [CONTROL.CAPACITY_CHECK]: Object.freeze(['yes', 'no']),
   [CONTROL.FINISH]: Object.freeze(['finish']),
+  /* the 0–10 reading: every whole number, nothing pre-selected. It routes nowhere, so the E5.31 cap on
+   * how many answers a CHOICE may have does not apply — see `_openControlFor`. */
+  [CONTROL.READING]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
 });
 
 /* Non-repeating shuffle across a clip's takes: walk a shuffled bag, reshuffle when it empties,
@@ -4032,6 +4063,9 @@ class Session {
      * answered). Recorded here, reported by `run()`, and it is what the app uses to offer the
      * first defense practice (Justin, 2026-09-05). Silence stays null: not an answer. */
     this.interestAnswer = null;
+    /* The 0–10 readings, one slot per reading the practice reached, in order; null where it was
+     * asked and not answered — silence is never an answer (2026-09-20). */
+    this.readings = [];
 
     this._startedAt = null;
     this._holdStartedAt = null;
@@ -4110,6 +4144,7 @@ class Session {
      * log already use. The rename left this line comparing `interest` to `curiosity`, so the
      * gate's window NEVER OPENED and nobody could answer no. Found by running the suite. */
     if (b.choice === 'interest' || b.choice === CONTROL.CURIOSITY) return CONTROL.CURIOSITY;
+    if (b.choice === CONTROL.READING || b.id === D.SAFETY_READING) return CONTROL.READING;
     if (b.choice === CONTROL.PERMIT) return CONTROL.PERMIT;
     if (b.choice === CONTROL.INTEREST_ANSWER) return CONTROL.INTEREST_ANSWER;
     if (b.choice === CONTROL.CAPACITY_CHECK) return CONTROL.CAPACITY_CHECK;
@@ -4137,12 +4172,16 @@ class Session {
     }
 
     const options = OPTIONS[control] ? OPTIONS[control].slice() : [];
-    if (options.length > MAX_TARGETS) {
+    /* The cap governs BRANCHING choices — how much someone can hold with their eyes closed. The 0–10
+     * reading is a capture on a line the person already carries in their head, and nothing routes
+     * on it (spec 2026-09-17: "that cap governs branching choices, and a reading is a capture"). */
+    if (control !== CONTROL.READING && options.length > MAX_TARGETS) {
       throw new Error(
         `session(): the ${control} control offers ${options.length} targets. E5.31 caps a choice ` +
         'at two — a choice needing three answers becomes two questions.');
     }
     this._control = { index, control, options };
+    if (control === CONTROL.READING) { this._control.slot = this.readings.length; this.readings.push(null); }
     this.onEvent({ type: 'control-open', control, options, index });
 
     /* E5.27 — because LOOP-GATE is cut, MORE-SAFETY is also the another-round route, so it
@@ -4174,6 +4213,15 @@ class Session {
     const c = this._control;
     if (!c || c.control !== control) return false;
     if (c.options.indexOf(option) < 0) return false;
+    /* ✅ THE 0–10 READING IS RECORDED, NOT ROUTED, AND THE WINDOW STAYS OPEN (spec 2026-09-17): a
+     * near-miss is corrected by tapping again, so the LAST tap in the window is the answer. The
+     * window closes when the next beat starts, like every other. Nothing plays differently. */
+    if (control === CONTROL.READING) {
+      const value = Number(option);
+      this.readings[c.slot] = value;
+      this.onEvent({ type: 'reading', value, slot: c.slot });
+      return true;
+    }
     this._answered.add(c.index);
     this._closeControl('answered');
     this.onEvent({ type: 'answered', control, option });
@@ -4376,6 +4424,7 @@ class Session {
 
   _branchBeat(id, phase) {
     const b = { id: D.must(id), phase, kind: P.KIND.beat, planIndex: null };
+    if (b.id === D.SAFETY_READING) b.choice = CONTROL.READING;   // the same four-second floor as in the plan
     b.gap = P.gapFor(b, this.plan.cfg.silence);
     return b;
   }
@@ -4456,6 +4505,7 @@ class Session {
       rewinds: this.rewinds,
       holdWatchSeconds: this.holdWatchSeconds,
       interestAnswer: this.interestAnswer,
+      readings: this.readings.slice(),
     };
   }
 
@@ -4788,7 +4838,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:b5e77ebd6972e419bbda001a882b7ade */
+<script>/* @module copy.js md5:657bcb1a4c8973d54c7458c351e8058e */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -4964,6 +5014,13 @@ const UI = Object.freeze({
   interestNo: 'No, not right now',
   capacityCheckYes: 'Yes, keep going',
   capacityCheckNo: 'Ease out now',
+  /* ✅ THE 0–10 READING (spec 2026-09-17; ends labelled by Justin 2026-09-20: "lowest … highest",
+   * the audio's own words — "10 would be the highest"). Words under the ends because 0 and 10 alone
+   * do not say which way is which. */
+  readingLow: 'lowest',
+  readingHigh: 'highest',
+  readingAria: 'Your level of safety, 0 to 10',
+  readingUnset: 'not answered',
   /* ✅ PERMIT-DEFENSE, 2026-09-17. The clip has always ended "You can say yes or no" with nothing
    * on screen to say it with. `no` states its consequence plainly, because it HAS one: it goes back
    * and builds more safety rather than ending the practice. */
@@ -4990,7 +5047,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:3519d0473aecd70fb0752c90e84984af */
+<script>/* @module page.js md5:1be8a249af3ae7e90866c455b79b0001 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5356,7 +5413,11 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
          * Inside the open ending the two are the same event, and only one of them says it properly. */
         if (e.control === 'finish') $('player').classList.add('finishable');
         break;
-      case 'control-close': closeChoice(); break;
+      case 'control-close':
+        /* the number they tapped stays on screen after the line goes (Justin, 2026-09-17) */
+        if (e.control === 'reading') readMark(readingNow);
+        closeChoice();
+        break;
       case 'transport-more-safety': player.classList.add('more-safety'); break;
       case 'ease-out': player.classList.remove('more-safety'); break;
       case 'complete': finish(); break;
@@ -5369,6 +5430,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     player.classList.add('finished');
     player.classList.add('show-controls');
     closeChoice();
+    readMark(null);
     if (stall) { stall.stop(); stall = null; }
     post(session.completion(launch.practice ? { practice: launch.practice } : null));
   }
@@ -5376,6 +5438,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   function exitNow() {
     if (!session) return;
     closeChoice();
+    readMark(null);
     if (stall) { stall.stop(); stall = null; }
     session.stop();
     post(session.completion(launch.practice ? { practice: launch.practice } : null));
@@ -5444,6 +5507,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   function openChoice(control) {
     const card = $('choicecard');
     card.textContent = '';
+    if (control === 'reading') { openReading(card); return; }
     (CHOICE_BUTTONS[control] || []).forEach(spec => {
       const b = el('button', 'choicebtn' + (spec.quiet ? ' quietly' : ''), spec.label());
       b.type = 'button';
@@ -5456,6 +5520,95 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       };
       card.appendChild(b);
     });
+    $('player').classList.add('choosing');
+  }
+
+  /* ── the 0–10 reading ──────────────────────────────────────────────────────────────────────
+   * ✅ Spec 2026-09-17 (claude/reading-control-and-intra-clip-holds-2026-09-17.md §3), ends labelled
+   * by Justin 2026-09-20. ONE full-width line, 0 at the left, 10 at the right, and NOTHING chosen: a
+   * slider has to start somewhere, which answers for the person (E5.33). Tap a spot and the nearest
+   * whole number is the answer, shown large above the line; tap elsewhere to change it. Not tapping
+   * is free and silent — the practice carries on exactly as it would. When the line goes, the number
+   * they chose stays circled until the next reading is asked; the earlier answer is NEVER on screen
+   * while the next one is being given, because people answer relative to what they can see. */
+  const READ_INSET = 14;   // px each side, so 0 and 10 are not under a thumb at the screen edge
+  let readingNow = null, readMarkEl = null;
+  const readingLeft = v => 'calc(' + READ_INSET + 'px + (100% - ' + (2 * READ_INSET) + 'px) * ' + (v / 10) + ')';
+
+  function readMark(v) {
+    if (!readMarkEl) {
+      readMarkEl = el('p', 'readmark');
+      readMarkEl.setAttribute('aria-hidden', 'true');
+      $('choicecard').before(readMarkEl);
+    }
+    readMarkEl.textContent = v == null ? '' : String(v);
+    readMarkEl.classList.toggle('on', v != null);
+  }
+
+  function openReading(card) {
+    readingNow = null;
+    readMark(null);
+    const wrap = el('div', 'reading');
+    const big = el('p', 'reading-value', '');
+    const bar = el('div', 'reading-bar');
+    bar.tabIndex = 0;
+    bar.setAttribute('role', 'slider');
+    bar.setAttribute('aria-label', COPY.UI.readingAria);
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', '10');
+    bar.setAttribute('aria-valuetext', COPY.UI.readingUnset);
+    const nums = el('div', 'reading-nums');
+    nums.setAttribute('aria-hidden', 'true');
+    for (let n = 0; n <= 10; n++) {
+      const tick = el('span', 'reading-tick');
+      tick.style.left = readingLeft(n);
+      bar.appendChild(tick);
+      const num = el('span', 'reading-num', String(n));
+      num.style.left = readingLeft(n);
+      nums.appendChild(num);
+    }
+    const dot = el('span', 'reading-dot');
+    bar.appendChild(dot);
+    const ends = el('div', 'reading-ends');
+    ends.setAttribute('aria-hidden', 'true');
+    ends.appendChild(el('span', '', COPY.UI.readingLow));
+    ends.appendChild(el('span', '', COPY.UI.readingHigh));
+
+    const choose = v => {
+      if (isNaN(v)) return;
+      v = Math.max(0, Math.min(10, v));
+      if (!session || !session.answer('reading', String(v))) return;
+      readingNow = v;
+      wrap.classList.add('chosen');
+      big.textContent = String(v);
+      dot.style.left = readingLeft(v);
+      bar.setAttribute('aria-valuenow', String(v));
+      bar.setAttribute('aria-valuetext', String(v));
+      Array.prototype.forEach.call(nums.children, (s, i) => s.classList.toggle('on', i === v));
+    };
+    /* stopPropagation for the same reason as the buttons: this tap is an ANSWER, not a request to
+     * see the transport */
+    wrap.addEventListener('pointerdown', ev => ev.stopPropagation());
+    bar.addEventListener('pointerdown', ev => {
+      const r = bar.getBoundingClientRect();
+      choose(Math.round((ev.clientX - r.left - READ_INSET) / (r.width - 2 * READ_INSET) * 10));
+    });
+    bar.addEventListener('keydown', ev => {
+      const k = ev.key;
+      if (/^[0-9]$/.test(k)) choose(Number(k));
+      else if (k === 'Home') choose(0);
+      else if (k === 'End') choose(10);
+      else if ((k === 'ArrowLeft' || k === 'ArrowDown') && readingNow != null) choose(readingNow - 1);
+      else if ((k === 'ArrowRight' || k === 'ArrowUp') && readingNow != null) choose(readingNow + 1);
+      else return;
+      ev.preventDefault();
+    });
+
+    wrap.appendChild(big);
+    wrap.appendChild(bar);
+    wrap.appendChild(nums);
+    wrap.appendChild(ends);
+    card.appendChild(wrap);
     $('player').classList.add('choosing');
   }
 
