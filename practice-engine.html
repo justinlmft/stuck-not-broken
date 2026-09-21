@@ -407,7 +407,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      session.js             031a4dfb4b95f35f33a3a2925f7b1354    32885 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
      copy.js                4017d9a8cdaa050d9aa56731b020fe56    12032 bytes
-     page.js                474f430262aaf2e143b25b3b07ba5859    37669 bytes
+     page.js                e34cf4e01bad37d0cd915b9a995a22a3    37905 bytes
 -->
 </head>
 <body>
@@ -5081,7 +5081,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:474f430262aaf2e143b25b3b07ba5859 */
+<script>/* @module page.js md5:e34cf4e01bad37d0cd915b9a995a22a3 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5467,7 +5467,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   const WORDS_PER_SECOND = 2.4;
   function beatSeconds(b) {
     const letters = b.take ? [b.take]
-      : (b.pool && b.pool.length ? b.pool : P.TAKE_LETTERS.slice(0, D.takes(b.id) || 1));
+      : (b.pool && b.pool.length ? b.pool : Array.from(P.TAKE_LETTERS).slice(0, D.takes(b.id) || 1));
     let words = 0, heard = 0;
     letters.forEach(l => {
       const t = CAPTIONS[D.fileFor(b.id, l)];
@@ -5475,7 +5475,11 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     });
     return heard ? Math.max(1, words / heard / WORDS_PER_SECOND) : 4;
   }
+  /* display only: it must never be able to stop a practice, so any fault just leaves it blank */
   function showTimeLeft() {
+    try { timeLeftNow(); } catch (err) { const e = $('timeleft'); if (e) e.textContent = ''; }
+  }
+  function timeLeftNow() {
     const e = $('timeleft');
     if (!e) return;
     if (!session || $('player').classList.contains('finished')) { e.textContent = ''; return; }
