@@ -553,6 +553,49 @@
   // plain = the state method's fine-tune. Someone who picks a state already knows their
   // states, so they get the axis by name and a less/more scale instead of a scenario
   // question and harder/easier (Justin, 2026-07-26).
+  // ---- rating sliders vs. scrolling (a member's report, 2026-09-21) ----------------------------
+  // On her Android phone, scrolling down the check-in moved ratings she had already set: a finger
+  // that lands on a slider sets its value the moment it touches, before the phone knows the
+  // finger is scrolling. With the screen magnified the sliders fill the width, so nearly every
+  // scroll lands on one. The rule: a touch on a slider changes nothing until it is clearly a
+  // sideways drag or a tap. If it turns out to be a scroll, the rating stays where it was.
+  // Mouse and keyboard are untouched. One listener set for every slider in the app.
+  (function guardSlidersWhileScrolling(){
+    if(window.__snbSliderGuard) return; window.__snbSliderGuard = true;
+    const SLOP = 8;          // px of movement before we decide what the finger is doing
+    let g = null;            // { el, start, x, y, id, state: 'wait' | 'drag' | 'scroll' }
+    const isRange = el => el && el.tagName === 'INPUT' && el.type === 'range';
+    const announce = el => { el.dispatchEvent(new Event('input', {bubbles:true})); el.dispatchEvent(new Event('change', {bubbles:true})); };
+    document.addEventListener('pointerdown', e => {
+      if(e.pointerType === 'mouse' || !isRange(e.target)){ g = null; return; }
+      g = { el:e.target, start:e.target.value, x:e.clientX, y:e.clientY, id:e.pointerId, state:'wait' };
+    }, true);
+    // while undecided, the slider's own value changes are held back; during a scroll they are undone
+    const hold = e => {
+      if(!g || e.target !== g.el || g.state === 'drag') return;
+      e.stopImmediatePropagation();
+      if(g.state === 'scroll') g.el.value = g.start;
+    };
+    document.addEventListener('input', hold, true);
+    document.addEventListener('change', hold, true);
+    document.addEventListener('pointermove', e => {
+      if(!g || e.pointerId !== g.id || g.state !== 'wait') return;
+      const dx = Math.abs(e.clientX - g.x), dy = Math.abs(e.clientY - g.y);
+      if(dx > SLOP && dx > dy){ g.state = 'drag'; announce(g.el); }
+      else if(dy > SLOP){ g.state = 'scroll'; g.el.value = g.start; }
+    }, true);
+    const end = cancelled => e => {
+      if(!g || e.pointerId !== g.id) return;
+      const done = g;
+      if(done.state === 'wait' && !cancelled) announce(done.el);      // a tap sets the rating
+      else if(done.state !== 'drag') done.el.value = done.start;       // a scroll leaves it alone
+      // let the browser's own trailing events land (and be undone) before letting go
+      setTimeout(() => { if(g === done){ if(done.state !== 'drag' && !(done.state==='wait' && !cancelled)) done.el.value = done.start; g = null; } }, 0);
+      if(done.state === 'wait' && !cancelled) done.state = 'drag';     // a tap's own trailing events pass through
+    };
+    document.addEventListener('pointerup', end(false), true);
+    document.addEventListener('pointercancel', end(true), true);
+  })();
   function ci4SliderHTML(key, scenario, cls, val, numbered, plain){
     const ax = AXIS_ICON[key] || {};
     const icon = ax.icon ? ico(ax.icon,{cls:'slider-ico', color:STATE_COLOR(ax.state)}) : '';
