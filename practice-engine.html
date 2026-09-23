@@ -405,14 +405,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      data.js                7a189b0b30dee1d84eccf3c0b8b3ab1a    25098 bytes
      plan.js                4cfb7986e9f4a72b0b86de3710679605    80657 bytes
      runtime.js             c4edc16649fd3b369c585716dcf8a7d3    31076 bytes
-     host.js                c3bf683bc04b21d2fd437d67e7453fe6    37371 bytes
+     host.js                0508f3305b51740992aa896b7b41b2b9    37490 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             7673b86be66f44add78f3acdfb1d09b4    52302 bytes
+     session.js             ca23c6863e4a39cbf5e80332029c3b96    52699 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
      copy.js                d0eaa12cd7247fb52465c3db6be43cfd    12778 bytes
-     page.js                83009a352890f0d5996b89ce6698a14a    40491 bytes
+     page.js                2b963ad012df1fc757d5e4e19eb24545    41487 bytes
 -->
 </head>
 <body>
@@ -3179,7 +3179,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:c3bf683bc04b21d2fd437d67e7453fe6 */
+<script>/* @module host.js md5:0508f3305b51740992aa896b7b41b2b9 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3730,7 +3730,8 @@ function completion({ plan, requested, run }) {
     handedOffTo: r.handedOffTo || null,
     handedOffFrom: r.handedOffFrom || null,
     /* Every time the buttons went up, in order: which scale, which answer slot, the number, whether
-     * the practice held for it, and what was tapped — null when nothing was. */
+     * the practice held for it, how many seconds it held (`pausedSeconds`, null if it never did), and
+     * what was tapped — null when nothing was. The app saves the list as it is (2026-09-23). */
     offers: Array.isArray(r.offers) ? r.offers.map(o => Object.assign({}, o)) : [],
   };
 
@@ -4155,7 +4156,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:7673b86be66f44add78f3acdfb1d09b4 */
+<script>/* @module session.js md5:ca23c6863e4a39cbf5e80332029c3b96 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4440,6 +4441,7 @@ class Session {
     /* the runtime has stopped for the answer (armed by `_armHold`): the practice is now holding */
     if (e.type === 'paused' && e.source === 'hold' && this._offer && !this._offer.held) {
       this._offer.held = true;
+      this._offer.heldAt = this.dev.now();
       this._offer.record.held = true;
       this.onEvent({ type: 'offer-hold', scale: this._offer.scale, value: this._offer.record.value });
     }
@@ -4854,7 +4856,9 @@ class Session {
     if (options.length > MAX_TARGETS) {
       throw new Error(`session(): the offer has ${options.length} buttons; E5.31 caps a choice at ${MAX_TARGETS}.`);
     }
-    const record = { scale, slot, value, choice: null, held: false };
+    /* `pausedSeconds`: how long the practice stood still waiting for this choice (2026-09-23, Justin wants
+     * it kept) — null when it never held, or when the buttons went away before anything was chosen */
+    const record = { scale, slot, value, choice: null, held: false, pausedSeconds: null };
     this.offers.push(record);
     this._offer = { scale, index, until, record, held: false };
     this.onEvent({ type: 'offer-open', control: CONTROL.OFFER, options, scale, value });
@@ -4887,6 +4891,7 @@ class Session {
     const o = this._offer;
     this._offer = null;
     this.runtime.holdAfter(null);
+    if (o.held && o.heldAt != null) o.record.pausedSeconds = Math.max(0, Math.round((this.dev.now() - o.heldAt) / 1000));
     /* a tap that moved the number out of range took the offer back before anyone chose — it was never
      * an offer the person turned down, so it leaves no record, and a hold it started is lifted */
     if (why === 'withdrawn') {
@@ -5653,7 +5658,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:83009a352890f0d5996b89ce6698a14a */
+<script>/* @module page.js md5:2b963ad012df1fc757d5e4e19eb24545 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5921,6 +5926,12 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   // ── building and running one practice ─────────────────────────────────────────────────
 
   let session = null, stall = null, scene = null, device = null;
+  /* ✅ A PRACTICE WAITS FOR A TAP (Justin, 2026-09-23: "it should NOT start the audio immediately. the user
+   * does indeed need to tap to begin"). The app opens the player on its own "Begin", and the player then
+   * waits on "Tap to start" until the person taps the screen or the play button. That tap is also the
+   * gesture every phone wants before it lets a page make sound, so the first clip no longer depends on
+   * autoplay being allowed. `startWaiting` is true between the player appearing and that tap. */
+  let startWaiting = false;
   let caption = null, capsOn = false, ctrlTimer = null, curFile = '';
 
   function planCfg() {
@@ -5944,22 +5955,15 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     };
   }
 
-  function begin() {
+  function begin(waitForTap) {
     const plan = P.plan(planCfg());
     device = browserDevice({ audio: $('au'), base: BASE });
     session = new S.Session({
       plan, device,
       onEvent: onSessionEvent,
     });
-    stall = new ST.StallWatch({
-      device,
-      state: () => session.runtime.state(),
-      play: () => session.runtime.nudge(),
-    }).start();
-
     const player = $('player');
     player.className = 'screen';
-    player.classList.add('show-controls');
     showScreen('player');
 
     if (!scene) {
@@ -5977,8 +5981,26 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       });
     }
 
-    setStarting(COPY.UI.starting);
     showSilence();
+    if (waitForTap) {
+      startWaiting = true;
+      player.classList.add('awaiting-tap');
+      setStarting(COPY.UI.tapToStart);
+      return;
+    }
+    startNow();
+  }
+
+  /* the practice actually begins: the stall watch, the first clip, the controls */
+  function startNow() {
+    startWaiting = false;
+    $('player').classList.remove('awaiting-tap');
+    stall = new ST.StallWatch({
+      device,
+      state: () => session.runtime.state(),
+      play: () => session.runtime.nudge(),
+    }).start();
+    setStarting(COPY.UI.starting);
     session.start();
     revealControls();
   }
@@ -6408,6 +6430,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
     /* while the practice is held for an answer, play IS "Continue" — with its transition line */
     $('pause').onclick = () => {
+      if (startWaiting) return startNow();
       if (session.offerHeld) session.answer('offer', 'continue');
       else session.runtime.togglePause();
       revealControls();
@@ -6443,7 +6466,10 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
     /* §A4.8 — the tap that starts audio a browser refused to autoplay. It is armed by the
      * runtime, never by this file, and never while the screen is off. */
-    $('player').addEventListener('click', () => { if (session) session.runtime.tap(); });
+    $('player').addEventListener('click', () => {
+      if (startWaiting) return startNow();
+      if (session) session.runtime.tap();
+    });
   }
 
   function resetPlayer() {
@@ -6451,6 +6477,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     p.className = 'screen hidden';
     if (stall) { stall.stop(); stall = null; }
     if (session) { session.runtime.stop(); session = null; }
+    startWaiting = false;
     setStarting('');
     closeChoice();
   }
@@ -6485,7 +6512,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
     /* The app launches with a practice AND autostart, so that is the only path a member takes:
      * straight into the player, no chooser. Everything else is development. */
-    if (launch.practice && launch.autostart) { showScreen('player'); return begin(); }
+    if (launch.practice && launch.autostart) { showScreen('player'); return begin(true); }
     if (devHarness) { render(); return showScreen('setup'); }
     if (launch.practice) { render(); return showScreen('setup'); }   // params but no autostart — still dev
     showScreen('notapp');

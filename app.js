@@ -7144,7 +7144,7 @@ function app(tab){
   // the engine's report, logged as it is sent: outcome, where an ease-out came from, the
   // furthest phase, whether the defense half was reached, rewinds, beats played, and the
   // prefix / depth / sequence key / Interest Impulse answer. Columns added 2026-09-19.
-  const ENGINE_REPORT = ['outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings','intensityReadings'];   // + the 0–10 answers, 2026-09-20; + intensity, 2026-09-21
+  const ENGINE_REPORT = ['outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings','intensityReadings','handedOffTo','handedOffFrom','offers'];   // + the 0–10 answers, 2026-09-20; + intensity, 2026-09-21; + the four buttons (which was tapped, the number, how long it paused) and the switch into mindfulness, 2026-09-23
   function logSession(reco, completed, endedEarly, minutes){
     // Defense in depth: never log a self-regulation ('self-regulation') session for an
     // anonymous guest (the guest UI cannot produce one; refuse it regardless).
@@ -7180,7 +7180,9 @@ function app(tab){
       prefix:(reco.prefix||null), depth:(reco.depth||null), offerKey:(reco.offerKey||null),
       interestAnswer:(reco.interestAnswer||null),
       safetyReadings:(Array.isArray(reco.safetyReadings) ? reco.safetyReadings : null),
-      intensityReadings:(Array.isArray(reco.intensityReadings) ? reco.intensityReadings : null) });
+      intensityReadings:(Array.isArray(reco.intensityReadings) ? reco.intensityReadings : null),
+      handedOffTo:(reco.handedOffTo||null), handedOffFrom:(reco.handedOffFrom||null),
+      offers:(Array.isArray(reco.offers) ? reco.offers : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
   // Early exit: an optional one-tap read on WHY — too hard, too easy, pulled away —
