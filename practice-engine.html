@@ -239,6 +239,11 @@ body.playing .brand{display:none}
 .choicebtn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .choicebtn.quietly{font-weight:400;border-color:var(--hairline);color:var(--ink-80)}
 .choicebtn.quietly:hover{border-color:var(--ink-80);box-shadow:0 0 0 1px var(--ink-80)}
+/* the three buttons after a low safety / high non-safety answer (2026-09-22): a column like the other
+   choices, set a little apart from the 0-10 line when both are up */
+.offer{display:flex;flex-direction:column;gap:9px}
+.reading+.offer{margin-top:10px}
+.offer-hold{margin:0 0 2px;font-size:calc(15px * var(--type-scale));line-height:1.4;color:var(--ink-80);text-align:center}
 
 /* ── primary transport ── */
 .transport{flex:1 1 auto;min-width:48px;height:54px;border-radius:15px;border:1.5px solid var(--ink);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:box-shadow var(--ease) .2s,transform var(--ease) .2s}
@@ -394,20 +399,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               2f26c808dfeb941c140086058cb328f6    24289 bytes
+     page.css               078cf188f553f998248d06e118c12fee    24669 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
-     clip-table.js          761e34cb195c327c45217c7a47c00c42     5288 bytes
-     data.js                8105c55ace842da6c7e8d083051dc4f4    20917 bytes
-     plan.js                839651bd086c3dbfb51e372687991c6d    76049 bytes
-     runtime.js             1dcdc6905c6fd843eea69d034fec5ae9    28744 bytes
-     host.js                a9e6809ec8b3cb0b9d1b8998f0b96ecb    35912 bytes
+     clip-table.js          c897655b5d3d8f12c8c5d58ed59c00cc     5790 bytes
+     data.js                7a189b0b30dee1d84eccf3c0b8b3ab1a    25098 bytes
+     plan.js                4cfb7986e9f4a72b0b86de3710679605    80657 bytes
+     runtime.js             c4edc16649fd3b369c585716dcf8a7d3    31076 bytes
+     host.js                c3bf683bc04b21d2fd437d67e7453fe6    37371 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             031a4dfb4b95f35f33a3a2925f7b1354    32885 bytes
+     session.js             7673b86be66f44add78f3acdfb1d09b4    52302 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                4017d9a8cdaa050d9aa56731b020fe56    12032 bytes
-     page.js                e34cf4e01bad37d0cd915b9a995a22a3    37905 bytes
+     copy.js                d0eaa12cd7247fb52465c3db6be43cfd    12778 bytes
+     page.js                83009a352890f0d5996b89ce6698a14a    40491 bytes
 -->
 </head>
 <body>
@@ -547,11 +552,11 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 <audio id="au"></audio>
 
-<script>/* @module clip-table.js md5:761e34cb195c327c45217c7a47c00c42 */
+<script>/* @module clip-table.js md5:c897655b5d3d8f12c8c5d58ed59c00cc */
 (function(){
-/* GENERATED from the clips-v2/ file names on justinlmft/stuck-not-broken main (2026-09-16) — do not hand-edit, do not commit.
+/* GENERATED from the clips-v2/ file names on justinlmft/stuck-not-broken main (2026-09-16; + recording v2b, 2026-09-23) — do not hand-edit, do not commit.
    Same shape as harness/build-clip-table.py's output: clip id -> number of recorded takes.
-   190 clip IDs · 609 files */
+   208 clip IDs · 707 files */
 (function (root) {
   const TABLE = {
   "ANCHORING-IMAGINATION-01": 4,
@@ -601,7 +606,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "BODY-GENERAL-DEFENSE": 4,
   "BODY-GENERAL-SAFETY": 4,
   "BODY-SPECIFIC-DEFENSE": 4,
-  "BODY-SPECIFIC-SAFETY": 5,
+  "BODY-SPECIFIC-SAFETY": 6,
   "BREATH-CHECK": 4,
   "CAP-CHECK": 6,
   "CAP-GATE-DEFENSE": 4,
@@ -648,7 +653,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "INTENSITY-DEFENSE": 4,
   "INTENT-SET": 5,
   "INTENT-TOLERABLE": 4,
-  "INTEREST-01": 5,
+  "INTEREST-01": 6,
   "INTRO-01": 6,
   "INTRO-FIRST-01": 1,
   "INTRO-FIRST-02": 1,
@@ -706,13 +711,13 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "OBST-STMT-32": 1,
   "OBST-STMT-33": 1,
   "OBST-STMT-34": 1,
-  "OUTRO": 6,
+  "OUTRO": 8,
   "PEND-DEFENSE": 4,
   "PEND-SAFE-REMIND": 4,
   "PEND-SAFETY": 5,
   "PEND-TO-DEFENSE-BRIEF": 6,
   "PEND-TO-SAFETY-BRIEF": 5,
-  "PERMIT-DEFENSE": 4,
+  "PERMIT-DEFENSE": 5,
   "SETUP-ANCHOR-IMAGINATION": 2,
   "SETUP-ANCHOR-MOVEMENT": 2,
   "SETUP-ANCHOR-SIGHT": 2,
@@ -743,7 +748,25 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "SETUP-TINY": 4,
   "STOP-OK": 4,
   "VALIDATE-DEFENSE": 8,
-  "VALIDATE-SAFETY": 4
+  "VALIDATE-SAFETY": 4,
+  "INTENSITY-CHANGE-DOWN": 8,
+  "INTENSITY-CHANGE-SAME": 11,
+  "INTENSITY-CHANGE-UP": 9,
+  "INTENSITY-HIGH": 5,
+  "INTENSITY-LOW": 5,
+  "INTENSITY-MID": 4,
+  "INTENSITY-ROSE-HIGH": 5,
+  "SAFETY-CHANGE-DOWN": 4,
+  "SAFETY-CHANGE-SAME": 5,
+  "SAFETY-CHANGE-UP": 7,
+  "SAFETY-DROP-LOW": 4,
+  "SAFETY-READ-HIGH": 5,
+  "SAFETY-READ-LOW": 4,
+  "SAFETY-READ-MID": 8,
+  "TRANSITION-CONTINUE": 2,
+  "TRANSITION-MINDFULNESS": 2,
+  "TRANSITION-MOVEMENT": 2,
+  "TRANSITION-SAFETY": 3
 };
   if (typeof module !== 'undefined' && module.exports) module.exports = TABLE;
   else root.SNB_CLIP_TABLE = TABLE;
@@ -751,7 +774,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:8105c55ace842da6c7e8d083051dc4f4 */
+<script>/* @module data.js md5:7a189b0b30dee1d84eccf3c0b8b3ab1a */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -819,8 +842,8 @@ function clipUrl(base, file) {
 const TAKE_TRIMS = Object.freeze({
   'MIND-03-e.mp3':            { start: 5.33, caption: ['Which sounds stay? ', ''] },
   'SETUP-ANCHOR-TOUCH-a.mp3': { end: 5.35,   caption: [', so grab it now before we start.', '.'] },
-  /* 2026-09-17 (CA review): take A reads the whole sign-off twice; it ends after the first */
-  'OUTRO-a.mp3':              { end: 10.2,   caption: [' That\'s it for this one. Really nicely done. Get some water or air or a bit of movement if you need it. I look forward to working with you again in the next one', ''] },
+  /* OUTRO-a's trim (it read the sign-off twice) came out 2026-09-23: recording v2b replaces the file with a
+   * single read, and a trim left behind would cut the new take. */
   /* 2026-09-17 (Justin): the slice glued the second take of the non-safety half-opener ("This is a
    * non-safety focused practice.") onto the front of this skill clip. At playback the take starts
    * at "It uses the validating skill"; at cutover the first 2.97 s become SETUP-PRACTICE-DEFENSE-b. */
@@ -1050,6 +1073,71 @@ function practices() {
 }
 
 // ---------------------------------------------------------------------------
+// THE ANSWER CLIPS — what plays after a 0–10 answer (v3 audio, ruled 2026-09-22)
+// ---------------------------------------------------------------------------
+/* Fourteen families, 56 takes, written in the recording doc "New lines to record — 0–10 reading" and
+ * edited by Justin. They play after a person TAPS a number: a band clip for where the number sits, a
+ * drop/rise clip when it crosses into the concerning band, change talk at the last answer. Which one
+ * plays is decided in `session.js` (`responseFor`); this file only names them.
+ *
+ * 🔴 THE ONE SOFT PATH IN THIS FILE, AND IT IS ALL-OR-NOTHING. Until the takes are recorded the
+ * table has none of them, and the engine must still load — the three buttons after a low safety /
+ * high intensity answer work without them (they appear on the tap). So `BAND` is null while ALL
+ * fourteen are missing, the whole map when ALL fourteen are present, and a THROW at load for
+ * anything in between: a half-sliced recording session must fail loudly here, exactly like a
+ * renamed clip does (E2.6), rather than play a band for safety and silence for intensity.
+ * When the recording lands and the table carries them, nothing in the engine changes. */
+const BAND_FAMILIES = Object.freeze({
+  safetyHigh:        'SAFETY-READ-HIGH',       // 8–10
+  safetyMid:         'SAFETY-READ-MID',        // 4–7
+  safetyLow:         'SAFETY-READ-LOW',        // 0–3 — points at the three buttons
+  safetyDropLow:     'SAFETY-DROP-LOW',        // was 4+, now 0–3 — replaces safetyLow, same buttons
+  safetyUp:          'SAFETY-CHANGE-UP',       // the last answer, above 3, vs the first
+  safetySame:        'SAFETY-CHANGE-SAME',
+  safetyDown:        'SAFETY-CHANGE-DOWN',
+  intensityLow:      'INTENSITY-LOW',          // 0–3
+  intensityMid:      'INTENSITY-MID',          // 4–6
+  intensityHigh:     'INTENSITY-HIGH',         // 7–10 — points at the three buttons
+  intensityRoseHigh: 'INTENSITY-ROSE-HIGH',    // was 6 or lower, now 7+ — replaces intensityHigh (ruling 7)
+  intensityDown:     'INTENSITY-CHANGE-DOWN',  // the last answer, under 7, vs the first
+  intensitySame:     'INTENSITY-CHANGE-SAME',
+  intensityUp:       'INTENSITY-CHANGE-UP',
+});
+function allOrNothing(families, what) {
+  const keys = Object.keys(families);
+  const have = keys.filter(k => exists(families[k]));
+  if (!have.length) return null;
+  if (have.length !== keys.length) {
+    const missing = keys.filter(k => !exists(families[k])).map(k => families[k]);
+    throw new Error(
+      `practice-engine/data.js: the ${what} are only partly in the table — missing ` +
+      missing.join(', ') + '. They ship as one set (Justin, 2026-09-22); slice and name all of them.');
+  }
+  const out = {};
+  keys.forEach(k => { out[k] = must(families[k]); });
+  return Object.freeze(out);
+}
+const BAND = allOrNothing(BAND_FAMILIES, '0–10 answer clips');
+
+/* ✅ THE TRANSITION LINES (Justin, 2026-09-22): "No matter what they tap, they should get a transition
+ * statement, like 'Okay, let's transition to a simpler mindfulness practice.' Just one take per
+ * transition. It needs to be seamless." One per button on the offer. Same all-or-nothing rule as the
+ * answer clips, for the same reason: until they are recorded the engine falls back to what it already
+ * has (MORE-SAFETY, the Mindfulness setup clip, nothing), and a half-recorded set must not ship. */
+const TRANSITION_FAMILIES = Object.freeze({
+  continue:    'TRANSITION-CONTINUE',      // "Continue" — back to the practice as planned
+  mindfulness: 'TRANSITION-MINDFULNESS',   // "Simple mindfulness" — into the Mindfulness material
+  safety:      'TRANSITION-SAFETY',        // "More time with safety"
+  movement:    'TRANSITION-MOVEMENT',      // "Ease out with movement"
+});
+const TRANSITION = allOrNothing(TRANSITION_FAMILIES, 'transition lines');
+
+/* The boundaries, as Justin gave them (ruled 2026-09-22: the two middles differ on purpose).
+ * Safety: 0–3 low · 4–7 middle · 8–10 high.  Intensity: 0–3 low · 4–6 middle · 7–10 high. */
+const SAFETY_LOW_MAX = 3, SAFETY_HIGH_MIN = 8;
+const INTENSITY_LOW_MAX = 3, INTENSITY_HIGH_MIN = 7;
+
+// ---------------------------------------------------------------------------
 // cuts — E3.13. These must not exist, and the engine asserts it rather than trusting it.
 // ---------------------------------------------------------------------------
 const CUTS = Object.freeze([
@@ -1096,6 +1184,7 @@ function fileFor(id, take) { return `${must(id)}-${take}.mp3`; }
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
+  BAND_FAMILIES, BAND, TRANSITION_FAMILIES, TRANSITION, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices,
 };
@@ -1105,7 +1194,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:839651bd086c3dbfb51e372687991c6d */
+<script>/* @module plan.js md5:4cfb7986e9f4a72b0b86de3710679605 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1320,6 +1409,21 @@ function defenseBase(add, cfg, prefixed, permitGate) {
    * first. So the question the person is already being asked carries the route. */
   permitGate();
   add(D.ROLE.intensityDefense, 'defense');
+}
+
+/* ✅ THE NON-SAFETY 0–10 IS ASKED TWICE (Justin, 2026-09-22: "when I work with people one-on-one,
+ * depending on the intensity of where they're at, I might ask it multiple times because I want them to
+ * see and to assess as they rise up or down the intensity scales"). The first ask stays welded to the
+ * permission question above. The second comes at the END of the non-safety work — after the body and
+ * describing work and the skill, right before the last safety reading and the close — so the change
+ * talk for both scales lands at the same place, at the end, where it cannot shape a later answer.
+ *
+ * Take C opens "If yes —", which answers the permission question. Anywhere the ask does NOT follow
+ * that question (this second ask, and the one ask in the two base practices) it would answer nothing,
+ * so C is left out of the shuffle there. */
+const INTENSITY_AFTER_PERMIT_ONLY = Object.freeze(['c']);
+function intensityAgain(add, phase) {
+  add(D.ROLE.intensityDefense, phase, { pool: poolExcluding(D.ROLE.intensityDefense, INTENSITY_AFTER_PERMIT_ONLY) });
 }
 const IMAGERY = 'imagery';
 
@@ -1539,6 +1643,7 @@ function defenseTail(add, cfg, permitGate, capacityCheck) {
     add(D.ROLE.impulseCheck, cfg.practice);
     add(D.ROLE.holdWatch, cfg.practice);
   }
+  intensityAgain(add, 'defense');   // the second non-safety 0–10 (2026-09-22)
 }
 
 /* Four of the thirty-two, no repeats. The shipped player shuffles at runtime; the choice of
@@ -1920,6 +2025,12 @@ function plan(cfg) {
      * beat, which is the whole base there; in Validate & Normalize it follows the normalizing beat. */
     add(D.ROLE.validateDefense, 'defense');
     if (base.normalize) add(D.ROLE.normalizeDefense, 'defense');
+    /* ✅ THE NON-SAFETY 0–10 IS ASKED HERE TOO (Justin, 2026-09-22, "we can try that out"). The two base
+     * practices turn toward a non-safety emotion and never asked how intense it was. It is asked ONCE,
+     * right after the naming — there is no body work here to ask it after a second time — and before
+     * the return to safety, while the emotion is still the thing in view. This reverses the 2026-09-17
+     * "Validating stays naming only — no intensity rating". */
+    intensityAgain(add, 'defense');
     /* ✅ STOP-OK PLAYS NOWHERE NOW (Justin, 2026-09-17, on the CA's second pass): "this one does
      * not really need to play in the validate, normalize, or imagery & invitation skills… we
      * already have CAP-GATE so this clip may not have a clear role right now. Just remove it from
@@ -1949,6 +2060,13 @@ function plan(cfg) {
     cfg,
     level: level.level,          // the SAFETY level; the defense side has no levels any more
     side,
+    /* ✅ WHERE "MORE TIME WITH SAFETY" GOES BACK TO (2026-09-22) — the three-button offer after a low
+     * safety / high intensity answer. The same beat the permission question's "no" rewinds to
+     * (BODY-GENERAL-SAFETY, E5.27) wherever the practice has one; the three shortest safety practices
+     * (Connect, Validate and Normalize safety) never reach the body, so theirs is the first of the
+     * shared connect-with-safety beats that follow the anchor. It must be a single place, so it is
+     * named once here and asserted unique in the session. */
+    returnToSafety: rewindTarget ? rewindTarget.id : D.FAMILY.sharedTail[0],
     prefix: prefixed ? OBSTACLES_PREFIX : null,
     depth: cfg.depth || null,
     beats,
@@ -2190,7 +2308,8 @@ function short(cfg, add, beats, branches) {
     (isMindfulness ? MINDFULNESS_CLOSE : [D.FAMILY.closes[D.FAMILY.closes.length - 1]]).forEach(id => add(id, 'closing'));
     add(D.ROLE.outro, 'closing', { take: 'a' });
   }
-  return { cfg, level: 0, side: 'mindfulness', beats, branches, terminates: terminatorOf(beats) };
+  /* no safety work to go back to — the three-button offer is not made in these practices */
+  return { cfg, level: 0, side: 'mindfulness', beats, branches, terminates: terminatorOf(beats), returnToSafety: null };
 }
 
 const MINDFULNESS = 'mindfulness';
@@ -2279,6 +2398,38 @@ const OPEN_BREATH_LOOP = Object.freeze({
   teardownOn: Object.freeze(['transport-end', 'ease-out', 'finish', 'host-navigation', 'page-hidden-then-closed']),
 });
 
+// ── the practice-to-practice hand-off (2026-09-22) ─────────────────────────────────────────
+/* "Simple mindfulness" — one of the three buttons after a low safety / high intensity answer — ends
+ * the practice that is running and carries on with the Mindfulness practice's material. Built ONCE,
+ * here, because MINI-CRISIS will need the same move (v3-audio Part 2: "defense at 4 or lower hands
+ * toward mindfulness").
+ *
+ * What the listener gets is the destination practice as it would run on its own, entered partway:
+ *   • its own setup clip first — "This is a mindfulness practice. It is zero pressure…" — so the
+ *     change of practice is said out loud rather than happening silently;
+ *   • NOT its intentional breath: the practice being left already took one, and the two deliberate
+ *     breaths (ARRIVE-BREATH and CLOSE-06, TAG-MAP) stay two;
+ *   • NOT its opening 0–10: the person has just answered one, which is why they are here;
+ *   • everything after that, including its own closing reading and its own close and sign-off.
+ * Always the timed shape: an open ending is a place someone chose to stay, not somewhere to be sent.
+ *
+ * Pure data, like the planner: the session splices these beats in. Each carries `handoff`, which is
+ * how the session knows it has left the original practice (no more offers, no more answer clips). */
+const HANDOFF_DESTINATIONS = Object.freeze([MINDFULNESS]);
+function handoff(cfg, to) {
+  if (!HANDOFF_DESTINATIONS.includes(to)) {
+    throw new Error(`handoff(): a practice can hand off to ${HANDOFF_DESTINATIONS.join(', ')}, not ${to}`);
+  }
+  const target = plan({ practice: to, silence: cfg.silence, mode: 'timed' });
+  const setup = target.beats[0];
+  const opening = target.beats.findIndex(b => b.id === D.SAFETY_READING);
+  if (setup.kind !== KIND.setup || opening < 0) {
+    throw new Error(`handoff(): ${to} no longer opens with a setup clip and a reading — re-read this function`);
+  }
+  const beats = [setup].concat(target.beats.slice(opening + 1)).map(b => Object.assign({}, b, { handoff: to }));
+  return { to, beats, terminates: terminatorOf(beats) };
+}
+
 // ── E3.18 · every config must terminate in something ────────────────────────────────────
 function terminatorOf(beats) {
   const last = beats[beats.length - 1];
@@ -2298,6 +2449,7 @@ const API = {
   HOLD_WATCH_OFFERED_BY, HOLD_WATCH, HOLD_WATCH_DEPTH, STATEMENTS_PER_PRACTICE,
   OFFERING, offerKey, offerable, poolExcluding, TAKE_LETTERS,
   EASE_OUT_SPOKEN, EASE_OUT_TAPPED, REWIND_TO, FINISH_TO_CLOSE, OPEN_BREATH_LOOP, RECORD_INTEREST,
+  INTENSITY_AFTER_PERMIT_ONLY, HANDOFF_DESTINATIONS, handoff,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
@@ -2305,7 +2457,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:1dcdc6905c6fd843eea69d034fec5ae9 */
+<script>/* @module runtime.js md5:c4edc16649fd3b369c585716dcf8a7d3 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -2444,6 +2596,7 @@ class Runtime {
     this._lastSelfCtl = 0;            // §A4.6
     this._tapArmed = false;
     this._pendingTapRearm = false;    // §A4.8 — deferred to the next visibilitychange
+    this._holdAfterIdx = null;        // 2026-09-22 — the silence after this beat holds (see `hold`)
     this._errCount = 0;
     this._errTimer = null;
     this.connTrouble = false;
@@ -2742,6 +2895,7 @@ class Runtime {
     this.inGap = true;
     this._usingFallbackGap = false;
     this._gapRemainMs = secs * 1000;
+    if (this._holdAfterIdx != null && this._holdAfterIdx === this.idx) return this._holdInGap(secs);
     this._lastSelfCtl = this.dev.now();
     this._inSilence = true;
     this._gapSecs = secs;
@@ -2755,6 +2909,23 @@ class Runtime {
     } catch (e) {
       this._silFallback(secs * 1000);
     }
+  }
+
+  /* the armed hold (see `hold`): the silence is loaded and positioned but not started, and the
+   * transport is paused. Resuming (`togglePause`) plays it from here like any paused gap. */
+  _holdInGap(secs) {
+    const au = this.dev.audio;
+    this._holdAfterIdx = null;
+    this._lastSelfCtl = this.dev.now();
+    this._inSilence = true;
+    this._gapSecs = secs;
+    this._trimEnd = 0;
+    this.onEvent({ type: 'gap', seconds: secs, index: this.idx });
+    try {
+      if (!/silence-30s\.wav$/.test(au.src || '')) au.src = this.dev.base + C.SILENCE_SRC;
+      au.currentTime = 0;
+    } catch (e) {}
+    this._setPaused(true, 'hold');
   }
 
   /* §A4.3 — if the silent clip will not play at all, keep the old timer path so failure
@@ -2879,6 +3050,34 @@ class Runtime {
     }
   }
 
+  /* ✅ A HOLD — the practice actually stops and waits (Justin, 2026-09-22: "The app needs to actually
+   * pause if the user is in distress… we are not going to carry on if they are distressed"). The same
+   * pause the button makes, asked for by the session instead of by a tap on the transport, and it only
+   * ever happens right after the person has tapped a number — eyes open, screen in hand. Nothing here
+   * lifts it: a choice does (every route moves with `nextBeat`, which un-pauses), or `release`.
+   *
+   * Two ways in. `hold()` stops what is playing now (the silence is already running). `holdAfter(i)`
+   * arms the hold for the silence after beat `i`, and `_playGap` then sets that silence up WITHOUT
+   * starting it — pausing a silence that has just been told to play would race its own `play` event,
+   * which the lock-screen mirror (§A4.5) reads as the person pressing play. */
+  hold() {
+    if (!this.playing || this.finished || this.paused) return false;
+    this._holdAfterIdx = null;
+    this._lastSelfCtl = this.dev.now();
+    this._setPaused(true, 'hold');
+    if (this.inGap && this._usingFallbackGap) this.dev.clearTimeout(this._gapTimer);
+    else { try { this.dev.audio.pause(); } catch (e) {} }
+    return true;
+  }
+
+  holdAfter(index) { this._holdAfterIdx = (index == null ? null : index); }
+
+  release() {
+    if (!this.playing || this.finished || !this.paused) return false;
+    this.togglePause();
+    return true;
+  }
+
   /* five seconds back inside the current clip. Clips advance on `ended` and timeupdate only
    * drives captions, so seeking backward is safe. */
   rewind(seconds = 5) {
@@ -2912,6 +3111,7 @@ class Runtime {
     this._inSilence = false;
     this._usingFallbackGap = false;
     this._endedWhilePaused = false;
+    this._holdAfterIdx = null;
     const next = this.idx + delta;
     if (next >= this.beats.length) return this._finish();
     this.idx = Math.max(0, next);
@@ -2979,7 +3179,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:a9e6809ec8b3cb0b9d1b8998f0b96ecb */
+<script>/* @module host.js md5:c3bf683bc04b21d2fd437d67e7453fe6 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3370,6 +3570,9 @@ const OUTCOME = Object.freeze({
   COMPLETE: 'complete',   // reached the close by the practice's own route
   EXIT: 'exit',           // the stop button — no close
   EASED_OUT: 'eased-out', // took the ease-out and then the close
+  /* 2026-09-22 — tapped "Simple mindfulness" after a low safety / high intensity answer and finished
+   * in the Mindfulness material instead. Not COMPLETE: what was requested is not what was practised. */
+  HANDED_OFF: 'handed-off',
 });
 
 const EASE_FROM = Object.freeze({
@@ -3377,6 +3580,10 @@ const EASE_FROM = Object.freeze({
   CAPACITY: 'capacity-gate',
   CAPACITY_CHECK: 'capacity-check',   // CAP-CHECK mid-Pendulating, 2026-09-05
   TRANSPORT: 'transport',
+  /* 2026-09-22 — "Ease out with movement", from the four-button offer after a 0–10 answer. Also the
+   * `from` of a hand-off, which leaves the practice from the same two places. */
+  SAFETY_READING: 'safety-reading',
+  INTENSITY_READING: 'intensity-reading',
 });
 
 /* The furthest phase a run got to, in the order a listener passes through them. `defense` is
@@ -3453,7 +3660,11 @@ function completion({ plan, requested, run }) {
   const played = r.playedIndexes || [];
   const reached = furthestPhase(played, plan);
   const easedOut = !!r.easedOutFrom;
-  const outcome = easedOut ? OUTCOME.EASED_OUT : (r.completed ? OUTCOME.COMPLETE : OUTCOME.EXIT);
+  const handedOff = !!r.handedOffTo;
+  /* an exit is an exit wherever it happened; otherwise the last route taken says how the run ended —
+   * an ease-out from inside the hand-off material is still an ease-out */
+  const outcome = easedOut ? OUTCOME.EASED_OUT
+    : (!r.completed ? OUTCOME.EXIT : (handedOff ? OUTCOME.HANDED_OFF : OUTCOME.COMPLETE));
 
   /* the event name app.js switches on. An ease-out DID reach the close, so it is a
    * completion to the host — `outcome` is what says how it got there. */
@@ -3511,6 +3722,16 @@ function completion({ plan, requested, run }) {
     safetyReadings: Array.isArray(r.readings) ? r.readings.slice() : [],
     /* INTENSITY-DEFENSE's 0–10 answers, the same shape (2026-09-21) */
     intensityReadings: Array.isArray(r.intensities) ? r.intensities.slice() : [],
+
+    // ── the three-button offer after a 0–10 answer (2026-09-22) ─────────────────────────
+    /* Where the run went instead of where it was launched. `handedOffTo` is the practice whose
+     * material it finished in ('mindfulness'), `handedOffFrom` which answer put the buttons up.
+     * Rewinds from the offer are counted in `rewinds` with the rest. */
+    handedOffTo: r.handedOffTo || null,
+    handedOffFrom: r.handedOffFrom || null,
+    /* Every time the buttons went up, in order: which scale, which answer slot, the number, whether
+     * the practice held for it, and what was tapped — null when nothing was. */
+    offers: Array.isArray(r.offers) ? r.offers.map(o => Object.assign({}, o)) : [],
   };
 
   return payload;
@@ -3934,7 +4155,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:031a4dfb4b95f35f33a3a2925f7b1354 */
+<script>/* @module session.js md5:7673b86be66f44add78f3acdfb1d09b4 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4005,12 +4226,31 @@ const CONTROL = Object.freeze({
   /* 2026-09-21: INTENSITY-DEFENSE's 0–10 — the same line, recorded apart from the safety readings */
   INTENSITY: 'intensity',
   CAPACITY_CHECK: 'capacity-check',   // CAP-CHECK mid-Pendulating: one target, the spoken "no", eases out
+  /* 2026-09-22: the four buttons after a LOW safety answer (0–3) or a HIGH intensity answer (7–10) —
+   * continue · simple mindfulness · more time with safety · ease out with movement. It rides alongside
+   * the 0–10 line rather than replacing it (the number can still be corrected while the line is up),
+   * so it has its own window: see `_offer`. */
+  OFFER: 'offer',
 });
 
-/* E5.31 — two targets is the ceiling. A choice needing three answers becomes two questions.
- * Asserted rather than trusted, because the ceiling is a design rule about how much someone
- * can hold while their eyes are closed, and it is easy to raise by accident. */
-const MAX_TARGETS = 2;
+/* E5.31 — the ceiling on how many answers a choice may offer. Asserted rather than trusted.
+ *
+ * ✅ RAISED FROM TWO TO FOUR (Justin, 2026-09-22). The two-answer cap was set on 2026-09-17 as a rule
+ * about how much someone can hold with their eyes closed. Justin: "if someone is looking at the screen
+ * to answer a question, their eyes are not closed. so no, there can be more than 2. heck, the number
+ * line is a bunch of options." Then, the same day, the offer got its fourth button — "they should have
+ * four options: continue, mindfulness, more safety, or ease out". Still a ceiling, still asserted: a
+ * fifth button is a decision for Justin, not a drift. */
+const MAX_TARGETS = 4;
+
+/* The four buttons, in the order Justin listed them and they sit on screen. The option names are the
+ * ROUTES; the words on the buttons are Justin's and live in copy.js. */
+const OFFER_OPTIONS = Object.freeze({
+  CONTINUE: 'continue',         // "Continue" — the practice as planned
+  SIMPLER: 'simpler',           // "Simple mindfulness"
+  MORE_SAFETY: 'more-safety',   // "More time with safety"
+  MOVEMENT: 'movement',         // "Ease out with movement"
+});
 
 const OPTIONS = Object.freeze({
   [CONTROL.CURIOSITY]: Object.freeze(['yes', 'no']),
@@ -4022,7 +4262,45 @@ const OPTIONS = Object.freeze({
    * how many answers a CHOICE may have does not apply — see `_openControlFor`. */
   [CONTROL.READING]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
   [CONTROL.INTENSITY]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
+  [CONTROL.OFFER]: Object.freeze([OFFER_OPTIONS.CONTINUE, OFFER_OPTIONS.SIMPLER, OFFER_OPTIONS.MORE_SAFETY, OFFER_OPTIONS.MOVEMENT]),
 });
+
+/* ── what a 0–10 answer sets off (2026-09-22) ─────────────────────────────────────────────────
+ * Pure: the number, the answers before it, and where it sits → which answer clips play (by FAMILY
+ * key in `data.js` BAND, never an ID) and whether the buttons go up. The rules are Justin's,
+ * from the recording doc and the 09-17 / 09-22 rulings:
+ *
+ *   SAFETY (0–3 low · 4–7 middle · 8–10 high)
+ *   • Low, at ANY reading, first included → the buttons. The clip is DROP-LOW when the answer before
+ *     it was above low ("a drop is normal, but a drop into low is a trigger"), otherwise READ-LOW.
+ *   • Middle or high → a band clip, except at the first reading ("a baseline taken before the practice
+ *     has done anything"). At the LAST reading, change talk follows it — up / same / down against the
+ *     first answer — held to the end "so nothing the app says about a trend can shape the next answer".
+ *   INTENSITY (0–3 low · 4–6 middle · 7–10 high — the scale runs the other way)
+ *   • High, at any ask → the buttons. ROSE-HIGH when the answer before it was 6 or lower, otherwise
+ *     HIGH. Never both (ruling 7).
+ *   • Low or middle → a band clip at every ask; change talk at the last ask, against the first.
+ *
+ * `previous` is the last ANSWERED number before this one and `first` the first answered, both null
+ * when there is none: an unanswered question is never read as a number. */
+function responseFor(scale, { value, previous = null, first = null, firstAsk = false, last = false }) {
+  const change = (up, same, down) => (first == null ? [] : [value > first ? up : (value < first ? down : same)]);
+  if (scale === CONTROL.READING) {
+    if (value <= D.SAFETY_LOW_MAX) {
+      return { families: [previous != null && previous > D.SAFETY_LOW_MAX ? 'safetyDropLow' : 'safetyLow'], offer: true };
+    }
+    const band = firstAsk ? [] : [value >= D.SAFETY_HIGH_MIN ? 'safetyHigh' : 'safetyMid'];
+    return { families: band.concat(last ? change('safetyUp', 'safetySame', 'safetyDown') : []), offer: false };
+  }
+  if (scale === CONTROL.INTENSITY) {
+    if (value >= D.INTENSITY_HIGH_MIN) {
+      return { families: [previous != null && previous < D.INTENSITY_HIGH_MIN ? 'intensityRoseHigh' : 'intensityHigh'], offer: true };
+    }
+    const band = [value <= D.INTENSITY_LOW_MAX ? 'intensityLow' : 'intensityMid'];
+    return { families: band.concat(last ? change('intensityUp', 'intensitySame', 'intensityDown') : []), offer: false };
+  }
+  throw new Error(`responseFor(): ${scale} is not a 0–10 scale`);
+}
 
 /* Non-repeating shuffle across a clip's takes: walk a shuffled bag, reshuffle when it empties,
  * and never let the last take of one bag be the first of the next. E3.11 asks for this on the
@@ -4044,6 +4322,11 @@ function takeCycler(takes, rnd) {
     return last;
   };
 }
+
+/* MORE-SAFETY takes that make no promise to "get back to the skill" — used only until the transition lines
+ * are recorded, and only in a practice that has no skill to get back to (see `_offerMoreSafety`).
+ * Letters, never a filename, and checked against the take count at load by `poolExcluding`. */
+const OFFER_MORE_SAFETY_NEUTRAL = Object.freeze(P.poolExcluding(D.ROLE.moreSafety, ['a', 'c', 'e']));
 
 class Session {
   constructor({ plan, device, onEvent } = {}) {
@@ -4086,6 +4369,12 @@ class Session {
     this.readings = [];
     /* INTENSITY-DEFENSE's answers, the same shape: one slot per time it was asked, null = not answered */
     this.intensities = [];
+    /* The four-button offer (2026-09-22): every time it went up — { scale, slot, value, choice } with
+     * choice null until tapped — and where the run went because of it. */
+    this.offers = [];
+    this.handedOffTo = null;
+    this.handedOffFrom = null;
+    this._offer = null;          // the offer on screen now: { scale, index, until, record }
 
     this._startedAt = null;
     this._holdStartedAt = null;
@@ -4115,6 +4404,7 @@ class Session {
 
   stop() {
     this._closeControl('stopped');
+    this._closeOffer('stopped');
     this._settleHold();
     this.runtime.stop();
     this.onEvent({ type: 'exit' });
@@ -4135,6 +4425,8 @@ class Session {
        * one window. */
       const continuing = this._control && this._controlKindFor(this.queue[e.index]) === this._control.control;
       if (!continuing) this._closeControl('window-closed');
+      /* the offer's window is the answer's window PLUS the answer clip it rode in on, and its gap */
+      if (this._offer && e.index > this._offer.until) this._closeOffer('window-closed');
       this._settleHold();
 
       const b = this.queue[e.index];
@@ -4145,8 +4437,21 @@ class Session {
         this._openControlFor(e.index, b);
       }
     }
+    /* the runtime has stopped for the answer (armed by `_armHold`): the practice is now holding */
+    if (e.type === 'paused' && e.source === 'hold' && this._offer && !this._offer.held) {
+      this._offer.held = true;
+      this._offer.record.held = true;
+      this.onEvent({ type: 'offer-hold', scale: this._offer.scale, value: this._offer.record.value });
+    }
+    /* played from outside the page while held (the lock screen's play): the person carried on. Recorded
+     * as "continue"; there is no transition line, because nothing on the page was tapped. */
+    if (e.type === 'resumed' && this._offer && this._offer.held) {
+      this._offer.record.choice = OFFER_OPTIONS.CONTINUE;
+      this._closeOffer('resumed');
+    }
     if (e.type === 'complete') {
       this._closeControl('complete');
+      this._closeOffer('complete');
       this._settleHold();
       this.completed = true;
     }
@@ -4232,22 +4537,30 @@ class Session {
   /* The one entry point for a tap. Returns true if it landed, false if it was too late —
    * false is not an error, it is property 3 working. */
   answer(control, option) {
+    if (control === CONTROL.OFFER) return this._answerOffer(option);
     const c = this._control;
     if (!c || c.control !== control) return false;
     if (c.options.indexOf(option) < 0) return false;
-    /* ✅ THE 0–10 READING IS RECORDED, NOT ROUTED, AND THE WINDOW STAYS OPEN (spec 2026-09-17): a
-     * near-miss is corrected by tapping again, so the LAST tap in the window is the answer. The
-     * window closes when the next beat starts, like every other. Nothing plays differently. */
+    /* ✅ THE 0–10 READING IS RECORDED AND THE WINDOW STAYS OPEN (spec 2026-09-17): a near-miss is
+     * corrected by tapping again, so the LAST tap in the window is the answer. The window closes when
+     * the next beat starts, like every other.
+     *
+     * ✅ AND SINCE 2026-09-22 THE NUMBER IS ANSWERED (Justin's v3 rulings). Each tap re-decides what
+     * follows the question — the answer clip for its band, and the four buttons after a low safety or
+     * high intensity number — so a corrected tap corrects the response too. Doing nothing still does
+     * nothing: no number, no answer clip, no buttons (property 2). */
     if (control === CONTROL.READING) {
       const value = Number(option);
       this.readings[c.slot] = value;
       this.onEvent({ type: 'reading', value, slot: c.slot });
+      this._respond(c, value);
       return true;
     }
     if (control === CONTROL.INTENSITY) {
       const value = Number(option);
       this.intensities[c.slot] = value;
       this.onEvent({ type: 'intensity', value, slot: c.slot });
+      this._respond(c, value);
       return true;
     }
     this._answered.add(c.index);
@@ -4404,19 +4717,29 @@ class Session {
    * would witness a defense that had not been re-validated since safety was re-established.
    * There is NO CAP: "if they want to go for 40 minutes, let them." */
   _rewind() {
-    const target = this._rewindTarget();
+    return this._rewindTo(this._rewindTarget());
+  }
+
+  /* The rewind itself, from whichever control asked for it: the permission question's "no", the
+   * transport, or "More time with safety" on the offer (2026-09-22). `lead` is the line that opens it —
+   * MORE-SAFETY unless the route brings its own (the offer's transition line, `_offerMoreSafety`). */
+  _rewindTo(target, lead) {
     if (target < 0) return false;
     this.rewinds += 1;
     this._passes += 1;
-    const tail = [this._branchBeat(D.ROLE.moreSafety, 'safety')];
-    this.plan.beats.slice(target).forEach((b, i) => {
+    const tail = [lead || this._branchBeat(D.ROLE.moreSafety, 'safety')];
+    const from = this.plan.beats.slice(target).map((b, i) => Object.assign({}, b, { planIndex: target + i }));
+    from.forEach(b => {
       /* 🔴 E5.27's second-pass take pin went with the capacity gate (2026-09-17). It made a
        * second pass favour a CAP-GATE-DEFENSE take that leads with "staying with safety is a
        * complete practice" — there is no such beat any more, so there is nothing to pin. The
        * emphasis it was reaching for belongs in the v3 band audio, where a low reading says it
        * outright instead of hoping a shuffle lands on the right take. */
-      tail.push(Object.assign({}, b, { planIndex: target + i, pass: this._passes }));
+      tail.push(Object.assign({}, b, { pass: this._passes }));
     });
+    /* an open practice that is rewound walks back through its open ending, so its finish button
+     * has to work again there */
+    this.finishedFrom = null;
     this._replaceTail(tail);
     /* the gate asks again on its own terms — the tap is spent, so the window reopens on the
      * next pass rather than being remembered as already answered. */
@@ -4450,6 +4773,239 @@ class Session {
     return hits[0];
   }
 
+  // ── the four-button offer after a 0–10 answer (2026-09-22) ────────────────────────────
+
+  /* The buttons and the answer clips belong to the practice that was launched. The two short
+   * practices have no safety work to go back to (their plan says so: `returnToSafety` is null), and
+   * once a run has handed off into the Mindfulness material it is not that practice any more — in
+   * both, the buttons would point at what the person is already doing, and the answer clips that talk
+   * about "the options on your screen" would describe buttons that are not there. So there the 0–10
+   * stays what it was on 2026-09-20: a capture, and nothing else.
+   *
+   * 🔜 MINI-CRISIS (Justin, 2026-09-22): "someone in a mini crisis would struggle [with simple
+   * mindfulness]… they are not measuring non-safety in mindfulness, but there is a safety 0-10 and that
+   * is the chance to recommend mini-crisis once it's built." A low safety answer HERE is that moment.
+   * Nothing to offer until the practice exists; the number is recorded meanwhile. */
+  _answersSpeak(beat) {
+    return this.plan.returnToSafety != null && !!beat && !beat.handoff && !this.handedOffTo;
+  }
+
+  /* Re-decide what follows the question at queue position `c.index`, from the number just tapped.
+   * Runs on every tap in the window, so it first takes back whatever the last tap put there. */
+  _respond(c, value) {
+    const index = c.index;
+    const beat = this.queue[index];
+    if (!this._answersSpeak(beat)) return;
+    /* only while the question's clip or its silence is what is playing: after that the answer clip
+     * (if any) has started and the window is closed, so this cannot be reached — asserted anyway */
+    if (this.runtime.idx !== index) return;
+
+    const scale = c.control;
+    const answers = scale === CONTROL.READING ? this.readings : this.intensities;
+    const before = answers.slice(0, c.slot).filter(v => v != null);
+    const r = responseFor(scale, {
+      value,
+      previous: before.length ? before[before.length - 1] : null,
+      first: before.length ? before[0] : null,
+      firstAsk: c.slot === 0,
+      last: !this._askedAgainAfter(index, scale),
+    });
+
+    /* take back the last tap's answer clips, then put this tap's in */
+    let n = 0;
+    while (this.queue[index + 1 + n] && this.queue[index + 1 + n].response === index) n += 1;
+    const inserted = (D.BAND ? r.families : []).map(key => {
+      const b = this._branchBeat(D.BAND[key], beat.phase);
+      b.response = index;
+      return b;
+    });
+    /* the clip that points at the buttons keeps them up, so it carries the control's four-second
+     * floor (E4.22) — though with the buttons up, its silence becomes the hold below */
+    if (r.offer && inserted.length) { inserted[0].choice = CONTROL.OFFER; inserted[0].gap = P.gapFor(inserted[0], this.plan.cfg.silence); }
+    this.queue.splice(index + 1, n, ...inserted);
+
+    if (r.offer) this._openOffer(scale, c.slot, value, index, index + inserted.length);
+    else if (this._offer && this._offer.index === index) this._closeOffer('withdrawn');
+    this.onEvent({ type: 'response', scale, value, slot: c.slot, families: inserted.length ? r.families.slice() : [], offer: r.offer });
+  }
+
+  /* is the same question asked again later in what is queued? If not, this is the last answer and
+   * change talk belongs here. (An open practice asks the reading once more if the person finishes —
+   * that one is not queued until they do, so the reading before the open ending counts as last.) */
+  _askedAgainAfter(index, scale) {
+    for (let i = index + 1; i < this.queue.length; i++) {
+      const b = this.queue[i];
+      if (b.response != null) continue;
+      if (this._controlKindFor(b) === scale) return true;
+    }
+    return false;
+  }
+
+  _openOffer(scale, slot, value, index, until) {
+    if (this._offer && this._offer.index === index) {
+      /* a corrected tap that is still low (or still high): the same offer, with the new number */
+      this._offer.until = until;
+      this._offer.record.value = value;
+      this._armHold();
+      return;
+    }
+    this._closeOffer('replaced');
+    const options = OPTIONS[CONTROL.OFFER].slice();
+    if (options.length > MAX_TARGETS) {
+      throw new Error(`session(): the offer has ${options.length} buttons; E5.31 caps a choice at ${MAX_TARGETS}.`);
+    }
+    const record = { scale, slot, value, choice: null, held: false };
+    this.offers.push(record);
+    this._offer = { scale, index, until, record, held: false };
+    this.onEvent({ type: 'offer-open', control: CONTROL.OFFER, options, scale, value });
+    this._armHold();
+  }
+
+  /* ✅ THE PRACTICE ACTUALLY STOPS (Justin, 2026-09-22): "The app needs to actually pause if the user is
+   * in distress… give them lots of time to think through what they want and to tap a selection." And,
+   * asked what happens if they never tap: "stays paused. we are not going to carry on if they are
+   * distressed." So once the answer clip has said its piece (or at once, if there is none and the tap
+   * came in the silence), the practice holds — no timer, no default. It moves again only when the person
+   * chooses: one of the four buttons, or the transport's play, which is the same as "Continue".
+   *
+   * This is the one deliberate exception to property 1 ("the practice never waits"), and it cannot
+   * reach the face-down listener: the hold only ever follows a number someone TAPPED, so the screen is
+   * in their hand. `session.test.js`'s face-down sweep still has to pass untouched. */
+  _armHold() {
+    const o = this._offer;
+    if (!o || o.held) return;
+    /* the tap came in the silence of the last beat carrying the buttons: stop now. Otherwise stop in
+     * the silence after it — so a question or an answer clip that is still speaking is never cut off. */
+    if (this.runtime.inGap && this.runtime.idx === o.until) this.runtime.hold();
+    else this.runtime.holdAfter(o.until);
+  }
+
+  get offerHeld() { return !!(this._offer && this._offer.held); }
+
+  _closeOffer(why) {
+    if (!this._offer) return;
+    const o = this._offer;
+    this._offer = null;
+    this.runtime.holdAfter(null);
+    /* a tap that moved the number out of range took the offer back before anyone chose — it was never
+     * an offer the person turned down, so it leaves no record, and a hold it started is lifted */
+    if (why === 'withdrawn') {
+      this.offers.splice(this.offers.indexOf(o.record), 1);
+      if (o.held) this.runtime.release();
+    }
+    this.onEvent({ type: 'offer-close', control: CONTROL.OFFER, why });
+  }
+
+  get offerOpen() { return !!this._offer; }
+
+  _answerOffer(option) {
+    const o = this._offer;
+    if (!o || OPTIONS[CONTROL.OFFER].indexOf(option) < 0) return false;
+    o.record.choice = option;
+    this._closeOffer('answered');
+    this.onEvent({ type: 'answered', control: CONTROL.OFFER, option });
+    const from = o.scale === CONTROL.READING ? H.EASE_FROM.SAFETY_READING : H.EASE_FROM.INTENSITY_READING;
+    if (option === OFFER_OPTIONS.CONTINUE) return this._offerContinue(o);
+    if (option === OFFER_OPTIONS.SIMPLER) return this._handOff(P.MINDFULNESS, from);
+    if (option === OFFER_OPTIONS.MORE_SAFETY) return this._offerMoreSafety();
+    return this._easeOutMoving(from);
+  }
+
+  /* ✅ EVERY BUTTON GETS A TRANSITION LINE (Justin, 2026-09-22: "No matter what they tap, they should get
+   * a transition statement, like 'Okay, let's transition to a simpler mindfulness practice.' Just one
+   * take per transition. It needs to be seamless."). Null until the four are recorded; each route says
+   * what it plays instead meanwhile. */
+  _transition(key, phase) {
+    return D.TRANSITION ? this._branchBeat(D.TRANSITION[key], phase) : null;
+  }
+
+  /* "Continue" — the practice exactly as it was going to go, from where it is: the transition line, then
+   * the next beat that was queued. The answer clip for this question is skipped if it has not played
+   * yet — the person has already chosen. */
+  _offerContinue(o) {
+    const lead = this._transition('continue', this.queue[this.runtime.idx].phase);
+    const rest = this.queue.slice(this.runtime.idx + 1).filter(b => b.response !== o.index);
+    this._replaceTail((lead ? [lead] : []).concat(rest));
+    this.onEvent({ type: 'continue', from: o.scale });
+    this.runtime.nextBeat();
+    return true;
+  }
+
+  /* "More time with safety" (Justin, 2026-09-22: "it should basically go back to safety, then transition
+   * to non-safety as planned, unless the user wants a second, third, or fourth round in safety"). Where
+   * the safety work is BEHIND the listener it is the rewind the permission question's "no" already uses
+   * (E5.27): back to the plan's `returnToSafety` beat and forward through everything again, the
+   * non-safety half included — where the permission question offers the next round, as many as wanted.
+   * At the FIRST reading nothing is behind them yet — the safety work is all still ahead — so it plays
+   * the transition line and carries on as planned.
+   *
+   * Until the transition line is recorded, MORE-SAFETY opens it. Its takes A, C and E promise to "get
+   * back to the skill", which is true in a non-safety practice and false in a safety one, so a safety
+   * practice gets B and D only. */
+  _offerMoreSafety() {
+    const to = this.plan.returnToSafety;
+    const hits = this.plan.beats.map((b, i) => (b.id === to ? i : -1)).filter(i => i >= 0);
+    if (hits.length !== 1) {
+      throw new Error(`session(): "more time with safety" goes back to ${to}, which appears ${hits.length} ` +
+        'times in this plan. It has to mean one place.');
+    }
+    const target = hits[0];
+    let lead = this._transition('safety', 'safety');
+    if (!lead) {
+      lead = this._branchBeat(D.ROLE.moreSafety, 'safety');
+      if (this.plan.side !== 'defense') lead.pool = OFFER_MORE_SAFETY_NEUTRAL.slice();
+    }
+    if (this.playedIndexes.indexOf(target) >= 0) return this._rewindTo(target, lead);
+    const rest = this.queue.slice(this.runtime.idx + 1).filter(b => b.response == null);
+    this._replaceTail([lead].concat(rest));
+    this.onEvent({ type: 'more-safety', rewound: false });
+    this.runtime.nextBeat();
+    return true;
+  }
+
+  /* "Simple mindfulness" — the practice-to-practice hand-off. The rest of this practice is replaced by
+   * the destination's material (`P.handoff`), which ends in its own close and sign-off. Once the
+   * transition line exists it takes the place of the Mindfulness setup clip at the front — "let's
+   * transition to a simpler mindfulness practice" and then "this is a mindfulness practice" would say
+   * the same thing twice. */
+  _handOff(to, from) {
+    if (this.handedOffTo || this.easedOutFrom) return false;
+    const tail = P.handoff(this.plan.cfg, to).beats.map(b => {
+      const x = Object.assign({}, b, { planIndex: null });
+      x.gap = P.gapFor(x, this.plan.cfg.silence);
+      return x;
+    });
+    const lead = this._transition('mindfulness', tail[0].phase);
+    if (lead) tail[0] = Object.assign(lead, { handoff: to });
+    this.handedOffTo = to;
+    this.handedOffFrom = from;
+    this._replaceTail(tail);
+    /* the transport's route back for more safety belongs to the practice that was left */
+    if (this._transportMoreSafety) {
+      this._transportMoreSafety = false;
+      this.onEvent({ type: 'transport-more-safety', available: false });
+    }
+    this.onEvent({ type: 'handoff', to, from });
+    this.runtime.nextBeat();
+    return true;
+  }
+
+  /* "Ease out with movement" — the transition line, then the movement, the kind word and the one
+   * intentional breath, then the sign-off: CLOSE-05 → CLOSE-04 → CLOSE-06 → OUTRO, the Mindfulness
+   * practice's own close (`P.MINDFULNESS_CLOSE`). Reported as an ease-out, from the answer that put the
+   * buttons up. No EASE-OUT clip and no acknowledgment: the transition line is the reply to the tap. */
+  _easeOutMoving(from) {
+    if (this.easedOutFrom) return false;
+    this.easedOutFrom = from;
+    const lead = this._transition('movement', 'closing');
+    const tail = (lead ? [lead] : []).concat(P.MINDFULNESS_CLOSE.map(id => this._branchBeat(id, 'closing')));
+    tail.push(this._branchBeat(D.ROLE.outro, 'closing'));
+    this._replaceTail(tail);
+    this.onEvent({ type: 'ease-out', from, ack: false, chain: 'movement' });
+    this.runtime.nextBeat();
+    return true;
+  }
+
   _branchBeat(id, phase) {
     const b = { id: D.must(id), phase, kind: P.KIND.beat, planIndex: null };
     if (b.id === D.SAFETY_READING) b.choice = CONTROL.READING;   // the same four-second floor as in the plan
@@ -4460,6 +5016,9 @@ class Session {
   /* Everything after the beat that is playing is replaced. The beats already played stay
    * where they are so `runtime.idx` keeps meaning what it meant. */
   _replaceTail(beats) {
+    /* any route that rewrites what comes next takes the buttons down with it — they were about
+     * the practice that is no longer queued */
+    this._closeOffer('route');
     this.queue.length = this.runtime.idx + 1;
     beats.forEach(b => this.queue.push(b));
   }
@@ -4535,6 +5094,9 @@ class Session {
       interestAnswer: this.interestAnswer,
       readings: this.readings.slice(),
       intensities: this.intensities.slice(),
+      offers: this.offers.map(o => Object.assign({}, o)),
+      handedOffTo: this.handedOffTo,
+      handedOffFrom: this.handedOffFrom,
     };
   }
 
@@ -4543,7 +5105,7 @@ class Session {
   }
 }
 
-const API = { Session, CONTROL, OPTIONS, MAX_TARGETS, takeCycler };
+const API = { Session, CONTROL, OPTIONS, MAX_TARGETS, OFFER_OPTIONS, OFFER_MORE_SAFETY_NEUTRAL, responseFor, takeCycler };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SESSION = API;
@@ -4867,7 +5429,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:4017d9a8cdaa050d9aa56731b020fe56 */
+<script>/* @module copy.js md5:d0eaa12cd7247fb52465c3db6be43cfd */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -5065,6 +5627,16 @@ const UI = Object.freeze({
    * deliberately NOT worded like "Begin ease out": finishing well is not a retreat. */
   finishNow: 'I\'m done',
   skipIntro: 'Skip the introduction',
+  /* ✅ THE FOUR BUTTONS after a low safety answer (0–3) or a high non-safety answer (7–10). Justin's
+   * words, 2026-09-22 — he kept "More time with safety", rewrote "Something simpler" → "Simple
+   * mindfulness" and "Move your body" → "Ease out with movement", then added "continue" as the fourth
+   * when the practice started pausing for an answer. All four at equal weight: none is the preferred one. */
+  offerContinue: 'Continue',
+  offerSimpler: 'Simple mindfulness',
+  offerMoreSafety: 'More time with safety',
+  offerMovement: 'Ease out with movement',
+  /* shown while the practice is held for an answer. Plain, not a nudge: nothing happens until they choose. */
+  offerHold: 'Paused. Take your time, and choose when you\'re ready.',
 });
 
 /* 🔴 E5.27's second-pass emphasis is GONE (2026-09-17). It pinned take 'c' of
@@ -5081,7 +5653,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:e34cf4e01bad37d0cd915b9a995a22a3 */
+<script>/* @module page.js md5:83009a352890f0d5996b89ce6698a14a */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -5451,7 +6023,18 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       case 'control-close':
         closeChoice();
         break;
-      case 'transport-more-safety': player.classList.add('more-safety'); break;
+      /* the four buttons ride BELOW the 0–10 line while it is still up, and stay on their own after
+       * it fades, for as long as the session keeps the offer open */
+      case 'offer-open': openOffer(); break;
+      /* the practice has stopped to wait for a choice: say so, above the buttons */
+      case 'offer-hold': {
+        const box = $('choicecard').querySelector('.offer');
+        if (box && !box.querySelector('.offer-hold')) box.insertBefore(el('p', 'offer-hold', COPY.UI.offerHold), box.firstChild);
+        break;
+      }
+      case 'offer-close': closeOffer(); break;
+      case 'handoff': player.classList.remove('more-safety'); break;
+      case 'transport-more-safety': player.classList.toggle('more-safety', e.available !== false); break;
       case 'ease-out': player.classList.remove('more-safety'); break;
       case 'complete': finish(); break;
       default: break;
@@ -5572,6 +6155,14 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     /* ✅ The open ending's exit, 2026-09-17 — the button SETUP-MODE-OPEN has always promised. */
     finish: [{ option: 'finish', label: () => COPY.UI.finishNow, quiet: false }],
     skip: [{ option: 'skip', label: () => COPY.UI.skipIntro, quiet: true }],
+    /* ✅ THE FOUR BUTTONS (2026-09-22) — after a low safety answer or a high non-safety one, in the order
+     * Justin listed them. All four quiet: none is the preferred choice (Justin, 2026-09-21, on the yes/no pair). */
+    offer: [
+      { option: 'continue', label: () => COPY.UI.offerContinue, quiet: true },
+      { option: 'simpler', label: () => COPY.UI.offerSimpler, quiet: true },
+      { option: 'more-safety', label: () => COPY.UI.offerMoreSafety, quiet: true },
+      { option: 'movement', label: () => COPY.UI.offerMovement, quiet: true },
+    ],
   };
 
   function openChoice(control) {
@@ -5686,8 +6277,36 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
   function closeChoice() {
     clearTimeout(readFade);
+    const card = $('choicecard');
+    /* the three buttons have their own window (session `_offer`); closing the question under them
+     * leaves them standing */
+    const offer = card.querySelector('.offer');
+    card.textContent = '';
+    if (offer && session && session.offerOpen) { card.appendChild(offer); return; }
     $('player').classList.remove('choosing');
-    $('choicecard').textContent = '';
+  }
+
+  /* ── the four buttons (2026-09-22) ──────────────────────────────────────────────────────────── */
+  function openOffer() {
+    const card = $('choicecard');
+    if (card.querySelector('.offer')) return;
+    const box = el('div', 'offer');
+    CHOICE_BUTTONS.offer.forEach(spec => {
+      const b = el('button', 'choicebtn' + (spec.quiet ? ' quietly' : ''), spec.label());
+      b.type = 'button';
+      b.addEventListener('pointerdown', ev => ev.stopPropagation());
+      b.onclick = () => { if (session) session.answer('offer', spec.option); };
+      box.appendChild(b);
+    });
+    card.appendChild(box);
+    $('player').classList.add('choosing');
+  }
+
+  function closeOffer() {
+    const card = $('choicecard');
+    const box = card.querySelector('.offer');
+    if (box) box.remove();
+    if (!card.children.length) $('player').classList.remove('choosing');
   }
 
   // ── the transport ─────────────────────────────────────────────────────────────────────
@@ -5787,7 +6406,12 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     controls.addEventListener('pointerenter', () => { clearTimeout(ctrlTimer); $('player').classList.add('show-controls'); });
     controls.addEventListener('pointerleave', () => revealControls());
 
-    $('pause').onclick = () => { session.runtime.togglePause(); revealControls(); };
+    /* while the practice is held for an answer, play IS "Continue" — with its transition line */
+    $('pause').onclick = () => {
+      if (session.offerHeld) session.answer('offer', 'continue');
+      else session.runtime.togglePause();
+      revealControls();
+    };
     $('rewind').onclick = () => { session.runtime.rewind(5); revealControls(); };
     $('prevclip').onclick = () => { session.runtime.previousBeat(); revealControls(); };
     $('lesssil').onclick = () => { stepSilence(-1); revealControls(); };
