@@ -403,15 +403,15 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          c897655b5d3d8f12c8c5d58ed59c00cc     5790 bytes
      data.js                7a189b0b30dee1d84eccf3c0b8b3ab1a    25098 bytes
-     plan.js                4cfb7986e9f4a72b0b86de3710679605    80657 bytes
+     plan.js                4aef9535459fef963ac622b839717ff5    82288 bytes
      runtime.js             c4edc16649fd3b369c585716dcf8a7d3    31076 bytes
-     host.js                0508f3305b51740992aa896b7b41b2b9    37490 bytes
+     host.js                b2394153ba91858d05c471664b7bb84a    37612 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             ca23c6863e4a39cbf5e80332029c3b96    52699 bytes
+     session.js             c66cfc7555baccaaab8767617ca87650    54360 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                d0eaa12cd7247fb52465c3db6be43cfd    12778 bytes
+     copy.js                147af40a4721d67f46d6c2e19dd5d195    12953 bytes
      page.js                2b963ad012df1fc757d5e4e19eb24545    41487 bytes
 -->
 </head>
@@ -1194,7 +1194,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:4cfb7986e9f4a72b0b86de3710679605 */
+<script>/* @module plan.js md5:4aef9535459fef963ac622b839717ff5 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1632,18 +1632,30 @@ const HOLD_WATCH_DEPTH = 'description';
  *   • IMPULSE-CHECK plays once inside Hold & Watch, before the hold starts (Justin, 2026-09-05,
  *     CA item 16): the hold is exactly where Book 3 expects spontaneous expression — shakes,
  *     trembles, shudders — and the clip that gives permission for them was not there. */
-function defenseTail(add, cfg, permitGate, capacityCheck) {
+function defenseTail(add, cfg, permitGate, capacityCheck, beats) {
   const prefixed = cfg.prefix === OBSTACLES_PREFIX;
   const skill = SKILLS[cfg.practice];
   defenseBase(add, cfg, prefixed, permitGate);
   depthBlock(add, cfg);
+  const skillFrom = beats.length;
   skill(add, cfg, prefixed, capacityCheck);
+  /* ✅ THE SECOND NON-SAFETY 0–10 IS ASKED WHILE THE NON-SAFETY IS STILL IN VIEW (Justin, 2026-09-23: "A
+   * safety 0-10 played immediately after a non-safety one. That's odd."). It used to sit last, right before
+   * the closing safety 0–10, so the two questions came back to back. Now it goes before the skill's last
+   * turn back to safety — Balancing's PEND-SAFETY, Pendulating's closing "and back to safety" — the same
+   * shape Validating already has (the question, then PEND-SAFETY, then the safety 0–10). A skill with no
+   * turn back (Imagery & Invitation) asks it straight after its last beat, before the breath check. */
+  let back = -1;
+  for (let i = beats.length - 1; i >= skillFrom; i--) {
+    if (beats[i].id === D.ROLE.pendSafety || beats[i].id === D.ROLE.pendToSafety) { back = i; break; }
+  }
+  if (back >= 0) { intensityAgain(add, 'defense'); beats.splice(back, 0, beats.pop()); }
+  else intensityAgain(add, 'defense');
   add(D.ROLE.breathCheck, 'defense');
   if (cfg.holdWatch) {
     add(D.ROLE.impulseCheck, cfg.practice);
     add(D.ROLE.holdWatch, cfg.practice);
   }
-  intensityAgain(add, 'defense');   // the second non-safety 0–10 (2026-09-22)
 }
 
 /* Four of the thirty-two, no repeats. The shipped player shuffles at runtime; the choice of
@@ -1946,8 +1958,11 @@ function plan(cfg) {
     if (!rewindTarget) throw new Error('plan(): the permit gate offers a rewind with no target beat');
     branches[permit.id] = {
       /* "yes" is not listed: it routes nowhere and changes nothing, which is what continuing IS.
-       * Listing it would promise a consequence the builder does not have. */
-      no: REWIND_TO(rewindTarget.id),
+       * Listing it would promise a consequence the builder does not have.
+       * ✅ 2026-09-23 (Justin): "no" opens the four buttons, like every other "no" and every low safety or
+       * high non-safety number. The rewind stays here for the transport's "more time with safety". */
+      no: OFFER_FOUR,
+      rewind: REWIND_TO(rewindTarget.id),
     };
     /* ✅ NO STOP-OK AFTER THE GATE (CA review, second pass, 2026-09-17; Justin: "I agree on
      * this"). The gate already says staying with safety is a complete practice and its buttons
@@ -1959,7 +1974,7 @@ function plan(cfg) {
    * "no", which eases out exactly as the axis gate's "no" does. See SKILLS.pendulating. */
   const capacityCheck = () => {
     const check = add(D.ROLE.capCheck, 'gate', { choice: 'capacity-check' });
-    branches[check.id] = { no: EASE_OUT_SPOKEN };
+    branches[check.id] = { no: OFFER_FOUR };   // ✅ 2026-09-23: the four buttons, not straight out
   };
 
   /* ── the axis gate ────────────────────────────────────────────────────────────────
@@ -1997,7 +2012,7 @@ function plan(cfg) {
     const interest = add(D.ROLE.interestGate, 'gate', {
       choice: 'interest', pool: poolExcluding(D.ROLE.interestGate, [INTEREST_SAFETY_TAKE]),
     });
-    branches[interest.id] = { no: EASE_OUT_SPOKEN };
+    branches[interest.id] = { no: OFFER_FOUR };   // ✅ 2026-09-23: the four buttons, not straight out
   }
 
   if (base) {
@@ -2044,7 +2059,7 @@ function plan(cfg) {
     add(D.ROLE.pendSafety, 'defense');
     add(D.SAFETY_READING, 'defense');                            // reading 3: defense work, at the end
   } else if (skill) {
-    defenseTail(add, cfg, permitGate, capacityCheck);
+    defenseTail(add, cfg, permitGate, capacityCheck, beats);
     add(D.SAFETY_READING, 'defense');                            // reading 3: defense work, at the end
   } else if (!safety && !isAnchoring) {
     cfg.practiceBlock(add, cfg, D);
@@ -2380,6 +2395,11 @@ const EASE_OUT_TAPPED = { kind: 'easeOut', ack: true };
  * defense that had not been re-validated since safety was re-established. */
 const REWIND_TO = to => ({ kind: 'rewind', to });
 
+/* ✅ 2026-09-23 — a spoken "no" pauses the practice and opens the four buttons (Continue · Simple mindfulness ·
+ * More time with safety · Ease out with movement): "one new menu that comes up instead of multiple versions
+ * of the same intent" (Justin). The session routes it; this names it for the map and the tests. */
+const OFFER_FOUR = Object.freeze({ kind: 'offer' });
+
 /* The finish route: the listener taps "I'm done" in an open-ended practice and gets the ending
  * the timed version would have given them. `chain` says which ending, because the two short
  * practices close on the intentional breath alone (§3b) and the long ones run the whole chain.
@@ -2448,7 +2468,7 @@ const API = {
   SKILLS, OBSTACLES_PREFIX, OBSTACLES_SETUP, OBST,
   HOLD_WATCH_OFFERED_BY, HOLD_WATCH, HOLD_WATCH_DEPTH, STATEMENTS_PER_PRACTICE,
   OFFERING, offerKey, offerable, poolExcluding, TAKE_LETTERS,
-  EASE_OUT_SPOKEN, EASE_OUT_TAPPED, REWIND_TO, FINISH_TO_CLOSE, OPEN_BREATH_LOOP, RECORD_INTEREST,
+  EASE_OUT_SPOKEN, EASE_OUT_TAPPED, REWIND_TO, OFFER_FOUR, FINISH_TO_CLOSE, OPEN_BREATH_LOOP, RECORD_INTEREST,
   INTENSITY_AFTER_PERMIT_ONLY, HANDOFF_DESTINATIONS, handoff,
 };
 
@@ -3179,7 +3199,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:0508f3305b51740992aa896b7b41b2b9 */
+<script>/* @module host.js md5:b2394153ba91858d05c471664b7bb84a */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3584,6 +3604,8 @@ const EASE_FROM = Object.freeze({
    * `from` of a hand-off, which leaves the practice from the same two places. */
   SAFETY_READING: 'safety-reading',
   INTENSITY_READING: 'intensity-reading',
+  /* 2026-09-23 — a "no" to "is it okay for this to be here?" opens the same four buttons */
+  PERMIT: 'permit-question',
 });
 
 /* The furthest phase a run got to, in the order a listener passes through them. `defense` is
@@ -4156,7 +4178,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:ca23c6863e4a39cbf5e80332029c3b96 */
+<script>/* @module session.js md5:c66cfc7555baccaaab8767617ca87650 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4328,6 +4350,17 @@ function takeCycler(takes, rnd) {
  * are recorded, and only in a practice that has no skill to get back to (see `_offerMoreSafety`).
  * Letters, never a filename, and checked against the take count at load by `poolExcluding`. */
 const OFFER_MORE_SAFETY_NEUTRAL = Object.freeze(P.poolExcluding(D.ROLE.moreSafety, ['a', 'c', 'e']));
+
+/* the questions whose "no" puts up the four buttons (2026-09-23), and where each offer says it came from —
+ * the value saved as `eased_out_from` / `handed_off_from` when that button leaves the practice */
+const NO_OPENS_OFFER = Object.freeze([CONTROL.CURIOSITY, CONTROL.PERMIT, CONTROL.CAPACITY_CHECK]);
+const OFFER_FROM = Object.freeze({
+  [CONTROL.READING]: H.EASE_FROM.SAFETY_READING,
+  [CONTROL.INTENSITY]: H.EASE_FROM.INTENSITY_READING,
+  [CONTROL.CURIOSITY]: H.EASE_FROM.CURIOSITY,
+  [CONTROL.PERMIT]: H.EASE_FROM.PERMIT,
+  [CONTROL.CAPACITY_CHECK]: H.EASE_FROM.CAPACITY_CHECK,
+});
 
 class Session {
   constructor({ plan, device, onEvent } = {}) {
@@ -4569,11 +4602,17 @@ class Session {
     this._closeControl('answered');
     this.onEvent({ type: 'answered', control, option });
 
-    if (control === CONTROL.CURIOSITY && option === 'no') return this._easeOut(H.EASE_FROM.CURIOSITY, false);
-    if (control === CONTROL.CAPACITY_CHECK && option === 'no') return this._easeOut(H.EASE_FROM.CAPACITY_CHECK, false);
-    /* ✅ "no, it is not okay for this to be here" sends the listener back to build more safety, not
-     * out of the practice (Justin, 2026-09-17). This is the rewind the retired capacity gate owned. */
-    if (control === CONTROL.PERMIT && option === 'no') return this._rewind();
+    /* ✅ A "NO" OPENS THE FOUR BUTTONS (Justin, 2026-09-23: "yes, continue should be there also. So it's
+     * just one new menu that comes up instead of multiple versions of the same intent."). A no to the
+     * interest question, to "is it okay for this to be here?" and to the capacity check used to route
+     * three different ways — ease out, rewind, ease out. Now each pauses the practice and puts up the same
+     * four as a low safety or high non-safety number: Continue · Simple mindfulness · More time with
+     * safety · Ease out with movement, each with its transition line. Continue lets someone change their
+     * mind. A yes still carries on, as doing nothing does. */
+    if (option === 'no' && NO_OPENS_OFFER.includes(control)) {
+      this._openOffer(control, null, 'no', c.index, c.index);
+      return true;
+    }
     if (control === CONTROL.FINISH) return this._finish();
     if (control === CONTROL.INTEREST_ANSWER) {
       /* recorded, not routed — the close is next either way (plan.js, the axis gate) */
@@ -4756,6 +4795,8 @@ class Session {
    * would silently mean "rewind to the first one", and which one that is would depend on how
    * the plan happened to be assembled. */
   _rewindTarget() {
+    /* the transport's "more time with safety" still rewinds from the permission question (E5.27); since
+     * 2026-09-23 the question's own "no" opens the four buttons, so the route is kept under `rewind` */
     const gate = this.plan.beats.find(b => b.choice === CONTROL.PERMIT);
     if (!gate) return -1;
     /* The branch is keyed by the OPTION the person taps — 'no' — not by a name for what the route
@@ -4763,8 +4804,8 @@ class Session {
      * moved to PERMIT-DEFENSE on 2026-09-17 the key moved with the option, so the lookup and the
      * button can never drift apart. */
     const branch = this.plan.branches[gate.id];
-    if (!branch || !branch.no || branch.no.kind !== 'rewind') return -1;
-    const to = branch.no.to;
+    if (!branch || !branch.rewind || branch.rewind.kind !== 'rewind') return -1;
+    const to = branch.rewind.to;
     const hits = this.plan.beats.map((b, i) => (b.id === to ? i : -1)).filter(i => i >= 0);
     if (hits.length !== 1) {
       throw new Error(
@@ -4823,6 +4864,11 @@ class Session {
     });
     /* the clip that points at the buttons keeps them up, so it carries the control's four-second
      * floor (E4.22) — though with the buttons up, its silence becomes the hold below */
+    /* ✅ TWO ANSWER CLIPS ARE ONE STATEMENT (Justin, 2026-09-23: "the acknowledgment statement is followed up
+     * by the comparison statement, but there is an awkward gap in between … think of them as really one
+     * statement, so keep the silence to like 1 second"). Every answer clip but the last is a JOIN — the same
+     * one-second kind as the two halves of a setup sentence, so the silence stepper keeps it at a second too. */
+    for (let i = 0; i < inserted.length - 1; i++) { inserted[i].kind = P.KIND.join; inserted[i].gap = P.gapFor(inserted[i], this.plan.cfg.silence); }
     if (r.offer && inserted.length) { inserted[0].choice = CONTROL.OFFER; inserted[0].gap = P.gapFor(inserted[0], this.plan.cfg.silence); }
     this.queue.splice(index + 1, n, ...inserted);
 
@@ -4909,7 +4955,7 @@ class Session {
     o.record.choice = option;
     this._closeOffer('answered');
     this.onEvent({ type: 'answered', control: CONTROL.OFFER, option });
-    const from = o.scale === CONTROL.READING ? H.EASE_FROM.SAFETY_READING : H.EASE_FROM.INTENSITY_READING;
+    const from = OFFER_FROM[o.scale];
     if (option === OFFER_OPTIONS.CONTINUE) return this._offerContinue(o);
     if (option === OFFER_OPTIONS.SIMPLER) return this._handOff(P.MINDFULNESS, from);
     if (option === OFFER_OPTIONS.MORE_SAFETY) return this._offerMoreSafety();
@@ -5434,7 +5480,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:d0eaa12cd7247fb52465c3db6be43cfd */
+<script>/* @module copy.js md5:147af40a4721d67f46d6c2e19dd5d195 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -5609,7 +5655,8 @@ const UI = Object.freeze({
   interestYes: 'Yes, some interest',
   interestNo: 'No, not right now',
   capacityCheckYes: 'Yes, keep going',
-  capacityCheckNo: 'Ease out now',
+  /* ✅ 2026-09-23 — a No now opens the four buttons, so it no longer promises a route: it just answers */
+  capacityCheckNo: 'No, not right now',
   /* ✅ THE 0–10 READING (spec 2026-09-17; ends labelled by Justin 2026-09-20: "lowest … highest",
    * the audio's own words — "10 would be the highest"). Words under the ends because 0 and 10 alone
    * do not say which way is which. */
@@ -5623,10 +5670,11 @@ const UI = Object.freeze({
   timeUnderMinute: 'less than a minute left',
   timeOpen: 'Open-ended',
   /* ✅ PERMIT-DEFENSE, 2026-09-17. The clip has always ended "You can say yes or no" with nothing
-   * on screen to say it with. `no` states its consequence plainly, because it HAS one: it goes back
-   * and builds more safety rather than ending the practice. */
+   * on screen to say it with.
+   * ✅ 2026-09-23 — its No used to promise "more time with safety"; now a No opens the four buttons (Justin: "just
+   * one new menu"), where More time with safety is one choice among four, so the No just answers. */
   permitYes: 'Yes, it can be here',
-  permitNo: 'Not yet, more time with safety',
+  permitNo: 'No, not yet',
   /* ✅ The open ending's own exit, 2026-09-17. SETUP-MODE-OPEN take A promises it out loud — "then
    * hand it over, and you will finish when you're ready" — so the words match the promise. It is
    * deliberately NOT worded like "Begin ease out": finishing well is not a retreat. */
