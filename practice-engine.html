@@ -402,14 +402,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               078cf188f553f998248d06e118c12fee    24669 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          c897655b5d3d8f12c8c5d58ed59c00cc     5790 bytes
-     data.js                8635dd70d3c79d55569f4698cfcc00cc    25577 bytes
+     data.js                c2e9dd7394101d8966fed6ab04dfc986    26138 bytes
      plan.js                4aef9535459fef963ac622b839717ff5    82288 bytes
-     runtime.js             c4edc16649fd3b369c585716dcf8a7d3    31076 bytes
+     runtime.js             ac4b49fadb89abf3306f4fbe30db7b24    33242 bytes
      host.js                b2394153ba91858d05c471664b7bb84a    37612 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             9734f4f1a9d5be32e1066953a59d1dee    55298 bytes
+     session.js             cdf1a0af989db0ca11c8d302efa19c05    56305 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
      copy.js                147af40a4721d67f46d6c2e19dd5d195    12953 bytes
      page.js                2b963ad012df1fc757d5e4e19eb24545    41487 bytes
@@ -774,7 +774,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:8635dd70d3c79d55569f4698cfcc00cc */
+<script>/* @module data.js md5:c2e9dd7394101d8966fed6ab04dfc986 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -841,6 +841,11 @@ function clipUrl(base, file) {
  * this table. A trim here for a file that has already been replaced would cut it twice. */
 const TAKE_TRIMS = Object.freeze({
   'MIND-03-e.mp3':            { start: 5.33, caption: ['Which sounds stay? ', ''] },
+  /* 2026-09-24 (Justin, on beta): after the closing safety 0–10 and its answer, this take opened "If that feels a
+   * little silly, that is all right. Try it anyways." — the tail of a thought from another take, way out of place
+   * as an opener. Timed in Descript: "Come back to the anchor" starts at 7.01 s, after a 3.4 s pause, so the take
+   * starts just ahead of it. A start trim seeks exactly, so no margin is needed. */
+  'CLOSE-03-e.mp3':           { start: 6.85, caption: ['If that feels a little silly, that is all right. Try it anyways. ', ''] },
   /* 2026-09-24 (Justin, listening on beta): "Anything within reach is fine. So-" — the cut was at 5.35 s, inside
    * the pause, but an end trim is checked on `timeupdate`, which a browser fires only every ~250 ms, so playback
    * ran on into "so" (it starts at 5.48 s). "fine" has died away by 5.10 s (the pause is 5.06–5.48 s, measured on
@@ -2482,7 +2487,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:c4edc16649fd3b369c585716dcf8a7d3 */
+<script>/* @module runtime.js md5:ac4b49fadb89abf3306f4fbe30db7b24 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -2622,6 +2627,8 @@ class Runtime {
     this._tapArmed = false;
     this._pendingTapRearm = false;    // §A4.8 — deferred to the next visibilitychange
     this._holdAfterIdx = null;        // 2026-09-22 — the silence after this beat holds (see `hold`)
+    this._gapFullSecs = 0;            // 2026-09-24 — the silence this gap was given, before a tap shortened it
+    this._tapCap = null;              // …and a tap during the clip itself: { idx, secs } caps the silence to come
     this._errCount = 0;
     this._errTimer = null;
     this.connTrouble = false;
@@ -2828,6 +2835,7 @@ class Runtime {
     this._lastSelfCtl = this.dev.now();
     this._inSilence = false;
     this._endedWhilePaused = false;   // whatever was owed, we are past it
+    this._tapCap = null;              // a tap on the beat before does not shorten this one's silence
     /* a trimmed take (data.js TAKE_TRIMS) starts at `start` — a media fragment AND a seek,
      * so it holds on iOS as well as Chromium — and is cut at `end` by position, in the
      * timeupdate watcher below, exactly as the silent gap file is (§A4.2) */
@@ -2920,6 +2928,7 @@ class Runtime {
     this.inGap = true;
     this._usingFallbackGap = false;
     this._gapRemainMs = secs * 1000;
+    this._gapFullSecs = secs;
     if (this._holdAfterIdx != null && this._holdAfterIdx === this.idx) return this._holdInGap(secs);
     this._lastSelfCtl = this.dev.now();
     this._inSilence = true;
@@ -2987,7 +2996,10 @@ class Runtime {
       return this._advance();
     }
     if (this.idx >= this.beats.length - 1) return this._finish();
-    this._playGap(this.beat().gap);
+    let gap = this.beat().gap;
+    if (this._tapCap && this._tapCap.idx === this.idx) gap = Math.min(gap, this._tapCap.secs);
+    this._tapCap = null;
+    this._playGap(gap);
   }
 
   /* A clip that fails to load skips forward after a short beat rather than freezing; two
@@ -3096,6 +3108,38 @@ class Runtime {
   }
 
   holdAfter(index) { this._holdAfterIdx = (index == null ? null : index); }
+
+  /* ✅ A TAP ENDS THE WAIT (Justin, 2026-09-24: "there are awkward longer silences after the button taps").
+   * The silence after a question is there for answering it. Once someone has tapped, the rest of it is
+   * dead air — a number tapped four seconds into a twenty-second silence left sixteen seconds of nothing
+   * before its answer clip. So the tap cuts the silence to `seconds` from NOW:
+   *   · in the silence — it ends `seconds` after the tap, never later than it would have. A second tap
+   *     (a corrected number) moves the end again, still capped at the silence it was given;
+   *   · during the question's own clip — the clip finishes, then the silence is at most `seconds`;
+   *   · paused (the four buttons are holding) — nothing: the hold is the person's to lift.
+   * By position on the silent file, like every gap (§A4.2), so it holds with the screen locked. */
+  settleAfterTap(index, seconds) {
+    if (!this.playing || this.finished || this.idx !== index) return false;
+    const secs = Math.max(0, seconds || 0);
+    if (!this.inGap) { this._tapCap = { idx: index, secs }; return true; }
+    if (this.paused) return false;
+    if (this._inSilence) {
+      const now = this.dev.audio.currentTime || 0;
+      this._gapSecs = Math.min(this._gapFullSecs || this._gapSecs, now + secs);
+      return true;
+    }
+    if (this._usingFallbackGap) {
+      this.dev.clearTimeout(this._gapTimer);
+      this._gapRemainMs = secs * 1000;
+      this._gapTimer = this.dev.setTimeout(() => {
+        this.inGap = false;
+        this._usingFallbackGap = false;
+        this._advance();
+      }, secs * 1000);
+      return true;
+    }
+    return false;
+  }
 
   release() {
     if (!this.playing || this.finished || !this.paused) return false;
@@ -4183,7 +4227,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:9734f4f1a9d5be32e1066953a59d1dee */
+<script>/* @module session.js md5:cdf1a0af989db0ca11c8d302efa19c05 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4359,6 +4403,10 @@ const OFFER_MORE_SAFETY_NEUTRAL = Object.freeze(P.poolExcluding(D.ROLE.moreSafet
 /* the questions whose "no" puts up the four buttons (2026-09-23), and where each offer says it came from —
  * the value saved as `eased_out_from` / `handed_off_from` when that button leaves the practice */
 const NO_OPENS_OFFER = Object.freeze([CONTROL.CURIOSITY, CONTROL.PERMIT, CONTROL.CAPACITY_CHECK]);
+/* ✅ HOW LONG THE SILENCE RUNS ON AFTER A TAP (Justin, 2026-09-24: "awkward longer silences after the button
+ * taps"). A number gets two seconds — room to correct a near-miss, and a corrected tap starts the two seconds
+ * again; a yes gets one. See `runtime.settleAfterTap`. */
+const TAP_SETTLE = Object.freeze({ number: 2, yes: 1 });
 const OFFER_FROM = Object.freeze({
   [CONTROL.READING]: H.EASE_FROM.SAFETY_READING,
   [CONTROL.INTENSITY]: H.EASE_FROM.INTENSITY_READING,
@@ -4608,6 +4656,7 @@ class Session {
       this.readings[c.slot] = value;
       this.onEvent({ type: 'reading', value, slot: c.slot });
       this._respond(c, value);
+      this.runtime.settleAfterTap(c.index, TAP_SETTLE.number);
       return true;
     }
     if (control === CONTROL.INTENSITY) {
@@ -4615,6 +4664,7 @@ class Session {
       this.intensities[c.slot] = value;
       this.onEvent({ type: 'intensity', value, slot: c.slot });
       this._respond(c, value);
+      this.runtime.settleAfterTap(c.index, TAP_SETTLE.number);
       return true;
     }
     this._answered.add(c.index);
@@ -4637,6 +4687,7 @@ class Session {
       /* recorded, not routed — the close is next either way (plan.js, the axis gate) */
       this.interestAnswer = option;
       this.onEvent({ type: 'interest-answer', answer: option });
+      this.runtime.settleAfterTap(c.index, TAP_SETTLE.yes);
       return true;
     }
     /* ⚠️ THIS CATCH-ALL MUST STAY LAST. Put above the Interest Impulse block it swallows that
@@ -4647,7 +4698,7 @@ class Session {
      * Every remaining target is a spoken YES that routes nowhere on purpose: continuing is exactly
      * what doing nothing already does, so the button is a way to SAY yes, never a second meaning for
      * it. The tap is still announced by the `answered` event above, which is where it is recorded. */
-    if (option === 'yes') return true;
+    if (option === 'yes') { this.runtime.settleAfterTap(c.index, TAP_SETTLE.yes); return true; }
     return false;
   }
 
@@ -4986,7 +5037,14 @@ class Session {
    * take per transition. It needs to be seamless."). Null until the four are recorded; each route says
    * what it plays instead meanwhile. */
   _transition(key, phase) {
-    return D.TRANSITION ? this._branchBeat(D.TRANSITION[key], phase) : null;
+    if (!D.TRANSITION) return null;
+    const b = this._branchBeat(D.TRANSITION[key], phase);
+    /* ✅ A TRANSITION LINE LEADS STRAIGHT IN (2026-09-24, the same "awkward silences" note): "Okay, let's
+     * continue with the practice." followed by the person's whole silence setting left it hanging. It is
+     * the first half of what comes next, so it is a JOIN — one second, like the answer clips. */
+    b.kind = P.KIND.join;
+    b.gap = P.gapFor(b, this.plan.cfg.silence);
+    return b;
   }
 
   /* "Continue" — the practice exactly as it was going to go, from where it is: the transition line, then
@@ -5175,7 +5233,7 @@ class Session {
   }
 }
 
-const API = { Session, CONTROL, OPTIONS, MAX_TARGETS, OFFER_OPTIONS, OFFER_MORE_SAFETY_NEUTRAL, responseFor, takeCycler };
+const API = { Session, CONTROL, OPTIONS, MAX_TARGETS, TAP_SETTLE, OFFER_OPTIONS, OFFER_MORE_SAFETY_NEUTRAL, responseFor, takeCycler };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SESSION = API;
