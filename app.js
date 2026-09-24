@@ -6740,7 +6740,7 @@ function app(tab){
     }
   }
 
-  function renderPracticeChooser(animateIn){
+  function renderPracticeChooser(animateIn, fromAttr){
     const c=content();
     mkNormalize();
     let {key,sense,skill,silence,med}=pState;
@@ -6885,7 +6885,31 @@ function app(tab){
       ? '<p class="fineprint" style="text-align:center;margin:14px 2px 0;opacity:.72">Practices built from your check-ins are on the base plan.</p>'
       : '';
 
-    if(!desk){
+    // ✅ ONLY WHAT IS BELOW THE TAP REFRESHES (Justin, 2026-09-24, beta on desktop: "When I click on a skill, the
+    // entire customizer refreshes. Visually, it is very unnerving … The only thing that should refresh are the items
+    // underneath it."). A tap on skill / obstacle statements / depth changes which questions come AFTER it, so those
+    // re-render — and re-animate, top down — while everything from the top down to the tapped row stays exactly as it
+    // is on screen. Anything unexpected (no panel on screen, the row not found) falls back to the full render.
+    let partialDone=false;
+    if(fromAttr){
+      const live=c.querySelector('.p-refine');
+      const tpl=document.createElement('template'); tpl.innerHTML=refineHTML.trim();
+      const fresh=tpl.content.querySelector('.p-refine');
+      const sel='[data-'+fromAttr+']';
+      if(live&&fresh){
+        const liveKids=Array.from(live.children), freshKids=Array.from(fresh.children);
+        const li=liveKids.findIndex(g=>g.querySelector(sel)), fi=freshKids.findIndex(g=>g.querySelector(sel));
+        if(li>=0&&fi>=0){
+          const liveChips=liveKids[li].querySelectorAll(sel), freshChips=freshKids[fi].querySelectorAll(sel);
+          liveChips.forEach((b,k)=>{ if(freshChips[k]) b.classList.toggle('on',freshChips[k].classList.contains('on')); });
+          liveKids.slice(li+1).forEach(g=>g.remove());
+          freshKids.slice(fi+1).forEach((g,k)=>{ g.style.animationDelay=(0.04+k*0.07).toFixed(2)+'s'; live.appendChild(g); });
+          partialDone=true;
+        }
+      }
+    }
+    if(partialDone){ /* the rows below were replaced in place; handlers are re-bound below */ }
+    else if(!desk){
       // ---- MOBILE (<720): unchanged full-screen flow (list OR adjust) ----
       c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
       ${heading?`<div class="scr-head">
@@ -6952,7 +6976,7 @@ function app(tab){
       // the groups below the skill depend on it (Obstacles, what to do with what surfaces,
       // hold & watch), so the panel is rebuilt rather than toggled
       pState.skill=b.dataset.skill; pState.depth=null; pState.deepest=false;
-      mkNormalize(); renderPracticeChooser();
+      mkNormalize(); renderPracticeChooser(false,'skill');
     });
     c.querySelectorAll('[data-safetysk]').forEach(b=>b.onclick=()=>{
       pState.safetySkill = b.dataset.safetysk==='plain' ? '' : b.dataset.safetysk;
@@ -6961,11 +6985,11 @@ function app(tab){
     });
     c.querySelectorAll('[data-obst]').forEach(b=>b.onclick=()=>{
       pState.obst = b.dataset.obst==='true'; pState.prefix = pState.obst ? 'obstacles' : null;
-      mkNormalize(); renderPracticeChooser();
+      mkNormalize(); renderPracticeChooser(false,'obst');
     });
     c.querySelectorAll('[data-depth]').forEach(b=>b.onclick=()=>{
       pState.depth = b.dataset.depth; pState.deepest = (pState.depth==='description');
-      mkNormalize(); renderPracticeChooser();
+      mkNormalize(); renderPracticeChooser(false,'depth');
     });
     c.querySelectorAll('[data-emo]').forEach(b=>b.onclick=()=>{
       pState.emotion = b.dataset.emo || null;

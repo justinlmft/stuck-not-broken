@@ -402,17 +402,17 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               078cf188f553f998248d06e118c12fee    24669 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          c897655b5d3d8f12c8c5d58ed59c00cc     5790 bytes
-     data.js                ead59c689483343daa2e1683d3975975    27555 bytes
-     plan.js                4aef9535459fef963ac622b839717ff5    82288 bytes
+     data.js                c539c274e38d4373f2766afd75a49c7e    28474 bytes
+     plan.js                cb860d84f93adf796efea97e7ee33858    82657 bytes
      runtime.js             7c758e436fafb89e7b92295d61b0be30    33773 bytes
-     host.js                b2394153ba91858d05c471664b7bb84a    37612 bytes
+     host.js                dfeea9d055ad66cab5baa4fa27659e15    37758 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             cdf1a0af989db0ca11c8d302efa19c05    56305 bytes
-     scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
-     copy.js                147af40a4721d67f46d6c2e19dd5d195    12953 bytes
-     page.js                2b963ad012df1fc757d5e4e19eb24545    41487 bytes
+     session.js             4b8e559b7fd2b8b1bb38c5082e8e193c    59379 bytes
+     scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
+     copy.js                a7c31be6e9fbd762c7bfabf428c9c2be    13093 bytes
+     page.js                ebd273568b9ff40ca0cc427fbd12107d    42298 bytes
 -->
 </head>
 <body>
@@ -774,7 +774,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:ead59c689483343daa2e1683d3975975 */
+<script>/* @module data.js md5:c539c274e38d4373f2766afd75a49c7e */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1141,6 +1141,11 @@ const TRANSITION_FAMILIES = Object.freeze({
 });
 const TRANSITION = allOrNothing(TRANSITION_FAMILIES, 'transition lines');
 
+/* ✅ "STICK WITH MY REACTION TO THIS ONE" (Justin, 2026-09-24): the acknowledgment that plays when someone stays with
+ * the obstacle statement they just heard. Drafted in the recording doc §9 as OBST-STICK; null until it is recorded,
+ * and the button works without it meanwhile (the practice goes straight on to validating the obstacle). */
+const OBST_STICK = exists('OBST-STICK') ? 'OBST-STICK' : null;
+
 /* The boundaries, as Justin gave them (ruled 2026-09-22: the two middles differ on purpose).
  * Safety: 0–3 low · 4–7 middle · 8–10 high.  Intensity: 0–3 low · 4–6 middle · 7–10 high. */
 const SAFETY_LOW_MAX = 3, SAFETY_HIGH_MIN = 8;
@@ -1198,9 +1203,14 @@ function fileFor(id, take) { return `${must(id)}-${take}.mp3`; }
  * and give it a bit of appreciation…" — so played alone, "it" has nothing before it. The full read is CLOSE-03-e.
  * The file stays in `clips-v2/`; the shuffle simply never deals it. The runtime reads this in ONE place
  * (`fileFor`), for shuffled and pooled beats alike; a beat that PINS a withdrawn take is a load-time error there. */
-const TAKES_OUT = Object.freeze({ 'CLOSE-03': Object.freeze(['c']) });
+/* ✅ SAFETY-CHANGE-UP-c (Justin, 2026-09-24, a balancing practice on beta): "'That came up! Very cool!' felt out of
+ * place. That needs to be 'Your safety level came up.'" — "that" names nothing. Out until the re-read is recorded
+ * (recording doc §9); the other six takes carry the line meanwhile. */
+const TAKES_OUT = Object.freeze({ 'CLOSE-03': Object.freeze(['c']), 'SAFETY-CHANGE-UP': Object.freeze(['c']) });
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 Object.keys(TAKES_OUT).forEach(id => {
+  /* a family not in this table yet (the answer clips before the recording — answers.test.js PART A) has nothing to withdraw */
+  if (!exists(id)) return;
   const n = takes(id);
   TAKES_OUT[id].forEach(t => {
     const i = LETTERS.indexOf(t);
@@ -1217,7 +1227,7 @@ function takesInRotation(id) {
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  BAND_FAMILIES, BAND, TRANSITION_FAMILIES, TRANSITION, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
+  BAND_FAMILIES, BAND, TRANSITION_FAMILIES, TRANSITION, OBST_STICK, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
@@ -1227,7 +1237,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:4aef9535459fef963ac622b839717ff5 */
+<script>/* @module plan.js md5:cb860d84f93adf796efea97e7ee33858 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1264,7 +1274,7 @@ const D = (typeof require === 'function')
  * E4.22 — setup beats 2s; any beat carrying a choice is a FLOOR of 4s, not a cap. The
  * shipped `Math.min(cfg.silence, 4)` on the curiosity gate inverts the rule: it makes 4s the
  * longest the listener ever gets to answer, when it was meant to be the shortest. */
-const KIND = { setup: 'setup', join: 'join', beat: 'beat' };
+const KIND = { setup: 'setup', join: 'join', beat: 'beat', reply: 'reply' };
 
 function gapFor(beat, silence) {
   if (beat.choice) return Math.max(4, silence);
@@ -1277,6 +1287,10 @@ function gapFor(beat, silence) {
    * between them. It has its own KIND so the decision lives in one place. */
   if (beat.kind === KIND.join) return 1;
   if (beat.kind === KIND.setup) return 2;
+  /* ✅ AFTER THE REPLY TO A 0–10, TWO SECONDS (Justin, 2026-09-24: "the second safety 0-10 again had a long pause
+   * after i answered it before the interest check"). The reply clip is the app answering the person, not a
+   * prompt to sit with — the full silence setting after it read as the app stalling. */
+  if (beat.kind === KIND.reply) return 2;
   return silence;
 }
 
@@ -3278,7 +3292,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:b2394153ba91858d05c471664b7bb84a */
+<script>/* @module host.js md5:dfeea9d055ad66cab5baa4fa27659e15 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3685,6 +3699,8 @@ const EASE_FROM = Object.freeze({
   INTENSITY_READING: 'intensity-reading',
   /* 2026-09-23 — a "no" to "is it okay for this to be here?" opens the same four buttons */
   PERMIT: 'permit-question',
+  /* 2026-09-24 — the open ending's buttons: "Simple mindfulness" and "Ease out with movement" beside "I'm done" */
+  OPEN_ENDING: 'open-ending',
 });
 
 /* The furthest phase a run got to, in the order a listener passes through them. `defense` is
@@ -4257,7 +4273,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:cdf1a0af989db0ca11c8d302efa19c05 */
+<script>/* @module session.js md5:4b8e559b7fd2b8b1bb38c5082e8e193c */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4320,6 +4336,7 @@ const CONTROL = Object.freeze({
   PERMIT: 'permit',         // two targets: yes · no, where no rewinds for more safety
   FINISH: 'finish',         // one target: the open ending's "I'm done" (E5.32)
   SKIP: 'skip',             // the first-practice intro (E5.34)
+  STATEMENT: 'statement',   // 2026-09-24 — one target under the obstacle statements: stay with this one
   MORE_SAFETY: 'more-safety', // from the transport, for the rest of the defense block (E5.27)
   /* 2026-09-05, the CA review rulings: */
   INTEREST_ANSWER: 'interest-answer', // the Interest Impulse practice: yes · no, both RECORDED, neither routes
@@ -4359,7 +4376,11 @@ const OPTIONS = Object.freeze({
   [CONTROL.PERMIT]: Object.freeze(['yes', 'no']),
   [CONTROL.INTEREST_ANSWER]: Object.freeze(['yes', 'no']),
   [CONTROL.CAPACITY_CHECK]: Object.freeze(['yes', 'no']),
-  [CONTROL.FINISH]: Object.freeze(['finish']),
+  /* ✅ 2026-09-24 (Justin, an open-ended balancing practice on beta): "the only option they can choose is 'I'm
+   * done.' There should be the other options as well — the same 4 as the other times." Continue is the one left
+   * out: in the open ending, doing nothing IS continuing, so a Continue button would do nothing. */
+  [CONTROL.FINISH]: Object.freeze(['finish', 'simpler', 'more-safety', 'movement']),
+  [CONTROL.STATEMENT]: Object.freeze(['stick']),
   /* the 0–10 reading: every whole number, nothing pre-selected. It routes nowhere, so the E5.31 cap on
    * how many answers a CHOICE may have does not apply — see `_openControlFor`. */
   [CONTROL.READING]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
@@ -4491,6 +4512,8 @@ class Session {
     this.offers = [];
     this.handedOffTo = null;
     this.handedOffFrom = null;
+    /* the obstacle statement someone chose to stay with ("Stick with my reaction to this one"), or null */
+    this.stuckWith = null;
     this._offer = null;          // the offer on screen now: { scale, index, until, record }
 
     this._startedAt = null;
@@ -4601,6 +4624,7 @@ class Session {
     if (b.choice === CONTROL.PERMIT) return CONTROL.PERMIT;
     if (b.choice === CONTROL.INTEREST_ANSWER) return CONTROL.INTEREST_ANSWER;
     if (b.choice === CONTROL.CAPACITY_CHECK) return CONTROL.CAPACITY_CHECK;
+    if (b.choice === CONTROL.STATEMENT) return CONTROL.STATEMENT;
     /* 🔴 `finishable` was set by the planner and read by NOTHING until 2026-09-17. See
      * `_finish` below for what that cost. It is a FLAG, not a `choice`, because it rides every
      * beat of the open ending including each firing of the breath loop — the card has to stay up
@@ -4712,7 +4736,8 @@ class Session {
       this._openOffer(control, null, 'no', c.index, c.index);
       return true;
     }
-    if (control === CONTROL.FINISH) return this._finish();
+    if (control === CONTROL.FINISH) return this._finishChoice(option);
+    if (control === CONTROL.STATEMENT) return this._stickWith(c);
     if (control === CONTROL.INTEREST_ANSWER) {
       /* recorded, not routed — the close is next either way (plan.js, the axis gate) */
       this.interestAnswer = option;
@@ -4807,6 +4832,38 @@ class Session {
    * capacity; finishing a long open practice that went well is the opposite event and must not be
    * narrated as a retreat. Two controls, two routes, no shared audio, and no acknowledgment clip
    * here — nothing needs answering, they asked for the close and the close is the answer. */
+  /* ✅ "STICK WITH MY REACTION TO THIS ONE" (Justin, 2026-09-24: "At that point, the other statements don't play and
+   * the user continues on with the practice after an acknowledgment of sticking with that reaction."). The button
+   * stays up across all four statements (one window, the same control continuing); a tap stays with the statement
+   * playing now, or whose silence is running. The statements still to come are taken out of the queue, the
+   * acknowledgment (data.js OBST_STICK, once recorded) goes in after this one, and the silence is cut short. */
+  _stickWith(c) {
+    const at = c.index;
+    const beat = this.queue[at];
+    this.stuckWith = beat ? beat.id : null;
+    const rest = this.queue.slice(at + 1).filter(b => b.choice !== CONTROL.STATEMENT);
+    if (D.OBST_STICK) rest.unshift(Object.assign(this._branchBeat(D.OBST_STICK, beat ? beat.phase : 'obstacles'), { kind: P.KIND.join, gap: 1 }));
+    /* replace everything after the statement that is playing — only statements are dropped */
+    this.queue.length = at + 1;
+    rest.forEach(b => this.queue.push(b));
+    this.onEvent({ type: 'stick-with', statement: this.stuckWith });
+    this.runtime.settleAfterTap(at, TAP_SETTLE.yes);
+    return true;
+  }
+
+  /* The open ending's buttons: "I'm done" closes; the other three are the four-button routes, from the open
+   * ending — recorded in `offers` like every other time they are chosen (scale 'finish', no number). */
+  _finishChoice(option) {
+    if (option === 'finish') return this._finish();
+    if (this.finishedFrom || this.easedOutFrom || this.handedOffTo) return false;
+    this.offers.push({ scale: CONTROL.FINISH, slot: null, value: null, choice: option, held: false, pausedSeconds: null });
+    const from = H.EASE_FROM.OPEN_ENDING;
+    if (option === OFFER_OPTIONS.SIMPLER) return this._handOff(P.MINDFULNESS, from);
+    if (option === OFFER_OPTIONS.MORE_SAFETY) return this._offerMoreSafety();
+    if (option === OFFER_OPTIONS.MOVEMENT) return this._easeOutMoving(from);
+    return false;
+  }
+
   _finish() {
     if (this.finishedFrom || this.easedOutFrom) return false;
     const chain = this._finishChain();
@@ -4969,6 +5026,8 @@ class Session {
      * statement, so keep the silence to like 1 second"). Every answer clip but the last is a JOIN — the same
      * one-second kind as the two halves of a setup sentence, so the silence stepper keeps it at a second too. */
     for (let i = 0; i < inserted.length - 1; i++) { inserted[i].kind = P.KIND.join; inserted[i].gap = P.gapFor(inserted[i], this.plan.cfg.silence); }
+    /* …and the last one leads on after two seconds (2026-09-24, KIND.reply in plan.js) */
+    if (inserted.length) { const last = inserted[inserted.length - 1]; last.kind = P.KIND.reply; last.gap = P.gapFor(last, this.plan.cfg.silence); }
     if (r.offer && inserted.length) { inserted[0].choice = CONTROL.OFFER; inserted[0].gap = P.gapFor(inserted[0], this.plan.cfg.silence); }
     this.queue.splice(index + 1, n, ...inserted);
 
@@ -5270,7 +5329,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SESSION = 
 
 })();
 /* @endmodule session.js */</script>
-<script>/* @module scene.js md5:a0a5771de1cf98c4385ea15c08b0f250 */
+<script>/* @module scene.js md5:70e683125380fd667bacbd497e72e97a */
 (function(){
 /* practice-engine/scene.js — the living focal point.
  *
@@ -5305,6 +5364,18 @@ const D = (typeof require === 'function')
 const RING_BLUE = [88, 145, 197];
 const RING_ORANGE = [210, 154, 74];
 const RING_INK = [26, 31, 42];
+
+/* '#ECEAE3' / 'rgb(236, 234, 227)' → [236, 234, 227]; anything else → null */
+function inkFrom(v) {
+  const s = String(v || '').trim();
+  let m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) return [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16));
+  m = /^#([0-9a-f]{3})$/i.exec(s);
+  if (m) return [0, 1, 2].map(i => parseInt(m[1][i] + m[1][i], 16));
+  m = s.match(/\d+/g);
+  if (/^rgba?\(/i.test(s) && m && m.length >= 3) return m.slice(0, 3).map(Number);
+  return null;
+}
 
 /* 'both' = holding safety and defense at once: ink centre and ink breathing circle, with the
  * blue (safety) ring OUTSIDE and the orange (defense) ring INSIDE, both present. `outerCol` /
@@ -5389,6 +5460,12 @@ function mountScene({ canvas, read, scene, isDark, reduceMotion, random } = {}) 
   let motes = [], reedArr = [], ripArr = [], strands = [], dust = [], flies = [];
   let ripNext = 0, sT = 0, sLast = 0;
   let bgRGB = [250, 249, 245];
+  /* ✅ THE INK FOLLOWS THE THEME (Justin, 2026-09-24, beta on dark mode: "the background cannot be seen").
+   * RING_INK is the light theme's ink, #1A1F2A — on the dark theme's #1B1C1E the calm-state lines (the
+   * mindfulness and closing ring, the ink centre of 'both', and every alternate scene drawn in them) were
+   * the background's own colour. `seed()` reads the page's `--ink` and every RING_INK target draws in it. */
+  let inkRGB = RING_INK.slice();
+  const inkOr = c => (c === RING_INK ? inkRGB : c);
   const rc = RING_INK.slice(), roc = RING_INK.slice(), ric = RING_INK.slice();
   let ro = 1, ri = 0, breath = 0.5, breath2 = 0.5, lastState = 'mind';
 
@@ -5413,6 +5490,10 @@ function mountScene({ canvas, read, scene, isDark, reduceMotion, random } = {}) 
     try {
       const m = (getComputedStyle(document.body).backgroundColor || '').match(/\d+/g);
       if (m && m.length >= 3) bgRGB = m.slice(0, 3).map(Number);
+    } catch (e) {}
+    try {
+      const ink = inkFrom(getComputedStyle(document.documentElement).getPropertyValue('--ink'));
+      if (ink) { inkRGB = ink; for (let i = 0; i < 3; i++) { rc[i] = roc[i] = ric[i] = ink[i]; } }
     } catch (e) {}
     initMotes(); initReeds(); initFlies();
     strands = []; dust = []; ripArr = []; ripNext = 0; sT = 0; sLast = 0;
@@ -5525,9 +5606,9 @@ function mountScene({ canvas, read, scene, isDark, reduceMotion, random } = {}) 
 
     const want = s.finished ? lastState : (lastState = stateFor(s.beat));
     const st = RING_STATE[want] || RING_STATE.mind;
-    const soc = st.outerCol || st.col, sic = st.innerCol || st.col;
+    const scol = inkOr(st.col), soc = inkOr(st.outerCol || st.col), sic = inkOr(st.innerCol || st.col);
     for (let i = 0; i < 3; i++) {
-      rc[i] += (st.col[i] - rc[i]) * 0.10;
+      rc[i] += (scol[i] - rc[i]) * 0.10;
       roc[i] += (soc[i] - roc[i]) * 0.10;
       ric[i] += (sic[i] - ric[i]) * 0.10;
     }
@@ -5580,14 +5661,14 @@ function mountScene({ canvas, read, scene, isDark, reduceMotion, random } = {}) 
   };
 }
 
-const API = { mountScene, stateFor, PHASE_STATE, RING_STATE, SCENES, DARK_ONLY, pickScene, density };
+const API = { mountScene, stateFor, PHASE_STATE, RING_STATE, SCENES, DARK_ONLY, pickScene, density, inkFrom };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
 else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = API;
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:147af40a4721d67f46d6c2e19dd5d195 */
+<script>/* @module copy.js md5:a7c31be6e9fbd762c7bfabf428c9c2be */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -5795,6 +5876,8 @@ const UI = Object.freeze({
   offerSimpler: 'Simple mindfulness',
   offerMoreSafety: 'More time with safety',
   offerMovement: 'Ease out with movement',
+  /* 2026-09-24 — Justin's wording, the button under the obstacle statements */
+  stickWithStatement: 'Stick with my reaction to this one',
   /* shown while the practice is held for an answer. Plain, not a nudge: nothing happens until they choose. */
   offerHold: 'Paused. Take your time, and choose when you\'re ready.',
 });
@@ -5813,7 +5896,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:2b963ad012df1fc757d5e4e19eb24545 */
+<script>/* @module page.js md5:ebd273568b9ff40ca0cc427fbd12107d */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -6200,11 +6283,15 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       case 'control-close':
         closeChoice();
         break;
-      /* the four buttons ride BELOW the 0–10 line while it is still up, and stay on their own after
-       * it fades, for as long as the session keeps the offer open */
-      case 'offer-open': openOffer(); break;
-      /* the practice has stopped to wait for a choice: say so, above the buttons */
+      /* ✅ THE FOUR BUTTONS COME UP WHEN THE PRACTICE STOPS FOR THEM, NOT ON THE TAP (Justin, 2026-09-24: "the 4
+       * options come up immediately, before the user has a chance to process the audio and the fact that there
+       * is a recommendation to pivot. So, let's line the buttons up better with the audio."). The session still
+       * opens the offer on the tap — that is when the reply clip is chosen — but the buttons appear with the
+       * hold, after the reply has said why they are there. */
+      case 'offer-open': break;
+      /* the practice has stopped to wait for a choice: the buttons, and above them, say so */
       case 'offer-hold': {
+        openOffer();
         const box = $('choicecard').querySelector('.offer');
         if (box && !box.querySelector('.offer-hold')) box.insertBefore(el('p', 'offer-hold', COPY.UI.offerHold), box.firstChild);
         break;
@@ -6330,8 +6417,15 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       { option: 'no', label: () => COPY.UI.capacityCheckNo, quiet: true },
     ],
     /* ✅ The open ending's exit, 2026-09-17 — the button SETUP-MODE-OPEN has always promised. */
-    finish: [{ option: 'finish', label: () => COPY.UI.finishNow, quiet: false }],
+    /* 2026-09-24 — "I'm done" plus three of the four (Continue is what doing nothing already does here) */
+    finish: [
+      { option: 'finish', label: () => COPY.UI.finishNow, quiet: false },
+      { option: 'simpler', label: () => COPY.UI.offerSimpler, quiet: true },
+      { option: 'more-safety', label: () => COPY.UI.offerMoreSafety, quiet: true },
+      { option: 'movement', label: () => COPY.UI.offerMovement, quiet: true },
+    ],
     skip: [{ option: 'skip', label: () => COPY.UI.skipIntro, quiet: true }],
+    statement: [{ option: 'stick', label: () => COPY.UI.stickWithStatement, quiet: true }],
     /* ✅ THE FOUR BUTTONS (2026-09-22) — after a low safety answer or a high non-safety one, in the order
      * Justin listed them. All four quiet: none is the preferred choice (Justin, 2026-09-21, on the yes/no pair). */
     offer: [
