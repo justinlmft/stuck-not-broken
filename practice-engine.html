@@ -409,7 +409,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             c66cfc7555baccaaab8767617ca87650    54360 bytes
+     session.js             9734f4f1a9d5be32e1066953a59d1dee    55298 bytes
      scene.js               a0a5771de1cf98c4385ea15c08b0f250    16859 bytes
      copy.js                147af40a4721d67f46d6c2e19dd5d195    12953 bytes
      page.js                2b963ad012df1fc757d5e4e19eb24545    41487 bytes
@@ -4178,7 +4178,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:c66cfc7555baccaaab8767617ca87650 */
+<script>/* @module session.js md5:9734f4f1a9d5be32e1066953a59d1dee */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4417,6 +4417,15 @@ class Session {
     this._passes = 1;            // how many times the defense block has been walked (E5.27)
     this._control = null;        // the window that is open right now, or null
     this._answered = new Set();  // queue positions already answered — property 3
+    /* ✅ GOING BACK TO A 0–10 REPLACES ITS ANSWER (Justin, 2026-09-23: "it should replace it.") Each
+     * question in the queue keeps the one slot it was given the first time it opened. Going back
+     * ("previous" on the transport or the lock screen) replays the question and re-opens its window on
+     * THAT slot: a new tap replaces the number, and passing through without a tap leaves it as it was.
+     * It used to push a new slot every time the window opened, so his walk-through saved
+     * [4, null, 6, 5] for a practice that asks twice. Keyed by the queue's beat OBJECT (as the
+     * runtime's `_dealt` is): a rewind for more safety builds fresh copies, so a new round is a new
+     * reading, which is what "as many rounds as wanted" means. */
+    this._slotFor = new WeakMap();
     this._transportMoreSafety = false;
 
     this._primeOpenEnding();
@@ -4542,8 +4551,13 @@ class Session {
         'at two — a choice needing three answers becomes two questions.');
     }
     this._control = { index, control, options };
-    if (control === CONTROL.READING) { this._control.slot = this.readings.length; this.readings.push(null); }
-    if (control === CONTROL.INTENSITY) { this._control.slot = this.intensities.length; this.intensities.push(null); }
+    if (control === CONTROL.READING || control === CONTROL.INTENSITY) {
+      const list = control === CONTROL.READING ? this.readings : this.intensities;
+      const beat = this.queue[index];
+      let slot = this._slotFor.get(beat);
+      if (slot == null) { slot = list.length; list.push(null); this._slotFor.set(beat, slot); }
+      this._control.slot = slot;
+    }
     this.onEvent({ type: 'control-open', control, options, index });
 
     /* E5.27 — because LOOP-GATE is cut, MORE-SAFETY is also the another-round route, so it
