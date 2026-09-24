@@ -402,17 +402,17 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               078cf188f553f998248d06e118c12fee    24669 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                39f759ac25e054787d7c9cff3c0822aa    32963 bytes
-     plan.js                a6f3a8a4ee3ba7f11aa42822361d04c7    83045 bytes
+     data.js                1b21f2f0a02c8a0e786e4fbaf9c0f411    52187 bytes
+     plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
      runtime.js             4758569f7d34eede0e5ad214ca7dc41f    39201 bytes
      host.js                dfeea9d055ad66cab5baa4fa27659e15    37758 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             30b9f3ab3880f71262b8c769865863a0    68281 bytes
+     session.js             1735a7f9698ac0d1328146dabb9d06e7    69725 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                a7c31be6e9fbd762c7bfabf428c9c2be    13093 bytes
-     page.js                d715870a56f741535b05ad7bfd535683    43650 bytes
+     copy.js                98f02b61ceb3fa41cea7443ba9d1832c    13114 bytes
+     page.js                7d78e02c0da806d2c60ad58035ecf4aa    43568 bytes
 -->
 </head>
 <body>
@@ -781,7 +781,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:39f759ac25e054787d7c9cff3c0822aa */
+<script>/* @module data.js md5:1b21f2f0a02c8a0e786e4fbaf9c0f411 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1187,8 +1187,18 @@ const ANCHOR_CHOICE_ORDER = Object.freeze(['sound', 'sight', 'touch', 'imaginati
  *   pause — how much silence the read already has there (end of the question → next word)
  *
  * The pause lasts the greater of 2 s and a quarter of the person's silence setting (Justin's rule), counting the
- * silence the read already has — so a question he already left room after gets only what is missing. Scope, as of
- * 2026-09-24: the clips from recording v2c. The rest of the library is the 373-point list from 09-17, still to do. */
+ * silence the read already has — so a question he already left room after gets only what is missing.
+ *
+ * Scope (2026-09-24, Justin: "yes add them to the rest of the audio library now"): every clip with a question before
+ * its last sentence, 363 points in 191 files. Left out, as ruled 09-17: the explaining clips (setup, intro, sign-off,
+ * permission, not-finding-it, ease-out, which-emotion-to-bring, the open ending) and the clips whose question IS the
+ * answer the buttons take (the 0–10s, the interest question, the capacity checks) plus every reply/transition line.
+ * No pause inside a short list of options ("Motivated? Playful? Open?") — only after it. Where a question and the next
+ * words run together with no gap to stop in (17 places, e.g. MIND-02-a "How's your body breathing right now? How's it
+ * breathing naturally?") there is no point: the clip would be cut mid-breath. Times come from the Descript transcript of
+ * each recording (v2: composition 0e7d2b34, files start 0.2 s before their cut; v2b; v2c), and every point is checked to
+ * sit inside a silence in the file itself. ANCHORING-TOUCH-04-c is left out: it was re-cut, so the transcript times no
+ * longer match it. Build script: claude/recording-v2c/build_holds.py (project doc). */
 const CLIP_HOLDS = Object.freeze({
   'MIND-03-f.mp3': Object.freeze([{ at: 5.85, pause: 2.49 }, { at: 10.74, pause: 2.82 }, { at: 16.38, pause: 3.25 }, { at: 22.48, pause: 3.78 }, { at: 39.11, pause: 3.46 }, { at: 51.63, pause: 3.27 }, { at: 56.9, pause: 2.87 }]),
   'MIND-05-e.mp3': Object.freeze([{ at: 8.42, pause: 2.86 }, { at: 20.09, pause: 2.01 }, { at: 30.56, pause: 2.35 }, { at: 38.93, pause: 3.12 }]),
@@ -1200,6 +1210,188 @@ const CLIP_HOLDS = Object.freeze({
   'PEND-SAFETY-f.mp3': Object.freeze([{ at: 6.26, pause: 1.97 }, { at: 9.6, pause: 2.3 }, { at: 13.54, pause: 1.93 }]),
   'PEND-DEFENSE-a.mp3': Object.freeze([{ at: 5.56, pause: 1.07 }]),
   'PEND-DEFENSE-e.mp3': Object.freeze([{ at: 4.37, pause: 1.78 }]),
+  /* the rest of the library (2026-09-24, Justin: "yes add them to the rest of the audio library now") */
+  'ANCHORING-IMAGINATION-03-a.mp3': Object.freeze([{ at: 3.75, pause: 1.83 }, { at: 7.17, pause: 2.64 }, { at: 11.72, pause: 3.51 }, { at: 16.04, pause: 2.74 }, { at: 19.39, pause: 1.52 }]),
+  'ANCHORING-IMAGINATION-03-c.mp3': Object.freeze([{ at: 1.26, pause: 1.08 }, { at: 3.03, pause: 3.94 }, { at: 8.55, pause: 2.7 }, { at: 12.89, pause: 3.16 }]),
+  'ANCHORING-IMAGINATION-04-a.mp3': Object.freeze([{ at: 1.5, pause: 2.02 }, { at: 5.25, pause: 2.43 }, { at: 8.64, pause: 2.5 }]),
+  'ANCHORING-IMAGINATION-04-b.mp3': Object.freeze([{ at: 1.33, pause: 3.38 }, { at: 8.07, pause: 2.09 }, { at: 13.67, pause: 1.8 }, { at: 16.1, pause: 1.87 }]),
+  'ANCHORING-IMAGINATION-04-d.mp3': Object.freeze([{ at: 2.27, pause: 3.98 }, { at: 7.5, pause: 3.25 }, { at: 11.99, pause: 3.4 }, { at: 16.99, pause: 2.6 }]),
+  'ANCHORING-IMAGINATION-05-a.mp3': Object.freeze([{ at: 1.74, pause: 0.79 }]),
+  'ANCHORING-IMAGINATION-05-b.mp3': Object.freeze([{ at: 3.0, pause: 1.0 }]),
+  'ANCHORING-IMAGINATION-05-c.mp3': Object.freeze([{ at: 2.19, pause: 1.1 }]),
+  'ANCHORING-IMAGINATION-06-a.mp3': Object.freeze([{ at: 1.47, pause: 4.17 }, { at: 6.56, pause: 1.27 }, { at: 13.89, pause: 2.52 }, { at: 18.24, pause: 3.05 }]),
+  'ANCHORING-IMAGINATION-06-b.mp3': Object.freeze([{ at: 1.16, pause: 0.91 }]),
+  'ANCHORING-IMAGINATION-06-c.mp3': Object.freeze([{ at: 1.9, pause: 1.04 }, { at: 3.78, pause: 2.18 }, { at: 7.01, pause: 2.69 }]),
+  'ANCHORING-IMAGINATION-07-a.mp3': Object.freeze([{ at: 6.28, pause: 1.99 }]),
+  'ANCHORING-IMAGINATION-07-b.mp3': Object.freeze([{ at: 3.85, pause: 1.8 }]),
+  'ANCHORING-IMAGINATION-07-d.mp3': Object.freeze([{ at: 3.1, pause: 0.23 }]),
+  'ANCHORING-IMAGINATION-08-a.mp3': Object.freeze([{ at: 3.93, pause: 1.97 }]),
+  'ANCHORING-IMAGINATION-08-b.mp3': Object.freeze([{ at: 2.84, pause: 1.7 }]),
+  'ANCHORING-IMAGINATION-08-c.mp3': Object.freeze([{ at: 2.63, pause: 1.37 }, { at: 7.69, pause: 2.54 }]),
+  'ANCHORING-IMAGINATION-09-b.mp3': Object.freeze([{ at: 3.8, pause: 2.61 }, { at: 11.51, pause: 4.24 }]),
+  'ANCHORING-IMAGINATION-09-c.mp3': Object.freeze([{ at: 1.53, pause: 0.87 }]),
+  'ANCHORING-IMAGINATION-09-d.mp3': Object.freeze([{ at: 8.18, pause: 1.69 }]),
+  'ANCHORING-IMAGINATION-09-e.mp3': Object.freeze([{ at: 0.99, pause: 0.54 }]),
+  'ANCHORING-MOVEMENT-08-a.mp3': Object.freeze([{ at: 4.1, pause: 1.26 }]),
+  'ANCHORING-MOVEMENT-08-b.mp3': Object.freeze([{ at: 3.47, pause: 1.03 }]),
+  'ANCHORING-MOVEMENT-08-c.mp3': Object.freeze([{ at: 2.94, pause: 0.89 }, { at: 7.18, pause: 1.37 }]),
+  'ANCHORING-MOVEMENT-10-a.mp3': Object.freeze([{ at: 2.96, pause: 2.12 }, { at: 6.16, pause: 1.76 }, { at: 11.5, pause: 2.38 }]),
+  'ANCHORING-MOVEMENT-10-b.mp3': Object.freeze([{ at: 2.12, pause: 0.99 }, { at: 4.33, pause: 0.82 }, { at: 9.95, pause: 1.43 }]),
+  'ANCHORING-MOVEMENT-10-c.mp3': Object.freeze([{ at: 1.76, pause: 1.07 }, { at: 4.04, pause: 0.88 }, { at: 9.21, pause: 2.43 }]),
+  'ANCHORING-MOVEMENT-10-d.mp3': Object.freeze([{ at: 4.18, pause: 1.77 }, { at: 10.58, pause: 0.22 }]),
+  'ANCHORING-SHARED-01-BREATH-a.mp3': Object.freeze([{ at: 3.93, pause: 1.63 }, { at: 7.94, pause: 1.59 }, { at: 11.22, pause: 1.97 }, { at: 15.01, pause: 1.75 }]),
+  'ANCHORING-SHARED-01-BREATH-b.mp3': Object.freeze([{ at: 2.95, pause: 2.13 }, { at: 15.42, pause: 3.13 }, { at: 22.0, pause: 3.45 }]),
+  'ANCHORING-SHARED-01-BREATH-c.mp3': Object.freeze([{ at: 11.35, pause: 1.72 }, { at: 13.95, pause: 1.81 }]),
+  'ANCHORING-SHARED-01-BREATH-d.mp3': Object.freeze([{ at: 5.57, pause: 1.89 }, { at: 9.13, pause: 2.47 }, { at: 12.67, pause: 1.9 }, { at: 15.92, pause: 1.79 }]),
+  'ANCHORING-SHARED-02-POSTURE-a.mp3': Object.freeze([{ at: 3.7, pause: 1.52 }, { at: 6.93, pause: 1.7 }]),
+  'ANCHORING-SHARED-02-POSTURE-b.mp3': Object.freeze([{ at: 4.76, pause: 1.85 }, { at: 8.59, pause: 2.04 }]),
+  'ANCHORING-SHARED-02-POSTURE-d.mp3': Object.freeze([{ at: 4.01, pause: 1.73 }, { at: 8.58, pause: 2.0 }]),
+  'ANCHORING-SHARED-03-SMILE-a.mp3': Object.freeze([{ at: 4.25, pause: 1.66 }]),
+  'ANCHORING-SHARED-03-SMILE-b.mp3': Object.freeze([{ at: 4.43, pause: 1.37 }]),
+  'ANCHORING-SHARED-03-SMILE-c.mp3': Object.freeze([{ at: 3.55, pause: 1.95 }]),
+  'ANCHORING-SHARED-03-SMILE-e.mp3': Object.freeze([{ at: 6.36, pause: 2.01 }]),
+  'ANCHORING-SHARED-04-CONNECT-a.mp3': Object.freeze([{ at: 4.66, pause: 3.24 }]),
+  'ANCHORING-SHARED-04-CONNECT-b.mp3': Object.freeze([{ at: 3.99, pause: 1.91 }, { at: 7.49, pause: 3.26 }]),
+  'ANCHORING-SHARED-04-CONNECT-c.mp3': Object.freeze([{ at: 4.58, pause: 2.07 }, { at: 8.42, pause: 3.0 }]),
+  'ANCHORING-SHARED-04-CONNECT-d.mp3': Object.freeze([{ at: 5.27, pause: 3.17 }]),
+  'ANCHORING-SIGHT-02-a.mp3': Object.freeze([{ at: 6.13, pause: 0.91 }, { at: 13.74, pause: 2.36 }, { at: 18.64, pause: 1.77 }]),
+  'ANCHORING-SIGHT-02-b.mp3': Object.freeze([{ at: 7.99, pause: 1.15 }]),
+  'ANCHORING-SIGHT-02-c.mp3': Object.freeze([{ at: 2.15, pause: 1.84 }]),
+  'ANCHORING-SIGHT-02-d.mp3': Object.freeze([{ at: 3.22, pause: 0.75 }, { at: 10.51, pause: 1.21 }]),
+  'ANCHORING-SIGHT-03-a.mp3': Object.freeze([{ at: 14.95, pause: 3.13 }]),
+  'ANCHORING-SIGHT-03-b.mp3': Object.freeze([{ at: 9.14, pause: 2.71 }]),
+  'ANCHORING-SIGHT-03-c.mp3': Object.freeze([{ at: 5.64, pause: 2.84 }]),
+  'ANCHORING-SIGHT-03-d.mp3': Object.freeze([{ at: 7.09, pause: 0.24 }, { at: 11.22, pause: 4.1 }, { at: 20.19, pause: 4.39 }]),
+  'ANCHORING-SIGHT-04-a.mp3': Object.freeze([{ at: 3.85, pause: 1.31 }]),
+  'ANCHORING-SIGHT-04-b.mp3': Object.freeze([{ at: 4.71, pause: 1.79 }]),
+  'ANCHORING-SIGHT-04-c.mp3': Object.freeze([{ at: 2.99, pause: 4.24 }, { at: 10.28, pause: 1.31 }]),
+  'ANCHORING-SOUND-01-d.mp3': Object.freeze([{ at: 1.57, pause: 0.4 }]),
+  'ANCHORING-SOUND-02-b.mp3': Object.freeze([{ at: 2.65, pause: 1.86 }]),
+  'ANCHORING-SOUND-02-d.mp3': Object.freeze([{ at: 2.44, pause: 3.59 }]),
+  'ANCHORING-SOUND-03-a.mp3': Object.freeze([{ at: 7.44, pause: 1.42 }, { at: 12.12, pause: 3.2 }, { at: 16.63, pause: 2.3 }]),
+  'ANCHORING-SOUND-03-b.mp3': Object.freeze([{ at: 2.18, pause: 1.81 }]),
+  'ANCHORING-SOUND-03-d.mp3': Object.freeze([{ at: 4.52, pause: 1.31 }]),
+  'ANCHORING-SOUND-04-d.mp3': Object.freeze([{ at: 2.38, pause: 0.97 }]),
+  'ANCHORING-SOUND-05-a.mp3': Object.freeze([{ at: 2.26, pause: 1.53 }]),
+  'ANCHORING-SOUND-05-b.mp3': Object.freeze([{ at: 3.52, pause: 2.89 }]),
+  'ANCHORING-SOUND-06-a.mp3': Object.freeze([{ at: 12.17, pause: 3.3 }]),
+  'ANCHORING-SOUND-06-b.mp3': Object.freeze([{ at: 6.3, pause: 2.59 }, { at: 11.75, pause: 3.14 }]),
+  'ANCHORING-SOUND-06-c.mp3': Object.freeze([{ at: 7.89, pause: 2.3 }]),
+  'ANCHORING-SOUND-06-d.mp3': Object.freeze([{ at: 3.8, pause: 3.45 }, { at: 15.2, pause: 2.24 }, { at: 18.69, pause: 1.14 }, { at: 24.08, pause: 1.45 }]),
+  'ANCHORING-SOUND-07-a.mp3': Object.freeze([{ at: 4.7, pause: 1.51 }]),
+  'ANCHORING-SOUND-07-b.mp3': Object.freeze([{ at: 3.74, pause: 1.25 }]),
+  'ANCHORING-SOUND-07-c.mp3': Object.freeze([{ at: 3.33, pause: 1.39 }, { at: 8.17, pause: 0.79 }]),
+  'ANCHORING-TOUCH-03-a.mp3': Object.freeze([{ at: 3.44, pause: 2.04 }]),
+  'ANCHORING-TOUCH-03-c.mp3': Object.freeze([{ at: 2.41, pause: 1.81 }]),
+  'ANCHORING-TOUCH-03-d.mp3': Object.freeze([{ at: 6.06, pause: 0.99 }]),
+  'ANCHORING-TOUCH-04-a.mp3': Object.freeze([{ at: 3.35, pause: 2.97 }, { at: 16.28, pause: 2.62 }]),
+  'ANCHORING-TOUCH-04-b.mp3': Object.freeze([{ at: 2.45, pause: 0.74 }]),
+  'ANCHORING-TOUCH-04-d.mp3': Object.freeze([{ at: 5.93, pause: 1.24 }, { at: 9.06, pause: 1.97 }, { at: 15.49, pause: 1.4 }]),
+  'BODY-GENERAL-DEFENSE-a.mp3': Object.freeze([{ at: 4.55, pause: 1.16 }, { at: 8.59, pause: 1.71 }]),
+  'BODY-GENERAL-DEFENSE-b.mp3': Object.freeze([{ at: 4.18, pause: 0.95 }, { at: 7.27, pause: 1.77 }]),
+  'BODY-GENERAL-DEFENSE-c.mp3': Object.freeze([{ at: 3.16, pause: 1.86 }, { at: 7.16, pause: 1.76 }]),
+  'BODY-GENERAL-DEFENSE-d.mp3': Object.freeze([{ at: 3.97, pause: 1.04 }, { at: 7.12, pause: 1.11 }]),
+  'BODY-GENERAL-SAFETY-a.mp3': Object.freeze([{ at: 8.36, pause: 1.97 }, { at: 12.43, pause: 1.74 }]),
+  'BODY-GENERAL-SAFETY-b.mp3': Object.freeze([{ at: 2.7, pause: 1.25 }, { at: 5.81, pause: 1.31 }, { at: 9.46, pause: 1.59 }]),
+  'BODY-GENERAL-SAFETY-c.mp3': Object.freeze([{ at: 7.38, pause: 1.45 }, { at: 14.06, pause: 1.15 }, { at: 16.83, pause: 1.35 }]),
+  'BODY-SPECIFIC-DEFENSE-a.mp3': Object.freeze([{ at: 4.32, pause: 1.37 }, { at: 13.44, pause: 2.76 }]),
+  'BODY-SPECIFIC-DEFENSE-b.mp3': Object.freeze([{ at: 4.62, pause: 1.07 }]),
+  'BODY-SPECIFIC-DEFENSE-c.mp3': Object.freeze([{ at: 1.6, pause: 0.7 }, { at: 5.82, pause: 1.23 }]),
+  'BODY-SPECIFIC-DEFENSE-d.mp3': Object.freeze([{ at: 5.73, pause: 1.42 }, { at: 11.22, pause: 2.5 }]),
+  'BODY-SPECIFIC-SAFETY-a.mp3': Object.freeze([{ at: 4.4, pause: 1.38 }, { at: 13.76, pause: 1.74 }]),
+  'BODY-SPECIFIC-SAFETY-b.mp3': Object.freeze([{ at: 11.13, pause: 2.38 }, { at: 19.52, pause: 2.29 }]),
+  'BODY-SPECIFIC-SAFETY-c.mp3': Object.freeze([{ at: 2.15, pause: 0.78 }, { at: 6.1, pause: 0.9 }]),
+  'BODY-SPECIFIC-SAFETY-d.mp3': Object.freeze([{ at: 4.71, pause: 3.51 }]),
+  'BODY-SPECIFIC-SAFETY-e.mp3': Object.freeze([{ at: 14.58, pause: 2.06 }]),
+  'BODY-SPECIFIC-SAFETY-f.mp3': Object.freeze([{ at: 7.14, pause: 1.6 }]),
+  'BREATH-CHECK-a.mp3': Object.freeze([{ at: 8.28, pause: 2.71 }, { at: 12.41, pause: 2.43 }]),
+  'BREATH-CHECK-c.mp3': Object.freeze([{ at: 8.12, pause: 1.02 }, { at: 11.14, pause: 1.14 }, { at: 13.78, pause: 1.52 }]),
+  'CLOSE-02-b.mp3': Object.freeze([{ at: 12.33, pause: 3.01 }]),
+  'CLOSE-02-c.mp3': Object.freeze([{ at: 1.17, pause: 1.48 }, { at: 3.44, pause: 2.5 }]),
+  'CLOSE-02-d.mp3': Object.freeze([{ at: 4.89, pause: 2.32 }]),
+  'DESC-DEFENSE-01-a.mp3': Object.freeze([{ at: 3.02, pause: 1.16 }, { at: 4.78, pause: 1.98 }]),
+  'DESC-DEFENSE-01-b.mp3': Object.freeze([{ at: 5.55, pause: 1.56 }, { at: 9.67, pause: 1.29 }]),
+  'DESC-DEFENSE-02-a.mp3': Object.freeze([{ at: 1.68, pause: 1.91 }]),
+  'DESC-DEFENSE-04-a.mp3': Object.freeze([{ at: 1.27, pause: 0.97 }]),
+  'DESC-DEFENSE-04-b.mp3': Object.freeze([{ at: 3.11, pause: 1.48 }]),
+  'DESC-DEFENSE-05-a.mp3': Object.freeze([{ at: 2.3, pause: 1.33 }]),
+  'DESC-DEFENSE-05-b.mp3': Object.freeze([{ at: 1.27, pause: 1.18 }]),
+  'DESC-DEFENSE-PLAIN-02-a.mp3': Object.freeze([{ at: 0.82, pause: 0.34 }]),
+  'DESC-DEFENSE-PLAIN-02-b.mp3': Object.freeze([{ at: 1.17, pause: 0.83 }]),
+  'DESC-SAFETY-01-a.mp3': Object.freeze([{ at: 2.09, pause: 1.28 }, { at: 5.27, pause: 1.35 }]),
+  'DESC-SAFETY-02-a.mp3': Object.freeze([{ at: 1.15, pause: 1.07 }]),
+  'DESC-SAFETY-02-b.mp3': Object.freeze([{ at: 1.16, pause: 0.83 }]),
+  'DESC-SAFETY-03-a.mp3': Object.freeze([{ at: 1.28, pause: 0.75 }]),
+  'DESC-SAFETY-04-a.mp3': Object.freeze([{ at: 1.21, pause: 1.18 }]),
+  'DESC-SAFETY-04-b.mp3': Object.freeze([{ at: 1.83, pause: 1.08 }]),
+  'DESC-SAFETY-05-a.mp3': Object.freeze([{ at: 2.19, pause: 1.11 }]),
+  'DESC-SAFETY-PLAIN-01-b.mp3': Object.freeze([{ at: 3.86, pause: 0.9 }]),
+  'DESC-SAFETY-PLAIN-02-a.mp3': Object.freeze([{ at: 0.99, pause: 1.06 }]),
+  'HOLD-WATCH-a.mp3': Object.freeze([{ at: 11.5, pause: 1.52 }]),
+  'HOLD-WATCH-b.mp3': Object.freeze([{ at: 15.0, pause: 1.13 }]),
+  'HOLD-WATCH-c.mp3': Object.freeze([{ at: 10.99, pause: 1.03 }]),
+  'IMG-01-a.mp3': Object.freeze([{ at: 1.29, pause: 0.9 }]),
+  'IMG-01-b.mp3': Object.freeze([{ at: 2.7, pause: 1.69 }]),
+  'IMG-01-c.mp3': Object.freeze([{ at: 1.73, pause: 1.11 }]),
+  'IMG-01-e.mp3': Object.freeze([{ at: 3.65, pause: 1.98 }]),
+  'IMG-02-a.mp3': Object.freeze([{ at: 2.9, pause: 1.17 }, { at: 7.19, pause: 1.64 }]),
+  'IMG-02-b.mp3': Object.freeze([{ at: 1.12, pause: 0.93 }]),
+  'IMG-02-c.mp3': Object.freeze([{ at: 1.21, pause: 0.91 }, { at: 4.13, pause: 1.38 }, { at: 6.57, pause: 2.38 }]),
+  'IMG-02-d.mp3': Object.freeze([{ at: 2.32, pause: 1.55 }]),
+  'IMG-03-a.mp3': Object.freeze([{ at: 1.02, pause: 0.7 }, { at: 3.56, pause: 2.07 }, { at: 7.24, pause: 1.31 }]),
+  'IMG-03-b.mp3': Object.freeze([{ at: 2.94, pause: 1.18 }]),
+  'IMG-03-c.mp3': Object.freeze([{ at: 1.33, pause: 0.91 }]),
+  'MIND-02-a.mp3': Object.freeze([{ at: 28.38, pause: 2.81 }, { at: 34.02, pause: 2.46 }]),
+  'MIND-02-b.mp3': Object.freeze([{ at: 26.62, pause: 5.12 }, { at: 33.16, pause: 3.42 }]),
+  'MIND-02-c.mp3': Object.freeze([{ at: 17.18, pause: 2.43 }, { at: 22.55, pause: 2.84 }]),
+  'MIND-02-d.mp3': Object.freeze([{ at: 2.33, pause: 1.41 }, { at: 6.39, pause: 1.38 }, { at: 15.1, pause: 1.97 }, { at: 26.71, pause: 2.49 }]),
+  'MIND-03-a.mp3': Object.freeze([{ at: 5.32, pause: 0.88 }, { at: 8.15, pause: 3.91 }, { at: 15.25, pause: 3.24 }, { at: 21.69, pause: 2.15 }, { at: 30.94, pause: 5.25 }, { at: 38.93, pause: 11.3 }, { at: 53.23, pause: 1.88 }, { at: 57.25, pause: 2.21 }, { at: 62.14, pause: 1.9 }]),
+  'MIND-03-b.mp3': Object.freeze([{ at: 1.67, pause: 0.67 }, { at: 5.42, pause: 4.96 }, { at: 12.44, pause: 5.85 }, { at: 19.59, pause: 3.54 }]),
+  'MIND-03-c.mp3': Object.freeze([{ at: 1.14, pause: 2.55 }, { at: 6.75, pause: 5.72 }, { at: 22.34, pause: 4.42 }]),
+  'MIND-03-d.mp3': Object.freeze([{ at: 2.92, pause: 3.09 }, { at: 7.46, pause: 2.21 }, { at: 12.52, pause: 3.68 }]),
+  'MIND-03-e.mp3': Object.freeze([{ at: 1.54, pause: 4.08 }, { at: 6.48, pause: 1.2 }, { at: 10.83, pause: 3.34 }, { at: 16.53, pause: 2.94 }]),
+  'MIND-04-a.mp3': Object.freeze([{ at: 9.88, pause: 1.09 }, { at: 16.86, pause: 3.3 }, { at: 23.97, pause: 4.1 }, { at: 35.08, pause: 3.39 }, { at: 40.29, pause: 3.87 }]),
+  'MIND-04-b.mp3': Object.freeze([{ at: 1.5, pause: 2.01 }, { at: 6.13, pause: 1.99 }, { at: 10.33, pause: 5.14 }, { at: 20.58, pause: 3.31 }, { at: 25.33, pause: 1.77 }, { at: 30.27, pause: 1.2 }, { at: 33.34, pause: 4.76 }, { at: 39.2, pause: 0.65 }, { at: 41.17, pause: 6.12 }]),
+  'MIND-04-c.mp3': Object.freeze([{ at: 1.42, pause: 0.4 }, { at: 10.02, pause: 3.84 }]),
+  'MIND-04-d.mp3': Object.freeze([{ at: 4.34, pause: 4.89 }, { at: 12.1, pause: 2.45 }, { at: 16.89, pause: 1.23 }, { at: 20.59, pause: 5.44 }, { at: 27.01, pause: 0.44 }, { at: 28.36, pause: 3.44 }, { at: 34.39, pause: 3.35 }]),
+  'MIND-05-a.mp3': Object.freeze([{ at: 1.48, pause: 0.99 }, { at: 24.91, pause: 6.55 }, { at: 32.89, pause: 3.0 }]),
+  'MIND-05-b.mp3': Object.freeze([{ at: 1.46, pause: 1.62 }, { at: 13.04, pause: 3.04 }]),
+  'MIND-05-c.mp3': Object.freeze([{ at: 8.54, pause: 2.0 }, { at: 19.55, pause: 2.26 }, { at: 34.93, pause: 3.04 }, { at: 39.08, pause: 0.23 }, { at: 42.07, pause: 2.85 }]),
+  'MIND-05-d.mp3': Object.freeze([{ at: 11.15, pause: 4.17 }, { at: 19.45, pause: 3.44 }, { at: 28.14, pause: 4.24 }, { at: 36.92, pause: 5.02 }]),
+  'MIND-06-d.mp3': Object.freeze([{ at: 2.71, pause: 0.66 }]),
+  'NORMALIZE-DEFENSE-c.mp3': Object.freeze([{ at: 8.45, pause: 0.5 }, { at: 15.05, pause: 1.07 }]),
+  'NORMALIZE-DEFENSE-e.mp3': Object.freeze([{ at: 2.96, pause: 0.7 }]),
+  'NORMALIZE-DEFENSE-f.mp3': Object.freeze([{ at: 4.64, pause: 1.23 }]),
+  'NORMALIZE-DEFENSE-g.mp3': Object.freeze([{ at: 4.16, pause: 1.41 }, { at: 12.13, pause: 0.99 }]),
+  'NORMALIZE-DEFENSE-h.mp3': Object.freeze([{ at: 7.22, pause: 0.95 }]),
+  'NORMALIZE-SAFETY-a.mp3': Object.freeze([{ at: 3.92, pause: 1.2 }]),
+  'NORMALIZE-SAFETY-b.mp3': Object.freeze([{ at: 3.59, pause: 0.58 }]),
+  'NORMALIZE-SAFETY-d.mp3': Object.freeze([{ at: 7.53, pause: 0.72 }]),
+  'OBST-01-c.mp3': Object.freeze([{ at: 10.11, pause: 0.79 }, { at: 12.11, pause: 1.01 }]),
+  'OBST-02-d.mp3': Object.freeze([{ at: 4.6, pause: 1.18 }]),
+  'OBST-03-b.mp3': Object.freeze([{ at: 6.55, pause: 0.91 }]),
+  'OBST-03-c.mp3': Object.freeze([{ at: 9.35, pause: 1.16 }]),
+  'OBST-03-d.mp3': Object.freeze([{ at: 10.48, pause: 1.3 }]),
+  'OBST-04-a.mp3': Object.freeze([{ at: 4.61, pause: 0.91 }]),
+  'OBST-04-b.mp3': Object.freeze([{ at: 3.58, pause: 1.23 }]),
+  'OBST-04-c.mp3': Object.freeze([{ at: 2.14, pause: 1.07 }]),
+  'OBST-05-a.mp3': Object.freeze([{ at: 3.52, pause: 1.2 }, { at: 6.97, pause: 1.51 }]),
+  'OBST-05-b.mp3': Object.freeze([{ at: 0.97, pause: 0.94 }]),
+  'OBST-05-c.mp3': Object.freeze([{ at: 1.2, pause: 1.23 }, { at: 5.03, pause: 1.45 }]),
+  'OBST-05-d.mp3': Object.freeze([{ at: 0.99, pause: 0.92 }, { at: 6.8, pause: 1.79 }]),
+  'OBST-06-a.mp3': Object.freeze([{ at: 1.0, pause: 0.79 }, { at: 4.07, pause: 1.8 }, { at: 7.02, pause: 1.48 }]),
+  'OBST-06-b.mp3': Object.freeze([{ at: 1.39, pause: 0.59 }]),
+  'OBST-06-c.mp3': Object.freeze([{ at: 1.3, pause: 1.02 }]),
+  'OBST-06-e.mp3': Object.freeze([{ at: 1.29, pause: 1.94 }, { at: 5.58, pause: 0.55 }]),
+  'VALIDATE-DEFENSE-a.mp3': Object.freeze([{ at: 4.54, pause: 0.97 }]),
+  'VALIDATE-DEFENSE-c.mp3': Object.freeze([{ at: 4.96, pause: 1.19 }]),
+  'VALIDATE-DEFENSE-e.mp3': Object.freeze([{ at: 2.85, pause: 0.73 }]),
+  'VALIDATE-DEFENSE-f.mp3': Object.freeze([{ at: 3.64, pause: 1.12 }]),
+  'VALIDATE-DEFENSE-g.mp3': Object.freeze([{ at: 4.19, pause: 1.03 }]),
+  'VALIDATE-DEFENSE-h.mp3': Object.freeze([{ at: 3.46, pause: 0.81 }]),
+  'VALIDATE-SAFETY-a.mp3': Object.freeze([{ at: 7.77, pause: 1.19 }]),
+  'VALIDATE-SAFETY-b.mp3': Object.freeze([{ at: 5.39, pause: 1.43 }, { at: 14.02, pause: 1.37 }]),
+  'VALIDATE-SAFETY-d.mp3': Object.freeze([{ at: 4.03, pause: 1.01 }, { at: 18.6, pause: 1.38 }]),
 });
 function holdsFor(file) { return Object.prototype.hasOwnProperty.call(CLIP_HOLDS, file) ? CLIP_HOLDS[file] : []; }
 function holdSeconds(silence) { return Math.max(2, (silence || 0) / 4); }
@@ -1263,7 +1455,22 @@ function fileFor(id, take) { return `${must(id)}-${take}.mp3`; }
  * (`fileFor`), for shuffled and pooled beats alike; a beat that PINS a withdrawn take is a load-time error there. */
 /* SAFETY-CHANGE-UP-c was out for a day (Justin, 2026-09-24: "'That came up! Very cool!' … needs to be 'Your safety
  * level came up.'"). Recording v2c replaced the file with "Your safety level came up. Very cool." — back in. */
-const TAKES_OUT = Object.freeze({ 'CLOSE-03': Object.freeze(['c']) });
+/* ✅ EIGHT MORE (Justin, 2026-09-24, an Obstacles → Pendulating listen: "Re-record … And if we have at least 3 or four in
+ * these audio groups already, we don't need to re-record."). Where three or more good takes remain, the flagged take just
+ * leaves the shuffle: MIND-05-d, ANCHORING-TOUCH-05-b, ANCHORING-SHARED-01-BREATH-b, OBST-01-d, CAP-CHECK-b, CLOSE-02-e.
+ * The two description questions have only two takes each, so their flagged take is out AND re-read is on the recording
+ * doc (§11): DESC-SAFETY-04-a, DESC-DEFENSE-01-b — the other take carries the line until then. */
+const TAKES_OUT = Object.freeze({
+  'CLOSE-03': Object.freeze(['c']),
+  'MIND-05': Object.freeze(['d']),
+  'ANCHORING-TOUCH-05': Object.freeze(['b']),
+  'ANCHORING-SHARED-01-BREATH': Object.freeze(['b']),
+  'OBST-01': Object.freeze(['d']),
+  'CAP-CHECK': Object.freeze(['b']),
+  'CLOSE-02': Object.freeze(['e']),
+  'DESC-SAFETY-04': Object.freeze(['a']),
+  'DESC-DEFENSE-01': Object.freeze(['b']),
+});
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 Object.keys(TAKES_OUT).forEach(id => {
   /* a family not in this table yet (the answer clips before the recording — answers.test.js PART A) has nothing to withdraw */
@@ -1295,7 +1502,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:a6f3a8a4ee3ba7f11aa42822361d04c7 */
+<script>/* @module plan.js md5:24ad99e82f7f60158b16850404303961 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1827,7 +2034,7 @@ function plan(cfg) {
     return beat;
   };
 
-  if (SHORT_PRACTICES.includes(cfg.practice)) return short(cfg, add, beats, branches);
+  if (SHORT_PRACTICES.includes(cfg.practice)) { const r = short(cfg, add, beats, branches); skippableIntro(r.beats); return r; }
 
   const anchor = D.ANCHOR[cfg.anchor];
   if (!anchor) throw new Error(`plan(): unknown anchor ${cfg.anchor}`);
@@ -2176,6 +2383,7 @@ function plan(cfg) {
   if (!readingBeforeInterest && (safety || isAnchoring)) add(D.SAFETY_READING, 'safety');
 
   closing(cfg, add, branches);
+  skippableIntro(beats);
   return {
     cfg,
     level: level.level,          // the SAFETY level; the defense side has no levels any more
@@ -2197,6 +2405,17 @@ function plan(cfg) {
 
 /* depth → the setup clip that announces it. The keys are the practice keys `data.practices()`
  * derives from SETUP-PRACTICE-* ids, so a rename in the script surfaces here at load. */
+/* ✅ "SKIP INTRO" ON EVERY PRACTICE (Justin, 2026-09-24, on an Obstacles → Pendulating practice: "we should have a
+ * 'Skip intro' button that skips to the heads-up that the practice does not end (if relevant). Otherwise, to the one
+ * intentional bigger breath."). Everything before that beat — the welcome, the anchor's setup, the practice's own
+ * setup clips, the first-practice intro — carries the skip, and the session's skip lands on the first beat that does
+ * not. The first-practice intro (E5.34) is the same button, now reaching a little further. */
+const SKIP_TO = Object.freeze([D.ROLE.setupModeOpen, D.ROLE.arriveBreath]);
+function skippableIntro(beats) {
+  const to = beats.findIndex(b => SKIP_TO.includes(b.id));
+  for (let i = 0; i < to; i++) beats[i].skippable = true;
+}
+
 const DEPTH_SETUP = Object.freeze({
   general:     'general-defense',
   specific:    'specific-defense',
@@ -4456,7 +4675,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:30b9f3ab3880f71262b8c769865863a0 */
+<script>/* @module session.js md5:1735a7f9698ac0d1328146dabb9d06e7 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4736,11 +4955,18 @@ class Session {
      * reading, which is what "as many rounds as wanted" means. */
     this._slotFor = new WeakMap();
     this._transportMoreSafety = false;
+    /* ✅ THE SILENCE SETTING IS LIVE (Justin, 2026-09-24, an open-ended Obstacles → Pendulating practice started at 12 s and
+     * turned down to 2 s: "The ending pieces had too much silence between them … more than the 2 seconds I had it set
+     * to"). The in-player stepper re-timed the beats already queued, but every beat the session added AFTER that — the
+     * close when "I'm done" was tapped, answer clips, transition lines, a hand-off, the anchor steps — still took the
+     * launch setting (12 s) from `plan.cfg`. The session now keeps its own copy of the config, the stepper writes to it
+     * through `setSilence`, and everything read from it later (including the runtime's pauses inside clips) is current. */
+    this.cfg = Object.assign({}, plan.cfg || {});
 
     this._primeOpenEnding();
 
     this.runtime = new R.Runtime({
-      plan: { beats: this.queue, cfg: plan.cfg, terminates: plan.terminates },
+      plan: { beats: this.queue, cfg: this.cfg, terminates: plan.terminates },
       device,
       onEvent: e => this._onRuntimeEvent(e),
     });
@@ -4764,6 +4990,23 @@ class Session {
   }
 
   get beat() { return this.queue[this.runtime.idx] || null; }
+
+  /* the current silence setting — what every beat added from here on is timed with */
+  get silence() { return this.cfg.silence; }
+
+  /* The player's silence stepper. Re-times every beat still to come, EXCEPT the open ending's breath prompts and the
+   * beat before the first of them: those gaps are the widening schedule (30 s, 90 s, …), not the silence setting. */
+  setSilence(seconds) {
+    if (!(seconds > 0)) return false;
+    this.cfg.silence = seconds;
+    for (let k = this.runtime.idx + 1; k < this.queue.length; k++) {
+      const b = this.queue[k], next = this.queue[k + 1];
+      if (b.loop || (next && next.loop)) continue;
+      b.gap = P.gapFor(b, seconds);
+    }
+    this.onEvent({ type: 'silence', seconds });
+    return true;
+  }
 
   _onRuntimeEvent(e) {
     if (e.type === 'beat') {
@@ -4988,7 +5231,7 @@ class Session {
     if (!D.TAP_REPLY || !D.TAP_REPLY[key] || !this._answersSpeak(q) || this.runtime.idx !== index) return null;
     const b = this._branchBeat(D.TAP_REPLY[key], q.phase);
     b.kind = P.KIND.reply;
-    b.gap = P.gapFor(b, this.plan.cfg.silence);
+    b.gap = P.gapFor(b, this.silence);
     b.response = index;
     this.queue.splice(index + 1, 0, b);
     this.onEvent({ type: 'tap-reply', control: this._controlKindFor(q), reply: key });
@@ -5263,10 +5506,10 @@ class Session {
      * by the comparison statement, but there is an awkward gap in between … think of them as really one
      * statement, so keep the silence to like 1 second"). Every answer clip but the last is a JOIN — the same
      * one-second kind as the two halves of a setup sentence, so the silence stepper keeps it at a second too. */
-    for (let i = 0; i < inserted.length - 1; i++) { inserted[i].kind = P.KIND.join; inserted[i].gap = P.gapFor(inserted[i], this.plan.cfg.silence); }
+    for (let i = 0; i < inserted.length - 1; i++) { inserted[i].kind = P.KIND.join; inserted[i].gap = P.gapFor(inserted[i], this.silence); }
     /* …and the last one leads on after two seconds (2026-09-24, KIND.reply in plan.js) */
-    if (inserted.length) { const last = inserted[inserted.length - 1]; last.kind = P.KIND.reply; last.gap = P.gapFor(last, this.plan.cfg.silence); }
-    if (r.offer && inserted.length) { inserted[0].choice = CONTROL.OFFER; inserted[0].gap = P.gapFor(inserted[0], this.plan.cfg.silence); }
+    if (inserted.length) { const last = inserted[inserted.length - 1]; last.kind = P.KIND.reply; last.gap = P.gapFor(last, this.silence); }
+    if (r.offer && inserted.length) { inserted[0].choice = CONTROL.OFFER; inserted[0].gap = P.gapFor(inserted[0], this.silence); }
     this.queue.splice(index + 1, n, ...inserted);
 
     if (r.offer) this._openOffer(scale, c.slot, value, index, index + inserted.length);
@@ -5370,7 +5613,7 @@ class Session {
      * continue with the practice." followed by the person's whole silence setting left it hanging. It is
      * the first half of what comes next, so it is a JOIN — one second, like the answer clips. */
     b.kind = P.KIND.join;
-    b.gap = P.gapFor(b, this.plan.cfg.silence);
+    b.gap = P.gapFor(b, this.silence);
     return b;
   }
 
@@ -5444,7 +5687,7 @@ class Session {
     if (record && record.choice === OFFER_OPTIONS.MORE_SAFETY) record.anchor = null;
     const ask = this._branchBeat(D.ANCHOR_CHOICE.ask, 'safety');
     ask.choice = CONTROL.ANCHOR;
-    ask.gap = P.gapFor(ask, this.plan.cfg.silence);
+    ask.gap = P.gapFor(ask, this.silence);
     const line = this.runtime.dev.random() < 0.5 ? this._transition('safety', 'safety') : null;
     ask.pool = (line ? ANCHOR_ASK_AFTER_LINE : ANCHOR_ASK_ALONE).slice();
     const ahead = behind ? null : this.queue.slice(this.runtime.idx + 1).filter(b => b.response == null);
@@ -5495,7 +5738,7 @@ class Session {
     if (ask.record) ask.record.anchor = sense;
     const lead = this._branchBeat(D.ANCHOR_CHOICE.after, 'safety');
     lead.kind = P.KIND.join;
-    lead.gap = P.gapFor(lead, this.plan.cfg.silence);
+    lead.gap = P.gapFor(lead, this.silence);
     this.queue.length = ask.index + 1;
     [lead].concat(this._anchorRoute(sense)).forEach(b => this.queue.push(b));
     this.onEvent({ type: 'anchor-choice', anchor: sense });
@@ -5517,9 +5760,9 @@ class Session {
    * the same thing twice. */
   _handOff(to, from) {
     if (this.handedOffTo || this.easedOutFrom) return false;
-    const tail = P.handoff(this.plan.cfg, to).beats.map(b => {
+    const tail = P.handoff(this.cfg, to).beats.map(b => {
       const x = Object.assign({}, b, { planIndex: null });
-      x.gap = P.gapFor(x, this.plan.cfg.silence);
+      x.gap = P.gapFor(x, this.silence);
       return x;
     });
     const lead = this._transition('mindfulness', tail[0].phase);
@@ -5556,7 +5799,7 @@ class Session {
   _branchBeat(id, phase) {
     const b = { id: D.must(id), phase, kind: P.KIND.beat, planIndex: null };
     if (b.id === D.SAFETY_READING) b.choice = CONTROL.READING;   // the same four-second floor as in the plan
-    b.gap = P.gapFor(b, this.plan.cfg.silence);
+    b.gap = P.gapFor(b, this.silence);
     return b;
   }
 
@@ -5998,7 +6241,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:a7c31be6e9fbd762c7bfabf428c9c2be */
+<script>/* @module copy.js md5:98f02b61ceb3fa41cea7443ba9d1832c */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6197,7 +6440,7 @@ const UI = Object.freeze({
    * hand it over, and you will finish when you're ready" — so the words match the promise. It is
    * deliberately NOT worded like "Begin ease out": finishing well is not a retreat. */
   finishNow: 'I\'m done',
-  skipIntro: 'Skip the introduction',
+  skipIntro: 'Skip intro',   // Justin's words, 2026-09-24
   /* ✅ THE FOUR BUTTONS after a low safety answer (0–3) or a high non-safety answer (7–10). Justin's
    * words, 2026-09-22 — he kept "More time with safety", rewrote "Something simpler" → "Simple
    * mindfulness" and "Move your body" → "Ease out with movement", then added "continue" as the fourth
@@ -6226,7 +6469,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:d715870a56f741535b05ad7bfd535683 */
+<script>/* @module page.js md5:7d78e02c0da806d2c60ad58035ecf4aa */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -6962,9 +7205,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     showSilence();
     /* E4.25 — the gap belongs to the practice that owns the beat, not to a module-global.
      * Changing it mid-practice rewrites the beats that have not played yet, and nothing else. */
-    if (session) {
-      session.queue.forEach((b, k) => { if (k > session.runtime.idx) b.gap = P.gapFor(b, cfg.silence); });
-    }
+    if (session) session.setSilence(cfg.silence);
   }
 
   // ── wiring ────────────────────────────────────────────────────────────────────────────
