@@ -402,7 +402,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               078cf188f553f998248d06e118c12fee    24669 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          c897655b5d3d8f12c8c5d58ed59c00cc     5790 bytes
-     data.js                7a189b0b30dee1d84eccf3c0b8b3ab1a    25098 bytes
+     data.js                8635dd70d3c79d55569f4698cfcc00cc    25577 bytes
      plan.js                4aef9535459fef963ac622b839717ff5    82288 bytes
      runtime.js             c4edc16649fd3b369c585716dcf8a7d3    31076 bytes
      host.js                b2394153ba91858d05c471664b7bb84a    37612 bytes
@@ -774,7 +774,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:7a189b0b30dee1d84eccf3c0b8b3ab1a */
+<script>/* @module data.js md5:8635dd70d3c79d55569f4698cfcc00cc */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -841,7 +841,12 @@ function clipUrl(base, file) {
  * this table. A trim here for a file that has already been replaced would cut it twice. */
 const TAKE_TRIMS = Object.freeze({
   'MIND-03-e.mp3':            { start: 5.33, caption: ['Which sounds stay? ', ''] },
-  'SETUP-ANCHOR-TOUCH-a.mp3': { end: 5.35,   caption: [', so grab it now before we start.', '.'] },
+  /* 2026-09-24 (Justin, listening on beta): "Anything within reach is fine. So-" — the cut was at 5.35 s, inside
+   * the pause, but an end trim is checked on `timeupdate`, which a browser fires only every ~250 ms, so playback
+   * ran on into "so" (it starts at 5.48 s). "fine" has died away by 5.10 s (the pause is 5.06–5.48 s, measured on
+   * the live file), so the cut is there: even a late check stops before "so". Keep an end trim ≥ 0.3 s ahead of
+   * the next word. */
+  'SETUP-ANCHOR-TOUCH-a.mp3': { end: 5.10,   caption: [', so grab it now before we start.', '.'] },
   /* OUTRO-a's trim (it read the sign-off twice) came out 2026-09-23: recording v2b replaces the file with a
    * single read, and a trim left behind would cut the new take. */
   /* 2026-09-17 (Justin): the slice glued the second take of the non-safety half-opener ("This is a
