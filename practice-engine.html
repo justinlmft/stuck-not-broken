@@ -409,7 +409,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             1735a7f9698ac0d1328146dabb9d06e7    69725 bytes
+     session.js             40e02cf22e3f8cb07a4ea8ef68f88992    69939 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                98f02b61ceb3fa41cea7443ba9d1832c    13114 bytes
      page.js                7d78e02c0da806d2c60ad58035ecf4aa    43568 bytes
@@ -4675,7 +4675,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:1735a7f9698ac0d1328146dabb9d06e7 */
+<script>/* @module session.js md5:40e02cf22e3f8cb07a4ea8ef68f88992 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4803,9 +4803,11 @@ const OPTIONS = Object.freeze({
  *   SAFETY (0–3 low · 4–7 middle · 8–10 high)
  *   • Low, at ANY reading, first included → the buttons. The clip is DROP-LOW when the answer before
  *     it was above low ("a drop is normal, but a drop into low is a trigger"), otherwise READ-LOW.
- *   • Middle or high → a band clip, except at the first reading ("a baseline taken before the practice
- *     has done anything"). At the LAST reading, change talk follows it — up / same / down against the
- *     first answer — held to the end "so nothing the app says about a trend can shape the next answer".
+ *   • Middle or high → a band clip at EVERY reading, the first included (Justin, 2026-09-25: "If someone is
+ *     interacting, they should get a verbal and immediate response." Until then the first number got nothing
+ *     unless it was low — "a baseline taken before the practice has done anything"). At the LAST reading,
+ *     change talk follows it — up / same / down against the first answer — held to the end "so nothing the app
+ *     says about a trend can shape the next answer". `firstAsk` is still passed; nothing reads it now.
  *   INTENSITY (0–3 low · 4–6 middle · 7–10 high — the scale runs the other way)
  *   • High, at any ask → the buttons. ROSE-HIGH when the answer before it was 6 or lower, otherwise
  *     HIGH. Never both (ruling 7).
@@ -4819,7 +4821,7 @@ function responseFor(scale, { value, previous = null, first = null, firstAsk = f
     if (value <= D.SAFETY_LOW_MAX) {
       return { families: [previous != null && previous > D.SAFETY_LOW_MAX ? 'safetyDropLow' : 'safetyLow'], offer: true };
     }
-    const band = firstAsk ? [] : [value >= D.SAFETY_HIGH_MIN ? 'safetyHigh' : 'safetyMid'];
+    const band = [value >= D.SAFETY_HIGH_MIN ? 'safetyHigh' : 'safetyMid'];
     return { families: band.concat(last ? change('safetyUp', 'safetySame', 'safetyDown') : []), offer: false };
   }
   if (scale === CONTROL.INTENSITY) {
