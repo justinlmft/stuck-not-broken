@@ -402,9 +402,9 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               078cf188f553f998248d06e118c12fee    24669 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          c897655b5d3d8f12c8c5d58ed59c00cc     5790 bytes
-     data.js                f5dc9636f4a38da66163d21ecb78ac6c    26037 bytes
+     data.js                ead59c689483343daa2e1683d3975975    27555 bytes
      plan.js                4aef9535459fef963ac622b839717ff5    82288 bytes
-     runtime.js             ac4b49fadb89abf3306f4fbe30db7b24    33242 bytes
+     runtime.js             7c758e436fafb89e7b92295d61b0be30    33773 bytes
      host.js                b2394153ba91858d05c471664b7bb84a    37612 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
@@ -774,7 +774,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:f5dc9636f4a38da66163d21ecb78ac6c */
+<script>/* @module data.js md5:ead59c689483343daa2e1683d3975975 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1190,12 +1190,36 @@ function exists(id)  { return Object.prototype.hasOwnProperty.call(TABLE, id); }
 function allIds()    { return Object.keys(TABLE).sort(); }
 function fileFor(id, take) { return `${must(id)}-${take}.mp3`; }
 
+// ---------------------------------------------------------------------------
+// TAKES OUT OF ROTATION — recorded, on the server, never dealt
+// ---------------------------------------------------------------------------
+/* ✅ CLOSE-03-c (Justin, 2026-09-24: "yes take it out good catch"). It is not a take of its own: in the source
+ * recording (2:13:54) it is Justin re-reading just the END of the take before it — "Reconnect with it for a moment
+ * and give it a bit of appreciation…" — so played alone, "it" has nothing before it. The full read is CLOSE-03-e.
+ * The file stays in `clips-v2/`; the shuffle simply never deals it. The runtime reads this in ONE place
+ * (`fileFor`), for shuffled and pooled beats alike; a beat that PINS a withdrawn take is a load-time error there. */
+const TAKES_OUT = Object.freeze({ 'CLOSE-03': Object.freeze(['c']) });
+const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
+Object.keys(TAKES_OUT).forEach(id => {
+  const n = takes(id);
+  TAKES_OUT[id].forEach(t => {
+    const i = LETTERS.indexOf(t);
+    if (i < 0 || i >= n) throw new Error(`data.js: TAKES_OUT names ${id}-${t}, but ${id} has ${n} takes.`);
+  });
+  if (TAKES_OUT[id].length >= n) throw new Error(`data.js: TAKES_OUT takes every take of ${id} out — nothing left to play.`);
+});
+/* the takes of `id` the shuffle may deal, in letter order */
+function takesInRotation(id) {
+  const out = TAKES_OUT[must(id)] || [];
+  return LETTERS.slice(0, takes(id)).split('').filter(t => !out.includes(t));
+}
+
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
   BAND_FAMILIES, BAND, TRANSITION_FAMILIES, TRANSITION, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
-  must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices,
+  must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = API;
@@ -2486,7 +2510,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:ac4b49fadb89abf3306f4fbe30db7b24 */
+<script>/* @module runtime.js md5:7c758e436fafb89e7b92295d61b0be30 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -2779,21 +2803,28 @@ class Runtime {
       if (i < 0 || i >= n) {
         throw new Error(`runtime(): ${beat.id} has no take "${beat.take}" (it has ${n}).`);
       }
+      if (!D.takesInRotation(beat.id).includes(beat.take)) {
+        throw new Error(`runtime(): ${beat.id} pins take "${beat.take}", which is out of rotation (data.js TAKES_OUT).`);
+      }
       return D.fileFor(beat.id, beat.take);
     }
     /* A beat may restrict the shuffle to a POOL of takes (2026-09-05): INTEREST-01's take E is
      * written for the Interest Impulse practice alone and must never play inside a defense
      * practice, so those beats carry every take but E. Same shape as `take`, same one reader. */
+    /* a take taken out of rotation (data.js TAKES_OUT, 2026-09-24) is never dealt, pooled or not */
+    const inRotation = D.takesInRotation(beat.id);
     if (beat.pool) {
       const bad = beat.pool.find(t => TAKE_LETTERS.indexOf(t) < 0 || TAKE_LETTERS.indexOf(t) >= n);
       if (bad !== undefined || !beat.pool.length) {
         throw new Error(`runtime(): ${beat.id} has no take "${bad}" in its pool (it has ${n}).`);
       }
-      const j = Math.floor(this.dev.random() * beat.pool.length) % beat.pool.length;
-      return D.fileFor(beat.id, beat.pool[j]);
+      const pool = beat.pool.filter(t => inRotation.includes(t));
+      if (!pool.length) throw new Error(`runtime(): every take in ${beat.id}'s pool is out of rotation.`);
+      const j = Math.floor(this.dev.random() * pool.length) % pool.length;
+      return D.fileFor(beat.id, pool[j]);
     }
-    const i = Math.floor(this.dev.random() * n) % n;
-    return D.fileFor(beat.id, TAKE_LETTERS[i]);
+    const i = Math.floor(this.dev.random() * inRotation.length) % inRotation.length;
+    return D.fileFor(beat.id, inRotation[i]);
   }
 
   /* the reading this beat plays — dealt once, on first play, and kept for every replay */
