@@ -405,11 +405,11 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      data.js                a95311688e6cc4126b225fa19f42e855    52806 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
      runtime.js             f853b900fc9b27acd17847a40aad2450    39224 bytes
-     host.js                dfeea9d055ad66cab5baa4fa27659e15    37758 bytes
+     host.js                496de596708ff90b940e86d13b124e07    38238 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             f849fbca60108a218fe9baec329261e2    71391 bytes
+     session.js             828e628a928ad934e97fc3fbed3a5a2b    74938 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                98f02b61ceb3fa41cea7443ba9d1832c    13114 bytes
      page.js                7d78e02c0da806d2c60ad58035ecf4aa    43568 bytes
@@ -3700,7 +3700,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:dfeea9d055ad66cab5baa4fa27659e15 */
+<script>/* @module host.js md5:496de596708ff90b940e86d13b124e07 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -4258,6 +4258,12 @@ function completion({ plan, requested, run }) {
      * the practice held for it, how many seconds it held (`pausedSeconds`, null if it never did), and
      * what was tapped — null when nothing was. The app saves the list as it is (2026-09-23). */
     offers: Array.isArray(r.offers) ? r.offers.map(o => Object.assign({}, o)) : [],
+
+    // ── every detail (2026-09-25) ────────────────────────────────────────────────────────
+    /* `details`: the summary the app keeps with the session and the recommender reads. `timeline`: the whole record, every
+     * event with its second — the app saves it apart from the session row, cloud only. */
+    details: r.details && typeof r.details === 'object' ? JSON.parse(JSON.stringify(r.details)) : null,
+    timeline: Array.isArray(r.timeline) ? r.timeline.slice() : [],
   };
 
   return payload;
@@ -4681,7 +4687,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:f849fbca60108a218fe9baec329261e2 */
+<script>/* @module session.js md5:828e628a928ad934e97fc3fbed3a5a2b */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -4895,12 +4901,25 @@ const OFFER_FROM = Object.freeze({
   [CONTROL.CAPACITY_CHECK]: H.EASE_FROM.CAPACITY_CHECK,
 });
 
+/* the record's ceiling: a 40-minute open-ended practice raises well under 2,000 events; past this the rest are counted */
+const TIMELINE_MAX = 5000;
+
 class Session {
   constructor({ plan, device, onEvent } = {}) {
     if (!plan || !plan.beats) throw new Error('session(): a plan is required. Build one with plan.js.');
     this.plan = plan;
     this.dev = device;
-    this.onEvent = onEvent || (() => {});
+    /* ✅ EVERY DETAIL OF THE PRACTICE IS KEPT (Justin, 2026-09-25: "The app should remember every detail of a practice:
+     * seconds, anchoring path, 0-10 results, etc. EVERYTHING."). Every event the session or the player raises — each
+     * clip and the take that played, each pause and its length, each tap and when, the anchor picked, every silence
+     * change, the buttons — is written to `timeline` with the second it happened, before it goes to the page. The report
+     * carries the whole record (saved apart from the session row) and `details()`, its summary, which the recommender
+     * reads. */
+    const sink = onEvent || (() => {});
+    this.timeline = [];
+    this._timelineDropped = 0;
+    this._t0 = null;
+    this.onEvent = e => { this._record(e); sink(e); };
     /* E5.27's second-pass emphasis. A LETTER, not a word — the take to pin on a gate once the
      * listener has been round the block already, so "continue" stops reading as the default.
      * It arrives from `copy.js` through the page rather than being read here, because which
@@ -5897,8 +5916,59 @@ class Session {
 
   // ── what to tell the host ─────────────────────────────────────────────────────────────
 
+  /* one line of the record: the second since the practice's first event, the event, and its fields — never a function,
+   * never a whole object graph; a clip's address is kept as its file name (and the in-clip resume point, if any) */
+  _record(e) {
+    if (!e || typeof e !== 'object') return;
+    const now = (this.dev && typeof this.dev.now === 'function') ? this.dev.now() : Date.now();
+    if (this._t0 == null) this._t0 = now;
+    if (this.timeline.length >= TIMELINE_MAX) { this._timelineDropped += 1; return; }
+    const row = { s: Math.round((now - this._t0) / 100) / 10 };
+    Object.keys(e).forEach(k => {
+      const v = e[k];
+      if (typeof v === 'function' || v === undefined) return;
+      if (k === 'src' && typeof v === 'string') { row.file = v.split('/').pop(); return; }
+      if (v && typeof v === 'object') { try { row[k] = JSON.parse(JSON.stringify(v)); } catch (err) { /* not plain data: left out */ } return; }
+      row[k] = v;
+    });
+    this.timeline.push(row);
+  }
+
+  /* the summary of the record the app keeps with the session row and the recommender reads (the full record is saved
+   * apart, cloud only). Everything here is a plain fact about what happened — no score, no verdict. */
+  details() {
+    const tl = this.timeline;
+    const counts = {};
+    tl.forEach(r => { counts[r.type] = (counts[r.type] || 0) + 1; });
+    const of = type => tl.filter(r => r.type === type);
+    const cfg = this.plan.cfg || {};
+    const holds = of('clip-hold');
+    return {
+      v: 1,
+      seconds: tl.length ? tl[tl.length - 1].s : 0,
+      practice: cfg.practice || null,
+      anchor: cfg.anchor || cfg.sense || null,
+      silenceStart: typeof cfg.silence === 'number' ? cfg.silence : null,
+      silenceEnd: typeof this.cfg.silence === 'number' ? this.cfg.silence : null,
+      silenceChanges: of('silence').map(r => ({ s: r.s, to: r.seconds })),
+      anchorsChosen: of('anchor-choice').map(r => ({ s: r.s, anchor: r.anchor })),
+      safety: of('reading').map(r => ({ s: r.s, value: r.value, slot: r.slot })),
+      intensity: of('intensity').map(r => ({ s: r.s, value: r.value, slot: r.slot })),
+      answers: of('answered').map(r => ({ s: r.s, control: r.control, option: r.option })),
+      skippedIntro: of('answered').some(r => r.option === 'skip'),
+      clips: of('beat').map(r => r.file || r.id).filter(Boolean),
+      questionPauses: holds.length,
+      questionPauseSeconds: Math.round(holds.reduce((a, r) => a + (r.seconds || 0), 0) * 10) / 10,
+      rewinds: this.rewinds,
+      counts,
+      dropped: this._timelineDropped,
+    };
+  }
+
   run() {
     return {
+      timeline: this.timeline.slice(),
+      details: this.details(),
       completed: this.completed,
       minutes: this._startedAt == null ? null
         : Math.max(1, Math.round((this.dev.now() - this._startedAt) / 60000)),

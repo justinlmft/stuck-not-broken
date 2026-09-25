@@ -401,11 +401,11 @@
     (list||[]).forEach(s => { if(!s) return; s.practiceKey = _own(_LEGACY_PK, s.practiceKey); s.skill = _own(_LEGACY_SKILL, s.skill); });
     return list;
   }
-  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null), outcome:(r.outcome||null), easedOutFrom:(r.eased_out_from||null), reached:(r.reached||null), reachedDefense:(r.reached_defense==null?null:!!r.reached_defense), rewinds:(typeof r.rewinds==='number'?r.rewinds:null), beatsPlayed:(typeof r.beats_played==='number'?r.beats_played:null), prefix:(r.prefix||null), depth:(r.depth||null), offerKey:(r.offer_key||null), interestAnswer:(r.interest_answer||null), safetyReadings:(Array.isArray(r.safety_readings)?r.safety_readings:null), intensityReadings:(Array.isArray(r.intensity_readings)?r.intensity_readings:null), handedOffTo:(r.handed_off_to||null), handedOffFrom:(r.handed_off_from||null), offers:(Array.isArray(r.offers)?r.offers:null) });
+  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null), outcome:(r.outcome||null), easedOutFrom:(r.eased_out_from||null), reached:(r.reached||null), reachedDefense:(r.reached_defense==null?null:!!r.reached_defense), rewinds:(typeof r.rewinds==='number'?r.rewinds:null), beatsPlayed:(typeof r.beats_played==='number'?r.beats_played:null), prefix:(r.prefix||null), depth:(r.depth||null), offerKey:(r.offer_key||null), interestAnswer:(r.interest_answer||null), safetyReadings:(Array.isArray(r.safety_readings)?r.safety_readings:null), intensityReadings:(Array.isArray(r.intensity_readings)?r.intensity_readings:null), handedOffTo:(r.handed_off_to||null), handedOffFrom:(r.handed_off_from||null), offers:(Array.isArray(r.offers)?r.offers:null), details:(r.details&&typeof r.details==='object'?r.details:null) });
   // id is minted on the CLIENT (newSessionId) so a check-in can be tagged with the
   // session it belongs to before the session row has ever reached the cloud. Sending it
   // explicitly just overrides the table's gen_random_uuid() default.
-  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null), outcome:(s.outcome||null), eased_out_from:(s.easedOutFrom||null), reached:(s.reached||null), reached_defense:(s.reachedDefense==null?null:!!s.reachedDefense), rewinds:(typeof s.rewinds==='number'?s.rewinds:null), beats_played:(typeof s.beatsPlayed==='number'?s.beatsPlayed:null), prefix:(s.prefix||null), depth:(s.depth||null), offer_key:(s.offerKey||null), interest_answer:(s.interestAnswer||null), safety_readings:(Array.isArray(s.safetyReadings)?s.safetyReadings:null), intensity_readings:(Array.isArray(s.intensityReadings)?s.intensityReadings:null), handed_off_to:(s.handedOffTo||null), handed_off_from:(s.handedOffFrom||null), offers:(Array.isArray(s.offers)?s.offers:null) });
+  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null), outcome:(s.outcome||null), eased_out_from:(s.easedOutFrom||null), reached:(s.reached||null), reached_defense:(s.reachedDefense==null?null:!!s.reachedDefense), rewinds:(typeof s.rewinds==='number'?s.rewinds:null), beats_played:(typeof s.beatsPlayed==='number'?s.beatsPlayed:null), prefix:(s.prefix||null), depth:(s.depth||null), offer_key:(s.offerKey||null), interest_answer:(s.interestAnswer||null), safety_readings:(Array.isArray(s.safetyReadings)?s.safetyReadings:null), intensity_readings:(Array.isArray(s.intensityReadings)?s.intensityReadings:null), handed_off_to:(s.handedOffTo||null), handed_off_from:(s.handedOffFrom||null), offers:(Array.isArray(s.offers)?s.offers:null), details:(s.details&&typeof s.details==='object'?s.details:null) });
 
   // ---- lifecycle ----
   async function init(cb){
@@ -695,6 +695,20 @@
   }
 
   let flushing = false;
+  // the full practice records waiting to go up (see addSession). Kept apart from the cache; at most 12 held here, the
+  // oldest dropped first, so a long offline stretch can never fill this device's storage.
+  const _tlKey = () => 'snb_timelines_' + (auth.user ? auth.user.id : 'anon');
+  function _tlRead(){ try{ const a=JSON.parse(localStorage.getItem(_tlKey())); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function _tlWrite(a){ try{ localStorage.setItem(_tlKey(), JSON.stringify(a.slice(-12))); }catch(e){} }
+  function _tlQueue(item){ const a=_tlRead(); a.push(item); _tlWrite(a); }
+  async function _flushTimelines(){
+    const q=_tlRead(); if(!q.length) return true;
+    try{
+      const res = await sb.from('session_timelines').upsert(q.map(x=>Object.assign({ user_id:auth.user.id }, x)), { onConflict:'user_id,session_t' });
+      if(res && res.error){ return true; }   // never blocks the rest of the sync; tried again next time
+      _tlWrite([]); return true;
+    }catch(e){ return true; }
+  }
   async function flush(){
     if(_demoSeeded) return;
     if(!CLOUD || !auth.user) return;
@@ -709,6 +723,7 @@
       if(outbox.sessions.length) ok = await flushTable('sessions', outbox.sessions, sessionToRow);
       if(ok) ok = await _flushLinks();
       if(ok && outbox.checkins.length) ok = await flushTable('checkins', outbox.checkins, checkinToRow);
+      if(ok) await _flushTimelines();   // after its session row exists
     } finally {
       flushing = false;
     }
@@ -946,8 +961,13 @@
     // practice itself IS. A session with no level can't be used on the challenge axis at all.
     rec.challengeLevel = (typeof rec.challenge==='number') ? challengeLabel(rec.challenge) : rungForPractice(rec);
     rec.practiceLabel = practiceLabelFor(rec.practiceKey);
+    // 2026-09-25 (Justin: "remember every detail of a practice ... EVERYTHING"): the practice's full record, every event
+    // with its second, travels apart from the session row — its own table, cloud only — so the row and this device's
+    // cache stay light. The row keeps `details`, the record's summary, which the recommender reads.
+    const tl = Array.isArray(rec.timeline) ? rec.timeline : null;
+    delete rec.timeline;
     data.sessions.push(rec);
-    if(CLOUD && auth.user){ outbox.sessions.push(rec); setSync('syncing'); }
+    if(CLOUD && auth.user){ outbox.sessions.push(rec); setSync('syncing'); if(tl && tl.length) _tlQueue({ session_t:rec.t, session_id:rec.id, timeline:tl }); }
     saveCache(); if(CLOUD) flush();
   }
   function sessions(){ return data.sessions.slice(); }
@@ -1001,6 +1021,55 @@
     return true;
   }
 
+  // ---- what worked (Justin, 2026-09-25) --------------------------------------------------------------------------
+  // "a practice that works is one where safety at least held. an even better practice is one where safety goes up. and
+  // the best type of practices is one where safety goes up and defense drops." Read from the practice's own 0–10s:
+  // first safety answer vs last; first non-safety answer vs last. 1 = held · 2 = rose · 3 = rose and non-safety dropped ·
+  // 0 = safety came down. A practice with fewer than two safety answers falls back to how the person said it went
+  // afterwards (more connected = 2, about the same = 1, less / struggled / a too-hard exit = 0). Never shown to anyone
+  // as a number: it only steers which choices the recommendation leans toward.
+  function practiceGrade(s){
+    if(!s) return null;
+    const nums = a => (Array.isArray(a) ? a : []).filter(v => typeof v === 'number');
+    const sa = nums(s.safetyReadings), ia = nums(s.intensityReadings);
+    if(sa.length >= 2){
+      const first = sa[0], lastV = sa[sa.length-1];
+      if(lastV < first) return 0;
+      if(lastV === first) return 1;
+      return (ia.length >= 2 && ia[ia.length-1] < ia[0]) ? 3 : 2;
+    }
+    const af = s.afterFeeling || null, ex = _exitOf(s);
+    if(ex==='exit-hard' || af==='less' || af==='struggle') return 0;
+    if(af==='more') return 2;
+    if(af==='same') return 1;
+    return null;
+  }
+  // which choices went with this person's best practices: for each value of a dial (sense, silence, anchor picked
+  // mid-practice), the average grade over the practices that used it. A value needs 3 graded practices before it counts,
+  // and it must beat the value they use most by a clear margin (0.5) — so a lucky run or two never moves anything.
+  function whatWorked(){
+    const graded = data.sessions.map(s => ({ s, g: practiceGrade(s) })).filter(x => x.g != null);
+    const by = pick => { const m = {}; graded.forEach(x => { const v = pick(x.s); if(v == null) return; (m[v] = m[v] || []).push(x.g); }); return m; };
+    const best = (m, usual) => {
+      const avg = a => a.reduce((p,c)=>p+c,0) / a.length;
+      const ok = Object.keys(m).filter(k => m[k].length >= 3);
+      if(!ok.length) return null;
+      const top = ok.sort((a,b) => avg(m[b]) - avg(m[a]))[0];
+      const usualAvg = (usual != null && m[usual] && m[usual].length >= 3) ? avg(m[usual]) : null;
+      if(usual != null && String(top) !== String(usual) && usualAvg != null && avg(m[top]) - usualAvg < 0.5) return null;
+      return { value: top, n: m[top].length, avg: Math.round(avg(m[top]) * 10) / 10 };
+    };
+    const count = (arr,key)=>{const m={};arr.forEach(x=>{const k=x.s[key];if(k!=null)m[k]=(m[k]||0)+1;});return m;};
+    const most = m => Object.keys(m).sort((a,b)=>m[b]-m[a])[0] || null;
+    const anchorPicked = s => (s.details && Array.isArray(s.details.anchorsChosen) && s.details.anchorsChosen.length) ? s.details.anchorsChosen[s.details.anchorsChosen.length-1].anchor : null;
+    return {
+      graded: graded.length,
+      sense: best(by(s => s.sense || null), most(count(graded,'sense'))),
+      silence: best(by(s => (s.details && typeof s.details.silenceEnd === 'number') ? s.details.silenceEnd : (typeof s.silence === 'number' ? s.silence : null)), most(count(graded,'silence'))),
+      anchorPicked: best(by(anchorPicked), null),
+    };
+  }
+
   // ---- learned preferences ----
   function learned(){
     const done = data.sessions.filter(s=>s.completed);
@@ -1016,9 +1085,12 @@
     const lastExit = (lastS && lastS.endedEarly)
       ? (lastS.exitReason || ((/^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null))
       : null;
+    const W = whatWorked();
     return { favSense: top(count(done,'sense')), favSkill: top(count(done,'skill')), favPractice: top(count(done,'practiceKey')),
              sessionsDone: done.length, endsEarlyOften: earlyRate >= 0.4 && data.sessions.length >= 3,
-             lastExit };
+             lastExit,
+             // what has gone best for them (2026-09-25) — null until there is enough history to say
+             bestSense: W.sense ? W.sense.value : null, bestSilence: W.silence ? +W.silence.value : null, worked: W };
   }
 
   // ---- trend ----
@@ -1300,7 +1372,7 @@
     if(!s) return null;
     const af = s.afterFeeling || null, ex = _exitOf(s);
     if(ex==='exit-hard' || af==='struggle' || af==='less' || af==='unsure') return 'bad';
-    if(af==='more' || _movedUp(s)) return 'good';
+    if(af==='more' || _movedUp(s) || (practiceGrade(s)||0) >= 1) return 'good';   // safety held or better (2026-09-25)
     if(af==='same' || ex==='exit-enough' || ex==='exit-distracted' || ex==='exit-easy') return 'neutral';
     return null;
   }
@@ -1703,7 +1775,8 @@
     // after a gap whose most recent check-in predates the rework.
     const dom = _dm(last);
     const dys = _DYS[dom];
-    const sense = prefSense() || L.favSense || 'touch';
+    // the sense: their own setting first; else the one their best practices used; else the one they use most
+    const sense = prefSense() || L.bestSense || L.favSense || 'touch';
     const sil = L.endsEarlyOften ? 12 : 8;
     const falling = !!(tr && tr.dir==='falling');
 
@@ -1837,6 +1910,15 @@
     function cfg(practiceKey, skill, sense, silence, reason, tag, extras){
       const pSil = prefSilence();
       let sil2 = (pSil!=null?pSil:silence);
+      // what has worked for them (2026-09-25): the silence their best practices ran on, unless they set one themselves
+      // or this practice is deliberately gentler than usual. Said plainly in the reason, never as a number or a score.
+      const learnedSil = (pSil==null && L.bestSilence!=null && !(extras && (extras.dialDown || extras.droppedStep)) && L.lastExit!=='exit-distracted') ? L.bestSilence : null;
+      const silLearned = (learnedSil!=null && learnedSil!==sil2);
+      if(silLearned) sil2 = learnedSil;
+      const senseLearned = !prefSense() && L.bestSense && sense===L.bestSense && L.bestSense!==L.favSense && practiceKey!=='micro';
+      if(senseLearned && silLearned) reason += " we'll use " + L.bestSense + " and the amount of silence your best practices had.";
+      else if(senseLearned) reason += " we'll use " + L.bestSense + ", since your practices with it have gone well.";
+      else if(silLearned) reason += " the silence is set to what your best practices had.";
       if(L.lastExit==='exit-distracted'){ sil2 = Math.min(sil2, 4); reason += " shorter silences this time, so it's easier to stay with."; }
       else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedStep))){ reason += " last one was a lot, so we're keeping this one easier."; }
       else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
@@ -2107,7 +2189,7 @@
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
     isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
-    trackEvent, flushEvents, src, SRC_ALLOW,
+    trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked,
     liveFetch, livePoll,
   };
 })(window);

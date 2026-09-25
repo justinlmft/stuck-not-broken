@@ -7168,7 +7168,7 @@ function app(tab){
   // the engine's report, logged as it is sent: outcome, where an ease-out came from, the
   // furthest phase, whether the defense half was reached, rewinds, beats played, and the
   // prefix / depth / sequence key / Interest Impulse answer. Columns added 2026-09-19.
-  const ENGINE_REPORT = ['outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings','intensityReadings','handedOffTo','handedOffFrom','offers'];   // + the 0–10 answers, 2026-09-20; + intensity, 2026-09-21; + the four buttons (which was tapped, the number, how long it paused) and the switch into mindfulness, 2026-09-23
+  const ENGINE_REPORT = ['details','timeline','outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings','intensityReadings','handedOffTo','handedOffFrom','offers'];   // + the 0–10 answers, 2026-09-20; + intensity, 2026-09-21; + the four buttons (which was tapped, the number, how long it paused) and the switch into mindfulness, 2026-09-23
   function logSession(reco, completed, endedEarly, minutes){
     // Defense in depth: never log a self-regulation ('self-regulation') session for an
     // anonymous guest (the guest UI cannot produce one; refuse it regardless).
@@ -7206,7 +7206,9 @@ function app(tab){
       safetyReadings:(Array.isArray(reco.safetyReadings) ? reco.safetyReadings : null),
       intensityReadings:(Array.isArray(reco.intensityReadings) ? reco.intensityReadings : null),
       handedOffTo:(reco.handedOffTo||null), handedOffFrom:(reco.handedOffFrom||null),
-      offers:(Array.isArray(reco.offers) ? reco.offers : null) });
+      offers:(Array.isArray(reco.offers) ? reco.offers : null),
+      details:(reco.details && typeof reco.details==='object' ? reco.details : null),   // every detail (2026-09-25)
+      timeline:(Array.isArray(reco.timeline) ? reco.timeline : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
   // Early exit: an optional one-tap read on WHY — too hard, too easy, pulled away —
@@ -7298,14 +7300,45 @@ function app(tab){
   // marks the same size; bolt and x in the base ink colour, fading back; the heart in the safety colour, coming in on
   // its own; then the numbers, one at a time, left to right. Label "How safety changed". "Done" replaces
   // "Back to today" ("today" is never practice copy). Reduced motion lands on the end state.
+  function numRow(list, i0){
+    return list.map((v,i)=>(i ? `<span class="fbx-arrow fbx-in" style="--i:${i0+2*i-1}" aria-hidden="true">→</span>` : '')
+      + `<span class="fbx-num fbx-in" style="--i:${i0+2*i}">${v}</span>`).join(' ');
+  }
   function readingsCard(reco){
     const said=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number');
     if(!said.length) return '';
-    const parts = said.map((v,i)=>(i ? `<span class="fbx-arrow fbx-in" style="--i:${2*i-1}" aria-hidden="true">→</span>` : '')
-      + `<span class="fbx-num fbx-in" style="--i:${2*i}">${v}</span>`).join(' ');
     return `<div class="fbx-card">
           <p class="fbx-card-h">How safety changed</p>
-          <p class="fbx-nums" aria-label="Your safety along the way: ${said.join(', then ')}">${parts}</p>
+          <p class="fbx-nums" aria-label="Your safety along the way: ${said.join(', then ')}">${numRow(said, 0)}</p>
+        </div>`;
+  }
+  // ✅ THE NON-SAFETY CARD (Justin, 2026-09-25): whenever the practice asked for non-safety numbers. When it rose, a
+  // validating / normalizing line; held or eased, a line that says so. Always: "Remember to work within your capacity."
+  function intensityCard(reco){
+    const said=(reco && Array.isArray(reco.intensityReadings) ? reco.intensityReadings : []).filter(v=>typeof v==='number');
+    if(!said.length) return '';
+    const safetyN=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number').length;
+    const i0 = safetyN ? 2*safetyN : 0;
+    const LINES = {
+      up:   ["Non-safety came up more. That's normal when you turn toward it.",
+             "Non-safety rose some. Giving it attention tends to do that at first.",
+             "It got louder while you were with it. That's a normal part of turning toward it."],
+      same: ["Non-safety held about where it was. You stayed with it, and that counts."],
+      down: ["Non-safety eased off by the end. You stayed with it, and it settled some.",
+             "Non-safety came down a bit while you stayed with it."],
+    };
+    let line = '';
+    if(said.length >= 2){
+      const a=said[0], b=said[said.length-1];
+      const pool = b > a ? LINES.up : (b < a ? LINES.down : LINES.same);
+      line = pool[Math.floor(Math.random()*pool.length)];
+    }
+    const k = i0 + 2*said.length;
+    return `<div class="fbx-card fbx-card-2">
+          <p class="fbx-card-h">How non-safety changed</p>
+          <p class="fbx-nums" aria-label="Your non-safety along the way: ${said.join(', then ')}">${numRow(said, i0)}</p>
+          ${line ? `<p class="fbx-card-line fbx-in" style="--i:${k}">${line}</p>` : ''}
+          <p class="fbx-card-note fbx-in" style="--i:${k+1}">Remember to work within your capacity.</p>
         </div>`;
   }
   // the brand lockup itself (one svg, the logo's own spacing — Justin, 2026-09-25: "they are the brand's logo,
@@ -7325,7 +7358,27 @@ function app(tab){
       struggle:{ h:'Hard ones are still practice.',        s:"you're still here. you showed up. struggling with practices is very normal. come back to it when you're ready, but maybe focus on an easier skill. customize the next practice to your content." },
       unsure:  { h:'Not knowing is allowed.',             s:'You still showed up. Well done. Stay curious and open for the next one.' },
     };
-    const cl = CLOSE[val] || CLOSE.same;
+    const cl = Object.assign({}, CLOSE[val] || CLOSE.same);
+    // ✅ A LITTLE WHIMSY (Justin, 2026-09-25): "More connected" rotates through these, never the same one twice in a row
+    if(val==='more'){
+      const MORE = [
+        "that's worth a small pat on your nervous system's back.",
+        "Your nervous system would high-five you if it had hands.",
+        "Take a second to notice that. It counts.",
+        "Your body noticed. Now you did too.",
+        "That's the good stuff. Go ahead and enjoy it for a moment.",
+        "Not bad for a few minutes of paying attention.",
+        "Your nervous system says thanks. It's just not great at saying it out loud.",
+        "Look at you, connecting on purpose.",
+        'File that one under "things that went well."',
+        "Consider this your nervous system's thank-you note.",
+        "A little more connection than when you started. Not too shabby, is it?",
+      ];
+      let last = -1; try{ last = +(localStorage.getItem('snb_close_more')||-1); }catch(e){}
+      let i = Math.floor(Math.random()*MORE.length); if(i===last) i = (i+1) % MORE.length;
+      try{ localStorage.setItem('snb_close_more', String(i)); }catch(e){}
+      cl.s = MORE[i];
+    }
     const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
     setHTML(`
       <header class="appbar"></header>
@@ -7335,6 +7388,7 @@ function app(tab){
         <h1 class="fbx-h">${cl.h}</h1>
         <p class="fbx-lede">${cap(cl.s)}</p>
         ${readingsCard(reco)}
+        ${intensityCard(reco)}
         <div class="fbx-actions">
           <button class="btn block" id="fb-checkin">Check in now</button>
           <button class="btn block quiet" id="fb-home">Done</button>
