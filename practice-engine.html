@@ -330,6 +330,36 @@ body.playing .brand{display:none}
 @media (prefers-reduced-motion:reduce){.reading,.reading-dot{transition:none}}
 /* "about N min left" (2026-09-21) — the old player's style, above the control bar */
 .timeleft{font-size:calc(12px * var(--type-scale));letter-spacing:.02em;color:var(--muted);text-align:center;margin:0 0 -8px;opacity:.75;min-height:1.2em}
+/* ✅ ONE PANEL AT THE BOTTOM (Justin, 2026-09-25): every tap menu comes up in place of the standard menu, never on top of
+   it, and the standard menu can be pinned open ("it acts as a safety blanket"). The pin is a thumbtack drawn like the
+   app's tab-bar icons: outlined when off, filled when on. */
+.ctrl-top{position:relative;display:flex;justify-content:center;align-items:center;min-height:44px;margin:0 0 -12px}
+.ctrl-top .timeleft{margin:0}
+.pinbtn{position:absolute;right:0;top:50%;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:0;padding:0;color:var(--muted);cursor:pointer;transition:color var(--ease) .2s}
+.pinbtn svg{width:23px;height:23px;display:block;fill:none}
+.pinbtn .pin-head{fill:none}
+.pinbtn[aria-pressed="true"]{color:var(--ink)}
+.pinbtn[aria-pressed="true"] .pin-head{fill:currentColor}
+.pinbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
+#player.choosing .controls{display:none}
+.skipslot{display:none}
+#player.skipping .skipslot{display:block}
+#player.skipping .skipslot .choicebtn{width:100%}
+#player.skipping .controls{opacity:1;pointer-events:auto}
+#player.skipping .pfoot::before{opacity:1}
+.choice-mini{display:none;justify-content:center;gap:28px;margin:0 0 6px}
+#player.choosing .choice-mini{display:flex;animation:riseIn .45s var(--ease)}
+.mini-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 6px;background:none;border:0;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer}
+.mini-btn:hover{color:var(--ink)}
+.mini-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+.mini-ico{width:14px;height:14px;display:block;fill:currentColor}
+.mini-pause .ico-play{display:none}
+.mini-pause.is-paused .ico-pause{display:none}
+.mini-pause.is-paused .ico-play{display:block}
+/* held for an answer: the buttons are the way on, so there is nothing to pause */
+#player.held .mini-pause{display:none}
+#player.finished .choice-mini{display:none}
+.choicecard .reading-q,.choicecard .offer-hold{text-align:left}
 .timeleft:empty{display:none}
 #player.finished .done{display:flex;animation:riseIn .55s var(--ease)}
 .done .btn{width:100%}
@@ -401,7 +431,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               5d38e9f821c2ce9cbd2cdc7745df6b1a    24791 bytes
+     page.css               e9e8e70cc29c4a673528817a4bf178bd    26957 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
      data.js                fe5dd36ef1df7757923c721c852034b3    53531 bytes
@@ -413,8 +443,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
      session.js             84a3d43f6dcdd21ae749c93e15c7b0b5    77631 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                58a88a399e3d3690fa5761539e209202    13253 bytes
-     page.js                35c1a6eec5ec07404dac56ac5f380981    46735 bytes
+     copy.js                635e0722020f889913371e3feb6ea6d0    13435 bytes
+     page.js                8c5b4648aa29d092b86ed4820fec3fd8    49272 bytes
 -->
 </head>
 <body>
@@ -510,10 +540,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
       <!-- E5.28/E5.30 — a choice point's own visible target, outside the reveal -->
       <div class="choicecard" id="choicecard"></div>
+      <!-- 2026-09-25: while a question has the panel, pause and end stay one tap away -->
+      <div class="choice-mini" id="choicemini">
+        <button class="mini-btn mini-pause" id="minipause" type="button"><svg class="mini-ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="1.6"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="1.6"></rect></svg><svg class="mini-ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z"></path></svg><span id="minipausetext"></span></button>
+        <button class="mini-btn mini-end" id="miniend" type="button"><svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg><span id="miniendtext"></span></button>
+      </div>
 
       <div class="controls">
         <!-- "about N min left", above the controls where the old player had it (2026-09-21) -->
-        <p class="timeleft" id="timeleft" aria-live="off"></p>
+        <div class="ctrl-top">
+          <p class="timeleft" id="timeleft" aria-live="off"></p>
+          <button class="pinbtn" id="pinbtn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="pin-head" d="M9 3h6l-1 6 3.2 3.2V14H6.8v-1.8L10 9z"></path><path d="M12 14v7" fill="none"></path></svg></button>
+        </div>
+        <!-- 2026-09-25: "Skip intro" lives in the standard menu (mockup 1), which stays up while it is offered -->
+        <div class="skipslot" id="skipslot"></div>
         <div class="controlbar">
           <div class="adjgroup">
             <div class="adj silence">
@@ -6470,7 +6510,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:58a88a399e3d3690fa5761539e209202 */
+<script>/* @module copy.js md5:635e0722020f889913371e3feb6ea6d0 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6639,6 +6679,12 @@ const UI = Object.freeze({
    * harmless."). A yes changes nothing — doing nothing already continues — so these labels say
    * what the person is AGREEING to, never what the app will now do differently. */
   /* the breath buttons (Justin, 2026-09-25: "More shallow" or "More full") */
+  /* the one-panel player (2026-09-25) */
+  pinMenu: 'Keep the menu open',
+  unpinMenu: 'Let the menu hide',
+  miniPause: 'Pause',
+  miniResume: 'Resume',
+  miniEnd: 'End practice',
   breathFull: 'More full',
   breathShallow: 'More shallow',
   curiosityYes: 'I\'m curious about non-safety',
@@ -6701,7 +6747,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:35c1a6eec5ec07404dac56ac5f380981 */
+<script>/* @module page.js md5:8c5b4648aa29d092b86ed4820fec3fd8 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7096,7 +7142,9 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
         break;
       case 'control-close':
         pendingChoice = null;
+        if (e.control === 'anchor') player.classList.remove('held');
         closeChoice();
+        if (pinned) revealControls();
         break;
       /* ✅ THE FOUR BUTTONS COME UP WHEN THE PRACTICE STOPS FOR THEM, NOT ON THE TAP (Justin, 2026-09-24: "the 4
        * options come up immediately, before the user has a chance to process the audio and the fact that there
@@ -7106,15 +7154,17 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       case 'offer-open': break;
       /* the practice has stopped to wait for a choice: the buttons, and above them, say so */
       case 'offer-hold': {
+        player.classList.add('held');
         openOffer();
         const box = $('choicecard').querySelector('.offer');
         if (box && !box.querySelector('.offer-hold')) box.insertBefore(el('p', 'offer-hold', COPY.UI.offerHold), box.firstChild);
         break;
       }
-      case 'offer-close': closeOffer(); break;
+      case 'offer-close': player.classList.remove('held'); closeOffer(); if (pinned) revealControls(); break;
       /* the anchor question (2026-09-24): its five buttons came up with the question; when the practice stops
        * for them, the card says so, as it does for the four */
       case 'anchor-hold': {
+        player.classList.add('held');
         const card = $('choicecard');
         if (card.children.length && !card.querySelector('.offer-hold')) card.insertBefore(el('p', 'offer-hold', COPY.UI.offerHold), card.firstChild);
         break;
@@ -7280,6 +7330,18 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
 
   function openChoice(control) {
+    /* ✅ Skip intro sits in the standard menu, which stays up while it is offered (Justin's mockup 1, 2026-09-25) */
+    if (control === 'skip') {
+      const slot = $('skipslot');
+      slot.textContent = '';
+      const b = el('button', 'choicebtn quietly', COPY.UI.skipIntro);
+      b.type = 'button';
+      b.addEventListener('pointerdown', ev => ev.stopPropagation());
+      b.onclick = () => session.skip();
+      slot.appendChild(b);
+      $('player').classList.add('skipping');
+      return;
+    }
     const card = $('choicecard');
     card.textContent = '';
     if (control === 'reading' || control === 'intensity') { openReading(card, control); return; }
@@ -7428,6 +7490,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
   function closeChoice() {
     clearTimeout(readFade);
+    if ($('player').classList.contains('skipping')) { $('skipslot').textContent = ''; $('player').classList.remove('skipping'); revealControls(); }
     const card = $('choicecard');
     /* the three buttons have their own window (session `_offer`); closing the question under them
      * leaves them standing */
@@ -7466,6 +7529,8 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const b = $('pause');
     b.classList.toggle('is-paused', paused);
     b.setAttribute('aria-label', paused ? COPY.UI.resume : COPY.UI.pause);
+    const m = $('minipause');
+    if (m) { m.classList.toggle('is-paused', paused); $('minipausetext').textContent = paused ? COPY.UI.miniResume : COPY.UI.miniPause; }
   }
 
   function setStarting(text) {
@@ -7474,11 +7539,23 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     s.classList.toggle('show', !!text);
   }
 
+  /* ✅ THE PIN (Justin, 2026-09-25: "i also want to open the pop-up menu and pin it there so it does not close. It acts as a
+   * safety blanket"). Pinned, the standard menu never hides on its own; a question still takes the panel while it is up,
+   * and the pinned menu comes back when it goes. Remembered on this device. */
+  let pinned = false;
+  try { pinned = localStorage.getItem('snb_player_pin') === '1'; } catch (e) {}
+  function paintPin() {
+    const b = $('pinbtn'); if (!b) return;
+    b.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    b.setAttribute('aria-label', pinned ? COPY.UI.unpinMenu : COPY.UI.pinMenu);
+    b.title = pinned ? COPY.UI.unpinMenu : COPY.UI.pinMenu;
+  }
+
   function revealControls() {
     const p = $('player');
     p.classList.add('show-controls');
     clearTimeout(ctrlTimer);
-    if (!session || session.runtime.finished || session.runtime.paused) return;
+    if (pinned || !session || session.runtime.finished || session.runtime.paused) return;
     ctrlTimer = setTimeout(() => { p.classList.remove('show-controls'); }, 4500);
   }
 
@@ -7537,6 +7614,9 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('rewind').setAttribute('aria-label', U.rewind);
     $('prevclip').setAttribute('aria-label', U.previous);
     $('pause').setAttribute('aria-label', U.pause);
+    set('minipausetext', U.miniPause);
+    set('miniendtext', U.miniEnd);
+    paintPin();
   }
 
   function wire() {
@@ -7562,6 +7642,18 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       else session.runtime.togglePause();
       revealControls();
     };
+    $('pinbtn').onclick = (ev) => {
+      ev.stopPropagation();
+      pinned = !pinned;
+      try { localStorage.setItem('snb_player_pin', pinned ? '1' : '0'); } catch (e) {}
+      paintPin();
+      revealControls();
+    };
+    /* the question's own pause and end: the same as the menu's */
+    $('minipause').addEventListener('pointerdown', ev => ev.stopPropagation());
+    $('miniend').addEventListener('pointerdown', ev => ev.stopPropagation());
+    $('minipause').onclick = (ev) => { ev.stopPropagation(); if (session && !session.offerHeld) session.runtime.togglePause(); };
+    $('miniend').onclick = (ev) => { ev.stopPropagation(); $('stopbtn').onclick(); };
     $('rewind').onclick = () => { session.runtime.rewind(5); revealControls(); };
     $('prevclip').onclick = () => { session.runtime.previousBeat(); revealControls(); };
     $('lesssil').onclick = () => { stepSilence(-1); revealControls(); };

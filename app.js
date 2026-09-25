@@ -2345,12 +2345,12 @@ function app(tab){
     const p = Object.assign(pushPrefsRead(), patch||{});
     try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){}
     const u = Store.user();
-    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
+    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], practice_best:!!p.practice_best, practice_best_minutes:p.practice_best_minutes||null, tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
     return p;
   }
   async function pushPrefsLoad(){
     const u = Store.user(); if(!u || !window.sb) return pushPrefsRead();
-    try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days').eq('user_id', u.id).maybeSingle();
+    try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days,practice_best,practice_best_minutes').eq('user_id', u.id).maybeSingle();
       if(r && r.data){ const p=Object.assign(pushPrefsDefault(), r.data); try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){} return p; }
     }catch(e){}
     return pushPrefsRead();
@@ -2443,6 +2443,10 @@ function app(tab){
                : s==='unsupported' ? 'This browser cannot show notifications from the app.'
                : 'Nothing is on unless you choose it. A reminder you miss does not repeat, and nothing here counts or keeps score.';
     const days = (prefs.practice_days||[]);
+    /* ✅ THE BEST-TIME REMINDER (Justin, 2026-09-25: "a notification and a callout during that actual time of day and day
+     * of the week with the ideal practice set up… this should be a notification setting that can be turned off or on";
+     * "Integrate the best-time reminder into the 'Practice reminder' card"). */
+    const _bsNow = (function(){ try{ const b=bestSetup(); return (b && b.dayKey!=null && b.segKey) ? b : null; }catch(e){ return null; } })();
     // each daypart's time is limited to that daypart (Justin: 3pm is not a morning slot)
     const LIM = { morning:['05:00','11:59'], afternoon:['12:00','16:59'], evening:['17:00','21:59'], late:['22:00','23:59'] };
     const timeIn2 = (id, val, dis, lim) => `<input type="time" id="${id}" value="${val||''}" ${lim?`min="${lim[0]}" max="${lim[1]}"`:''} ${dis?'disabled':''} style="font:inherit;font-size:calc(15px * var(--type-scale));background:transparent;border:0;border-bottom:1px solid var(--hairline);color:var(--ink);padding:6px 0;min-height:44px">`;
@@ -2468,11 +2472,19 @@ function app(tab){
         </div>
         <div class="gs-card">
           <p class="gs-h">Practice reminder</p>
-          <p class="gs-note">You'll receive a reminder to practice on the days and the time of your choosing.</p>
+          <p class="gs-note">You'll receive a reminder to practice at your best time, or on the days and the time of your choosing.</p>
           ${sw('nt-practice','Practice reminder', !!prefs.practice_time, dis)}
           <div id="nt-prt" style="${prefs.practice_time?'':'display:none'}">
+            <div class="p-chips" id="nt-pmode" style="margin:2px 0 12px;flex-wrap:nowrap">
+              <button class="p-chip${prefs.practice_best?' on':''}" type="button" data-pmode="best" ${_bsNow?'':'disabled'} aria-pressed="${!!prefs.practice_best}" style="padding:9px 10px;flex:1 1 0;min-width:0">My best time</button>
+              <button class="p-chip${prefs.practice_best?'':' on'}" type="button" data-pmode="own" aria-pressed="${!prefs.practice_best}" style="padding:9px 10px;flex:1 1 0;min-width:0">A time I choose</button>
+            </div>
+            <p class="gs-fine" id="nt-best" style="${prefs.practice_best?'':'display:none'}">${_bsNow?escapeHtml(_bsText(_bsNow)):''}</p>
+            ${_bsNow?'':'<p class="gs-fine" id="nt-best-wait">Your best time shows up after a few more practices. Until then, pick a time.</p>'}
+            <div id="nt-own" style="${prefs.practice_best?'display:none':''}">
             ${timeIn2('nt-time-practice', prefs.practice_time||'08:00', dis, null)}
             <div class="p-chips" style="margin-top:12px">${PUSH_DAYS.map((d,i)=>`<button class="p-chip nt-day${days.indexOf(i)>=0?' on':''}" type="button" data-day="${i}" aria-pressed="${days.indexOf(i)>=0}" aria-label="${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][i]}" style="padding:9px 13px">${d}</button>`).join('')}</div>
+            </div>
           </div>
         </div>
         ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-card"><p class="gs-h">Beta</p><div class="gs-actions"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div></div>' : ''}
@@ -2491,7 +2503,16 @@ function app(tab){
       if(inp) inp.onchange=()=>{ const lim=LIM[d[0]]; if(inp.value && lim){ if(inp.value<lim[0]) inp.value=lim[0]; if(inp.value>lim[1]) inp.value=lim[1]; } const ct=Object.assign({}, cur.checkin_times||{}); if(ct[d[0]]!==undefined && inp.value){ ct[d[0]]=inp.value; save({ checkin_times:ct }); } };
     });
     { const box=$('#nt-prt'), inp=$('#nt-time-practice');
-      bindSw2('nt-practice', on=>{ if(box) box.style.display=on?'':'none'; save({ practice_time: on ? ((inp&&inp.value)||'08:00') : null }); });
+      bindSw2('nt-practice', on=>{ if(box) box.style.display=on?'':'none'; save(on ? (cur.practice_best && _bsNow ? _bsPrefs(_bsNow) : { practice_time:(inp&&inp.value)||'08:00' }) : { practice_time:null }); });
+      root.querySelectorAll('[data-pmode]').forEach(b=>b.onclick=()=>{
+        if(b.disabled) return;
+        const best=b.dataset.pmode==='best';
+        root.querySelectorAll('[data-pmode]').forEach(x=>{ const on=(x.dataset.pmode==='best')===best; x.classList.toggle('on',on); x.setAttribute('aria-pressed',String(on)); });
+        const nb=$('#nt-best'), no=$('#nt-own'); if(nb) nb.style.display=best?'':'none'; if(no) no.style.display=best?'none':'';
+        if(best && _bsNow) save(_bsPrefs(_bsNow));
+        else save({ practice_best:false, practice_best_minutes:null, practice_time:(inp&&inp.value)||'08:00', practice_days:[0,1,2,3,4,5,6] });
+        if(!best) root.querySelectorAll('.nt-day').forEach(x=>{ x.classList.add('on'); x.setAttribute('aria-pressed','true'); });
+      });
       if(inp) inp.onchange=()=>{ if(cur.practice_time && inp.value) save({ practice_time:inp.value }); };
       root.querySelectorAll('.nt-day').forEach(b=>b.onclick=()=>{ const i=+b.dataset.day; const d=(cur.practice_days||[]).slice(); const k=d.indexOf(i); if(k>=0) d.splice(k,1); else d.push(i); d.sort(); b.classList.toggle('on',k<0); b.setAttribute('aria-pressed',String(k<0)); save({ practice_days:d }); });
     }
@@ -2809,10 +2830,20 @@ function app(tab){
     // unread, the row collapses at rest but the transient post-breath nudge below still
     // fires and is visible for its ~10s window either way.
     const readerNew = _readerUnread();
-    const mhRestKind = readerNew ? 'reader' : (checkedIn ? 'micro' : null);
+    /* ✅ THE BEST-TIME CALLOUT (Justin, 2026-09-25: "a notification and a callout during that actual time of day and day of
+     * the week with the ideal practice set up"). When now is the person's best day and time and no practice has been
+     * finished yet, the resting row offers their best setup instead of the tiny practice. */
+    const _bsHere = (function(){ try{
+      if(!paidNow()) return null;
+      const bs=bestSetup(); if(!bs || bs.n<8 || bs.dayKey==null || !bs.segKey || !bs.anchor) return null;
+      const d=new Date(); if(d.getDay()!==bs.dayKey || segOf(d.getTime())!==bs.segKey) return null;
+      if((Store.sessions()||[]).some(s=>s && s.completed && sameDay(s.t))) return null;
+      return bs; }catch(e){ return null; } })();
+    const mhRestKind = _bsHere ? 'best' : (readerNew ? 'reader' : (checkedIn ? 'micro' : null));   // the best time only lasts a few hours, so it goes first
     const mhThird = true;
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">Your reflection is ready</span>`   // 🖊
+      : kind==='best' ? `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">It's your best time to practice</span>`
       : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Do a 2 minute practice</span>`;          // 🖊
 
     // moment-home (2026-07-23): the "now" screen settles to a calm center — the
@@ -2871,7 +2902,7 @@ function app(tab){
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
-      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : _launchMicro();
+      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? renderPlan(bestSetupReco(_bsHere), 'now') : _launchMicro();
 
       // RESTING state: the reader doorway when a reflection is waiting; else, once
       // checked in, the "Do a 2 minute practice" invite (2026-07-28: never collapses once
@@ -5552,6 +5583,67 @@ function app(tab){
   const _SD_SHIFT = 'How far each state moved.';
 
   // builds the pool for one period. returns [[key, label, html, signature], …]
+  // ── what has worked, from the practices themselves (Justin, 2026-09-25: "The cards need a much narrower focus…
+  // a card showcasing the anchor that results in the most safety, and how much safety it increased… a card that shows
+  // the best of everything for the user to practice: time of day, day of the week, anchor type, silence"). A practice
+  // counts when it has two or more safety 0–10s; how much safety rose = the last number less the first.
+  const _BS_SEG_TIME = { morning:'09:00', afternoon:'14:00', evening:'19:00', late:'22:00' };
+  function _sessAnchor(s){ const a=s && s.details && s.details.anchorsChosen; return (a && a.length && a[a.length-1].anchor) || s.sense || null; }
+  function _sessRise(s){ const r=(s && Array.isArray(s.safetyReadings)) ? s.safetyReadings.filter(v=>typeof v==='number') : []; return r.length>=2 ? r[r.length-1]-r[0] : null; }
+  function _sessDom(s){
+    const cs=Store.checkins(); let best=null;
+    for(let i=cs.length-1;i>=0;i--){ const c=cs[i]; if(c.t>=s.t && c.t-s.t<=3*3600e3) best=c; }
+    return best ? _cDom(best) : null;
+  }
+  function _pBuckets(ss, keyOf, keys, minN){
+    return keys.map(k=>{
+      const a=ss.filter(s=>keyOf(s)===k), rs=a.map(_sessRise);
+      if(a.length<minN) return { key:k, n:a.length, m:null, rise:null, lo:null, dom:null };
+      const rise=rs.reduce((x,y)=>x+y,0)/rs.length;
+      const cnt={}; a.forEach(s=>{ const d=_sessDom(s); if(d) cnt[d]=(cnt[d]||0)+1; });
+      const dom=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x])[0]||'safety';
+      return { key:k, n:a.length, rise, m:Math.max(-0.3,Math.min(0.7,rise/4)), lo:null, dom };
+    });
+  }
+  const _pBest = b => { let bi=-1, bm=-Infinity; b.forEach((x,i)=>{ if(x.rise!=null && x.rise>bm){ bm=x.rise; bi=i; } }); return bi; };
+  const _pRise = v => (v>=0?'+':'−')+Math.abs(Math.round(v*10)/10);
+  function bestSetup(){
+    const ss=(Store.sessions()||[]).filter(s=>s && s.completed && _sessRise(s)!=null);
+    if(ss.length<6) return null;
+    const anc=_pBuckets(ss, _sessAnchor, ['sound','sight','touch','imagination','movement'], 2), ai=_pBest(anc);
+    const seg=_pBuckets(ss, s=>segOf(s.t), _YOU_SEG, 2), si=_pBest(seg);
+    const day=_pBuckets(ss, s=>new Date(s.t).getDay(), [0,1,2,3,4,5,6], 2), di=_pBest(day);
+    const good=ss.filter(s=>Store.isBestOutcome ? Store.isBestOutcome(s) : _sessRise(s)>0);
+    const pool=good.length>=2 ? good : ss.slice().sort((a,b)=>_sessRise(b)-_sessRise(a)).slice(0,Math.max(2,Math.ceil(ss.length/3)));
+    const mode=arr=>{ const m={}; arr.forEach(v=>{ if(v!=null) m[v]=(m[v]||0)+1; }); const e=Object.entries(m).sort((a,b)=>b[1]-a[1])[0]; return e?e[0]:null; };
+    const silKeys=[...new Set(ss.map(s=>s.silence).filter(v=>typeof v==='number'))];
+    const silB=_pBuckets(ss, s=>s.silence, silKeys, 2), sbi=_pBest(silB);
+    const sil=sbi>=0 ? silB[sbi].key : mode(pool.map(s=>s.silence)), pk=mode(pool.map(s=>s.practiceKey));
+    const mins=pool.map(s=>s.minutes).filter(v=>typeof v==='number' && v>0).sort((a,b)=>a-b);
+    return { n:ss.length, anc, ai, seg, si, day, di,
+      anchor: ai>=0 ? anc[ai].key : null, segKey: si>=0 ? seg[si].key : null, dayKey: di>=0 ? day[di].key : null,
+      silence: sil!=null ? +sil : null, practiceKey: pk, minutes: mins.length ? Math.max(1,Math.round(mins[Math.floor(mins.length/2)])) : null };
+  }
+  function _bsText(bs){
+    return `${_DAY_LONG[bs.dayKey]} ${segLabel(bs.segKey)}s, around ${({morning:'9 am',afternoon:'2 pm',evening:'7 pm',late:'10 pm'})[bs.segKey]}, with your best setup ready to start. It moves as the app learns what works for you.`;
+  }
+  function _bsPrefs(bs){ return { practice_best:true, practice_time:_BS_SEG_TIME[bs.segKey], practice_days:[bs.dayKey], practice_best_minutes:bs.minutes||null }; }
+  /* keep a best-time reminder on the person's current best (called when the You tab works it out) */
+  function _bsSync(bs){
+    try{
+      const p=pushPrefsRead(); if(!p.practice_best || !p.practice_time || !bs || bs.dayKey==null || !bs.segKey) return;
+      const want=_bsPrefs(bs);
+      if(p.practice_time!==want.practice_time || JSON.stringify(p.practice_days||[])!==JSON.stringify(want.practice_days) || (p.practice_best_minutes||null)!==want.practice_best_minutes) pushPrefsSave(want);
+    }catch(e){}
+  }
+  function bestSetupReco(bs){
+    const r=Object.assign({}, _recommendSafe(true));
+    if(bs.anchor && r.practiceKey!=='mindfulness') r.sense=bs.anchor;
+    if(bs.silence) r.silence=bs.silence;
+    r.reason='your best setup: everything that has worked best for you, in one practice.';
+    return r;
+  }
+
   function youCards(cs, allCs, periodPhrase, activePeriod, days){
     const out=[];
     // gates scale with the window (Justin 2026-09-07: Week and Month showed two cards):
@@ -5622,6 +5714,48 @@ function app(tab){
         ${_yBarChart(b, li, segLbl)}
         ${data}`,
         li+':'+Math.round((b[li].m||0)*100)+':'+n);
+    })();
+
+    // 3b · what has worked, from the practices (2026-09-25). No eyebrow: the same shape as the cards above.
+    (function(){
+      const bs=bestSetup(); if(!bs) return;
+      _bsSync(bs);
+      const ancLbl=(x)=>({sound:'Sound',sight:'Sight',touch:'Touch',imagination:'Imagin.',movement:'Moving'})[x.key]||x.key;
+      const riseRows=(b,lab)=>b.map(x=>[lab(x), x.rise==null?null:`${_pRise(x.rise)} <span class="sd-rng">(${x.n})</span>`]);
+      const how='How much safety rose, on average, from the first 0 to 10 of a practice to the last. In brackets: how many practices.';
+      if(bs.ai>=0 && bs.anc[bs.ai].rise>0){
+        const b=bs.anc[bs.ai];
+        const untried=bs.anc.filter(x=>x.n===0).map(x=>CAP(x.key));
+        push('anchor','your anchor',`
+          ${shareBtn('anchor')}
+          <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b.dom||'safety')}">${CAP(b.key)}</b> raises your safety the most: ${_pRise(b.rise).replace('+','')} points on average.</p>
+          ${_yBarChart(bs.anc, bs.ai, ancLbl)}
+          ${untried.length?`<p class="sd-how">${untried.join(', ')} ${untried.length===1?'hasn’t':'haven’t'} been tried yet.</p>`:''}
+          ${_seeData(riseRows(bs.anc, x=>CAP(x.key)), how, null)}`, bs.ai+':'+Math.round(b.rise*10)+':'+bs.n);
+      }
+      if(bs.si>=0 && bs.seg[bs.si].rise>0){
+        const b=bs.seg[bs.si];
+        push('practiceTime','your best time to practice',`
+          ${shareBtn('practiceTime')}
+          <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(b.dom||'safety')}">${CAP(segLabel(b.key))}</b> is when practice raises your safety the most.</p>
+          ${_yBarChart(bs.seg, bs.si, x=>segIco(x.key))}
+          ${_seeData(riseRows(bs.seg, x=>CAP(segLabel(x.key))), how, null)}`, bs.si+':'+Math.round(b.rise*10)+':'+bs.n);
+      }
+      if(bs.n>=8 && bs.di>=0 && bs.si>=0 && bs.anchor){
+        const dom=(bs.day[bs.di].dom)||'safety';
+        const row=(l,v)=>`<div class="sd-row"><span class="sd-lbl">${l}</span><span class="sd-val">${v}</span></div>`;
+        push('bestSetup','your best setup',`
+          ${shareBtn('bestSetup')}
+          <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(dom)}">${_DAY_LONG[bs.dayKey]} ${segLabel(bs.segKey)}</b> with everything that has worked best for you, in one practice.</p>
+          <div class="bs-rows">
+            ${bs.practiceKey?row('Practice', CAP(Store.practiceLabel(bs.practiceKey))):''}
+            ${row('Anchor', CAP(bs.anchor))}
+            ${bs.silence?row('Silence', bs.silence+' seconds'):''}
+            ${bs.minutes?row('Length', 'About '+bs.minutes+' minutes'):''}
+          </div>
+          <button class="btn bs-go" type="button" data-bs-go>Practice this now</button>
+          <button class="bs-remind" type="button" data-bs-remind>Remind me at my best time</button>`, [bs.dayKey,bs.segKey,bs.anchor,bs.silence].join(':'));
+      }
     })();
 
     // 4 · comebacks (kept; the counting now derives every row the same way)
@@ -5847,8 +5981,8 @@ function app(tab){
     const seen=st.seen||{};
     const today=(function(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); })();
     const base = tender
-      ? ['comeback','defense','day','daypart','dayLow','daypartLow','practice','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
-      : ['safety','day','practice','readings','comeback','daypart','dayLow','daypartLow','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
+      ? ['comeback','defense','day','daypart','dayLow','daypartLow','practice','bestSetup','anchor','practiceTime','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
+      : ['safety','day','practice','bestSetup','anchor','practiceTime','readings','comeback','daypart','dayLow','daypartLow','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
     const rank=k=>{ const i=base.indexOf(k); return i<0?99:i; };
     const byKey={}; cards.forEach(c=>{ byKey[c[0]]=c; });
     const all=cards.slice().sort((a,b)=>rank(a[0])-rank(b[0]));
@@ -6045,6 +6179,8 @@ function app(tab){
       // no-file-sharing fallback quotes those same words rather than a third version.
       c.querySelectorAll('.panel-share').forEach(b=>b.addEventListener('click',(e)=>{ e.stopPropagation();
         openShare(null, b.closest('.panel')); }));
+      c.querySelectorAll('[data-bs-go]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); const bs=bestSetup(); if(bs) renderPlan(bestSetupReco(bs), 'you'); }));
+      c.querySelectorAll('[data-bs-remind]').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); screenNotifications(); }));
       // "See the data" opens in place and never stays open: it is a <details> that
       // every re-render closes again. Its toggle is scoped so a swipe still swipes.
       c.querySelectorAll('.see-data').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
@@ -6529,16 +6665,20 @@ function app(tab){
   // self-regulation carries skill / emotion / hold-&-watch / length). Picking a
   // standalone session or "surprise" collapses every dial but the type.
   /* ✅ VARIETY (Justin, 2026-09-25: "we should also offer the user variety if they want it… they can pick from a
-   * menu, including 'random'"). Under the recommended card: "Try something different" opens a menu at the bottom of
+   * menu, including 'random'"). In the recommended card: "Change the safety anchor" opens a menu at the bottom of
    * the screen with the anchors and "Surprise me". A pick changes THIS practice only (settings are untouched) and
    * opens it ready to start; it still counts toward finding the person's best anchor (store.js anchorPick). */
   function varietyLink(reco){
     if(!reco || reco.practiceKey==='mindfulness' || !reco.sense) return '';
-    return `<button class="vs-link" id="vs-open" type="button">Try something different</button>`;
+    /* ✅ Inside the recommended card, named for what it changes (Justin, 2026-09-25: "should live within the Recommended
+     * practice's card. Right now, I don't know the difference between it and 'Make my own.' And name it 'Change the
+     * safety anchor' instead.") */
+    return `<button class="vs-link" id="vs-open" type="button">Change the safety anchor</button>`;
   }
   function bindVariety(reco){
     const b=$('#vs-open'); if(!b) return;
-    b.onclick=()=>openVariety(reco);
+    b.onclick=(e)=>{ e.stopPropagation(); openVariety(reco); };
+    b.onkeydown=(e)=>e.stopPropagation();
   }
   function openVariety(reco){
     const senses = reco.practiceKey==='micro' ? ['touch','sound','sight'] : P_SENSES;
@@ -6589,25 +6729,25 @@ function app(tab){
     const nameLead = tunedNm ? `${escapeHtml(tunedNm)}’s` : 'your';
     const _tEst = estMinutes(reco.practiceKey, reco.silence);
     const tunedCard = `
-      <button class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" type="button">
+      <div class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" role="button" tabindex="0">
         <span class="wc-text">
           <span class="tuned-kicker">Made for you</span>
           <span class="wc-title"><span class="tuned-name">${CAP(nameLead)}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
           <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
           ${reco.openEnded ? `<span class="tuned-meta">Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : (_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : '')}
+          ${varietyLink(reco)}
         </span>
         <span class="wc-go">${CHEV}</span>
-      </button>`;
+      </div>`;
 
     c.innerHTML=`<div class="view p-view p7-view">
       <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Your practice.</h2></div>
       ${tunedCard}
-      ${varietyLink(reco)}
       <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}"></button>
       <div class="p7-shape" id="p7-shape" ${pState.makerOpen?'':'hidden'}></div>
     </div>`;
 
-    const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
+    const tuned=$('#foryou'); if(tuned){ tuned.onclick=()=>renderPlan(reco); tuned.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); renderPlan(reco); } }; }
     bindVariety(reco);
     const toggle=$('#p7-toggle');
     const paintToggle=()=>{

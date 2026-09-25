@@ -3220,7 +3220,9 @@ body.reduce-motion .fbx-heart,body.reduce-motion .fbx-bolt,body.reduce-motion .f
 @media (prefers-reduced-motion:reduce){.fbx-heart,.fbx-bolt,.fbx-x,.fbx-in{animation:none}}
 
 /* ── variety menu (2026-09-25): "Try something different" under the recommended card ── */
-.vs-link{display:block;margin:12px auto 0;background:none;border:0;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline);padding:10px 12px;min-height:44px;cursor:pointer}
+.vs-link{display:inline-flex;align-items:center;margin:8px 0 -10px -2px;background:none;border:0;font:inherit;font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline);padding:10px 2px;min-height:44px;cursor:pointer;position:relative;z-index:1}
+.vs-link:hover{color:var(--ink)}
+div.tuned-card:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .vs-wrap{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end}
 .vs-scrim{position:absolute;inset:0;background:rgba(26,31,42,.28);opacity:0;transition:opacity .25s var(--ease)}
 .vs-sheet{position:relative;background:var(--bone);border-radius:20px 20px 0 0;padding:20px 16px calc(16px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .3s var(--ease);max-width:560px;width:100%;margin:0 auto;box-sizing:border-box}
@@ -3235,3 +3237,9 @@ body.reduce-motion .fbx-heart,body.reduce-motion .fbx-bolt,body.reduce-motion .f
 .vs-cancel{display:block;width:100%;margin-top:10px;min-height:48px;background:none;border:0;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--muted);cursor:pointer}
 @media (prefers-reduced-motion:reduce){.vs-scrim,.vs-sheet{transition:none}}
 body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
+/* ── You tab "your best setup" card (2026-09-25) ── */
+.bs-rows{margin:0 0 16px}
+.bs-rows .sd-row{border-top:1px solid var(--hairline);padding:10px 0}
+.bs-go{width:100%}
+.bs-remind{display:block;margin:10px auto 0;background:none;border:0;font:inherit;font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline);min-height:44px;cursor:pointer}
+.bs-rows .sd-row{font-size:calc(15px * var(--type-scale));border-bottom:0}
