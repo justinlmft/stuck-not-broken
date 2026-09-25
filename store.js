@@ -79,7 +79,7 @@
   // tab in sessionStorage — it has to survive the check-in and the practice, because the
   // events that matter fire later. Missing/invalid = 'direct'.
   // Stamped on checkins.source and on every events.meta.src for the session.
-  const SRC_ALLOW = ['stuck','app-page','youtube','podcast','newsletter','circle','cohort','direct'];
+  const SRC_ALLOW = ['stuck','app-page','youtube','podcast','newsletter','circle','cohort','blog','mindful-moment','direct'];
   const SRC_KEY = 'snb_src';
   let _src = 'direct';
   try{
@@ -92,7 +92,19 @@
       q.delete('src');
       history.replaceState(null,'',global.location.pathname+(q.toString()?'?'+q.toString():'')+global.location.hash);
     } else {
-      _src = sessionStorage.getItem(SRC_KEY) || 'direct';
+      _src = sessionStorage.getItem(SRC_KEY) || '';
+      // 2026-09-25 (SEO ask): no ?src= and nothing held for this tab -> a visit that
+      // came from a blog post page counts as 'blog', tagged link or not. Only a full
+      // referrer on stucknotbroken.com/c/blog/ counts; if the browser sends just the
+      // site origin (no path), it stays 'direct' rather than guessing.
+      if(!_src){
+        _src = 'direct';
+        const ref = new URL(document.referrer || 'about:blank');
+        if(/^(www\.)?stucknotbroken\.com$/i.test(ref.hostname) && /^\/c\/blog(\/|$)/i.test(ref.pathname)){
+          _src = 'blog';
+          sessionStorage.setItem(SRC_KEY, _src);
+        }
+      }
     }
   }catch(e){ _src = 'direct'; }
   function src(){ return _src; }
