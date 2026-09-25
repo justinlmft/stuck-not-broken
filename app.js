@@ -7293,11 +7293,28 @@ function app(tab){
   }
   // the safety numbers they gave during the practice, in order (Justin, 2026-09-21: "we should
   // also see the safety numbers that changed from the inputs"). Only the ones they answered; a
-  // practice with none answered shows no line at all.
-  function readingsLine(reco){
+  // practice with none answered shows no card at all.
+  // ✅ REDESIGN, OPTION A "QUIET CLOSE" (Justin, 2026-09-25, picked from the options canvas): left-aligned; the three
+  // marks the same size; bolt and x in the base ink colour, fading back; the heart in the safety colour, coming in on
+  // its own; then the numbers, one at a time, left to right. Label "How safety changed". "Done" replaces
+  // "Back to today" ("today" is never practice copy). Reduced motion lands on the end state.
+  function readingsCard(reco){
     const said=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number');
     if(!said.length) return '';
-    return `<p class="scr-lede fb-readings" style="margin-top:14px">Your safety along the way: ${said.map(v=>'<b>'+v+'</b>').join(' → ')}</p>`;
+    const parts = said.map((v,i)=>(i ? `<span class="fbx-arrow fbx-in" style="--i:${2*i-1}" aria-hidden="true">→</span>` : '')
+      + `<span class="fbx-num fbx-in" style="--i:${2*i}">${v}</span>`).join(' ');
+    return `<div class="fbx-card">
+          <p class="fbx-card-h">How safety changed</p>
+          <p class="fbx-nums" aria-label="Your safety along the way: ${said.join(', then ')}">${parts}</p>
+        </div>`;
+  }
+  // the brand lockup itself (one svg, the logo's own spacing — Justin, 2026-09-25: "they are the brand's logo,
+  // make sure to use correct spacing"): heart in the safety colour, bolt and x in ink; each mark animates alone
+  function fbxLockup(){
+    const I = window.SNB_ICONS||{};
+    const fill = { heart:STATE_COLOR('safety'), bolt:'var(--ink)', x:'var(--ink)' };
+    const paths = TRI_ORDER.map(m=>`<path class="fbx-m fbx-${m}" style="fill:${fill[m]}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
+    return `<svg class="fbx-logo" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
   }
   function fbThanks(val, reco){
     // closing line in Justin's voice — the report tunes the tone, never judges it
@@ -7309,26 +7326,21 @@ function app(tab){
       unsure:  { h:'Not knowing is allowed.',             s:'You still showed up. Well done. Stay curious and open for the next one.' },
     };
     const cl = CLOSE[val] || CLOSE.same;
+    const cap = t => t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
     setHTML(`
       <header class="appbar"></header>
-      <div class="scroll"><div class="view fb-view fb-thanks">
-        <div class="settle" aria-hidden="true">
-          <span class="settle-ico settle-bolt">${ico('bolt',{color:STATE_COLOR('fightflight')})}</span>
-          <span class="settle-ico settle-heart">${ico('heart',{color:STATE_COLOR('safety')})}</span>
-          <span class="settle-ico settle-x">${ico('x',{color:STATE_COLOR('shutdown')})}</span>
-        </div>
-        <div class="scr-head fb-thanks-head">
-          <h1 class="scr-h">${cl.h}</h1>
-          <p class="scr-lede">${cl.s}</p>
-        </div>
-        ${readingsLine(reco)}
-        <p class="settle-note">Safety doesn't erase the rest. It just holds them.</p>
-        <div class="fb-after">
+      <div class="scroll"><div class="view fb-view fbx">
+        <div class="fbx-marks" aria-hidden="true">${fbxLockup()}</div>
+        <p class="eyebrow fbx-eyebrow">Practice finished</p>
+        <h1 class="fbx-h">${cl.h}</h1>
+        <p class="fbx-lede">${cap(cl.s)}</p>
+        ${readingsCard(reco)}
+        <div class="fbx-actions">
           <button class="btn block" id="fb-checkin">Check in now</button>
-          <button class="navlink" id="fb-home" style="align-self:center">Back to today</button>
+          <button class="btn block quiet" id="fb-home">Done</button>
         </div>
       </div></div>`);
-    requestAnimationFrame(()=>{ const s=root.querySelector('.settle'); if(s) s.classList.add('on'); });
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ const v=root.querySelector('.fbx'); if(v) v.classList.add('on'); }));
     // N-7: a check-in started from here is tagged post-practice, so "is practice
     // helping?" can use clean before/after pairs instead of day-level inference
     $('#fb-checkin').onclick = ()=>{ window._ciSource='post-practice'; screenCheckin(); };

@@ -1717,10 +1717,13 @@
     // step 5 — hot defense today closes the moment gate: grounding only, whatever the week has
     // earned (mobilization or immobilization very high, or the freeze quadrant — both up).
     if(!gate.open){
-      let reason = dom==='shutdown' ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
-                 : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small, focusing on the present and connecting with safety."
+      let reason = dom==='shutdown' ? "you are pulling toward shutdown. nothing to push against. we'll keep it simple and just notice the present moment, gently."
+                 : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small and stay with the present moment."
                  : "there's a lot of defense active right now. we'll stay with the present moment and let some of it settle.";
-      if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
+      if(falling) reason = "safety has been slipping in the last few check-ins, so connecting with it may be hard right now. this one keeps it simple and stays with the present moment.";
+      // 2026-09-25 (Justin): mindfulness is about the present moment, not safety. it is the practice for someone
+      // who is struggling to even connect with safety; safety is the anchoring practice. none of these reasons may
+      // promise safety work.
       return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
     }
     // steps 2-4 — the ceiling the WEEK earns (avgV/avgDef ABSOLUTE, never margin — Justin's

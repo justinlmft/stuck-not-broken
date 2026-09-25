@@ -402,14 +402,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               078cf188f553f998248d06e118c12fee    24669 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                1b21f2f0a02c8a0e786e4fbaf9c0f411    52187 bytes
+     data.js                a95311688e6cc4126b225fa19f42e855    52806 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
-     runtime.js             4758569f7d34eede0e5ad214ca7dc41f    39201 bytes
+     runtime.js             f853b900fc9b27acd17847a40aad2450    39224 bytes
      host.js                dfeea9d055ad66cab5baa4fa27659e15    37758 bytes
      browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             40e02cf22e3f8cb07a4ea8ef68f88992    69939 bytes
+     session.js             f849fbca60108a218fe9baec329261e2    71391 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                98f02b61ceb3fa41cea7443ba9d1832c    13114 bytes
      page.js                7d78e02c0da806d2c60ad58035ecf4aa    43568 bytes
@@ -781,7 +781,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:1b21f2f0a02c8a0e786e4fbaf9c0f411 */
+<script>/* @module data.js md5:a95311688e6cc4126b225fa19f42e855 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1135,6 +1135,11 @@ function allOrNothing(families, what) {
   return Object.freeze(out);
 }
 const BAND = allOrNothing(BAND_FAMILIES, '0–10 answer clips');
+/* ✅ A LOW SAFETY ANSWER WHERE THERE ARE NO BUTTONS (Justin, 2026-09-25). Mindfulness and the Tiny practice ask the
+ * safety 0–10 but offer no buttons (session.js `_repliesSpeak`), so a 0–3 there needs its own acknowledgment — the
+ * LOW and DROP-LOW takes all point at "the options on your screen". Recording doc "SNB app — lines to record" §12.
+ * One family, optional: null (and silence after a low number there) until it is sliced into the table. */
+const BAND_LOW_PRESENT = exists('SAFETY-READ-LOW-PRESENT') ? must('SAFETY-READ-LOW-PRESENT') : null;
 
 /* ✅ THE TRANSITION LINES (Justin, 2026-09-22): "No matter what they tap, they should get a transition
  * statement, like 'Okay, let's transition to a simpler mindfulness practice.' Just one take per
@@ -1186,8 +1191,9 @@ const ANCHOR_CHOICE_ORDER = Object.freeze(['sound', 'sight', 'touch', 'imaginati
  *   at    — seconds into the file: inside the pause after the question, never less than 0.3 s before the next word
  *   pause — how much silence the read already has there (end of the question → next word)
  *
- * The pause lasts the greater of 2 s and a quarter of the person's silence setting (Justin's rule), counting the
- * silence the read already has — so a question he already left room after gets only what is missing.
+ * The pause lasts the greater of 2 s and HALF the person's silence setting (Justin, 2026-09-25: a quarter "felt a bit
+ * short"; he chose half), counting the silence the read already has — so a question he already left room after gets
+ * only what is missing.
  *
  * Scope (2026-09-24, Justin: "yes add them to the rest of the audio library now"): every clip with a question before
  * its last sentence, 363 points in 191 files. Left out, as ruled 09-17: the explaining clips (setup, intro, sign-off,
@@ -1394,7 +1400,7 @@ const CLIP_HOLDS = Object.freeze({
   'VALIDATE-SAFETY-d.mp3': Object.freeze([{ at: 4.03, pause: 1.01 }, { at: 18.6, pause: 1.38 }]),
 });
 function holdsFor(file) { return Object.prototype.hasOwnProperty.call(CLIP_HOLDS, file) ? CLIP_HOLDS[file] : []; }
-function holdSeconds(silence) { return Math.max(2, (silence || 0) / 4); }
+function holdSeconds(silence) { return Math.max(2, (silence || 0) / 2); }
 
 /* The boundaries, as Justin gave them (ruled 2026-09-22: the two middles differ on purpose).
  * Safety: 0–3 low · 4–7 middle · 8–10 high.  Intensity: 0–3 low · 4–6 middle · 7–10 high. */
@@ -1491,7 +1497,7 @@ function takesInRotation(id) {
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  BAND_FAMILIES, BAND, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
+  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
@@ -2805,7 +2811,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:4758569f7d34eede0e5ad214ca7dc41f */
+<script>/* @module runtime.js md5:f853b900fc9b27acd17847a40aad2450 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -3272,7 +3278,7 @@ class Runtime {
    * 30-second file every gap uses (§A4.2), so it holds with the screen locked; a stop that lands a little late (the
    * position is only seen ~4 times a second) just replays a moment of the read's own pause on the way back in.
    *
-   * How long: the greater of 2 s and a quarter of the silence setting, counting the pause the read already has —
+   * How long: the greater of 2 s and half the silence setting (2026-09-25; it was a quarter), counting the pause the read already has —
    * only what is missing is added, and a question already followed by enough room gets nothing. */
   _armClipHolds(file) {
     this.dev.clearTimeout(this._holdTimer);
@@ -4675,7 +4681,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:40e02cf22e3f8cb07a4ea8ef68f88992 */
+<script>/* @module session.js md5:f849fbca60108a218fe9baec329261e2 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5473,12 +5479,25 @@ class Session {
     return this.plan.returnToSafety != null && !!beat && !beat.handoff && !this.handedOffTo;
   }
 
+  /* ✅ EVERY 0–10 GETS A SPOKEN REPLY, IN EVERY PRACTICE (Justin, 2026-09-25, after a Mindfulness practice: "marked a 3,
+   * but did not receive a verbal confirmation; neither did the second — no acknowledgment at all, no comparison audio
+   * either"; ruling 28: "If someone is interacting, they should get a verbal and immediate response."). The buttons
+   * above still belong only to a practice with safety work to go back to (`_answersSpeak`); the REPLY does not. In the
+   * two short practices, and after a hand-off into the Mindfulness material, a middle or high number gets its band
+   * clip and the last reading its comparison, exactly as elsewhere. A LOW number there cannot use SAFETY-READ-LOW or
+   * SAFETY-DROP-LOW — every take points at "the options on your screen", and there are none — so it gets the
+   * present-moment low line (data.js BAND_LOW_PRESENT) once it is recorded, and nothing until then. */
+  _repliesSpeak(beat) {
+    return !!beat;
+  }
+
   /* Re-decide what follows the question at queue position `c.index`, from the number just tapped.
    * Runs on every tap in the window, so it first takes back whatever the last tap put there. */
   _respond(c, value) {
     const index = c.index;
     const beat = this.queue[index];
-    if (!this._answersSpeak(beat)) return;
+    if (!this._repliesSpeak(beat)) return;
+    const offers = this._answersSpeak(beat);
     /* only while the question's clip or its silence is what is playing: after that the answer clip
      * (if any) has started and the window is closed, so this cannot be reached — asserted anyway */
     if (this.runtime.idx !== index) return;
@@ -5493,12 +5512,17 @@ class Session {
       firstAsk: c.slot === 0,
       last: !this._askedAgainAfter(index, scale),
     });
+    /* no buttons in this practice: a low answer gets the present-moment line (if recorded) and never an offer */
+    if (r.offer && !offers) {
+      r.offer = false;
+      r.families = D.BAND_LOW_PRESENT ? ['lowPresent'] : [];
+    }
 
     /* take back the last tap's answer clips, then put this tap's in */
     let n = 0;
     while (this.queue[index + 1 + n] && this.queue[index + 1 + n].response === index) n += 1;
     const inserted = (D.BAND ? r.families : []).map(key => {
-      const b = this._branchBeat(D.BAND[key], beat.phase);
+      const b = this._branchBeat(key === 'lowPresent' ? D.BAND_LOW_PRESENT : D.BAND[key], beat.phase);
       b.response = index;
       return b;
     });
@@ -5892,8 +5916,9 @@ class Session {
     };
   }
 
+  /* the report carries the silence the practice ENDED on — a mid-practice change on the stepper is what was lived */
   completion(requested) {
-    return H.completion({ plan: this.plan, requested, run: this.run() });
+    return H.completion({ plan: Object.assign({}, this.plan, { cfg: this.cfg }), requested, run: this.run() });
   }
 }
 
