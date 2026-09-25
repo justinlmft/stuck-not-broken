@@ -6528,6 +6528,48 @@ function app(tab){
   // chosen practice (mindfulness has no sense; micro has no silence; only
   // self-regulation carries skill / emotion / hold-&-watch / length). Picking a
   // standalone session or "surprise" collapses every dial but the type.
+  /* ✅ VARIETY (Justin, 2026-09-25: "we should also offer the user variety if they want it… they can pick from a
+   * menu, including 'random'"). Under the recommended card: "Try something different" opens a menu at the bottom of
+   * the screen with the anchors and "Surprise me". A pick changes THIS practice only (settings are untouched) and
+   * opens it ready to start; it still counts toward finding the person's best anchor (store.js anchorPick). */
+  function varietyLink(reco){
+    if(!reco || reco.practiceKey==='mindfulness' || !reco.sense) return '';
+    return `<button class="vs-link" id="vs-open" type="button">Try something different</button>`;
+  }
+  function bindVariety(reco){
+    const b=$('#vs-open'); if(!b) return;
+    b.onclick=()=>openVariety(reco);
+  }
+  function openVariety(reco){
+    const senses = reco.practiceKey==='micro' ? ['touch','sound','sight'] : P_SENSES;
+    const others = senses.filter(x=>x!==reco.sense);
+    const old=document.getElementById('vs-sheet'); if(old) old.remove();
+    const wrap=document.createElement('div');
+    wrap.id='vs-sheet'; wrap.className='vs-wrap';
+    wrap.innerHTML=`<div class="vs-scrim" data-vs-close></div>
+      <div class="vs-sheet" role="dialog" aria-modal="true" aria-labelledby="vs-h">
+        <p class="vs-h" id="vs-h">Anchor this practice with</p>
+        <div class="vs-opts">${senses.map(x=>`<button class="vs-opt${x===reco.sense?' vs-rec':''}" type="button" data-vs="${x}"><span>${CAP(x)}</span>${x===reco.sense?'<span class="vs-tag">recommended</span>':''}</button>`).join('')}
+          <button class="vs-opt vs-surprise" type="button" data-vs="surprise"><span>Surprise me</span></button>
+        </div>
+        <button class="vs-cancel" type="button" data-vs-close>Cancel</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const close=()=>{ wrap.classList.remove('on'); setTimeout(()=>wrap.remove(),260); };
+    wrap.querySelectorAll('[data-vs-close]').forEach(x=>x.onclick=close);
+    wrap.querySelectorAll('[data-vs]').forEach(x=>x.onclick=()=>{
+      let pick=x.dataset.vs;
+      if(pick==='surprise') pick=others[Math.floor(Math.random()*others.length)]||reco.sense;
+      close();
+      if(pick===reco.sense) return renderPlan(reco);
+      const r=Object.assign({}, reco, { sense:pick, variety:true,
+        reason: `you picked ${pick} for this practice. the recommendation picks up again next time.` });
+      renderPlan(r);
+    });
+    const f=wrap.querySelector('.vs-opt'); if(f) try{ f.focus(); }catch(e){}
+  }
+
   function renderMaker7b(animateIn){
     const c=content();
     const reco = _recommendSafe(true);
@@ -6560,11 +6602,13 @@ function app(tab){
     c.innerHTML=`<div class="view p-view p7-view">
       <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Your practice.</h2></div>
       ${tunedCard}
+      ${varietyLink(reco)}
       <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}"></button>
       <div class="p7-shape" id="p7-shape" ${pState.makerOpen?'':'hidden'}></div>
     </div>`;
 
     const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>renderPlan(reco);
+    bindVariety(reco);
     const toggle=$('#p7-toggle');
     const paintToggle=()=>{
       const open=pState.makerOpen;
@@ -7347,7 +7391,7 @@ function app(tab){
     const I = window.SNB_ICONS||{};
     const fill = { heart:STATE_COLOR('safety'), bolt:'var(--ink)', x:'var(--ink)' };
     const paths = TRI_ORDER.map(m=>`<path class="fbx-m fbx-${m}" style="fill:${fill[m]}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
-    return `<svg class="fbx-logo" viewBox="${TRI_VB}" aria-hidden="true">${paths}</svg>`;
+    return `<svg class="fbx-logo" viewBox="${TRI_VB}" aria-hidden="true" style="--fbx-safety:${STATE_COLOR('safety')}">${paths}</svg>`;
   }
   function fbThanks(val, reco){
     // closing line in Justin's voice — the report tunes the tone, never judges it

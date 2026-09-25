@@ -1070,6 +1070,45 @@
     };
   }
 
+  // ---- the anchor to use (Justin, 2026-09-25) -------------------------------------------------------------------
+  // "the recommended should also offer the user the various anchoring pathways, one practice after another. there may be an
+  // obvious winner from those. i think it should cycle through all anchoring pathways until the user has had the three
+  // best outcomes with one." A BEST outcome = safety rose, and non-safety dropped when the practice measured it (a
+  // practice that asks no non-safety 0–10 can only show the first half). Counted over the practices that anchor —
+  // Connect (anchoring) and self-regulation — by the anchor actually used (a mid-practice pick counts over the launch
+  // sense). Until one anchor has three: the least-tried anchor next, starting from the sense they named at sign-up,
+  // then in order after the last one used. Once one has three: that one ("winner"), most best outcomes if several.
+  const ANCHOR_ORDER = ['sound','sight','touch','imagination','movement'];
+  function _anchorOf(s){
+    const d = s && s.details;
+    if(d && Array.isArray(d.anchorsChosen) && d.anchorsChosen.length) return d.anchorsChosen[d.anchorsChosen.length-1].anchor;
+    return s ? (s.sense || null) : null;
+  }
+  function isBestOutcome(s){
+    const g = practiceGrade(s);
+    const ia = (Array.isArray(s && s.intensityReadings) ? s.intensityReadings : []).filter(v => typeof v === 'number');
+    return ia.length >= 2 ? g === 3 : g >= 2;
+  }
+  function anchorPick(){
+    const anchoring = data.sessions.filter(s => (s.practiceKey==='anchoring' || s.practiceKey==='self-regulation') && ANCHOR_ORDER.indexOf(_anchorOf(s)) >= 0);
+    const best = {}, tried = {};
+    ANCHOR_ORDER.forEach(a => { best[a] = 0; tried[a] = 0; });
+    anchoring.forEach(s => { const a = _anchorOf(s); tried[a]++; if(isBestOutcome(s)) best[a]++; });
+    const winners = ANCHOR_ORDER.filter(a => best[a] >= 3).sort((a,b) => best[b] - best[a]);
+    if(winners.length) return { sense: winners[0], why: 'winner', best, tried };
+    const fewest = Math.min.apply(null, ANCHOR_ORDER.map(a => tried[a]));
+    const ties = ANCHOR_ORDER.filter(a => tried[a] === fewest);
+    const pref = prefSense();
+    let pick;
+    if(pref && ties.indexOf(pref) >= 0) pick = pref;
+    else {
+      const last = anchoring.length ? _anchorOf(anchoring[anchoring.length-1]) : null;
+      const start = last ? ANCHOR_ORDER.indexOf(last) + 1 : 0;
+      for(let k = 0; k < ANCHOR_ORDER.length; k++){ const a = ANCHOR_ORDER[(start + k) % ANCHOR_ORDER.length]; if(ties.indexOf(a) >= 0){ pick = a; break; } }
+    }
+    return { sense: pick, why: 'cycle', best, tried };
+  }
+
   // ---- learned preferences ----
   function learned(){
     const done = data.sessions.filter(s=>s.completed);
@@ -1775,8 +1814,9 @@
     // after a gap whose most recent check-in predates the rework.
     const dom = _dm(last);
     const dys = _DYS[dom];
-    // the sense: their own setting first; else the one their best practices used; else the one they use most
-    const sense = prefSense() || L.bestSense || L.favSense || 'touch';
+    // the anchor: cycle through every one until one earns three best outcomes (see anchorPick)
+    const AP = anchorPick();
+    const sense = AP.sense;
     const sil = L.endsEarlyOften ? 12 : 8;
     const falling = !!(tr && tr.dir==='falling');
 
@@ -1915,9 +1955,9 @@
       const learnedSil = (pSil==null && L.bestSilence!=null && !(extras && (extras.dialDown || extras.droppedStep)) && L.lastExit!=='exit-distracted') ? L.bestSilence : null;
       const silLearned = (learnedSil!=null && learnedSil!==sil2);
       if(silLearned) sil2 = learnedSil;
-      const senseLearned = !prefSense() && L.bestSense && sense===L.bestSense && L.bestSense!==L.favSense && practiceKey!=='micro';
-      if(senseLearned && silLearned) reason += " we'll use " + L.bestSense + " and the amount of silence your best practices had.";
-      else if(senseLearned) reason += " we'll use " + L.bestSense + ", since your practices with it have gone well.";
+      const anchored = (practiceKey==='anchoring' || practiceKey==='self-regulation');
+      if(anchored && AP.why==='winner') reason += " we'll use " + AP.sense + ", the anchor that has worked best for you" + (silLearned ? ", with the amount of silence your best practices had." : ".");
+      else if(anchored && AP.why==='cycle') reason += " we're trying each anchor in turn to find the one that works best for you. this time: " + AP.sense + "." + (silLearned ? " the silence is set to what your best practices had." : "");
       else if(silLearned) reason += " the silence is set to what your best practices had.";
       if(L.lastExit==='exit-distracted'){ sil2 = Math.min(sil2, 4); reason += " shorter silences this time, so it's easier to stay with."; }
       else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedStep))){ reason += " last one was a lot, so we're keeping this one easier."; }
@@ -2189,7 +2229,7 @@
     prefSense, setPrefSense, prefSilence, setPrefSilence,
     saveContexts,
     isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
-    trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked,
+    trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
     liveFetch, livePoll,
   };
 })(window);

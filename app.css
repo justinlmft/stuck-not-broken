@@ -3197,8 +3197,8 @@ body.reduce-motion .ob-foot::before{transition:none}
 .fbx-marks{display:flex;align-items:center;height:32px}
 .fbx-logo{height:30px;width:auto;display:block;overflow:visible}
 .fbx-m{transform-box:fill-box;transform-origin:center}
-.fbx-heart{animation:fbx-heart-in 1.1s var(--ease) .15s both}
-.fbx-bolt,.fbx-x{opacity:.26;animation:fbx-fade-back 1.1s var(--ease) .15s both}
+.fbx-heart{animation:fbx-heart-in 2.1s var(--ease) .35s both}
+.fbx-bolt,.fbx-x{opacity:.26;animation:fbx-fade-back 2.1s var(--ease) .35s both}
 .fbx-eyebrow{margin:32px 0 12px}
 .fbx-h{font-size:calc(26px * var(--type-scale));font-weight:600;line-height:1.2;letter-spacing:-.02em;color:var(--ink);margin:0;text-wrap:pretty}
 .fbx-lede{font-size:calc(17px * var(--type-scale));line-height:1.65;color:var(--ink-80);margin:12px 0 0;text-wrap:pretty;max-width:34em}
@@ -3209,10 +3209,29 @@ body.reduce-motion .ob-foot::before{transition:none}
 .fbx-card-2{margin-top:12px}
 .fbx-card .fbx-card-line{display:block;text-wrap:pretty;margin:12px 0 0;font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--ink-80)}
 .fbx-card .fbx-card-note{display:block;text-wrap:pretty;margin:8px 0 0;font-size:calc(14px * var(--type-scale));line-height:1.45;color:var(--muted)}
-.fbx-in{display:inline-block;animation:fbx-rise .5s var(--ease) both;animation-delay:calc(1.2s + var(--i,0) * .28s)}
+.fbx-in{display:inline-block;animation:fbx-rise .5s var(--ease) both;animation-delay:calc(2.5s + var(--i,0) * .28s)}
 .fbx-actions{margin-top:auto;padding-top:32px;display:flex;flex-direction:column;gap:12px}
-@keyframes fbx-heart-in{0%{opacity:0;transform:scale(.6)}60%{opacity:1;transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
-@keyframes fbx-fade-back{0%{opacity:.9}100%{opacity:.26}}
+/* ✅ 2026-09-25 (Justin: "i did not notice the glyphs animating"): all three arrive together in ink, hold, then the bolt
+   and x step back while the heart grows into the safety colour and settles; the numbers follow after. */
+@keyframes fbx-heart-in{0%{opacity:0;fill:var(--ink);transform:scale(.85)}14%{opacity:1;fill:var(--ink);transform:scale(1)}40%{opacity:1;fill:var(--ink);transform:scale(1)}72%{opacity:1;fill:var(--fbx-safety);transform:scale(1.3)}86%{transform:scale(.94)}100%{opacity:1;fill:var(--fbx-safety);transform:scale(1)}}
+@keyframes fbx-fade-back{0%{opacity:0}14%{opacity:1}40%{opacity:1}75%{opacity:.26}100%{opacity:.26}}
 @keyframes fbx-rise{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}
 body.reduce-motion .fbx-heart,body.reduce-motion .fbx-bolt,body.reduce-motion .fbx-x,body.reduce-motion .fbx-in{animation:none}
 @media (prefers-reduced-motion:reduce){.fbx-heart,.fbx-bolt,.fbx-x,.fbx-in{animation:none}}
+
+/* ── variety menu (2026-09-25): "Try something different" under the recommended card ── */
+.vs-link{display:block;margin:12px auto 0;background:none;border:0;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline);padding:10px 12px;min-height:44px;cursor:pointer}
+.vs-wrap{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end}
+.vs-scrim{position:absolute;inset:0;background:rgba(26,31,42,.28);opacity:0;transition:opacity .25s var(--ease)}
+.vs-sheet{position:relative;background:var(--bone);border-radius:20px 20px 0 0;padding:20px 16px calc(16px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .3s var(--ease);max-width:560px;width:100%;margin:0 auto;box-sizing:border-box}
+.vs-wrap.on .vs-scrim{opacity:1}
+.vs-wrap.on .vs-sheet{transform:none}
+.vs-h{margin:0 4px 12px;font-size:calc(15px * var(--type-scale));color:var(--muted)}
+.vs-opts{display:flex;flex-direction:column;gap:8px}
+.vs-opt{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:54px;padding:0 18px;border:1px solid var(--hairline);border-radius:14px;background:var(--bone);font:inherit;font-size:calc(17px * var(--type-scale));color:var(--ink);cursor:pointer;text-align:left}
+.vs-opt:active{transform:scale(.985)}
+.vs-rec{border-color:var(--ink)}
+.vs-tag{font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.vs-cancel{display:block;width:100%;margin-top:10px;min-height:48px;background:none;border:0;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--muted);cursor:pointer}
+@media (prefers-reduced-motion:reduce){.vs-scrim,.vs-sheet{transition:none}}
+body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
