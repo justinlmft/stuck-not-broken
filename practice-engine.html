@@ -193,7 +193,10 @@ body.playing .brand{display:none}
 
 /* ───── player ───── */
 #player{align-items:center;justify-content:center;text-align:center;gap:0;position:relative}
-.stage{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:192px;position:relative;z-index:1}
+.stage{flex:1;min-height:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:max(calc(var(--foot-h,180px) + 12px),120px);position:relative;z-index:1}
+/* 2026-09-26 (Justin: "the pinned menu covers up the CC"): the caption sits above WHATEVER the bottom panel holds — the page
+   measures the panel (page.js `watchFoot`) and the stage's padding follows it, frame by frame, so the caption rides up and
+   down with the menus as they fold. */
 .ringwrap{position:fixed;inset:0;z-index:0;padding:0}
 .pfoot{position:absolute;left:0;right:0;bottom:0;width:100%;display:flex;flex-direction:column;align-items:stretch;z-index:2}
 .pfoot::before{content:'';position:absolute;left:calc((100% - 100vw)/2);right:calc((100% - 100vw)/2);top:-64px;bottom:0;background:linear-gradient(to top,var(--bone) 0%,var(--bone) 72%,transparent 100%);opacity:0;transition:opacity .5s var(--ease);pointer-events:none;z-index:-1}
@@ -212,8 +215,17 @@ body.playing .brand{display:none}
 .cap-text{display:inline-block;opacity:0;transform:translateY(7px);filter:blur(2px);transition:opacity .6s var(--ease),transform .6s var(--ease),filter .6s var(--ease);will-change:opacity,transform,filter}
 .cap-text.in{opacity:1;transform:none;filter:blur(0)}
 @media (prefers-reduced-motion:reduce){.cap-text{transform:none;filter:none;transition:opacity .4s var(--ease)}}
-.controls{display:flex;flex-direction:column;gap:18px;align-items:stretch;width:100%;opacity:0;pointer-events:none;transition:opacity .55s var(--ease)}
-#player.show-controls .controls{opacity:1;pointer-events:auto}
+.controls{display:flex;flex-direction:column;gap:18px;align-items:stretch;width:100%}
+/* ✅ THE FOLDS (Justin, 2026-09-26: "the menu buttons animate in and out … come in smoothly and exit smoothly"). Every panel in
+   the bottom stack is a grid row that eases between 0fr and 1fr, so it takes its space as it appears and gives it back as it
+   goes; nothing pops. Which fold is open is decided by the player's state classes below. */
+.fold{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;pointer-events:none;margin-bottom:0;transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .3s var(--ease),visibility 0s linear .42s;width:100%}
+.fold>*{min-height:0;overflow:hidden}
+.fold-mini{--fold-gap:6px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:0px}
+.fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.show-controls:not(.choosing):not(.picking) .fold-controls,#player.skipping:not(.choosing):not(.picking) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.skipping .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+@media (prefers-reduced-motion:reduce){.fold{transition:opacity .25s var(--ease),visibility 0s linear .25s}.fold.open{transition:opacity .25s var(--ease),visibility 0s}}
 #player.show-controls .controls>*{animation:riseIn .5s var(--ease) both}
 #player.show-controls .controls>*:nth-child(2){animation-delay:.06s}
 #player.show-controls .controls>*:nth-child(3){animation-delay:.12s}
@@ -226,8 +238,8 @@ body.playing .brand{display:none}
    nobody can see is a question nobody was asked.
    E4.23: the card is up from the start of the beat until the end of the gap after it, which is
    the session's window, not a timeout of its own. */
-.choicecard{display:none;flex-direction:column;gap:9px;width:100%;margin:0 0 16px;position:relative;z-index:3}
-#player.choosing .choicecard{display:flex;animation:riseIn .45s var(--ease)}
+.choicecard{display:flex;flex-direction:column;gap:9px;width:100%;position:relative;z-index:3}
+#player.choosing .choicecard{animation:riseIn .45s var(--ease)}
 .choicebtn{
   width:100%;font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;cursor:pointer;
   background:var(--bone);color:var(--ink);border:1.5px solid var(--ink);border-radius:14px;
@@ -346,14 +358,10 @@ body.playing .brand{display:none}
 .pinbtn[aria-pressed="true"]{color:var(--ink)}
 .pinbtn[aria-pressed="true"] .pin-head{fill:currentColor}
 .pinbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
-#player.choosing .controls{display:none}
-.skipslot{display:none}
-#player.skipping .skipslot{display:block}
-#player.skipping .skipslot .choicebtn{width:100%}
-#player.skipping .controls{opacity:1;pointer-events:auto}
-#player.skipping .pfoot::before{opacity:1}
-.choice-mini{display:none;justify-content:center;gap:28px;margin:0 0 6px}
-#player.choosing .choice-mini{display:flex;animation:riseIn .45s var(--ease)}
+.skipslot .choicebtn{width:100%}
+#player.skipping .pfoot::before,#player.picking .pfoot::before{opacity:1}
+.choice-mini{display:flex;justify-content:center;gap:28px}
+#player.choosing .choice-mini{animation:riseIn .45s var(--ease)}
 .mini-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 6px;background:none;border:0;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer}
 .mini-btn:hover{color:var(--ink)}
 .mini-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
@@ -363,7 +371,7 @@ body.playing .brand{display:none}
 .mini-pause.is-paused .ico-play{display:block}
 /* held for an answer: the buttons are the way on, so there is nothing to pause */
 #player.held .mini-pause{display:none}
-#player.finished .choice-mini{display:none}
+#player.finished .fold-mini,#player.finished .fold-bed,#player.finished .fold-choice{grid-template-rows:0fr;opacity:0;pointer-events:none}
 .choicecard .reading-q,.choicecard .offer-hold{text-align:left}
 .timeleft:empty{display:none}
 #player.finished .done{display:flex;animation:riseIn .55s var(--ease)}
@@ -423,6 +431,21 @@ body.embed .btn.primary{font-size:calc(16px * var(--type-scale));padding:16px 30
 body.embed .welcome{font-size:calc(15px * var(--type-scale))}
 body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 
+/* ── the background sound list (2026-09-26) ─────────────────────────────────────────────────────────────────────────── */
+.bedcard{display:flex;flex-direction:column;gap:12px;width:100%;position:relative;z-index:3}
+.bed-h{margin:0;font-size:calc(12px * var(--type-scale));letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left}
+.bed-rows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bedrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;padding:10px 12px 10px 14px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
+.bedrow.sel{border-color:var(--ink);font-weight:600}
+.bedrow .tick{width:18px;height:18px;flex:none;opacity:0;transition:opacity .2s var(--ease)}
+.bedrow.sel .tick{opacity:1}
+.bedrow:focus-visible,.bedlv:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.bed-levels{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;transition:opacity .3s var(--ease)}
+.bed-levels.off{opacity:.35;pointer-events:none}
+.bedlv{min-height:42px;padding:8px 10px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
+.bedlv.sel{border-color:var(--ink);background:var(--ink);color:var(--bone)}
+.bed-lv{opacity:.7}.bed-lv:not(:empty)::before{content:'\00b7';margin:0 5px}
+
 </style>
 <script>/* sync boot — set classes on <html> before first paint */(function(){
 var q=new URLSearchParams(location.search);
@@ -436,7 +459,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               f0482fded5134546cb04a07dc8a25865    27268 bytes
+     page.css               80016c22a558644badedc6b4d9d721d1    30824 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
      data.js                94656130b53dae0a4156657add5b856b    58334 bytes
@@ -448,8 +471,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
      session.js             35c7f9246cba67285fac3c64541f5a0f    79127 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                7e2c9def6b3b972e51512b9a954d4f45    13887 bytes
-     page.js                9aa72c0bc93ee045bddaecf1799da5a0    50933 bytes
+     copy.js                37ed9be87cddf5b541015f07d6b3e67f    13995 bytes
+     page.js                5f9d4de43fc45c36d0815d968c13a62d    54927 bytes
 -->
 </head>
 <body>
@@ -544,21 +567,26 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       <p class="conn" id="conn"></p>
 
       <!-- E5.28/E5.30 — a choice point's own visible target, outside the reveal -->
-      <div class="choicecard" id="choicecard"></div>
+      <!-- 2026-09-26: every panel is a fold — it eases open and closed (grid rows 0fr ↔ 1fr), never pops -->
+      <div class="fold fold-choice"><div class="choicecard" id="choicecard"></div></div>
       <!-- 2026-09-25: while a question has the panel, pause and end stay one tap away -->
-      <div class="choice-mini" id="choicemini">
+      <div class="fold fold-mini"><div class="choice-mini" id="choicemini">
         <button class="mini-btn mini-pause" id="minipause" type="button"><svg class="mini-ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="1.6"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="1.6"></rect></svg><svg class="mini-ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z"></path></svg><span id="minipausetext"></span></button>
         <button class="mini-btn mini-end" id="miniend" type="button"><svg class="mini-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg><span id="miniendtext"></span></button>
-      </div>
+      </div></div>
 
-      <div class="controls">
+      <!-- 2026-09-26: the background sound as a list (Justin: "feels like it should be a list i can choose from"), in the
+           one bottom panel in place of the standard menu -->
+      <div class="fold fold-bed"><div class="bedcard" id="bedcard"></div></div>
+
+      <div class="fold fold-controls"><div class="controls">
         <!-- "about N min left", above the controls where the old player had it (2026-09-21) -->
         <div class="ctrl-top">
           <p class="timeleft" id="timeleft" aria-live="off"></p>
           <button class="pinbtn" id="pinbtn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="pin-head" d="M9 3h6l-1 6 3.2 3.2V14H6.8v-1.8L10 9z"></path><path d="M12 14v7" fill="none"></path></svg></button>
         </div>
         <!-- 2026-09-25: "Skip intro" lives in the standard menu (mockup 1), which stays up while it is offered -->
-        <div class="skipslot" id="skipslot"></div>
+        <div class="fold fold-skip"><div class="skipslot" id="skipslot"></div></div>
         <div class="controlbar">
           <div class="adjgroup">
             <div class="adj silence">
@@ -571,8 +599,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
             </div>
             <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc" id="cclabel"></span><span class="cc-state" id="capstate"></span></button>
             <!-- 2026-09-26: the background sound, changeable mid-practice -->
-            <button class="adj bedtoggle" id="bedtoggle" type="button" aria-pressed="false"><span class="adj-label" id="bedlabel"></span><span class="adj-val bed-val" id="bednow"></span></button>
-            <button class="adj bedlevel" id="bedlevel" type="button"><span class="adj-val" id="bedlevelnow"></span></button>
+            <button class="adj bedtoggle" id="bedtoggle" type="button" aria-expanded="false"><span class="adj-label" id="bedlabel"></span><span class="adj-val bed-val" id="bednow"></span><span class="adj-val bed-lv" id="bedlevelnow"></span></button>
           </div>
           <button class="transport mini prevclip" id="prevclip" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.6" y="5.5" width="2.4" height="13" rx="1.1"></rect><path d="M18.4 6 L10 12 L18.4 18 Z" fill="currentColor"></path></svg></button>
           <button class="transport mini rewind" id="rewind" type="button"><span class="rw" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.2a8.8 8.8 0 1 1-8.2 5.6"></path><path d="M9.1 2.6 L5.4 5.9 L9.0 9.0"></path></svg><span class="rw5">5</span></span></button>
@@ -585,7 +612,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
           <button class="btn quiet" id="easeout" type="button"></button>
           <button class="endnow" id="stopbtn" type="button"></button>
         </div>
-      </div>
+      </div></div>
 
       <div class="done" id="done">
         <button class="btn quiet" id="againbtn" type="button"></button>
@@ -6737,7 +6764,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:7e2c9def6b3b972e51512b9a954d4f45 */
+<script>/* @module copy.js md5:37ed9be87cddf5b541015f07d6b3e67f */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6887,6 +6914,7 @@ const UI = Object.freeze({
   soundNothing: 'Nothing',
   soundNames: { creek: 'Creek', beach: 'Beach', birds: 'Birds', rain: 'Rain', bowl: 'Singing bowl', bowls: 'Gentle bowls', struck: 'Struck bowls', fire: 'Fire' },
   soundLevels: { soft: 'soft', medium: 'medium', louder: 'louder' },
+  soundDone: 'Done',   // closes the sound list in the player (2026-09-26); the maker's sheet says the same
   lessSilence: 'less silence',
   moreSilence: 'more silence',
 
@@ -6980,7 +7008,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:9aa72c0bc93ee045bddaecf1799da5a0 */
+<script>/* @module page.js md5:5f9d4de43fc45c36d0815d968c13a62d */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7565,6 +7593,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
 
   function openChoice(control) {
+    if (control !== 'skip') closeBedPicker();
     /* ✅ Skip intro sits in the standard menu, which stays up while it is offered (Justin's mockup 1, 2026-09-25) */
     if (control === 'skip') {
       const slot = $('skipslot');
@@ -7790,7 +7819,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const p = $('player');
     p.classList.add('show-controls');
     clearTimeout(ctrlTimer);
-    if (pinned || !session || session.runtime.finished || session.runtime.paused) return;
+    if (pinned || picking() || !session || session.runtime.finished || session.runtime.paused) return;
     ctrlTimer = setTimeout(() => { p.classList.remove('show-controls'); }, 4500);
   }
 
@@ -7805,22 +7834,85 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('bednow').textContent = on ? (U.soundNames[cfg.bed] || cfg.bed) : U.soundNothing;
     $('bedtoggle').classList.toggle('on', on);
     $('bedtoggle').setAttribute('aria-pressed', on ? 'true' : 'false');
-    $('bedlevelnow').textContent = U.soundLevels[D.bedLevel(cfg.bedLevel)];
-    $('bedlevel').disabled = !on;
+    $('bedlevelnow').textContent = on ? U.soundLevels[D.bedLevel(cfg.bedLevel)] : '';
+    if (picking()) paintBedCard();
   }
-  function stepBed() {
-    const steps = [D.BED_NONE].concat(Object.keys(D.BEDS));
-    const i = bedOn() ? steps.indexOf(cfg.bed) : 0;
-    cfg.bed = steps[(i + 1) % steps.length];
+  /* ✅ THE SOUND LIST (Justin, 2026-09-26: "The Background sound button in the player menu feels like it should be a list i
+   * can choose from"). A tap on the menu's sound button folds the list open IN PLACE of the standard menu (ruling 41: one
+   * bottom panel, never on top): Nothing + every sound, two to a row, then Soft · Medium · Louder, then Done. Every tap
+   * takes effect at once (the sound is already playing, so there is nothing to preview); Done folds the menu back. A
+   * question arriving takes the panel, as it does from the standard menu. */
+  function pickBed(key) {
+    cfg.bed = (key === D.BED_NONE || Object.prototype.hasOwnProperty.call(D.BEDS, key)) ? key : D.BED_NONE;
     if (session) session.setBed(cfg.bed, cfg.bedLevel);
     showBed();
   }
-  function stepBedLevel() {
+  function pickBedLevel(level) {
     if (!bedOn()) return;
-    const L = D.BED_LEVELS, i = L.indexOf(D.bedLevel(cfg.bedLevel));
-    cfg.bedLevel = L[(i + 1) % L.length];
+    cfg.bedLevel = D.bedLevel(level);
     if (session) session.setBed(cfg.bed, cfg.bedLevel);
     showBed();
+  }
+  function picking() { return $('player').classList.contains('picking'); }
+  function openBedPicker() {
+    paintBedCard();
+    $('player').classList.add('picking');
+    $('bedtoggle').setAttribute('aria-expanded', 'true');
+    clearTimeout(ctrlTimer);
+  }
+  function closeBedPicker() {
+    if (!picking()) return;
+    $('player').classList.remove('picking');
+    $('bedtoggle').setAttribute('aria-expanded', 'false');
+    revealControls();
+  }
+  function paintBedCard() {
+    const U = COPY.UI, card = $('bedcard'), on = bedOn();
+    card.textContent = '';
+    const h = el('p', 'bed-h', U.sound);
+    card.appendChild(h);
+    const rows = el('div', 'bed-rows');
+    const tick = () => { const t = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); t.setAttribute('viewBox', '0 0 24 24'); t.setAttribute('class', 'tick'); t.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M5 12l5 5L20 6'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '2.6'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); t.appendChild(path); return t; };
+    [[D.BED_NONE, U.soundNothing]].concat(Object.keys(D.BEDS).map(k => [k, U.soundNames[k] || k])).forEach(([k, name]) => {
+      const sel = on ? cfg.bed === k : k === D.BED_NONE;
+      const b = el('button', 'bedrow' + (sel ? ' sel' : ''), name);
+      b.type = 'button'; b.dataset.bed = k; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      b.appendChild(tick());
+      b.addEventListener('pointerdown', ev => ev.stopPropagation());
+      b.onclick = () => { pickBed(k); paintBedCard(); };
+      rows.appendChild(b);
+    });
+    card.appendChild(rows);
+    const lv = el('div', 'bed-levels' + (on ? '' : ' off'));
+    lv.setAttribute('role', 'radiogroup');
+    D.BED_LEVELS.forEach(l => {
+      const sel = on && D.bedLevel(cfg.bedLevel) === l;
+      const word = U.soundLevels[l] || l;
+      const b = el('button', 'bedlv' + (sel ? ' sel' : ''), word.charAt(0).toUpperCase() + word.slice(1));
+      b.type = 'button'; b.dataset.lv = l; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', sel ? 'true' : 'false');
+      b.addEventListener('pointerdown', ev => ev.stopPropagation());
+      b.onclick = () => { pickBedLevel(l); paintBedCard(); };
+      lv.appendChild(b);
+    });
+    card.appendChild(lv);
+    const done = el('button', 'choicebtn quietly', U.soundDone);
+    done.type = 'button'; done.id = 'beddone';
+    done.addEventListener('pointerdown', ev => ev.stopPropagation());
+    done.onclick = () => closeBedPicker();
+    card.appendChild(done);
+  }
+
+  /* ✅ THE CAPTION RIDES ABOVE THE PANEL (Justin, 2026-09-26: "the pinned menu covers up the CC. The CC should live
+   * dynamically on top of whatever menu is open"). The bottom stack is measured as it folds, frame by frame, and the stage's
+   * padding follows, so the caption is always just above whatever is open — the pinned menu, a question, the sound list. */
+  function watchFoot() {
+    const foot = document.querySelector('#player .pfoot'), player = $('player');
+    if (!foot || !player) return;
+    const apply = () => { player.style.setProperty('--foot-h', Math.round(foot.getBoundingClientRect().height) + 'px'); };
+    if (typeof ResizeObserver === 'function') new ResizeObserver(apply).observe(foot);
+    else setInterval(apply, 250);
+    apply();
   }
 
   /* E4.24 — the stepper walks the SAME list the setup chips render, so the two vocabularies
@@ -7921,8 +8013,8 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('prevclip').onclick = () => { session.runtime.previousBeat(); revealControls(); };
     $('lesssil').onclick = () => { stepSilence(-1); revealControls(); };
     $('moresil').onclick = () => { stepSilence(1); revealControls(); };
-    $('bedtoggle').onclick = () => { stepBed(); revealControls(); };
-    $('bedlevel').onclick = () => { stepBedLevel(); revealControls(); };
+    $('bedtoggle').onclick = () => { if (picking()) closeBedPicker(); else openBedPicker(); };
+    watchFoot();
 
     $('captoggle').onclick = () => {
       capsOn = !capsOn;
