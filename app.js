@@ -5640,7 +5640,7 @@ function app(tab){
     const r=Object.assign({}, _recommendSafe(true));
     if(bs.anchor && r.practiceKey!=='mindfulness') r.sense=bs.anchor;
     if(bs.silence) r.silence=bs.silence;
-    r.reason='your best setup: everything that has worked best for you, in one practice.';
+    r.reason='your ideal practice: what has worked best for you, in one practice.';
     return r;
   }
 
@@ -5744,10 +5744,13 @@ function app(tab){
       if(bs.n>=8 && bs.di>=0 && bs.si>=0 && bs.anchor){
         const dom=(bs.day[bs.di].dom)||'safety';
         const row=(l,v)=>`<div class="sd-row"><span class="sd-lbl">${l}</span><span class="sd-val">${v}</span></div>`;
-        push('bestSetup','your best setup',`
+        // Justin 2026-09-26: "The ideal practice card should be titled as 'Ideal Practice' with the details listed below and the
+        // buttons. Cut out 'with everything…'" — the title is the hero word; the day and time become the first detail row.
+        push('bestSetup','ideal practice',`
           ${shareBtn('bestSetup')}
-          <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(dom)}">${_DAY_LONG[bs.dayKey]} ${segLabel(bs.segKey)}</b> with everything that has worked best for you, in one practice.</p>
+          <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR(dom)}">Ideal practice</b></p>
           <div class="bs-rows">
+            ${row('When', CAP(_DAY_LONG[bs.dayKey]+' '+segLabel(bs.segKey)+'s'))}
             ${bs.practiceKey?row('Practice', CAP(Store.practiceLabel(bs.practiceKey))):''}
             ${row('Anchor', CAP(bs.anchor))}
             ${bs.silence?row('Silence', bs.silence+' seconds'):''}
