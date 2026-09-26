@@ -470,16 +470,16 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               0e4c43f7a7f924d805f7ec4de0f41c58    31721 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                7895f7ab18231379b08fea2c40600c8a    59389 bytes
+     data.js                fc5e182a4051a1b79510f2bb3fd6cc3a    60296 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
-     runtime.js             d332ccd4a092ac5a03712d9dc707e778    48812 bytes
+     runtime.js             5736dda1953eb04fd0dea9996a3ee46b    50356 bytes
      host.js                5762e6c8131d8f90658404de65959e96    38963 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
-     stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             c9688380f65ee9add7715d730144864f    80983 bytes
+     stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
+     session.js             bb59b3e4d73bdf20798115b47c8ea982    80838 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                45d8e87a7a7f2b96ec660524bda12542    14198 bytes
+     copy.js                501c73e9d550987645d943cfdbaf1977    14272 bytes
      page.js                19e0f33086e613e479fc13d7a1af9565    56662 bytes
 -->
 </head>
@@ -870,7 +870,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:7895f7ab18231379b08fea2c40600c8a */
+<script>/* @module data.js md5:fc5e182a4051a1b79510f2bb3fd6cc3a */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -963,6 +963,15 @@ const BEDS = {
   bowls: Object.freeze({ random: false, seconds: 109.39, file: 'bowls-161478' }),  // "Tibetan Singing Bowls" (phluidbox): gently played
   struck: Object.freeze({ random: false, seconds: 443.73, file: 'struck-365416' }), // "Tibetan_Singing_Bowls_Improv" (RutgerMuller): struck and hummed
   fire: Object.freeze({ random: true, seconds: 61.88, file: 'fire-pixabay' }),      // "Fire Pops" (Pixabay): a fire with pops
+  /* Round 4 (Justin, 2026-09-26 night: "in: Texas crickets, Bamboo water spout, Wandering, Dunes"), all Freesound.org, CC0.
+   * Night and the garden are steady beds: random start. The two pieces of music have an arc, so they start at the top
+   * every time (ROADMAP-DETAIL entry 9: "fixed start for ambient music") and ease out through a few seconds of quiet before
+   * beginning again. The garden is a bamboo water spout with no knock for now: Justin "really really" wants a shishi-odoshi
+   * with the clack; when one is found it gets its own key and file. */
+  night: Object.freeze({ random: true, seconds: 176.56, file: 'night-22604' }),          // "DMP010037 CRICKETS TEXAS" (martypinso)
+  garden: Object.freeze({ random: true, seconds: 52.01, file: 'garden-107226' }),        // "water-spout-japanese-garden" (keithpeter)
+  wandering: Object.freeze({ random: false, seconds: 282.98, file: 'wandering-455855' }), // "Wandering" (Andrewkn): slow warm pads
+  dunes: Object.freeze({ random: false, seconds: 291.48, file: 'dunes-447511' }),         // "Dunes" (Andrewkn): airy pads
 };
 const BED_NONE = 'none';
 const BED_LEVELS = Object.freeze(['soft', 'medium', 'louder']);
@@ -1285,16 +1294,14 @@ const BAND = allOrNothing(BAND_FAMILIES, '0–10 answer clips');
 const BAND_LOW_PRESENT = exists('SAFETY-READ-LOW-PRESENT') ? must('SAFETY-READ-LOW-PRESENT') : null;
 /* ✅ THE BREATH BUTTONS (Justin, 2026-09-25: "a pop-up menu in the player where the user can tap how their breathing is?
  * 'More shallow' or 'More full' for example? And then audio that reacts to it"). Only the BREATH-CHECK takes that ask
- * "full or shallow" put them up; each answer gets a short spoken reply once both families are recorded (recording doc
- * §13), and nothing speaks until then. A shallow breath is never corrected. */
+ * "full or shallow" put them up. A shallow breath is never corrected. The full/shallow replies were cut on 2026-09-26
+ * ("we're not acknowledging the other ones in particular"): every first tap gets the same "noted" (BREATH_ACK below). */
 const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
-const BREATH_REPLY = (exists('BREATH-REPLY-FULL') && exists('BREATH-REPLY-SHALLOW'))
-  ? Object.freeze({ full: must('BREATH-REPLY-FULL'), shallow: must('BREATH-REPLY-SHALLOW') }) : null;
 /* ✅ THE THREE QUESTIONS OF THE BREATH CHECK (Justin, 2026-09-26: "the breath check has three questions: full/shallow,
  * chest/belly, and tense/relaxed"). Three pairs, in the order the clip asks them; every pair a single tap; all three saved.
- * Replies: the first tap in a check gets one (BREATH_REPLY for full/shallow, else BREATH_ACK — "noted"); and the
- * combination chest + shallow + tense gets BREATH_GUIDE_MOVE ("suggests freeze activation and movement could be helpful"):
- * an invitation to move around or change the environment. Each family is all-or-nothing: nothing speaks until recorded. */
+ * Replies: the first tap in a check gets BREATH_ACK ("noted"); and the combination chest + shallow + tense gets
+ * BREATH_GUIDE_MOVE ("suggests freeze activation and movement could be helpful"): an invitation to move around or change
+ * the environment. Each family is all-or-nothing: nothing speaks until recorded (recording doc §13). */
 const BREATH_PAIRS = Object.freeze([Object.freeze(['full', 'shallow']), Object.freeze(['chest', 'belly']), Object.freeze(['tense', 'relaxed'])]);
 const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
 const BREATH_ACK = exists('BREATH-ACK') ? must('BREATH-ACK') : null;
@@ -1656,7 +1663,7 @@ function takesInRotation(id) {
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_REPLY, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
+  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
@@ -2970,7 +2977,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:d332ccd4a092ac5a03712d9dc707e778 */
+<script>/* @module runtime.js md5:5736dda1953eb04fd0dea9996a3ee46b */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -3043,6 +3050,11 @@ const C = Object.freeze({
   PREFETCH_AHEAD: 2,         // beats warmed ahead of the playhead
 
   MIN_GAP_SECONDS: 0.4,      // shorter than this is not a gap; go straight on
+
+  /* ✅ THE SOUND LEADS IN (Justin, 2026-09-26: no "where we are" intro lines; instead the background sound starts a few
+   * seconds before the first word, so the listener arrives in the place before anything is said). Only at the start of
+   * a practice with a sound chosen; never for Nothing, never when the sound is changed mid-practice. */
+  BED_LEAD_MS: 3000,
 
   /* 2026-09-24 — the pause after a question inside a clip (data.js CLIP_HOLDS) */
   MIN_CLIP_HOLD_SECONDS: 0.25,   // less than this left to add, and the read's own pause is enough
@@ -3137,6 +3149,8 @@ class Runtime {
     this._bedKey = null;
     this._bedSeek = null;             // the start point still to apply, as a fraction of the loop
     this._bedSelf = 0;                // when WE last played or paused it (the lock-screen mirror ignores those)
+    this._leading = false;            // the sound's lead-in before the first clip (C.BED_LEAD_MS)
+    this._leadTimer = null;
 
     this._swReloaded = false;
     this._swPendingReload = false;
@@ -3445,14 +3459,29 @@ class Runtime {
     this.finished = false;
     this.idx = -1;
     this._pausedBy = null;
-    this._advance();
-    /* after the first clip is asked for, so the voice's take dealing sees the same random numbers as before */
-    if (this.playing && !this.finished) this._bedBegin();
+    /* the first clip is dealt BEFORE the bed's dice, so the voice's takes are the same with or without a sound */
+    if (this.beats[0]) this.dealtFile(this.beats[0]);
+    if (this._bedBegin()) this._armLead(); else this._advance();
     return this;
+  }
+
+  /* the sound plays alone for C.BED_LEAD_MS, then the first clip; a pause stops the clock, play restarts it whole */
+  _armLead() {
+    this._leading = true;
+    this.dev.clearTimeout(this._leadTimer);
+    this._leadTimer = this.dev.setTimeout(() => { this._leadTimer = null; this._advance(); }, C.BED_LEAD_MS);
+    this.onEvent({ type: 'bed-lead', ms: C.BED_LEAD_MS });
+  }
+
+  _endLead() {
+    this.dev.clearTimeout(this._leadTimer);
+    this._leadTimer = null;
+    this._leading = false;
   }
 
   _advance() {
     if (!this.playing || this.finished) return;
+    this._endLead();
     this.idx += 1;
     if (this.idx >= this.beats.length) return this._finish();
     this._playCurrent();
@@ -3742,6 +3771,7 @@ class Runtime {
     this.dev.clearTimeout(this._holdTimer);
     this._endedWhilePaused = false;
     this.dev.clearTimeout(this._gapTimer);
+    this._endLead();
     try { this.dev.audio.pause(); } catch (e) {}
     this._bedEnd();
     this.onEvent({ type: 'complete', terminates: this.plan.terminates });
@@ -3772,6 +3802,13 @@ class Runtime {
     this._lastSelfCtl = this.dev.now();
     const au = this.dev.audio;
     const by = source || 'button';
+
+    /* during the sound's lead-in there is no clip yet: pause holds the clock, play starts the lead-in over */
+    if (this._leading) {
+      if (this.paused) { this._setPaused(false, by); this._armLead(); }
+      else { this._setPaused(true, by); this.dev.clearTimeout(this._leadTimer); this._leadTimer = null; }
+      return;
+    }
 
     if (this.paused) {
       this._setPaused(false, by);
@@ -3978,6 +4015,7 @@ class Runtime {
     this._midHold = null;
     this.dev.clearTimeout(this._holdTimer);
     this._holdTimer = null;
+    this._endLead();                  // a skip during the sound's lead-in ends it
     const next = this.idx + delta;
     if (next >= this.beats.length) return this._finish();
     this.idx = Math.max(0, next);
@@ -4003,6 +4041,7 @@ class Runtime {
     this.dev.clearTimeout(this._holdTimer);
     this._endedWhilePaused = false;
     this.dev.clearTimeout(this._gapTimer);
+    this._endLead();
     try { this.dev.audio.pause(); } catch (e) {}
     this._bedEnd();
     if (this._offVisibility) this._offVisibility();
@@ -4031,6 +4070,7 @@ class Runtime {
       inGap: this.inGap,
       inSilence: this._inSilence,
       inClipHold: !!this._midHold,
+      leading: this._leading,
       usingFallbackGap: this._usingFallbackGap,
       endedWhilePaused: this._endedWhilePaused,
       tapArmed: this._tapArmed,
@@ -4867,7 +4907,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_CAPTIONS =
 
 })();
 /* @endmodule captions.js */</script>
-<script>/* @module stall.js md5:3c48c15baf42b791401cec5b7c7c03e5 */
+<script>/* @module stall.js md5:b9674cd18208ad9ef35ebd266aeeeeaf */
 (function(){
 /* practice-engine/stall.js — the two foreground recoveries the transport deliberately does not own.
  *
@@ -4970,7 +5010,7 @@ class StallWatch {
     if (this._recovering) return false;
     const s = this.state();
     if (!s.playing || s.paused || s.finished) return false;
-    if (s.inGap || s.inSilence) return false;
+    if (s.inGap || s.inSilence || s.leading) return false;   // the sound's lead-in: no clip yet
     return true;
   }
 
@@ -5054,7 +5094,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:c9688380f65ee9add7715d730144864f */
+<script>/* @module session.js md5:bb59b3e4d73bdf20798115b47c8ea982 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5666,7 +5706,7 @@ class Session {
     return !!m && D.BREATH_FULLNESS_TAKES.indexOf(m[1]) >= 0;
   }
 
-  /* ✅ A breath answer (Justin, 2026-09-25): recorded with its second, answered with a short reply once recorded,
+  /* ✅ A breath answer (Justin, 2026-09-25): recorded with its second, acknowledged once "noted" is recorded,
    * and the practice carries on — the clip still asks its other questions, so it is not cut. */
   _breathAnswer(c, option) {
     const pair = D.BREATH_PAIRS.find(p => p.indexOf(option) >= 0);
@@ -5691,12 +5731,8 @@ class Session {
       this.onEvent({ type: 'tap-reply', control: CONTROL.BREATH, reply });
     };
     let spoke = false;
-    /* the FIRST tap in a check is acknowledged: the full/shallow reply if that is what was tapped, else "noted" */
-    if (st.first && live) {
-      const own = D.BREATH_REPLY && D.BREATH_REPLY[option];
-      if (own) { say(own, option); spoke = true; }
-      else if (D.BREATH_ACK) { say(D.BREATH_ACK, 'ack'); spoke = true; }
-    }
+    /* the FIRST tap in a check is acknowledged with "noted", whichever pair it is (Justin, 2026-09-26) */
+    if (st.first && live && D.BREATH_ACK) { say(D.BREATH_ACK, 'ack'); spoke = true; }
     st.first = false;
     /* chest + shallow + tense, once all three are in: the invitation to move (Justin, 2026-09-26) */
     const got = Object.keys(st.answers).map(k => st.answers[k]);
@@ -6811,7 +6847,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:45d8e87a7a7f2b96ec660524bda12542 */
+<script>/* @module copy.js md5:501c73e9d550987645d943cfdbaf1977 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6959,7 +6995,7 @@ const UI = Object.freeze({
    * and its level (soft → medium → louder) */
   sound: 'Background sound',
   soundNothing: 'Nothing',
-  soundNames: { creek: 'Creek', beach: 'Beach', birds: 'Birds', rain: 'Rain', bowl: 'Singing bowl', bowls: 'Gentle bowls', struck: 'Struck bowls', fire: 'Fire' },
+  soundNames: { creek: 'Creek', beach: 'Beach', birds: 'Birds', rain: 'Rain', bowl: 'Singing bowl', bowls: 'Gentle bowls', struck: 'Struck bowls', fire: 'Fire', night: 'Night', garden: 'Garden', wandering: 'Wandering', dunes: 'Dunes' },
   soundLevels: { soft: 'soft', medium: 'medium', louder: 'louder' },
   soundDone: 'Done',   // closes the sound list in the player (2026-09-26); the maker's sheet says the same
   lessSilence: 'less silence',
