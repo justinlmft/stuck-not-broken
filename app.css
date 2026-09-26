@@ -1325,6 +1325,15 @@ body.reduce-motion .p7-dial-cue{animation:none}
   padding:14px 22px 8px;background:var(--bone-deep);border-top:0.5px solid var(--hairline)}
 .p7-sheet-body > .p7-sheet-group:first-child{border-top:0}
 .p7-sheet-sep{height:0;border-top:0.5px solid var(--hairline);margin:0}
+/* the background sound sheet (2026-09-26): how loud = three buttons in a row, and a Done button at the foot */
+.p7-seg{display:flex;gap:8px;padding:12px 22px 6px 36px}
+.p7-seg-b{flex:1;min-height:44px;border:1px solid var(--hairline);border-radius:12px;background:none;font:inherit;
+  font-size:calc(15px * var(--type-scale));color:var(--ink-80);cursor:pointer}
+.p7-seg-b.sel{border-color:var(--tc-ink);color:var(--tc-ink);background:var(--bone-deep);font-weight:600}
+.p7-seg-b:focus-visible,.p7-sheet-done:focus-visible{outline:2px solid var(--tc-ink);outline-offset:2px}
+.p7-sheet-foot{padding:14px 22px 4px;display:flex;justify-content:flex-end}
+.p7-sheet-done{min-height:44px;padding:0 22px;border:0;border-radius:22px;background:var(--tc-ink);color:var(--bone);
+  font:inherit;font-weight:600;font-size:calc(15px * var(--type-scale));cursor:pointer}
 /* rows: an icon, a title + one-line description, and a check. hairline dividers
    between consecutive rows so it reads as a list of distinct choices, not a strip. */
 .p7-opt{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;position:relative;

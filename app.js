@@ -6372,7 +6372,8 @@ function app(tab){
   // Off by default; "Nothing" is a real choice. One sound for now (Justin 2026-09-26: "one sound and test it").
   // The level is a file (iPhone ignores a web page's volume), so the person picks soft, medium or louder.
   // The choice is remembered (Store.prefBed) and every practice launch carries it (see _playerSrc).
-  const BED_SOUNDS=[['stream','stream'],['beach','beach'],['birds','birds']];
+  // [key, name, what it is, file] — the file name MUST match practice-engine data.js BEDS (a new recording = a new name)
+  const BED_SOUNDS=[['stream','stream','A small mountain stream, just water','stream-1354'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Birds waking up at dawn','birds']];
   // how each sound is said in a sentence, by level (soft / medium / louder)
   const BED_SAY={ stream:['a soft stream','a stream','a louder stream'], beach:['soft waves','waves','louder waves'], birds:['soft birdsong','birdsong','louder birdsong'] };
   const BED_LEVELS=[['soft','soft'],['medium','medium'],['louder','louder']];
@@ -6385,10 +6386,44 @@ function app(tab){
   let _bedPreview=null, _bedPreviewT=null;
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
     if(!b || b.bed==='none') return;
-    const a=new Audio(BED_PREVIEW_BASE+b.bed+'-'+(b.level||'soft')+'.m4a'); a.preload='auto'; _bedPreview=a;
+    const sd=BED_SOUNDS.find(x=>x[0]===b.bed); const a=new Audio(BED_PREVIEW_BASE+((sd&&sd[3])||b.bed)+'-'+(b.level||'soft')+'.m4a'); a.preload='auto'; _bedPreview=a;
     a.addEventListener('loadedmetadata',()=>{ try{ if(isFinite(a.duration)) a.currentTime=Math.floor(Math.random()*Math.max(0,a.duration-10)); }catch(e){} },{once:true});
     const pr=a.play(); if(pr&&pr.catch) pr.catch(()=>{});
     _bedPreviewT=setTimeout(()=>{ try{ a.pause(); }catch(e){} if(_bedPreview===a) _bedPreview=null; },6000); }catch(e){} }
+  // ✅ THE BACKGROUND SOUND SHEET (2026-09-26, Justin: "there are really only three options, but it looks like nine").
+  // Two parts in one sheet that stays open: the sound (Nothing + each sound, one row each, a tap plays a few seconds)
+  // and, under it, how loud (Soft · Medium · Louder, three buttons in a row; hidden while Nothing is chosen). Done or a
+  // tap outside closes it. Every tap is saved straight away (Store.setPrefBed), so there is nothing to confirm.
+  function openBedSheet(trackCls, onChange){
+    const old=document.getElementById('p7-sheet'); if(old) old.remove();
+    const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
+    const check='<svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
+    const paint=()=>{
+      const cur=bedPref();
+      const rows=[['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
+        `<button class="p7-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}"><span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(nm))}</span><span class="p7-opt-sub">${escapeHtml(sub)}</span></span>${check}</button>`).join('');
+      const lv=cur.bed==='none' ? '' : `<div class="p7-sheet-group">How loud</div>
+        <div class="p7-seg" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k,l])=>`<button type="button" role="radio" aria-checked="${cur.level===k}" class="p7-seg-b${cur.level===k?' sel':''}" data-lv="${k}">${escapeHtml(CAP(l))}</button>`).join('')}</div>`;
+      wrap.querySelector('.p7-sheet-body').innerHTML=`<div class="p7-sheet-group">Sound</div>${rows}${lv}`;
+      wrap.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||'soft';
+        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview(k==='none'?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
+      wrap.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
+        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('start'); paint(); onChange&&onChange(); });
+    };
+    wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true">
+      <div class="p7-sheet-title">Background sound</div>
+      <div class="p7-sheet-body"></div>
+      <div class="p7-sheet-foot"><button class="p7-sheet-done" type="button">Done</button></div>
+    </div>`;
+    document.body.appendChild(wrap);
+    paint();
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const close=()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown',onKey); bedPreview(null); setTimeout(()=>{try{wrap.remove();}catch(e){}},320); };
+    const onKey=(e)=>{ if(e.key==='Escape') close(); };
+    document.addEventListener('keydown',onKey);
+    wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+    wrap.querySelector('.p7-sheet-done').onclick=close;
+  }
   const P_MEDS=[
     {id:'uye',                 title:'Use your ears',       est:'~10 min', sub:'Grounding through sound'},
     {id:'eye',                 title:'Use your eyes',       est:'~9 min',  sub:'Grounding through sight'},
@@ -6910,15 +6945,7 @@ function app(tab){
       } else if(kind==='silence'){
         openDialSheet('How much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
       } else if(kind==='bed'){
-        const cur=bedPref();
-        const opts=[{val:'none',menu:'Nothing',sub:'Just the guidance'}]
-          .concat(BED_SOUNDS.flatMap(([bk,bn])=>BED_LEVELS.map(([lv,ln])=>({val:bk+':'+lv, menu:`${bn}, ${ln}`, sub:(lv==='soft'?'Tap to hear it':null)}))));
-        openDialSheet('Background sound', [{opts}], cur.bed==='none'?'none':cur.bed+':'+cur.level, tkCls, (v)=>{
-          const [bk,lv]=v.split(':');
-          if(Store.setPrefBed) Store.setPrefBed(bk, bk==='none'?null:lv);
-          bedPreview(bk==='none'?null:{bed:bk,level:lv});
-          paintMaker();
-        });
+        openBedSheet(tkCls, ()=>paintMaker());
       } else if(kind==='length'){
         openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
       }

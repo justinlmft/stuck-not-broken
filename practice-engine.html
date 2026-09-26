@@ -439,7 +439,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               f0482fded5134546cb04a07dc8a25865    27268 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                48bd601494475ce896b36462d7bb0ed7    56554 bytes
+     data.js                f55a908cc4df603b94fc0f432381dfae    56946 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
      runtime.js             d332ccd4a092ac5a03712d9dc707e778    48812 bytes
      host.js                5762e6c8131d8f90658404de65959e96    38963 bytes
@@ -832,7 +832,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:48bd601494475ce896b36462d7bb0ed7 */
+<script>/* @module data.js md5:f55a908cc4df603b94fc0f432381dfae */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -906,9 +906,12 @@ function clipUrl(base, file) {
 const BED_FOLDER = 'clips/beds-v1/';
 /* the catalog itself is left open (its entries are frozen) so the tests can add a stand-in fixed-start bed */
 const BEDS = {
-  /* Justin's picks, 2026-09-26, all BigSoundBank.com (Joseph Sardin), CC0. Each loop has a 4 s crossfaded seam and
-   * the content is left as recorded. */
-  stream: Object.freeze({ random: true, seconds: 295.06 }),   // "Forest and stream #1" (ID 2713): a slow brook, some birds
+  /* Justin's picks, 2026-09-26, all BigSoundBank.com (Joseph Sardin), CC0. Each loop has a crossfaded seam and the
+   * content is left as recorded. `file` names the recording: a different recording gets a different name, so a file
+   * name never changes content (the never-versioned cache, see BED_FOLDER). No `file` = the key. */
+  /* "Small stream 4" (ID 1354): water only. Justin: "the current stream one has too many birds in it. the A one did
+   * not. it was more water focused." (2713, "Forest and stream #1", came out; its stream-*.m4a stay on beta, unused) */
+  stream: Object.freeze({ random: true, seconds: 101.26, file: 'stream-1354' }),
   beach: Object.freeze({ random: true, seconds: 244.48 }),    // "Small waves and beach #1" (ID 1446)
   birds: Object.freeze({ random: true, seconds: 240.3 }),     // "Birds waking #3" (ID 0999): countryside at dawn
 };
@@ -919,7 +922,7 @@ function bedLevel(level) { return BED_LEVELS.indexOf(level) >= 0 ? level : BED_L
 /* the file for a bed at a level, or null for Nothing / an unknown bed */
 function bedUrl(base, key, level) {
   if (!key || !Object.prototype.hasOwnProperty.call(BEDS, key)) return null;
-  return (base || '') + BED_FOLDER + key + '-' + bedLevel(level) + '.m4a';
+  return (base || '') + BED_FOLDER + (BEDS[key].file || key) + '-' + bedLevel(level) + '.m4a';
 }
 
 // ---------------------------------------------------------------------------
