@@ -266,6 +266,11 @@ body.playing .brand{display:none}
 .adj{min-width:0;width:100%;display:flex;align-items:center;justify-content:center;gap:2px;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{grid-column:span 4;justify-content:space-between;padding:0 4px 0 14px}
 .captoggle{grid-column:span 2;justify-content:center;gap:6px;padding:0 8px;cursor:pointer}
+.bedtoggle{grid-column:span 4;justify-content:space-between;padding:0 14px;cursor:pointer}
+.bedlevel{grid-column:span 2;justify-content:center;padding:0 8px;cursor:pointer}
+.bedlevel:disabled{opacity:.4;cursor:default}
+.bedtoggle .bed-val{min-width:0;text-align:right}
+.bedtoggle.on{border-color:var(--ink-80)}
 .prevclip{grid-column:span 1}
 .rewind{grid-column:span 2}
 #pause{grid-column:span 3}
@@ -431,20 +436,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               e9e8e70cc29c4a673528817a4bf178bd    26957 bytes
+     page.css               f0482fded5134546cb04a07dc8a25865    27268 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                fe5dd36ef1df7757923c721c852034b3    53531 bytes
+     data.js                48bd601494475ce896b36462d7bb0ed7    56554 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
-     runtime.js             c1a9ea0a02e2144edfbf697ed7391a07    42686 bytes
-     host.js                496de596708ff90b940e86d13b124e07    38238 bytes
-     browser-device.js      13672bbf8f42198f15e00e26695f78c0     2700 bytes
+     runtime.js             d332ccd4a092ac5a03712d9dc707e778    48812 bytes
+     host.js                5762e6c8131d8f90658404de65959e96    38963 bytes
+     browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             84a3d43f6dcdd21ae749c93e15c7b0b5    77631 bytes
+     session.js             35c7f9246cba67285fac3c64541f5a0f    79127 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                635e0722020f889913371e3feb6ea6d0    13435 bytes
-     page.js                8c5b4648aa29d092b86ed4820fec3fd8    49272 bytes
+     copy.js                0ea19a5c56555a79c9bdd5ee72bcd71f    13792 bytes
+     page.js                9aa72c0bc93ee045bddaecf1799da5a0    50933 bytes
 -->
 </head>
 <body>
@@ -565,6 +570,9 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
               </span>
             </div>
             <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc" id="cclabel"></span><span class="cc-state" id="capstate"></span></button>
+            <!-- 2026-09-26: the background sound, changeable mid-practice -->
+            <button class="adj bedtoggle" id="bedtoggle" type="button" aria-pressed="false"><span class="adj-label" id="bedlabel"></span><span class="adj-val bed-val" id="bednow"></span></button>
+            <button class="adj bedlevel" id="bedlevel" type="button"><span class="adj-val" id="bedlevelnow"></span></button>
           </div>
           <button class="transport mini prevclip" id="prevclip" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.6" y="5.5" width="2.4" height="13" rx="1.1"></rect><path d="M18.4 6 L10 12 L18.4 18 Z" fill="currentColor"></path></svg></button>
           <button class="transport mini rewind" id="rewind" type="button"><span class="rw" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.2a8.8 8.8 0 1 1-8.2 5.6"></path><path d="M9.1 2.6 L5.4 5.9 L9.0 9.0"></path></svg><span class="rw5">5</span></span></button>
@@ -593,6 +601,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 </div>
 
 <audio id="au"></audio>
+<audio id="bed" loop preload="none"></audio>
 
 <script>/* @module clip-table.js md5:7e1a1d1ad3e22bc330020202d4be1465 */
 (function(){
@@ -823,7 +832,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:fe5dd36ef1df7757923c721c852034b3 */
+<script>/* @module data.js md5:48bd601494475ce896b36462d7bb0ed7 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -871,6 +880,46 @@ const ABSOLUTE_FOLDER = /^[a-z][a-z0-9+.-]*:\/\//i.test(CLIP_FOLDER);
  * an absolute origin in the tests); it is ignored when the folder is already absolute. */
 function clipUrl(base, file) {
   return (ABSOLUTE_FOLDER ? '' : (base || '')) + CLIP_FOLDER + file;
+}
+
+// ---------------------------------------------------------------------------
+// BACKGROUND SOUND — the "bed" (2026-09-26, ROADMAP-DETAIL entry 9)
+// ---------------------------------------------------------------------------
+/* One continuous sound under the whole practice, chosen by the person, OFF by default ("Nothing" is a real
+ * choice). Justin, 2026-08-29: the person sets the volume; it never fades or ducks; random start point for the
+ * stochastic beds (rain, stream, fire, birds, beach, night, garden), fixed start where there is an arc (sound
+ * bowls, ambient music). Justin, 2026-09-26: "Let's go with one sound and test it" — stream first.
+ *
+ * VOLUME IS A FILE, NOT A SLIDER. iPhone Safari ignores `audio.volume` on a web page, so each bed is mastered at
+ * three levels (soft −36, medium −30, louder −24 LUFS; the voice sits near −17) and the person picks one; soft
+ * unless they do. Same on
+ * every phone, nothing moves on its own. The native wrapper can bring a real slider later.
+ *
+ * ⚠️ CACHE (ENGINE-CONTRACT §A5): the audio cache is never versioned, so a bed file's name must never change
+ * content. The version is in the FOLDER: a re-master ships as `beds-v2/`, never over a `beds-v1/` file.
+ * `random: true` = start at a random point each practice. `seconds` = the loop's exact length, for the seek.
+ *
+ * WHERE: app-relative, on the branch the app is served from (`clips/beds-v1/` on beta), NOT under CLIP_FOLDER. Same
+ * origin means the service worker's range-aware audio cache serves it (iOS needs 206) and it plays offline once heard;
+ * and it means a bed ships with the beta app rather than on the deploy repo's `main` (2026-09-26: that write was
+ * refused as a production deploy). */
+const BED_FOLDER = 'clips/beds-v1/';
+/* the catalog itself is left open (its entries are frozen) so the tests can add a stand-in fixed-start bed */
+const BEDS = {
+  /* Justin's picks, 2026-09-26, all BigSoundBank.com (Joseph Sardin), CC0. Each loop has a 4 s crossfaded seam and
+   * the content is left as recorded. */
+  stream: Object.freeze({ random: true, seconds: 295.06 }),   // "Forest and stream #1" (ID 2713): a slow brook, some birds
+  beach: Object.freeze({ random: true, seconds: 244.48 }),    // "Small waves and beach #1" (ID 1446)
+  birds: Object.freeze({ random: true, seconds: 240.3 }),     // "Birds waking #3" (ID 0999): countryside at dawn
+};
+const BED_NONE = 'none';
+const BED_LEVELS = Object.freeze(['soft', 'medium', 'louder']);
+const BED_LEVEL_DEFAULT = 'soft';   // Justin 2026-09-26: "the softer volume is definitely the way to go"
+function bedLevel(level) { return BED_LEVELS.indexOf(level) >= 0 ? level : BED_LEVEL_DEFAULT; }
+/* the file for a bed at a level, or null for Nothing / an unknown bed */
+function bedUrl(base, key, level) {
+  if (!key || !Object.prototype.hasOwnProperty.call(BEDS, key)) return null;
+  return (base || '') + BED_FOLDER + key + '-' + bedLevel(level) + '.m4a';
 }
 
 // ---------------------------------------------------------------------------
@@ -1548,7 +1597,7 @@ const API = {
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
   BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_REPLY, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
-  CLIP_FOLDER, clipUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
+  CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
 
@@ -2860,7 +2909,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:c1a9ea0a02e2144edfbf697ed7391a07 */
+<script>/* @module runtime.js md5:d332ccd4a092ac5a03712d9dc707e778 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -2955,6 +3004,7 @@ function portOf(device) {
   const timers = device.timers || {};
   return {
     audio: device.audio,
+    bed: device.bed || null,          // 2026-09-26 — the background sound's own element (optional)
     isHidden: device.isHidden || (() => false),
     onVisibilityChange: device.onVisibilityChange || (() => () => {}),
     mediaSession: device.mediaSession || null,
@@ -3019,6 +3069,13 @@ class Runtime {
     this._errCount = 0;
     this._errTimer = null;
     this.connTrouble = false;
+    this._pausedBy = null;            // what paused the transport: 'button' | 'external' | 'hold' | 'bed'
+
+    /* the background sound (2026-09-26, data.js BEDS) — its own element, never the voice's */
+    this._bedOn = false;              // a bed is loaded for this practice
+    this._bedKey = null;
+    this._bedSeek = null;             // the start point still to apply, as a fraction of the loop
+    this._bedSelf = 0;                // when WE last played or paused it (the lock-screen mirror ignores those)
 
     this._swReloaded = false;
     this._swPendingReload = false;
@@ -3099,10 +3156,110 @@ class Runtime {
       if (this._endedWhilePaused) { this._endedWhilePaused = false; this._onEnded(); }
     });
 
+    this._wireBed();
     this._initMediaSession();
     this._initServiceWorker();
 
     this._offVisibility = this.dev.onVisibilityChange(() => this._onVisibilityChange());
+  }
+
+  // ── the background sound (the "bed") ──────────────────────────────────────────────────
+  /* ✅ BACKGROUND SOUND (ROADMAP-DETAIL entry 9; Justin 2026-08-29, built 2026-09-26). A second element that loops one
+   * recording under the whole practice. It follows the TRANSPORT and nothing else:
+   *   · it starts with the practice (at a random point for the stochastic beds, data.js BEDS `random`);
+   *   · it plays straight through the silences, the pauses inside clips, and a hold for the four buttons — a hold is
+   *     the practice waiting for someone, not someone pausing it, and a sound that stopped there would be a fade;
+   *   · the pause button pauses it, play resumes it, and the lock screen's play/pause is mirrored either way (iOS
+   *     sends the lock-screen command to ONE element, and it may be this one — see `_wireBed`);
+   *   · it stops when the practice ends, is exited, or eases out to its end.
+   * It NEVER changes its own volume (no fading, no ducking — Justin: "that is weird"). The level is the file. The voice
+   * element, its timing and its events are untouched: every rule above reads the transport, never the other way. */
+  _wireBed() {
+    const bed = this.dev.bed;
+    if (!bed || !bed.addEventListener) return;
+    bed.addEventListener('loadedmetadata', () => this._applyBedSeek());
+    /* the lock screen paused the SOUND (not the voice): pause the practice with it, after the same debounce the voice
+     * watchdog uses, and only if it is still paused and we did not do it ourselves */
+    bed.addEventListener('pause', () => {
+      if (!this._bedOn) return;
+      this.dev.setTimeout(() => {
+        if (this.dev.now() - this._bedSelf < C.SELF_CONTROL_WINDOW_MS) return;
+        if (!this._bedOn || !this.playing || this.finished || this.paused) return;
+        if (!bed.paused) return;
+        this.onEvent({ type: 'bed-mirror', to: 'paused' });
+        this.togglePause('bed');
+      }, C.EXTERNAL_PAUSE_DEBOUNCE_MS);
+    });
+    /* …and the lock screen played it again: resume the practice. A hold is never lifted this way. */
+    bed.addEventListener('play', () => {
+      if (!this._bedOn || !this.playing || this.finished) return;
+      if (!this.paused || this._pausedBy === 'hold') return;
+      if (this.dev.now() - this._bedSelf < C.SELF_CONTROL_WINDOW_MS) return;
+      this.onEvent({ type: 'bed-mirror', to: 'playing' });
+      this.togglePause('bed');
+    });
+    /* a bed that will not load is a missing extra, never a broken practice */
+    bed.addEventListener('error', () => { if (this._bedOn) this.onEvent({ type: 'bed-error', bed: this._bedKey }); });
+  }
+
+  /* should the bed be sounding right now? While the practice runs, and through a hold; not while paused */
+  _bedShouldPlay() {
+    return this.playing && !this.finished && !(this.paused && this._pausedBy !== 'hold');
+  }
+
+  _applyBedSeek() {
+    const bed = this.dev.bed;
+    if (!bed || this._bedSeek == null) return;
+    const spec = D.BEDS[this._bedKey];
+    const len = (isFinite(bed.duration) && bed.duration > 0) ? bed.duration : (spec && spec.seconds) || 0;
+    if (!(len > 0)) return;
+    try { bed.currentTime = Math.floor(this._bedSeek * len * 10) / 10; this._bedSeek = null; } catch (e) {}
+  }
+
+  /* load the bed named in the config (or none) and, if the practice is sounding, play it */
+  _bedBegin() {
+    const bed = this.dev.bed;
+    const cfg = this.plan.cfg || {};
+    const src = D.bedUrl(this.dev.base, cfg.bed, cfg.bedLevel);
+    if (!bed || !src) { this._bedEnd(); return false; }
+    const spec = D.BEDS[cfg.bed];
+    this._bedSelf = this.dev.now();
+    this._bedOn = true;
+    this._bedKey = cfg.bed;
+    try { bed.loop = true; bed.src = src; } catch (e) {}
+    this._bedSeek = spec.random ? this.dev.random() : 0;
+    this._applyBedSeek();
+    if (this._bedShouldPlay()) this._bedPlay();
+    this.onEvent({ type: 'bed', bed: cfg.bed, level: D.bedLevel(cfg.bedLevel) });
+    return true;
+  }
+
+  _bedPlay() {
+    const bed = this.dev.bed;
+    if (!bed || !this._bedOn) return;
+    this._bedSelf = this.dev.now();
+    try { const pr = bed.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (e) {}
+  }
+
+  _bedPause() {
+    const bed = this.dev.bed;
+    if (!bed || !this._bedOn) return;
+    this._bedSelf = this.dev.now();
+    try { bed.pause(); } catch (e) {}
+  }
+
+  _bedEnd() {
+    this._bedPause();
+    this._bedOn = false;
+    this._bedKey = null;
+    this._bedSeek = null;
+  }
+
+  /* change the sound mid-practice (the player's menu). The session has already written cfg.bed / cfg.bedLevel. */
+  setBed() {
+    if (this.finished) return false;
+    if (!this.playing) return false;
+    return this._bedBegin();
   }
 
   /* §A4.5 — no `play`/`pause` action handlers, deliberately, and measured rather than
@@ -3226,7 +3383,10 @@ class Runtime {
     this.paused = false;
     this.finished = false;
     this.idx = -1;
+    this._pausedBy = null;
     this._advance();
+    /* after the first clip is asked for, so the voice's take dealing sees the same random numbers as before */
+    if (this.playing && !this.finished) this._bedBegin();
     return this;
   }
 
@@ -3325,6 +3485,9 @@ class Runtime {
       this._pendingTapRearm = false;
       if (this.playing && !this.paused) this._tryPlay(() => this.armTapToStart());
     }
+    /* the OS stopped the bed while we were away (a call, another app's audio): bring it back if it should sound */
+    const bed = this.dev.bed;
+    if (bed && this._bedOn && bed.paused && this._bedShouldPlay()) this._bedPlay();
   }
 
   // ── pauses inside a clip ──────────────────────────────────────────────────────────────
@@ -3519,6 +3682,7 @@ class Runtime {
     this._endedWhilePaused = false;
     this.dev.clearTimeout(this._gapTimer);
     try { this.dev.audio.pause(); } catch (e) {}
+    this._bedEnd();
     this.onEvent({ type: 'complete', terminates: this.plan.terminates });
     /* a shell update that has been waiting for the practice to end is now free to land */
     if (this._swPendingReload && this._swPoll) {
@@ -3533,19 +3697,23 @@ class Runtime {
   _setPaused(next, source) {
     if (this.paused === next) return;
     this.paused = next;
+    this._pausedBy = next ? source : null;
+    /* the bed follows the transport, except a hold, which it plays through (see `_wireBed`) */
+    if (source !== 'hold') { if (next) this._bedPause(); else if (this._bedShouldPlay()) this._bedPlay(); }
     this._msState(next ? 'paused' : 'playing');
     this.onEvent({ type: next ? 'paused' : 'resumed', source });
   }
 
   /* the in-app pause button. It toggles, and it stamps the self-control window first so the
    * external-pause watchdog does not second-guess a transport action we took ourselves. */
-  togglePause() {
+  togglePause(source) {
     if (!this.playing) return;
     this._lastSelfCtl = this.dev.now();
     const au = this.dev.audio;
+    const by = source || 'button';
 
     if (this.paused) {
-      this._setPaused(false, 'button');
+      this._setPaused(false, by);
       /* a gap is real audio now, so resuming one is just play(). Only the timer-fallback
        * gap still needs its setTimeout rescheduled. */
       if ((this.inGap || this._midHold) && this._usingFallbackGap) {
@@ -3569,7 +3737,7 @@ class Runtime {
       return this._tryPlay(() => this.armTapToStart());
     }
 
-    this._setPaused(true, 'button');
+    this._setPaused(true, by);
     if ((this.inGap || this._midHold) && this._usingFallbackGap) {
       this.dev.clearTimeout(this._gapTimer);
     } else {
@@ -3775,6 +3943,7 @@ class Runtime {
     this._endedWhilePaused = false;
     this.dev.clearTimeout(this._gapTimer);
     try { this.dev.audio.pause(); } catch (e) {}
+    this._bedEnd();
     if (this._offVisibility) this._offVisibility();
   }
 
@@ -3808,6 +3977,8 @@ class Runtime {
       connTrouble: this.connTrouble,
       reloadDeferred: this._swPendingReload,
       reloaded: this._swReloaded,
+      bed: this._bedOn ? this._bedKey : null,
+      pausedBy: this._pausedBy,
     };
   }
 }
@@ -3819,7 +3990,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:496de596708ff90b940e86d13b124e07 */
+<script>/* @module host.js md5:5762e6c8131d8f90658404de65959e96 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -3930,6 +4101,14 @@ function parseLaunch(query, { practices } = {}) {
 
   const sil = parseInt(get('silence'), 10);
   if (!isNaN(sil)) out.silence = sil;
+
+  /* the background sound (2026-09-26): `bed=<data.js BEDS key>|none`, `bedvol=soft|medium|louder`. An unknown bed
+   * is Nothing — the default — and an unknown level is soft. */
+  const bed = get('bed');
+  if (bed && (bed === D.BED_NONE || Object.prototype.hasOwnProperty.call(D.BEDS, bed))) {
+    out.bed = bed;
+    if (bed !== D.BED_NONE) out.bedLevel = D.bedLevel(get('bedvol'));
+  }
 
   return out;
 }
@@ -4335,6 +4514,10 @@ function completion({ plan, requested, run }) {
     holdWatchSeconds: typeof r.holdWatchSeconds === 'number' ? r.holdWatchSeconds : 0,
     holdWatchTargetSeconds: cfg.holdWatch ? (cfg.holdSeconds || null) : null,
 
+    // ── the background sound (2026-09-26) — what the practice ended on; `details` has the start and every change ─
+    bed: (cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed)) ? cfg.bed : D.BED_NONE,
+    bedVolume: (cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed)) ? D.bedLevel(cfg.bedLevel) : null,
+
     // ── what actually happened ──────────────────────────────────────────────────────────
     practiceKey: map.practiceKey,             // the host's vocabulary, so the gates still work
     practice,                                 // the engine's vocabulary, alongside it
@@ -4449,7 +4632,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_HOST = API
 
 })();
 /* @endmodule host.js */</script>
-<script>/* @module browser-device.js md5:13672bbf8f42198f15e00e26695f78c0 */
+<script>/* @module browser-device.js md5:07f6959698f90aee1038962e1c2f4ae6 */
 (function(){
 /* practice-engine/browser-device.js — the real phone, behind the same port the fake one uses.
  *
@@ -4463,8 +4646,11 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_HOST = API
  * reports it and decides nothing.
  */
 
-function browserDevice({ audio, base, serviceWorkerContainer, reload } = {}) {
+function browserDevice({ audio, bed, base, serviceWorkerContainer, reload } = {}) {
   const au = audio || new Audio();
+  /* the background sound (2026-09-26): its own element, so the voice's src swaps never touch it */
+  const bd = bed || (typeof Audio !== 'undefined' ? new Audio() : null);
+  if (bd) { try { bd.loop = true; bd.preload = 'auto'; } catch (e) {} }
   const doc = typeof document !== 'undefined' ? document : null;
   const nav = typeof navigator !== 'undefined' ? navigator : null;
 
@@ -4475,6 +4661,7 @@ function browserDevice({ audio, base, serviceWorkerContainer, reload } = {}) {
 
   return {
     audio: au,
+    bed: bd,
     base: base || '',
 
     isHidden: () => !!(doc && doc.hidden),
@@ -4806,7 +4993,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:84a3d43f6dcdd21ae749c93e15c7b0b5 */
+<script>/* @module session.js md5:35c7f9246cba67285fac3c64541f5a0f */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5157,6 +5344,19 @@ class Session {
       b.gap = P.gapFor(b, seconds);
     }
     this.onEvent({ type: 'silence', seconds });
+    return true;
+  }
+
+  /* ✅ THE BACKGROUND SOUND, CHANGED MID-PRACTICE (2026-09-26): the player's menu. `key` is a data.js BEDS key or
+   * BED_NONE ("Nothing"); `level` is soft | medium | louder. Written to the live config (the report carries what the
+   * practice ENDED on; `details()` keeps where it started and every change). */
+  setBed(key, level) {
+    const k = key === D.BED_NONE || !key ? D.BED_NONE : key;
+    if (k !== D.BED_NONE && !Object.prototype.hasOwnProperty.call(D.BEDS, k)) return false;
+    this.cfg.bed = k;
+    this.cfg.bedLevel = D.bedLevel(level || this.cfg.bedLevel);
+    this.runtime.setBed();
+    this.onEvent({ type: 'bed-choice', bed: k, level: k === D.BED_NONE ? null : this.cfg.bedLevel });
     return true;
   }
 
@@ -6131,6 +6331,13 @@ class Session {
       questionPauses: holds.length,
       questionPauseSeconds: Math.round(holds.reduce((a, r) => a + (r.seconds || 0), 0) * 10) / 10,
       rewinds: this.rewinds,
+      /* the background sound (2026-09-26): one more custom element, recorded so it never quietly skews the
+       * anchor or silence results. 'none' = Nothing (the default). Volume is the level: soft | medium | louder. */
+      bed: bedOf(cfg),
+      bedVolume: bedOf(cfg) === D.BED_NONE ? null : D.bedLevel(cfg.bedLevel),
+      bedEnd: bedOf(this.cfg),
+      bedVolumeEnd: bedOf(this.cfg) === D.BED_NONE ? null : D.bedLevel(this.cfg.bedLevel),
+      bedChanges: of('bed-choice').map(r => ({ s: r.s, bed: r.bed, level: r.level })),
       counts,
       dropped: this._timelineDropped,
     };
@@ -6162,6 +6369,12 @@ class Session {
   completion(requested) {
     return H.completion({ plan: Object.assign({}, this.plan, { cfg: this.cfg }), requested, run: this.run() });
   }
+}
+
+/* the bed a config names, or 'none' — an unknown key is Nothing, exactly as the runtime plays it */
+function bedOf(cfg) {
+  const k = cfg && cfg.bed;
+  return (k && Object.prototype.hasOwnProperty.call(D.BEDS, k)) ? k : D.BED_NONE;
 }
 
 const API = { Session, CONTROL, OPTIONS, MAX_TARGETS, TAP_SETTLE, YES_REPLY, ANCHOR_ASK_ALONE, ANCHOR_ASK_AFTER_LINE, OFFER_OPTIONS, OFFER_MORE_SAFETY_NEUTRAL, responseFor, takeCycler };
@@ -6510,7 +6723,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:635e0722020f889913371e3feb6ea6d0 */
+<script>/* @module copy.js md5:0ea19a5c56555a79c9bdd5ee72bcd71f */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6654,6 +6867,12 @@ const UI = Object.freeze({
   captionsOn: 'On',
   captionsOff: 'Off',
   silence: 'Silence',
+  /* the background sound (2026-09-26). Two buttons in the player's menu: the sound (Nothing → each sound → Nothing)
+   * and its level (soft → medium → louder) */
+  sound: 'Background sound',
+  soundNothing: 'Nothing',
+  soundNames: { stream: 'Stream', beach: 'Beach', birds: 'Birds' },
+  soundLevels: { soft: 'soft', medium: 'medium', louder: 'louder' },
   lessSilence: 'less silence',
   moreSilence: 'more silence',
 
@@ -6747,7 +6966,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:8c5b4648aa29d092b86ed4820fec3fd8 */
+<script>/* @module page.js md5:9aa72c0bc93ee045bddaecf1799da5a0 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -6881,6 +7100,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   const cfg = {
     track: null, practice: null, anchor: 'touch', sense: 'touch',
     mode: 'timed', silence: COPY.SILENCE_DEFAULT.short, plain: false,
+    bed: D.BED_NONE, bedLevel: D.BED_LEVEL_DEFAULT,
     depth: null, prefix: null, holdWatch: false, holdSeconds: H.HOLD_SECONDS[0], first: false,
   };
 
@@ -7028,6 +7248,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       anchor: cfg.anchor, sense: cfg.sense, practice: cfg.practice,
       mode: cfg.mode, type: isShort(cfg.practice) ? 'micro' : 'full',
       first: !!cfg.first, plain: !!cfg.plain, silence: cfg.silence,
+      bed: cfg.bed, bedLevel: cfg.bedLevel,
       depth: cfg.depth || undefined, prefix: cfg.prefix || undefined,
       holdWatch: !!cfg.holdWatch, holdSeconds: cfg.holdSeconds,
       /* which four of the thirty-two obstacle statements is not a sequencing decision, so the
@@ -7046,7 +7267,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
   function begin(waitForTap) {
     const plan = P.plan(planCfg());
-    device = browserDevice({ audio: $('au'), base: BASE });
+    device = browserDevice({ audio: $('au'), bed: $('bed'), base: BASE });
     session = new S.Session({
       plan, device,
       onEvent: onSessionEvent,
@@ -7559,7 +7780,34 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     ctrlTimer = setTimeout(() => { p.classList.remove('show-controls'); }, 4500);
   }
 
-  function showSilence() { $('silnow').textContent = cfg.silence + 's'; }
+  function showSilence() { $('silnow').textContent = cfg.silence + 's'; showBed(); }
+
+  /* ✅ THE BACKGROUND SOUND in the player's menu (2026-09-26). Two buttons: the sound (a tap steps Nothing → each
+   * sound → Nothing) and its level (soft → medium → louder). The session writes both to the live config, so the report
+   * carries what the practice ended on. */
+  function bedOn() { return cfg.bed !== D.BED_NONE && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed); }
+  function showBed() {
+    const U = COPY.UI, on = bedOn();
+    $('bednow').textContent = on ? (U.soundNames[cfg.bed] || cfg.bed) : U.soundNothing;
+    $('bedtoggle').classList.toggle('on', on);
+    $('bedtoggle').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('bedlevelnow').textContent = U.soundLevels[D.bedLevel(cfg.bedLevel)];
+    $('bedlevel').disabled = !on;
+  }
+  function stepBed() {
+    const steps = [D.BED_NONE].concat(Object.keys(D.BEDS));
+    const i = bedOn() ? steps.indexOf(cfg.bed) : 0;
+    cfg.bed = steps[(i + 1) % steps.length];
+    if (session) session.setBed(cfg.bed, cfg.bedLevel);
+    showBed();
+  }
+  function stepBedLevel() {
+    if (!bedOn()) return;
+    const L = D.BED_LEVELS, i = L.indexOf(D.bedLevel(cfg.bedLevel));
+    cfg.bedLevel = L[(i + 1) % L.length];
+    if (session) session.setBed(cfg.bed, cfg.bedLevel);
+    showBed();
+  }
 
   /* E4.24 — the stepper walks the SAME list the setup chips render, so the two vocabularies
    * that used to disagree are now one list in one file. */
@@ -7602,6 +7850,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     set('sillabel', U.silence);
     set('cclabel', U.captions);
     set('capstate', U.captionsOff);
+    set('bedlabel', U.sound);
     set('easeout', U.easeOut);
     set('moresafety', U.moreSafetyAgain);
     set('stopbtn', U.endNow);
@@ -7658,6 +7907,8 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('prevclip').onclick = () => { session.runtime.previousBeat(); revealControls(); };
     $('lesssil').onclick = () => { stepSilence(-1); revealControls(); };
     $('moresil').onclick = () => { stepSilence(1); revealControls(); };
+    $('bedtoggle').onclick = () => { stepBed(); revealControls(); };
+    $('bedlevel').onclick = () => { stepBedLevel(); revealControls(); };
 
     $('captoggle').onclick = () => {
       capsOn = !capsOn;
@@ -7723,6 +7974,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       /* `silence` is the one launch parameter that takes any integer that parses (§A1.7), so
        * it is snapped onto the one vocabulary here rather than being allowed to open a
        * practice on a value no control can show. */
+      if (launch.bed) { cfg.bed = launch.bed; if (launch.bedLevel) cfg.bedLevel = launch.bedLevel; }
       if (typeof launch.silence === 'number') {
         cfg.silence = COPY.SILENCE_STEPS.reduce((b, s) =>
           (Math.abs(s - launch.silence) < Math.abs(b - launch.silence) ? s : b), COPY.SILENCE_STEPS[0]);

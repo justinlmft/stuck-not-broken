@@ -6307,7 +6307,7 @@ function app(tab){
   }
   // prefix (Obstacles first) and depth ride along for Balancing / Pendulating (2026-09-20: the
   // recommender follows the engine's sequence, whose steps carry both).
-  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth'];
+  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol'];
   function _playerSrc(src){
     if(typeof src !== 'string' || src.indexOf('player.html?') !== 0) return src;
     const q = new URLSearchParams(src.slice('player.html?'.length));
@@ -6326,6 +6326,9 @@ function app(tab){
     e.set('practice', pk === 'self-regulation' ? (sk || 'imagery')
                     : (pk === 'anchoring' && sk && /-safety$/.test(sk)) ? sk : pk);
     _ENGINE_PASS.forEach(k => { if(q.has(k) && q.get(k) !== '') e.set(k, q.get(k)); });
+    // the background sound the person chose last (2026-09-26) rides on EVERY launch — the maker, the recommended
+    // practice, the chooser, the state cards — unless the launch names its own
+    if(!e.has('bed')){ const b=bedPref(); if(b.bed!=='none'){ e.set('bed', b.bed); e.set('bedvol', b.level); } }
     return 'practice-engine.html?' + e.toString();
   }
   function practiceShell(src, reco){
@@ -6365,6 +6368,27 @@ function app(tab){
   const P_SENSES=['touch','sound','sight','movement','imagination'];
   const P_SKILLS=[['normalize-defense','validate & normalize'],['imagery','imagery & invitation'],['obstacles','obstacles'],['balancing','balancing'],['pendulating','pendulating']];
   const P_SILENCE=[[4,'a little'],[8,'some'],[12,'a lot']];
+  // ---- the background sound (2026-09-26, ROADMAP-DETAIL entry 9) ------------------------------------------
+  // Off by default; "Nothing" is a real choice. One sound for now (Justin 2026-09-26: "one sound and test it").
+  // The level is a file (iPhone ignores a web page's volume), so the person picks soft, medium or louder.
+  // The choice is remembered (Store.prefBed) and every practice launch carries it (see _playerSrc).
+  const BED_SOUNDS=[['stream','stream'],['beach','beach'],['birds','birds']];
+  // how each sound is said in a sentence, by level (soft / medium / louder)
+  const BED_SAY={ stream:['a soft stream','a stream','a louder stream'], beach:['soft waves','waves','louder waves'], birds:['soft birdsong','birdsong','louder birdsong'] };
+  const BED_LEVELS=[['soft','soft'],['medium','medium'],['louder','louder']];
+  const BED_PREVIEW_BASE='clips/beds-v1/';   // same folder the engine plays from (data.js BED_FOLDER)
+  function bedPref(){ const p=(Store.prefBed&&Store.prefBed())||null; const known=p && BED_SOUNDS.some(b=>b[0]===p.bed);
+    return known ? { bed:p.bed, level:(BED_LEVELS.some(l=>l[0]===p.level)?p.level:'soft') } : { bed:'none', level:null }; }
+  function bedSay(b){ const say=BED_SAY[b.bed]||[b.bed,b.bed,b.bed]; return say[Math.max(0,BED_LEVELS.findIndex(l=>l[0]===b.level))]; }
+  function bedWords(b){ b=b||bedPref(); if(b.bed==='none') return 'no background sound'; return bedSay(b)+' in the background'; }
+  // a few seconds of the sound when it is picked, so the person hears what they chose
+  let _bedPreview=null, _bedPreviewT=null;
+  function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
+    if(!b || b.bed==='none') return;
+    const a=new Audio(BED_PREVIEW_BASE+b.bed+'-'+(b.level||'soft')+'.m4a'); a.preload='auto'; _bedPreview=a;
+    a.addEventListener('loadedmetadata',()=>{ try{ if(isFinite(a.duration)) a.currentTime=Math.floor(Math.random()*Math.max(0,a.duration-10)); }catch(e){} },{once:true});
+    const pr=a.play(); if(pr&&pr.catch) pr.catch(()=>{});
+    _bedPreviewT=setTimeout(()=>{ try{ a.pause(); }catch(e){} if(_bedPreview===a) _bedPreview=null; },6000); }catch(e){} }
   const P_MEDS=[
     {id:'uye',                 title:'Use your ears',       est:'~10 min', sub:'Grounding through sound'},
     {id:'eye',                 title:'Use your eyes',       est:'~9 min',  sub:'Grounding through sight'},
@@ -6568,6 +6592,7 @@ function app(tab){
       mkHasDepth(reco.skill) ? hl(mkDepthWords(reco.depth || (reco.descDefense ? 'description' : 'general'))) : null,
       (reco.holdWatch && holdWatchOffered(reco.skill, reco.descDefense)) ? `${hl('hold & watch')} at the end, for ${hl(holdDurWords(reco.holdWatchTargetSeconds||30))}` : null,
       `with ${hl(silLabel(reco.silence))} silence between guidance`,
+      (reco.practiceKey!=='more' && bedPref().bed!=='none') ? hl(bedWords()) : null,
       chLabel ? `challenge level at ${hl(chLabel)}` : null,
       reco.openEnded ? `${hl('open-ended')}, so it keeps going until you choose to stop` : (planEst ? `about ${hl(planEst+' minutes')} in all` : null),
     ].filter(Boolean);
@@ -6795,6 +6820,8 @@ function app(tab){
         // how it ends, said literally (Justin, 2026-09-20: "we're trying to say the practice has a planned ending")
         if(k==='self-regulation') s += ` and ${dial('length', pState.open?'no set ending':'a planned ending')}`;
       }
+      // the background sound, on every practice the engine plays (not the guided sessions)
+      if(!mkIsSession(k) && k!=='surprise'){ const bw=bedWords(); s += `, and ${dial('bed', bw)}`; }
       return s + '.';
     }
     // the dynamic "what this is" explainer — proper-cased (sentence case, not lowercase),
@@ -6825,6 +6852,7 @@ function app(tab){
       // Justin's line, shown only once hold & watch is added
       if(k==='self-regulation' && pState.holdWatch && holdWatchOffered(pState.skill, pState.deepest)) bits.push(escapeHtml(MK_HOLD_LINE));
       if(k!=='micro') bits.push(`With ${b(silLabel(pState.silence))} silence between the guidance.`);
+      { const bp=bedPref(); if(bp.bed!=='none') bits.push(`You'll hear ${b(bedSay(bp))} in the background the whole way through.`); }
       if(openEnded) bits.push('It keeps going until you choose to stop.');
       return bits.filter(Boolean).join(' ');
     }
@@ -6881,6 +6909,16 @@ function app(tab){
         });
       } else if(kind==='silence'){
         openDialSheet('How much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
+      } else if(kind==='bed'){
+        const cur=bedPref();
+        const opts=[{val:'none',menu:'Nothing',sub:'Just the guidance'}]
+          .concat(BED_SOUNDS.flatMap(([bk,bn])=>BED_LEVELS.map(([lv,ln])=>({val:bk+':'+lv, menu:`${bn}, ${ln}`, sub:(lv==='soft'?'Tap to hear it':null)}))));
+        openDialSheet('Background sound', [{opts}], cur.bed==='none'?'none':cur.bed+':'+cur.level, tkCls, (v)=>{
+          const [bk,lv]=v.split(':');
+          if(Store.setPrefBed) Store.setPrefBed(bk, bk==='none'?null:lv);
+          bedPreview(bk==='none'?null:{bed:bk,level:lv});
+          paintMaker();
+        });
       } else if(kind==='length'){
         openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
       }
@@ -7307,6 +7345,8 @@ function app(tab){
       if(reco.practiceKey==='anchoring'){ reco.skill = (m.skill!==undefined ? (m.skill||null) : null); reco.skillFromEngine = (m.skill!==undefined); }
       if(m.sense!==undefined && m.sense!==null) reco.sense=m.sense;
       if(typeof m.silence==='number') reco.silence=m.silence;
+      // the background sound it ENDED on is the one remembered (a change in the player's menu counts)
+      if(typeof m.bed==='string' && Store.setPrefBed){ Store.setPrefBed(m.bed, m.bed==='none' ? null : (m.bedVolume||'soft')); }
       if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
       if(m.meditationId!==undefined) reco.meditationId=m.meditationId;
       if(m.openEnded!==undefined) reco.openEnded=m.openEnded;

@@ -2114,6 +2114,10 @@
   function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
   function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
   function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
+  // the background sound (2026-09-26): { bed: 'stream'|'none', level: 'soft'|'medium'|'louder' }, or null = never chosen
+  // (the player then plays Nothing, the default). On THIS device only for now; the cloud row has no column for it yet.
+  function prefBed(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_bed')||'null'); return (v && typeof v.bed==='string') ? v : null; }catch(e){ return null; } }
+  function setPrefBed(bed, level){ try{ if(bed) localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(bed), level:(level||null) })); else localStorage.removeItem('snb_pref_bed'); }catch(e){} }
   // default sense/silence also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
   function _syncPrefs(){ if(!CLOUD || !auth.user) return; try{
@@ -2226,7 +2230,7 @@
     skillProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
-    prefSense, setPrefSense, prefSilence, setPrefSilence,
+    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed,
     saveContexts,
     isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
