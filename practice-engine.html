@@ -221,10 +221,12 @@ body.playing .brand{display:none}
    goes; nothing pops. Which fold is open is decided by the player's state classes below. */
 .fold{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;pointer-events:none;margin-bottom:0;transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .3s var(--ease),visibility 0s linear .42s;width:100%}
 .fold>*{min-height:0;overflow:hidden}
-.fold-mini{--fold-gap:6px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:0px}
+.fold-mini{--fold-gap:6px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:10px}
 .fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.show-controls:not(.choosing):not(.picking) .fold-controls,#player.skipping:not(.choosing):not(.picking) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.skipping .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.show-controls:not(.choosing):not(.picking) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.skipping:not(.choosing):not(.picking) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+/* Skip intro comes in AFTER the menu has finished (Justin 2026-09-26: "staggered … after the standard one is done animating in") */
+#player.skipping:not(.choosing):not(.picking) .fold-skip{transition:grid-template-rows .42s var(--ease) .45s,margin-bottom .42s var(--ease) .45s,opacity .38s var(--ease) .5s,visibility 0s linear .45s}
 @media (prefers-reduced-motion:reduce){.fold{transition:opacity .25s var(--ease),visibility 0s linear .25s}.fold.open{transition:opacity .25s var(--ease),visibility 0s}}
 #player.show-controls .controls>*{animation:riseIn .5s var(--ease) both}
 #player.show-controls .controls>*:nth-child(2){animation-delay:.06s}
@@ -278,9 +280,7 @@ body.playing .brand{display:none}
 .adj{min-width:0;width:100%;display:flex;align-items:center;justify-content:center;gap:2px;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{grid-column:span 4;justify-content:space-between;padding:0 4px 0 14px}
 .captoggle{grid-column:span 2;justify-content:center;gap:6px;padding:0 8px;cursor:pointer}
-.bedtoggle{grid-column:span 4;justify-content:space-between;padding:0 14px;cursor:pointer}
-.bedlevel{grid-column:span 2;justify-content:center;padding:0 8px;cursor:pointer}
-.bedlevel:disabled{opacity:.4;cursor:default}
+.bedtoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}   /* 2026-09-26: the level lives in the list now; the row is the sound's */
 .bedtoggle .bed-val{min-width:0;text-align:right}
 .bedtoggle.on{border-color:var(--ink-80)}
 .prevclip{grid-column:span 1}
@@ -359,7 +359,7 @@ body.playing .brand{display:none}
 .pinbtn[aria-pressed="true"] .pin-head{fill:currentColor}
 .pinbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
 .skipslot .choicebtn{width:100%}
-#player.skipping .pfoot::before,#player.picking .pfoot::before{opacity:1}
+#player.picking .pfoot::before{opacity:1}
 .choice-mini{display:flex;justify-content:center;gap:28px}
 #player.choosing .choice-mini{animation:riseIn .45s var(--ease)}
 .mini-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 6px;background:none;border:0;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer}
@@ -446,6 +446,14 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .bedlv.sel{border-color:var(--ink);background:var(--ink);color:var(--bone)}
 .bed-lv{opacity:.7}.bed-lv:not(:empty)::before{content:'\00b7';margin:0 5px}
 
+/* ── the breath check's three pairs (2026-09-26) ───────────────────────────────────────────────────────────────────── */
+.breath-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.choicebtn.sel{background:var(--ink);color:var(--bone);border-color:var(--ink)}
+/* ✅ DYNAMIC vs STANDARD (Justin 2026-09-26: "i like your idea"): the dynamic buttons keep the full outline; while one shares the
+   screen with the standard menu (Skip intro during the intro), the menu steps back a little, so the eye goes to the choice. */
+#player.skipping .fold-controls .controls{opacity:.7;transition:opacity .42s var(--ease)}
+.fold-controls .controls{transition:opacity .42s var(--ease)}
+
 </style>
 <script>/* sync boot — set classes on <html> before first paint */(function(){
 var q=new URLSearchParams(location.search);
@@ -459,20 +467,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               80016c22a558644badedc6b4d9d721d1    30824 bytes
+     page.css               0e4c43f7a7f924d805f7ec4de0f41c58    31721 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                94656130b53dae0a4156657add5b856b    58334 bytes
+     data.js                7895f7ab18231379b08fea2c40600c8a    59389 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
      runtime.js             d332ccd4a092ac5a03712d9dc707e778    48812 bytes
      host.js                5762e6c8131d8f90658404de65959e96    38963 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
-     session.js             35c7f9246cba67285fac3c64541f5a0f    79127 bytes
+     session.js             c9688380f65ee9add7715d730144864f    80983 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                37ed9be87cddf5b541015f07d6b3e67f    13995 bytes
-     page.js                5f9d4de43fc45c36d0815d968c13a62d    54927 bytes
+     copy.js                45d8e87a7a7f2b96ec660524bda12542    14198 bytes
+     page.js                19e0f33086e613e479fc13d7a1af9565    56662 bytes
 -->
 </head>
 <body>
@@ -579,6 +587,10 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
            one bottom panel in place of the standard menu -->
       <div class="fold fold-bed"><div class="bedcard" id="bedcard"></div></div>
 
+      <!-- 2026-09-26 (Justin): Skip intro is its own fold, above the menu — it stays while the intro plays even after the
+           menu has hidden itself, and it comes in a beat after the menu (staggered) -->
+      <div class="fold fold-skip"><div class="skipslot" id="skipslot"></div></div>
+
       <div class="fold fold-controls"><div class="controls">
         <!-- "about N min left", above the controls where the old player had it (2026-09-21) -->
         <div class="ctrl-top">
@@ -586,7 +598,6 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
           <button class="pinbtn" id="pinbtn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="pin-head" d="M9 3h6l-1 6 3.2 3.2V14H6.8v-1.8L10 9z"></path><path d="M12 14v7" fill="none"></path></svg></button>
         </div>
         <!-- 2026-09-25: "Skip intro" lives in the standard menu (mockup 1), which stays up while it is offered -->
-        <div class="fold fold-skip"><div class="skipslot" id="skipslot"></div></div>
         <div class="controlbar">
           <div class="adjgroup">
             <div class="adj silence">
@@ -859,7 +870,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:94656130b53dae0a4156657add5b856b */
+<script>/* @module data.js md5:7895f7ab18231379b08fea2c40600c8a */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1279,6 +1290,15 @@ const BAND_LOW_PRESENT = exists('SAFETY-READ-LOW-PRESENT') ? must('SAFETY-READ-L
 const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
 const BREATH_REPLY = (exists('BREATH-REPLY-FULL') && exists('BREATH-REPLY-SHALLOW'))
   ? Object.freeze({ full: must('BREATH-REPLY-FULL'), shallow: must('BREATH-REPLY-SHALLOW') }) : null;
+/* ✅ THE THREE QUESTIONS OF THE BREATH CHECK (Justin, 2026-09-26: "the breath check has three questions: full/shallow,
+ * chest/belly, and tense/relaxed"). Three pairs, in the order the clip asks them; every pair a single tap; all three saved.
+ * Replies: the first tap in a check gets one (BREATH_REPLY for full/shallow, else BREATH_ACK — "noted"); and the
+ * combination chest + shallow + tense gets BREATH_GUIDE_MOVE ("suggests freeze activation and movement could be helpful"):
+ * an invitation to move around or change the environment. Each family is all-or-nothing: nothing speaks until recorded. */
+const BREATH_PAIRS = Object.freeze([Object.freeze(['full', 'shallow']), Object.freeze(['chest', 'belly']), Object.freeze(['tense', 'relaxed'])]);
+const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
+const BREATH_ACK = exists('BREATH-ACK') ? must('BREATH-ACK') : null;
+const BREATH_GUIDE_MOVE = exists('BREATH-GUIDE-MOVE') ? must('BREATH-GUIDE-MOVE') : null;
 
 /* ✅ THE TRANSITION LINES (Justin, 2026-09-22): "No matter what they tap, they should get a transition
  * statement, like 'Okay, let's transition to a simpler mindfulness practice.' Just one take per
@@ -1636,7 +1656,7 @@ function takesInRotation(id) {
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_REPLY, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
+  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_REPLY, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
@@ -5034,7 +5054,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:35c7f9246cba67285fac3c64541f5a0f */
+<script>/* @module session.js md5:c9688380f65ee9add7715d730144864f */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5154,7 +5174,7 @@ const OPTIONS = Object.freeze({
   [CONTROL.INTENSITY]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
   [CONTROL.OFFER]: Object.freeze([OFFER_OPTIONS.CONTINUE, OFFER_OPTIONS.SIMPLER, OFFER_OPTIONS.MORE_SAFETY, OFFER_OPTIONS.MOVEMENT]),
   [CONTROL.ANCHOR]: D.ANCHOR_CHOICE_ORDER,
-  [CONTROL.BREATH]: Object.freeze(['full', 'shallow']),
+  [CONTROL.BREATH]: Object.freeze([].concat.apply([], D.BREATH_PAIRS)),   // the three pairs (2026-09-26)
 });
 
 /* ── what a 0–10 answer sets off (2026-09-22) ─────────────────────────────────────────────────
@@ -5500,7 +5520,9 @@ class Session {
     /* The cap governs BRANCHING choices — how much someone can hold with their eyes closed. The 0–10
      * reading is a capture on a line the person already carries in their head, and nothing routes
      * on it (spec 2026-09-17: "that cap governs branching choices, and a reading is a capture"). */
-    if (control !== CONTROL.READING && control !== CONTROL.INTENSITY && options.length > MAX_TARGETS) {
+    /* The breath check (2026-09-26) is three two-way captures side by side — full/shallow, chest/belly, tense/relaxed —
+     * nothing routes on them either (Justin: "borderline too much … the user can always ignore it"). */
+    if (control !== CONTROL.READING && control !== CONTROL.INTENSITY && control !== CONTROL.BREATH && options.length > MAX_TARGETS) {
       throw new Error(
         `session(): the ${control} control offers ${options.length} targets. E5.31 caps a choice ` +
         'at two — a choice needing three answers becomes two questions.');
@@ -5569,6 +5591,9 @@ class Session {
       this.runtime.settleAfterTap(c.index, TAP_SETTLE.number);
       return true;
     }
+    /* ✅ THE BREATH CHECK'S THREE PAIRS (2026-09-26): like the 0–10, the window stays open — a person answers one, two or
+     * all three, in any order, and a re-tap on a pair replaces that pair's answer. The window closes with the beat. */
+    if (control === CONTROL.BREATH) return this._breathAnswer(c, option);
     this._answered.add(c.index);
     this._closeControl('answered');
     this.onEvent({ type: 'answered', control, option });
@@ -5590,7 +5615,6 @@ class Session {
       return true;
     }
     if (control === CONTROL.ANCHOR) return this._chooseAnchor(c, option);
-    if (control === CONTROL.BREATH) return this._breathAnswer(c, option);
     if (control === CONTROL.FINISH) return this._finishChoice(option);
     if (control === CONTROL.STATEMENT) return this._stickWith(c);
     if (control === CONTROL.INTEREST_ANSWER) {
@@ -5645,18 +5669,41 @@ class Session {
   /* ✅ A breath answer (Justin, 2026-09-25): recorded with its second, answered with a short reply once recorded,
    * and the practice carries on — the clip still asks its other questions, so it is not cut. */
   _breathAnswer(c, option) {
+    const pair = D.BREATH_PAIRS.find(p => p.indexOf(option) >= 0);
+    if (!pair) return false;
+    if (!c.breath) c.breath = { answers: {}, replies: 0, guided: false, first: true };
+    const st = c.breath;
+    /* a re-tap on the same pair replaces its answer in the record (the LAST tap in the window is the answer, as for a 0–10) */
+    const prev = st.answers[pair[0]];
+    if (prev !== undefined) { const i = this.breathAnswers.lastIndexOf(prev); if (i >= 0) this.breathAnswers.splice(i, 1); }
+    st.answers[pair[0]] = option;
     this.breathAnswers.push(option);
-    this.onEvent({ type: 'breath', value: option });
+    this.onEvent({ type: 'breath', value: option, pair: pair.join('/') });
     const q = this.queue[c.index];
-    if (D.BREATH_REPLY && D.BREATH_REPLY[option] && this.runtime.idx === c.index) {
-      const b = this._branchBeat(D.BREATH_REPLY[option], q.phase);
+    const live = this.runtime.idx === c.index;
+    const say = (id, reply) => {
+      const b = this._branchBeat(id, q.phase);
       b.kind = P.KIND.reply;
       b.gap = P.gapFor(b, this.silence);
       b.response = c.index;
-      this.queue.splice(c.index + 1, 0, b);
-      this.onEvent({ type: 'tap-reply', control: CONTROL.BREATH, reply: option });
-      this.runtime.settleAfterTap(c.index, TAP_SETTLE.yes);
+      this.queue.splice(c.index + 1 + st.replies, 0, b);
+      st.replies++;
+      this.onEvent({ type: 'tap-reply', control: CONTROL.BREATH, reply });
+    };
+    let spoke = false;
+    /* the FIRST tap in a check is acknowledged: the full/shallow reply if that is what was tapped, else "noted" */
+    if (st.first && live) {
+      const own = D.BREATH_REPLY && D.BREATH_REPLY[option];
+      if (own) { say(own, option); spoke = true; }
+      else if (D.BREATH_ACK) { say(D.BREATH_ACK, 'ack'); spoke = true; }
     }
+    st.first = false;
+    /* chest + shallow + tense, once all three are in: the invitation to move (Justin, 2026-09-26) */
+    const got = Object.keys(st.answers).map(k => st.answers[k]);
+    if (!st.guided && live && D.BREATH_GUIDE_MOVE && D.BREATH_FREEZE_PATTERN.every(v => got.indexOf(v) >= 0)) {
+      say(D.BREATH_GUIDE_MOVE, 'guide-move'); st.guided = true; spoke = true;
+    }
+    if (spoke) this.runtime.settleAfterTap(c.index, TAP_SETTLE.yes);
     return true;
   }
 
@@ -6764,7 +6811,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:37ed9be87cddf5b541015f07d6b3e67f */
+<script>/* @module copy.js md5:45d8e87a7a7f2b96ec660524bda12542 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6948,6 +6995,11 @@ const UI = Object.freeze({
   miniEnd: 'End practice',
   breathFull: 'More full',
   breathShallow: 'More shallow',
+  /* the other two pairs of the breath check (Justin, 2026-09-26: "chest/belly, and tense/relaxed") */
+  breathChest: 'Chest',
+  breathBelly: 'Belly',
+  breathTense: 'Tense',
+  breathRelaxed: 'Relaxed',
   curiosityYes: 'I\'m curious about non-safety',
   curiosityNo: 'I\'m not feeling curious about non-safety',
   moreSafetyAgain: 'More time with safety',
@@ -7008,7 +7060,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:5f9d4de43fc45c36d0815d968c13a62d */
+<script>/* @module page.js md5:19e0f33086e613e479fc13d7a1af9565 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7572,6 +7624,10 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     breath: [
       { option: 'full', label: () => COPY.UI.breathFull, quiet: true },
       { option: 'shallow', label: () => COPY.UI.breathShallow, quiet: true },
+      { option: 'chest', label: () => COPY.UI.breathChest, quiet: true },
+      { option: 'belly', label: () => COPY.UI.breathBelly, quiet: true },
+      { option: 'tense', label: () => COPY.UI.breathTense, quiet: true },
+      { option: 'relaxed', label: () => COPY.UI.breathRelaxed, quiet: true },
     ],
     /* ✅ THE FOUR BUTTONS (2026-09-22) — after a low safety answer or a high non-safety one, in the order
      * Justin listed them. All four quiet: none is the preferred choice (Justin, 2026-09-21, on the yes/no pair). */
@@ -7609,6 +7665,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const card = $('choicecard');
     card.textContent = '';
     if (control === 'reading' || control === 'intensity') { openReading(card, control); return; }
+    if (control === 'breath') { openBreath(card); return; }
     (CHOICE_BUTTONS[control] || []).forEach(spec => {
       const b = el('button', 'choicebtn' + (spec.quiet ? ' quietly' : ''), spec.label());
       b.type = 'button';
@@ -7620,6 +7677,29 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
         else session.answer(control, spec.option);
       };
       card.appendChild(b);
+    });
+    $('player').classList.add('choosing');
+  }
+
+  /* ✅ THE BREATH CHECK'S THREE PAIRS (Justin, 2026-09-26): three rows of two, in the order the clip asks — full/shallow,
+   * chest/belly, tense/relaxed. Each row is one tap; the tapped one stays marked (a re-tap on the row changes it); the card
+   * stays up for the clip's whole window, so one, two or all three can be answered. */
+  function openBreath(card) {
+    const specs = CHOICE_BUTTONS.breath, pairs = D.BREATH_PAIRS;
+    pairs.forEach(pair => {
+      const row = el('div', 'breath-row');
+      pair.forEach(opt => {
+        const spec = specs.find(x => x.option === opt);
+        const b = el('button', 'choicebtn quietly', spec.label());
+        b.type = 'button'; b.dataset.option = opt; b.setAttribute('aria-pressed', 'false');
+        b.addEventListener('pointerdown', ev => ev.stopPropagation());
+        b.onclick = () => {
+          if (!session.answer('breath', opt)) return;
+          row.querySelectorAll('.choicebtn').forEach(x => { x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        };
+        row.appendChild(b);
+      });
+      card.appendChild(row);
     });
     $('player').classList.add('choosing');
   }
@@ -7754,7 +7834,9 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
   function closeChoice() {
     clearTimeout(readFade);
-    if ($('player').classList.contains('skipping')) { $('skipslot').textContent = ''; $('player').classList.remove('skipping'); revealControls(); }
+    /* 2026-09-26: taken or over, Skip intro folds away on its own; the menu is NOT brought back (Justin: the whole menu
+     * looked like it refreshed) — it comes back on the next touch, as always */
+    if ($('player').classList.contains('skipping')) { $('skipslot').textContent = ''; $('player').classList.remove('skipping'); }
     const card = $('choicecard');
     /* the three buttons have their own window (session `_offer`); closing the question under them
      * leaves them standing */
