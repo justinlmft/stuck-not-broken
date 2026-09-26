@@ -6373,9 +6373,10 @@ function app(tab){
   // The level is a file (iPhone ignores a web page's volume), so the person picks soft, medium or louder.
   // The choice is remembered (Store.prefBed) and every practice launch carries it (see _playerSrc).
   // [key, name, what it is, file] — the file name MUST match practice-engine data.js BEDS (a new recording = a new name)
-  const BED_SOUNDS=[['stream','stream','A small mountain stream, just water','stream-1354'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Birds waking up at dawn','birds']];
+  const BED_SOUNDS=[['stream','stream','A small mountain stream, just water','stream-1354'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Birds waking up at dawn','birds'],['rain','rain','Steady rain on a roof','rain-577887'],['bowl','singing bowl','One bowl, a continuous tone','bowl-573805',true],['bowls','gentle bowls','Tibetan bowls, softly played','bowls-161478',true],['struck','struck bowls','Several bowls, struck and hummed','struck-365416',true]];
+  // a 5th column `true` = a fixed-start sound (bowls have an arc): its preview starts at the top too
   // how each sound is said in a sentence, by level (soft / medium / louder)
-  const BED_SAY={ stream:['a soft stream','a stream','a louder stream'], beach:['soft waves','waves','louder waves'], birds:['soft birdsong','birdsong','louder birdsong'] };
+  const BED_SAY={ stream:['a soft stream','a stream','a louder stream'], beach:['soft waves','waves','louder waves'], birds:['soft birdsong','birdsong','louder birdsong'], rain:['soft rain','rain','louder rain'], bowl:['a soft singing bowl','a singing bowl','a louder singing bowl'], bowls:['soft gentle bowls','gentle bowls','louder gentle bowls'], struck:['soft struck bowls','struck bowls','louder struck bowls'] };
   const BED_LEVELS=[['soft','soft'],['medium','medium'],['louder','louder']];
   const BED_PREVIEW_BASE='clips/beds-v1/';   // same folder the engine plays from (data.js BED_FOLDER)
   function bedPref(){ const p=(Store.prefBed&&Store.prefBed())||null; const known=p && BED_SOUNDS.some(b=>b[0]===p.bed);
@@ -6387,7 +6388,7 @@ function app(tab){
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
     if(!b || b.bed==='none') return;
     const sd=BED_SOUNDS.find(x=>x[0]===b.bed); const a=new Audio(BED_PREVIEW_BASE+((sd&&sd[3])||b.bed)+'-'+(b.level||'soft')+'.m4a'); a.preload='auto'; _bedPreview=a;
-    a.addEventListener('loadedmetadata',()=>{ try{ if(isFinite(a.duration)) a.currentTime=Math.floor(Math.random()*Math.max(0,a.duration-10)); }catch(e){} },{once:true});
+    a.addEventListener('loadedmetadata',()=>{ try{ if(isFinite(a.duration)&&!(sd&&sd[4])) a.currentTime=Math.floor(Math.random()*Math.max(0,a.duration-10)); }catch(e){} },{once:true});
     const pr=a.play(); if(pr&&pr.catch) pr.catch(()=>{});
     _bedPreviewT=setTimeout(()=>{ try{ a.pause(); }catch(e){} if(_bedPreview===a) _bedPreview=null; },6000); }catch(e){} }
   // ✅ THE BACKGROUND SOUND SHEET (2026-09-26, Justin: "there are really only three options, but it looks like nine").

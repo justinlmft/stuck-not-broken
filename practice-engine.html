@@ -439,7 +439,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               f0482fded5134546cb04a07dc8a25865    27268 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                f55a908cc4df603b94fc0f432381dfae    56946 bytes
+     data.js                e4d8a1521bf94cd83b8cb7023f38ca91    57942 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
      runtime.js             d332ccd4a092ac5a03712d9dc707e778    48812 bytes
      host.js                5762e6c8131d8f90658404de65959e96    38963 bytes
@@ -448,7 +448,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      stall.js               3c48c15baf42b791401cec5b7c7c03e5     8973 bytes
      session.js             35c7f9246cba67285fac3c64541f5a0f    79127 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                0ea19a5c56555a79c9bdd5ee72bcd71f    13792 bytes
+     copy.js                cb6793a8e2204c35a93a12e04a7c857c    13875 bytes
      page.js                9aa72c0bc93ee045bddaecf1799da5a0    50933 bytes
 -->
 </head>
@@ -832,7 +832,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:f55a908cc4df603b94fc0f432381dfae */
+<script>/* @module data.js md5:e4d8a1521bf94cd83b8cb7023f38ca91 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -914,6 +914,14 @@ const BEDS = {
   stream: Object.freeze({ random: true, seconds: 101.26, file: 'stream-1354' }),
   beach: Object.freeze({ random: true, seconds: 244.48 }),    // "Small waves and beach #1" (ID 1446)
   birds: Object.freeze({ random: true, seconds: 240.3 }),     // "Birds waking #3" (ID 0999): countryside at dawn
+  /* Justin's picks 2026-09-26 (round 2), all Freesound.org, CC0. Rain is a steady bed: random start. The three bowl
+   * recordings each have an arc (a rise, a play, a decay), so they start at the top every time (ROADMAP-DETAIL entry 9:
+   * "fixed start for sound bowls"); their loop eases out through silence and begins again. Justin: "they are each a
+   * different experience", "the bowls have the best audio quality". */
+  rain: Object.freeze({ random: true, seconds: 239.98, file: 'rain-577887' }),     // "Rain on Carport" (Leonard.B.Blaesing)
+  bowl: Object.freeze({ random: false, seconds: 126.99, file: 'bowl-573805' }),    // "Singing Bowl, long without reverb" (hollandm): one bowl, rim-played
+  bowls: Object.freeze({ random: false, seconds: 109.39, file: 'bowls-161478' }),  // "Tibetan Singing Bowls" (phluidbox): gently played
+  struck: Object.freeze({ random: false, seconds: 443.73, file: 'struck-365416' }), // "Tibetan_Singing_Bowls_Improv" (RutgerMuller): struck and hummed
 };
 const BED_NONE = 'none';
 const BED_LEVELS = Object.freeze(['soft', 'medium', 'louder']);
@@ -6726,7 +6734,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:0ea19a5c56555a79c9bdd5ee72bcd71f */
+<script>/* @module copy.js md5:cb6793a8e2204c35a93a12e04a7c857c */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6874,7 +6882,7 @@ const UI = Object.freeze({
    * and its level (soft → medium → louder) */
   sound: 'Background sound',
   soundNothing: 'Nothing',
-  soundNames: { stream: 'Stream', beach: 'Beach', birds: 'Birds' },
+  soundNames: { stream: 'Stream', beach: 'Beach', birds: 'Birds', rain: 'Rain', bowl: 'Singing bowl', bowls: 'Gentle bowls', struck: 'Struck bowls' },
   soundLevels: { soft: 'soft', medium: 'medium', louder: 'louder' },
   lessSilence: 'less silence',
   moreSilence: 'more silence',
