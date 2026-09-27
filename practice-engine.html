@@ -127,7 +127,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .goback{position:relative;display:none;align-items:center;gap:8px;background:transparent;border:0;padding:0;margin:0 0 6px;cursor:pointer;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink-80);transition:color var(--ease) .2s}
 .chooser.picked .goback{display:inline-flex}
 .goback::before{content:'';position:absolute;inset:-13px -8px}
-.goback:hover{color:var(--ink)}
+@media(hover:hover){.goback:hover{color:var(--ink)}}
 .goback .ba{width:8px;height:8px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);display:inline-block}
 .goback:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 .chooser:not(.picked) .summary{display:none !important}
@@ -145,14 +145,14 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   background:transparent;color:var(--muted);border:1px solid var(--hairline);
   border-radius:999px;padding:7px 15px;transition:border-color var(--ease) .2s,color var(--ease) .2s,font-weight var(--ease) .2s;
 }
-.chip:hover{border-color:var(--ink-80);color:var(--ink-80)}
+@media(hover:hover){.chip:hover{border-color:var(--ink-80);color:var(--ink-80)}}
 .chip.on{border-color:var(--ink);color:var(--ink);font-weight:500}
 .chip:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 /* ───── more options ───── */
 .adjust{margin:0}
 .adjust summary{font-size:calc(14px * var(--type-scale));color:var(--muted);cursor:pointer;list-style:none;display:inline-flex;align-items:center;min-height:44px;gap:9px;width:auto;transition:color var(--ease) .2s}
-.adjust summary:hover{color:var(--ink)}
+@media(hover:hover){.adjust summary:hover{color:var(--ink)}}
 .adjust summary::-webkit-details-marker{display:none}
 .adjust summary .tw{width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg);transition:transform var(--ease) .2s;margin-bottom:2px}
 .adjust[open] summary .tw{transform:rotate(-135deg);margin-bottom:-3px}
@@ -170,11 +170,11 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   background:var(--ink);color:var(--bone);border:1px solid var(--ink);
   border-radius:var(--rbtn);padding:13px 30px;transition:box-shadow var(--ease) .25s,transform var(--ease) .2s,border-color var(--ease) .2s,color var(--ease) .2s;
 }
-.btn:hover{box-shadow:0 0 0 2px var(--bone),0 0 0 3.5px var(--ink);transform:translateY(-1px)}
+@media(hover:hover){.btn:hover{box-shadow:0 0 0 2px var(--bone),0 0 0 3.5px var(--ink);transform:translateY(-1px)}}
 .btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .btn.primary{width:100%;padding:18px 30px;font-size:calc(17px * var(--type-scale));border-radius:14px}
 .btn.quiet{background:transparent;color:var(--ink);border:1px solid var(--ink)}
-.btn.quiet:hover{box-shadow:inset 0 0 0 1px var(--ink);transform:translateY(-1px)}
+@media(hover:hover){.btn.quiet:hover{box-shadow:inset 0 0 0 1px var(--ink);transform:translateY(-1px)}}
 body.playing .brand{display:none}
 
 /* ── the testing harness banner ────────────────────────────────────────────────────────────
@@ -223,10 +223,10 @@ body.playing .brand{display:none}
 .fold>*{min-height:0;overflow:hidden}
 .fold-mini{--fold-gap:6px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:10px}
 .fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.show-controls:not(.choosing):not(.picking) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.skipping:not(.choosing):not(.picking) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.show-controls:not(.choosing):not(.picking):not(.customizing) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.customizing:not(.choosing):not(.picking) .fold-custom,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 /* Skip intro comes in AFTER the menu has finished (Justin 2026-09-26: "staggered … after the standard one is done animating in") */
-#player.skipping:not(.choosing):not(.picking) .fold-skip{transition:grid-template-rows .42s var(--ease) .45s,margin-bottom .42s var(--ease) .45s,opacity .38s var(--ease) .5s,visibility 0s linear .45s}
+#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{transition:grid-template-rows .42s var(--ease) .45s,margin-bottom .42s var(--ease) .45s,opacity .38s var(--ease) .5s,visibility 0s linear .45s}
 @media (prefers-reduced-motion:reduce){.fold{transition:opacity .25s var(--ease),visibility 0s linear .25s}.fold.open{transition:opacity .25s var(--ease),visibility 0s}}
 #player.show-controls .controls>*{animation:riseIn .5s var(--ease) both}
 #player.show-controls .controls>*:nth-child(2){animation-delay:.06s}
@@ -248,11 +248,11 @@ body.playing .brand{display:none}
   padding:15px 20px;min-height:54px;text-align:center;
   transition:box-shadow var(--ease) .2s,transform var(--ease) .2s;
 }
-.choicebtn:hover{box-shadow:0 0 0 1.5px var(--ink)}
+@media(hover:hover){.choicebtn:hover{box-shadow:0 0 0 1.5px var(--ink)}}
 .choicebtn:active{transform:scale(.985)}
 .choicebtn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 .choicebtn.quietly{font-weight:400;border-color:var(--hairline);color:var(--ink-80)}
-.choicebtn.quietly:hover{border-color:var(--ink-80);box-shadow:0 0 0 1px var(--ink-80)}
+@media(hover:hover){.choicebtn.quietly:hover{border-color:var(--ink-80);box-shadow:0 0 0 1px var(--ink-80)}}
 /* the three buttons after a low safety / high non-safety answer (2026-09-22): a column like the other
    choices, set a little apart from the 0-10 line when both are up */
 .offer{display:flex;flex-direction:column;gap:9px}
@@ -261,7 +261,7 @@ body.playing .brand{display:none}
 
 /* ── primary transport ── */
 .transport{flex:1 1 auto;min-width:48px;height:54px;border-radius:15px;border:1.5px solid var(--ink);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:box-shadow var(--ease) .2s,transform var(--ease) .2s}
-.transport:hover{box-shadow:0 0 0 1.5px var(--ink)}
+@media(hover:hover){.transport:hover{box-shadow:0 0 0 1.5px var(--ink)}}
 .transport:active{transform:scale(.96)}
 .transport:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
 .transport .ico{width:27px;height:27px;display:block;fill:var(--ink);color:var(--ink)}
@@ -275,6 +275,8 @@ body.playing .brand{display:none}
 
 /* control bar: an explicit 6-column grid, three rows. Silence needs the most width, so it
    gets a line; CC keeps the left edge honest; pause is the hero and takes half of row three. */
+/* 2026-09-26 late night: the standard menu is minimal — customize · back a chapter · 5 s · play, in one row (Justin: "the standard menu
+   can be a bit more minimal"); silence, captions and the sound live in the customizer fold */
 .controlbar{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;width:100%;align-items:center}
 .adjgroup{display:contents}
 .adj{min-width:0;width:100%;display:flex;align-items:center;justify-content:center;gap:2px;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
@@ -283,15 +285,18 @@ body.playing .brand{display:none}
 .bedtoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}   /* 2026-09-26: the level lives in the list now; the row is the sound's */
 .bedtoggle .bed-val{min-width:0;text-align:right}
 .bedtoggle.on{border-color:var(--ink-80)}
+.customize{grid-column:span 1}
 .prevclip{grid-column:span 1}
 .rewind{grid-column:span 2}
-#pause{grid-column:span 3}
+#pause{grid-column:span 2}
+.customize .ico{width:24px;height:24px;fill:none}
+.customize.on{border-color:var(--ink-80)}
 .transport.mini{width:100%;min-width:44px}
 .adj-stepper{display:inline-flex;align-items:center;gap:2px}
 .adj-label{color:var(--muted)}
 .adj-val{color:var(--ink-80);font-variant-numeric:tabular-nums;min-width:2.2em;text-align:center}
 .adj-step{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(21px * var(--type-scale));line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color var(--ease) .2s}
-.adj-step:hover{color:var(--ink)}
+@media(hover:hover){.adj-step:hover{color:var(--ink)}}
 .adj-step:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media (max-width:359.98px){
   .adj.silence{padding:0 2px 0 6px}
@@ -300,8 +305,8 @@ body.playing .brand{display:none}
 }
 .captoggle .cc{font-weight:500;letter-spacing:.1em;color:var(--muted);transition:color var(--ease) .2s}
 .captoggle .cc-state{color:var(--muted);transition:color var(--ease) .2s}
-.captoggle:hover{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
-.captoggle:hover .cc,.captoggle:hover .cc-state{color:var(--ink-80)}
+@media(hover:hover){.captoggle:hover{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}}
+@media(hover:hover){.captoggle:hover .cc,.captoggle:hover .cc-state{color:var(--ink-80)}}
 .captoggle.on{border-color:var(--ink)}
 .captoggle.on .cc,.captoggle.on .cc-state{color:var(--ink)}
 .captoggle:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -311,7 +316,7 @@ body.playing .brand{display:none}
 .endings .btn{width:100%}
 .endnow{position:relative;background:none;border:0;font:inherit;font-size:calc(12.5px * var(--type-scale));letter-spacing:.1em;color:var(--muted);cursor:pointer;padding:4px 10px;transition:color var(--ease) .2s}
 .endnow::after{content:'';position:absolute;inset:-10px -6px}
-.endnow:hover{color:var(--ink);font-weight:600}
+@media(hover:hover){.endnow:hover{color:var(--ink);font-weight:600}}
 .endnow:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
 /* E5.27 — the route back for another round of safety, live for the rest of the defense block.
    Hidden until the capacity gate has gone by, because before that there is nothing to go back to. */
@@ -359,11 +364,11 @@ body.playing .brand{display:none}
 .pinbtn[aria-pressed="true"] .pin-head{fill:currentColor}
 .pinbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
 .skipslot .choicebtn{width:100%}
-#player.picking .pfoot::before{opacity:1}
+#player.picking .pfoot::before,#player.customizing .pfoot::before{opacity:1}
 .choice-mini{display:flex;justify-content:center;gap:28px}
 #player.choosing .choice-mini{animation:riseIn .45s var(--ease)}
 .mini-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 6px;background:none;border:0;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer}
-.mini-btn:hover{color:var(--ink)}
+@media(hover:hover){.mini-btn:hover{color:var(--ink)}}
 .mini-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
 .mini-ico{width:14px;height:14px;display:block;fill:currentColor}
 .mini-pause .ico-play{display:none}
@@ -382,7 +387,7 @@ body.playing .brand{display:none}
 @keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){
   #player.finished .done,#setup.choosing .chooser,#player.show-controls .controls>*,#player.choosing .choicecard{animation:none}
-  .btn:hover,.btn.quiet:hover{transform:none}
+@media(hover:hover){.btn:hover,.btn.quiet:hover{transform:none}}
 }
 
 /* connection trouble — always in flow at the top of .pfoot so it can never paint over the
@@ -432,17 +437,22 @@ body.embed .welcome{font-size:calc(15px * var(--type-scale))}
 body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 
 /* ── the background sound list (2026-09-26) ─────────────────────────────────────────────────────────────────────────── */
-.bedcard{display:flex;flex-direction:column;gap:12px;width:100%;position:relative;z-index:3}
+.bedcard,.customcard{display:flex;flex-direction:column;gap:12px;width:100%;position:relative;z-index:3}
+.customcard .adjgroup{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.fold-custom{--fold-gap:16px}
 .bed-h{margin:0;font-size:calc(12px * var(--type-scale));letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left}
 .bed-rows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.customdone{justify-content:center;text-align:center}
 .bedrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;padding:10px 12px 10px 14px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
 .bedrow.sel{border-color:var(--ink);font-weight:600}
 .bedrow .tick{width:18px;height:18px;flex:none;opacity:0;transition:opacity .2s var(--ease)}
 .bedrow.sel .tick{opacity:1}
 .bedrow:focus-visible,.bedlv:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.bed-levels{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;transition:opacity .3s var(--ease)}
+/* 2026-09-26 late night: FIVE volume steps, no words (Justin: "we don't need words for each volume level. just a simpler UI with a
+   couple of extra options") — five pills, each a little taller than the last, the chosen one filled */
+.bed-levels{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:end;transition:opacity .3s var(--ease)}
 .bed-levels.off{opacity:.35;pointer-events:none}
-.bedlv{min-height:42px;padding:8px 10px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(14px * var(--type-scale));cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
+.bedlv{min-height:0;height:calc(38px + var(--step,1) * 5px);padding:0;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:0;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
 .bedlv.sel{border-color:var(--ink);background:var(--ink);color:var(--bone)}
 .bed-lv{opacity:.7}.bed-lv:not(:empty)::before{content:'\00b7';margin:0 5px}
 
@@ -467,20 +477,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               0e4c43f7a7f924d805f7ec4de0f41c58    31721 bytes
+     page.css               7dd3a6886751000f29740d0645d64ba0    32951 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                fc5e182a4051a1b79510f2bb3fd6cc3a    60296 bytes
+     data.js                a9fd19424c071cb7a923f9fe80cf8870    61695 bytes
      plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
-     runtime.js             5736dda1953eb04fd0dea9996a3ee46b    50356 bytes
-     host.js                5762e6c8131d8f90658404de65959e96    38963 bytes
+     runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
+     host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
      session.js             bb59b3e4d73bdf20798115b47c8ea982    80838 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                501c73e9d550987645d943cfdbaf1977    14272 bytes
-     page.js                19e0f33086e613e479fc13d7a1af9565    56662 bytes
+     copy.js                36cd9ec26daa451ad24a48a7ebedc149    14638 bytes
+     page.js                a6c24cf79992583de7e8761f22d132a0    59133 bytes
 -->
 </head>
 <body>
@@ -587,6 +597,26 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
            one bottom panel in place of the standard menu -->
       <div class="fold fold-bed"><div class="bedcard" id="bedcard"></div></div>
 
+      <!-- 2026-09-26 late night (Justin): the customizing pieces — silence, captions, background sound — are their own
+           menu, in the one bottom panel in place of the standard menu, so the standard menu stays minimal -->
+      <div class="fold fold-custom"><div class="customcard" id="customcard">
+        <p class="bed-h" id="customlabel"></p>
+        <div class="adjgroup">
+          <div class="adj silence">
+            <span class="adj-label" id="sillabel"></span>
+            <span class="adj-stepper">
+              <button class="adj-step" id="lesssil" type="button">−</button>
+              <span class="adj-val" id="silnow"></span>
+              <button class="adj-step" id="moresil" type="button">+</button>
+            </span>
+          </div>
+          <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc" id="cclabel"></span><span class="cc-state" id="capstate"></span></button>
+          <!-- 2026-09-26: the background sound, changeable mid-practice; a tap opens the sound list -->
+          <button class="adj bedtoggle" id="bedtoggle" type="button" aria-expanded="false"><span class="adj-label" id="bedlabel"></span><span class="adj-val bed-val" id="bednow"></span><span class="adj-val bed-lv" id="bedlevelnow" aria-hidden="true"></span></button>
+        </div>
+        <button class="bedrow customdone" id="customdone" type="button"></button>
+      </div></div>
+
       <!-- 2026-09-26 (Justin): Skip intro is its own fold, above the menu — it stays while the intro plays even after the
            menu has hidden itself, and it comes in a beat after the menu (staggered) -->
       <div class="fold fold-skip"><div class="skipslot" id="skipslot"></div></div>
@@ -599,19 +629,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
         </div>
         <!-- 2026-09-25: "Skip intro" lives in the standard menu (mockup 1), which stays up while it is offered -->
         <div class="controlbar">
-          <div class="adjgroup">
-            <div class="adj silence">
-              <span class="adj-label" id="sillabel"></span>
-              <span class="adj-stepper">
-                <button class="adj-step" id="lesssil" type="button">−</button>
-                <span class="adj-val" id="silnow"></span>
-                <button class="adj-step" id="moresil" type="button">+</button>
-              </span>
-            </div>
-            <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc" id="cclabel"></span><span class="cc-state" id="capstate"></span></button>
-            <!-- 2026-09-26: the background sound, changeable mid-practice -->
-            <button class="adj bedtoggle" id="bedtoggle" type="button" aria-expanded="false"><span class="adj-label" id="bedlabel"></span><span class="adj-val bed-val" id="bednow"></span><span class="adj-val bed-lv" id="bedlevelnow"></span></button>
-          </div>
+          <!-- 2026-09-26 late night: the customizer (silence, captions, sound) opens from here, in place of the menu -->
+          <button class="transport mini customize" id="customize" type="button" aria-expanded="false"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 12h3M11 12h9M4 17h12M20 17h0"></path><circle cx="16" cy="7" r="2"></circle><circle cx="9" cy="12" r="2"></circle><circle cx="18" cy="17" r="2"></circle></svg></button>
           <button class="transport mini prevclip" id="prevclip" type="button"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.6" y="5.5" width="2.4" height="13" rx="1.1"></rect><path d="M18.4 6 L10 12 L18.4 18 Z" fill="currentColor"></path></svg></button>
           <button class="transport mini rewind" id="rewind" type="button"><span class="rw" aria-hidden="true"><svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5.2a8.8 8.8 0 1 1-8.2 5.6"></path><path d="M9.1 2.6 L5.4 5.9 L9.0 9.0"></path></svg><span class="rw5">5</span></span></button>
           <button class="transport" id="pause"><svg class="ico ico-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6.4" y="5" width="4.4" height="14" rx="2.2"></rect><rect x="13.2" y="5" width="4.4" height="14" rx="2.2"></rect></svg><svg class="ico ico-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6 L18 12 L8 18 Z" fill="currentColor" stroke="currentColor" stroke-width="3.4" stroke-linejoin="round"></path></svg></button>
@@ -870,7 +889,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:fc5e182a4051a1b79510f2bb3fd6cc3a */
+<script>/* @module data.js md5:a9fd19424c071cb7a923f9fe80cf8870 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -974,13 +993,27 @@ const BEDS = {
   dunes: Object.freeze({ random: false, seconds: 291.48, file: 'dunes-447511' }),         // "Dunes" (Andrewkn): airy pads
 };
 const BED_NONE = 'none';
-const BED_LEVELS = Object.freeze(['soft', 'medium', 'louder']);
-const BED_LEVEL_DEFAULT = 'soft';   // Justin 2026-09-26: "the softer volume is definitely the way to go"
-function bedLevel(level) { return BED_LEVELS.indexOf(level) >= 0 ? level : BED_LEVEL_DEFAULT; }
+/* ✅ FIVE VOLUME STEPS, NO WORDS (Justin, 2026-09-26 late night: "Instead of soft, medium, and louder, can we just give them 5 volume
+ * options? i find the soft one to be a bit too loud still. i'd like to take it down a notch. we don't need words for each volume
+ * level."). A step is a FILE (an iPhone ignores a web page's volume): 1 = −48 LUFS, 2 = −42, 3 = −36 (the old "soft"), 4 = −30
+ * ("medium"), 5 = −24 ("louder"), six dB apart. The three that already shipped keep their file names (a shipped name never changes
+ * content); the two new quiet ones are `-v1` and `-v2`. The default is step 2: one notch below the old soft. An old device preference
+ * ("soft" / "medium" / "louder") still reads: it maps to its step. */
+const BED_LEVELS = Object.freeze(['1', '2', '3', '4', '5']);
+const BED_LEVEL_FILES = Object.freeze({ 1: 'v1', 2: 'v2', 3: 'soft', 4: 'medium', 5: 'louder' });
+const BED_LEVEL_LUFS = Object.freeze({ 1: -48, 2: -42, 3: -36, 4: -30, 5: -24 });
+const BED_LEVEL_LEGACY = Object.freeze({ soft: '3', medium: '4', louder: '5' });
+const BED_LEVEL_DEFAULT = '2';
+function bedLevel(level) {
+  const k = level == null ? '' : String(level);
+  if (BED_LEVELS.indexOf(k) >= 0) return k;
+  if (Object.prototype.hasOwnProperty.call(BED_LEVEL_LEGACY, k)) return BED_LEVEL_LEGACY[k];
+  return BED_LEVEL_DEFAULT;
+}
 /* the file for a bed at a level, or null for Nothing / an unknown bed */
 function bedUrl(base, key, level) {
   if (!key || !Object.prototype.hasOwnProperty.call(BEDS, key)) return null;
-  return (base || '') + BED_FOLDER + (BEDS[key].file || key) + '-' + bedLevel(level) + '.m4a';
+  return (base || '') + BED_FOLDER + (BEDS[key].file || key) + '-' + BED_LEVEL_FILES[bedLevel(level)] + '.m4a';
 }
 
 // ---------------------------------------------------------------------------
@@ -1302,7 +1335,8 @@ const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
  * Replies: the first tap in a check gets BREATH_ACK ("noted"); and the combination chest + shallow + tense gets
  * BREATH_GUIDE_MOVE ("suggests freeze activation and movement could be helpful"): an invitation to move around or change
  * the environment. Each family is all-or-nothing: nothing speaks until recorded (recording doc §13). */
-const BREATH_PAIRS = Object.freeze([Object.freeze(['full', 'shallow']), Object.freeze(['chest', 'belly']), Object.freeze(['tense', 'relaxed'])]);
+/* order (Justin, 2026-09-26 late night): "Make the options go in this order: Chest/Belly, Full/Shallow, Tense/Relaxed" */
+const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'belly']), Object.freeze(['full', 'shallow']), Object.freeze(['tense', 'relaxed'])]);
 const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
 const BREATH_ACK = exists('BREATH-ACK') ? must('BREATH-ACK') : null;
 const BREATH_GUIDE_MOVE = exists('BREATH-GUIDE-MOVE') ? must('BREATH-GUIDE-MOVE') : null;
@@ -1642,6 +1676,7 @@ const TAKES_OUT = Object.freeze({
   'CLOSE-02': Object.freeze(['e']),
   'DESC-SAFETY-04': Object.freeze(['a']),
   'DESC-DEFENSE-01': Object.freeze(['b']),
+  'MIND-04': Object.freeze(['a']),   // 2026-09-26 late night, Justin: re-record ("the, the air … the, the temperature"); three other takes carry it
 });
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 Object.keys(TAKES_OUT).forEach(id => {
@@ -1665,7 +1700,7 @@ const API = {
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
   BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
-  CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
+  CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
 
@@ -2977,7 +3012,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:5736dda1953eb04fd0dea9996a3ee46b */
+<script>/* @module runtime.js md5:70f6823ae02a6a0123e5e311efd713d9 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -3050,6 +3085,7 @@ const C = Object.freeze({
   PREFETCH_AHEAD: 2,         // beats warmed ahead of the playhead
 
   MIN_GAP_SECONDS: 0.4,      // shorter than this is not a gap; go straight on
+  BACK_RESTART_SECONDS: 3,   // the back button restarts the current clip after this; before it, goes to the one before (2026-09-26)
 
   /* ✅ THE SOUND LEADS IN (Justin, 2026-09-26: no "where we are" intro lines; instead the background sound starts a few
    * seconds before the first word, so the listener arrives in the place before anything is said). Only at the start of
@@ -3988,7 +4024,14 @@ class Runtime {
     return i < 0 ? this._holds.length : i;
   }
 
-  previousBeat() { return this._jump(-1); }
+  /* ✅ BACK, LIKE A MUSIC PLAYER (Justin, 2026-09-26 late night: "the segment back button should go to the beginning of the current
+   * segment, not the previous one. if they press it again, then it goes to the previous one"). More than C.BACK_RESTART_SECONDS into the
+   * clip, or anywhere in the silence after it: this clip from the top. Inside those first seconds (a second press): the one before. */
+  previousBeat() {
+    const au = this.dev.audio;
+    const into = this.inGap ? Infinity : Math.max(0, ((au && au.currentTime) || 0) - (this._trimStart || 0));
+    return this._jump(into > C.BACK_RESTART_SECONDS ? 0 : -1);
+  }
 
   /* Forward one beat, immediately, cancelling whatever gap is running.
    *
@@ -4091,7 +4134,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:5762e6c8131d8f90658404de65959e96 */
+<script>/* @module host.js md5:7d4a61dcc44f186cd5fa410316bb13d9 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -4203,7 +4246,7 @@ function parseLaunch(query, { practices } = {}) {
   const sil = parseInt(get('silence'), 10);
   if (!isNaN(sil)) out.silence = sil;
 
-  /* the background sound (2026-09-26): `bed=<data.js BEDS key>|none`, `bedvol=soft|medium|louder`. An unknown bed
+  /* the background sound (2026-09-26): `bed=<data.js BEDS key>|none`, `bedvol=1..5` (an old soft|medium|louder still reads: data.js bedLevel). An unknown bed
    * is Nothing — the default — and an unknown level is soft. */
   const bed = get('bed');
   if (bed && (bed === D.BED_NONE || Object.prototype.hasOwnProperty.call(D.BEDS, bed))) {
@@ -6847,7 +6890,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:501c73e9d550987645d943cfdbaf1977 */
+<script>/* @module copy.js md5:36cd9ec26daa451ad24a48a7ebedc149 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -6994,9 +7037,12 @@ const UI = Object.freeze({
   /* the background sound (2026-09-26). Two buttons in the player's menu: the sound (Nothing → each sound → Nothing)
    * and its level (soft → medium → louder) */
   sound: 'Background sound',
+  customize: 'Customize',        // the player's third menu (2026-09-26 late night): silence, captions, background sound
+  customizeDone: 'Done',
+  soundLevelOf: (n, of) => 'Volume ' + n + ' of ' + of,   // for screen readers; the steps show no words (Justin 2026-09-26)
   soundNothing: 'Nothing',
   soundNames: { creek: 'Creek', beach: 'Beach', birds: 'Birds', rain: 'Rain', bowl: 'Singing bowl', bowls: 'Gentle bowls', struck: 'Struck bowls', fire: 'Fire', night: 'Night', garden: 'Garden', wandering: 'Wandering', dunes: 'Dunes' },
-  soundLevels: { soft: 'soft', medium: 'medium', louder: 'louder' },
+  soundLevels: { 1: '1', 2: '2', 3: '3', 4: '4', 5: '5' },   // the five steps read by number where a word is needed (the menu row); the pills themselves show none
   soundDone: 'Done',   // closes the sound list in the player (2026-09-26); the maker's sheet says the same
   lessSilence: 'less silence',
   moreSilence: 'more silence',
@@ -7096,7 +7142,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:19e0f33086e613e479fc13d7a1af9565 */
+<script>/* @module page.js md5:a6c24cf79992583de7e8761f22d132a0 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7676,7 +7722,10 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   };
 
   /* the yes/no questions whose buttons wait for the question to be asked (see 'control-open') */
-  const ASK_FIRST = ['curiosity', 'permit', 'interest-answer', 'capacity-check', 'breath'];
+  /* not the breath check (Justin, 2026-09-26 late night: "the breath buttons didn't come in until close to the end of the clip. they
+   * need to come in way sooner, pretty much right when i ask the user to check their breath") — its clip opens with the ask, so
+   * its rows come up with the clip. */
+  const ASK_FIRST = ['curiosity', 'permit', 'interest-answer', 'capacity-check'];
   let pendingChoice = null;
   function showPendingChoice(index) {
     if (!pendingChoice) return;
@@ -7721,7 +7770,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
    * chest/belly, tense/relaxed. Each row is one tap; the tapped one stays marked (a re-tap on the row changes it); the card
    * stays up for the clip's whole window, so one, two or all three can be answered. */
   function openBreath(card) {
-    const specs = CHOICE_BUTTONS.breath, pairs = D.BREATH_PAIRS;
+    const specs = CHOICE_BUTTONS.breath, pairs = D.BREATH_PAIRS;   // rows in the catalog's order: chest/belly, full/shallow, tense/relaxed
     pairs.forEach(pair => {
       const row = el('div', 'breath-row');
       pair.forEach(opt => {
@@ -7937,7 +7986,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const p = $('player');
     p.classList.add('show-controls');
     clearTimeout(ctrlTimer);
-    if (pinned || picking() || !session || session.runtime.finished || session.runtime.paused) return;
+    if (pinned || picking() || customizing() || !session || session.runtime.finished || session.runtime.paused) return;
     ctrlTimer = setTimeout(() => { p.classList.remove('show-controls'); }, 4500);
   }
 
@@ -7952,7 +8001,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('bednow').textContent = on ? (U.soundNames[cfg.bed] || cfg.bed) : U.soundNothing;
     $('bedtoggle').classList.toggle('on', on);
     $('bedtoggle').setAttribute('aria-pressed', on ? 'true' : 'false');
-    $('bedlevelnow').textContent = on ? U.soundLevels[D.bedLevel(cfg.bedLevel)] : '';
+    $('bedlevelnow').textContent = on ? U.soundLevels[D.bedLevel(cfg.bedLevel)] : '';   // the step, as a number, beside the sound's name
     if (picking()) paintBedCard();
   }
   /* ✅ THE SOUND LIST (Justin, 2026-09-26: "The Background sound button in the player menu feels like it should be a list i
@@ -7978,10 +8027,31 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('bedtoggle').setAttribute('aria-expanded', 'true');
     clearTimeout(ctrlTimer);
   }
-  function closeBedPicker() {
+  function closeBedPicker(backToCustomizer) {
     if (!picking()) return;
     $('player').classList.remove('picking');
     $('bedtoggle').setAttribute('aria-expanded', 'false');
+    /* Done in the list returns to the customizer it was opened from; anything else (a question arriving) closes both */
+    if (backToCustomizer && customizing()) { clearTimeout(ctrlTimer); return; }
+    closeCustomizer(); revealControls();
+  }
+  /* ✅ THE CUSTOMIZER (Justin, 2026-09-26 late night: "the customizing pieces (silence, CC, background sound, visual (not there
+   * yet)) should be their own menu to reduce the visual clutter on the standard menu … we'd have three menus: standard player,
+   * dynamic choices, player customizer"). It works like the sound list: a tap on the menu's customize button folds it open in
+   * place of the standard menu; the sound row inside it opens the sound list, whose Done returns here; Done here returns to
+   * the standard menu. A question arriving takes the panel, as always. */
+  function customizing() { return $('player').classList.contains('customizing'); }
+  function openCustomizer() {
+    $('player').classList.add('customizing');
+    $('customize').classList.add('on');
+    $('customize').setAttribute('aria-expanded', 'true');
+    clearTimeout(ctrlTimer);
+  }
+  function closeCustomizer() {
+    if (!customizing()) return;
+    $('player').classList.remove('customizing');
+    $('customize').classList.remove('on');
+    $('customize').setAttribute('aria-expanded', 'false');
     revealControls();
   }
   function paintBedCard() {
@@ -8004,11 +8074,12 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     card.appendChild(rows);
     const lv = el('div', 'bed-levels' + (on ? '' : ' off'));
     lv.setAttribute('role', 'radiogroup');
-    D.BED_LEVELS.forEach(l => {
+    /* five steps, no words (Justin 2026-09-26 late night): each pill a little taller than the last; the label is for screen readers */
+    D.BED_LEVELS.forEach((l, i) => {
       const sel = on && D.bedLevel(cfg.bedLevel) === l;
-      const word = U.soundLevels[l] || l;
-      const b = el('button', 'bedlv' + (sel ? ' sel' : ''), word.charAt(0).toUpperCase() + word.slice(1));
+      const b = el('button', 'bedlv' + (sel ? ' sel' : ''), '');
       b.type = 'button'; b.dataset.lv = l; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', sel ? 'true' : 'false');
+      b.setAttribute('aria-label', U.soundLevelOf(i + 1, D.BED_LEVELS.length)); b.style.setProperty('--step', String(i + 1));
       b.addEventListener('pointerdown', ev => ev.stopPropagation());
       b.onclick = () => { pickBedLevel(l); paintBedCard(); };
       lv.appendChild(b);
@@ -8017,7 +8088,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const done = el('button', 'choicebtn quietly', U.soundDone);
     done.type = 'button'; done.id = 'beddone';
     done.addEventListener('pointerdown', ev => ev.stopPropagation());
-    done.onclick = () => closeBedPicker();
+    done.onclick = () => closeBedPicker(true);   // back to the customizer it was opened from
     card.appendChild(done);
   }
 
@@ -8075,6 +8146,9 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     set('cclabel', U.captions);
     set('capstate', U.captionsOff);
     set('bedlabel', U.sound);
+    set('customlabel', U.customize);
+    set('customdone', U.customizeDone);
+    $('customize').setAttribute('aria-label', U.customize);
     set('easeout', U.easeOut);
     set('moresafety', U.moreSafetyAgain);
     set('stopbtn', U.endNow);
@@ -8128,10 +8202,13 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('minipause').onclick = (ev) => { ev.stopPropagation(); if (session && !session.offerHeld) session.runtime.togglePause(); };
     $('miniend').onclick = (ev) => { ev.stopPropagation(); $('stopbtn').onclick(); };
     $('rewind').onclick = () => { session.runtime.rewind(5); revealControls(); };
-    $('prevclip').onclick = () => { session.runtime.previousBeat(); revealControls(); };
+    $('prevclip').onclick = () => { session.runtime.previousBeat(); revealControls(); };   // a music player's back: this one from the top first, then the one before
     $('lesssil').onclick = () => { stepSilence(-1); revealControls(); };
     $('moresil').onclick = () => { stepSilence(1); revealControls(); };
     $('bedtoggle').onclick = () => { if (picking()) closeBedPicker(); else openBedPicker(); };
+    $('customize').onclick = () => { if (customizing()) closeCustomizer(); else openCustomizer(); };
+    $('customdone').addEventListener('pointerdown', ev => ev.stopPropagation());
+    $('customdone').onclick = () => closeCustomizer();
     watchFoot();
 
     $('captoggle').onclick = () => {

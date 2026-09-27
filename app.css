@@ -1330,6 +1330,10 @@ body.reduce-motion .p7-dial-cue{animation:none}
 .p7-seg-b{flex:1;min-height:44px;border:1px solid var(--hairline);border-radius:12px;background:none;font:inherit;
   font-size:calc(15px * var(--type-scale));color:var(--ink-80);cursor:pointer}
 .p7-seg-b.sel{border-color:var(--tc-ink);color:var(--tc-ink);background:var(--bone-deep);font-weight:600}
+/* 2026-09-26: the five volume steps, no words — pills that grow, the chosen one filled */
+.p7-seg-steps{align-items:flex-end}
+.p7-step{min-height:0;height:calc(34px + var(--step,1) * 5px);font-size:0}
+.p7-step.sel{background:var(--tc-ink);border-color:var(--tc-ink)}
 .p7-seg-b:focus-visible,.p7-sheet-done:focus-visible{outline:2px solid var(--tc-ink);outline-offset:2px}
 .p7-sheet-foot{padding:14px 22px 4px;display:flex;justify-content:flex-end}
 .p7-sheet-done{min-height:44px;padding:0 22px;border:0;border-radius:22px;background:var(--tc-ink);color:var(--bone);

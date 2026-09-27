@@ -6379,18 +6379,24 @@ function app(tab){
   const BED_SOUNDS=[['creek','creek','A small creek, steady water','creek-pixabay'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Countryside birds singing','birds-pixabay'],['rain','rain','Steady rain on a roof','rain-577887'],['bowl','singing bowl','One bowl, a continuous tone','bowl-573805',true],['bowls','gentle bowls','Tibetan bowls, softly played','bowls-161478',true],['struck','struck bowls','Several bowls, struck and hummed','struck-365416',true],['fire','fire','A fire, crackling and popping','fire-pixabay'],['night','night','Crickets on a warm night','night-22604'],['garden','garden','Water from a bamboo spout in a quiet garden','garden-107226'],['wandering','wandering','Slow, warm music','wandering-455855',true],['dunes','dunes','Airy, light music','dunes-447511',true]];
   // a 5th column `true` = a fixed-start sound (bowls have an arc): its preview starts at the top too
   // how each sound is said in a sentence, by level (soft / medium / louder)
-  const BED_SAY={ creek:['a soft creek','a creek','a louder creek'], fire:['a soft fire','a fire','a louder fire'], beach:['soft waves','waves','louder waves'], birds:['soft birdsong','birdsong','louder birdsong'], rain:['soft rain','rain','louder rain'], bowl:['a soft singing bowl','a singing bowl','a louder singing bowl'], bowls:['soft gentle bowls','gentle bowls','louder gentle bowls'], struck:['soft struck bowls','struck bowls','louder struck bowls'], night:['soft night crickets','night crickets','louder night crickets'], garden:['a soft garden spout','a garden spout','a louder garden spout'], wandering:['soft music (Wandering)','music (Wandering)','louder music (Wandering)'], dunes:['soft music (Dunes)','music (Dunes)','louder music (Dunes)'] };
-  const BED_LEVELS=[['soft','soft'],['medium','medium'],['louder','louder']];
+  // 2026-09-26 late night (Justin): FIVE volume steps, no words — the sentence names the sound only
+  const BED_SAY={ creek:'a creek', fire:'a fire', beach:'waves', birds:'birdsong', rain:'rain', bowl:'a singing bowl', bowls:'gentle bowls', struck:'struck bowls', night:'night crickets', garden:'a garden spout', wandering:'music (Wandering)', dunes:'music (Dunes)' };
+  // a step is a FILE: 1 = -48 LUFS (v1), 2 = -42 (v2, the default: "take it down a notch"), 3 = -36 (the old soft), 4 = -30 (medium), 5 = -24 (louder)
+  const BED_LEVELS=[['1','v1'],['2','v2'],['3','soft'],['4','medium'],['5','louder']];
+  const BED_LEVEL_DEFAULT='2';
+  const BED_LEVEL_LEGACY={ soft:'3', medium:'4', louder:'5' };   // a preference saved before the steps
+  function bedLevelKey(l){ l=l==null?'':String(l); if(BED_LEVELS.some(x=>x[0]===l)) return l; return BED_LEVEL_LEGACY[l]||BED_LEVEL_DEFAULT; }
+  function bedLevelFile(l){ return (BED_LEVELS.find(x=>x[0]===bedLevelKey(l))||BED_LEVELS[1])[1]; }
   const BED_PREVIEW_BASE='clips/beds-v1/';   // same folder the engine plays from (data.js BED_FOLDER)
   function bedPref(){ const p=(Store.prefBed&&Store.prefBed())||null; const known=p && BED_SOUNDS.some(b=>b[0]===p.bed);
-    return known ? { bed:p.bed, level:(BED_LEVELS.some(l=>l[0]===p.level)?p.level:'soft') } : { bed:'none', level:null }; }
-  function bedSay(b){ const say=BED_SAY[b.bed]||[b.bed,b.bed,b.bed]; return say[Math.max(0,BED_LEVELS.findIndex(l=>l[0]===b.level))]; }
+    return known ? { bed:p.bed, level:bedLevelKey(p.level) } : { bed:'none', level:null }; }
+  function bedSay(b){ return BED_SAY[b.bed]||b.bed; }
   function bedWords(b){ b=b||bedPref(); if(b.bed==='none') return 'no background sound'; return bedSay(b)+' in the background'; }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
     if(!b || b.bed==='none') return;
-    const sd=BED_SOUNDS.find(x=>x[0]===b.bed); const a=new Audio(BED_PREVIEW_BASE+((sd&&sd[3])||b.bed)+'-'+(b.level||'soft')+'.m4a'); a.preload='auto'; _bedPreview=a;
+    const sd=BED_SOUNDS.find(x=>x[0]===b.bed); const a=new Audio(BED_PREVIEW_BASE+((sd&&sd[3])||b.bed)+'-'+bedLevelFile(b.level)+'.m4a'); a.preload='auto'; _bedPreview=a;
     a.addEventListener('loadedmetadata',()=>{ try{ if(isFinite(a.duration)&&!(sd&&sd[4])) a.currentTime=Math.floor(Math.random()*Math.max(0,a.duration-10)); }catch(e){} },{once:true});
     const pr=a.play(); if(pr&&pr.catch) pr.catch(()=>{});
     _bedPreviewT=setTimeout(()=>{ try{ a.pause(); }catch(e){} if(_bedPreview===a) _bedPreview=null; },6000); }catch(e){} }
@@ -6406,10 +6412,11 @@ function app(tab){
       const cur=bedPref();
       const rows=[['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
         `<button class="p7-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}"><span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(nm))}</span><span class="p7-opt-sub">${escapeHtml(sub)}</span></span>${check}</button>`).join('');
+      // five steps, no words: each pill a little taller than the last, the chosen one filled (a name for screen readers only)
       const lv=cur.bed==='none' ? '' : `<div class="p7-sheet-group">How loud</div>
-        <div class="p7-seg" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k,l])=>`<button type="button" role="radio" aria-checked="${cur.level===k}" class="p7-seg-b${cur.level===k?' sel':''}" data-lv="${k}">${escapeHtml(CAP(l))}</button>`).join('')}</div>`;
+        <div class="p7-seg p7-seg-steps" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
       wrap.querySelector('.p7-sheet-body').innerHTML=`<div class="p7-sheet-group">Sound</div>${rows}${lv}`;
-      wrap.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||'soft';
+      wrap.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
         if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview(k==='none'?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
       wrap.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
         if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('start'); paint(); onChange&&onChange(); });

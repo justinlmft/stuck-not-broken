@@ -690,6 +690,7 @@
       _hydratedFor = auth.user && auth.user.id;      // cloud read done for THIS user — orientation may now decide
       if(fetched) notify();                          // re-render once fresh data lands (post-init / post-refresh)
       migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
+      pullPrefs();                                     // the background sound chosen on another device (2026-09-26)
 
     }catch(e){ _hydratedFor = auth.user && auth.user.id; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
   }
@@ -2114,14 +2115,30 @@
   function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
   function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
   function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
-  // the background sound (2026-09-26): { bed: 'stream'|'none', level: 'soft'|'medium'|'louder' }, or null = never chosen
-  // (the player then plays Nothing, the default). On THIS device only for now; the cloud row has no column for it yet.
+  // the background sound (2026-09-26): { bed: 'creek'|'none', level: 'soft'|'medium'|'louder', at: ms }, or null = never chosen
+  // (the player then plays Nothing, the default). Saved here AND in the cloud row (public.preferences.pref_bed / pref_bed_level,
+  // 2026-09-26 late: Justin "do this now"), so a choice made on one phone is there on the next; `at` is when THIS device chose, so a
+  // cloud row written later by another device wins on the next hydrate (pullPrefs), and never the other way round.
   function prefBed(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_bed')||'null'); return (v && typeof v.bed==='string') ? v : null; }catch(e){ return null; } }
-  function setPrefBed(bed, level){ try{ if(bed) localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(bed), level:(level||null) })); else localStorage.removeItem('snb_pref_bed'); }catch(e){} }
-  // default sense/silence also live in the cloud (public.preferences) so they aren't
+  function setPrefBed(bed, level){ try{ if(bed) localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(bed), level:(level||null), at:Date.now() })); else localStorage.removeItem('snb_pref_bed'); }catch(e){} _syncPrefs(); }
+  // default sense/silence and the background sound also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
   function _syncPrefs(){ if(!CLOUD || !auth.user) return; try{
-    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+    const b=prefBed();
+    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), pref_bed:(b?b.bed:null), pref_bed_level:(b?(b.level||null):null), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+  }catch(e){} }
+  // the cloud's background sound, once per hydrate: taken when this device has never chosen, or when the cloud row was written
+  // after this device's choice (another phone chose later). A device that has chosen but never reached the cloud pushes up instead.
+  async function pullPrefs(){ if(!CLOUD || !auth.user) return; try{
+    const r = await sb.from('preferences').select('pref_bed,pref_bed_level,updated_at').eq('user_id', auth.user.id).maybeSingle();
+    if(r.error || !r.data) { if(prefBed()) _syncPrefs(); return; }
+    const row=r.data, local=prefBed(), cloudAt=row.updated_at ? Date.parse(row.updated_at) : 0;
+    if(row.pref_bed){
+      if(!local || (cloudAt && (!local.at || cloudAt > local.at))){
+        try{ localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(row.pref_bed), level:(row.pref_bed_level||null), at:(cloudAt||Date.now()) })); }catch(e){}
+        notify();
+      }
+    } else if(local){ _syncPrefs(); }
   }catch(e){} }
 
   async function reset(){
@@ -2230,7 +2247,7 @@
     skillProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
-    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed,
+    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, pullPrefs,
     saveContexts,
     isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
