@@ -480,15 +480,15 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      python3 harness/build-practice-engine.py
      page.css               cc591b01261d370dd8f745c138007fa7    33132 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
-     clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                5466aefdd9abe7671785c1505dcc6d5e    62489 bytes
-     plan.js                f71349318facfc89d21764bfce616757    84099 bytes
+     clip-table.js          58be944430f20084f2e02a96a9666121     6072 bytes
+     data.js                1550fd8b847ae861b4af434a175b652d    63666 bytes
+     plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
      runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
      host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
-     session.js             61aed9ab0fcdc6b36eac7e63c5b3c7ad    80631 bytes
+     session.js             8dbc06d14a2e0247d02e4fba19cb5e35    81435 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                df7c691088e17bbb34db933f0ca03733    15014 bytes
      page.js                8bf1adaa0cb0ce2f6cb4c81e692fbad2    63049 bytes
@@ -665,13 +665,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 <audio id="au"></audio>
 <audio id="bed" loop preload="none"></audio>
 
-<script>/* @module clip-table.js md5:7e1a1d1ad3e22bc330020202d4be1465 */
+<script>/* @module clip-table.js md5:58be944430f20084f2e02a96a9666121 */
 (function(){
-/* GENERATED from the clips-v2/ file names on justinlmft/stuck-not-broken main (2026-09-16; + recording v2b, 2026-09-23; + recording v2c, 2026-09-24) — do not hand-edit, do not commit.
+/* GENERATED from the clips-v2/ file names on justinlmft/stuck-not-broken main (2026-09-16; + recording v2b, 2026-09-23; + recording v2c, 2026-09-24; + recording v2d, 2026-09-27) — do not hand-edit, do not commit.
    Same shape as harness/build-clip-table.py's output: clip id -> number of recorded takes.
-   215 clip IDs · 770 files */
+   218 clip IDs · 806 files */
 (function (root) {
   const TABLE = {
+  "ANCHOR-CHOICE": 2,
   "ANCHORING-IMAGINATION-01": 4,
   "ANCHORING-IMAGINATION-02": 4,
   "ANCHORING-IMAGINATION-03": 4,
@@ -720,16 +721,18 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "BODY-GENERAL-SAFETY": 4,
   "BODY-SPECIFIC-DEFENSE": 4,
   "BODY-SPECIFIC-SAFETY": 7,
+  "BREATH-ACK": 11,
   "BREATH-CHECK": 6,
+  "BREATH-GUIDE-MOVE": 10,
   "CAP-CHECK": 10,
   "CAP-GATE-DEFENSE": 4,
   "CLOSE-01": 7,
   "CLOSE-02": 5,
   "CLOSE-03": 7,
   "CLOSE-04": 4,
-  "CLOSE-05": 4,
-  "CLOSE-06": 5,
-  "DESC-DEFENSE-01": 2,
+  "CLOSE-05": 6,
+  "CLOSE-06": 6,
+  "DESC-DEFENSE-01": 3,
   "DESC-DEFENSE-02": 2,
   "DESC-DEFENSE-03": 2,
   "DESC-DEFENSE-04": 2,
@@ -744,7 +747,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "DESC-SAFETY-01": 2,
   "DESC-SAFETY-02": 2,
   "DESC-SAFETY-03": 2,
-  "DESC-SAFETY-04": 2,
+  "DESC-SAFETY-04": 3,
   "DESC-SAFETY-05": 2,
   "DESC-SAFETY-06": 2,
   "DESC-SAFETY-PLAIN-01": 2,
@@ -757,13 +760,21 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "EASE-OUT-ACK": 2,
   "ENDING-OPEN": 4,
   "ENDING-OPEN-BREATH": 9,
+  "GENERAL-ACK": 7,
   "HOLD-WATCH": 5,
   "IMG-01": 5,
   "IMG-02": 4,
   "IMG-03": 4,
   "IMG-04": 5,
   "IMPULSE-CHECK": 4,
+  "INTENSITY-CHANGE-DOWN": 8,
+  "INTENSITY-CHANGE-SAME": 11,
+  "INTENSITY-CHANGE-UP": 9,
   "INTENSITY-DEFENSE": 4,
+  "INTENSITY-HIGH": 5,
+  "INTENSITY-LOW": 5,
+  "INTENSITY-MID": 4,
+  "INTENSITY-ROSE-HIGH": 5,
   "INTENT-SET": 6,
   "INTENT-TOLERABLE": 4,
   "INTEREST-01": 7,
@@ -774,7 +785,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "MIND-01": 4,
   "MIND-02": 4,
   "MIND-03": 6,
-  "MIND-04": 4,
+  "MIND-04": 5,
   "MIND-05": 5,
   "MIND-06": 4,
   "MIND-07": 4,
@@ -790,6 +801,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "OBST-05": 4,
   "OBST-06": 5,
   "OBST-07": 5,
+  "OBST-STICK": 5,
   "OBST-STMT-01": 1,
   "OBST-STMT-02": 1,
   "OBST-STMT-03": 1,
@@ -824,13 +836,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "OBST-STMT-32": 1,
   "OBST-STMT-33": 1,
   "OBST-STMT-34": 1,
-  "OUTRO": 9,
+  "OUTRO": 11,
   "PEND-DEFENSE": 5,
   "PEND-SAFE-REMIND": 4,
   "PEND-SAFETY": 6,
   "PEND-TO-DEFENSE-BRIEF": 6,
   "PEND-TO-SAFETY-BRIEF": 5,
   "PERMIT-DEFENSE": 6,
+  "SAFETY-CHANGE-DOWN": 4,
+  "SAFETY-CHANGE-SAME": 5,
+  "SAFETY-CHANGE-UP": 8,
+  "SAFETY-DROP-LOW": 4,
+  "SAFETY-READ-HIGH": 5,
+  "SAFETY-READ-LOW": 4,
+  "SAFETY-READ-MID": 8,
   "SETUP-ANCHOR-IMAGINATION": 2,
   "SETUP-ANCHOR-MOVEMENT": 2,
   "SETUP-ANCHOR-SIGHT": 2,
@@ -860,33 +879,17 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
   "SETUP-PRACTICE-VALIDATE-SAFETY": 3,
   "SETUP-TINY": 4,
   "STOP-OK": 4,
-  "VALIDATE-DEFENSE": 8,
-  "VALIDATE-SAFETY": 4,
-  "INTENSITY-CHANGE-DOWN": 8,
-  "INTENSITY-CHANGE-SAME": 11,
-  "INTENSITY-CHANGE-UP": 9,
-  "INTENSITY-HIGH": 5,
-  "INTENSITY-LOW": 5,
-  "INTENSITY-MID": 4,
-  "INTENSITY-ROSE-HIGH": 5,
-  "SAFETY-CHANGE-DOWN": 4,
-  "SAFETY-CHANGE-SAME": 5,
-  "SAFETY-CHANGE-UP": 8,
-  "SAFETY-DROP-LOW": 4,
-  "SAFETY-READ-HIGH": 5,
-  "SAFETY-READ-LOW": 4,
-  "SAFETY-READ-MID": 8,
-  "TRANSITION-CONTINUE": 2,
-  "TRANSITION-MINDFULNESS": 2,
-  "TRANSITION-MOVEMENT": 2,
-  "TRANSITION-SAFETY": 3,
-  "ANCHOR-CHOICE": 2,
-  "OBST-STICK": 5,
   "TAP-NO": 4,
   "TAP-YES-CAPACITY": 6,
   "TAP-YES-INTEREST": 7,
   "TAP-YES-PERMIT": 6,
-  "TRANSITION-ANCHOR": 5
+  "TRANSITION-ANCHOR": 5,
+  "TRANSITION-CONTINUE": 2,
+  "TRANSITION-MINDFULNESS": 2,
+  "TRANSITION-MOVEMENT": 2,
+  "TRANSITION-SAFETY": 3,
+  "VALIDATE-DEFENSE": 8,
+  "VALIDATE-SAFETY": 4
 };
   if (typeof module !== 'undefined' && module.exports) module.exports = TABLE;
   else root.SNB_CLIP_TABLE = TABLE;
@@ -894,7 +897,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:5466aefdd9abe7671785c1505dcc6d5e */
+<script>/* @module data.js md5:1550fd8b847ae861b4af434a175b652d */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1344,8 +1347,17 @@ const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
 /* 2026-09-27, Justin: "swap full and shallow" — each pair reads constricted → easy: chest/belly, shallow/full, tense/relaxed */
 const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'belly']), Object.freeze(['shallow', 'full']), Object.freeze(['tense', 'relaxed'])]);
 const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
+/* Recording v2d (2026-09-27): both recorded — BREATH-ACK 11 takes, BREATH-GUIDE-MOVE 10 — so both speak. */
 const BREATH_ACK = exists('BREATH-ACK') ? must('BREATH-ACK') : null;
 const BREATH_GUIDE_MOVE = exists('BREATH-GUIDE-MOVE') ? must('BREATH-GUIDE-MOVE') : null;
+/* ✅ THE GENERAL ACKNOWLEDGMENTS (Justin, 2026-09-27, recording v2d: "i also recorded a bunch of little acknowledgments that
+ * are generally usable. Maybe tag them as GENERAL-ACK as appropriate"). Seven short lines that fit any tap — "Got it. Thank
+ * you for sharing that", "Okay, good to know. Let's keep going", "Noted", "Okay". Their one use so far: the first tap of a
+ * breath check draws from the breath acknowledgments AND these, one pool, every take an equal chance (BREATH_ACK_FAMILIES,
+ * session.js `_breathAnswer`). Any later acknowledgment point can draw from GENERAL_ACK the same way. Optional, like the
+ * others: null until it is in the table. */
+const GENERAL_ACK = exists('GENERAL-ACK') ? must('GENERAL-ACK') : null;
+const BREATH_ACK_FAMILIES = Object.freeze([BREATH_ACK, GENERAL_ACK].filter(Boolean));
 
 /* ✅ THE TRANSITION LINES (Justin, 2026-09-22): "No matter what they tap, they should get a transition
  * statement, like 'Okay, let's transition to a simpler mindfulness practice.' Just one take per
@@ -1680,11 +1692,14 @@ const TAKES_OUT = Object.freeze({
   'OBST-01': Object.freeze(['d']),
   'CAP-CHECK': Object.freeze(['b']),
   'CLOSE-02': Object.freeze(['e']),
+  /* Recording v2d (2026-09-27) re-read all six lines below as NEW takes — DESC-SAFETY-04-c, DESC-DEFENSE-01-c, MIND-04-e,
+   * CLOSE-05-e/f, CLOSE-06-f, OUTRO-j/k — so the flagged takes stay out and the files keep their names (a new cut is a new
+   * file, never an overwrite). */
   'DESC-SAFETY-04': Object.freeze(['a']),
   'DESC-DEFENSE-01': Object.freeze(['b']),
-  'MIND-04': Object.freeze(['a']),   // 2026-09-26 late night, Justin: re-record ("the, the air … the, the temperature"); three other takes carry it
+  'MIND-04': Object.freeze(['a']),   // 2026-09-26 late night, Justin: re-record ("the, the air … the, the temperature")
   /* 2026-09-27, Justin's Mindfulness listen: re-record CLOSE-05-a ("Let your body move however feels good…"), CLOSE-06-c ("…bookend the
-   * practice") and OUTRO-a ("That's it for this one, really nicely done"); each family has three or more other takes */
+   * practice") and OUTRO-a ("That's it for this one, really nicely done") */
   'CLOSE-05': Object.freeze(['a']),
   'CLOSE-06': Object.freeze(['c']),
   'OUTRO': Object.freeze(['a']),
@@ -1709,7 +1724,7 @@ function takesInRotation(id) {
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
+  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
@@ -1720,7 +1735,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:f71349318facfc89d21764bfce616757 */
+<script>/* @module plan.js md5:dc0de0bf4c4a4808abc9eb306e4d2d85 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -2867,8 +2882,9 @@ function short(cfg, add, beats, branches) {
      * pass) — no anchor return (there is no anchor), no widening. The Tiny practice keeps the
      * intentional breath alone. */
     (isMindfulness ? MINDFULNESS_CLOSE : [D.FAMILY.closes[D.FAMILY.closes.length - 1]]).forEach(id => add(id, 'closing'));
-    /* §3b pins the sign-off here. Take 'a' is out for a re-read (Justin, 2026-09-27); 'i' says the same words cleanly and stands in
-     * until the re-read lands — then this goes back to 'a'. */
+    /* §3b pins the sign-off here. Take 'a' is out (Justin, 2026-09-27: "really nicely done" needed a re-read); 'i' says the same words
+     * cleanly and stands in. The re-read landed as OUTRO-j/k (recording v2d) — the pin stays on 'i' rather than a file whose letter
+     * would move if a take were ever withdrawn; 'a' itself stays out. */
     add(D.ROLE.outro, 'closing', { take: 'i' });
   }
   /* no safety work to go back to — the three-button offer is not made in these practices */
@@ -5150,7 +5166,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:61aed9ab0fcdc6b36eac7e63c5b3c7ad */
+<script>/* @module session.js md5:8dbc06d14a2e0247d02e4fba19cb5e35 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5781,8 +5797,10 @@ class Session {
       this.onEvent({ type: 'tap-reply', control: CONTROL.BREATH, reply });
     };
     let spoke = false;
-    /* the FIRST tap in a check is acknowledged with "noted", whichever pair it is (Justin, 2026-09-26) */
-    if (st.first && live && D.BREATH_ACK) { say(D.BREATH_ACK, 'ack'); spoke = true; }
+    /* the FIRST tap in a check is acknowledged, whichever pair it is (Justin, 2026-09-26) — one take from the breath
+     * acknowledgments or the general ones (data.js BREATH_ACK_FAMILIES), every take an equal chance */
+    const ackFamily = st.first && live ? this._ackFamily(D.BREATH_ACK_FAMILIES) : null;
+    if (ackFamily) { say(ackFamily, 'ack'); spoke = true; }
     st.first = false;
     /* chest + shallow + tense, once all three are in: the invitation to move (Justin, 2026-09-26) */
     const got = Object.keys(st.answers).map(k => st.answers[k]);
@@ -5791,6 +5809,17 @@ class Session {
     }
     if (spoke) this.runtime.settleAfterTap(c.index, TAP_SETTLE.yes);
     return true;
+  }
+
+  /* One family out of several acknowledgment families, weighted by how many takes each has in rotation — so a person hears
+   * each recorded line about as often as any other, whichever family it was filed under. null when none is recorded. */
+  _ackFamily(families) {
+    const pool = (families || []).filter(Boolean);
+    if (!pool.length) return null;
+    const weights = pool.map(id => D.takesInRotation(id).length);
+    let r = this.runtime.dev.random() * weights.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r < 0) return pool[i]; }
+    return pool[pool.length - 1];
   }
 
   /* The reply to a tapped yes or no, queued right after the question (data.js TAP_REPLY, all-or-nothing: nothing plays
