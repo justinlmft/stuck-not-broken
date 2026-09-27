@@ -5624,6 +5624,29 @@ function app(tab){
       anchor: ai>=0 ? anc[ai].key : null, segKey: si>=0 ? seg[si].key : null, dayKey: di>=0 ? day[di].key : null,
       silence: sil!=null ? +sil : null, practiceKey: pk, minutes: mins.length ? Math.max(1,Math.round(mins[Math.floor(mins.length/2)])) : null };
   }
+  const _EASY_BREATH=['belly','full','relaxed'];
+  function breathEase(){
+    const ss=(Store.sessions()||[]).filter(s=>s && s.completed && s.details && Array.isArray(s.details.breath) && s.details.breath.length);
+    if(ss.length<3) return null;
+    const ease=s=>{ const v=s.details.breath.map(x=>x&&x.value).filter(Boolean); if(!v.length) return null; return v.filter(x=>_EASY_BREATH.indexOf(x)>=0).length/v.length; };
+    const bedOf=s=>{ const b=s.details.bedEnd||s.details.bed; return (b && b!=='none') ? b : 'nothing'; };
+    const pieces=[
+      { key:'sound', label:'Background sound', of:bedOf, name:v=>v==='nothing'?'no background sound':((BED_SOUNDS.find(x=>x[0]===v)||[])[1]||v) },
+      { key:'anchor', label:'Anchor', of:_sessAnchor, name:v=>v },
+      { key:'practice', label:'Practice', of:s=>s.practiceKey, name:v=>Store.practiceLabel(v) },
+      { key:'silence', label:'Silence', of:s=>(s.details && typeof s.details.silenceEnd==='number') ? s.details.silenceEnd : s.silence, name:v=>v+' seconds' },
+    ];
+    const out=[];
+    pieces.forEach(pc=>{
+      const by={};
+      ss.forEach(s=>{ const k=pc.of(s), e=ease(s); if(k==null || e==null) return; (by[k]=by[k]||[]).push(e); });
+      const best=Object.keys(by).filter(k=>by[k].length>=2).map(k=>({ value:k, n:by[k].length, share:by[k].reduce((x,y)=>x+y,0)/by[k].length })).sort((a,b)=>b.share-a.share)[0];
+      if(best && best.share>0) out.push({ key:pc.key, label:pc.label, value:best.value, valueLabel:pc.name(best.value), n:best.n, share:best.share });
+    });
+    if(!out.length) return null;
+    out.sort((a,b)=>b.share-a.share || b.n-a.n);
+    return { n:ss.length, pieces:out };
+  }
   function _bsText(bs){
     return `${_DAY_LONG[bs.dayKey]} ${segLabel(bs.segKey)}s, around ${({morning:'9 am',afternoon:'2 pm',evening:'7 pm',late:'10 pm'})[bs.segKey]}, with your best setup ready to start. It moves as the app learns what works for you.`;
   }
@@ -5759,6 +5782,25 @@ function app(tab){
           <button class="btn bs-go" type="button" data-bs-go>Practice this now</button>
           <button class="bs-remind" type="button" data-bs-remind>Remind me at my best time</button>`, [bs.dayKey,bs.segKey,bs.anchor,bs.silence].join(':'));
       }
+    })();
+
+    // 3b · easier breathing (Justin, 2026-09-27: "we should be able to tell the user what practice custom pieces help them
+    // breathe easier: belly, full, and relaxed"). Every breath check's taps are in details.breath; a check reads as easier when
+    // its taps are belly / full / relaxed. For each piece of the setup — background sound, anchor, practice, silence — the
+    // value with the largest share of easy taps (two or more practices behind it). Shown once three practices have taps.
+    (function(){
+      const be=breathEase(); if(!be) return;
+      const row=(l,v)=>`<div class="sd-row"><span class="sd-lbl">${l}</span><span class="sd-val">${v}</span></div>`;
+      const pct=v=>Math.round(v*100)+'%';
+      const top=be.pieces[0];
+      push('breathEase','easier breathing',`
+        ${shareBtn('breathEase')}
+        <p class="rc-hero-title"><b class="rc-hero-word" style="color:${STATE_COLOR('safety')}">${escapeHtml(CAP(top.valueLabel))}</b> is when your breath is easiest: belly, full and relaxed on ${pct(top.share)} of your taps.</p>
+        <div class="bs-rows">
+          ${be.pieces.map(p=>row(p.label, CAP(p.valueLabel)+' · '+pct(p.share))).join('')}
+        </div>
+        ${_seeData(be.pieces.map(p=>[p.label+': '+CAP(p.valueLabel), pct(p.share)+' ('+p.n+')']), 'The share of your breath-check taps that were belly, full or relaxed, with that piece in the practice. In brackets: how many practices.', null)}`,
+        be.pieces.map(p=>p.key+'='+p.value+':'+Math.round(p.share*100)).join('|')+':'+be.n);
     })();
 
     // 4 · comebacks (kept; the counting now derives every row the same way)
@@ -5984,8 +6026,8 @@ function app(tab){
     const seen=st.seen||{};
     const today=(function(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); })();
     const base = tender
-      ? ['comeback','defense','day','daypart','dayLow','daypartLow','practice','bestSetup','anchor','practiceTime','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
-      : ['safety','day','practice','bestSetup','anchor','practiceTime','readings','comeback','daypart','dayLow','daypartLow','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
+      ? ['comeback','defense','day','daypart','dayLow','daypartLow','practice','bestSetup','breathEase','anchor','practiceTime','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
+      : ['safety','day','practice','bestSetup','breathEase','anchor','practiceTime','readings','comeback','daypart','dayLow','daypartLow','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
     const rank=k=>{ const i=base.indexOf(k); return i<0?99:i; };
     const byKey={}; cards.forEach(c=>{ byKey[c[0]]=c; });
     const all=cards.slice().sort((a,b)=>rank(a[0])-rank(b[0]));
@@ -6376,7 +6418,7 @@ function app(tab){
   // The level is a file (iPhone ignores a web page's volume), so the person picks soft, medium or louder.
   // The choice is remembered (Store.prefBed) and every practice launch carries it (see _playerSrc).
   // [key, name, what it is, file] — the file name MUST match practice-engine data.js BEDS (a new recording = a new name)
-  const BED_SOUNDS=[['creek','creek','A small creek, steady water','creek-pixabay'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Countryside birds singing','birds-pixabay'],['rain','rain','Steady rain on a roof','rain-577887'],['bowl','singing bowl','One bowl, a continuous tone','bowl-573805',true],['bowls','gentle bowls','Tibetan bowls, softly played','bowls-161478',true],['struck','struck bowls','Several bowls, struck and hummed','struck-365416',true],['fire','fire','A fire, crackling and popping','fire-pixabay'],['night','night','Crickets on a warm night','night-22604'],['garden','garden','Water from a bamboo spout in a quiet garden','garden-107226'],['wandering','wandering','Slow, warm music','wandering-455855',true],['dunes','dunes','Airy, light music','dunes-447511',true]];
+  const BED_SOUNDS=[['creek','creek','A small creek, steady water','creek-pixabay'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Countryside birds singing','birds-pixabayb'],['rain','rain','Steady rain on a roof','rain-577887b'],['bowl','singing bowl','One bowl, a continuous tone','bowl-573805',true],['bowls','gentle bowls','Tibetan bowls, softly played','bowls-161478',true],['struck','struck bowls','Several bowls, struck and hummed','struck-365416',true],['fire','fire','A fire, crackling and popping','fire-pixabay'],['night','night','Crickets on a warm night','night-22604b'],['garden','garden','Water from a bamboo spout in a quiet garden','garden-107226'],['wandering','wandering','Slow, warm music','wandering-455855',true],['dunes','dunes','Airy, light music','dunes-447511',true]];
   // a 5th column `true` = a fixed-start sound (bowls have an arc): its preview starts at the top too
   // how each sound is said in a sentence, by level (soft / medium / louder)
   // 2026-09-26 late night (Justin): FIVE volume steps, no words — the sentence names the sound only
@@ -7568,7 +7610,8 @@ function app(tab){
   }
   function readingsCard(reco){
     const said=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number');
-    if(!said.length) return '';
+    // Justin, 2026-09-27: "'Safety changed' card in the post practice should not show up unless they have two or more replies to the prompts"
+    if(said.length < 2) return '';
     return `<div class="fbx-card">
           <p class="fbx-card-h">How safety changed</p>
           <p class="fbx-nums" aria-label="Your safety along the way: ${said.join(', then ')}">${numRow(said, 0)}</p>
@@ -7580,7 +7623,7 @@ function app(tab){
     const said=(reco && Array.isArray(reco.intensityReadings) ? reco.intensityReadings : []).filter(v=>typeof v==='number');
     if(!said.length) return '';
     const safetyN=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number').length;
-    const i0 = safetyN ? 2*safetyN : 0;
+    const i0 = safetyN >= 2 ? 2*safetyN : 0;   // the safety card only shows with two or more numbers (2026-09-27)
     const LINES = {
       up:   ["Non-safety came up more. That's normal when you turn toward it.",
              "Non-safety rose some. Giving it attention tends to do that at first.",

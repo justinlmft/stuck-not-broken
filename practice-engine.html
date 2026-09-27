@@ -224,7 +224,7 @@ body.playing .brand{display:none}
 .fold-mini{--fold-gap:6px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:10px}
 .fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 #player.show-controls:not(.choosing):not(.picking):not(.customizing) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.customizing:not(.choosing):not(.picking) .fold-custom,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.scening:not(.choosing) .fold-scene,#player.customizing:not(.choosing):not(.picking):not(.scening) .fold-custom,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 /* Skip intro comes in AFTER the menu has finished (Justin 2026-09-26: "staggered … after the standard one is done animating in") */
 #player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{transition:grid-template-rows .42s var(--ease) .45s,margin-bottom .42s var(--ease) .45s,opacity .38s var(--ease) .5s,visibility 0s linear .45s}
 @media (prefers-reduced-motion:reduce){.fold{transition:opacity .25s var(--ease),visibility 0s linear .25s}.fold.open{transition:opacity .25s var(--ease),visibility 0s}}
@@ -282,6 +282,7 @@ body.playing .brand{display:none}
 .adj{min-width:0;width:100%;display:flex;align-items:center;justify-content:center;gap:2px;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{grid-column:span 4;justify-content:space-between;padding:0 4px 0 14px}
 .captoggle{grid-column:span 2;justify-content:center;gap:6px;padding:0 8px;cursor:pointer}
+.scenetoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}
 .bedtoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}   /* 2026-09-26: the level lives in the list now; the row is the sound's */
 .bedtoggle .bed-val{min-width:0;text-align:right}
 .bedtoggle.on{border-color:var(--ink-80)}
@@ -364,7 +365,7 @@ body.playing .brand{display:none}
 .pinbtn[aria-pressed="true"] .pin-head{fill:currentColor}
 .pinbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
 .skipslot .choicebtn{width:100%}
-#player.picking .pfoot::before,#player.customizing .pfoot::before{opacity:1}
+#player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before{opacity:1}
 .choice-mini{display:flex;justify-content:center;gap:28px}
 #player.choosing .choice-mini{animation:riseIn .45s var(--ease)}
 .mini-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 6px;background:none;border:0;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer}
@@ -477,20 +478,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               7dd3a6886751000f29740d0645d64ba0    32951 bytes
+     page.css               cc591b01261d370dd8f745c138007fa7    33132 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          7e1a1d1ad3e22bc330020202d4be1465     5975 bytes
-     data.js                a9fd19424c071cb7a923f9fe80cf8870    61695 bytes
-     plan.js                24ad99e82f7f60158b16850404303961    83902 bytes
+     data.js                5466aefdd9abe7671785c1505dcc6d5e    62489 bytes
+     plan.js                f71349318facfc89d21764bfce616757    84099 bytes
      runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
      host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
-     session.js             bb59b3e4d73bdf20798115b47c8ea982    80838 bytes
+     session.js             61aed9ab0fcdc6b36eac7e63c5b3c7ad    80631 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                36cd9ec26daa451ad24a48a7ebedc149    14638 bytes
-     page.js                a6c24cf79992583de7e8761f22d132a0    59133 bytes
+     copy.js                df7c691088e17bbb34db933f0ca03733    15014 bytes
+     page.js                8bf1adaa0cb0ce2f6cb4c81e692fbad2    63049 bytes
 -->
 </head>
 <body>
@@ -596,6 +597,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
       <!-- 2026-09-26: the background sound as a list (Justin: "feels like it should be a list i can choose from"), in the
            one bottom panel in place of the standard menu -->
       <div class="fold fold-bed"><div class="bedcard" id="bedcard"></div></div>
+      <!-- 2026-09-27: the scene list, in place of the customizer (same shape as the sound list) -->
+      <div class="fold fold-scene"><div class="bedcard" id="scenecard"></div></div>
 
       <!-- 2026-09-26 late night (Justin): the customizing pieces — silence, captions, background sound — are their own
            menu, in the one bottom panel in place of the standard menu, so the standard menu stays minimal -->
@@ -613,6 +616,8 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
           <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc" id="cclabel"></span><span class="cc-state" id="capstate"></span></button>
           <!-- 2026-09-26: the background sound, changeable mid-practice; a tap opens the sound list -->
           <button class="adj bedtoggle" id="bedtoggle" type="button" aria-expanded="false"><span class="adj-label" id="bedlabel"></span><span class="adj-val bed-val" id="bednow"></span><span class="adj-val bed-lv" id="bedlevelnow" aria-hidden="true"></span></button>
+          <!-- 2026-09-27 (Justin): the scene behind the practice, changeable mid-practice; a tap opens the scene list -->
+          <button class="adj scenetoggle" id="scenetoggle" type="button" aria-expanded="false"><span class="adj-label" id="scenelabel"></span><span class="adj-val bed-val" id="scenenow"></span></button>
         </div>
         <button class="bedrow customdone" id="customdone" type="button"></button>
       </div></div>
@@ -889,7 +894,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:a9fd19424c071cb7a923f9fe80cf8870 */
+<script>/* @module data.js md5:5466aefdd9abe7671785c1505dcc6d5e */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -972,12 +977,12 @@ const BEDS = {
    * (the audio cache is never versioned; a new recording always gets a new name). */
   creek: Object.freeze({ random: true, seconds: 50.99, file: 'creek-pixabay' }),   // "Creek" (Pixabay), a small creek, very even
   beach: Object.freeze({ random: true, seconds: 244.48 }),    // "Small waves and beach #1" (ID 1446)
-  birds: Object.freeze({ random: true, seconds: 439.48, file: 'birds-pixabay' }),  // "Countryside Birds Singing" (Pixabay)
+  birds: Object.freeze({ random: true, seconds: 437.00, file: 'birds-pixabayb' }), // "Countryside Birds Singing" (Pixabay); `b` 2026-09-27: re-cut past the recording's own fade-in/out (the seam dipped)
   /* Justin's picks 2026-09-26 (round 2), all Freesound.org, CC0. Rain is a steady bed: random start. The three bowl
    * recordings each have an arc (a rise, a play, a decay), so they start at the top every time (ROADMAP-DETAIL entry 9:
    * "fixed start for sound bowls"); their loop eases out through silence and begins again. Justin: "they are each a
    * different experience", "the bowls have the best audio quality". */
-  rain: Object.freeze({ random: true, seconds: 239.98, file: 'rain-577887' }),     // "Rain on Carport" (Leonard.B.Blaesing)
+  rain: Object.freeze({ random: true, seconds: 238.98, file: 'rain-577887b' }),    // "Rain on Carport" (Leonard.B.Blaesing); `b` 2026-09-27: re-cut past the fades (Justin: "a clear dividing point in the audio")
   bowl: Object.freeze({ random: false, seconds: 126.99, file: 'bowl-573805' }),    // "Singing Bowl, long without reverb" (hollandm): one bowl, rim-played
   bowls: Object.freeze({ random: false, seconds: 109.39, file: 'bowls-161478' }),  // "Tibetan Singing Bowls" (phluidbox): gently played
   struck: Object.freeze({ random: false, seconds: 443.73, file: 'struck-365416' }), // "Tibetan_Singing_Bowls_Improv" (RutgerMuller): struck and hummed
@@ -987,7 +992,7 @@ const BEDS = {
    * every time (ROADMAP-DETAIL entry 9: "fixed start for ambient music") and ease out through a few seconds of quiet before
    * beginning again. The garden is a bamboo water spout with no knock for now: Justin "really really" wants a shishi-odoshi
    * with the clack; when one is found it gets its own key and file. */
-  night: Object.freeze({ random: true, seconds: 176.56, file: 'night-22604' }),          // "DMP010037 CRICKETS TEXAS" (martypinso)
+  night: Object.freeze({ random: true, seconds: 174.99, file: 'night-22604b' }),         // "DMP010037 CRICKETS TEXAS" (martypinso); `b` 2026-09-27: re-cut past its fade-in
   garden: Object.freeze({ random: true, seconds: 52.01, file: 'garden-107226' }),        // "water-spout-japanese-garden" (keithpeter)
   wandering: Object.freeze({ random: false, seconds: 282.98, file: 'wandering-455855' }), // "Wandering" (Andrewkn): slow warm pads
   dunes: Object.freeze({ random: false, seconds: 291.48, file: 'dunes-447511' }),         // "Dunes" (Andrewkn): airy pads
@@ -1327,7 +1332,7 @@ const BAND = allOrNothing(BAND_FAMILIES, '0–10 answer clips');
 const BAND_LOW_PRESENT = exists('SAFETY-READ-LOW-PRESENT') ? must('SAFETY-READ-LOW-PRESENT') : null;
 /* ✅ THE BREATH BUTTONS (Justin, 2026-09-25: "a pop-up menu in the player where the user can tap how their breathing is?
  * 'More shallow' or 'More full' for example? And then audio that reacts to it"). Only the BREATH-CHECK takes that ask
- * "full or shallow" put them up. A shallow breath is never corrected. The full/shallow replies were cut on 2026-09-26
+ * "full or shallow" put them up — since 2026-09-27 EVERY breath check does (Justin: "make sure it fires on each breath check"). A shallow breath is never corrected. The full/shallow replies were cut on 2026-09-26
  * ("we're not acknowledging the other ones in particular"): every first tap gets the same "noted" (BREATH_ACK below). */
 const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
 /* ✅ THE THREE QUESTIONS OF THE BREATH CHECK (Justin, 2026-09-26: "the breath check has three questions: full/shallow,
@@ -1336,7 +1341,8 @@ const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
  * BREATH_GUIDE_MOVE ("suggests freeze activation and movement could be helpful"): an invitation to move around or change
  * the environment. Each family is all-or-nothing: nothing speaks until recorded (recording doc §13). */
 /* order (Justin, 2026-09-26 late night): "Make the options go in this order: Chest/Belly, Full/Shallow, Tense/Relaxed" */
-const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'belly']), Object.freeze(['full', 'shallow']), Object.freeze(['tense', 'relaxed'])]);
+/* 2026-09-27, Justin: "swap full and shallow" — each pair reads constricted → easy: chest/belly, shallow/full, tense/relaxed */
+const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'belly']), Object.freeze(['shallow', 'full']), Object.freeze(['tense', 'relaxed'])]);
 const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
 const BREATH_ACK = exists('BREATH-ACK') ? must('BREATH-ACK') : null;
 const BREATH_GUIDE_MOVE = exists('BREATH-GUIDE-MOVE') ? must('BREATH-GUIDE-MOVE') : null;
@@ -1677,6 +1683,11 @@ const TAKES_OUT = Object.freeze({
   'DESC-SAFETY-04': Object.freeze(['a']),
   'DESC-DEFENSE-01': Object.freeze(['b']),
   'MIND-04': Object.freeze(['a']),   // 2026-09-26 late night, Justin: re-record ("the, the air … the, the temperature"); three other takes carry it
+  /* 2026-09-27, Justin's Mindfulness listen: re-record CLOSE-05-a ("Let your body move however feels good…"), CLOSE-06-c ("…bookend the
+   * practice") and OUTRO-a ("That's it for this one, really nicely done"); each family has three or more other takes */
+  'CLOSE-05': Object.freeze(['a']),
+  'CLOSE-06': Object.freeze(['c']),
+  'OUTRO': Object.freeze(['a']),
 });
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 Object.keys(TAKES_OUT).forEach(id => {
@@ -1709,7 +1720,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:24ad99e82f7f60158b16850404303961 */
+<script>/* @module plan.js md5:f71349318facfc89d21764bfce616757 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -2856,7 +2867,9 @@ function short(cfg, add, beats, branches) {
      * pass) — no anchor return (there is no anchor), no widening. The Tiny practice keeps the
      * intentional breath alone. */
     (isMindfulness ? MINDFULNESS_CLOSE : [D.FAMILY.closes[D.FAMILY.closes.length - 1]]).forEach(id => add(id, 'closing'));
-    add(D.ROLE.outro, 'closing', { take: 'a' });
+    /* §3b pins the sign-off here. Take 'a' is out for a re-read (Justin, 2026-09-27); 'i' says the same words cleanly and stands in
+     * until the re-read lands — then this goes back to 'a'. */
+    add(D.ROLE.outro, 'closing', { take: 'i' });
   }
   /* no safety work to go back to — the three-button offer is not made in these practices */
   return { cfg, level: 0, side: 'mindfulness', beats, branches, terminates: terminatorOf(beats), returnToSafety: null };
@@ -5137,7 +5150,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:bb59b3e4d73bdf20798115b47c8ea982 */
+<script>/* @module session.js md5:61aed9ab0fcdc6b36eac7e63c5b3c7ad */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5575,7 +5588,8 @@ class Session {
     if (b.choice === CONTROL.CAPACITY_CHECK) return CONTROL.CAPACITY_CHECK;
     if (b.choice === CONTROL.STATEMENT) return CONTROL.STATEMENT;
     if (b.choice === CONTROL.ANCHOR) return CONTROL.ANCHOR;
-    if (b.id === D.ROLE.breathCheck && this._asksFullness(b)) return CONTROL.BREATH;
+    /* every breath check (Justin, 2026-09-27: "make sure it fires on each breath check") — not only the takes that ask "full or shallow" */
+    if (b.id === D.ROLE.breathCheck) return CONTROL.BREATH;
     /* 🔴 `finishable` was set by the planner and read by NOTHING until 2026-09-17. See
      * `_finish` below for what that cost. It is a FLAG, not a `choice`, because it rides every
      * beat of the open ending including each firing of the breath loop — the card has to stay up
@@ -5740,13 +5754,6 @@ class Session {
     if (on && !(c && (c.control === CONTROL.READING || c.control === CONTROL.INTENSITY))) return false;
     this.runtime.holdOpen(!!on);
     return true;
-  }
-
-  /* the breath check being played is one of the takes that asks "full or shallow" (data.js BREATH_FULLNESS_TAKES) */
-  _asksFullness(b) {
-    const file = (this.runtime.beat() === b && this.runtime._file) || '';
-    const m = /-([a-z])\.mp3$/.exec(file);
-    return !!m && D.BREATH_FULLNESS_TAKES.indexOf(m[1]) >= 0;
   }
 
   /* ✅ A breath answer (Justin, 2026-09-25): recorded with its second, acknowledged once "noted" is recorded,
@@ -6890,7 +6897,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:36cd9ec26daa451ad24a48a7ebedc149 */
+<script>/* @module copy.js md5:df7c691088e17bbb34db933f0ca03733 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -7037,7 +7044,11 @@ const UI = Object.freeze({
   /* the background sound (2026-09-26). Two buttons in the player's menu: the sound (Nothing → each sound → Nothing)
    * and its level (soft → medium → louder) */
   sound: 'Background sound',
-  customize: 'Customize',        // the player's third menu (2026-09-26 late night): silence, captions, background sound
+  customize: 'Customize',
+  scene: 'Scene',                 // the moving picture behind a practice (2026-09-27, in the customizer)
+  sceneSurprise: 'Surprise me',   // the app's own words for "a different one each time"
+  sceneNames: { circles: 'Circles', drift: 'Drift', pond: 'Pond', reeds: 'Reeds', breeze: 'Breeze', sunbeam: 'Sunbeam', fireflies: 'Fireflies' },
+  sceneDarkOnly: 'dark mode only',        // the player's third menu (2026-09-26 late night): silence, captions, background sound
   customizeDone: 'Done',
   soundLevelOf: (n, of) => 'Volume ' + n + ' of ' + of,   // for screen readers; the steps show no words (Justin 2026-09-26)
   soundNothing: 'Nothing',
@@ -7142,7 +7153,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:a6c24cf79992583de7e8761f22d132a0 */
+<script>/* @module page.js md5:8bf1adaa0cb0ce2f6cb4c81e692fbad2 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7452,20 +7463,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     player.className = 'screen';
     showScreen('player');
 
-    if (!scene) {
-      scene = SCENE.mountScene({
-        canvas: $('ring'),
-        read: () => ({
-          beat: session ? session.beat : null,
-          playing: session ? session.runtime.playing : false,
-          paused: session ? session.runtime.paused : false,
-          finished: session ? session.runtime.finished : false,
-        }),
-        scene: readSetting('snb_practice_scene', ''),
-        isDark: !!G._SNB_DARK,
-        reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
-      });
-    }
+    if (!scene) mountScene();
 
     showSilence();
     if (waitForTap) {
@@ -7493,6 +7491,78 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
   function readSetting(key, fallback) {
     try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; }
+  }
+  function writeSetting(key, value) {
+    try { if (value) localStorage.setItem(key, value); else localStorage.removeItem(key); } catch (e) {}
+  }
+
+  /* the moving picture behind the practice. The preference is the app's own setting (`snb_practice_scene`, '' = a different one
+   * each time), so a change here is a change in Settings too. Remounted live when the person picks another (2026-09-27). */
+  function mountScene() {
+    if (scene) { try { scene.stop(); } catch (e) {} scene = null; }
+    scene = SCENE.mountScene({
+      canvas: $('ring'),
+      read: () => ({
+        beat: session ? session.beat : null,
+        playing: session ? session.runtime.playing : false,
+        paused: session ? session.runtime.paused : false,
+        finished: session ? session.runtime.finished : false,
+      }),
+      scene: readSetting('snb_practice_scene', ''),
+      isDark: !!G._SNB_DARK,
+      reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+    });
+    showScene();
+  }
+  function scenePref() { const v = readSetting('snb_practice_scene', ''); return SCENE.SCENES.indexOf(v) >= 0 ? v : ''; }
+  function showScene() {
+    const U = COPY.UI, pref = scenePref();
+    const el0 = $('scenenow'); if (el0) el0.textContent = pref ? (U.sceneNames[pref] || pref) : U.sceneSurprise;
+    if (scening()) paintSceneCard();
+  }
+  /* ✅ THE SCENE LIST (Justin, 2026-09-27: "add the visualizer to the custom player menu (to change the visual)"): the same shape as
+   * the sound list, in place of the customizer — Surprise me + the seven scenes, a tick on the chosen one; a tap changes the picture
+   * at once and saves the choice; Done returns to the customizer. The two dark-only scenes say so. */
+  function scening() { return $('player').classList.contains('scening'); }
+  function pickScene(key) {
+    writeSetting('snb_practice_scene', SCENE.SCENES.indexOf(key) >= 0 ? key : '');
+    mountScene();
+  }
+  function openScenePicker() {
+    paintSceneCard();
+    $('player').classList.add('scening');
+    $('scenetoggle').setAttribute('aria-expanded', 'true');
+    clearTimeout(ctrlTimer);
+  }
+  function closeScenePicker(backToCustomizer) {
+    if (!scening()) return;
+    $('player').classList.remove('scening');
+    $('scenetoggle').setAttribute('aria-expanded', 'false');
+    if (backToCustomizer && customizing()) { clearTimeout(ctrlTimer); return; }
+    closeCustomizer(); revealControls();
+  }
+  function paintSceneCard() {
+    const U = COPY.UI, card = $('scenecard'), pref = scenePref();
+    card.textContent = '';
+    card.appendChild(el('p', 'bed-h', U.scene));
+    const rows = el('div', 'bed-rows');
+    const tick = () => { const t = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); t.setAttribute('viewBox', '0 0 24 24'); t.setAttribute('class', 'tick'); t.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M5 12l5 5L20 6'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '2.6'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); t.appendChild(path); return t; };
+    [['', U.sceneSurprise]].concat(SCENE.SCENES.map(k => [k, (U.sceneNames[k] || k) + (SCENE.DARK_ONLY[k] && !G._SNB_DARK ? ' (' + U.sceneDarkOnly + ')' : '')])).forEach(([k, name]) => {
+      const sel = pref === k;
+      const b = el('button', 'bedrow' + (sel ? ' sel' : ''), name);
+      b.type = 'button'; b.dataset.scene = k; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      b.appendChild(tick());
+      b.addEventListener('pointerdown', ev => ev.stopPropagation());
+      b.onclick = () => { pickScene(k); paintSceneCard(); };
+      rows.appendChild(b);
+    });
+    card.appendChild(rows);
+    const done = el('button', 'choicebtn quietly', U.soundDone);
+    done.type = 'button'; done.id = 'scenedone';
+    done.addEventListener('pointerdown', ev => ev.stopPropagation());
+    done.onclick = () => closeScenePicker(true);
+    card.appendChild(done);
   }
 
   // ── the session's events, on screen ───────────────────────────────────────────────────
@@ -7734,7 +7804,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
 
   function openChoice(control) {
-    if (control !== 'skip') closeBedPicker();
+    if (control !== 'skip') { closeBedPicker(); closeScenePicker(); }
     /* ✅ Skip intro sits in the standard menu, which stays up while it is offered (Justin's mockup 1, 2026-09-25) */
     if (control === 'skip') {
       const slot = $('skipslot');
@@ -7986,7 +8056,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const p = $('player');
     p.classList.add('show-controls');
     clearTimeout(ctrlTimer);
-    if (pinned || picking() || customizing() || !session || session.runtime.finished || session.runtime.paused) return;
+    if (pinned || picking() || scening() || customizing() || !session || session.runtime.finished || session.runtime.paused) return;
     ctrlTimer = setTimeout(() => { p.classList.remove('show-controls'); }, 4500);
   }
 
@@ -8049,6 +8119,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
   function closeCustomizer() {
     if (!customizing()) return;
+    if (scening()) { $('player').classList.remove('scening'); $('scenetoggle').setAttribute('aria-expanded', 'false'); }
     $('player').classList.remove('customizing');
     $('customize').classList.remove('on');
     $('customize').setAttribute('aria-expanded', 'false');
@@ -8147,6 +8218,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     set('capstate', U.captionsOff);
     set('bedlabel', U.sound);
     set('customlabel', U.customize);
+    set('scenelabel', U.scene);
     set('customdone', U.customizeDone);
     $('customize').setAttribute('aria-label', U.customize);
     set('easeout', U.easeOut);
@@ -8207,6 +8279,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('moresil').onclick = () => { stepSilence(1); revealControls(); };
     $('bedtoggle').onclick = () => { if (picking()) closeBedPicker(); else openBedPicker(); };
     $('customize').onclick = () => { if (customizing()) closeCustomizer(); else openCustomizer(); };
+    $('scenetoggle').onclick = () => { if (scening()) closeScenePicker(true); else openScenePicker(); };
     $('customdone').addEventListener('pointerdown', ev => ev.stopPropagation());
     $('customdone').onclick = () => closeCustomizer();
     watchFoot();
@@ -8298,6 +8371,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   G.__SNB_PAGE = {
     get session() { return session; },
     get cfg() { return cfg; },
+    get scene() { return scene; },
     begin, render, choosePractice,
   };
 })();
