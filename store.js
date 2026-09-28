@@ -79,7 +79,7 @@
   // tab in sessionStorage — it has to survive the check-in and the practice, because the
   // events that matter fire later. Missing/invalid = 'direct'.
   // Stamped on checkins.source and on every events.meta.src for the session.
-  const SRC_ALLOW = ['stuck','app-page','youtube','podcast','newsletter','circle','cohort','blog','mindful-moment','direct'];
+  const SRC_ALLOW = ['stuck','app-page','app-page-free','app-page-paid','youtube','podcast','newsletter','circle','cohort','blog','mindful-moment','direct'];   // app-page-free / app-page-paid: the /app page's pricing cards (Web Designer's ask, 2026-09-26)
   const SRC_KEY = 'snb_src';
   let _src = 'direct';
   try{
@@ -153,7 +153,7 @@
     outbox = { checkins: [], sessions: [] };
   }
   function saveCache(){ if(_demoSeeded) return; try { localStorage.setItem(cacheKey(), JSON.stringify({ data, outbox, links })); } catch(e){} }
-  function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; links = Array.isArray(o.links)?o.links:[]; } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } _reconcile(); }
+  function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; links = Array.isArray(o.links)?o.links:[]; _upgradeSaved(data.sessions); _upgradeSaved(outbox.sessions); } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } _reconcile(); }
 
   // ---- sync plumbing (merge, live-session gating, loud failure) ----
   function notify(){ try{ onChange && onChange(); }catch(e){} }
@@ -255,7 +255,7 @@
   // a data-clear name for what was practiced. Mirrors the live flow's practice_ref.
   function practiceRefOf(s){
     if(!s || !s.practiceKey) return null;
-    return (s.practiceKey==='most' && s.skill) ? ('most:'+s.skill) : s.practiceKey;
+    return (s.practiceKey==='self-regulation' && s.skill) ? ('self-regulation:'+s.skill) : s.practiceKey;
   }
   // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
   // The ONE source of the challenge_level vocabulary (cloud column included). The
@@ -284,7 +284,7 @@
   const _PRACTICE_RUNG = { micro:_CHL.settle, mindfulness:_CHL.settle, anchoring:_CHL.gentle, more:'guided meditation' };
   function rungForPractice(s){
     if(!s || !s.practiceKey) return null;
-    if(s.practiceKey==='most') return (s.skill==='balancing'||s.skill==='pendulation') ? _CHL.stretch : _CHL.meet;
+    if(s.practiceKey==='self-regulation') return (s.skill==='balancing'||s.skill==='pendulating') ? _CHL.stretch : _CHL.meet;
     return _PRACTICE_RUNG[s.practiceKey] || null;
   }
   // Which phase does a check-in taken at `t` belong to? Looks only at the most recent
@@ -387,12 +387,25 @@
   // and 'more' are opaque, so they are stored as 'self-regulation' and 'guided meditation'
   // (matching _PRACTICE_RUNG and PRACTICE_LABEL — one vocabulary, three maps, see the
   // cross-references at each); the other keys are self-explanatory and pass through.
-  const practiceLabelFor = k => (k==='most' ? 'self-regulation' : k==='more' ? 'guided meditation' : (k||null));
-  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null) });
+  const practiceLabelFor = k => (k==='self-regulation' ? 'self-regulation' : k==='more' ? 'guided meditation' : (k||null));
+  // ---- the session vocabulary (2026-09-18, app migration step 3) ----
+  // The app now speaks the stored names directly: practice key 'self-regulation', skills
+  // 'normalize-defense' and 'pendulating'. Cloud rows are already in them (migrated 2026-09-18)
+  // and the database maps any old name on the way in (trg_sessions_vocab_guard), so nothing is
+  // translated between the app and the cloud. The one thing still read in the old names is this
+  // device's own saved copy, written by an older build: it is upgraded once, as it loads.
+  const _LEGACY_PK    = { most:'self-regulation' };
+  const _LEGACY_SKILL = { validate:'normalize-defense', pendulation:'pendulating' };
+  const _own = (map, v) => (v != null && Object.prototype.hasOwnProperty.call(map, v)) ? map[v] : v;
+  function _upgradeSaved(list){
+    (list||[]).forEach(s => { if(!s) return; s.practiceKey = _own(_LEGACY_PK, s.practiceKey); s.skill = _own(_LEGACY_SKILL, s.skill); });
+    return list;
+  }
+  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null), outcome:(r.outcome||null), easedOutFrom:(r.eased_out_from||null), reached:(r.reached||null), reachedDefense:(r.reached_defense==null?null:!!r.reached_defense), rewinds:(typeof r.rewinds==='number'?r.rewinds:null), beatsPlayed:(typeof r.beats_played==='number'?r.beats_played:null), prefix:(r.prefix||null), depth:(r.depth||null), offerKey:(r.offer_key||null), interestAnswer:(r.interest_answer||null), safetyReadings:(Array.isArray(r.safety_readings)?r.safety_readings:null), intensityReadings:(Array.isArray(r.intensity_readings)?r.intensity_readings:null), handedOffTo:(r.handed_off_to||null), handedOffFrom:(r.handed_off_from||null), offers:(Array.isArray(r.offers)?r.offers:null), details:(r.details&&typeof r.details==='object'?r.details:null) });
   // id is minted on the CLIENT (newSessionId) so a check-in can be tagged with the
   // session it belongs to before the session row has ever reached the cloud. Sending it
   // explicitly just overrides the table's gen_random_uuid() default.
-  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null) });
+  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null), outcome:(s.outcome||null), eased_out_from:(s.easedOutFrom||null), reached:(s.reached||null), reached_defense:(s.reachedDefense==null?null:!!s.reachedDefense), rewinds:(typeof s.rewinds==='number'?s.rewinds:null), beats_played:(typeof s.beatsPlayed==='number'?s.beatsPlayed:null), prefix:(s.prefix||null), depth:(s.depth||null), offer_key:(s.offerKey||null), interest_answer:(s.interestAnswer||null), safety_readings:(Array.isArray(s.safetyReadings)?s.safetyReadings:null), intensity_readings:(Array.isArray(s.intensityReadings)?s.intensityReadings:null), handed_off_to:(s.handedOffTo||null), handed_off_from:(s.handedOffFrom||null), offers:(Array.isArray(s.offers)?s.offers:null), details:(s.details&&typeof s.details==='object'?s.details:null) });
 
   // ---- lifecycle ----
   async function init(cb){
@@ -677,11 +690,26 @@
       _hydratedFor = auth.user && auth.user.id;      // cloud read done for THIS user — orientation may now decide
       if(fetched) notify();                          // re-render once fresh data lands (post-init / post-refresh)
       migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
+      pullPrefs();                                     // the background sound chosen on another device (2026-09-26)
 
     }catch(e){ _hydratedFor = auth.user && auth.user.id; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
   }
 
   let flushing = false;
+  // the full practice records waiting to go up (see addSession). Kept apart from the cache; at most 12 held here, the
+  // oldest dropped first, so a long offline stretch can never fill this device's storage.
+  const _tlKey = () => 'snb_timelines_' + (auth.user ? auth.user.id : 'anon');
+  function _tlRead(){ try{ const a=JSON.parse(localStorage.getItem(_tlKey())); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function _tlWrite(a){ try{ localStorage.setItem(_tlKey(), JSON.stringify(a.slice(-12))); }catch(e){} }
+  function _tlQueue(item){ const a=_tlRead(); a.push(item); _tlWrite(a); }
+  async function _flushTimelines(){
+    const q=_tlRead(); if(!q.length) return true;
+    try{
+      const res = await sb.from('session_timelines').upsert(q.map(x=>Object.assign({ user_id:auth.user.id }, x)), { onConflict:'user_id,session_t' });
+      if(res && res.error){ return true; }   // never blocks the rest of the sync; tried again next time
+      _tlWrite([]); return true;
+    }catch(e){ return true; }
+  }
   async function flush(){
     if(_demoSeeded) return;
     if(!CLOUD || !auth.user) return;
@@ -696,6 +724,7 @@
       if(outbox.sessions.length) ok = await flushTable('sessions', outbox.sessions, sessionToRow);
       if(ok) ok = await _flushLinks();
       if(ok && outbox.checkins.length) ok = await flushTable('checkins', outbox.checkins, checkinToRow);
+      if(ok) await _flushTimelines();   // after its session row exists
     } finally {
       flushing = false;
     }
@@ -933,8 +962,13 @@
     // practice itself IS. A session with no level can't be used on the challenge axis at all.
     rec.challengeLevel = (typeof rec.challenge==='number') ? challengeLabel(rec.challenge) : rungForPractice(rec);
     rec.practiceLabel = practiceLabelFor(rec.practiceKey);
+    // 2026-09-25 (Justin: "remember every detail of a practice ... EVERYTHING"): the practice's full record, every event
+    // with its second, travels apart from the session row — its own table, cloud only — so the row and this device's
+    // cache stay light. The row keeps `details`, the record's summary, which the recommender reads.
+    const tl = Array.isArray(rec.timeline) ? rec.timeline : null;
+    delete rec.timeline;
     data.sessions.push(rec);
-    if(CLOUD && auth.user){ outbox.sessions.push(rec); setSync('syncing'); }
+    if(CLOUD && auth.user){ outbox.sessions.push(rec); setSync('syncing'); if(tl && tl.length) _tlQueue({ session_t:rec.t, session_id:rec.id, timeline:tl }); }
     saveCache(); if(CLOUD) flush();
   }
   function sessions(){ return data.sessions.slice(); }
@@ -988,6 +1022,94 @@
     return true;
   }
 
+  // ---- what worked (Justin, 2026-09-25) --------------------------------------------------------------------------
+  // "a practice that works is one where safety at least held. an even better practice is one where safety goes up. and
+  // the best type of practices is one where safety goes up and defense drops." Read from the practice's own 0–10s:
+  // first safety answer vs last; first non-safety answer vs last. 1 = held · 2 = rose · 3 = rose and non-safety dropped ·
+  // 0 = safety came down. A practice with fewer than two safety answers falls back to how the person said it went
+  // afterwards (more connected = 2, about the same = 1, less / struggled / a too-hard exit = 0). Never shown to anyone
+  // as a number: it only steers which choices the recommendation leans toward.
+  function practiceGrade(s){
+    if(!s) return null;
+    const nums = a => (Array.isArray(a) ? a : []).filter(v => typeof v === 'number');
+    const sa = nums(s.safetyReadings), ia = nums(s.intensityReadings);
+    if(sa.length >= 2){
+      const first = sa[0], lastV = sa[sa.length-1];
+      if(lastV < first) return 0;
+      if(lastV === first) return 1;
+      return (ia.length >= 2 && ia[ia.length-1] < ia[0]) ? 3 : 2;
+    }
+    const af = s.afterFeeling || null, ex = _exitOf(s);
+    if(ex==='exit-hard' || af==='less' || af==='struggle') return 0;
+    if(af==='more') return 2;
+    if(af==='same') return 1;
+    return null;
+  }
+  // which choices went with this person's best practices: for each value of a dial (sense, silence, anchor picked
+  // mid-practice), the average grade over the practices that used it. A value needs 3 graded practices before it counts,
+  // and it must beat the value they use most by a clear margin (0.5) — so a lucky run or two never moves anything.
+  function whatWorked(){
+    const graded = data.sessions.map(s => ({ s, g: practiceGrade(s) })).filter(x => x.g != null);
+    const by = pick => { const m = {}; graded.forEach(x => { const v = pick(x.s); if(v == null) return; (m[v] = m[v] || []).push(x.g); }); return m; };
+    const best = (m, usual) => {
+      const avg = a => a.reduce((p,c)=>p+c,0) / a.length;
+      const ok = Object.keys(m).filter(k => m[k].length >= 3);
+      if(!ok.length) return null;
+      const top = ok.sort((a,b) => avg(m[b]) - avg(m[a]))[0];
+      const usualAvg = (usual != null && m[usual] && m[usual].length >= 3) ? avg(m[usual]) : null;
+      if(usual != null && String(top) !== String(usual) && usualAvg != null && avg(m[top]) - usualAvg < 0.5) return null;
+      return { value: top, n: m[top].length, avg: Math.round(avg(m[top]) * 10) / 10 };
+    };
+    const count = (arr,key)=>{const m={};arr.forEach(x=>{const k=x.s[key];if(k!=null)m[k]=(m[k]||0)+1;});return m;};
+    const most = m => Object.keys(m).sort((a,b)=>m[b]-m[a])[0] || null;
+    const anchorPicked = s => (s.details && Array.isArray(s.details.anchorsChosen) && s.details.anchorsChosen.length) ? s.details.anchorsChosen[s.details.anchorsChosen.length-1].anchor : null;
+    return {
+      graded: graded.length,
+      sense: best(by(s => s.sense || null), most(count(graded,'sense'))),
+      silence: best(by(s => (s.details && typeof s.details.silenceEnd === 'number') ? s.details.silenceEnd : (typeof s.silence === 'number' ? s.silence : null)), most(count(graded,'silence'))),
+      anchorPicked: best(by(anchorPicked), null),
+    };
+  }
+
+  // ---- the anchor to use (Justin, 2026-09-25) -------------------------------------------------------------------
+  // "the recommended should also offer the user the various anchoring pathways, one practice after another. there may be an
+  // obvious winner from those. i think it should cycle through all anchoring pathways until the user has had the three
+  // best outcomes with one." A BEST outcome = safety rose, and non-safety dropped when the practice measured it (a
+  // practice that asks no non-safety 0–10 can only show the first half). Counted over the practices that anchor —
+  // Connect (anchoring) and self-regulation — by the anchor actually used (a mid-practice pick counts over the launch
+  // sense). Until one anchor has three: the least-tried anchor next, starting from the sense they named at sign-up,
+  // then in order after the last one used. Once one has three: that one ("winner"), most best outcomes if several.
+  const ANCHOR_ORDER = ['sound','sight','touch','imagination','movement'];
+  function _anchorOf(s){
+    const d = s && s.details;
+    if(d && Array.isArray(d.anchorsChosen) && d.anchorsChosen.length) return d.anchorsChosen[d.anchorsChosen.length-1].anchor;
+    return s ? (s.sense || null) : null;
+  }
+  function isBestOutcome(s){
+    const g = practiceGrade(s);
+    const ia = (Array.isArray(s && s.intensityReadings) ? s.intensityReadings : []).filter(v => typeof v === 'number');
+    return ia.length >= 2 ? g === 3 : g >= 2;
+  }
+  function anchorPick(){
+    const anchoring = data.sessions.filter(s => (s.practiceKey==='anchoring' || s.practiceKey==='self-regulation') && ANCHOR_ORDER.indexOf(_anchorOf(s)) >= 0);
+    const best = {}, tried = {};
+    ANCHOR_ORDER.forEach(a => { best[a] = 0; tried[a] = 0; });
+    anchoring.forEach(s => { const a = _anchorOf(s); tried[a]++; if(isBestOutcome(s)) best[a]++; });
+    const winners = ANCHOR_ORDER.filter(a => best[a] >= 3).sort((a,b) => best[b] - best[a]);
+    if(winners.length) return { sense: winners[0], why: 'winner', best, tried };
+    const fewest = Math.min.apply(null, ANCHOR_ORDER.map(a => tried[a]));
+    const ties = ANCHOR_ORDER.filter(a => tried[a] === fewest);
+    const pref = prefSense();
+    let pick;
+    if(pref && ties.indexOf(pref) >= 0) pick = pref;
+    else {
+      const last = anchoring.length ? _anchorOf(anchoring[anchoring.length-1]) : null;
+      const start = last ? ANCHOR_ORDER.indexOf(last) + 1 : 0;
+      for(let k = 0; k < ANCHOR_ORDER.length; k++){ const a = ANCHOR_ORDER[(start + k) % ANCHOR_ORDER.length]; if(ties.indexOf(a) >= 0){ pick = a; break; } }
+    }
+    return { sense: pick, why: 'cycle', best, tried };
+  }
+
   // ---- learned preferences ----
   function learned(){
     const done = data.sessions.filter(s=>s.completed);
@@ -1003,9 +1125,12 @@
     const lastExit = (lastS && lastS.endedEarly)
       ? (lastS.exitReason || ((/^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null))
       : null;
+    const W = whatWorked();
     return { favSense: top(count(done,'sense')), favSkill: top(count(done,'skill')), favPractice: top(count(done,'practiceKey')),
              sessionsDone: done.length, endsEarlyOften: earlyRate >= 0.4 && data.sessions.length >= 3,
-             lastExit };
+             lastExit,
+             // what has gone best for them (2026-09-25) — null until there is enough history to say
+             bestSense: W.sense ? W.sense.value : null, bestSilence: W.silence ? +W.silence.value : null, worked: W };
   }
 
   // ---- trend ----
@@ -1287,100 +1412,184 @@
     if(!s) return null;
     const af = s.afterFeeling || null, ex = _exitOf(s);
     if(ex==='exit-hard' || af==='struggle' || af==='less' || af==='unsure') return 'bad';
-    if(af==='more' || _movedUp(s)) return 'good';
+    if(af==='more' || _movedUp(s) || (practiceGrade(s)||0) >= 1) return 'good';   // safety held or better (2026-09-25)
     if(af==='same' || ex==='exit-enough' || ex==='exit-distracted' || ex==='exit-easy') return 'neutral';
     return null;
   }
-  // Justin's self-regulation rung order (his curriculum; validate & normalize is
-  // the app's first defense rung as of v2). descDefense is a dial ON TOP of the
-  // ladder, and hold & watch sits above that — both gated in recommend().
-  const SKILL_LADDER = ['validate','imagery','obstacles','balancing','pendulation'];
-  // per-skill tallies over self-regulation sessions; plain (no describe-the-
-  // defense) and desc (with it) are tallied separately, because the descDefense
-  // rung only unlocks off PLAIN success at balancing + pendulation.
+  // ---- the skill sequence (2026-09-20) ------------------------------------------------------
+  // The ORDER the self-regulation practices are offered in belongs to the engine: host.js
+  // SEQUENCE.defense, which plan.js derives from Justin's 2026-09-05 rulings (Validating first;
+  // Pendulating opens depth by depth alongside Balancing; Obstacles comes back after each skill at
+  // each depth). It is read out of practice-engine.html at runtime, never restated here — a table
+  // that mirrors another file drifts. Keys carry the prefix and the depth:
+  //   'validate-defense' · 'imagery' · 'obstacles>imagery' · 'balancing@specific' ·
+  //   'obstacles>pendulating@description'
+  // Justin approved the recommender following this order on 2026-09-20.
+  //
+  // What is kept is the engine's own output (its list, and its nextAfter() for every entry), so a
+  // device that has loaded the engine once can recommend before the engine loads again.
+  let SKILL_SEQUENCE = null;        // host.js SEQUENCE.defense
+  let SAFETY_SEQUENCE = null;       // host.js SEQUENCE.safety
+  let _SEQ_NEXT = null;             // key -> host.js nextAfter(key)
+  const SEQ_CACHE = 'snb_engine_sequence_v1';
+  function _adoptSequence(o){
+    if(!o || !Array.isArray(o.defense) || !o.defense.length || !o.next) return false;
+    SKILL_SEQUENCE = o.defense.slice(); SAFETY_SEQUENCE = (o.safety||[]).slice(); _SEQ_NEXT = o.next;
+    return true;
+  }
+  try{ _adoptSequence(JSON.parse(localStorage.getItem(SEQ_CACHE))); }catch(e){}
+  // The engine's modules run in a sandbox object: each publishes itself onto `window` when there
+  // is no `module`, so handing them a plain object as `window` collects the four APIs without
+  // touching this page's globals. clip-table.js and data.js are needed because plan.js reads them.
+  const _ENGINE_MODULES = ['clip-table.js','data.js','plan.js','host.js'];
+  function loadSequence(){
+    if(typeof fetch !== 'function') return Promise.resolve(false);
+    return fetch('practice-engine.html').then(r => r.ok ? r.text() : Promise.reject(r.status)).then(html => {
+      const box = {};
+      _ENGINE_MODULES.forEach(name => {
+        const open = '/* @module ' + name + ' md5:', close = '/* @endmodule ' + name + ' */';
+        const i = html.indexOf(open), j = html.indexOf(close);
+        if(i < 0 || j < i) throw new Error('practice-engine.html has no ' + name);
+        const body = html.slice(html.indexOf('*/', i) + 2, j);
+        (new Function('window', 'globalThis', 'module', 'require', body))(box, box, undefined, undefined);
+      });
+      const H = box.SNB_ENGINE_HOST;
+      if(!H || !H.SEQUENCE || typeof H.nextAfter !== 'function') throw new Error('engine host missing');
+      const next = {};
+      H.SEQUENCE.defense.concat(H.SEQUENCE.safety).forEach(k => { next[k] = H.nextAfter(k); });
+      const o = { defense: H.SEQUENCE.defense.slice(), safety: H.SEQUENCE.safety.slice(), next };
+      const changed = JSON.stringify(o) !== JSON.stringify({ defense:SKILL_SEQUENCE, safety:SAFETY_SEQUENCE, next:_SEQ_NEXT });
+      _adoptSequence(o);
+      try{ localStorage.setItem(SEQ_CACHE, JSON.stringify(o)); }catch(e){}
+      if(changed && typeof notify === 'function') notify();
+      return true;
+    }).catch(e => { console.warn('[store] could not read the practice sequence from the engine', e); return false; });
+  }
+  const _sequenceReady = loadSequence();
+  // A logged self-regulation session's place in the sequence. The engine reports it (offer_key);
+  // rows from before that are read from what was logged, and count exactly as they always did:
+  // the app's 'obstacles' skill was always Obstacles into Imagery, and a Balancing or Pendulating
+  // was the overall depth unless describing the defense was on.
+  function sequenceKeyOf(s){
+    if(!s || s.practiceKey!=='self-regulation' || !s.skill) return null;
+    if(s.offerKey) return s.offerKey;
+    if(s.skill==='obstacles') return 'obstacles>imagery';
+    if(s.skill==='balancing' || s.skill==='pendulating')
+      return (s.prefix ? s.prefix + '>' : '') + s.skill + '@' + (s.depth || (s.descDefense ? 'description' : 'general'));
+    return s.skill;
+  }
+  // a key taken apart: the practice the engine plays, the Obstacles prefix, the depth. `skill` is
+  // the app's own name for it — Obstacles into Imagery has always been the app's 'obstacles'.
+  function sequenceParts(key){
+    if(!key) return null;
+    const gt = key.indexOf('>'), at = key.indexOf('@');
+    const prefix = gt >= 0 ? key.slice(0, gt) : null;
+    const practice = key.slice(gt + 1, at >= 0 ? at : key.length);
+    const depth = at >= 0 ? key.slice(at + 1) : null;
+    const skill = (prefix === 'obstacles' && practice === 'imagery') ? 'obstacles' : practice;
+    return { key, practice, skill, prefix: (skill === 'obstacles' ? null : prefix), depth };
+  }
+  // per-key tallies over self-regulation sessions.
   function skillOutcomes(){
     const out = {};
-    SKILL_LADDER.forEach(k => out[k] = { plain:{good:0,bad:0,n:0,last:[]}, desc:{good:0,bad:0,n:0,last:[]} });
+    (SKILL_SEQUENCE||[]).forEach(k => out[k] = { good:0, bad:0, n:0, last:[] });
     data.sessions.forEach(s => {
-      if(s.practiceKey!=='most' || !s.skill || !out[s.skill]) return;
-      const o = _outcomeOf(s);
-      const b = s.descDefense ? out[s.skill].desc : out[s.skill].plain;
+      const k = sequenceKeyOf(s);
+      if(!k || !out[k]) return;
+      // the engine reports whether any of the defense half was played. Someone who answered
+      // the curiosity gate no practised the safety half and stopped: that is not an attempt at
+      // the skill, good or bad. Null = logged before the engine reported it — counted as before.
+      if(s.reachedDefense === false) return;
+      const o = _outcomeOf(s), b = out[k];
       b.n++;
       if(o==='good') b.good++; else if(o==='bad') b.bad++;
       b.last.push(o); if(b.last.length>2) b.last.shift();     // the two most recent attempts
     });
     return out;
   }
-  // rungs(): which skills are cleared, the next rung to work on, and the dial
-  // unlocks. Cleared = >=2 good plain outcomes AND no bad in the last 2 attempts
-  // (a bad PAUSES the clear until a good attempt lands — scenario B).
-  // next = first uncleared rung ABOVE the highest cleared one (history is
-  // grandfathered: someone strong at pendulation is never sent back to validate).
-  function rungs(){
+  // skillProgress(): which steps are cleared, the next one to work on, and the strongest.
+  // Cleared = >=2 good outcomes AND no bad in the last 2 attempts (a bad PAUSES the clear until a
+  // good attempt lands — scenario B). next = the engine's nextAfter() from the highest cleared
+  // step, skipping any already cleared (history is grandfathered: someone strong deep in the
+  // sequence is never sent back to the start). Nothing cleared: the first step.
+  function skillProgress(){
+    const SEQ = SKILL_SEQUENCE || [];
     const so = skillOutcomes();
     const cleared = {};
     let hi = -1;
-    SKILL_LADDER.forEach((k,i) => {
-      const p = so[k].plain;
+    SEQ.forEach((k,i) => {
+      const p = so[k];
       cleared[k] = p.good >= 2 && p.last.indexOf('bad') < 0;
       if(cleared[k]) hi = i;
     });
     let next = null;
-    for(let i = hi + 1; i < SKILL_LADDER.length; i++){ if(!cleared[SKILL_LADDER[i]]){ next = SKILL_LADDER[i]; break; } }
-    if(hi < 0) next = 'validate';                             // nothing cleared yet: start at the first rung
-    // describe-the-defense unlocks after succeeding at balancing AND pendulation
-    // without it (Justin's cohort sequence).
-    const descUnlocked = !!(cleared.balancing && cleared.pendulation);
-    let descGoing = null;                                     // how the dial itself has been going
-    if(descUnlocked){
-      let g=0, n=0, lastBad=false;
-      SKILL_LADDER.forEach(k => { const d=so[k].desc; g+=d.good; n+=d.n; if(d.last.length && d.last[d.last.length-1]==='bad') lastBad=true; });
-      descGoing = { tried:n>0, good:g, n, lastBad };
-    }
-    // strongest cleared skill that can carry the descDefense dial (introduce the
-    // dial where they're most solid first).
+    if(hi < 0) next = SEQ[0] || null;
+    else { next = _SEQ_NEXT[SEQ[hi]] || null; let guard = 0; while(next && cleared[next] && guard++ < SEQ.length) next = _SEQ_NEXT[next] || null; }
+    // strongest cleared step by good rate; on a tie, the later one in the sequence
     let strongest = null, bestRate = -1;
-    ['imagery','balancing','pendulation'].forEach(k => {
+    SEQ.forEach(k => {
       if(!cleared[k]) return;
-      const p = so[k].plain, r = p.n ? p.good/p.n : 0;
-      if(r > bestRate){ bestRate = r; strongest = k; }
+      const p = so[k], r = p.n ? p.good/p.n : 0;
+      if(r >= bestRate){ bestRate = r; strongest = k; }
     });
-    return { cleared, next, hi, descUnlocked, descGoing, strongest, so };
+    return { cleared, next, hi, strongest, so };
   }
-  // one-sentence descriptions of each ladder skill + dial, so the reader can name
-  // the skill AND teach what it is (a path to the fuller practice-tab breakdown sits
-  // in the reader copy). Straw wording — Justin owns final. Keyed to SKILL_LADDER + dials.
+  // one-sentence descriptions of each skill + dial, so the reader can name the skill AND teach
+  // what it is (a path to the fuller practice-tab breakdown sits in the reader copy). Straw
+  // wording — Justin owns final. Keyed by the app's skill names (sequenceParts().skill).
   const SKILL_DESC = {
-    validate:    "letting what's here be here, meeting the emotion without arguing with it",
+    'normalize-defense': "letting what's here be here, meeting the emotion without arguing with it",
     imagery:     'using a mental image to invite some safety',
     obstacles:   'noticing what blocks safety and working with it directly',
     balancing:   'holding some safety and some defense at the same time',
-    pendulation: 'moving toward the defense and back to safety, in small swings',
+    pendulating: 'moving toward the defense and back to safety, in small swings',
     descDefense: 'naming the defense out loud as you feel it',
     holdWatch:   'staying with what surfaces and watching it move, without steering it',
   };
   function skillDesc(k){ return SKILL_DESC[k] || null; }
-  // rungStory(): the reader-facing shape of rungs()/skillOutcomes() — which skills are
-  // cleared (advisor names, ladder order), the next one to work on, and whether there's
-  // any self-regulation history to speak of. Null until there is. Not scored; capacity,
-  // not rank. The "what would change the app's recommendation" story is copy in the
-  // reader's S6 (the recommender's own step-down/advance logic told plainly).
-  function rungStory(){
-    const hasHistory = data.sessions.some(s => s && s.practiceKey==='most');
+  const _skillOfKey = k => { const p = sequenceParts(k); return p ? p.skill : null; };
+  // What a step does, said literally, for a step the skill's name alone does not describe: one
+  // that starts from Obstacles, or goes past the overall depth. Justin, 2026-09-20: "This practice
+  // gives you four Obstacle statements and leads you through Balancing whatever emotion surfaces
+  // in response, finding where it lives in the body." No metaphor. The three depths are named for
+  // what they are: overall, where it lives, and Description (describing it). `title` capitalizes the practice names, as in the letter.
+  const _STEP_NAME = { balancing:'balancing', pendulating:'pendulating' };
+  const _STEP_DEPTH = { general:'noticing it in the body overall', specific:'finding where it lives in the body',
+                        description:'describing it' };
+  function stepPhrase(key, title){
+    const p = sequenceParts(key);
+    if(!p || !_STEP_NAME[p.skill] || !(p.prefix || (p.depth && p.depth !== 'general'))) return null;
+    const cap = w => title ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+    let s = p.prefix === 'obstacles'
+      ? 'gives you four ' + cap('obstacle') + ' statements and leads you through ' + cap(_STEP_NAME[p.skill]) + ' whatever emotion surfaces in response'
+      : 'leads you through ' + cap(_STEP_NAME[p.skill]) + ' whatever emotion surfaces';
+    if(p.depth && _STEP_DEPTH[p.depth]) s += ', ' + _STEP_DEPTH[p.depth];
+    return s;
+  }
+  // the name of a step inside a sentence: the skill's word, or the literal description above
+  function _stepWords(key, skill){ const ph = key ? stepPhrase(key) : null; return ph ? 'the practice that ' + ph : _skillWord(skill); }
+  // skillStory(): the reader-facing shape of skillProgress() — which skills are cleared, the next one to
+  // work on, and whether there's any self-regulation history to speak of. Null until there is.
+  // The letters name SKILLS (their words are Justin's, in from-justin.js), so the steps are
+  // reported by their skill; the sequence keys ride alongside. Not scored; capacity, not rank.
+  function skillStory(){
+    const hasHistory = data.sessions.some(s => s && s.practiceKey==='self-regulation');
     if(!hasHistory) return null;
-    const rg = rungs();
-    const cleared = SKILL_LADDER.filter(k => rg.cleared[k]);
-    // reason = the good signal that most recently fired on the strongest skill, so the
-    // reader can name WHY it was recommended: the after-feeling came back 'more', or the
-    // next check-in read steadier (else just 'going well'). Reported, never scored.
+    const sp = skillProgress();
+    const clearedKeys = (SKILL_SEQUENCE||[]).filter(k => sp.cleared[k]);
+    const cleared = clearedKeys.map(_skillOfKey).filter((k,i,a) => a.indexOf(k)===i);
+    // reason = the good signal that most recently fired on the strongest step, so the reader can
+    // name WHY it was recommended: the after-feeling came back 'more', or the next check-in read
+    // steadier (else just 'going well'). Reported, never scored.
     let reason = 'going-well';
-    if(rg.strongest){
-      const ms = data.sessions.filter(s => s.practiceKey==='most' && s.skill===rg.strongest).sort((a,b)=>a.t-b.t);
+    if(sp.strongest){
+      const ms = data.sessions.filter(s => sequenceKeyOf(s)===sp.strongest).sort((a,b)=>a.t-b.t);
       for(let i=ms.length-1;i>=0;i--){ if(_outcomeOf(ms[i])==='good'){ reason = ms[i].afterFeeling==='more' ? 'more' : (_movedUp(ms[i]) ? 'steadier' : 'going-well'); break; } }
     }
-    return { cleared, next: rg.next, strongest: rg.strongest, reason,
-             descUnlocked: rg.descUnlocked, curDesc: rg.strongest ? skillDesc(rg.strongest) : null,
-             nextDesc: rg.next ? skillDesc(rg.next) : null, hasHistory:true };
+    const next = _skillOfKey(sp.next), strongest = _skillOfKey(sp.strongest);
+    return { cleared, next, strongest, reason, clearedKeys, nextKey: sp.next, strongestKey: sp.strongest,
+             curDesc: strongest ? skillDesc(strongest) : null,
+             nextDesc: next ? skillDesc(next) : null, hasHistory:true };
   }
   // hold & watch duration from demonstrated tolerance: how much of the chosen
   // target they've actually been holding. >=90% of target -> same or one step up;
@@ -1572,13 +1781,13 @@
     return { open:!closed };
   }
   // The ceiling tier the WEEK earns (§7.5). Week gates the ceiling; the moment gate
-  // (above) gates whether any of it is offered TODAY. `cleared` is rungs().cleared.
+  // (above) gates whether any of it is offered TODAY. `cleared` is skillProgress().cleared.
   // 0 = grounding only · 1 = validating/imagery · 2 = obstacles · 3 = balancing/pendulation.
   function skillCeiling(bw, cleared){
     if(!bw || bw.lowData) return 0;
     const s = bw.safety, d = bw.defense;
-    if(s >= 0.50 && bw.consistent50 && d <= 0.55 && cleared && cleared.obstacles) return 3;
-    if(s >= 0.45 && d <= 0.60 && cleared && cleared.validate && cleared.imagery) return 2;
+    if(s >= 0.50 && bw.consistent50 && d <= 0.55 && cleared && cleared['obstacles>imagery']) return 3;
+    if(s >= 0.45 && d <= 0.60 && cleared && cleared['normalize-defense'] && cleared.imagery) return 2;
     if(s >= 0.40) return 1;
     return 0;
   }
@@ -1593,7 +1802,7 @@
     const tr = trend();
     // §7.4–7.5 model (2026-07-27): the 0.55 challenge constant, the want/level fork and the
     // regShare Spectrum are retired. Reading order is now: low-data → moment gate → the tier
-    // the WEEK earns (connection-vs-defense, absolute) → the rung ladder within that tier.
+    // the WEEK earns (connection-vs-defense, absolute) → the skill sequence within that tier.
     const bw = baselineWeek();          // trailing-7 avgV/avgDef, or the low-data path
     const gate = momentGate(last);      // today's check-in opens/closes the moment
     let ceiling = 0;                    // the tier the week earns (set once we have a check-in)
@@ -1606,7 +1815,9 @@
     // after a gap whose most recent check-in predates the rework.
     const dom = _dm(last);
     const dys = _DYS[dom];
-    const sense = prefSense() || L.favSense || 'touch';
+    // the anchor: cycle through every one until one earns three best outcomes (see anchorPick)
+    const AP = anchorPick();
+    const sense = AP.sense;
     const sil = L.endsEarlyOften ? 12 : 8;
     const falling = !!(tr && tr.dir==='falling');
 
@@ -1620,114 +1831,137 @@
     // step 5 — hot defense today closes the moment gate: grounding only, whatever the week has
     // earned (mobilization or immobilization very high, or the freeze quadrant — both up).
     if(!gate.open){
-      let reason = dom==='shutdown' ? 'you are pulling toward shutdown. nothing to push against. we will just find a little safety, gently.'
-                 : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small, focusing on the present and connecting with safety."
+      let reason = dom==='shutdown' ? "you are pulling toward shutdown. nothing to push against. we'll keep it simple and just notice the present moment, gently."
+                 : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small and stay with the present moment."
                  : "there's a lot of defense active right now. we'll stay with the present moment and let some of it settle.";
-      if(falling) reason = "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it.";
+      if(falling) reason = "safety has been slipping in the last few check-ins, so connecting with it may be hard right now. this one keeps it simple and stays with the present moment.";
+      // 2026-09-25 (Justin): mindfulness is about the present moment, not safety. it is the practice for someone
+      // who is struggling to even connect with safety; safety is the anchoring practice. none of these reasons may
+      // promise safety work.
       return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
     }
     // steps 2-4 — the ceiling the WEEK earns (avgV/avgDef ABSOLUTE, never margin — Justin's
-    // guardrail), capped by whichever skills the rung ladder has cleared.
-    const rg = rungs();
-    ceiling = skillCeiling(bw, rg.cleared);
+    // guardrail), capped by whichever steps of the skill sequence are cleared.
+    const sp = skillProgress();
+    ceiling = skillCeiling(bw, sp.cleared);
 
     // ceiling 0 (safety below the 40% week floor), or a falling trend: anchor into safety and
     // let that be enough today (Scheme A band 2 — rebuild before reaching further).
     if(ceiling === 0 || falling){
       const reason = falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
-                   : dys ? "your history shows real safety to draw on, even in a harder moment. we'll anchor into it and let that be enough today."
-                   : "you're finding safety, and it's still building week to week. we'll anchor into it and let that be enough today.";
-      return cfg('anchoring', null, sense, sil, reason, dys ? 'meet you where you are' : 'connect with safety');
+                   : dys ? "your history shows real safety to draw on, even in a harder moment. we'll anchor into it and let that be enough for now."
+                   : "you're finding safety, and it's still building week to week. we'll anchor into it and let that be enough for now.";
+      return cfg('anchoring', null, sense, sil, reason, dys ? 'meet you where you are' : 'safety anchoring');
     }
-    // ceiling >=1 — safety first, then a self-regulation skill capped to the tier the week
-    // earned (t1: validating/imagery · t2: +obstacles · t3: +balancing/pendulation).
-    // Scheme A band 3; the rung ladder fills the skill slot.
-    const TIER_TOP = { 1:'imagery', 2:'obstacles', 3:'pendulation' };
-    const capIdx = SKILL_LADDER.indexOf(TIER_TOP[ceiling]);
+    // no sequence yet (a device that has never loaded the engine, before its first read lands):
+    // connect with safety, and the screen re-renders once the sequence arrives.
+    const SEQ = SKILL_SEQUENCE;
+    if(!SEQ || !SEQ.length){
+      return cfg('anchoring', null, sense, sil, "we'll start by connecting with safety.", 'safety anchoring');
+    }
+    // ceiling >=1 — safety first, then a step of the sequence capped to the tier the week
+    // earned (t1: up to imagery · t2: up to obstacles into imagery · t3: all of it, every
+    // depth of balancing and pendulating). Scheme A band 3; the sequence fills the skill slot.
+    const TIER_TOP = { 1:'imagery', 2:'obstacles>imagery', 3:null };
+    const capIdx = TIER_TOP[ceiling] ? SEQ.indexOf(TIER_TOP[ceiling]) : SEQ.length - 1;
     // ---- what happened last time on this track (graded step-down) ----
     // hard signals (struggle / less / too-hard exit): first one turns the dials
-    // down on the SAME rung; a second in a row steps down a rung. soft signals
+    // down on the SAME step; a second in a row steps down one. soft signals
     // ('same' / 'unsure'): one step easier right away, as a one-session nudge.
-    const mosts = data.sessions.filter(s => s.practiceKey==='most');
+    const mosts = data.sessions.filter(s => s.practiceKey==='self-regulation');
     const lastMost = mosts[mosts.length-1] || null;
     const prevMost = mosts[mosts.length-2] || null;
     const lastAf = lastMost ? (lastMost.afterFeeling || null) : null;
     const hardLast = !!lastMost && (lastAf==='struggle' || lastAf==='less' || _exitOf(lastMost)==='exit-hard');
     const softLast = !!lastMost && !hardLast && (lastAf==='same' || lastAf==='unsure');
-    const below = k => { const i = SKILL_LADDER.indexOf(k); return i > 0 ? SKILL_LADDER[i-1] : null; };
-    // default rung: the next uncleared one, else their strongest skill. Then CAP to the
-    // tier the week earned — the ladder can propose a rung the week hasn't unlocked; the
-    // ceiling holds it back (a rung above the tier drops to the tier's top skill).
-    let skill = rg.next || rg.strongest || L.favSkill || 'validate';
-    if(SKILL_LADDER.indexOf(skill) > capIdx) skill = SKILL_LADDER[capIdx];
-    let dialDown = false, droppedRung = false, leftTrack = false;
+    // one step easier = the step before it in the sequence
+    const below = k => { const i = SEQ.indexOf(k); return i > 0 ? SEQ[i-1] : null; };
+    const lastKey = lastMost ? sequenceKeyOf(lastMost) : null;
+    const lastKnown = (lastKey && SEQ.indexOf(lastKey) >= 0) ? lastKey : null;
+    // default step: the next uncleared one, else their strongest. Then CAP to the tier the week
+    // earned — the sequence can propose a step the week hasn't unlocked; the ceiling holds it
+    // back (a step above the tier drops to the tier's top step).
+    let key = sp.next || sp.strongest || (SEQ.indexOf(L.favSkill) >= 0 ? L.favSkill : SEQ[0]);
+    if(SEQ.indexOf(key) > capIdx) key = SEQ[capIdx];
+    let dialDown = false, droppedStep = false, leftTrack = false;
     if(hardLast){
       if(prevMost && _outcomeOf(prevMost)==='bad'){                       // two heavy ones in a row
-        const dn = below(lastMost.skill || skill);
-        if(dn){ skill = dn; droppedRung = true; } else leftTrack = true;  // below the first rung -> anchoring
-      } else { skill = lastMost.skill || skill; dialDown = true; }        // first one: same rung, smaller dose
+        const dn = below(lastKnown || key);
+        if(dn){ key = dn; droppedStep = true; } else leftTrack = true;    // below the first step -> anchoring
+      } else { key = lastKnown || key; dialDown = true; }                 // first one: same step, smaller dose
     } else if(softLast){
-      const dn = below(lastMost.skill || skill);
-      if(dn){ skill = dn; droppedRung = true; } else leftTrack = true;
+      const dn = below(lastKnown || key);
+      if(dn){ key = dn; droppedStep = true; } else leftTrack = true;
     }
     if(leftTrack){
-      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. the ladder will be right where you left it.";
+      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. your self-regulation practice will pick up where you left off.";
       return cfg('anchoring', null, sense, 12, reason, 'a gentler practice');
     }
-    // (pendulation no longer gated on appetite — the tier ceiling + the cap above are what
-    // decide whether it's reachable; a step-down may still have moved `skill` below it.)
-    // ---- the dials on top of the rung ----
-    // describe-the-defense: unlocks only after plain success at balancing AND
-    // pendulation; introduced on the strongest cleared skill; dropped again the
-    // session after it went badly. never on a dialed-down / stepped-down session.
-    let desc = false, descIntro = false;
-    if(rg.descUnlocked && !dialDown && !droppedRung && ['balancing','pendulation'].indexOf(skill) >= 0){
-      if(rg.descGoing && rg.descGoing.lastBad) desc = false;
-      else { desc = true; descIntro = !(rg.descGoing && rg.descGoing.tried); if(descIntro && rg.strongest) skill = rg.strongest; }
-    }
-    // hold & watch: the top tier (ceiling 3 = safety 50%+ consistent, defense ≤55%) with the
-    // describe rung unlocked. Strong safety as the NORM unlocks it; sits above the describe rung.
+    // the step, taken apart: the skill the app launches, the Obstacles prefix, the depth.
+    // Describing the defense is no longer a dial on top — it is the deepest depth, a step of its own.
+    const part = sequenceParts(key);
+    const skill = part.skill;
+    const desc = part.depth === 'description';
+    const descIntro = desc && !data.sessions.some(s => { const k = sequenceKeyOf(s); return !!k && /@description$/.test(k); });
+    // hold & watch: the top tier (ceiling 3 = safety 50%+ consistent, defense ≤55%), and only
+    // on a session that is describing the defense — the deepest depth, the only one where the
+    // engine plays it (Justin, 2026-09-19: "Hold and watch at the deepest level is fine.").
     let hold = false, holdSecs = null;
-    if(ceiling===3 && rg.descUnlocked && !dialDown && !droppedRung && (skill==='balancing' || skill==='pendulation')){
+    if(ceiling===3 && desc && !dialDown && !droppedStep && (skill==='balancing' || skill==='pendulating')){
       hold = true; holdSecs = holdTarget();
     }
     // ---- why this practice (evidence named, in order: baseline/moment -> last
-    // session -> rung/dial -> daypart). drafts for Justin's copy pass.
+    // session -> sequence step -> daypart). drafts for Justin's copy pass.
     let reason;
     if(dialDown){
-      reason = "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler today: a bit shorter, with more quiet space to settle.";
+      reason = stepPhrase(key)
+        ? "last one was a lot, so we'll stay with the same practice and keep it gentler: a bit shorter, with more quiet space to settle."
+        : "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler: a bit shorter, with more quiet space to settle.";
       if(lastMost && lastMost.emotionIntent) reason += " if you work with " + lastMost.emotionIntent + " again, maybe at a gentler intensity this time.";
-    } else if(droppedRung && hardLast){
-      reason = "the last couple were a lot, so we'll ease back to " + _skillWord(skill) + " for now. that's just where your system is today, and it's completely normal. the deeper work stays right where you left it.";
-    } else if(droppedRung){
-      reason = "last one didn't land clearly, so we're going one step easier this time: " + _skillWord(skill) + ".";
+    } else if(droppedStep && hardLast){
+      reason = "the last couple were a lot, so we'll ease back to " + _stepWords(key, skill) + " for now. that's just where your system is right now, and it's completely normal. the practices after this one will still be here when you're ready.";
+    } else if(droppedStep){
+      reason = "last one didn't land clearly, so we're going with a gentler practice this time: " + _stepWords(key, skill) + ".";
     } else if(hold){
-      reason = "strong safety has become your norm, and you're anchored right now. we'll go to the top of the ladder: " + _skillWord(skill) + ", and hold safety and defense together to watch what unfolds.";
+      reason = "strong safety has become your norm, and you're anchored right now. " + (stepPhrase(key) ? "this practice " + stepPhrase(key) + ", then holds safety and defense together so you can watch what unfolds."
+                                     : "we'll practice " + _skillWord(skill) + " at its deepest, and hold safety and defense together to watch what unfolds.");
     } else if(descIntro){
       reason = "you've been steady with balancing and pendulation on their own. this one adds describing the defense out loud, one step deeper, on the skill you're strongest in.";
     } else if(dys){
       reason = "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose.";
-    } else if(rg.hi < 0){
-      reason = "you have safety here, and this is a good place to start meeting defense gently: validating and normalizing what's here. one rung at a time, with the way back always open.";
-    } else if(rg.next){
-      reason = "you have safety here, and your practice history has earned the next step: " + _skillWord(skill) + ". one rung at a time, with the way back always open.";
+    } else if(sp.hi < 0){
+      reason = "you have safety here, and this is a good place to start meeting defense gently: " + _skillWord(skill) + " what's here. one practice at a time, and you can always go back to an easier one.";
+    } else if(sp.next){
+      reason = stepPhrase(key)
+        ? "you have safety here, and your practice history has earned the next practice. it " + stepPhrase(key) + ". one practice at a time, and you can always go back to an easier one."
+        : "you have safety here, and your practice history has earned the next practice: " + _skillWord(skill) + ". one practice at a time, and you can always go back to an easier one.";
     } else if(ceiling>=3){
       reason = "you've got steady safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
-    } else if(L.sessionsDone>=3 && L.favPractice==='most'){
+    } else if(L.sessionsDone>=3 && L.favPractice==='self-regulation'){
       reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
     } else {
       reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
     }
     // silence: the 0.55-appetite 4s default is re-sourced to the deepest tier (ceiling 3).
     const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
-    return cfg('most', skill, sense, sil3, reason, dialDown ? 'same rung, smaller dose' : droppedRung ? 'one step easier' : 'room to go deeper',
-               { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedRung });
+    return cfg('self-regulation', skill, sense, sil3, reason, dialDown ? 'same step, smaller dose' : droppedStep ? 'one step easier' : 'room to go deeper',
+               { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedStep,
+                 prefix: part.prefix, depth: part.depth, offerKey: key });
 
     function cfg(practiceKey, skill, sense, silence, reason, tag, extras){
       const pSil = prefSilence();
       let sil2 = (pSil!=null?pSil:silence);
+      // what has worked for them (2026-09-25): the silence their best practices ran on, unless they set one themselves
+      // or this practice is deliberately gentler than usual. Said plainly in the reason, never as a number or a score.
+      const learnedSil = (pSil==null && L.bestSilence!=null && !(extras && (extras.dialDown || extras.droppedStep)) && L.lastExit!=='exit-distracted') ? L.bestSilence : null;
+      const silLearned = (learnedSil!=null && learnedSil!==sil2);
+      if(silLearned) sil2 = learnedSil;
+      const anchored = (practiceKey==='anchoring' || practiceKey==='self-regulation');
+      if(anchored && AP.why==='winner') reason += " we'll use " + AP.sense + ", the anchor that has worked best for you" + (silLearned ? ", with the amount of silence your best practices had." : ".");
+      else if(anchored && AP.why==='cycle') reason += " we're trying each anchor in turn to find the one that works best for you. this time: " + AP.sense + "." + (silLearned ? " the silence is set to what your best practices had." : "");
+      else if(silLearned) reason += " the silence is set to what your best practices had.";
       if(L.lastExit==='exit-distracted'){ sil2 = Math.min(sil2, 4); reason += " shorter silences this time, so it's easier to stay with."; }
-      else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedRung))){ reason += " last one was a lot, so we're keeping this one easier."; }
+      else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedStep))){ reason += " last one was a lot, so we're keeping this one easier."; }
       else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
       return Object.assign({ practiceKey, skill, sense, silence: sil2, reason, tag,
                adapted: (L.sessionsDone>0), domBefore: last?_dm(last):null, challenge: null,
@@ -1737,7 +1971,7 @@
     }
   }
   // plain word for a skill inside advisor copy (lowercase register)
-  const _SKILL_WORD = { validate:'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulation:'pendulation' };
+  const _SKILL_WORD = { 'validate-defense':'validating', 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
   function _skillWord(k){ return _SKILL_WORD[k] || k; }
 
   // (CHALLENGE_LEVELS + challengeLabel moved up beside _PRACTICE_RUNG, 2026-08-22 —
@@ -1848,26 +2082,28 @@
     }
     return { n, families, topFamily, connectedPct: Math.round(conn/n*100), shift };
   }
-  // rungMovement(startMs, endMs): the self-regulation skill practiced at the window's
-  // start vs its end (from 'most' sessions with a skill inside the window). Powers the
+  // skillMovement(startMs, endMs): the self-regulation skill practiced at the window's
+  // start vs its end (from 'self-regulation' sessions with a skill inside the window). Powers the
   // period "3 months ago you were practicing X, now Y" arc. Null until two such practices
   // exist in the window. `advanced` is available (ladder index) but the copy stays neutral
   // — forward-then-back is normal (Justin), and the ladder is a sequence, not a score.
-  function rungMovement(startMs, endMs){
+  function skillMovement(startMs, endMs){
     const ms = data.sessions
-      .filter(s => s && s.practiceKey==='most' && s.skill && typeof s.t==='number' && s.t>=startMs && s.t<endMs)
+      .filter(s => s && s.practiceKey==='self-regulation' && s.skill && typeof s.t==='number' && s.t>=startMs && s.t<endMs)
       .sort((a,b)=>a.t-b.t);
     if(ms.length < 2) return null;
-    const from = ms[0].skill, to = ms[ms.length-1].skill;
-    const fi = SKILL_LADDER.indexOf(from), ti = SKILL_LADDER.indexOf(to);
-    return { from, to, fromDesc: skillDesc(from), toDesc: skillDesc(to),
-             moved: from!==to, advanced: (fi>=0 && ti>=0) ? ti>fi : null, n: ms.length };
+    const fromKey = sequenceKeyOf(ms[0]), toKey = sequenceKeyOf(ms[ms.length-1]);
+    const from = _skillOfKey(fromKey), to = _skillOfKey(toKey);
+    const SEQ = SKILL_SEQUENCE || [];
+    const fi = SEQ.indexOf(fromKey), ti = SEQ.indexOf(toKey);
+    return { from, to, fromKey, toKey, fromDesc: skillDesc(from), toDesc: skillDesc(to),
+             moved: fromKey!==toKey, advanced: (fi>=0 && ti>=0) ? ti>fi : null, n: ms.length };
   }
 
   // 'more' matches practiceLabelFor + _PRACTICE_RUNG ('guided meditation') — before
   // 2026-08-22 it was missing here, so the first completed meditation would have
   // rendered the literal key "more" in practice history and the "You return to" line.
-  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'connect with safety', most:'self-regulation', more:'guided meditation' };
+  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'safety anchoring', 'self-regulation':'self-regulation', more:'guided meditation' };
   function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
 
   // ---- name ----
@@ -1879,10 +2115,30 @@
   function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
   function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
   function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
-  // default sense/silence also live in the cloud (public.preferences) so they aren't
+  // the background sound (2026-09-26): { bed: 'creek'|'none', level: 'soft'|'medium'|'louder', at: ms }, or null = never chosen
+  // (the player then plays Nothing, the default). Saved here AND in the cloud row (public.preferences.pref_bed / pref_bed_level,
+  // 2026-09-26 late: Justin "do this now"), so a choice made on one phone is there on the next; `at` is when THIS device chose, so a
+  // cloud row written later by another device wins on the next hydrate (pullPrefs), and never the other way round.
+  function prefBed(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_bed')||'null'); return (v && typeof v.bed==='string') ? v : null; }catch(e){ return null; } }
+  function setPrefBed(bed, level){ try{ if(bed) localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(bed), level:(level||null), at:Date.now() })); else localStorage.removeItem('snb_pref_bed'); }catch(e){} _syncPrefs(); }
+  // default sense/silence and the background sound also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
   function _syncPrefs(){ if(!CLOUD || !auth.user) return; try{
-    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+    const b=prefBed();
+    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), pref_bed:(b?b.bed:null), pref_bed_level:(b?(b.level||null):null), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+  }catch(e){} }
+  // the cloud's background sound, once per hydrate: taken when this device has never chosen, or when the cloud row was written
+  // after this device's choice (another phone chose later). A device that has chosen but never reached the cloud pushes up instead.
+  async function pullPrefs(){ if(!CLOUD || !auth.user) return; try{
+    const r = await sb.from('preferences').select('pref_bed,pref_bed_level,updated_at').eq('user_id', auth.user.id).maybeSingle();
+    if(r.error || !r.data) { if(prefBed()) _syncPrefs(); return; }
+    const row=r.data, local=prefBed(), cloudAt=row.updated_at ? Date.parse(row.updated_at) : 0;
+    if(row.pref_bed){
+      if(!local || (cloudAt && (!local.at || cloudAt > local.at))){
+        try{ localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(row.pref_bed), level:(row.pref_bed_level||null), at:(cloudAt||Date.now()) })); }catch(e){}
+        notify();
+      }
+    } else if(local){ _syncPrefs(); }
   }catch(e){} }
 
   async function reset(){
@@ -1988,12 +2244,13 @@
     learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
-    rungs, rungStory, rungMovement, skillDesc, skillOutcomes, SKILL_LADDER, EMOTION_FAMILIES, EMOTION_SURFACED,
+    skillProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
+    skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
-    prefSense, setPrefSense, prefSilence, setPrefSilence,
+    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, pullPrefs,
     saveContexts,
     isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
-    trackEvent, flushEvents, src, SRC_ALLOW,
+    trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
     liveFetch, livePoll,
   };
 })(window);

@@ -673,6 +673,15 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .help-track{flex:1;height:14px;background:var(--bone-deep);border-radius:7px;overflow:hidden}
 .help-fill{display:block;height:100%;border-radius:7px;transition:width .6s var(--ease)}
 .help-pct{flex:none;width:40px;text-align:right;font-size:calc(13.5px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
+/* 2026-09-27 late night — "Practice impacts": bars from a middle line, right = up, left = down (Justin's pick, mock-up 1B) */
+.help-track-mid{position:relative;overflow:visible}
+.help-track-mid::before{content:'';position:absolute;left:50%;top:-4px;bottom:-4px;width:1.5px;background:var(--ink-80);opacity:.55;transform:translateX(-50%)}
+.help-track-mid .help-fill{position:absolute;top:0;height:100%}
+.help-track-mid .help-fill-up{left:50%;border-top-left-radius:0;border-bottom-left-radius:0}
+.help-track-mid .help-fill-down{right:50%;border-top-right-radius:0;border-bottom-right-radius:0;transform-origin:right center}
+.help-pct-up{color:var(--ink)}
+.help-row .help-pct{width:48px;white-space:nowrap}
+.panel.panel-in .help-track-mid .help-fill-down{transform-origin:right center}
 .help-verdict{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:18px 0 0;text-wrap:pretty}
 .help-verdict.good{color:var(--ink)}
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
@@ -1325,6 +1334,19 @@ body.reduce-motion .p7-dial-cue{animation:none}
   padding:14px 22px 8px;background:var(--bone-deep);border-top:0.5px solid var(--hairline)}
 .p7-sheet-body > .p7-sheet-group:first-child{border-top:0}
 .p7-sheet-sep{height:0;border-top:0.5px solid var(--hairline);margin:0}
+/* the background sound sheet (2026-09-26): how loud = three buttons in a row, and a Done button at the foot */
+.p7-seg{display:flex;gap:8px;padding:12px 22px 6px 36px}
+.p7-seg-b{flex:1;min-height:44px;border:1px solid var(--hairline);border-radius:12px;background:none;font:inherit;
+  font-size:calc(15px * var(--type-scale));color:var(--ink-80);cursor:pointer}
+.p7-seg-b.sel{border-color:var(--tc-ink);color:var(--tc-ink);background:var(--bone-deep);font-weight:600}
+/* 2026-09-26: the five volume steps, no words — pills that grow, the chosen one filled */
+.p7-seg-steps{align-items:flex-end}
+.p7-step{min-height:0;height:calc(34px + var(--step,1) * 5px);font-size:0}
+.p7-step.sel{background:var(--tc-ink);border-color:var(--tc-ink)}
+.p7-seg-b:focus-visible,.p7-sheet-done:focus-visible{outline:2px solid var(--tc-ink);outline-offset:2px}
+.p7-sheet-foot{padding:14px 22px 4px;display:flex;justify-content:flex-end}
+.p7-sheet-done{min-height:44px;padding:0 22px;border:0;border-radius:22px;background:var(--tc-ink);color:var(--bone);
+  font:inherit;font-weight:600;font-size:calc(15px * var(--type-scale));cursor:pointer}
 /* rows: an icon, a title + one-line description, and a check. hairline dividers
    between consecutive rows so it reads as a list of distinct choices, not a strip. */
 .p7-opt{display:flex;align-items:center;gap:14px;width:100%;background:none;border:0;position:relative;
@@ -3188,3 +3210,60 @@ body.reduce-motion .ob-foot::before{transition:none}
 .rd-axis{display:flex;justify-content:space-between;gap:4px;font-size:calc(10px * var(--type-scale));color:var(--muted);border-top:1px solid var(--hairline);padding-top:4px;margin-top:-2px;white-space:nowrap}
 /* a heading with no lede still needs air before the chart (2026-09-07) */
 .panel-title + .help-bars,.panel-title + .rd-row{margin-top:18px}
+
+/* ── after-practice screen, option A "quiet close" (Justin, 2026-09-25) ───────────────────────────────
+   left-aligned; three marks the same size; bolt + x in ink, fading back; the heart in the safety colour
+   coming in on its own; then the numbers one at a time, left to right. Keyframes with fill `both`, so a
+   screen that never animates (reduced motion) is simply the end state — nothing waits on a class. */
+.fbx{align-items:stretch;text-align:left;padding-top:clamp(40px,9vh,88px)}
+.fbx-marks{display:flex;align-items:center;height:32px}
+.fbx-logo{height:30px;width:auto;display:block;overflow:visible}
+.fbx-m{transform-box:fill-box;transform-origin:center}
+.fbx-heart{animation:fbx-heart-in 2.1s var(--ease) .35s both}
+.fbx-bolt,.fbx-x{opacity:.26;animation:fbx-fade-back 2.1s var(--ease) .35s both}
+/* 2026-09-28: no rise in safety → one ink lockup; nothing fades back, nothing pulses */
+.fbx-flat .fbx-m{opacity:1;animation:none;fill:var(--ink)}
+.fbx-eyebrow{margin:32px 0 12px}
+.fbx-h{font-size:calc(26px * var(--type-scale));font-weight:600;line-height:1.2;letter-spacing:-.02em;color:var(--ink);margin:0;text-wrap:pretty}
+.fbx-lede{font-size:calc(17px * var(--type-scale));line-height:1.65;color:var(--ink-80);margin:12px 0 0;text-wrap:pretty;max-width:34em}
+.fbx-card{margin-top:32px;padding:24px;border-radius:18px;background:var(--bone-deep)}
+.fbx-card-h{margin:0 0 12px;font-size:calc(14px * var(--type-scale));line-height:1.4;color:var(--muted)}
+.fbx-nums{margin:0;font-size:calc(24px * var(--type-scale));font-weight:500;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--ink)}
+.fbx-arrow{color:var(--muted);font-weight:400}
+.fbx-card-2{margin-top:12px}
+.fbx-card .fbx-card-line{display:block;text-wrap:pretty;margin:12px 0 0;font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--ink-80)}
+.fbx-card .fbx-card-note{display:block;text-wrap:pretty;margin:8px 0 0;font-size:calc(14px * var(--type-scale));line-height:1.45;color:var(--muted)}
+.fbx-in{display:inline-block;animation:fbx-rise .5s var(--ease) both;animation-delay:calc(2.5s + var(--i,0) * .28s)}
+.fbx-actions{margin-top:auto;padding-top:32px;display:flex;flex-direction:column;gap:12px}
+/* ✅ 2026-09-25 (Justin: "i did not notice the glyphs animating"): all three arrive together in ink, hold, then the bolt
+   and x step back while the heart grows into the safety colour and settles; the numbers follow after. */
+@keyframes fbx-heart-in{0%{opacity:0;fill:var(--ink);transform:scale(.85)}14%{opacity:1;fill:var(--ink);transform:scale(1)}40%{opacity:1;fill:var(--ink);transform:scale(1)}72%{opacity:1;fill:var(--fbx-safety);transform:scale(1.3)}86%{transform:scale(.94)}100%{opacity:1;fill:var(--fbx-safety);transform:scale(1)}}
+@keyframes fbx-fade-back{0%{opacity:0}14%{opacity:1}40%{opacity:1}75%{opacity:.26}100%{opacity:.26}}
+@keyframes fbx-rise{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}
+body.reduce-motion .fbx-heart,body.reduce-motion .fbx-bolt,body.reduce-motion .fbx-x,body.reduce-motion .fbx-in{animation:none}
+@media (prefers-reduced-motion:reduce){.fbx-heart,.fbx-bolt,.fbx-x,.fbx-in{animation:none}}
+
+/* ── variety menu (2026-09-25): "Try something different" under the recommended card ── */
+.vs-link{display:inline-flex;align-items:center;margin:8px 0 -10px -2px;background:none;border:0;font:inherit;font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline);padding:10px 2px;min-height:44px;cursor:pointer;position:relative;z-index:1}
+.vs-link:hover{color:var(--ink)}
+div.tuned-card:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.vs-wrap{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end}
+.vs-scrim{position:absolute;inset:0;background:rgba(26,31,42,.28);opacity:0;transition:opacity .25s var(--ease)}
+.vs-sheet{position:relative;background:var(--bone);border-radius:20px 20px 0 0;padding:20px 16px calc(16px + env(safe-area-inset-bottom));transform:translateY(100%);transition:transform .3s var(--ease);max-width:560px;width:100%;margin:0 auto;box-sizing:border-box}
+.vs-wrap.on .vs-scrim{opacity:1}
+.vs-wrap.on .vs-sheet{transform:none}
+.vs-h{margin:0 4px 12px;font-size:calc(15px * var(--type-scale));color:var(--muted)}
+.vs-opts{display:flex;flex-direction:column;gap:8px}
+.vs-opt{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:54px;padding:0 18px;border:1px solid var(--hairline);border-radius:14px;background:var(--bone);font:inherit;font-size:calc(17px * var(--type-scale));color:var(--ink);cursor:pointer;text-align:left}
+.vs-opt:active{transform:scale(.985)}
+.vs-rec{border-color:var(--ink)}
+.vs-tag{font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.vs-cancel{display:block;width:100%;margin-top:10px;min-height:48px;background:none;border:0;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--muted);cursor:pointer}
+@media (prefers-reduced-motion:reduce){.vs-scrim,.vs-sheet{transition:none}}
+body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
+/* ── You tab "your best setup" card (2026-09-25) ── */
+.bs-rows{margin:0 0 16px}
+.bs-rows .sd-row{border-top:1px solid var(--hairline);padding:10px 0}
+.bs-go{width:100%}
+.bs-remind{display:block;margin:10px auto 0;background:none;border:0;font:inherit;font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--hairline);min-height:44px;cursor:pointer}
+.bs-rows .sd-row{font-size:calc(15px * var(--type-scale));border-bottom:0}
