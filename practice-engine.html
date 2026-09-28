@@ -279,24 +279,26 @@ body.playing .brand{display:none}
    can be a bit more minimal"); silence, captions and the sound live in the customizer fold */
 .controlbar{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;width:100%;align-items:center}
 .adjgroup{display:contents}
-.adj{min-width:0;width:100%;display:flex;align-items:center;justify-content:center;gap:2px;height:54px;border:1px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--muted);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
+/* 2026-09-27 late night (Justin: the customizer's buttons were "at different thickness or opacity"): every row here is the same —
+   a 1.5px hairline like the rest of the player, ink-80 text, ink when on */
+.adj{min-width:0;width:100%;display:flex;align-items:center;justify-content:center;gap:2px;height:54px;border:1.5px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--ink-80);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{grid-column:span 4;justify-content:space-between;padding:0 4px 0 14px}
 .captoggle{grid-column:span 2;justify-content:center;gap:6px;padding:0 8px;cursor:pointer}
 .scenetoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}
 .bedtoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}   /* 2026-09-26: the level lives in the list now; the row is the sound's */
 .bedtoggle .bed-val{min-width:0;text-align:right}
-.bedtoggle.on{border-color:var(--ink-80)}
+.bedtoggle.on{border-color:var(--ink)}
 .customize{grid-column:span 1}
 .prevclip{grid-column:span 1}
 .rewind{grid-column:span 2}
 #pause{grid-column:span 2}
 .customize .ico{width:24px;height:24px;fill:none}
-.customize.on{border-color:var(--ink-80)}
+.customize.on{border-color:var(--ink)}
 .transport.mini{width:100%;min-width:44px}
 .adj-stepper{display:inline-flex;align-items:center;gap:2px}
-.adj-label{color:var(--muted)}
-.adj-val{color:var(--ink-80);font-variant-numeric:tabular-nums;min-width:2.2em;text-align:center}
-.adj-step{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:var(--muted);font:inherit;font-size:calc(21px * var(--type-scale));line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color var(--ease) .2s}
+.adj-label{color:var(--ink-80)}
+.adj-val{color:var(--ink);font-variant-numeric:tabular-nums;min-width:2.2em;text-align:center}
+.adj-step{width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:var(--ink-80);font:inherit;font-size:calc(21px * var(--type-scale));line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color var(--ease) .2s}
 @media(hover:hover){.adj-step:hover{color:var(--ink)}}
 .adj-step:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media (max-width:359.98px){
@@ -304,8 +306,8 @@ body.playing .brand{display:none}
   .adj-stepper{gap:0}
   .adj-val{min-width:2em}
 }
-.captoggle .cc{font-weight:500;letter-spacing:.1em;color:var(--muted);transition:color var(--ease) .2s}
-.captoggle .cc-state{color:var(--muted);transition:color var(--ease) .2s}
+.captoggle .cc{font-weight:500;letter-spacing:.1em;color:var(--ink-80);transition:color var(--ease) .2s}
+.captoggle .cc-state{color:var(--ink);transition:color var(--ease) .2s}
 @media(hover:hover){.captoggle:hover{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}}
 @media(hover:hover){.captoggle:hover .cc,.captoggle:hover .cc-state{color:var(--ink-80)}}
 .captoggle.on{border-color:var(--ink)}
@@ -443,7 +445,7 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .fold-custom{--fold-gap:16px}
 .bed-h{margin:0;font-size:calc(12px * var(--type-scale));letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left}
 .bed-rows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.customdone{justify-content:center;text-align:center}
+.customdone{justify-content:center;text-align:center;min-height:54px;border-radius:14px;color:var(--ink-80)}
 .bedrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;padding:10px 12px 10px 14px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
 .bedrow.sel{border-color:var(--ink);font-weight:600}
 .bedrow .tick{width:18px;height:18px;flex:none;opacity:0;transition:opacity .2s var(--ease)}
@@ -455,23 +457,24 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .bed-levels.off{opacity:.35;pointer-events:none}
 .bedlv{min-height:0;height:calc(38px + var(--step,1) * 5px);padding:0;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:0;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
 .bedlv.sel{border-color:var(--ink);background:var(--ink);color:var(--bone)}
-.bed-lv{opacity:.7}.bed-lv:not(:empty)::before{content:'\00b7';margin:0 5px}
+.bed-lv:not(:empty)::before{content:'\00b7';margin:0 5px}
 
 /* ── the breath check's three pairs (2026-09-26) ───────────────────────────────────────────────────────────────────── */
 /* 2026-09-27 late night — a LINE with three stops (Justin: "D is the most intuitive"): word · stop ─── stop ─── stop · word. The two words are
    the end stops; the middle stop is Between (no word; read out only). The three are still buttons, in DOM order, so a tap lands the same way. */
 .breath-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:0;min-height:44px}
-.breath-row .stop{min-height:44px;padding:0;background:none;border:0;border-radius:10px;display:flex;align-items:center;gap:8px;font-size:calc(14px * var(--type-scale));font-weight:400;color:var(--ink-80);position:relative;transition:color .2s var(--ease)}
+.breath-row .stop{min-height:48px;padding:0;background:none;border:0;border-radius:10px;display:flex;align-items:center;gap:8px;font-size:calc(15px * var(--type-scale));font-weight:400;color:var(--ink);position:relative;transition:color .2s var(--ease)}
 .breath-row .stop.lo{padding-right:4px;padding-left:6px}
 .breath-row .stop.hi{padding-left:4px;padding-right:6px;justify-content:flex-end}
 .breath-row .stop.mid{justify-content:center;width:100%}
-.breath-row .stop.mid::before{content:'';position:absolute;left:-12px;right:-12px;top:50%;height:1.5px;background:var(--hairline);transform:translateY(-50%)}
+.breath-row .stop.mid::before{content:'';position:absolute;left:-12px;right:-12px;top:50%;height:2px;background:var(--ink-80);opacity:.5;transform:translateY(-50%)}   /* 2026-09-27 late night, Justin: more contrast, dark mode especially */
 .breath-row .stop .word{min-width:4.8em}   /* the lines start and end level, whatever the words' lengths */
 .breath-row .stop.hi .word{text-align:right}
-.breath-row .stop .dot{width:14px;height:14px;border-radius:50%;background:var(--bone);border:1.5px solid var(--hairline);flex:none;position:relative;z-index:1;transition:transform .2s var(--ease),background .2s var(--ease),border-color .2s var(--ease)}
-.breath-row .stop.mid .dot{width:10px;height:10px}
+/* the stops read as things to tap (Justin: "the tappable spots are not super obvious"): larger, an ink-80 ring, a filled centre */
+.breath-row .stop .dot{width:20px;height:20px;border-radius:50%;background:var(--bone-deep);border:2px solid var(--ink-80);flex:none;position:relative;z-index:1;box-sizing:border-box;transition:transform .2s var(--ease),background .2s var(--ease),border-color .2s var(--ease)}
+.breath-row .stop.mid .dot{width:16px;height:16px}
 .breath-row .stop.sel{color:var(--ink);font-weight:500;background:none}
-.breath-row .stop.sel .dot{background:var(--ink);border-color:var(--ink);transform:scale(1.35)}
+.breath-row .stop.sel .dot{background:var(--ink);border-color:var(--ink);transform:scale(1.2)}
 @media(hover:hover){.breath-row .stop:hover{box-shadow:none;color:var(--ink)}.breath-row .stop:hover .dot{border-color:var(--ink-80)}}
 .breath-row .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .choicebtn.sel{background:var(--ink);color:var(--bone);border-color:var(--ink)}
@@ -493,7 +496,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               00381dc683bb669af63059d5bba7aa77    34943 bytes
+     page.css               5487b8e85f97dd1e68517c99a040d657    35415 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
      data.js                7a1c8040443eda29e9c99e652ac81028    65561 bytes
