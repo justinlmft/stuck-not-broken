@@ -481,7 +481,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               cc591b01261d370dd8f745c138007fa7    33132 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                3e89b62cf9d96e3f64304e3fff7302d5    64417 bytes
+     data.js                4710bf406f2c47db631217b42f25c9a3    64790 bytes
      plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
      runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
      host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
@@ -897,7 +897,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:3e89b62cf9d96e3f64304e3fff7302d5 */
+<script>/* @module data.js md5:4710bf406f2c47db631217b42f25c9a3 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1350,8 +1350,11 @@ const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
  * the environment. Each family is all-or-nothing: nothing speaks until recorded (recording doc §13). */
 /* order (Justin, 2026-09-26 late night): "Make the options go in this order: Chest/Belly, Full/Shallow, Tense/Relaxed" */
 /* 2026-09-27, Justin: "swap full and shallow" — each pair reads constricted → easy: chest/belly, shallow/full, tense/relaxed */
-/* the beats that put the breath buttons up: the connect-with-safety breath (the first check a listener hears) and the re-checks */
-const BREATH_CHECKS = Object.freeze([ROLE.breathFirst, ROLE.breathCheck]);
+/* the beats that put the breath buttons up — every clip that asks the three questions (Justin, 2026-09-27, three reports of "the first
+ * breath check" with no buttons): MIND-02, the natural-breathing beat of the mindfulness block and the short practices ("chest or belly?
+ * full or shallow? tense or relaxed?"; the first check in Mindfulness and in every full practice's opening block); ANCHORING-SHARED-01-BREATH,
+ * the connect-with-safety breath; and BREATH-CHECK, the re-checks. */
+const BREATH_CHECKS = Object.freeze([NATURAL_BREATH, ROLE.breathFirst, ROLE.breathCheck]);
 const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'belly']), Object.freeze(['shallow', 'full']), Object.freeze(['tense', 'relaxed'])]);
 const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
 /* Recording v2d (2026-09-27): both recorded — BREATH-ACK 11 takes, BREATH-GUIDE-MOVE 10 — so both speak. */
