@@ -481,14 +481,14 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      page.css               cc591b01261d370dd8f745c138007fa7    33132 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                1550fd8b847ae861b4af434a175b652d    63666 bytes
+     data.js                3e89b62cf9d96e3f64304e3fff7302d5    64417 bytes
      plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
      runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
      host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
-     session.js             8dbc06d14a2e0247d02e4fba19cb5e35    81435 bytes
+     session.js             b03d1c1dba03e8c4e9bc84f2b00045c1    82658 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                df7c691088e17bbb34db933f0ca03733    15014 bytes
      page.js                8bf1adaa0cb0ce2f6cb4c81e692fbad2    63049 bytes
@@ -897,7 +897,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:1550fd8b847ae861b4af434a175b652d */
+<script>/* @module data.js md5:3e89b62cf9d96e3f64304e3fff7302d5 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1163,6 +1163,11 @@ const ROLE = {
 
   // recurring beats
   breathCheck:  must('BREATH-CHECK'),
+  /* ✅ THE FIRST BREATH CHECK IS THE CONNECT-WITH-SAFETY BREATH (Justin, 2026-09-27, twice: "the breath check menu did not come up on the
+   * first breath check audio"). ANCHORING-SHARED-01-BREATH asks the same three questions — chest or belly, full or shallow, tense or
+   * relaxed — long before BREATH-CHECK ("check on your breath AGAIN"), so to a listener it IS the first check. Every beat in
+   * BREATH_CHECKS opens the breath buttons (session.js `_controlKindFor`). */
+  breathFirst:  must('ANCHORING-SHARED-01-BREATH'),
   capCheck:     must('CAP-CHECK'),
   numbOk:       must('NUMB-OK'),            // safety side only — §7 rule 10
   numbOkDefense: must('NUMB-OK-DEFENSE'),   // the defense side's OWN words, not the same clip again
@@ -1345,6 +1350,8 @@ const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
  * the environment. Each family is all-or-nothing: nothing speaks until recorded (recording doc §13). */
 /* order (Justin, 2026-09-26 late night): "Make the options go in this order: Chest/Belly, Full/Shallow, Tense/Relaxed" */
 /* 2026-09-27, Justin: "swap full and shallow" — each pair reads constricted → easy: chest/belly, shallow/full, tense/relaxed */
+/* the beats that put the breath buttons up: the connect-with-safety breath (the first check a listener hears) and the re-checks */
+const BREATH_CHECKS = Object.freeze([ROLE.breathFirst, ROLE.breathCheck]);
 const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'belly']), Object.freeze(['shallow', 'full']), Object.freeze(['tense', 'relaxed'])]);
 const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
 /* Recording v2d (2026-09-27): both recorded — BREATH-ACK 11 takes, BREATH-GUIDE-MOVE 10 — so both speak. */
@@ -1724,7 +1731,7 @@ function takesInRotation(id) {
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
+  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
@@ -5166,7 +5173,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:8dbc06d14a2e0247d02e4fba19cb5e35 */
+<script>/* @module session.js md5:b03d1c1dba03e8c4e9bc84f2b00045c1 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5440,6 +5447,7 @@ class Session {
     /* INTENSITY-DEFENSE's answers, the same shape: one slot per time it was asked, null = not answered */
     this.intensities = [];
     this.breathAnswers = [];          // 2026-09-25: More full / More shallow at the breath checks, in order
+    this._guidedOnce = false;         // 2026-09-27: the invitation to move plays at most once per practice (Justin)
     /* The four-button offer (2026-09-22): every time it went up — { scale, slot, value, choice } with
      * choice null until tapped — and where the run went because of it. */
     this.offers = [];
@@ -5604,8 +5612,9 @@ class Session {
     if (b.choice === CONTROL.CAPACITY_CHECK) return CONTROL.CAPACITY_CHECK;
     if (b.choice === CONTROL.STATEMENT) return CONTROL.STATEMENT;
     if (b.choice === CONTROL.ANCHOR) return CONTROL.ANCHOR;
-    /* every breath check (Justin, 2026-09-27: "make sure it fires on each breath check") — not only the takes that ask "full or shallow" */
-    if (b.id === D.ROLE.breathCheck) return CONTROL.BREATH;
+    /* every breath check (Justin, 2026-09-27: "make sure it fires on each breath check") — not only the takes that ask "full or shallow",
+     * and the connect-with-safety breath too, which asks the same three questions first (data.js BREATH_CHECKS) */
+    if (D.BREATH_CHECKS.indexOf(b.id) >= 0) return CONTROL.BREATH;
     /* 🔴 `finishable` was set by the planner and read by NOTHING until 2026-09-17. See
      * `_finish` below for what that cost. It is a FLAG, not a `choice`, because it rides every
      * beat of the open ending including each firing of the breath loop — the card has to stay up
@@ -5787,25 +5796,41 @@ class Session {
     this.onEvent({ type: 'breath', value: option, pair: pair.join('/') });
     const q = this.queue[c.index];
     const live = this.runtime.idx === c.index;
-    const say = (id, reply) => {
+    const replyBeat = (id) => {
       const b = this._branchBeat(id, q.phase);
       b.kind = P.KIND.reply;
       b.gap = P.gapFor(b, this.silence);
       b.response = c.index;
-      this.queue.splice(c.index + 1 + st.replies, 0, b);
+      return b;
+    };
+    const say = (id, reply) => {
+      const at = c.index + 1 + st.replies;
+      this.queue.splice(at, 0, replyBeat(id));
       st.replies++;
       this.onEvent({ type: 'tap-reply', control: CONTROL.BREATH, reply });
+      return at;
     };
     let spoke = false;
     /* the FIRST tap in a check is acknowledged, whichever pair it is (Justin, 2026-09-26) — one take from the breath
      * acknowledgments or the general ones (data.js BREATH_ACK_FAMILIES), every take an equal chance */
     const ackFamily = st.first && live ? this._ackFamily(D.BREATH_ACK_FAMILIES) : null;
-    if (ackFamily) { say(ackFamily, 'ack'); spoke = true; }
+    if (ackFamily) { st.ackAt = say(ackFamily, 'ack'); spoke = true; }
     st.first = false;
-    /* chest + shallow + tense, once all three are in: the invitation to move (Justin, 2026-09-26) */
+    /* chest + shallow + tense, once all three are in: the invitation to move (Justin, 2026-09-26) — ONCE PER PRACTICE, and on its own:
+     * "they don't need an acknowledgment followed by the breath-guide-move one, too. just do the breath-guide-move" (Justin, 2026-09-27).
+     * The acknowledgment was queued at the first tap; it is swapped for the invitation, so the person hears one reply, not two. (Once the
+     * acknowledgment starts playing the window has closed — `live` is false — so a third tap that late is only recorded.) */
     const got = Object.keys(st.answers).map(k => st.answers[k]);
-    if (!st.guided && live && D.BREATH_GUIDE_MOVE && D.BREATH_FREEZE_PATTERN.every(v => got.indexOf(v) >= 0)) {
-      say(D.BREATH_GUIDE_MOVE, 'guide-move'); st.guided = true; spoke = true;
+    if (!this._guidedOnce && live && D.BREATH_GUIDE_MOVE && D.BREATH_FREEZE_PATTERN.every(v => got.indexOf(v) >= 0)) {
+      const ackAhead = st.ackAt != null && st.ackAt > this.runtime.idx && this.queue[st.ackAt] && this.queue[st.ackAt].response === c.index;
+      if (ackAhead) {
+        this.queue.splice(st.ackAt, 1, replyBeat(D.BREATH_GUIDE_MOVE));
+        st.ackAt = null;
+        this.onEvent({ type: 'tap-reply', control: CONTROL.BREATH, reply: 'guide-move', replaces: 'ack' });
+      } else {
+        say(D.BREATH_GUIDE_MOVE, 'guide-move');
+      }
+      this._guidedOnce = true; st.guided = true; spoke = true;
     }
     if (spoke) this.runtime.settleAfterTap(c.index, TAP_SETTLE.yes);
     return true;
