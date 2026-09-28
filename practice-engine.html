@@ -458,8 +458,22 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .bed-lv{opacity:.7}.bed-lv:not(:empty)::before{content:'\00b7';margin:0 5px}
 
 /* ── the breath check's three pairs (2026-09-26) ───────────────────────────────────────────────────────────────────── */
-.breath-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}   /* constricted · Between · easy (2026-09-27) */
-.breath-row .choicebtn{padding-left:6px;padding-right:6px}   /* three words across a phone: 'Relaxed' and 'Between' need the room */
+/* 2026-09-27 late night — a LINE with three stops (Justin: "D is the most intuitive"): word · stop ─── stop ─── stop · word. The two words are
+   the end stops; the middle stop is Between (no word; read out only). The three are still buttons, in DOM order, so a tap lands the same way. */
+.breath-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:0;min-height:44px}
+.breath-row .stop{min-height:44px;padding:0;background:none;border:0;border-radius:10px;display:flex;align-items:center;gap:8px;font-size:calc(14px * var(--type-scale));font-weight:400;color:var(--ink-80);position:relative;transition:color .2s var(--ease)}
+.breath-row .stop.lo{padding-right:4px;padding-left:6px}
+.breath-row .stop.hi{padding-left:4px;padding-right:6px;justify-content:flex-end}
+.breath-row .stop.mid{justify-content:center;width:100%}
+.breath-row .stop.mid::before{content:'';position:absolute;left:-12px;right:-12px;top:50%;height:1.5px;background:var(--hairline);transform:translateY(-50%)}
+.breath-row .stop .word{min-width:4.8em}   /* the lines start and end level, whatever the words' lengths */
+.breath-row .stop.hi .word{text-align:right}
+.breath-row .stop .dot{width:14px;height:14px;border-radius:50%;background:var(--bone);border:1.5px solid var(--hairline);flex:none;position:relative;z-index:1;transition:transform .2s var(--ease),background .2s var(--ease),border-color .2s var(--ease)}
+.breath-row .stop.mid .dot{width:10px;height:10px}
+.breath-row .stop.sel{color:var(--ink);font-weight:500;background:none}
+.breath-row .stop.sel .dot{background:var(--ink);border-color:var(--ink);transform:scale(1.35)}
+@media(hover:hover){.breath-row .stop:hover{box-shadow:none;color:var(--ink)}.breath-row .stop:hover .dot{border-color:var(--ink-80)}}
+.breath-row .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .choicebtn.sel{background:var(--ink);color:var(--bone);border-color:var(--ink)}
 /* ✅ DYNAMIC vs STANDARD (Justin 2026-09-26: "i like your idea"): the dynamic buttons keep the full outline; while one shares the
    screen with the standard menu (Skip intro during the intro), the menu steps back a little, so the eye goes to the choice. */
@@ -479,7 +493,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               64d44eae032f2da92cda6fdc32930d6e    33321 bytes
+     page.css               00381dc683bb669af63059d5bba7aa77    34943 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
      data.js                7a1c8040443eda29e9c99e652ac81028    65561 bytes
@@ -492,7 +506,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      session.js             79e6b499ab2e50c9c53e73ac2b9dc2d2    82697 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                9aa67390ac1813441f09ae9f36c62ec9    15167 bytes
-     page.js                5ae1bf38c73c9cecc28acfc04240848e    63460 bytes
+     page.js                4720229fe7f69ec863d64b3dda1b8aae    64286 bytes
 -->
 </head>
 <body>
@@ -7218,7 +7232,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:5ae1bf38c73c9cecc28acfc04240848e */
+<script>/* @module page.js md5:4720229fe7f69ec863d64b3dda1b8aae */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7908,13 +7922,20 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   /* ✅ THE BREATH CHECK'S THREE PAIRS (Justin, 2026-09-26): three rows, in the order the clip asks — chest/belly, shallow/full,
    * tense/relaxed — each with Between in the middle (2026-09-27 night). Each row is one tap; the tapped one stays marked (a re-tap on the row changes it); the card
    * stays up for the clip's whole window, so one, two or all three can be answered. */
+  /* ✅ 2026-09-27 late night (Justin, from four mock-ups: "D is the most intuitive"): each row is a LINE between its two words with three
+   * stops — the word at each end is a stop, the middle stop has no word (Between, read out to a screen reader only). The row reads as a
+   * spectrum, not as three buttons; a tap on a word or on the middle marks that stop. Still three buttons per row, in the catalog's order. */
   function openBreath(card) {
     const specs = CHOICE_BUTTONS.breath, pairs = D.BREATH_PAIRS;   // rows in the catalog's order: chest/belly, full/shallow, tense/relaxed
     pairs.forEach(pair => {
       const row = el('div', 'breath-row');
-      pair.forEach(opt => {
+      pair.forEach((opt, i) => {
         const spec = specs.find(x => x.option === opt);
-        const b = el('button', 'choicebtn quietly', spec.label());
+        const end = i === 0 ? 'lo' : i === pair.length - 1 ? 'hi' : 'mid';
+        const b = el('button', 'choicebtn quietly stop ' + end);
+        if (end === 'mid') { b.appendChild(el('span', 'sr', spec.label())); b.appendChild(el('span', 'dot')); }
+        else if (end === 'lo') { b.appendChild(el('span', 'word', spec.label())); b.appendChild(el('span', 'dot')); }
+        else { b.appendChild(el('span', 'dot')); b.appendChild(el('span', 'word', spec.label())); }
         b.type = 'button'; b.dataset.option = opt; b.setAttribute('aria-pressed', 'false');
         b.addEventListener('pointerdown', ev => ev.stopPropagation());
         b.onclick = () => {
