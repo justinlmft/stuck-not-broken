@@ -458,7 +458,8 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .bed-lv{opacity:.7}.bed-lv:not(:empty)::before{content:'\00b7';margin:0 5px}
 
 /* ── the breath check's three pairs (2026-09-26) ───────────────────────────────────────────────────────────────────── */
-.breath-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.breath-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}   /* constricted · Between · easy (2026-09-27) */
+.breath-row .choicebtn{padding-left:6px;padding-right:6px}   /* three words across a phone: 'Relaxed' and 'Between' need the room */
 .choicebtn.sel{background:var(--ink);color:var(--bone);border-color:var(--ink)}
 /* ✅ DYNAMIC vs STANDARD (Justin 2026-09-26: "i like your idea"): the dynamic buttons keep the full outline; while one shares the
    screen with the standard menu (Skip intro during the intro), the menu steps back a little, so the eye goes to the choice. */
@@ -478,20 +479,20 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               cc591b01261d370dd8f745c138007fa7    33132 bytes
+     page.css               64d44eae032f2da92cda6fdc32930d6e    33321 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                4710bf406f2c47db631217b42f25c9a3    64790 bytes
+     data.js                7a1c8040443eda29e9c99e652ac81028    65561 bytes
      plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
      runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
      host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
-     session.js             b03d1c1dba03e8c4e9bc84f2b00045c1    82658 bytes
+     session.js             79e6b499ab2e50c9c53e73ac2b9dc2d2    82697 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                df7c691088e17bbb34db933f0ca03733    15014 bytes
-     page.js                8bf1adaa0cb0ce2f6cb4c81e692fbad2    63049 bytes
+     copy.js                9aa67390ac1813441f09ae9f36c62ec9    15167 bytes
+     page.js                5ae1bf38c73c9cecc28acfc04240848e    63460 bytes
 -->
 </head>
 <body>
@@ -897,7 +898,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:4710bf406f2c47db631217b42f25c9a3 */
+<script>/* @module data.js md5:7a1c8040443eda29e9c99e652ac81028 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1350,12 +1351,18 @@ const BREATH_FULLNESS_TAKES = Object.freeze(['a', 'c', 'f']);
  * the environment. Each family is all-or-nothing: nothing speaks until recorded (recording doc §13). */
 /* order (Justin, 2026-09-26 late night): "Make the options go in this order: Chest/Belly, Full/Shallow, Tense/Relaxed" */
 /* 2026-09-27, Justin: "swap full and shallow" — each pair reads constricted → easy: chest/belly, shallow/full, tense/relaxed */
+/* ✅ BETWEEN (Justin, 2026-09-27 night: "add a 'Between' option for all three? people often say that as a third option"): every row is
+ * three buttons — constricted · Between · easy. A row is still keyed by its first word (session.js `_breathAnswer`); the middle answer is
+ * the two ends joined (`chest-belly`, `shallow-full`, `tense-relaxed`). Between is acknowledged like any tap, never counts toward the
+ * invitation to move (that needs all three constricted answers), and the You tab counts it as not-easy (belly / full / relaxed only). */
 /* the beats that put the breath buttons up — every clip that asks the three questions (Justin, 2026-09-27, three reports of "the first
  * breath check" with no buttons): MIND-02, the natural-breathing beat of the mindfulness block and the short practices ("chest or belly?
  * full or shallow? tense or relaxed?"; the first check in Mindfulness and in every full practice's opening block); ANCHORING-SHARED-01-BREATH,
  * the connect-with-safety breath; and BREATH-CHECK, the re-checks. */
 const BREATH_CHECKS = Object.freeze([NATURAL_BREATH, ROLE.breathFirst, ROLE.breathCheck]);
-const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'belly']), Object.freeze(['shallow', 'full']), Object.freeze(['tense', 'relaxed'])]);
+const BREATH_PAIRS = Object.freeze([Object.freeze(['chest', 'chest-belly', 'belly']), Object.freeze(['shallow', 'shallow-full', 'full']), Object.freeze(['tense', 'tense-relaxed', 'relaxed'])]);
+/* a row's two ends, for the record (`chest/belly`) — the middle answer is never a key */
+const breathPairName = pair => pair[0] + '/' + pair[pair.length - 1];
 const BREATH_FREEZE_PATTERN = Object.freeze(['shallow', 'chest', 'tense']);
 /* Recording v2d (2026-09-27): both recorded — BREATH-ACK 11 takes, BREATH-GUIDE-MOVE 10 — so both speak. */
 const BREATH_ACK = exists('BREATH-ACK') ? must('BREATH-ACK') : null;
@@ -1734,7 +1741,7 @@ function takesInRotation(id) {
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
-  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
+  BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, breathPairName, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
@@ -5176,7 +5183,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:b03d1c1dba03e8c4e9bc84f2b00045c1 */
+<script>/* @module session.js md5:79e6b499ab2e50c9c53e73ac2b9dc2d2 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5296,7 +5303,7 @@ const OPTIONS = Object.freeze({
   [CONTROL.INTENSITY]: Object.freeze(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']),
   [CONTROL.OFFER]: Object.freeze([OFFER_OPTIONS.CONTINUE, OFFER_OPTIONS.SIMPLER, OFFER_OPTIONS.MORE_SAFETY, OFFER_OPTIONS.MOVEMENT]),
   [CONTROL.ANCHOR]: D.ANCHOR_CHOICE_ORDER,
-  [CONTROL.BREATH]: Object.freeze([].concat.apply([], D.BREATH_PAIRS)),   // the three pairs (2026-09-26)
+  [CONTROL.BREATH]: Object.freeze([].concat.apply([], D.BREATH_PAIRS)),   // the three rows (2026-09-26), each with Between (2026-09-27)
 });
 
 /* ── what a 0–10 answer sets off (2026-09-22) ─────────────────────────────────────────────────
@@ -5796,7 +5803,7 @@ class Session {
     if (prev !== undefined) { const i = this.breathAnswers.lastIndexOf(prev); if (i >= 0) this.breathAnswers.splice(i, 1); }
     st.answers[pair[0]] = option;
     this.breathAnswers.push(option);
-    this.onEvent({ type: 'breath', value: option, pair: pair.join('/') });
+    this.onEvent({ type: 'breath', value: option, pair: D.breathPairName(pair) });
     const q = this.queue[c.index];
     const live = this.runtime.idx === c.index;
     const replyBeat = (id) => {
@@ -6954,7 +6961,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:df7c691088e17bbb34db933f0ca03733 */
+<script>/* @module copy.js md5:9aa67390ac1813441f09ae9f36c62ec9 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -7143,8 +7150,9 @@ const UI = Object.freeze({
   miniPause: 'Pause',
   miniResume: 'Resume',
   miniEnd: 'End practice',
-  breathFull: 'More full',
-  breathShallow: 'More shallow',
+  breathFull: 'Full',
+  breathShallow: 'Shallow',   /* 2026-09-27 night, Justin: 'change "More shallow" to just "shallow"' */
+  breathBetween: 'Between',   /* the middle of every row (Justin, 2026-09-27 night) */
   /* the other two pairs of the breath check (Justin, 2026-09-26: "chest/belly, and tense/relaxed") */
   breathChest: 'Chest',
   breathBelly: 'Belly',
@@ -7210,7 +7218,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:8bf1adaa0cb0ce2f6cb4c81e692fbad2 */
+<script>/* @module page.js md5:5ae1bf38c73c9cecc28acfc04240848e */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7837,6 +7845,10 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       { option: 'belly', label: () => COPY.UI.breathBelly, quiet: true },
       { option: 'tense', label: () => COPY.UI.breathTense, quiet: true },
       { option: 'relaxed', label: () => COPY.UI.breathRelaxed, quiet: true },
+      /* the middle of every row (Justin, 2026-09-27 night): the same word three times, told apart by the option */
+      { option: 'chest-belly', label: () => COPY.UI.breathBetween, quiet: true },
+      { option: 'shallow-full', label: () => COPY.UI.breathBetween, quiet: true },
+      { option: 'tense-relaxed', label: () => COPY.UI.breathBetween, quiet: true },
     ],
     /* ✅ THE FOUR BUTTONS (2026-09-22) — after a low safety answer or a high non-safety one, in the order
      * Justin listed them. All four quiet: none is the preferred choice (Justin, 2026-09-21, on the yes/no pair). */
@@ -7893,8 +7905,8 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('player').classList.add('choosing');
   }
 
-  /* ✅ THE BREATH CHECK'S THREE PAIRS (Justin, 2026-09-26): three rows of two, in the order the clip asks — full/shallow,
-   * chest/belly, tense/relaxed. Each row is one tap; the tapped one stays marked (a re-tap on the row changes it); the card
+  /* ✅ THE BREATH CHECK'S THREE PAIRS (Justin, 2026-09-26): three rows, in the order the clip asks — chest/belly, shallow/full,
+   * tense/relaxed — each with Between in the middle (2026-09-27 night). Each row is one tap; the tapped one stays marked (a re-tap on the row changes it); the card
    * stays up for the clip's whole window, so one, two or all three can be answered. */
   function openBreath(card) {
     const specs = CHOICE_BUTTONS.breath, pairs = D.BREATH_PAIRS;   // rows in the catalog's order: chest/belly, full/shallow, tense/relaxed
