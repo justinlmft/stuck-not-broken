@@ -2287,7 +2287,7 @@ function whatsNewLaunch(){
     + '<li>Even better recommendations based on your check-ins and practices, including your ideal practice time.</li>'
     + '<li>Randomish tips: you\'ll get a &ldquo;Did you know&rdquo; every now and again to help you get the most out of the app.</li>'
     + '</ul>'
-    + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
+    + '<button class="btn block" id="wn-ok" type="button" style="margin-top:22px">Got it</button></div>';   /* 2026-09-28, Justin: "more breathing room between the text and the button" */
   document.body.appendChild(d);
   requestAnimationFrame(()=>d.classList.add('on'));
   const close=()=>{ try{ localStorage.setItem(_WN_LAUNCH_KEY,'1'); }catch(e){} d.remove(); };
@@ -5958,26 +5958,32 @@ function app(tab){
         ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],isAll?'Your first check-ins against your most recent ones.':'Your earliest check-ins in this time period against your most recent ones.', null, true)}`, Math.round(g*100));
     })();
 
-    // 6 · what a practice does (three reading shifts, before to after)
+    // 6 · practice impacts, one card per practice (three reading shifts, before to after)
     const pairs=_yPairs(cs);
-    (function(){
-      if(pairs.length<G(6,4,3)) return;
-      const dv=_yAvg(pairs.map(p=>p.after.v-p.before.v)), ds=_yAvg(pairs.map(p=>p.after.sym-p.before.sym)), dd=_yAvg(pairs.map(p=>p.after.dor-p.before.dor));
-      const dm=_yAvg(pairs.map(p=>p.dm)); const rose=pairs.filter(p=>p.dm>0).length;
+    // ✅ 2026-09-27 late night (Justin): "Practice impacts". Bars grow from a MIDDLE line — right for up, left for down — so a
+    // drop reads as a drop (before, every bar grew left to right and "they all look like they are up"); the words up/down are
+    // gone, the percentage stands beside each bar (his pick: mock-up 1B).
+    // ✅ 2026-09-28 (Justin): "make this card specific to the practice, so a mindfulness one, tiny one, safety one, and self-reg one.
+    // and only show the user what is relevant to them based on their practice history" — one card per practice key with enough
+    // before/after pairs in the period, in the order of his list; a one-line explanation in place of "x times of y" (the numbers
+    // fold carries the count). The comparison across practices is card 7. The measure: each state's own 0–100 reading, after minus
+    // before, averaged — shown as a percentage. (The margin is one number, so it cannot draw three bars; card 7 uses it.)
+    ['mindfulness','micro','anchoring','self-regulation'].forEach(pk=>{
+      const ps=pairs.filter(p=>p.key===pk);
+      if(ps.length<G(6,4,3)) return;
+      const dv=_yAvg(ps.map(p=>p.after.v-p.before.v)), ds=_yAvg(ps.map(p=>p.after.sym-p.before.sym)), dd=_yAvg(ps.map(p=>p.after.dor-p.before.dor));
+      const dm=_yAvg(ps.map(p=>p.dm));
       const rowsD=[['v',dv],['sym',ds],['dor',dd]];
-      const biggest=rowsD.slice().sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
-      const bigTxt = biggest[0]==='v' ? 'safety rises the most' : `${_READ_NAME[biggest[0]]} drops the most`;
-      // ✅ 2026-09-27 late night (Justin): "Practice impacts". Bars grow from a MIDDLE line — right for up, left for down — so a
-      // drop reads as a drop (before, every bar grew left to right and "they all look like they are up"); the words up/down are
-      // gone, the percentage stands beside each bar (his pick: mock-up 1B).
       const bars=rowsD.map(([k,d],i)=>{ const w=Math.max(3,Math.min(50,Math.round(Math.abs(d)*125))); const dir=d>=0?'up':'down'; return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${stateMarks(_READ_STATE[k])}${CAP(_READ_NAME[k])}</span><span class="help-track help-track-mid"><span class="help-fill help-fill-${dir}" style="width:${w}%;background:${STATE_COLOR(_READ_STATE[k])}"></span></span><span class="help-pct${d>=0?' help-pct-up':''}">${_ySh(d)}</span></div>`; }).join('');
-      push('practice','practice impacts',`
-        ${shareBtn('practice')}<h2 class="panel-title">Practice impacts</h2>
+      const name=CAP(Store.practiceLabel(pk));
+      push('practice-'+pk,'practice impacts: '+pk,`
+        ${shareBtn('practice-'+pk)}<h2 class="panel-title">Practice impacts</h2>
+        <p class="panel-sub">${name}</p>
         <div class="help-bars">${bars}</div>
-        <p class="cb-line" style="margin-top:16px">You moved toward safety <b>${rose} time${rose===1?'':'s'} of ${pairs.length}</b>.</p>
-        ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it.')}`,
-        pairs.length+':'+Math.round((dm||0)*100));
-    })();
+        <p class="cb-line" style="margin-top:16px">How much each state moves, on average, from just before a ${name.toLowerCase()} practice to just after it.</p>
+        ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',ps.length]],'Each state is read 0 to 100 at a check-in. After minus before, averaged over these practices. The percentage is that average, in points.')}`,
+        ps.length+':'+Math.round((dm||0)*100));
+    });
 
     // 7 · which practice moves you most
     (function(){
@@ -6124,8 +6130,8 @@ function app(tab){
     const seen=st.seen||{};
     const today=(function(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); })();
     const base = tender
-      ? ['comeback','defense','day','daypart','dayLow','daypartLow','practice','bestSetup','breathEase','anchor','practiceTime','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
-      : ['safety','day','practice','bestSetup','breathEase','anchor','practiceTime','readings','comeback','daypart','dayLow','daypartLow','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
+      ? ['comeback','defense','day','daypart','dayLow','daypartLow','practice-mindfulness','practice-micro','practice-anchoring','practice-self-regulation','bestSetup','breathEase','anchor','practiceTime','practiceRank','practiceFrom','readings','holds','coact','safeDays','shift','started','safety']
+      : ['safety','day','practice-mindfulness','practice-micro','practice-anchoring','practice-self-regulation','bestSetup','breathEase','anchor','practiceTime','readings','comeback','daypart','dayLow','daypartLow','practiceRank','practiceFrom','coact','safeDays','holds','shift','started','defense'];
     const rank=k=>{ const i=base.indexOf(k); return i<0?99:i; };
     const byKey={}; cards.forEach(c=>{ byKey[c[0]]=c; });
     const all=cards.slice().sort((a,b)=>rank(a[0])-rank(b[0]));
@@ -7754,7 +7760,9 @@ function app(tab){
     const heart = rose ? STATE_COLOR('safety') : 'var(--ink)';
     const fill = { heart, bolt:'var(--ink)', x:'var(--ink)' };
     const paths = TRI_ORDER.map(m=>`<path class="fbx-m fbx-${m}" style="fill:${fill[m]}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
-    return `<svg class="fbx-logo" viewBox="${TRI_VB}" aria-hidden="true" style="--fbx-safety:${heart}">${paths}</svg>`;
+    /* 2026-09-28 (Justin): "the results screen has a black heart, but all of the glyphs should match it. nothing should stick out" —
+     * with no rise, the bolt and the x do not fade back and the heart does not pulse: one ink lockup */
+    return `<svg class="fbx-logo${rose?'':' fbx-flat'}" viewBox="${TRI_VB}" aria-hidden="true" style="--fbx-safety:${heart}">${paths}</svg>`;
   }
   function fbSafetyRose(val, reco){
     const said=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number');

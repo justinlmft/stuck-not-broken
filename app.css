@@ -3221,6 +3221,8 @@ body.reduce-motion .ob-foot::before{transition:none}
 .fbx-m{transform-box:fill-box;transform-origin:center}
 .fbx-heart{animation:fbx-heart-in 2.1s var(--ease) .35s both}
 .fbx-bolt,.fbx-x{opacity:.26;animation:fbx-fade-back 2.1s var(--ease) .35s both}
+/* 2026-09-28: no rise in safety → one ink lockup; nothing fades back, nothing pulses */
+.fbx-flat .fbx-m{opacity:1;animation:none;fill:var(--ink)}
 .fbx-eyebrow{margin:32px 0 12px}
 .fbx-h{font-size:calc(26px * var(--type-scale));font-weight:600;line-height:1.2;letter-spacing:-.02em;color:var(--ink);margin:0;text-wrap:pretty}
 .fbx-lede{font-size:calc(17px * var(--type-scale));line-height:1.65;color:var(--ink-80);margin:12px 0 0;text-wrap:pretty;max-width:34em}
