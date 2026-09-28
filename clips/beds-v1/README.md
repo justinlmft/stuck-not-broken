@@ -1,0 +1,1 @@
+Background sounds for the practice player (beta). Versioned folder: a re-master ships as beds-v2, never over a file here. Source: BigSoundBank.com (Joseph Sardin), CC0. stream = Forest and stream 1 (2713), beach = Small waves and beach 1 (1446), birds = Birds waking 3 (0999).
