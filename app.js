@@ -2282,7 +2282,7 @@ function whatsNewLaunch(){
     + '<h2 class="wn-h">Major app update:</h2>'
     + '<p class="wn-p">There are way too many updates to list, but here\'s a few:</p>'
     + '<ul class="wn-p" style="margin:0;padding-left:20px">'
-    + '<li>The guided practices now talk back! You can answer many questions from the player during your practice and change the course of the practice. Want more safety? Sure. Simplify and focus on mindfulness? That\'s fine, too.</li>'
+    + '<li>The guided practices now talk back! You can answer many questions from the player during your practice and change the course of the practice.</li>'
     + '<li>Add background audio to your practice (tap Customize in the player) to help you settle even more.</li>'
     + '<li>Even better recommendations based on your check-ins and practices, including your ideal practice time.</li>'
     + '<li>Randomish tips: you\'ll get a &ldquo;Did you know&rdquo; every now and again to help you get the most out of the app.</li>'
