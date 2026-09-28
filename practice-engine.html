@@ -287,7 +287,8 @@ body.playing .brand{display:none}
 .scenetoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}
 .bedtoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}   /* 2026-09-26: the level lives in the list now; the row is the sound's */
 .bedtoggle .bed-val{min-width:0;text-align:right}
-.bedtoggle.on{border-color:var(--ink)}
+/* 2026-09-27 late night, Justin: the sound row looked "prioritized" — no heavier outline when a sound is on; the value says it */
+.bedtoggle.on{border-color:var(--hairline)}
 .customize{grid-column:span 1}
 .prevclip{grid-column:span 1}
 .rewind{grid-column:span 2}
@@ -445,7 +446,8 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .fold-custom{--fold-gap:16px}
 .bed-h{margin:0;font-size:calc(12px * var(--type-scale));letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left}
 .bed-rows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.customdone{justify-content:center;text-align:center;min-height:54px;border-radius:14px;color:var(--ink-80)}
+.customdone{justify-content:center;text-align:center;min-height:54px;border-radius:14px;color:var(--ink-80);gap:8px}
+.customdone .chev{width:18px;height:18px;flex:none}
 .bedrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;padding:10px 12px 10px 14px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
 .bedrow.sel{border-color:var(--ink);font-weight:600}
 .bedrow .tick{width:18px;height:18px;flex:none;opacity:0;transition:opacity .2s var(--ease)}
@@ -496,10 +498,10 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               5487b8e85f97dd1e68517c99a040d657    35415 bytes
+     page.css               a6ddb26b0a7c712d3c52cac3e42b0c30    35611 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                7a1c8040443eda29e9c99e652ac81028    65561 bytes
+     data.js                0dc86d216868de17bc8751bbae4ca40e    65713 bytes
      plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
      runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
      host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
@@ -509,7 +511,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
      session.js             79e6b499ab2e50c9c53e73ac2b9dc2d2    82697 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                9aa67390ac1813441f09ae9f36c62ec9    15167 bytes
-     page.js                4720229fe7f69ec863d64b3dda1b8aae    64286 bytes
+     page.js                231044d4f410c219b2314a2196aec4e4    64362 bytes
 -->
 </head>
 <body>
@@ -637,7 +639,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
           <!-- 2026-09-27 (Justin): the scene behind the practice, changeable mid-practice; a tap opens the scene list -->
           <button class="adj scenetoggle" id="scenetoggle" type="button" aria-expanded="false"><span class="adj-label" id="scenelabel"></span><span class="adj-val bed-val" id="scenenow"></span></button>
         </div>
-        <button class="bedrow customdone" id="customdone" type="button"></button>
+        <button class="bedrow customdone" id="customdone" type="button"><span id="customdonelabel"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div></div>
 
       <!-- 2026-09-26 (Justin): Skip intro is its own fold, above the menu — it stays while the intro plays even after the
@@ -915,7 +917,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:7a1c8040443eda29e9c99e652ac81028 */
+<script>/* @module data.js md5:0dc86d216868de17bc8751bbae4ca40e */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1013,7 +1015,7 @@ const BEDS = {
    * every time (ROADMAP-DETAIL entry 9: "fixed start for ambient music") and ease out through a few seconds of quiet before
    * beginning again. The garden is a bamboo water spout with no knock for now: Justin "really really" wants a shishi-odoshi
    * with the clack; when one is found it gets its own key and file. */
-  night: Object.freeze({ random: true, seconds: 174.99, file: 'night-22604b' }),         // "DMP010037 CRICKETS TEXAS" (martypinso); `b` 2026-09-27: re-cut past its fade-in
+  night: Object.freeze({ random: true, seconds: 166.44, file: 'night-22604c' }),         // "DMP010037 CRICKETS TEXAS" (martypinso); `b` 2026-09-27: re-cut past its fade-in; `c` 2026-09-27 late night: the wrap hidden in an 8 s crossfade, cut where the chirp rhythm carries over (Justin: "a clear point where the tracks met")
   garden: Object.freeze({ random: true, seconds: 52.01, file: 'garden-107226' }),        // "water-spout-japanese-garden" (keithpeter)
   wandering: Object.freeze({ random: false, seconds: 282.98, file: 'wandering-455855' }), // "Wandering" (Andrewkn): slow warm pads
   dunes: Object.freeze({ random: false, seconds: 291.48, file: 'dunes-447511' }),         // "Dunes" (Andrewkn): airy pads
@@ -7235,7 +7237,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:4720229fe7f69ec863d64b3dda1b8aae */
+<script>/* @module page.js md5:231044d4f410c219b2314a2196aec4e4 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -8312,7 +8314,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     set('bedlabel', U.sound);
     set('customlabel', U.customize);
     set('scenelabel', U.scene);
-    set('customdone', U.customizeDone);
+    set('customdonelabel', U.customizeDone);   // the label only: the chevron beside it stays (the menu folds away)
     $('customize').setAttribute('aria-label', U.customize);
     set('easeout', U.easeOut);
     set('moresafety', U.moreSafetyAgain);

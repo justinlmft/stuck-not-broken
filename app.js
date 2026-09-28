@@ -5967,9 +5967,12 @@ function app(tab){
       const rowsD=[['v',dv],['sym',ds],['dor',dd]];
       const biggest=rowsD.slice().sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
       const bigTxt = biggest[0]==='v' ? 'safety rises the most' : `${_READ_NAME[biggest[0]]} drops the most`;
-      const bars=rowsD.map(([k,d],i)=>{ const w=Math.max(4,Math.min(100,Math.round(Math.abs(d)*250))); const dirTxt=d>=0?'up':'down'; return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${stateMarks(_READ_STATE[k])}${CAP(_READ_NAME[k])}</span><span class="help-track"><span class="help-fill" style="width:${w}%;background:${STATE_COLOR(_READ_STATE[k])}"></span></span><span class="help-pct">${dirTxt}</span></div>`; }).join('');
-      push('practice','what a practice does',`
-        ${shareBtn('practice')}<h2 class="panel-title">What a practice does</h2>
+      // ✅ 2026-09-27 late night (Justin): "Practice impacts". Bars grow from a MIDDLE line — right for up, left for down — so a
+      // drop reads as a drop (before, every bar grew left to right and "they all look like they are up"); the words up/down are
+      // gone, the percentage stands beside each bar (his pick: mock-up 1B).
+      const bars=rowsD.map(([k,d],i)=>{ const w=Math.max(3,Math.min(50,Math.round(Math.abs(d)*125))); const dir=d>=0?'up':'down'; return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${stateMarks(_READ_STATE[k])}${CAP(_READ_NAME[k])}</span><span class="help-track help-track-mid"><span class="help-fill help-fill-${dir}" style="width:${w}%;background:${STATE_COLOR(_READ_STATE[k])}"></span></span><span class="help-pct${d>=0?' help-pct-up':''}">${_ySh(d)}</span></div>`; }).join('');
+      push('practice','practice impacts',`
+        ${shareBtn('practice')}<h2 class="panel-title">Practice impacts</h2>
         <div class="help-bars">${bars}</div>
         <p class="cb-line" style="margin-top:16px">You moved toward safety <b>${rose} time${rose===1?'':'s'} of ${pairs.length}</b>.</p>
         ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',pairs.length]],'How far each state moved from before a practice to after it.')}`,
@@ -6513,7 +6516,7 @@ function app(tab){
   // The level is a file (iPhone ignores a web page's volume), so the person picks soft, medium or louder.
   // The choice is remembered (Store.prefBed) and every practice launch carries it (see _playerSrc).
   // [key, name, what it is, file] — the file name MUST match practice-engine data.js BEDS (a new recording = a new name)
-  const BED_SOUNDS=[['creek','creek','A small creek, steady water','creek-pixabay'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Countryside birds singing','birds-pixabayb'],['rain','rain','Steady rain on a roof','rain-577887b'],['bowl','singing bowl','One bowl, a continuous tone','bowl-573805',true],['bowls','gentle bowls','Tibetan bowls, softly played','bowls-161478',true],['struck','struck bowls','Several bowls, struck and hummed','struck-365416',true],['fire','fire','A fire, crackling and popping','fire-pixabay'],['night','night','Crickets on a warm night','night-22604b'],['garden','garden','Water from a bamboo spout in a quiet garden','garden-107226'],['wandering','wandering','Slow, warm music','wandering-455855',true],['dunes','dunes','Airy, light music','dunes-447511',true]];
+  const BED_SOUNDS=[['creek','creek','A small creek, steady water','creek-pixabay'],['beach','beach','Small waves on a quiet beach','beach'],['birds','birds','Countryside birds singing','birds-pixabayb'],['rain','rain','Steady rain on a roof','rain-577887b'],['bowl','singing bowl','One bowl, a continuous tone','bowl-573805',true],['bowls','gentle bowls','Tibetan bowls, softly played','bowls-161478',true],['struck','struck bowls','Several bowls, struck and hummed','struck-365416',true],['fire','fire','A fire, crackling and popping','fire-pixabay'],['night','night','Crickets on a warm night','night-22604c'],['garden','garden','Water from a bamboo spout in a quiet garden','garden-107226'],['wandering','wandering','Slow, warm music','wandering-455855',true],['dunes','dunes','Airy, light music','dunes-447511',true]];
   // a 5th column `true` = a fixed-start sound (bowls have an arc): its preview starts at the top too
   // how each sound is said in a sentence, by level (soft / medium / louder)
   // 2026-09-26 late night (Justin): FIVE volume steps, no words — the sentence names the sound only
@@ -7743,11 +7746,20 @@ function app(tab){
   }
   // the brand lockup itself (one svg, the logo's own spacing — Justin, 2026-09-25: "they are the brand's logo,
   // make sure to use correct spacing"): heart in the safety colour, bolt and x in ink; each mark animates alone
-  function fbxLockup(){
+  // ✅ 2026-09-27 late night (Justin): "The logo glyphs at the top should change color to yellow heart only if the practice
+  // resulted in more safety. Otherwise, it should stay the brand ink color." More safety = the last safety number higher than
+  // the first; with fewer than two numbers, the person's own "More connected" answer stands in.
+  function fbxLockup(rose){
     const I = window.SNB_ICONS||{};
-    const fill = { heart:STATE_COLOR('safety'), bolt:'var(--ink)', x:'var(--ink)' };
+    const heart = rose ? STATE_COLOR('safety') : 'var(--ink)';
+    const fill = { heart, bolt:'var(--ink)', x:'var(--ink)' };
     const paths = TRI_ORDER.map(m=>`<path class="fbx-m fbx-${m}" style="fill:${fill[m]}" d="${(I[m]&&I[m].d)||''}"></path>`).join('');
-    return `<svg class="fbx-logo" viewBox="${TRI_VB}" aria-hidden="true" style="--fbx-safety:${STATE_COLOR('safety')}">${paths}</svg>`;
+    return `<svg class="fbx-logo" viewBox="${TRI_VB}" aria-hidden="true" style="--fbx-safety:${heart}">${paths}</svg>`;
+  }
+  function fbSafetyRose(val, reco){
+    const said=(reco && Array.isArray(reco.safetyReadings) ? reco.safetyReadings : []).filter(v=>typeof v==='number');
+    if(said.length >= 2) return said[said.length-1] > said[0];
+    return val === 'more';
   }
   function fbThanks(val, reco){
     // closing line in Justin's voice — the report tunes the tone, never judges it
@@ -7783,7 +7795,7 @@ function app(tab){
     setHTML(`
       <header class="appbar"></header>
       <div class="scroll"><div class="view fb-view fbx">
-        <div class="fbx-marks" aria-hidden="true">${fbxLockup()}</div>
+        <div class="fbx-marks" aria-hidden="true">${fbxLockup(fbSafetyRose(val, reco))}</div>
         <p class="eyebrow fbx-eyebrow">Practice finished</p>
         <h1 class="fbx-h">${cl.h}</h1>
         <p class="fbx-lede">${cap(cl.s)}</p>

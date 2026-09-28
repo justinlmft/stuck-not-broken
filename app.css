@@ -673,6 +673,15 @@ body.reduce-motion .bloom-line{animation:none;opacity:1}
 .help-track{flex:1;height:14px;background:var(--bone-deep);border-radius:7px;overflow:hidden}
 .help-fill{display:block;height:100%;border-radius:7px;transition:width .6s var(--ease)}
 .help-pct{flex:none;width:40px;text-align:right;font-size:calc(13.5px * var(--type-scale));color:var(--muted);font-variant-numeric:tabular-nums}
+/* 2026-09-27 late night — "Practice impacts": bars from a middle line, right = up, left = down (Justin's pick, mock-up 1B) */
+.help-track-mid{position:relative;overflow:visible}
+.help-track-mid::before{content:'';position:absolute;left:50%;top:-4px;bottom:-4px;width:1.5px;background:var(--ink-80);opacity:.55;transform:translateX(-50%)}
+.help-track-mid .help-fill{position:absolute;top:0;height:100%}
+.help-track-mid .help-fill-up{left:50%;border-top-left-radius:0;border-bottom-left-radius:0}
+.help-track-mid .help-fill-down{right:50%;border-top-right-radius:0;border-bottom-right-radius:0;transform-origin:right center}
+.help-pct-up{color:var(--ink)}
+.help-row .help-pct{width:48px;white-space:nowrap}
+.panel.panel-in .help-track-mid .help-fill-down{transform-origin:right center}
 .help-verdict{font-size:calc(14px * var(--type-scale));line-height:1.55;color:var(--ink-80);margin:18px 0 0;text-wrap:pretty}
 .help-verdict.good{color:var(--ink)}
 /* "how you come back" card: defense dot -> path draws itself -> safety dot */
