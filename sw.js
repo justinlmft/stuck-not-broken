@@ -5,7 +5,7 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v520';
+const SHELL_VERSION = 'snb-app-shell-v521';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
@@ -50,10 +50,33 @@ self.addEventListener('message', (e) => {
   if (d.type === 'PRECACHE_AUDIO') { e.waitUntil(precacheAudio(d.urls || [], e.source)); return; }
 });
 
+/* 2026-09-28 (Justin, first prod listen: "an old audio clip that used to play all the time" and a mindfulness take
+   "with the older audio quality"). The practice engine now reads clips/ on THIS origin, and 66 of its file names are the
+   same names the old player used for different recordings. AUDIO_CACHE is cache-first and never evicted, so a phone that
+   had cached the old take kept hearing it. One-time purge: every cached clips/*.mp3 that is not a pack clip goes; the new
+   takes re-cache on first play. Pack clips (the four "More practices"), silence and beds-v1/ are untouched. The marker
+   entry keeps this from running again on later activations. */
+const AUDIO_PURGE_MARK = './__audio-purge-2026-09-28';
+const isPackClip = (p) => /\/clips\/(UYE|EYE|CAVE|DDP)-/.test(p);
+async function purgeOldClipTakes() {
+  try {
+    const cache = await caches.open(AUDIO_CACHE);
+    if (await cache.match(AUDIO_PURGE_MARK)) return;
+    const reqs = await cache.keys();
+    let n = 0;
+    for (const r of reqs) {
+      const p = new URL(r.url).pathname;
+      if (/\/clips\/[^/]+\.mp3$/.test(p) && !isPackClip(p)) { await cache.delete(r); n++; }
+    }
+    await cache.put(AUDIO_PURGE_MARK, new Response(String(n), { headers: { 'Content-Type': 'text/plain' } }));
+  } catch (e) { /* best effort — never block activation */ }
+}
+
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== SHELL_VERSION && k !== AUDIO_CACHE).map((k) => caches.delete(k)));
+    await purgeOldClipTakes();
     await self.clients.claim();
   })());
 });
