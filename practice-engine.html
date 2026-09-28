@@ -224,7 +224,7 @@ body.playing .brand{display:none}
 .fold-mini{--fold-gap:12px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:12px}   /* 2026-09-28 (Justin): one grid — 54 px rows, 12 px between rows and between panels */
 .fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 #player.show-controls:not(.choosing):not(.picking):not(.customizing) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.scening:not(.choosing) .fold-scene,#player.customizing:not(.choosing):not(.picking):not(.scening) .fold-custom,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.scening:not(.choosing) .fold-scene,#player.customizing:not(.choosing):not(.picking):not(.scening) .fold-custom,#player.customizing:not(.choosing) .fold-done,#player.picking:not(.choosing) .fold-done,#player.scening:not(.choosing) .fold-done,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 /* Skip intro comes in AFTER the menu has finished (Justin 2026-09-26: "staggered … after the standard one is done animating in") */
 #player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{transition:grid-template-rows .42s var(--ease) .45s,margin-bottom .42s var(--ease) .45s,opacity .38s var(--ease) .5s,visibility 0s linear .45s}
 @media (prefers-reduced-motion:reduce){.fold{transition:opacity .25s var(--ease),visibility 0s linear .25s}.fold.open{transition:opacity .25s var(--ease),visibility 0s}}
@@ -380,7 +380,7 @@ body.playing .brand{display:none}
 .mini-pause.is-paused .ico-play{display:block}
 /* held for an answer: the buttons are the way on, so there is nothing to pause */
 #player.held .mini-pause{display:none}
-#player.finished .fold-mini,#player.finished .fold-bed,#player.finished .fold-choice{grid-template-rows:0fr;opacity:0;pointer-events:none}
+#player.finished .fold-mini,#player.finished .fold-bed,#player.finished .fold-scene,#player.finished .fold-custom,#player.finished .fold-done,#player.finished .fold-choice{grid-template-rows:0fr;opacity:0;pointer-events:none}
 .choicecard .reading-q,.choicecard .offer-hold{text-align:left}
 .timeleft:empty{display:none}
 #player.finished .done{display:flex;animation:riseIn .55s var(--ease)}
@@ -447,8 +447,13 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .bed-h{margin:0;font-size:calc(12px * var(--type-scale));letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left}
 .bed-rows{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 /* 2026-09-28 (Justin): Done matches the text-only Pause / End practice buttons, in all three menus; the chevron stays */
+/* 2026-09-28 (Justin): "End now is slightly below Done" — the shared Done row is the LAST thing in its panel with no gap under
+   it, exactly like End now in the standard menu, and both are 44 px boxes with the text centred, so the two words land on the
+   same line and the pointer never has to move */
+.fold-done{--fold-gap:0px}
 .done-row{display:flex;justify-content:center}
 .done-mini{gap:6px}
+.endings .endnow{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 10px}
 .done-mini .chev{width:16px;height:16px;flex:none}
 .bedrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:54px;padding:10px 12px 10px 14px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
 .bedrow.sel{border-color:var(--ink);font-weight:600}
@@ -502,7 +507,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               d48530bc428c5eb3781269ff30d3d4e8    35926 bytes
+     page.css               2a54cdf45c90a635a1fcade7d13d1e39    36586 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
      data.js                f6372951673c894d49e2310555050da5    66707 bytes
@@ -515,7 +520,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      session.js             bc751330a8475309a88a89839f91cfe9    82838 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                ef5a03184120f0ebff87f3495e0dd6d8    15285 bytes
-     page.js                d7d8f874751cfdeed7295e2cf951ba8b    65377 bytes
+     page.js                858db5ce779df3810a606de813cd5ff7    64650 bytes
 -->
 </head>
 <body>
@@ -643,8 +648,10 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
           <!-- 2026-09-27 (Justin): the scene behind the practice, changeable mid-practice; a tap opens the scene list -->
           <button class="adj scenetoggle" id="scenetoggle" type="button" aria-expanded="false"><span class="adj-label" id="scenelabel"></span><span class="adj-val bed-val" id="scenenow"></span></button>
         </div>
-        <div class="done-row"><button class="mini-btn done-mini customdone" id="customdone" type="button"><span id="customdonelabel"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
       </div></div>
+      <!-- 2026-09-28 (Justin): ONE Done for the customizer, the sound list and the scene list — it stays put while the
+           menus above it fold in and out, and it sits exactly where End now sits in the standard menu -->
+      <div class="fold fold-done"><div class="done-row"><button class="mini-btn done-mini" id="paneldone" type="button"><span id="paneldonelabel"></span><svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div></div>
 
       <!-- 2026-09-26 (Justin): Skip intro is its own fold, above the menu — it stays while the intro plays even after the
            menu has hidden itself, and it comes in a beat after the menu (staggered) -->
@@ -7258,7 +7265,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:d7d8f874751cfdeed7295e2cf951ba8b */
+<script>/* @module page.js md5:858db5ce779df3810a606de813cd5ff7 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7293,16 +7300,6 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   const browserDevice = G.SNB_BROWSER_DEVICE;
 
   const $ = id => document.getElementById(id);
-  /* 2026-09-28 (Justin): every Done in the player is a TEXT button like Pause / End practice, with a down chevron (the menu folds away) */
-  const doneButton = (id, text) => {
-    const row = el('div', 'done-row');
-    const b = el('button', 'mini-btn done-mini');
-    b.type = 'button'; b.id = id;
-    b.appendChild(el('span', null, text));
-    b.insertAdjacentHTML('beforeend', '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-    row.appendChild(b);
-    return { row, b };
-  };
   const el = (tag, cls, text) => {
     const n = document.createElement(tag);
     if (cls) n.className = cls;
@@ -7673,10 +7670,6 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       rows.appendChild(b);
     });
     card.appendChild(rows);
-    const { row: doneRow, b: done } = doneButton('scenedone', U.soundDone);
-    done.addEventListener('pointerdown', ev => ev.stopPropagation());
-    done.onclick = () => closeScenePicker(true);
-    card.appendChild(doneRow);
   }
 
   // ── the session's events, on screen ───────────────────────────────────────────────────
@@ -8283,10 +8276,6 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       lv.appendChild(b);
     });
     card.appendChild(lv);
-    const { row: doneRow, b: done } = doneButton('beddone', U.soundDone);
-    done.addEventListener('pointerdown', ev => ev.stopPropagation());
-    done.onclick = () => closeBedPicker(true);   // back to the customizer it was opened from
-    card.appendChild(doneRow);
   }
 
   /* ✅ THE CAPTION RIDES ABOVE THE PANEL (Justin, 2026-09-26: "the pinned menu covers up the CC. The CC should live
@@ -8345,7 +8334,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     set('bedlabel', U.sound);
     set('customlabel', U.customize);
     set('scenelabel', U.scene);
-    set('customdonelabel', U.customizeDone);   // the label only: the chevron beside it stays (the menu folds away)
+    set('paneldonelabel', U.customizeDone);   // the label only: the chevron beside it stays (the menu folds away)
     $('customize').setAttribute('aria-label', U.customize);
     set('easeout', U.easeOut);
     set('moresafety', U.moreSafetyAgain);
@@ -8406,8 +8395,11 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('bedtoggle').onclick = () => { if (picking()) closeBedPicker(); else openBedPicker(); };
     $('customize').onclick = () => { if (customizing()) closeCustomizer(); else openCustomizer(); };
     $('scenetoggle').onclick = () => { if (scening()) closeScenePicker(true); else openScenePicker(); };
-    $('customdone').addEventListener('pointerdown', ev => ev.stopPropagation());
-    $('customdone').onclick = () => closeCustomizer();
+    /* 2026-09-28 (Justin): ONE Done under the customizer, the sound list and the scene list — it does not animate out and
+     * back in between them. What it closes depends on which is open: a list goes back to the customizer it was opened
+     * from; the customizer goes back to the standard menu. */
+    $('paneldone').addEventListener('pointerdown', ev => ev.stopPropagation());
+    $('paneldone').onclick = () => { if (scening()) closeScenePicker(true); else if (picking()) closeBedPicker(true); else closeCustomizer(); };
     watchFoot();
 
     $('captoggle').onclick = () => {

@@ -7776,17 +7776,17 @@ function app(tab){
   function fbThanks(val, reco){
     // closing line in Justin's voice — the report tunes the tone, never judges it
     const CLOSE = {
-      more:    { h:'Something shifted toward connection.', s:"that's worth a small pat on your nervous system's back." },
-      same:    { h:'No major change, but you showed up.',  s:"that's a solid rep and your system thanks you for it." },
-      less:    { h:'You stayed with it.',                  s:"that's not nothing. imperfect practice is still practice. take the next one easier and work your way back. don't rush it." },
-      struggle:{ h:'Hard ones are still practice.',        s:"you're still here. you showed up. struggling with practices is very normal. come back to it when you're ready, but maybe focus on an easier skill. customize the next practice to your content." },
+      more:    { h:'Something shifted toward connection.', s:"That's worth a small pat on your nervous system's back." },
+      same:    { h:'No major change, but you showed up.',  s:"That's a solid rep, and your system thanks you for it." },
+      less:    { h:'You stayed with it.',                  s:"That's not nothing. Imperfect practice is still practice. Take the next one easier and work your way back. Don't rush it." },
+      struggle:{ h:'Hard ones are still practice.',        s:"You're still here. You showed up. Struggling with practices is very normal. Come back to it when you're ready, but maybe focus on an easier skill. Customize the next practice to your content." },
       unsure:  { h:'Not knowing is allowed.',             s:'You still showed up. Well done. Stay curious and open for the next one.' },
     };
     const cl = Object.assign({}, CLOSE[val] || CLOSE.same);
     // ✅ A LITTLE WHIMSY (Justin, 2026-09-25): "More connected" rotates through these, never the same one twice in a row
     if(val==='more'){
       const MORE = [
-        "that's worth a small pat on your nervous system's back.",
+        "That's worth a small pat on your nervous system's back.",
         "Your nervous system would high-five you if it had hands.",
         "Take a second to notice that. It counts.",
         "Your body noticed. Now you did too.",
