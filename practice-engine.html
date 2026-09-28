@@ -221,10 +221,10 @@ body.playing .brand{display:none}
    goes; nothing pops. Which fold is open is decided by the player's state classes below. */
 .fold{display:grid;grid-template-rows:0fr;opacity:0;visibility:hidden;pointer-events:none;margin-bottom:0;transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .3s var(--ease),visibility 0s linear .42s;width:100%}
 .fold>*{min-height:0;overflow:hidden}
-.fold-mini{--fold-gap:6px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:10px}
-.fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.show-controls:not(.choosing):not(.picking):not(.customizing) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.scening:not(.choosing) .fold-scene,#player.customizing:not(.choosing):not(.picking):not(.scening) .fold-custom,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,16px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+.fold-mini{--fold-gap:12px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:12px}   /* 2026-09-28 (Justin): one grid — 54 px rows, 12 px between rows and between panels */
+.fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.show-controls:not(.choosing):not(.picking):not(.customizing) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.scening:not(.choosing) .fold-scene,#player.customizing:not(.choosing):not(.picking):not(.scening) .fold-custom,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 /* Skip intro comes in AFTER the menu has finished (Justin 2026-09-26: "staggered … after the standard one is done animating in") */
 #player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{transition:grid-template-rows .42s var(--ease) .45s,margin-bottom .42s var(--ease) .45s,opacity .38s var(--ease) .5s,visibility 0s linear .45s}
 @media (prefers-reduced-motion:reduce){.fold{transition:opacity .25s var(--ease),visibility 0s linear .25s}.fold.open{transition:opacity .25s var(--ease),visibility 0s}}
@@ -240,7 +240,7 @@ body.playing .brand{display:none}
    nobody can see is a question nobody was asked.
    E4.23: the card is up from the start of the beat until the end of the gap after it, which is
    the session's window, not a timeout of its own. */
-.choicecard{display:flex;flex-direction:column;gap:9px;width:100%;position:relative;z-index:3}
+.choicecard{display:flex;flex-direction:column;gap:12px;width:100%;position:relative;z-index:3}
 #player.choosing .choicecard{animation:riseIn .45s var(--ease)}
 .choicebtn{
   width:100%;font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;cursor:pointer;
@@ -277,7 +277,7 @@ body.playing .brand{display:none}
    gets a line; CC keeps the left edge honest; pause is the hero and takes half of row three. */
 /* 2026-09-26 late night: the standard menu is minimal — customize · back a chapter · 5 s · play, in one row (Justin: "the standard menu
    can be a bit more minimal"); silence, captions and the sound live in the customizer fold */
-.controlbar{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;width:100%;align-items:center}
+.controlbar{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;width:100%;align-items:center}
 .adjgroup{display:contents}
 /* 2026-09-27 late night (Justin: the customizer's buttons were "at different thickness or opacity"): every row here is the same —
    a 1.5px hairline like the rest of the player, ink-80 text, ink when on */
@@ -441,16 +441,16 @@ body.embed .welcome{font-size:calc(15px * var(--type-scale))}
 body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 
 /* ── the background sound list (2026-09-26) ─────────────────────────────────────────────────────────────────────────── */
-.bedcard,.customcard{display:flex;flex-direction:column;gap:12px;width:100%;position:relative;z-index:3}
-.customcard .adjgroup{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
-.fold-custom{--fold-gap:16px}
+.bedcard,.customcard,.scenecard{display:flex;flex-direction:column;gap:12px;width:100%;position:relative;z-index:3}
+.customcard .adjgroup{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.fold-custom{--fold-gap:12px}
 .bed-h{margin:0;font-size:calc(12px * var(--type-scale));letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:left}
-.bed-rows{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bed-rows{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 /* 2026-09-28 (Justin): Done matches the text-only Pause / End practice buttons, in all three menus; the chevron stays */
 .done-row{display:flex;justify-content:center}
 .done-mini{gap:6px}
 .done-mini .chev{width:16px;height:16px;flex:none}
-.bedrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;padding:10px 12px 10px 14px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
+.bedrow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:54px;padding:10px 12px 10px 14px;background:var(--bone);color:var(--ink);border:1.5px solid var(--hairline);border-radius:12px;font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease)}
 .bedrow.sel{border-color:var(--ink);font-weight:600}
 .bedrow .tick{width:18px;height:18px;flex:none;opacity:0;transition:opacity .2s var(--ease)}
 .bedrow.sel .tick{opacity:1}
@@ -474,6 +474,7 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .breath-row .stop.mid::before{content:'';position:absolute;left:-12px;right:-12px;top:50%;height:2px;background:var(--ink-80);opacity:.5;transform:translateY(-50%)}   /* 2026-09-27 late night, Justin: more contrast, dark mode especially */
 .breath-row .stop .word{min-width:4.8em}   /* the lines start and end level, whatever the words' lengths */
 .breath-row .stop.hi .word{text-align:right}
+.breath-row .stop.lo .word{text-align:left}   /* 2026-09-28 (Justin): Chest / Shallow / Tense flush left, mirroring the right-hand words */
 /* the stops read as things to tap (Justin: "the tappable spots are not super obvious"): larger, an ink-80 ring, a filled centre */
 .breath-row .stop .dot{width:20px;height:20px;border-radius:50%;background:var(--bone-deep);border:2px solid var(--ink-80);flex:none;position:relative;z-index:1;box-sizing:border-box;transition:transform .2s var(--ease),background .2s var(--ease),border-color .2s var(--ease)}
 .breath-row .stop.mid .dot{width:16px;height:16px}
@@ -496,24 +497,25 @@ if(q.get('autostart')==='1')document.documentElement.classList.add('autostart');
 try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-user',String(ts));}catch(e){}
 /* and so does dark mode: the player is a separate document, and before this it was
    permanently light — a bright screen for a night practice. */
-try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(dk)document.documentElement.classList.add('theme-dark');window._SNB_DARK=!!dk;}catch(e){window._SNB_DARK=false;}
+/* 2026-09-28: the app says which theme it is showing (?theme=dark|light) — that wins; the storage + system guess is the fallback (a direct open) */
+try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt?qt==='dark':(th==='dark'||(th!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches));if(dk)document.documentElement.classList.add('theme-dark');window._SNB_DARK=!!dk;}catch(e){window._SNB_DARK=false;}
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               29e98f62ac2aeff1ffc44e5b5c11855d    35682 bytes
+     page.css               d48530bc428c5eb3781269ff30d3d4e8    35926 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                0dc86d216868de17bc8751bbae4ca40e    65713 bytes
+     data.js                f6372951673c894d49e2310555050da5    66707 bytes
      plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
      runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
-     host.js                7d4a61dcc44f186cd5fa410316bb13d9    39007 bytes
+     host.js                db2ad2e64c1729a28599ef732d22940a    39394 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
-     session.js             79e6b499ab2e50c9c53e73ac2b9dc2d2    82697 bytes
+     session.js             bc751330a8475309a88a89839f91cfe9    82838 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                9aa67390ac1813441f09ae9f36c62ec9    15167 bytes
-     page.js                e4ded68758236b23c06a90738eaccf2d    64917 bytes
+     copy.js                ef5a03184120f0ebff87f3495e0dd6d8    15285 bytes
+     page.js                d7d8f874751cfdeed7295e2cf951ba8b    65377 bytes
 -->
 </head>
 <body>
@@ -919,7 +921,7 @@ try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='ligh
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:0dc86d216868de17bc8751bbae4ca40e */
+<script>/* @module data.js md5:f6372951673c894d49e2310555050da5 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1023,6 +1025,15 @@ const BEDS = {
   dunes: Object.freeze({ random: false, seconds: 291.48, file: 'dunes-447511' }),         // "Dunes" (Andrewkn): airy pads
 };
 const BED_NONE = 'none';
+/* ✅ SURPRISE ME (Justin, 2026-09-28: "Add a 'Surprise me' to the BACKGROUND SOUND menu, just like the 'Scene' menu"): a preference
+ * value, never a sound — the launch (host.js) and the list (page.js) turn it into one of the sounds at random, a different one than is
+ * playing when it can. The report carries the sound that played AND `bedPref: 'surprise'`, so the app remembers the surprise. */
+const BED_SURPRISE = 'surprise';
+function bedSurprise(random, notThis) {
+  const keys = Object.keys(BEDS).filter(k => k !== notThis);
+  const r = typeof random === 'function' ? random() : Math.random();
+  return keys[Math.min(keys.length - 1, Math.floor(r * keys.length))];
+}
 /* ✅ FIVE VOLUME STEPS, NO WORDS (Justin, 2026-09-26 late night: "Instead of soft, medium, and louder, can we just give them 5 volume
  * options? i find the soft one to be a bit too loud still. i'd like to take it down a notch. we don't need words for each volume
  * level."). A step is a FILE (an iPhone ignores a web page's volume): 1 = −48 LUFS, 2 = −42, 3 = −36 (the old "soft"), 4 = −30
@@ -1741,6 +1752,9 @@ const TAKES_OUT = Object.freeze({
   'CLOSE-05': Object.freeze(['a']),
   'CLOSE-06': Object.freeze(['c']),
   'OUTRO': Object.freeze(['a']),
+  /* 2026-09-28, Justin: MIND-02-d ("Don't change whatever it is. Don't change it. Whatever it is, don't change it.") — "should have been edited
+   * or removed a long time ago". Three good takes remain (a b c), so it just leaves the shuffle (ruling 26). */
+  'MIND-02': Object.freeze(['d']),
 });
 const LETTERS = 'abcdefghijklmnopqrstuvwxyz';
 Object.keys(TAKES_OUT).forEach(id => {
@@ -1764,7 +1778,7 @@ const API = {
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
   BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, breathPairName, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
-  CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
+  CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
 
@@ -4201,7 +4215,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:7d4a61dcc44f186cd5fa410316bb13d9 */
+<script>/* @module host.js md5:db2ad2e64c1729a28599ef732d22940a */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -4316,7 +4330,9 @@ function parseLaunch(query, { practices } = {}) {
   /* the background sound (2026-09-26): `bed=<data.js BEDS key>|none`, `bedvol=1..5` (an old soft|medium|louder still reads: data.js bedLevel). An unknown bed
    * is Nothing — the default — and an unknown level is soft. */
   const bed = get('bed');
-  if (bed && (bed === D.BED_NONE || Object.prototype.hasOwnProperty.call(D.BEDS, bed))) {
+  if (bed === D.BED_SURPRISE) {   // 2026-09-28: a different sound each practice, drawn now
+    out.bed = D.bedSurprise(); out.bedSurprise = true; out.bedLevel = D.bedLevel(get('bedvol'));
+  } else if (bed && (bed === D.BED_NONE || Object.prototype.hasOwnProperty.call(D.BEDS, bed))) {
     out.bed = bed;
     if (bed !== D.BED_NONE) out.bedLevel = D.bedLevel(get('bedvol'));
   }
@@ -4728,6 +4744,7 @@ function completion({ plan, requested, run }) {
     // ── the background sound (2026-09-26) — what the practice ended on; `details` has the start and every change ─
     bed: (cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed)) ? cfg.bed : D.BED_NONE,
     bedVolume: (cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed)) ? D.bedLevel(cfg.bedLevel) : null,
+    bedPref: cfg.bedSurprise && cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed) ? D.BED_SURPRISE : null,   // 2026-09-28: the person asked for a surprise; the app keeps THAT
 
     // ── what actually happened ──────────────────────────────────────────────────────────
     practiceKey: map.practiceKey,             // the host's vocabulary, so the gates still work
@@ -5204,7 +5221,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:79e6b499ab2e50c9c53e73ac2b9dc2d2 */
+<script>/* @module session.js md5:bc751330a8475309a88a89839f91cfe9 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5562,10 +5579,11 @@ class Session {
   /* ✅ THE BACKGROUND SOUND, CHANGED MID-PRACTICE (2026-09-26): the player's menu. `key` is a data.js BEDS key or
    * BED_NONE ("Nothing"); `level` is soft | medium | louder. Written to the live config (the report carries what the
    * practice ENDED on; `details()` keeps where it started and every change). */
-  setBed(key, level) {
+  setBed(key, level, surprise) {
     const k = key === D.BED_NONE || !key ? D.BED_NONE : key;
     if (k !== D.BED_NONE && !Object.prototype.hasOwnProperty.call(D.BEDS, k)) return false;
     this.cfg.bed = k;
+    this.cfg.bedSurprise = k !== D.BED_NONE && !!surprise;   // 2026-09-28: the person asked for a surprise; the report keeps that
     this.cfg.bedLevel = D.bedLevel(level || this.cfg.bedLevel);
     this.runtime.setBed();
     this.onEvent({ type: 'bed-choice', bed: k, level: k === D.BED_NONE ? null : this.cfg.bedLevel });
@@ -6982,7 +7000,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:9aa67390ac1813441f09ae9f36c62ec9 */
+<script>/* @module copy.js md5:ef5a03184120f0ebff87f3495e0dd6d8 */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -7137,6 +7155,7 @@ const UI = Object.freeze({
   customizeDone: 'Done',
   soundLevelOf: (n, of) => 'Volume ' + n + ' of ' + of,   // for screen readers; the steps show no words (Justin 2026-09-26)
   soundNothing: 'Nothing',
+  soundSurprise: 'Surprise me',   // a different sound each practice (2026-09-28), first in the list like the scene's
   soundNames: { creek: 'Creek', beach: 'Beach', birds: 'Birds', rain: 'Rain', bowl: 'Singing bowl', bowls: 'Gentle bowls', struck: 'Struck bowls', fire: 'Fire', night: 'Night', garden: 'Garden', wandering: 'Wandering', dunes: 'Dunes' },
   soundLevels: { 1: '1', 2: '2', 3: '3', 4: '4', 5: '5' },   // the five steps read by number where a word is needed (the menu row); the pills themselves show none
   soundDone: 'Done',   // closes the sound list in the player (2026-09-26); the maker's sheet says the same
@@ -7239,7 +7258,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:e4ded68758236b23c06a90738eaccf2d */
+<script>/* @module page.js md5:d7d8f874751cfdeed7295e2cf951ba8b */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7531,7 +7550,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       anchor: cfg.anchor, sense: cfg.sense, practice: cfg.practice,
       mode: cfg.mode, type: isShort(cfg.practice) ? 'micro' : 'full',
       first: !!cfg.first, plain: !!cfg.plain, silence: cfg.silence,
-      bed: cfg.bed, bedLevel: cfg.bedLevel,
+      bed: cfg.bed, bedLevel: cfg.bedLevel, bedSurprise: !!cfg.bedSurprise,
       depth: cfg.depth || undefined, prefix: cfg.prefix || undefined,
       holdWatch: !!cfg.holdWatch, holdSeconds: cfg.holdSeconds,
       /* which four of the thirty-two obstacle statements is not a sequencing decision, so the
@@ -8174,7 +8193,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   function bedOn() { return cfg.bed !== D.BED_NONE && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed); }
   function showBed() {
     const U = COPY.UI, on = bedOn();
-    $('bednow').textContent = on ? (U.soundNames[cfg.bed] || cfg.bed) : U.soundNothing;
+    $('bednow').textContent = on ? ((cfg.bedSurprise ? U.soundSurprise + ' \u00b7 ' : '') + (U.soundNames[cfg.bed] || cfg.bed)) : U.soundNothing;
     $('bedtoggle').classList.toggle('on', on);
     $('bedtoggle').setAttribute('aria-pressed', on ? 'true' : 'false');
     $('bedlevelnow').textContent = on ? U.soundLevels[D.bedLevel(cfg.bedLevel)] : '';   // the step, as a number, beside the sound's name
@@ -8186,14 +8205,16 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
    * takes effect at once (the sound is already playing, so there is nothing to preview); Done folds the menu back. A
    * question arriving takes the panel, as it does from the standard menu. */
   function pickBed(key) {
+    if (key === D.BED_SURPRISE) { cfg.bedSurprise = true; key = D.bedSurprise(null, cfg.bed); }   // a new sound now, and every launch after (2026-09-28)
+    else cfg.bedSurprise = false;
     cfg.bed = (key === D.BED_NONE || Object.prototype.hasOwnProperty.call(D.BEDS, key)) ? key : D.BED_NONE;
-    if (session) session.setBed(cfg.bed, cfg.bedLevel);
+    if (session) session.setBed(cfg.bed, cfg.bedLevel, cfg.bedSurprise);
     showBed();
   }
   function pickBedLevel(level) {
     if (!bedOn()) return;
     cfg.bedLevel = D.bedLevel(level);
-    if (session) session.setBed(cfg.bed, cfg.bedLevel);
+    if (session) session.setBed(cfg.bed, cfg.bedLevel, cfg.bedSurprise);
     showBed();
   }
   function picking() { return $('player').classList.contains('picking'); }
@@ -8239,8 +8260,8 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const rows = el('div', 'bed-rows');
     const tick = () => { const t = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); t.setAttribute('viewBox', '0 0 24 24'); t.setAttribute('class', 'tick'); t.setAttribute('aria-hidden', 'true');
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M5 12l5 5L20 6'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '2.6'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); t.appendChild(path); return t; };
-    [[D.BED_NONE, U.soundNothing]].concat(Object.keys(D.BEDS).map(k => [k, U.soundNames[k] || k])).forEach(([k, name]) => {
-      const sel = on ? cfg.bed === k : k === D.BED_NONE;
+    [[D.BED_SURPRISE, U.soundSurprise], [D.BED_NONE, U.soundNothing]].concat(Object.keys(D.BEDS).map(k => [k, U.soundNames[k] || k])).forEach(([k, name]) => {
+      const sel = k === D.BED_SURPRISE ? (on && !!cfg.bedSurprise) : on ? (!cfg.bedSurprise && cfg.bed === k) : k === D.BED_NONE;
       const b = el('button', 'bedrow' + (sel ? ' sel' : ''), name);
       b.type = 'button'; b.dataset.bed = k; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
       b.appendChild(tick());
@@ -8453,7 +8474,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       /* `silence` is the one launch parameter that takes any integer that parses (§A1.7), so
        * it is snapped onto the one vocabulary here rather than being allowed to open a
        * practice on a value no control can show. */
-      if (launch.bed) { cfg.bed = launch.bed; if (launch.bedLevel) cfg.bedLevel = launch.bedLevel; }
+      if (launch.bed) { cfg.bed = launch.bed; if (launch.bedLevel) cfg.bedLevel = launch.bedLevel; cfg.bedSurprise = !!launch.bedSurprise; }
       if (typeof launch.silence === 'number') {
         cfg.silence = COPY.SILENCE_STEPS.reduce((b, s) =>
           (Math.abs(s - launch.silence) < Math.abs(b - launch.silence) ? s : b), COPY.SILENCE_STEPS[0]);

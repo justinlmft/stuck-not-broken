@@ -6478,6 +6478,9 @@ function app(tab){
     // the background sound the person chose last (2026-09-26) rides on EVERY launch — the maker, the recommended
     // practice, the chooser, the state cards — unless the launch names its own
     if(!e.has('bed')){ const b=bedPref(); if(b.bed!=='none'){ e.set('bed', b.bed); e.set('bedvol', b.level); } }
+    // 2026-09-28 (Justin, desktop: the player light inside a dark app): the player takes the theme the APP is showing,
+    // never its own guess — the same document class the app painted with
+    try{ e.set('theme', document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'); }catch(_){}
     return 'practice-engine.html?' + e.toString();
   }
   function practiceShell(src, reco){
@@ -6534,14 +6537,15 @@ function app(tab){
   function bedLevelKey(l){ l=l==null?'':String(l); if(BED_LEVELS.some(x=>x[0]===l)) return l; return BED_LEVEL_LEGACY[l]||BED_LEVEL_DEFAULT; }
   function bedLevelFile(l){ return (BED_LEVELS.find(x=>x[0]===bedLevelKey(l))||BED_LEVELS[1])[1]; }
   const BED_PREVIEW_BASE='clips/beds-v1/';   // same folder the engine plays from (data.js BED_FOLDER)
-  function bedPref(){ const p=(Store.prefBed&&Store.prefBed())||null; const known=p && BED_SOUNDS.some(b=>b[0]===p.bed);
+  // 'surprise' (2026-09-28, Justin: "Add a 'Surprise me' to the BACKGROUND SOUND menu") is a real preference: the player draws a sound each time
+  function bedPref(){ const p=(Store.prefBed&&Store.prefBed())||null; const known=p && (p.bed==='surprise' || BED_SOUNDS.some(b=>b[0]===p.bed));
     return known ? { bed:p.bed, level:bedLevelKey(p.level) } : { bed:'none', level:null }; }
-  function bedSay(b){ return BED_SAY[b.bed]||b.bed; }
+  function bedSay(b){ return b.bed==='surprise' ? 'a surprise sound' : (BED_SAY[b.bed]||b.bed); }
   function bedWords(b){ b=b||bedPref(); if(b.bed==='none') return 'no background sound'; return bedSay(b)+' in the background'; }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
-    if(!b || b.bed==='none') return;
+    if(!b || b.bed==='none' || b.bed==='surprise') return;
     const sd=BED_SOUNDS.find(x=>x[0]===b.bed); const a=new Audio(BED_PREVIEW_BASE+((sd&&sd[3])||b.bed)+'-'+bedLevelFile(b.level)+'.m4a'); a.preload='auto'; _bedPreview=a;
     a.addEventListener('loadedmetadata',()=>{ try{ if(isFinite(a.duration)&&!(sd&&sd[4])) a.currentTime=Math.floor(Math.random()*Math.max(0,a.duration-10)); }catch(e){} },{once:true});
     const pr=a.play(); if(pr&&pr.catch) pr.catch(()=>{});
@@ -6556,14 +6560,14 @@ function app(tab){
     const check='<svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
     const paint=()=>{
       const cur=bedPref();
-      const rows=[['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
+      const rows=[['surprise','Surprise me','A different sound each practice'],['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
         `<button class="p7-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}"><span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(nm))}</span><span class="p7-opt-sub">${escapeHtml(sub)}</span></span>${check}</button>`).join('');
       // five steps, no words: each pill a little taller than the last, the chosen one filled (a name for screen readers only)
       const lv=cur.bed==='none' ? '' : `<div class="p7-sheet-group">How loud</div>
         <div class="p7-seg p7-seg-steps" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
       wrap.querySelector('.p7-sheet-body').innerHTML=`<div class="p7-sheet-group">Sound</div>${rows}${lv}`;
       wrap.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
-        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview(k==='none'?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
+        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
       wrap.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
         if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('start'); paint(); onChange&&onChange(); });
     };
@@ -7530,7 +7534,7 @@ function app(tab){
       if(m.sense!==undefined && m.sense!==null) reco.sense=m.sense;
       if(typeof m.silence==='number') reco.silence=m.silence;
       // the background sound it ENDED on is the one remembered (a change in the player's menu counts)
-      if(typeof m.bed==='string' && Store.setPrefBed){ Store.setPrefBed(m.bed, m.bed==='none' ? null : (m.bedVolume||'soft')); }
+      if(typeof m.bed==='string' && Store.setPrefBed){ const keep = m.bedPref==='surprise' ? 'surprise' : m.bed; Store.setPrefBed(keep, m.bed==='none' ? null : (m.bedVolume||'soft')); }   // a surprise stays a surprise (2026-09-28)
       if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
       if(m.meditationId!==undefined) reco.meditationId=m.meditationId;
       if(m.openEnded!==undefined) reco.openEnded=m.openEnded;
