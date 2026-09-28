@@ -2268,7 +2268,33 @@ function whatsNewPush(){
   const y=d.querySelector('#wn-go-you'); if(y) y.onclick=()=>{ close(); try{ app('you'); }catch(e){} };
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_push_seen',{}); }catch(e){}
 }
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewPush(); }catch(e){} }, ms)); });   // auth lands async; the card is idempotent
+// The 2026-09 release announcement (Justin's copy, 2026-09-27 night; signed by him, so first person is fine here, as on
+// the naming card). Once per device, signed-in members, never over onboarding or another card. It goes before the older
+// notifications card and before any tip (both check this key).
+const _WN_LAUNCH_KEY='snb_whatsnew_launch_2026_09';
+function whatsNewLaunch(){
+  try{ if(localStorage.getItem(_WN_LAUNCH_KEY)==='1') return; }catch(e){ return; }
+  try{ if(!Store.user() || (Store.isAnonymous&&Store.isAnonymous())) return; }catch(e){ return; }
+  if(document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Major app update">'
+    + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+    + '<h2 class="wn-h">Major app update:</h2>'
+    + '<p class="wn-p">There are way too many updates to list, but here\'s a few:</p>'
+    + '<ul class="wn-p" style="margin:0;padding-left:20px">'
+    + '<li>The guided practices now talk back! You can answer many questions from the player during your practice and change the course of the practice. Want more safety? Sure. Simplify and focus on mindfulness? That\'s fine, too.</li>'
+    + '<li>Add background audio to your practice (tap Customize in the player) to help you settle even more.</li>'
+    + '<li>Even better recommendations based on your check-ins and practices, including your ideal practice time.</li>'
+    + '<li>Randomish tips: you\'ll get a &ldquo;Did you know&rdquo; every now and again to help you get the most out of the app.</li>'
+    + '</ul>'
+    + '<button class="btn block" id="wn-ok" type="button">Got it</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ try{ localStorage.setItem(_WN_LAUNCH_KEY,'1'); }catch(e){} d.remove(); };
+  const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_launch_seen',{}); }catch(e){}
+}
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewLaunch(); whatsNewPush(); }catch(e){} }, ms)); });   // auth lands async; both cards are idempotent; the launch card takes the load, the push card waits for the next
 
 function app(tab){
     currentTab = tab;
@@ -2622,11 +2648,69 @@ function app(tab){
       cta:'Turn on the after-practice reminder',
       when:()=> _tipPushOpen() && !_tipPrefs().followup,
       act:_tipToNotifications },
+    /* 2026-09-27 night (Justin): "the app can be on home screens of Android also. And this one should not fire if it's already on
+     * the Home Screen" — any phone that can install it, never once it is installed; the settings row shows the right steps. */
     { id:'install',
-      body:'On iPhone, the app can live on your Home Screen. Tap the share icon, then choose add to Home Screen. Notifications only work from there.',
-      cta:'Open settings',
-      when:()=>{ try{ return isiOS() && !isStandalone(); }catch(e){ return false; } },
-      act:()=> _tipToSettings('#install-row', false) }
+      body:'The app can live on your Home Screen, on iPhone and on Android. It opens like any other app from there, and notifications only work from there.',
+      cta:'See how to install it',
+      when:()=>{ try{ const st=installState(); return !isStandalone() && (st==='button' || st==='ios-share'); }catch(e){ return false; } },
+      act:()=> _tipToSettings('#install-row', false) },
+    /* ── the 2026-09 release (Justin, 2026-09-27 night: "add our beta updates to it as options, too") ── */
+    { id:'talkback',
+      body:'When a practice asks you a question, you can answer by tapping. The practice replies, and when safety is low it offers you a choice of where to go next.',
+      cta:'Start a practice',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'bed',
+      body:'Any practice can have a sound behind it, at the loudness you pick. Tap Customize in the player.',
+      cta:'Start a practice',
+      when:()=>{ try{ const p=Store.prefBed&&Store.prefBed(); return !(p && p.bed && p.bed!=='none'); }catch(e){ return true; } },
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'silence',
+      body:'The quiet after each question is yours to set. Tap Customize in the player and choose how long the silences run.',
+      cta:'Start a practice',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'captions',
+      body:'Every practice can show what is being said as it is said. Turn captions on from Customize in the player.',
+      cta:'Start a practice',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'skipintro',
+      body:'Heard the opening enough times? Skip intro is in the player menu on every practice and takes you straight to the practice itself.',
+      cta:'Start a practice',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'back',
+      body:'Missed something? The back button in the player replays the current part. Press it again to go back one more.',
+      cta:'Start a practice',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'breath',
+      body:'When a practice asks about your breath, three quick taps answer it: chest or belly, shallow or full, tense or relaxed. Over time the You tab shows which of your choices go with easier breathing.',
+      cta:'Start a practice',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'ideal',
+      body:'The You tab works out your ideal practice from what has worked for you: when, which practice, which anchor, how much silence, how long. You can start it from there.',
+      cta:'Open the You tab',
+      when:()=>{ try{ return !!bestSetup(); }catch(e){ return false; } },
+      act:()=>{ try{ app('you'); }catch(e){} } },
+    { id:'besttime',
+      body:'Once the app knows your best time to practice, the practice reminder can follow it. Choose My best time under Practice reminder.',
+      cta:'Set a practice reminder',
+      when:()=> _tipPushOpen() && !_tipPrefs().practice_best,
+      act:_tipToNotifications },
+    { id:'maker',
+      body:'You can put a practice together yourself: the pieces, the anchor, the silence, the length. It is saved, so it is one tap next time.',
+      cta:'Open the Practice tab',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } },
+    { id:'anchor',
+      body:'The recommended practice\'s safety anchor can be changed from inside its card, any time.',
+      cta:'Open the Practice tab',
+      when:()=> true,
+      act:()=>{ try{ app('practice'); }catch(e){} } }
   ];
   // the first card in the list that has not been shown here and still has something to say
   function tipsPick(){
@@ -2651,6 +2735,7 @@ function app(tab){
   // an announcement card that has not been dismissed on this device owns this load
   const _tipOtherCardPending = () => {
     try{
+      if(typeof _WN_LAUNCH_KEY === 'string' && _tipLS(_WN_LAUNCH_KEY) !== '1') return true;
       if(typeof _WN_PUSH_KEY === 'string' && _tipLS(_WN_PUSH_KEY) !== '1') return true;
       if(typeof _WN_YOU_KEY === 'string' && typeof _WN_YOU_UNTIL === 'number'
          && Date.now() < _WN_YOU_UNTIL && _tipLS(_WN_YOU_KEY) !== '1') return true;
@@ -2662,26 +2747,36 @@ function app(tab){
     if(document.getElementById('tip-root') || document.getElementById('wn-root')
        || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
     if(_tipOtherCardPending()) return;
-    const t = tipsPick(); if(!t) return;
+    const first = tipsPick(); if(!first) return;
     const d = document.createElement('div'); d.id='tip-root'; d.className='wn-root';
-    d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Did you know?">'
-      + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
-      + '<h2 class="wn-h">Did you know?</h2>'
-      + '<p class="wn-p">' + t.body + '</p>'
-      + '<p class="wn-p"><button class="set-quiet wn-go" id="tip-go" type="button">' + t.cta + ' &rsaquo;</button></p>'
-      + '<button class="btn block" id="tip-later" type="button">Not now</button>'
-      + '<p class="wn-p" style="margin:12px 0 0;text-align:center"><button class="set-quiet" id="tip-off" type="button">I don&rsquo;t want more of these</button></p>'
-      + '</div>';
     document.body.appendChild(d);
-    requestAnimationFrame(()=>d.classList.add('on'));
-    tipsMarkShown(t.id); tipTrack('tip_shown', t.id);
     const close = ()=>{ d.remove(); };
-    const go = d.querySelector('#tip-go');
-    if(go) go.onclick = ()=>{ tipTrack('tip_action', t.id); close(); try{ t.act(); }catch(e){} };
-    const later = d.querySelector('#tip-later');
-    if(later) later.onclick = ()=>{ tipTrack('tip_dismissed', t.id); close(); };
-    const off = d.querySelector('#tip-off');
-    if(off) off.onclick = ()=>{ try{ localStorage.setItem(TIPS_ON_KEY,'0'); }catch(e){} tipTrack('tip_off', t.id); close(); };
+    // 2026-09-27 night (Justin): "make it so the person can tap to see the next card in the series" — Next tip swaps the card's
+    // words in place for the next one that still applies; each card seen this way counts as shown, and the weekly clock is
+    // set by the last one. When nothing is left to show, Next tip is not offered.
+    const render = (t)=>{
+      tipsMarkShown(t.id); tipTrack('tip_shown', t.id);
+      const more = !!tipsPick();
+      d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Did you know?">'
+        + '<div class="wn-mark-wrap">' + (typeof obMarkSVG === 'function' ? obMarkSVG() : '') + '</div>'
+        + '<h2 class="wn-h">Did you know?</h2>'
+        + '<p class="wn-p">' + t.body + '</p>'
+        + '<p class="wn-p"><button class="set-quiet wn-go" id="tip-go" type="button">' + t.cta + ' &rsaquo;</button></p>'
+        + (more ? '<p class="wn-p"><button class="set-quiet wn-go" id="tip-next" type="button">Next tip &rsaquo;</button></p>' : '')
+        + '<button class="btn block" id="tip-later" type="button">Not now</button>'
+        + '<p class="wn-p" style="margin:12px 0 0;text-align:center"><button class="set-quiet" id="tip-off" type="button">I don&rsquo;t want more of these</button></p>'
+        + '</div>';
+      const go = d.querySelector('#tip-go');
+      if(go) go.onclick = ()=>{ tipTrack('tip_action', t.id); close(); try{ t.act(); }catch(e){} };
+      const next = d.querySelector('#tip-next');
+      if(next) next.onclick = ()=>{ tipTrack('tip_next', t.id); const n = tipsPick(); if(n) render(n); else close(); };
+      const later = d.querySelector('#tip-later');
+      if(later) later.onclick = ()=>{ tipTrack('tip_dismissed', t.id); close(); };
+      const off = d.querySelector('#tip-off');
+      if(off) off.onclick = ()=>{ try{ localStorage.setItem(TIPS_ON_KEY,'0'); }catch(e){} tipTrack('tip_off', t.id); close(); };
+    };
+    render(first);
+    requestAnimationFrame(()=>d.classList.add('on'));
   }
   // late, and after the announcement cards have had their turn (they run at 1.4s / 2.6–15s)
   addEventListener('load', ()=>{ [22000, 45000].forEach(ms=>setTimeout(()=>{ try{ tipsMaybeShow(); }catch(e){} }, ms)); });
