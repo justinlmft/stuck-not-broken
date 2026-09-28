@@ -510,9 +510,9 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      page.css               2a54cdf45c90a635a1fcade7d13d1e39    36586 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                f6372951673c894d49e2310555050da5    66707 bytes
+     data.js                5d27118f727fa3fca1218c2060c237ad    67120 bytes
      plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
-     runtime.js             70f6823ae02a6a0123e5e311efd713d9    51078 bytes
+     runtime.js             61b5f9bdb69f5de3184a1defa5a4898e    51146 bytes
      host.js                db2ad2e64c1729a28599ef732d22940a    39394 bytes
      browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
@@ -928,7 +928,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:f6372951673c894d49e2310555050da5 */
+<script>/* @module data.js md5:5d27118f727fa3fca1218c2060c237ad */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -967,9 +967,12 @@ if (!TABLE) {
  * `Access-Control-Allow-Origin: *`, checked 2026-09-16). The silent gap file stays
  * app-relative (`clips/silence-30s.wav` exists on both branches) — see runtime.js.
  *
- * At cutover this becomes `'clips/'` again in the same commit that renames the folder, and
- * nothing else changes: `clipUrl()` prefixes `base` only when the folder is relative. */
-const CLIP_FOLDER = 'https://app.stucknotbroken.com/clips-v2/';
+ * 2026-09-28 (the cutover, after the prod launch; Justin: "let's get it right now"): every `clips-v2/` file was copied into
+ * `clips/` on main and beta (git, blobs unchanged; the 66 old woven takes with the same names replaced by the new
+ * recordings, the pack clips / silence / beds-v1 kept), so the engine reads `clips/`. It stays ABSOLUTE on purpose: the
+ * service worker caches app-relative `clips/` files cache-first as immutable, and 66 names changed content — a stale
+ * cached old take would win. Cross-origin, the worker never sees a take. `clips-v2/` is removed once this is live. */
+const CLIP_FOLDER = 'https://app.stucknotbroken.com/clips/';
 const ABSOLUTE_FOLDER = /^[a-z][a-z0-9+.-]*:\/\//i.test(CLIP_FOLDER);
 
 /* The one way a file name becomes a URL. `base` is the device's app root (`./` in the page,
@@ -3100,7 +3103,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:70f6823ae02a6a0123e5e311efd713d9 */
+<script>/* @module runtime.js md5:61b5f9bdb69f5de3184a1defa5a4898e */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -3147,8 +3150,8 @@ const C = Object.freeze({
    * bare `ID-a.mp3`, so with `base` set to the app root every clip resolved beside index.html
    * and 404ed, while the gap alone was found (caught wiring the page, 2026-09-01; asserted
    * in runtime.test.js). 2026-09-16: for the beta device walk the folder is the LIVE site's
-   * `clips-v2/` (absolute, cross-origin), while the silent file above stays app-relative —
-   * `clips-v2/` has no silence file and `clips/silence-30s.wav` exists on both branches. At
+   * `clips/` on the live site (absolute, cross-origin — since 2026-09-28; `clips-v2/` before), while the silent file above stays app-relative —
+   * the absolute folder is never prefixed with `base`; `clips/silence-30s.wav` exists on both branches. At
    * cutover `CLIP_FOLDER` returns to `clips/` and the two share a prefix again. */
   CLIPS_DIR: D.CLIP_FOLDER,
 
