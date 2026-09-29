@@ -510,17 +510,17 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      page.css               2a54cdf45c90a635a1fcade7d13d1e39    36586 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                5d27118f727fa3fca1218c2060c237ad    67120 bytes
-     plan.js                dc0de0bf4c4a4808abc9eb306e4d2d85    84245 bytes
-     runtime.js             61b5f9bdb69f5de3184a1defa5a4898e    51146 bytes
+     data.js                38ecdcc9b02e0137319ef718a48b5f6a    68382 bytes
+     plan.js                2e8a56643940678ad0d70fd9c567f09b    84718 bytes
+     runtime.js             b898510a67307b5c30a8ac7e9087dd87    51230 bytes
      host.js                db2ad2e64c1729a28599ef732d22940a    39394 bytes
-     browser-device.js      07f6959698f90aee1038962e1c2f4ae6     2963 bytes
+     browser-device.js      863ad60f72c24b196eefe4c431ac667a    10383 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
-     session.js             bc751330a8475309a88a89839f91cfe9    82838 bytes
+     session.js             0a5c59b4001392d46b6f8762d7cc6ad4    83678 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                ef5a03184120f0ebff87f3495e0dd6d8    15285 bytes
-     page.js                858db5ce779df3810a606de813cd5ff7    64650 bytes
+     page.js                3632f0f3fc812df1d17018c60087d8ba    64820 bytes
 -->
 </head>
 <body>
@@ -928,7 +928,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:5d27118f727fa3fca1218c2060c237ad */
+<script>/* @module data.js md5:38ecdcc9b02e0137319ef718a48b5f6a */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1412,11 +1412,13 @@ const BREATH_GUIDE_MOVE = exists('BREATH-GUIDE-MOVE') ? must('BREATH-GUIDE-MOVE'
 /* ✅ THE GENERAL ACKNOWLEDGMENTS (Justin, 2026-09-27, recording v2d: "i also recorded a bunch of little acknowledgments that
  * are generally usable. Maybe tag them as GENERAL-ACK as appropriate"). Seven short lines that fit any tap — "Got it. Thank
  * you for sharing that", "Okay, good to know. Let's keep going", "Noted", "Okay". Their one use so far: the first tap of a
- * breath check draws from the breath acknowledgments AND these, one pool, every take an equal chance (BREATH_ACK_FAMILIES,
- * session.js `_breathAnswer`). Any later acknowledgment point can draw from GENERAL_ACK the same way. Optional, like the
- * others: null until it is in the table. */
+ * breath check drew from the breath acknowledgments AND these until 2026-09-28 (see BREATH_ACK_FAMILIES below). Any later
+ * acknowledgment point can draw from GENERAL_ACK. Optional, like the others: null until it is in the table. */
 const GENERAL_ACK = exists('GENERAL-ACK') ? must('GENERAL-ACK') : null;
-const BREATH_ACK_FAMILIES = Object.freeze([BREATH_ACK, GENERAL_ACK].filter(Boolean));
+/* ✅ THE BREATH FAMILY ALONE (Justin, 2026-09-28, first prod listen: "The general acknowledgments for the breath are a little
+ * awkward. Limit them to the more breath-specific takes. The general ones can remain for other uses as needed in the future").
+ * GENERAL_ACK stays recorded and exported; nothing draws from it today. */
+const BREATH_ACK_FAMILIES = Object.freeze([BREATH_ACK].filter(Boolean));
 
 /* ✅ THE TRANSITION LINES (Justin, 2026-09-22): "No matter what they tap, they should get a transition
  * statement, like 'Okay, let's transition to a simpler mindfulness practice.' Just one take per
@@ -1677,7 +1679,15 @@ const CLIP_HOLDS = Object.freeze({
   'VALIDATE-SAFETY-d.mp3': Object.freeze([{ at: 4.03, pause: 1.01 }, { at: 18.6, pause: 1.38 }]),
 });
 function holdsFor(file) { return Object.prototype.hasOwnProperty.call(CLIP_HOLDS, file) ? CLIP_HOLDS[file] : []; }
-function holdSeconds(silence) { return Math.max(2, (silence || 0) / 2); }
+/* ✅ THE PENDULATION CHECKS GET THE WHOLE SETTING (Justin, 2026-09-28, first prod listen: "The safety and defense checks in
+ * pendulation need to have the minimum time put in by the user. the last safety one seemed to go by way too fast before
+ * switching."). The questions inside PEND-SAFETY and PEND-DEFENSE — is it still there, has it changed — are the swing itself,
+ * so each pause after one is the person's full silence setting, not the half a question inside any other prompt gets. */
+const FULL_HOLD_CLIPS = /^PEND-/;
+function holdSeconds(silence, file) {
+  const s = silence || 0;
+  return Math.max(2, file && FULL_HOLD_CLIPS.test(file) ? s : s / 2);
+}
 
 /* The boundaries, as Justin gave them (ruled 2026-09-22: the two middles differ on purpose).
  * Safety: 0–3 low · 4–7 middle · 8–10 high.  Intensity: 0–3 low · 4–6 middle · 7–10 high. */
@@ -1719,6 +1729,9 @@ const DELIBERATE_REUSABLES = Object.freeze({
    * defense side INTEREST-01 is the only spoken offer to stop before the close. That is a
    * deliberate, dated state, not an oversight. */
   'CAP-GATE-DEFENSE': 'parked 2026-09-17 (Justin) — redundant with INTEREST-01; rewind moved to PERMIT-DEFENSE, capacity-checking moves to the 0–10 readings in v3',
+  /* Justin, 2026-09-28, first prod listen: "The general acknowledgments for the breath are a little awkward. Limit them to the
+   * more breath-specific takes. The general ones can remain for other uses as needed in the future." Kept, not cut. */
+  'GENERAL-ACK': 'parked 2026-09-28 (Justin) — out of the breath pool ("a little awkward" there); the seven takes stay recorded for a later acknowledgment point',
 });
 
 // ---------------------------------------------------------------------------
@@ -1797,7 +1810,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:dc0de0bf4c4a4808abc9eb306e4d2d85 */
+<script>/* @module plan.js md5:2e8a56643940678ad0d70fd9c567f09b */
 (function(){
 /* practice-engine — the planner.
  *
@@ -1849,8 +1862,12 @@ function gapFor(beat, silence) {
   if (beat.kind === KIND.setup) return 2;
   /* ✅ AFTER THE REPLY TO A 0–10, TWO SECONDS (Justin, 2026-09-24: "the second safety 0-10 again had a long pause
    * after i answered it before the interest check"). The reply clip is the app answering the person, not a
-   * prompt to sit with — the full silence setting after it read as the app stalling. */
-  if (beat.kind === KIND.reply) return 2;
+   * prompt to sit with — the full silence setting after it read as the app stalling.
+   * ✅ EXCEPT A REPLY MARKED `sit` — the breath acknowledgment (Justin, 2026-09-28: "The breath acknowledgment needs more time
+   * after it before the next prompt. give it the same treatment as the questions within prompts (color, shape, size...)"):
+   * it gets the pause a question inside a prompt gets (data.js holdSeconds: half the silence setting, 2 s at least), because
+   * the breath check it answers is one of those questions. */
+  if (beat.kind === KIND.reply) return beat.sit ? D.holdSeconds(silence) : 2;
   return silence;
 }
 
@@ -3103,7 +3120,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:61b5f9bdb69f5de3184a1defa5a4898e */
+<script>/* @module runtime.js md5:b898510a67307b5c30a8ac7e9087dd87 */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -3722,7 +3739,7 @@ class Runtime {
     this._holdTimer = null;
     this._midHold = null;
     const silence = (this.plan.cfg && this.plan.cfg.silence) || 0;
-    const want = D.holdSeconds(silence);
+    const want = D.holdSeconds(silence, file);      // the whole setting inside the pendulation swings (data.js, 2026-09-28)
     const start = this._trimStart || 0, end = this._trimEnd || Infinity;
     this._holds = D.holdsFor(file)
       .filter(h => h.at > start && h.at < end)
@@ -4870,7 +4887,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_HOST = API
 
 })();
 /* @endmodule host.js */</script>
-<script>/* @module browser-device.js md5:07f6959698f90aee1038962e1c2f4ae6 */
+<script>/* @module browser-device.js md5:863ad60f72c24b196eefe4c431ac667a */
 (function(){
 /* practice-engine/browser-device.js — the real phone, behind the same port the fake one uses.
  *
@@ -4884,11 +4901,141 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_HOST = API
  * reports it and decides nothing.
  */
 
+/* ✅ A SEAMLESS LOOP (Justin, 2026-09-28, the first prod listen: "beach waves had a clear sound gap at the stitch point").
+ * The files are continuous across their seam (measured: level and tone within a dB at 10 ms either side); the hole is
+ * the phone's own restart when an <audio loop> wraps — iPhones leave a short silence there, and a steady wash like the
+ * beach exposes it. So the element is only the START of the sound: it streams and plays at once, while the same file is
+ * fetched and decoded into a Web Audio buffer; once decoded, an AudioBufferSourceNode takes over at the element's exact
+ * position and loops sample-accurately (loopStart/loopEnd trim any decoder priming). The element then pauses. To the
+ * runtime this object IS the bed element — same play/pause/src/currentTime/paused/duration/loop, the same events while
+ * the element is sounding — so `runtime.js` keeps its rules and its tests. With no Web Audio, or a decode that fails,
+ * the element plays on exactly as before. The level is still the file: the gain node sits at 1 and never moves. */
+const MAX_BUFFER_SAMPLES = 48e6;   // ≈ 190 MB of float samples: the longest bed (birds, 437 s stereo at 44.1 kHz) fits; nothing bigger is held
+function gaplessBed(el, win) {
+  const W = win || (typeof window !== 'undefined' ? window : null);
+  const AC = W && (W.AudioContext || W.webkitAudioContext);
+  if (!el || !AC) return el;
+  let ctx = null, gain = null, src = null;
+  let url = '', buf = null, bufUrl = '', loopStart = 0, loopEnd = 0;
+  let want = false;               // what the runtime asked for: sounding or not
+  let mode = 'element';           // 'element' until the buffer is ready, then 'buffer'
+  let startAt = 0, offset = 0;    // the buffer clock: the source started at ctx time `startAt`, `offset` s into the loop
+  let pendingSeek = null;
+  const fwd = { play: [], pause: [], loadedmetadata: [], error: [], ended: [] };
+  const span = () => Math.max(0.05, loopEnd - loopStart);
+  function ensureCtx() {
+    if (!ctx) {
+      try { try { ctx = new AC({ sampleRate: 44100 }); } catch (e0) { ctx = new AC(); } gain = ctx.createGain(); gain.gain.value = 1; gain.connect(ctx.destination); } catch (e) { ctx = null; return null; }
+      ctx.onstatechange = () => {
+        if (ctx.state !== 'running') return;
+        if (mode === 'buffer') { if (want && !src) startSource(offset); } else handoff();
+      };
+    }
+    if (ctx.state !== 'running') { try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+    return ctx;
+  }
+  function pos() {
+    if (mode !== 'buffer' || !buf) return el.currentTime || 0;
+    if (!src) return offset;
+    return ((offset - loopStart + (ctx.currentTime - startAt)) % span()) + loopStart;
+  }
+  function stopSource() {
+    if (!src) return;
+    const at = pos();
+    try { src.onended = null; src.stop(); } catch (e) {}
+    try { src.disconnect(); } catch (e) {}
+    src = null; offset = at;
+  }
+  function startSource(at) {
+    stopSource();
+    if (!ctx || !buf || ctx.state !== 'running') { offset = at; return; }
+    const s = ctx.createBufferSource();
+    s.buffer = buf; s.loop = true; s.loopStart = loopStart; s.loopEnd = loopEnd; s.connect(gain);
+    let from = isFinite(at) ? at : loopStart;
+    if (from < loopStart || from >= loopEnd) from = loopStart + (((from - loopStart) % span()) + span()) % span();
+    offset = from; startAt = ctx.currentTime; src = s;
+    try { s.start(0, from); } catch (e) { src = null; }
+  }
+  /* decoder priming / padding shows up as near-silence at the ends; the loop skips it */
+  function trimPoints(b) {
+    const d = b.getChannelData(0), n = d.length, lim = Math.min(n, Math.floor(b.sampleRate * 0.06));
+    let a = 0, z = n;
+    while (a < lim && Math.abs(d[a]) < 1e-4) a++;
+    while (z > n - lim && Math.abs(d[z - 1]) < 1e-4) z--;
+    if (a >= lim) a = 0;
+    if (z <= n - lim) z = n;
+    return [a / b.sampleRate, z / b.sampleRate];
+  }
+  function decode(u) {
+    const c = ensureCtx();
+    if (!c || !W.fetch) return;
+    W.fetch(u).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.arrayBuffer(); })
+      .then(ab => new Promise((res, rej) => { try { const p = c.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); } catch (e) { rej(e); } }))
+      .then(b => {
+        if (u !== url || !b || !(b.duration > 0.5)) return;
+        if (b.length * b.numberOfChannels > MAX_BUFFER_SAMPLES) return;   // too big to hold decoded: the element plays on
+        buf = b; bufUrl = u; [loopStart, loopEnd] = trimPoints(b); handoff();
+      })
+      .catch(() => { /* the element plays on; a seam is a smaller thing than silence */ });
+  }
+  function handoff() {
+    if (mode === 'buffer' || !buf || bufUrl !== url) return;
+    if (!ctx || ctx.state !== 'running') return;   // never trade a sounding element for a context that cannot sound yet
+    /* where the element is now (it has been sounding); a seek it could not take yet (no metadata) is honoured instead */
+    const at = (el.currentTime > 0 || pendingSeek == null) ? (el.currentTime || 0) : pendingSeek;
+    pendingSeek = null; mode = 'buffer';
+    if (want) startSource(at); else offset = at;
+    try { el.pause(); } catch (e) {}
+  }
+  ['play', 'pause', 'loadedmetadata', 'error', 'ended'].forEach(t => {
+    el.addEventListener(t, ev => { if (mode !== 'element' && t !== 'loadedmetadata') return; fwd[t].forEach(f => { try { f(ev); } catch (e) {} }); });
+  });
+  if (W.document) W.document.addEventListener('visibilitychange', () => { if (!W.document.hidden && want && mode === 'buffer') { const c = ensureCtx(); if (c && c.state === 'running' && !src) startSource(offset); } });
+  try { el.loop = true; el.preload = 'auto'; } catch (e) {}
+  const api = {
+    get paused() { return mode === 'buffer' ? !want : el.paused; },
+    get duration() { return mode === 'buffer' && buf ? buf.duration : el.duration; },
+    get currentTime() { return pos(); },
+    set currentTime(v) {
+      if (mode === 'buffer') { if (want && src) startSource(v); else offset = v; return; }
+      pendingSeek = v; try { el.currentTime = v; } catch (e) {}
+    },
+    get loop() { return true; },
+    set loop(v) { try { el.loop = true; } catch (e) {} },
+    get volume() { return el.volume; },
+    set volume(v) { /* never — the level is the file */ },
+    get src() { return el.src; },
+    set src(v) {
+      stopSource(); buf = null; bufUrl = ''; mode = 'element'; pendingSeek = null; offset = 0; url = v;
+      try { el.src = v; } catch (e) {}
+      if (v) decode(v);
+    },
+    get currentSrc() { return el.currentSrc || url; },
+    get mode() { return mode; },
+    get element() { return el; },
+    play() {
+      want = true; ensureCtx();
+      if (mode === 'buffer') { if (!src) startSource(offset); return Promise.resolve(); }
+      try { const p = el.play(); return p && p.catch ? p : Promise.resolve(); } catch (e) { return Promise.resolve(); }
+    },
+    pause() {
+      want = false;
+      if (mode === 'buffer') { stopSource(); return; }
+      try { el.pause(); } catch (e) {}
+    },
+    addEventListener(t, f) { if (fwd[t]) fwd[t].push(f); else el.addEventListener(t, f); },
+    removeEventListener(t, f) { if (fwd[t]) fwd[t] = fwd[t].filter(x => x !== f); else el.removeEventListener(t, f); },
+  };
+  return api;
+}
+
 function browserDevice({ audio, bed, base, serviceWorkerContainer, reload } = {}) {
   const au = audio || new Audio();
-  /* the background sound (2026-09-26): its own element, so the voice's src swaps never touch it */
-  const bd = bed || (typeof Audio !== 'undefined' ? new Audio() : null);
-  if (bd) { try { bd.loop = true; bd.preload = 'auto'; } catch (e) {} }
+  /* the background sound (2026-09-26): its own element, so the voice's src swaps never touch it — wrapped so its loop
+   * has no seam (2026-09-28, `gaplessBed`) */
+  const bd0 = bed || (typeof Audio !== 'undefined' ? new Audio() : null);
+  if (bd0) { try { bd0.loop = true; bd0.preload = 'auto'; } catch (e) {} }
+  const bd = bd0 ? gaplessBed(bd0) : null;
   const doc = typeof document !== 'undefined' ? document : null;
   const nav = typeof navigator !== 'undefined' ? navigator : null;
 
@@ -4945,7 +5092,7 @@ function browserDevice({ audio, bed, base, serviceWorkerContainer, reload } = {}
   };
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { browserDevice };
+if (typeof module !== 'undefined' && module.exports) module.exports = { browserDevice, gaplessBed };
 else (typeof window !== 'undefined' ? window : globalThis).SNB_BROWSER_DEVICE = browserDevice;
 
 })();
@@ -5231,7 +5378,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:bc751330a8475309a88a89839f91cfe9 */
+<script>/* @module session.js md5:0a5c59b4001392d46b6f8762d7cc6ad4 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5855,23 +6002,25 @@ class Session {
     this.onEvent({ type: 'breath', value: option, pair: D.breathPairName(pair) });
     const q = this.queue[c.index];
     const live = this.runtime.idx === c.index;
-    const replyBeat = (id) => {
+    const replyBeat = (id, sit) => {
       const b = this._branchBeat(id, q.phase);
       b.kind = P.KIND.reply;
+      if (sit) b.sit = true;                          // a question's pause after it, not a reply's two seconds (plan.js gapFor)
       b.gap = P.gapFor(b, this.silence);
       b.response = c.index;
       return b;
     };
     const say = (id, reply) => {
       const at = c.index + 1 + st.replies;
-      this.queue.splice(at, 0, replyBeat(id));
+      this.queue.splice(at, 0, replyBeat(id, reply === 'ack'));
       st.replies++;
       this.onEvent({ type: 'tap-reply', control: CONTROL.BREATH, reply });
       return at;
     };
     let spoke = false;
     /* the FIRST tap in a check is acknowledged, whichever pair it is (Justin, 2026-09-26) — one take from the breath
-     * acknowledgments or the general ones (data.js BREATH_ACK_FAMILIES), every take an equal chance */
+     * acknowledgments (data.js BREATH_ACK_FAMILIES; the general ones left the pool on 2026-09-28), every take an equal chance.
+     * After it, the pause a question inside a prompt gets, not a reply's two seconds (Justin, 2026-09-28). */
     const ackFamily = st.first && live ? this._ackFamily(D.BREATH_ACK_FAMILIES) : null;
     if (ackFamily) { st.ackAt = say(ackFamily, 'ack'); spoke = true; }
     st.first = false;
@@ -6573,6 +6722,12 @@ class Session {
 
   // ── what to tell the host ─────────────────────────────────────────────────────────────
 
+  /* ✅ A NOTE FROM OUTSIDE THE SESSION goes on the same record (2026-09-28). The stall watch lives in the page, not in the
+   * session, and its recoveries were the one thing that could replay a moment of a clip without leaving a trace — Justin,
+   * first prod listen: "i got two prompts in a row to take an intentional breath at the end", and the record showed
+   * CLOSE-06 once. Only plain data, like every other row; nothing here changes the practice. */
+  note(e) { if (e && typeof e === 'object' && typeof e.type === 'string') this._record(e); }
+
   /* one line of the record: the second since the practice's first event, the event, and its fields — never a function,
    * never a whole object graph; a clip's address is kept as its file name (and the in-clip resume point, if any) */
   _record(e) {
@@ -7268,7 +7423,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:858db5ce779df3810a606de813cd5ff7 */
+<script>/* @module page.js md5:3632f0f3fc812df1d17018c60087d8ba */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7598,6 +7753,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       device,
       state: () => session.runtime.state(),
       play: () => session.runtime.nudge(),
+      onEvent: e => { if (session) session.note(e); },   // a recovery goes on the practice's record (session.js `note`, 2026-09-28)
     }).start();
     setStarting(COPY.UI.starting);
     session.start();
@@ -8493,6 +8649,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     get session() { return session; },
     get cfg() { return cfg; },
     get scene() { return scene; },
+    get device() { return device; },
     begin, render, choosePractice,
   };
 })();

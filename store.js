@@ -1005,6 +1005,10 @@
     if(CLOUD && auth.user){
       // .then() is required: a supabase-js builder only sends the request when awaited/thened.
       try{ sb.from('sessions').delete().eq('user_id', auth.user.id).eq('t', t).then(function(){}, function(){}); }catch(e){}
+      // 2026-09-28 (Justin: "If a user deletes … their practice from settings, it should also delete the practice in supabase"):
+      // the full record of that practice goes with it. The database does the same on its own (trg_sessions_timeline_gone),
+      // so a delete that never reaches this line still leaves nothing behind.
+      try{ sb.from('session_timelines').delete().eq('user_id', auth.user.id).eq('session_t', t).then(function(){}, function(){}); }catch(e){}
     }
     return true;
   }
@@ -2143,7 +2147,7 @@
 
   async function reset(){
     if(CLOUD && auth.user){
-      try{ await sb.from('checkins').delete().eq('user_id', auth.user.id); await sb.from('sessions').delete().eq('user_id', auth.user.id); await sb.from('contexts').delete().eq('user_id', auth.user.id); }catch(e){}
+      try{ await sb.from('checkins').delete().eq('user_id', auth.user.id); await sb.from('sessions').delete().eq('user_id', auth.user.id); await sb.from('session_timelines').delete().eq('user_id', auth.user.id); await sb.from('contexts').delete().eq('user_id', auth.user.id); }catch(e){}
     }
     data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] }; links = []; saveCache();
   }
