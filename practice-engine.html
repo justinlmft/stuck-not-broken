@@ -224,7 +224,7 @@ body.playing .brand{display:none}
 .fold-mini{--fold-gap:12px}.fold-controls{--fold-gap:0px}.fold-skip{--fold-gap:12px}   /* 2026-09-28 (Justin): one grid — 54 px rows, 12 px between rows and between panels */
 .fold.open{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 #player.show-controls:not(.choosing):not(.picking):not(.customizing) .fold-controls{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
-#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.scening:not(.choosing) .fold-scene,#player.customizing:not(.choosing):not(.picking):not(.scening) .fold-custom,#player.customizing:not(.choosing) .fold-done,#player.picking:not(.choosing) .fold-done,#player.scening:not(.choosing) .fold-done,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
+#player.choosing .fold-choice,#player.choosing .fold-mini,#player.picking:not(.choosing) .fold-bed,#player.scening:not(.choosing) .fold-scene,#player.voicing:not(.choosing) .fold-voice,#player.customizing:not(.choosing):not(.picking):not(.scening):not(.voicing) .fold-custom,#player.customizing:not(.choosing) .fold-done,#player.picking:not(.choosing) .fold-done,#player.scening:not(.choosing) .fold-done,#player.voicing:not(.choosing) .fold-done,#player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{grid-template-rows:1fr;opacity:1;visibility:visible;pointer-events:auto;margin-bottom:var(--fold-gap,12px);transition:grid-template-rows .42s var(--ease),margin-bottom .42s var(--ease),opacity .38s var(--ease) .06s,visibility 0s}
 /* Skip intro comes in AFTER the menu has finished (Justin 2026-09-26: "staggered … after the standard one is done animating in") */
 #player.skipping:not(.choosing):not(.picking):not(.customizing) .fold-skip{transition:grid-template-rows .42s var(--ease) .45s,margin-bottom .42s var(--ease) .45s,opacity .38s var(--ease) .5s,visibility 0s linear .45s}
 @media (prefers-reduced-motion:reduce){.fold{transition:opacity .25s var(--ease),visibility 0s linear .25s}.fold.open{transition:opacity .25s var(--ease),visibility 0s}}
@@ -284,7 +284,7 @@ body.playing .brand{display:none}
 .adj{min-width:0;width:100%;display:flex;align-items:center;justify-content:center;gap:2px;height:54px;border:1.5px solid var(--hairline);border-radius:14px;background:transparent;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.04em;color:var(--ink-80);transition:border-color var(--ease) .2s,color var(--ease) .2s,box-shadow var(--ease) .2s}
 .adj.silence{grid-column:span 4;justify-content:space-between;padding:0 4px 0 14px}
 .captoggle{grid-column:span 2;justify-content:center;gap:6px;padding:0 8px;cursor:pointer}
-.scenetoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}
+.scenetoggle,.voicetoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}
 .bedtoggle{grid-column:span 6;justify-content:space-between;padding:0 14px;cursor:pointer}   /* 2026-09-26: the level lives in the list now; the row is the sound's */
 .bedtoggle .bed-val{min-width:0;text-align:right}
 /* 2026-09-27 late night, Justin: the sound row looked "prioritized" — no heavier outline when a sound is on; the value says it */
@@ -368,7 +368,7 @@ body.playing .brand{display:none}
 .pinbtn[aria-pressed="true"] .pin-head{fill:currentColor}
 .pinbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
 .skipslot .choicebtn{width:100%}
-#player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before{opacity:1}
+#player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before,#player.voicing .pfoot::before{opacity:1}
 .choice-mini{display:flex;justify-content:center;gap:28px}
 #player.choosing .choice-mini{animation:riseIn .45s var(--ease)}
 .mini-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 6px;background:none;border:0;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer}
@@ -380,7 +380,7 @@ body.playing .brand{display:none}
 .mini-pause.is-paused .ico-play{display:block}
 /* held for an answer: the buttons are the way on, so there is nothing to pause */
 #player.held .mini-pause{display:none}
-#player.finished .fold-mini,#player.finished .fold-bed,#player.finished .fold-scene,#player.finished .fold-custom,#player.finished .fold-done,#player.finished .fold-choice{grid-template-rows:0fr;opacity:0;pointer-events:none}
+#player.finished .fold-mini,#player.finished .fold-bed,#player.finished .fold-scene,#player.finished .fold-voice,#player.finished .fold-custom,#player.finished .fold-done,#player.finished .fold-choice{grid-template-rows:0fr;opacity:0;pointer-events:none}
 .choicecard .reading-q,.choicecard .offer-hold{text-align:left}
 .timeleft:empty{display:none}
 #player.finished .done{display:flex;animation:riseIn .55s var(--ease)}
@@ -507,20 +507,20 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               2a54cdf45c90a635a1fcade7d13d1e39    36586 bytes
+     page.css               6a2d4e0f0a165d63d64b1ef4975592f5    36758 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                38ecdcc9b02e0137319ef718a48b5f6a    68382 bytes
+     data.js                72f227a61d70bdfe94bd3db77a519c70    82578 bytes
      plan.js                2e8a56643940678ad0d70fd9c567f09b    84718 bytes
-     runtime.js             b898510a67307b5c30a8ac7e9087dd87    51230 bytes
-     host.js                db2ad2e64c1729a28599ef732d22940a    39394 bytes
+     runtime.js             baa232ea0b7434ee61724e616602fedd    53211 bytes
+     host.js                a0a361950ded8e62e0d4bfa4afdb94c7    39828 bytes
      browser-device.js      863ad60f72c24b196eefe4c431ac667a    10383 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
-     session.js             0a5c59b4001392d46b6f8762d7cc6ad4    83678 bytes
+     session.js             7278badb890e3a47940d2bbf70f34c41    84731 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                ef5a03184120f0ebff87f3495e0dd6d8    15285 bytes
-     page.js                3632f0f3fc812df1d17018c60087d8ba    64820 bytes
+     copy.js                933f2bd69dfa17cbc191152af174019e    15547 bytes
+     page.js                3644a800af5008753fd8b8058194be2d    69032 bytes
 -->
 </head>
 <body>
@@ -628,6 +628,8 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
       <div class="fold fold-bed"><div class="bedcard" id="bedcard"></div></div>
       <!-- 2026-09-27: the scene list, in place of the customizer (same shape as the sound list) -->
       <div class="fold fold-scene"><div class="bedcard" id="scenecard"></div></div>
+      <!-- 2026-09-29 (Justin, VOICES): the voice list, in place of the customizer (same shape as the scene list) -->
+      <div class="fold fold-voice"><div class="bedcard" id="voicecard"></div></div>
 
       <!-- 2026-09-26 late night (Justin): the customizing pieces — silence, captions, background sound — are their own
            menu, in the one bottom panel in place of the standard menu, so the standard menu stays minimal -->
@@ -645,6 +647,9 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
           <button class="adj captoggle" id="captoggle" type="button" aria-pressed="false"><span class="cc" id="cclabel"></span><span class="cc-state" id="capstate"></span></button>
           <!-- 2026-09-26: the background sound, changeable mid-practice; a tap opens the sound list -->
           <button class="adj bedtoggle" id="bedtoggle" type="button" aria-expanded="false"><span class="adj-label" id="bedlabel"></span><span class="adj-val bed-val" id="bednow"></span><span class="adj-val bed-lv" id="bedlevelnow" aria-hidden="true"></span></button>
+          <!-- 2026-09-29 (Justin, VOICES: "just like users can pick between background noises and visuals"): the voice, changeable
+               mid-practice (the next line plays in it); a tap opens the voice list -->
+          <button class="adj voicetoggle" id="voicetoggle" type="button" aria-expanded="false"><span class="adj-label" id="voicelabel"></span><span class="adj-val bed-val" id="voicenow"></span></button>
           <!-- 2026-09-27 (Justin): the scene behind the practice, changeable mid-practice; a tap opens the scene list -->
           <button class="adj scenetoggle" id="scenetoggle" type="button" aria-expanded="false"><span class="adj-label" id="scenelabel"></span><span class="adj-val bed-val" id="scenenow"></span></button>
         </div>
@@ -928,7 +933,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:38ecdcc9b02e0137319ef718a48b5f6a */
+<script>/* @module data.js md5:72f227a61d70bdfe94bd3db77a519c70 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -973,12 +978,36 @@ if (!TABLE) {
  * service worker caches app-relative `clips/` files cache-first as immutable, and 66 names changed content — a stale
  * cached old take would win. Cross-origin, the worker never sees a take. `clips-v2/` is removed once this is live. */
 const CLIP_FOLDER = 'https://app.stucknotbroken.com/clips/';
-const ABSOLUTE_FOLDER = /^[a-z][a-z0-9+.-]*:\/\//i.test(CLIP_FOLDER);
+
+/* ✅ VOICES (Justin, 2026-09-28 night: "i am not replacing my voice. it stays as a 'Justin' option, alongside 'Poppy', just like
+ * users can pick between background noises and visuals… I am expecting to add a couple more"). A voice is a FOLDER of takes with
+ * the same file names as `clips/`, so every table here (families, take counts, the shuffle, TAKES_OUT) is shared and only the
+ * folder changes. Justin's own recordings are the default and stay in `clips/`; a dub never replaces one of his files.
+ *
+ *   folder — where the takes and that voice's `captions.json` live. Poppy's folder is app-relative on purpose: the app's own
+ *            origin serves it (beta now, prod once it is copied to main), and it is a NEW folder, so no cached old take can
+ *            win (the reason `clips/` is absolute, above).
+ *   own    — Justin's own recordings. TAKE_TRIMS (his stutters and pickups, cut by the second) and the caption edits that go
+ *            with them apply to his files only; a dub is cut clean at the source.
+ *   holds  — the pause points after the questions inside a clip are timed per voice (the same words land at different
+ *            seconds): Justin's are CLIP_HOLDS below, a dub's come from its own transcript (VOICE_HOLDS).
+ * Adding a voice = one folder + one row here + its name in copy.js `voiceNames`. */
+const VOICE_DEFAULT = 'justin';
+const VOICES = Object.freeze({
+  justin: Object.freeze({ folder: CLIP_FOLDER, own: true }),
+  /* Poppy, a Descript AI voice. Justin dubbed the whole script (807 lines) 2026-09-28; sliced by the transcript's words
+   * (807/807 aligned, cuts in the silence between reads), +0.7 dB to sit at the library's level, the name taken out of
+   * the lines ("Hey." for "Hey, it's Justin."). claude/poppy-dub/README.md has the recipe. */
+  poppy: Object.freeze({ folder: 'clips-poppy/', own: false }),
+});
+function voiceKey(v) { return Object.prototype.hasOwnProperty.call(VOICES, v) ? v : VOICE_DEFAULT; }
 
 /* The one way a file name becomes a URL. `base` is the device's app root (`./` in the page,
- * an absolute origin in the tests); it is ignored when the folder is already absolute. */
-function clipUrl(base, file) {
-  return (ABSOLUTE_FOLDER ? '' : (base || '')) + CLIP_FOLDER + file;
+ * an absolute origin in the tests); it is ignored when the folder is already absolute. `voice` picks
+ * the folder (Justin's when it is missing or unknown). */
+function clipUrl(base, file, voice) {
+  const folder = VOICES[voiceKey(voice)].folder;
+  return (/^[a-z][a-z0-9+.-]*:\/\//i.test(folder) ? '' : (base || '')) + folder + file;
 }
 
 // ---------------------------------------------------------------------------
@@ -1130,10 +1159,15 @@ const TAKE_TRIMS = Object.freeze({
   /* INTENT-SET-c's start trim (7.1 s) came out 2026-09-24: recording v2c replaces the file with a single clean read
    * (recording doc §7), and a trim left behind would cut its first seven seconds. */
 });
-function trimFor(file) { return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null; }
-/* the transcript edits that go with the cuts — applied to the loaded captions map, once */
-function applyCaptionTrims(captions) {
+/* Justin's own files only (VOICES `own`): a dub is cut clean at the source, and its seconds are not his. */
+function trimFor(file, voice) {
+  if (!VOICES[voiceKey(voice)].own) return null;
+  return Object.prototype.hasOwnProperty.call(TAKE_TRIMS, file) ? TAKE_TRIMS[file] : null;
+}
+/* the transcript edits that go with the cuts — applied to the loaded captions map, once (his captions only) */
+function applyCaptionTrims(captions, voice) {
   const out = Object.assign({}, captions || {});
+  if (!VOICES[voiceKey(voice)].own) return out;
   Object.keys(TAKE_TRIMS).forEach(file => {
     const c = TAKE_TRIMS[file].caption;
     if (c && typeof out[file] === 'string') out[file] = out[file].replace(c[0], c[1]);
@@ -1678,7 +1712,223 @@ const CLIP_HOLDS = Object.freeze({
   'VALIDATE-SAFETY-b.mp3': Object.freeze([{ at: 5.39, pause: 1.43 }, { at: 14.02, pause: 1.37 }]),
   'VALIDATE-SAFETY-d.mp3': Object.freeze([{ at: 4.03, pause: 1.01 }, { at: 18.6, pause: 1.38 }]),
 });
-function holdsFor(file) { return Object.prototype.hasOwnProperty.call(CLIP_HOLDS, file) ? CLIP_HOLDS[file] : []; }
+/* ✅ THE PAUSE POINTS PER VOICE (2026-09-29): the same rule as CLIP_HOLDS (after every question someone is asked to look
+ * inward on, before the clip's last sentence; none inside a short list of options; the explaining clips, the answer questions
+ * and the reply lines left out — build_holds.py's EXCL list), applied to each dub's OWN transcript, so the stop lands in that
+ * voice's pause. Poppy: 390 points in 198 files. Her reads leave only ~0.15–0.45 s after most questions, too little for a stop
+ * that is checked on the media clock (a locked screen fires `timeupdate` about every 250 ms), so the slicer widened each of
+ * those pauses to 0.6 s of silence IN THE FILE, and every point sits ≥ 0.3 s before the next word (each one measured quiet,
+ * −58 dB or lower). `[at, pause]` — the same two numbers as CLIP_HOLDS. Build: claude/poppy-dub/ (holds.py, pad.py). */
+const POPPY_HOLDS_RAW = {
+  'ANCHORING-IMAGINATION-03-a.mp3': [[2.93,0.6],[5.89,0.6],[8.14,0.6],[9.81,0.6],[11.35,0.6]],
+  'ANCHORING-IMAGINATION-03-c.mp3': [[1.72,0.6],[3.29,0.6],[6.25,0.6],[8.48,0.6]],
+  'ANCHORING-IMAGINATION-04-a.mp3': [[1.66,0.6],[3.86,0.6],[5.66,0.6]],
+  'ANCHORING-IMAGINATION-04-b.mp3': [[1.66,0.6],[5.11,0.6],[8.49,0.6],[10.08,0.6]],
+  'ANCHORING-IMAGINATION-04-d.mp3': [[1.8,0.6],[3.89,0.6],[6.23,0.6],[8.71,0.6]],
+  'ANCHORING-IMAGINATION-05-a.mp3': [[1.75,0.6]],
+  'ANCHORING-IMAGINATION-05-b.mp3': [[3.09,0.6]],
+  'ANCHORING-IMAGINATION-05-c.mp3': [[2.22,0.6]],
+  'ANCHORING-IMAGINATION-06-a.mp3': [[1.93,0.6],[3.91,0.6],[6.92,0.6],[12.0,0.6],[14.37,0.6]],
+  'ANCHORING-IMAGINATION-06-b.mp3': [[1.5,0.6]],
+  'ANCHORING-IMAGINATION-06-c.mp3': [[2.53,0.6],[4.41,0.6],[6.3,0.6]],
+  'ANCHORING-IMAGINATION-07-a.mp3': [[4.77,0.8]],
+  'ANCHORING-IMAGINATION-07-d.mp3': [[3.5,0.6]],
+  'ANCHORING-IMAGINATION-08-a.mp3': [[4.43,0.6]],
+  'ANCHORING-IMAGINATION-08-b.mp3': [[3.91,0.65]],
+  'ANCHORING-IMAGINATION-08-c.mp3': [[3.56,0.6],[7.22,0.6]],
+  'ANCHORING-IMAGINATION-09-b.mp3': [[3.09,0.6],[6.92,0.6]],
+  'ANCHORING-IMAGINATION-09-c.mp3': [[1.83,0.6]],
+  'ANCHORING-IMAGINATION-09-d.mp3': [[7.11,0.63]],
+  'ANCHORING-IMAGINATION-09-e.mp3': [[1.37,0.6]],
+  'ANCHORING-MOVEMENT-08-a.mp3': [[4.11,0.6]],
+  'ANCHORING-MOVEMENT-08-b.mp3': [[4.32,0.6]],
+  'ANCHORING-MOVEMENT-08-c.mp3': [[4.14,0.6],[8.34,0.6]],
+  'ANCHORING-MOVEMENT-10-a.mp3': [[2.93,0.64],[5.1,0.6],[8.92,0.6]],
+  'ANCHORING-MOVEMENT-10-b.mp3': [[2.99,0.6],[4.99,0.6],[9.56,0.62]],
+  'ANCHORING-MOVEMENT-10-c.mp3': [[2.34,0.6],[4.51,0.6],[8.63,0.6]],
+  'ANCHORING-MOVEMENT-10-d.mp3': [[5.32,0.6],[9.85,0.6]],
+  'ANCHORING-SHARED-01-BREATH-a.mp3': [[4.46,0.65],[7.71,0.6],[10.79,0.62],[13.74,0.6]],
+  'ANCHORING-SHARED-01-BREATH-b.mp3': [[4.36,0.6],[10.87,0.6],[14.06,0.6],[18.17,0.6]],
+  'ANCHORING-SHARED-01-BREATH-c.mp3': [[9.44,0.6],[11.57,0.6]],
+  'ANCHORING-SHARED-01-BREATH-d.mp3': [[5.25,0.6],[8.07,0.6],[10.1,0.6],[12.34,0.6]],
+  'ANCHORING-SHARED-01-BREATH-e.mp3': [[4.48,0.6],[8.2,0.6],[11.55,0.71],[14.48,0.6]],
+  'ANCHORING-SHARED-02-POSTURE-a.mp3': [[4.49,0.6],[6.94,0.6]],
+  'ANCHORING-SHARED-02-POSTURE-b.mp3': [[4.46,0.6],[7.53,0.65]],
+  'ANCHORING-SHARED-02-POSTURE-d.mp3': [[4.47,0.6],[7.38,0.6]],
+  'ANCHORING-SHARED-03-SMILE-a.mp3': [[5.36,0.69]],
+  'ANCHORING-SHARED-03-SMILE-b.mp3': [[5.35,0.6]],
+  'ANCHORING-SHARED-03-SMILE-c.mp3': [[4.36,0.6]],
+  'ANCHORING-SHARED-03-SMILE-d.mp3': [[5.51,0.71]],
+  'ANCHORING-SHARED-03-SMILE-e.mp3': [[5.46,0.6]],
+  'ANCHORING-SHARED-04-CONNECT-a.mp3': [[4.04,0.6]],
+  'ANCHORING-SHARED-04-CONNECT-b.mp3': [[4.05,0.6],[6.4,0.6]],
+  'ANCHORING-SHARED-04-CONNECT-c.mp3': [[5.07,0.6],[7.42,0.6]],
+  'ANCHORING-SHARED-04-CONNECT-d.mp3': [[5.71,0.6]],
+  'ANCHORING-SIGHT-02-a.mp3': [[5.41,0.6],[10.06,0.6],[13.49,0.64]],
+  'ANCHORING-SIGHT-02-b.mp3': [[8.3,0.6]],
+  'ANCHORING-SIGHT-02-c.mp3': [[2.18,0.6]],
+  'ANCHORING-SIGHT-02-d.mp3': [[2.63,0.6],[7.46,0.6]],
+  'ANCHORING-SIGHT-03-a.mp3': [[11.5,0.6]],
+  'ANCHORING-SIGHT-03-b.mp3': [[8.33,0.6]],
+  'ANCHORING-SIGHT-03-c.mp3': [[4.65,0.6]],
+  'ANCHORING-SIGHT-03-d.mp3': [[5.18,0.6],[9.8,0.6],[14.63,0.6]],
+  'ANCHORING-SIGHT-04-a.mp3': [[4.27,0.6]],
+  'ANCHORING-SIGHT-04-b.mp3': [[5.12,0.61]],
+  'ANCHORING-SIGHT-04-c.mp3': [[4.17,0.6],[9.31,0.6]],
+  'ANCHORING-SOUND-01-d.mp3': [[1.99,0.6]],
+  'ANCHORING-SOUND-02-b.mp3': [[2.72,0.6]],
+  'ANCHORING-SOUND-02-d.mp3': [[3.32,0.6]],
+  'ANCHORING-SOUND-03-a.mp3': [[7.84,0.64],[10.13,0.64],[12.36,0.6]],
+  'ANCHORING-SOUND-03-b.mp3': [[2.63,0.6]],
+  'ANCHORING-SOUND-03-d.mp3': [[4.11,0.6]],
+  'ANCHORING-SOUND-04-d.mp3': [[2.92,0.6]],
+  'ANCHORING-SOUND-05-a.mp3': [[2.22,0.6]],
+  'ANCHORING-SOUND-05-b.mp3': [[4.02,0.6]],
+  'ANCHORING-SOUND-06-a.mp3': [[9.76,0.6]],
+  'ANCHORING-SOUND-06-b.mp3': [[6.73,0.6],[10.64,0.6]],
+  'ANCHORING-SOUND-06-c.mp3': [[7.43,0.6]],
+  'ANCHORING-SOUND-06-d.mp3': [[2.84,0.6],[9.45,0.6],[11.67,0.6],[15.26,0.6]],
+  'ANCHORING-SOUND-07-a.mp3': [[5.88,0.6]],
+  'ANCHORING-SOUND-07-b.mp3': [[4.41,0.68]],
+  'ANCHORING-SOUND-07-c.mp3': [[4.41,0.6],[8.64,0.6]],
+  'ANCHORING-TOUCH-03-a.mp3': [[3.51,0.6]],
+  'ANCHORING-TOUCH-03-c.mp3': [[3.66,0.6],[7.96,0.6]],
+  'ANCHORING-TOUCH-04-a.mp3': [[2.85,0.6],[8.58,0.6]],
+  'ANCHORING-TOUCH-04-b.mp3': [[2.33,0.6]],
+  'ANCHORING-TOUCH-04-c.mp3': [[3.2,0.6]],
+  'ANCHORING-TOUCH-04-d.mp3': [[5.65,0.6],[9.0,0.6],[13.49,0.6]],
+  'ANCHORING-TOUCH-04-e.mp3': [[5.48,0.6],[9.11,0.6],[13.62,0.6]],
+  'BODY-GENERAL-DEFENSE-a.mp3': [[4.28,0.6],[7.77,0.6]],
+  'BODY-GENERAL-DEFENSE-b.mp3': [[4.36,0.6],[7.15,0.6]],
+  'BODY-GENERAL-DEFENSE-c.mp3': [[3.43,0.6],[6.64,0.65]],
+  'BODY-GENERAL-DEFENSE-d.mp3': [[4.55,0.6],[7.63,0.6]],
+  'BODY-GENERAL-SAFETY-a.mp3': [[7.17,0.6],[9.59,0.61]],
+  'BODY-GENERAL-SAFETY-b.mp3': [[3.29,0.6],[8.64,0.6]],
+  'BODY-GENERAL-SAFETY-c.mp3': [[7.08,0.6],[12.54,0.6],[15.57,0.6]],
+  'BODY-SPECIFIC-DEFENSE-a.mp3': [[4.9,0.6],[11.77,0.7]],
+  'BODY-SPECIFIC-DEFENSE-b.mp3': [[5.44,0.6]],
+  'BODY-SPECIFIC-DEFENSE-c.mp3': [[2.1,0.6],[6.81,0.6]],
+  'BODY-SPECIFIC-DEFENSE-d.mp3': [[5.88,0.6],[10.37,0.6]],
+  'BODY-SPECIFIC-SAFETY-a.mp3': [[4.2,0.6],[11.5,0.6]],
+  'BODY-SPECIFIC-SAFETY-b.mp3': [[10.63,0.6],[15.74,0.69]],
+  'BODY-SPECIFIC-SAFETY-c.mp3': [[2.93,0.6],[8.03,0.6]],
+  'BODY-SPECIFIC-SAFETY-d.mp3': [[5.49,0.6]],
+  'BODY-SPECIFIC-SAFETY-e.mp3': [[12.28,0.6]],
+  'BODY-SPECIFIC-SAFETY-f.mp3': [[8.1,0.6],[11.75,0.6]],
+  'BODY-SPECIFIC-SAFETY-g.mp3': [[2.9,0.6],[8.1,0.61]],
+  'BREATH-CHECK-c.mp3': [[11.03,0.8],[13.82,0.76],[16.8,0.6]],
+  'BREATH-CHECK-e.mp3': [[18.7,0.6]],
+  'BREATH-CHECK-f.mp3': [[11.01,0.74],[13.82,0.73],[16.81,0.6]],
+  'BREATH-GUIDE-MOVE-k.mp3': [[13.86,0.6]],
+  'CLOSE-02-b.mp3': [[8.72,0.6]],
+  'CLOSE-02-c.mp3': [[1.47,0.6],[3.04,0.6]],
+  'CLOSE-02-d.mp3': [[4.92,0.68]],
+  'CLOSE-04-a.mp3': [[14.66,0.6]],
+  'DESC-DEFENSE-01-a.mp3': [[2.96,0.6],[4.45,0.6]],
+  'DESC-DEFENSE-01-b.mp3': [[6.72,0.6],[10.08,0.6]],
+  'DESC-DEFENSE-01-c.mp3': [[6.59,0.6],[10.69,0.6]],
+  'DESC-DEFENSE-02-a.mp3': [[2.45,0.6]],
+  'DESC-DEFENSE-04-a.mp3': [[1.78,0.6]],
+  'DESC-DEFENSE-04-b.mp3': [[3.55,0.6]],
+  'DESC-DEFENSE-05-a.mp3': [[2.72,0.6]],
+  'DESC-DEFENSE-05-b.mp3': [[1.66,0.6]],
+  'DESC-DEFENSE-PLAIN-02-a.mp3': [[1.17,0.6]],
+  'DESC-DEFENSE-PLAIN-02-b.mp3': [[1.59,0.6]],
+  'DESC-SAFETY-01-a.mp3': [[2.08,0.6],[4.36,0.6]],
+  'DESC-SAFETY-02-a.mp3': [[1.52,0.6]],
+  'DESC-SAFETY-02-b.mp3': [[1.58,0.6]],
+  'DESC-SAFETY-03-a.mp3': [[1.66,0.6]],
+  'DESC-SAFETY-04-a.mp3': [[1.7,0.6]],
+  'DESC-SAFETY-04-b.mp3': [[1.93,0.6]],
+  'DESC-SAFETY-04-c.mp3': [[1.86,0.6]],
+  'DESC-SAFETY-05-a.mp3': [[2.74,0.6]],
+  'DESC-SAFETY-PLAIN-01-b.mp3': [[4.49,0.6]],
+  'DESC-SAFETY-PLAIN-02-a.mp3': [[1.21,0.6]],
+  'DESC-SAFETY-PLAIN-02-b.mp3': [[2.16,0.6]],
+  'HOLD-WATCH-a.mp3': [[10.1,0.6]],
+  'HOLD-WATCH-b.mp3': [[12.96,0.6]],
+  'HOLD-WATCH-c.mp3': [[8.45,0.6]],
+  'IMG-01-a.mp3': [[1.68,0.6]],
+  'IMG-01-b.mp3': [[2.7,0.6]],
+  'IMG-01-c.mp3': [[2.22,0.6]],
+  'IMG-01-e.mp3': [[2.31,0.6],[5.51,0.6]],
+  'IMG-02-a.mp3': [[2.41,0.6],[3.84,0.6],[7.1,0.6]],
+  'IMG-02-b.mp3': [[1.55,0.6]],
+  'IMG-02-c.mp3': [[1.52,0.6],[4.77,0.6],[6.59,0.6]],
+  'IMG-02-d.mp3': [[2.28,0.6],[7.06,0.6]],
+  'IMG-03-a.mp3': [[1.42,0.6],[4.26,0.6]],
+  'IMG-03-b.mp3': [[2.4,0.6]],
+  'IMG-03-c.mp3': [[1.58,0.6]],
+  'MIND-02-a.mp3': [[6.19,0.6],[8.31,0.6],[26.39,0.87],[30.11,0.93]],
+  'MIND-02-b.mp3': [[20.83,0.6],[22.9,0.6]],
+  'MIND-02-c.mp3': [[15.94,0.75],[20.05,0.68]],
+  'MIND-02-d.mp3': [[2.61,0.6],[5.71,0.6],[10.54,0.6],[21.78,0.6]],
+  'MIND-03-a.mp3': [[6.32,0.63],[9.57,0.85],[13.67,0.71],[17.52,0.78],[23.77,0.66],[26.99,0.82],[30.89,0.6],[33.43,0.7],[37.13,0.68]],
+  'MIND-03-b.mp3': [[1.92,0.6],[5.66,0.71],[8.73,0.62],[11.21,0.6]],
+  'MIND-03-c.mp3': [[1.41,0.6],[5.35,0.61],[13.35,0.6]],
+  'MIND-03-d.mp3': [[3.12,0.6],[5.53,0.6],[8.31,0.79]],
+  'MIND-03-e.mp3': [[1.78,0.6],[3.27,0.6],[7.16,0.6],[9.94,0.6]],
+  'MIND-03-f.mp3': [[6.37,0.84],[9.69,0.86],[13.78,0.82],[17.76,0.97],[24.13,0.6],[28.05,0.77],[31.86,0.7],[34.48,0.6],[38.75,0.84]],
+  'MIND-04-a.mp3': [[10.27,0.65],[15.82,0.6],[20.21,0.78],[22.33,0.6],[24.1,0.6],[31.15,0.6],[33.73,0.84]],
+  'MIND-04-b.mp3': [[1.5,0.6],[6.32,0.6],[8.86,0.6],[15.02,0.6],[16.95,0.6],[19.16,0.6],[21.68,0.6],[24.17,0.6],[26.09,0.6],[28.19,0.6]],
+  'MIND-04-c.mp3': [[1.97,0.6],[4.38,0.6],[13.88,0.6]],
+  'MIND-04-d.mp3': [[3.99,0.6],[7.91,0.63],[12.1,0.6],[15.76,0.68],[17.63,0.6],[19.57,0.6],[23.35,0.6]],
+  'MIND-04-e.mp3': [[10.11,0.6],[16.5,0.66],[20.83,0.91],[23.15,0.6],[24.91,0.94],[27.68,0.6],[35.47,0.9]],
+  'MIND-05-a.mp3': [[1.6,0.72],[22.76,0.61],[24.91,0.77]],
+  'MIND-05-b.mp3': [[1.91,0.66],[11.89,0.6]],
+  'MIND-05-c.mp3': [[8.91,0.67],[18.79,0.6],[30.87,0.8],[33.47,0.62],[36.25,0.6]],
+  'MIND-05-d.mp3': [[10.3,0.6],[14.73,0.6],[19.29,0.6],[23.67,0.6]],
+  'MIND-05-e.mp3': [[9.79,0.66],[19.43,0.6],[27.41,0.6],[30.24,0.61],[33.06,0.65]],
+  'MIND-06-d.mp3': [[2.82,0.66]],
+  'NORMALIZE-DEFENSE-c.mp3': [[7.37,0.6],[12.42,0.6]],
+  'NORMALIZE-DEFENSE-e.mp3': [[3.34,0.6]],
+  'NORMALIZE-DEFENSE-f.mp3': [[4.59,0.6]],
+  'NORMALIZE-DEFENSE-g.mp3': [[3.79,0.6],[9.63,0.6]],
+  'NORMALIZE-DEFENSE-h.mp3': [[5.66,0.6]],
+  'NORMALIZE-SAFETY-a.mp3': [[3.77,0.6]],
+  'NORMALIZE-SAFETY-b.mp3': [[3.37,0.6]],
+  'NORMALIZE-SAFETY-d.mp3': [[6.44,0.6]],
+  'OBST-01-c.mp3': [[8.36,0.6],[10.55,0.6]],
+  'OBST-02-d.mp3': [[4.4,0.6]],
+  'OBST-03-a.mp3': [[13.51,0.6]],
+  'OBST-03-b.mp3': [[7.3,0.6]],
+  'OBST-03-c.mp3': [[7.72,0.6]],
+  'OBST-03-d.mp3': [[8.68,0.6]],
+  'OBST-04-a.mp3': [[4.32,0.6]],
+  'OBST-04-b.mp3': [[3.49,0.6]],
+  'OBST-04-c.mp3': [[2.38,0.6]],
+  'OBST-05-a.mp3': [[2.5,0.6],[3.87,0.6],[6.68,0.6]],
+  'OBST-05-b.mp3': [[1.45,0.6]],
+  'OBST-05-c.mp3': [[1.66,0.6],[5.11,0.6]],
+  'OBST-05-d.mp3': [[1.32,0.6],[5.72,0.64]],
+  'OBST-06-a.mp3': [[1.44,0.6],[4.39,0.6]],
+  'OBST-06-b.mp3': [[1.66,0.6]],
+  'OBST-06-c.mp3': [[1.71,0.6]],
+  'OBST-06-e.mp3': [[1.7,0.6],[4.25,0.6]],
+  'PEND-DEFENSE-a.mp3': [[5.07,0.6]],
+  'PEND-DEFENSE-e.mp3': [[6.34,0.6]],
+  'PEND-SAFETY-c.mp3': [[7.0,0.6],[9.04,0.6],[11.96,0.6]],
+  'PEND-SAFETY-f.mp3': [[6.61,0.6],[8.72,0.6],[11.48,0.62]],
+  'VALIDATE-DEFENSE-a.mp3': [[3.41,0.6]],
+  'VALIDATE-DEFENSE-c.mp3': [[4.94,0.6]],
+  'VALIDATE-DEFENSE-e.mp3': [[3.41,0.6]],
+  'VALIDATE-DEFENSE-f.mp3': [[3.88,0.6]],
+  'VALIDATE-DEFENSE-g.mp3': [[4.29,0.6]],
+  'VALIDATE-DEFENSE-h.mp3': [[3.63,0.6]],
+  'VALIDATE-SAFETY-a.mp3': [[7.5,0.6]],
+  'VALIDATE-SAFETY-b.mp3': [[5.77,0.61],[12.63,0.6]],
+  'VALIDATE-SAFETY-d.mp3': [[3.38,0.6],[15.19,0.6]],
+};
+const VOICE_HOLDS = Object.freeze({
+  poppy: Object.freeze(Object.fromEntries(Object.keys(POPPY_HOLDS_RAW).map(f =>
+    [f, Object.freeze(POPPY_HOLDS_RAW[f].map(([at, pause]) => Object.freeze({ at, pause })))]))),
+});
+/* the pause points of `file` in `voice` (Justin's table when the voice has none of its own) */
+function holdsFor(file, voice) {
+  const v = voiceKey(voice);
+  const table = VOICES[v].own ? CLIP_HOLDS : (VOICE_HOLDS[v] || {});
+  return Object.prototype.hasOwnProperty.call(table, file) ? table[file] : [];
+}
 /* ✅ THE PENDULATION CHECKS GET THE WHOLE SETTING (Justin, 2026-09-28, first prod listen: "The safety and defense checks in
  * pendulation need to have the minimum time put in by the user. the last safety one seemed to go by way too fast before
  * switching."). The questions inside PEND-SAFETY and PEND-DEFENSE — is it still there, has it changed — are the swing itself,
@@ -1801,7 +2051,7 @@ const API = {
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
   BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, breathPairName, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
-  CLIP_FOLDER, clipUrl, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
+  CLIP_FOLDER, clipUrl, VOICES, VOICE_DEFAULT, voiceKey, VOICE_HOLDS, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
 
@@ -3120,7 +3370,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:b898510a67307b5c30a8ac7e9087dd87 */
+<script>/* @module runtime.js md5:baa232ea0b7434ee61724e616602fedd */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -3285,6 +3535,8 @@ class Runtime {
     this._holdOpen = false;           // a finger on the 0–10 line keeps the question open (`holdOpen`)
     this._errCount = 0;
     this._errTimer = null;
+    this._voice = D.VOICE_DEFAULT;    // the voice the current take is playing in (data.js VOICES)
+    this._fellBack = {};             // takes that failed to load in the chosen voice and play in Justin's instead
     this.connTrouble = false;
     this._pausedBy = null;            // what paused the transport: 'button' | 'external' | 'hold' | 'bed'
 
@@ -3645,20 +3897,22 @@ class Runtime {
      * so it holds on iOS as well as Chromium — and is cut at `end` by position, in the
      * timeupdate watcher below, exactly as the silent gap file is (§A4.2) */
     const file = this.dealtFile(beat);
-    const trim = D.trimFor(file);
+    const voice = this._voiceFor(file);
+    const trim = D.trimFor(file, voice);
     this._file = file;
+    this._voice = voice;
     this._trimStart = (trim && trim.start) || 0;
     this._trimEnd = (trim && trim.end) || 0;
     this._armClipHolds(file);
     try {
-      au.src = D.clipUrl(this.dev.base, file) + (this._trimStart ? '#t=' + this._trimStart : '');
+      au.src = D.clipUrl(this.dev.base, file, voice) + (this._trimStart ? '#t=' + this._trimStart : '');
       au.currentTime = this._trimStart;
       this._msState('playing');
       this._tryPlay(() => this.armTapToStart());
     } catch (e) {
       this.armTapToStart();
     }
-    this.onEvent({ type: 'beat', id: beat.id, index: this.idx, src: au.src });
+    this.onEvent({ type: 'beat', id: beat.id, index: this.idx, src: au.src, voice });
     this._prefetchAhead();
   }
 
@@ -3741,7 +3995,7 @@ class Runtime {
     const silence = (this.plan.cfg && this.plan.cfg.silence) || 0;
     const want = D.holdSeconds(silence, file);      // the whole setting inside the pendulation swings (data.js, 2026-09-28)
     const start = this._trimStart || 0, end = this._trimEnd || Infinity;
-    this._holds = D.holdsFor(file)
+    this._holds = D.holdsFor(file, this._voice)
       .filter(h => h.at > start && h.at < end)
       .map(h => ({ at: h.at, secs: Math.max(0, want - h.pause) }))
       .filter(h => h.secs >= C.MIN_CLIP_HOLD_SECONDS);
@@ -3787,7 +4041,7 @@ class Runtime {
     this._trimEnd = m.trimEnd;
     this.onEvent({ type: 'clip-resume', at: from, index: this.idx });
     try {
-      au.src = D.clipUrl(this.dev.base, this._file) + '#t=' + from;
+      au.src = D.clipUrl(this.dev.base, this._file, this._voice) + '#t=' + from;
       au.currentTime = from;
       if (!this.paused) this._tryPlay(() => this.armTapToStart());
     } catch (e) {
@@ -3889,8 +4143,38 @@ class Runtime {
   /* A clip that fails to load skips forward after a short beat rather than freezing; two
    * consecutive failures say so gently instead of leaving the listener in unexplained
    * silence. */
+  /* ✅ VOICES (2026-09-29): the voice a take plays in — the person's choice (live: the customizer writes `cfg.voice`, and the
+   * NEXT take picks it up), or Justin's for a take that failed to load in that voice this practice. */
+  voice() { return D.voiceKey(this.plan.cfg && this.plan.cfg.voice); }
+  _voiceFor(file) { return this._fellBack[file] ? D.VOICE_DEFAULT : this.voice(); }
+
+  /* the chosen voice has no such file (a family not dubbed yet, a failed upload): the same take in Justin's voice, with his
+   * trims and his pause points, so a practice never goes silent over a missing file. Once per file per practice. */
+  _voiceFallback() {
+    const file = this._file, from = this._voice;
+    const au = this.dev.audio;
+    this._fellBack[file] = true;
+    this._voice = D.VOICE_DEFAULT;
+    const trim = D.trimFor(file, this._voice);
+    this._trimStart = (trim && trim.start) || 0;
+    this._trimEnd = (trim && trim.end) || 0;
+    this._midHold = null;
+    this._armClipHolds(file);
+    this._lastSelfCtl = this.dev.now();
+    this.onEvent({ type: 'voice-fallback', file, from, index: this.idx });
+    try {
+      au.src = D.clipUrl(this.dev.base, file, this._voice) + (this._trimStart ? '#t=' + this._trimStart : '');
+      au.currentTime = this._trimStart || 0;
+      this._tryPlay(() => this.armTapToStart());
+    } catch (e) {
+      this.armTapToStart();
+    }
+  }
+
   _onError() {
     if (!this.playing || this.paused) return;
+    /* a take missing from the chosen voice's folder plays in Justin's voice instead, from its start — never a skip */
+    if (!this._inSilence && this._file && this._voice !== D.VOICE_DEFAULT && !this._fellBack[this._file]) return this._voiceFallback();
     this._errCount += 1;
     this.dev.clearTimeout(this._errTimer);
     if (this._errCount >= C.ERROR_TROUBLE_AT) {
@@ -4205,7 +4489,7 @@ class Runtime {
     if (!p || !p.warm) return;
     for (let i = 1; i <= C.PREFETCH_AHEAD; i++) {
       const b = this.beats[this.idx + i];
-      if (b) this.variantsOf(b).forEach(f => p.warm(D.clipUrl(this.dev.base, f)));
+      if (b) this.variantsOf(b).forEach(f => p.warm(D.clipUrl(this.dev.base, f, this._voiceFor(f))));
     }
   }
 
@@ -4242,7 +4526,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:db2ad2e64c1729a28599ef732d22940a */
+<script>/* @module host.js md5:a0a361950ded8e62e0d4bfa4afdb94c7 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -4363,6 +4647,10 @@ function parseLaunch(query, { practices } = {}) {
     out.bed = bed;
     if (bed !== D.BED_NONE) out.bedLevel = D.bedLevel(get('bedvol'));
   }
+
+  /* the voice (2026-09-29, VOICES): `voice=<data.js VOICES key>`. An unknown or missing voice is Justin's (the default). */
+  const voice = get('voice');
+  if (voice && Object.prototype.hasOwnProperty.call(D.VOICES, voice)) out.voice = voice;
 
   return out;
 }
@@ -4772,6 +5060,8 @@ function completion({ plan, requested, run }) {
     bed: (cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed)) ? cfg.bed : D.BED_NONE,
     bedVolume: (cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed)) ? D.bedLevel(cfg.bedLevel) : null,
     bedPref: cfg.bedSurprise && cfg.bed && Object.prototype.hasOwnProperty.call(D.BEDS, cfg.bed) ? D.BED_SURPRISE : null,   // 2026-09-28: the person asked for a surprise; the app keeps THAT
+    // ── the voice (2026-09-29) — what the practice ended on (a change in the customizer is the new preference); `details` has the start and every change
+    voice: D.voiceKey(cfg.voice),
 
     // ── what actually happened ──────────────────────────────────────────────────────────
     practiceKey: map.practiceKey,             // the host's vocabulary, so the gates still work
@@ -5378,7 +5668,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_STALL = AP
 
 })();
 /* @endmodule stall.js */</script>
-<script>/* @module session.js md5:0a5c59b4001392d46b6f8762d7cc6ad4 */
+<script>/* @module session.js md5:7278badb890e3a47940d2bbf70f34c41 */
 (function(){
 /* practice-engine/session.js — the branch layer. E3.9 and the whole of E5.
  *
@@ -5744,6 +6034,17 @@ class Session {
     this.cfg.bedLevel = D.bedLevel(level || this.cfg.bedLevel);
     this.runtime.setBed();
     this.onEvent({ type: 'bed-choice', bed: k, level: k === D.BED_NONE ? null : this.cfg.bedLevel });
+    return true;
+  }
+
+  /* ✅ THE VOICE, CHANGED MID-PRACTICE (2026-09-29, VOICES): the player's customizer. `key` is a data.js VOICES key. Written to
+   * the live config, so the NEXT take plays in it (the one playing finishes in the voice it started in); the report carries what
+   * the practice ended on and `details()` keeps where it started and every change. */
+  setVoice(key) {
+    if (!Object.prototype.hasOwnProperty.call(D.VOICES, key)) return false;
+    if (D.voiceKey(this.cfg.voice) === key) return false;
+    this.cfg.voice = key;
+    this.onEvent({ type: 'voice-choice', voice: key });
     return true;
   }
 
@@ -6780,6 +7081,12 @@ class Session {
       bedEnd: bedOf(this.cfg),
       bedVolumeEnd: bedOf(this.cfg) === D.BED_NONE ? null : D.bedLevel(this.cfg.bedLevel),
       bedChanges: of('bed-choice').map(r => ({ s: r.s, bed: r.bed, level: r.level })),
+      /* the voice (2026-09-29): one more custom element, kept so the You tab can later tell whether a voice changes anything.
+       * `voiceFallbacks` = takes that played in Justin's voice because the chosen voice's file failed to load. */
+      voice: D.voiceKey(cfg.voice),
+      voiceEnd: D.voiceKey(this.cfg.voice),
+      voiceChanges: of('voice-choice').map(r => ({ s: r.s, voice: r.voice })),
+      voiceFallbacks: of('voice-fallback').length,
       counts,
       dropped: this._timelineDropped,
     };
@@ -7165,7 +7472,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:ef5a03184120f0ebff87f3495e0dd6d8 */
+<script>/* @module copy.js md5:933f2bd69dfa17cbc191152af174019e */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -7314,6 +7621,8 @@ const UI = Object.freeze({
   sound: 'Background sound',
   customize: 'Customize',
   scene: 'Scene',                 // the moving picture behind a practice (2026-09-27, in the customizer)
+  voice: 'Voice',                 // whose voice speaks the practice (2026-09-29, VOICES; Justin's recordings are the default)
+  voiceNames: { justin: 'Justin', poppy: 'Poppy' },   // the names as Justin gives them; no voice is called "AI" unless he names it so
   sceneSurprise: 'Surprise me',   // the app's own words for "a different one each time"
   sceneNames: { circles: 'Circles', drift: 'Drift', pond: 'Pond', reeds: 'Reeds', breeze: 'Breeze', sunbeam: 'Sunbeam', fireflies: 'Fireflies' },
   sceneDarkOnly: 'dark mode only',        // the player's third menu (2026-09-26 late night): silence, captions, background sound
@@ -7423,7 +7732,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:3632f0f3fc812df1d17018c60087d8ba */
+<script>/* @module page.js md5:3644a800af5008753fd8b8058194be2d */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -7466,8 +7775,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   };
 
   const BASE = './';
-  /* captions live beside the takes — same folder, same constant (data.js `CLIP_FOLDER`) */
-  const CAPTIONS_URL = D.clipUrl(BASE, 'captions.json');
+  /* captions live beside the takes — same folder, per voice (data.js `VOICES`; Justin's is `CLIP_FOLDER`) */
 
   // ── what the app knows about us, and what we tell it back ─────────────────────────────
 
@@ -7557,7 +7865,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   const cfg = {
     track: null, practice: null, anchor: 'touch', sense: 'touch',
     mode: 'timed', silence: COPY.SILENCE_DEFAULT.short, plain: false,
-    bed: D.BED_NONE, bedLevel: D.BED_LEVEL_DEFAULT,
+    bed: D.BED_NONE, bedLevel: D.BED_LEVEL_DEFAULT, voice: D.VOICE_DEFAULT,
     depth: null, prefix: null, holdWatch: false, holdSeconds: H.HOLD_SECONDS[0], first: false,
   };
 
@@ -7705,7 +8013,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       anchor: cfg.anchor, sense: cfg.sense, practice: cfg.practice,
       mode: cfg.mode, type: isShort(cfg.practice) ? 'micro' : 'full',
       first: !!cfg.first, plain: !!cfg.plain, silence: cfg.silence,
-      bed: cfg.bed, bedLevel: cfg.bedLevel, bedSurprise: !!cfg.bedSurprise,
+      bed: cfg.bed, bedLevel: cfg.bedLevel, bedSurprise: !!cfg.bedSurprise, voice: D.voiceKey(cfg.voice),
       depth: cfg.depth || undefined, prefix: cfg.prefix || undefined,
       holdWatch: !!cfg.holdWatch, holdSeconds: cfg.holdSeconds,
       /* which four of the thirty-two obstacle statements is not a sequencing decision, so the
@@ -7831,6 +8139,54 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     card.appendChild(rows);
   }
 
+  /* ✅ THE VOICE LIST (Justin, 2026-09-28 night: "it stays as a 'Justin' option, alongside 'Poppy', just like users can pick
+   * between background noises and visuals"): the scene list's shape, in place of the customizer — one row per voice, a tick on
+   * the one speaking; a tap changes the voice from the NEXT line on (the line playing finishes in its own voice) and the report
+   * carries it back to the app as the new preference; Done returns to the customizer. */
+  function voicing() { return $('player').classList.contains('voicing'); }
+  function showVoice() {
+    const el0 = $('voicenow'); if (el0) el0.textContent = COPY.UI.voiceNames[D.voiceKey(cfg.voice)] || D.voiceKey(cfg.voice);
+    if (voicing()) paintVoiceCard();
+  }
+  function pickVoice(key) {
+    if (!Object.prototype.hasOwnProperty.call(D.VOICES, key)) return;
+    cfg.voice = key;
+    if (session) session.setVoice(key);
+    loadCaptions(key);   // ready before that voice's first line
+    showVoice();
+  }
+  function openVoicePicker() {
+    paintVoiceCard();
+    $('player').classList.add('voicing');
+    $('voicetoggle').setAttribute('aria-expanded', 'true');
+    clearTimeout(ctrlTimer);
+  }
+  function closeVoicePicker(backToCustomizer) {
+    if (!voicing()) return;
+    $('player').classList.remove('voicing');
+    $('voicetoggle').setAttribute('aria-expanded', 'false');
+    if (backToCustomizer && customizing()) { clearTimeout(ctrlTimer); return; }
+    closeCustomizer(); revealControls();
+  }
+  function paintVoiceCard() {
+    const U = COPY.UI, card = $('voicecard'), now = D.voiceKey(cfg.voice);
+    card.textContent = '';
+    card.appendChild(el('p', 'bed-h', U.voice));
+    const rows = el('div', 'bed-rows');
+    const tick = () => { const t = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); t.setAttribute('viewBox', '0 0 24 24'); t.setAttribute('class', 'tick'); t.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M5 12l5 5L20 6'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '2.6'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); t.appendChild(path); return t; };
+    Object.keys(D.VOICES).forEach(k => {
+      const sel = now === k;
+      const b = el('button', 'bedrow' + (sel ? ' sel' : ''), U.voiceNames[k] || k);
+      b.type = 'button'; b.dataset.voice = k; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+      b.appendChild(tick());
+      b.addEventListener('pointerdown', ev => ev.stopPropagation());
+      b.onclick = () => { pickVoice(k); paintVoiceCard(); };
+      rows.appendChild(b);
+    });
+    card.appendChild(rows);
+  }
+
   // ── the session's events, on screen ───────────────────────────────────────────────────
 
   function onSessionEvent(e) {
@@ -7843,6 +8199,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
         /* the file name without a media fragment: a trimmed take (and a take resuming after a pause) plays as
          * "…/X.mp3#t=5.2", and the transcript is keyed by "X.mp3" — with the fragment left on, it found nothing */
         curFile = (e.src || '').split('/').pop().split('#')[0];
+        if (D.voiceKey(e.voice) !== curVoice) useVoiceCaptions(e.voice);
         capHeld = false;
         caption = CAPS.captionFor(CAPTIONS[curFile] || '');
         renderCaption(true);
@@ -7972,8 +8329,28 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
   let CAPTIONS = {};
   /* the transcript follows the playback trims in data.js TAKE_TRIMS, so the caption never
-   * shows words that were cut */
-  fetch(CAPTIONS_URL).then(r => (r.ok ? r.json() : {})).then(j => { CAPTIONS = D.applyCaptionTrims(j || {}); }).catch(() => {});
+   * shows words that were cut. One transcript per voice (2026-09-29, VOICES): each voice's own words — a dub has no name in
+   * it and no trims — loaded when that voice first plays (a switch mid-practice, or a take that fell back to Justin's).
+   * `CAPTIONS` is the voice now speaking. */
+  const capsByVoice = {}, capsAsked = {};
+  let curVoice = D.voiceKey(launch.voice);
+  function loadCaptions(voice) {
+    const v = D.voiceKey(voice);
+    if (capsByVoice[v] || capsAsked[v]) return;
+    capsAsked[v] = true;
+    fetch(D.clipUrl(BASE, 'captions.json', v)).then(r => (r.ok ? r.json() : {})).then(j => {
+      capsByVoice[v] = D.applyCaptionTrims(j || {}, v);
+      if (v !== curVoice) return;
+      CAPTIONS = capsByVoice[v];
+      if (curFile && !capHeld) { caption = CAPS.captionFor(CAPTIONS[curFile] || ''); renderCaption(true); }
+    }).catch(() => { capsAsked[v] = false; });
+  }
+  function useVoiceCaptions(voice) {
+    curVoice = D.voiceKey(voice);
+    CAPTIONS = capsByVoice[curVoice] || {};
+    loadCaptions(curVoice);
+  }
+  loadCaptions(curVoice);
 
   let capFadeT = null, capShown = null, capHeld = false;
   function renderCaption(force) {
@@ -8074,7 +8451,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
 
   function openChoice(control) {
-    if (control !== 'skip') { closeBedPicker(); closeScenePicker(); }
+    if (control !== 'skip') { closeBedPicker(); closeScenePicker(); closeVoicePicker(); }
     /* ✅ Skip intro sits in the standard menu, which stays up while it is offered (Justin's mockup 1, 2026-09-25) */
     if (control === 'skip') {
       const slot = $('skipslot');
@@ -8333,11 +8710,11 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const p = $('player');
     p.classList.add('show-controls');
     clearTimeout(ctrlTimer);
-    if (pinned || picking() || scening() || customizing() || !session || session.runtime.finished || session.runtime.paused) return;
+    if (pinned || picking() || scening() || voicing() || customizing() || !session || session.runtime.finished || session.runtime.paused) return;
     ctrlTimer = setTimeout(() => { p.classList.remove('show-controls'); }, 4500);
   }
 
-  function showSilence() { $('silnow').textContent = cfg.silence + 's'; showBed(); }
+  function showSilence() { $('silnow').textContent = cfg.silence + 's'; showBed(); showVoice(); }
 
   /* ✅ THE BACKGROUND SOUND in the player's menu (2026-09-26). Two buttons: the sound (a tap steps Nothing → each
    * sound → Nothing) and its level (soft → medium → louder). The session writes both to the live config, so the report
@@ -8399,6 +8776,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   function closeCustomizer() {
     if (!customizing()) return;
     if (scening()) { $('player').classList.remove('scening'); $('scenetoggle').setAttribute('aria-expanded', 'false'); }
+    if (voicing()) { $('player').classList.remove('voicing'); $('voicetoggle').setAttribute('aria-expanded', 'false'); }
     $('player').classList.remove('customizing');
     $('customize').classList.remove('on');
     $('customize').setAttribute('aria-expanded', 'false');
@@ -8493,6 +8871,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     set('bedlabel', U.sound);
     set('customlabel', U.customize);
     set('scenelabel', U.scene);
+    set('voicelabel', U.voice);
     set('paneldonelabel', U.customizeDone);   // the label only: the chevron beside it stays (the menu folds away)
     $('customize').setAttribute('aria-label', U.customize);
     set('easeout', U.easeOut);
@@ -8554,11 +8933,12 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('bedtoggle').onclick = () => { if (picking()) closeBedPicker(); else openBedPicker(); };
     $('customize').onclick = () => { if (customizing()) closeCustomizer(); else openCustomizer(); };
     $('scenetoggle').onclick = () => { if (scening()) closeScenePicker(true); else openScenePicker(); };
+    $('voicetoggle').onclick = () => { if (voicing()) closeVoicePicker(true); else openVoicePicker(); };
     /* 2026-09-28 (Justin): ONE Done under the customizer, the sound list and the scene list — it does not animate out and
      * back in between them. What it closes depends on which is open: a list goes back to the customizer it was opened
      * from; the customizer goes back to the standard menu. */
     $('paneldone').addEventListener('pointerdown', ev => ev.stopPropagation());
-    $('paneldone').onclick = () => { if (scening()) closeScenePicker(true); else if (picking()) closeBedPicker(true); else closeCustomizer(); };
+    $('paneldone').onclick = () => { if (voicing()) closeVoicePicker(true); else if (scening()) closeScenePicker(true); else if (picking()) closeBedPicker(true); else closeCustomizer(); };
     watchFoot();
 
     $('captoggle').onclick = () => {
@@ -8625,6 +9005,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       /* `silence` is the one launch parameter that takes any integer that parses (§A1.7), so
        * it is snapped onto the one vocabulary here rather than being allowed to open a
        * practice on a value no control can show. */
+      if (launch.voice) cfg.voice = launch.voice;   // 2026-09-29, VOICES: the person's voice, from the app
       if (launch.bed) { cfg.bed = launch.bed; if (launch.bedLevel) cfg.bedLevel = launch.bedLevel; cfg.bedSurprise = !!launch.bedSurprise; }
       if (typeof launch.silence === 'number') {
         cfg.silence = COPY.SILENCE_STEPS.reduce((b, s) =>

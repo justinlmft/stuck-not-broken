@@ -6456,7 +6456,7 @@ function app(tab){
   }
   // prefix (Obstacles first) and depth ride along for Balancing / Pendulating (2026-09-20: the
   // recommender follows the engine's sequence, whose steps carry both).
-  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol'];
+  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice'];
   function _playerSrc(src){
     if(typeof src !== 'string' || src.indexOf('player.html?') !== 0) return src;
     const q = new URLSearchParams(src.slice('player.html?'.length));
@@ -6478,6 +6478,8 @@ function app(tab){
     // the background sound the person chose last (2026-09-26) rides on EVERY launch — the maker, the recommended
     // practice, the chooser, the state cards — unless the launch names its own
     if(!e.has('bed')){ const b=bedPref(); if(b.bed!=='none'){ e.set('bed', b.bed); e.set('bedvol', b.level); } }
+    // the voice the person chose (2026-09-29, VOICES) rides on every launch the same way; Justin's is the default and is not sent
+    if(!e.has('voice')){ const v=voicePref(); if(v!=='justin') e.set('voice', v); }
     // 2026-09-28 (Justin, desktop: the player light inside a dark app): the player takes the theme the APP is showing,
     // never its own guess — the same document class the app painted with
     try{ e.set('theme', document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'); }catch(_){}
@@ -6542,6 +6544,14 @@ function app(tab){
     return known ? { bed:p.bed, level:bedLevelKey(p.level) } : { bed:'none', level:null }; }
   function bedSay(b){ return b.bed==='surprise' ? 'a surprise sound' : (BED_SAY[b.bed]||b.bed); }
   function bedWords(b){ b=b||bedPref(); if(b.bed==='none') return 'no background sound'; return bedSay(b)+' in the background'; }
+  // ---- the voice (2026-09-29, VOICES — Justin, 2026-09-28 night: "i am not replacing my voice. it stays as a 'Justin' option,
+  // alongside 'Poppy', just like users can pick between background noises and visuals… I am expecting to add a couple more").
+  // [key, name] — keys MUST match practice-engine data.js VOICES; the names are his (no voice is called "AI" unless he names it so).
+  // Remembered (Store.prefVoice, synced like the sound), carried on every launch (_playerSrc), changed from the maker, Settings
+  // or the player's customizer (the report brings a change back).
+  const VOICES=[['justin','Justin'],['poppy','Poppy']];
+  function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) ? v : 'justin'; }
+  function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
@@ -7016,8 +7026,8 @@ function app(tab){
         // how it ends, said literally (Justin, 2026-09-20: "we're trying to say the practice has a planned ending")
         if(k==='self-regulation') s += ` and ${dial('length', pState.open?'no set ending':'a planned ending')}`;
       }
-      // the background sound, on every practice the engine plays (not the guided sessions)
-      if(!mkIsSession(k) && k!=='surprise'){ const bw=bedWords(); s += `, and ${dial('bed', bw)}`; }
+      // the voice and the background sound, on every practice the engine plays (not the guided sessions) 🖊 "spoken by"
+      if(!mkIsSession(k) && k!=='surprise'){ s += `, spoken by ${dial('voice', voiceName(voicePref()))}`; const bw=bedWords(); s += `, and ${dial('bed', bw)}`; }
       return s + '.';
     }
     // the dynamic "what this is" explainer — proper-cased (sentence case, not lowercase),
@@ -7107,6 +7117,8 @@ function app(tab){
         openDialSheet('How much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
       } else if(kind==='bed'){
         openBedSheet(tkCls, ()=>paintMaker());
+      } else if(kind==='voice'){
+        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tkCls, (v)=>{ if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paintMaker(); });
       } else if(kind==='length'){
         openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
       }
@@ -7534,6 +7546,8 @@ function app(tab){
       if(m.sense!==undefined && m.sense!==null) reco.sense=m.sense;
       if(typeof m.silence==='number') reco.silence=m.silence;
       // the background sound it ENDED on is the one remembered (a change in the player's menu counts)
+      // the voice it ENDED on is the one remembered (2026-09-29): a change in the player's customizer counts
+      if(typeof m.voice==='string' && Store.setPrefVoice && VOICES.some(x=>x[0]===m.voice) && m.voice!==voicePref()) Store.setPrefVoice(m.voice);
       if(typeof m.bed==='string' && Store.setPrefBed){ const keep = m.bedPref==='surprise' ? 'surprise' : m.bed; Store.setPrefBed(keep, m.bed==='none' ? null : (m.bedVolume||'soft')); }   // a surprise stays a surprise (2026-09-28)
       if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
       if(m.meditationId!==undefined) reco.meditationId=m.meditationId;
@@ -7871,6 +7885,7 @@ function app(tab){
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
     const lv = (localStorage.getItem('snb_live_nudge')||'1');        // "we're live" invitations — on by default
     const psc = (localStorage.getItem('snb_practice_scene')||'');    // practice scene — '' = surprise me (random per session)
+    const pvc = voicePref();                                          // the voice (2026-09-29, VOICES) — Justin's by default
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
     // among values; switches flip a state) — settings pass 2026-07-05
@@ -7939,6 +7954,12 @@ function app(tab){
                 ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</button>`).join('')}
               </div>
               <p class="rs-cap" id="scene-cap"></p>
+            </div></div>
+            <button class="rs-disc-btn" id="voice-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Voice</span><span class="rs-disc-val"><span id="voice-val">${escapeHtml(voiceName(pvc))}</span> ${_svgChev}</span></button>
+            <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
+              <div class="scene-grid">
+                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}" type="button" data-voice="${k}">${escapeHtml(l)}</button>`).join('')}
+              </div>
             </div></div>
           </div>
 
@@ -8025,6 +8046,14 @@ function app(tab){
     // practice-scene disclosure toggle
     (function(){ const btn=$('#scene-btn'), body=$('#scene-body');
       if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
+    // the voice (2026-09-29): same disclosure; a tap is saved straight away (and synced), like the scene
+    (function(){ const btn=$('#voice-btn'), body=$('#voice-body');
+      if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
+    document.querySelectorAll('.voice-opt').forEach(b=>b.onclick=()=>{
+      if(Store.setPrefVoice) Store.setPrefVoice(b.dataset.voice);
+      document.querySelectorAll('.voice-opt').forEach(x=>x.classList.toggle('on', x===b));
+      const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);
+    });
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='One moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })

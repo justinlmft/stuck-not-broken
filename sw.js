@@ -5,12 +5,12 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v522';
+const SHELL_VERSION = 'snb-app-shell-v523';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=218', './app.js?v=325', './icons.js?v=2', './current.js?v=19',
-  './config.js?v=9', './store.js?v=101', './from-justin.js?v=22', './player.html', './practice-engine.html',
+  './', './index.html', './app.css?v=218', './app.js?v=326', './icons.js?v=2', './current.js?v=19',
+  './config.js?v=9', './store.js?v=102', './from-justin.js?v=22', './player.html', './practice-engine.html',
   './clips/silence-30s.wav', './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 
@@ -27,7 +27,9 @@ const SCOPE_PATH = new URL(self.registration.scope).pathname;
    written from the real read and are most likely to need correcting.
    Scoped to captions*.json on purpose: packs/*.pack.json stay on the audio path, unchanged.
    See ENGINE-CONTRACT.md §A5. */
-const isAudio = (url) => /\/(clips|packs)\//.test(url.pathname) && !/\/captions[^/]*\.json$/.test(url.pathname);
+/* 2026-09-29 (VOICES): a voice's folder (`clips-poppy/`, and any `clips-<voice>/` after it) is audio too — cached on play, played offline
+   once heard. The same never-versioned rule holds there: a re-cut dub take gets a new name, never new content under an old one. */
+const isAudio = (url) => /\/(clips|clips-[a-z0-9]+|packs)\//.test(url.pathname) && !/\/captions[^/]*\.json$/.test(url.pathname);
 
 self.addEventListener('install', (e) => {
   /* 2026-08-17 — skipWaiting is BACK. Removing it on 08-16 did stop the player reloading

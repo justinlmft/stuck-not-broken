@@ -2125,24 +2125,38 @@
   // cloud row written later by another device wins on the next hydrate (pullPrefs), and never the other way round.
   function prefBed(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_bed')||'null'); return (v && typeof v.bed==='string') ? v : null; }catch(e){ return null; } }
   function setPrefBed(bed, level){ try{ if(bed) localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(bed), level:(level||null), at:Date.now() })); else localStorage.removeItem('snb_pref_bed'); }catch(e){} _syncPrefs(); }
+  // the voice (2026-09-29, VOICES): { voice: 'justin'|'poppy'|…, at: ms }, or null = never chosen (Justin's, the default). Synced the
+  // same way as the sound (public.preferences.pref_voice), with the same rule: the later choice wins.
+  function _voiceRaw(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_voice')||'null'); return (v && typeof v.voice==='string') ? v : null; }catch(e){ return null; } }
+  function prefVoice(){ const v=_voiceRaw(); return v ? v.voice : null; }
+  function setPrefVoice(voice){ try{ if(voice) localStorage.setItem('snb_pref_voice', JSON.stringify({ voice:String(voice), at:Date.now() })); else localStorage.removeItem('snb_pref_voice'); }catch(e){} _syncPrefs(); }
   // default sense/silence and the background sound also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
   function _syncPrefs(){ if(!CLOUD || !auth.user) return; try{
     const b=prefBed();
-    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), pref_bed:(b?b.bed:null), pref_bed_level:(b?(b.level||null):null), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), pref_bed:(b?b.bed:null), pref_bed_level:(b?(b.level||null):null), pref_voice:prefVoice(), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
   }catch(e){} }
   // the cloud's background sound, once per hydrate: taken when this device has never chosen, or when the cloud row was written
   // after this device's choice (another phone chose later). A device that has chosen but never reached the cloud pushes up instead.
   async function pullPrefs(){ if(!CLOUD || !auth.user) return; try{
-    const r = await sb.from('preferences').select('pref_bed,pref_bed_level,updated_at').eq('user_id', auth.user.id).maybeSingle();
-    if(r.error || !r.data) { if(prefBed()) _syncPrefs(); return; }
-    const row=r.data, local=prefBed(), cloudAt=row.updated_at ? Date.parse(row.updated_at) : 0;
+    const r = await sb.from('preferences').select('pref_bed,pref_bed_level,pref_voice,updated_at').eq('user_id', auth.user.id).maybeSingle();
+    if(r.error || !r.data) { if(prefBed() || _voiceRaw()) _syncPrefs(); return; }
+    const row=r.data, local=prefBed(), lv=_voiceRaw(), cloudAt=row.updated_at ? Date.parse(row.updated_at) : 0;
+    let changed=false, push=false;
     if(row.pref_bed){
       if(!local || (cloudAt && (!local.at || cloudAt > local.at))){
         try{ localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(row.pref_bed), level:(row.pref_bed_level||null), at:(cloudAt||Date.now()) })); }catch(e){}
-        notify();
+        changed=true;
       }
-    } else if(local){ _syncPrefs(); }
+    } else if(local){ push=true; }
+    if(row.pref_voice){   // 2026-09-29: the voice, by the same rule
+      if(!lv || (cloudAt && (!lv.at || cloudAt > lv.at))){
+        try{ localStorage.setItem('snb_pref_voice', JSON.stringify({ voice:String(row.pref_voice), at:(cloudAt||Date.now()) })); }catch(e){}
+        changed=true;
+      }
+    } else if(lv){ push=true; }
+    if(changed) notify();
+    if(push) _syncPrefs();
   }catch(e){} }
 
   async function reset(){
@@ -2251,7 +2265,7 @@
     skillProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
-    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, pullPrefs,
+    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
     saveContexts,
     isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
