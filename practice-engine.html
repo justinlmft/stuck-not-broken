@@ -525,8 +525,8 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
      session.js             7278badb890e3a47940d2bbf70f34c41    84731 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                7c9ae39a2e55ca8bc846d67a6935461b    15665 bytes
-     page.js                13cb11e846755b39dca0bc71eb9b74aa    70298 bytes
+     copy.js                e0952fc4c807c1dfcc991f10b97d9e4e    15665 bytes
+     page.js                b8829bcac9a206feb96d9853cf31f768    70298 bytes
 -->
 </head>
 <body>
@@ -7511,7 +7511,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:7c9ae39a2e55ca8bc846d67a6935461b */
+<script>/* @module copy.js md5:e0952fc4c807c1dfcc991f10b97d9e4e */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -7662,7 +7662,7 @@ const UI = Object.freeze({
   scene: 'Scene',                 // the moving picture behind a practice (2026-09-27, in the customizer)
   voice: 'Voice',                 // whose voice speaks the practice (2026-09-29, VOICES; Justin's recordings are the default)
   voiceNames: { justin: 'Justin', poppy: 'Poppy' },   // the names as Justin gives them; no voice is called "AI" unless he names it so
-  voiceLocked: '{name} is on the base plan.',   // a free member taps a locked voice (2026-09-30: visible but locked)
+  voiceLocked: '{name} is on the paid plan.',   // a free member taps a locked voice (2026-09-30: visible but locked)
   sceneSurprise: 'Surprise me',   // the app's own words for "a different one each time"
   sceneNames: { circles: 'Circles', drift: 'Drift', pond: 'Pond', reeds: 'Reeds', breeze: 'Breeze', sunbeam: 'Sunbeam', fireflies: 'Fireflies' },
   sceneDarkOnly: 'dark mode only',        // the player's third menu (2026-09-26 late night): silence, captions, background sound
@@ -7772,7 +7772,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:13cb11e846755b39dca0bc71eb9b74aa */
+<script>/* @module page.js md5:b8829bcac9a206feb96d9853cf31f768 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -8210,7 +8210,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
   /* the voices this person may choose (2026-09-30: the AI voices are paid only — the app sends `voices=justin` for a free member);
    * 2026-09-30 later (Justin: "the other voices should be visible but locked"): every voice is listed; one outside this list
-   * shows a lock, and a tap says it is on the base plan without changing the voice. Only an engine with one voice in all hides
+   * shows a lock, and a tap says it is on the paid plan without changing the voice. Only an engine with one voice in all hides
    * the Voice row (#player.onevoice). */
   const allowedVoices = launch.voices || Object.keys(D.VOICES);
   const oneVoice = Object.keys(D.VOICES).length < 2;

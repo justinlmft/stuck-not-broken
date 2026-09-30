@@ -1600,7 +1600,7 @@
   //   · unlimited check-ins · the immediate state read (the mirror) · the two mindfulness
   //   practices (a tiny practice ~2min, simple mindfulness ~6min) · their own saved
   //   check-in history, as they recorded it · the breath · export.
-  // THE BASE PLAN ($12/mo) adds:
+  // THE PAID PLAN ($12/mo) adds:
   //   · the MATCHING — practices built from their check-ins
   //   · the other practices — connect with safety, self-regulation, the session library
   //   · the PATTERNS across all their check-ins (the You-tab cards + the deep read)
@@ -1662,7 +1662,7 @@
 
   // ---------------------------------------------------------------- subscribe
   // NOT a paywall. Nothing is blocked and there is no exit cost — this screen is only
-  // ever reached by someone who chose it (settings, or by reaching for a base-plan
+  // ever reached by someone who chose it (settings, or by reaching for a paid-plan
   // thing). Free stays free, with no time limit. No trial, no card until this moment,
   // no countdown, no discount, no "you're missing out".
   // 🖊 COPY IS DRAFT — Justin is rewriting the offer copy; this is the honest placeholder,
@@ -1674,8 +1674,8 @@
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">The base plan</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'Choose your plan'}</h1>
+          <p class="eyebrow">The paid plan</p>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the paid plan.' : 'Choose your plan'}</h1>
           <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the other voices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
           ${planPickerHTML()}
           <p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>
@@ -3419,7 +3419,7 @@ function app(tab){
 
   function screenReflectionDeep(){
     // The reader — the weekly letter written from this person's own check-ins — is the
-    // base plan. Guarded here as well as at every call site (defense in depth).
+    // paid plan. Guarded here as well as at every call site (defense in depth).
     // (When the evergreen/personalized content tagging lands, the evergreen essays come
     // back out from behind this line and become free. That pass is not done yet.)
     _markReaderSeen();   // any reader-open clears the nudge for this check-in — incl. free
@@ -3892,7 +3892,7 @@ function app(tab){
     return `<button class="arch-row${extraClass?' '+extraClass:''}" data-id="${escapeHtml(m.id)}" data-ms="${m.dateMs}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span>${body}</span><span class="wc-go">${CHEV}</span></button>`;
   }
   function screenArchive(){
-    if(!paidNow()) return gateSubscribe('reader');   // the reader's back issues — base plan
+    if(!paidNow()) return gateSubscribe('reader');   // the reader's back issues — paid plan
     const all = Store.mints ? Store.mints() : [];   // sorted newest-first
     const now = Date.now();
     const first = Store.firstCheckinT ? Store.firstCheckinT() : null;
@@ -3984,7 +3984,7 @@ function app(tab){
     }
   }
   function screenMintedEntry(id){
-    if(!paidNow()) return gateSubscribe('reader');   // a minted reader issue — base plan
+    if(!paidNow()) return gateSubscribe('reader');   // a minted reader issue — paid plan
     const m = (Store.mints ? Store.mints() : []).find(x => x.id===id);
     if(!m) return screenArchive();
     if(m.tier==='weekly' && m.data && m.data.issue){
@@ -5577,7 +5577,7 @@ function app(tab){
   // account is promised: their own saved check-ins, exactly as they recorded them — the
   // date, the time, the state they named, and the app's mirror of what they set. No
   // trend, no pattern, no verdict, no score: the app does not read it back to them, it
-  // simply keeps it and shows it. That read-back is what the base plan is.
+  // simply keeps it and shows it. That read-back is what the paid plan is.
   // 🖊 copy draft.
   function tabHistoryFree(c, allCs){
     const cs = allCs.slice().sort((a,b)=>b.t-a.t);   // newest first
@@ -5612,25 +5612,25 @@ function app(tab){
       <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; on the base plan</span>
+          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; on the paid plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-impacts" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Practice impacts</span>
-          <span class="tb-row-sub">How each practice shifts your states &middot; on the base plan</span>
+          <span class="tb-row-sub">How each practice shifts your states &middot; on the paid plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-ideal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Ideal practice</span>
-          <span class="tb-row-sub">Your best time, anchor and setup &middot; on the base plan</span>
+          <span class="tb-row-sub">Your best time, anchor and setup &middot; on the paid plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
         <h3 class="yr-h">Your Reflection</h3>
         <p class="yr-lede">The personal read of your patterns, in plain language.</p>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">Read your full reflection &middot; on the base plan</span><span class="lk" aria-hidden="true"></span></span>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">Read your full reflection &middot; on the paid plan</span><span class="lk" aria-hidden="true"></span></span>
       </a>
       <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">Your check-ins.</h2></div>
       <div class="deep">${dayHTML}</div>
@@ -6253,7 +6253,7 @@ function app(tab){
       return;
     }
     // The pattern cards + the deep read are the app reading a person's history BACK to
-    // them — that is the base plan. Their OWN saved check-ins, exactly as they recorded
+    // them — that is the paid plan. Their OWN saved check-ins, exactly as they recorded
     // them, are free forever. So a free account doesn't get a locked, teasing version of
     // this tab; it gets a real one: their history, raw. Free makes people feel seen; paid
     // is how they change.
@@ -6619,7 +6619,7 @@ function app(tab){
   const VOICES=[['justin','Justin'],['poppy','Poppy']];   // AI Justin was here 2026-09-30 and came out the same day (Justin: "the natural Justin is better"); a saved 'aijustin' reads as Justin
   // ✅ THE AI VOICES ARE PAID ONLY (Justin, 2026-09-30: "make the ai voices paid only" — in Poppy's prod release). Justin's own voice is for
   // everyone; a free member's saved AI voice is kept (it comes back if they subscribe) but plays as Justin's, and every launch tells the
-  // player `voices=justin`, so its customizer shows no Voice row. Reaching for an AI voice opens the base-plan screen.
+  // player `voices=justin`, so its customizer shows no Voice row. Reaching for an AI voice opens the paid-plan screen.
   function voiceOk(v){ return v==='justin' || paidNow(); }
   function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) && voiceOk(v) ? v : 'justin'; }
   function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
@@ -7347,10 +7347,10 @@ function app(tab){
     // faded-with-the-answer-showing (that would hand over the thing while pretending not
     // to, and dangle it besides) — it is simply not there. What's there instead is the
     // practices they have, and one quiet line saying where the matching lives.
-    /* ✅ SEE WHAT'S ON THE BASE PLAN (Justin, 2026-09-30: "i want free users to see what they are missing out on. So, the reader should
+    /* ✅ SEE WHAT'S ON THE PAID PLAN (Justin, 2026-09-30: "i want free users to see what they are missing out on. So, the reader should
      * be locked but visible as a thing. the other voices should be visible but locked. and so on."). This replaces the 2026-07 rule
      * that the matched card is "simply not there" for a free account: it is there now, locked — its shape and what it does, never
-     * the answer itself (no reason, no minutes, no practice name) — and a tap opens the base-plan screen. Every locked thing in the
+     * the answer itself (no reason, no minutes, no practice name) — and a tap opens the paid-plan screen. Every locked thing in the
      * app carries the same small lock where its chevron would be (.p-locked / .lk). */
     const tunedLocked = `
       <button class="wincard tuned-card p-locked" id="foryou-lock" type="button">
@@ -7379,7 +7379,7 @@ function app(tab){
     const heading = !key ? (_paid ? '' : 'Pick a practice.')
       : (key==='more' ? 'Choose a practice.'
       : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
-    // free: the full menu in the real order, nothing hidden — the base-plan practices are
+    // free: the full menu in the real order, nothing hidden — the paid-plan practices are
     // FADED INK ONLY (same card, same fill, no padlock, no dashes), exactly as the guest
     // pick renders them. Tapping one asks; it never scolds.
     const optCards = P_OPTS.map(o=>{
@@ -8083,7 +8083,7 @@ function app(tab){
             if(b && b.sub_status==='active')
               return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your subscription is active. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
-            // legacy / Academy accounts have the whole base plan without a subscription —
+            // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
             var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.circle)
@@ -8137,7 +8137,7 @@ function app(tab){
     (function(){ const btn=$('#voice-btn'), body=$('#voice-body');
       if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
     document.querySelectorAll('.voice-opt').forEach(b=>b.onclick=()=>{
-      if(!voiceOk(b.dataset.voice)) return gateSubscribe('voice');   // 2026-09-30: the AI voices are on the base plan
+      if(!voiceOk(b.dataset.voice)) return gateSubscribe('voice');   // 2026-09-30: the AI voices are on the paid plan
       if(Store.setPrefVoice) Store.setPrefVoice(b.dataset.voice);
       document.querySelectorAll('.voice-opt').forEach(x=>x.classList.toggle('on', x===b));
       const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);
