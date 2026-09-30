@@ -1623,6 +1623,7 @@
     practice: 'The other practices',
     patterns: 'the patterns across your check-ins',
     reader:   'the reader',
+    voice:    'The other voices',   // 2026-09-30: the AI voices are paid only 🖊
   };
   let _subFrom = null;
   function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
@@ -1672,7 +1673,7 @@
         <div class="gate-body">
           <p class="eyebrow">The base plan</p>
           <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'Choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
+          <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the other voices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
           ${planPickerHTML()}
           <p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
@@ -2821,6 +2822,41 @@ function app(tab){
     return P[seg]?'<svg class="seg-ico" viewBox="0 0 24 24" aria-hidden="true">'+P[seg]+'</svg>':'';
   }
   function segPoss(seg){ return seg==='late'?'night':seg; }
+  /* ✅ THE TIME-OF-DAY ICON COMES ALIVE (Justin, 2026-09-30: "the little time of day icons on the Now screen need some life. They
+   * should animate in, over the logo glyph. Just once per time of day, then resets every time of day." · "Icons should be hand drawn"
+   * · "it animates in, it sits there for a few seconds, and then it animates out. We can try that out first."). Hand-drawn strokes
+   * (an open ensō sun, a wavy horizon, a drawn crescent, four-point stars) draw themselves in one after another above the glyph /
+   * greeting, sit ~3 s, then let go unevenly (wabi-sabi: each stroke erases on along its own line at its own moment), and the space
+   * folds away. Once per time of day per person on this device; the next time of day plays again. The late night that runs past
+   * midnight counts as one time of day. The You tab's charts keep the quiet ink icons (segIco). */
+  const TOD_ICONS = {"morning":["M7.6 13.72 C7.64 13.51 7.66 12.82 7.83 12.42 C8 12.03 8.34 11.7 8.63 11.36 C8.92 11.02 9.22 10.65 9.59 10.4 C9.95 10.15 10.4 9.92 10.84 9.84 C11.27 9.76 11.76 9.89 12.2 9.95 C12.64 10 13.03 10.1 13.49 10.18 C13.94 10.26 14.53 10.19 14.91 10.42 C15.29 10.65 15.49 11.18 15.75 11.57 C16.01 11.96 16.21 12.33 16.45 12.75 C16.69 13.16 17.06 13.83 17.18 14.05","M3.2 14.6 C3.83 14.55 5.53 14.28 7 14.3 C8.47 14.32 10.33 14.72 12 14.7 C13.67 14.68 15.53 14.22 17 14.2 C18.47 14.18 20.17 14.53 20.8 14.6","M6.5 18.3 C7.42 18.25 10.18 17.98 12 18 C13.82 18.02 16.5 18.33 17.4 18.4","M5.93 12.5 Q4.78 11.95 3.53 11.71","M7.81 9.37 Q7.13 8.65 6.55 7.84","M11.49 7.92 Q11.26 7.11 11.36 6.28","M15.58 9.26 Q16.06 8.41 16.68 7.65","M18.36 12.09 Q19.13 11.95 19.8 11.55"],"afternoon":["M14.14 8.3 C14.34 8.46 15 8.87 15.37 9.24 C15.74 9.61 16.19 10.04 16.35 10.52 C16.52 11.01 16.39 11.62 16.34 12.14 C16.29 12.67 16.24 13.2 16.06 13.68 C15.88 14.17 15.62 14.7 15.26 15.05 C14.89 15.4 14.35 15.57 13.88 15.8 C13.41 16.04 12.95 16.34 12.44 16.44 C11.93 16.54 11.35 16.5 10.82 16.4 C10.3 16.29 9.67 16.14 9.28 15.8 C8.88 15.46 8.71 14.84 8.45 14.38 C8.18 13.91 7.81 13.49 7.69 13 C7.57 12.51 7.7 11.98 7.72 11.44 C7.74 10.89 7.6 10.25 7.79 9.75 C7.99 9.25 8.44 8.75 8.89 8.45 C9.33 8.15 9.95 8.16 10.47 7.93 C10.99 7.69 11.74 7.2 12 7.06","M18.54 12.14 Q19.86 12.17 21.17 12.2","M16.26 16.97 Q17.24 17.96 18.06 19.07","M12.52 18.36 Q12.45 19.85 12.77 21.31","M7.18 16.57 Q6.5 17.15 5.89 17.8","M5.75 12.03 Q4.43 11.88 3.1 12.05","M7.74 7.63 Q6.77 6.87 6.04 5.89","M11.74 5.36 Q11.88 4.1 11.65 2.86","M16.37 7.08 Q16.85 6.26 17.61 5.68"],"evening":["M15.2 4.6 C14.37 4.68 11.7 4.3 10.2 5.1 C8.7 5.9 6.8 7.82 6.2 9.4 C5.6 10.98 5.83 13 6.6 14.6 C7.37 16.2 9.17 18.23 10.8 19 C12.43 19.77 14.93 19.73 16.4 19.2 C17.87 18.67 19.07 16.37 19.6 15.8","M19.6 15.8 C18.77 15.9 16.03 16.77 14.6 16.4 C13.17 16.03 11.67 14.77 11 13.6 C10.33 12.43 10.33 10.63 10.6 9.4 C10.87 8.17 11.83 7 12.6 6.2 C13.37 5.4 14.77 4.87 15.2 4.6","M18.24 4.07 Q18.57 6.16 20.67 6.46 Q18.47 6.56 18.54 8.77 Q18.25 6.47 16.12 6.25 Q18.15 6.16 18.38 4.34"],"late":["M11.73 3.99 Q12.12 6.44 14.84 6.54 Q12.28 6.72 12.2 9.21 Q11.79 6.81 9.13 6.76 Q11.86 6.33 11.69 4.33","M17.95 11.39 Q18.21 13.06 19.99 13.06 Q18.22 13.38 17.97 15.13 Q17.93 13.34 16.15 13.18 Q17.75 13.13 17.78 11.62","M7.08 13.42 Q7.48 15.47 9.47 15.44 Q7.4 15.79 7.32 17.79 Q7.06 15.73 5.06 15.41 Q7.02 15.55 7.33 13.69"]};
+  const TOD_IN = 0.25, TOD_STEP = 0.12, TOD_DRAW = 0.65, TOD_HOLD = 3.2, TOD_OUT = 0.9, TOD_SCATTER = 0.6, TOD_FOLD = 0.6;
+  let todPlaying = null;   // {key, start}: a play in progress survives a re-render of the Now screen (it resumes where it was)
+  function todKey(seg){
+    const n = new Date(); if(seg==='late' && n.getHours()<5) n.setDate(n.getDate()-1);   // 1am belongs to the night that began at 10pm
+    const u = (Store.user()&&Store.user().id)||'anon';
+    return 'snb_tod_'+u+'_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate()+'_'+seg;
+  }
+  function todTimes(n){
+    const outAt = TOD_IN + (n-1)*TOD_STEP + TOD_DRAW + TOD_HOLD;
+    return { outAt, foldAt: outAt + TOD_SCATTER + TOD_OUT - 0.2, total: outAt + TOD_SCATTER + TOD_OUT + TOD_FOLD };
+  }
+  // the markup for the Now screen's icon: the animation, or nothing once it has played in this time of day
+  function todIco(seg){
+    const paths = TOD_ICONS[seg]; if(!paths) return '';
+    const key = todKey(seg), T = todTimes(paths.length), now = Date.now();
+    let t0 = 0;
+    if(todPlaying && todPlaying.key===key){ t0 = (now - todPlaying.start)/1000; if(t0 >= T.total) return ''; }
+    else {
+      let seen = false; try{ seen = localStorage.getItem(key)==='1'; }catch(e){}
+      if(seen) return '';
+      todPlaying = { key, start: now }; try{ localStorage.setItem(key,'1'); }catch(e){}
+    }
+    // an uneven let-go: each stroke's moment is fixed per icon, not random per visit
+    const scatter = i => (((i*7919 + seg.length*104729) % 97) / 97) * TOD_SCATTER;
+    const body = paths.map((d,i)=>`<path pathLength="1" style="--di:${(TOD_IN+i*TOD_STEP).toFixed(2)}s;--do:${(T.outAt+scatter(i)).toFixed(2)}s" d="${d}"/>`).join('');
+    return `<span class="mh-peri tod" aria-hidden="true" style="--t0:${(-t0).toFixed(2)}s;--dg:${T.foldAt.toFixed(2)}s;--tt:${T.total.toFixed(2)}s"><svg class="tod-ico" viewBox="0 0 24 24" aria-hidden="true">${body}</svg></span>`;
+  }
   // per-user AND per-day: a new account on the same device must not inherit
   // the previous account's "already breathed today" settled state
   function breathKey(){ const n=new Date(); const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_breath_'+u+'_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate(); }
@@ -2950,8 +2986,8 @@ function app(tab){
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
-            ? `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><button class="mh-state" id="mh-state" type="button" aria-label="What ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
-            : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
+            ? `${todIco(seg)}<button class="mh-state" id="mh-state" type="button" aria-label="What ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            : `${todIco(seg)}<h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
         <button class="tb-breath" id="tb-breath" aria-label="Take one intentional breath">
           <span class="tb-stage">
@@ -6480,6 +6516,7 @@ function app(tab){
     if(!e.has('bed')){ const b=bedPref(); if(b.bed!=='none'){ e.set('bed', b.bed); e.set('bedvol', b.level); } }
     // the voice the person chose (2026-09-29, VOICES) rides on every launch the same way; Justin's is the default and is not sent
     if(!e.has('voice')){ const v=voicePref(); if(v!=='justin') e.set('voice', v); }
+    if(!paidNow()){ e.set('voices', 'justin'); if(e.has('voice') && !voiceOk(e.get('voice'))) e.delete('voice'); }   // 2026-09-30: AI voices paid only
     // 2026-09-28 (Justin, desktop: the player light inside a dark app): the player takes the theme the APP is showing,
     // never its own guess — the same document class the app painted with
     try{ e.set('theme', document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'); }catch(_){}
@@ -6550,7 +6587,11 @@ function app(tab){
   // Remembered (Store.prefVoice, synced like the sound), carried on every launch (_playerSrc), changed from the maker, Settings
   // or the player's customizer (the report brings a change back).
   const VOICES=[['justin','Justin'],['poppy','Poppy']];   // AI Justin was here 2026-09-30 and came out the same day (Justin: "the natural Justin is better"); a saved 'aijustin' reads as Justin
-  function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) ? v : 'justin'; }
+  // ✅ THE AI VOICES ARE PAID ONLY (Justin, 2026-09-30: "make the ai voices paid only" — in Poppy's prod release). Justin's own voice is for
+  // everyone; a free member's saved AI voice is kept (it comes back if they subscribe) but plays as Justin's, and every launch tells the
+  // player `voices=justin`, so its customizer shows no Voice row. Reaching for an AI voice opens the base-plan screen.
+  function voiceOk(v){ return v==='justin' || paidNow(); }
+  function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) && voiceOk(v) ? v : 'justin'; }
   function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
@@ -7118,7 +7159,7 @@ function app(tab){
       } else if(kind==='bed'){
         openBedSheet(tkCls, ()=>paintMaker());
       } else if(kind==='voice'){
-        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tkCls, (v)=>{ if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paintMaker(); });
+        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tkCls, (v)=>{ if(!voiceOk(v)) return gateSubscribe('voice'); if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paintMaker(); });
       } else if(kind==='length'){
         openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
       }
@@ -7547,7 +7588,7 @@ function app(tab){
       if(typeof m.silence==='number') reco.silence=m.silence;
       // the background sound it ENDED on is the one remembered (a change in the player's menu counts)
       // the voice it ENDED on is the one remembered (2026-09-29): a change in the player's customizer counts
-      if(typeof m.voice==='string' && Store.setPrefVoice && VOICES.some(x=>x[0]===m.voice) && m.voice!==voicePref()) Store.setPrefVoice(m.voice);
+      if(typeof m.voice==='string' && Store.setPrefVoice && VOICES.some(x=>x[0]===m.voice) && voiceOk(m.voice) && m.voice!==voicePref()) Store.setPrefVoice(m.voice);
       if(typeof m.bed==='string' && Store.setPrefBed){ const keep = m.bedPref==='surprise' ? 'surprise' : m.bed; Store.setPrefBed(keep, m.bed==='none' ? null : (m.bedVolume||'soft')); }   // a surprise stays a surprise (2026-09-28)
       if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
       if(m.meditationId!==undefined) reco.meditationId=m.meditationId;
@@ -8050,6 +8091,7 @@ function app(tab){
     (function(){ const btn=$('#voice-btn'), body=$('#voice-body');
       if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
     document.querySelectorAll('.voice-opt').forEach(b=>b.onclick=()=>{
+      if(!voiceOk(b.dataset.voice)) return gateSubscribe('voice');   // 2026-09-30: the AI voices are on the base plan
       if(Store.setPrefVoice) Store.setPrefVoice(b.dataset.voice);
       document.querySelectorAll('.voice-opt').forEach(x=>x.classList.toggle('on', x===b));
       const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);

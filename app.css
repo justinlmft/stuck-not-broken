@@ -2956,6 +2956,20 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    The icon is now a sibling ABOVE the row in both states, so the card has one composition.
    It is aria-hidden decorative, so moving it out of the button costs nothing semantically. */
 .mh-top > .mh-peri{margin-bottom:2px}
+/* the time-of-day icon comes alive (2026-09-30): drawn in stroke by stroke, sits, lets go unevenly, then its space folds away */
+.mh-peri.tod{max-height:40px;animation:todFold var(--fold,.6s) var(--ease) calc(var(--dg) + var(--t0)) forwards}
+.mh-peri.tod svg{width:34px;height:34px;stroke:currentColor;stroke-width:1.3;fill:none;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.mh-peri.tod path{stroke-dasharray:1 1;stroke-dashoffset:1;
+  animation:todIn .65s cubic-bezier(.45,.05,.3,1) calc(var(--di) + var(--t0)) forwards,
+            todOut .9s cubic-bezier(.5,0,.75,.4) calc(var(--do) + var(--t0)) forwards}
+@keyframes todIn{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes todOut{0%{stroke-dashoffset:0;opacity:1;transform:translateY(0)}100%{stroke-dashoffset:-1;opacity:0;transform:translateY(-.6px)}}
+@keyframes todFold{from{max-height:40px;opacity:1;margin-bottom:2px}to{max-height:0;opacity:0;margin-bottom:-10px}}
+@media (prefers-reduced-motion:reduce){
+  .mh-peri.tod path{animation:none;stroke-dasharray:none;stroke-dashoffset:0}
+  .mh-peri.tod{animation:todQuiet var(--tt) linear var(--t0) forwards}
+}
+@keyframes todQuiet{0%{opacity:0;max-height:40px}8%{opacity:1}78%{opacity:1;max-height:40px;margin-bottom:2px}92%{opacity:0;max-height:40px;margin-bottom:2px}100%{opacity:0;max-height:0;margin-bottom:-10px}}
 .mh-state .mh-peri{display:inline-flex;color:var(--ink)}
 .mh-state .mh-peri svg{width:24px;height:24px}
 .mh-state .mh-glyph{display:inline-flex}
