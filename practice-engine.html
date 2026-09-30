@@ -510,16 +510,16 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      page.css               6a2d4e0f0a165d63d64b1ef4975592f5    36758 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                ffe95f55b242282985ca64f40da16c82    94435 bytes
+     data.js                36cb3a4f98019c111127bbe344041564    83416 bytes
      plan.js                2e8a56643940678ad0d70fd9c567f09b    84718 bytes
      runtime.js             6e2947041334398c4cdfd005d8a4e188    53311 bytes
      host.js                a0a361950ded8e62e0d4bfa4afdb94c7    39828 bytes
-     browser-device.js      863ad60f72c24b196eefe4c431ac667a    10383 bytes
+     browser-device.js      0e38e7e713e772b8706ea17adc1ee56a    11495 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
      session.js             7278badb890e3a47940d2bbf70f34c41    84731 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                9c7e252668a52df51214dbd710ebd557    15570 bytes
+     copy.js                933f2bd69dfa17cbc191152af174019e    15547 bytes
      page.js                3644a800af5008753fd8b8058194be2d    69032 bytes
 -->
 </head>
@@ -933,7 +933,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:ffe95f55b242282985ca64f40da16c82 */
+<script>/* @module data.js md5:36cb3a4f98019c111127bbe344041564 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -999,16 +999,14 @@ const VOICES = Object.freeze({
    * (807/807 aligned, cuts in the silence between reads), +0.7 dB to sit at the library's level, the name taken out of
    * the lines ("Hey." for "Hey, it's Justin."). claude/poppy-dub/README.md has the recipe. */
   poppy: Object.freeze({ folder: 'clips-poppy/', own: false }),
-  /* AI Justin, a Descript AI voice cloned from Justin's (2026-09-30). The script with the AI-only wording edits and a tone per
-   * paragraph — "(instructions)" only on the bookends (INTRO, SETUP, OUTRO), "(meditation)" for all the work — his rulings
-   * 2026-09-29. All 807 lines (his second export, 2026-09-30, filled the 99 the first one left silent; those 99 files were added beside the 708 already on beta). Checked against a
-   * transcript of the audio: the one doubled word ("Specifically, specifically" on 6 SETUP-PRACTICE lines) is cut out at the
-   * source; +1.3 dB to the library's level. claude/ai-justin-dub/README.md has the recipe. */
-  aijustin: Object.freeze({ folder: 'clips-aijustin/', own: false }),
+  /* AI Justin (a Descript clone of his voice) was a third voice on beta 2026-09-30 and came OUT the same day — Justin: "the
+   * natural Justin is better than the AI Justin. The AI Justin has a bit more erratic vocal quality. Take it out of beta for
+   * now." Its 807 takes stay in beta's `clips-aijustin/`; the row, its pause points and the recipe to put it back are in
+   * claude/ai-justin-dub/ (RESTORE.md). A saved preference of 'aijustin' reads as Justin's (voiceKey). */
 });
 function voiceKey(v) { return Object.prototype.hasOwnProperty.call(VOICES, v) ? v : VOICE_DEFAULT; }
 /* does `voice` have its own take of `file`? A voice may list `missing` files (lines not dubbed yet): those takes play in
- * Justin's voice, with his trims, pause points and captions. No voice has any missing now (2026-09-30). */
+ * Justin's voice, with his trims, pause points and captions. No voice lists any now. */
 function voiceHas(file, voice) { const m = VOICES[voiceKey(voice)].missing; return !(m && m.has(file)); }
 
 /* The one way a file name becomes a URL. `base` is the device's app root (`./` in the page,
@@ -1928,207 +1926,10 @@ const POPPY_HOLDS_RAW = {
   'VALIDATE-SAFETY-b.mp3': [[5.77,0.61],[12.63,0.6]],
   'VALIDATE-SAFETY-d.mp3': [[3.38,0.6],[15.19,0.6]],
 };
-/* AI Justin: the same rule on its own timings — 380 points in 191 files, short pauses widened to 0.6 s in the file the same
- * way (claude/ai-justin-dub/). 708 files are from his first export (already on beta, names never change content), the 99 it
- * left silent from the second; the two exports are the same audio for those 708. */
-const AIJUSTIN_HOLDS_RAW = {
-  'ANCHORING-IMAGINATION-03-a.mp3': [[3.1,0.6],[5.88,0.6],[7.78,0.7],[9.32,0.62],[10.68,0.6]],
-  'ANCHORING-IMAGINATION-03-c.mp3': [[1.93,0.6],[3.47,0.8],[6.28,0.78],[8.33,0.87]],
-  'ANCHORING-IMAGINATION-04-a.mp3': [[4.0,0.75],[5.83,0.69]],
-  'ANCHORING-IMAGINATION-04-b.mp3': [[1.89,0.64],[5.05,0.79],[8.49,0.84]],
-  'ANCHORING-IMAGINATION-04-d.mp3': [[2.03,0.66],[4.15,0.84],[6.4,0.81],[8.85,0.6]],
-  'ANCHORING-IMAGINATION-05-a.mp3': [[2.2,0.6]],
-  'ANCHORING-IMAGINATION-05-b.mp3': [[3.31,0.6]],
-  'ANCHORING-IMAGINATION-05-c.mp3': [[2.51,0.6]],
-  'ANCHORING-IMAGINATION-06-a.mp3': [[2.39,0.6],[4.22,0.6],[6.95,0.88],[11.89,0.91],[14.28,0.66]],
-  'ANCHORING-IMAGINATION-06-c.mp3': [[3.04,0.6],[4.94,0.6],[6.79,0.66]],
-  'ANCHORING-IMAGINATION-07-a.mp3': [[4.62,0.8]],
-  'ANCHORING-IMAGINATION-07-b.mp3': [[3.82,0.6]],
-  'ANCHORING-IMAGINATION-07-d.mp3': [[3.41,0.6]],
-  'ANCHORING-IMAGINATION-08-a.mp3': [[4.18,0.6]],
-  'ANCHORING-IMAGINATION-08-b.mp3': [[3.9,0.6]],
-  'ANCHORING-IMAGINATION-08-c.mp3': [[3.64,0.6],[6.66,0.6]],
-  'ANCHORING-IMAGINATION-09-b.mp3': [[3.32,0.79],[6.87,0.62]],
-  'ANCHORING-IMAGINATION-09-c.mp3': [[1.74,0.6]],
-  'ANCHORING-IMAGINATION-09-d.mp3': [[6.65,0.85]],
-  'ANCHORING-IMAGINATION-09-e.mp3': [[1.59,0.6]],
-  'ANCHORING-MOVEMENT-08-a.mp3': [[3.89,0.6]],
-  'ANCHORING-MOVEMENT-08-b.mp3': [[4.18,0.73]],
-  'ANCHORING-MOVEMENT-08-c.mp3': [[4.02,0.6],[7.48,0.6]],
-  'ANCHORING-MOVEMENT-10-a.mp3': [[2.78,0.66],[4.76,0.6],[8.33,0.87]],
-  'ANCHORING-MOVEMENT-10-b.mp3': [[3.23,0.6],[5.01,0.66],[9.01,0.82]],
-  'ANCHORING-MOVEMENT-10-c.mp3': [[2.57,0.6],[4.49,0.67],[8.35,0.94]],
-  'ANCHORING-MOVEMENT-10-d.mp3': [[4.72,0.6],[8.83,0.6]],
-  'ANCHORING-SHARED-01-BREATH-a.mp3': [[4.1,0.82],[7.21,0.67],[9.76,0.67],[12.96,0.63]],
-  'ANCHORING-SHARED-01-BREATH-b.mp3': [[4.4,0.79],[10.74,0.6],[13.94,0.65],[17.89,0.6]],
-  'ANCHORING-SHARED-01-BREATH-c.mp3': [[8.69,0.64],[10.7,0.67]],
-  'ANCHORING-SHARED-01-BREATH-d.mp3': [[4.92,0.67],[7.38,0.6],[9.35,0.65],[11.53,0.89]],
-  'ANCHORING-SHARED-01-BREATH-e.mp3': [[4.12,0.81],[7.64,0.81],[10.66,0.76],[13.34,0.81]],
-  'ANCHORING-SHARED-02-POSTURE-a.mp3': [[4.3,0.6],[6.5,0.6]],
-  'ANCHORING-SHARED-02-POSTURE-b.mp3': [[4.34,0.6],[6.92,0.62]],
-  'ANCHORING-SHARED-02-POSTURE-d.mp3': [[4.25,0.6],[6.71,0.6]],
-  'ANCHORING-SHARED-03-SMILE-a.mp3': [[5.0,0.69]],
-  'ANCHORING-SHARED-03-SMILE-b.mp3': [[4.9,0.86]],
-  'ANCHORING-SHARED-03-SMILE-c.mp3': [[4.11,0.76]],
-  'ANCHORING-SHARED-03-SMILE-d.mp3': [[5.11,0.7]],
-  'ANCHORING-SHARED-03-SMILE-e.mp3': [[5.14,0.78]],
-  'ANCHORING-SHARED-04-CONNECT-b.mp3': [[3.99,0.78],[6.24,0.6]],
-  'ANCHORING-SHARED-04-CONNECT-c.mp3': [[4.99,0.87],[7.19,0.87]],
-  'ANCHORING-SHARED-04-CONNECT-d.mp3': [[5.36,0.92]],
-  'ANCHORING-SIGHT-02-a.mp3': [[5.01,0.64],[8.79,0.91],[11.6,0.7]],
-  'ANCHORING-SIGHT-02-b.mp3': [[7.82,0.6]],
-  'ANCHORING-SIGHT-02-c.mp3': [[2.12,0.74]],
-  'ANCHORING-SIGHT-02-d.mp3': [[2.53,0.62],[6.51,0.6]],
-  'ANCHORING-SIGHT-03-a.mp3': [[10.63,0.7]],
-  'ANCHORING-SIGHT-03-b.mp3': [[8.01,0.69]],
-  'ANCHORING-SIGHT-03-c.mp3': [[4.57,0.7]],
-  'ANCHORING-SIGHT-03-d.mp3': [[5.23,0.6],[9.84,0.92],[14.87,0.88]],
-  'ANCHORING-SIGHT-04-a.mp3': [[4.21,0.66]],
-  'ANCHORING-SIGHT-04-b.mp3': [[4.78,0.7]],
-  'ANCHORING-SIGHT-04-c.mp3': [[4.21,0.78],[8.21,0.6]],
-  'ANCHORING-SOUND-01-d.mp3': [[2.17,0.6]],
-  'ANCHORING-SOUND-02-b.mp3': [[2.83,0.64]],
-  'ANCHORING-SOUND-02-d.mp3': [[3.1,0.81]],
-  'ANCHORING-SOUND-03-a.mp3': [[7.22,0.68],[9.57,0.6],[11.33,0.6]],
-  'ANCHORING-SOUND-03-b.mp3': [[2.71,0.6]],
-  'ANCHORING-SOUND-03-d.mp3': [[3.92,0.68]],
-  'ANCHORING-SOUND-04-d.mp3': [[2.88,0.6]],
-  'ANCHORING-SOUND-05-a.mp3': [[2.66,0.6]],
-  'ANCHORING-SOUND-05-b.mp3': [[3.73,0.6]],
-  'ANCHORING-SOUND-06-a.mp3': [[9.16,0.65]],
-  'ANCHORING-SOUND-06-b.mp3': [[6.56,0.7],[9.96,0.96]],
-  'ANCHORING-SOUND-06-c.mp3': [[7.33,0.78]],
-  'ANCHORING-SOUND-06-d.mp3': [[2.73,0.7],[9.25,0.62],[10.92,0.6],[14.56,0.7]],
-  'ANCHORING-SOUND-07-a.mp3': [[5.49,0.65]],
-  'ANCHORING-SOUND-07-b.mp3': [[4.62,0.86]],
-  'ANCHORING-SOUND-07-c.mp3': [[4.54,0.6],[7.94,0.6]],
-  'ANCHORING-TOUCH-03-a.mp3': [[3.49,0.6]],
-  'ANCHORING-TOUCH-03-c.mp3': [[3.44,0.6],[6.89,0.6]],
-  'ANCHORING-TOUCH-03-d.mp3': [[6.92,0.6]],
-  'ANCHORING-TOUCH-04-a.mp3': [[3.2,0.6],[8.64,0.79]],
-  'ANCHORING-TOUCH-04-b.mp3': [[2.45,0.6]],
-  'ANCHORING-TOUCH-04-c.mp3': [[3.23,0.6]],
-  'ANCHORING-TOUCH-04-d.mp3': [[5.23,0.6],[8.31,0.75],[12.58,0.71]],
-  'ANCHORING-TOUCH-04-e.mp3': [[5.32,0.6],[8.28,0.66],[12.66,0.64]],
-  'BODY-GENERAL-DEFENSE-a.mp3': [[4.12,0.6]],
-  'BODY-GENERAL-DEFENSE-b.mp3': [[3.63,0.6],[5.97,0.6]],
-  'BODY-GENERAL-DEFENSE-c.mp3': [[3.44,0.6],[6.5,0.73]],
-  'BODY-GENERAL-DEFENSE-d.mp3': [[4.15,0.6],[6.51,0.6]],
-  'BODY-GENERAL-SAFETY-a.mp3': [[6.42,0.6],[8.43,0.6]],
-  'BODY-GENERAL-SAFETY-b.mp3': [[3.15,0.6],[5.52,0.6],[8.07,0.6]],
-  'BODY-GENERAL-SAFETY-c.mp3': [[6.56,0.67],[11.32,0.65],[13.8,0.62]],
-  'BODY-SPECIFIC-DEFENSE-a.mp3': [[4.43,0.9],[10.52,0.85]],
-  'BODY-SPECIFIC-DEFENSE-c.mp3': [[2.49,0.6]],
-  'BODY-SPECIFIC-DEFENSE-d.mp3': [[5.61,0.95],[9.98,0.81]],
-  'BODY-SPECIFIC-SAFETY-a.mp3': [[4.27,0.6],[10.27,0.82]],
-  'BODY-SPECIFIC-SAFETY-b.mp3': [[9.82,0.64],[14.76,0.7]],
-  'BODY-SPECIFIC-SAFETY-c.mp3': [[2.9,0.6],[7.2,0.67]],
-  'BODY-SPECIFIC-SAFETY-d.mp3': [[5.16,0.6]],
-  'BODY-SPECIFIC-SAFETY-e.mp3': [[11.02,0.74]],
-  'BODY-SPECIFIC-SAFETY-f.mp3': [[7.3,0.74],[10.77,0.68]],
-  'BODY-SPECIFIC-SAFETY-g.mp3': [[2.78,0.72],[7.38,0.8]],
-  'BREATH-CHECK-a.mp3': [[4.92,0.6],[6.63,0.6]],
-  'BREATH-CHECK-c.mp3': [[10.82,0.9],[13.68,0.88],[16.68,0.8]],
-  'BREATH-CHECK-e.mp3': [[16.6,0.6]],
-  'BREATH-CHECK-f.mp3': [[10.44,0.81],[13.09,0.73],[15.76,0.77]],
-  'BREATH-GUIDE-MOVE-k.mp3': [[11.11,0.6],[13.19,0.88]],
-  'CLOSE-02-c.mp3': [[3.44,0.71]],
-  'CLOSE-02-d.mp3': [[4.42,0.71]],
-  'CLOSE-04-a.mp3': [[13.22,0.6]],
-  'DESC-DEFENSE-01-a.mp3': [[3.13,0.6],[4.61,0.6]],
-  'DESC-DEFENSE-01-b.mp3': [[6.21,0.69],[9.24,0.83]],
-  'DESC-DEFENSE-01-c.mp3': [[6.42,0.72],[9.88,0.71]],
-  'DESC-DEFENSE-02-a.mp3': [[2.59,0.6]],
-  'DESC-DEFENSE-04-a.mp3': [[2.01,0.6]],
-  'DESC-DEFENSE-04-b.mp3': [[3.3,0.63]],
-  'DESC-DEFENSE-05-a.mp3': [[2.53,0.75]],
-  'DESC-DEFENSE-05-b.mp3': [[1.89,0.6]],
-  'DESC-SAFETY-01-a.mp3': [[2.23,0.6],[4.35,0.6]],
-  'DESC-SAFETY-02-a.mp3': [[1.91,0.6]],
-  'DESC-SAFETY-02-b.mp3': [[1.69,0.6]],
-  'DESC-SAFETY-04-a.mp3': [[2.01,0.6]],
-  'DESC-SAFETY-04-b.mp3': [[1.92,0.71]],
-  'DESC-SAFETY-04-c.mp3': [[1.93,0.6]],
-  'DESC-SAFETY-05-a.mp3': [[2.74,0.6]],
-  'DESC-SAFETY-PLAIN-01-b.mp3': [[3.91,0.6]],
-  'DESC-SAFETY-PLAIN-02-b.mp3': [[2.23,0.6]],
-  'HOLD-WATCH-a.mp3': [[9.16,0.69]],
-  'HOLD-WATCH-b.mp3': [[12.01,0.6]],
-  'HOLD-WATCH-c.mp3': [[7.98,0.6]],
-  'IMG-01-a.mp3': [[1.93,0.6]],
-  'IMG-01-b.mp3': [[2.75,0.69]],
-  'IMG-01-c.mp3': [[2.4,0.6]],
-  'IMG-01-e.mp3': [[2.46,0.6],[5.55,0.71]],
-  'IMG-02-a.mp3': [[2.77,0.6],[4.08,0.66],[7.06,0.6]],
-  'IMG-02-c.mp3': [[4.93,0.76],[6.88,0.85]],
-  'IMG-02-d.mp3': [[2.37,0.68],[6.8,0.89]],
-  'IMG-03-a.mp3': [[1.78,0.6],[4.25,0.62],[6.3,0.62]],
-  'IMG-03-b.mp3': [[2.52,0.6]],
-  'IMG-03-c.mp3': [[1.94,0.6]],
-  'MIND-02-a.mp3': [[6.55,0.63],[8.5,0.71],[25.22,0.79],[28.74,0.73]],
-  'MIND-02-b.mp3': [[19.24,0.6],[21.18,0.6]],
-  'MIND-02-c.mp3': [[14.28,0.76],[18.26,0.76]],
-  'MIND-02-d.mp3': [[2.74,0.65],[5.68,0.6],[10.13,0.73],[20.96,0.67]],
-  'MIND-03-a.mp3': [[6.19,0.82],[8.99,1.14],[13.16,0.87],[16.74,0.95],[23.03,0.83],[26.18,0.88],[29.74,0.82],[32.1,0.87],[35.72,0.78]],
-  'MIND-03-b.mp3': [[2.1,0.65],[5.44,0.72],[8.4,0.69],[10.58,0.6]],
-  'MIND-03-c.mp3': [[1.6,0.6],[5.04,0.69],[12.29,0.6]],
-  'MIND-03-d.mp3': [[3.07,0.74],[5.32,0.6],[7.91,0.92]],
-  'MIND-03-e.mp3': [[1.83,0.6],[3.3,0.68],[6.84,0.69],[9.55,0.6]],
-  'MIND-03-f.mp3': [[5.98,0.88],[9.03,0.99],[13.08,0.78],[16.69,0.84],[22.92,0.83],[26.22,0.87],[29.63,0.69],[31.99,0.73],[35.41,0.76]],
-  'MIND-04-a.mp3': [[9.86,1.02],[15.54,1.0],[19.96,0.98],[22.25,0.6],[23.77,1.0],[30.26,0.88],[32.86,1.0]],
-  'MIND-04-b.mp3': [[1.93,0.6],[6.31,0.75],[8.68,0.78],[14.64,0.82],[16.62,0.6],[18.58,0.79],[20.96,0.72],[23.22,0.84],[25.05,0.6],[26.92,0.9]],
-  'MIND-04-c.mp3': [[2.48,0.6],[4.86,0.6],[10.67,0.6],[13.83,0.68]],
-  'MIND-04-d.mp3': [[3.96,0.85],[7.15,0.9],[10.98,0.67],[13.89,0.86],[15.59,0.62],[17.39,0.6],[20.6,0.72]],
-  'MIND-04-e.mp3': [[9.92,0.87],[15.4,0.91],[19.61,0.85],[21.64,0.65],[23.1,0.89],[32.33,0.84]],
-  'MIND-05-a.mp3': [[1.87,0.72],[20.44,0.6],[22.27,0.6]],
-  'MIND-05-b.mp3': [[2.1,0.68],[11.05,0.8]],
-  'MIND-05-c.mp3': [[8.7,0.93],[17.53,0.83],[29.21,0.92],[31.51,0.69],[34.04,0.91]],
-  'MIND-05-d.mp3': [[10.46,0.87],[14.75,0.76],[19.07,0.75],[23.33,0.67]],
-  'MIND-05-e.mp3': [[9.44,0.97],[18.89,0.63],[26.58,0.87],[29.22,0.65],[31.72,0.83]],
-  'MIND-06-d.mp3': [[2.81,0.74]],
-  'NORMALIZE-DEFENSE-c.mp3': [[6.45,0.6],[11.02,0.69]],
-  'NORMALIZE-DEFENSE-e.mp3': [[3.33,0.6]],
-  'NORMALIZE-DEFENSE-f.mp3': [[4.5,0.6]],
-  'NORMALIZE-DEFENSE-g.mp3': [[3.53,0.6],[9.01,0.6]],
-  'NORMALIZE-DEFENSE-h.mp3': [[5.68,0.65]],
-  'NORMALIZE-SAFETY-a.mp3': [[3.54,0.73]],
-  'NORMALIZE-SAFETY-b.mp3': [[3.38,0.6]],
-  'NORMALIZE-SAFETY-d.mp3': [[5.92,0.6]],
-  'OBST-01-c.mp3': [[7.74,0.6],[9.67,0.6]],
-  'OBST-02-d.mp3': [[4.0,0.73]],
-  'OBST-03-a.mp3': [[12.96,0.64]],
-  'OBST-03-b.mp3': [[7.26,0.6]],
-  'OBST-03-c.mp3': [[7.45,0.6]],
-  'OBST-03-d.mp3': [[8.59,0.65]],
-  'OBST-04-a.mp3': [[4.1,0.6]],
-  'OBST-04-b.mp3': [[3.44,0.61]],
-  'OBST-04-c.mp3': [[2.52,0.66]],
-  'OBST-05-a.mp3': [[2.45,0.6],[3.71,0.6],[6.23,0.6]],
-  'OBST-05-c.mp3': [[4.7,0.85]],
-  'OBST-05-d.mp3': [[5.91,0.77]],
-  'OBST-06-a.mp3': [[1.65,0.6],[4.16,0.65],[6.35,0.62]],
-  'OBST-06-b.mp3': [[1.93,0.6]],
-  'OBST-06-c.mp3': [[1.96,0.6]],
-  'OBST-06-e.mp3': [[1.72,0.6],[3.83,0.6]],
-  'PEND-DEFENSE-a.mp3': [[4.9,0.61]],
-  'PEND-DEFENSE-e.mp3': [[5.88,0.63]],
-  'PEND-SAFETY-c.mp3': [[7.04,0.6],[8.99,0.6],[11.59,0.6]],
-  'PEND-SAFETY-f.mp3': [[6.24,0.6],[8.16,0.6],[10.91,0.65]],
-  'VALIDATE-DEFENSE-a.mp3': [[3.52,0.6]],
-  'VALIDATE-DEFENSE-c.mp3': [[4.71,0.6]],
-  'VALIDATE-DEFENSE-e.mp3': [[3.22,0.6]],
-  'VALIDATE-DEFENSE-f.mp3': [[3.73,0.68]],
-  'VALIDATE-DEFENSE-g.mp3': [[3.9,0.6]],
-  'VALIDATE-DEFENSE-h.mp3': [[3.52,0.6]],
-  'VALIDATE-SAFETY-a.mp3': [[6.84,0.78]],
-  'VALIDATE-SAFETY-b.mp3': [[5.46,0.74],[12.11,0.69]],
-  'VALIDATE-SAFETY-d.mp3': [[3.47,0.6],[14.39,0.95]],
-};
 const frozenHolds = raw => Object.freeze(Object.fromEntries(Object.keys(raw).map(f =>
   [f, Object.freeze(raw[f].map(([at, pause]) => Object.freeze({ at, pause })))])));
 const VOICE_HOLDS = Object.freeze({
   poppy: frozenHolds(POPPY_HOLDS_RAW),
-  aijustin: frozenHolds(AIJUSTIN_HOLDS_RAW),
 });
 /* the pause points of `file` in `voice` (Justin's table when the voice has none of its own) */
 function holdsFor(file, voice) {
@@ -5387,7 +5188,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_HOST = API
 
 })();
 /* @endmodule host.js */</script>
-<script>/* @module browser-device.js md5:863ad60f72c24b196eefe4c431ac667a */
+<script>/* @module browser-device.js md5:0e38e7e713e772b8706ea17adc1ee56a */
 (function(){
 /* practice-engine/browser-device.js — the real phone, behind the same port the fake one uses.
  *
@@ -5410,6 +5211,18 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_HOST = API
  * runtime this object IS the bed element — same play/pause/src/currentTime/paused/duration/loop, the same events while
  * the element is sounding — so `runtime.js` keeps its rules and its tests. With no Web Audio, or a decode that fails,
  * the element plays on exactly as before. The level is still the file: the gain node sits at 1 and never moves. */
+/* ✅ ONE AUDIO SESSION FOR THE WHOLE PAGE (Justin, 2026-09-30: "The sound of rain was raising between poppy's voice prompts.
+ * And fell when she spoke."). Nothing here or in runtime.js ever touches the bed's level — the dip is the phone's: on an
+ * iPhone a page's Web Audio (the looping bed, above) and its <audio> elements (the voice) can land in different audio
+ * sessions, and the voice's playback session ducks the bed's under it, then lets it back up in the silences. Asking for
+ * the "playback" session before any sound starts puts both in the same one, so the voice no longer ducks the sound. Safari
+ * 16.4+ (`navigator.audioSession`); anywhere else this is a no-op. */
+function playbackSession(win) {
+  try {
+    const nav = win && win.navigator;
+    if (nav && nav.audioSession && nav.audioSession.type !== 'playback') nav.audioSession.type = 'playback';
+  } catch (e) { /* a missing or read-only session is not a broken practice */ }
+}
 const MAX_BUFFER_SAMPLES = 48e6;   // ≈ 190 MB of float samples: the longest bed (birds, 437 s stereo at 44.1 kHz) fits; nothing bigger is held
 function gaplessBed(el, win) {
   const W = win || (typeof window !== 'undefined' ? window : null);
@@ -5425,6 +5238,7 @@ function gaplessBed(el, win) {
   const span = () => Math.max(0.05, loopEnd - loopStart);
   function ensureCtx() {
     if (!ctx) {
+      playbackSession(W);
       try { try { ctx = new AC({ sampleRate: 44100 }); } catch (e0) { ctx = new AC(); } gain = ctx.createGain(); gain.gain.value = 1; gain.connect(ctx.destination); } catch (e) { ctx = null; return null; }
       ctx.onstatechange = () => {
         if (ctx.state !== 'running') return;
@@ -5530,6 +5344,7 @@ function gaplessBed(el, win) {
 }
 
 function browserDevice({ audio, bed, base, serviceWorkerContainer, reload } = {}) {
+  playbackSession(typeof window !== 'undefined' ? window : null);   // before any sound: voice and bed in one session
   const au = audio || new Audio();
   /* the background sound (2026-09-26): its own element, so the voice's src swaps never touch it — wrapped so its loop
    * has no seam (2026-09-28, `gaplessBed`) */
@@ -5592,7 +5407,7 @@ function browserDevice({ audio, bed, base, serviceWorkerContainer, reload } = {}
   };
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { browserDevice, gaplessBed };
+if (typeof module !== 'undefined' && module.exports) module.exports = { browserDevice, gaplessBed, playbackSession };
 else (typeof window !== 'undefined' ? window : globalThis).SNB_BROWSER_DEVICE = browserDevice;
 
 })();
@@ -7682,7 +7497,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:9c7e252668a52df51214dbd710ebd557 */
+<script>/* @module copy.js md5:933f2bd69dfa17cbc191152af174019e */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -7832,7 +7647,7 @@ const UI = Object.freeze({
   customize: 'Customize',
   scene: 'Scene',                 // the moving picture behind a practice (2026-09-27, in the customizer)
   voice: 'Voice',                 // whose voice speaks the practice (2026-09-29, VOICES; Justin's recordings are the default)
-  voiceNames: { justin: 'Justin', poppy: 'Poppy', aijustin: 'AI Justin' },   // the names as Justin gives them; no voice is called "AI" unless he names it so
+  voiceNames: { justin: 'Justin', poppy: 'Poppy' },   // the names as Justin gives them; no voice is called "AI" unless he names it so
   sceneSurprise: 'Surprise me',   // the app's own words for "a different one each time"
   sceneNames: { circles: 'Circles', drift: 'Drift', pond: 'Pond', reeds: 'Reeds', breeze: 'Breeze', sunbeam: 'Sunbeam', fireflies: 'Fireflies' },
   sceneDarkOnly: 'dark mode only',        // the player's third menu (2026-09-26 late night): silence, captions, background sound

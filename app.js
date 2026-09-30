@@ -6549,7 +6549,7 @@ function app(tab){
   // [key, name] — keys MUST match practice-engine data.js VOICES; the names are his (no voice is called "AI" unless he names it so).
   // Remembered (Store.prefVoice, synced like the sound), carried on every launch (_playerSrc), changed from the maker, Settings
   // or the player's customizer (the report brings a change back).
-  const VOICES=[['justin','Justin'],['poppy','Poppy'],['aijustin','AI Justin']];   // AI Justin 2026-09-30 (his name for it)
+  const VOICES=[['justin','Justin'],['poppy','Poppy']];   // AI Justin was here 2026-09-30 and came out the same day (Justin: "the natural Justin is better"); a saved 'aijustin' reads as Justin
   function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) ? v : 'justin'; }
   function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
   // a few seconds of the sound when it is picked, so the person hears what they chose
