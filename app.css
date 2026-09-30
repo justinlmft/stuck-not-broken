@@ -2397,7 +2397,14 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
    are LIVE: a free account can tap them, and tapping asks — it never scolds. No padlock,
    no dashes, no "upgrade" badge. Greyed out does not mean filled in. */
 .p-locked{opacity:.45;cursor:pointer}
-.p-locked .wc-go{visibility:hidden}
+/* 2026-09-30 (Justin: "i want free users to see what they are missing out on"): every locked thing carries the same small lock —
+   in place of the chevron on cards and rows (.p-locked .wc-go), inline after a word elsewhere (.lk) */
+.p-locked .wc-go{visibility:visible}
+.p-locked .wc-go svg{display:none}
+.p-locked .wc-go::before,.lk{content:"";display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%275.2%27%20y%3D%2710.8%27%20width%3D%2713.6%27%20height%3D%279.4%27%20rx%3D%272.2%27/%3E%3Cpath%20d%3D%27M8.3%2010.8V8.1a3.7%203.7%200%200%201%207.4%200v2.7%27/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%275.2%27%20y%3D%2710.8%27%20width%3D%2713.6%27%20height%3D%279.4%27%20rx%3D%272.2%27/%3E%3Cpath%20d%3D%27M8.3%2010.8V8.1a3.7%203.7%200%200%201%207.4%200v2.7%27/%3E%3C/svg%3E") center/contain no-repeat}
+.lk{width:13px;height:13px;margin-left:6px;vertical-align:-1px;opacity:.8}
+.p7-maker-toggle.p-locked{display:inline-flex;align-items:center}
+.voice-opt.vo-locked{color:var(--muted)}
 @media(hover:hover){.p-locked:hover{opacity:.62;border-color:var(--hairline)}}
 
 /* free You tab: the raw check-in history. Their words and their marks, nothing read
@@ -2956,20 +2963,41 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    The icon is now a sibling ABOVE the row in both states, so the card has one composition.
    It is aria-hidden decorative, so moving it out of the button costs nothing semantically. */
 .mh-top > .mh-peri{margin-bottom:2px}
-/* the time-of-day icon comes alive (2026-09-30): drawn in stroke by stroke, sits, lets go unevenly, then its space folds away */
-.mh-peri.tod{max-height:40px;animation:todFold var(--fold,.6s) var(--ease) calc(var(--dg) + var(--t0)) forwards}
-.mh-peri.tod svg{width:34px;height:34px;stroke:currentColor;stroke-width:1.3;fill:none;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
-.mh-peri.tod path{stroke-dasharray:1 1;stroke-dashoffset:1;
-  animation:todIn .65s cubic-bezier(.45,.05,.3,1) calc(var(--di) + var(--t0)) forwards,
-            todOut .9s cubic-bezier(.5,0,.75,.4) calc(var(--do) + var(--t0)) forwards}
+/* the time-of-day icon comes alive (2026-09-30): each time of day moves like itself — the morning sun rises from behind the glyph
+   (its horizon), the afternoon sun draws high and slides down, the evening moon rises with a twinkling star, the night's stars come
+   out one by one; then it leaves and its space folds away. Once per time of day (app.js todIco). */
+.mh-peri.tod{max-height:48px;margin-bottom:-6px;animation:todFold .6s var(--ease) calc(var(--dg) + var(--t0)) forwards}
+.mh-peri.tod svg{width:42px;height:42px;stroke:currentColor;stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+.mh-peri.tod path[pathLength]{stroke-dasharray:1 1;stroke-dashoffset:1;animation:todIn var(--dd,.65s) cubic-bezier(.45,.05,.3,1) calc(var(--di) + var(--t0)) forwards}
+.mh-peri.tod path[pathLength][style*="--do"]{animation:todIn var(--dd,.65s) cubic-bezier(.45,.05,.3,1) calc(var(--di) + var(--t0)) forwards,todOut .8s cubic-bezier(.5,0,.75,.4) calc(var(--do) + var(--t0)) forwards}
+.mh-peri.tod g{transform-box:fill-box;transform-origin:center}
+/* morning: rises from below the horizon, keeps climbing as it goes */
+.tod-morning .tod-g{animation:todRise 2.3s cubic-bezier(.2,.65,.25,1) calc(0s + var(--t0)) both,todClimb 1.6s cubic-bezier(.45,0,.7,.6) calc(var(--out) + .25s + var(--t0)) forwards}
+/* afternoon: high and full, the rays turn a touch, then it slides down toward the horizon */
+.tod-afternoon .tod-g{animation:todPop 1s cubic-bezier(.2,.7,.3,1) calc(0s + var(--t0)) both,todSet 1.7s cubic-bezier(.5,0,.8,.5) calc(var(--out) + .2s + var(--t0)) forwards}
+.tod-afternoon .tod-rays{animation:todTurn 3.6s ease-in-out calc(1.3s + var(--t0)) both}
+/* evening: the moon rises, its star twinkles on (and once more), then the moon sinks */
+.tod-evening .tod-moon{animation:todRise 2.3s cubic-bezier(.2,.65,.25,1) calc(0s + var(--t0)) both,todSink 1.5s cubic-bezier(.5,0,.8,.5) calc(var(--out) + .35s + var(--t0)) forwards}
+.tod-evening .tod-star{animation:todTwinkleIn .75s cubic-bezier(.3,1.4,.5,1) calc(1.95s + var(--t0)) both,todTwinkle .9s ease-in-out calc(3.7s + var(--t0)) none,todStarOut .6s ease-in calc(var(--out) + var(--t0)) forwards}
+/* late night: the stars come out one by one, twinkle, and go out one by one */
+.tod-late .tod-star{animation:todTwinkleIn .75s cubic-bezier(.3,1.4,.5,1) calc(var(--si) + var(--t0)) both,todTwinkle 1.2s ease-in-out calc(var(--tw) + var(--t0)) none,todStarOut .9s ease-in calc(var(--so) + var(--t0)) forwards}
 @keyframes todIn{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-@keyframes todOut{0%{stroke-dashoffset:0;opacity:1;transform:translateY(0)}100%{stroke-dashoffset:-1;opacity:0;transform:translateY(-.6px)}}
-@keyframes todFold{from{max-height:40px;opacity:1;margin-bottom:2px}to{max-height:0;opacity:0;margin-bottom:-10px}}
+@keyframes todOut{0%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-1;opacity:0}}
+@keyframes todRise{from{transform:translateY(9px)}to{transform:translateY(0)}}
+@keyframes todClimb{from{transform:translateY(0);opacity:1}to{transform:translateY(-6px);opacity:0}}
+@keyframes todPop{from{transform:scale(.84);opacity:.15}to{transform:scale(1);opacity:1}}
+@keyframes todSet{from{transform:translate(0,0);opacity:1}to{transform:translate(3px,10px);opacity:0}}
+@keyframes todTurn{from{transform:rotate(0)}to{transform:rotate(14deg)}}
+@keyframes todSink{from{transform:translateY(0);opacity:1}to{transform:translateY(9px);opacity:0}}
+@keyframes todTwinkleIn{0%{transform:scale(0) rotate(-35deg);opacity:0}70%{transform:scale(1.18) rotate(4deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes todTwinkle{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.72);opacity:.5}}
+@keyframes todStarOut{from{transform:scale(1);opacity:1}to{transform:scale(.4);opacity:0}}
+@keyframes todFold{from{max-height:48px;opacity:1;margin-bottom:-6px}to{max-height:0;opacity:0;margin-bottom:-10px}}
 @media (prefers-reduced-motion:reduce){
-  .mh-peri.tod path{animation:none;stroke-dasharray:none;stroke-dashoffset:0}
+  .mh-peri.tod *{animation:none!important;stroke-dasharray:none!important;stroke-dashoffset:0!important;transform:none!important;opacity:1!important}
   .mh-peri.tod{animation:todQuiet var(--tt) linear var(--t0) forwards}
 }
-@keyframes todQuiet{0%{opacity:0;max-height:40px}8%{opacity:1}78%{opacity:1;max-height:40px;margin-bottom:2px}92%{opacity:0;max-height:40px;margin-bottom:2px}100%{opacity:0;max-height:0;margin-bottom:-10px}}
+@keyframes todQuiet{0%{opacity:0;max-height:48px}8%{opacity:1}78%{opacity:1;max-height:48px;margin-bottom:-6px}92%{opacity:0;max-height:48px;margin-bottom:-6px}100%{opacity:0;max-height:0;margin-bottom:-10px}}
 .mh-state .mh-peri{display:inline-flex;color:var(--ink)}
 .mh-state .mh-peri svg{width:24px;height:24px}
 .mh-state .mh-glyph{display:inline-flex}

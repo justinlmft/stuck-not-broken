@@ -462,6 +462,9 @@ body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 .bedrow.sel{border-color:var(--ink);font-weight:600}
 .bedrow .tick{width:18px;height:18px;flex:none;opacity:0;transition:opacity .2s var(--ease)}
 .bedrow.sel .tick{opacity:1}
+.bedrow.locked{color:var(--muted)}
+.bedrow .lk{width:14px;height:14px;flex:none;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat}
+.bed-note{margin:10px 2px 0;font-size:calc(14px * var(--type-scale));color:var(--muted);text-align:left}
 .bedrow:focus-visible,.bedlv:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 /* 2026-09-26 late night: FIVE volume steps, no words (Justin: "we don't need words for each volume level. just a simpler UI with a
    couple of extra options") — five pills, each a little taller than the last, the chosen one filled */
@@ -510,7 +513,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 })();</script>
 <!-- inlined verbatim from practice-engine/ — regenerate with
      python3 harness/build-practice-engine.py
-     page.css               5685820d9a649311eb61dd0085616204    36988 bytes
+     page.css               f3d4534ee2274e7bf5be1d25f7a14dda    37790 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
      data.js                36cb3a4f98019c111127bbe344041564    83416 bytes
@@ -522,8 +525,8 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
      session.js             7278badb890e3a47940d2bbf70f34c41    84731 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
-     copy.js                933f2bd69dfa17cbc191152af174019e    15547 bytes
-     page.js                c9901a03145e373a26c18b4a804cc371    69615 bytes
+     copy.js                7c9ae39a2e55ca8bc846d67a6935461b    15665 bytes
+     page.js                13cb11e846755b39dca0bc71eb9b74aa    70298 bytes
 -->
 </head>
 <body>
@@ -7508,7 +7511,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_SCENE = AP
 
 })();
 /* @endmodule scene.js */</script>
-<script>/* @module copy.js md5:933f2bd69dfa17cbc191152af174019e */
+<script>/* @module copy.js md5:7c9ae39a2e55ca8bc846d67a6935461b */
 (function(){
 /* practice-engine/copy.js — the only file allowed to hold a word a listener reads.
  *
@@ -7659,6 +7662,7 @@ const UI = Object.freeze({
   scene: 'Scene',                 // the moving picture behind a practice (2026-09-27, in the customizer)
   voice: 'Voice',                 // whose voice speaks the practice (2026-09-29, VOICES; Justin's recordings are the default)
   voiceNames: { justin: 'Justin', poppy: 'Poppy' },   // the names as Justin gives them; no voice is called "AI" unless he names it so
+  voiceLocked: '{name} is on the base plan.',   // a free member taps a locked voice (2026-09-30: visible but locked)
   sceneSurprise: 'Surprise me',   // the app's own words for "a different one each time"
   sceneNames: { circles: 'Circles', drift: 'Drift', pond: 'Pond', reeds: 'Reeds', breeze: 'Breeze', sunbeam: 'Sunbeam', fireflies: 'Fireflies' },
   sceneDarkOnly: 'dark mode only',        // the player's third menu (2026-09-26 late night): silence, captions, background sound
@@ -7768,7 +7772,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:c9901a03145e373a26c18b4a804cc371 */
+<script>/* @module page.js md5:13cb11e846755b39dca0bc71eb9b74aa */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -8074,7 +8078,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       onEvent: onSessionEvent,
     });
     const player = $('player');
-    player.className = 'screen' + (allowedVoices.length < 2 ? ' onevoice' : '');   // 2026-09-30: one voice — no Voice row
+    player.className = 'screen' + (oneVoice ? ' onevoice' : '');   // 2026-09-30: one voice in all — no Voice row
     showScreen('player');
 
     if (!scene) mountScene();
@@ -8205,8 +8209,12 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     closeCustomizer(); revealControls();
   }
   /* the voices this person may choose (2026-09-30: the AI voices are paid only — the app sends `voices=justin` for a free member);
-   * with one voice there is nothing to choose, so the Voice row is not shown (#player.onevoice) */
+   * 2026-09-30 later (Justin: "the other voices should be visible but locked"): every voice is listed; one outside this list
+   * shows a lock, and a tap says it is on the base plan without changing the voice. Only an engine with one voice in all hides
+   * the Voice row (#player.onevoice). */
   const allowedVoices = launch.voices || Object.keys(D.VOICES);
+  const oneVoice = Object.keys(D.VOICES).length < 2;
+  let voiceLockNote = '';
   function paintVoiceCard() {
     const U = COPY.UI, card = $('voicecard'), now = D.voiceKey(cfg.voice);
     card.textContent = '';
@@ -8214,16 +8222,20 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     const rows = el('div', 'bed-rows');
     const tick = () => { const t = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); t.setAttribute('viewBox', '0 0 24 24'); t.setAttribute('class', 'tick'); t.setAttribute('aria-hidden', 'true');
       const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', 'M5 12l5 5L20 6'); path.setAttribute('fill', 'none'); path.setAttribute('stroke', 'currentColor'); path.setAttribute('stroke-width', '2.6'); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('stroke-linejoin', 'round'); t.appendChild(path); return t; };
-    allowedVoices.forEach(k => {
-      const sel = now === k;
-      const b = el('button', 'bedrow' + (sel ? ' sel' : ''), U.voiceNames[k] || k);
+    Object.keys(D.VOICES).forEach(k => {
+      const sel = now === k, locked = allowedVoices.indexOf(k) < 0;
+      const b = el('button', 'bedrow' + (sel ? ' sel' : '') + (locked ? ' locked' : ''), U.voiceNames[k] || k);
       b.type = 'button'; b.dataset.voice = k; b.setAttribute('aria-pressed', sel ? 'true' : 'false');
-      b.appendChild(tick());
+      if (locked) { b.setAttribute('aria-disabled', 'true'); b.appendChild(el('span', 'lk')); }
+      else b.appendChild(tick());
       b.addEventListener('pointerdown', ev => ev.stopPropagation());
-      b.onclick = () => { pickVoice(k); paintVoiceCard(); };
+      b.onclick = locked
+        ? () => { voiceLockNote = U.voiceLocked.replace('{name}', U.voiceNames[k] || k); paintVoiceCard(); }
+        : () => { voiceLockNote = ''; pickVoice(k); paintVoiceCard(); };
       rows.appendChild(b);
     });
     card.appendChild(rows);
+    if (voiceLockNote) { const n = el('p', 'bed-note', voiceLockNote); n.setAttribute('role', 'status'); card.appendChild(n); }
   }
 
   // ── the session's events, on screen ───────────────────────────────────────────────────
@@ -8973,7 +8985,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('customize').onclick = () => { if (customizing()) closeCustomizer(); else openCustomizer(); };
     $('scenetoggle').onclick = () => { if (scening()) closeScenePicker(true); else openScenePicker(); };
     $('voicetoggle').onclick = () => { if (voicing()) closeVoicePicker(true); else openVoicePicker(); };
-    if (allowedVoices.length < 2) $('player').classList.add('onevoice');   // 2026-09-30: nothing to choose — no Voice row
+    if (oneVoice) $('player').classList.add('onevoice');   // 2026-09-30: one voice in all — no Voice row
     /* 2026-09-28 (Justin): ONE Done under the customizer, the sound list and the scene list — it does not animate out and
      * back in between them. What it closes depends on which is open: a list goes back to the customizer it was opened
      * from; the customizer goes back to the standard menu. */
@@ -9015,7 +9027,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
   function resetPlayer() {
     const p = $('player');
-    p.className = 'screen hidden' + (allowedVoices.length < 2 ? ' onevoice' : '');
+    p.className = 'screen hidden' + (oneVoice ? ' onevoice' : '');
     if (stall) { stall.stop(); stall = null; }
     if (session) { session.runtime.stop(); session = null; }
     startWaiting = false;
