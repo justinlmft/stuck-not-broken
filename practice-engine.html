@@ -510,7 +510,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      page.css               6a2d4e0f0a165d63d64b1ef4975592f5    36758 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                d23e3ad1545a02390d295d1a9437428b    96362 bytes
+     data.js                ffe95f55b242282985ca64f40da16c82    94435 bytes
      plan.js                2e8a56643940678ad0d70fd9c567f09b    84718 bytes
      runtime.js             6e2947041334398c4cdfd005d8a4e188    53311 bytes
      host.js                a0a361950ded8e62e0d4bfa4afdb94c7    39828 bytes
@@ -933,7 +933,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:d23e3ad1545a02390d295d1a9437428b */
+<script>/* @module data.js md5:ffe95f55b242282985ca64f40da16c82 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1001,36 +1001,14 @@ const VOICES = Object.freeze({
   poppy: Object.freeze({ folder: 'clips-poppy/', own: false }),
   /* AI Justin, a Descript AI voice cloned from Justin's (2026-09-30). The script with the AI-only wording edits and a tone per
    * paragraph — "(instructions)" only on the bookends (INTRO, SETUP, OUTRO), "(meditation)" for all the work — his rulings
-   * 2026-09-29. Sliced by Descript's own transcript of the audio: 708 of 807 lines; the one doubled word ("Specifically,
-   * specifically" on 6 SETUP-PRACTICE lines) cut out at the source; +1.3 dB to the library's level. `missing` = the 99 lines
-   * Descript left silent: they play in Justin's recording (his trims, his pause points, his captions) until they are redone. */
-  aijustin: Object.freeze({ folder: 'clips-aijustin/', own: false, missing: Object.freeze(new Set([
-    'ANCHORING-MOVEMENT-07-a.mp3', 'ANCHORING-TOUCH-05-b.mp3', 'INTENSITY-CHANGE-SAME-k.mp3', 'INTENSITY-CHANGE-UP-a.mp3',
-    'INTENSITY-CHANGE-UP-b.mp3', 'INTENSITY-CHANGE-UP-c.mp3', 'INTENSITY-CHANGE-UP-d.mp3', 'INTENSITY-CHANGE-UP-e.mp3',
-    'INTENSITY-CHANGE-UP-f.mp3', 'INTENSITY-CHANGE-UP-g.mp3', 'INTENSITY-CHANGE-UP-h.mp3', 'INTENSITY-CHANGE-UP-i.mp3',
-    'INTENSITY-DEFENSE-a.mp3', 'INTENSITY-DEFENSE-b.mp3', 'INTENSITY-DEFENSE-c.mp3', 'INTENSITY-DEFENSE-d.mp3',
-    'INTENSITY-HIGH-a.mp3', 'INTENSITY-HIGH-b.mp3', 'INTENSITY-HIGH-c.mp3', 'INTENSITY-HIGH-d.mp3', 'INTENSITY-HIGH-e.mp3',
-    'INTENSITY-LOW-a.mp3', 'INTENSITY-LOW-b.mp3', 'INTENSITY-LOW-c.mp3', 'INTENSITY-LOW-d.mp3', 'INTENSITY-LOW-e.mp3',
-    'INTENSITY-MID-a.mp3', 'INTENSITY-MID-b.mp3', 'INTENSITY-MID-c.mp3', 'INTENSITY-MID-d.mp3', 'INTENSITY-ROSE-HIGH-a.mp3',
-    'INTENSITY-ROSE-HIGH-b.mp3', 'INTENSITY-ROSE-HIGH-c.mp3', 'INTENSITY-ROSE-HIGH-d.mp3', 'INTENSITY-ROSE-HIGH-e.mp3',
-    'INTENT-SET-a.mp3', 'INTENT-SET-b.mp3', 'INTENT-SET-c.mp3', 'INTENT-SET-d.mp3', 'INTENT-SET-e.mp3', 'INTENT-SET-f.mp3',
-    'INTENT-TOLERABLE-a.mp3', 'INTENT-TOLERABLE-b.mp3', 'INTENT-TOLERABLE-c.mp3', 'INTENT-TOLERABLE-d.mp3',
-    'INTEREST-01-a.mp3', 'INTEREST-01-b.mp3', 'INTEREST-01-c.mp3', 'INTEREST-01-d.mp3', 'INTEREST-01-e.mp3',
-    'INTEREST-01-f.mp3', 'INTEREST-01-g.mp3', 'INTRO-01-a.mp3', 'INTRO-01-b.mp3', 'INTRO-01-c.mp3', 'INTRO-01-d.mp3',
-    'INTRO-01-e.mp3', 'INTRO-01-f.mp3', 'INTRO-FIRST-01-a.mp3', 'INTRO-FIRST-02-a.mp3', 'INTRO-FIRST-03-a.mp3',
-    'MIND-01-a.mp3', 'MIND-01-b.mp3', 'MIND-01-c.mp3', 'MIND-01-d.mp3', 'TAP-YES-INTEREST-f.mp3', 'TAP-YES-INTEREST-g.mp3',
-    'TAP-YES-PERMIT-a.mp3', 'TAP-YES-PERMIT-b.mp3', 'TAP-YES-PERMIT-c.mp3', 'TAP-YES-PERMIT-d.mp3', 'TAP-YES-PERMIT-e.mp3',
-    'TAP-YES-PERMIT-f.mp3', 'TRANSITION-ANCHOR-a.mp3', 'TRANSITION-ANCHOR-b.mp3', 'TRANSITION-ANCHOR-c.mp3',
-    'TRANSITION-ANCHOR-d.mp3', 'TRANSITION-ANCHOR-e.mp3', 'TRANSITION-CONTINUE-a.mp3', 'TRANSITION-CONTINUE-b.mp3',
-    'TRANSITION-MINDFULNESS-a.mp3', 'TRANSITION-MINDFULNESS-b.mp3', 'TRANSITION-MOVEMENT-a.mp3',
-    'TRANSITION-MOVEMENT-b.mp3', 'TRANSITION-SAFETY-a.mp3', 'TRANSITION-SAFETY-b.mp3', 'TRANSITION-SAFETY-c.mp3',
-    'VALIDATE-DEFENSE-a.mp3', 'VALIDATE-DEFENSE-b.mp3', 'VALIDATE-DEFENSE-c.mp3', 'VALIDATE-DEFENSE-d.mp3',
-    'VALIDATE-DEFENSE-e.mp3', 'VALIDATE-DEFENSE-f.mp3', 'VALIDATE-DEFENSE-g.mp3', 'VALIDATE-DEFENSE-h.mp3',
-    'VALIDATE-SAFETY-a.mp3', 'VALIDATE-SAFETY-b.mp3', 'VALIDATE-SAFETY-c.mp3', 'VALIDATE-SAFETY-d.mp3',
-  ])) }),
+   * 2026-09-29. All 807 lines (his second export, 2026-09-30, filled the 99 the first one left silent; those 99 files were added beside the 708 already on beta). Checked against a
+   * transcript of the audio: the one doubled word ("Specifically, specifically" on 6 SETUP-PRACTICE lines) is cut out at the
+   * source; +1.3 dB to the library's level. claude/ai-justin-dub/README.md has the recipe. */
+  aijustin: Object.freeze({ folder: 'clips-aijustin/', own: false }),
 });
 function voiceKey(v) { return Object.prototype.hasOwnProperty.call(VOICES, v) ? v : VOICE_DEFAULT; }
-/* does `voice` have its own take of `file`? (false for a line not dubbed yet: that take plays in Justin's voice) */
+/* does `voice` have its own take of `file`? A voice may list `missing` files (lines not dubbed yet): those takes play in
+ * Justin's voice, with his trims, pause points and captions. No voice has any missing now (2026-09-30). */
 function voiceHas(file, voice) { const m = VOICES[voiceKey(voice)].missing; return !(m && m.has(file)); }
 
 /* The one way a file name becomes a URL. `base` is the device's app root (`./` in the page,
@@ -1950,8 +1928,9 @@ const POPPY_HOLDS_RAW = {
   'VALIDATE-SAFETY-b.mp3': [[5.77,0.61],[12.63,0.6]],
   'VALIDATE-SAFETY-d.mp3': [[3.38,0.6],[15.19,0.6]],
 };
-/* AI Justin: the same rule on its own transcript — 369 points in 182 files, short pauses widened to 0.6 s in the file the same
- * way (claude/ai-justin-dub/). The 99 `missing` lines use Justin's CLIP_HOLDS with his file. */
+/* AI Justin: the same rule on its own timings — 380 points in 191 files, short pauses widened to 0.6 s in the file the same
+ * way (claude/ai-justin-dub/). 708 files are from his first export (already on beta, names never change content), the 99 it
+ * left silent from the second; the two exports are the same audio for those 708. */
 const AIJUSTIN_HOLDS_RAW = {
   'ANCHORING-IMAGINATION-03-a.mp3': [[3.1,0.6],[5.88,0.6],[7.78,0.7],[9.32,0.62],[10.68,0.6]],
   'ANCHORING-IMAGINATION-03-c.mp3': [[1.93,0.6],[3.47,0.8],[6.28,0.78],[8.33,0.87]],
@@ -2135,6 +2114,15 @@ const AIJUSTIN_HOLDS_RAW = {
   'PEND-DEFENSE-e.mp3': [[5.88,0.63]],
   'PEND-SAFETY-c.mp3': [[7.04,0.6],[8.99,0.6],[11.59,0.6]],
   'PEND-SAFETY-f.mp3': [[6.24,0.6],[8.16,0.6],[10.91,0.65]],
+  'VALIDATE-DEFENSE-a.mp3': [[3.52,0.6]],
+  'VALIDATE-DEFENSE-c.mp3': [[4.71,0.6]],
+  'VALIDATE-DEFENSE-e.mp3': [[3.22,0.6]],
+  'VALIDATE-DEFENSE-f.mp3': [[3.73,0.68]],
+  'VALIDATE-DEFENSE-g.mp3': [[3.9,0.6]],
+  'VALIDATE-DEFENSE-h.mp3': [[3.52,0.6]],
+  'VALIDATE-SAFETY-a.mp3': [[6.84,0.78]],
+  'VALIDATE-SAFETY-b.mp3': [[5.46,0.74],[12.11,0.69]],
+  'VALIDATE-SAFETY-d.mp3': [[3.47,0.6],[14.39,0.95]],
 };
 const frozenHolds = raw => Object.freeze(Object.fromEntries(Object.keys(raw).map(f =>
   [f, Object.freeze(raw[f].map(([at, pause]) => Object.freeze({ at, pause })))])));
