@@ -274,7 +274,7 @@
         "You're not broken, and you're not too much. You have a lot of energy and not enough safety with it yet. Yet."]]]},
     play: { title:'More about play and motivation', sections:[
       ['What play and motivation is', [
-        "Play and motivation is energy with safety. It's the same energy as flight/fight, but with safety it's steady and pointed at something. With people you trust, it shows up as play. On your own, it shows up as motivation to create, work, exercise or dance.",
+        "Play and motivation is energy with safety. It's the same energy as flight/fight, but with safety mixed in, it's aimed at something. With people you trust, it shows up as play. On your own, it shows up as motivation to create, work, exercise or dance.",
         "There's a kind of busy that drains you and a kind that fills you up. This is the second kind. You can tell because you can still notice your body, and you could stop if you wanted to."]],
       ['Why it stays', [
         "This state lasts as long as safety stays with the energy. The drive comes from the energy, and the ease comes from safety. They're happening at the same time.",
@@ -331,12 +331,12 @@
     toDefense: ()=>[ 'What was more difficult about this week?', 'What pulled on your system the most?', 'What is one small thing that could help next week?' ],
     payoff: ()=>[ 'What helped during your practices this week?', 'What did you notice in your body after a practice?', 'When is a good time for your next practice?' ],
     firstBest: (x)=>[ 'What do you remember about that practice?', 'What was different that ' + SEG_WORD[x.seg] + '?', 'What would help you get back to that feeling?' ],
-    steadySafe: ()=>[ 'What helped this week feel steady?', 'Where in your body do you notice safety the most?', 'What is one thing you want to keep doing?' ],
+    steadySafe: ()=>[ 'What helped you have more safety this week?', 'Where in your body do you notice safety the most?', 'What is one thing you want to keep doing?' ],
     steadyDef: ()=>[ 'What has been pulling on your system lately?', 'Who or what helps you feel a little safer?', 'What is one small, low-demand thing you could try next week?' ],
     mixed: ()=>[ 'What was different about your easier days?', 'What was more difficult about your harder days?', 'What helped you move back toward safety?' ],
     up: (w)=>[ 'What helped you have more safety this ' + w + '?', 'How are the people or places in your life adding safety?', "What's working well enough to keep, and what small changes could you make?" ],
     down: (w)=>[ 'What did this ' + w + ' ask of you?', 'What changed in your life that pulled on your system?', 'Which people, places or practices still added safety?' ],
-    flat: (w)=>[ 'What helped you stay steady this ' + w + '?', 'What is one small thing you could add next ' + w + '?', 'Where in your body do you notice safety the most?' ]
+    flat: (w)=>[ 'What kept you going this ' + w + '?', 'What is one small thing you could add next ' + w + '?', 'Where in your body do you notice safety the most?' ]
   };
   const CHIPQ = { def:'What pulled you toward defense this week?', safe:'What helped you have more safety this week?', mixed:'What made the biggest difference this week?' };
 
@@ -371,7 +371,7 @@
     if(pr.length){
       const k = pr.filter(x=>x.rose).length;
       if(k) s += ' In ' + (pr.length===1 ? 'that practice' : eachMost(k, pr.length) + (k===pr.length && pr.length>2 ? ' practice' : ' of your practices')) + ', your safety rating went up from the start to the end.';
-      else s += ' Your safety rating held steady inside your practices this time. Showing up for the practice still counts.';
+      else s += ' Your safety rating stayed about the same inside your practices this time. Showing up for the practice still counts.';
     } else if(f.pairs.length){
       const k = f.pairs.filter(x=>x.d > 0).length;
       if(k) s += ' After ' + (f.pairs.length===1 ? 'that practice' : eachMost(k, f.pairs.length) + ' of them') + ', your next check-in had more safety than the one before.';
@@ -434,7 +434,7 @@
       p1 = name + b(howMuch(f.share, f.n)) + ' of your check-ins this week had more safety than defense. Your practices are where the week stood out.';
       post.journal = JOURNAL.payoff(); post.chipQ = f.share>=0.5 ? CHIPQ.safe : CHIPQ.mixed;
     } else if(lead === 'steadySafe'){
-      post.title = streak >= 2 ? 'Another steady week with more safety than defense' : 'A steady week with more safety than defense';
+      post.title = streak >= 2 ? 'Another week with more safety than defense' : 'A week with more safety than defense';
       p1 = name + b(howMuch(f.share, f.n)) + ' of your check-ins this week had more safety than defense' + (streak >= 2 ? ', like your last ' + countWord(Math.min(streak,10)) + ' weeks' : '') + '.' + (f.safeFlavor && f.safeFlavor.key!=='safety' ? ' A lot of it was ' + b(safeName) + '.' : '') + (f.defFlavor ? ' When defense showed up, it was mostly ' + defName + '.' : '');
       post.journal = JOURNAL.steadySafe(); post.chipQ = CHIPQ.safe;
     } else if(lead === 'steadyDef'){
@@ -528,7 +528,7 @@
     post.title = topSeg && f.segs[topSeg].share >= 0.5 ? p.name + ': more safety in your ' + SEG_PLURAL[topSeg]
       : dir==='up' ? p.name + ': more safety than ' + pm
       : dir==='down' ? p.name + ': more defense than ' + pm
-      : f.share >= 0.5 ? p.name + ': a steady month with more safety than defense' : p.name + ': a month with more ' + defName;
+      : f.share >= 0.5 ? p.name + ': a month with more safety than defense' : p.name + ': a month with more ' + defName;
     let p1 = name + 'in ' + p.name + ', ' + b(howMuch(f.share, f.n)) + ' of your check-ins had more safety than defense.';
     if(pm && prev.n >= 8) p1 += ' In ' + pm + ', ' + didWord(howMuch(prev.share, prev.n)) + '.';
     if(f.defFlavor) p1 += ' When defense showed up, it was mostly ' + b(defName) + '.';
@@ -596,7 +596,7 @@
     post.title = faster ? 'Your ' + p.name + ': you got back to safety faster'
       : dir==='up' ? 'Your ' + p.name + ': more safety than last season'
       : dir==='down' ? 'Your ' + p.name + ': a season with more challenge'
-      : f.share >= 0.5 ? 'Your ' + p.name + ': a steady season with more safety than defense' : 'Your ' + p.name + ': a season with more ' + (f.defFlavor ? nm(f.defFlavor.key) : 'defense');
+      : f.share >= 0.5 ? 'Your ' + p.name + ': a season with more safety than defense' : 'Your ' + p.name + ': a season with more ' + (f.defFlavor ? nm(f.defFlavor.key) : 'defense');
     let p1 = name + 'this ' + p.name + ' (' + p.months + '), ' + b(howMuch(f.share, f.n)) + ' of your check-ins had more safety than defense.';
     if(prev && prev.n >= 20) p1 += ' Last season, ' + didWord(howMuch(prev.share, prev.n)) + '.';
     p1 += ' That\'s ' + b(f.n + ' check-ins') + ' over ' + f.days.length + ' days.';
@@ -606,7 +606,7 @@
     if(m0.n >= 5 && m2.n >= 5){
       const a = MONTHS[new Date(m0.p.start).getMonth()], c = MONTHS[new Date(m2.p.start).getMonth()];
       const t0 = topKey(m0.rs).key, t2 = topKey(m2.rs).key;
-      post.blocks.push({ p: t0===t2 ? 'In ' + a + ', your most common state was ' + nm(t0) + '. By ' + c + ', it still was. Steady is something you can build on.'
+      post.blocks.push({ p: t0===t2 ? 'In ' + a + ', your most common state was ' + nm(t0) + '. By ' + c + ', it still was.' + (SAFE_SIDE[t0] ? ' You can build on that foundation of safety.' : '')
         : 'In ' + a + ', your most common state was ' + b(nm(t0)) + '. By ' + c + ', it was ' + b(nm(t2)) + '.' + (SAFE_SIDE[t2] && !SAFE_SIDE[t0] ? ' That\'s a real change, and you made it.' : '') });
     }
     if(m0.comebacks && m2.comebacks){

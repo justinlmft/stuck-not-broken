@@ -3445,7 +3445,7 @@ body.rd-on .rd-lock{background:var(--rd-card)}
 :root{--rd-wash-safety:#FBF1D6;--rd-wash-play:#FBEADB;--rd-wash-stillness:#E7F1E4;--rd-wash-shutdown:#E3ECF5;--rd-wash-fightflight:#F8E2E2;--rd-wash-freeze:#F1EAF4;}
 @media (prefers-color-scheme: dark){ :root:not(.theme-light){--rd-wash-safety:#3A3423;--rd-wash-play:#3A2E24;--rd-wash-stillness:#26332A;--rd-wash-shutdown:#232D38;--rd-wash-fightflight:#3A2626;--rd-wash-freeze:#332B38;} }
 :root.theme-dark{--rd-wash-safety:#3A3423;--rd-wash-play:#3A2E24;--rd-wash-stillness:#26332A;--rd-wash-shutdown:#232D38;--rd-wash-fightflight:#3A2626;--rd-wash-freeze:#332B38;}
-.rd-call{display:flex;flex-direction:column;gap:10px;margin:6px 0 18px;padding:14px;border-radius:16px;background:color-mix(in srgb, var(--cs) 20%, var(--rd-card));background:var(--cw, color-mix(in srgb, var(--cs) 20%, var(--rd-card)))}
+.rd-call{display:flex;flex-direction:column;gap:10px;margin:6px 0 18px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb, var(--cs) 70%, #1A1F2A);background:color-mix(in srgb, var(--cs) 20%, var(--rd-card));background:var(--cw, color-mix(in srgb, var(--cs) 20%, var(--rd-card)))}
 .rd-call-who{display:flex;align-items:center;gap:8px;font-size:calc(11px * var(--type-scale));letter-spacing:.09em;text-transform:uppercase;font-weight:600;color:color-mix(in srgb, var(--cs) 40%, #1A1F2A)}
 @media (prefers-color-scheme: dark){ :root:not(.theme-light) .rd-call-who{color:var(--ink)} }
 :root.theme-dark .rd-call-who{color:var(--ink)}
@@ -3456,3 +3456,9 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
 .rd-call-bars i:last-child{width:70%}
 .rd-call-lock{display:flex;align-items:center;gap:8px;font:inherit;font-size:calc(14px * var(--type-scale));color:var(--ink);background:transparent;border:0;padding:4px 0;cursor:pointer;text-align:left;min-height:44px}
 .rd-call-lock .rd-lk{margin-top:0}
+
+/* callout outline (Justin 10-01): a darker hairline in the state's color; in dark mode the state color itself, softened */
+@media (prefers-color-scheme: dark){ :root:not(.theme-light) .rd-call{border-color:color-mix(in srgb, var(--cs) 60%, var(--rd-card))} }
+:root.theme-dark .rd-call{border-color:color-mix(in srgb, var(--cs) 60%, var(--rd-card))}
+/* Recommended practice: name + Begin pill (Justin 10-01) */
+.rd-pcard .rd-begin-pill{padding:8px 16px;min-height:36px}

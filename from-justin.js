@@ -112,7 +112,7 @@
         {
           "id": "regmob-ref-1",
           "type": "reflection",
-          "text": "On days like this it's easier to say the honest thing, set the limit, start the thing you've been putting off. The same energy that feels like too much when you're on edge feels like fuel when you're steady."
+          "text": "On days like this it's easier to say the honest thing, set the limit, start the thing you've been putting off. The same energy that feels like too much when you're on edge feels like fuel when you have more safety."
         },
         {
           "id": "regmob-ref-2",
@@ -424,7 +424,7 @@
       ask:["What helped you get here, even a little?","What feels possible right now that doesn't always?","How is your body breathing right now?"] },
     play: { policy:'open',
       meet:["Lots of energy, and you feel connected.","Your energy feels helpful, not stressful.","Energized, with some ease mixed in."],
-      point:["Use it on one thing that matters.","If you want company, spend it with someone you trust.","Keep a little safety with it, and the energy stays steady without a crash."],
+      point:["Use it on one thing that matters.","If you want company, spend it with someone you trust.","Keep a little safety with it, and the energy lasts without a crash."],
       ask:["What do you want to use this energy for right now?","What's one thing worth starting now?","What have you been putting off that you have the energy for now?","How is your body breathing right now?"] },
     stillness: { policy:'open',
       meet:["Quiet, and okay with being quiet.","Slowed down, and okay with it.","Settled and calm right now.","Still inside, and able to be still where you are."],
@@ -452,7 +452,7 @@
     eased:   ["You've checked in a few times, and things have eased since earlier. Notice that shift."],
     charged: ["You started out more grounded, and there's more energy now. Notice that feeling and what it might want."],
     mixed:   ["You've been in a few different states so far. That's range, not instability, and you're still showing up."],
-    steady:  ["Your check-ins have stayed pretty steady so far."]
+    steady:  ["Your check-ins have stayed about the same so far."]
   };
   // Shared Delta line — the check-in right after a practice, keyed to the shift.
   const DAILY_DELTA = {
@@ -619,7 +619,7 @@
     const move = d >= 0.05 ? 'a little higher than it\'s been' : d <= -0.05 ? 'a bit lower than usual' : 'about where it\'s been';
     const close = d >= 0.05 ? 'That\'s how a baseline shifts: one week at a time.'
                 : d <= -0.05 ? 'A quieter week is a moment in the bigger picture, not a slide. Gentle is fine for now.'
-                : 'Holding steady is its own kind of solid ground.';
+                : 'You can build on that.';
     return 'Zoom out for a second. Over the past month, safety has been ' + hl(band(base.avgV)) + '. This week came in ' + hl(move) + '. ' + close;
   }
   const ESSAYS = {
@@ -1017,8 +1017,8 @@
     where: ["Most of your check-ins reflect {DOM} about {PCT}%.","About {PCT}% of this month's check-ins leaned mostly toward {DOM}."],
     baseline: {
       up: ["Baseline update: your safety baseline is sitting higher than last month. This is the kind of shift only a month can show, and it's yours.","Baseline update: across the month, your baseline climbed. Worth celebrating and leaning a bit more into."],
-      down: ["Baseline update: your safety baseline is running a bit lower than last month. Baselines dip with life context, and they come back the same way they formed: small, steady reps. Go easy.","Baseline update: a quieter month, with your baseline down a little. Not a setback, just a season. Keep the basics going."],
-      flat: ["Baseline update: your safety baseline held steady across the month. Stable is something you can build on."]
+      down: ["Baseline update: your safety baseline is running a bit lower than last month. Baselines dip with life context, and they come back the same way they formed: small reps, repeated. Go easy.","Baseline update: a quieter month, with your baseline down a little. Not a setback, just a season. Keep the basics going."],
+      flat: ["Baseline update: your safety baseline stayed about the same across the month. You can build on that."]
     },
     rhythm_dow: ["Looks like your {DAY} tend to carry a bit more safety state than other days. Worth noticing what's different about them, so you can do more of it.","Your {DAY} carry a little more safety than the rest, more often than not. A small clue about what's working for you."],
     recovery: ["There's also a pattern in how your system rebounds after a dip into defense. It tends to return to safety within {N}. It knows the way back. Now you pay attention and follow its lead.","After an energized stretch, you usually find your way to more safety within {N}. That shows capacity building."],
@@ -1049,7 +1049,7 @@
     },
     thennow: {
       improved: ["When {SPAN} began, your check-ins reflected mostly {FIRST}. Lately they reflect more {LAST}. That's not just a mood, it's a sustainable autonomic shift that you earned. (And are still earning.)","By the end of {SPAN} you're sitting closer to {LAST}, after starting mostly in {FIRST}. The data is just showing what you've been building."],
-      steady_reg: ["Across {SPAN}, your system stayed mostly steady, {FIRST} early and {LAST} lately. A long regulated run like this shows sustainable progress."],
+      steady_reg: ["Across {SPAN}, your system stayed mostly regulated, {FIRST} early and {LAST} lately. A long regulated run like this shows sustainable progress."],
       holding: ["Across {SPAN}, there's been a lot of {FIRST}, and it's close to {LAST}. Stuck defense can last a while, can't it? It won't last forever, though."]
     },
     baseline: {
@@ -1203,7 +1203,7 @@
         out.variant='down';
         out.paras.push(yr
           ? 'A year ago, your baseline sat around ' + b1 + '% safety. Today it\'s ' + b2 + '%. Some years take more than they give. The baseline will rebuild the way it always forms: a month at a time, on small, repeatable practices. You already know how, because you\'ve already done it. Worth reflecting on gently, without a verdict. Ask yourself:'
-          : 'When the quarter began, your baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. It\'s been a heavier season, and your baseline felt it. Baselines dip with context, and they rebuild the same way they formed. Small, steady, repeatable. Worth some honest reflection, journaling or just thinking it over. Ask yourself:');
+          : 'When the quarter began, your baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. It\'s been a heavier season, and your baseline felt it. Baselines dip with context, and they rebuild the same way they formed. Small and repeatable. Worth some honest reflection, journaling or just thinking it over. Ask yourself:');
         out.bullets = yr ? [
           'What did this year ask of you?',
           'What changed in your life context that pulled on your system?',
@@ -1219,7 +1219,7 @@
       } else {
         out.variant='flat';
         out.paras.push(yr
-          ? 'Your baseline held around ' + b1 + '% safety across the year. A steady year is a real result, especially if the year itself wasn\'t steady.'
+          ? 'Your baseline held around ' + b1 + '% safety across the year. Holding your baseline for a whole year is a real result, especially if the year itself was hard.'
           : 'Your baseline held around ' + b1 + '% safety across the quarter. Holding a baseline through three months of real life is not nothing. Stable is a foundation, and foundations get built on.');
       }
     }

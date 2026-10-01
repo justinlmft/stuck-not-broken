@@ -12,7 +12,7 @@
    Blocks: {p} {h} {h3} {ul} {ol} {callout:id} {practice:'anchoring'|'mindfulness'|'custom', sense?, why}.
    Inline: **bold**, *italic*, [text](https://...). Any mention of the Unstucking Academy links to
    https://www.stucknotbroken.com/checkout/co-regulator (Justin, 2026-10-01). A {practice} block offers
-   a practice where the piece talks about one (safety anchoring, mindfulness), or the member's custom
+   the closest practice the app has (Justin: match it as closely as possible) where the piece talks about one (safety anchoring, mindfulness), or the member's custom
    practice when the piece calls for practice in general.
    Exposes window.Learning.
    ========================================================================== */
@@ -200,8 +200,8 @@
    },
    {
     "practice": "anchoring",
-    "sense": "sight",
-    "why": "Safety first, then small movement, the way this piece describes."
+    "sense": "movement",
+    "why": "Freeze eases when safety comes first. This practice anchors you in safety through movement."
    },
    {
     "p": "Over time, you may notice small shifts in practices like these, like little shivers or tingles leaving your body. You may notice a spontaneous, bigger breath come in and out on its own. You may notice yawning. All of these are small signs of self-regulation."

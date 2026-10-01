@@ -1930,7 +1930,7 @@
       reason = "strong safety has become your norm, and you're anchored right now. " + (stepPhrase(key) ? "this practice " + stepPhrase(key) + ", then holds safety and defense together so you can watch what unfolds."
                                      : "we'll practice " + _skillWord(skill) + " at its deepest, and hold safety and defense together to watch what unfolds.");
     } else if(descIntro){
-      reason = "you've been steady with balancing and pendulation on their own. this one adds describing the defense out loud, one step deeper, on the skill you're strongest in.";
+      reason = "you've done well with balancing and pendulation on their own. this one adds describing the defense out loud, one step deeper, on the skill you're strongest in.";
     } else if(dys){
       reason = "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose.";
     } else if(sp.hi < 0){
@@ -1940,7 +1940,7 @@
         ? "you have safety here, and your practice history has earned the next practice. it " + stepPhrase(key) + ". one practice at a time, and you can always go back to an easier one."
         : "you have safety here, and your practice history has earned the next practice: " + _skillWord(skill) + ". one practice at a time, and you can always go back to an easier one.";
     } else if(ceiling>=3){
-      reason = "you've got steady safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
+      reason = "you've got reliable safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
     } else if(L.sessionsDone>=3 && L.favPractice==='self-regulation'){
       reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
     } else {

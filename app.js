@@ -3692,7 +3692,7 @@ function app(tab){
         ${(post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
         ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
         ${prevA ? `<p class="rd-lastnamed">Last ${lastWord} you named ${escapeHtml(_listAnd(prevA.tags))}.</p>` : ''}
-        ${reco ? `<section class="rd-next"><h3 class="sec-h">Your next practice</h3><button class="rd-pcard" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b><span>Recommended for you now</span></span>${CHEV}</button></section>` : ''}
+        ${reco ? `<section class="rd-next"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>` : ''}
         ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
     _rdShell(`
         ${opts.preview ? '<p class="rd-eyeb" style="color:var(--s-fight)">Beta preview · this period so far · not saved</p>' : ''}
@@ -3848,7 +3848,7 @@ function app(tab){
       if(b.h3) return `<h3 class="rd-lh3">${_lrnInline(b.h3)}</h3>`;
       if(b.ul) return `<ul class="rd-llist">${b.ul.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ul>`;
       if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
-      if(b.practice) return `<section class="rd-next rd-lprac"><h3 class="sec-h">Try it now</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(b.practice==='custom' ? 'Your custom practice' : CAP(Store.practiceLabel(b.practice)))}</b><span>${escapeHtml(b.why || 'Built from your check-ins.')}</span></span>${CHEV}</button></section>`;
+      if(b.practice) return `<section class="rd-next rd-lprac"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(b.practice==='custom' ? 'Your custom practice' : CAP(Store.practiceLabel(b.practice)) + (b.sense ? ' through ' + b.sense : ''))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>`;
       if(b.callout){
         const c = _lrnCallout(b.callout, ctx); if(!c) return '';
         const col = STATE_COLOR(c.mk);
@@ -6481,7 +6481,7 @@ function app(tab){
           <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${stateMarks(dom0)}</span>
           <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${stateMarks(dom1)}</span>
         </div><div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div></div></div>
-        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'held steady'} ${isAll?'since you started':'over '+periodPhrase}.</p>
+        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'stayed about the same'} ${isAll?'since you started':'over '+periodPhrase}.</p>
         ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],isAll?'Your first check-ins against your most recent ones.':'Your earliest check-ins in this time period against your most recent ones.', null, true)}`, Math.round(g*100));
     })();
 
@@ -6551,7 +6551,7 @@ function app(tab){
         return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-axis" aria-hidden="true"><span>${w[0].label}</span><span>now</span></div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}</div></div>`; };
       const trend=(k)=>w[w.length-1][KM[k]]-w[0][KM[k]];
       const changes=[['v',trend('v')],['sym',-trend('sym')],['dor',-trend('dor')]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
-      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your safety has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
+      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are about the same.' : (changes[0][0]==='v' ? `Your safety has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
       push('readings','each state over time',`
         ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
         <div class="rd-row">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
