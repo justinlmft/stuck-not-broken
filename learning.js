@@ -664,7 +664,7 @@
     "h3": "A slowed heart rate and shallow breathing"
    },
    {
-    "p": "The body downshifts. Heart rate drops, breathing goes shallow and high in the chest, and your hands and feet may turn cold as blood pulls in toward the core. In a deep enough drop, you can feel lightheaded or close to fainting."
+    "p": "The body downshifts. Heart rate drops, breathing goes shallow and into the belly, and your hands and feet may turn cold as blood pulls in toward the core. In a deep enough drop, you can feel lightheaded or close to fainting."
    },
    {
     "p": "Shutdown may be the biological undercurrent of a vasovagal faint, described in the medical literature as:"
@@ -1233,7 +1233,76 @@
   // a journal answer (context chip) -> a topic group
   const CHIP_GROUP = { 'work':'work', 'family':'family', 'friends':'rel', 'partner':'rel', 'hobbies':'playcre', 'spiritual':'meaning',
     'nature':'surround', 'body & movement':'body', 'rest':'rest', 'practice':'prac', 'something else':'found' };
+  // ---- Learning hubs (Justin, 2026-10-01: "treating this as a real blog") ----
+  // One hub per state and per topic group. A state hub opens with the intro from Justin's matching hub on
+  // stucknotbroken.com (Public Resources) where one exists; play and stillness use the app's own state text.
+  // Topic intros marked DRAFT are App Designer's placeholders for Justin. A piece may carry `related: [ids]`
+  // (Curriculum Advisor's suggested links); inline links can point in-app with [text](piece:id) or [text](hub:key).
+  const STATE_HUBS = ['safety', 'play', 'stillness', 'fightflight', 'freeze', 'shutdown'];
+  const TOPICS = { build:'Building safety', hard:'Hard stretches and slow change', prac:'How practice works', start:'Starting small',
+    rest:'Rest and sleep', read:'Reading your state', feel:'Feelings', work:'Work and stress', family:'Family and parenting',
+    rel:'Relationships and connection', playcre:'Play and creativity', meaning:'Your story and meaning', surround:'Your surroundings',
+    body:'Body, breath and movement', found:'How your nervous system works' };
+  const TOPIC_ORDER = ['build','start','prac','read','feel','hard','rest','body','surround','rel','family','work','playcre','meaning','found'];
+  const HUBS = {
+    safety: { source:'stucknotbroken.com/c/public_resources/safety-hub', intro:[
+      { p:'Polyvagal safety is more than just feeling good. It is a biological state where your nervous system supports connection, health, growth, and restoration. Unlike coping, which manages stress, safety allows you to actually recover from and buffer against future stress.' },
+      { p:'Use the articles below to learn how to access your ventral vagal state and tell true safety apart from defensive adaptations.' } ] },
+    play: { source:'app state text', intro:[
+      { p:'Play is safety and energy at the same time, the social, mobilized kind shared with people you trust. On your own, the same drive shows up as motivation. It\'s the same fuel as flight/fight, with safety mixed in, so it runs as creativity and drive instead of defense.' } ] },
+    stillness: { source:'app state text', intro:[
+      { p:'Stillness is the body slowed and quiet, without fear. The same powering-down as shutdown, but with safety mixed in, so it restores instead of collapses. On your own it\'s stillness; shared with someone safe, it\'s intimacy. A deeply regulated state.' } ] },
+    fightflight: { source:'stucknotbroken.com/c/public_resources/flight-fight-hub', intro:[
+      { p:'Flight/fight activation isn\'t "bad behavior." It comes from your body\'s <b>sympathetic</b> state. It is a survival response designed to mobilize you for safety.' },
+      { ul:[ '<b>Flight</b> is the urge to escape and create space (often felt as anxiety or avoidance).', '<b>Fight</b> is the impulse to close the space and back the danger off (often felt as anger or irritability).' ] },
+      { p:'Use the articles below to recognize these sympathetic shifts and learn how to discharge that survival energy safely.' } ] },
+    freeze: { source:'stucknotbroken.com/c/public_resources/freeze-hub', intro:[
+      { p:'In Polyvagal Theory, <b>freeze</b> is not the same as shutdown. It is a mixed state that combines the energy of sympathetic flight/fight with the stillness of dorsal vagal shutdown.' },
+      { p:'Think of it like a car with <b>one foot on the accelerator and one foot on the brake</b>. Your body is revving with energy (panic, rage, overwhelm), but you feel unable to move or speak.' },
+      { h3:'Common signs you might be in freeze' },
+      { p:'Moments of being unable to speak or act even when you want to, feeling frozen in place during conflict or overwhelm, a racing heart with an inability to move, feeling terrified but looking calm on the outside, or a sudden inability to think clearly in the middle of a stressful situation. It can also show up as dissociation, feeling outside yourself, or a strange slow-motion quality to your experience. These are all nervous system responses, not character weaknesses.' },
+      { p:'Use the articles below to untangle this mixed state and learn how to safely release the brake without crashing.' } ] },
+    shutdown: { source:'stucknotbroken.com/c/public_resources/shutdown-hub', intro:[
+      { p:'If you feel heavy, foggy, or completely disconnected, you aren\'t lazy or broken. You may be in <b>dorsal vagal shutdown</b>. This is your nervous system\'s oldest defense strategy: conserving energy to keep you safe when fight or flight is impossible.' },
+      { p:'Moving out of shutdown is counterintuitive. Trying to push through often pushes you deeper. Instead, we gently signal safety to the body.' },
+      { h3:'Common signs of shutdown' },
+      { ul:[ 'feeling emotionally numb or flat', 'extreme fatigue or exhaustion that sleep does not fix', 'difficulty speaking or finding words', 'brain fog and trouble concentrating', 'a sense of being outside your body or disconnected from your surroundings', 'low blood pressure, slowed heart rate', 'a collapsed or slumped posture' ] },
+      { h3:'Shutdown responds well to' },
+      { ul:[ 'small, predictable actions', 'reduced sensory stimulation', 'warmth and containment', 'natural elements and quiet' ] },
+      { p:'These are not cures. They are gentle invitations to the nervous system to begin nudging its way out of shutdown and into mobilization.' } ] },
+    family: { source:'stucknotbroken.com/c/public_resources/parenting-hub', intro:[
+      { p:'Parenting through a Polyvagal lens shifts the focus from simply changing behavior to helping regulate the nervous system. A child\'s "acting out" isn\'t always a choice. It may be the behavioral result of a biological shift into a defensive state, such as sympathetic flight/fight or a dorsal vagal shutdown.' },
+      { p:'Polyvagal parenting isn\'t about being perfect. It is about <b>co-regulation</b>: using your own grounded nervous system to help your child feel safe again.' } ] },
+    // DRAFT intros (App Designer, 2026-10-01), for Justin to replace or approve
+    build: { draft:true, intro:[{ p:'Safety is something you build, a little at a time. These articles are about how.' }] },
+    hard: { draft:true, intro:[{ p:'Change is slow, and some stretches are harder than others. These articles are for the hard stretches.' }] },
+    prac: { draft:true, intro:[{ p:'What practice is, why it works, and how to make it fit your life.' }] },
+    start: { draft:true, intro:[{ p:'Small is how it starts. These articles are about the first steps.' }] },
+    rest: { draft:true, intro:[{ p:'How rest and sleep fit with your nervous system.' }] },
+    read: { draft:true, intro:[{ p:'How to tell which state you\'re in, and what it\'s telling you.' }] },
+    feel: { draft:true, intro:[{ p:'Feelings, and how to make room for them.' }] },
+    work: { draft:true, intro:[{ p:'Work, stress, and your nervous system.' }] },
+    rel: { draft:true, intro:[{ p:'Connection, co-regulation, and the people in your life.' }] },
+    playcre: { draft:true, intro:[{ p:'Play, creativity, and the energy that comes with safety.' }] },
+    meaning: { draft:true, intro:[{ p:'Your story, your growth, and what it means to get unstuck.' }] },
+    surround: { draft:true, intro:[{ p:'The places around you, and the cues of safety they give.' }] },
+    body: { draft:true, intro:[{ p:'Your body, your breath, and how movement fits in.' }] },
+    found: { draft:true, intro:[{ p:'How your nervous system works, in plain words.' }] }
+  };
+  // the next piece to read after this one: Curriculum Advisor's related list first, then the piece sharing the most groups
+  function nextFor(piece){
+    if(!piece) return null;
+    for(const id of (piece.related || [])){ const p = PIECES.find(x => x.id === id); if(p && p.id !== piece.id) return p; }
+    let best = null, bestN = 0;
+    PIECES.forEach(p => { if(p.id === piece.id) return; const n = p.groups.filter(g => piece.groups.indexOf(g) >= 0).length; if(n > bestN){ best = p; bestN = n; } });
+    if(best) return best;
+    // nothing shares a group: a piece about a neighboring state (freeze is flight/fight plus shutdown, and so on)
+    const NEAR = { freeze:['shutdown','fightflight','safety'], shutdown:['freeze','stillness','safety'], fightflight:['freeze','play','safety'],
+      play:['safety','fightflight'], stillness:['safety','shutdown'], safety:['play','stillness','shutdown','fightflight','freeze'] };
+    for(const st of (NEAR[piece.state] || [])){ const p = PIECES.find(x => x.state === st && x.id !== piece.id); if(p) return p; }
+    return null;
+  }
   const inGroup = g => g ? PIECES.filter(p => p.groups.indexOf(g) >= 0) : [];
   const byId = id => PIECES.find(p => p.id === id) || null;
-  global.Learning = { PIECES, INSIGHT_GROUP, CHIP_GROUP, inGroup, byId };
+  global.Learning = { PIECES, INSIGHT_GROUP, CHIP_GROUP, inGroup, byId, STATE_HUBS, TOPICS, TOPIC_ORDER, HUBS, nextFor };
 })(window);

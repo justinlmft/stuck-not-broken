@@ -3592,6 +3592,16 @@ function app(tab){
       return { tags, dir: /more safety/.test(q) ? 'safe' : /toward defense/.test(q) ? 'def' : 'mixed' };
     }catch(e){ return null; }
   }
+  // Reflect's Learn section: the six state hubs, then the topic hubs that have articles (Justin, 2026-10-01)
+  function _rdLearnSection(){
+    const L = window.Learning; if(!L || !L.HUBS) return '';
+    const tiles = L.STATE_HUBS.map(k=>`<button class="rd-hubtile" type="button" data-hub="${k}" style="--band:${STATE_COLOR(k)};--cw:var(--rd-wash-${k})">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span>${escapeHtml(L.inGroup(k).length ? _lrnHubCount(k) : 'Coming soon')}</span></button>`).join('');
+    const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
+    return `<section class="rd-learn rd-learnhubs"><h3 class="sec-h">Learn</h3>
+        <div class="rd-hubgrid">${tiles}</div>
+        ${topics.length ? `<span class="rd-eyeb rd-keep-eyeb">Topics</span><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
+      </section>`;
+  }
   function screenReader(){
     _markReaderSeen();
     try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} }
@@ -3638,11 +3648,13 @@ function app(tab){
           ${todayHTML}
           ${empty}
           ${list}
+          ${_rdLearnSection()}
           ${preview}`);
     const byKey = {}; posts.forEach(p=>byKey[p.key]=p);
     root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
     root.querySelectorAll('.rd-list .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
     const ci = $('#rd-checkin'); if(ci) ci.onclick = ()=>screenCheckin();
+    root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, null));
     root.querySelectorAll('.rd-today [data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning && Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, dailyLearn.ctx, null); });
     root.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>{
       const k=b.dataset.preview, R2=window.Reader, now2=Date.now();
@@ -3727,8 +3739,9 @@ function app(tab){
   // member's own data in callouts labeled "{Name}'s {context}". Free members read the whole piece;
   // their results are locked. The library is learning.js (window.Learning).
   // ===========================================================================
-  const LRN_NOUN = { week:'this week', month:'this month', season:'this season', year:'this year', daily:'lately' };
-  const LRN_POSS = { week:"this week's", month:"this month's", season:"this season's", year:"this year's", daily:'your recent' };
+  const LRN_NOUN = { week:'this week', month:'this month', season:'this season', year:'this year', daily:'lately', recent:'in the last four weeks' };
+  const LRN_POSS = { week:"this week's", month:"this month's", season:"this season's", year:"this year's", daily:'your recent', recent:'your' };
+  const _lrnOf = ctx => ctx.poss + ' check-ins' + (ctx.kind === 'recent' ? ' in the last four weeks' : '');
   function _lrnPicks(){ try{ return JSON.parse(localStorage.getItem('snb_lrn_picks')||'{}') || {}; }catch(e){ return {}; } }
   function _lrnSavePick(key, v){ try{ const m=_lrnPicks(); m[key]=v; localStorage.setItem('snb_lrn_picks', JSON.stringify(m)); }catch(e){} }
   // the next piece in a group: a post keeps the piece it was given; a new post takes the next one in line
@@ -3742,7 +3755,7 @@ function app(tab){
     return p;
   }
   function _lrnPeriodCtx(kind, start, end){
-    const R = window.Reader; const per = { kind: kind==='daily' ? 'week' : kind, start, end };
+    const R = window.Reader; const per = { kind: (kind==='daily' || kind==='recent') ? 'week' : kind, start, end };
     let f = null; try{ f = R.compute(per, _rdData()); }catch(e){ f = null; }
     return { kind, f, noun:LRN_NOUN[kind], poss:LRN_POSS[kind] };
   }
@@ -3808,7 +3821,7 @@ function app(tab){
         if(hit.length >= 2 && best && best.c/hit.length >= 0.6 && best.run.length <= 4) days = best.run.length===1 ? ', mostly on ' + DAYS_LONG[best.run[0]] : ', mostly ' + DAYS_LONG[best.run[0]] + ' to ' + DAYS_LONG[best.run[best.run.length-1]];
       }
       const card = ctx.kind === 'week' ? `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('week', { ws:f.p.start, focus:st, pts: rs.map(r=>({ d:new Date(r.t).getDay(), h:new Date(r.t).getHours()+new Date(r.t).getMinutes()/60, m:r.m, key:r.key })) }, STATE_COLOR)}</figure>` : '';
-      const text = hit.length === 1 ? `One of ${ctx.poss} check-ins was ${STATE_NAME(st)}${days}.` : `${_lrnShareWords(hit.length/rs.length)} of ${ctx.poss} check-ins were ${STATE_NAME(st)}${days}.`;
+      const text = hit.length === 1 ? `One of ${_lrnOf(ctx)} was ${STATE_NAME(st)}${days}.` : `${_lrnShareWords(hit.length/rs.length)} of ${_lrnOf(ctx)} were ${STATE_NAME(st)}${days}.`;
       return { mk:st, label: owner + ' ' + STATE_NAME(st), text, card };
     }
     if(id === 'safety-share' || id === 'share:safety'){
@@ -3816,7 +3829,7 @@ function app(tab){
       const share = f.nSafe / f.n;
       const amt = f.n >= 10 ? Math.round(share*100) + '%' : _lrnShareWords(share);
       if(amt === '100%' && f.n < 20) return null;
-      return { mk:'safety', label: owner + ' safety', text: `${amt} of ${ctx.poss} check-ins had more safety than defense.` };
+      return { mk:'safety', label: owner + ' safety', text: `${amt} of ${_lrnOf(ctx)} had more safety than defense.` };
     }
     if(id === 'freeze-and-shutdown'){
       const nf = rs.filter(r=>r.key==='freeze').length, ns = rs.filter(r=>r.key==='shutdown').length; if(!nf || !ns) return null;
@@ -3861,37 +3874,101 @@ function app(tab){
     }
     return null;
   }
-  function _lrnInline(s){ return escapeHtml(s).replace(/&lt;(\/?)(b|i)&gt;/g, '<$1$2>').replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>'); }
+  function _lrnInline(s){ return escapeHtml(s).replace(/&lt;(\/?)(b|i)&gt;/g, '<$1$2>')
+      .replace(/\[([^\]]+)\]\(((?:piece|hub):[a-z0-9-]+)\)/g, '<a href="#" class="rd-inlink" data-lnk="$2">$1</a>')
+      .replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>'); }
+  // in-app links inside a piece or hub: [text](piece:id) opens that piece, [text](hub:key) opens that hub
+  function _lrnWireLinks(back){
+    root.querySelectorAll('[data-lnk]').forEach(el=>el.onclick=(e)=>{ e.preventDefault();
+      const [k, id] = el.dataset.lnk.split(':'), L = window.Learning;
+      if(k==='piece'){ const pc = L && L.byId(id); if(pc) screenLearnPiece(pc, null, null, back); }
+      else if(k==='hub' && L && L.HUBS[id]) screenLearnHub(id, back);
+    });
+  }
+  // one callout, or its locked version for free members
+  function _lrnCallHTML(c, paid){
+    const col = STATE_COLOR(c.mk);
+    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
+    return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}</div>`;
+  }
+  // a block of piece or hub text
+  function _lrnBlockHTML(b){
+    if(b.h) return `<h2 class="rd-lh">${_lrnInline(b.h)}</h2>`;
+    if(b.h3) return `<h3 class="rd-lh3">${_lrnInline(b.h3)}</h3>`;
+    if(b.q) return `<blockquote class="rd-lq">${_lrnInline(b.q)}</blockquote>`;
+    if(b.ul) return `<ul class="rd-llist">${b.ul.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ul>`;
+    if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
+    return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
+  }
+  const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
+  const _lrnHubCount = key => { const n = window.Learning.inGroup(key).length; return n === 1 ? '1 article' : n + ' articles'; };
+  // a row that opens a piece (hubs, keep learning)
+  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}"><span class="rd-thumb rd-thumb-mk">${_rdMk(p.state||'safety')}</span><span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${escapeHtml('By Justin · ' + (p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  // a row that opens a hub
+  const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
+
+  // one learning hub: a state or a topic, Justin's intro, the member's own data (states), its articles, related hubs
+  function screenLearnHub(key, back){
+    const L = window.Learning, hub = L.HUBS[key] || { intro:[] }, isState = L.STATE_HUBS.indexOf(key) >= 0;
+    const paid = paidNow(), pieces = L.inGroup(key);
+    const here = ()=>screenLearnHub(key, back);
+    let mine = '';
+    if(isState){
+      const now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28*864e5, now + 1);
+      const sh = _lrnCallout(key === 'safety' ? 'safety-share' : 'share:' + key, ctx), tm = _lrnCallout('time:' + key, ctx);
+      if(sh) mine = _lrnCallHTML({ mk:key, label: _rdOwner() + ' ' + STATE_NAME(key), text: sh.text + (tm ? ' ' + tm.text.replace(' in the last four weeks.', '.') : '') }, paid);
+    }
+    const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = 1; }));
+    const relKeys = Object.keys(related).sort((a,b)=> (L.STATE_HUBS.indexOf(b)>=0) - (L.STATE_HUBS.indexOf(a)>=0));
+    _rdShell(`
+        <span class="rd-eyeb">Learning hub</span>
+        <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
+        ${mine}
+        ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
+        <section class="rd-learn"><h3 class="sec-h">Articles</h3>
+          ${pieces.length ? `<div class="rd-list rd-list-flat">${pieces.map(_lrnRowHTML).join('')}</div>` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
+        </section>
+        ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}`,
+      { back: back ? back.label : 'Your Reflections', onBack: back ? back.go : screenReader });
+    root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here }); });
+    root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
+    _lrnWireLinks({ label:'Back', go:here });
+  }
   // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
   function _lrnPracticeReco(b){
     const base = _recommendSafe(true);
     if(b.practice === 'custom') return base;
     return { practiceKey:b.practice, sense: b.sense || base.sense || 'touch', silence: base.silence || 8, reason: b.why || null };
   }
-  function screenLearnPiece(piece, ctx, fromPost){
-    const paid = paidNow(), st = piece.state || 'safety';
-    const back = fromPost ? ()=>screenReaderPost(fromPost) : screenReader;
+  function screenLearnPiece(piece, ctx, fromPost, from){
+    const paid = paidNow(), st = piece.state || 'safety', L = window.Learning;
+    // opened from a hub or a link: no post period, so the callouts mirror the last seven days
+    if(!ctx){ const now = Date.now(); ctx = _lrnPeriodCtx('daily', now - 7*864e5, now + 1); }
+    const back = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenReader;
+    const here = ()=>screenLearnPiece(piece, ctx, fromPost, from);
     const body = (piece.blocks||[]).map(b=>{
-      if(b.h) return `<h2 class="rd-lh">${_lrnInline(b.h)}</h2>`;
-      if(b.h3) return `<h3 class="rd-lh3">${_lrnInline(b.h3)}</h3>`;
-      if(b.q) return `<blockquote class="rd-lq">${_lrnInline(b.q)}</blockquote>`;
-      if(b.ul) return `<ul class="rd-llist">${b.ul.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ul>`;
-      if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
       if(b.practice) return `<section class="rd-next rd-lprac"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(b.practice==='custom' ? 'Your custom practice' : CAP(Store.practiceLabel(b.practice)) + (b.sense ? ' through ' + b.sense : ''))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>`;
-      if(b.callout){
-        const c = _lrnCallout(b.callout, ctx); if(!c) return '';
-        const col = STATE_COLOR(c.mk);
-        if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
-        return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}</div>`;
-      }
-      return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
+      if(b.callout){ const c = _lrnCallout(b.callout, ctx); return c ? _lrnCallHTML(c, paid) : ''; }
+      return _lrnBlockHTML(b);
     }).join('');
+    // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
+    const nx = L.nextFor ? L.nextFor(piece) : null;
+    const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
+    const keep = `<section class="rd-learn rd-keep"><h3 class="sec-h">Keep learning</h3>
+        ${nx ? `<span class="rd-eyeb rd-keep-eyeb">Read next</span><div class="rd-list rd-list-flat">${_lrnRowHTML(nx)}</div>` : ''}
+        ${hubKeys.length ? `<span class="rd-eyeb rd-keep-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubKeys.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div>` : ''}
+      </section>`;
     _rdShell(`
         <span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}Recommended learning · ${escapeHtml(STATE_NAME(st))}</span>
         <h1 class="rd-title">${escapeHtml(piece.title)}</h1>
         <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
-        ${body}`, { back: fromPost ? 'Back' : 'Your Reflections', onBack: back });
+        ${body}
+        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Your Reflections', onBack: back });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here }); });
+    root.querySelectorAll('.rd-keep [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
+    _lrnWireLinks({ label:'Back', go:here });
     root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), 'practice'); });
   }
 
