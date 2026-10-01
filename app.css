@@ -3336,7 +3336,7 @@ body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
 .rd-thumb-season::after,.rd-thumb-year::after{inset:9px 7px;border-radius:2px;background:repeating-linear-gradient(90deg,var(--hairline) 0 2px,transparent 2px 4px)}
 .rd-snap{margin:6px 0 16px;background:var(--card,var(--bone));border:1px solid var(--hairline);border-radius:18px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:8px}
 .rd-snap-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.rd-share{position:static}
+.rd-share{position:relative} /* relative, not static: .panel-share::after (the enlarged tap zone) is position:absolute, and with a static button it resolved against the page and covered the whole post (Justin, beta 2026-09-30: could not scroll, share buttons lit up on any touch) */
 .rd-cap{font-size:calc(12.5px * var(--type-scale));line-height:1.5;color:var(--muted);margin:0}
 .rd-teach{border-left:3px solid var(--hairline);padding-left:12px}
 .rd-journal{margin:10px 0 4px}
