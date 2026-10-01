@@ -466,12 +466,21 @@
       const bestDay = f.days.slice().sort((a,b2)=>b2.meanM-a.meanM)[0];
       if(bestDay && bestDay.meanM >= 0) post.blocks.push({ p: 'Your check-ins on ' + dayAt(bestDay.t) + ' had the most safety this week. It\'s worth noticing what was different about that day.' });
     }
+    // what they named last week, mirrored back (Justin approved, 2026-10-01)
+    const ln = lastNamed(ctx, 'week'); if(ln) post.blocks.push(ln);
     // the rotating snapshot
     const rot = rotatingSnap(f, ctx, post);
     if(rot) post.blocks.push(rot);
     return post;
   }
 
+  // the answer to last time's question, said back as the person named it. A mirror, never a cause.
+  function lastNamed(ctx, span){
+    const a = ctx.prevAnswer; if(!a || !a.tags || !a.tags.length) return null;
+    const tags = a.tags.map(String);   // not bolded: b() escapes and boldHtml escapes again, which would show 'body &amp; movement'
+    const what = a.dir==='safe' ? 'what helped you have more safety' : a.dir==='def' ? 'what pulled you toward defense' : 'what made the biggest difference';
+    return { p: 'Last ' + span + ', you named ' + listAnd(tags) + ' as ' + what + '. Notice if ' + (tags.length===1 ? 'that' : 'those') + ' showed up this ' + span + ' too.' };
+  }
   function weekSnapData(f){
     return { ws:f.p.start, pts: f.rs.map(r=>({ d:new Date(r.t).getDay(), h:new Date(r.t).getHours()+new Date(r.t).getMinutes()/60, m:r.m, key:r.key, after: r.c && r.c.phase==='after' })) };
   }
@@ -553,6 +562,7 @@
       post.blocks.push({ p:s });
       if(f.anchors.length >= 2) post.blocks.push({ snap:'anchors', title:'Your anchors', data:{ rows:f.anchors.map(a=>[a.anchor, a.lift]) }, caption:'How much your safety rating went up, on average, in practices with each anchor.' });
     }
+    const ln = lastNamed(ctx, 'month'); if(ln) post.blocks.push(ln);
     const tl = teachList(post.teachState);
     if(tl.length){ const i = (ctx.teachIndex||0) % tl.length; post.teach = { state:post.teachState, i }; post.blocks.push({ p: tl[i], teach:true }); }
     const w = 'month';

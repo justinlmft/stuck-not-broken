@@ -747,7 +747,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -825,7 +825,7 @@
     if(h==='checkin'){ app('now'); return screenCheckin(); }
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
-    if(h==='reader'){ app('now'); return screenReader(); }   // a new-reflection notification (2026-09-30)
+    if(h==='reader'){ return app('reflect'); }   // a new-reflection notification (2026-09-30)
     const _r = app(currentTab);
     // MEMBER ONBOARDING (item 114): gate on paid && not yet oriented. Deliberately NOT
     // the ?checkout= return param — someone who closes the tab at Stripe and comes back
@@ -2304,13 +2304,14 @@ addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try
 function app(tab){
     currentTab = tab;
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} } }
+    if(tab === 'reflect') return screenReader();
     const u = Store.user();
     setHTML(`
       <header class="appbar">
       </header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     ({ now:tabNow, you:tabYou, practice:tabPractice }[tab] || tabNow)();
@@ -2807,14 +2808,21 @@ function app(tab){
     if(on) return ({
       now:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path fill="none" d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
       practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
-      you:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
+      you:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>',
+      reflect:'<svg viewBox="0 0 24 24"><path d="M11.2 6C9.2 4.6 6.6 4.2 3 4.5c-.3 0-.5.3-.5.6v13.2c0 .3.3.6.6.5 3.3-.3 5.9.1 8.1 1.4zM12.8 6c2-1.4 4.6-1.8 8.2-1.5.3 0 .5.3.5.6v13.2c0 .3-.3.6-.6.5-3.3-.3-5.9.1-8.1 1.4z" fill="currentColor"/></svg>'
     }[t]||'');
     return ({
     now:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
     practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    you:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
+    you:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>',
+    reflect:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7.2 4.5 3.5 4.8v13.4c3.7-.3 6.5.2 8.5 1.8 2-1.6 4.8-2.1 8.5-1.8V4.8C16.8 4.5 14 5 12 6.5z"/><path d="M12 6.5V20"/></svg>'
   }[t]||''); }
-  function tabBtn(t){ const on=currentTab===t, L=CAP(t); return `<button data-t="${t}" class="${on?'on':''}" aria-label="${L}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
+  function tabBtn(t){ const on=currentTab===t, L=CAP(t), dot = (t==='reflect' && !on && _rdHasNew()); return `<button data-t="${t}" class="${on?'on':''}${dot?' tab-new':''}" aria-label="${L}${dot?', a new reflection is ready':''}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
+  // the four tabs. Reflect (Justin, 2026-10-01): "Reflect" not "Reflections", because it is an action, like Practice
+  function TABS(){ return tabBtn('now') + tabBtn('practice') + tabBtn('reflect') + tabBtn('you'); }
+  // a dot on Reflect when the newest released post has not been opened from the hub yet
+  function _rdHasNew(){ try{ const ps=_rdPosts(); if(!ps.length) return false; const top=ps.slice().sort((a,b)=>b.release-a.release)[0]; if(Date.now()-top.release > 7*864e5) return false; return localStorage.getItem('snb_rd_seen_key')!==top.key; }catch(e){ return false; } }
+  function _rdMarkSeen(){ try{ const ps=_rdPosts(); if(!ps.length) return; const top=ps.slice().sort((a,b)=>b.release-a.release)[0]; localStorage.setItem('snb_rd_seen_key', top.key); }catch(e){} }
   const content = () => $('#content');
 
   // ---------------------------------------------------------------- TODAY
@@ -3454,7 +3462,7 @@ function app(tab){
     const R = window.Reader; if(!R) return null;
     const per = endOverride ? Object.assign({}, p, { end:endOverride }) : p;
     const f = R.compute(per, data); if(!f.n) return null;
-    const ctx = { name: (Store.getName && Store.getName()) || '', data, prev: R.compute(R.prevPeriod(p), data) };
+    const ctx = { name: (Store.getName && Store.getName()) || '', data, prev: R.compute(R.prevPeriod(p), data), prevAnswer: _rdPrevAnswer(p) };
     // which teaching paragraph comes next: one per post, in order, never repeated until all have been shown
     const tc = {}; (posts||[]).forEach(x=>{ if(x.teach && x.teach.state) tc[x.teach.state] = (tc[x.teach.state]||0) + 1; });
     ctx.teachCounts = tc;
@@ -3505,68 +3513,91 @@ function app(tab){
   function _rdMeta(post){ return escapeHtml((post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind]) + ' · ' + (post.minutes||1) + ' min read'); }
   function _rdFirstSnap(post){ return (post.blocks||[]).find(x=>x.snap); }
 
-  // the blog home
-  function screenReflectionDeep(){ return screenReader(); }
+  // the blog home: the Reflect tab. Round 5 (Justin, 2026-10-01): a tab of its own, paper + cards,
+  // the cover reads as a post with a Read button, Today in its own card, past days cut, no "Earlier".
+  function screenReflectionDeep(){ return app('reflect'); }
+  function _rdShell(inner, opts){
+    opts = opts || {};
+    currentTab = 'reflect';
+    setHTML(`
+      <header class="appbar read-appbar">${opts.back ? `<button class="backbtn" id="rd-back">${escapeHtml(opts.back)}</button>` : ''}</header>
+      <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
+      <nav class="tabbar" id="tabs">${TABS()}</nav>`);
+    document.body.classList.add('rd-on');
+    $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    const bk = $('#rd-back'); if(bk && opts.onBack) bk.onclick = opts.onBack;
+  }
+  // what comes next, said plainly under Today (Justin: "it's not clear what is coming or how it comes")
+  function _rdNextLine(){
+    const d = new Date(), h = d.getHours(), dow = d.getDay();
+    const t = new Date(d); t.setDate(d.getDate()+1);
+    const lastOfMonth = t.getDate() === 1, m = d.getMonth();
+    if(lastOfMonth && h < 18){
+      const what = m === 11 ? 'Your year in review' : (m % 3 === 2 ? 'Your season reflection' : 'Your monthly reflection');
+      return what + ' arrives at 6 this evening.';
+    }
+    if(dow === 0 && h < 8) return 'Your weekly reflection arrives at 8 this morning.';
+    return 'Your next weekly reflection arrives ' + (dow === 0 ? 'next Sunday' : 'Sunday') + ' morning.';
+  }
+  function _listAnd(a){ return a.length<=1 ? (a[0]||'') : a.slice(0,-1).join(', ') + ' and ' + a[a.length-1]; }
+  // what the person named under the previous post of this kind (the chip question), or null
+  function _rdPrevAnswer(p){
+    try{
+      const R = window.Reader; const pk = R.prevPeriod({ kind:p.kind, start:p.start }).key;
+      const tags = (_ctxLoad()['r'+pk]||[]).filter(t=>t && t!=='something else');
+      if(!tags.length) return null;
+      const prev = _rdPosts().find(x=>x.key===pk);
+      const q = (prev && prev.chipQ) || '';
+      return { tags, dir: /more safety/.test(q) ? 'safe' : /toward defense/.test(q) ? 'def' : 'mixed' };
+    }catch(e){ return null; }
+  }
   function screenReader(){
     _markReaderSeen();
     try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} }
     const R = window.Reader, now = Date.now(), DAY = 864e5;
     const posts = R ? R.shelf(_rdPosts(), now) : [];
+    _rdMarkSeen();
     const cover = posts[0] || null;
     const fresh = cover && (now - cover.release) < 7*DAY;
     const coverEyeb = !cover ? '' : (cover.kind==='week' ? (fresh ? (new Date().getDay()===0 ? 'New this Sunday' : 'New this week') : 'This week') : (fresh ? 'New · ' : '') + RD_KIND_LABEL[cover.kind]);
     const fs = cover ? _rdFirstSnap(cover) : null;
-    const coverHTML = cover ? `<button class="rd-cover" type="button" data-post="${escapeHtml(cover.key)}">
-        <span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>
-        ${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs)}</span>` : ''}
-        <span class="rd-cover-title">${escapeHtml(cover.title)}</span>
-        <span class="rd-meta">${_rdMeta(cover)}</span>
+    const coverHTML = cover ? `<button class="rd-cover" type="button" data-post="${escapeHtml(cover.key)}" style="--band:${STATE_COLOR(cover.teachState||'safety')}">
+        <span class="rd-cover-band"><span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs)}</span>` : ''}</span>
+        <span class="rd-cover-body">
+          <span class="rd-cover-title">${escapeHtml(cover.title)}</span>
+          <span class="rd-cover-foot"><span class="rd-cover-meta">${escapeHtml(cover.label||'')}</span><span class="rd-read">Read · ${escapeHtml(String(cover.minutes||1))} min${CHEV}</span></span>
+        </span>
       </button>` : '';
-    // the day, live
+    // Today, live (Justin, 2026-10-01: the eyebrow is "Today"; an explicit exception to the no-"today" copy rule)
     const td = Store.today ? Store.today() : null;
     const dn = (td && td.n>=1 && FromJustin.daily) ? FromJustin.daily(td) : null;
-    const wd = DAYS_LONG[new Date().getDay()];
-    const dayHTML = (td && td.n>=1) ? `<section class="rd-day">
-        <span class="rd-eyeb">${escapeHtml(wd)}, so far</span>
-        ${dn ? `<p class="read-p" style="margin:6px 0 0">${boldHtml(dn.text)}</p>` : ''}
-        ${momentTimeline(td.moments, td.sessions)}
-      </section>` : `<section class="rd-day"><span class="rd-eyeb">${escapeHtml(wd)}, so far</span><p class="read-p" style="margin:6px 0 0">No check-ins yet. Your post for the day starts with your first one.</p></section>`;
-    // past days: two weeks, then they fade out (Justin: "those should fade out every couple of weeks")
-    const sod0 = (function(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
-    const dailies = (Store.mints ? Store.mints() : []).filter(m=>m.tier==='daily' && m.dateMs < sod0 && m.dateMs >= sod0 - 14*DAY).sort((a,b)=>b.dateMs-a.dateMs);
-    const pastDays = dailies.length ? `<details class="rd-days"><summary class="rd-eyeb">The last two weeks of days</summary>${dailies.map(m=>{
-        const age = Math.round((sod0 - m.dateMs)/DAY), op = age > 10 ? Math.max(0.3, 1 - (age-10)*0.17) : 1;
-        const d = new Date(m.dateMs);
-        return `<button class="rd-row rd-dayrow" type="button" data-mint="${escapeHtml(m.id)}" style="opacity:${op.toFixed(2)}"><span class="rd-row-t"><b>${escapeHtml(DAYS_LONG[d.getDay()] + ', ' + d.toLocaleDateString(undefined,{month:'long',day:'numeric'}))}</b><span>${escapeHtml(String(m.text||'').split('. ')[0])}.</span></span><span class="wc-go">${CHEV}</span></button>`;
-      }).join('')}</details>` : '';
-    // earlier posts (the shelf), then old-style reflections until they age out
+    const todayBody = (td && td.n>=1)
+      ? `${dn ? `<p class="read-p rd-today-p">${boldHtml(dn.text)}</p>` : ''}${momentTimeline(td.moments, td.sessions)}`
+      : `<p class="read-p rd-today-p">No check-ins yet. Your note for the day starts with your first one.</p>`;
+    const todayHTML = `<section class="rd-today">
+        <span class="rd-eyeb">Today</span>
+        ${todayBody}
+        <div class="rd-today-foot"><p>This note changes each time you check in. ${escapeHtml(_rdNextLine())}</p><button class="rd-checkin" id="rd-checkin" type="button">Check in</button></div>
+      </section>`;
+    // the posts, as a list (past days are cut: Justin, 2026-10-01)
     const thumb = p => { const c = p.kind==='week' ? STATE_COLOR(p.teachState||'safety') : 'var(--hairline)'; return `<span class="rd-thumb rd-thumb-${p.kind}" style="--th:${c}"></span>`; };
     const rows = posts.slice(1).map(p=>`<button class="rd-row" type="button" data-post="${escapeHtml(p.key)}">${thumb(p)}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_rdMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`).join('');
     const legacy = (Store.mints ? Store.mints() : []).filter(m=>/^(weekly|monthly|quarterly)$/.test(m.tier) && m.dateMs >= now - 92*DAY);
     const legacyRows = legacy.map(m=>_archRow(m)).join('');
-    const earlier = (rows || legacyRows) ? `<section class="rd-earlier"><span class="rd-eyeb">Earlier</span>${rows}${legacyRows}</section>` : '';
+    const list = (rows || legacyRows) ? `<section class="rd-list" aria-label="Your posts">${rows}${legacyRows}</section>` : '';
     const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
     const preview = window.SNB_IS_STAGING ? `<section class="rd-preview"><span class="rd-eyeb">Beta only · show me this period's post</span><div class="p-chips">${['week','month','season','year'].map(k=>`<button class="p-chip" type="button" data-preview="${k}">${CAP(k)}</button>`).join('')}</div></section>` : '';
-    setHTML(`
-      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Back</button></header>
-      <div class="scroll">
-        <div class="view read rd" style="gap:0">
+    _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Your Reflections</h1></div>
           ${coverHTML}
-          ${dayHTML}
-          ${pastDays}
+          ${todayHTML}
           ${empty}
-          ${earlier}
-          ${preview}
-        </div>
-      </div>
-      <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
-    $('#rd-back').onclick = ()=>app('now');
-    $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+          ${list}
+          ${preview}`);
     const byKey = {}; posts.forEach(p=>byKey[p.key]=p);
     root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
-    root.querySelectorAll('.rd-dayrow').forEach(b=>b.onclick=()=>screenReaderDay(b.dataset.mint));
-    root.querySelectorAll('.rd-earlier .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
+    root.querySelectorAll('.rd-list .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
+    const ci = $('#rd-checkin'); if(ci) ci.onclick = ()=>screenCheckin();
     root.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>{
       const k=b.dataset.preview, R2=window.Reader, now2=Date.now();
       const start = k==='week' ? R2.weekStart(now2) : k==='month' ? R2.monthStart(now2) : k==='season' ? R2.quarterStart(now2) : R2.yearStart(now2);
@@ -3578,21 +3609,17 @@ function app(tab){
   }
   const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-  // one saved day
+  // one saved day (no longer linked from the hub since past days were cut; kept for old links)
   function screenReaderDay(id){
     const m = (Store.mints ? Store.mints() : []).find(x=>x.id===id); if(!m) return screenReader();
     const d0 = m.dateMs, d1 = d0 + 864e5;
     const moments = Store.checkins().filter(c=>c && c.t>=d0 && c.t<d1 && typeof c.v==='number').sort((a,b)=>a.t-b.t).map(c=>Object.assign({}, c, { dom:_cDom(c) }));
     const sessions = Store.sessions().filter(s=>s && s.t>=d0 && s.t<d1);
     const d = new Date(d0);
-    setHTML(`
-      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Your Reflections</button></header>
-      <div class="scroll"><div class="view read rd" style="gap:0">
+    _rdShell(`
         <span class="rd-eyeb">${escapeHtml(DAYS_LONG[d.getDay()] + ', ' + d.toLocaleDateString(undefined,{month:'long',day:'numeric'}))}</span>
         <p class="read-p" style="margin:8px 0 0">${boldHtml(m.text||'')}</p>
-        ${momentTimeline(moments, sessions)}
-      </div></div>`);
-    $('#rd-back').onclick = screenReader;
+        ${momentTimeline(moments, sessions)}`, { back:'Your Reflections', onBack:screenReader });
   }
 
   // one post
@@ -3609,24 +3636,24 @@ function app(tab){
     const body = freeShown.map((x)=>blockHTML(x, blocks.indexOf(x))).join('');
     const isNewest = !opts.preview && (function(){ const ps = _rdPosts().filter(x=>x.kind===post.kind).sort((a,b)=>b.release-a.release); return ps[0] && ps[0].key===post.key; })();
     const reco = (paid && (isNewest || opts.preview)) ? _recommendSafe() : null;
-    const nextWord = post.kind==='week' ? 'Next week' : post.kind==='month' ? 'Next month' : post.kind==='season' ? 'Next season' : 'Next year';
-    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is on the paid plan.</b><span>The full post, the other snapshots, your journal reflections and your next practice.</span></span></button>`
+    // what they named last time, shown back under the question (Justin approved, 2026-10-01)
+    // (skipped when the post itself already says it, as posts built after the answer do)
+    const prevA = (paid && post.chipQ && !opts.preview && !blocks.some(x=>x.p && /^Last (week|month|season|year), you named/.test(x.p))) ? _rdPrevAnswer(post) : null;
+    const lastWord = { week:'week', month:'month', season:'season', year:'year' }[post.kind] || 'time';
+    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is on the paid plan.</b><span>The full post, the other snapshots, your journal and your next practice.</span></span></button>`
       : `
-        ${(post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal reflections</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
+        ${(post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
         ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
-        ${reco ? `<section class="rd-next"><h3 class="sec-h">${nextWord}</h3><p class="read-p">Your recommended practice is ${escapeHtml(Store.practiceLabel(reco.practiceKey))}.</p><button class="btn block" id="rd-begin" type="button">Begin</button></section>` : ''}
+        ${prevA ? `<p class="rd-lastnamed">Last ${lastWord} you named ${escapeHtml(_listAnd(prevA.tags))}.</p>` : ''}
+        ${reco ? `<section class="rd-next"><h3 class="sec-h">Your next practice</h3><button class="rd-pcard" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b><span>Recommended for you now</span></span>${CHEV}</button></section>` : ''}
         ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
-    setHTML(`
-      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Your Reflections</button></header>
-      <div class="scroll"><div class="view read rd" style="gap:0">
+    _rdShell(`
         ${opts.preview ? '<p class="rd-eyeb" style="color:var(--s-fight)">Beta preview · this period so far · not saved</p>' : ''}
         <span class="rd-eyeb">${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
         <h1 class="rd-title">${escapeHtml(post.title)}</h1>
         <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
         ${body}
-        ${tail}
-      </div></div>`);
-    $('#rd-back').onclick = screenReader;
+        ${tail}`, { back:'Your Reflections', onBack:screenReader });
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
     const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco);
     const mo = $('#rd-more'); if(mo) mo.onclick = ()=>screenReaderEssay(post.teach.state, post);
@@ -3638,14 +3665,11 @@ function app(tab){
   // the full state essay behind "More about …"
   function screenReaderEssay(state, from){
     const E = window.Reader && window.Reader.ESSAY[state]; if(!E) return screenReader();
-    setHTML(`
-      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Back</button></header>
-      <div class="scroll"><div class="view read rd" style="gap:0">
+    _rdShell(`
         <div class="rd-essay-glyph">${triGlyph(state)}</div>
         <h1 class="rd-title">${escapeHtml(E.title)}</h1>
-        ${E.sections.map(s=>`<h3 class="sec-h" style="margin:22px 0 8px">${escapeHtml(s[0])}</h3>${s[1].map(t=>`<p class="read-p">${escapeHtml(t)}</p>`).join('')}`).join('')}
-      </div></div>`);
-    $('#rd-back').onclick = ()=> from ? screenReaderPost(from) : screenReader();
+        ${E.sections.map(s=>`<h3 class="sec-h" style="margin:22px 0 8px">${escapeHtml(s[0])}</h3>${s[1].map(t=>`<p class="read-p">${escapeHtml(t)}</p>`).join('')}`).join('')}`,
+      { back:'Back', onBack:()=> from ? screenReaderPost(from) : screenReader() });
   }
 
   // (retired 2026-09-30: the essay-per-state reader. Kept for reference until the next declutter.)
@@ -3840,7 +3864,7 @@ function app(tab){
           ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
         </div>
       </div>
-      <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
+      <nav class="tabbar reader-rail" id="tabs">${TABS()}</nav>`);
     $('#deep-back').onclick = ()=>app('now');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
@@ -4217,8 +4241,9 @@ function app(tab){
   }
   function screenMintedEntry(id){
     if(!paidNow()) return gateSubscribe('reader');   // a minted reader issue — paid plan
+    currentTab = 'reflect';
     const m = (Store.mints ? Store.mints() : []).find(x => x.id===id);
-    if(!m) return screenArchive();
+    if(!m) return screenReader();
     if(m.tier==='weekly' && m.data && m.data.issue){
       const card = m.data.card || {};
       // same desktop composition as the live reader: reading column + sticky
@@ -4235,8 +4260,8 @@ function app(tab){
             ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
           </div>
         </div>
-        <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
-      $('#me-back').onclick = screenArchive;
+        <nav class="tabbar reader-rail" id="tabs">${TABS()}</nav>`);
+      $('#me-back').onclick = screenReader;
       $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
       const sb = $('#me-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
       return;
@@ -4251,7 +4276,7 @@ function app(tab){
             <p style="font-size:calc(16px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${escapeHtml(m.text)}</p>
           </div>
         </div>`);
-      $('#me-back').onclick = screenArchive;
+      $('#me-back').onclick = screenReader;
       return;
     }
     const ctx = Store.dayArc ? Store.dayArc(m.dateMs) : null;
@@ -4265,7 +4290,7 @@ function app(tab){
           ${tl}
         </div>
       </div>`);
-    $('#me-back').onclick = screenArchive;
+    $('#me-back').onclick = screenReader;
   }
 
   // (recoCardHTML / wireReco / trendHTML — old today-card renderers — were dead
@@ -4360,7 +4385,7 @@ function app(tab){
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
@@ -5673,6 +5698,16 @@ function app(tab){
         ws=_sundayStart(t);
         prefix = mm[2]==='-' ? 'less of ' : 'more of ';
       }
+      else if(/^rw\d/.test(k)){                                // the reader's weekly question (2026-10-01)
+        const p=k.slice(2).split('-').map(Number); if(p.length<3||p.some(isNaN)) return;
+        ws=new Date(p[0],p[1]-1,p[2]).getTime();
+      }
+      else if(/^rm\d/.test(k)){                                // the reader's monthly question: counts for each week that starts in that month
+        const p=k.slice(2).split('-').map(Number); if(p.length<2||p.some(isNaN)) return;
+        const m0=new Date(p[0],p[1]-1,1).getTime(), m1=new Date(p[0],p[1],1).getTime();
+        for(let t=_sundayStart(m0); t<m1; t=_sundayStart(t+8*864e5)){ if(t<m0) continue; const set=wkTags[t]=wkTags[t]||{}; m[k].forEach(lb=>{ set[lb]=1; }); }
+        return;
+      }
       else if(k[0]==='w'||k[0]==='d'){
         const p=k.slice(1).split('-').map(Number);          // local date parts
         if(p.length<3||p.some(isNaN)) return;
@@ -5872,7 +5907,7 @@ function app(tab){
     const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
     const hi=$('#hx-impacts');  if(hi) hi.onclick = ()=>gateSubscribe('impacts');
     const hd=$('#hx-ideal');    if(hd) hd.onclick = ()=>gateSubscribe('ideal');
-    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); screenReader(); };
+    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); app('reflect'); };
   }
 
   // ── You-tab pattern cards, rebuilt on margin (2026-09-07, Justin: "margin number
@@ -6696,7 +6731,7 @@ function app(tab){
       <header class="appbar"><button class="backbtn" id="sd-back">Back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
     $('#sd-back').onclick = ()=>app('you');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -6794,7 +6829,7 @@ function app(tab){
         <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
       </div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`);
     // quiet placeholder until the player document has loaded (it then shows its
     // own "preparing your audio" line) — never a blank screen after "begin".
@@ -7111,7 +7146,7 @@ function app(tab){
       <header class="appbar"><button class="backbtn" id="plan-back">Back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
     $('#plan-back').onclick = ()=>app(from);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -8192,7 +8227,7 @@ function app(tab){
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const u=Store.user();

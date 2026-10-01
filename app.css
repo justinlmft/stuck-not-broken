@@ -2796,7 +2796,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 
 /* The reader keeps the left rail on desktop (same as every other
    screen); on mobile it stays immersive with just the back button. */
-@media (max-width:719.98px){ .reader-rail{display:none} }
+/* (2026-10-01) .reader-rail is no longer hidden on phones: the Reflect tab keeps the tab bar on every reader screen (Justin: navigation within thumb reach) */
 
 /* ============================================================
    DESKTOP READER COMPOSITION (>=720) — reading column + contents rail.
@@ -3354,3 +3354,45 @@ body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
 .rd-fl-i .triglyph{height:26px;width:auto}
 .rd-fl-arw{color:var(--muted)}
 .rd-essay-glyph .triglyph{height:28px;width:auto;margin:4px 0 6px}
+
+/* ── Reader round 5 (Justin, 2026-10-01): the Reflect tab, paper + cards (option A), the cover as a post,
+   Today in its own card, the posts as one list, Your next practice as a card ── */
+:root{ --rd-band-pct:24%; --rd-paper:#ECE8DE; --rd-card:#FFFFFF; --rd-shadow:0 1px 2px rgba(40,34,20,.06),0 6px 18px rgba(40,34,20,.08); }
+@media (prefers-color-scheme: dark){ :root:not(.theme-light){ --rd-band-pct:13%; --rd-paper:#141517; --rd-card:#24262A; --rd-shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.4); } }
+:root.theme-dark{ --rd-band-pct:13%; --rd-paper:#141517; --rd-card:#24262A; --rd-shadow:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.4); }
+body.rd-on, body.rd-on #screen{background:var(--rd-paper)}
+body.rd-on .scroll .scr-head{background:var(--rd-paper)}
+@media (max-width:719.98px){ body.rd-on .tabbar{background:var(--rd-card);box-shadow:var(--rd-shadow)} }
+/* the new-post dot on Reflect */
+.tabbar button.tab-new .ic{position:relative}
+.tabbar button.tab-new .ic::after{content:'';position:absolute;top:-1px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--s-safety);box-shadow:0 0 0 2px var(--bone-deep)}
+/* the cover: a post you open */
+.rd-cover{gap:0;padding:0;overflow:hidden;background:var(--rd-card);border:0;box-shadow:var(--rd-shadow);border-radius:22px;margin:0 0 28px}
+.rd-cover-band{display:flex;flex-direction:column;gap:8px;padding:14px 16px 8px;background:var(--bone-deep);background:color-mix(in srgb, var(--band, var(--s-safety)) var(--rd-band-pct), var(--rd-card))}
+.rd-cover-body{display:flex;flex-direction:column;gap:12px;padding:14px 16px 16px}
+.rd-cover-foot{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.rd-cover-meta{font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.rd-read{display:inline-flex;align-items:center;gap:4px;flex:none;background:var(--ink);color:var(--bone);border-radius:999px;padding:8px 12px 8px 16px;min-height:40px;font-size:calc(14.5px * var(--type-scale));font-weight:500}
+.rd-read svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+/* Today */
+.rd-today{display:flex;flex-direction:column;gap:6px;background:var(--rd-card);box-shadow:var(--rd-shadow);border-radius:20px;padding:16px;margin:0 0 20px}
+.rd-today .rd-today-p{margin:0}
+.rd-today-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--hairline);padding-top:12px;margin-top:6px}
+.rd-today-foot p{margin:0;font-size:calc(13px * var(--type-scale));line-height:1.45;color:var(--muted)}
+.rd-checkin{flex:none;font:inherit;font-size:calc(14px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--ink-80);border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer}
+.rd-checkin:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* the posts, one list on one card */
+.rd-list{display:flex;flex-direction:column;background:var(--rd-card);box-shadow:var(--rd-shadow);border-radius:20px;padding:2px 16px;margin:0 0 16px}
+.rd-list > :first-child{border-top:0}
+.rd-list .arch-row{border-top:1px solid var(--hairline)}
+/* snapshots lift off the paper */
+body.rd-on .rd-snap{background:var(--rd-card);border-color:transparent;box-shadow:var(--rd-shadow);margin:10px 0 20px}
+body.rd-on .rd-lock{background:var(--rd-card)}
+/* Your next practice */
+.rd-pcard{display:flex;align-items:center;gap:12px;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;background:var(--rd-card);box-shadow:var(--rd-shadow);border:0;border-radius:16px;padding:14px 16px;min-height:56px}
+.rd-pcard-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.rd-pcard-t b{font-weight:500;font-size:calc(16px * var(--type-scale));color:var(--ink)}
+.rd-pcard-t span{font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.rd-pcard svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rd-pcard:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.rd-lastnamed{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:8px 0 0}
