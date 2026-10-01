@@ -3788,48 +3788,76 @@ function app(tab){
   const _lrnTimes = n => n===1 ? 'once' : n===2 ? 'twice' : n + ' times';
   const _lrnPart = t => { const h = new Date(t).getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night'; };
   // one callout: { mk, label, text, card } or null when the data has nothing to show (then it is skipped)
+  // Callout ids (learning.js blocks): 'share:<state>', 'eased:<state>', 'time:<state>', 'freeze-and-shutdown',
+  // 'safety-share', 'practice-rise', 'mixed-safe', 'comeback'. Old ids 'freeze-share' and 'freeze-eased' still work.
+  const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
+  const _lrnSegOf = t => { const h = new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; };
   function _lrnCallout(id, ctx){
     const f = ctx.f; if(!f || !f.n) return null;
     const rs = f.rs || [], owner = _rdOwner();
-    if(id === 'freeze-share'){
-      const fz = rs.filter(r=>r.key==='freeze'); if(!fz.length) return null;
+    if(id === 'freeze-share') id = 'share:freeze';
+    if(id === 'freeze-eased') id = 'eased:freeze';
+    const [kind, st] = id.split(':');
+    if(kind === 'share' && st && st !== 'safety'){
+      const hit = rs.filter(r=>r.key===st); if(!hit.length) return null;
       let days = '';
       if(ctx.kind === 'week'){
-        const cnt = {}; fz.forEach(r=>{ const d=new Date(r.t).getDay(); cnt[d]=(cnt[d]||0)+1; });
+        const cnt = {}; hit.forEach(r=>{ const d=new Date(r.t).getDay(); cnt[d]=(cnt[d]||0)+1; });
         const ds = Object.keys(cnt).map(Number).sort((a,b)=>a-b);
         let best = null; for(let i=0;i<ds.length;i++){ let j=i; while(j+1<ds.length && ds[j+1]===ds[j]+1) j++; const run=ds.slice(i,j+1), c=run.reduce((a,d)=>a+cnt[d],0); if(!best || c>best.c) best={ run, c }; i=j; }
-        if(best && best.c/fz.length >= 0.6 && best.run.length <= 4) days = best.run.length===1 ? ', mostly on ' + DAYS_LONG[best.run[0]] : ', mostly ' + DAYS_LONG[best.run[0]] + ' to ' + DAYS_LONG[best.run[best.run.length-1]];
+        if(hit.length >= 2 && best && best.c/hit.length >= 0.6 && best.run.length <= 4) days = best.run.length===1 ? ', mostly on ' + DAYS_LONG[best.run[0]] : ', mostly ' + DAYS_LONG[best.run[0]] + ' to ' + DAYS_LONG[best.run[best.run.length-1]];
       }
-      const card = ctx.kind === 'week' ? `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('week', { ws:f.p.start, focus:'freeze', pts: rs.map(r=>({ d:new Date(r.t).getDay(), h:new Date(r.t).getHours()+new Date(r.t).getMinutes()/60, m:r.m, key:r.key })) }, STATE_COLOR)}</figure>` : '';
-      return { mk:'freeze', label: owner + ' freeze', text: `${_lrnShareWords(fz.length/rs.length)} of ${ctx.poss} check-ins were freeze${days}.`, card };
+      const card = ctx.kind === 'week' ? `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('week', { ws:f.p.start, focus:st, pts: rs.map(r=>({ d:new Date(r.t).getDay(), h:new Date(r.t).getHours()+new Date(r.t).getMinutes()/60, m:r.m, key:r.key })) }, STATE_COLOR)}</figure>` : '';
+      const text = hit.length === 1 ? `One of ${ctx.poss} check-ins was ${STATE_NAME(st)}${days}.` : `${_lrnShareWords(hit.length/rs.length)} of ${ctx.poss} check-ins were ${STATE_NAME(st)}${days}.`;
+      return { mk:st, label: owner + ' ' + STATE_NAME(st), text, card };
     }
-    if(id === 'freeze-and-shutdown'){
-      const nf = rs.filter(r=>r.key==='freeze').length, ns = rs.filter(r=>r.key==='shutdown').length; if(!nf || !ns) return null;
-      let seq = 0, first = null; for(let i=1;i<rs.length;i++) if(rs[i-1].key==='freeze' && rs[i].key==='shutdown'){ seq++; first = first || rs[i]; }
-      const text = `Freeze ${_lrnTimes(nf)} ${ctx.noun}, shutdown ${_lrnTimes(ns)}.` + (seq ? ` ${CAP(_lrnTimes(seq))}, shutdown came right after freeze.` : '');
-      return { mk:'freeze', label: owner + ' freeze and shutdown', text, card: seq ? _rdFlow('freeze','shutdown') : '' };
-    }
-    if(id === 'safety-share'){
+    if(id === 'safety-share' || id === 'share:safety'){
       if(f.n < 5) return null;
       const share = f.nSafe / f.n;
       const amt = f.n >= 10 ? Math.round(share*100) + '%' : _lrnShareWords(share);
       if(amt === '100%' && f.n < 20) return null;
       return { mk:'safety', label: owner + ' safety', text: `${amt} of ${ctx.poss} check-ins had more safety than defense.` };
     }
+    if(id === 'freeze-and-shutdown'){
+      const nf = rs.filter(r=>r.key==='freeze').length, ns = rs.filter(r=>r.key==='shutdown').length; if(!nf || !ns) return null;
+      let seq = 0; for(let i=1;i<rs.length;i++) if(rs[i-1].key==='freeze' && rs[i].key==='shutdown') seq++;
+      const text = `Freeze ${_lrnTimes(nf)} ${ctx.noun}, shutdown ${_lrnTimes(ns)}.` + (seq ? ` ${CAP(_lrnTimes(seq))}, shutdown came right after freeze.` : '');
+      return { mk:'freeze', label: owner + ' freeze and shutdown', text, card: seq ? _rdFlow('freeze','shutdown') : '' };
+    }
     if(id === 'practice-rise'){
       const ps = (f.practices||[]).filter(x=>x.s0!=null && x.s1!=null); if(!ps.length) return null;
       const up = ps.filter(x=>x.s1 > x.s0).length; if(!up) return null;
-      const text = up === ps.length ? `Each time you practiced ${ctx.noun}, safety went up.` : `Safety went up in ${up===1?'one practice':up+' practices'} ${ctx.noun}.`;
+      const text = up === ps.length ? (ps.length === 1 ? `When you practiced ${ctx.noun}, safety went up.` : `Each time you practiced ${ctx.noun}, safety went up.`) : `Safety went up in ${up===1?'one practice':up+' practices'} ${ctx.noun}.`;
       const ins = ps.slice(-5).map(x=>({ day:DAYS_LONG[x.day].slice(0,3), anchor:null, s0:x.s0, s1:x.s1, best:false }));
       return { mk:'safety', label: owner + ' practices', text, card: `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('inside', ins, STATE_COLOR)}<figcaption class="rd-cap">${escapeHtml(RD_SNAP_CAP.inside)}</figcaption></figure>` };
     }
-    if(id === 'freeze-eased'){
+    if(kind === 'eased' && st){
       let pair = null;
-      for(let i=rs.length-1;i>=0 && !pair;i--){ if(rs[i].key!=='freeze') continue; for(let j=i+1;j<rs.length;j++) if(rs[j].safe){ pair = [rs[i], rs[j]]; break; } }
+      for(let i=rs.length-1;i>=0 && !pair;i--){ if(rs[i].key!==st) continue; for(let j=i+1;j<rs.length;j++) if(rs[j].safe){ pair = [rs[i], rs[j]]; break; } }
       if(!pair) return null;
       const d0 = DAYS_LONG[new Date(pair[0].t).getDay()], same = new Date(pair[0].t).toDateString() === new Date(pair[1].t).toDateString();
       const by = same ? 'that ' + _lrnPart(pair[1].t) : DAYS_LONG[new Date(pair[1].t).getDay()] + ' ' + _lrnPart(pair[1].t);
-      return { mk:'freeze', label: owner + ' ' + d0, text: `${d0}'s freeze eased by ${by}.`, card: _rdFlow('freeze', pair[1].key) };
+      return { mk:st, label: owner + ' ' + d0, text: `${d0}'s ${STATE_NAME(st)} eased by ${by}.`, card: _rdFlow(st, pair[1].key) };
+    }
+    if(kind === 'time' && st){
+      // the part of the day this state showed up most (3+ check-ins of it, and a clear lead)
+      const hit = rs.filter(r=> st==='safety' ? r.safe : r.key===st); if(hit.length < 3) return null;
+      const cnt = {}; hit.forEach(r=>{ const s=_lrnSegOf(r.t); cnt[s]=(cnt[s]||0)+1; });
+      const top = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]); if(cnt[top[0]] < 2 || (top[1] && cnt[top[1]] === cnt[top[0]])) return null;
+      const seg = _LRN_SEG[top[0]];
+      const what = st==='safety' ? 'More safety than defense' : CAP(STATE_NAME(st));
+      return { mk:st, label: owner + ' ' + seg, text: `${what} showed up most in your ${seg} ${ctx.noun}.` };
+    }
+    if(id === 'mixed-safe'){
+      const np = rs.filter(r=>r.key==='play').length, ns = rs.filter(r=>r.key==='stillness').length; if(!np && !ns) return null;
+      const parts = []; if(np) parts.push(`${STATE_NAME('play')} ${_lrnTimes(np)}`); if(ns) parts.push(`stillness ${_lrnTimes(ns)}`);
+      const mk = np >= ns ? 'play' : 'stillness';
+      return { mk, label: owner + ' ' + (np && ns ? 'play and stillness' : np ? STATE_NAME('play') : 'stillness'), text: `${CAP(ctx.noun)}, ` + parts.map((p,i)=> i===0 ? p.replace(/ (once|twice|\d+ times)$/, ' showed up $1') : p).join(' and ') + '.' };
+    }
+    if(id === 'comeback'){
+      const cb = f.comebacks; if(!cb || cb.n < 1) return null;
+      const phrase = cb.avg <= 1.5 ? 'within a check-in or two' : 'within about ' + Math.round(cb.avg) + ' check-ins';
+      return { mk:'safety', label: owner + ' way back to safety', text: `After defense showed up ${ctx.noun}, you had more safety than defense again ${phrase}.` };
     }
     return null;
   }
@@ -3846,6 +3874,7 @@ function app(tab){
     const body = (piece.blocks||[]).map(b=>{
       if(b.h) return `<h2 class="rd-lh">${_lrnInline(b.h)}</h2>`;
       if(b.h3) return `<h3 class="rd-lh3">${_lrnInline(b.h3)}</h3>`;
+      if(b.q) return `<blockquote class="rd-lq">${_lrnInline(b.q)}</blockquote>`;
       if(b.ul) return `<ul class="rd-llist">${b.ul.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ul>`;
       if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
       if(b.practice) return `<section class="rd-next rd-lprac"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(b.practice==='custom' ? 'Your custom practice' : CAP(Store.practiceLabel(b.practice)) + (b.sense ? ' through ' + b.sense : ''))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>`;
