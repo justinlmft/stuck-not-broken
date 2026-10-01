@@ -825,6 +825,7 @@
     if(h==='checkin'){ app('now'); return screenCheckin(); }
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
+    if(h==='reader'){ app('now'); return screenReader(); }   // a new-reflection notification (2026-09-30)
     const _r = app(currentTab);
     // MEMBER ONBOARDING (item 114): gate on paid && not yet oriented. Deliberately NOT
     // the ?checkout= return param — someone who closes the tab at Stripe and comes back
@@ -1622,7 +1623,7 @@
     matching: 'practices built from your check-ins',
     practice: 'The other practices',
     patterns: 'the patterns across your check-ins',
-    reader:   'the reader',
+    reader:   'The rest of your reflection',
     voice:    'The other voices',   // 2026-09-30: the AI voices are paid only 🖊
     impacts:  'Practice impacts',   // 2026-09-30 (Justin: "i want free users to see what they are missing out on") 🖊
     ideal:    'Your ideal practice',
@@ -1675,7 +1676,7 @@
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
           <p class="eyebrow">The paid plan</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the paid plan.' : 'Choose your plan'}</h1>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is on the paid plan.' : 'Choose your plan'}</h1>
           <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the other voices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
           ${planPickerHTML()}
           <p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>
@@ -2302,7 +2303,7 @@ addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try
 
 function app(tab){
     currentTab = tab;
-    if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); mintWeeks(); mintMonths(); mintQuarters(); }
+    if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} } }
     const u = Store.user();
     setHTML(`
       <header class="appbar">
@@ -2369,18 +2370,19 @@ function app(tab){
   const PUSH_PREFS_KEY = 'snb_push_prefs';
   const PUSH_DAYPARTS = [['morning','Morning','09:00'],['afternoon','Afternoon','14:00'],['evening','Evening','19:00'],['late','Late night','22:00']];
   const PUSH_DAYS = ['S','M','T','W','T','F','S'];
-  function pushPrefsDefault(){ return { followup:false, checkin_times:{}, practice_time:null, practice_days:[0,1,2,3,4,5,6] }; }
+  // the four reflection notifications start ON (Justin, 2026-09-30: "start them on"); everything else starts off
+  function pushPrefsDefault(){ return { followup:false, checkin_times:{}, practice_time:null, practice_days:[0,1,2,3,4,5,6], reflect_week:true, reflect_month:true, reflect_season:true, reflect_year:true }; }
   function pushPrefsRead(){ try{ return Object.assign(pushPrefsDefault(), JSON.parse(localStorage.getItem(PUSH_PREFS_KEY)||'{}')||{}); }catch(e){ return pushPrefsDefault(); } }
   async function pushPrefsSave(patch){
     const p = Object.assign(pushPrefsRead(), patch||{});
     try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){}
     const u = Store.user();
-    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], practice_best:!!p.practice_best, practice_best_minutes:p.practice_best_minutes||null, tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
+    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], practice_best:!!p.practice_best, practice_best_minutes:p.practice_best_minutes||null, reflect_week:p.reflect_week!==false, reflect_month:p.reflect_month!==false, reflect_season:p.reflect_season!==false, reflect_year:p.reflect_year!==false, tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
     return p;
   }
   async function pushPrefsLoad(){
     const u = Store.user(); if(!u || !window.sb) return pushPrefsRead();
-    try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days,practice_best,practice_best_minutes').eq('user_id', u.id).maybeSingle();
+    try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days,practice_best,practice_best_minutes,reflect_week,reflect_month,reflect_season,reflect_year').eq('user_id', u.id).maybeSingle();
       if(r && r.data){ const p=Object.assign(pushPrefsDefault(), r.data); try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){} return p; }
     }catch(e){}
     return pushPrefsRead();
@@ -2471,7 +2473,7 @@ function app(tab){
     const hint = s==='install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
                : s==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
                : s==='unsupported' ? 'This browser cannot show notifications from the app.'
-               : 'Nothing is on unless you choose it. A reminder you miss does not repeat, and nothing here counts or keeps score.';
+               : 'New reflections start on. Everything else is off unless you choose it. A reminder you miss does not repeat, and nothing here counts or keeps score.';
     const days = (prefs.practice_days||[]);
     /* ✅ THE BEST-TIME REMINDER (Justin, 2026-09-25: "a notification and a callout during that actual time of day and day
      * of the week with the ideal practice set up… this should be a notification setting that can be turned off or on";
@@ -2517,6 +2519,14 @@ function app(tab){
             </div>
           </div>
         </div>
+        <div class="gs-card">
+          <p class="gs-h">New reflections</p>
+          <p class="gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
+          ${sw('nt-r-week','Weekly reflection', prefs.reflect_week!==false, dis)}<p class="gs-fine" style="margin-top:-4px">Sunday morning, 8 am</p>
+          ${sw('nt-r-month','Monthly reflection', prefs.reflect_month!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each month</p>
+          ${sw('nt-r-season','Season reflection', prefs.reflect_season!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each season</p>
+          ${sw('nt-r-year','Year reflection', prefs.reflect_year!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of December 31</p>
+        </div>
         ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-card"><p class="gs-h">Beta</p><div class="gs-actions"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div></div>' : ''}
         </div>
       </div></div>`);
@@ -2527,6 +2537,7 @@ function app(tab){
     const bindSw2=(id,fn)=>{ const b=$('#'+id); if(!b) return; b.onclick=async()=>{ if(b.disabled) return; const on=!b.classList.contains('on'); b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false'); if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); }; };
     const save = (patch)=>{ pushPrefsSave(patch).then(p=>{ cur=p; }); pushTrack('push_prefs', { followup:!!(patch.followup!==undefined?patch.followup:cur.followup) }); };
     bindSw2('nt-followup', on=>save({ followup:on }));
+    ['week','month','season','year'].forEach(k=>bindSw2('nt-r-'+k, on=>save({ ['reflect_'+k]:on })));
     PUSH_DAYPARTS.forEach(d=>{
       const box=$('#nt-cit-'+d[0]), inp=$('#nt-time-'+d[0]);
       bindSw2('nt-ci-'+d[0], on=>{ if(box) box.style.display=on?'':'none'; const ct=Object.assign({}, cur.checkin_times||{}); if(on) ct[d[0]]=(inp&&inp.value)||d[2]; else delete ct[d[0]]; save({ checkin_times:ct }); });
@@ -3417,7 +3428,228 @@ function app(tab){
     }catch(e){ return { html:'', wire:null }; }
   }
 
-  function screenReflectionDeep(){
+  // ===========================================================================
+  // THE READER BLOG (2026-09-30; spec: snb-business Reader-Rework/READER-BLOG-SPEC.md).
+  // A daily post, a Sunday issue, and month / season / year posts on the calendar,
+  // built by reader.js from the margin and saved (frozen) when each period is released.
+  // Free members read the daily post and each issue's title and first snapshot; the
+  // rest sits below, locked (Justin, 2026-09-30).
+  // ===========================================================================
+  const RD_TIER = { week:'rweek', month:'rmonth', season:'rseason', year:'ryear' };
+  const RD_KIND_LABEL = { week:'Your week', month:'Your month', season:'Your season', year:'Your year' };
+  const RD_SNAP_TITLE = { week:'Your week', inside:'Inside your practices', firstlast:'First and latest' };
+  const RD_SNAP_CAP = {
+    week:'Each dot is a check-in. Dots above the line had more safety than defense. Circled dots are check-ins right after a practice.',
+    inside:'Your safety rating (0 to 10) at the start and end of each practice, and the anchor you used.',
+    monthgrid:'Each day\'s color is the state that showed up most.',
+    firstlast:'Your first check-in of the year, and your latest.'
+  };
+  function _rdData(){ return { checkins: Store.checkins(), sessions: Store.sessions(), store: Store }; }
+  function _rdPosts(){
+    return (Store.mints ? Store.mints() : []).filter(m => m && /^r(week|month|season|year)$/.test(m.tier||'') && m.data && m.data.post)
+      .map(m => Object.assign({ _id:m.id }, m.data.post));
+  }
+  // build one post for a period from the data as it stands now
+  function _rdBuild(p, data, posts, endOverride){
+    const R = window.Reader; if(!R) return null;
+    const per = endOverride ? Object.assign({}, p, { end:endOverride }) : p;
+    const f = R.compute(per, data); if(!f.n) return null;
+    const ctx = { name: (Store.getName && Store.getName()) || '', data, prev: R.compute(R.prevPeriod(p), data) };
+    // which teaching paragraph comes next: one per post, in order, never repeated until all have been shown
+    const tc = {}; (posts||[]).forEach(x=>{ if(x.teach && x.teach.state) tc[x.teach.state] = (tc[x.teach.state]||0) + 1; });
+    ctx.teachCounts = tc;
+    if(p.kind === 'week'){
+      const pw = []; let q = p; for(let i=0;i<6;i++){ q = R.prevPeriod(q); pw.push(R.compute(q, data)); }
+      ctx.prevWeeks = pw;
+      const ms = R.PERIOD.month(R.monthStart(p.start + 3*864e5));
+      ctx.monthSoFar = R.compute(Object.assign({}, ms, { end: Math.min(ms.end, per.end) }), data);
+      ctx.monthPrev = R.compute(R.prevPeriod(ms), data);
+      const lastW = (posts||[]).filter(x=>x.kind==='week' && x.release < p.release).sort((a,b)=>b.release-a.release)[0];
+      ctx.lastLead = lastW ? lastW.lead : null;
+      return R.buildWeek(f, ctx);
+    }
+    try{ ctx.movement = Store.skillMovement ? Store.skillMovement(p.start, per.end) : null; }catch(e){}
+    if(p.kind === 'month'){
+      let fastest = null; for(let i=1;i<=12;i++){ const m = R.compute(R.PERIOD.month(R.addMonths(p.start,-i)), data); if(m.comebacks && (fastest==null || m.comebacks.avg < fastest)) fastest = m.comebacks.avg; }
+      ctx.fastestBefore = fastest;
+      return R.buildMonth(f, ctx);
+    }
+    if(p.kind === 'season') return R.buildSeason(f, ctx);
+    return R.buildYear(f, ctx);
+  }
+  // save every post whose day has come (oldest first, so the teaching order holds)
+  function _rdMint(){
+    const R = window.Reader; if(!R || !Store.saveMint || !Store.hasMint) return;
+    const now = Date.now(), data = _rdData();
+    R.duePeriods(now).filter(p=>p.release <= now).sort((a,b)=>a.release-b.release).forEach(p=>{
+      const tier = RD_TIER[p.kind]; if(Store.hasMint(tier, p.key)) return;
+      const post = _rdBuild(p, data, _rdPosts());
+      if(post) Store.saveMint({ tier, date:p.key, dateMs:p.release, text:post.title, data:{ post } });
+    });
+  }
+  const LOCK_SVG = '<svg class="rd-lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  const SHARE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M6 12v6.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V12"/></svg>';
+  function _rdSnapInner(x){
+    if(x.snap === 'firstlast') return `<div class="rd-fl"><span class="rd-fl-i">${triGlyph(x.data.a)}<span>${escapeHtml(STATE_LABEL(x.data.a))}</span></span><span class="rd-fl-arw" aria-hidden="true">→</span><span class="rd-fl-i">${triGlyph(x.data.b)}<span>${escapeHtml(STATE_LABEL(x.data.b))}</span></span></div>`;
+    return window.Reader.snapSVG(x.snap, x.data, STATE_COLOR);
+  }
+  function _rdSnapHTML(x, i, opts){
+    const title = x.title || RD_SNAP_TITLE[x.snap] || '';
+    const cap = x.caption || RD_SNAP_CAP[x.snap] || '';
+    return `<figure class="rd-snap" data-i="${i}">
+      <div class="rd-snap-top"><span class="rd-eyeb">${escapeHtml(title)}</span>${opts && opts.noShare ? '' : `<button class="panel-share rd-share" type="button" aria-label="Share this snapshot">${SHARE_SVG}</button>`}</div>
+      ${_rdSnapInner(x)}
+      ${cap ? `<figcaption class="rd-cap">${escapeHtml(cap)}</figcaption>` : ''}
+    </figure>`;
+  }
+  function _rdMeta(post){ return escapeHtml((post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind]) + ' · ' + (post.minutes||1) + ' min read'); }
+  function _rdFirstSnap(post){ return (post.blocks||[]).find(x=>x.snap); }
+
+  // the blog home
+  function screenReflectionDeep(){ return screenReader(); }
+  function screenReader(){
+    _markReaderSeen();
+    try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} }
+    const R = window.Reader, now = Date.now(), DAY = 864e5;
+    const posts = R ? R.shelf(_rdPosts(), now) : [];
+    const cover = posts[0] || null;
+    const fresh = cover && (now - cover.release) < 7*DAY;
+    const coverEyeb = !cover ? '' : (cover.kind==='week' ? (fresh ? (new Date().getDay()===0 ? 'New this Sunday' : 'New this week') : 'This week') : (fresh ? 'New · ' : '') + RD_KIND_LABEL[cover.kind]);
+    const fs = cover ? _rdFirstSnap(cover) : null;
+    const coverHTML = cover ? `<button class="rd-cover" type="button" data-post="${escapeHtml(cover.key)}">
+        <span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>
+        ${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs)}</span>` : ''}
+        <span class="rd-cover-title">${escapeHtml(cover.title)}</span>
+        <span class="rd-meta">${_rdMeta(cover)}</span>
+      </button>` : '';
+    // the day, live
+    const td = Store.today ? Store.today() : null;
+    const dn = (td && td.n>=1 && FromJustin.daily) ? FromJustin.daily(td) : null;
+    const wd = DAYS_LONG[new Date().getDay()];
+    const dayHTML = (td && td.n>=1) ? `<section class="rd-day">
+        <span class="rd-eyeb">${escapeHtml(wd)}, so far</span>
+        ${dn ? `<p class="read-p" style="margin:6px 0 0">${boldHtml(dn.text)}</p>` : ''}
+        ${momentTimeline(td.moments, td.sessions)}
+      </section>` : `<section class="rd-day"><span class="rd-eyeb">${escapeHtml(wd)}, so far</span><p class="read-p" style="margin:6px 0 0">No check-ins yet. Your post for the day starts with your first one.</p></section>`;
+    // past days: two weeks, then they fade out (Justin: "those should fade out every couple of weeks")
+    const sod0 = (function(){ const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    const dailies = (Store.mints ? Store.mints() : []).filter(m=>m.tier==='daily' && m.dateMs < sod0 && m.dateMs >= sod0 - 14*DAY).sort((a,b)=>b.dateMs-a.dateMs);
+    const pastDays = dailies.length ? `<details class="rd-days"><summary class="rd-eyeb">The last two weeks of days</summary>${dailies.map(m=>{
+        const age = Math.round((sod0 - m.dateMs)/DAY), op = age > 10 ? Math.max(0.3, 1 - (age-10)*0.17) : 1;
+        const d = new Date(m.dateMs);
+        return `<button class="rd-row rd-dayrow" type="button" data-mint="${escapeHtml(m.id)}" style="opacity:${op.toFixed(2)}"><span class="rd-row-t"><b>${escapeHtml(DAYS_LONG[d.getDay()] + ', ' + d.toLocaleDateString(undefined,{month:'long',day:'numeric'}))}</b><span>${escapeHtml(String(m.text||'').split('. ')[0])}.</span></span><span class="wc-go">${CHEV}</span></button>`;
+      }).join('')}</details>` : '';
+    // earlier posts (the shelf), then old-style reflections until they age out
+    const thumb = p => { const c = p.kind==='week' ? STATE_COLOR(p.teachState||'safety') : 'var(--hairline)'; return `<span class="rd-thumb rd-thumb-${p.kind}" style="--th:${c}"></span>`; };
+    const rows = posts.slice(1).map(p=>`<button class="rd-row" type="button" data-post="${escapeHtml(p.key)}">${thumb(p)}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_rdMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`).join('');
+    const legacy = (Store.mints ? Store.mints() : []).filter(m=>/^(weekly|monthly|quarterly)$/.test(m.tier) && m.dateMs >= now - 92*DAY);
+    const legacyRows = legacy.map(m=>_archRow(m)).join('');
+    const earlier = (rows || legacyRows) ? `<section class="rd-earlier"><span class="rd-eyeb">Earlier</span>${rows}${legacyRows}</section>` : '';
+    const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
+    const preview = window.SNB_IS_STAGING ? `<section class="rd-preview"><span class="rd-eyeb">Beta only · show me this period's post</span><div class="p-chips">${['week','month','season','year'].map(k=>`<button class="p-chip" type="button" data-preview="${k}">${CAP(k)}</button>`).join('')}</div></section>` : '';
+    setHTML(`
+      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Back</button></header>
+      <div class="scroll">
+        <div class="view read rd" style="gap:0">
+          <div class="scr-head read-head"><h1 class="read-h1">Your Reflections</h1></div>
+          ${coverHTML}
+          ${dayHTML}
+          ${pastDays}
+          ${empty}
+          ${earlier}
+          ${preview}
+        </div>
+      </div>
+      <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
+    $('#rd-back').onclick = ()=>app('now');
+    $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    const byKey = {}; posts.forEach(p=>byKey[p.key]=p);
+    root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
+    root.querySelectorAll('.rd-dayrow').forEach(b=>b.onclick=()=>screenReaderDay(b.dataset.mint));
+    root.querySelectorAll('.rd-earlier .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
+    root.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>{
+      const k=b.dataset.preview, R2=window.Reader, now2=Date.now();
+      const start = k==='week' ? R2.weekStart(now2) : k==='month' ? R2.monthStart(now2) : k==='season' ? R2.quarterStart(now2) : R2.yearStart(now2);
+      const p = R2.PERIOD[k](start);
+      const post = _rdBuild(p, _rdData(), _rdPosts(), now2);
+      if(post) screenReaderPost(post, { preview:true });
+      else { b.textContent = 'No check-ins yet'; setTimeout(()=>{ b.textContent = CAP(k); }, 1800); }
+    });
+  }
+  const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  // one saved day
+  function screenReaderDay(id){
+    const m = (Store.mints ? Store.mints() : []).find(x=>x.id===id); if(!m) return screenReader();
+    const d0 = m.dateMs, d1 = d0 + 864e5;
+    const moments = Store.checkins().filter(c=>c && c.t>=d0 && c.t<d1 && typeof c.v==='number').sort((a,b)=>a.t-b.t).map(c=>Object.assign({}, c, { dom:_cDom(c) }));
+    const sessions = Store.sessions().filter(s=>s && s.t>=d0 && s.t<d1);
+    const d = new Date(d0);
+    setHTML(`
+      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Your Reflections</button></header>
+      <div class="scroll"><div class="view read rd" style="gap:0">
+        <span class="rd-eyeb">${escapeHtml(DAYS_LONG[d.getDay()] + ', ' + d.toLocaleDateString(undefined,{month:'long',day:'numeric'}))}</span>
+        <p class="read-p" style="margin:8px 0 0">${boldHtml(m.text||'')}</p>
+        ${momentTimeline(moments, sessions)}
+      </div></div>`);
+    $('#rd-back').onclick = screenReader;
+  }
+
+  // one post
+  function screenReaderPost(post, opts){
+    opts = opts || {};
+    const paid = paidNow();
+    const blocks = post.blocks || [];
+    const firstSnapI = blocks.findIndex(x=>x.snap);
+    const cut = paid ? blocks.length : (firstSnapI >= 0 ? firstSnapI + 1 : 1);
+    const shown = blocks.slice(0, cut);
+    // free: the title and the first snapshot are open; the essay's opening paragraph is part of the locked rest
+    const freeShown = paid ? shown : shown.filter(x=>x.snap);
+    const blockHTML = (x, i) => x.snap ? _rdSnapHTML(x, i) : `<p class="read-p${x.teach?' rd-teach':''}">${boldHtml(x.p)}</p>`;
+    const body = freeShown.map((x)=>blockHTML(x, blocks.indexOf(x))).join('');
+    const isNewest = !opts.preview && (function(){ const ps = _rdPosts().filter(x=>x.kind===post.kind).sort((a,b)=>b.release-a.release); return ps[0] && ps[0].key===post.key; })();
+    const reco = (paid && (isNewest || opts.preview)) ? _recommendSafe() : null;
+    const nextWord = post.kind==='week' ? 'Next week' : post.kind==='month' ? 'Next month' : post.kind==='season' ? 'Next season' : 'Next year';
+    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is on the paid plan.</b><span>The full post, the other snapshots, your journal reflections and your next practice.</span></span></button>`
+      : `
+        ${(post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal reflections</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
+        ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
+        ${reco ? `<section class="rd-next"><h3 class="sec-h">${nextWord}</h3><p class="read-p">Your recommended practice is ${escapeHtml(Store.practiceLabel(reco.practiceKey))}.</p><button class="btn block" id="rd-begin" type="button">Begin</button></section>` : ''}
+        ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
+    setHTML(`
+      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Your Reflections</button></header>
+      <div class="scroll"><div class="view read rd" style="gap:0">
+        ${opts.preview ? '<p class="rd-eyeb" style="color:var(--s-fight)">Beta preview · this period so far · not saved</p>' : ''}
+        <span class="rd-eyeb">${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
+        <h1 class="rd-title">${escapeHtml(post.title)}</h1>
+        <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
+        ${body}
+        ${tail}
+      </div></div>`);
+    $('#rd-back').onclick = screenReader;
+    const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
+    const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco);
+    const mo = $('#rd-more'); if(mo) mo.onclick = ()=>screenReaderEssay(post.teach.state, post);
+    if(post.chipQ && paid && !opts.preview) _wireCtxChips('r'+post.key);
+    // each snapshot shares as its own square card
+    root.querySelectorAll('.rd-share').forEach(b=>b.onclick=()=>{ const fig=b.closest('.rd-snap'); const t=(fig.querySelector('.rd-eyeb')||{}).textContent||''; openShare(t + ' · ' + post.title, fig); });
+  }
+
+  // the full state essay behind "More about …"
+  function screenReaderEssay(state, from){
+    const E = window.Reader && window.Reader.ESSAY[state]; if(!E) return screenReader();
+    setHTML(`
+      <header class="appbar read-appbar"><button class="backbtn" id="rd-back">Back</button></header>
+      <div class="scroll"><div class="view read rd" style="gap:0">
+        <div class="rd-essay-glyph">${triGlyph(state)}</div>
+        <h1 class="rd-title">${escapeHtml(E.title)}</h1>
+        ${E.sections.map(s=>`<h3 class="sec-h" style="margin:22px 0 8px">${escapeHtml(s[0])}</h3>${s[1].map(t=>`<p class="read-p">${escapeHtml(t)}</p>`).join('')}`).join('')}
+      </div></div>`);
+    $('#rd-back').onclick = ()=> from ? screenReaderPost(from) : screenReader();
+  }
+
+  // (retired 2026-09-30: the essay-per-state reader. Kept for reference until the next declutter.)
+  function _screenReflectionDeepOld(){
     // The reader — the weekly letter written from this person's own check-ins — is the
     // paid plan. Guarded here as well as at every call site (defense in depth).
     // (When the evergreen/personalized content tagging lands, the evergreen essays come
@@ -5078,7 +5310,7 @@ function app(tab){
     for(let i=0;i<8;i++){
       const mid=Math.round((lo+hi)/2);
       c.setAttribute('style', styleAt(mid,'auto'));
-      if(c.scrollHeight<=mid){ side=mid; hi=mid-1; } else { lo=mid+1; }
+      if(c.scrollHeight<=mid && c.scrollWidth<=mid){ side=mid; hi=mid-1; } else { lo=mid+1; }
       if(lo>hi) break;
     }
     c.setAttribute('style', styleAt(side, side+'px'));
@@ -5629,8 +5861,8 @@ function app(tab){
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
         <h3 class="yr-h">Your Reflection</h3>
-        <p class="yr-lede">The personal read of your patterns, in plain language.</p>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">Read your full reflection &middot; on the paid plan</span><span class="lk" aria-hidden="true"></span></span>
+        <p class="yr-lede">${(function(){ try{ const r=FromJustin.daily?FromJustin.daily():null; return (r&&r.text)?escapeHtml(r.text):'Your daily post and your Sunday reflection, from your own check-ins.'; }catch(e){ return 'Your daily post and your Sunday reflection, from your own check-ins.'; } })()}</p>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
       </a>
       <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">Your check-ins.</h2></div>
       <div class="deep">${dayHTML}</div>
@@ -5640,7 +5872,7 @@ function app(tab){
     const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
     const hi=$('#hx-impacts');  if(hi) hi.onclick = ()=>gateSubscribe('impacts');
     const hd=$('#hx-ideal');    if(hd) hd.onclick = ()=>gateSubscribe('ideal');
-    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); gateSubscribe('reader'); };
+    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); screenReader(); };
   }
 
   // ── You-tab pattern cards, rebuilt on margin (2026-09-07, Justin: "margin number
@@ -6310,7 +6542,7 @@ function app(tab){
           <a class="you-reader" id="you-reader" href="#">
             <h3 class="yr-h">Your Reflection</h3>
             <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p>
-            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
 
           <div class="deep">

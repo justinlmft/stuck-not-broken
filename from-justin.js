@@ -414,49 +414,54 @@
   // shared Arc line; a post-practice check-in swaps in a shared Delta line. Arrays
   // cycle no-repeat. State keys map dom -> his sections (play=safe & mobile,
   // stillness=safe & immobile, neutral=present/neutral).
+  // Plain-language rewrite (2026-09-30, Justin: "simply say what is trying to be said, in natural
+  // language… at maybe an 8th grade level"). His own rewrite opens the shutdown set. 🖊
+  // {This} becomes "This morning" / "This afternoon" / "This evening" / "Tonight".
   const DAILY = {
     safety: { policy:'open',
-      meet:["You're grounded in the here and now.","You're connected with the present moment.","Present and connected. (enough, at least.)"],
-      point:["Worth staying with for a moment, before the next thing pulls at you. (Which it probably will.)","A good opportunity to get familiar with this state, so it's easier to find again.","Rest in it for a moment. Take it in."],
-      ask:["What helped you arrive here, even a little?","What feels possible right now that doesn't always?","How is your body naturally breathing right now?"] },
+      meet:["You're grounded in the present moment.","You're connected with the present moment.","Present and connected, at least enough."],
+      point:["Stay with this for a moment, before the next thing pulls at you.","This is a good chance to get to know this state, so it's easier to find again.","Rest in it for a moment and take it in."],
+      ask:["What helped you get here, even a little?","What feels possible right now that doesn't always?","How is your body breathing right now?"] },
     play: { policy:'open',
-      meet:["Charged up but connected.","Energy moving, and it feels more like fuel than pressure.","Wound up but in a good way, with some ease in the mix."],
-      point:["Point it at one thing that matters.","If it wants company, spend it with someone who has earned your trust.","Keep a little safety in the mix, and it stays energized without the crash."],
-      ask:["What do you most want to put this toward right now?","What's one thing worth starting today?","What's something you've been putting off that you have the energy for now?","How is your body naturally breathing right now?"] },
+      meet:["Lots of energy, and you feel connected.","Your energy feels helpful, not stressful.","Energized, with some ease mixed in."],
+      point:["Use it on one thing that matters.","If you want company, spend it with someone you trust.","Keep a little safety with it, and the energy stays steady without a crash."],
+      ask:["What do you want to use this energy for right now?","What's one thing worth starting now?","What have you been putting off that you have the energy for now?","How is your body breathing right now?"] },
     stillness: { policy:'open',
-      meet:["Quiet, and okay being quiet.","Slowed all the way down, and okay with the slowness.","Settled and soft right now.","Stillness internally. And ability to connect with stillness externally."],
-      point:["This is an opportunity for real rest.","Nowhere to be for a minute. Let yourself marinate in it."],
-      ask:["When it's this quiet, what's been waiting for your attention?","What's easier to hear now than when things are loud?","An opportunity to connect with your inner world.","How is your body naturally breathing right now?"] },
+      meet:["Quiet, and okay with being quiet.","Slowed down, and okay with it.","Settled and calm right now.","Still inside, and able to be still where you are."],
+      point:["This is a chance for real rest.","Nowhere to be for a minute. Let yourself enjoy it."],
+      ask:["When it's this quiet, what's been waiting for your attention?","What's easier to hear when things are quiet?","This is a good time to notice what's going on inside you. What do you notice?","How is your body breathing right now?"] },
     fightflight: { policy:'sparing',
-      meet:["Wound up and hard to settle.","A lot of charge moving, looking for somewhere to go.","Maybe irritable. Maybe anxious. Maybe both?"],
-      point:["The internal activation is real, and the discomfort that it brings.","This kind of charge needs somewhere to go. A little movement on purpose helps more than holding still."],
-      ask:["What type of movement would your system love right now? Would you rather go for a run or lift weights? Use your legs or your arms?","What's the feeling underneath the internal activation?","How is your body naturally breathing right now?"] },
+      meet:["Wound up and hard to settle.","A lot of energy that needs somewhere to go.","Maybe irritable. Maybe anxious. Maybe both?"],
+      point:["The activation inside is real, and so is the discomfort it brings.","This energy needs somewhere to go. A little movement on purpose helps more than holding still."],
+      ask:["What kind of movement would feel good right now? A run or lifting weights? Using your legs or your arms?","What's the feeling under the activation?","How is your body breathing right now?"] },
     shutdown: { policy:'withhold',
-      meet:["Heavy, far-off, low on energy.","Flat and slowed down right now.","Little energy to care. Yet, you're showing up here."],
-      point:["You don't force your way out of this. One small, low-demand thing is plenty: a sip of tea, a look out the window, a toe wiggle.","It can feel permanent from the inside, even though it isn't. And yeah, maybe it's been this way for a long while."],
-      ask:["What's one sound you can hear without trying?","What's one color in front of you right now?","How is your body naturally breathing right now?"] },
+      meet:["{This} is heavier and slower so far.","Heavy, far away and low on energy.","Not much energy to care. And yet, you're here."],
+      point:["Your system might need one small, low-demand thing, like a sip of tea or a glance out the window.","You don't have to force your way out of this. One small, easy thing is plenty, like wiggling your toes.","It can feel like it will last forever, even though it won't. And maybe it's been this way for a long time."],
+      ask:["What's one sound you can hear without trying?","What's one color you can see right now?","How is your body breathing right now?"] },
     freeze: { policy:'sparing',
-      meet:["Braced. Wanting to move yet stuck at the same time.","Immobile on the outside, but a lot is going on inside.","Holding your breath without meaning to, huh?"],
-      point:["The way through isn't forced. A wiggle of the toes, a neck rotation, one big breath into the chest.","Pushing hard tends to lock it tighter. Smaller and slower is better for the system when you can."],
-      ask:["Can you roll your wrists or wiggle your toes? If so, a little movement just opened up.","Can you let the feeling be here without pushing it away? If not, that's okay for now.","Can you take one intentional breath and let it out slower? And then, can you stretch one part of your body?","How is your body naturally breathing right now?"] },
+      meet:["Tense. Wanting to move, but stuck at the same time.","Still on the outside, but a lot going on inside.","Holding your breath without meaning to?"],
+      point:["You don't have to force it. Try wiggling your toes, turning your neck or one big breath into your chest.","Pushing hard tends to make it tighter. Smaller and slower is better for your body when you can."],
+      ask:["Can you roll your wrists or wiggle your toes? If so, a little movement just opened up.","Can you let the feeling be here without pushing it away? If not, that's okay for now.","Can you take one slow breath and let it out even slower? Then stretch one part of your body?","How is your body breathing right now?"] },
     neutral: { policy:'open',
-      meet:["Hard to pin down right now, and that's fine.","Somewhere in between, nothing too obvious."],
+      meet:["Hard to tell right now, and that's fine.","Somewhere in between, nothing too clear."],
       point:["Nothing to change. Noticing is enough.","Check in whenever you're ready, or let it be for now."],
-      ask:["If you had to guess, what's one word for how this moment sits in your body?","How is your body naturally breathing right now?"] }
+      ask:["If you had to guess, what's one word for how your body feels right now?","How is your body breathing right now?"] }
   };
-  // Shared Arc line — 2nd+ same-day check-in, keyed to within-day movement.
+  // Shared Arc line — 2nd+ check-in of the day, keyed to the movement since the first.
   const DAILY_ARC = {
-    eased:   ["A couple of check-ins in today, and things have eased since this morning. Worth noticing the shift."],
-    charged: ["You started more grounded, and there's more energy now. Pay attention to that feeling and what it might want."],
-    mixed:   ["You've moved through a few different places today. That's range (and you're still showing up), not instability."],
-    steady:  ["Today has held pretty steady so far."]
+    eased:   ["You've checked in a few times, and things have eased since earlier. Notice that shift."],
+    charged: ["You started out more grounded, and there's more energy now. Notice that feeling and what it might want."],
+    mixed:   ["You've been in a few different states so far. That's range, not instability, and you're still showing up."],
+    steady:  ["Your check-ins have stayed pretty steady so far."]
   };
-  // Shared Delta line — post-practice check-in, keyed to the shift (the safety moment).
+  // Shared Delta line — the check-in right after a practice, keyed to the shift.
   const DAILY_DELTA = {
-    eased:    ["You did a practice, and you're more grounded now than before. These little practices add up over time."],
-    held:     ["The practice didn't shift much this time, which is okay. Showing up for the practice is the rep that builds, whether or not it moves obviously. An imperfect rep is still a rep."],
-    struggled:["That was a tough one to stay with, and you stayed anyway. That's the rep, even when it doesn't feel like one. It's something to learn from and adapt to next time."]
+    eased:    ["You did a practice, and you're more grounded now than before. These small practices add up."],
+    held:     ["The practice didn't change much this time, and that's okay. Showing up for the practice still counts, even when it doesn't feel like much."],
+    struggled:["That was a hard one to stay with, and you stayed anyway. That counts. It's something to learn from for next time."]
   };
+  const _THIS = { morning:'This morning', afternoon:'This afternoon', evening:'This evening', late:'Tonight' };
+  function _thisSeg(){ const h=new Date().getHours(); return _THIS[h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late']; }
   function _dailySecond(key, st){
     // pick Point or Ask: open -> alternate Ask/Point; sparing -> Ask ~1 in 4; withhold -> Point only
     let useAsk = false;
@@ -479,7 +484,7 @@
     }
     const dom = t.last.dom;
     const st = DAILY[dom] || DAILY.neutral;
-    const parts = [ cycle('daily-meet:'+dom, st.meet), _dailySecond(dom, st) ];
+    const parts = [ cycle('daily-meet:'+dom, st.meet).replace('{This}', _thisSeg()), _dailySecond(dom, st) ];
     // same-day extra line: a post-practice latest moment -> Delta; else 2+ moments -> Arc
     const M = t.moments || [];
     const lastM = M[M.length-1], prevM = M.length>=2 ? M[M.length-2] : null;
@@ -875,7 +880,7 @@
   // "SSIEC" is internal and never shown. Bridges are offered as a lens ("could be"),
   // never scored — more-safety stays the only scored axis. Straw phrasing 🖊 Justin owns;
   // the Direction-1 per-session template and the change-data conditional are his approved copy.
-  const EMO_BRIDGE = { anxious:'flight activation', angry:'fight activation', sad:'a move toward shutdown', fear:'a freeze response', connected:'a sign of safety in the system' };
+  const EMO_BRIDGE = { anxious:'flight energy', angry:'fight energy', sad:'a move toward shutdown', fear:'freeze', connected:'a sign of safety' };
   const PAT_BRIDGE = { anxious:'mobilized energy, the body geared up to act', angry:'mobilized energy, the body geared up to act', sad:'the body conserving, pulling inward', fear:'energy and brake at once', connected:'a sign of safety' };
   const _SKILL_WORD = { 'validate-defense':'validating', 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
   function _skillWord(k){ return _SKILL_WORD[k] || k; }
@@ -886,19 +891,19 @@
     const surf = (shift.surfaced || []).slice();
     if(!shift.intent){
       if(!surf.length) return '';
-      return 'You didn\'t set an intention this time, and ' + _artA(surf[0]) + surf[0] + ' emotion surfaced. Good job noticing what was maybe already there.';
+      return 'You didn\'t pick a feeling to work with this time, and ' + _artA(surf[0]) + surf[0] + ' feeling came up. Good job noticing what was already there.';
     }
     const nonConn = surf.filter(k => k!=='connected');
     const hasConn = surf.indexOf('connected') >= 0;
     let whatSurfaced;
-    if(!surf.length) whatSurfaced = 'not much this time';
+    if(!surf.length) whatSurfaced = 'nothing in particular';
     else { const primary = nonConn[0] || surf[0];
       whatSurfaced = _artA(primary) + primary + ' one';
       if(hasConn && primary!=='connected') whatSurfaced += ', along with a connected one'; }
-    let s = 'You set out to work with ' + _artA(shift.intent) + shift.intent + ' emotion, and what surfaced was ' + whatSurfaced + '. This is totally normal and expected. The body brings forth what it\'s ready for, not necessarily what we have planned for it.';
+    let s = 'You set out to work with ' + _artA(shift.intent) + shift.intent + ' feeling, and ' + whatSurfaced + ' came up. That\'s normal. Your body brings up what it\'s ready for, not always what we plan.';
     const bits = [];
     const primary = nonConn[0];
-    if(primary && EMO_BRIDGE[primary]) bits.push('The ' + primary + ' emotion could be ' + EMO_BRIDGE[primary]);
+    if(primary && EMO_BRIDGE[primary]) bits.push('The ' + primary + ' feeling could be ' + EMO_BRIDGE[primary]);
     if(hasConn) bits.push('the connected one is ' + EMO_BRIDGE.connected);
     if(bits.length) s += ' ' + bits.join('; ') + '.';
     return s;
