@@ -3447,9 +3447,7 @@ function app(tab){
   const RD_KIND_LABEL = { week:'Your week', month:'Your month', season:'Your season', year:'Your year' };
   const RD_SNAP_TITLE = { week:'Your week', inside:'Inside your practices', firstlast:'First and latest' };
   const RD_SNAP_CAP = {
-    week:'Each dot is a check-in. Dots above the line had more safety than defense. Circled dots are check-ins right after a practice.',
-    inside:'Your safety rating (0 to 10) at the start and end of each practice, and the anchor you used.',
-    monthgrid:'Each day\'s color is the state that showed up most.',
+    inside:'Safety per practice from start to finish.',
     firstlast:'Your first check-in of the year, and your latest.'
   };
   function _rdData(){ return { checkins: Store.checkins(), sessions: Store.sessions(), store: Store }; }
@@ -3497,16 +3495,59 @@ function app(tab){
   }
   const LOCK_SVG = '<svg class="rd-lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   const SHARE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M6 12v6.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V12"/></svg>';
-  function _rdSnapInner(x){
-    if(x.snap === 'firstlast') return `<div class="rd-fl"><span class="rd-fl-i">${triGlyph(x.data.a)}<span>${escapeHtml(STATE_LABEL(x.data.a))}</span></span><span class="rd-fl-arw" aria-hidden="true">→</span><span class="rd-fl-i">${triGlyph(x.data.b)}<span>${escapeHtml(STATE_LABEL(x.data.b))}</span></span></div>`;
-    return window.Reader.snapSVG(x.snap, x.data, STATE_COLOR);
+  // the logo marks of a state, each mark the same height whether alone or in a pair
+  // (Justin, 2026-10-01: "those are essential"; "a group of 2 glyphs looks smaller than a single one")
+  function _rdMk(key, cls){
+    const ax = STATE_AXES[key]; if(!ax) return '';
+    const col = STATE_COLOR(key);
+    return `<span class="rd-mk${cls?' '+cls:''}" aria-hidden="true">${ax.map(([icn])=>ico(icn,{cls:'rd-mkg', color:col})).join('')}</span>`;
   }
+  // a change from one state to another: the first state's marks, a gradient arrow, the next state's marks
+  function _rdFlow(a, b){
+    return `<div class="rd-flow" aria-hidden="true">${_rdMk(a)}<span class="rd-flow-path" style="background:linear-gradient(90deg,${STATE_COLOR(a)},${STATE_COLOR(b)})"></span>${CB_ARROW.replace('class="cb-arrow"', `class="rd-flow-arw" style="color:${STATE_COLOR(b)}"`)}${_rdMk(b)}</div>`;
+  }
+  const RD_ORDER = ['safety','play','stillness','fightflight','freeze','shutdown'];
+  // "getting back to safety": from the defensive state, the steps it took, to the heart
+  function _rdThenNow(d){
+    return `<div class="rd-tn">${(d.rows||[]).map(r=>{
+      const k = r[2] || null, n = Math.max(1, Math.min(8, Math.round(r[1]||1))), from = k ? STATE_COLOR(k) : 'var(--muted)';
+      const dots = Array.from({length:n}).map((_,i)=>`<i style="background:color-mix(in srgb, ${from} ${Math.round(100-(i+1)*100/(n+1))}%, ${STATE_COLOR('safety')})"></i>`).join('');
+      return `<div class="rd-tn-row"><span class="rd-tn-lbl">${escapeHtml(r[0])}</span>${k ? _rdMk(k) : '<span class="rd-tn-nomk"></span>'}<span class="rd-tn-dots" style="background-image:linear-gradient(90deg,${from},${STATE_COLOR('safety')})">${dots}</span>${_rdMk('safety')}<span class="rd-tn-n">${escapeHtml('about ' + Math.round(r[1]))}</span></div>`;
+    }).join('')}</div>`;
+  }
+  function _rdSnapInner(x, post){
+    if(x.snap === 'firstlast') return `<div class="rd-fl"><span class="rd-fl-i">${triGlyph(x.data.a)}<span>${escapeHtml(STATE_LABEL(x.data.a))}</span></span><span class="rd-fl-arw" aria-hidden="true">→</span><span class="rd-fl-i">${triGlyph(x.data.b)}<span>${escapeHtml(STATE_LABEL(x.data.b))}</span></span></div>`;
+    if(x.snap === 'thennow') return _rdThenNow(x.data);
+    let d = x.data;
+    if((x.snap === 'strip' || x.snap === 'ribbon') && post && window.Reader.weekStart) d = Object.assign({}, d, { ws0: window.Reader.weekStart(post.start) });
+    let html = window.Reader.snapSVG(x.snap, d, STATE_COLOR);
+    // the week: a legend of colored dots for the states in it (Justin: dots, not marks, here)
+    if(x.snap === 'week' && !d.focus){
+      const ks = RD_ORDER.filter(k => (d.pts||[]).some(p=>p.key===k));
+      if(ks.length) html += `<div class="rd-legend">${ks.map(k=>`<span><i style="background:${STATE_COLOR(k)}"></i>${escapeHtml(STATE_LABEL(k))}</span>`).join('')}</div>`;
+    }
+    return html;
+  }
+  // "Sam's summer 2026", "Sam's 2026" (Justin, 2026-10-01)
+  function _rdOwner(){ const nm = (Store.getName && Store.getName()) || ''; return nm ? nm + "'s" : 'Your'; }
+  function _rdStripTitle(post, kind){
+    if(!post) return '';
+    const y = new Date(post.start).getFullYear();
+    if(kind === 'ribbon') return _rdOwner() + ' ' + y;
+    const season = String(post.label||'').replace(/^Your /,'');
+    return _rdOwner() + ' ' + season + ' ' + y;
+  }
+  const RD_NOCAP = { week:1, monthgrid:1, strip:1, ribbon:1 };
   function _rdSnapHTML(x, i, opts){
-    const title = x.title || RD_SNAP_TITLE[x.snap] || '';
-    const cap = x.caption || RD_SNAP_CAP[x.snap] || '';
+    opts = opts || {};
+    let title = x.title || RD_SNAP_TITLE[x.snap] || '';
+    if(x.snap === 'strip' || x.snap === 'ribbon') title = _rdStripTitle(opts.post, x.snap);
+    if(x.snap === 'monthgrid' && opts.post) title = _rdOwner() + ' ' + new Date(opts.post.start).toLocaleString('en-US',{ month:'long' });
+    const cap = RD_NOCAP[x.snap] ? '' : (x.snap === 'inside' ? RD_SNAP_CAP.inside : (x.caption || RD_SNAP_CAP[x.snap] || ''));
+    const mk = x.snap === 'inside' ? _rdMk('safety') : '';
     return `<figure class="rd-snap" data-i="${i}">
-      <div class="rd-snap-top"><span class="rd-eyeb">${escapeHtml(title)}</span>${opts && opts.noShare ? '' : `<button class="panel-share rd-share" type="button" aria-label="Share this snapshot">${SHARE_SVG}</button>`}</div>
-      ${_rdSnapInner(x)}
+      <div class="rd-snap-top"><span class="rd-eyeb${mk?' rd-eyeb-mk':''}">${mk}${escapeHtml(title)}</span>${opts.noShare ? '' : `<button class="panel-share rd-share" type="button" aria-label="Share this snapshot">${SHARE_SVG}</button>`}</div>
+      ${_rdSnapInner(x, opts.post)}
       ${cap ? `<figcaption class="rd-cap">${escapeHtml(cap)}</figcaption>` : ''}
     </figure>`;
   }
@@ -3562,7 +3603,7 @@ function app(tab){
     const coverEyeb = !cover ? '' : (cover.kind==='week' ? (fresh ? (new Date().getDay()===0 ? 'New this Sunday' : 'New this week') : 'This week') : (fresh ? 'New · ' : '') + RD_KIND_LABEL[cover.kind]);
     const fs = cover ? _rdFirstSnap(cover) : null;
     const coverHTML = cover ? `<button class="rd-cover" type="button" data-post="${escapeHtml(cover.key)}" style="--band:${STATE_COLOR(cover.teachState||'safety')}">
-        <span class="rd-cover-band"><span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs)}</span>` : ''}</span>
+        <span class="rd-cover-band"><span class="rd-cover-bandtop"><span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>${_rdMk(cover.teachState||'safety','rd-mk-lg')}</span>${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs, cover)}</span>` : ''}</span>
         <span class="rd-cover-body">
           <span class="rd-cover-title">${escapeHtml(cover.title)}</span>
           <span class="rd-cover-foot"><span class="rd-cover-meta">${escapeHtml(cover.label||'')}</span><span class="rd-read">Read · ${escapeHtml(String(cover.minutes||1))} min${CHEV}</span></span>
@@ -3574,13 +3615,17 @@ function app(tab){
     const todayBody = (td && td.n>=1)
       ? `${dn ? `<p class="read-p rd-today-p">${boldHtml(dn.text)}</p>` : ''}${momentTimeline(td.moments, td.sessions)}`
       : `<p class="read-p rd-today-p">No check-ins yet. Your note for the day starts with your first one.</p>`;
+    const lastC = (td && td.n>=1 && Store.lastCheckin) ? Store.lastCheckin() : null;
+    const lastK = lastC ? _cDom(lastC) : null;
+    const dailyLearn = (td && td.n>=1 && lastK) ? _lrnForDaily(lastK) : null;
     const todayHTML = `<section class="rd-today">
-        <span class="rd-eyeb">Today</span>
+        <div class="rd-today-top"><span class="rd-eyeb">Today</span>${lastK ? _rdMk(lastK) : ''}</div>
         ${todayBody}
-        <div class="rd-today-foot"><p>This note changes each time you check in. ${escapeHtml(_rdNextLine())}</p><button class="rd-checkin" id="rd-checkin" type="button">Check in</button></div>
+        ${dailyLearn ? _lrnCardHTML(dailyLearn, 'rd-lcard-sm') : ''}
+        <div class="rd-today-foot"><p>${escapeHtml(_rdNextLine())}</p><button class="rd-checkin" id="rd-checkin" type="button">Check in</button></div>
       </section>`;
     // the posts, as a list (past days are cut: Justin, 2026-10-01)
-    const thumb = p => { const c = p.kind==='week' ? STATE_COLOR(p.teachState||'safety') : 'var(--hairline)'; return `<span class="rd-thumb rd-thumb-${p.kind}" style="--th:${c}"></span>`; };
+    const thumb = p => `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.teachState||'safety')}</span>`;
     const rows = posts.slice(1).map(p=>`<button class="rd-row" type="button" data-post="${escapeHtml(p.key)}">${thumb(p)}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_rdMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`).join('');
     const legacy = (Store.mints ? Store.mints() : []).filter(m=>/^(weekly|monthly|quarterly)$/.test(m.tier) && m.dateMs >= now - 92*DAY);
     const legacyRows = legacy.map(m=>_archRow(m)).join('');
@@ -3598,6 +3643,7 @@ function app(tab){
     root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
     root.querySelectorAll('.rd-list .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
     const ci = $('#rd-checkin'); if(ci) ci.onclick = ()=>screenCheckin();
+    root.querySelectorAll('.rd-today [data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning && Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, dailyLearn.ctx, null); });
     root.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>{
       const k=b.dataset.preview, R2=window.Reader, now2=Date.now();
       const start = k==='week' ? R2.weekStart(now2) : k==='month' ? R2.monthStart(now2) : k==='season' ? R2.quarterStart(now2) : R2.yearStart(now2);
@@ -3632,7 +3678,7 @@ function app(tab){
     const shown = blocks.slice(0, cut);
     // free: the title and the first snapshot are open; the essay's opening paragraph is part of the locked rest
     const freeShown = paid ? shown : shown.filter(x=>x.snap);
-    const blockHTML = (x, i) => x.snap ? _rdSnapHTML(x, i) : `<p class="read-p${x.teach?' rd-teach':''}">${boldHtml(x.p)}</p>`;
+    const blockHTML = (x, i) => x.snap ? _rdSnapHTML(x, i, { post }) : `<p class="read-p${x.teach?' rd-teach':''}">${boldHtml(x.p)}</p>`;
     const body = freeShown.map((x)=>blockHTML(x, blocks.indexOf(x))).join('');
     const isNewest = !opts.preview && (function(){ const ps = _rdPosts().filter(x=>x.kind===post.kind).sort((a,b)=>b.release-a.release); return ps[0] && ps[0].key===post.key; })();
     const reco = (paid && (isNewest || opts.preview)) ? _recommendSafe() : null;
@@ -3640,6 +3686,7 @@ function app(tab){
     // (skipped when the post itself already says it, as posts built after the answer do)
     const prevA = (paid && post.chipQ && !opts.preview && !blocks.some(x=>x.p && /^Last (week|month|season|year), you named/.test(x.p))) ? _rdPrevAnswer(post) : null;
     const lastWord = { week:'week', month:'month', season:'season', year:'year' }[post.kind] || 'time';
+    let learn = null; try{ learn = opts.preview ? null : _lrnForPost(post); }catch(e){ learn = null; }
     const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is on the paid plan.</b><span>The full post, the other snapshots, your journal and your next practice.</span></span></button>`
       : `
         ${(post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
@@ -3649,12 +3696,14 @@ function app(tab){
         ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
     _rdShell(`
         ${opts.preview ? '<p class="rd-eyeb" style="color:var(--s-fight)">Beta preview · this period so far · not saved</p>' : ''}
-        <span class="rd-eyeb">${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
+        <span class="rd-eyeb rd-eyeb-mk">${_rdMk(post.teachState||'safety')}${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
         <h1 class="rd-title">${escapeHtml(post.title)}</h1>
         <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
         ${body}
-        ${tail}`, { back:'Your Reflections', onBack:screenReader });
+        ${tail}
+        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back:'Your Reflections', onBack:screenReader });
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
+    root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));
     const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco);
     const mo = $('#rd-more'); if(mo) mo.onclick = ()=>screenReaderEssay(post.teach.state, post);
     if(post.chipQ && paid && !opts.preview) _wireCtxChips('r'+post.key);
@@ -3670,6 +3719,151 @@ function app(tab){
         <h1 class="rd-title">${escapeHtml(E.title)}</h1>
         ${E.sections.map(s=>`<h3 class="sec-h" style="margin:22px 0 8px">${escapeHtml(s[0])}</h3>${s[1].map(t=>`<p class="read-p">${escapeHtml(t)}</p>`).join('')}`).join('')}`,
       { back:'Back', onBack:()=> from ? screenReaderPost(from) : screenReader() });
+  }
+
+  // ===========================================================================
+  // RECOMMENDED LEARNING (Justin, 2026-10-01; spec READER-BLOG-SPEC.md, map LEARNING-GROUPS.md).
+  // At the end of every post (the daily one too): one of Justin's pieces, at full length, with the
+  // member's own data in callouts labeled "{Name}'s {context}". Free members read the whole piece;
+  // their results are locked. The library is learning.js (window.Learning).
+  // ===========================================================================
+  const LRN_NOUN = { week:'this week', month:'this month', season:'this season', year:'this year', daily:'lately' };
+  const LRN_POSS = { week:"this week's", month:"this month's", season:"this season's", year:"this year's", daily:'your recent' };
+  function _lrnPicks(){ try{ return JSON.parse(localStorage.getItem('snb_lrn_picks')||'{}') || {}; }catch(e){ return {}; } }
+  function _lrnSavePick(key, v){ try{ const m=_lrnPicks(); m[key]=v; localStorage.setItem('snb_lrn_picks', JSON.stringify(m)); }catch(e){} }
+  // the next piece in a group: a post keeps the piece it was given; a new post takes the next one in line
+  function _lrnChoose(group, postKey){
+    const L = window.Learning, pieces = L ? L.inGroup(group) : []; if(!pieces.length) return null;
+    const picks = _lrnPicks(), had = picks[postKey];
+    if(had && had.group === group){ const p = L.byId(had.id); if(p) return p; }
+    const used = Object.keys(picks).filter(k=>picks[k] && picks[k].group===group).length;
+    const p = pieces[used % pieces.length];
+    _lrnSavePick(postKey, { id:p.id, group });
+    return p;
+  }
+  function _lrnPeriodCtx(kind, start, end){
+    const R = window.Reader; const per = { kind: kind==='daily' ? 'week' : kind, start, end };
+    let f = null; try{ f = R.compute(per, _rdData()); }catch(e){ f = null; }
+    return { kind, f, noun:LRN_NOUN[kind], poss:LRN_POSS[kind] };
+  }
+  // one post: rotate the way of matching post to post (state, insight, journal); fall through to the next way
+  function _lrnForPost(post){
+    const L = window.Learning, R = window.Reader; if(!L || !R || !post) return null;
+    const ps = _rdPosts().slice().sort((a,b)=>a.release-b.release);
+    let idx = ps.findIndex(x=>x.key===post.key); if(idx < 0) idx = ps.length;
+    let tags = (_ctxLoad()['r'+post.key]||[]).filter(t=>t && t!=='something else'), tagWhen = 'this';
+    if(!tags.length){ const pa = _rdPrevAnswer(post); if(pa){ tags = pa.tags; tagWhen = 'last'; } }
+    const st = post.teachState || 'safety';
+    const ways = [
+      () => ({ group: st, why: `${STATE_LABEL(st)} led your ${post.kind==='week'?'week':post.kind}, so this one is about ${STATE_NAME(st)}, with your own check-ins in it.` }),
+      () => (post.lead && L.INSIGHT_GROUP[post.lead]) ? { group: L.INSIGHT_GROUP[post.lead], why: 'Picked for what your week showed, with your own check-ins in it.' } : null,
+      () => tags.length && L.CHIP_GROUP[tags[0]] ? { group: L.CHIP_GROUP[tags[0]], why: `${tagWhen==='this' ? 'You named' : 'Last ' + (post.kind==='week'?'week':post.kind) + ', you named'} ${tags[0]}. This one goes with it.` } : null
+    ];
+    for(let k=0;k<3;k++){
+      const w = ways[(idx + k) % 3](); if(!w) continue;
+      const piece = _lrnChoose(w.group, post.key); if(!piece) continue;
+      const per = R.PERIOD[post.kind] ? R.PERIOD[post.kind](post.start) : null;
+      const ctx = _lrnPeriodCtx(post.kind, post.start, per ? per.end : post.release);
+      return { piece, why: w.why, ctx };
+    }
+    return null;
+  }
+  // the daily post (Today): the latest check-in's state, over the last seven days
+  function _lrnForDaily(stateKey){
+    const L = window.Learning; if(!L) return null;
+    const d = new Date(); d.setHours(0,0,0,0);
+    const piece = _lrnChoose(stateKey, 'd' + d.toISOString().slice(0,10)); if(!piece) return null;
+    const now = Date.now();
+    return { piece, why: `Your latest check-in was ${STATE_NAME(stateKey)}. This one is about ${STATE_NAME(piece.state)}.`, ctx: _lrnPeriodCtx('daily', now - 7*864e5, now + 1) };
+  }
+  function _lrnCardHTML(learn, cls){
+    const p = learn.piece, st = p.state || 'safety';
+    return `<button class="rd-lcard${cls?' '+cls:''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(st)}">
+        <span class="rd-lcard-band"><span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span><span class="rd-lcard-title">${escapeHtml(p.title)}</span></span>
+        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(learn.why)}</span><span class="rd-cover-foot"><span class="rd-cover-meta">By Justin</span><span class="rd-read">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></span>
+      </button>`;
+  }
+  // words for a share, never "X of N"
+  function _lrnShareWords(x){ return x >= 0.9 ? 'Almost all' : x >= 0.6 ? 'Most' : x >= 0.45 ? 'About half' : x >= 0.3 ? 'About a third' : x >= 0.2 ? 'About a quarter' : 'A few'; }
+  const _lrnTimes = n => n===1 ? 'once' : n===2 ? 'twice' : n + ' times';
+  const _lrnPart = t => { const h = new Date(t).getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night'; };
+  // one callout: { mk, label, text, card } or null when the data has nothing to show (then it is skipped)
+  function _lrnCallout(id, ctx){
+    const f = ctx.f; if(!f || !f.n) return null;
+    const rs = f.rs || [], owner = _rdOwner();
+    if(id === 'freeze-share'){
+      const fz = rs.filter(r=>r.key==='freeze'); if(!fz.length) return null;
+      let days = '';
+      if(ctx.kind === 'week'){
+        const cnt = {}; fz.forEach(r=>{ const d=new Date(r.t).getDay(); cnt[d]=(cnt[d]||0)+1; });
+        const ds = Object.keys(cnt).map(Number).sort((a,b)=>a-b);
+        let best = null; for(let i=0;i<ds.length;i++){ let j=i; while(j+1<ds.length && ds[j+1]===ds[j]+1) j++; const run=ds.slice(i,j+1), c=run.reduce((a,d)=>a+cnt[d],0); if(!best || c>best.c) best={ run, c }; i=j; }
+        if(best && best.c/fz.length >= 0.6 && best.run.length <= 4) days = best.run.length===1 ? ', mostly on ' + DAYS_LONG[best.run[0]] : ', mostly ' + DAYS_LONG[best.run[0]] + ' to ' + DAYS_LONG[best.run[best.run.length-1]];
+      }
+      const card = ctx.kind === 'week' ? `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('week', { ws:f.p.start, focus:'freeze', pts: rs.map(r=>({ d:new Date(r.t).getDay(), h:new Date(r.t).getHours()+new Date(r.t).getMinutes()/60, m:r.m, key:r.key })) }, STATE_COLOR)}</figure>` : '';
+      return { mk:'freeze', label: owner + ' freeze', text: `${_lrnShareWords(fz.length/rs.length)} of ${ctx.poss} check-ins were freeze${days}.`, card };
+    }
+    if(id === 'freeze-and-shutdown'){
+      const nf = rs.filter(r=>r.key==='freeze').length, ns = rs.filter(r=>r.key==='shutdown').length; if(!nf || !ns) return null;
+      let seq = 0, first = null; for(let i=1;i<rs.length;i++) if(rs[i-1].key==='freeze' && rs[i].key==='shutdown'){ seq++; first = first || rs[i]; }
+      const text = `Freeze ${_lrnTimes(nf)} ${ctx.noun}, shutdown ${_lrnTimes(ns)}.` + (seq ? ` ${CAP(_lrnTimes(seq))}, shutdown came right after freeze.` : '');
+      return { mk:'freeze', label: owner + ' freeze and shutdown', text, card: seq ? _rdFlow('freeze','shutdown') : '' };
+    }
+    if(id === 'safety-share'){
+      if(f.n < 5) return null;
+      const share = f.nSafe / f.n;
+      const amt = f.n >= 10 ? Math.round(share*100) + '%' : _lrnShareWords(share);
+      if(amt === '100%' && f.n < 20) return null;
+      return { mk:'safety', label: owner + ' safety', text: `${amt} of ${ctx.poss} check-ins had more safety than defense.` };
+    }
+    if(id === 'practice-rise'){
+      const ps = (f.practices||[]).filter(x=>x.s0!=null && x.s1!=null); if(!ps.length) return null;
+      const up = ps.filter(x=>x.s1 > x.s0).length; if(!up) return null;
+      const text = up === ps.length ? `Each time you practiced ${ctx.noun}, safety went up.` : `Safety went up in ${up===1?'one practice':up+' practices'} ${ctx.noun}.`;
+      const ins = ps.slice(-5).map(x=>({ day:DAYS_LONG[x.day].slice(0,3), anchor:null, s0:x.s0, s1:x.s1, best:false }));
+      return { mk:'safety', label: owner + ' practices', text, card: `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('inside', ins, STATE_COLOR)}<figcaption class="rd-cap">${escapeHtml(RD_SNAP_CAP.inside)}</figcaption></figure>` };
+    }
+    if(id === 'freeze-eased'){
+      let pair = null;
+      for(let i=rs.length-1;i>=0 && !pair;i--){ if(rs[i].key!=='freeze') continue; for(let j=i+1;j<rs.length;j++) if(rs[j].safe){ pair = [rs[i], rs[j]]; break; } }
+      if(!pair) return null;
+      const d0 = DAYS_LONG[new Date(pair[0].t).getDay()], same = new Date(pair[0].t).toDateString() === new Date(pair[1].t).toDateString();
+      const by = same ? 'that ' + _lrnPart(pair[1].t) : DAYS_LONG[new Date(pair[1].t).getDay()] + ' ' + _lrnPart(pair[1].t);
+      return { mk:'freeze', label: owner + ' ' + d0, text: `${d0}'s freeze eased by ${by}.`, card: _rdFlow('freeze', pair[1].key) };
+    }
+    return null;
+  }
+  function _lrnInline(s){ return escapeHtml(s).replace(/&lt;(\/?)(b|i)&gt;/g, '<$1$2>').replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>'); }
+  // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
+  function _lrnPracticeReco(b){
+    const base = _recommendSafe(true);
+    if(b.practice === 'custom') return base;
+    return { practiceKey:b.practice, sense: b.sense || base.sense || 'touch', silence: base.silence || 8, reason: b.why || null };
+  }
+  function screenLearnPiece(piece, ctx, fromPost){
+    const paid = paidNow(), st = piece.state || 'safety';
+    const back = fromPost ? ()=>screenReaderPost(fromPost) : screenReader;
+    const body = (piece.blocks||[]).map(b=>{
+      if(b.h) return `<h2 class="rd-lh">${_lrnInline(b.h)}</h2>`;
+      if(b.h3) return `<h3 class="rd-lh3">${_lrnInline(b.h3)}</h3>`;
+      if(b.ul) return `<ul class="rd-llist">${b.ul.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ul>`;
+      if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
+      if(b.practice) return `<section class="rd-next rd-lprac"><h3 class="sec-h">Try it now</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(b.practice==='custom' ? 'Your custom practice' : CAP(Store.practiceLabel(b.practice)))}</b><span>${escapeHtml(b.why || 'Built from your check-ins.')}</span></span>${CHEV}</button></section>`;
+      if(b.callout){
+        const c = _lrnCallout(b.callout, ctx); if(!c) return '';
+        const col = STATE_COLOR(c.mk);
+        if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col}"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
+        return `<div class="rd-call" style="--cs:${col}"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}</div>`;
+      }
+      return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
+    }).join('');
+    _rdShell(`
+        <span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}Recommended learning · ${escapeHtml(STATE_NAME(st))}</span>
+        <h1 class="rd-title">${escapeHtml(piece.title)}</h1>
+        <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
+        ${body}`, { back: fromPost ? 'Back' : 'Your Reflections', onBack: back });
+    root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), 'practice'); });
   }
 
   // (retired 2026-09-30: the essay-per-state reader. Kept for reference until the next declutter.)

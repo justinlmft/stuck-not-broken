@@ -18,7 +18,7 @@
 
    Deterministic: the same data always builds the same words (variants are chosen by
    a hash of the period key), so two devices agree and a frozen post never changes.
-   Exposes window.Reader. Pure where it can be: compute(), build*() take data in.
+   Exposes window.Reader (markSVG too). Pure where it can be: compute(), build*() take data in.
    ========================================================================== */
 (function (global) {
   'use strict';
@@ -489,7 +489,7 @@
     const pool = [];
     const mNow = ctx.monthSoFar, mPrev = ctx.monthPrev;
     if(mNow && mPrev && mNow.comebacks && mPrev.comebacks)
-      pool.push({ snap:'thennow', title:'Then and now', data:{ rows:[ [MONTHS[new Date(mPrev.p.start).getMonth()], mPrev.comebacks.avg], [MONTHS[new Date(mNow.p.start).getMonth()], mNow.comebacks.avg] ] },
+      pool.push({ snap:'thennow', title:'Then and now', data:{ rows:[ [MONTHS[new Date(mPrev.p.start).getMonth()], mPrev.comebacks.avg, mPrev.defFlavor ? mPrev.defFlavor.key : null], [MONTHS[new Date(mNow.p.start).getMonth()], mNow.comebacks.avg, mNow.defFlavor ? mNow.defFlavor.key : null] ] },
         caption:'How many check-ins it took to get back to more safety than defense after a defensive dip. This snapshot changes every week.' });
     const segK = Object.keys(f.segs);
     const segShares = segK.map(s=>f.segs[s].share);
@@ -533,7 +533,7 @@
     if(pm && prev.n >= 8) p1 += ' In ' + pm + ', ' + didWord(howMuch(prev.share, prev.n)) + '.';
     if(f.defFlavor) p1 += ' When defense showed up, it was mostly ' + b(defName) + '.';
     post.blocks.push({ p: S(p1) });
-    post.blocks.push({ snap:'monthgrid', data: monthGridData(f), caption:'Each day\'s color is the state that showed up most.' });
+    post.blocks.push({ snap:'monthgrid', data: monthGridData(f) });
     if(topSeg){
       let s = 'Your system in the ' + SEG_PLURAL[topSeg] + ' typically had more safety than defense, compared to ' + (segBeatLast && pm ? pm + ' and compared to ' : '') + SEG_PLURAL[lowSeg] + '.';
       post.blocks.push({ p:s });
@@ -601,7 +601,7 @@
     if(prev && prev.n >= 20) p1 += ' Last season, ' + didWord(howMuch(prev.share, prev.n)) + '.';
     p1 += ' That\'s ' + b(f.n + ' check-ins') + ' over ' + f.days.length + ' days.';
     post.blocks.push({ p: S(p1) });
-    post.blocks.push({ snap:'strip', title:'Your ' + p.name + ', week by week', data:{ rows:(f.weeks||[]).map(w=>w.n?w.top:null) }, caption:'Each bar is one week, colored by the state that showed up most.' });
+    post.blocks.push({ snap:'strip', data:{ rows:(f.weeks||[]).map(w=>w.n?w.top:null) } });
     // then and now
     if(m0.n >= 5 && m2.n >= 5){
       const a = MONTHS[new Date(m0.p.start).getMonth()], c = MONTHS[new Date(m2.p.start).getMonth()];
@@ -611,7 +611,7 @@
     }
     if(m0.comebacks && m2.comebacks){
       post.blocks.push({ p: 'After a defensive dip, it took ' + comebackWords(m0.comebacks.avg) + ' to get back to more safety than defense in ' + MONTHS[new Date(m0.p.start).getMonth()] + '. In ' + MONTHS[new Date(m2.p.start).getMonth()] + ', it took ' + comebackWords(m2.comebacks.avg) + '.' + (faster ? ' Your system is finding its way back faster.' : '') });
-      post.blocks.push({ snap:'thennow', title:'Then and now', data:{ rows:[[MONTHS[new Date(m0.p.start).getMonth()], m0.comebacks.avg],[MONTHS[new Date(m2.p.start).getMonth()], m2.comebacks.avg]] }, caption:'How many check-ins it took to get back to more safety than defense after a defensive dip.' });
+      post.blocks.push({ snap:'thennow', title:'Then and now', data:{ rows:[[MONTHS[new Date(m0.p.start).getMonth()], m0.comebacks.avg, m0.defFlavor ? m0.defFlavor.key : null],[MONTHS[new Date(m2.p.start).getMonth()], m2.comebacks.avg, m2.defFlavor ? m2.defFlavor.key : null]] }, caption:'How many check-ins it took to get back to more safety than defense after a defensive dip.' });
     }
     // the best week stays
     const wks = (f.weeks||[]).filter(w=>w.n>=4);
@@ -649,7 +649,7 @@
     post.title = (!SAFE_SIDE[first.key] && SAFE_SIDE[last.key]) ? 'Your ' + p.name + ': from ' + nm(first.key) + ' to ' + nm(last.key)
       : 'Your ' + p.name + ': a year of getting to know your nervous system';
     post.blocks.push({ p: name + 'this year you checked in ' + b(f.n + ' times') + ' over ' + f.days.length + ' days. ' + cap(howMuch(f.share, f.n)) + ' of those check-ins had more safety than defense.' });
-    post.blocks.push({ snap:'ribbon', title:'Your ' + p.name + ', week by week', data:{ rows:(f.weeks||[]).map(w=>w.n?w.top:null) }, caption:'Each bar is one week, colored by the state that showed up most.' });
+    post.blocks.push({ snap:'ribbon', data:{ rows:(f.weeks||[]).map(w=>w.n?w.top:null) } });
     post.blocks.push({ p: 'Your first check-in this year was ' + b(nm(first.key)) + '. Your latest was ' + b(nm(last.key)) + '. One check-in is only one moment, but the two side by side are worth a look.' });
     post.blocks.push({ snap:'firstlast', data:{ a:first.key, b:last.key } });
     // the seasons, one line each
@@ -678,14 +678,40 @@
   // app's own tokens so the pictures follow light and dark.
   const esc = s => String(s==null?'':s).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
   const T = (x,y,s,anchor,extra) => '<text x="'+x+'" y="'+y+'" text-anchor="'+(anchor||'middle')+'" font-size="10" fill="var(--muted)" font-family="Inter, system-ui, sans-serif"'+(extra||'')+'>'+esc(s)+'</text>';
+  // the logo marks inside a snapshot (Justin, 2026-10-01: "those are essential"). Each mark in a
+  // pair (play, stillness, freeze) is the same height as a single mark ("a group of 2 glyphs looks
+  // smaller than a single one"). h = mark height in SVG units.
+  const MARK_AXES = { safety:['heart'], fightflight:['bolt'], shutdown:['x'], play:['heart','bolt'], stillness:['heart','x'], freeze:['bolt','x'] };
+  function markSVG(key, cx, cy, h, color){
+    const I = global.SNB_ICONS || {}, ax = MARK_AXES[key]; if(!ax) return '';
+    const parts = ax.map(k=>{ const v=((I[k]&&I[k].vb)||'0 0 1 1').trim().split(/\s+/).map(Number); return { k, vb:v, w: h*v[2]/v[3] }; });
+    const gap = h*0.12, tot = parts.reduce((a,p)=>a+p.w,0) + gap*(parts.length-1);
+    let x = cx - tot/2, out = '';
+    parts.forEach(p=>{ out += '<svg x="'+x.toFixed(1)+'" y="'+(cy-h/2).toFixed(1)+'" width="'+p.w.toFixed(1)+'" height="'+h+'" viewBox="'+p.vb.join(' ')+'"><path d="'+((I[p.k]&&I[p.k].d)||'')+'" fill="'+color+'"/></svg>'; x += p.w + gap; });
+    return out;
+  }
+  let gradSeq = 0;
+  const gid = () => 'rdg' + (gradSeq++) + Math.random().toString(36).slice(2,6);
+  const MONTH3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function snapSVG(kind, d, col){
     if(kind === 'week'){
       const W=300,H=150, mid=68, cx=dd=>26+dd*41, cy=m=>Math.max(10, Math.min(126, mid - m*120));
       let s = '<line x1="8" x2="292" y1="'+mid+'" y2="'+mid+'" stroke="var(--hairline)" stroke-width="1"/>';
       const byDay = {}; d.pts.forEach(p=>{ (byDay[p.d]=byDay[p.d]||[]).push(p); });
-      Object.keys(byDay).forEach(k=>{ const a = byDay[k].sort((x,y)=>x.h-y.h); a.forEach((p,i)=>{ const x = cx(+k) + (i-(a.length-1)/2)*Math.min(9, 30/Math.max(1,a.length-1||1)), y = cy(p.m);
-        if(p.after) s += '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="8.5" fill="none" stroke="var(--ink)" stroke-width="1"/>';
-        s += '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="5.5" fill="'+col(p.key)+'"/>'; }); });
+      const placed = [];
+      Object.keys(byDay).forEach(k=>{ const a = byDay[k].sort((x,y)=>x.h-y.h); a.forEach((p,i)=>{ placed.push({ d:+k, h:p.h, key:p.key, after:p.after, x: cx(+k) + (i-(a.length-1)/2)*Math.min(9, 30/Math.max(1,a.length-1||1)), y: cy(p.m) }); }); });
+      placed.sort((a,b)=>a.d-b.d || a.h-b.h);
+      // the check-ins joined in order; each line fades from one state's color to the next (Justin, 2026-10-01: show the transitions)
+      let defs = '', lines = '';
+      for(let i=1;i<placed.length;i++){ const A=placed[i-1], B=placed[i], id=gid();
+        defs += '<linearGradient id="'+id+'" gradientUnits="userSpaceOnUse" x1="'+A.x.toFixed(1)+'" y1="'+A.y.toFixed(1)+'" x2="'+B.x.toFixed(1)+'" y2="'+B.y.toFixed(1)+'"><stop offset="0" stop-color="'+col(A.key)+'"/><stop offset="1" stop-color="'+col(B.key)+'"/></linearGradient>';
+        const hot = !d.focus || A.key===d.focus || B.key===d.focus;
+        lines += '<line x1="'+A.x.toFixed(1)+'" y1="'+A.y.toFixed(1)+'" x2="'+B.x.toFixed(1)+'" y2="'+B.y.toFixed(1)+'" stroke="'+(hot ? 'url(#'+id+')' : 'var(--hairline)')+'" stroke-width="'+(hot?2:1.2)+'" stroke-linecap="round" opacity="'+(hot?(d.focus?0.95:0.7):1)+'"/>'; }
+      s += (defs ? '<defs>'+defs+'</defs>' : '') + lines;
+      // d.focus (a Recommended Learning card): that state filled, the rest outlined in their own color
+      placed.forEach(p=>{ if(p.after && !d.focus) s += '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="8.5" fill="none" stroke="var(--ink)" stroke-width="1"/>';
+        s += (d.focus && p.key !== d.focus) ? '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="5" fill="var(--rd-card, #fff)" stroke="'+col(p.key)+'" stroke-width="1.6"/>'
+                                           : '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="5.5" fill="'+col(p.key)+'"/>'; });
       ['S','M','T','W','T','F','S'].forEach((l,i)=>{ s += T(cx(i), 146, l); });
       return '<svg viewBox="0 0 '+W+' '+H+'" class="rd-viz" role="img" aria-label="This week\'s check-ins as dots by day. Dots above the line had more safety than defense.">'+s+'</svg>';
     }
@@ -723,16 +749,31 @@
       return '<svg viewBox="0 0 '+W+' '+H+'" class="rd-viz" role="img" aria-label="'+(kind==='anchors'?'How much safety rose with each anchor':'How much had more safety than defense')+'">'+s+'</svg>';
     }
     if(kind === 'monthgrid'){
-      const W=300, rows=Math.ceil((d.first + d.days.length)/7), H=18+rows*33; let s='';
+      const W=300, rows=Math.ceil((d.first + d.days.length)/7), H=18+rows*36; let s='';
       ['S','M','T','W','T','F','S'].forEach((l,i)=>{ s += T(22+i*42, 10, l); });
-      d.days.forEach((k,i)=>{ const pos=i+d.first, c=pos%7, r=Math.floor(pos/7);
-        s += '<rect x="'+(6+c*42)+'" y="'+(18+r*33)+'" width="32" height="26" rx="6" fill="'+(k?col(k):'var(--hairline)')+'"'+(k?'':' opacity="0.35"')+'/>'; });
+      // each day: its state's marks on a pale wash of its color (Justin, 2026-10-01)
+      d.days.forEach((k,i)=>{ const pos=i+d.first, c=pos%7, r=Math.floor(pos/7), x=6+c*42, y=18+r*36;
+        s += '<rect x="'+x+'" y="'+y+'" width="32" height="30" rx="7" '+(k ? 'style="fill:color-mix(in srgb, '+col(k)+' 26%, var(--rd-card, #fff))"' : 'fill="var(--hairline)" opacity="0.35"')+'/>';
+        if(k) s += markSVG(k, x+16, y+15, 10, col(k)); });
       return '<svg viewBox="0 0 '+W+' '+H+'" class="rd-viz" role="img" aria-label="The month as a calendar, each day colored by the state that showed up most">'+s+'</svg>';
     }
     if(kind === 'strip' || kind === 'ribbon'){
-      const n = d.rows.length, W=300, H=kind==='ribbon'?64:56, bw = W/n; let s='';
-      d.rows.forEach((k,i)=>{ s += '<rect x="'+(i*bw+0.6).toFixed(1)+'" y="4" width="'+Math.max(1.2,bw-1.2).toFixed(1)+'" height="'+(H-8)+'" rx="'+(kind==='ribbon'?1.5:3)+'" fill="'+(k?col(k):'var(--hairline)')+'"'+(k?'':' opacity="0.35"')+'/>'; });
-      return '<svg viewBox="0 0 '+W+' '+H+'" class="rd-viz" role="img" aria-label="Each week as a bar, colored by the state that showed up most">'+s+'</svg>';
+      const n = d.rows.length, W=300, top=24, barH = kind==='ribbon'?44:52, H=top+barH+20, bw = W/n; let s='', defs='';
+      let lastMarkX = -99;
+      d.rows.forEach((k,i)=>{ const x=i*bw+0.6, w=Math.max(1.2,bw-1.2);
+        if(!k){ s += '<rect x="'+x.toFixed(1)+'" y="'+top+'" width="'+w.toFixed(1)+'" height="'+barH+'" rx="'+(kind==='ribbon'?1.5:3)+'" fill="var(--hairline)" opacity="0.35"/>'; return; }
+        const nx = d.rows[i+1] || k;
+        let fill = col(k);
+        if(nx !== k){ const id=gid(); defs += '<linearGradient id="'+id+'" x1="0" x2="1" y1="0" y2="0"><stop offset="0.55" stop-color="'+col(k)+'"/><stop offset="1" stop-color="'+col(nx)+'"/></linearGradient>'; fill = 'url(#'+id+')'; }
+        s += '<rect x="'+x.toFixed(1)+'" y="'+top+'" width="'+w.toFixed(1)+'" height="'+barH+'" rx="'+(kind==='ribbon'?1.5:3)+'" fill="'+fill+'"/>';
+        const cxm = i*bw + bw/2;
+        if((i===0 || d.rows[i-1]!==k) && cxm - lastMarkX >= 24){ s += markSVG(k, cxm, 11, 11, col(k)); lastMarkX = cxm; }
+      });
+      // month names on the scale (Justin, 2026-10-01)
+      if(d.ws0){ let lastM = -1;
+        for(let i=0;i<n;i++){ const t = d.ws0 + i*7*DAY + 3*DAY, m = new Date(t).getMonth();
+          if(m !== lastM){ const x = i*bw; s += '<line x1="'+(x+0.5).toFixed(1)+'" x2="'+(x+0.5).toFixed(1)+'" y1="'+(top+barH+2)+'" y2="'+(top+barH+7)+'" stroke="var(--muted)" stroke-width="1"/>' + T(x+1, H-2, kind==='ribbon' ? MONTH3[m] : MONTHS[m], 'start'); lastM = m; } } }
+      return '<svg viewBox="0 0 '+W+' '+H+'" class="rd-viz" role="img" aria-label="Each week as a bar in the color of the state that led it, with the months below">'+(defs?'<defs>'+defs+'</defs>':'')+s+'</svg>';
     }
     return '';
   }
@@ -769,7 +810,7 @@
 
   global.Reader = {
     PERIOD, latestReleased, prevPeriod, duePeriods, shelf, compute, minutes,
-    buildWeek:(f,c)=>finalize(buildWeek(f,c), f), buildMonth:(f,c)=>finalize(buildMonth(f,c), f), buildSeason:(f,c)=>finalize(buildSeason(f,c), f), buildYear:(f,c)=>finalize(buildYear(f,c), f), snapSVG, ESSAY, teachList,
+    buildWeek:(f,c)=>finalize(buildWeek(f,c), f), buildMonth:(f,c)=>finalize(buildMonth(f,c), f), buildSeason:(f,c)=>finalize(buildSeason(f,c), f), buildYear:(f,c)=>finalize(buildYear(f,c), f), snapSVG, markSVG, MARK_AXES, ESSAY, teachList,
     weekStart, monthStart, quarterStart, yearStart, addDays, addMonths, sod, segOf, DAYS, MONTHS,
     _howMuch: howMuch, _weekLead: weekLead
   };
