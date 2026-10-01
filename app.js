@@ -3852,8 +3852,8 @@ function app(tab){
       if(b.callout){
         const c = _lrnCallout(b.callout, ctx); if(!c) return '';
         const col = STATE_COLOR(c.mk);
-        if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col}"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
-        return `<div class="rd-call" style="--cs:${col}"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}</div>`;
+        if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
+        return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}</div>`;
       }
       return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
     }).join('');
