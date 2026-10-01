@@ -1174,7 +1174,7 @@
     "p": "Someone in a lingering flight/fight state will have a diminished ability to hear others accurately. Their inner ear muscles are now attuned to listening for dangerous sounds like high-pitched screams or low-bass sounds like a growl. They may not hear the full range of a loved one's voice or the intention of their words. The individual in flight/fight does not understand sarcasm; they don't identify the humor and neurocept the dead-pan vocal delivery as a threat."
    },
    {
-    "p": "Creating connections with others is a significant challenge for someone in a stuck flight/fight state. They perceive others as dangerous and miss their safety cues or misinterpret neutral cues. In flight/fight, physical closeness is difficult, making relationships more challenging. The flight/fight individual avoids interactions with others or is overly domineering. They may connect with others in a similar flight/fight state."
+    "p": "Creating connections with others is a significant challenge for someone in a stuck flight/fight state. They perceive others as dangerous and miss their safety cues or misinterpret neutral cues. In flight/fight, physical closeness is difficult, making relationships more challenging. The flight/fight individual avoids interactions with others or is overly domineering. They may connect with others in a similar flight/fight state. Gangs comprise flight/fight individuals who share environmental, racial, and cultural similarities."
    },
    {
     "callout": "time:fightflight"
