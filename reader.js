@@ -751,9 +751,10 @@
     if(kind === 'monthgrid'){
       const W=300, rows=Math.ceil((d.first + d.days.length)/7), H=18+rows*36; let s='';
       ['S','M','T','W','T','F','S'].forEach((l,i)=>{ s += T(22+i*42, 10, l); });
-      // each day: its state's marks on a pale wash of its color (Justin, 2026-10-01)
+      // each day: its state's marks on the bone background, outlined in a darker shade of its color (Justin, 2026-10-01:
+      // "cool but saturated in color. Make it the bone bg color.")
       d.days.forEach((k,i)=>{ const pos=i+d.first, c=pos%7, r=Math.floor(pos/7), x=6+c*42, y=18+r*36;
-        s += '<rect x="'+x+'" y="'+y+'" width="32" height="30" rx="7" '+(k ? 'style="fill:color-mix(in srgb, '+col(k)+' 26%, var(--rd-card, #fff))"' : 'fill="var(--hairline)" opacity="0.35"')+'/>';
+        s += '<rect x="'+(x+0.5)+'" y="'+(y+0.5)+'" width="31" height="29" rx="7" '+(k ? 'style="fill:var(--bone,#FAF9F5);stroke:color-mix(in srgb, '+col(k)+' 70%, var(--ink,#1A1F2A));stroke-width:1"' : 'fill="var(--hairline)" opacity="0.35"')+'/>';
         if(k) s += markSVG(k, x+16, y+15, 10, col(k)); });
       return '<svg viewBox="0 0 '+W+' '+H+'" class="rd-viz" role="img" aria-label="The month as a calendar, each day colored by the state that showed up most">'+s+'</svg>';
     }

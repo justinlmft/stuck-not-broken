@@ -9,7 +9,7 @@
    its main state, its main insight, the member's journal answer. The way points to a GROUP of related
    pieces, and the app cycles to the next piece in that group. If a way finds no piece, the next way
    is tried; if none does, the post has no Recommended Learning.
-   Blocks: {p} {h} {h3} {ul} {ol} {q} (a quote) {callout:id} {practice:'anchoring'|'mindfulness'|'custom', sense?, why}.
+   Blocks: {p} {h} {h3} {ul} {ol} {q} (a quote) {reflect:id, prompt, fill?} (an in-article reflection, saved for paid members) {callout:id} {practice:'anchoring'|'mindfulness'|'custom', sense?, why}.
    Inline: **bold**, *italic*, [text](https://...). Any mention of the Unstucking Academy links to
    https://www.stucknotbroken.com/checkout/co-regulator (Justin, 2026-10-01). A {practice} block offers
    the closest practice the app has (Justin: match it as closely as possible) where the piece talks about one (safety anchoring, mindfulness), or the member's custom
@@ -341,6 +341,9 @@
     "p": "These environmental conditions aren't luxuries. They're biological necessities for accessing your safety pathways."
    },
    {
+    "callout": "context:places"
+   },
+   {
     "h3": "Condition 2: interpersonal safety"
    },
    {
@@ -360,6 +363,9 @@
    },
    {
     "p": "This is why connection matters so much in healing. When another person's ventral vagal system is active and regulated, it can help activate yours. It's literally contagious."
+   },
+   {
+    "callout": "context:people"
    },
    {
     "h3": "Condition 3: practice (the one most people miss)"
@@ -459,8 +465,8 @@
     "p": "The key is doing these practices from a place of grounded awareness, not from a place of trying to \"fix\" yourself. You're not forcing safety. You're practicing accessing it."
    },
    {
-    "practice": "mindfulness",
-    "why": "Mindful attention to your senses exercises your safety pathways. This practice keeps it simple."
+    "practice": "anchoring",
+    "why": "Safety anchoring is the app's safety practice: it helps you find safety and spend time with it, which is how the pathways get stronger."
    },
    {
     "h": "Recognizing your Polyvagal safety state: how do you know you're there?"
@@ -1209,11 +1215,16 @@
     "h": "Journal"
    },
    {
-    "ul": [
-     "Name one time from this past week when you felt your flight/fight state active (make this something benign, not serious). How could you tell?",
-     "When was the last time you felt irritated? Do you think you were in fight?",
-     "When was the last time you felt anxious? Do you think you were in flight?"
-    ]
+    "reflect": "ff-week",
+    "prompt": "Name one time from this past week when you felt your flight/fight state active (make this something benign, not serious). How could you tell?"
+   },
+   {
+    "reflect": "ff-irritated",
+    "prompt": "When was the last time you felt irritated? Do you think you were in fight?"
+   },
+   {
+    "reflect": "ff-anxious",
+    "prompt": "When was the last time you felt anxious? Do you think you were in flight?"
    },
    {
     "h": "From the research"

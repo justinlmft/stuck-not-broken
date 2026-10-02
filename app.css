@@ -3467,7 +3467,7 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
 /* Learning hubs (2026-10-01) */
 .rd-hubgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 14px}
 .rd-hubtile{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;font:inherit;color:var(--ink);cursor:pointer;
-  background:var(--cw, var(--rd-card));border:1px solid color-mix(in srgb, var(--band) 70%, #1A1F2A);border-radius:16px;padding:12px 14px;min-height:88px}
+  background:var(--bone);border:1px solid color-mix(in srgb, var(--band) 70%, #1A1F2A);border-radius:16px;padding:12px 14px;min-height:88px}
 @media (prefers-color-scheme: dark){ :root:not(.theme-light) .rd-hubtile{border-color:color-mix(in srgb, var(--band) 60%, var(--rd-card))} }
 :root.theme-dark .rd-hubtile{border-color:color-mix(in srgb, var(--band) 60%, var(--rd-card))}
 .rd-hubtile .rd-mk{--mk:20px;margin-bottom:2px}
@@ -3481,3 +3481,19 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
 .rd-keep-eyeb{display:block;margin:12px 0 6px}
 .rd-hub-title{display:flex;align-items:center;gap:10px}
 .rd-inlink{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+
+/* bottom-bar back button on screens below a top level (Justin, 2026-10-01) */
+.tabbar .tab-back{flex:0 0 auto;min-width:52px;color:var(--ink);animation:tabBackIn .22s var(--ease) both}
+.tabbar .tab-back .ic svg{width:23px;height:23px}
+.tabbar.has-back{gap:0}
+.tabbar.has-back button{padding-left:2px;padding-right:2px}
+@keyframes tabBackIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){ .tabbar .tab-back{animation:none} }
+/* Practice this: the note when it goes further than the member's practices right now */
+.rd-pcard-t .rd-prac-note{color:var(--muted);font-size:calc(13px * var(--type-scale));line-height:1.4;margin-top:2px}
+/* in-article reflections */
+.rd-refl{display:flex;flex-direction:column;gap:8px;margin:8px 0 18px;padding:14px;border-radius:16px;background:var(--rd-card);border:1px solid var(--hairline)}
+.rd-refl-q{margin:0}
+.rd-refl-in{font:inherit;font-size:calc(16px * var(--type-scale));line-height:1.5;color:var(--ink);background:var(--bone);border:1px solid var(--hairline);border-radius:12px;padding:10px 12px;resize:vertical;min-height:84px}
+.rd-refl-in:focus{outline:2px solid var(--ink);outline-offset:1px}
+.rd-refl-save{align-self:flex-end;font:inherit;font-size:calc(14.5px * var(--type-scale));font-weight:500;background:var(--ink);color:var(--bone);border:0;border-radius:999px;padding:8px 18px;min-height:40px;cursor:pointer}
