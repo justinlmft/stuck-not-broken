@@ -3583,14 +3583,27 @@ body.in-practice .tab-back-float{display:none}
 .rd-row[hidden]{display:none}
 
 /* Learn search (Justin, 2026-10-02) */
-.ll-search{position:relative;display:flex;align-items:center;margin:2px 0 16px}
-.ll-q-ic{position:absolute;left:14px;width:18px;height:18px;color:var(--muted);pointer-events:none}
-.ll-q{width:100%;font:inherit;font-size:calc(16px * var(--type-scale));color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:999px;min-height:46px;padding:0 44px 0 42px;-webkit-appearance:none;appearance:none}
-.ll-q::placeholder{color:var(--muted)}
-.ll-q::-webkit-search-cancel-button{display:none}
-.ll-q:focus{outline:2px solid var(--ink);outline-offset:1px}
-.ll-q-x{position:absolute;right:6px;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
-.ll-q-x:focus-visible{outline:2px solid var(--ink)}
+/* Learn search: a floating magnifying glass across from Back that opens into a field (Justin, 2026-10-02) */
+.ll-sfloat{position:absolute;right:max(16px, env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom));z-index:31;
+  display:flex;align-items:center;width:48px;height:48px;max-width:560px;overflow:hidden;border-radius:999px;border:1px solid var(--hairline);
+  background:var(--bone-deep);color:var(--ink);box-shadow:0 6px 18px rgba(26,31,42,.12);
+  transition:width .3s cubic-bezier(.2,.8,.2,1), bottom .18s ease;animation:tabBackFloatIn .28s var(--ease) both}
+.ll-sfloat.open{width:calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right))}
+.ll-sfloat.open:focus-within{outline:2px solid var(--ink);outline-offset:1px}
+.ll-sf-btn{flex:none;width:46px;height:46px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--ink);cursor:pointer;padding:0}
+.ll-sf-btn:focus-visible{outline:2px solid var(--ink);outline-offset:-3px;border-radius:50%}
+.ll-sf-btn .ll-q-ic{width:20px;height:20px;display:block}
+.ll-sf-q{flex:1;min-width:0;height:46px;border:0;background:transparent;font:inherit;font-size:16px;color:var(--ink);padding:0;outline:none;opacity:0;transition:opacity .2s ease .08s;-webkit-appearance:none;appearance:none}
+.ll-sf-q::placeholder{color:var(--muted)}
+.ll-sf-q::-webkit-search-cancel-button{display:none}
+.ll-sfloat:not(.open) .ll-sf-q{pointer-events:none}
+.ll-sfloat.open .ll-sf-q{opacity:1}
+.ll-sf-x{flex:none;width:44px;height:44px;display:none;align-items:center;justify-content:center;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
+.ll-sfloat.open .ll-sf-x{display:flex}
+.ll-sf-x:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+body.ll-sf-on .tab-back-float{visibility:hidden}
+@media (min-width:720px){ .ll-sfloat{right:24px;bottom:24px} .ll-sfloat.open{width:min(560px, calc(100% - 200px))} }
+@media (prefers-reduced-motion: reduce){ .ll-sfloat{transition:none;animation:none} .ll-sf-q{transition:none} }
 .ll-res-n{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0 0 6px}
 .ll-res-wait{display:block;margin-top:2px}
 .ll-res-more{margin-top:10px}
@@ -3609,68 +3622,63 @@ body.in-practice .tab-back-float{display:none}
 /* Your Journal (You tab) */
 .you-journal{margin-top:12px}
 .you-journal .yr-go .rd-lk{width:16px;height:16px;color:var(--muted);flex:none}
-.jr-lede{margin-bottom:6px}
-.jr-group{margin:14px 0 6px}
-.jr-art{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;color:var(--ink);background:transparent;border:0;border-top:1px solid var(--hairline);padding:14px 0 8px;cursor:pointer}
-.jr-art b{flex:1;font-weight:600;font-size:calc(16px * var(--type-scale));line-height:1.35}
+.jr-group{margin:10px 0 6px}
 .jr-item{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;margin:8px 0;cursor:pointer}
 .jr-item:focus-visible,.jr-art:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.jr-q{font-size:calc(13.5px * var(--type-scale));color:var(--muted);line-height:1.45}
-.jr-a{font-size:calc(15.5px * var(--type-scale));line-height:1.55;white-space:normal;overflow-wrap:anywhere}
+.jr-a{font-size:calc(15px * var(--type-scale));color:var(--ink-80);line-height:1.55;white-space:normal;overflow-wrap:anywhere}
 .jr-d{font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
 .jr-go{margin-top:8px}
-
-/* the Journal in articles: closed until tapped; three looks (Justin, 2026-10-02) */
-.rd-jr{margin:8px 0 18px}
-.rd-jr-pen{width:22px;height:22px;display:block}
-.rd-jr-ic{flex:none;width:40px;height:40px;border-radius:12px;background:var(--bone-deep, var(--bone));display:inline-flex;align-items:center;justify-content:center;color:var(--ink)}
-.rd-jr .rd-lk{width:16px;height:16px;color:var(--muted);flex:none}
-.rd-jr-bar{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;padding:10px 14px;border:1px solid var(--hairline);border-radius:16px;background:var(--rd-card);color:var(--ink);font:inherit;text-align:left;cursor:pointer;list-style:none}
-.rd-jr-bar::-webkit-details-marker{display:none}
-.rd-jr-bar:focus-visible,.rd-jr-open:focus-visible,.rd-jr-pill:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
-.rd-jr-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
-.rd-jr-t b{font-weight:600;font-size:calc(16px * var(--type-scale))}
-.rd-jr-t span{font-size:calc(13px * var(--type-scale));color:var(--muted)}
-.rd-jr-a[open] .rd-jr-bar{border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-color:transparent}
-.rd-jr-a[open] .rd-toc-chev svg{transform:rotate(-90deg)}
-.rd-jr-body{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--hairline);border-radius:16px;background:var(--rd-card)}
-.rd-jr-a .rd-jr-body{border-top:0;border-top-left-radius:0;border-top-right-radius:0;padding-top:4px}
-.rd-jr-nav{display:flex;align-items:center;gap:10px;margin-top:2px}
-.rd-jr-nav button{font:inherit;font-size:calc(14px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--hairline);border-radius:999px;min-height:40px;padding:6px 14px;cursor:pointer}
-.rd-jr-next{margin-left:auto}
-.rd-jr-dots{display:inline-flex;gap:6px;flex:1;justify-content:center}
-.rd-jr-dots i{width:6px;height:6px;border-radius:50%;background:var(--hairline)}
-.rd-jr-dots i.on{background:var(--ink)}
-/* b: a card with an Open button */
-.rd-jr-b{padding:14px;border:1px solid var(--hairline);border-radius:16px;background:var(--rd-card)}
-.rd-jr-head{display:flex;gap:12px;align-items:flex-start}
-.rd-jr-ht{display:flex;flex-direction:column;gap:3px}
-.rd-jr-ht b{font-weight:600;font-size:calc(17px * var(--type-scale))}
-.rd-jr-ht span{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.45}
-.rd-jr-open{display:inline-flex;align-items:center;gap:8px;margin-top:12px;font:inherit;font-size:calc(14.5px * var(--type-scale));font-weight:500;background:var(--ink);color:var(--bone);border:0;border-radius:999px;padding:9px 18px;min-height:42px;cursor:pointer}
-.rd-jr-open.rd-jr-locked{background:transparent;color:var(--ink);border:1px solid var(--hairline)}
-.rd-jr-b .rd-jr-body{border:0;padding:12px 0 0;background:transparent}
-.rd-jr-more-h{margin:8px 0 0;font-size:calc(12.5px * var(--type-scale));letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.rd-jr-q{border-top:1px solid var(--hairline)}
-.rd-jr-q summary{display:flex;align-items:center;gap:8px;min-height:48px;cursor:pointer;list-style:none;font-size:calc(15px * var(--type-scale));color:var(--ink);padding:6px 0}
-.rd-jr-q summary span:first-child{flex:1}
-.rd-jr-q summary::-webkit-details-marker{display:none}
-.rd-jr-q[open] .rd-toc-chev svg{transform:rotate(-90deg)}
-.rd-jr-q .rd-refl-one{padding-bottom:12px}
-.rd-jr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-/* c: a small Journal button and a sheet over the article */
-.rd-jr-c{display:flex;align-items:center;gap:12px}
-.rd-jr-pill{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:calc(15px * var(--type-scale));font-weight:600;color:var(--ink);background:var(--rd-card);border:1px solid var(--ink);border-radius:999px;padding:9px 18px 9px 14px;min-height:46px;cursor:pointer}
-.rd-jr-pill.rd-jr-locked{border-color:var(--hairline)}
-.rd-jr-sub{margin:0;font-size:calc(13px * var(--type-scale));color:var(--muted)}
-.rd-jr-sheet{position:fixed;inset:0;z-index:60;background:rgba(20,20,22,.38);display:flex;align-items:flex-end;justify-content:center}
-.rd-jr-sheet[hidden]{display:none}
-.rd-jr-sheet-in{width:100%;max-width:640px;max-height:86vh;overflow:auto;background:var(--bone);border-radius:22px 22px 0 0;padding:16px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;box-shadow:0 -8px 30px rgba(0,0,0,.18)}
-.rd-jr-sheet-top{display:flex;align-items:center;justify-content:space-between}
-.rd-jr-sheet-top b{font-size:calc(17px * var(--type-scale))}
-.rd-jr-done{font:inherit;font-weight:500;color:var(--ink);background:transparent;border:0;min-height:40px;padding:0 6px;cursor:pointer}
-body.jr-sheet-on .tab-back-float{visibility:hidden}
-/* Your Journal: where each answer is from */
+/* grouped by topic (the standard view), date or article; the question leads each entry (Justin, 2026-10-02) */
+.jr-reco{margin:6px 0 10px}
+.jr-reco > .rd-eyeb{display:block;margin-bottom:8px}
+.jr-view{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 4px}
+.jr-view-l{font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.jr-view .p-chip{padding:8px 14px}
+.jr-gh{display:flex;align-items:center;gap:8px;margin:0;padding:16px 0 4px;border-top:1px solid var(--hairline);font:inherit;font-weight:400;color:var(--ink)}
+.jr-gh .rd-mk{--mk:18px}
+.jr-gh b{font-weight:600;font-size:calc(15.5px * var(--type-scale));line-height:1.35}
+.jr-gh .ll-n{color:var(--muted);font-size:calc(13px * var(--type-scale));flex:1}
+button.jr-gh{width:100%;text-align:left;background:transparent;border-left:0;border-right:0;border-bottom:0;cursor:pointer}
+button.jr-gh b{flex:1}
+.jr-h{font-weight:600;font-size:calc(15.5px * var(--type-scale));line-height:1.4}
 .jr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .jr-src{display:inline-flex;align-items:center;gap:2px;font-size:calc(13px * var(--type-scale));color:var(--ink);font-weight:500}
 .jr-src svg{width:14px;height:14px}
+
+/* the Journal in articles (Justin, 2026-10-02, look C): a Journal button; the sheet slides up over the article */
+.rd-jr{margin:8px 0 18px}
+.rd-jr-pen{width:22px;height:22px;display:block}
+.rd-jr .rd-lk{width:16px;height:16px;color:var(--muted);flex:none}
+.rd-jr-c{display:flex;align-items:center;gap:12px}
+.rd-jr-pill{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:calc(15px * var(--type-scale));font-weight:600;color:var(--ink);background:var(--rd-card);border:1px solid var(--ink);border-radius:999px;padding:9px 18px 9px 14px;min-height:46px;cursor:pointer}
+.rd-jr-pill:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.rd-jr-pill.rd-jr-locked{border-color:var(--hairline)}
+.rd-jr-sub{margin:0;font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.rd-jr-sheet{position:fixed;inset:0;z-index:60;background:rgba(20,20,22,0);display:flex;align-items:flex-end;justify-content:center;transition:background .3s var(--ease)}
+.rd-jr-sheet[hidden]{display:none}
+.rd-jr-sheet.on{background:rgba(20,20,22,.38)}
+.rd-jr-sheet-in{position:relative;width:100%;max-width:640px;max-height:86vh;overflow:auto;overscroll-behavior:contain;background:var(--bone);border-radius:22px 22px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;box-shadow:0 -8px 30px rgba(0,0,0,.18);
+  transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+.rd-jr-sheet.on .rd-jr-sheet-in{transform:translateY(0)}
+.rd-jr-grab{align-self:center;width:38px;height:5px;border-radius:3px;background:var(--hairline);flex:none}
+.rd-jr-sheet-top{display:flex;align-items:center;justify-content:space-between}
+.rd-jr-sheet-top b{font-size:calc(17px * var(--type-scale))}
+.rd-jr-done{font:inherit;font-weight:500;color:var(--ink);background:transparent;border:0;min-height:40px;padding:0 6px;cursor:pointer}
+.rd-jr-track{overflow:hidden;touch-action:pan-y}
+.rd-jr-step{transition:transform .22s var(--ease)}
+.rd-jr-step.jr-in-r{animation:jrInR .26s var(--ease) both}
+.rd-jr-step.jr-in-l{animation:jrInL .26s var(--ease) both}
+@keyframes jrInR{from{transform:translateX(40%);opacity:0}to{transform:none;opacity:1}}
+@keyframes jrInL{from{transform:translateX(-40%);opacity:0}to{transform:none;opacity:1}}
+.rd-jr-nav{display:flex;align-items:center;gap:10px;margin-top:2px}
+.rd-jr-nav button{font:inherit;font-size:calc(14px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--hairline);border-radius:999px;min-height:40px;padding:6px 14px;cursor:pointer}
+.rd-jr-next{margin-left:auto}
+.rd-jr-dots{display:inline-flex;gap:0;flex:1;justify-content:center}
+.rd-jr-dots i{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.rd-jr-dots i::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--hairline);transition:background .2s}
+.rd-jr-dots i.on::before{background:var(--ink)}
+/* phones: swipe between the questions; the buttons stay on bigger screens (Justin, 2026-10-02: "Cut the Next button on mobile") */
+@media (hover:none) and (pointer:coarse), (max-width:719px){ .rd-jr-nav button{display:none} .rd-jr-nav{min-height:22px} }
+@media (prefers-reduced-motion: reduce){ .rd-jr-sheet,.rd-jr-sheet-in,.rd-jr-step{transition:none} .rd-jr-step.jr-in-r,.rd-jr-step.jr-in-l{animation:none} }
+.rd-jr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+body.jr-sheet-on .tab-back-float, body.jr-sheet-on .ll-sfloat{visibility:hidden}

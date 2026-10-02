@@ -747,7 +747,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-on'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -3600,10 +3600,13 @@ function app(tab){
     currentTab = opts.tab || 'reflect';
     // a screen below a top level gets a real back button in the bottom bar too (Justin, 2026-10-01)
     const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
+    // Learn search (Justin, 2026-10-02: "I don't want a search bar at the top. Make it a pop-up menu item, just like the back
+    // button is ... just the magnifying glass that expands when tapped")
+    const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search articles" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
       <header class="appbar read-appbar">${opts.back ? `<button class="backbtn" id="rd-back">${escapeHtml(opts.back)}</button>` : ''}</header>
       <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
-      ${tabBack}
+      ${tabBack}${sFloat}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     if(opts.onBack) document.body.classList.add('rd-sub');
@@ -3738,25 +3741,28 @@ function app(tab){
     const forNow = lastK ? _lrnForDaily(lastK) : null;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
-          <div class="ll-search" role="search">${_LRN_SEARCH_SVG}<input class="ll-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-q-x" id="ll-q-x" type="button" aria-label="Clear search"${_lrnQ ? '' : ' hidden'}>${'×'}</button></div>
-          ${window.SNB_IS_STAGING ? (()=>{ let v = 'a'; try{ v = localStorage.getItem('snb_journal_ui') || 'a'; }catch(e){} return `<section class="rd-preview ll-jrpick"><span class="rd-eyeb">Beta only · the Journal in articles: look ${v.toUpperCase()}</span><div class="p-chips">${['a','b','c'].map(k=>`<button class="p-chip${k===v?' on':''}" type="button" data-jrui="${k}">${k.toUpperCase()}</button>`).join('')}</div></section>`; })() : ''}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
           ${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
           ${_rdLearnSection()}
-          </div>`, { tab:'learn' });
+          </div>`, { tab:'learn', search:true });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
     root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
-    root.querySelectorAll('[data-jrui]').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('snb_journal_ui', b.dataset.jrui); }catch(e){} screenLearn(true); });
-    const qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
+    _lrnSearchWire(open);
+  }
+  // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
+  function _lrnSearchWire(open){
+    const sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
+    if(!sf || !qi || !res || !browse) return;
     let shown = 30, tm = null;
+    const sc = root.querySelector('.scroll');
     const draw = ()=>{
       const q = _lrnQ.trim();
-      qx.hidden = !_lrnQ;
       if(q.length < 2){ res.innerHTML = ''; browse.hidden = false; return; }
+      if(!browse.hidden && sc) sc.scrollTop = 0;
       browse.hidden = true;
       const hits = _lrnSearch(q), more = hits.length > shown;
       const loading = !_lrnSIdx;
@@ -3769,54 +3775,130 @@ function app(tab){
       const mb = res.querySelector('.ll-res-more'); if(mb) mb.onclick = ()=>{ shown += 30; draw(); };
       if(loading) _lrnSearchIndex().then(d=>{ if(d && res.isConnected && _lrnQ.trim() === q) draw(); });
     };
+    // above the keyboard while typing (phones keep the page's height and slide the keyboard over it)
+    const vv = window.visualViewport;
+    const lift = ()=>{ if(!sf.isConnected){ if(vv){ vv.removeEventListener('resize', lift); vv.removeEventListener('scroll', lift); } return; }
+      const off = vv ? window.innerHeight - vv.height - vv.offsetTop : 0; sf.style.bottom = off > 60 ? (off + 10) + 'px' : ''; };
+    if(vv){ vv.addEventListener('resize', lift); vv.addEventListener('scroll', lift); }
+    const setOpen = on => { sf.classList.toggle('open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; document.body.classList.toggle('ll-sf-on', on); if(!on){ sf.style.bottom = ''; } };
+    setOpen(!!_lrnQ);
+    sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
     qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; clearTimeout(tm); tm = setTimeout(draw, 120); };
-    qi.onkeydown = e=>{ if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } };
+    qi.onkeydown = e=>{ if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
     qi.onfocus = ()=>{ _lrnSearchIndex(); };
-    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.focus(); };
+    qi.onblur = ()=>{ setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
+    qx.onmousedown = e=>e.preventDefault();
+    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
     if(_lrnQ) draw();
   }
   // the member's Journal (Justin, 2026-10-02: "people need to see where their journal answers live, like an actual Journal
-  // in the You tab"): every answer written in a Learn article, newest first, grouped by article; tap one to go back to it.
-  // Answers are contexts 'l:{piece}:{reflection}' = [answer, day, question].
-  function _lrnJournal(){
-    const m = _ctxLoad(), L = window.Learning, by = {};
+  // in the You tab"). Answers are contexts 'l:{piece}:{reflection}' = [answer, day, question].
+  function _lrnJournalItems(){
+    const m = _ctxLoad(), L = window.Learning, out = [];
     Object.keys(m).forEach(k=>{
       const mm = /^l:(.+):([^:]+)$/.exec(k); if(!mm) return;
       const v = m[k] || []; if(!v[0]) return;
-      (by[mm[1]] = by[mm[1]] || []).push({ rid:mm[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
+      const piece = L.byId(mm[1]); if(!piece) return;
+      out.push({ piece, rid:mm[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
     });
-    return Object.keys(by).map(id=>({ piece:L.byId(id), items:by[id], last:by[id].reduce((a,x)=> x.day > a ? x.day : a, '') }))
-      .filter(g=>g.piece).sort((a,b)=> (b.last||'').localeCompare(a.last||''));
+    return out.sort((a,b)=> (b.day||'').localeCompare(a.day||''));
+  }
+  // grouped by article (the You tab's count, and older callers)
+  function _lrnJournal(){
+    const by = {};
+    _lrnJournalItems().forEach(it=>{ (by[it.piece.id] = by[it.piece.id] || { piece:it.piece, items:[], last:'' }).items.push(it); if(it.day > by[it.piece.id].last) by[it.piece.id].last = it.day; });
+    return Object.values(by).sort((a,b)=> (b.last||'').localeCompare(a.last||''));
   }
   const _jrDay = d => { if(!d) return ''; try{ return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' }); }catch(e){ return ''; } };
+  const _jrMonth = d => { try{ return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'long', year:'numeric' }); }catch(e){ return ''; } };
+  // a journal question as a heading (Justin, 2026-10-02: "The journal question should lead as the heading (or a condensing of
+  // it)"): its first question, without the "(yes or no)" asides
+  function _jrHead(piece, rid, stored){
+    const b = (piece.blocks||[]).find(x=>x.reflect === rid);
+    let t = String(b ? b.prompt || '' : stored || '').replace(/<[^>]+>/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\*\*?/g, '').trim();
+    t = t.replace(/\s*\((?:yes or no|y\/n|true or false)\)\s*/gi, ' ').trim();
+    const q = t.indexOf('?');
+    if(q > 0 && q < t.length - 1 && q >= 25) t = t.slice(0, q + 1);
+    return t.replace(/^./, c=>c.toUpperCase());
+  }
+  // the Journal's view (Justin: "grouped by topic, just like the learning hubs ... Make this the standard view. But also make
+  // a filter so that the user can group them by date or by article"); remembered on this device
+  function _jrView(v){ try{ if(v) localStorage.setItem('snb_journal_view', v); return localStorage.getItem('snb_journal_view') || 'topic'; }catch(e){ return v || 'topic'; } }
+  // Recommended journal (Justin: "based on something relevant in their data"): a question they haven't answered yet, from an
+  // article about the state of their latest check-in, one they've read, or the topics they already write about
+  function _jrRecoPiece(items){
+    const L = window.Learning;
+    const lastC = Store.lastCheckin ? Store.lastCheckin() : null, st = lastC ? _cDom(lastC) : null;
+    const done = {}; items.forEach(it=>{ done[it.piece.id] = (done[it.piece.id]||0) + 1; });
+    const topics = {}; items.forEach(it=>(it.piece.groups||[]).forEach(g=>{ topics[g] = (topics[g]||0) + 1; }));
+    const day = new Date().toISOString().slice(0, 10);
+    const h = id => { let x = 0; const k = id + day; for(let i = 0; i < k.length; i++) x = (x * 31 + k.charCodeAt(i)) >>> 0; return x % 1000 / 1000; };
+    let best = null, bestS = -1;
+    L.PIECES.forEach(p=>{
+      if(!p.jr || (done[p.id]||0) >= p.jr) return;
+      let sc = h(p.id);
+      if(st && (p.state === st || (p.groups||[]).indexOf(st) >= 0)) sc += 6;
+      if(_lrnIsRead(p.id)) sc += 3;
+      sc += Math.min(2, (p.groups||[]).filter(g=>topics[g]).length);
+      if(sc > bestS){ best = p; bestS = sc; }
+    });
+    return best ? { piece:best, st } : null;
+  }
+  function _jrRecoHTML(r){
+    const p = r.piece, ans = _ctxLoad();
+    const b = (p.blocks||[]).find(x=>x.reflect && !((ans['l:' + p.id + ':' + x.reflect]||[])[0])); if(!b) return '';
+    const st = p.state || r.st || null;
+    const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
+    return `<section class="rd-learn rd-learn-top jr-reco"><span class="rd-eyeb">Recommended journal</span>
+      <button class="rd-lcard" type="button" data-piece="${escapeHtml(p.id)}" data-rf="${escapeHtml(b.reflect)}" style="--band:${st ? STATE_COLOR(st) : 'var(--hairline)'}">
+        <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Journal')}</span>`}<span class="rd-foryou">Picked for you</span></span><span class="rd-lcard-title">${escapeHtml(_jrHead(p, b.reflect))}</span></span>
+        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml('From ' + p.title)}</span><span class="rd-read">Write${CHEV}</span></span>
+      </button></section>`;
+  }
   function screenJournal(){
     if(!paidNow()) return gateSubscribe('reader');
-    const groups = _lrnJournal();
+    const L = window.Learning, items = _lrnJournalItems();
     const shell = inner => _rdShell(`<span class="rd-eyeb">You</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:'You', onBack:()=>app('you'), tab:'you', loc:{ k:'journal' } });
-    if(!groups.length){
-      shell(`<p class="read-p">Nothing here yet. When you answer a reflection in a Learn article, your answer is kept here.</p><button class="rd-checkin jr-go" type="button">Go to Learn</button>`);
-      const g = root.querySelector('.jr-go'); if(g) g.onclick = ()=>app('learn');
-      return;
-    }
-    // the questions and their order come from the articles themselves (older answers kept only the answer)
-    const need = groups.filter(g=>!g.piece.blocks);
+    const reco = _jrRecoPiece(items);
+    // the questions come from the articles themselves (older answers kept only the answer)
+    const need = [...new Set(items.map(it=>it.piece).concat(reco ? [reco.piece] : []))].filter(p=>!p.blocks);
     if(need.length){
       shell(`<p class="rd-meta">One moment…</p>`);
-      Promise.all(need.map(g=>_lrnLoad(g.piece).catch(()=>null))).then(()=>{ if(root.querySelector('.rd-title') && /Your Journal/.test(root.querySelector('.rd-title').textContent)) screenJournal(); });
+      Promise.all(need.map(p=>_lrnLoad(p).catch(()=>null))).then(()=>{ if(root.querySelector('.rd-title') && /Your Journal/.test(root.querySelector('.rd-title').textContent) && root.querySelector('.rd-meta')) screenJournal(); });
       return;
     }
-    const html = groups.map(g=>{
-      const order = (g.piece.blocks||[]).filter(b=>b.reflect).map(b=>b.reflect);
-      const items = g.items.slice().sort((a,b)=> order.indexOf(a.rid) - order.indexOf(b.rid));
-      return `<section class="jr-group"><button class="jr-art" type="button" data-piece="${escapeHtml(g.piece.id)}"><b>${escapeHtml(g.piece.title)}</b><span class="wc-go">${CHEV}</span></button>
-        ${items.map(it=>{ const b = (g.piece.blocks||[]).find(x=>x.reflect === it.rid); const q = it.q || (b ? _lrnNorm(b.prompt).replace(/^./, c=>c.toUpperCase()) : '');
-          return `<button class="jr-item" type="button" data-piece="${escapeHtml(g.piece.id)}" data-rf="${escapeHtml(it.rid)}">${q ? `<span class="jr-q">${escapeHtml(b ? '' : q)}${b ? _lrnInline(b.prompt||'') : ''}</span>` : ''}<span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : ''}<span class="jr-src">Back to the lesson${CHEV}</span></span></button>`; }).join('')}
-      </section>`;
-    }).join('');
-    shell(`<p class="read-p jr-lede">What you wrote in Learn articles. Tap an answer to go back to it.</p>${html}`);
+    const recoHTML = reco ? _jrRecoHTML(reco) : '';
+    if(!items.length){
+      shell(`${recoHTML}<p class="read-p">Nothing here yet. When you answer a question in a Learn article, your answer is kept here.</p><button class="rd-checkin jr-go" type="button">Go to Learn</button>`);
+      const g = root.querySelector('.jr-go'); if(g) g.onclick = ()=>app('learn');
+      _jrWireList();
+      return;
+    }
+    const view = _jrView();
+    const card = it => `<button class="jr-item" type="button" data-piece="${escapeHtml(it.piece.id)}" data-rf="${escapeHtml(it.rid)}"><b class="jr-h">${escapeHtml(_jrHead(it.piece, it.rid, it.q))}</b><span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : '<span></span>'}<span class="jr-src">Back to this lesson${CHEV}</span></span></button>`;
+    const order = (p, rid) => (p.blocks||[]).findIndex(x=>x.reflect === rid);
+    let groups = [];
+    if(view === 'date'){
+      const by = {}; items.forEach(it=>{ const m = it.day ? it.day.slice(0, 7) : ''; (by[m] = by[m] || []).push(it); });
+      groups = Object.keys(by).sort().reverse().map(m=>({ head:`<b>${escapeHtml(m ? _jrMonth(m + '-15') : 'Earlier')}</b>`, items:by[m] }));
+    } else if(view === 'article'){
+      groups = _lrnJournal().map(g=>({ head:`<b>${escapeHtml(g.piece.title)}</b>`, art:g.piece.id, items:g.items.slice().sort((a,b)=> order(a.piece, a.rid) - order(b.piece, b.rid)) }));
+    } else {
+      // every topic the article belongs to, in the Learn tab's order: one answer can sit under more than one
+      const keys = _lrnStateOrder().concat(L.TOPIC_ORDER), by = {};
+      items.forEach(it=>(it.piece.groups||[]).forEach(g=>{ if(L.HUBS[g]) (by[g] = by[g] || []).push(it); }));
+      groups = keys.filter(k=>by[k]).map(k=>({ head:`${_rdMk(k)}<b>${escapeHtml(_lrnHubName(k))}</b><span class="ll-n">${escapeHtml(by[k].length === 1 ? '1 entry' : by[k].length + ' entries')}</span>`, items:by[k] }));
+    }
+    const VIEWS = [['topic', 'Topic'], ['date', 'Date'], ['article', 'Article']];
+    const html = groups.map(g=>`<section class="jr-group">${g.art ? `<button class="jr-gh jr-art" type="button" data-art="${escapeHtml(g.art)}">${g.head}<span class="wc-go">${CHEV}</span></button>` : `<h3 class="jr-gh">${g.head}</h3>`}${g.items.map(card).join('')}</section>`).join('');
+    shell(`${recoHTML}<div class="jr-view" role="group" aria-label="Group by"><span class="jr-view-l">Group by</span><div class="p-chips">${VIEWS.map(([k, t])=>`<button class="p-chip${k === view ? ' on' : ''}" type="button" data-jrview="${k}" aria-pressed="${k === view}">${t}</button>`).join('')}</div></div>${html}`);
+    root.querySelectorAll('[data-jrview]').forEach(b=>b.onclick=()=>{ _jrView(b.dataset.jrview); const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; screenJournal(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; });
+    _jrWireList();
+  }
+  function _jrWireList(){
     const here = { label:'Your Journal', go:screenJournal, tab:'you' };
-    root.querySelectorAll('.jr-art').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here); });
-    root.querySelectorAll('.jr-item').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
+    root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
+    root.querySelectorAll('.jr-item, .jr-reco [data-rf]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
   }
   function screenReader(){
     _markReaderSeen();
@@ -4118,12 +4200,55 @@ function app(tab){
       .replace(/\[([^\]]+)\]\(((?:piece|hub|anchor):[a-z0-9-]+(?:#[a-z0-9-]+)?)\)/g, '<a href="#" class="rd-inlink" data-lnk="$2">$1</a>')
       .replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" class="rd-inlink rd-exlink" target="_blank" rel="noopener">$1</a>'); }
   // scroll a section of the open article into view (a TOC tap, an anchor link, a piece:id#section link)
+  // one Journal card in an article: the sheet slides up from the bottom (Justin, 2026-10-02: "it needs to animate up, not just
+  // appear") and down again on Done, a tap outside, or a pull down on its top; swipe left and right between the questions
+  // ("I found myself trying to swipe through journal entries"), with dots to show where you are
+  function _jrWire(j){
+    const steps = [...j.querySelectorAll('.rd-jr-step')], dots = [...j.querySelectorAll('.rd-jr-dots i')];
+    const pv = j.querySelector('.rd-jr-prev'), nx = j.querySelector('.rd-jr-next');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const show = (k, now) => {
+      const was = j._step || 0; k = Math.max(0, Math.min(steps.length - 1, k));
+      steps.forEach((s, x)=>{ s.hidden = x !== k; s.style.transform = ''; s.classList.remove('jr-in-l', 'jr-in-r'); });
+      if(!now && !reduce && k !== was) steps[k].classList.add(k > was ? 'jr-in-r' : 'jr-in-l');
+      dots.forEach((d, x)=>d.classList.toggle('on', x === k)); if(pv) pv.hidden = k === 0; if(nx) nx.hidden = k === steps.length - 1; j._step = k;
+    };
+    j._show = show;
+    if(pv) pv.onclick = ()=>show((j._step||0) - 1);
+    if(nx) nx.onclick = ()=>show((j._step||0) + 1);
+    dots.forEach((d, x)=>d.onclick = ()=>show(x));
+    const pill = j.querySelector('.rd-jr-pill'), sh = j.querySelector('.rd-jr-sheet');
+    if(!pill || !sh || pill.classList.contains('rd-jr-locked')) return;
+    const box = sh.querySelector('.rd-jr-sheet-in');
+    let tmr = null;
+    const open = ()=>{ clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); };
+    const close = ()=>{ sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on');
+      tmr = setTimeout(()=>{ sh.hidden = true; }, reduce ? 0 : 320); };
+    j._open = open;
+    pill.onclick = open;
+    j.querySelector('.rd-jr-done').onclick = close;
+    sh.onclick = e=>{ if(e.target === sh) close(); };
+    // swipe: horizontal on the questions moves between them; down on the top of the sheet closes it
+    let x0 = 0, y0 = 0, dir = '', cur = null, fromTop = false;
+    box.addEventListener('touchstart', e=>{ const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dir = ''; cur = steps[j._step||0];
+      fromTop = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab') || box.scrollTop <= 0 && !e.target.closest('textarea'); }, { passive:true });
+    box.addEventListener('touchmove', e=>{ const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if(!dir){ if(Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3 && steps.length > 1) dir = 'x'; else if(dy > 10 && Math.abs(dy) > Math.abs(dx) && fromTop) dir = 'y'; else if(Math.abs(dy) > 10) dir = 'none'; }
+      if(dir === 'x' && cur){ const k = j._step||0, edge = (k === 0 && dx > 0) || (k === steps.length - 1 && dx < 0); cur.style.transform = `translateX(${edge ? dx / 4 : dx}px)`; cur.style.transition = 'none'; }
+      if(dir === 'y'){ box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, dy)}px)`; }
+    }, { passive:true });
+    box.addEventListener('touchend', e=>{ const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if(dir === 'x' && cur){ cur.style.transition = ''; const k = j._step||0;
+        if(dx < -50 && k < steps.length - 1) show(k + 1); else if(dx > 50 && k > 0) show(k - 1); else cur.style.transform = ''; }
+      if(dir === 'y'){ box.style.transition = ''; if(dy > 90) close(); else box.style.transform = ''; }
+      dir = ''; cur = null;
+    });
+  }
   function _lrnGoTo(sec){
     const el = sec && root.querySelector('#sec-' + CSS.escape(sec)); if(!el) return;
     const fold = el.closest('details'); if(fold) fold.open = true;
     const jr = el.closest('.rd-jr');
-    if(jr){ const st = el.closest('.rd-jr-step'); if(st && jr._show) jr._show(+st.dataset.step); const bd = jr.querySelector('.rd-jr-body'); if(bd) bd.hidden = false; const ob = jr.querySelector('.rd-jr-open'); if(ob) ob.hidden = true;
-      const sh = jr.querySelector('.rd-jr-sheet'); if(sh){ sh.hidden = false; document.body.classList.add('jr-sheet-on'); return; } }
+    if(jr && jr._open){ const st = el.closest('.rd-jr-step'); if(st && jr._show) jr._show(+st.dataset.step, true); jr._open(); return; }
     const sc = root.querySelector('.scroll'); if(!sc) return;
     const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12;
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -4164,10 +4289,11 @@ function app(tab){
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
   // one learning hub: a state or a topic, Justin's intro, the member's own data (states), its articles, related hubs
-  function screenLearnHub(key, back){
+  function screenLearnHub(key, back, keepQuery){
+    if(!keepQuery) _lrnQ = '';
     const L = window.Learning, hub = L.HUBS[key] || { intro:[] }, isState = L.STATE_HUBS.indexOf(key) >= 0;
     const paid = paidNow(), pieces = L.inGroup(key);
-    const here = ()=>screenLearnHub(key, back);
+    const here = ()=>screenLearnHub(key, back, true);
     let mine = '';
     if(isState){
       const now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28*864e5, now + 1);
@@ -4178,6 +4304,8 @@ function app(tab){
     const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = (related[g]||0) + 1; }));
     const relKeys = Object.keys(related).sort((a,b)=> related[b] - related[a]).slice(0, 6);
     _rdShell(`
+        <div id="ll-results" aria-live="polite"></div>
+        <div id="ll-browse">
         <span class="rd-eyeb">Learning hub</span>
         <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
         ${mine}
@@ -4185,13 +4313,15 @@ function app(tab){
         <section class="rd-learn"><h3 class="sec-h">Articles</h3>
           ${pieces.length ? `<div class="rd-list rd-list-flat">${_lrnByRead(pieces).map((p, i)=>i < 12 ? _lrnRowHTML(p) : _lrnRowHTML(p).replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"')).join('')}</div>${pieces.length > 12 ? `<button class="ll-showall" type="button">Show all ${pieces.length} articles</button>` : ''}` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
         </section>
-        ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}`,
-      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key } });
+        ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
+        </div>`,
+      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     root.querySelectorAll('.ll-showall').forEach(b=>b.onclick=()=>{ root.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
     root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
     root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
     _lrnWireLinks({ label:'Back', go:here, tab:'learn' });
+    _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
   }
   // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
   // "Practice this" (Justin, 2026-10-01): the practice the ARTICLE is about, tuned to what works for this member
@@ -4246,29 +4376,20 @@ function app(tab){
     const reflOne = b => { const saved = ((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0] || '';
       return `<div class="rd-refl-one" id="sec-rf-${escapeHtml(b.reflect)}"><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`; };
     // the Journal (Justin, 2026-10-02: "all questions need to be hidden behind a closed 'Journal'. When it's tapped, it opens and
-    // the first question is shown"; free members see no questions). Three looks built for him to pick from (beta only, 'snb_journal_ui'):
-    // a = a folded bar that opens in place, one question at a time; b = a card with an Open button, the other questions listed
-    // under the first; c = a small Journal button that opens a sheet over the article, one question at a time.
-    const jrUI = (()=>{ let v = null; try{ v = localStorage.getItem('snb_journal_ui'); }catch(e){} return /^[abc]$/.test(v||'') ? v : 'a'; })();
+    // the first question is shown"; free members see no questions). He picked look C: a small Journal button that slides a sheet
+    // up over the article, one question at a time; swipe between questions (the Next button is for bigger screens only).
     const reflCard = (run, titled) => {
       reflSeen++;
       const n = run.length, count = n === 1 ? '1 question' : n + ' questions';
       if(!paid){
         if(reflSeen > 1) return '';
-        if(jrUI === 'c') return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
-        if(jrUI === 'b') return `<div class="rd-jr rd-jr-b"><div class="rd-jr-head"><span class="rd-jr-ic">${_JR_PEN}</span><div class="rd-jr-ht"><b>Journal</b><span>Write about what you just read, and keep it in Your Journal.</span></div></div><button class="rd-jr-open rd-jr-locked" type="button">${LOCK_SVG}<span>On the paid plan</span></button></div>`;
-        return `<div class="rd-jr rd-jr-a"><button class="rd-jr-bar rd-jr-locked" type="button"><span class="rd-jr-ic">${_JR_PEN}</span><span class="rd-jr-t"><b>Journal</b><span>On the paid plan</span></span>${LOCK_SVG}</button></div>`;
+        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
       }
       const steps = run.map((b, k)=>`<div class="rd-jr-step"${k ? ' hidden' : ''} data-step="${k}">${reflOne(b)}</div>`).join('');
       const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
       const where = `<p class="rd-refl-where">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p>`;
-      if(jrUI === 'b'){
-        const rest = run.slice(1).map(b=>`<details class="rd-jr-q"><summary><span>${_lrnInline(b.prompt||'')}</span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary>${reflOne(b).replace('<label class="read-p rd-refl-q"', '<label class="read-p rd-refl-q rd-jr-sr"')}</details>`).join('');
-        return `<div class="rd-jr rd-jr-b"><div class="rd-jr-head"><span class="rd-jr-ic">${_JR_PEN}</span><div class="rd-jr-ht"><b>Journal</b><span>${escapeHtml(count)} about what you just read.</span></div></div><button class="rd-jr-open" type="button">Open journal</button><div class="rd-jr-body" hidden>${reflOne(run[0])}${rest ? `<p class="rd-jr-more-h">More questions</p>${rest}` : ''}${where}</div></div>`;
-      }
-      if(jrUI === 'c') return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(count)}</p>
-          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><div class="rd-jr-sheet-top"><b>Journal</b><button class="rd-jr-done" type="button">Done</button></div>${steps}${nav}${where}</div></div></div>`;
-      return `<details class="rd-jr rd-jr-a"><summary class="rd-jr-bar"><span class="rd-jr-ic">${_JR_PEN}</span><span class="rd-jr-t"><b>Journal</b><span>${escapeHtml(count)}</span></span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary><div class="rd-jr-body">${steps}${nav}${where}</div></details>`;
+      return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(count)}</p>
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b>Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}${where}</div></div></div>`;
     };
     const blocks = piece.blocks || [], parts = [];
     for(let i = 0; i < blocks.length; i++){
@@ -4314,24 +4435,9 @@ function app(tab){
       btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
     });
     root.querySelectorAll('[data-refl]').forEach(ta=>ta.oninput=()=>{ const s = root.querySelector(`[data-refl-save="${ta.dataset.refl}"]`); if(s) s.textContent = 'Save'; });
-    // the Journal: locked for free; one question at a time (a, c); Open (b); the sheet (c)
+    // the Journal: locked for free; the sheet slides up, one question at a time, swipe or Next/Previous between them
     root.querySelectorAll('.rd-jr-locked').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
-    root.querySelectorAll('.rd-jr').forEach(j=>{
-      const steps = [...j.querySelectorAll('.rd-jr-step')], dots = [...j.querySelectorAll('.rd-jr-dots i')];
-      const pv = j.querySelector('.rd-jr-prev'), nx = j.querySelector('.rd-jr-next');
-      const show = k => { steps.forEach((s, x)=>s.hidden = x !== k); dots.forEach((d, x)=>d.classList.toggle('on', x === k)); if(pv) pv.hidden = k === 0; if(nx) nx.hidden = k === steps.length - 1; j._step = k; };
-      j._show = show;
-      if(pv) pv.onclick = ()=>show(Math.max(0, (j._step||0) - 1));
-      if(nx) nx.onclick = ()=>show(Math.min(steps.length - 1, (j._step||0) + 1));
-      const ob = j.querySelector('.rd-jr-open'); if(ob && !ob.classList.contains('rd-jr-locked')) ob.onclick = ()=>{ const bd = j.querySelector('.rd-jr-body'); bd.hidden = false; ob.hidden = true; const ta = bd.querySelector('textarea'); if(ta) ta.focus({ preventScroll:true }); };
-      const pill = j.querySelector('.rd-jr-pill'), sh = j.querySelector('.rd-jr-sheet');
-      if(pill && sh && !pill.classList.contains('rd-jr-locked')){
-        const close = ()=>{ sh.hidden = true; document.body.classList.remove('jr-sheet-on'); };
-        pill.onclick = ()=>{ sh.hidden = false; document.body.classList.add('jr-sheet-on'); };
-        j.querySelector('.rd-jr-done').onclick = close;
-        sh.onclick = e=>{ if(e.target === sh) close(); };
-      }
-    });
+    root.querySelectorAll('.rd-jr').forEach(_jrWire);
     root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), 'practice'); });
     if(goSec) requestAnimationFrame(()=>_lrnGoTo(goSec));
     // read = reached the end (Keep learning in view), not just opened
