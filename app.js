@@ -3670,12 +3670,13 @@ function app(tab){
   }
   function _rdLearnSection(){
     const L = window.Learning; if(!L || !L.HUBS) return '';
+    const paid = paidNow();
     const shelf = k => {
       const all = L.inGroup(k); if(!all.length) return '';
       const ps = _lrnByRead(all).slice(0, _LRN_SHELF);
       const cards = ps.map(p=>{ const read = _lrnIsRead(p.id);
         // the marks live on the row's heading only (Justin, 2026-10-02: on every card too "it's too much"); the card keeps a strip of the state's color
-        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${read?_lrnReadMk() + 'Read · ':''}${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
+        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${p.paid && !paid ? LOCK_SVG + 'Paid plan · ' : ''}${read?_lrnReadMk() + 'Read · ':''}${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
       const more = all.length > _LRN_SHELF ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(all.length + ' articles')}</span><span class="wc-go">${CHEV}</span></button>` : '';
       return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(_lrnHubCount(k))}</span><span class="wc-go">${CHEV}</span></button>
         <div class="ll-row">${cards}${more}</div></div>`;
@@ -4254,10 +4255,9 @@ function app(tab){
   }
   function _lrnGoTo(sec){
     let el = sec && root.querySelector('#sec-' + CSS.escape(sec)); if(!el) return;
-    // the "Journal" heading in the table of contents: it is hidden in the article, so go to the Journal card and open it
-    // (Justin, 2026-10-02: on "Play: safety and mobilization together" it did not work)
-    if(el.classList.contains('rd-jr-sr')){ const card = el.nextElementSibling;
-      if(card && card.classList.contains('rd-jr')){ el = card; if(card._open){ _lrnScrollTo(card); setTimeout(()=>{ if(card.isConnected) card._open(); }, 380); return; } } }
+    // the "Journal" heading in the table of contents: it is hidden in the article, so go to the Journal card (Justin,
+    // 2026-10-02: on "Play: safety and mobilization together" it did not work; then: "It should only navigate down there")
+    if(el.classList.contains('rd-jr-sr')){ const card = el.nextElementSibling; if(card && card.classList.contains('rd-jr')){ _lrnScrollTo(card); return; } }
     const fold = el.closest('details'); if(fold) fold.open = true;
     const jr = el.closest('.rd-jr');
     if(jr && jr._open){ const st = el.closest('.rd-jr-step'); if(st && jr._show) jr._show(+st.dataset.step, true); jr._open(); return; }
@@ -4299,7 +4299,7 @@ function app(tab){
   const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
   const _lrnHubCount = key => { const n = window.Learning.inGroup(key).length; return n === 1 ? '1 article' : n + ' articles'; };
   // a row that opens a piece (hubs, keep learning)
-  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}">${p.state ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.state)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml((p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}">${p.state ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.state)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${p.paid && !paidNow() ? LOCK_SVG + 'Paid plan · ' : ''}${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml((p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
   // a row that opens a hub
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
@@ -4406,7 +4406,13 @@ function app(tab){
       return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(count)}</p>
           <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}${where}</div></div></div>`;
     };
-    const blocks = piece.blocks || [], parts = [];
+    // a chapter on the paid plan: free members read the opening, then a lock (Justin, 2026-10-02)
+    const gated = !!piece.paid && !paid;
+    let blocks = piece.blocks || [];
+    if(gated){ const keep = []; let words = 0;
+      for(const b of blocks){ if(keep.length && (b.h || b.h3 || b.reflect || b.practice || b.callout)) break; if(b.p || b.q || b.ul || b.ol){ keep.push(b); words += JSON.stringify(b).split(/\s+/).length; if(keep.length >= 3 || words > 160) break; } else if(!keep.length && !b.h && !b.h3) continue; else keep.push(b); }
+      blocks = keep; }
+    const parts = [];
     for(let i = 0; i < blocks.length; i++){
       const b = blocks[i];
       if(b.reflect){ const run = [b]; while(i + 1 < blocks.length && blocks[i + 1].reflect) run.push(blocks[++i]); parts.push(reflCard(run, !!(i - run.length >= 0 && (blocks[i - run.length].h || blocks[i - run.length].h3)))); continue; }
@@ -4417,7 +4423,7 @@ function app(tab){
       if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
       parts.push(_lrnBlockHTML(b));
     }
-    const body = parts.join('');
+    const body = parts.join('') + (gated ? `<div class="rd-gate"><button class="rd-lock rd-gate-btn" type="button">${LOCK_SVG}<span><b>The rest of this chapter is on the paid plan</b><span>The whole chapter, its journal questions and the practice that goes with it.</span></span></button></div>` : '');
     // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
     const nx = L.nextFor ? L.nextFor(piece) : null;
     const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
@@ -4431,11 +4437,11 @@ function app(tab){
         ${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}Recommended learning · ${escapeHtml(STATE_NAME(st))}</span>` : `<span class="rd-eyeb">Recommended learning</span>`}
         <h1 class="rd-title">${escapeHtml(piece.title)}</h1>
         <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
-        ${_lrnTocHTML(piece.toc)}
+        ${gated ? '' : _lrnTocHTML(piece.toc)}
         ${body}
         ${book}${piece.episode ? `<section class="rd-book"><p class="read-p">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p></section>` : ''}
         ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id } });
-    root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('.rd-call-lock, .rd-gate-btn').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
     root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
     root.querySelectorAll('.rd-keep [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
@@ -4457,7 +4463,7 @@ function app(tab){
     if(goSec) requestAnimationFrame(()=>_lrnGoTo(goSec));
     // read = reached the end (Keep learning in view), not just opened
     const endEl = root.querySelector('.rd-keep');
-    if(endEl && !_lrnIsRead(piece.id)){
+    if(endEl && !gated && !_lrnIsRead(piece.id)){
       if('IntersectionObserver' in window){ const io = new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ _lrnMarkRead(piece.id); io.disconnect(); } }, { threshold:0.01 }); io.observe(endEl); }
       else { const sc = root.querySelector('.scroll'); if(sc) sc.addEventListener('scroll', function f(){ if(sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 40){ _lrnMarkRead(piece.id); sc.removeEventListener('scroll', f); } }); }
     }
@@ -7918,6 +7924,22 @@ function app(tab){
   // what it is, its shape, why it was chosen — with Begin / change.
   // sentence-case a lowercase advisor string for the blog-styled plan screen
   function properCase(s){ return String(s==null?'':s).replace(/(^|[.!?]\s+)([a-z])/g,(m,p,c)=>p+c.toUpperCase()).replace(/\bi\b/g,'I').replace(/\bi(['’])/g,'I$1'); }
+  // the book chapters that teach a practice in depth (Justin, 2026-10-02: "links within the practice description that go to
+  // the appropriate chapters from the books"): the skill first, then the anchor
+  function _planChapters(reco){
+    const L = window.Learning; if(!L) return [];
+    const SENSE = { touch:'sensory-anchors', sound:'sensory-anchors', sight:'sensory-anchors', movement:'anchor-movement-body-breath', imagination:'anchor-memories' };
+    const SKILL = { 'validate-defense':'validating-and-normalizing', 'normalize-defense':'validating-and-normalizing', imagery:'imagery-and-invitation', obstacles:'obstacles',
+      balancing:'balancing-and-pendulating', pendulating:'balancing-and-pendulating', 'validate-safety':'validating-and-normalizing', 'normalize-safety':'validating-and-normalizing',
+      'general-safety':'cue-to-anchor', 'specific-safety':'cue-to-anchor', 'describe-safety':'description', 'interest-safety':'impulses' };
+    const k = reco.practiceKey, ids = [];
+    if(k === 'micro') ids.push('making-change');
+    if(k === 'mindfulness') ids.push('mindfulness-and-meditation');
+    if(k === 'anchoring') ids.push(SKILL[reco.skill] || 'cue-to-anchor');
+    if(k === 'self-regulation'){ if(reco.prefix === 'obstacles') ids.push('obstacles'); ids.push(SKILL[reco.skill] || 'ssiec'); if(reco.depth === 'description' || reco.descDefense) ids.push('description'); if(reco.holdWatch) ids.push('holding-and-watching'); }
+    if(k !== 'mindfulness' && reco.sense && SENSE[reco.sense]) ids.push(SENSE[reco.sense]);
+    return [...new Set(ids)].map(id=>L.byId(id)).filter(Boolean).slice(0, 3);
+  }
   function renderPlan(reco, from){
     // The plan reader IS the matching, rendered — "why this practice, for you, now".
     // It is the paid line. Guard here as well as at the call sites (defense in depth).
@@ -7971,6 +7993,7 @@ function app(tab){
         <p class="sec-h">What to expect in your custom practice</p>
         <p class="plan-about">${escapeHtml(properCase(aboutOf(reco.practiceKey, reco.sense)))}</p>
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
+        ${(()=>{ const ch = _planChapters(reco); return ch.length ? `<p class="plan-about plan-books">In depth in the books: ${ch.map(p=>`<a href="#" class="rd-inlink plan-book" data-piece="${escapeHtml(p.id)}">${escapeHtml(p.title)}</a>`).join(', ')}.</p>` : ''; })()}
       </div>
       <div class="plan-actions">
         <button class="set-quiet actionbar-aux" id="plan-change">Change this practice</button>
@@ -7978,6 +8001,7 @@ function app(tab){
       </div>
     </div>`;
     $('#plan-begin').onclick = ()=>launchWeaver(reco);
+    root.querySelectorAll('.plan-book').forEach(a=>a.onclick=e=>{ e.preventDefault(); const pc = window.Learning && Learning.byId(a.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:()=>renderPlan(reco, from), tab:'practice' }); });
     $('#plan-change').onclick = ()=>{
       // stage the current shape for tabPractice() to pick up, then navigate once — it
       // used to call app('practice') (which rendered the tab's own from-scratch chooser

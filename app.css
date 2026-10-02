@@ -3697,3 +3697,11 @@ button.jr-gh b{flex:1}
 @media (prefers-reduced-motion: reduce){ .rd-jr-sheet,.rd-jr-sheet-in,.rd-jr-step{transition:none} .rd-jr-step.jr-in-r,.rd-jr-step.jr-in-l{animation:none} }
 .rd-jr-sr{display:block;height:0;margin:0 !important;padding:0;overflow:hidden;clip-path:inset(50%)}
 body.jr-sheet-on .fl-dock{visibility:hidden}
+/* book chapters on the paid plan: a small lock in lists, the opening then a lock in the chapter (Justin, 2026-10-02) */
+.rd-row-t .rd-lk,.ll-card-meta .rd-lk{width:13px;height:13px;vertical-align:-2px;margin-right:3px;display:inline-block}
+.rd-gate{margin:6px 0 18px;position:relative}
+.rd-gate::before{content:"";display:block;height:48px;margin-top:-56px;background:linear-gradient(to bottom, transparent, var(--bone));pointer-events:none;position:relative}
+.rd-gate-btn .rd-lk{width:20px;height:20px;flex:none;margin-top:2px;color:var(--ink)}
+/* the practice plan: where the books teach it */
+.plan-books{margin-top:6px;font-size:calc(14px * var(--type-scale));color:var(--ink-80)}
+.plan-books .plan-book{font-weight:500}

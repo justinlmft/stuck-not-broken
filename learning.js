@@ -1328,5 +1328,11 @@
   }
   const inGroup = g => g ? PIECES.filter(p => p.groups.indexOf(g) >= 0) : [];
   const byId = id => PIECES.find(p => p.id === id) || null;
+  // book chapters on the paid plan (Justin, 2026-10-02): free members see the title, the description and the opening, then a
+  // lock. Book 2: anchors 2-6 (anchor 1 and "Anchor deeper" stay free). Book 3: the skill chapters, except validating and
+  // normalizing, second nature, received self-regulation and the unstucking methods, which stay free.
+  const PAID = ['anchor-movement-body-breath', 'sensory-anchors', 'anchor-music', 'anchor-cognitions', 'anchor-memories',
+    'cue-to-anchor', 'imagery-and-invitation', 'description', 'obstacles', 'balancing-and-pendulating', 'holding-and-watching', 'impulses'];
+  PIECES.forEach(p => { if(PAID.indexOf(p.id) >= 0) p.paid = true; });
   global.Learning = { PIECES, INSIGHT_GROUP, CHIP_GROUP, inGroup, byId, STATE_HUBS, TOPICS, TOPIC_ORDER, HUBS, nextFor };
 })(window);
