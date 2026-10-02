@@ -3319,7 +3319,7 @@ body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
 .rd-cover:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .rd-cover-title{font-size:calc(20px * var(--type-scale));font-weight:500;line-height:1.25;color:var(--ink);text-wrap:pretty}
 .rd-cover .rd-meta{margin:0}
-.rd-cover-viz svg,.rd-snap svg.rd-viz{display:block;width:100%;height:auto}
+.rd-cover-viz > svg,.rd-snap svg.rd-viz{display:block;width:100%;height:auto}
 .rd-day{display:flex;flex-direction:column;gap:2px;border-left:3px solid var(--hairline);padding:2px 0 2px 12px;margin:0 0 16px}
 .rd-days{margin:0 0 16px}
 .rd-days summary{cursor:pointer;list-style:none;padding:8px 0;min-height:44px;display:flex;align-items:center}
@@ -3501,3 +3501,18 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
 .rd-book .read-p{margin:0 0 10px}
 .rd-book-links{display:flex;gap:10px;flex-wrap:wrap}
 .rd-book-a{display:inline-flex;align-items:center;min-height:40px;padding:8px 16px;border-radius:999px;border:1px solid var(--hairline);color:var(--ink);text-decoration:none;font-size:calc(14.5px * var(--type-scale));font-weight:500;background:var(--rd-card)}
+
+/* the month cover reads like the month post's calendar: white, no wash (Justin, 2026-10-01) */
+.rd-cover-band.rd-band-plain{background:var(--rd-card)}
+/* Back floats above the bottom bar, animated in (Justin, 2026-10-01: "6 on the menu is too much") */
+.tab-back-float{position:absolute;left:max(16px, env(safe-area-inset-left));bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;
+  display:inline-flex;align-items:center;gap:4px;min-height:44px;padding:8px 16px 8px 10px;border-radius:999px;border:1px solid var(--hairline);
+  background:var(--bone-deep);color:var(--ink);font:inherit;font-size:calc(14.5px * var(--type-scale));font-weight:500;cursor:pointer;
+  box-shadow:0 6px 18px rgba(26,31,42,.12);animation:tabBackFloatIn .28s var(--ease) both}
+.tab-back-float svg{width:20px;height:20px}
+.tab-back-float:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+@keyframes tabBackFloatIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){ .tab-back-float{animation:none} }
+body.in-practice .tab-back-float{display:none}
+.view.read.rd{padding-bottom:72px}
+@media (min-width:720px){ .tab-back-float{left:150px;bottom:24px} }

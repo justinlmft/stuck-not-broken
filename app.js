@@ -3566,11 +3566,12 @@ function app(tab){
     opts = opts || {};
     currentTab = opts.tab || 'reflect';
     // a screen below a top level gets a real back button in the bottom bar too (Justin, 2026-10-01)
-    const tabBack = opts.onBack ? `<button class="tab-back" id="tab-back" type="button" aria-label="Back"><span class="ic">${BACK_SVG}</span><span class="lb">Back</span></button>` : '';
+    const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
     setHTML(`
       <header class="appbar read-appbar">${opts.back ? `<button class="backbtn" id="rd-back">${escapeHtml(opts.back)}</button>` : ''}</header>
       <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
-      <nav class="tabbar${tabBack ? ' has-back' : ''}" id="tabs">${tabBack}${TABS()}</nav>`);
+      ${tabBack}
+      <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const bk = $('#rd-back'); if(bk && opts.onBack) bk.onclick = opts.onBack;
@@ -3617,7 +3618,7 @@ function app(tab){
     const forNow = lastK ? _lrnForDaily(lastK) : null;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
-          ${forNow ? `<section class="rd-learn rd-learn-top"><h3 class="sec-h">For you now</h3>${_lrnCardHTML(forNow)}</section>` : ''}
+          ${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
           ${_rdLearnSection()}`, { tab:'learn' });
     const here = { label:'Learn', go:screenLearn };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
@@ -3634,7 +3635,7 @@ function app(tab){
     const coverEyeb = !cover ? '' : (cover.kind==='week' ? (fresh ? (new Date().getDay()===0 ? 'New this Sunday' : 'New this week') : 'This week') : (fresh ? 'New · ' : '') + RD_KIND_LABEL[cover.kind]);
     const fs = cover ? _rdFirstSnap(cover) : null;
     const coverHTML = cover ? `<button class="rd-cover" type="button" data-post="${escapeHtml(cover.key)}" style="--band:${STATE_COLOR(cover.teachState||'safety')}">
-        <span class="rd-cover-band"><span class="rd-cover-bandtop"><span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>${_rdMk(cover.teachState||'safety','rd-mk-lg')}</span>${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs, cover)}</span>` : ''}</span>
+        <span class="rd-cover-band${fs && fs.snap === 'monthgrid' ? ' rd-band-plain' : ''}"><span class="rd-cover-bandtop"><span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>${_rdMk(cover.teachState||'safety','rd-mk-lg')}</span>${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs, cover)}</span>` : ''}</span>
         <span class="rd-cover-body">
           <span class="rd-cover-title">${escapeHtml(cover.title)}</span>
           <span class="rd-cover-foot"><span class="rd-cover-meta">${escapeHtml(cover.label||'')}</span><span class="rd-read">Read · ${escapeHtml(String(cover.minutes||1))} min${CHEV}</span></span>
@@ -4021,9 +4022,9 @@ function app(tab){
         <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
         ${body}
         ${book}
-        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Your Reflections', onBack: back, tab: from && from.tab ? from.tab : 'reflect' });
+        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Your Reflections', onBack: back, tab:'learn' });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
-    const tabNow = from && from.tab ? from.tab : 'reflect';
+    const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
     root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
     root.querySelectorAll('.rd-keep [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
     _lrnWireLinks({ label:'Back', go:here, tab:tabNow });
