@@ -230,7 +230,7 @@
         "Pushing through usually doesn't help. Forcing yourself adds more stress, and your body holds on tighter. Small doses of safety help the most, a little at a time."]],
       ['Why freeze stays', [
         "Freeze stays when your body doesn't get enough signs of safety. The energy doesn't drain on its own, and your body doesn't relax until it feels safe enough.",
-        "Two habits can keep freeze around longer. One is forcing your way through the day and then crashing at night. The other is rest that isn't really rest, like scrolling on your phone for hours. Scrolling can feel like rest, but it numbs you more than it settles you. That's okay. It just won't help freeze ease up.",
+        "Two habits can keep freeze around longer. One is forcing your way through the day and then crashing at night. The other is rest that isn't really rest, like scrolling on your phone for hours. Scrolling can feel like rest, but it numbs you more than it restores you. That's okay. It just won't help freeze ease up.",
         "Freeze also changes how you think. Thoughts can feel scattered or all-or-nothing. Everything feels impossible, or everything has to happen right now. You don't have to argue with those thoughts. As a bit of safety comes in, your thinking usually loosens too."]],
       ["How you'll know it's shifting", [
         "When freeze starts to thaw, it usually shows up small. A breath that goes deeper on its own. A stretch you didn't plan. Wanting to move, instead of feeling like you have to.",
@@ -268,7 +268,7 @@
         "Without enough safety, flight/fight stays anxious and angry. Over time it can lead to shutdown or freeze. That's not a flaw in you. It's a system that needs more safety."]],
       ['What to try', [
         "Move a little, on purpose. Shake out your hands for thirty seconds, take a quick walk, or push your palms against a wall. Give the energy somewhere to go. Then try to name the feeling under it.",
-        "Try one slow breath with a longer breath out. It won't fix the activation, but it might help you settle a little or get ready to move mindfully."]],
+        "Try one slow breath with a longer breath out. It won't fix the activation, but it might help you calm a little or get ready to move mindfully."]],
       ['Where this can go', [
         "Every small sign of safety gives this energy somewhere to go. Over time, energy with safety becomes motivation and play. It's the same energy, with more safety.",
         "You're not broken, and you're not too much. You have a lot of energy and not enough safety with it yet. Yet."]]]},
@@ -314,7 +314,7 @@
         "Safety that goes unnoticed tends to fade quietly. If the last few days felt easier and you're not sure why, take a second look. Naming what helped makes safety easier to find next time.",
         "When safety starts to fade, you might notice less patience, more anxiety or irritability, or feeling more distant. It depends on your most common defense state. As safety goes down, that state comes up more."]],
       ['What to try', [
-        "Notice safety on purpose. Where do you feel calm or settled in your body? How are you breathing? What's your posture like? Are you more likely to smile? Noticing what safety feels like helps you find it again.",
+        "Notice safety on purpose. Where do you feel calm or at ease in your body? How are you breathing? What's your posture like? Are you more likely to smile? Noticing what safety feels like helps you find it again.",
         "Don't hold on too tightly. Can you let safety be here without needing it to stay? Letting your system move in and out of safety is part of how it grows."]],
       ['Where this can go', [
         "Keep noticing safety and using it, and over time it shows up more often. The goal was never to feel safe all the time. It's to have enough safety to move between all your states without getting stuck.",
@@ -439,7 +439,7 @@
       post.journal = JOURNAL.steadySafe(); post.chipQ = CHIPQ.safe;
     } else if(lead === 'steadyDef'){
       post.title = 'More ' + defName + ' this week';
-      p1 = name + b(howMuch(1-f.share, f.n)) + ' of your check-ins this week had more defense than safety. It was mostly ' + b(defName) + '. Stretches like this can last a while. They don\'t last forever, and every check-in you make here still counts.';
+      p1 = name + b(howMuch(1-f.share, f.n)) + ' of your check-ins this week had more defense than safety. It was mostly ' + b(defName) + '. Periods like this can last a while. They don\'t last forever, and every check-in you make here still counts.';
       post.journal = JOURNAL.steadyDef(); post.chipQ = CHIPQ.def;
     } else {
       post.title = 'A mixed week: safety and defense took turns';

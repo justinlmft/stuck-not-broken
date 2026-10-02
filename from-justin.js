@@ -61,7 +61,7 @@
         {
           "id": "safe-ref-1",
           "type": "reflection",
-          "text": "In a settled moment like this one, the same problems are still there; they just don't run the show. That steadiness is worth noticing instead of rushing past."
+          "text": "In a calmer moment like this one, the same problems are still there; they just don't run the show. That calm is worth noticing instead of rushing past."
         },
         {
           "id": "safe-ref-2",
@@ -427,11 +427,11 @@
       point:["Use it on one thing that matters.","If you want company, spend it with someone you trust.","Keep a little safety with it, and the energy lasts without a crash."],
       ask:["What do you want to use this energy for right now?","What's one thing worth starting now?","What have you been putting off that you have the energy for now?","How is your body breathing right now?"] },
     stillness: { policy:'open',
-      meet:["Quiet, and okay with being quiet.","Slowed down, and okay with it.","Settled and calm right now.","Still inside, and able to be still where you are."],
+      meet:["Quiet, and okay with being quiet.","Slowed down, and okay with it.","At ease and calm right now.","Still inside, and able to be still where you are."],
       point:["This is a chance for real rest.","Nowhere to be for a minute. Let yourself enjoy it."],
       ask:["When it's this quiet, what's been waiting for your attention?","What's easier to hear when things are quiet?","This is a good time to notice what's going on inside you. What do you notice?","How is your body breathing right now?"] },
     fightflight: { policy:'sparing',
-      meet:["Wound up and hard to settle.","A lot of energy that needs somewhere to go.","Maybe irritable. Maybe anxious. Maybe both?"],
+      meet:["Wound up and hard to slow down.","A lot of energy that needs somewhere to go.","Maybe irritable. Maybe anxious. Maybe both?"],
       point:["The activation inside is real, and so is the discomfort it brings.","This energy needs somewhere to go. A little movement on purpose helps more than holding still."],
       ask:["What kind of movement would feel good right now? A run or lifting weights? Using your legs or your arms?","What's the feeling under the activation?","How is your body breathing right now?"] },
     shutdown: { policy:'withhold',
@@ -564,9 +564,9 @@
   const ESSAY_DOOR = {
     freeze:      'The practice tab has something shaped for where you are right now. In freeze, the place to start is safety, built in small doses. Anchor into a bit of safety first. Once anchored, connecting with the defense side becomes possible.',
     shutdown:    'The practice tab has something shaped for where you are right now. In shutdown, that means the smallest doses: simple mindfulness and safety building, nothing that asks for effort you don\'t have.',
-    fightflight: 'The practice tab has something shaped for where you are right now. With this much charge, the order matters: settle a little of the energy first, find some safety, and then it\'s easier to work with what\'s underneath.',
+    fightflight: 'The practice tab has something shaped for where you are right now. With this much charge, the order matters: ease a little of the energy first, find some safety, and then it\'s easier to work with what\'s underneath.',
     play:        'The practice tab has something shaped for a state like this: using the energy while you have it, in a way that builds capacity instead of spending it all at once.',
-    stillness:   'The practice tab has something shaped for a settled state like this. This kind of quiet is good ground for gentle inner work, in doses, while you have the calm to hold it.',
+    stillness:   'The practice tab has something shaped for a quiet state like this. This kind of quiet is good ground for gentle inner work, in doses, while you have the calm to hold it.',
     safety:      'This is the state with the most capacity available, which makes it the right time for the harder practices: anchoring into safety, then connecting with a little of the harder stuff in a dose, then coming back. The practice tab has that work waiting when you want it.'
   };
   const DEFENSE_TELL = {
@@ -633,10 +633,10 @@
       ]});
       const why=[
         'Freeze holds because both pedals stay pressed. The energy underneath doesn\'t drain on its own, and the brake doesn\'t lift until your body gets enough cues of safety. Until then, the state keeps itself going.',
-        'Two coping habits keep it pressed longer. The first is forcing through the day and collapsing at the end of it, then doing the same thing tomorrow. Force reads to your body as more threat, so the brake holds tighter. The second is faking rest. Doom-scrolling looks like rest, but it numbs the experience instead of letting your system settle. It\'s coping, and coping is fine. It just won\'t lift the brake.',
+        'Two coping habits keep it pressed longer. The first is forcing through the day and collapsing at the end of it, then doing the same thing tomorrow. Force reads to your body as more threat, so the brake holds tighter. The second is faking rest. Doom-scrolling looks like rest, but it numbs the experience instead of letting your system rest. It\'s coping, and coping is fine. It just won\'t lift the brake.',
         'Your thinking plays a part here too. Freeze thinking runs scattered and all-or-nothing: everything feels impossible, or it all has to happen right now. Those thoughts stem from the state, and they feed it back, because a mind insisting on all-or-nothing keeps the body braced. You don\'t have to argue with the thoughts. When a little safety comes in and the state thaws, the thinking loosens with it.'
       ];
-      if((ctx.streak||0)>=3) why.push('You\'ve checked in around freeze for '+hl(ctx.streak+' days')+' now. Long stretches in one place are common; that\'s basically what stuck means. It doesn\'t mean you\'ve stalled, and it isn\'t evidence that this is who you are. It\'s a state. States shift, even the ones that have been around a long time.');
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around freeze for '+hl(ctx.streak+' days')+' now. Long spells in one place are common; that\'s basically what stuck means. It doesn\'t mean you\'ve stalled, and it isn\'t evidence that this is who you are. It\'s a state. States shift, even the ones that have been around a long time.');
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
       const shift=[
         'Thawing doesn\'t announce itself. It shows up small. A breath that goes deeper on its own. A stretch that happens without deciding to. The urge to move starting to feel more like wanting to than having to.',
@@ -667,7 +667,7 @@
         'Shutdown stays because the body doesn\'t have enough energy yet to come back online. Pushing against it, forcing yourself up and out, spends what little energy there is and deepens the collapse instead.',
         'It also stays because the mind starts telling a story that matches the state: that this is just who you are now, that nothing will help. The hopelessness feels like stone-carved truth. It isn\'t. Thoughts follow states, and that story is the shutdown talking, not the facts.'
       ];
-      if((ctx.streak||0)>=3) why.push('You\'ve checked in around shutdown for '+hl(ctx.streak+' days')+' now. Long stretches here are common, and they\'re exactly when the "this is just me now" story gets loudest. It\'s a state. States shift, even the slow ones.');
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around shutdown for '+hl(ctx.streak+' days')+' now. Long periods here are common, and they\'re exactly when the "this is just me now" story gets loudest. It\'s a state. States shift, even the slow ones.');
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
       const shift=[
         'The first signs of energy returning are small and easy to miss. Caring a little about one thing. Noticing you\'re hungry. A window you actually wanted open.',
@@ -701,14 +701,14 @@
         'Your thinking reinforces your state as well. No, it\'s not just a matter of changing how you think since your thoughts also stem from your state. So, the blame, the worst-case thinking, the everything-is-urgent feeling. That\'s the brain narrating a revved-up body, not the truth about your life. When your state shifts more toward safety, your thinking will change on its own.'
       ]});
       const shift=[
-        'As mobilized flight/fight combines with safety, the urgency settles more and more. Some things that are actually urgent still get your urgent attention, but with more patience. And the other stuff... it can wait without everything falling apart. With safety, your mobilization turns into motivation to create and get stuff done. With others, you\'re more likely to play and share in fun.',
+        'As mobilized flight/fight combines with safety, the urgency eases more and more. Some things that are actually urgent still get your urgent attention, but with more patience. And the other stuff... it can wait without everything falling apart. With safety, your mobilization turns into motivation to create and get stuff done. With others, you\'re more likely to play and share in fun.',
         'But what if there isn\'t enough safety in the system? If not, then flight/fight continues to be anxious and angry. Over time, it will lean more toward shutdown or possibly freeze. No, it\'s not a character defect. It\'s just a system that needs more safety.'
       ];
       if(ctx.dir==='rising') shift.push('You\'re reporting more safety in your last few check-ins than you were before. Not a big drop in charge, but a real one.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'Move a little, on purpose. Thirty seconds of shaking out your hands, a quick walk, palms pushed against a wall. Give the energy somewhere to go, then name the feeling underneath it. Naming it is a solid first step to letting it move through instead of running you.',
-        'And try taking one intentional breath and lengthening the exhale. It\'s not a cure for your activation, but it might open the potential for a bit of settling or open a path for mindful movement.',
+        'And try taking one intentional breath and lengthening the exhale. It\'s not a cure for your activation, but it might open the potential for a bit of calm or open a path for mindful movement.',
         _essayInsight(ctx)
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
@@ -742,7 +742,7 @@
         _essayInsight(ctx)
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
-        'Keep a little safety mixed into this energy, and it stays fuel instead of turning into a fire. Over time, you get to mobilize during the day and still settle into stillness in the evening, and the drive stops costing you on the back end.',
+        'Keep a little safety mixed into this energy, and it stays fuel instead of turning into a fire. Over time, you get to mobilize during the day and still ease into stillness in the evening, and the drive stops costing you on the back end.',
         'It\'s just how the body works. Whether you\'re mobile or immobile, change is always close.'
       ].filter(Boolean)});
       return sec;
@@ -752,7 +752,7 @@
       const sec=[];
       sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
         _essayOpen(ctx),
-        'Stillness is your body slowed all the way down with safety mixed in. It\'s the same slowing you\'d feel in shutdown, but the safety changes everything. Immobility without fear is stillness. Immobility with fear mixed in is a different state entirely. On your own, this shows up as rest and reflection. Shared with someone safe, the same settledness becomes intimacy. (A pet counts, but we don\'t need to call it "intimacy.")',
+        'Stillness is your body slowed all the way down with safety mixed in. It\'s the same slowing you\'d feel in shutdown, but the safety changes everything. Immobility without fear is stillness. Immobility with fear mixed in is a different state entirely. On your own, this shows up as rest and reflection. Shared with someone safe, the same stillness becomes intimacy. (A pet counts, but we don\'t need to call it "intimacy.")',
         'Rest isn\'t a reward you earn after everything\'s done. It\'s how your system restores its balance. This is the state behind real sleep, sitting still without crawling out of your skin, and easy closeness with someone safe.'
       ]});
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:[
@@ -798,7 +798,7 @@
       if(ctx.dir==='rising') shift.push('Your data says this state is getting stronger. You\'re reporting more safety in your last few check-ins than you were before. Safety adds a little at a time and keeps building. Keep it up.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
-        'Notice it on purpose. Where exactly do you feel... settled or calm? Playful or motivated? Those emotions are a great sign of safety, but pay attention. If you can notice what safety feels like in your body, then you\'re anchored into it and deepening the experience. As best you can, look inward and really feel the safety within you. How does your body breathe in safety? What\'s your posture like? Are you more likely to smile? To hug someone?',
+        'Notice it on purpose. Where exactly do you feel... at ease or calm? Playful or motivated? Those emotions are a great sign of safety, but pay attention. If you can notice what safety feels like in your body, then you\'re anchored into it and deepening the experience. As best you can, look inward and really feel the safety within you. How does your body breathe in safety? What\'s your posture like? Are you more likely to smile? To hug someone?',
         'And don\'t grab it too tight. Can you let it be here without needing it to stay? Giving your system permission to move in and out of safety is part of how the capacity grows.',
         _essayInsight(ctx)
       ]});
@@ -1008,7 +1008,7 @@
   function _fillMQ(t, o){
     return String(t==null?'':t)
       .replace(/\{DOM\}/g,o.DOM||'').replace(/\{FIRST\}/g,o.FIRST||'').replace(/\{LAST\}/g,o.LAST||'')
-      .replace(/\{PCT\}/g,o.PCT!=null?String(o.PCT):'').replace(/\{DAY\}/g,o.DAY||'').replace(/\{SPAN\}/g,o.SPAN||'this stretch')
+      .replace(/\{PCT\}/g,o.PCT!=null?String(o.PCT):'').replace(/\{DAY\}/g,o.DAY||'').replace(/\{SPAN\}/g,o.SPAN||'this period')
       .replace(/\{N\}/g,o.N||'').replace(/\{DAYS\}/g,o.DAYS!=null?String(o.DAYS):'');
   }
   const _QSPAN = { q:'these past three months', half:'these past six months', year:'this past year' };
@@ -1021,7 +1021,7 @@
       flat: ["Baseline update: your safety baseline stayed about the same across the month. You can build on that."]
     },
     rhythm_dow: ["Looks like your {DAY} tend to carry a bit more safety state than other days. Worth noticing what's different about them, so you can do more of it.","Your {DAY} carry a little more safety than the rest, more often than not. A small clue about what's working for you."],
-    recovery: ["There's also a pattern in how your system rebounds after a dip into defense. It tends to return to safety within {N}. It knows the way back. Now you pay attention and follow its lead.","After an energized stretch, you usually find your way to more safety within {N}. That shows capacity building."],
+    recovery: ["There's also a pattern in how your system rebounds after a dip into defense. It tends to return to safety within {N}. It knows the way back. Now you pay attention and follow its lead.","After an energized spell, you usually find your way to more safety within {N}. That shows capacity building."],
     close: ["No grades here. Just a month of getting to know your nervous system, one honest moment at a time. Keep going.","A month in, and this picture is yours now. It gets clearer the longer you stay with it.","Whatever this month held, you showed up for it. That's the part that compounds."]
   };
   function monthly(ctx0){
@@ -1083,9 +1083,9 @@
     parts.push(_fillMQ(cycle('q-tot', QUARTERLY.totals), o));
     // self-regulation arc + emotion mix over the span (recommender-v2)
     const _when = { q:'3 months ago', half:'6 months ago', year:'A year ago' };
-    const mvLine = _skillMovementLine(ctx0.movement, _when[mark] || 'Earlier in this stretch');
+    const mvLine = _skillMovementLine(ctx0.movement, _when[mark] || 'Earlier in this period');
     if(mvLine) parts.push(mvLine.charAt(0).toUpperCase() + mvLine.slice(1));
-    const emoLine = _periodEmotionLine(ctx0.emotion, _QSPAN[mark] || 'this stretch');
+    const emoLine = _periodEmotionLine(ctx0.emotion, _QSPAN[mark] || 'this period');
     if(emoLine) parts.push(emoLine);
     parts.push(cycle('q-close:'+mark, QUARTERLY.close[mark]));
     return { text: parts.join(' '), stats: st, mark: mark };
@@ -1136,7 +1136,7 @@
     }
     if(ctx.recoveryDay && ctx.defenseState){
       out.variant = 'recovery';
-      out.paras.push('The week had a dip in the middle: ' + hl(_feltName(ctx.defenseState)) + ' showed up and stayed for a stretch. Here\'s the part worth keeping: you came back. By ' + hl(ctx.recoveryDay) + ', safety was back in the mix. This is evidence that your system knows how to return to safety. Dips will happen. That\'s completely normal. We just want to navigate it as regulated as possible. Reflect while it\'s fresh:');
+      out.paras.push('The week had a dip in the middle: ' + hl(_feltName(ctx.defenseState)) + ' showed up and stayed for a while. Here\'s the part worth keeping: you came back. By ' + hl(ctx.recoveryDay) + ', safety was back in the mix. This is evidence that your system knows how to return to safety. Dips will happen. That\'s completely normal. We just want to navigate it as regulated as possible. Reflect while it\'s fresh:');
       out.bullets = [
         'What helped you find your way back?',
         'Did a person, a place, or a practice make the difference?',
@@ -1173,7 +1173,7 @@
       out.variant = 'lowdata';
       out.paras.push(yr
         ? 'Only ' + n + ' check-ins across the whole year, so the long trends here are rough sketches at best. That\'s okay. Every check-in you add sharpens the picture. A few honest seconds a day is plenty.'
-        : 'Only ' + n + ' check-ins across the whole quarter, so it\'s tough to give you substantial trends over a stretch this long. Nothing wrong with that. The more moments you capture, the more a season like this has to say. A few honest seconds a day is plenty.');
+        : 'Only ' + n + ' check-ins across the whole quarter, so it\'s tough to give you substantial trends over a span this long. Nothing wrong with that. The more moments you capture, the more a season like this has to say. A few honest seconds a day is plenty.');
       return out;
     }
     out.paras.push(yr
@@ -1212,7 +1212,7 @@
         ] : [
           'What did this season ask of you?',
           'Did something in your life context change that pulled on your system?',
-          'Were there people or places that still added safety, even in a heavier stretch?',
+          'Were there people or places that still added safety, even in a heavier time?',
           'What\'s one small, repeatable thing you could give your system next quarter?'
         ];
         out.chipQ = yr ? 'What pulled you toward defense this year?' : 'What pulled you toward defense this season?';

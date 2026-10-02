@@ -1423,7 +1423,7 @@
       // the mirror's vocabulary; flag any clause that reads off and I'll adjust.
       const cv = mv>0 ? "you're feeling more connected"        : mv<0 ? 'connecting feels harder right now'          : 'connecting is about the same';
       const cd = md<0 ? 'doing things feels more within reach' : md>0 ? 'doing things takes more effort right now'   : 'doing things is about the same';
-      const cs = ms<0 ? 'your energy settled'                  : ms>0 ? "there's more energy in your body"           : 'your energy is about the same';
+      const cs = ms<0 ? 'your energy eased'                  : ms>0 ? "there's more energy in your body"           : 'your energy is about the same';
       const cap = (t)=>t.charAt(0).toUpperCase()+t.slice(1);
       body = `${cap(cv)}. ${cap(cd)}. And ${cs}.`;
     } else if(net < 0){
@@ -2293,7 +2293,7 @@ function whatsNewLaunch(){
     + '<p class="wn-p">There are way too many updates to list, but here\'s a few:</p>'
     + '<ul class="wn-p" style="margin:0;padding-left:20px">'
     + '<li>The guided practices now talk back! You can answer many questions from the player during your practice and change the course of the practice.</li>'
-    + '<li>Add background audio to your practice (tap Customize in the player) to help you settle even more.</li>'
+    + '<li>Add background audio to your practice (tap Customize in the player) to help you feel even more at ease.</li>'
     + '<li>Even better recommendations based on your check-ins and practices, including your ideal practice time.</li>'
     + '<li>Randomish tips: you\'ll get a &ldquo;Did you know&rdquo; every now and again to help you get the most out of the app.</li>'
     + '</ul>'
@@ -8035,7 +8035,7 @@ function app(tab){
     // said plainly (Justin, 2026-10-02: "I really don't like the 'tuned to you' language … 'Based on what's been most helpful
     // from your practices'"): that line once there are practices to go on; a surprise says it is random; otherwise just the shape
     let _hadPractice = false; try{ _hadPractice = ((Store.sessions && Store.sessions()) || []).length > 0; }catch(e){}
-    const shapeLead = reco.surprise ? 'Put together at random' : reco.variety ? 'Your choices' : _hadPractice ? 'Based on what’s been most helpful from your practices' : '';
+    const shapeLead = reco.surprise ? 'Surprise me' : reco.variety ? 'Your choices' : _hadPractice ? 'Based on what’s been most helpful from your practices' : '';
     const _capFirst = t => t.replace(/^((?:<[^>]+>)*)([a-z])/, (m,p,ch)=>p+ch.toUpperCase());
     const shapedSentence = shapeBits.length ? (shapeLead ? `${shapeLead}: ${joinList(shapeBits)}.` : `${_capFirst(joinList(shapeBits))}.`) : '';
     // Back floats at the bottom left like Learn and Reflect (Justin, 2026-10-02, the Practice tab redesign)
@@ -8191,7 +8191,7 @@ function app(tab){
     const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
     const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
     renderPlan({ practiceKey:'self-regulation', sense:rsense, skill:rskill, silence:rsilence, holdWatch:false, holdWatchTargetSeconds:null, surprise:true,
-                 reason:'A surprise practice, put together at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
+                 reason:'A surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
   }
 
   function renderPracticeTab(animateIn){
@@ -8635,7 +8635,7 @@ function app(tab){
              "Non-safety rose some. Giving it attention tends to do that at first.",
              "It got louder while you were with it. That's a normal part of turning toward it."],
       same: ["Non-safety held about where it was. You stayed with it, and that counts."],
-      down: ["Non-safety eased off by the end. You stayed with it, and it settled some.",
+      down: ["Non-safety eased off by the end. You stayed with it, and it quieted some.",
              "Non-safety came down a bit while you stayed with it."],
     };
     let line = '';

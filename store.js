@@ -1837,7 +1837,7 @@
     if(!gate.open){
       let reason = dom==='shutdown' ? "you are pulling toward shutdown. nothing to push against. we'll keep it simple and just notice the present moment, gently."
                  : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small and stay with the present moment."
-                 : "there's a lot of defense active right now. we'll stay with the present moment and let some of it settle.";
+                 : "there's a lot of defense active right now. we'll stay with the present moment and let some of it ease.";
       if(falling) reason = "safety has been slipping in the last few check-ins, so connecting with it may be hard right now. this one keeps it simple and stays with the present moment.";
       // 2026-09-25 (Justin): mindfulness is about the present moment, not safety. it is the practice for someone
       // who is struggling to even connect with safety; safety is the anchoring practice. none of these reasons may
@@ -1919,8 +1919,8 @@
     let reason;
     if(dialDown){
       reason = stepPhrase(key)
-        ? "last one was a lot, so we'll stay with the same practice and keep it gentler: a bit shorter, with more quiet space to settle."
-        : "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler: a bit shorter, with more quiet space to settle.";
+        ? "last one was a lot, so we'll stay with the same practice and keep it gentler: a bit shorter, with more quiet space between the guidance."
+        : "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler: a bit shorter, with more quiet space between the guidance.";
       if(lastMost && lastMost.emotionIntent) reason += " if you work with " + lastMost.emotionIntent + " again, maybe at a gentler intensity this time.";
     } else if(droppedStep && hardLast){
       reason = "the last couple were a lot, so we'll ease back to " + _stepWords(key, skill) + " for now. that's just where your system is right now, and it's completely normal. the practices after this one will still be here when you're ready.";
