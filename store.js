@@ -1350,7 +1350,7 @@
     if(!cs.length) return { pairs:[], n:0, meanConnDelta:null, meanDefDelta:null };
     // group by session + practice, keeping the earliest 'before' and the earliest 'after' after it
     const groups = {};
-    cs.forEach(c => { const k = c.live_session_id + ' ' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
+    cs.forEach(c => { const k = c.live_session_id + '\u0000' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
     const pairs = [];
     Object.keys(groups).forEach(k => {
       const g = groups[k].slice().sort((a,b) => a.t - b.t);
