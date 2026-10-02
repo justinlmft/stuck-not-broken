@@ -4009,6 +4009,8 @@ function app(tab){
     // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
     const nx = L.nextFor ? L.nextFor(piece) : null;
     const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
+    // book chapters: where it comes from, and where to get the book (Curriculum Advisor's LINKS.md, Justin 10-01)
+    const book = piece.book ? `<section class="rd-book"><p class="read-p">From <i>${escapeHtml(piece.book)}</i>.</p><div class="rd-book-links">${piece.book_url ? `<a class="rd-book-a" href="${escapeHtml(piece.book_url)}" target="_blank" rel="noopener">Get the book</a>` : ''}${piece.book_amazon ? `<a class="rd-book-a" href="${escapeHtml(piece.book_amazon)}" target="_blank" rel="noopener">On Amazon</a>` : ''}</div></section>` : '';
     const keep = `<section class="rd-learn rd-keep"><h3 class="sec-h">Keep learning</h3>
         ${nx ? `<span class="rd-eyeb rd-keep-eyeb">Read next</span><div class="rd-list rd-list-flat">${_lrnRowHTML(nx)}</div>` : ''}
         ${hubKeys.length ? `<span class="rd-eyeb rd-keep-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubKeys.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div>` : ''}
@@ -4018,6 +4020,7 @@ function app(tab){
         <h1 class="rd-title">${escapeHtml(piece.title)}</h1>
         <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
         ${body}
+        ${book}
         ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Your Reflections', onBack: back, tab: from && from.tab ? from.tab : 'reflect' });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     const tabNow = from && from.tab ? from.tab : 'reflect';

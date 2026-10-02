@@ -9,6 +9,7 @@
    its main state, its main insight, the member's journal answer. The way points to a GROUP of related
    pieces, and the app cycles to the next piece in that group. If a way finds no piece, the next way
    is tried; if none does, the post has no Recommended Learning.
+   Book chapters carry book, book_url (the Circle checkout) and book_amazon; the piece shows both links.
    Blocks: {p} {h} {h3} {ul} {ol} {q} (a quote) {reflect:id, prompt, fill?} (an in-article reflection, saved for paid members) {callout:id} {practice:'anchoring'|'mindfulness'|'custom', sense?, why}.
    Inline: **bold**, *italic*, [text](https://...). Any mention of the Unstucking Academy links to
    https://www.stucknotbroken.com/checkout/co-regulator (Justin, 2026-10-01). A {practice} block offers
@@ -1095,6 +1096,9 @@
  },
  {
   "id": "flight-fight-state",
+  "book": "Stuck Not Broken, Book 1: Trauma & the Polyvagal Paradigm",
+  "book_url": "https://www.stucknotbroken.com/checkout/snb1-pdf",
+  "book_amazon": "https://www.amazon.com/dp/B0D7SSTJTV",
   "title": "The flight/fight state",
   "state": "fightflight",
   "groups": [
