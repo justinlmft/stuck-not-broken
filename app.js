@@ -747,7 +747,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -3728,6 +3728,7 @@ function app(tab){
     });
     return out.sort((a,b)=> b.score - a.score || a.i - b.i).map(x=>x.p);
   }
+  const _JR_PEN = '<svg class="rd-jr-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5h10.5a2 2 0 0 1 2 2V19a.5.5 0 0 1-.5.5H7a2 2 0 0 1-2-2z"/><path d="M8.5 8.5h6M8.5 11.5h6M8.5 14.5h3.5"/></svg>';
   const _LRN_SEARCH_SVG = '<svg class="ll-q-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>';
   // the Learn tab: search, what to read now, the state hubs, the topic hubs
   function screenLearn(keepQuery){
@@ -3738,6 +3739,7 @@ function app(tab){
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
           <div class="ll-search" role="search">${_LRN_SEARCH_SVG}<input class="ll-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-q-x" id="ll-q-x" type="button" aria-label="Clear search"${_lrnQ ? '' : ' hidden'}>${'×'}</button></div>
+          ${window.SNB_IS_STAGING ? (()=>{ let v = 'a'; try{ v = localStorage.getItem('snb_journal_ui') || 'a'; }catch(e){} return `<section class="rd-preview ll-jrpick"><span class="rd-eyeb">Beta only · the Journal in articles: look ${v.toUpperCase()}</span><div class="p-chips">${['a','b','c'].map(k=>`<button class="p-chip${k===v?' on':''}" type="button" data-jrui="${k}">${k.toUpperCase()}</button>`).join('')}</div></section>`; })() : ''}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
           ${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
@@ -3748,6 +3750,7 @@ function app(tab){
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
     root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+    root.querySelectorAll('[data-jrui]').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('snb_journal_ui', b.dataset.jrui); }catch(e){} screenLearn(true); });
     const qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
     let shown = 30, tm = null;
     const draw = ()=>{
@@ -3807,7 +3810,7 @@ function app(tab){
       const items = g.items.slice().sort((a,b)=> order.indexOf(a.rid) - order.indexOf(b.rid));
       return `<section class="jr-group"><button class="jr-art" type="button" data-piece="${escapeHtml(g.piece.id)}"><b>${escapeHtml(g.piece.title)}</b><span class="wc-go">${CHEV}</span></button>
         ${items.map(it=>{ const b = (g.piece.blocks||[]).find(x=>x.reflect === it.rid); const q = it.q || (b ? _lrnNorm(b.prompt).replace(/^./, c=>c.toUpperCase()) : '');
-          return `<button class="jr-item" type="button" data-piece="${escapeHtml(g.piece.id)}" data-rf="${escapeHtml(it.rid)}">${q ? `<span class="jr-q">${escapeHtml(b ? '' : q)}${b ? _lrnInline(b.prompt||'') : ''}</span>` : ''}<span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span>${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : ''}</button>`; }).join('')}
+          return `<button class="jr-item" type="button" data-piece="${escapeHtml(g.piece.id)}" data-rf="${escapeHtml(it.rid)}">${q ? `<span class="jr-q">${escapeHtml(b ? '' : q)}${b ? _lrnInline(b.prompt||'') : ''}</span>` : ''}<span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : ''}<span class="jr-src">Back to the lesson${CHEV}</span></span></button>`; }).join('')}
       </section>`;
     }).join('');
     shell(`<p class="read-p jr-lede">What you wrote in Learn articles. Tap an answer to go back to it.</p>${html}`);
@@ -4118,6 +4121,9 @@ function app(tab){
   function _lrnGoTo(sec){
     const el = sec && root.querySelector('#sec-' + CSS.escape(sec)); if(!el) return;
     const fold = el.closest('details'); if(fold) fold.open = true;
+    const jr = el.closest('.rd-jr');
+    if(jr){ const st = el.closest('.rd-jr-step'); if(st && jr._show) jr._show(+st.dataset.step); const bd = jr.querySelector('.rd-jr-body'); if(bd) bd.hidden = false; const ob = jr.querySelector('.rd-jr-open'); if(ob) ob.hidden = true;
+      const sh = jr.querySelector('.rd-jr-sheet'); if(sh){ sh.hidden = false; document.body.classList.add('jr-sheet-on'); return; } }
     const sc = root.querySelector('.scroll'); if(!sc) return;
     const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12;
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -4239,12 +4245,30 @@ function app(tab){
     let reflSeen = 0;
     const reflOne = b => { const saved = ((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0] || '';
       return `<div class="rd-refl-one" id="sec-rf-${escapeHtml(b.reflect)}"><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`; };
+    // the Journal (Justin, 2026-10-02: "all questions need to be hidden behind a closed 'Journal'. When it's tapped, it opens and
+    // the first question is shown"; free members see no questions). Three looks built for him to pick from (beta only, 'snb_journal_ui'):
+    // a = a folded bar that opens in place, one question at a time; b = a card with an Open button, the other questions listed
+    // under the first; c = a small Journal button that opens a sheet over the article, one question at a time.
+    const jrUI = (()=>{ let v = null; try{ v = localStorage.getItem('snb_journal_ui'); }catch(e){} return /^[abc]$/.test(v||'') ? v : 'a'; })();
     const reflCard = (run, titled) => {
       reflSeen++;
-      const eyeb = titled ? '' : '<span class="rd-eyeb">Reflect</span>';
-      if(!paid) return reflSeen > 1 ? '' : `<div class="rd-refl">${eyeb}<p class="read-p rd-refl-q">${_lrnInline(run[0].prompt||'')}</p><button class="rd-call-lock rd-refl-lock" type="button">${LOCK_SVG}<span>Answer reflections and keep them in your Journal on the paid plan.</span></button></div>`;
-      const rest = run.slice(1), anySaved = rest.some(b=>(((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0]));
-      return `<div class="rd-refl">${eyeb}${reflOne(run[0])}${rest.length ? `<details class="rd-refl-more"${anySaved ? ' open' : ''}><summary><span>${escapeHtml(rest.length === 1 ? '1 more question' : rest.length + ' more questions')}</span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary>${rest.map(reflOne).join('')}</details>` : ''}<p class="rd-refl-where">Answer one, or none. What you write is kept in your Journal, in the You tab.</p></div>`;
+      const n = run.length, count = n === 1 ? '1 question' : n + ' questions';
+      if(!paid){
+        if(reflSeen > 1) return '';
+        if(jrUI === 'c') return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
+        if(jrUI === 'b') return `<div class="rd-jr rd-jr-b"><div class="rd-jr-head"><span class="rd-jr-ic">${_JR_PEN}</span><div class="rd-jr-ht"><b>Journal</b><span>Write about what you just read, and keep it in Your Journal.</span></div></div><button class="rd-jr-open rd-jr-locked" type="button">${LOCK_SVG}<span>On the paid plan</span></button></div>`;
+        return `<div class="rd-jr rd-jr-a"><button class="rd-jr-bar rd-jr-locked" type="button"><span class="rd-jr-ic">${_JR_PEN}</span><span class="rd-jr-t"><b>Journal</b><span>On the paid plan</span></span>${LOCK_SVG}</button></div>`;
+      }
+      const steps = run.map((b, k)=>`<div class="rd-jr-step"${k ? ' hidden' : ''} data-step="${k}">${reflOne(b)}</div>`).join('');
+      const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
+      const where = `<p class="rd-refl-where">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p>`;
+      if(jrUI === 'b'){
+        const rest = run.slice(1).map(b=>`<details class="rd-jr-q"><summary><span>${_lrnInline(b.prompt||'')}</span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary>${reflOne(b).replace('<label class="read-p rd-refl-q"', '<label class="read-p rd-refl-q rd-jr-sr"')}</details>`).join('');
+        return `<div class="rd-jr rd-jr-b"><div class="rd-jr-head"><span class="rd-jr-ic">${_JR_PEN}</span><div class="rd-jr-ht"><b>Journal</b><span>${escapeHtml(count)} about what you just read.</span></div></div><button class="rd-jr-open" type="button">Open journal</button><div class="rd-jr-body" hidden>${reflOne(run[0])}${rest ? `<p class="rd-jr-more-h">More questions</p>${rest}` : ''}${where}</div></div>`;
+      }
+      if(jrUI === 'c') return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(count)}</p>
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><div class="rd-jr-sheet-top"><b>Journal</b><button class="rd-jr-done" type="button">Done</button></div>${steps}${nav}${where}</div></div></div>`;
+      return `<details class="rd-jr rd-jr-a"><summary class="rd-jr-bar"><span class="rd-jr-ic">${_JR_PEN}</span><span class="rd-jr-t"><b>Journal</b><span>${escapeHtml(count)}</span></span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary><div class="rd-jr-body">${steps}${nav}${where}</div></details>`;
     };
     const blocks = piece.blocks || [], parts = [];
     for(let i = 0; i < blocks.length; i++){
@@ -4253,6 +4277,8 @@ function app(tab){
       if(b.practice){ const pt = _lrnPracticeThis(b);
         parts.push(`<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`); continue; }
       if(b.callout){ const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid) : ''); continue; }
+      // a "Journal" or "Reflect" heading right above the questions: the Journal card says it, so the heading stays only for the table of contents
+      if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
       parts.push(_lrnBlockHTML(b));
     }
     const body = parts.join('');
@@ -4288,6 +4314,24 @@ function app(tab){
       btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
     });
     root.querySelectorAll('[data-refl]').forEach(ta=>ta.oninput=()=>{ const s = root.querySelector(`[data-refl-save="${ta.dataset.refl}"]`); if(s) s.textContent = 'Save'; });
+    // the Journal: locked for free; one question at a time (a, c); Open (b); the sheet (c)
+    root.querySelectorAll('.rd-jr-locked').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('.rd-jr').forEach(j=>{
+      const steps = [...j.querySelectorAll('.rd-jr-step')], dots = [...j.querySelectorAll('.rd-jr-dots i')];
+      const pv = j.querySelector('.rd-jr-prev'), nx = j.querySelector('.rd-jr-next');
+      const show = k => { steps.forEach((s, x)=>s.hidden = x !== k); dots.forEach((d, x)=>d.classList.toggle('on', x === k)); if(pv) pv.hidden = k === 0; if(nx) nx.hidden = k === steps.length - 1; j._step = k; };
+      j._show = show;
+      if(pv) pv.onclick = ()=>show(Math.max(0, (j._step||0) - 1));
+      if(nx) nx.onclick = ()=>show(Math.min(steps.length - 1, (j._step||0) + 1));
+      const ob = j.querySelector('.rd-jr-open'); if(ob && !ob.classList.contains('rd-jr-locked')) ob.onclick = ()=>{ const bd = j.querySelector('.rd-jr-body'); bd.hidden = false; ob.hidden = true; const ta = bd.querySelector('textarea'); if(ta) ta.focus({ preventScroll:true }); };
+      const pill = j.querySelector('.rd-jr-pill'), sh = j.querySelector('.rd-jr-sheet');
+      if(pill && sh && !pill.classList.contains('rd-jr-locked')){
+        const close = ()=>{ sh.hidden = true; document.body.classList.remove('jr-sheet-on'); };
+        pill.onclick = ()=>{ sh.hidden = false; document.body.classList.add('jr-sheet-on'); };
+        j.querySelector('.rd-jr-done').onclick = close;
+        sh.onclick = e=>{ if(e.target === sh) close(); };
+      }
+    });
     root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), 'practice'); });
     if(goSec) requestAnimationFrame(()=>_lrnGoTo(goSec));
     // read = reached the end (Keep learning in view), not just opened
