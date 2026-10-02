@@ -923,7 +923,7 @@
           </button>
           <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">You\u2019re joining a live practice. Sign in to check in.</div>':''}
           <h1 style="margin:10px 0 12px">${up?'An app to guide you through emotional regulation.':'Your nervous system, over time.'}</h1>
-          <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices tuned to you, and watch your patterns become visible over time.</p>
+          <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices based on what helps you, and watch your patterns become visible over time.</p>
           <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
           ${up ? '<div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
           <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
@@ -1304,7 +1304,7 @@
     const OPTS = [
       { key:'micro',       open:true,  title:'A tiny practice',          sub:`about ${estTiny} min · one sense, done` },
       { key:'mindfulness', open:true,  title:'Simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
-      { key:'anchoring',   open:false, title:'Safety anchoring',        sub:'Settling in through your senses' },
+      { key:'anchoring',   open:false, title:'Safety anchoring',        sub:'Connecting with safety through your senses' },
       { key:'self-regulation',        open:false, title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
       { key:'more',        open:false, title:'More practices',           sub:'Standalone guided practices' },
     ];
@@ -7226,7 +7226,7 @@ function app(tab){
       const lead = Math.abs(changes[0][1])<0.06 ? 'All three are about the same.' : (changes[0][0]==='v' ? `Your safety has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
       push('readings','each state over time',`
         ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
-        <div class="rd-row">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
+        <div class="rd-trio">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
         ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),null,n,true)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
     })();
@@ -7723,7 +7723,7 @@ function app(tab){
   const P_OPTS=[
     {key:'micro',      title:'A tiny practice',          sub:'About two minutes, one sense, done'},
     {key:'mindfulness',title:'Simple mindfulness',       sub:'The gentlest, a calm place to start'},
-    {key:'anchoring',  title:'Safety anchoring',        sub:'Settling in through your senses'},
+    {key:'anchoring',  title:'Safety anchoring',        sub:'Connecting with safety through your senses'},
     {key:'self-regulation',       title:'Practice self-regulation', sub:'The deepest, meeting what is hard'},
     {key:'more',       title:'More practices',           sub:'Standalone guided practices'},
   ];
@@ -7823,7 +7823,7 @@ function app(tab){
   // deepest one, describing it.
   // the safety practices, in the engine's order; '' is plain Connect (sends no skill)
   const MK_SAFETY = [
-    ['',                 'settling into safety',                    "You'll settle into safety and stay there."],
+    ['',                 'connect with safety',                     "You'll connect with safety and stay there."],   // not "settling into safety" (Justin, 2026-10-02)
     ['validate-safety',  'finding safety and naming it',            "You'll find safety in your body and name what it is."],
     ['normalize-safety', 'naming it and seeing why it makes sense', "You'll find safety, name it, and see why it makes sense."],
     ['general-safety',   'noticing it in the body overall',         "You'll find safety, name it, see why it makes sense, and notice how it feels in the body overall."],
@@ -8028,11 +8028,16 @@ function app(tab){
       (reco.holdWatch && holdWatchOffered(reco.skill, reco.descDefense)) ? `${hl('hold & watch')} at the end, for ${hl(holdDurWords(reco.holdWatchTargetSeconds||30))}` : null,
       `with ${hl(silLabel(reco.silence))} silence between guidance`,
       (reco.practiceKey!=='more' && bedPref().bed!=='none') ? hl(bedWords()) : null,
-      chLabel ? `challenge level at ${hl(chLabel)}` : null,
+      chLabel ? `set for ${hl(chLabel)}` : null,   // no "level" (retired vocabulary)
       reco.openEnded ? `${hl('open-ended')}, so it keeps going until you choose to stop` : (planEst ? `about ${hl(planEst+' minutes')} in all` : null),
     ].filter(Boolean);
     const joinList = (a)=> a.length<=1 ? (a[0]||'') : a.slice(0,-1).join(', ')+' and '+a[a.length-1];
-    const shapedSentence = shapeBits.length ? `Tuned for you, ${joinList(shapeBits)}.` : '';
+    // said plainly (Justin, 2026-10-02: "I really don't like the 'tuned to you' language … 'Based on what's been most helpful
+    // from your practices'"): that line once there are practices to go on; a surprise says it is random; otherwise just the shape
+    let _hadPractice = false; try{ _hadPractice = ((Store.sessions && Store.sessions()) || []).length > 0; }catch(e){}
+    const shapeLead = reco.surprise ? 'Put together at random' : reco.variety ? 'Your choices' : _hadPractice ? 'Based on what’s been most helpful from your practices' : '';
+    const _capFirst = t => t.replace(/^((?:<[^>]+>)*)([a-z])/, (m,p,ch)=>p+ch.toUpperCase());
+    const shapedSentence = shapeBits.length ? (shapeLead ? `${shapeLead}: ${joinList(shapeBits)}.` : `${_capFirst(joinList(shapeBits))}.`) : '';
     // Back floats at the bottom left like Learn and Reflect (Justin, 2026-10-02, the Practice tab redesign)
     document.body.classList.remove('rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
     root.innerHTML = `
@@ -8185,12 +8190,11 @@ function app(tab){
     const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
     const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
     const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
-    renderPlan({ practiceKey:'self-regulation', sense:rsense, skill:rskill, silence:rsilence, holdWatch:false, holdWatchTargetSeconds:null,
+    renderPlan({ practiceKey:'self-regulation', sense:rsense, skill:rskill, silence:rsilence, holdWatch:false, holdWatchTargetSeconds:null, surprise:true,
                  reason:'A surprise practice, put together at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
   }
 
   function renderPracticeTab(animateIn){
-    const c = content();
     const paid = paidNow();
     const def = _domDefense();
     const nm = Store.getName();
@@ -8207,15 +8211,15 @@ function app(tab){
         : (est ? `About ${est} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}` : escapeHtml(CAP(Store.practiceLabel(reco.practiceKey))));
       const lineCol = reco.practiceKey==='anchoring' ? 'var(--s-safety-tx)' : reco.practiceKey==='self-regulation' ? `var(--s-${({fightflight:'fight',shutdown:'shutdown',freeze:'freeze'})[def||'freeze']}-tx)` : 'var(--ink)';
       card = `<div class="rd-lcard p8-reco${animateIn?' p8-draw':''}" id="foryou" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)};--line:${lineCol}">
-        <span class="rd-lcard-band"><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span></span>
+        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
-          <span class="p8-reco-foot"><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button><span class="wc-go">${CHEV}</span></span></span>
+          <span class="p8-reco-foot"><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button></span></span>
       </div>`;
     } else {
       card = `<div class="rd-lcard p8-reco p8-locked" id="foryou-lock" role="button" tabindex="0" style="--band:var(--hairline)">
-        <span class="rd-lcard-band"><span class="rd-lcard-title">${title}</span></span>
+        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">Built from your check-ins, and fitted to what your system can hold now.</span>
-          <span class="p8-reco-foot"><span class="p8-lockline">${lockMeta}</span><span class="wc-go">${CHEV}</span></span></span>
+          <span class="p8-reco-foot"><span class="p8-lockline">${lockMeta}</span></span></span>
       </div>`;
     }
     const sil = (pState && pState.silence) || 8;
@@ -8229,14 +8233,15 @@ function app(tab){
       return row(r.k, r.t, sub, !paid && !practiceFree(r.k));
     }).join('');
     const guided = P_MEDS.map(m=>row(m.id, m.title, `${m.est.replace('~','About ')} · ${m.sub.charAt(0).toLowerCase()+m.sub.slice(1)}`, !paid)).join('');
-    c.innerHTML = `<div class="view p8-view">
-      <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Practice</h2></div>
+    // the same page frame as Reflect and Learn (Justin, 2026-10-02: "Use Reflect's spacing across the board")
+    _rdShell(`<div class="p8-view">
+      <div class="scr-head read-head"><h1 class="read-h1">Practice</h1></div>
       ${card}
       <h3 class="p8-sec">Make your own</h3>
       <div class="p8-list">${mine}</div>
       <h3 class="p8-sec">Guided practices</h3>
       <div class="p8-list">${guided}</div>
-    </div>`;
+    </div>`, { tab:'practice', loc:{ k:'tab', tab:'practice' } });
     const fy = $('#foryou');
     if(fy){
       fy.onclick = (e)=>{ if(e.target.closest('#p8-cust')) return; renderPlan(reco); };
@@ -8245,7 +8250,7 @@ function app(tab){
     }
     const fl = $('#foryou-lock');
     if(fl){ fl.onclick = ()=>_p8Locked(fl, 'matching'); fl.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); _p8Locked(fl, 'matching'); } }; }
-    c.querySelectorAll('[data-p8]').forEach(b=>b.onclick=()=>{
+    root.querySelectorAll('[data-p8]').forEach(b=>b.onclick=()=>{
       const k = b.dataset.p8;
       if(b.dataset.p8lock) return _p8Locked(b, 'practice');
       if(k==='surprise') return _p8Surprise();
@@ -8277,7 +8282,7 @@ function app(tab){
       <div class="p8-head"><span class="rd-thumb rd-thumb-mk p8-thumb">${_p8Mark(k, def)}</span><h3 class="p8-h" id="p8-h">${escapeHtml(title)}</h3>
         <button class="p8-x" id="p8-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div class="p8-body" id="p8-body"></div>
-      <div class="p8-foot"><p class="p8-sum" id="p8-sum"></p><button class="btn block" id="p8-begin" type="button">Begin</button></div>
+      <div class="p8-foot"><p class="p8-sum" id="p8-sum"></p><p class="p8-mins" id="p8-mins"></p><button class="btn block" id="p8-begin" type="button">Begin</button></div>
     </div>`;
     document.body.appendChild(wrap);
     const bedName = ()=>{ const b = bedPref(); if(b.bed==='none') return 'Nothing'; if(b.bed==='surprise') return 'Surprise me'; const s = BED_SOUNDS.find(x=>x[0]===b.bed); return CAP(s ? s[1] : b.bed); };
@@ -8299,15 +8304,20 @@ function app(tab){
       R.push(['bed','Background sound', bedName()]);
       return R;
     };
+    // the line, then the length under it, small: "~10min" (Justin, 2026-10-02)
     const sumText = ()=>{
-      if(isSession){ const n = (med.est.match(/\d+/)||[''])[0]; return `${med.sub}.${n ? ` About ${n} minutes.` : ''}`; }
+      if(isSession) return `${med.sub}.`;
       const open = (k==='self-regulation' && !!pState.open);
-      const est = estMinutes(k, k==='micro' ? 2 : pState.silence);
-      return P8_LINE[k] + (open ? ' It keeps going until you choose to stop.' : (est ? ` About ${est} minutes.` : ''));
+      return P8_LINE[k] + (open ? ' It keeps going until you choose to stop.' : '');
+    };
+    const minsText = ()=>{
+      if(isSession){ const n = (med.est.match(/\d+/)||[''])[0]; return n ? `~${n}min` : ''; }
+      if(k==='self-regulation' && pState.open) return '';
+      const est = estMinutes(k, k==='micro' ? 2 : pState.silence); return est ? `~${est}min` : '';
     };
     const paint = ()=>{
       $('#p8-body').innerHTML = rowsOf().map(([kind, l, v])=>`<button class="p8-set" type="button" data-dial="${kind}"><span class="p8-set-k">${escapeHtml(l)}</span><span class="p8-set-v">${escapeHtml(v)}</span><span class="wc-go">${CHEV}</span></button>`).join('');
-      $('#p8-sum').textContent = sumText();
+      $('#p8-sum').textContent = sumText(); const mn = $('#p8-mins'); mn.textContent = minsText(); mn.hidden = !mn.textContent;
       wrap.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
     };
     function openDial(kind){

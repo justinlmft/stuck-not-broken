@@ -1812,7 +1812,7 @@
     let ceiling = 0;                    // the tier the week earns (set once we have a check-in)
     if(!last){
       return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
-        'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
+        'a simple place to start. after checking in, you will get a practice based on what helps you most.', 'simplest place to begin');
     }
     // derived, not the stored name (B1, 2026-08-22): a pre-rework row keeps its old
     // label in the cloud but is READ by today's rule — matters for someone returning
