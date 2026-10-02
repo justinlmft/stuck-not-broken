@@ -3539,3 +3539,14 @@ body.in-practice .tab-back-float{display:none}
 .rd-readmk svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .rd-row-t .rd-readmk{width:15px;height:15px;vertical-align:-3px;margin-right:5px}
 .rd-row-t .rd-readmk svg{width:11px;height:11px}
+/* the recommended card says it's for the member (Justin, 2026-10-02): a badge that comes in once */
+.rd-lcard-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.rd-foryou{flex:none;display:inline-flex;align-items:center;gap:6px;background:var(--ink);color:var(--bone);border-radius:999px;padding:4px 10px 4px 8px;font-size:calc(12px * var(--type-scale));font-weight:500;line-height:1.2;letter-spacing:.01em;
+  animation:forYouIn .55s var(--ease) .25s both}
+.rd-foryou::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--band, var(--s-safety));box-shadow:0 0 0 0 color-mix(in srgb, var(--band, var(--s-safety)) 60%, transparent);animation:forYouDot 1.4s var(--ease) .7s 1 both}
+@keyframes forYouIn{from{opacity:0;transform:translateY(6px) scale(.86)}to{opacity:1;transform:none}}
+@keyframes forYouDot{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--band, var(--s-safety)) 70%, transparent)}100%{box-shadow:0 0 0 7px transparent}}
+@media (prefers-reduced-motion: reduce){ .rd-foryou,.rd-foryou::before{animation:none} }
+.rd-lcard-body .rd-read{align-self:flex-start;margin-top:2px}
+/* the floating Back is for phones; wider screens have the Back at the top (Justin, 2026-10-02) */
+@media (min-width:720px){ .tab-back-float{display:none} }

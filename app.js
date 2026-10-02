@@ -747,7 +747,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -826,7 +826,11 @@
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
     if(h==='reader'){ return app('reflect'); }   // a new-reflection notification (2026-09-30)
-    const _r = app(currentTab);
+    // the saved reader place, once per boot; a post that has not loaded yet is tried again on the next route
+    if(_rdPending === undefined) _rdPending = _rdTakeLoc();   // read once, before anything overwrites it
+    const _back = !!(_rdPending && _rdRestore(_rdPending));
+    if(_back || !_rdPending || _rdPending.k !== 'post' || !Store.hydrated || Store.hydrated()) _rdPending = null;
+    const _r = _back ? undefined : app(currentTab);
     // MEMBER ONBOARDING (item 114): gate on paid && not yet oriented. Deliberately NOT
     // the ?checkout= return param — someone who closes the tab at Stripe and comes back
     // tomorrow still gets oriented, and so does an Academy member who never saw Stripe.
@@ -851,6 +855,7 @@
     return _r;
   }
   let currentTab = 'now';
+  let _rdPending;   // the saved reader place (undefined = not read yet); used once, at boot
   let authMode = 'in';
   let lastEmail = '';
   // captured at load, before the hash is consumed anywhere; also set by the
@@ -2303,6 +2308,7 @@ addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try
 
 function app(tab){
     currentTab = tab;
+    if(tab !== 'reflect' && tab !== 'learn') _rdSaveLoc({ k:'tab', tab });
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} } }
     if(tab === 'reflect') return screenReader();
     if(tab === 'learn') return screenLearn();
@@ -3562,6 +3568,30 @@ function app(tab){
   // the cover reads as a post with a Read button, Today in its own card, past days cut, no "Earlier".
   function screenReflectionDeep(){ return app('reflect'); }
   const BACK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+  // where the member is in Reflect and Learn, so coming back from another app, a locked screen or a reload lands on the
+  // same screen (Justin, 2026-10-02: "make it persistent"). loc = { k:'piece'|'hub'|'post', id } or { k:'tab', tab }.
+  const _RD_LOC = 'snb_rd_loc', _RD_LOC_TTL = 2 * 3600e3;
+  function _rdSaveLoc(loc){ try{ localStorage.setItem(_RD_LOC, JSON.stringify(Object.assign({ t:Date.now(), y:0 }, loc))); }catch(e){} }
+  function _rdTakeLoc(){
+    try{ const o = JSON.parse(localStorage.getItem(_RD_LOC) || 'null'); if(!o || Date.now() - o.t > _RD_LOC_TTL) return null; return o; }catch(e){ return null; }
+  }
+  // back to the saved screen and scroll point; false when it can't be found (then the caller routes as usual)
+  function _rdRestore(o){
+    try{
+      const L = window.Learning;
+      if(o.k === 'piece'){ const pc = L && L.byId(o.id); if(!pc) return false; screenLearnPiece(pc, null, null, { label:'Learn', go:screenLearn }); }
+      else if(o.k === 'hub'){ if(!(L && L.HUBS[o.id])) return false; screenLearnHub(o.id, null); }
+      else if(o.k === 'post'){ const pt = _rdPosts().find(x=>x.key === o.id); if(!pt) return false; screenReaderPost(pt); }
+      else if(o.k === 'tab' && o.tab){ app(o.tab); }
+      else return false;
+      if(o.y){ const sc = root.querySelector('.scroll'); if(sc) requestAnimationFrame(()=>{ sc.scrollTop = o.y; }); }
+      return true;
+    }catch(e){ return false; }
+  }
+  function _rdTrackScroll(){
+    const sc = root.querySelector('.scroll'); if(!sc) return; let tm = null;
+    sc.addEventListener('scroll', ()=>{ clearTimeout(tm); tm = setTimeout(()=>{ try{ const o = JSON.parse(localStorage.getItem(_RD_LOC) || 'null'); if(o){ o.y = Math.round(sc.scrollTop); o.t = Date.now(); localStorage.setItem(_RD_LOC, JSON.stringify(o)); } }catch(e){} }, 250); }, { passive:true });
+  }
   function _rdShell(inner, opts){
     opts = opts || {};
     currentTab = opts.tab || 'reflect';
@@ -3573,6 +3603,9 @@ function app(tab){
       ${tabBack}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
+    if(opts.onBack) document.body.classList.add('rd-sub');
+    _rdSaveLoc(opts.loc || { k:'tab', tab:currentTab });
+    _rdTrackScroll();
     $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const bk = $('#rd-back'); if(bk && opts.onBack) bk.onclick = opts.onBack;
     const tb = $('#tab-back'); if(tb && opts.onBack) tb.onclick = opts.onBack;
@@ -3618,6 +3651,16 @@ function app(tab){
   // them, six at most and then a "See all" card that opens the hub; states with none yet in one line; then the
   // topic hubs as a list ("the pills are not helpful")
   const _LRN_SHELF = 6;
+  // the state rows in the member's order (Justin, 2026-10-02): their most frequent state first, then the next, and so on.
+  // Counted over the last four weeks of check-ins (all of them if there are none in that window); states they have not
+  // checked in as keep the usual order after.
+  function _lrnStateOrder(){
+    const L = window.Learning, n = {}, now = Date.now();
+    let cs = []; try{ cs = Store.checkins ? Store.checkins() : []; }catch(e){}
+    let win = cs.filter(c=>c && c.t >= now - 28*864e5); if(!win.length) win = cs;
+    win.forEach(c=>{ const k = _cDom(c); if(k) n[k] = (n[k]||0) + 1; });
+    return L.STATE_HUBS.slice().sort((a,b)=> (n[b]||0) - (n[a]||0) || L.STATE_HUBS.indexOf(a) - L.STATE_HUBS.indexOf(b));
+  }
   function _rdLearnSection(){
     const L = window.Learning; if(!L || !L.HUBS) return '';
     const shelf = k => {
@@ -3631,7 +3674,7 @@ function app(tab){
     };
     const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
     const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
-    return `<section class="rd-learn rd-learnhubs">${L.STATE_HUBS.map(shelf).join('')}
+    return `<section class="rd-learn rd-learnhubs">${_lrnStateOrder().map(shelf).join('')}
         ${soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : ''}
         ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
       </section>`;
@@ -3759,7 +3802,7 @@ function app(tab){
         <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
         ${body}
         ${tail}
-        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back:'Your Reflections', onBack:screenReader });
+        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back:'Your Reflections', onBack:screenReader, loc:{ k:'post', id:post.key } });
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
     root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));
     const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco);
@@ -3835,11 +3878,18 @@ function app(tab){
     const now = Date.now();
     return { piece, why: `Your latest check-in was ${STATE_NAME(stateKey)}. This one is about ${STATE_NAME(piece.state)}.`, ctx: _lrnPeriodCtx('daily', now - 7*864e5, now + 1) };
   }
+  // what a piece is about, in a line (Justin, 2026-10-02: the old "your latest check-in was X, this one is about X" line
+  // was "redundant and boring"; the badge says it's for them, the description says what it is)
+  function _lrnDesc(p){
+    if(p.desc) return p.desc;
+    const first = ((p.blocks||[]).find(b=>b.p) || {}).p || '';
+    const t = first.replace(/<[^>]+>/g,''); return t.length > 150 ? t.slice(0, t.lastIndexOf(' ', 147)) + '…' : t;
+  }
   function _lrnCardHTML(learn, cls){
     const p = learn.piece, st = p.state || 'safety';
     return `<button class="rd-lcard${cls?' '+cls:''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(st)}">
-        <span class="rd-lcard-band"><span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span><span class="rd-lcard-title">${escapeHtml(p.title)}</span></span>
-        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(learn.why)}</span><span class="rd-cover-foot"><span class="rd-cover-meta">By Justin</span><span class="rd-read">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></span>
+        <span class="rd-lcard-band"><span class="rd-lcard-top"><span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span><span class="rd-foryou">Picked for you</span></span><span class="rd-lcard-title">${escapeHtml(p.title)}</span></span>
+        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(_lrnDesc(p))}</span><span class="rd-read">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span>
       </button>`;
   }
   // words for a share, never "X of N"
@@ -3967,7 +4017,7 @@ function app(tab){
   const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
   const _lrnHubCount = key => { const n = window.Learning.inGroup(key).length; return n === 1 ? '1 article' : n + ' articles'; };
   // a row that opens a piece (hubs, keep learning)
-  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}"><span class="rd-thumb rd-thumb-mk">${_rdMk(p.state||'safety')}</span><span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml('By Justin · ' + (p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}"><span class="rd-thumb rd-thumb-mk">${_rdMk(p.state||'safety')}</span><span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml((p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
   // a row that opens a hub
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
@@ -3993,7 +4043,7 @@ function app(tab){
           ${pieces.length ? `<div class="rd-list rd-list-flat">${_lrnByRead(pieces).map(_lrnRowHTML).join('')}</div>` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
         </section>
         ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}`,
-      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn' });
+      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key } });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
     root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
@@ -4048,7 +4098,7 @@ function app(tab){
         <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
         ${body}
         ${book}
-        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Your Reflections', onBack: back, tab:'learn' });
+        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Your Reflections', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id } });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
     root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
@@ -9058,6 +9108,9 @@ function routeSafe(){
      thanks, the guest offer and reflection, and the live-practice screens. None of them
      should ever be replaced by a background repaint the person did not ask for. */
   if(document.querySelector('.fb-view')) return;   // and so do the screens that follow it
+  // 2026-10-02 (Justin: leaving the app or locking the screen lost the article he was on): an article, hub or post
+  // stays put through the unlock refresh; the member moves on from it themselves
+  if(document.body.classList.contains('rd-sub') && Store.user && Store.user()) return;
   route();
 }
 try{ pushConsumeOpen(); }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally

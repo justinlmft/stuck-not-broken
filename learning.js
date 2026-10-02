@@ -22,6 +22,7 @@
   const PIECES = [
  {
   "id": "functional-freeze",
+  "desc": "Getting things done but feeling flat and far away? That can be freeze. What it is, and how to come out of it.",
   "title": "Functional freeze: what it is and how to come out of it",
   "state": "freeze",
   "groups": [
@@ -239,6 +240,7 @@
  },
  {
   "id": "polyvagal-safety",
+  "desc": "Safety is more than feeling calm. What it is in your body, and how to build more of it.",
   "title": "Polyvagal safety: what it is and how to build it",
   "state": "safety",
   "groups": [
@@ -558,6 +560,7 @@
  },
  {
   "id": "dorsal-vagal-shutdown",
+  "desc": "Heavy, foggy or numb? What shutdown is, how long it can last, and the gentle way out.",
   "title": "Dorsal vagal shutdown: symptoms, how long it lasts, and the way out",
   "state": "shutdown",
   "groups": [
@@ -1096,6 +1099,7 @@
  },
  {
   "id": "flight-fight-state",
+  "desc": "Anxious or irritable? How flight and fight work, what they feel like, and how to come back to safety.",
   "book": "Stuck Not Broken, Book 1: Trauma & the Polyvagal Paradigm",
   "book_url": "https://www.stucknotbroken.com/checkout/snb1-pdf",
   "book_amazon": "https://www.amazon.com/dp/B0D7SSTJTV",
@@ -1254,7 +1258,7 @@
   // Topic intros marked DRAFT are App Designer's placeholders for Justin. A piece may carry `related: [ids]`
   // (Curriculum Advisor's suggested links); inline links can point in-app with [text](piece:id) or [text](hub:key).
   const STATE_HUBS = ['safety', 'play', 'stillness', 'fightflight', 'freeze', 'shutdown'];
-  const TOPICS = { build:'Building safety', hard:'Hard stretches and slow change', prac:'How practice works', start:'Starting small',
+  const TOPICS = { build:'Building safety', hard:'When things get tough and change is slow', prac:'How practice works', start:'Starting small',
     rest:'Rest and sleep', read:'Reading your state', feel:'Feelings', work:'Work and stress', family:'Family and parenting',
     rel:'Relationships and connection', playcre:'Play and creativity', meaning:'Your story and meaning', surround:'Your surroundings',
     body:'Body, breath and movement', found:'How your nervous system works' };
@@ -1290,7 +1294,7 @@
       { p:'Polyvagal parenting isn\'t about being perfect. It is about <b>co-regulation</b>: using your own grounded nervous system to help your child feel safe again.' } ] },
     // DRAFT intros (App Designer, 2026-10-01), for Justin to replace or approve
     build: { draft:true, intro:[{ p:'Safety is something you build, a little at a time. These articles are about how.' }] },
-    hard: { draft:true, intro:[{ p:'Change is slow, and some stretches are harder than others. These articles are for the hard stretches.' }] },
+    hard: { draft:true, intro:[{ p:'Change is slow, and some times are harder than others. These articles are for when things get tough.' }] },
     prac: { draft:true, intro:[{ p:'What practice is, why it works, and how to make it fit your life.' }] },
     start: { draft:true, intro:[{ p:'Small is how it starts. These articles are about the first steps.' }] },
     rest: { draft:true, intro:[{ p:'How rest and sleep fit with your nervous system.' }] },
