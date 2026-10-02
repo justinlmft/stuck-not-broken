@@ -3992,7 +3992,7 @@ function app(tab){
     }
     return null;
   }
-  function _lrnInline(s){ return escapeHtml(s).replace(/&lt;(\/?)(b|i)&gt;/g, '<$1$2>')
+  function _lrnInline(s){ return escapeHtml(s).replace(/&lt;(\/?)(b|i|s)&gt;/g, '<$1$2>')
       .replace(/\[([^\]]+)\]\(((?:piece|hub|anchor):[a-z0-9-]+(?:#[a-z0-9-]+)?)\)/g, '<a href="#" class="rd-inlink" data-lnk="$2">$1</a>')
       .replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>'); }
   // scroll a section of the open article into view (a TOC tap, an anchor link, a piece:id#section link)
