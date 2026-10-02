@@ -3583,6 +3583,7 @@ function app(tab){
       const L = window.Learning;
       if(o.k === 'piece'){ const pc = L && L.byId(o.id); if(!pc) return false; screenLearnPiece(pc, null, null, { label:'Learn', go:screenLearn }); }
       else if(o.k === 'hub'){ if(!(L && L.HUBS[o.id])) return false; screenLearnHub(o.id, null); }
+      else if(o.k === 'journal'){ screenJournal(); }
       else if(o.k === 'post'){ const pt = _rdPosts().find(x=>x.key === o.id); if(!pt) return false; screenReaderPost(pt); }
       else if(o.k === 'tab' && o.tab){ app(o.tab); }
       else return false;
@@ -3682,19 +3683,137 @@ function app(tab){
         ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
       </section>`;
   }
-  // the Learn tab: what to read now, the state hubs, the topic hubs
-  function screenLearn(){
+  // Learn search (Justin, 2026-10-02: "We need a search feature for sure"): titles, descriptions, section headings and the
+  // articles' own words. Titles and descriptions answer at once; the word index (learn/search.json, ~300 KB over the wire)
+  // loads the first time someone types, then the results fill in.
+  let _lrnQ = '', _lrnSIdx = null, _lrnSIdxP = null;
+  const _lrnText = {};
+  function _lrnSearchIndex(){
+    if(_lrnSIdx) return Promise.resolve(_lrnSIdx);
+    if(!_lrnSIdxP){
+      const f = (window.Learning.PIECES && window.Learning.PIECES.SEARCH) || 'learn/search.json';
+      _lrnSIdxP = fetch(f).then(r=>{ if(!r.ok) throw new Error('search'); return r.json(); })
+        .then(d=>{ _lrnSIdx = d || {}; return _lrnSIdx; }).catch(()=>{ _lrnSIdxP = null; return null; });
+    }
+    return _lrnSIdxP;
+  }
+  const _lrnNorm = t => String(t||'').toLowerCase().replace(/<[^>]+>/g, '').replace(/\]\([^)]*\)/g, '').replace(/[\[\]]/g, '').replace(/[‘’]/g, "'");
+  // the hand-made pieces carry their text in learning.js: index them the same way, once
+  function _lrnPieceIdx(p){
+    if(_lrnSIdx && _lrnSIdx[p.id]) return _lrnSIdx[p.id];
+    if(_lrnText[p.id]) return _lrnText[p.id];
+    if(!p.blocks) return ['', ''];
+    const hs = [], tx = [];
+    p.blocks.forEach(b=>{ if(b.h) hs.push(b.h); if(b.h3) hs.push(b.h3); ['p','h','h3'].forEach(k=>{ if(typeof b[k] === 'string') tx.push(b[k]); }); ['ul','ol','q'].forEach(k=>{ if(Array.isArray(b[k])) tx.push(b[k].join(' ')); }); });
+    return (_lrnText[p.id] = [_lrnNorm(hs.join(' · ')), ' ' + _lrnNorm(tx.join(' ')).split(/[^a-z0-9'-]+/).filter(w=>w.length > 2).join(' ')]);
+  }
+  function _lrnSearch(q){
     const L = window.Learning;
+    const terms = _lrnNorm(q).split(/[^a-z0-9'-]+/).map(t=>t.replace(/^['-]+|['-]+$/g, '')).filter(t=>t.length >= 2);
+    if(!terms.length) return [];
+    const out = [];
+    L.PIECES.forEach((p, i)=>{
+      const ti = _lrnNorm(p.title), de = _lrnNorm(p.desc), e = _lrnPieceIdx(p), words = ' ' + (e[1]||'');
+      let score = 0;
+      for(const t of terms){
+        let n = 0;
+        if(ti.indexOf(t) >= 0) n += 10;
+        if(de.indexOf(t) >= 0) n += 4;
+        if((e[0]||'').indexOf(t) >= 0) n += 3;
+        if(words.indexOf(' ' + t) >= 0) n += 1;
+        if(!n) return;                       // every word has to be somewhere in the piece
+        score += n;
+      }
+      out.push({ p, score, i });
+    });
+    return out.sort((a,b)=> b.score - a.score || a.i - b.i).map(x=>x.p);
+  }
+  const _LRN_SEARCH_SVG = '<svg class="ll-q-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>';
+  // the Learn tab: search, what to read now, the state hubs, the topic hubs
+  function screenLearn(keepQuery){
+    const L = window.Learning;
+    if(!keepQuery) _lrnQ = '';
     const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
     const forNow = lastK ? _lrnForDaily(lastK) : null;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
+          <div class="ll-search" role="search">${_LRN_SEARCH_SVG}<input class="ll-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-q-x" id="ll-q-x" type="button" aria-label="Clear search"${_lrnQ ? '' : ' hidden'}>${'×'}</button></div>
+          <div id="ll-results" aria-live="polite"></div>
+          <div id="ll-browse">
           ${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
-          ${_rdLearnSection()}`, { tab:'learn' });
-    const here = { label:'Learn', go:screenLearn };
+          ${_rdLearnSection()}
+          </div>`, { tab:'learn' });
+    const here = { label:'Learn', go:()=>screenLearn(true) };
+    const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
-    root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here); });
+    root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+    const qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
+    let shown = 30, tm = null;
+    const draw = ()=>{
+      const q = _lrnQ.trim();
+      qx.hidden = !_lrnQ;
+      if(q.length < 2){ res.innerHTML = ''; browse.hidden = false; return; }
+      browse.hidden = true;
+      const hits = _lrnSearch(q), more = hits.length > shown;
+      const loading = !_lrnSIdx;
+      res.innerHTML = `<section class="rd-learn ll-res">
+          <p class="ll-res-n">${hits.length ? escapeHtml(hits.length === 1 ? '1 article' : hits.length + ' articles') : escapeHtml('No articles match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching the article text…</span>' : ''}</p>
+          ${hits.length ? `<div class="rd-list rd-list-flat">${hits.slice(0, shown).map(_lrnRowHTML).join('')}</div>` : ''}
+          ${more ? `<button class="ll-showall ll-res-more" type="button">Show more</button>` : ''}
+        </section>`;
+      res.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+      const mb = res.querySelector('.ll-res-more'); if(mb) mb.onclick = ()=>{ shown += 30; draw(); };
+      if(loading) _lrnSearchIndex().then(d=>{ if(d && res.isConnected && _lrnQ.trim() === q) draw(); });
+    };
+    qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; clearTimeout(tm); tm = setTimeout(draw, 120); };
+    qi.onkeydown = e=>{ if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } };
+    qi.onfocus = ()=>{ _lrnSearchIndex(); };
+    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.focus(); };
+    if(_lrnQ) draw();
+  }
+  // the member's Journal (Justin, 2026-10-02: "people need to see where their journal answers live, like an actual Journal
+  // in the You tab"): every answer written in a Learn article, newest first, grouped by article; tap one to go back to it.
+  // Answers are contexts 'l:{piece}:{reflection}' = [answer, day, question].
+  function _lrnJournal(){
+    const m = _ctxLoad(), L = window.Learning, by = {};
+    Object.keys(m).forEach(k=>{
+      const mm = /^l:(.+):([^:]+)$/.exec(k); if(!mm) return;
+      const v = m[k] || []; if(!v[0]) return;
+      (by[mm[1]] = by[mm[1]] || []).push({ rid:mm[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
+    });
+    return Object.keys(by).map(id=>({ piece:L.byId(id), items:by[id], last:by[id].reduce((a,x)=> x.day > a ? x.day : a, '') }))
+      .filter(g=>g.piece).sort((a,b)=> (b.last||'').localeCompare(a.last||''));
+  }
+  const _jrDay = d => { if(!d) return ''; try{ return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' }); }catch(e){ return ''; } };
+  function screenJournal(){
+    if(!paidNow()) return gateSubscribe('reader');
+    const groups = _lrnJournal();
+    const shell = inner => _rdShell(`<span class="rd-eyeb">You</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:'You', onBack:()=>app('you'), tab:'you', loc:{ k:'journal' } });
+    if(!groups.length){
+      shell(`<p class="read-p">Nothing here yet. When you answer a reflection in a Learn article, your answer is kept here.</p><button class="rd-checkin jr-go" type="button">Go to Learn</button>`);
+      const g = root.querySelector('.jr-go'); if(g) g.onclick = ()=>app('learn');
+      return;
+    }
+    // the questions and their order come from the articles themselves (older answers kept only the answer)
+    const need = groups.filter(g=>!g.piece.blocks);
+    if(need.length){
+      shell(`<p class="rd-meta">One moment…</p>`);
+      Promise.all(need.map(g=>_lrnLoad(g.piece).catch(()=>null))).then(()=>{ if(root.querySelector('.rd-title') && /Your Journal/.test(root.querySelector('.rd-title').textContent)) screenJournal(); });
+      return;
+    }
+    const html = groups.map(g=>{
+      const order = (g.piece.blocks||[]).filter(b=>b.reflect).map(b=>b.reflect);
+      const items = g.items.slice().sort((a,b)=> order.indexOf(a.rid) - order.indexOf(b.rid));
+      return `<section class="jr-group"><button class="jr-art" type="button" data-piece="${escapeHtml(g.piece.id)}"><b>${escapeHtml(g.piece.title)}</b><span class="wc-go">${CHEV}</span></button>
+        ${items.map(it=>{ const b = (g.piece.blocks||[]).find(x=>x.reflect === it.rid); const q = it.q || (b ? _lrnNorm(b.prompt).replace(/^./, c=>c.toUpperCase()) : '');
+          return `<button class="jr-item" type="button" data-piece="${escapeHtml(g.piece.id)}" data-rf="${escapeHtml(it.rid)}">${q ? `<span class="jr-q">${escapeHtml(b ? '' : q)}${b ? _lrnInline(b.prompt||'') : ''}</span>` : ''}<span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span>${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : ''}</button>`; }).join('')}
+      </section>`;
+    }).join('');
+    shell(`<p class="read-p jr-lede">What you wrote in Learn articles. Tap an answer to go back to it.</p>${html}`);
+    const here = { label:'Your Journal', go:screenJournal, tab:'you' };
+    root.querySelectorAll('.jr-art').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here); });
+    root.querySelectorAll('.jr-item').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
   }
   function screenReader(){
     _markReaderSeen();
@@ -3994,10 +4113,11 @@ function app(tab){
   }
   function _lrnInline(s){ return escapeHtml(s).replace(/&lt;(\/?)(b|i|s)&gt;/g, '<$1$2>')
       .replace(/\[([^\]]+)\]\(((?:piece|hub|anchor):[a-z0-9-]+(?:#[a-z0-9-]+)?)\)/g, '<a href="#" class="rd-inlink" data-lnk="$2">$1</a>')
-      .replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>'); }
+      .replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" class="rd-inlink rd-exlink" target="_blank" rel="noopener">$1</a>'); }
   // scroll a section of the open article into view (a TOC tap, an anchor link, a piece:id#section link)
   function _lrnGoTo(sec){
     const el = sec && root.querySelector('#sec-' + CSS.escape(sec)); if(!el) return;
+    const fold = el.closest('details'); if(fold) fold.open = true;
     const sc = root.querySelector('.scroll'); if(!sc) return;
     const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12;
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -4113,17 +4233,29 @@ function app(tab){
     if(!ctx){ const now = Date.now(); ctx = _lrnPeriodCtx('daily', now - 7*864e5, now + 1); }
     const back = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenReader;
     const here = ()=>screenLearnPiece(piece, ctx, fromPost, from);
-    const body = (piece.blocks||[]).map(b=>{
+    // reflections (Justin, 2026-10-02: "great but they are a lot. Overwhelming" and "behind the paywall"): a run of questions
+    // is one card with the first question open and the rest folded under "N more questions"; free members see one locked card
+    // per article and no other questions
+    let reflSeen = 0;
+    const reflOne = b => { const saved = ((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0] || '';
+      return `<div class="rd-refl-one" id="sec-rf-${escapeHtml(b.reflect)}"><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`; };
+    const reflCard = (run, titled) => {
+      reflSeen++;
+      const eyeb = titled ? '' : '<span class="rd-eyeb">Reflect</span>';
+      if(!paid) return reflSeen > 1 ? '' : `<div class="rd-refl">${eyeb}<p class="read-p rd-refl-q">${_lrnInline(run[0].prompt||'')}</p><button class="rd-call-lock rd-refl-lock" type="button">${LOCK_SVG}<span>Answer reflections and keep them in your Journal on the paid plan.</span></button></div>`;
+      const rest = run.slice(1), anySaved = rest.some(b=>(((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0]));
+      return `<div class="rd-refl">${eyeb}${reflOne(run[0])}${rest.length ? `<details class="rd-refl-more"${anySaved ? ' open' : ''}><summary><span>${escapeHtml(rest.length === 1 ? '1 more question' : rest.length + ' more questions')}</span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary>${rest.map(reflOne).join('')}</details>` : ''}<p class="rd-refl-where">Answer one, or none. What you write is kept in your Journal, in the You tab.</p></div>`;
+    };
+    const blocks = piece.blocks || [], parts = [];
+    for(let i = 0; i < blocks.length; i++){
+      const b = blocks[i];
+      if(b.reflect){ const run = [b]; while(i + 1 < blocks.length && blocks[i + 1].reflect) run.push(blocks[++i]); parts.push(reflCard(run, !!(i - run.length >= 0 && (blocks[i - run.length].h || blocks[i - run.length].h3)))); continue; }
       if(b.practice){ const pt = _lrnPracticeThis(b);
-        return `<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`; }
-      if(b.reflect){
-        const saved = ((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0] || '';
-        if(!paid) return `<div class="rd-refl"><span class="rd-eyeb">Your reflection</span><p class="read-p rd-refl-q">${_lrnInline(b.prompt||'')}</p><button class="rd-call-lock rd-refl-lock" type="button">${LOCK_SVG}<span>Write and keep your answers on the paid plan.</span></button></div>`;
-        return `<div class="rd-refl"><span class="rd-eyeb">Your reflection</span><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`;
-      }
-      if(b.callout){ const c = _lrnCallout(b.callout, ctx); return c ? _lrnCallHTML(c, paid) : ''; }
-      return _lrnBlockHTML(b);
-    }).join('');
+        parts.push(`<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`); continue; }
+      if(b.callout){ const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid) : ''); continue; }
+      parts.push(_lrnBlockHTML(b));
+    }
+    const body = parts.join('');
     // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
     const nx = L.nextFor ? L.nextFor(piece) : null;
     const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
@@ -4151,7 +4283,8 @@ function app(tab){
     root.querySelectorAll('[data-refl-save]').forEach(btn=>btn.onclick=()=>{
       const id = btn.dataset.reflSave, ta = root.querySelector(`[data-refl="${id}"]`), b = (piece.blocks||[]).find(x=>x.reflect===id);
       if(!ta || !b) return; const txt = ta.value.trim(), key = 'l:' + piece.id + ':' + id;
-      try{ if(Store.saveContexts) Store.saveContexts(key, b.prompt || '', txt ? [txt] : []); else { const m=_ctxLoad(); m[key] = txt ? [txt] : []; _ctxSave(m); } }catch(e){}
+      const q = _lrnNorm(b.prompt || '').replace(/^./, c=>c.toUpperCase()), val = txt ? [txt, new Date().toISOString().slice(0, 10), q] : [];
+      try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m=_ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
       btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
     });
     root.querySelectorAll('[data-refl]').forEach(ta=>ta.oninput=()=>{ const s = root.querySelector(`[data-refl-save="${ta.dataset.refl}"]`); if(s) s.textContent = 'Save'; });
@@ -6387,6 +6520,12 @@ function app(tab){
           <span class="tb-row-sub">Your best time, anchor and setup &middot; on the paid plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
+      <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
+        <span class="tb-row-text">
+          <span class="tb-row-title">Your Journal</span>
+          <span class="tb-row-sub">Your answers to the reflections in Learn &middot; on the paid plan</span>
+        </span><span class="wc-go">${CHEV}</span>
+      </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
         <h3 class="yr-h">Your Reflection</h3>
         <p class="yr-lede">${(function(){ try{ const r=FromJustin.daily?FromJustin.daily():null; return (r&&r.text)?escapeHtml(r.text):'Your daily post and your Sunday reflection, from your own check-ins.'; }catch(e){ return 'Your daily post and your Sunday reflection, from your own check-ins.'; } })()}</p>
@@ -6400,6 +6539,7 @@ function app(tab){
     const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
     const hi=$('#hx-impacts');  if(hi) hi.onclick = ()=>gateSubscribe('impacts');
     const hd=$('#hx-ideal');    if(hd) hd.onclick = ()=>gateSubscribe('ideal');
+    const hj=$('#hx-journal');  if(hj) hj.onclick = ()=>gateSubscribe('reader');
     const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); app('reflect'); };
   }
 
@@ -7072,6 +7212,13 @@ function app(tab){
             <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p>
             <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
+          ${(function(){ let n = 0; try{ n = _lrnJournal().reduce((a,g)=>a + g.items.length, 0); }catch(e){}
+            const paid = paidNow();
+            return `<a class="you-reader you-journal" id="you-journal" href="#">
+            <h3 class="yr-h">Your Journal</h3>
+            <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from your reading in Learn.') : 'Your answers to the reflections in Learn articles, kept in one place.'}</p>
+            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'On the paid plan'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+          </a>`; })()}
 
           <div class="deep">
             <div class="deep-block">
@@ -7146,6 +7293,7 @@ function app(tab){
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
+      const yjn=$('#you-journal'); if(yjn) yjn.onclick=(e)=>{ e.preventDefault(); screenJournal(); };
       // SHARE_TXT is GONE, and so is SHARE_VIZ (2026-08-01). Both were parallel decks that
       // had to be kept in step with the cards by hand, and both had drifted: SHARE_VIZ still
       // drew the 'times' card's RETIRED dot strip long after it became a bar chart, and

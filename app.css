@@ -3482,6 +3482,9 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
 .rd-keep-eyeb{display:block;margin:12px 0 6px}
 .rd-hub-title{display:flex;align-items:center;gap:10px}
 .rd-inlink{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+/* any other link inside article text keeps the ink color too, so none fall back to the browser's dark blue (Justin, 10-02: unreadable on dark) */
+.read-p a,.rd-llist a,.rd-lq a,.rd-lq-cite a,.rd-lh a,.rd-lh3 a{color:var(--ink)}
+.rd-inlink:visited{color:var(--ink)}
 
 /* bottom-bar back button on screens below a top level (Justin, 2026-10-01) */
 .tabbar .tab-back{flex:0 0 auto;min-width:52px;color:var(--ink);animation:tabBackIn .22s var(--ease) both}
@@ -3578,3 +3581,41 @@ body.in-practice .tab-back-float{display:none}
 .ll-showall{width:100%;min-height:48px;border-radius:14px;border:1px solid var(--hairline);background:transparent;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink);margin:-4px 0 16px;cursor:pointer}
 .ll-showall:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .rd-row[hidden]{display:none}
+
+/* Learn search (Justin, 2026-10-02) */
+.ll-search{position:relative;display:flex;align-items:center;margin:2px 0 16px}
+.ll-q-ic{position:absolute;left:14px;width:18px;height:18px;color:var(--muted);pointer-events:none}
+.ll-q{width:100%;font:inherit;font-size:calc(16px * var(--type-scale));color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:999px;min-height:46px;padding:0 44px 0 42px;-webkit-appearance:none;appearance:none}
+.ll-q::placeholder{color:var(--muted)}
+.ll-q::-webkit-search-cancel-button{display:none}
+.ll-q:focus{outline:2px solid var(--ink);outline-offset:1px}
+.ll-q-x{position:absolute;right:6px;width:36px;height:36px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
+.ll-q-x:focus-visible{outline:2px solid var(--ink)}
+.ll-res-n{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0 0 6px}
+.ll-res-wait{display:block;margin-top:2px}
+.ll-res-more{margin-top:10px}
+
+/* reflections: one card per run of questions, the first open, the rest folded (Justin, 2026-10-02: "a lot. Overwhelming") */
+.rd-refl-one{display:flex;flex-direction:column;gap:8px}
+.rd-refl-more{border-top:1px solid var(--hairline);margin-top:6px}
+.rd-refl-more summary{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer;list-style:none;font-weight:500;color:var(--ink);font-size:calc(14.5px * var(--type-scale))}
+.rd-refl-more summary::-webkit-details-marker{display:none}
+.rd-refl-more summary span:first-child{flex:1}
+.rd-refl-more summary:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
+.rd-refl-more[open] .rd-toc-chev svg{transform:rotate(-90deg)}
+.rd-refl-more .rd-refl-one{padding-top:12px}
+.rd-refl-where{margin:4px 0 0;font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
+
+/* Your Journal (You tab) */
+.you-journal{margin-top:12px}
+.you-journal .yr-go .rd-lk{width:16px;height:16px;color:var(--muted);flex:none}
+.jr-lede{margin-bottom:6px}
+.jr-group{margin:14px 0 6px}
+.jr-art{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;color:var(--ink);background:transparent;border:0;border-top:1px solid var(--hairline);padding:14px 0 8px;cursor:pointer}
+.jr-art b{flex:1;font-weight:600;font-size:calc(16px * var(--type-scale));line-height:1.35}
+.jr-item{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;margin:8px 0;cursor:pointer}
+.jr-item:focus-visible,.jr-art:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.jr-q{font-size:calc(13.5px * var(--type-scale));color:var(--muted);line-height:1.45}
+.jr-a{font-size:calc(15.5px * var(--type-scale));line-height:1.55;white-space:normal;overflow-wrap:anywhere}
+.jr-d{font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
+.jr-go{margin-top:8px}
