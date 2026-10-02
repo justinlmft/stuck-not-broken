@@ -2895,6 +2895,10 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .you-reader:hover{border-color:var(--ink)}
 .you-reader:active{transform:scale(.994)}
 .you-reader:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.you-reader .yr-top{display:flex;align-items:flex-start;gap:14px}
+.you-reader .yr-hd{display:block;flex:1;min-width:0}
+.you-reader .yr-art{flex:none;width:52px;height:52px;border-radius:14px;border:1px solid var(--hairline);background:var(--bone-deep);color:var(--ink);display:inline-flex;align-items:center;justify-content:center}
+.you-reader .yr-art svg{width:26px;height:26px}
 .you-reader .yr-h{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:0;color:var(--ink)}
 .you-reader .yr-lede{font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:7px 0 0;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .you-reader .yr-go{display:flex;align-items:center;gap:11px;margin-top:16px;padding-top:16px;border-top:1px solid var(--hairline)}
@@ -3330,7 +3334,7 @@ body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
 .rd-row-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .rd-row-t b{font-weight:500;font-size:calc(15px * var(--type-scale));color:var(--ink);line-height:1.35}
 .rd-row-t span{font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
-.rd-thumb{width:40px;height:40px;flex:none;border-radius:10px;border:1px solid var(--hairline);position:relative}
+.rd-thumb{width:40px;height:40px;flex:none;align-self:flex-start;border-radius:10px;border:1px solid var(--hairline);position:relative}
 .rd-thumb::after{content:"";position:absolute;inset:13px;border-radius:50%;background:var(--th)}
 .rd-thumb-month::after{inset:9px;border-radius:3px;background:repeating-linear-gradient(90deg,var(--hairline) 0 5px,transparent 5px 7px)}
 .rd-thumb-season::after,.rd-thumb-year::after{inset:9px 7px;border-radius:2px;background:repeating-linear-gradient(90deg,var(--hairline) 0 2px,transparent 2px 4px)}
@@ -3509,17 +3513,22 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
 /* the month cover reads like the month post's calendar: white, no wash (Justin, 2026-10-01) */
 .rd-cover-band.rd-band-plain{background:var(--rd-card)}
 /* Back floats above the bottom bar, animated in (Justin, 2026-10-01: "6 on the menu is too much") */
-.tab-back-float{position:absolute;left:max(16px, env(safe-area-inset-left));bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;
-  display:inline-flex;align-items:center;gap:4px;min-height:44px;padding:8px 16px 8px 10px;border-radius:999px;border:1px solid var(--hairline);
-  background:var(--bone-deep);color:var(--ink);font:inherit;font-size:calc(14.5px * var(--type-scale));font-weight:500;cursor:pointer;
-  box-shadow:0 6px 18px rgba(26,31,42,.12);animation:tabBackFloatIn .28s var(--ease) both}
+.fl-dock{position:absolute;left:max(16px, env(safe-area-inset-left));right:max(16px, env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom));z-index:30;
+  display:flex;align-items:center;gap:8px;pointer-events:none}
+.fl-dock > *{pointer-events:auto}
+.tab-back-float{flex:none;display:inline-flex;align-items:center;gap:4px;min-height:44px;height:48px;max-width:140px;padding:8px 16px 8px 10px;border-radius:999px;border:1px solid var(--hairline);
+  background:var(--bone-deep);color:var(--ink);font:inherit;font-size:calc(14.5px * var(--type-scale));font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;
+  box-shadow:0 6px 18px rgba(26,31,42,.12);animation:tabBackFloatIn .28s var(--ease) both;
+  transition:max-width .3s cubic-bezier(.2,.8,.2,1),padding .3s cubic-bezier(.2,.8,.2,1),opacity .2s ease,margin .3s cubic-bezier(.2,.8,.2,1),border-width .3s}
+/* Search opening pushes Back out of the way */
+.fl-dock.sf-open .tab-back-float{max-width:0;padding-left:0;padding-right:0;border-width:0;opacity:0;margin-right:-8px;box-shadow:none;pointer-events:none}
 .tab-back-float svg{width:20px;height:20px}
 .tab-back-float:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @keyframes tabBackFloatIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion: reduce){ .tab-back-float{animation:none} }
-body.in-practice .tab-back-float{display:none}
+@media (prefers-reduced-motion: reduce){ .tab-back-float{animation:none;transition:none} }
+body.in-practice .fl-dock{display:none}
 .view.read.rd{padding-bottom:72px}
-@media (min-width:720px){ .tab-back-float{left:150px;bottom:24px} }
+@media (min-width:720px){ .fl-dock{left:150px;right:24px;bottom:24px} }
 /* ---- Learn tab: a row of articles per state (Justin, 2026-10-02, option C) ---- */
 .ll-h{margin-top:10px}
 .ll-shelf{margin:4px 0 18px}
@@ -3539,10 +3548,10 @@ body.in-practice .tab-back-float{display:none}
 .ll-seeall{justify-content:center;align-items:flex-start;gap:4px;padding:16px 4px 16px 0;width:34%;background:var(--bone)}
 .ll-seeall .wc-go{padding:0 12px}
 .ll-soonline{color:var(--muted);font-size:calc(14px * var(--type-scale))}
-.rd-readmk{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bone);flex:none}
-.rd-readmk svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.rd-row-t .rd-readmk{width:15px;height:15px;vertical-align:-3px;margin-right:5px}
-.rd-row-t .rd-readmk svg{width:11px;height:11px}
+.rd-readmk{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:none;color:var(--ink-80);flex:none}
+.rd-readmk svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rd-row-t .rd-readmk{width:14px;height:14px;vertical-align:-3px;margin-right:3px}
+.rd-row-t .rd-readmk svg{width:14px;height:14px}
 /* the recommended card says it's for the member (Justin, 2026-10-02): a badge that comes in once */
 .rd-lcard-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .rd-foryou{flex:none;display:inline-flex;align-items:center;gap:6px;background:var(--ink);color:var(--bone);border-radius:999px;padding:4px 10px 4px 8px;font-size:calc(12px * var(--type-scale));font-weight:500;line-height:1.2;letter-spacing:.01em;
@@ -3553,9 +3562,9 @@ body.in-practice .tab-back-float{display:none}
 @media (prefers-reduced-motion: reduce){ .rd-foryou,.rd-foryou::before{animation:none} }
 .rd-lcard-body .rd-read{align-self:flex-start;margin-top:2px}
 /* the floating Back is for phones; wider screens have the Back at the top (Justin, 2026-10-02) */
-@media (min-width:720px){ .tab-back-float{display:none} }
-.ll-card-meta .rd-readmk{width:15px;height:15px;vertical-align:-3px;margin-right:5px}
-.ll-card-meta .rd-readmk svg{width:11px;height:11px}
+/* (desktop keeps the floating Back now that the top-left back link is gone, 2026-10-02) */
+.ll-card-meta .rd-readmk{width:14px;height:14px;vertical-align:-3px;margin-right:3px}
+.ll-card-meta .rd-readmk svg{width:14px;height:14px}
 /* the read check sits on the text's middle, not below it (Justin, 2026-10-02) */
 .rd-row-t .rd-readmk,.ll-card-meta .rd-readmk{vertical-align:-0.18em;position:relative;top:-1px}
 /* articles: "In this article" (a folded table of contents), section anchors, quotes with a source (2026-10-02) */
@@ -3584,11 +3593,10 @@ body.in-practice .tab-back-float{display:none}
 
 /* Learn search (Justin, 2026-10-02) */
 /* Learn search: a floating magnifying glass across from Back that opens into a field (Justin, 2026-10-02) */
-.ll-sfloat{position:absolute;right:max(16px, env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom));z-index:31;
-  display:flex;align-items:center;width:48px;height:48px;max-width:560px;overflow:hidden;border-radius:999px;border:1px solid var(--hairline);
+.ll-sfloat{flex:0 1 auto;display:flex;align-items:center;width:100%;max-width:48px;height:48px;overflow:hidden;border-radius:999px;border:1px solid var(--hairline);
   background:var(--bone-deep);color:var(--ink);box-shadow:0 6px 18px rgba(26,31,42,.12);
-  transition:width .3s cubic-bezier(.2,.8,.2,1), bottom .18s ease;animation:tabBackFloatIn .28s var(--ease) both}
-.ll-sfloat.open{width:calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right))}
+  transition:max-width .3s cubic-bezier(.2,.8,.2,1);animation:tabBackFloatIn .28s var(--ease) both}
+.ll-sfloat.open{max-width:560px}
 .ll-sfloat.open:focus-within{outline:2px solid var(--ink);outline-offset:1px}
 .ll-sf-btn{flex:none;width:46px;height:46px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--ink);cursor:pointer;padding:0}
 .ll-sf-btn:focus-visible{outline:2px solid var(--ink);outline-offset:-3px;border-radius:50%}
@@ -3601,8 +3609,9 @@ body.in-practice .tab-back-float{display:none}
 .ll-sf-x{flex:none;width:44px;height:44px;display:none;align-items:center;justify-content:center;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
 .ll-sfloat.open .ll-sf-x{display:flex}
 .ll-sf-x:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
-body.ll-sf-on .tab-back-float{visibility:hidden}
-@media (min-width:720px){ .ll-sfloat{right:24px;bottom:24px} .ll-sfloat.open{width:min(560px, calc(100% - 200px))} }
+/* typing on a phone: the bottom menu steps aside and only the search field rides on the keyboard */
+body.ll-sf-typing #screen > .tabbar{visibility:hidden}
+body.ll-sf-typing .fl-dock{transition:top .12s ease}
 @media (prefers-reduced-motion: reduce){ .ll-sfloat{transition:none;animation:none} .ll-sf-q{transition:none} }
 .ll-res-n{font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0 0 6px}
 .ll-res-wait{display:block;margin-top:2px}
@@ -3657,14 +3666,20 @@ button.jr-gh b{flex:1}
 .rd-jr-sheet{position:fixed;inset:0;z-index:60;background:rgba(20,20,22,0);display:flex;align-items:flex-end;justify-content:center;transition:background .3s var(--ease)}
 .rd-jr-sheet[hidden]{display:none}
 .rd-jr-sheet.on{background:rgba(20,20,22,.38)}
-.rd-jr-sheet-in{position:relative;width:100%;max-width:640px;max-height:86vh;overflow:auto;overscroll-behavior:contain;background:var(--bone);border-radius:22px 22px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;box-shadow:0 -8px 30px rgba(0,0,0,.18);
+.rd-jr-sheet-in{position:relative;width:100%;max-width:640px;height:min(560px, 84vh);height:min(560px, 84dvh);overflow:hidden;overscroll-behavior:contain;background:var(--bone);border-radius:22px 22px 0 0;padding:10px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;box-shadow:0 -8px 30px rgba(0,0,0,.18);
   transform:translateY(105%);transition:transform .32s cubic-bezier(.2,.8,.2,1)}
 .rd-jr-sheet.on .rd-jr-sheet-in{transform:translateY(0)}
 .rd-jr-grab{align-self:center;width:38px;height:5px;border-radius:3px;background:var(--hairline);flex:none}
 .rd-jr-sheet-top{display:flex;align-items:center;justify-content:space-between}
 .rd-jr-sheet-top b{font-size:calc(17px * var(--type-scale))}
 .rd-jr-done{font:inherit;font-weight:500;color:var(--ink);background:transparent;border:0;min-height:40px;padding:0 6px;cursor:pointer}
-.rd-jr-track{overflow:hidden;touch-action:pan-y}
+.rd-jr-track{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;touch-action:pan-y;display:flex;flex-direction:column}
+.rd-jr-step:not([hidden]){flex:1 0 auto;display:flex;flex-direction:column}
+.rd-jr-step .rd-refl-one{flex:1 0 auto}
+.rd-jr-step .rd-refl-in{flex:1 1 auto;min-height:120px;resize:none}
+.rd-jr-sheet-in .rd-refl-where{margin-top:0}
+.rd-jr-ttl{display:inline-flex;align-items:center;gap:8px}
+.rd-jr-ttl .rd-jr-pen{width:20px;height:20px}
 .rd-jr-step{transition:transform .22s var(--ease)}
 .rd-jr-step.jr-in-r{animation:jrInR .26s var(--ease) both}
 .rd-jr-step.jr-in-l{animation:jrInL .26s var(--ease) both}
@@ -3680,5 +3695,5 @@ button.jr-gh b{flex:1}
 /* phones: swipe between the questions; the buttons stay on bigger screens (Justin, 2026-10-02: "Cut the Next button on mobile") */
 @media (hover:none) and (pointer:coarse), (max-width:719px){ .rd-jr-nav button{display:none} .rd-jr-nav{min-height:22px} }
 @media (prefers-reduced-motion: reduce){ .rd-jr-sheet,.rd-jr-sheet-in,.rd-jr-step{transition:none} .rd-jr-step.jr-in-r,.rd-jr-step.jr-in-l{animation:none} }
-.rd-jr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-body.jr-sheet-on .tab-back-float, body.jr-sheet-on .ll-sfloat{visibility:hidden}
+.rd-jr-sr{display:block;height:0;margin:0 !important;padding:0;overflow:hidden;clip-path:inset(50%)}
+body.jr-sheet-on .fl-dock{visibility:hidden}

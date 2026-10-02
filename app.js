@@ -747,7 +747,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-on'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -3598,22 +3598,23 @@ function app(tab){
   function _rdShell(inner, opts){
     opts = opts || {};
     currentTab = opts.tab || 'reflect';
-    // a screen below a top level gets a real back button in the bottom bar too (Justin, 2026-10-01)
+    // a screen below a top level gets a back button floating over the bottom bar (Justin, 2026-10-01); the top-left back
+    // link is gone (2026-10-02: "can go away. Instead the pop up back button is available"). Back and Search sit together
+    // on the left; when Search opens it pushes Back out of the way.
     const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
     // Learn search (Justin, 2026-10-02: "I don't want a search bar at the top. Make it a pop-up menu item, just like the back
     // button is ... just the magnifying glass that expands when tapped")
     const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search articles" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
-      <header class="appbar read-appbar">${opts.back ? `<button class="backbtn" id="rd-back">${escapeHtml(opts.back)}</button>` : ''}</header>
+      <header class="appbar read-appbar"></header>
       <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
-      ${tabBack}${sFloat}
+      ${tabBack || sFloat ? `<div class="fl-dock" id="fl-dock">${tabBack}${sFloat}</div>` : ''}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     if(opts.onBack) document.body.classList.add('rd-sub');
     _rdSaveLoc(opts.loc || { k:'tab', tab:currentTab });
     _rdTrackScroll();
     $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
-    const bk = $('#rd-back'); if(bk && opts.onBack) bk.onclick = opts.onBack;
     const tb = $('#tab-back'); if(tb && opts.onBack) tb.onclick = opts.onBack;
   }
   // what comes next, said plainly under Today (Justin: "it's not clear what is coming or how it comes")
@@ -3731,7 +3732,8 @@ function app(tab){
     });
     return out.sort((a,b)=> b.score - a.score || a.i - b.i).map(x=>x.p);
   }
-  const _JR_PEN = '<svg class="rd-jr-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4.5h10.5a2 2 0 0 1 2 2V19a.5.5 0 0 1-.5.5H7a2 2 0 0 1-2-2z"/><path d="M8.5 8.5h6M8.5 11.5h6M8.5 14.5h3.5"/></svg>';
+  // the Journal's icon: a pencil writing (Justin, 2026-10-02: "Journal and Reflect need to have different icons"; Reflect is the book)
+  const _JR_PEN = '<svg class="rd-jr-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.5 5.5l3 3L9 18l-4 1 1-4z"/><path d="M13.5 7.5l3 3"/><path d="M13 19.5h6"/></svg>';
   const _LRN_SEARCH_SVG = '<svg class="ll-q-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>';
   // the Learn tab: search, what to read now, the state hubs, the topic hubs
   function screenLearn(keepQuery){
@@ -3755,7 +3757,7 @@ function app(tab){
   }
   // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
   function _lrnSearchWire(open){
-    const sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
+    const dock = $('#fl-dock'), sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
     if(!sf || !qi || !res || !browse) return;
     let shown = 30, tm = null;
     const sc = root.querySelector('.scroll');
@@ -3775,18 +3777,24 @@ function app(tab){
       const mb = res.querySelector('.ll-res-more'); if(mb) mb.onclick = ()=>{ shown += 30; draw(); };
       if(loading) _lrnSearchIndex().then(d=>{ if(d && res.isConnected && _lrnQ.trim() === q) draw(); });
     };
-    // above the keyboard while typing (phones keep the page's height and slide the keyboard over it)
-    const vv = window.visualViewport;
-    const lift = ()=>{ if(!sf.isConnected){ if(vv){ vv.removeEventListener('resize', lift); vv.removeEventListener('scroll', lift); } return; }
-      const off = vv ? window.innerHeight - vv.height - vv.offsetTop : 0; sf.style.bottom = off > 60 ? (off + 10) + 'px' : ''; };
+    // while typing on a phone only the search field rides up with the keyboard (Justin, 2026-10-02: "the keyboard pushes up
+    // the entire bottom menu"): the bottom menu hides, and the field sits on the top edge of the keyboard
+    const vv = window.visualViewport, coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+    const lift = ()=>{
+      if(!dock.isConnected){ if(vv){ vv.removeEventListener('resize', lift); vv.removeEventListener('scroll', lift); } document.body.classList.remove('ll-sf-typing'); return; }
+      const typing = coarse && vv && document.activeElement === qi;
+      document.body.classList.toggle('ll-sf-typing', !!typing);
+      if(typing){ dock.style.position = 'fixed'; dock.style.bottom = 'auto'; dock.style.top = Math.max(8, vv.offsetTop + vv.height - dock.offsetHeight - 10) + 'px'; }
+      else { dock.style.position = ''; dock.style.bottom = ''; dock.style.top = ''; }
+    };
     if(vv){ vv.addEventListener('resize', lift); vv.addEventListener('scroll', lift); }
-    const setOpen = on => { sf.classList.toggle('open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; document.body.classList.toggle('ll-sf-on', on); if(!on){ sf.style.bottom = ''; } };
+    const setOpen = on => { sf.classList.toggle('open', on); dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
     setOpen(!!_lrnQ);
     sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
     qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; clearTimeout(tm); tm = setTimeout(draw, 120); };
     qi.onkeydown = e=>{ if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
-    qi.onfocus = ()=>{ _lrnSearchIndex(); };
-    qi.onblur = ()=>{ setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
+    qi.onfocus = ()=>{ _lrnSearchIndex(); lift(); };
+    qi.onblur = ()=>{ lift(); setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
     qx.onmousedown = e=>e.preventDefault();
     qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
     if(_lrnQ) draw();
@@ -3941,7 +3949,7 @@ function app(tab){
     const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
     const preview = window.SNB_IS_STAGING ? `<section class="rd-preview"><span class="rd-eyeb">Beta only · show me this period's post</span><div class="p-chips">${['week','month','season','year'].map(k=>`<button class="p-chip" type="button" data-preview="${k}">${CAP(k)}</button>`).join('')}</div></section>` : '';
     _rdShell(`
-          <div class="scr-head read-head"><h1 class="read-h1">Your Reflections</h1></div>
+          <div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
           ${coverHTML}
           ${todayHTML}
           ${empty}
@@ -3973,7 +3981,7 @@ function app(tab){
     _rdShell(`
         <span class="rd-eyeb">${escapeHtml(DAYS_LONG[d.getDay()] + ', ' + d.toLocaleDateString(undefined,{month:'long',day:'numeric'}))}</span>
         <p class="read-p" style="margin:8px 0 0">${boldHtml(m.text||'')}</p>
-        ${momentTimeline(moments, sessions)}`, { back:'Your Reflections', onBack:screenReader });
+        ${momentTimeline(moments, sessions)}`, { back:'Reflect', onBack:screenReader });
   }
 
   // one post
@@ -4009,7 +4017,7 @@ function app(tab){
         <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
         ${body}
         ${tail}
-        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back:'Your Reflections', onBack:screenReader, loc:{ k:'post', id:post.key } });
+        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back:'Reflect', onBack:screenReader, loc:{ k:'post', id:post.key } });
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
     root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));
     const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco);
@@ -4245,10 +4253,17 @@ function app(tab){
     });
   }
   function _lrnGoTo(sec){
-    const el = sec && root.querySelector('#sec-' + CSS.escape(sec)); if(!el) return;
+    let el = sec && root.querySelector('#sec-' + CSS.escape(sec)); if(!el) return;
+    // the "Journal" heading in the table of contents: it is hidden in the article, so go to the Journal card and open it
+    // (Justin, 2026-10-02: on "Play: safety and mobilization together" it did not work)
+    if(el.classList.contains('rd-jr-sr')){ const card = el.nextElementSibling;
+      if(card && card.classList.contains('rd-jr')){ el = card; if(card._open){ _lrnScrollTo(card); setTimeout(()=>{ if(card.isConnected) card._open(); }, 380); return; } } }
     const fold = el.closest('details'); if(fold) fold.open = true;
     const jr = el.closest('.rd-jr');
     if(jr && jr._open){ const st = el.closest('.rd-jr-step'); if(st && jr._show) jr._show(+st.dataset.step, true); jr._open(); return; }
+    _lrnScrollTo(el);
+  }
+  function _lrnScrollTo(el){
     const sc = root.querySelector('.scroll'); if(!sc) return;
     const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12;
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -4389,7 +4404,7 @@ function app(tab){
       const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
       const where = `<p class="rd-refl-where">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p>`;
       return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(count)}</p>
-          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b>Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}${where}</div></div></div>`;
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}${where}</div></div></div>`;
     };
     const blocks = piece.blocks || [], parts = [];
     for(let i = 0; i < blocks.length; i++){
@@ -4419,7 +4434,7 @@ function app(tab){
         ${_lrnTocHTML(piece.toc)}
         ${body}
         ${book}${piece.episode ? `<section class="rd-book"><p class="read-p">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p></section>` : ''}
-        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Your Reflections', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id } });
+        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id } });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
     root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
@@ -4626,7 +4641,7 @@ function app(tab){
         <div class="view read" style="gap:0">
           <div class="read-flow">
             <div class="scr-head read-head">
-              <h1 class="read-h1">Your Reflections</h1>
+              <h1 class="read-h1">Reflect</h1>
               <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
               ${readState}
               ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="Past Reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
@@ -6673,12 +6688,12 @@ function app(tab){
       <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Your Journal</span>
-          <span class="tb-row-sub">Your answers to the reflections in Learn &middot; on the paid plan</span>
+          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; on the paid plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
-        <h3 class="yr-h">Your Reflection</h3>
-        <p class="yr-lede">${(function(){ try{ const r=FromJustin.daily?FromJustin.daily():null; return (r&&r.text)?escapeHtml(r.text):'Your daily post and your Sunday reflection, from your own check-ins.'; }catch(e){ return 'Your daily post and your Sunday reflection, from your own check-ins.'; } })()}</p>
+        <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
+        <p class="yr-lede">${(function(){ try{ const r=FromJustin.daily?FromJustin.daily():null; return (r&&r.text)?escapeHtml(r.text):'Your daily post and your Sunday reflection, from your own check-ins.'; }catch(e){ return 'Your daily post and your Sunday reflection, from your own check-ins.'; } })()}</p></span></span>
         <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
       </a>
       <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">Your check-ins.</h2></div>
@@ -7358,15 +7373,15 @@ function app(tab){
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
 
           <a class="you-reader" id="you-reader" href="#">
-            <h3 class="yr-h">Your Reflection</h3>
-            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p>
+            <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
+            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p></span></span>
             <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
           ${(function(){ let n = 0; try{ n = _lrnJournal().reduce((a,g)=>a + g.items.length, 0); }catch(e){}
             const paid = paidNow();
             return `<a class="you-reader you-journal" id="you-journal" href="#">
-            <h3 class="yr-h">Your Journal</h3>
-            <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from your reading in Learn.') : 'Your answers to the reflections in Learn articles, kept in one place.'}</p>
+            <span class="yr-top"><span class="yr-art yr-art-jr" aria-hidden="true">${_JR_PEN}</span><span class="yr-hd"><h3 class="yr-h">Your Journal</h3>
+            <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from your reading in Learn.') : 'Your answers to the journal questions in Learn articles, kept in one place.'}</p></span></span>
             <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'On the paid plan'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>`; })()}
 
@@ -8101,7 +8116,7 @@ function app(tab){
       </div>`;
 
     c.innerHTML=`<div class="view p-view p7-view">
-      <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Your practice.</h2></div>
+      <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Practice</h2></div>
       ${tunedCard}
       <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}"></button>
       <div class="p7-shape" id="p7-shape" ${pState.makerOpen?'':'hidden'}></div>
