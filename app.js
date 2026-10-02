@@ -3583,7 +3583,7 @@ function app(tab){
       const L = window.Learning;
       if(o.k === 'piece'){ const pc = L && L.byId(o.id); if(!pc) return false; screenLearnPiece(pc, null, null, { label:'Learn', go:screenLearn }); }
       else if(o.k === 'hub'){ if(!(L && L.HUBS[o.id])) return false; screenLearnHub(o.id, null); }
-      else if(o.k === 'journal'){ screenJournal(); }
+      else if(o.k === 'journal'){ screenJournal(o.from || 'you'); }
       else if(o.k === 'post'){ const pt = _rdPosts().find(x=>x.key === o.id); if(!pt) return false; screenReaderPost(pt); }
       else if(o.k === 'tab' && o.tab){ app(o.tab); }
       else return false;
@@ -3608,7 +3608,7 @@ function app(tab){
     setHTML(`
       <header class="appbar read-appbar"></header>
       <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
-      ${tabBack || sFloat ? `<div class="fl-dock" id="fl-dock">${tabBack}${sFloat}</div>` : ''}
+      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     if(opts.onBack) document.body.classList.add('rd-sub');
@@ -3871,10 +3871,21 @@ function app(tab){
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml('From ' + p.title)}</span><span class="rd-read">Write${CHEV}</span></span>
       </button></section>`;
   }
-  function screenJournal(){
+  // Your Journal opens from the You tab or from Reflect (Justin, 2026-10-02: "The Journal feels like it should be reachable
+  // from Reflect"); Back returns where it came from
+  let _jrFrom = 'you';
+  const _JR_FILTER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
+  function screenJournal(from){
+    if(from) _jrFrom = from === 'reflect' ? 'reflect' : 'you';
     if(!paidNow()) return gateSubscribe('reader');
     const L = window.Learning, items = _lrnJournalItems();
-    const shell = inner => _rdShell(`<span class="rd-eyeb">You</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:'You', onBack:()=>app('you'), tab:'you', loc:{ k:'journal' } });
+    const fromR = _jrFrom === 'reflect';
+    // the Group by choice is a small menu beside Back (Justin, 2026-10-02: "a popup next to the back button, not taking up space at the top")
+    const VIEWS = [['topic', 'Topic'], ['date', 'Date'], ['article', 'Article']];
+    const view = _jrView();
+    const dock = items.length ? `<div class="jr-fpop" id="jr-fpop"><button class="jr-fbtn" id="jr-fbtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Group by ${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}">${_JR_FILTER_SVG}<span>${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}</span></button>
+      <div class="jr-fmenu" id="jr-fmenu" role="menu" aria-label="Group by"><span class="jr-fmenu-h">Group by</span>${VIEWS.map(([k, t])=>`<button class="jr-fopt${k === view ? ' on' : ''}" type="button" role="menuitemradio" aria-checked="${k === view}" data-jrview="${k}">${escapeHtml(t)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg></button>`).join('')}</div></div>` : '';
+    const shell = inner => _rdShell(`<span class="rd-eyeb">${fromR ? 'Reflect' : 'You'}</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:fromR ? 'Reflect' : 'You', onBack:()=>app(fromR ? 'reflect' : 'you'), tab:fromR ? 'reflect' : 'you', loc:{ k:'journal', from:_jrFrom }, dock });
     const reco = _jrRecoPiece(items);
     // the questions come from the articles themselves (older answers kept only the answer)
     const need = [...new Set(items.filter(it=>it.piece).map(it=>it.piece).concat(reco ? [reco.piece] : []))].filter(p=>!p.blocks);
@@ -3890,7 +3901,6 @@ function app(tab){
       _jrWireList();
       return;
     }
-    const view = _jrView();
     const card = it => `<button class="jr-item" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}"><b class="jr-h">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</b><span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : '<span></span>'}<span class="jr-src">${it.piece ? 'Back to this lesson' : 'Back to this reflection'}${CHEV}</span></span></button>`;
     const order = (p, rid) => p ? (p.blocks||[]).findIndex(x=>x.reflect === rid) : +rid;
     let groups = [];
@@ -3907,14 +3917,27 @@ function app(tab){
       const name = k => k === '_reflect' ? 'Reflect' : _lrnHubName(k);
       groups = ['_reflect'].concat(keys).filter(k=>by[k]).map(k=>({ head:`${k === '_reflect' ? '' : _rdMk(k)}<b>${escapeHtml(name(k))}</b><span class="ll-n">${escapeHtml(by[k].length === 1 ? '1 entry' : by[k].length + ' entries')}</span>`, items:by[k] }));
     }
-    const VIEWS = [['topic', 'Topic'], ['date', 'Date'], ['article', 'Article']];
     const html = groups.map(g=>`<section class="jr-group">${g.art || g.postKey ? `<button class="jr-gh jr-art" type="button" ${g.art ? `data-art="${escapeHtml(g.art)}"` : `data-post="${escapeHtml(g.postKey)}"`}>${g.head}<span class="wc-go">${CHEV}</span></button>` : `<h3 class="jr-gh">${g.head}</h3>`}${g.items.map(card).join('')}</section>`).join('');
-    shell(`${recoHTML}<div class="jr-view" role="group" aria-label="Group by"><span class="jr-view-l">Group by</span><div class="p-chips">${VIEWS.map(([k, t])=>`<button class="p-chip${k === view ? ' on' : ''}" type="button" data-jrview="${k}" aria-pressed="${k === view}">${t}</button>`).join('')}</div></div>${html}`);
-    root.querySelectorAll('[data-jrview]').forEach(b=>b.onclick=()=>{ _jrView(b.dataset.jrview); const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; screenJournal(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; });
+    shell(`${recoHTML}${html}`);
+    _jrWireFilter();
     _jrWireList();
   }
+  // the Group by menu beside Back: animates in and out (never pops), closes on a pick, a tap outside or Escape
+  function _jrWireFilter(){
+    const pop = $('#jr-fpop'), btn = $('#jr-fbtn'); if(!pop || !btn) return;
+    const set = (open)=>{ pop.classList.toggle('open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if(open){ document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', esc); } else { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc); } };
+    const away = (e)=>{ if(!pop.contains(e.target)) set(false); };
+    const esc = (e)=>{ if(e.key === 'Escape'){ set(false); try{ btn.focus(); }catch(_){} } };
+    btn.onclick = ()=>set(!pop.classList.contains('open'));
+    pop.querySelectorAll('[data-jrview]').forEach(b=>b.onclick=()=>{
+      set(false); if(b.dataset.jrview === _jrView()) return;
+      _jrView(b.dataset.jrview); const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0;
+      setTimeout(()=>{ screenJournal(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; }, 180);
+    });
+  }
   function _jrWireList(){
-    const here = { label:'Your Journal', go:screenJournal, tab:'you' };
+    const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : 'you' };
     const openPost = (key, sec) => { const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
     root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
     root.querySelectorAll('.jr-art[data-post]').forEach(b=>b.onclick=()=>openPost(b.dataset.post));
@@ -3960,10 +3983,14 @@ function app(tab){
     const list = (rows || legacyRows) ? `<section class="rd-list" aria-label="Your posts">${rows}${legacyRows}</section>` : '';
     const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
     const preview = window.SNB_IS_STAGING ? `<section class="rd-preview"><span class="rd-eyeb">Beta only · show me this period's post</span><div class="p-chips">${['week','month','season','year'].map(k=>`<button class="p-chip" type="button" data-preview="${k}">${CAP(k)}</button>`).join('')}</div></section>` : '';
+    // Your Journal from Reflect (Justin, 2026-10-02): every journal answer, from the articles and the reflections
+    const jn = paidNow() ? _lrnJournalItems().length : 0;
+    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Paid plan'}</span></span><span class="wc-go">${CHEV}</span></button>`;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
           ${coverHTML}
           ${todayHTML}
+          ${journalHTML}
           ${empty}
           ${list}
           ${preview}`);
@@ -3971,6 +3998,7 @@ function app(tab){
     root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
     root.querySelectorAll('.rd-list .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
     const ci = $('#rd-checkin'); if(ci) ci.onclick = ()=>screenCheckin();
+    const rj = $('#rd-journal'); if(rj) rj.onclick = ()=>{ if(!paidNow()) return _p8Locked(rj, 'reader'); screenJournal('reflect'); };
     root.querySelectorAll('.rd-today [data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning && Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, dailyLearn.ctx, null); });
     root.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>{
       const k=b.dataset.preview, R2=window.Reader, now2=Date.now();
@@ -7498,7 +7526,7 @@ function app(tab){
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
-      const yjn=$('#you-journal'); if(yjn) yjn.onclick=(e)=>{ e.preventDefault(); screenJournal(); };
+      const yjn=$('#you-journal'); if(yjn) yjn.onclick=(e)=>{ e.preventDefault(); screenJournal('you'); };
       // SHARE_TXT is GONE, and so is SHARE_VIZ (2026-08-01). Both were parallel decks that
       // had to be kept in step with the cards by hand, and both had drifted: SHARE_VIZ still
       // drew the 'times' card's RETIRED dot strip long after it became a bar chart, and
@@ -8005,7 +8033,7 @@ function app(tab){
     ].filter(Boolean);
     const joinList = (a)=> a.length<=1 ? (a[0]||'') : a.slice(0,-1).join(', ')+' and '+a[a.length-1];
     const shapedSentence = shapeBits.length ? `Tuned for you, ${joinList(shapeBits)}.` : '';
-    // Back floats at the bottom left like Learn and Reflect (Justin, 2026-10-03, the Practice tab redesign)
+    // Back floats at the bottom left like Learn and Reflect (Justin, 2026-10-02, the Practice tab redesign)
     document.body.classList.remove('rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
     root.innerHTML = `
       <header class="appbar read-appbar"></header>
@@ -8040,7 +8068,7 @@ function app(tab){
     </div>`;
     $('#plan-begin').onclick = ()=>launchWeaver(reco);
     root.querySelectorAll('.plan-book').forEach(a=>a.onclick=e=>{ e.preventDefault(); const pc = window.Learning && Learning.byId(a.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:()=>renderPlan(reco, from), tab:'practice' }); });
-    // the same sheet as the Practice tab, filled in with this practice (Justin, 2026-10-03: "Customize this practice")
+    // the same sheet as the Practice tab, filled in with this practice (Justin, 2026-10-02: "Customize this practice")
     $('#plan-change').onclick = ()=>{ _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
   }
 
@@ -8080,7 +8108,7 @@ function app(tab){
     wrap.querySelectorAll('[data-val]').forEach(b=>b.onclick=()=>{ close(); onPick(b.dataset.val); haptic('start'); });
   }
 
-  // ── THE PRACTICE TAB, ONE LIST (Justin, 2026-10-02 / 10-03: option A, "the cleanest and simplest to grasp") ─────────
+  // ── THE PRACTICE TAB, ONE LIST (Justin, 2026-10-02: option A, "the cleanest and simplest to grasp") ─────────
   // One screen for everyone, paid and free, phone and computer: the Recommended card on top, then every practice as a row
   // with a cover square ("Make your own", "Guided practices"). Tapping a practice slides up one sheet with its choices as
   // labeled rows; each row opens the menus the maker already had. Locked things keep full opacity and show the lock and
@@ -8258,7 +8286,7 @@ function app(tab){
         R.push(['skill','Skill', CAP(skillLabel(sk))]);
         if(mkTakesObstacles(sk)) R.push(['obst','Obstacle statements', pState.obst ? 'With' : 'Without']);
         if(!(mkTakesObstacles(sk) && pState.obst)) R.push(['emotion','Working with', CAP(MK_EMO_WORDS[pState.emotion] || 'whatever emotion surfaces')]);
-        if(mkHasDepth(sk)) R.push(['depth','How deep', CAP(mkDepthWords(pState.depth))]);
+        if(mkHasDepth(sk)) R.push(['depth','Practice depth', CAP(mkDepthWords(pState.depth))]);   // not "How deep" (Justin, 2026-10-02: intimidating)
         if(holdWatchOffered(sk, pState.deepest)) R.push(['hold','Hold & watch', pState.holdWatch ? CAP(holdDurWords(pState.holdSeconds)) : 'Off']);
       }
       if(k!=='micro') R.push(['silence','Silence', CAP(silLabel(pState.silence))]);
@@ -8292,7 +8320,7 @@ function app(tab){
         const opts=[{val:'',menu:'whatever emotion surfaces',sub:'Let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:MK_EMO_WORDS[f.key]||f.label,sub:f.hint})));
         openDialSheet('Working with', [{opts}], pState.emotion||'', tc, (v)=>{ pState.emotion=v||null; paint(); });
       } else if(kind==='depth'){
-        openDialSheet('How deep would you like to go?', [{opts:MK_DEPTHS.map(([val,l])=>({val,menu:l}))}], pState.depth||'general', tc, (v)=>{ pState.depth=v; pState.deepest=(v==='description'); mkNormalize(); paint(); });
+        openDialSheet('Practice depth', [{opts:MK_DEPTHS.map(([val,l])=>({val,menu:l}))}], pState.depth||'general', tc, (v)=>{ pState.depth=v; pState.deepest=(v==='description'); mkNormalize(); paint(); });
       } else if(kind==='hold'){
         const opts=[{val:'off',menu:'No hold & watch'},{val:'30',menu:'Hold & watch for 30 sec'},{val:'60',menu:'Hold & watch for 1 min'},{val:'90',menu:'Hold & watch for 90 sec'},{val:'120',menu:'Hold & watch for 2 min'}];
         openDialSheet(MK_HOLD_LINE, [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tc, (v)=>{ if(v==='off'){ pState.holdWatch=false; } else { pState.holdWatch=true; pState.holdSeconds=+v; } paint(); });

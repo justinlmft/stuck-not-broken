@@ -3764,3 +3764,34 @@ body.jr-sheet-on .fl-dock{visibility:hidden}
 .p8-sum{margin:2px 0 12px;font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty}
 @media (prefers-reduced-motion:reduce){.p8-reco.tc-in,.rd-lk.p8-jig{animation:none}}
 body.reduce-motion .p8-reco.tc-in,body.reduce-motion .rd-lk.p8-jig{animation:none}
+/* ── Round 2 (Justin, 2026-10-02) ── */
+/* the Learn shelf cards are true squares ("The top rectangle recommended one is fine"): the title up top, the minutes at the foot */
+.ll-card{width:44%;max-width:184px;aspect-ratio:1/1;padding-bottom:12px}
+.ll-card b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
+.ll-card-meta{margin-top:auto}
+.ll-card.ll-seeall{width:30%;max-width:130px}
+/* Your Journal: Group by is a small menu beside the floating Back */
+.jr-fpop{position:relative;flex:none;pointer-events:auto}
+.jr-fbtn{display:inline-flex;align-items:center;gap:6px;min-height:44px;height:48px;padding:8px 16px 8px 12px;border-radius:999px;border:1px solid var(--hairline);
+  background:var(--bone-deep);color:var(--ink);font:inherit;font-size:calc(14.5px * var(--type-scale));font-weight:500;cursor:pointer;white-space:nowrap;
+  box-shadow:0 6px 18px rgba(26,31,42,.12);animation:tabBackFloatIn .28s var(--ease) both}
+.jr-fbtn svg{width:20px;height:20px;flex:none}
+.jr-fbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.jr-fmenu{position:absolute;left:0;bottom:calc(100% + 8px);min-width:190px;display:flex;flex-direction:column;padding:6px 0;border-radius:16px;border:1px solid var(--hairline);
+  background:var(--bone);box-shadow:0 10px 30px var(--shade);opacity:0;transform:translateY(8px) scale(.97);transform-origin:bottom left;pointer-events:none;visibility:hidden;
+  transition:opacity .2s var(--ease),transform .24s var(--ease),visibility 0s linear .24s}
+.jr-fpop.open .jr-fmenu{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .2s var(--ease),transform .24s var(--ease),visibility 0s}
+.jr-fmenu-h{font-size:calc(12.5px * var(--type-scale));font-weight:600;color:var(--muted);padding:8px 16px 4px}
+.jr-fopt{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0 16px;background:none;border:0;font:inherit;
+  font-size:calc(15px * var(--type-scale));color:var(--ink);text-align:left;cursor:pointer}
+.jr-fopt svg{width:18px;height:18px;opacity:0;flex:none}
+.jr-fopt.on{font-weight:600}
+.jr-fopt.on svg{opacity:1}
+.jr-fopt:hover{background:var(--bone-deep)}
+.jr-fopt:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+@media (prefers-reduced-motion:reduce){.jr-fmenu{transition:none}.jr-fbtn{animation:none}}
+body.reduce-motion .jr-fmenu{transition:none}
+/* Your Journal's row in Reflect */
+.rd-jrow{margin:4px 0 18px;border-bottom:1px solid var(--hairline)}
+.rd-thumb-jr{color:var(--ink)}
+.rd-thumb-jr svg{width:20px;height:20px}
