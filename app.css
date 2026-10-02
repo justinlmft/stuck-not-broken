@@ -3703,5 +3703,7 @@ body.jr-sheet-on .fl-dock{visibility:hidden}
 .rd-gate::before{content:"";display:block;height:48px;margin-top:-56px;background:linear-gradient(to bottom, transparent, var(--bone));pointer-events:none;position:relative}
 .rd-gate-btn .rd-lk{width:20px;height:20px;flex:none;margin-top:2px;color:var(--ink)}
 /* the practice plan: where the books teach it */
-.plan-books{margin-top:6px;font-size:calc(14px * var(--type-scale));color:var(--ink-80)}
+.plan-books{margin-top:10px;font-size:calc(14.5px * var(--type-scale));color:var(--ink-80)}
+.plan-books-h{margin:0 0 6px;font-weight:500;color:var(--ink)}
+.plan-books-l{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
 .plan-books .plan-book{font-weight:500}

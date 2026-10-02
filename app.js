@@ -7993,7 +7993,7 @@ function app(tab){
         <p class="sec-h">What to expect in your custom practice</p>
         <p class="plan-about">${escapeHtml(properCase(aboutOf(reco.practiceKey, reco.sense)))}</p>
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
-        ${(()=>{ const ch = _planChapters(reco); return ch.length ? `<p class="plan-about plan-books">In depth in the books: ${ch.map(p=>`<a href="#" class="rd-inlink plan-book" data-piece="${escapeHtml(p.id)}">${escapeHtml(p.title)}</a>`).join(', ')}.</p>` : ''; })()}
+        ${(()=>{ const ch = _planChapters(reco); return ch.length ? `<div class="plan-books"><p class="plan-books-h">Learn more about these skills:</p><ul class="plan-books-l">${ch.map(p=>`<li><a href="#" class="rd-inlink plan-book" data-piece="${escapeHtml(p.id)}">${escapeHtml(p.title)}</a></li>`).join('')}</ul></div>` : ''; })()}
       </div>
       <div class="plan-actions">
         <button class="set-quiet actionbar-aux" id="plan-change">Change this practice</button>
