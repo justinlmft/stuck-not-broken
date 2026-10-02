@@ -3601,14 +3601,39 @@ function app(tab){
       return { tags, dir: /more safety/.test(q) ? 'safe' : /toward defense/.test(q) ? 'def' : 'mixed' };
     }catch(e){ return null; }
   }
-  // Reflect's Learn section: the six state hubs, then the topic hubs that have articles (Justin, 2026-10-01)
+  // read marks (Justin, 2026-10-02): a piece is read once its end (Keep learning) comes into view. A read piece
+  // keeps a check and moves to the back of its row; it is never dropped. Synced with the member's data as
+  // contexts 'lr:{piece}' (labels: the day it was read).
+  function _lrnIsRead(id){ const v = _ctxLoad()['lr:' + id]; return !!(v && v.length); }
+  function _lrnMarkRead(id){
+    if(!id || _lrnIsRead(id)) return;
+    const day = new Date().toISOString().slice(0, 10);
+    try{ if(Store.saveContexts) Store.saveContexts('lr:' + id, 'read', [day]); else { const m=_ctxLoad(); m['lr:' + id] = [day]; _ctxSave(m); } }catch(e){}
+  }
+  // unread first, read at the back, each keeping its own order
+  function _lrnByRead(list){ return list.filter(p=>!_lrnIsRead(p.id)).concat(list.filter(p=>_lrnIsRead(p.id))); }
+  const _LRN_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"></path></svg>';
+  const _lrnReadMk = () => `<span class="rd-readmk" role="img" aria-label="Read">${_LRN_CHECK}</span>`;
+  // the Learn tab, below the top card (Justin, 2026-10-02, option C): a row of articles for each state that has
+  // them, six at most and then a "See all" card that opens the hub; states with none yet in one line; then the
+  // topic hubs as a list ("the pills are not helpful")
+  const _LRN_SHELF = 6;
   function _rdLearnSection(){
     const L = window.Learning; if(!L || !L.HUBS) return '';
-    const tiles = L.STATE_HUBS.map(k=>`<button class="rd-hubtile" type="button" data-hub="${k}" style="--band:${STATE_COLOR(k)};--cw:var(--rd-wash-${k})">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span>${escapeHtml(L.inGroup(k).length ? _lrnHubCount(k) : 'Coming soon')}</span></button>`).join('');
+    const shelf = k => {
+      const all = L.inGroup(k); if(!all.length) return '';
+      const ps = _lrnByRead(all).slice(0, _LRN_SHELF);
+      const cards = ps.map(p=>{ const read = _lrnIsRead(p.id);
+        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band">${_rdMk(p.state||k)}${read?_lrnReadMk():''}</span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
+      const more = all.length > _LRN_SHELF ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(all.length + ' articles')}</span><span class="wc-go">${CHEV}</span></button>` : '';
+      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(_lrnHubCount(k))}</span><span class="wc-go">${CHEV}</span></button>
+        <div class="ll-row">${cards}${more}</div></div>`;
+    };
+    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
     const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
-    return `<section class="rd-learn rd-learnhubs"><h3 class="sec-h">States</h3>
-        <div class="rd-hubgrid">${tiles}</div>
-        ${topics.length ? `<span class="rd-eyeb rd-keep-eyeb">Topics</span><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
+    return `<section class="rd-learn rd-learnhubs">${L.STATE_HUBS.map(shelf).join('')}
+        ${soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : ''}
+        ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
       </section>`;
   }
   // the Learn tab: what to read now, the state hubs, the topic hubs
@@ -3623,6 +3648,7 @@ function app(tab){
     const here = { label:'Learn', go:screenLearn };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here); });
   }
   function screenReader(){
     _markReaderSeen();
@@ -3941,7 +3967,7 @@ function app(tab){
   const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
   const _lrnHubCount = key => { const n = window.Learning.inGroup(key).length; return n === 1 ? '1 article' : n + ' articles'; };
   // a row that opens a piece (hubs, keep learning)
-  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}"><span class="rd-thumb rd-thumb-mk">${_rdMk(p.state||'safety')}</span><span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${escapeHtml('By Justin · ' + (p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}"><span class="rd-thumb rd-thumb-mk">${_rdMk(p.state||'safety')}</span><span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml('By Justin · ' + (p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
   // a row that opens a hub
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
@@ -3964,7 +3990,7 @@ function app(tab){
         ${mine}
         ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
         <section class="rd-learn"><h3 class="sec-h">Articles</h3>
-          ${pieces.length ? `<div class="rd-list rd-list-flat">${pieces.map(_lrnRowHTML).join('')}</div>` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
+          ${pieces.length ? `<div class="rd-list rd-list-flat">${_lrnByRead(pieces).map(_lrnRowHTML).join('')}</div>` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
         </section>
         ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}`,
       { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn' });
@@ -4038,6 +4064,12 @@ function app(tab){
     });
     root.querySelectorAll('[data-refl]').forEach(ta=>ta.oninput=()=>{ const s = root.querySelector(`[data-refl-save="${ta.dataset.refl}"]`); if(s) s.textContent = 'Save'; });
     root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), 'practice'); });
+    // read = reached the end (Keep learning in view), not just opened
+    const endEl = root.querySelector('.rd-keep');
+    if(endEl && !_lrnIsRead(piece.id)){
+      if('IntersectionObserver' in window){ const io = new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ _lrnMarkRead(piece.id); io.disconnect(); } }, { threshold:0.01 }); io.observe(endEl); }
+      else { const sc = root.querySelector('.scroll'); if(sc) sc.addEventListener('scroll', function f(){ if(sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 40){ _lrnMarkRead(piece.id); sc.removeEventListener('scroll', f); } }); }
+    }
   }
 
   // (retired 2026-09-30: the essay-per-state reader. Kept for reference until the next declutter.)
