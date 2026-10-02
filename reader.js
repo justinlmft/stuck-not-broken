@@ -771,9 +771,14 @@
         if((i===0 || d.rows[i-1]!==k) && cxm - lastMarkX >= 24){ s += markSVG(k, cxm, 11, 11, col(k)); lastMarkX = cxm; }
       });
       // month names on the scale (Justin, 2026-10-01)
-      if(d.ws0){ let lastM = -1;
+      if(d.ws0){ let lastM = -1; const labs = [];
         for(let i=0;i<n;i++){ const t = d.ws0 + i*7*DAY + 3*DAY, m = new Date(t).getMonth();
-          if(m !== lastM){ const x = i*bw; s += '<line x1="'+(x+0.5).toFixed(1)+'" x2="'+(x+0.5).toFixed(1)+'" y1="'+(top+barH+2)+'" y2="'+(top+barH+7)+'" stroke="var(--muted)" stroke-width="1"/>' + T(x+1, H-2, kind==='ribbon' ? MONTH3[m] : MONTHS[m], 'start'); lastM = m; } } }
+          if(m !== lastM){ labs.push({ x:i*bw, m }); lastM = m; } }
+        // a month that only clips the start (a December week at the front of the year) would sit on top of the next
+        // name ("Dec" over "Jan"): a name is drawn only when the next one is far enough along (2026-10-02)
+        const gap = kind==='ribbon' ? 26 : 40;
+        labs.forEach((l, j)=>{ const nx = labs[j+1]; if(nx && nx.x - l.x < gap) return; const x = l.x;
+          s += '<line x1="'+(x+0.5).toFixed(1)+'" x2="'+(x+0.5).toFixed(1)+'" y1="'+(top+barH+2)+'" y2="'+(top+barH+7)+'" stroke="var(--muted)" stroke-width="1"/>' + T(x+1, H-2, kind==='ribbon' ? MONTH3[l.m] : MONTHS[l.m], 'start'); }); }
       return '<svg viewBox="0 0 '+W+' '+H+'" class="rd-viz" role="img" aria-label="Each week as a bar in the color of the state that led it, with the months below">'+(defs?'<defs>'+defs+'</defs>':'')+s+'</svg>';
     }
     return '';

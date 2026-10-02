@@ -3526,7 +3526,9 @@ function app(tab){
     }).join('')}</div>`;
   }
   function _rdSnapInner(x, post){
-    if(x.snap === 'firstlast') return `<div class="rd-fl"><span class="rd-fl-i">${triGlyph(x.data.a)}<span>${escapeHtml(STATE_LABEL(x.data.a))}</span></span><span class="rd-fl-arw" aria-hidden="true">→</span><span class="rd-fl-i">${triGlyph(x.data.b)}<span>${escapeHtml(STATE_LABEL(x.data.b))}</span></span></div>`;
+    // first and latest (Justin, 2026-10-02): only the state's own marks, large, joined by the from-to gradient
+    if(x.snap === 'firstlast'){ const a = x.data.a, b = x.data.b;
+      return `<div class="rd-fl"><span class="rd-fl-i">${_rdMk(a, 'rd-mk-fl')}<span>${escapeHtml(STATE_LABEL(a))}</span></span><span class="rd-fl-path" aria-hidden="true" style="background:linear-gradient(90deg,${STATE_COLOR(a)},${STATE_COLOR(b)})"></span><span class="rd-fl-i">${_rdMk(b, 'rd-mk-fl')}<span>${escapeHtml(STATE_LABEL(b))}</span></span></div>`; }
     if(x.snap === 'thennow') return _rdThenNow(x.data);
     let d = x.data;
     if((x.snap === 'strip' || x.snap === 'ribbon') && post && window.Reader.weekStart) d = Object.assign({}, d, { ws0: window.Reader.weekStart(post.start) });
@@ -3667,7 +3669,8 @@ function app(tab){
       const all = L.inGroup(k); if(!all.length) return '';
       const ps = _lrnByRead(all).slice(0, _LRN_SHELF);
       const cards = ps.map(p=>{ const read = _lrnIsRead(p.id);
-        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band">${_rdMk(p.state||k)}${read?_lrnReadMk():''}</span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
+        // the marks live on the row's heading only (Justin, 2026-10-02: on every card too "it's too much"); the card keeps a strip of the state's color
+        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${read?_lrnReadMk() + 'Read · ':''}${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
       const more = all.length > _LRN_SHELF ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(all.length + ' articles')}</span><span class="wc-go">${CHEV}</span></button>` : '';
       return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(_lrnHubCount(k))}</span><span class="wc-go">${CHEV}</span></button>
         <div class="ll-row">${cards}${more}</div></div>`;

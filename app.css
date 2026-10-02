@@ -3349,10 +3349,11 @@ body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
 .rd-lk{width:18px;height:18px;flex:none;margin-top:2px;color:var(--muted)}
 .rd-preview{margin:18px 0 8px;display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px dashed var(--hairline)}
 .rd-empty{color:var(--muted)}
-.rd-fl{display:flex;align-items:center;justify-content:center;gap:18px;padding:6px 0}
-.rd-fl-i{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:calc(13px * var(--type-scale));color:var(--muted)}
-.rd-fl-i .triglyph{height:26px;width:auto}
-.rd-fl-arw{color:var(--muted)}
+.rd-fl{display:flex;align-items:center;justify-content:center;gap:14px;padding:18px 4px 10px}
+.rd-fl-i{display:flex;flex-direction:column;align-items:center;gap:10px;flex:0 1 auto;min-width:0;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink)}
+.rd-fl-i .rd-mk-fl{--mk:44px}
+.rd-fl-path{flex:1 1 48px;max-width:96px;min-width:28px;height:3px;border-radius:2px;margin-bottom:28px}
+
 .rd-essay-glyph .triglyph{height:28px;width:auto;margin:4px 0 6px}
 
 /* ── Reader round 5 (Justin, 2026-10-01): the Reflect tab, paper + cards (option A), the cover as a post,
@@ -3528,8 +3529,8 @@ body.in-practice .tab-back-float{display:none}
 .ll-row::-webkit-scrollbar{display:none}
 .ll-card{flex:none;width:58%;max-width:240px;scroll-snap-align:start;display:flex;flex-direction:column;gap:6px;text-align:left;font:inherit;color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:16px;padding:0 0 12px;overflow:hidden;cursor:pointer}
 .ll-card:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
-.ll-card-band{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:10px 12px;background:color-mix(in srgb, var(--band) var(--rd-band-pct), var(--rd-card))}
-.ll-card-band .rd-mk{--mk:16px}
+.ll-card-band{display:block;height:6px;background:var(--band)}
+.ll-card b{margin-top:8px}
 .ll-card b{font-weight:500;font-size:calc(14.5px * var(--type-scale));line-height:1.3;padding:0 12px;text-wrap:pretty}
 .ll-card-meta{font-size:calc(12.5px * var(--type-scale));color:var(--muted);padding:0 12px}
 .ll-seeall{justify-content:center;align-items:flex-start;gap:4px;padding:16px 4px 16px 0;width:34%;background:var(--bone)}
@@ -3550,3 +3551,5 @@ body.in-practice .tab-back-float{display:none}
 .rd-lcard-body .rd-read{align-self:flex-start;margin-top:2px}
 /* the floating Back is for phones; wider screens have the Back at the top (Justin, 2026-10-02) */
 @media (min-width:720px){ .tab-back-float{display:none} }
+.ll-card-meta .rd-readmk{width:15px;height:15px;vertical-align:-3px;margin-right:5px}
+.ll-card-meta .rd-readmk svg{width:11px;height:11px}
