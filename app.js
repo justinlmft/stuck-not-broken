@@ -3867,7 +3867,7 @@ function app(tab){
     const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
     return `<section class="rd-learn rd-learn-top jr-reco"><span class="rd-eyeb">Recommended journal</span>
       <button class="rd-lcard" type="button" data-piece="${escapeHtml(p.id)}" data-rf="${escapeHtml(b.reflect)}" style="--band:${st ? STATE_COLOR(st) : 'var(--hairline)'}">
-        <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Journal')}</span>`}<span class="rd-foryou">Picked for you</span></span><span class="rd-lcard-title">${escapeHtml(_jrHead(p, b.reflect))}</span></span>
+        <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Journal')}</span>`}</span><span class="rd-lcard-title">${escapeHtml(_jrHead(p, b.reflect))}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml('From ' + p.title)}</span><span class="rd-read">Write${CHEV}</span></span>
       </button></section>`;
   }
@@ -4167,7 +4167,7 @@ function app(tab){
     const p = learn.piece, st = p.state || null;
     const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
     return `<button class="rd-lcard${cls?' '+cls:''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${st ? STATE_COLOR(st) : 'var(--hairline)'}">
-        <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="rd-foryou">Picked for you</span></span><span class="rd-lcard-title">${escapeHtml(p.title)}</span></span>
+        <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}</span><span class="rd-lcard-title">${escapeHtml(p.title)}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(_lrnDesc(p))}</span><span class="rd-read">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span>
       </button>`;
   }
@@ -8194,7 +8194,10 @@ function app(tab){
     const paid = paidNow();
     const def = _domDefense();
     const nm = Store.getName();
-    const title = nm ? `${escapeHtml(nm)}’s custom practice` : 'Your custom practice';
+    // the person's name with a hand-drawn underline that draws itself in (Justin, 2026-10-02: "It used to say the user's name
+    // with an animated underline. That was plenty"): no eyebrow, no badge, and the card itself no longer slides in
+    const _line = `<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`;
+    const title = `<span class="p8-name">${nm ? `${escapeHtml(nm)}’s` : 'Your'}${_line}</span> custom practice`;
     const lockMeta = LOCK_SVG + 'Paid plan';
     let card, reco = null;
     if(paid){
@@ -8202,14 +8205,15 @@ function app(tab){
       const est = estMinutes(reco.practiceKey, reco.silence);
       const meta = reco.openEnded ? `Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}`
         : (est ? `About ${est} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}` : escapeHtml(CAP(Store.practiceLabel(reco.practiceKey))));
-      card = `<div class="rd-lcard p8-reco${animateIn?' tc-in':''}" id="foryou" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)}">
-        <span class="rd-lcard-band"><span class="p8-eyeb">Recommended</span><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span></span>
+      const lineCol = reco.practiceKey==='anchoring' ? 'var(--s-safety-tx)' : reco.practiceKey==='self-regulation' ? `var(--s-${({fightflight:'fight',shutdown:'shutdown',freeze:'freeze'})[def||'freeze']}-tx)` : 'var(--ink)';
+      card = `<div class="rd-lcard p8-reco${animateIn?' p8-draw':''}" id="foryou" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)};--line:${lineCol}">
+        <span class="rd-lcard-band"><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
           <span class="p8-reco-foot"><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button><span class="wc-go">${CHEV}</span></span></span>
       </div>`;
     } else {
       card = `<div class="rd-lcard p8-reco p8-locked" id="foryou-lock" role="button" tabindex="0" style="--band:var(--hairline)">
-        <span class="rd-lcard-band"><span class="p8-eyeb">Recommended</span><span class="rd-lcard-title">${title}</span></span>
+        <span class="rd-lcard-band"><span class="rd-lcard-title">${title}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">Built from your check-ins, and fitted to what your system can hold now.</span>
           <span class="p8-reco-foot"><span class="p8-lockline">${lockMeta}</span><span class="wc-go">${CHEV}</span></span></span>
       </div>`;

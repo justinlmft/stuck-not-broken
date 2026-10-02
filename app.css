@@ -3724,8 +3724,10 @@ body.jr-sheet-on .fl-dock{visibility:hidden}
 .p8-view{gap:0}
 .p8-view .scr-head{margin-bottom:14px}
 .p8-reco{cursor:pointer;margin:0 0 6px}
-.p8-reco.tc-in{animation:p8In .42s var(--ease) both}
-@keyframes p8In{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.p8-name{position:relative;display:inline-block}
+.p8-line{position:absolute;left:0;right:0;bottom:-6px;width:100%;height:6px;color:var(--line, var(--ink))}
+.p8-line path{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.p8-reco.p8-draw .p8-line path{stroke-dasharray:1;stroke-dashoffset:1;animation:tcLine .6s .35s var(--ease) forwards}
 .p8-eyeb{font-size:calc(11.5px * var(--type-scale));font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-80)}
 .p8-meta{font-size:calc(13px * var(--type-scale));color:var(--muted)}
 .p8-reco-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -3762,8 +3764,9 @@ body.jr-sheet-on .fl-dock{visibility:hidden}
 .p8-set:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .p8-foot{flex:none;padding:10px 22px 0;border-top:1px solid var(--hairline)}
 .p8-sum{margin:2px 0 12px;font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80);text-wrap:pretty}
-@media (prefers-reduced-motion:reduce){.p8-reco.tc-in,.rd-lk.p8-jig{animation:none}}
-body.reduce-motion .p8-reco.tc-in,body.reduce-motion .rd-lk.p8-jig{animation:none}
+@media (prefers-reduced-motion:reduce){.rd-lk.p8-jig{animation:none}.p8-reco.p8-draw .p8-line path{stroke-dasharray:none;stroke-dashoffset:0;animation:none}}
+body.reduce-motion .rd-lk.p8-jig{animation:none}
+body.reduce-motion .p8-reco.p8-draw .p8-line path{stroke-dasharray:none;stroke-dashoffset:0;animation:none}
 /* ── Round 2 (Justin, 2026-10-02) ── */
 /* the Learn shelf cards are true squares ("The top rectangle recommended one is fine"): the title up top, the minutes at the foot */
 .ll-card{width:44%;max-width:184px;aspect-ratio:1/1;padding-bottom:12px}
@@ -3795,3 +3798,4 @@ body.reduce-motion .jr-fmenu{transition:none}
 .rd-jrow{margin:4px 0 18px;border-bottom:1px solid var(--hairline)}
 .rd-thumb-jr{color:var(--ink)}
 .rd-thumb-jr svg{width:20px;height:20px}
+.p8-reco .rd-lcard-title{padding-bottom:4px}
