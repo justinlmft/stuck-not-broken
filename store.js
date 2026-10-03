@@ -1099,6 +1099,9 @@
     const best = {}, tried = {};
     ANCHOR_ORDER.forEach(a => { best[a] = 0; tried[a] = 0; });
     anchoring.forEach(s => { const a = _anchorOf(s); tried[a]++; if(isBestOutcome(s)) best[a]++; });
+    // the member chose their own safety anchor on the Unstucking Pathway (Justin, 2026-10-02: "just let them pick their safety
+    // anchor. Or give them a 'figure out my safety anchor' option"): that one, every time. Otherwise the app figures it out below.
+    try{ const p = prefSense(); if(localStorage.getItem('snb_anchor_mode') === 'chosen' && ANCHOR_ORDER.indexOf(p) >= 0) return { sense:p, why:'chosen', best, tried }; }catch(e){}
     const winners = ANCHOR_ORDER.filter(a => best[a] >= 3).sort((a,b) => best[b] - best[a]);
     if(winners.length) return { sense: winners[0], why: 'winner', best, tried };
     const fewest = Math.min.apply(null, ANCHOR_ORDER.map(a => tried[a]));

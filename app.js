@@ -8197,28 +8197,48 @@ function app(tab){
 
   // ── the Unstucking Pathway (Justin, 2026-10-02: "Skill progress bar or map that is connected to lessons on each skill so the
   // user can see where they are and where they are going"; he picked option A, the path, and named it). Every practice in the
-  // engine's order, with the seven safety practices broken up along it (Justin: "The 7 safety skills should be broken up on the
-  // path"), each with the book chapter to read before it. Never a score: a step is "Completed within your capacity" (the
-  // recommender's own cleared rule; Justin: not "gone well", that is our language). "Working on now" is whatever the recommended
-  // practice picked, so the two never disagree; when the recommendation eases back, the screen says so.
+  // order of the Academy's Unstucking Pathway course: the present moment, the safety anchor, every safety skill, then defense.
+  // Skill names only; what each skill is comes from the chapter's own words. Never a score: a step is "Completed within your
+  // capacity" (the recommender's cleared rule; Justin: never "gone well"). "Working on now" is whatever the recommended practice
+  // picked, so the two never disagree; when the recommendation eases back, the screen says so.
   const UP_TITLE = 'The Unstucking Pathway';
   const UP_DEF_TITLE = { 'validate-defense':'Validating', 'normalize-defense':'Normalizing', imagery:'Imagery & invitation', balancing:'Balancing', pendulating:'Pendulating' };
-  const UP_DEF_WHAT = { balancing:'Holding some safety and some defense at the same time.', pendulating:'Moving your attention toward the defense and back to safety, a little at a time.' };
-  // skill names only (Justin, 2026-10-02: "Just use the skill names"); what each one is lives in its sheet
   const UP_SAFE_TITLE = { anchoring:'Anchoring', 'validate-safety':'Validating', 'normalize-safety':'Normalizing', 'general-safety':'General',
     'specific-safety':'Specific', 'describe-safety':'Description', 'interest-safety':'Interest Impulse' };
+  // what each skill is, in the chapter's own words (Justin, 2026-10-02: "pull from the relevant article's words don't make up your own")
+  const UP_Q = {
+    mindfulness: ['For our purposes, mindfulness refers to an awareness of your present moment experience, whether internal or external. Mindfulness is about being present in the moment and approaching things with curiosity.'],
+    micro: ['Mindfulness can happen anywhere and at any time, even in a defensive state or while moving around.'],
+    senses: ['Sensory safety anchors use your five senses. These five senses take information from the external environment and send it to your brainstem.'],
+    imagination: ['If you struggle to identify memories that serve as safety anchors, your imagination can be a powerful substitute: it often produces similar effects.'],
+    movement: ['Once neurocepting safety cues passively from the environment, you can use active means to feel safety, even anchoring into it. We’ll focus on movement as one avenue for active safety anchoring.'],
+    anchoring: ['Safety is the foundation for everything we do. We start in safety, maintain safety, and end in safety. To get firmly anchored in safety, you will work from the outside in and brain to body.'],
+    validating: ['Validating is the courageous and honest act of acknowledging what is truly happening within you.', 'Validation is recognizing your present internal experience without judgment or attempts to change it.'],
+    normalizing: ['Normalizing is the process of making sense of your SSIEC (State, Sensation, Impulse, Emotion, and Cognition) experiences by situating them within the context of your life, past and/or present.', 'Normalizing recognizes that your experiences are not random occurrences but logical outcomes given your unique history and circumstances.'],
+    general: ['After validating and normalizing the safety emotion, we take the process a step further and begin to embody it.', '“What does [safety emotion] feel like in my body overall?”'],
+    specific: ['After identifying the overall experience in the body, we narrow it down further to see if there is one spot where it’s even more obvious.', '“Where does [safety emotion] live in my body?”'],
+    describeSafety: ['If you can maintain safety while noticing where it lives in the body, then it’s time to Experience it. You will Experience it by using description. Describing helps you mindfully connect with your somatic felt experience in the present moment.'],
+    interest: ['After describing what the safety emotion feels like in that one spot in your body, ask yourself whether you feel curious about non-safety experiences. If the Interest Impulse is present, you have successfully anchored deeply in your safety state and are ready to shift your focus toward defense.'],
+    imagery: ['Imagery & Invitation intentionally allow mild to moderate defensive activation through thought, while you also do something else. Imagery uses your imagination to craft a picture of your emotions. Invitation permits that emotion to coexist with you instead of rejecting it.'],
+    obstacles: ['Think of Obstacles as unexpected visitors that appear during your mindful practice. They’re internal experiences (Sensations, Impulses, Emotions, Cognitions) that surface and likely disrupt your focus.'],
+    balancing: ['Balancing is your ability to mindfully anchor in safety, allow a defensive experience, and then intentionally shift your focus back to safety, allowing both safety and defense to be present within you at the same time.'],
+    pendulating: ['Pendulating is the ability to deliberately and consciously shift between feelings of safety and defense. It’s similar to Balancing, but with Pendulating, you continuously alternate between defense and safety.'],
+    generalDef: ['When you first practice Balancing and Pendulating, you’ll focus on the Anchored Awareness and Witnessing levels, recognizing defense and how it appears in the body in general.'],
+    describeDef: ['When you’re ready to connect more deeply, Description is the skill that allows you to Experience defense fully.'],
+    hold: ['Holding is kind of like a frozen moment in time. You pay attention to both safety and defense as Sensations in your body.', 'Watching is remaining open to what may happen next as a result of Holding.'],
+  };
   // the chapter to read before a practice on the path; each one shows once, before the first practice that uses it
-  const UP_READ = { micro:['making-change'], mindfulness:['mindfulness-and-meditation'], anchoring:['cue-to-anchor'], sound:['anchor-environment','sensory-anchors'], imagination:['anchor-memories'], movement:['anchor-movement-body-breath'],
-    'validate-safety':['validating-and-normalizing'], imagery:['imagery-and-invitation'], 'obstacles>imagery':['obstacles'],
-    'balancing@general':['ssiec','balancing-and-pendulating'], 'describe-safety':['description'], 'interest-safety':['impulses'], 'balancing@description':['holding-and-watching'] };
-  const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'Later', open:'Always open', best:'Works best for you' };
+  const UP_READ = { micro:['making-change'], mindfulness:['mindfulness-and-meditation'], 'anchor:sound':['anchor-environment','sensory-anchors'],
+    'anchor:imagination':['anchor-memories'], 'anchor:movement':['anchor-movement-body-breath'], anchoring:['cue-to-anchor'],
+    'validate-safety':['validating-and-normalizing'], 'describe-safety':['description'], 'interest-safety':['impulses'],
+    imagery:['imagery-and-invitation'], 'obstacles>imagery':['obstacles'], 'balancing@general':['ssiec','balancing-and-pendulating'],
+    'balancing@description':['holding-and-watching'] };
+  // what a step says under its name; an empty one says nothing (Justin, 2026-10-02: "'Later' is also a non statement. Cut it.")
+  const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'', open:'',
+    best:'Works best for you', mine:'Selected' };
   const UP_ANCHORS = ['sound','sight','touch','imagination','movement'];
   const UP_ANCHOR_CH = { sound:'sensory-anchors', sight:'sensory-anchors', touch:'sensory-anchors', imagination:'anchor-memories', movement:'anchor-movement-body-breath' };
-  // the anchors as steps of their own, first, as in the course's Building Safety stage (Justin, 2026-10-02: the chip row was
-  // "just kinda there but I can't tell why or what I am supposed to do with it")
-  const UP_ANCHOR_WHAT = { sound:'Connect with safety through something you hear.', sight:'Connect with safety through something you see.',
-    touch:'Connect with safety through something you feel with your hands or body.', imagination:'Connect with safety through a safe memory or an image in your mind.',
-    movement:'Connect with safety through gentle movement and breath.' };
+  const UP_ANCHOR_MODE = 'snb_anchor_mode';   // 'chosen' = the member picked their anchor here; anything else = the app figures it out
   const UP_OFFS = [0, 30, 52, 30];
   const _UP_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.6 4 5v13c3-.4 6 0 8 1.5 2-1.5 5-1.9 8-1.5V5c-3-.4-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>';
   const _UP_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></svg>';
@@ -8226,27 +8246,38 @@ function app(tab){
   const _UP_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   let _upY = null;
 
+  function _upAnchorChosen(){ try{ const p = Store.prefSense && Store.prefSense(); return (localStorage.getItem(UP_ANCHOR_MODE) === 'chosen' && UP_ANCHORS.indexOf(p) >= 0) ? p : null; }catch(e){ return null; } }
   function _upDefTitle(key){
     const p = Store.sequenceParts ? Store.sequenceParts(key) : null; if(!p) return CAP(key || '');
     if(p.skill === 'obstacles') return 'Obstacles';
     const t = UP_DEF_TITLE[p.skill] || CAP(p.skill);
     return p.prefix === 'obstacles' ? t + ' with Obstacles' : t;
   }
-  function _upDefWhat(key){
-    const p = (Store.sequenceParts && Store.sequenceParts(key)) || {};
-    if(p.skill === 'obstacles') return SKILL_CAP.obstacles + ' This practice gives you four Obstacle statements and leads you through Imagery & invitation with whatever comes up.';
-    if(!p.depth) return CAP(SKILL_CAP[p.skill] || '');
+  // the chapter's words for a step, then (for a practice whose shape the name doesn't say) the practice in Justin's 2026-09-20 wording
+  function _upWhat(it){
+    if(it.kind === 'present') return { q:UP_Q[it.key] || [] };
+    if(it.kind === 'anchor-auto') return { q:[], line:'The app picks an anchor for each practice and keeps track of which one helps you connect with safety most.' };
+    if(it.kind === 'anchor') return { q:UP_Q[it.key === 'imagination' ? 'imagination' : it.key === 'movement' ? 'movement' : 'senses'] };
+    if(it.kind === 'safety'){
+      const S = { anchoring:'anchoring', 'validate-safety':'validating', 'normalize-safety':'normalizing', 'general-safety':'general',
+        'specific-safety':'specific', 'describe-safety':'describeSafety', 'interest-safety':'interest' };
+      return { q:UP_Q[S[it.key]] || [] };
+    }
+    const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+    if(p.skill === 'obstacles') return { q:UP_Q.obstacles, line:'This practice gives you four Obstacle statements and leads you through Imagery & invitation with whatever comes up.' };
+    if(!p.depth) return { q:UP_Q[{ 'validate-defense':'validating', 'normalize-defense':'normalizing', imagery:'imagery' }[p.skill]] || [] };
     const name = UP_DEF_TITLE[p.skill] || CAP(p.skill), dw = mkDepthWords(p.depth);
-    let s = (UP_DEF_WHAT[p.skill] ? UP_DEF_WHAT[p.skill] + ' ' : '') + (p.prefix === 'obstacles'
+    let q = (UP_Q[p.skill] || []).concat(p.depth === 'description' ? UP_Q.describeDef.concat(UP_Q.hold) : UP_Q.generalDef);
+    const line = p.prefix === 'obstacles'
       ? `This practice gives you four Obstacle statements and leads you through ${name} whatever emotion surfaces in response, ${dw}.`
-      : `This practice leads you through ${name} whatever emotion surfaces, ${dw}.`);
-    if(p.depth === 'description') s += ' Hold & watch is offered at the end.';
-    return s;
+      : `This practice leads you through ${name} whatever emotion surfaces, ${dw}.` + (p.depth === 'description' ? ' Hold & watch is offered at the end.' : '');
+    return { q, line };
   }
-  // the chapters for a practice's sheet: the same links as the practice plan (_planChapters), by step
+  // the chapters for a step's sheet: the same links as the practice plan (_planChapters)
   function _upChapters(it){
     const ids = [];
     if(it.kind === 'anchor') ids.push(UP_ANCHOR_CH[it.key], 'anchor-environment');
+    else if(it.kind === 'anchor-auto') ids.push('anchor-environment', 'sensory-anchors');
     else if(it.kind === 'present') ids.push(it.key === 'micro' ? 'making-change' : 'mindfulness-and-meditation');
     else if(it.kind === 'safety'){
       const S = { anchoring:['cue-to-anchor','anchor-environment'], 'validate-safety':['validating-and-normalizing'], 'normalize-safety':['validating-and-normalizing'],
@@ -8291,7 +8322,7 @@ function app(tab){
     const capIdx = ceiling >= 3 ? SEQ.length - 1 : ceiling >= 1 ? SEQ.indexOf(TOP[ceiling]) : -1;
     const recoKey = (reco && reco.practiceKey === 'self-regulation' && reco.offerKey && SEQ.indexOf(reco.offerKey) >= 0) ? reco.offerKey : null;
     // "Working on now" is the recommended practice, whichever kind it is: a defense practice, a safety practice
-    // (a plain anchoring recommendation is connect with safety), or a present-moment one
+    // (a plain anchoring recommendation is Anchoring), or a present-moment one
     const rk = reco ? reco.practiceKey : null;
     const nowSafe = paid && rk === 'anchoring' ? (reco.skill && safe.seq.indexOf(reco.skill) >= 0 ? reco.skill : safe.seq[0]) : null;
     const nowPresent = paid && (rk === 'mindfulness' || rk === 'micro') ? rk : null;
@@ -8315,30 +8346,34 @@ function app(tab){
     };
     const D = k => { const i = SEQ.indexOf(k), gated = paid && i > capIdx;
       return { kind:'def', key:k, title:_upDefTitle(k), st:defSt(k), gated, need: gated ? _upNeed(i, SEQ, lowData) : null }; };
-    const S = k => safe.seq.indexOf(k) >= 0 ? [{ kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st:safeSt(k) }] : [];
+    const S = k => ({ kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st:safeSt(k) });
     const P = k => ({ kind:'present', key:k, title:(P8_ROWS.find(r=>r.k===k) || {}).t || CAP(k), st: k === nowPresent ? 'now' : 'open' });
-    const partsOf = k => (Store.sequenceParts(k) || {});
-    // the order of Circle's Unstucking Pathway course (Justin, 2026-10-02: "All the safety ones come first before going into
-    // defense. It's not one after the other"): every safety practice, then the defense practices
-    const head = SEQ.filter(k => !partsOf(k).depth).map(D);
-    const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
+    // the safety anchor: the member picks one, or lets the app figure it out (Justin, 2026-10-02)
     let anchors = null; if(paid){ try{ anchors = Store.anchorPick(); }catch(e){} }
+    const chosen = _upAnchorChosen();
     const A = k => { let st = 'paid';
-      if(paid) st = (anchors && anchors.why === 'winner' && anchors.sense === k) ? 'best' : (anchors && anchors.why === 'cycle' && anchors.sense === k) ? 'next'
-        : (anchors && anchors.tried && anchors.tried[k]) ? 'tried' : 'later';
+      if(paid){
+        if(chosen) st = (k === chosen) ? 'mine' : 'later';
+        else st = (anchors && anchors.why === 'winner' && anchors.sense === k) ? 'best' : (anchors && anchors.why === 'cycle' && anchors.sense === k) ? 'next'
+          : (anchors && anchors.tried && anchors.tried[k]) ? 'tried' : 'later';
+      }
       return { kind:'anchor', key:k, title:CAP(k), st }; };
+    const auto = { kind:'anchor-auto', key:'auto', title:'Figure out my safety anchor', st: !paid ? 'paid' : chosen ? 'later' : 'mine' };
+    const partsOf = k => (Store.sequenceParts(k) || {});
+    const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
     const lock = 'On the paid plan.';
     const subOf = (items, fallback) => { const g = items.find(it => it.kind === 'def'); return !paid ? lock : (g && g.gated ? g.need : fallback); };
+    // the course's order (Justin, 2026-10-02: "All the safety ones come first before going into defense")
     const secs = [
-      { title:'The present moment', sub:'Always open.', items:[P('micro'), P('mindfulness')] },
-      { title:'Your safety anchor', sub: paid ? 'Every practice that connects with safety uses one anchor. Your practices try each one in turn, until one stands out as working best for you. You can practice with any of them now.' : lock, items:UP_ANCHORS.map(A) },
-      { title:'Connecting with safety', sub: paid ? 'Always open. Every practice that works with defense starts here.' : lock, items:safe.seq.map(k => S(k)[0]) },
-      { title:'Working with defense', items:head },
+      { title:'The present moment', sub:'', items:[P('micro'), P('mindfulness')] },
+      { title:'Your safety anchor', sub: paid ? 'Choose the anchor your practices use.' : lock, items:[auto].concat(UP_ANCHORS.map(A)) },
+      { title:'Connecting with safety', sub: paid ? '' : lock, items:safe.seq.map(S) },
+      { title:'Working with defense', items:SEQ.filter(k => !partsOf(k).depth).map(D) },
       { title:'Noticing it in the body overall', items:byDepth('general') },
       { title:'Finding where it lives in the body', items:byDepth('specific') },
       { title:'Describing it', items:byDepth('description') },
     ];
-    secs[3].sub = subOf(secs[3].items, 'Safety first, then one of these.');
+    secs[3].sub = subOf(secs[3].items, '');
     secs[4].sub = subOf(secs[4].items, '');
     secs[5].sub = subOf(secs[5].items, '');
     secs[6].sub = subOf(secs[6].items, 'Hold & watch is offered at the end of these.');
@@ -8354,13 +8389,17 @@ function app(tab){
     }
     return { paid, secs, note, reco, anchors };
   }
-  function _upMark(it, def){ return (it.kind === 'safety' || it.kind === 'anchor') ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || ''); }
+  function _upMark(it, def){
+    if(it.kind === 'anchor-auto') return MK_TYPE_ICO.surprise || '';
+    return (it.kind === 'safety' || it.kind === 'anchor') ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || '');
+  }
   function _upCols(it, def){
-    if(it.kind === 'safety' || it.kind === 'anchor') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
+    if(it.kind === 'safety' || it.kind === 'anchor' || it.kind === 'anchor-auto') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
     if(it.kind === 'def'){ const d = def || 'freeze'; return { band:STATE_COLOR(d), line:`var(--s-${({ fightflight:'fight', shutdown:'shutdown', freeze:'freeze' })[d]}-tx)` }; }
     return { band:'var(--hairline)', line:'var(--ink)' };
   }
-  function _upFind(M, kind, key){ for(const s of M.secs){ const it = s.items.find(x => x.kind === kind && x.key === key); if(it) return it; } return null; }
+  const _upKeyOf = it => (it.kind === 'anchor' || it.kind === 'anchor-auto') ? 'anchor:' + it.key : it.key;
+  function _upFind(M, id){ for(const s of M.secs){ const it = s.items.find(x => x.kind + '|' + x.key === id); if(it) return it; } return null; }
 
   function screenPathway(){
     const def = _domDefense();
@@ -8387,28 +8426,14 @@ function app(tab){
     };
     const node = it => {
       const c = _upCols(it, def);
-      const track = it.kind === 'safety' ? 'Safety · ' : it.kind === 'def' ? 'Defense · ' : '';
-      const words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml(track + (UP_ST[it.st] || ''));
+      const track = it.kind === 'safety' ? 'Safety' : it.kind === 'def' ? 'Defense' : '';
+      const words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml([track, UP_ST[it.st]].filter(Boolean).join(' · '));
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
-      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + ':' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''} style="margin-left:${off()}px;--band:${c.band};--line:${c.line}">
-        <span class="up-n-node">${_upMark(it, def)}</span><span class="up-n-t"><b>${name}</b><span>${words}</span></span></button>`;
+      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''} style="margin-left:${off()}px;--band:${c.band};--line:${c.line}">
+        <span class="up-n-node">${_upMark(it, def)}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}</span></button>`;
     };
-    const anchorsHtml = () => {
-      const A = M.anchors;
-      return `<p class="up-sub2">Your safety anchor</p><p class="up-sub">${M.paid ? 'Your practices try each anchor in turn, until one stands out as working best for you.' : 'Sound, sight, touch, imagination or movement.'}</p>
-        <div class="up-anchors">${UP_ANCHORS.map(a => {
-          let st = '', w = '';
-          if(M.paid){
-            if(A && A.why === 'winner' && A.sense === a){ st = 'best'; w = 'Works best for you'; }
-            else if(A && A.why === 'cycle' && A.sense === a){ st = 'next'; w = 'Up next'; }
-            else if(A && A.tried && A.tried[a]){ st = 'tried'; w = 'Tried'; }
-            else w = 'Not yet';
-          }
-          return `<button class="up-chip" type="button" data-up-anchor="${a}" data-st="${st}">${M.paid ? '<i aria-hidden="true"></i>' : LOCK_SVG}${CAP(a)}${w ? ` <small>${w}</small>` : ''}</button>`;
-        }).join('')}</div>`;
-    };
-    const secHtml = s => `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}${s.anchors ? anchorsHtml() : ''}
-      <div class="up-path">${s.items.map(it => (UP_READ[it.key] || []).map(id => lesson(id, it)).join('') + node(it)).join('')}</div>`;
+    const secHtml = s => `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}
+      <div class="up-path">${s.items.map(it => (UP_READ[_upKeyOf(it)] || []).map(id => lesson(id, it)).join('') + node(it)).join('')}</div>`;
     const lede = M.paid ? 'Where you are, and what comes next. A practice opens when the ones before it are completed within your capacity and your check-ins show enough safety for it.'
       : 'Every practice in the app, in order, with the chapter to read before each one. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
     _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
@@ -8417,10 +8442,8 @@ function app(tab){
     const view = root.querySelector('.up-view'); if(!view) return;
     view.onclick = e => {
       const ch = e.target.closest('[data-up-ch]'); if(ch) return _upOpenChapter(ch.dataset.upCh);
-      if(e.target.closest('[data-up-anchor]')) return _upAnchorsSheet(M, def);
       const b = e.target.closest('[data-up]'); if(!b) return;
-      const v = b.dataset.up, i = v.indexOf(':');
-      const it = _upFind(M, v.slice(0, i), v.slice(i + 1)); if(!it) return;
+      const it = _upFind(M, b.dataset.up); if(!it) return;
       if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(M.reco); }
       _upItemSheet(it, M, def);
     };
@@ -8465,7 +8488,8 @@ function app(tab){
     wrap.querySelector('#up-x').onclick = close;
     try{ wrap.querySelector('#up-x').focus({ preventScroll:true }); }catch(e){}
   }
-  const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">From the books</p><div class="p8-list">${list.map(pc => {
+  // the chapters, under the same words as the practice plan's list (Justin, 2026-10-02: "needs to say what I told you before")
+  const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">Learn more about these skills:</p><div class="p8-list">${list.map(pc => {
       const locked = pc.paid && !paid, read = _lrnIsRead(pc.id);
       return `<button class="rd-row p8-row" type="button" data-up-ch="${escapeHtml(pc.id)}"><span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_BOOK}</span>
         <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Paid plan · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
@@ -8473,28 +8497,28 @@ function app(tab){
   const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
     : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
   function _upItemSheet(it, M, def){
-    const what = it.kind === 'anchor' ? UP_ANCHOR_WHAT[it.key] : it.kind === 'def' ? _upDefWhat(it.key) : it.kind === 'safety' ? mkSafetyRow(it.key === 'anchoring' ? '' : it.key)[2] : P8_LINE[it.key];
+    const W = _upWhat(it);
     const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml(UP_ST[it.st] || '');
-    let body = `<p class="up-sh-st">${st}</p><div class="up-sh-blk"><p class="up-sh-lbl">What it is</p><p class="up-sh-p">${escapeHtml(what || '')}</p></div>`;
+    let body = st ? `<p class="up-sh-st">${st}</p>` : '';
+    if(W.q && W.q.length) body += `<div class="up-sh-blk">${W.q.map(t => `<p class="up-sh-p">${escapeHtml(t)}</p>`).join('')}</div>`;
+    if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
     body += _upChRows(_upChapters(it), M.paid);
+    if(it.kind === 'anchor' || it.kind === 'anchor-auto'){
+      const btn = it.st === 'mine' ? '' : _upGoBtn(M.paid, it.kind === 'anchor' ? 'Make this my safety anchor' : 'Let the app figure it out');
+      return _upSheet(_upMark(it, def), it.title, body, btn, () => _upSetAnchor(it.kind === 'anchor' ? it.key : null));
+    }
     const open = it.kind === 'present' || M.paid;
     _upSheet(_upMark(it, def), it.title, body, _upGoBtn(open, 'Practice this'), () => _upPractice(it));
   }
-  function _upAnchorsSheet(M, def){
-    const A = M.anchors, L = window.Learning;
-    const rows = UP_ANCHORS.map(a => {
-      const pc = L && L.byId(UP_ANCHOR_CH[a]);
-      let w = '';
-      if(M.paid){ w = (A && A.why === 'winner' && A.sense === a) ? 'Works best for you' : (A && A.why === 'cycle' && A.sense === a) ? 'Up next' : (A && A.tried && A.tried[a]) ? 'Tried' : 'Not yet'; }
-      const locked = pc && pc.paid && !M.paid;
-      return `<button class="rd-row p8-row" type="button"${pc ? ` data-up-ch="${escapeHtml(pc.id)}"` : ''}><span class="rd-thumb rd-thumb-mk p8-thumb">${_rdMk('safety')}</span>
-        <span class="rd-row-t"><b>${CAP(a)}</b><span>${locked ? LOCK_SVG + 'Paid plan · ' : w ? escapeHtml(w) + ' · ' : ''}${pc ? escapeHtml(pc.title) : ''}</span></span><span class="wc-go">${CHEV}</span></button>`;
-    }).join('');
-    const env = L && L.byId('anchor-environment');
-    const body = `<div class="up-sh-blk"><p class="up-sh-lbl">What it is</p><p class="up-sh-p">Every practice that connects with safety uses one anchor: sound, sight, touch, imagination or movement. Your practices try each one in turn, until one stands out as working best for you. You can always pick your own.</p></div>
-      <div class="up-sh-blk"><div class="p8-list">${rows}</div></div>${_upChRows(env ? [env] : [], M.paid)}`;
-    _upSheet(_rdMk('safety'), 'Your safety anchor', body, _upGoBtn(M.paid, 'Practice connecting with safety'), () => _upPractice({ kind:'safety', key:'anchoring' }));
+  // pick the safety anchor here, the same setting as in Settings; null = let the app figure it out
+  function _upSetAnchor(sense){
+    try{
+      if(sense){ if(Store.setPrefSense) Store.setPrefSense(sense); localStorage.setItem(UP_ANCHOR_MODE, 'chosen'); }
+      else localStorage.setItem(UP_ANCHOR_MODE, 'auto');
+    }catch(e){}
+    try{ haptic('save'); }catch(e){}
+    _upKeep(); screenPathway();
   }
   // "Practice this": the Practice tab opens with that practice's sheet, already set (the "change this practice" path)
   function _upPractice(it){
@@ -8502,15 +8526,13 @@ function app(tab){
       holdWatch:false, holdSeconds:60, open:false, emotion:null, makerOpen:false, mkKey:'anchoring' };
     let s;
     if(it.kind === 'present') s = { key:it.key };
-    else if(it.kind === 'anchor') s = { key:'anchoring', safetySkill:'' };
     else if(it.kind === 'safety') s = { key:'anchoring', safetySkill: it.key === 'anchoring' ? '' : it.key };
     else {
       const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
       s = { key:'self-regulation', skill: p.skill === 'obstacles' ? 'imagery' : (p.practice || 'imagery'), obst: p.skill === 'obstacles' || p.prefix === 'obstacles',
             prefix: p.prefix || null, depth: p.depth || null, deepest: p.depth === 'description' };
     }
-    if(it.kind === 'anchor') base.sense = it.key;
-    else if(it.kind !== 'present'){ try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) base.sense = ap.sense; }catch(e){} }
+    if(it.kind !== 'present'){ try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) base.sense = ap.sense; }catch(e){} }
     _pendingPState = Object.assign(base, s);
     app('practice');
   }
