@@ -8208,12 +8208,17 @@ function app(tab){
   const UP_SAFE_TITLE = { anchoring:'Anchoring', 'validate-safety':'Validating', 'normalize-safety':'Normalizing', 'general-safety':'General',
     'specific-safety':'Specific', 'describe-safety':'Description', 'interest-safety':'Interest Impulse' };
   // the chapter to read before a practice on the path; each one shows once, before the first practice that uses it
-  const UP_READ = { micro:['making-change'], mindfulness:['mindfulness-and-meditation'], anchoring:['anchor-environment','cue-to-anchor'],
+  const UP_READ = { micro:['making-change'], mindfulness:['mindfulness-and-meditation'], anchoring:['cue-to-anchor'], sound:['anchor-environment','sensory-anchors'], imagination:['anchor-memories'], movement:['anchor-movement-body-breath'],
     'validate-safety':['validating-and-normalizing'], imagery:['imagery-and-invitation'], 'obstacles>imagery':['obstacles'],
     'balancing@general':['ssiec','balancing-and-pendulating'], 'describe-safety':['description'], 'interest-safety':['impulses'], 'balancing@description':['holding-and-watching'] };
-  const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'Later', open:'Always open' };
+  const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'Later', open:'Always open', best:'Works best for you' };
   const UP_ANCHORS = ['sound','sight','touch','imagination','movement'];
   const UP_ANCHOR_CH = { sound:'sensory-anchors', sight:'sensory-anchors', touch:'sensory-anchors', imagination:'anchor-memories', movement:'anchor-movement-body-breath' };
+  // the anchors as steps of their own, first, as in the course's Building Safety stage (Justin, 2026-10-02: the chip row was
+  // "just kinda there but I can't tell why or what I am supposed to do with it")
+  const UP_ANCHOR_WHAT = { sound:'Connect with safety through something you hear.', sight:'Connect with safety through something you see.',
+    touch:'Connect with safety through something you feel with your hands or body.', imagination:'Connect with safety through a safe memory or an image in your mind.',
+    movement:'Connect with safety through gentle movement and breath.' };
   const UP_OFFS = [0, 30, 52, 30];
   const _UP_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.6 4 5v13c3-.4 6 0 8 1.5 2-1.5 5-1.9 8-1.5V5c-3-.4-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>';
   const _UP_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></svg>';
@@ -8241,7 +8246,8 @@ function app(tab){
   // the chapters for a practice's sheet: the same links as the practice plan (_planChapters), by step
   function _upChapters(it){
     const ids = [];
-    if(it.kind === 'present') ids.push(it.key === 'micro' ? 'making-change' : 'mindfulness-and-meditation');
+    if(it.kind === 'anchor') ids.push(UP_ANCHOR_CH[it.key], 'anchor-environment');
+    else if(it.kind === 'present') ids.push(it.key === 'micro' ? 'making-change' : 'mindfulness-and-meditation');
     else if(it.kind === 'safety'){
       const S = { anchoring:['cue-to-anchor','anchor-environment'], 'validate-safety':['validating-and-normalizing'], 'normalize-safety':['validating-and-normalizing'],
         'general-safety':['cue-to-anchor'], 'specific-safety':['cue-to-anchor'], 'describe-safety':['description'], 'interest-safety':['impulses'] };
@@ -8316,36 +8322,41 @@ function app(tab){
     // defense. It's not one after the other"): every safety practice, then the defense practices
     const head = SEQ.filter(k => !partsOf(k).depth).map(D);
     const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
+    let anchors = null; if(paid){ try{ anchors = Store.anchorPick(); }catch(e){} }
+    const A = k => { let st = 'paid';
+      if(paid) st = (anchors && anchors.why === 'winner' && anchors.sense === k) ? 'best' : (anchors && anchors.why === 'cycle' && anchors.sense === k) ? 'next'
+        : (anchors && anchors.tried && anchors.tried[k]) ? 'tried' : 'later';
+      return { kind:'anchor', key:k, title:CAP(k), st }; };
     const lock = 'On the paid plan.';
     const subOf = (items, fallback) => { const g = items.find(it => it.kind === 'def'); return !paid ? lock : (g && g.gated ? g.need : fallback); };
     const secs = [
       { title:'The present moment', sub:'Always open.', items:[P('micro'), P('mindfulness')] },
-      { title:'Connecting with safety', sub: paid ? 'Always open. Every practice that works with defense starts here.' : lock, anchors:true, items:safe.seq.map(k => S(k)[0]) },
+      { title:'Your safety anchor', sub: paid ? 'Every practice that connects with safety uses one anchor. Your practices try each one in turn, until one stands out as working best for you. You can practice with any of them now.' : lock, items:UP_ANCHORS.map(A) },
+      { title:'Connecting with safety', sub: paid ? 'Always open. Every practice that works with defense starts here.' : lock, items:safe.seq.map(k => S(k)[0]) },
       { title:'Working with defense', items:head },
       { title:'Noticing it in the body overall', items:byDepth('general') },
       { title:'Finding where it lives in the body', items:byDepth('specific') },
       { title:'Describing it', items:byDepth('description') },
     ];
-    secs[2].sub = subOf(secs[2].items, 'Safety first, then one of these.');
-    secs[3].sub = subOf(secs[3].items, '');
+    secs[3].sub = subOf(secs[3].items, 'Safety first, then one of these.');
     secs[4].sub = subOf(secs[4].items, '');
-    secs[5].sub = subOf(secs[5].items, 'Hold & watch is offered at the end of these.');
+    secs[5].sub = subOf(secs[5].items, '');
+    secs[6].sub = subOf(secs[6].items, 'Hold & watch is offered at the end of these.');
     // say what opens a depth once; the depths after it just follow on
-    if(paid && secs[3].items.some(it => it.gated)){
-      secs[4].sub = 'Opens after the practices above.';
-      secs[5].sub = 'Opens after the practices above. Hold & watch is offered at the end of these.';
+    if(paid && secs[4].items.some(it => it.gated)){
+      secs[5].sub = 'Opens after the practices above.';
+      secs[6].sub = 'Opens after the practices above. Hold & watch is offered at the end of these.';
     }
     let note = null;
     if(paid && hasHist && reco){
       if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
       else if(eased) note = 'Your practice right now is a gentler one: ' + _upDefTitle(recoKey) + '.';
     }
-    let anchors = null; if(paid){ try{ anchors = Store.anchorPick(); }catch(e){} }
     return { paid, secs, note, reco, anchors };
   }
-  function _upMark(it, def){ return it.kind === 'safety' ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || ''); }
+  function _upMark(it, def){ return (it.kind === 'safety' || it.kind === 'anchor') ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || ''); }
   function _upCols(it, def){
-    if(it.kind === 'safety') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
+    if(it.kind === 'safety' || it.kind === 'anchor') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
     if(it.kind === 'def'){ const d = def || 'freeze'; return { band:STATE_COLOR(d), line:`var(--s-${({ fightflight:'fight', shutdown:'shutdown', freeze:'freeze' })[d]}-tx)` }; }
     return { band:'var(--hairline)', line:'var(--ink)' };
   }
@@ -8462,7 +8473,7 @@ function app(tab){
   const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
     : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
   function _upItemSheet(it, M, def){
-    const what = it.kind === 'def' ? _upDefWhat(it.key) : it.kind === 'safety' ? mkSafetyRow(it.key === 'anchoring' ? '' : it.key)[2] : P8_LINE[it.key];
+    const what = it.kind === 'anchor' ? UP_ANCHOR_WHAT[it.key] : it.kind === 'def' ? _upDefWhat(it.key) : it.kind === 'safety' ? mkSafetyRow(it.key === 'anchoring' ? '' : it.key)[2] : P8_LINE[it.key];
     const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml(UP_ST[it.st] || '');
     let body = `<p class="up-sh-st">${st}</p><div class="up-sh-blk"><p class="up-sh-lbl">What it is</p><p class="up-sh-p">${escapeHtml(what || '')}</p></div>`;
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
@@ -8491,13 +8502,15 @@ function app(tab){
       holdWatch:false, holdSeconds:60, open:false, emotion:null, makerOpen:false, mkKey:'anchoring' };
     let s;
     if(it.kind === 'present') s = { key:it.key };
+    else if(it.kind === 'anchor') s = { key:'anchoring', safetySkill:'' };
     else if(it.kind === 'safety') s = { key:'anchoring', safetySkill: it.key === 'anchoring' ? '' : it.key };
     else {
       const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
       s = { key:'self-regulation', skill: p.skill === 'obstacles' ? 'imagery' : (p.practice || 'imagery'), obst: p.skill === 'obstacles' || p.prefix === 'obstacles',
             prefix: p.prefix || null, depth: p.depth || null, deepest: p.depth === 'description' };
     }
-    if(it.kind !== 'present'){ try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) base.sense = ap.sense; }catch(e){} }
+    if(it.kind === 'anchor') base.sense = it.key;
+    else if(it.kind !== 'present'){ try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) base.sense = ap.sense; }catch(e){} }
     _pendingPState = Object.assign(base, s);
     app('practice');
   }

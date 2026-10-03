@@ -3846,6 +3846,8 @@ body.reduce-motion .jr-fmenu{transition:none}
 .up-n[data-st="done"] .up-n-node{background:color-mix(in srgb, var(--band) 38%, var(--rd-card));border-color:color-mix(in srgb, var(--band) 70%, var(--rd-card))}
 .up-n[data-st="now"] .up-n-node{border:2px solid var(--line);box-shadow:0 0 0 5px color-mix(in srgb, var(--band) 30%, transparent)}
 .up-n[data-st="now"] .up-n-t b{font-weight:600}
+.up-n[data-st="best"] .up-n-node{background:color-mix(in srgb, var(--band) 38%, var(--rd-card));border-color:var(--line)}
+.up-n[data-st="best"] .up-n-t > span{color:var(--line)}
 .up-n[data-st="now"] .up-n-t > span,.up-n[data-st="next"] .up-n-t > span{color:var(--line)}
 .up-n[data-st="next"] .up-n-node{border-color:var(--line)}
 .up-n[data-st="later"] .up-n-node .rd-mk,.up-n[data-st="tried"][data-gated] .up-n-node .rd-mk{opacity:.5}
