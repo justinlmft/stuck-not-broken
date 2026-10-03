@@ -2454,9 +2454,39 @@ function whatsNewOnboard(){
   const go=d.querySelector('#wn-go'); if(go){ go.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_go',{}); }catch(e){} try{ app('now'); }catch(e){} setTimeout(()=>startOnboarding('notice'), 80); };
     try{ go.focus({preventScroll:true}); }catch(e){} }
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_seen',{}); }catch(e){}
+  _wnShownThisLoad = true;
+}
+let _wnShownThisLoad = false;
+// Academy progress has come over (Justin, 2026-10-03: "is there a way to notify them that their progress is brought over but give
+// them a chance to reset it?"; the card "should be able to name what they completed"). Once per Stage reached, on a load with no
+// other card; Keep or Start fresh, changeable in Settings. Paid members only, since the Pathway's steps are on the paid plan.
+function whatsNewAcademy(){
+  if(_wnShownThisLoad || !_obMember() || !_obHydrated() || !paidNow()) return;
+  const s = _acadStage(); if(s < 2) return;
+  const c = _acadChoice(); if(c && c.stage >= s) return;
+  try{ if(localStorage.getItem(_WN_ONB_KEY)!=='1') return; }catch(e){ return; }   // Monday's card and the walkthrough go first
+  if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  if(document.body.classList.contains('in-practice') || document.getElementById('weaver')) return;
+  const what = s >= 3 ? 'the safety skills and the defense skills' : 'the seven safety skills';
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Your Academy progress is here">'
+    + '<div class="wn-mark-wrap">' + obMarkSVG() + '</div>'
+    + '<h2 class="wn-h">Your Academy progress is here</h2>'
+    + '<p class="wn-p">You completed ' + escapeHtml(_acadDone(s)) + ' in the Unstucking Academy. On the Unstucking Pathway, ' + what + ' are open and marked Completed in the Academy. Each one is checked off as you practice it here.</p>'
+    + '<p class="wn-p">Keep it, or start the Pathway fresh.</p>'
+    + '<button class="btn block" id="wn-keep" type="button" style="margin-top:22px">Keep my progress</button>'
+    + '<button class="btn quiet block" id="wn-fresh" type="button" style="margin-top:8px">Start fresh</button>'
+    + '<p class="ob-fine wn-fine">You can change this in Settings.</p></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  _wnShownThisLoad = true;
+  const close=(choice)=>{ _acadSetChoice(choice); d.remove(); try{ if(currentTab==='practice') app('practice'); }catch(e){} };
+  const k=d.querySelector('#wn-keep'); if(k){ k.onclick=()=>close('keep'); try{ k.focus({preventScroll:true}); }catch(e){} }
+  const f=d.querySelector('#wn-fresh'); if(f) f.onclick=()=>close('fresh');
+  try{ if(Store.trackEvent) Store.trackEvent('academy_card_seen',{ stage:s }); }catch(e){}
 }
 // September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} }, ms)); });
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} }, ms)); });
 
 function app(tab){
     currentTab = tab;
@@ -3332,13 +3362,14 @@ function app(tab){
       }
       later(()=>{
         if(phase) phase.textContent='Out';
-        if(reduce){ ring.style.transition = 'opacity 6s'; ring.style.opacity = '.45'; }
+        // in for 4, out for 5 (Justin, 2026-10-03; the out breath was 6)
+        if(reduce){ ring.style.transition = 'opacity 5s'; ring.style.opacity = '.45'; }
         else{
-          ring.style.transition = 'transform 6s cubic-bezier(.4,0,.5,1), opacity 6s';
+          ring.style.transition = 'transform 5s cubic-bezier(.4,0,.5,1), opacity 5s';
           ring.style.transform  = 'scale(.78)'; ring.style.opacity = '.4';
         }
       }, 4300);
-      later(finish, 10600);
+      later(finish, 9600);
     }, 380);
   }
 
@@ -8398,6 +8429,28 @@ function app(tab){
   const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'', open:'',
     best:'Works best for you', mine:'Selected' };
   const UP_ANCHORS = ['sound','sight','touch','imagination','movement'];
+  // ── Academy progress on the Pathway (Justin, 2026-10-03). The Circle API cannot read lesson-by-lesson progress, so the
+  // Stage tags Circle adds itself when a member finishes every lesson in a Stage are the record (Store.academyStage(),
+  // 0–3, stamped by circle-membership / membership-sweep). He picked "opens the steps, app confirms": "people tend to mark
+  // things off without actually mastering the skill just to get through it. this app actually tracks their skill
+  // performance." So Stage 2 opens the seven safety steps and Stage 3 the defense steps, each marked "Completed in the
+  // Academy"; the filled check still comes only from a good result in the app, and the recommended practice still goes by
+  // the member's own results. Stage 1 (Foundational Knowledge) is knowledge, not a skill step. The member can keep it or
+  // start fresh (a card, then Settings); the choice syncs with the account (contexts "academy:choice", ["keep|2"]).
+  const ACAD_CTX = 'academy:choice';
+  const ACAD_STAGE_NAME = { 1:'Stage 1: Foundational Knowledge', 2:'Stage 2: Building Safety', 3:'Stage 3: Unstucking Defense' };
+  function _acadStage(){ try{ return (Store.academyStage && Store.academyStage()) || 0; }catch(e){ return 0; } }
+  function _acadChoice(){ try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : {}; const v = m && Array.isArray(m[ACAD_CTX]) ? m[ACAD_CTX][0] : null;
+    const p = /^(keep|fresh)\|([0-3])$/.exec(String(v || '')); return p ? { choice:p[1], stage:+p[2] } : null; }catch(e){ return null; } }
+  function _acadSetChoice(choice){
+    const v = choice + '|' + _acadStage();
+    try{ if(Store.saveContexts) Store.saveContexts(ACAD_CTX, 'Academy progress', [v]); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[ACAD_CTX] = [v]; _ctxSave(m); } }catch(e){}
+    try{ if(Store.trackEvent) Store.trackEvent('academy_choice', { choice, stage:_acadStage() }); }catch(e){}
+  }
+  // the Stage the Pathway counts: none once the member chose to start fresh
+  function _acadOn(){ const s = _acadStage(); if(s < 2) return 0; const c = _acadChoice(); return c && c.choice === 'fresh' ? 0 : s; }
+  // what they completed, in words: "Stage 2: Building Safety and Stage 3: Unstucking Defense"
+  function _acadDone(s){ return [2,3].filter(n => n <= s).map(n => ACAD_STAGE_NAME[n]).join(' and '); }
   const UP_ANCHOR_CH = { sound:'sensory-anchors', sight:'sensory-anchors', touch:'sensory-anchors', imagination:'anchor-memories', movement:'anchor-movement-body-breath' };
   const UP_ANCHOR_MODE = 'snb_anchor_mode';   // 'chosen' = the member picked their anchor here; anything else = the app figures it out
   const _UP_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.6 4 5v13c3-.4 6 0 8 1.5 2-1.5 5-1.9 8-1.5V5c-3-.4-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>';
@@ -8509,8 +8562,11 @@ function app(tab){
       return 'later';
     };
     const D = k => { const i = SEQ.indexOf(k), gated = paid && i > capIdx;
-      return { kind:'def', key:k, title:_upDefTitle(k), st:defSt(k), gated, need: gated ? _upNeed(i, SEQ, lowData) : null }; };
-    const S = k => ({ kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st:safeSt(k) });
+      const st = defSt(k);
+      return { kind:'def', key:k, title:_upDefTitle(k), st, gated, need: gated ? _upNeed(i, SEQ, lowData) : null, academy: acad >= 3 && (st === 'next' || st === 'later') }; };
+    const acad = paid ? _acadOn() : 0;
+    const S = k => { const st = safeSt(k);
+      return { kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st, academy: acad >= 2 && (st === 'next' || st === 'later') }; };
     // a present-moment practice is completed once it has been practiced (Justin, 2026-10-02: "If completed, fill them in")
     let did = {}; try{ ((Store.sessions && Store.sessions()) || []).forEach(x => { if(x && x.practiceKey) did[x.practiceKey] = 1; }); }catch(e){}
     const P = k => ({ kind:'present', key:k, title:(P8_ROWS.find(r=>r.k===k) || {}).t || CAP(k), st: k === nowPresent ? 'now' : did[k] ? 'done' : 'open' });
@@ -8544,12 +8600,12 @@ function app(tab){
     const SEC = id => secs.find(x => x.id === id);
     // no "Opens when..." lines under the headings either (Justin, 2026-10-02); a waiting step's sheet says what opens it
     SEC('def').sub = SEC('general').sub = SEC('specific').sub = paid ? '' : lock;
-    SEC('description').sub = paid ? 'Hold & watch is offered at the end of these.' : lock;
+    SEC('description').sub = paid ? '' : lock;   // "Hold & watch is offered at the end of these" cut (Justin, 2026-10-03: "is unneeded")
     // the pathway opens in order (Justin, 2026-10-02: "The pathway unlocks as the user completes the skills ... the pathway is
     // skill based and achievement based"). A step after the next one waits; anything completed, practiced or recommended stays open.
     // Make your own still reaches every practice ("They can always customize their own if they want to skip").
     const lockAfter = (items, nextIdx) => items.forEach((it, i) => {
-      if(!paid || it.st === 'done' || it.st === 'now' || it.st === 'tried') return;
+      if(!paid || it.st === 'done' || it.st === 'now' || it.st === 'tried' || it.academy) return;
       if(!anchorSet){ it.locked = 'Opens after you choose your safety anchor'; return; }
       if(it.st !== 'next' && nextIdx >= 0 && i > nextIdx) it.locked = 'Opens after ' + items[i-1].title;
     });
@@ -8558,7 +8614,8 @@ function app(tab){
     lockAfter(defItems, defItems.findIndex(it => it.key === sp.next));
     // defense waits for every safety practice (Justin, 2026-10-02: "All the safety ones come first"; "the recommender should
     // follow the pathway"). Anything completed, practiced or recommended stays open.
-    if(paid && anchorSet && safe.next) defItems.forEach(it => { if(it.st !== 'done' && it.st !== 'now' && it.st !== 'tried') it.locked = 'Opens after Connecting with safety'; });
+    // a member who completed Stage 2 in the Academy has done the safety work, so defense does not wait on it here
+    if(paid && anchorSet && safe.next && acad < 2) defItems.forEach(it => { if(it.st !== 'done' && it.st !== 'now' && it.st !== 'tried' && !it.academy) it.locked = 'Opens after Connecting with safety'; });
     let note = null;
     if(paid && hasHist && reco){
       if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
@@ -8611,6 +8668,7 @@ function app(tab){
       // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
       let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(M.R[it.key])) : '';
       if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
+      if(it.academy && !words) words = 'Completed in the Academy';
       // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
       const lv = M.paid && it.kind === 'def' && _emoLevelable(it.key) ? _upLevels(M.LP[it.key]) : '';
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
@@ -8749,6 +8807,8 @@ function app(tab){
     const W = _upWhat(it);
     const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
+    // Academy progress (2026-10-03): open, named, and checked off here once a practice shows it
+    if(it.academy) body = `<p class="up-sh-st">Completed in the Academy</p><div class="up-sh-blk"><p class="up-sh-p">It is checked off here once a practice shows it.</p></div>`;
     if(W.q && W.q.length) body += `<div class="up-sh-blk">${W.q.map(t => `<p class="up-sh-p">${escapeHtml(t)}</p>`).join('')}</div>`;
     if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
     if(it.locked){
@@ -9690,6 +9750,10 @@ function app(tab){
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
             return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
 
+          ${(function(){ const s=_acadStage(); if(s < 2 || !paidNow()) return '';
+            const on = _acadOn() > 0;
+            return `<div class="gs-card"><p class="gs-h">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}
+
           <div class="gs-card">
             <p class="gs-h">Your history</p>
             <div class="gs-actions">
@@ -9705,6 +9769,7 @@ function app(tab){
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
+    { const t=$('#acad-toggle'); if(t) t.onclick=()=>{ _acadSetChoice(_acadOn() > 0 ? 'fresh' : 'keep'); haptic('save'); screenSettings(); }; }
     { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same

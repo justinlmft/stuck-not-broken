@@ -486,8 +486,14 @@
       auth.billing = (rowRes && rowRes.data) || null;
       const ent = (entRes && entRes.data) || null;
       auth.ent = { circle: !!(ent && ent.circle_member), legacy: !!(ent && ent.legacy) };
+      // the Unstucking Academy Stage this member completed (0–3), stamped from their Circle Stage tags by
+      // circle-membership / membership-sweep (2026-10-03). Its own read, so a database without the column yet
+      // never breaks the entitlement read above.
+      try{ const ar = await sb.from('entitlements').select('academy_stage').eq('user_id', auth.user.id).maybeSingle();
+        if(ar && !ar.error) auth.ent.academy = (ar.data && +ar.data.academy_stage) || 0; }catch(e){}
+      if(auth.ent.academy == null){ const c0 = _readBillingCache(); auth.ent.academy = (c0 && +c0.academy) || 0; }
       _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
-                           circle: auth.ent.circle, legacy: auth.ent.legacy, at: Date.now() });
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy, at: Date.now() });
       if(typeof notify === 'function') notify();
     }catch(e){ /* keep last-known cache */ }
   }
@@ -531,6 +537,11 @@
   }
   // WHY this account has the base plan — display only (settings names the reason
   // instead of calling a grandfathered/Academy account "the free plan", 2026-07-14).
+  // the Academy Stage this member completed (0 = none), for the Unstucking Pathway (2026-10-03)
+  function academyStage(){
+    const e = (typeof auth.ent === 'object' && auth.ent && auth.ent.academy != null) ? auth.ent : (_readBillingCache() || {});
+    const n = +e.academy || 0; return n >= 1 && n <= 3 ? n : 0;
+  }
   function entitlement(){
     const e = (typeof auth.ent === 'object' && auth.ent) ? auth.ent : (_readBillingCache() || {});
     return { sub: _billingActive(), circle: !!e.circle, legacy: !!e.legacy };
@@ -2376,7 +2387,7 @@
     emotionShift, emotionPatterns,
     prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
     saveContexts,
-    isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    isPaid, hydrated, entitlement, academyStage, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
     liveFetch, livePoll,
   };

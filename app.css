@@ -423,7 +423,8 @@ body.breathing .breathhero .bh-row{opacity:0}
 .wc-ring{flex:none;width:36px;height:36px;border-radius:50%;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;opacity:.6;animation:t-breathe 9s var(--ease) infinite;will-change:transform,opacity}
 .wc-ring .t-core{width:5px;height:5px;border-radius:50%;background:var(--ink);opacity:.7}
 .wincard.done .wc-ring{border-color:var(--muted);opacity:.45;animation-duration:13s}
-@keyframes t-breathe{0%,100%{transform:scale(.86);opacity:.5}50%{transform:scale(1.06);opacity:.66}}
+/* in for 4, out for 5 (Justin, 2026-10-03): over the 9s cycle the peak sits at 4/9 = 44.444% */
+@keyframes t-breathe{0%,100%{transform:scale(.86);opacity:.5}44.444%{transform:scale(1.06);opacity:.66}}
 @media (prefers-reduced-motion:reduce){.wc-ring{animation:none;transform:scale(.96)}}
 /* state label (current-tab timeline) */
 .state-name{font-size:calc(13px * var(--type-scale));font-weight:500;letter-spacing:.04em;color:var(--ink-80)}
@@ -2397,7 +2398,7 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 .now.tb.breathed.young .tb-line{display:none}
 .now.tb.breathed.young .tb-hint{opacity:.55}
 
-@keyframes bloom{0%,100%{transform:scale(.96);opacity:.30}50%{transform:scale(1.05);opacity:.55}}
+@keyframes bloom{0%,100%{transform:scale(.96);opacity:.30}44.444%{transform:scale(1.05);opacity:.55}}
 @media (prefers-reduced-motion:reduce){.tb-halo,.tb-ring{animation:none;transform:scale(.98)}}
 
 /* ================================================================ guest on-ramp
