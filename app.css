@@ -3995,7 +3995,7 @@ body.reduce-motion .jr-fmenu{transition:none}
 .up-lv-row .up-ck{display:inline-block;width:12px;height:12px;margin:0 5px 0 0;vertical-align:-1px;color:var(--line)}
 .up-lv-row[data-on] span{color:var(--ink)}
 .em-chips{margin:2px 0 6px}
-/* the recommended card's safety band reads as the safety yellow, not a wash of it (Justin, 2026-10-02: "very muted") */
-.p8-reco[data-k="anchoring"] .rd-lcard-band{background:color-mix(in srgb, var(--band) 62%, var(--rd-card))}
-@media (prefers-color-scheme: dark){ :root:not(.theme-light) .p8-reco[data-k="anchoring"] .rd-lcard-band{background:color-mix(in srgb, var(--band) 34%, var(--rd-card))} }
-:root.theme-dark .p8-reco[data-k="anchoring"] .rd-lcard-band{background:color-mix(in srgb, var(--band) 34%, var(--rd-card))}
+/* the recommended card's band is the state's own color, not a mix of it into the card (Justin, 2026-10-02: "very muted"; "the
+   yellow is not right still. nor is the purple"): mixed into white it went pastel, into the dark card it went muddy */
+.p8-reco[data-k="anchoring"] .rd-lcard-band,.p8-reco[data-k="self-regulation"] .rd-lcard-band{background:var(--band);--ink:#1A1F2A;--muted:rgba(26,31,42,.72);color:#1A1F2A}
+.p8-reco[data-k="anchoring"] .p8-go,.p8-reco[data-k="self-regulation"] .p8-go{color:#1A1F2A}

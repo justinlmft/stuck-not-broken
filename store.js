@@ -1541,6 +1541,21 @@
     });
     return { cleared, next, hi, strongest, so };
   }
+  // the closing sequence (2026-10-02, Justin: "a level check can also occur if the user made it through the practice but quit
+  // after the outgoing sequence of the intentional breath onward, but only if their safety level held or increased, and/or if
+  // their breath was full and relaxed (chest or belly is fine)"): reached 'closing', then safety held or rose across the
+  // practice's 0-10 safety answers, or the last breath check was full and relaxed.
+  function _closingSigns(s){
+    const out = { rose:false, held:false, easy:false };
+    if(!s || s.reached !== 'closing') return out;
+    const sa = (Array.isArray(s.safetyReadings) ? s.safetyReadings : []).map(Number).filter(x => !isNaN(x));
+    if(sa.length >= 2){ out.rose = sa[sa.length - 1] > sa[0]; out.held = sa[sa.length - 1] >= sa[0]; }
+    const br = (s.details && Array.isArray(s.details.breath)) ? s.details.breath.map(x => x && x.value).filter(Boolean) : [];
+    let i = -1; br.forEach((v, j) => { if(v === 'chest' || v === 'belly') i = j; });
+    const last = i >= 0 ? br.slice(i) : br;
+    out.easy = last.indexOf('full') >= 0 && last.indexOf('relaxed') >= 0;
+    return out;
+  }
   // stepResults() (2026-10-02, the Unstucking Pathway: "Practiced with [result]' based on the user's input and/or checking post
   // practice"): each step's latest practice, keyed like the pathway (a defense sequence key, a safety practice, or the practice
   // itself): the member's own after-practice answer, and whether the check-in after showed more safety.
@@ -1552,15 +1567,16 @@
               : s.practiceKey === 'anchoring' ? ((s.skill && SEQ.indexOf(s.skill) >= 0) ? s.skill : 'anchoring')
               : s.practiceKey;
       if(!k) return;
-      const af = s.afterFeeling || null, up = !!_movedUp(s);
-      if(!af && !up && out[k]) return;   // a practice with nothing to say keeps the last one that did
-      out[k] = { af, up, outcome: _outcomeOf(s) };
+      const af = s.afterFeeling || null, up = !!_movedUp(s), c = _closingSigns(s);
+      if(!af && !up && !c.held && !c.easy && out[k]) return;   // a practice with nothing to say keeps the last one that did
+      out[k] = { af, up, rose: c.rose, held: c.held, easy: c.easy, outcome: _outcomeOf(s) };
     });
     return out;
   }
   // levelProgress() (2026-10-02, the Unstucking Pathway): each defense step at each level of emotion (1 easy, 2 medium, 3 hard).
   // A session's emotionIntent is "word|level" when the member chose one of their emotions (bare family keys from before
-  // carry no level). A level is done once a practice at it has a successful result (Justin, 2026-10-02: "a 'done' mark for the
+  // carry no level). A level is done once a practice at it has a successful result, or reached the closing sequence with
+  // safety held or a full, relaxed breath (_closingSigns) (Justin, 2026-10-02: "a 'done' mark for the
   // level should only come if it's a successful result"); `last` is that level's latest practice, for "Practiced with ...".
   // { [sequence key]: { [level]: { done, n, words:[...] } } }. Justin: "i want to let them choose which level".
   function levelProgress(){
@@ -1571,10 +1587,12 @@
       const k = sequenceKeyOf(s); if(!k) return;
       const t = +m[2], o = _outcomeOf(s);
       const byK = acc[k] = acc[k] || {}, b = byK[t] = byK[t] || { good:0, n:0, last:[], words:{} };
-      b.n++; if(o === 'good') b.good++;
+      // a successful result, or the closing sequence reached with safety held or a full, relaxed breath (and no answer saying otherwise)
+      const c = _closingSigns(s), ok = o === 'good' || (o !== 'bad' && (c.held || c.easy));
+      b.n++; if(ok) b.good++;
       b.last.push(o); if(b.last.length > 2) b.last.shift();
       b.words[m[1]] = 1;
-      b.lastS = { af: s.afterFeeling || null, up: !!_movedUp(s), w: m[1] };
+      b.lastS = { af: s.afterFeeling || null, up: !!_movedUp(s), rose: c.rose, held: c.held, easy: c.easy, w: m[1] };
     });
     const out = {};
     Object.keys(acc).forEach(k => { out[k] = {}; Object.keys(acc[k]).forEach(t => { const b = acc[k][t];

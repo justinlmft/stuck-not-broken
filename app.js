@@ -8049,7 +8049,7 @@ function app(tab){
       <nav class="tabbar" id="tabs">
         ${TABS()}
       </nav>`;
-    $('#plan-back').onclick = ()=>app(from);
+    $('#plan-back').onclick = ()=>(typeof from === 'function' ? from() : app(from));   // a step from the Unstucking Pathway comes back to it
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     $('#content').innerHTML = `<div class="view plan-view track-${tk.cls}">
       <div class="plan-head">
@@ -8059,7 +8059,7 @@ function app(tab){
         </div>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">Why this practice was chosen for you</p>
+        <p class="sec-h">${reco.fromPath ? 'From the Unstucking Pathway' : 'Why this practice was chosen for you'}</p>
         <p class="plan-why">${escapeHtml(properCase(reco.reason))}</p>
       </div>
       <div class="plan-sec">
@@ -8514,7 +8514,7 @@ function app(tab){
       if(e.target.closest('[data-pickopen]')){ _upPickOpen = true; _upKeep(); return screenPathway(); }
       const b = e.target.closest('[data-up]'); if(!b) return;
       const it = _upFind(M, b.dataset.up); if(!it) return;
-      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(M.reco); }
+      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(M.reco, screenPathway); }
       if(it.kind === 'emo' && M.paid){ _upKeep(); return screenEmotions(); }
       _upItemSheet(it, M, def);
     };
@@ -8599,7 +8599,7 @@ function app(tab){
     if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
     if(it.locked){
       body = `<p class="up-sh-st">${LOCK_SVG}${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
-      return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it in Make your own'), () => _upPractice(it));
+      return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it in Make your own'), () => _upMaker(it));
     }
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
     if(M.paid && it.kind === 'def' && _emoLevelable(it.key)) body += _upLevelBlock(M.LP[it.key]);
@@ -8620,8 +8620,31 @@ function app(tab){
     try{ haptic('save'); }catch(e){}
     _upKeep(); screenPathway();
   }
-  // "Practice this": the Practice tab opens with that practice's sheet, already set (the "change this practice" path)
+  // "Practice this" (Justin, 2026-10-02: "Choosing a practice on the Pathway takes the user to the custom practice screen. this does
+  // not seem right"): the step's own plan, the same screen as the recommended practice (what to expect, Working with, the
+  // chapters, Begin), and Back comes back to the pathway. "Customize this practice" there still opens Make your own.
   function _upPractice(it){
+    if(paidNow()){
+      let sense = 'touch', sil = 8;
+      try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) sense = ap.sense; }catch(e){}
+      try{ const ps = Store.prefSilence && Store.prefSilence(); if(ps != null) sil = ps; }catch(e){}
+      let reco;
+      if(it.kind === 'present') reco = { practiceKey:it.key, sense, silence: it.key === 'micro' ? 2 : sil };
+      else if(it.kind === 'safety') reco = { practiceKey:'anchoring', skill: it.key === 'anchoring' ? null : it.key, sense, silence:sil };
+      else {
+        const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+        reco = { practiceKey:'self-regulation', skill:p.skill, prefix:p.prefix || null, depth:p.depth || null, offerKey:it.key,
+                 descDefense: p.depth === 'description', holdWatch:false, sense, silence:sil };
+      }
+      reco.reason = 'You chose this step on the Unstucking Pathway.';
+      reco.variety = true; reco.fromPath = true;
+      const sh = document.getElementById('p8-sheet'); if(sh) sh.remove();
+      return renderPlan(reco, screenPathway);
+    }
+    return _upMaker(it);
+  }
+  // free members (a tiny practice and Simple mindfulness): the Practice tab with that practice's sheet, already set
+  function _upMaker(it){
     const base = { key:null, sense:'touch', skill:'imagery', silence:8, med:null, deepest:false, prefix:null, depth:null, obst:false, safetySkill:'',
       holdWatch:false, holdSeconds:60, open:false, emotion:null, makerOpen:false, mkKey:'anchoring' };
     let s;
@@ -8666,7 +8689,8 @@ function app(tab){
   // "Practiced with [result]" (Justin, 2026-10-02: "based on the user's input and/or checking post practice"): the member's own
   // after-practice answer, else what the check-in after showed
   const UP_RES = { more:'more connection and presence', same:'no change in connection', less:'less connection and presence', struggle:'a struggle', unsure:'an unclear result' };
-  function _upResWords(r){ return !r ? '' : (r.af && UP_RES[r.af]) ? UP_RES[r.af] : r.up ? 'more safety after' : ''; }
+  function _upResWords(r){ return !r ? '' : (r.af && UP_RES[r.af]) ? UP_RES[r.af] : r.up ? 'more safety after'
+    : r.rose ? 'more safety by the end' : r.held ? 'safety held to the end' : r.easy ? 'a full, relaxed breath at the end' : ''; }
   function _upPracticed(r){ const w = _upResWords(r); return w ? 'Practiced with ' + w : 'Practiced'; }
   const _UP_CHECK = '<svg class="up-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   function _emoSort(a){ return [1,2,3].reduce((o, t) => o.concat(a.filter(e => e.t === t)), []); }
