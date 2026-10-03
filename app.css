@@ -3061,6 +3061,17 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 /* instant reset between breaths (no bounce back to full before re-shortening) */
 .mh-secondrow.mh-noanim .mh-checkin,.mh-secondrow.mh-noanim .mh-third{transition:none}
 body.reduce-motion .mh-checkin,body.reduce-motion .mh-third{transition:none}
+/* the best time to practice (Justin, 2026-10-03, option C: "It's a special moment"): a small gold card in the third slot that names
+   the setup, with a gold play button. Safety gold, so it reads the same in light and dark. */
+.mh-secondrow.revealed .mh-third.mh-best{border-color:var(--s-safety-tx);border-width:1.5px;background:color-mix(in srgb,var(--s-safety) 24%,var(--bone));
+  padding-left:16px;padding-right:10px;justify-content:space-between;gap:10px;text-align:left;
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--s-safety) 35%,transparent)}
+.mh-best .mh-bt-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mh-best .mh-bt-eb{display:flex;align-items:center;gap:5px;font-size:calc(11.5px * var(--type-scale));font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--s-safety-tx)}
+.mh-best .mh-bt-eb .mh-ic{width:14px;height:14px}
+.mh-best .mh-bt-what{font-size:calc(13px * var(--type-scale));color:var(--ink);font-weight:500;line-height:1.25}
+.mh-best .mh-bt-go{flex:none;width:38px;height:38px;border-radius:50%;background:var(--s-safety);color:#3E2F08;display:inline-flex;align-items:center;justify-content:center}
+.mh-best .mh-bt-go .mh-ic{width:16px;height:16px;margin-left:2px}
 /* during the breath, the top + capsule clear so only the ring remains */
 .now.tb.mh.breathing .mh-top,
 .now.tb.mh.breathing .mh-foot{opacity:0;pointer-events:none}

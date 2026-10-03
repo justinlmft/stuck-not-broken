@@ -665,6 +665,7 @@
   // second row — a plus for "check in again" once it shrinks, a play for the micro
   // practice, an open book for the personal-reader doorway.
   const ICO_PLUS  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+  const ICO_SPARK = '<svg class="mh-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.1 6.2 6.4 2.3-6.4 2.3L12 19.5l-2.1-6.2L3.5 11l6.4-2.3z"/><path d="M19 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" opacity=".7"/></svg>';
   const ICO_PRAC  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11.14-6.86a1 1 0 0 0 0-1.72L9.52 4.28A1 1 0 0 0 8 5.14z"></path></svg>';
   const ICO_READ  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10.5 5 8.3 4.5 5.5 4.5A1.5 1.5 0 0 0 4 6v11a1.5 1.5 0 0 0 1.5 1.5c2.8 0 5 .5 6.5 2 1.5-1.5 3.7-2 6.5-2A1.5 1.5 0 0 0 20 17V6a1.5 1.5 0 0 0-1.5-1.5c-2.8 0-5 .5-6.5 2zM12 6.5v13"></path></svg>';
   // the personal reader adjusts to your MOST RECENT check-in, so it's "waiting" whenever
@@ -3199,9 +3200,18 @@ function app(tab){
       return bs; }catch(e){ return null; } })();
     const mhRestKind = _bsHere ? 'best' : (readerNew ? 'reader' : (checkedIn ? 'micro' : null));   // the best time only lasts a few hours, so it goes first
     const mhThird = true;
+    /* ✅ THE BEST TIME IS A SPECIAL MOMENT (Justin, 2026-10-03: "That needs more love to it. It's a special moment"; he picked
+     * option C of the mockups): the button becomes a small gold card that names the setup, and one tap starts it. */
+    const _bsCardHTML = ()=>{
+      let what = '';
+      try{ const r = bestSetupReco(_bsHere);
+        const nm = CAP(r.practiceKey==='self-regulation' && r.offerKey ? _upDefTitle(r.offerKey) : Store.practiceLabel(r.practiceKey));
+        const a = r.practiceKey!=='mindfulness' && r.practiceKey!=='micro' && r.sense ? ' with ' + r.sense : '';
+        what = [(nm || '') + a, r.silence ? `${r.silence} seconds of silence` : ''].filter(Boolean).join(', '); }catch(e){}
+      return `<span class="mh-bt-txt"><span class="mh-bt-eb">${ICO_SPARK}Your best time</span><span class="mh-bt-what">${escapeHtml(what || 'Your best setup is ready')}</span></span><span class="mh-bt-go" aria-hidden="true">${ICO_PRAC}</span>`; };
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">Your reflection is ready</span>`   // 🖊
-      : kind==='best' ? `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">It's your best time to practice</span>`
+      : kind==='best' ? _bsCardHTML()
       : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Do a 2 minute practice</span>`;          // 🖊
 
     // moment-home (2026-07-23): the "now" screen settles to a calm center — the
@@ -3231,12 +3241,12 @@ function app(tab){
         ${checkedIn
           ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
                <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="Check in again" title="Check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
-               ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
+               ${mhThird ? `<button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}"${mhRestKind==='best'?' aria-label="It\'s your best time to practice. Start your best setup."':''}>${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
           : `<p class="mh-noci">No check-in this ${segLabel(seg)} yet</p>
              <div class="mh-secondrow no-checkin" id="mh-2nd">
-               <button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
+               <button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">Check in</button>`}
       </div>
@@ -3260,7 +3270,7 @@ function app(tab){
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
-      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? renderPlan(bestSetupReco(_bsHere), 'now') : _launchMicro();
+      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? launchWeaver(bestSetupReco(_bsHere)) : _launchMicro();
 
       // RESTING state: the reader doorway when a reflection is waiting; else, once
       // checked in, the "Do a 2 minute practice" invite (2026-07-28: never collapses once
@@ -3272,7 +3282,7 @@ function app(tab){
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
         const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
         const showRest = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
-          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing');
+          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing'); tt.classList.toggle('mh-best', mhRestKind==='best');
           r.classList.add('revealed','third-in'); };
         if(!mhRestKind){                                 // nothing to rest on → collapse the slot
           if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
@@ -3288,7 +3298,7 @@ function app(tab){
       const _postBreath = ()=>{
         const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing');
+        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing','mh-best');
         // reset to the full check-in instantly (footer is dim from the breath, so no blip)
         row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
         _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
@@ -8471,6 +8481,7 @@ function app(tab){
   }
   // the chapter's words for a step, then (for a practice whose shape the name doesn't say) the practice in Justin's 2026-09-20 wording
   function _upWhat(it){
+    if(it.kind === 'open') return { q:[], line:'The same practice with no set ending. It keeps going until you choose to stop, then closes.' };
     if(it.kind === 'present') return { q:UP_Q[it.key] || [] };
     if(it.kind === 'emo') return { q:UP_Q.which };
     if(it.kind === 'anchor-auto') return { q:[], line:'The app picks an anchor for each practice and keeps track of which one helps you connect with safety most.' };
@@ -8493,6 +8504,8 @@ function app(tab){
   // the chapters for a step's sheet: the same links as the practice plan (_planChapters)
   function _upChapters(it){
     const ids = [];
+    if(it.kind === 'open') it = it.key === 'self-regulation' ? { kind:'none' } : _upBase(it);
+    if(it.kind === 'none') return [];
     if(it.kind === 'anchor') ids.push(UP_ANCHOR_CH[it.key], 'anchor-environment');
     else if(it.kind === 'anchor-auto') ids.push('anchor-environment', 'sensory-anchors');
     else if(it.kind === 'present') ids.push(it.key === 'micro' ? 'making-change' : 'mindfulness-and-meditation');
@@ -8616,6 +8629,23 @@ function app(tab){
     // follow the pathway"). Anything completed, practiced or recommended stays open.
     // a member who completed Stage 2 in the Academy has done the safety work, so defense does not wait on it here
     if(paid && anchorSet && safe.next && acad < 2) defItems.forEach(it => { if(it.st !== 'done' && it.st !== 'now' && it.st !== 'tried' && !it.academy) it.locked = 'Opens after Connecting with safety'; });
+    // ✅ NO SET ENDING CLOSES EACH SECTION (Justin, 2026-10-03: "the no ending should end each respective section. Not all of them
+    // in one group ... we should loop in the audio for the other two practices as well"). The engine already runs every practice
+    // open-ended except the tiny one (ENDING-OPEN, then the breath loop until Finish). Present moment, safety, and self-regulation
+    // (after the last defense step) each end with their own. It opens once the step before it is completed (or the Academy did it).
+    let openDid = {}; try{ ((Store.sessions && Store.sessions()) || []).forEach(x => { if(x && x.completed && x.openEnded && x.practiceKey) openDid[x.practiceKey] = 1; }); }catch(e){}
+    const OPEN_TITLE = { mindfulness:'Mindfulness, no set ending', anchoring:'Safety, no set ending', 'self-regulation':'Self-regulation, no set ending' };
+    const O = (pk, before) => {
+      const free = pk === 'mindfulness';
+      const it = { kind:'open', key:pk, title:OPEN_TITLE[pk], st: (!paid && !free) ? 'paid' : openDid[pk] ? 'done' : 'open' };
+      const prev = before[before.length - 1];
+      const ready = before.every(x => x.st === 'done' || x.academy);
+      if(it.st === 'open' && prev && !ready) it.locked = 'Opens after ' + prev.title;
+      return it;
+    };
+    secs[0].items.push(O('mindfulness', secs[0].items.filter(x => x.key === 'mindfulness')));
+    SEC('safety').items.push(O('anchoring', SEC('safety').items.slice()));
+    SEC('description').items.push(O('self-regulation', defItems.slice()));
     let note = null;
     if(paid && hasHist && reco){
       if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
@@ -8623,12 +8653,16 @@ function app(tab){
     }
     return { paid, secs, SEC, defItems, note, reco, anchors, anchorMode, anchorSet, LP, R };
   }
+  // a no-set-ending step is drawn as the practice it is
+  const _upBase = it => it.kind !== 'open' ? it : it.key === 'anchoring' ? { kind:'safety', key:'anchoring' } : it.key === 'self-regulation' ? { kind:'def', key:'imagery' } : { kind:'present', key:it.key };
   function _upMark(it, def){
+    it = _upBase(it);
     if(it.kind === 'anchor-auto') return MK_TYPE_ICO.surprise || '';
     if(it.kind === 'emo') return _UP_EMO_ICO;
     return (it.kind === 'safety' || it.kind === 'anchor') ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || '');
   }
   function _upCols(it, def){
+    it = _upBase(it);
     if(it.kind === 'safety' || it.kind === 'anchor' || it.kind === 'anchor-auto') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
     if(it.kind === 'def' || it.kind === 'emo'){ const d = def || 'freeze'; return { band:STATE_COLOR(d), line:`var(--s-${({ fightflight:'fight', shutdown:'shutdown', freeze:'freeze' })[d]}-tx)` }; }
     return { band:'var(--hairline)', line:'var(--ink)' };
@@ -8666,7 +8700,7 @@ function app(tab){
       // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
       // with a small lock.
       // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
-      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(M.R[it.key])) : '';
+      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
       if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
       if(it.academy && !words) words = 'Completed in the Academy';
       // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
@@ -8805,7 +8839,7 @@ function app(tab){
     : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
   function _upItemSheet(it, M, def){
     const W = _upWhat(it);
-    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
+    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
     // Academy progress (2026-10-03): open, named, and checked off here once a practice shows it
     if(it.academy) body = `<p class="up-sh-st">Completed in the Academy</p><div class="up-sh-blk"><p class="up-sh-p">It is checked off here once a practice shows it.</p></div>`;
@@ -8822,7 +8856,7 @@ function app(tab){
       const btn = it.st === 'mine' ? '' : _upGoBtn(M.paid, it.kind === 'anchor' ? 'Make this my safety anchor' : 'Let the app figure it out');
       return _upSheet(_upMark(it, def), it.title, body, btn, () => _upSetAnchor(it.kind === 'anchor' ? it.key : null));
     }
-    const open = it.kind === 'present' || M.paid;
+    const open = it.kind === 'present' || (it.kind === 'open' && it.key === 'mindfulness') || M.paid;
     _upSheet(_upMark(it, def), it.title, body, _upGoBtn(open, 'Practice this'), () => _upPractice(it));
   }
   // pick the safety anchor here, the same setting as in Settings; null = let the app figure it out
@@ -8843,7 +8877,8 @@ function app(tab){
       try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) sense = ap.sense; }catch(e){}
       try{ const ps = Store.prefSilence && Store.prefSilence(); if(ps != null) sil = ps; }catch(e){}
       let reco;
-      if(it.kind === 'present') reco = { practiceKey:it.key, sense, silence: it.key === 'micro' ? 2 : sil };
+      if(it.kind === 'open') reco = _upOpenReco(it, sense, sil);
+      else if(it.kind === 'present') reco = { practiceKey:it.key, sense, silence: it.key === 'micro' ? 2 : sil };
       else if(it.kind === 'safety') reco = { practiceKey:'anchoring', skill: it.key === 'anchoring' ? null : it.key, sense, silence:sil };
       else {
         const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
@@ -8857,8 +8892,24 @@ function app(tab){
     }
     return _upMaker(it);
   }
+  // a no-set-ending step: the section's practice, open-ended. Self-regulation runs the furthest defense step the member has
+  // completed (or the recommended one, or Imagery & invitation).
+  function _upOpenReco(it, sense, sil){
+    if(it.key === 'mindfulness') return { practiceKey:'mindfulness', sense, silence:sil, openEnded:true };
+    if(it.key === 'anchoring') return { practiceKey:'anchoring', skill:null, sense, silence:sil, openEnded:true };
+    let key = null;
+    try{ const M = _upModel(); if(M){ const d = M.defItems.filter(x => x.st === 'done' || x.academy); if(d.length) key = d[d.length - 1].key; else if(M.reco && M.reco.offerKey) key = M.reco.offerKey; } }catch(e){}
+    const p = (key && Store.sequenceParts && Store.sequenceParts(key)) || { skill:'imagery' };
+    return { practiceKey:'self-regulation', skill:p.skill, prefix:p.prefix || null, depth:p.depth || null, offerKey:key,
+             descDefense: p.depth === 'description', holdWatch:false, sense, silence:sil, openEnded:true };
+  }
   // free members (a tiny practice and Simple mindfulness): the Practice tab with that practice's sheet, already set
   function _upMaker(it){
+    if(it.kind === 'open' && it.key === 'mindfulness'){   // free: Simple mindfulness with no set ending (the plan screen is paid)
+      const r = _upOpenReco(it, 'touch', 8); r.reason = 'You chose this step on the Unstucking Pathway.'; r.fromPath = true; r.pathTitle = it.title;
+      const sh = document.getElementById('p8-sheet'); if(sh) sh.remove();
+      return launchWeaver(r);
+    }
     const base = { key:null, sense:'touch', skill:'imagery', silence:8, med:null, deepest:false, prefix:null, depth:null, obst:false, safetySkill:'',
       holdWatch:false, holdSeconds:60, open:false, emotion:null, makerOpen:false, mkKey:'anchoring' };
     let s;
@@ -9025,7 +9076,7 @@ function app(tab){
       if(M){
         const def = _domDefense();
         const steps = [].concat(M.secs[0].items, [{ kind:'anchor', key:'pick', title:'Your safety anchor', st: !M.paid ? 'paid' : M.anchorSet ? 'done' : 'now' }],
-          M.SEC('safety').items, M.SEC('which').items, M.defItems);
+          M.SEC('safety').items, M.SEC('which').items, M.defItems, M.SEC('description').items.filter(x => x.kind === 'open'));
         // where the member is: the recommended step (or the anchor, until it is chosen), else the first step not yet completed
         let at = M.paid ? steps.findIndex(it => it.st === 'now' && it.kind !== 'present') : 0;
         if(M.paid && !M.anchorSet) at = steps.findIndex(it => it.key === 'pick');
@@ -9037,7 +9088,7 @@ function app(tab){
         rows = win.map((it, i) => {
           const c = _upCols(it, def), st = stOf(it, i);
           const word = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
-            : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(M.R[it.key])) : '';
+            : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
           const solid = st === 'done' && win[i + 1] && stOf(win[i + 1], i + 1) === 'done';
           return `<span class="up-h-row" data-st="${st}"${solid ? ' data-seg="1"' : ''} style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
             <span class="up-h-t"><b>${escapeHtml(it.title)}</b>${word ? `<span>${word}</span>` : ''}</span></span>`;
@@ -9259,6 +9310,7 @@ function app(tab){
     if(reco && !practiceFree(reco.practiceKey) && !paidNow()) return gateSubscribe('practice');
     const params = { embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) };
     if(reco.skill) params.skill = reco.skill;
+    if(reco.openEnded && reco.practiceKey !== 'micro') params.open = '1';   // no set ending (Pathway, 2026-10-03)
     // recommender-preset dials ride into the player (both already gate-checked in
     // store.js: the step of the skill sequence, with its prefix and depth; hold & watch at the top tier).
     if(reco.practiceKey==='self-regulation' && reco.descDefense) params.descdef = '1';
