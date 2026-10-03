@@ -3584,6 +3584,7 @@ function app(tab){
       if(o.k === 'piece'){ const pc = L && L.byId(o.id); if(!pc) return false; screenLearnPiece(pc, null, null, { label:'Learn', go:screenLearn }); }
       else if(o.k === 'hub'){ if(!(L && L.HUBS[o.id])) return false; screenLearnHub(o.id, null); }
       else if(o.k === 'journal'){ screenJournal(o.from || 'you'); }
+      else if(o.k === 'pathway'){ screenPathway(); }
       else if(o.k === 'post'){ const pt = _rdPosts().find(x=>x.key === o.id); if(!pt) return false; screenReaderPost(pt); }
       else if(o.k === 'tab' && o.tab){ app(o.tab); }
       else return false;
@@ -8194,6 +8195,327 @@ function app(tab){
                  reason:'A surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
   }
 
+  // ── the Unstucking Pathway (Justin, 2026-10-02: "Skill progress bar or map that is connected to lessons on each skill so the
+  // user can see where they are and where they are going"; he picked option A, the path, and named it). Every practice in the
+  // engine's order, with the seven safety practices broken up along it (Justin: "The 7 safety skills should be broken up on the
+  // path"), each with the book chapter to read before it. Never a score: a step is "Completed within your capacity" (the
+  // recommender's own cleared rule; Justin: not "gone well", that is our language). "Working on now" is whatever the recommended
+  // practice picked, so the two never disagree; when the recommendation eases back, the screen says so.
+  const UP_TITLE = 'The Unstucking Pathway';
+  const UP_DEF_TITLE = { 'validate-defense':'Validating', 'normalize-defense':'Normalizing', imagery:'Imagery & invitation', balancing:'Balancing', pendulating:'Pendulating' };
+  const UP_DEF_WHAT = { balancing:'Holding some safety and some defense at the same time.', pendulating:'Moving your attention toward the defense and back to safety, a little at a time.' };
+  // skill names only (Justin, 2026-10-02: "Just use the skill names"); what each one is lives in its sheet
+  const UP_SAFE_TITLE = { anchoring:'Anchoring', 'validate-safety':'Validating', 'normalize-safety':'Normalizing', 'general-safety':'General',
+    'specific-safety':'Specific', 'describe-safety':'Description', 'interest-safety':'Interest Impulse' };
+  // the chapter to read before a practice on the path; each one shows once, before the first practice that uses it
+  const UP_READ = { micro:['making-change'], mindfulness:['mindfulness-and-meditation'], anchoring:['anchor-environment','cue-to-anchor'],
+    'validate-safety':['validating-and-normalizing'], 'validate-defense':['ssiec'], imagery:['imagery-and-invitation'], 'obstacles>imagery':['obstacles'],
+    'balancing@general':['balancing-and-pendulating'], 'describe-safety':['description'], 'interest-safety':['impulses'], 'balancing@description':['holding-and-watching'] };
+  const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'Later', open:'Always open' };
+  const UP_ANCHORS = ['sound','sight','touch','imagination','movement'];
+  const UP_ANCHOR_CH = { sound:'sensory-anchors', sight:'sensory-anchors', touch:'sensory-anchors', imagination:'anchor-memories', movement:'anchor-movement-body-breath' };
+  const UP_OFFS = [0, 30, 52, 30];
+  const _UP_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.6 4 5v13c3-.4 6 0 8 1.5 2-1.5 5-1.9 8-1.5V5c-3-.4-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>';
+  const _UP_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></svg>';
+  const _UP_LINE = '<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>';
+  const _UP_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  let _upY = null;
+
+  function _upDefTitle(key){
+    const p = Store.sequenceParts ? Store.sequenceParts(key) : null; if(!p) return CAP(key || '');
+    if(p.skill === 'obstacles') return 'Obstacles';
+    const t = UP_DEF_TITLE[p.skill] || CAP(p.skill);
+    return p.prefix === 'obstacles' ? t + ' with Obstacles' : t;
+  }
+  function _upDefWhat(key){
+    const p = (Store.sequenceParts && Store.sequenceParts(key)) || {};
+    if(p.skill === 'obstacles') return SKILL_CAP.obstacles + ' This practice gives you four Obstacle statements and leads you through Imagery & invitation with whatever comes up.';
+    if(!p.depth) return CAP(SKILL_CAP[p.skill] || '');
+    const name = UP_DEF_TITLE[p.skill] || CAP(p.skill), dw = mkDepthWords(p.depth);
+    let s = (UP_DEF_WHAT[p.skill] ? UP_DEF_WHAT[p.skill] + ' ' : '') + (p.prefix === 'obstacles'
+      ? `This practice gives you four Obstacle statements and leads you through ${name} whatever emotion surfaces in response, ${dw}.`
+      : `This practice leads you through ${name} whatever emotion surfaces, ${dw}.`);
+    if(p.depth === 'description') s += ' Hold & watch is offered at the end.';
+    return s;
+  }
+  // the chapters for a practice's sheet: the same links as the practice plan (_planChapters), by step
+  function _upChapters(it){
+    const ids = [];
+    if(it.kind === 'present') ids.push(it.key === 'micro' ? 'making-change' : 'mindfulness-and-meditation');
+    else if(it.kind === 'safety'){
+      const S = { anchoring:['cue-to-anchor','anchor-environment'], 'validate-safety':['validating-and-normalizing'], 'normalize-safety':['validating-and-normalizing'],
+        'general-safety':['cue-to-anchor'], 'specific-safety':['cue-to-anchor'], 'describe-safety':['description'], 'interest-safety':['impulses'] };
+      ids.push(...(S[it.key] || ['cue-to-anchor']));
+    } else {
+      const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+      if(p.skill === 'validate-defense') ids.push('ssiec');
+      if(p.skill === 'obstacles' || p.prefix === 'obstacles') ids.push('obstacles');
+      const K = { 'validate-defense':'validating-and-normalizing', 'normalize-defense':'validating-and-normalizing', imagery:'imagery-and-invitation', obstacles:'imagery-and-invitation',
+        balancing:'balancing-and-pendulating', pendulating:'balancing-and-pendulating' };
+      if(K[p.skill]) ids.push(K[p.skill]);
+      if(p.depth === 'description') ids.push('description', 'holding-and-watching');
+    }
+    const L = window.Learning; if(!L) return [];
+    return [...new Set(ids)].map(id => L.byId(id)).filter(Boolean);
+  }
+  // what has to be true before the recommendation offers a step (the tier table and skillCeiling, said plainly)
+  function _upNeed(i, SEQ, lowData){
+    if(lowData) return 'Opens once there is a full week of check-ins.';
+    if(i <= SEQ.indexOf('imagery')) return 'Opens when your week of check-ins shows more safety.';
+    if(i <= SEQ.indexOf('obstacles>imagery')) return 'Opens when Normalizing and Imagery & invitation are completed within your capacity, and your week of check-ins shows more safety and less defense.';
+    return 'Opens when Obstacles is completed within your capacity, and most days of your week show more safety and less defense.';
+  }
+
+  // the whole pathway, read from the store; null until the engine's order has loaded
+  function _upModel(){
+    const paid = paidNow();
+    const SEQ = Store.skillSequence ? Store.skillSequence() : null;
+    const safe = Store.safetyProgress ? Store.safetyProgress() : null;
+    if(!SEQ || !SEQ.length || !safe || !safe.seq.length || !Store.skillProgress) return null;
+    const sp = Store.skillProgress();
+    let reco = null, ceiling = 0, bw = null, gateOpen = true, hasHist = false;
+    try{ hasHist = ((Store.sessions && Store.sessions()) || []).length > 0; }catch(e){}
+    if(paid){
+      reco = _recommendSafe(true);
+      try{ bw = Store.baselineWeek(); ceiling = Store.skillCeiling(bw, sp.cleared) || 0; }catch(e){}
+      try{ const last = Store.lastCheckin(); gateOpen = !last || !!Store.momentGate(last).open; }catch(e){}
+    }
+    const lowData = !!(bw && bw.lowData);
+    const TOP = { 1:'imagery', 2:'obstacles>imagery' };
+    const capIdx = ceiling >= 3 ? SEQ.length - 1 : ceiling >= 1 ? SEQ.indexOf(TOP[ceiling]) : -1;
+    const recoKey = (reco && reco.practiceKey === 'self-regulation' && reco.offerKey && SEQ.indexOf(reco.offerKey) >= 0) ? reco.offerKey : null;
+    // "Working on now" is the recommended practice, whichever kind it is: a defense practice, a safety practice
+    // (a plain anchoring recommendation is connect with safety), or a present-moment one
+    const rk = reco ? reco.practiceKey : null;
+    const nowSafe = paid && rk === 'anchoring' ? (reco.skill && safe.seq.indexOf(reco.skill) >= 0 ? reco.skill : safe.seq[0]) : null;
+    const nowPresent = paid && (rk === 'mindfulness' || rk === 'micro') ? rk : null;
+    const nextOpen = !!(sp.next && SEQ.indexOf(sp.next) >= 0 && SEQ.indexOf(sp.next) <= capIdx);
+    const eased = !!(recoKey && sp.next && SEQ.indexOf(recoKey) < SEQ.indexOf(sp.next));
+    const defSt = k => {
+      if(!paid) return 'paid';
+      if(k === recoKey) return 'now';
+      if(sp.cleared[k]) return 'done';
+      if(k === sp.next && nextOpen) return 'next';
+      if(sp.so && sp.so[k] && sp.so[k].n) return 'tried';
+      return 'later';
+    };
+    const safeSt = k => {
+      if(!paid) return 'paid';
+      if(k === nowSafe) return 'now';
+      if(safe.cleared[k]) return 'done';
+      if(k === safe.next) return 'next';
+      if(safe.so[k] && safe.so[k].n) return 'tried';
+      return 'later';
+    };
+    const D = k => { const i = SEQ.indexOf(k), gated = paid && i > capIdx;
+      return { kind:'def', key:k, title:_upDefTitle(k), st:defSt(k), gated, need: gated ? _upNeed(i, SEQ, lowData) : null }; };
+    const S = k => safe.seq.indexOf(k) >= 0 ? [{ kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st:safeSt(k) }] : [];
+    const P = k => ({ kind:'present', key:k, title:(P8_ROWS.find(r=>r.k===k) || {}).t || CAP(k), st: k === nowPresent ? 'now' : 'open' });
+    const partsOf = k => (Store.sequenceParts(k) || {});
+    const head = [];
+    SEQ.filter(k => !partsOf(k).depth).forEach(k => {
+      if(k === 'validate-defense') head.push(...S('validate-safety'));
+      if(k === 'normalize-defense') head.push(...S('normalize-safety'));
+      head.push(D(k));
+    });
+    const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
+    const placed = ['anchoring','validate-safety','normalize-safety','general-safety','specific-safety','describe-safety','interest-safety'];
+    const extraSafe = safe.seq.filter(k => placed.indexOf(k) < 0).map(k => S(k)[0]);
+    const lock = 'On the paid plan.';
+    const subOf = (items, fallback) => { const g = items.find(it => it.kind === 'def'); return !paid ? lock : (g && g.gated ? g.need : fallback); };
+    const secs = [
+      { title:'The present moment', sub:'Always open.', items:[P('micro'), P('mindfulness')] },
+      { title:'Connecting with safety', sub: paid ? 'Always open. Every practice that works with defense starts here.' : lock, anchors:true, items:S('anchoring').concat(extraSafe) },
+      { title:'Working with defense', items:head },
+      { title:'Noticing it in the body overall', items:S('general-safety').concat(byDepth('general')) },
+      { title:'Finding where it lives in the body', items:S('specific-safety').concat(byDepth('specific')) },
+      { title:'Describing it', items:S('describe-safety').concat(S('interest-safety'), byDepth('description')) },
+    ];
+    secs[2].sub = subOf(secs[2].items, 'Safety first, then one of these.');
+    secs[3].sub = subOf(secs[3].items, '');
+    secs[4].sub = subOf(secs[4].items, '');
+    secs[5].sub = subOf(secs[5].items, 'Hold & watch is offered at the end of these.');
+    // say what opens a depth once; the depths after it just follow on
+    if(paid && secs[3].items.some(it => it.gated)){
+      secs[4].sub = 'Opens after the practices above.';
+      secs[5].sub = 'Opens after the practices above. Hold & watch is offered at the end of these.';
+    }
+    let note = null;
+    if(paid && hasHist && reco){
+      if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
+      else if(eased) note = 'Your practice right now is a gentler one: ' + _upDefTitle(recoKey) + '.';
+    }
+    let anchors = null; if(paid){ try{ anchors = Store.anchorPick(); }catch(e){} }
+    return { paid, secs, note, reco, anchors };
+  }
+  function _upMark(it, def){ return it.kind === 'safety' ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || ''); }
+  function _upCols(it, def){
+    if(it.kind === 'safety') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
+    if(it.kind === 'def'){ const d = def || 'freeze'; return { band:STATE_COLOR(d), line:`var(--s-${({ fightflight:'fight', shutdown:'shutdown', freeze:'freeze' })[d]}-tx)` }; }
+    return { band:'var(--hairline)', line:'var(--ink)' };
+  }
+  function _upFind(M, kind, key){ for(const s of M.secs){ const it = s.items.find(x => x.kind === kind && x.key === key); if(it) return it; } return null; }
+
+  function screenPathway(){
+    const def = _domDefense();
+    const back = () => app('practice');
+    const M = _upModel();
+    if(!M){
+      _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="up-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+      Promise.resolve(Store.sequenceReady ? Store.sequenceReady() : false).then(() => {
+        const w = document.getElementById('up-wait'); if(!w) return;
+        if(_upModel()) screenPathway(); else w.textContent = "The pathway didn't load. Check your connection and try again.";
+      });
+      return;
+    }
+    let n = 0; const seen = {};
+    const off = () => UP_OFFS[(n++) % UP_OFFS.length];
+    const lesson = (id, it) => {
+      if(seen[id]) return ''; seen[id] = 1;
+      const pc = window.Learning && Learning.byId(id); if(!pc) return '';
+      const locked = pc.paid && !M.paid, read = _lrnIsRead(id), c = _upCols(it, def);
+      const lead = locked ? LOCK_SVG + 'Paid plan' : read ? _lrnReadMk() + 'Read' : 'Read first';
+      const first = it.st === 'now' && !read && !locked;
+      return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="margin-left:${off()}px;--line:${c.line}">
+        <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t"><i>${lead}</i><b>${escapeHtml(pc.title)}</b></span></button>`;
+    };
+    const node = it => {
+      const c = _upCols(it, def);
+      const track = it.kind === 'safety' ? 'Safety · ' : it.kind === 'def' ? 'Defense · ' : '';
+      const words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml(track + (UP_ST[it.st] || ''));
+      const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
+      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + ':' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''} style="margin-left:${off()}px;--band:${c.band};--line:${c.line}">
+        <span class="up-n-node">${_upMark(it, def)}</span><span class="up-n-t"><b>${name}</b><span>${words}</span></span></button>`;
+    };
+    const anchorsHtml = () => {
+      const A = M.anchors;
+      return `<p class="up-sub2">Your safety anchor</p><p class="up-sub">${M.paid ? 'Your practices try each anchor in turn, until one stands out as working best for you.' : 'Sound, sight, touch, imagination or movement.'}</p>
+        <div class="up-anchors">${UP_ANCHORS.map(a => {
+          let st = '', w = '';
+          if(M.paid){
+            if(A && A.why === 'winner' && A.sense === a){ st = 'best'; w = 'Works best for you'; }
+            else if(A && A.why === 'cycle' && A.sense === a){ st = 'next'; w = 'Up next'; }
+            else if(A && A.tried && A.tried[a]){ st = 'tried'; w = 'Tried'; }
+            else w = 'Not yet';
+          }
+          return `<button class="up-chip" type="button" data-up-anchor="${a}" data-st="${st}">${M.paid ? '<i aria-hidden="true"></i>' : LOCK_SVG}${CAP(a)}${w ? ` <small>${w}</small>` : ''}</button>`;
+        }).join('')}</div>`;
+    };
+    const secHtml = s => `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}${s.anchors ? anchorsHtml() : ''}
+      <div class="up-path">${s.items.map(it => (UP_READ[it.key] || []).map(id => lesson(id, it)).join('') + node(it)).join('')}</div>`;
+    const lede = M.paid ? 'Where you are, and what comes next. A practice opens when the ones before it are completed within your capacity and your check-ins show enough safety for it.'
+      : 'Every practice in the app, in order, with the chapter to read before each one. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
+    _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
+      <p class="up-lede">${escapeHtml(lede)}</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
+      ${M.secs.map(secHtml).join('')}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+    const view = root.querySelector('.up-view'); if(!view) return;
+    view.onclick = e => {
+      const ch = e.target.closest('[data-up-ch]'); if(ch) return _upOpenChapter(ch.dataset.upCh);
+      if(e.target.closest('[data-up-anchor]')) return _upAnchorsSheet(M, def);
+      const b = e.target.closest('[data-up]'); if(!b) return;
+      const v = b.dataset.up, i = v.indexOf(':');
+      const it = _upFind(M, v.slice(0, i), v.slice(i + 1)); if(!it) return;
+      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(M.reco); }
+      _upItemSheet(it, M, def);
+    };
+    const sc = root.querySelector('.scroll');
+    if(sc){
+      if(_upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
+      else {
+        const target = view.querySelector('.up-n[data-st="now"]') || view.querySelector('.up-n[data-st="next"]');
+        if(target) requestAnimationFrame(() => { sc.scrollTop = Math.max(0, sc.scrollTop + target.getBoundingClientRect().top - sc.getBoundingClientRect().top - sc.clientHeight * 0.4); });
+      }
+    }
+  }
+  function _upKeep(){ const sc = root.querySelector('.scroll'); _upY = sc ? sc.scrollTop : null; }
+  function _upOpenChapter(id){
+    const pc = window.Learning && Learning.byId(id); if(!pc) return;
+    const sh = document.getElementById('p8-sheet'); if(sh) sh.remove();
+    _upKeep();
+    screenLearnPiece(pc, null, null, { label:UP_TITLE, go:screenPathway });
+  }
+  // the one-size sheet (same frame as the practice sheet): what it is, when it opens, the chapters, and one button
+  function _upSheet(mark, title, body, btn, onGo){
+    const old = document.getElementById('p8-sheet'); if(old) old.remove();
+    const wrap = document.createElement('div'); wrap.id = 'p8-sheet'; wrap.className = 'p7-sheet p8-sheet';
+    wrap.innerHTML = `<div class="p7-sheet-card p8-card up-card" role="dialog" aria-modal="true" aria-labelledby="up-h">
+      <div class="p8-grab" aria-hidden="true"></div>
+      <div class="p8-head"><span class="rd-thumb rd-thumb-mk p8-thumb">${mark}</span><h3 class="p8-h" id="up-h">${escapeHtml(title)}</h3>
+        <button class="p8-x" id="up-x" type="button" aria-label="Close">${_UP_X}</button></div>
+      <div class="p8-body up-sh-body">${body}</div>
+      ${btn ? `<div class="p8-foot">${btn}</div>` : ''}</div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add('on'));
+    const close = () => { wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(() => { try{ wrap.remove(); }catch(e){} }, 320); };
+    const onKey = e => { if(e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    wrap.addEventListener('click', e => {
+      if(e.target === wrap) return close();
+      const ch = e.target.closest('[data-up-ch]'); if(ch){ document.removeEventListener('keydown', onKey); return _upOpenChapter(ch.dataset.upCh); }
+      const go = e.target.closest('#up-go'); if(!go) return;
+      if(go.dataset.lock) return _p8Locked(go, 'practice');
+      close(); if(onGo) onGo();
+    });
+    wrap.querySelector('#up-x').onclick = close;
+    try{ wrap.querySelector('#up-x').focus({ preventScroll:true }); }catch(e){}
+  }
+  const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">From the books</p><div class="p8-list">${list.map(pc => {
+      const locked = pc.paid && !paid, read = _lrnIsRead(pc.id);
+      return `<button class="rd-row p8-row" type="button" data-up-ch="${escapeHtml(pc.id)}"><span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_BOOK}</span>
+        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Paid plan · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
+    }).join('')}</div></div>` : '';
+  const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
+    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
+  function _upItemSheet(it, M, def){
+    const what = it.kind === 'def' ? _upDefWhat(it.key) : it.kind === 'safety' ? mkSafetyRow(it.key === 'anchoring' ? '' : it.key)[2] : P8_LINE[it.key];
+    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml(UP_ST[it.st] || '');
+    let body = `<p class="up-sh-st">${st}</p><div class="up-sh-blk"><p class="up-sh-lbl">What it is</p><p class="up-sh-p">${escapeHtml(what || '')}</p></div>`;
+    if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
+    body += _upChRows(_upChapters(it), M.paid);
+    const open = it.kind === 'present' || M.paid;
+    _upSheet(_upMark(it, def), it.title, body, _upGoBtn(open, 'Practice this'), () => _upPractice(it));
+  }
+  function _upAnchorsSheet(M, def){
+    const A = M.anchors, L = window.Learning;
+    const rows = UP_ANCHORS.map(a => {
+      const pc = L && L.byId(UP_ANCHOR_CH[a]);
+      let w = '';
+      if(M.paid){ w = (A && A.why === 'winner' && A.sense === a) ? 'Works best for you' : (A && A.why === 'cycle' && A.sense === a) ? 'Up next' : (A && A.tried && A.tried[a]) ? 'Tried' : 'Not yet'; }
+      const locked = pc && pc.paid && !M.paid;
+      return `<button class="rd-row p8-row" type="button"${pc ? ` data-up-ch="${escapeHtml(pc.id)}"` : ''}><span class="rd-thumb rd-thumb-mk p8-thumb">${_rdMk('safety')}</span>
+        <span class="rd-row-t"><b>${CAP(a)}</b><span>${locked ? LOCK_SVG + 'Paid plan · ' : w ? escapeHtml(w) + ' · ' : ''}${pc ? escapeHtml(pc.title) : ''}</span></span><span class="wc-go">${CHEV}</span></button>`;
+    }).join('');
+    const env = L && L.byId('anchor-environment');
+    const body = `<div class="up-sh-blk"><p class="up-sh-lbl">What it is</p><p class="up-sh-p">Every practice that connects with safety uses one anchor: sound, sight, touch, imagination or movement. Your practices try each one in turn, until one stands out as working best for you. You can always pick your own.</p></div>
+      <div class="up-sh-blk"><div class="p8-list">${rows}</div></div>${_upChRows(env ? [env] : [], M.paid)}`;
+    _upSheet(_rdMk('safety'), 'Your safety anchor', body, _upGoBtn(M.paid, 'Practice connecting with safety'), () => _upPractice({ kind:'safety', key:'anchoring' }));
+  }
+  // "Practice this": the Practice tab opens with that practice's sheet, already set (the "change this practice" path)
+  function _upPractice(it){
+    const base = { key:null, sense:'touch', skill:'imagery', silence:8, med:null, deepest:false, prefix:null, depth:null, obst:false, safetySkill:'',
+      holdWatch:false, holdSeconds:60, open:false, emotion:null, makerOpen:false, mkKey:'anchoring' };
+    let s;
+    if(it.kind === 'present') s = { key:it.key };
+    else if(it.kind === 'safety') s = { key:'anchoring', safetySkill: it.key === 'anchoring' ? '' : it.key };
+    else {
+      const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+      s = { key:'self-regulation', skill: p.skill === 'obstacles' ? 'imagery' : (p.practice || 'imagery'), obst: p.skill === 'obstacles' || p.prefix === 'obstacles',
+            prefix: p.prefix || null, depth: p.depth || null, deepest: p.depth === 'description' };
+    }
+    if(it.kind !== 'present'){ try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) base.sense = ap.sense; }catch(e){} }
+    _pendingPState = Object.assign(base, s);
+    app('practice');
+  }
+  // the Practice tab's row into the pathway, under the custom practice
+  function _upEntry(paid){
+    let sub = 'Every practice, in order, with what to read first';
+    if(paid){ try{ const M = _upModel(); const now = M && M.secs.reduce((f, s) => f || s.items.find(it => it.st === 'now'), null); if(now) sub = 'Working on now: ' + now.title; }catch(e){} }
+    else sub = LOCK_SVG + 'Paid plan · Every practice, in order';
+    return `<div class="p8-list up-entry"><button class="rd-row p8-row" type="button" id="up-entry">
+        <span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_ICO}</span>
+        <span class="rd-row-t"><b>${UP_TITLE}</b><span>${paid ? escapeHtml(sub) : sub}</span></span><span class="wc-go">${CHEV}</span></button></div>`;
+  }
+
   function renderPracticeTab(animateIn){
     const paid = paidNow();
     const def = _domDefense();
@@ -8237,6 +8559,7 @@ function app(tab){
     _rdShell(`<div class="p8-view">
       <div class="scr-head read-head"><h1 class="read-h1">Practice</h1></div>
       ${card}
+      ${_upEntry(paid)}
       <h3 class="p8-sec">Make your own</h3>
       <div class="p8-list">${mine}</div>
       <h3 class="p8-sec">Guided practices</h3>
@@ -8256,6 +8579,7 @@ function app(tab){
       if(k==='surprise') return _p8Surprise();
       openPracticeSheet(k);
     });
+    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>screenPathway();
     // a caller staged a shape to open straight into (older "change this practice" paths)
     if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
   }

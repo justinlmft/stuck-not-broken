@@ -3824,3 +3824,57 @@ body.reduce-motion .jr-fmenu{transition:none}
 .view.read > div > .rd-learn-top:first-child{margin-top:0}
 .view.read > div > .rd-learnhubs:first-child{margin-top:0}
 .view.read > div > .rd-learnhubs:first-child > .ll-shelf:first-child{margin-top:0}
+
+/* ── the Unstucking Pathway (2026-10-02, option A: the path) ── */
+.up-view{gap:0}
+.up-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.45;margin:0 0 4px;max-width:60ch}
+.up-note{font-size:calc(14px * var(--type-scale));color:var(--ink);line-height:1.45;margin:12px 0 0;padding:10px 14px;border-radius:12px;background:var(--rd-card);border:1px solid var(--hairline);max-width:60ch}
+.p8-sec.up-sec{margin-top:28px}
+.up-sub{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.4;margin:0 0 10px;max-width:60ch}
+.up-sub2{font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink-80);margin:6px 0 2px}
+.up-path{display:flex;flex-direction:column;gap:14px;padding:4px 0 2px}
+.up-n,.up-l{display:flex;align-items:center;gap:12px;background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:max-content;max-width:calc(100% - 52px);min-height:44px;-webkit-tap-highlight-color:transparent}
+.up-n:focus-visible,.up-l:focus-visible,.up-chip:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:12px}
+.up-n-node{position:relative;width:56px;height:56px;flex:none;border-radius:18px;display:grid;place-items:center;background:var(--rd-card);border:1.5px solid var(--hairline);transition:transform .18s var(--ease)}
+.up-n:active .up-n-node,.up-l:active .up-l-node{transform:scale(.96)}
+.up-n-node .rd-mk{--mk:18px}
+.up-n-node > svg{width:22px;height:22px;color:var(--ink)}
+.up-n-t,.up-l-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.up-n-t b{font-weight:500;font-size:calc(15px * var(--type-scale));line-height:1.3;color:var(--ink)}
+.up-n-t > span{font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
+.up-n-t .rd-lk,.up-l-t .rd-lk,.up-chip .rd-lk,.up-sh-st .rd-lk{display:inline-block;width:13px;height:13px;margin:0 4px 0 0;vertical-align:-2px;color:var(--ink-80)}
+.up-n[data-st="done"] .up-n-node{background:color-mix(in srgb, var(--band) 38%, var(--rd-card));border-color:color-mix(in srgb, var(--band) 70%, var(--rd-card))}
+.up-n[data-st="now"] .up-n-node{border:2px solid var(--line);box-shadow:0 0 0 5px color-mix(in srgb, var(--band) 30%, transparent)}
+.up-n[data-st="now"] .up-n-t b{font-weight:600}
+.up-n[data-st="now"] .up-n-t > span,.up-n[data-st="next"] .up-n-t > span{color:var(--line)}
+.up-n[data-st="next"] .up-n-node{border-color:var(--line)}
+.up-n[data-st="later"] .up-n-node .rd-mk,.up-n[data-st="tried"][data-gated] .up-n-node .rd-mk{opacity:.5}
+.up-n[data-gated] .up-n-node{border-style:dashed}
+.up-name{position:relative;display:inline-block}
+.up-name .p8-line path{stroke-dasharray:1;stroke-dashoffset:1;animation:tcLine .6s .35s var(--ease) forwards}
+.up-l{gap:10px;min-height:40px}
+.up-l-node{width:36px;height:36px;flex:none;margin-left:10px;border-radius:50%;display:grid;place-items:center;background:var(--rd-card);border:1px solid var(--hairline);color:var(--ink-80);transition:transform .18s var(--ease)}
+.up-l-node svg{width:18px;height:18px}
+.up-l-t i{font-style:normal;font-size:calc(11.5px * var(--type-scale));color:var(--muted)}
+.up-l-t b{font-weight:500;font-size:calc(13.5px * var(--type-scale));line-height:1.3;color:var(--ink)}
+.up-l-first .up-l-node{border-color:var(--line);color:var(--line)}
+.up-l-first .up-l-t i{color:var(--line);font-weight:500}
+.up-l-t .rd-readmk{display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-right:3px}
+.up-l-t .rd-readmk svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.up-anchors{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 12px}
+.up-chip{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:calc(13px * var(--type-scale));color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:999px;padding:6px 12px;min-height:36px;cursor:pointer}
+.up-chip i{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--s-safety-tx);flex:none}
+.up-chip[data-st="tried"] i{background:var(--s-safety);border-color:var(--s-safety)}
+.up-chip[data-st="best"],.up-chip[data-st="next"]{border-color:var(--s-safety-tx)}
+.up-chip[data-st="best"] i{background:var(--s-safety-tx);border-color:var(--s-safety-tx)}
+.up-chip small{font-size:calc(11.5px * var(--type-scale));color:var(--muted)}
+.up-sh-body{display:flex;flex-direction:column;gap:16px;padding-bottom:12px}
+.up-sh-st{margin:0;font-size:calc(14px * var(--type-scale));font-weight:500;color:var(--ink)}
+.up-sh-lbl{margin:0 0 4px;font-size:calc(12px * var(--type-scale));color:var(--muted)}
+.up-sh-p{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--ink)}
+.up-sh-blk .p8-list .rd-row:first-child{border-top:0}
+.up-go-lock .rd-lk{width:16px;height:16px;margin:0 6px 0 0;vertical-align:-3px;color:currentColor}
+.up-entry{margin:2px 0 0}
+.up-entry .p8-thumb > svg{width:20px;height:20px}
+.reduce-motion .up-name .p8-line path{animation:none;stroke-dashoffset:0}
+@media (prefers-reduced-motion: reduce){ .up-name .p8-line path{animation:none;stroke-dashoffset:0} .up-n-node,.up-l-node{transition:none} }

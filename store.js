@@ -1538,6 +1538,29 @@
     });
     return { cleared, next, hi, strongest, so };
   }
+  // safetyProgress() (2026-10-02, the Unstucking Pathway): the same "completed within capacity" rule as skillProgress()
+  // (>=2 good outcomes and no bad in the last 2), over the anchoring practices, in the engine's safety order
+  // (SEQUENCE.safety). A plain anchoring practice (no safety skill, or the maker's leftover skill) counts as the first one,
+  // connect with safety. next = the first safety practice after the furthest completed one that is not completed yet.
+  function safetyProgress(){
+    const SEQ = SAFETY_SEQUENCE || [];
+    const so = {};
+    SEQ.forEach(k => so[k] = { good:0, bad:0, n:0, last:[] });
+    if(!SEQ.length) return { seq:[], cleared:{}, next:null, so };
+    data.sessions.forEach(s => {
+      if(!s || s.practiceKey !== 'anchoring') return;
+      const k = (s.skill && so[s.skill]) ? s.skill : SEQ[0];
+      const o = _outcomeOf(s), b = so[k];
+      b.n++;
+      if(o==='good') b.good++; else if(o==='bad') b.bad++;
+      b.last.push(o); if(b.last.length>2) b.last.shift();
+    });
+    const cleared = {};
+    SEQ.forEach(k => { const p = so[k]; cleared[k] = p.good >= 2 && p.last.indexOf('bad') < 0; });
+    let hi = -1; SEQ.forEach((k,i) => { if(cleared[k]) hi = i; });
+    let next = null; for(let i = hi + 1; i < SEQ.length; i++){ if(!cleared[SEQ[i]]){ next = SEQ[i]; break; } }
+    return { seq:SEQ.slice(), cleared, next, so };
+  }
   // one-sentence descriptions of each skill + dial, so the reader can name the skill AND teach
   // what it is (a path to the fuller practice-tab breakdown sits in the reader copy). Straw
   // wording — Justin owns final. Keyed by the app's skill names (sequenceParts().skill).
@@ -2262,7 +2285,7 @@
     learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
-    skillProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
+    skillProgress, safetyProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
     prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
