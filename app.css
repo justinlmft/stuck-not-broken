@@ -4033,3 +4033,6 @@ body.reduce-motion .jr-fmenu{transition:none}
 @media (min-width:720px){
   .ob-card.ob-low{bottom:24px;transform:translateX(-50%)}
 }
+/* the switches' 44px tap area reaches 8px past the card's edge, which let the Notifications card slide sideways (Justin, 2026-10-03: "wobbly") */
+.ob-body{overflow-x:hidden}
+.ob-card .set-sw::before{inset:-8px 0}
