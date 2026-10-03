@@ -7877,6 +7877,7 @@ function app(tab){
       const name = T(sk==='balancing'?'balancing':'pendulating');
       const lead = pState.obst
         ? `This practice gives you four Obstacle statements and leads you through ${name} whatever emotion surfaces in response`
+        : _emoParse(pState.emotion) ? `This practice leads you through ${name}, working with ${_emoPhrase(pState.emotion)}`
         : `This practice leads you through ${name} ${MK_EMO_WORDS[pState.emotion] || 'whatever emotion surfaces'}`;
       return `${lead}, ${mkDepthWords(pState.depth)}.`;
     }
@@ -7895,7 +7896,7 @@ function app(tab){
     else if(k==='self-regulation') bits.push(mkSelfLine());
     else bits.push(aboutOf(k, pState.sense));
     if((k==='self-regulation'||k==='micro'||(k==='anchoring' && pState.safetySkill)) && pState.sense) bits.push(`your safety anchor is ${pState.sense}.`);
-    if(k==='self-regulation' && !pState.obst && !mkHasDepth(pState.skill) && MK_EMO_WORDS[pState.emotion]) bits.push(`you're working with ${MK_EMO_WORDS[pState.emotion]}.`);
+    if(k==='self-regulation' && !pState.obst && !mkHasDepth(pState.skill) && _emoPhrase(pState.emotion)) bits.push(`you're working with ${_emoPhrase(pState.emotion)}.`);
     if(k==='self-regulation' && pState.holdWatch && holdWatchOffered(pState.skill, pState.deepest)) bits.push(MK_HOLD_LINE);
     if(k!=='micro') bits.push(`with ${silLabel(pState.silence)} silence between the guidance.`);
     if(openEnded) bits.push('It keeps going until you choose to stop.');
@@ -8067,12 +8068,14 @@ function app(tab){
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
         ${(()=>{ const ch = _planChapters(reco); return ch.length ? `<div class="plan-books"><p class="plan-books-h">Learn more about these skills:</p><ul class="plan-books-l">${ch.map(p=>`<li><a href="#" class="rd-inlink plan-book" data-piece="${escapeHtml(p.id)}">${escapeHtml(p.title)}</a></li>`).join('')}</ul></div>` : ''; })()}
       </div>
+      ${_emoPlanRow(reco)}
       <div class="plan-actions">
         <button class="set-quiet actionbar-aux" id="plan-change">Customize this practice</button>
         <button class="btn block" id="plan-begin">Begin</button>
       </div>
     </div>`;
     $('#plan-begin').onclick = ()=>launchWeaver(reco);
+    _emoPlanWire(reco, from);
     root.querySelectorAll('.plan-book').forEach(a=>a.onclick=e=>{ e.preventDefault(); const pc = window.Learning && Learning.byId(a.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:()=>renderPlan(reco, from), tab:'practice' }); });
     // the same sheet as the Practice tab, filled in with this practice (Justin, 2026-10-02: "Customize this practice")
     $('#plan-change').onclick = ()=>{ _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
@@ -8182,7 +8185,7 @@ function app(tab){
     pState = Object.assign({}, pState||{}, { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
       deepest:holdWatchOffered(reco.skill, reco.descDefense), prefix:(bp ? (reco.prefix||null) : null), depth:(bp ? (reco.depth||null) : null),
       obst:false, safetySkill:'', holdWatch:(!!reco.holdWatch && holdWatchOffered(reco.skill, reco.descDefense)), holdSeconds:reco.holdWatchTargetSeconds||60,
-      open:!!reco.openEnded, emotion:null });
+      open:!!reco.openEnded, emotion:(reco.emotionIntent||null) });
     if(pState.key==='micro' && ['movement','imagination'].indexOf(pState.sense)>=0) pState.sense='touch';
     mkNormalize();
   }
@@ -8228,6 +8231,7 @@ function app(tab){
     pendulating: ['Pendulating is the ability to deliberately and consciously shift between feelings of safety and defense. It’s similar to Balancing, but with Pendulating, you continuously alternate between defense and safety.'],
     generalDef: ['When you first practice Balancing and Pendulating, you’ll focus on the Anchored Awareness and Witnessing levels, recognizing defense and how it appears in the body in general.'],
     describeDef: ['When you’re ready to connect more deeply, Description is the skill that allows you to Experience defense fully.'],
+    which: ['“But which non-safety experiences, Justin?” Great question! Here are three options; choose whichever you are ready for, and then work your way up in difficulty as capacity allows.'],
     hold: ['Holding is kind of like a frozen moment in time. You pay attention to both safety and defense as Sensations in your body.', 'Watching is remaining open to what may happen next as a result of Holding.'],
   };
   // the chapter to read before a practice on the path; each one shows once, before the first practice that uses it
@@ -8261,6 +8265,7 @@ function app(tab){
   // the chapter's words for a step, then (for a practice whose shape the name doesn't say) the practice in Justin's 2026-09-20 wording
   function _upWhat(it){
     if(it.kind === 'present') return { q:UP_Q[it.key] || [] };
+    if(it.kind === 'emo') return { q:UP_Q.which };
     if(it.kind === 'anchor-auto') return { q:[], line:'The app picks an anchor for each practice and keeps track of which one helps you connect with safety most.' };
     if(it.kind === 'anchor') return { q:UP_Q[it.key === 'imagination' ? 'imagination' : it.key === 'movement' ? 'movement' : 'senses'] };
     if(it.kind === 'safety'){
@@ -8363,21 +8368,28 @@ function app(tab){
     const anchorMode = (mode === 'chosen' && chosen) ? chosen : mode === 'auto' ? 'auto' : null;
     const anchorSet = paid && !!anchorMode;
     const partsOf = k => (Store.sequenceParts(k) || {});
+    // the member's emotions, easy to hard, and each defense step's levels (store.js levelProgress())
+    let LP = {}; if(paid){ try{ LP = (Store.levelProgress && Store.levelProgress()) || {}; }catch(e){} }
+    const emo = _emoList();
+    const E = { kind:'emo', key:'list', title:'Your emotions', st: !paid ? 'paid' : emo.length ? 'done' : 'open', emo };
     const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
     const lock = 'On the paid plan.';
     // the course's order (Justin, 2026-10-02: "All the safety ones come first before going into defense")
     const secs = [
       { title:'The present moment', sub:'', items:[P('micro'), P('mindfulness')] },
       { title:'Your safety anchor', sub: !paid ? lock : anchorSet ? '' : 'Start here. Choose your anchor, or let the app find the one that works best for you. The skills after this open once you choose.', picker:true, items:[] },
-      { title:'Connecting with safety', sub: paid ? '' : lock, items:safe.seq.map(S) },
-      { title:'Working with defense', items:SEQ.filter(k => !partsOf(k).depth).map(D) },
-      { title:'Non-safety generally', items:byDepth('general') },
-      { title:'Non-safety specifically', items:byDepth('specific') },
-      { title:'Describing non-safety', items:byDepth('description') },
+      { id:'safety', title:'Connecting with safety', sub: paid ? '' : lock, items:safe.seq.map(S) },
+      // Book 3's own place for it (Justin, 2026-10-02: "The 'Which Defense?' location sounds good to me"): optional, never a lock
+      { id:'which', title:'Which defense?', sub: paid ? '' : lock, items:[E] },
+      { id:'def', title:'Working with defense', items:SEQ.filter(k => !partsOf(k).depth).map(D) },
+      { id:'general', title:'Non-safety generally', items:byDepth('general') },
+      { id:'specific', title:'Non-safety specifically', items:byDepth('specific') },
+      { id:'description', title:'Describing non-safety', items:byDepth('description') },
     ];
+    const SEC = id => secs.find(x => x.id === id);
     // no "Opens when..." lines under the headings either (Justin, 2026-10-02); a waiting step's sheet says what opens it
-    secs[3].sub = secs[4].sub = secs[5].sub = paid ? '' : lock;
-    secs[6].sub = paid ? 'Hold & watch is offered at the end of these.' : lock;
+    SEC('def').sub = SEC('general').sub = SEC('specific').sub = paid ? '' : lock;
+    SEC('description').sub = paid ? 'Hold & watch is offered at the end of these.' : lock;
     // the pathway opens in order (Justin, 2026-10-02: "The pathway unlocks as the user completes the skills ... the pathway is
     // skill based and achievement based"). A step after the next one waits; anything completed, practiced or recommended stays open.
     // Make your own still reaches every practice ("They can always customize their own if they want to skip").
@@ -8386,8 +8398,8 @@ function app(tab){
       if(!anchorSet){ it.locked = 'Opens after you choose your safety anchor'; return; }
       if(it.st !== 'next' && nextIdx >= 0 && i > nextIdx) it.locked = 'Opens after ' + items[i-1].title;
     });
-    lockAfter(secs[2].items, secs[2].items.findIndex(it => it.key === safe.next));
-    const defItems = [].concat(secs[3].items, secs[4].items, secs[5].items, secs[6].items);
+    lockAfter(SEC('safety').items, SEC('safety').items.findIndex(it => it.key === safe.next));
+    const defItems = [].concat(SEC('def').items, SEC('general').items, SEC('specific').items, SEC('description').items);
     lockAfter(defItems, defItems.findIndex(it => it.key === sp.next));
     // defense waits for every safety practice (Justin, 2026-10-02: "All the safety ones come first"; "the recommender should
     // follow the pathway"). Anything completed, practiced or recommended stays open.
@@ -8397,15 +8409,16 @@ function app(tab){
       if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
       else if(eased) note = 'Your practice right now is a gentler one: ' + _upDefTitle(recoKey) + '.';
     }
-    return { paid, secs, note, reco, anchors, anchorMode, anchorSet };
+    return { paid, secs, SEC, defItems, note, reco, anchors, anchorMode, anchorSet, LP };
   }
   function _upMark(it, def){
     if(it.kind === 'anchor-auto') return MK_TYPE_ICO.surprise || '';
+    if(it.kind === 'emo') return _UP_EMO_ICO;
     return (it.kind === 'safety' || it.kind === 'anchor') ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || '');
   }
   function _upCols(it, def){
     if(it.kind === 'safety' || it.kind === 'anchor' || it.kind === 'anchor-auto') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
-    if(it.kind === 'def'){ const d = def || 'freeze'; return { band:STATE_COLOR(d), line:`var(--s-${({ fightflight:'fight', shutdown:'shutdown', freeze:'freeze' })[d]}-tx)` }; }
+    if(it.kind === 'def' || it.kind === 'emo'){ const d = def || 'freeze'; return { band:STATE_COLOR(d), line:`var(--s-${({ fightflight:'fight', shutdown:'shutdown', freeze:'freeze' })[d]}-tx)` }; }
     return { band:'var(--hairline)', line:'var(--ink)' };
   }
   const _upKeyOf = it => (it.kind === 'anchor' || it.kind === 'anchor-auto') ? 'anchor:' + it.key : it.key;
@@ -8440,10 +8453,14 @@ function app(tab){
       // the state is drawn, not spelled out (Justin, 2026-10-02: "'Working on now' is not needed since it's visually explained
       // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
       // with a small lock. Only "Completed within your capacity" and "Practiced" stay as words.
-      const words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.locked || it.st === 'now' || it.st === 'next') ? '' : escapeHtml(UP_ST[it.st] || '');
+      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.locked || it.st === 'now' || it.st === 'next') ? '' : escapeHtml(UP_ST[it.st] || '');
+      if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
+      // easy / medium / hard on each defense step, filled when completed at that level (Justin, 2026-10-02)
+      const lv = M.paid && it.kind === 'def' && _emoLevelable(it.key) ? _upLevels(M.LP[it.key]) : '';
+      if(lv) words = '';
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
       return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="--band:${c.band};--line:${c.line}">
-        <span class="up-n-node">${_upMark(it, def)}${it.locked ? `<span class="up-n-lk">${LOCK_SVG}</span>` : ''}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}</span></button>`;
+        <span class="up-n-node">${_upMark(it, def)}${it.locked ? `<span class="up-n-lk">${LOCK_SVG}</span>` : ''}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}${lv}</span></button>`;
     };
     // the safety anchor step: the choices right here, or (once chosen) what is chosen with a way to change it
     const pickHtml = () => {
@@ -8497,6 +8514,7 @@ function app(tab){
       const b = e.target.closest('[data-up]'); if(!b) return;
       const it = _upFind(M, b.dataset.up); if(!it) return;
       if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(M.reco); }
+      if(it.kind === 'emo' && M.paid){ _upKeep(); return screenEmotions(); }
       _upItemSheet(it, M, def);
     };
     // land on their spot (Justin, 2026-10-02: "Any time the user opens the pathway, they should land on their spot"): the anchor
@@ -8583,6 +8601,7 @@ function app(tab){
       return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it in Make your own'), () => _upPractice(it));
     }
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
+    if(M.paid && it.kind === 'def' && _emoLevelable(it.key)) body += _upLevelBlock(M.LP[it.key]);
     body += _upChRows(_upChapters(it), M.paid);
     if(it.kind === 'anchor' || it.kind === 'anchor-auto'){
       const btn = it.st === 'mine' ? '' : _upGoBtn(M.paid, it.kind === 'anchor' ? 'Make this my safety anchor' : 'Let the app figure it out');
@@ -8610,12 +8629,130 @@ function app(tab){
     else {
       const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
       s = { key:'self-regulation', skill: p.skill === 'obstacles' ? 'imagery' : (p.practice || 'imagery'), obst: p.skill === 'obstacles' || p.prefix === 'obstacles',
-            prefix: p.prefix || null, depth: p.depth || null, deepest: p.depth === 'description' };
+            prefix: p.prefix || null, depth: p.depth || null, deepest: p.depth === 'description', emotion: _emoLevelable(it.key) ? _emoSuggest(it.key) : null };
     }
     if(it.kind !== 'present'){ try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) base.sense = ap.sense; }catch(e){} }
     _pendingPState = Object.assign(base, s);
     app('practice');
   }
+  // ── which defense: the member's emotions, easy to hard (Justin, 2026-10-02: "allow the user to select 9 emotions from a large
+  // list ... We can pre sort them but also allow the user to change the sorting. 1 is easy and 3 is hard"; own words allowed;
+  // choosing one before a practice is optional, "But we should still track the emotion difficulty they have accomplished").
+  // Kept on this device for now (localStorage); what each practice worked with is saved with the practice (emotion_intent,
+  // "word|level"), so the levels completed follow the member everywhere.
+  const UP_EMO_ALL = [['Worry',1],['Nervous',1],['Annoyed',1],['Anxious',2],['Irritable',2],['Angry',2],['Frustrated',2],['Disappointment',2],
+    ['Numb',2],['Sad',2],['Alone',2],['Regret',2],['Invisible',2],['Hurt',2],['Depressed',2],['Surprised',2],['Insecurity',3],['Panic',3],
+    ['Rage',3],['Overwhelm',3],['Grief',3],['Guilt',3],['Shame',3],['Rejected',3],['Abandoned',3],['Fear',3]];
+  const UP_EMO_MAX = 9, UP_EMO_KEY = 'snb_emotions', UP_TIER = ['', 'Easy', 'Medium', 'Hard'];
+  const _UP_EMO_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h6M5 12h10M5 17h14"/></svg>';
+  const _UP_UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+  const _UP_DN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  function _emoList(){ try{ const a = JSON.parse(localStorage.getItem(UP_EMO_KEY) || '[]'); return Array.isArray(a) ? _emoSort(a.filter(x => x && typeof x.w === 'string' && x.w && [1,2,3].indexOf(x.t) >= 0)).slice(0, UP_EMO_MAX) : []; }catch(e){ return []; } }
+  function _emoSave(a){ try{ localStorage.setItem(UP_EMO_KEY, JSON.stringify(a)); }catch(e){} }
+  function _emoSort(a){ return [1,2,3].reduce((o, t) => o.concat(a.filter(e => e.t === t)), []); }
+  const _emoVal = e => e.w + '|' + e.t;
+  function _emoParse(v){ const m = /^(.+)\|([123])$/.exec(String(v || '')); return m ? { w:m[1], t:+m[2] } : null; }
+  // for the practice's rows ("Working with: Frustrated") and its sentence ("working with feeling frustrated"); the four older
+  // families (anxious, angry, sad, fear) still read as before
+  function _emoWord(v){ const p = _emoParse(v); return p ? p.w : ((typeof MK_EMO_WORDS !== 'undefined' && MK_EMO_WORDS[v]) || null); }
+  function _emoPhrase(v){ const p = _emoParse(v); return p ? 'feeling ' + p.w.toLowerCase() : ((typeof MK_EMO_WORDS !== 'undefined' && MK_EMO_WORDS[v]) || null); }
+  function _emoCounts(a){ return [1,2,3].map(t => [a.filter(e => e.t === t).length, UP_TIER[t].toLowerCase()]).filter(x => x[0]).map(x => x[0] + ' ' + x[1]).join(' · '); }
+  const _emoLevelable = key => { const p = (Store.sequenceParts && Store.sequenceParts(key)) || {}; return !!p.skill && p.skill !== 'obstacles' && p.prefix !== 'obstacles'; };
+  // the "Working with" choices: whatever surfaces, then the member's emotions under Easy, Medium and Hard. With no list yet,
+  // the four families as before and a way to choose their emotions.
+  function _emoOpts(){
+    const L = _emoList();
+    const none = [{ val:'', menu:'whatever emotion surfaces', sub:'Let a feeling arrive on its own' }];
+    if(!L.length) return [{ opts: none.concat((Store.EMOTION_FAMILIES || []).map(f => ({ val:f.key, menu:MK_EMO_WORDS[f.key] || f.label, sub:f.hint }))) },
+      { opts:[{ val:'__choose', menu:'Choose your emotions', sub:'Sorted from easy to hard, on the Unstucking Pathway' }] }];
+    return [{ opts:none }].concat([1,2,3].filter(t => L.some(e => e.t === t)).map(t => ({ label:UP_TIER[t], opts:L.filter(e => e.t === t).map(e => ({ val:_emoVal(e), menu:e.w })) })));
+  }
+  // the emotion to preselect for a step: the level asked for, else the easiest level not yet completed on that step; the first
+  // emotion the member put in that level (or the nearest level that has one)
+  function _emoSuggest(key, tier){
+    const L = _emoList(); if(!L.length) return null;
+    let t = tier;
+    if(!t){ let LP = {}; try{ LP = (Store.levelProgress && Store.levelProgress()) || {}; }catch(e){} const lp = LP[key] || {}; t = [1,2,3].find(x => !(lp[x] && lp[x].done)) || 3; }
+    const e = L.find(x => x.t === t) || L.find(x => x.t === t - 1) || L.find(x => x.t === t + 1) || null;
+    return e ? _emoVal(e) : null;
+  }
+  // the three marks on a defense step (filled = completed within capacity at that level)
+  function _upLevels(lp){
+    lp = lp || {};
+    return `<span class="up-lv">${[1,2,3].map(t => { const on = !!(lp[t] && lp[t].done);
+      return `<i${on ? ' data-on="1"' : ''}>${on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}${UP_TIER[t]}</i>`; }).join('')}</span>`;
+  }
+  function _upLevelBlock(lp){
+    lp = lp || {};
+    const row = t => { const x = lp[t]; const said = x && x.words && x.words.length ? x.words.join(', ') : '';
+      return `<div class="up-lv-row"><b>${UP_TIER[t]}</b><span>${x && x.done ? escapeHtml(UP_ST.done) + (said ? ' with ' + escapeHtml(said.toLowerCase()) : '') : x ? 'Practiced' + (said ? ' with ' + escapeHtml(said.toLowerCase()) : '') : 'Not yet'}</span></div>`; };
+    return `<div class="up-sh-blk"><p class="up-sh-lbl">Levels of emotion</p>${[1,2,3].map(row).join('')}<p class="up-sh-p up-sh-line">Choose the level before you practice, under Working with. Any level counts toward the next skill.</p></div>`;
+  }
+  // the plan's "Working with" row (the reminder of what the practice is aimed at; not for Obstacles practices)
+  function _emoPlanRow(reco){
+    if(!reco || reco.practiceKey !== 'self-regulation' || reco.skill === 'obstacles' || reco.prefix === 'obstacles') return '';
+    if(!reco._emoSet){ reco._emoSet = 1; if(!reco.emotionIntent){ const v = _emoSuggest(reco.offerKey, reco.emotionTier); if(v) reco.emotionIntent = v; } }
+    const p = _emoParse(reco.emotionIntent), w = _emoWord(reco.emotionIntent);
+    return `<div class="plan-sec plan-emo"><p class="sec-h">Working with</p>
+      <button class="plan-emo-btn" id="plan-emo" type="button"><span class="plan-emo-t"><b>${escapeHtml(CAP(w || 'whatever emotion surfaces'))}</b>${p ? `<i>${UP_TIER[p.t]}</i>` : ''}</span>${typeof MK_CARET !== 'undefined' ? MK_CARET : ''}</button></div>`;
+  }
+  function _emoPlanWire(reco, from){
+    const b = document.getElementById('plan-emo'); if(!b) return;
+    b.onclick = () => openDialSheet('Working with', _emoOpts(), reco.emotionIntent || '', '', v => {
+      if(v === '__choose') return screenEmotions(() => renderPlan(reco, from));
+      reco.emotionIntent = v || null; renderPlan(reco, from);
+    });
+  }
+  // the "Which defense?" screen: up to nine emotions in three levels with a line between each; move them up and down (across a
+  // line changes the level), take them out, add from the list or in your own words
+  function screenEmotions(onDone){
+    const done = typeof onDone === 'function' ? onDone : screenPathway;
+    let L = _emoList(), msg = '';
+    const def = _domDefense(), c = _upCols({ kind:'emo' }, def);
+    const save = () => { L = _emoSort(L); _emoSave(L); try{ haptic('save'); }catch(e){} };
+    const paint = () => {
+      const has = new Set(L.map(e => e.w.toLowerCase())), full = L.length >= UP_EMO_MAX;
+      const row = (e, i) => `<div class="em-row"><span class="em-w">${escapeHtml(e.w)}</span>
+        <button class="em-b" type="button" data-mv="up" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} up"${i === 0 && e.t === 1 ? ' disabled' : ''}>${_UP_UP}</button>
+        <button class="em-b" type="button" data-mv="dn" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} down"${i === L.length - 1 && e.t === 3 ? ' disabled' : ''}>${_UP_DN}</button>
+        <button class="em-b em-x" type="button" data-rm="${i}" aria-label="Take out ${escapeHtml(e.w)}">${_UP_X}</button></div>`;
+      const tier = t => `<div class="em-tier" data-t="${t}"><p class="em-tier-h">${UP_TIER[t]}</p>${L.map((e, i) => e.t === t ? row(e, i) : '').join('') || '<p class="em-none">None yet</p>'}</div>`;
+      const chips = [1,2,3].map(t => { const left = UP_EMO_ALL.filter(x => x[1] === t && !has.has(x[0].toLowerCase()));
+        return left.length ? `<div class="em-add-g"><p class="em-add-h">${UP_TIER[t]}</p><div class="em-chips">${left.map(x => `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${t}"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`).join('')}</div></div>` : ''; }).join('');
+      _rdShell(`<div class="up-view em-view" style="--line:${c.line};--band:${c.band}"><div class="scr-head read-head"><h1 class="read-h1">Which defense?</h1></div>
+        <p class="up-lede">${escapeHtml(UP_Q.which[0])}</p>
+        <p class="em-how">Choose up to nine emotions to work with. They start sorted from easy to hard, and you can move any of them. Choosing one before a practice is optional.</p>
+        <h3 class="p8-sec up-sec">Your emotions <span class="em-n">${L.length} of ${UP_EMO_MAX}</span></h3>
+        <div class="em-list">${tier(1)}${tier(2)}${tier(3)}</div>
+        <h3 class="p8-sec up-sec">Add an emotion</h3>
+        ${full ? '<p class="em-how">You have nine. Take one out to add another.</p>' : ''}
+        ${chips}
+        <form class="em-own" id="em-own" autocomplete="off"><label class="em-add-h" for="em-own-in">In your own words</label>
+          <div class="em-own-row"><input id="em-own-in" class="em-own-in" type="text" maxlength="30" placeholder="A feeling, in your words"${full ? ' disabled' : ''}>
+          <button class="em-own-go" type="submit"${full ? ' disabled' : ''}>Add</button></div>${msg ? `<p class="em-msg">${escapeHtml(msg)}</p>` : ''}</form>
+        <button class="btn block em-done" id="em-done" type="button">Done</button></div>`, { tab:'practice', onBack:done, loc:{ k:'pathway' } });
+      const view = root.querySelector('.em-view'); if(!view) return;
+      view.onclick = e => {
+        const mv = e.target.closest('[data-mv]');
+        if(mv){ const i = +mv.dataset.i, x = L[i]; if(!x) return;
+          if(mv.dataset.mv === 'up'){ if(i > 0 && L[i-1].t === x.t){ L[i] = L[i-1]; L[i-1] = x; } else if(x.t > 1) x.t--; }
+          else { if(i < L.length - 1 && L[i+1].t === x.t){ L[i] = L[i+1]; L[i+1] = x; } else if(x.t < 3) x.t++; }
+          msg = ''; save(); return keep(paint); }
+        const rm = e.target.closest('[data-rm]'); if(rm){ L.splice(+rm.dataset.rm, 1); msg = ''; save(); return keep(paint); }
+        const ad = e.target.closest('[data-add]'); if(ad && L.length < UP_EMO_MAX){ L.push({ w:ad.dataset.add, t:+ad.dataset.t }); msg = ''; save(); return keep(paint); }
+        if(e.target.closest('#em-done')) return done();
+      };
+      const f = view.querySelector('#em-own');
+      if(f) f.onsubmit = ev => { ev.preventDefault(); const inp = view.querySelector('#em-own-in'); let w = (inp && inp.value || '').replace(/\s+/g, ' ').replace(/[|]/g, '').trim();
+        if(!w || L.length >= UP_EMO_MAX) return;
+        w = w.charAt(0).toUpperCase() + w.slice(1);
+        if(L.some(e => e.w.toLowerCase() === w.toLowerCase())){ msg = w + ' is already on your list.'; return keep(paint); }
+        L.push({ w, t:2 }); msg = ''; save(); keep(paint); };
+    };
+    const keep = fn => { const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; fn(); const sc2 = root.querySelector('.scroll'); if(sc2) sc2.scrollTop = y; };
+    paint();
+  }
+
   // the Practice tab's way in (Justin, 2026-10-02: "deserves a little more visual flair. more screen real estate, an animated
   // path, from top to bottom"): a card with the stretch of the pathway around where the member is, drawn in from the top
   function _upEntry(paid){
@@ -8626,7 +8763,7 @@ function app(tab){
       if(M){
         const def = _domDefense();
         const steps = [].concat(M.secs[0].items, [{ kind:'anchor', key:'pick', title:'Your safety anchor', st: !M.paid ? 'paid' : M.anchorSet ? 'done' : 'now' }],
-          M.secs[2].items, M.secs[3].items, M.secs[4].items, M.secs[5].items, M.secs[6].items);
+          M.SEC('safety').items, M.SEC('which').items, M.defItems);
         // where the member is: the recommended step (or the anchor, until it is chosen), else the first step not yet completed
         let at = M.paid ? steps.findIndex(it => it.st === 'now' && it.kind !== 'present') : 0;
         if(M.paid && !M.anchorSet) at = steps.findIndex(it => it.key === 'pick');
@@ -8753,7 +8890,7 @@ function app(tab){
       if(k==='self-regulation'){
         R.push(['skill','Skill', CAP(skillLabel(sk))]);
         if(mkTakesObstacles(sk)) R.push(['obst','Obstacle statements', pState.obst ? 'With' : 'Without']);
-        if(!(mkTakesObstacles(sk) && pState.obst)) R.push(['emotion','Working with', CAP(MK_EMO_WORDS[pState.emotion] || 'whatever emotion surfaces')]);
+        if(!(mkTakesObstacles(sk) && pState.obst)) R.push(['emotion','Working with', CAP(_emoWord(pState.emotion) || 'whatever emotion surfaces')]);
         if(mkHasDepth(sk)) R.push(['depth','Practice depth', CAP(mkDepthWords(pState.depth))]);   // not "How deep" (Justin, 2026-10-02: intimidating)
         if(holdWatchOffered(sk, pState.deepest)) R.push(['hold','Hold & watch', pState.holdWatch ? CAP(holdDurWords(pState.holdSeconds)) : 'Off']);
       }
@@ -8790,8 +8927,10 @@ function app(tab){
       } else if(kind==='obst'){
         openDialSheet('Obstacle statements', [{opts:[{val:'1',menu:'With Obstacle statements',sub:'Four statements first, then the skill'},{val:'0',menu:'Without Obstacle statements',sub:'Start with the skill'}]}], pState.obst?'1':'0', tc, (v)=>{ pState.obst=(v==='1'); pState.prefix=pState.obst?'obstacles':null; mkNormalize(); paint(); });
       } else if(kind==='emotion'){
-        const opts=[{val:'',menu:'whatever emotion surfaces',sub:'Let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:MK_EMO_WORDS[f.key]||f.label,sub:f.hint})));
-        openDialSheet('Working with', [{opts}], pState.emotion||'', tc, (v)=>{ pState.emotion=v||null; paint(); });
+        // the member's emotions, easy to hard (the Unstucking Pathway's "Which defense?", 2026-10-02)
+        openDialSheet('Working with', _emoOpts(), pState.emotion||'', tc, (v)=>{
+          if(v==='__choose'){ const sh=document.getElementById('p8-sheet'); if(sh) sh.remove(); return screenEmotions(()=>app('practice')); }
+          pState.emotion=v||null; paint(); });
       } else if(kind==='depth'){
         openDialSheet('Practice depth', [{opts:MK_DEPTHS.map(([val,l])=>({val,menu:l}))}], pState.depth||'general', tc, (v)=>{ pState.depth=v; pState.deepest=(v==='description'); mkNormalize(); paint(); });
       } else if(kind==='hold'){

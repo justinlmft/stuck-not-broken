@@ -1541,6 +1541,27 @@
     });
     return { cleared, next, hi, strongest, so };
   }
+  // levelProgress() (2026-10-02, the Unstucking Pathway): each defense step at each level of emotion (1 easy, 2 medium, 3 hard).
+  // A session's emotionIntent is "word|level" when the member chose one of their emotions (bare family keys from before
+  // carry no level). Same "completed within capacity" rule as skillProgress(): >=2 good outcomes and no bad in the last 2.
+  // { [sequence key]: { [level]: { done, n, words:[...] } } }. Justin: "i want to let them choose which level".
+  function levelProgress(){
+    const acc = {};
+    data.sessions.forEach(s => {
+      if(!s || s.practiceKey !== 'self-regulation' || !s.emotionIntent) return;
+      const m = /^(.+)\|([123])$/.exec(String(s.emotionIntent)); if(!m) return;
+      const k = sequenceKeyOf(s); if(!k) return;
+      const t = +m[2], o = _outcomeOf(s);
+      const byK = acc[k] = acc[k] || {}, b = byK[t] = byK[t] || { good:0, n:0, last:[], words:{} };
+      b.n++; if(o === 'good') b.good++;
+      b.last.push(o); if(b.last.length > 2) b.last.shift();
+      b.words[m[1]] = 1;
+    });
+    const out = {};
+    Object.keys(acc).forEach(k => { out[k] = {}; Object.keys(acc[k]).forEach(t => { const b = acc[k][t];
+      out[k][t] = { done: b.good >= 2 && b.last.indexOf('bad') < 0, n: b.n, words: Object.keys(b.words) }; }); });
+    return out;
+  }
   // safetyProgress() (2026-10-02, the Unstucking Pathway): the same "completed within capacity" rule as skillProgress()
   // (>=2 good outcomes and no bad in the last 2), over the anchoring practices, in the engine's safety order
   // (SEQUENCE.safety). A plain anchoring practice (no safety skill, or the maker's leftover skill) counts as the first one,
@@ -1926,6 +1947,17 @@
     // back (a step above the tier drops to the tier's top step).
     let key = sp.next || sp.strongest || (SEQ.indexOf(L.favSkill) >= 0 ? L.favSkill : SEQ[0]);
     if(SEQ.indexOf(key) > capIdx) key = SEQ[capIdx];
+    // the level of emotion to suggest (Justin, 2026-10-02): easy until the whole sequence is completed, then back through it at
+    // medium, then at hard. Only a suggestion: the member chooses the level before practicing. Obstacles practices have none.
+    let emoTier = 1;
+    if(!sp.next){
+      const LP = levelProgress(), lv = k => { const p = sequenceParts(k) || {}; return p.skill !== 'obstacles' && p.prefix !== 'obstacles'; };
+      emoTier = 3;
+      for(const t of [2, 3]){
+        const k2 = SEQ.find((k, i) => i <= capIdx && lv(k) && !(LP[k] && LP[k][t] && LP[k][t].done));
+        if(k2){ key = k2; emoTier = t; break; }
+      }
+    }
     let dialDown = false, droppedStep = false, leftTrack = false;
     if(hardLast){
       if(prevMost && _outcomeOf(prevMost)==='bad'){                       // two heavy ones in a row
@@ -1960,7 +1992,7 @@
       reason = stepPhrase(key)
         ? "last one was a lot, so we'll stay with the same practice and keep it gentler: a bit shorter, with more quiet space between the guidance."
         : "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler: a bit shorter, with more quiet space between the guidance.";
-      if(lastMost && lastMost.emotionIntent) reason += " if you work with " + lastMost.emotionIntent + " again, maybe at a gentler intensity this time.";
+      if(lastMost && lastMost.emotionIntent) reason += " if you work with " + String(lastMost.emotionIntent).replace(/\|[123]$/, '') + " again, maybe at a gentler intensity this time.";
     } else if(droppedStep && hardLast){
       reason = "the last couple were a lot, so we'll ease back to " + _stepWords(key, skill) + " for now. that's just where your system is right now, and it's completely normal. the practices after this one will still be here when you're ready.";
     } else if(droppedStep){
@@ -1989,7 +2021,8 @@
     const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
     return cfg('self-regulation', skill, sense, sil3, reason, dialDown ? 'same step, smaller dose' : droppedStep ? 'one step easier' : 'room to go deeper',
                { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedStep,
-                 prefix: part.prefix, depth: part.depth, offerKey: key });
+                 prefix: part.prefix, depth: part.depth, offerKey: key,
+                 emotionTier: (part.skill === 'obstacles' || part.prefix === 'obstacles') ? null : emoTier });
 
     function cfg(practiceKey, skill, sense, silence, reason, tag, extras){
       const pSil = prefSilence();
@@ -2081,7 +2114,7 @@
   function emotionShift(s){
     s = s || (data.sessions[data.sessions.length-1] || null);
     if(!s) return null;
-    const intent = s.emotionIntent || null;
+    const intent = s.emotionIntent ? String(s.emotionIntent).replace(/\|[123]$/, '') : null;   // "word|level" (2026-10-02) reads as the word
     const surfaced = s.emotionSurfaced ? String(s.emotionSurfaced).split(',').map(x=>x.trim()).filter(Boolean) : [];
     if(!intent && !surfaced.length) return null;
     return { intent, surfaced, connected: surfaced.indexOf('connected')>=0,
@@ -2301,7 +2334,7 @@
     learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
-    skillProgress, safetyProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
+    skillProgress, safetyProgress, levelProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
     prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,

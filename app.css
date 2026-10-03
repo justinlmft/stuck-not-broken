@@ -3949,3 +3949,46 @@ body.reduce-motion .jr-fmenu{transition:none}
 @keyframes upHeroPulse{0%,100%{box-shadow:0 0 0 4px color-mix(in srgb, var(--band) 35%, transparent)}50%{box-shadow:0 0 0 8px color-mix(in srgb, var(--band) 10%, transparent)}}
 .reduce-motion .up-h-row,.reduce-motion .up-h-row::before,.reduce-motion .up-h-row .up-h-dot{animation:none;opacity:1;transform:none}
 @media (prefers-reduced-motion: reduce){ .up-h-row,.up-h-row::before,.up-h-row .up-h-dot{animation:none;opacity:1;transform:none} }
+/* level marks on a defense step: easy / medium / hard, filled when completed at that level (2026-10-02) */
+.up-lv{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.up-lv i{display:inline-flex;align-items:center;gap:3px;font-style:normal;font-size:calc(11px * var(--type-scale));line-height:1;padding:3px 7px;border-radius:999px;color:var(--muted);border:1px dashed color-mix(in srgb, var(--ink) 28%, transparent)}
+.up-lv i[data-on]{color:var(--ink);border-style:solid;border-color:var(--line);background:color-mix(in srgb, var(--band) 38%, var(--rd-card))}
+.up-lv i svg{width:10px;height:10px}
+.up-lv-row{display:flex;gap:10px;align-items:baseline;font-size:calc(14px * var(--type-scale));line-height:1.4}
+.up-lv-row b{flex:none;width:64px;font-weight:600;color:var(--ink)}
+.up-lv-row span{color:var(--ink-80)}
+/* Which defense?: the member's emotions in three levels */
+.em-view .up-lede{margin-bottom:8px}
+.em-how{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.45;margin:0 0 4px;text-wrap:wrap}
+.em-n{font-weight:400;font-size:calc(13px * var(--type-scale));color:var(--muted);margin-left:6px}
+.em-list{display:flex;flex-direction:column;border:1px solid var(--hairline);border-radius:16px;background:var(--rd-card);overflow:hidden}
+.em-tier{padding:8px 14px 10px}
+.em-tier + .em-tier{border-top:2px solid color-mix(in srgb, var(--line) 55%, var(--hairline))}
+.em-tier-h{margin:2px 0 4px;font-size:calc(12px * var(--type-scale));font-weight:600;letter-spacing:.02em;color:var(--line)}
+.em-none{margin:4px 0;font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.em-row{display:flex;align-items:center;gap:4px;min-height:44px;border-top:1px solid var(--hairline)}
+.em-tier-h + .em-row{border-top:0}
+.em-w{flex:1;min-width:0;font-size:calc(15px * var(--type-scale));color:var(--ink)}
+.em-b{width:36px;height:36px;flex:none;display:grid;place-items:center;border:0;background:none;color:var(--ink-80);border-radius:10px;cursor:pointer;padding:0}
+.em-b svg{width:18px;height:18px}
+.em-b:disabled{opacity:.25;cursor:default}
+.em-b:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.em-x svg{width:15px;height:15px}
+.em-add-g{margin:6px 0 10px}
+.em-add-h{display:block;margin:0 0 6px;font-size:calc(12px * var(--type-scale));font-weight:600;color:var(--muted)}
+.em-chips{display:flex;flex-wrap:wrap;gap:6px}
+.em-chip{font:inherit;font-size:calc(14px * var(--type-scale));color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:999px;padding:7px 13px;min-height:36px;cursor:pointer}
+.em-chip:disabled{opacity:.4;cursor:default}
+.em-own{margin:10px 0 0}
+.em-own-row{display:flex;gap:8px}
+.em-own-in{flex:1;min-width:0;font:inherit;font-size:16px;color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:12px;padding:10px 12px}
+.em-own-go{font:inherit;font-size:calc(14px * var(--type-scale));font-weight:500;color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:12px;padding:0 16px;cursor:pointer}
+.em-own-go:disabled,.em-own-in:disabled{opacity:.5}
+.em-msg{margin:6px 0 0;font-size:calc(13px * var(--type-scale));color:var(--ink-80)}
+.em-done{margin-top:24px}
+/* the plan's "Working with" row */
+.plan-emo-btn{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin-top:6px;padding:12px 14px;font:inherit;text-align:left;color:var(--ink);background:var(--rd-card,#fff);border:1px solid var(--hairline);border-radius:14px;cursor:pointer}
+.plan-emo-t{display:flex;align-items:baseline;gap:8px;min-width:0}
+.plan-emo-t b{font-weight:500;font-size:calc(15px * var(--type-scale))}
+.plan-emo-t i{font-style:normal;font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
+.plan-emo-btn .p7-dial-caret{width:16px;height:16px;flex:none;color:var(--muted)}
