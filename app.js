@@ -8231,7 +8231,7 @@ function app(tab){
     pendulating: ['Pendulating is the ability to deliberately and consciously shift between feelings of safety and defense. It’s similar to Balancing, but with Pendulating, you continuously alternate between defense and safety.'],
     generalDef: ['When you first practice Balancing and Pendulating, you’ll focus on the Anchored Awareness and Witnessing levels, recognizing defense and how it appears in the body in general.'],
     describeDef: ['When you’re ready to connect more deeply, Description is the skill that allows you to Experience defense fully.'],
-    which: ['“But which non-safety experiences, Justin?” Great question! Here are three options; choose whichever you are ready for, and then work your way up in difficulty as capacity allows.'],
+    which: ['“But which non-safety experiences, Justin?” Great question!'],   // (Justin, 2026-10-02: cut "Here are... allows.")
     hold: ['Holding is kind of like a frozen moment in time. You pay attention to both safety and defense as Sensations in your body.', 'Watching is remaining open to what may happen next as a result of Holding.'],
   };
   // the chapter to read before a practice on the path; each one shows once, before the first practice that uses it
@@ -8370,6 +8370,7 @@ function app(tab){
     const partsOf = k => (Store.sequenceParts(k) || {});
     // the member's emotions, easy to hard, and each defense step's levels (store.js levelProgress())
     let LP = {}; if(paid){ try{ LP = (Store.levelProgress && Store.levelProgress()) || {}; }catch(e){} }
+    let R = {}; try{ R = (Store.stepResults && Store.stepResults()) || {}; }catch(e){}
     const emo = _emoList();
     const E = { kind:'emo', key:'list', title:'Your emotions', st: !paid ? 'paid' : emo.length ? 'done' : 'open', emo };
     const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
@@ -8409,7 +8410,7 @@ function app(tab){
       if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
       else if(eased) note = 'Your practice right now is a gentler one: ' + _upDefTitle(recoKey) + '.';
     }
-    return { paid, secs, SEC, defItems, note, reco, anchors, anchorMode, anchorSet, LP };
+    return { paid, secs, SEC, defItems, note, reco, anchors, anchorMode, anchorSet, LP, R };
   }
   function _upMark(it, def){
     if(it.kind === 'anchor-auto') return MK_TYPE_ICO.surprise || '';
@@ -8452,12 +8453,12 @@ function app(tab){
       const c = _upCols(it, def);
       // the state is drawn, not spelled out (Justin, 2026-10-02: "'Working on now' is not needed since it's visually explained
       // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
-      // with a small lock. Only "Completed within your capacity" and "Practiced" stay as words.
-      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.locked || it.st === 'now' || it.st === 'next') ? '' : escapeHtml(UP_ST[it.st] || '');
+      // with a small lock.
+      // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
+      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(M.R[it.key])) : '';
       if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
-      // easy / medium / hard on each defense step, filled when completed at that level (Justin, 2026-10-02)
+      // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
       const lv = M.paid && it.kind === 'def' && _emoLevelable(it.key) ? _upLevels(M.LP[it.key]) : '';
-      if(lv) words = '';
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
       return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="--band:${c.band};--line:${c.line}">
         <span class="up-n-node">${_upMark(it, def)}${it.locked ? `<span class="up-n-lk">${LOCK_SVG}</span>` : ''}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}${lv}</span></button>`;
@@ -8592,7 +8593,7 @@ function app(tab){
     : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
   function _upItemSheet(it, M, def){
     const W = _upWhat(it);
-    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml(UP_ST[it.st] || '');
+    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
     if(W.q && W.q.length) body += `<div class="up-sh-blk">${W.q.map(t => `<p class="up-sh-p">${escapeHtml(t)}</p>`).join('')}</div>`;
     if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
@@ -8647,8 +8648,27 @@ function app(tab){
   const _UP_EMO_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h6M5 12h10M5 17h14"/></svg>';
   const _UP_UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
   const _UP_DN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-  function _emoList(){ try{ const a = JSON.parse(localStorage.getItem(UP_EMO_KEY) || '[]'); return Array.isArray(a) ? _emoSort(a.filter(x => x && typeof x.w === 'string' && x.w && [1,2,3].indexOf(x.t) >= 0)).slice(0, UP_EMO_MAX) : []; }catch(e){ return []; } }
-  function _emoSave(a){ try{ localStorage.setItem(UP_EMO_KEY, JSON.stringify(a)); }catch(e){} }
+  // kept with the account like the journal answers (contexts, key "emo:list", ["Worry|1", ...]), so it follows the member to
+  // every device; the first build kept it on the device only (snb_emotions), which is moved over once
+  const UP_EMO_CTX = 'emo:list';
+  const _emoOk = x => x && typeof x.w === 'string' && x.w && [1,2,3].indexOf(x.t) >= 0;
+  function _emoList(){
+    let raw = null;
+    try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m && Array.isArray(m[UP_EMO_CTX])) raw = m[UP_EMO_CTX].map(_emoParse).filter(Boolean); }catch(e){}
+    if(!raw){ try{ const a = JSON.parse(localStorage.getItem(UP_EMO_KEY) || 'null'); if(Array.isArray(a) && a.filter(_emoOk).length){ raw = a.filter(_emoOk); _emoSave(raw); } }catch(e){} }
+    return _emoSort((raw || []).filter(_emoOk)).slice(0, UP_EMO_MAX);
+  }
+  function _emoSave(a){
+    const labels = _emoSort(a.filter(_emoOk)).map(e => e.w + '|' + e.t);
+    try{ if(Store.saveContexts) Store.saveContexts(UP_EMO_CTX, 'Which defense?', labels); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[UP_EMO_CTX] = labels; _ctxSave(m); } }catch(e){}
+    try{ localStorage.removeItem(UP_EMO_KEY); }catch(e){}
+  }
+  // "Practiced with [result]" (Justin, 2026-10-02: "based on the user's input and/or checking post practice"): the member's own
+  // after-practice answer, else what the check-in after showed
+  const UP_RES = { more:'more connection and presence', same:'no change in connection', less:'less connection and presence', struggle:'a struggle', unsure:'an unclear result' };
+  function _upResWords(r){ return !r ? '' : (r.af && UP_RES[r.af]) ? UP_RES[r.af] : r.up ? 'more safety after' : ''; }
+  function _upPracticed(r){ const w = _upResWords(r); return w ? 'Practiced with ' + w : 'Practiced'; }
+  const _UP_CHECK = '<svg class="up-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
   function _emoSort(a){ return [1,2,3].reduce((o, t) => o.concat(a.filter(e => e.t === t)), []); }
   const _emoVal = e => e.w + '|' + e.t;
   function _emoParse(v){ const m = /^(.+)\|([123])$/.exec(String(v || '')); return m ? { w:m[1], t:+m[2] } : null; }
@@ -8680,13 +8700,15 @@ function app(tab){
   function _upLevels(lp){
     lp = lp || {};
     return `<span class="up-lv">${[1,2,3].map(t => { const on = !!(lp[t] && lp[t].done);
-      return `<i${on ? ' data-on="1"' : ''}>${on ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}${UP_TIER[t]}</i>`; }).join('')}</span>`;
+      return `<i${on ? ' data-on="1"' : ''}>${on ? _UP_CHECK : ''}${UP_TIER[t]}</i>`; }).join('')}</span>`;
   }
   function _upLevelBlock(lp){
     lp = lp || {};
     const row = t => { const x = lp[t]; const said = x && x.words && x.words.length ? x.words.join(', ') : '';
-      return `<div class="up-lv-row"><b>${UP_TIER[t]}</b><span>${x && x.done ? escapeHtml(UP_ST.done) + (said ? ' with ' + escapeHtml(said.toLowerCase()) : '') : x ? 'Practiced' + (said ? ' with ' + escapeHtml(said.toLowerCase()) : '') : 'Not yet'}</span></div>`; };
-    return `<div class="up-sh-blk"><p class="up-sh-lbl">Levels of emotion</p>${[1,2,3].map(row).join('')}<p class="up-sh-p up-sh-line">Choose the level before you practice, under Working with. Any level counts toward the next skill.</p></div>`;
+      if(!x) return `<div class="up-lv-row"><b>${UP_TIER[t]}</b><span>Not yet</span></div>`;
+      const l = x.last || {}, res = _upResWords(l), also = (x.words || []).filter(w => w !== l.w);
+      return `<div class="up-lv-row"${x.done ? ' data-on="1"' : ''}><b>${UP_TIER[t]}</b><span>${x.done ? _UP_CHECK : ''}Practiced with ${escapeHtml((l.w || said).toLowerCase())}${res ? ', ' + escapeHtml(res) : ''}${also.length ? escapeHtml(' (also ' + also.join(', ').toLowerCase() + ')') : ''}</span></div>`; };
+    return `<div class="up-sh-blk"><p class="up-sh-lbl">Levels of emotion</p>${[1,2,3].map(row).join('')}<p class="up-sh-p up-sh-line">Choose the level before you practice, under Working with. A level is checked once a practice at it goes well.</p></div>`;
   }
   // the plan's "Working with" row (the reminder of what the practice is aimed at; not for Obstacles practices)
   function _emoPlanRow(reco){
@@ -8717,8 +8739,10 @@ function app(tab){
         <button class="em-b" type="button" data-mv="dn" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} down"${i === L.length - 1 && e.t === 3 ? ' disabled' : ''}>${_UP_DN}</button>
         <button class="em-b em-x" type="button" data-rm="${i}" aria-label="Take out ${escapeHtml(e.w)}">${_UP_X}</button></div>`;
       const tier = t => `<div class="em-tier" data-t="${t}"><p class="em-tier-h">${UP_TIER[t]}</p>${L.map((e, i) => e.t === t ? row(e, i) : '').join('') || '<p class="em-none">None yet</p>'}</div>`;
-      const chips = [1,2,3].map(t => { const left = UP_EMO_ALL.filter(x => x[1] === t && !has.has(x[0].toLowerCase()));
-        return left.length ? `<div class="em-add-g"><p class="em-add-h">${UP_TIER[t]}</p><div class="em-chips">${left.map(x => `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${t}"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`).join('')}</div></div>` : ''; }).join('');
+      // loose, in alphabetical order (Justin, 2026-10-02: "the unpicked emotions should not be grouped. just leave them loose. but
+      // when they are selected, they can go into the three tiers"); each still goes to its suggested level when picked
+      const left = UP_EMO_ALL.filter(x => !has.has(x[0].toLowerCase())).sort((a, b) => a[0].localeCompare(b[0]));
+      const chips = left.length ? `<div class="em-chips">${left.map(x => `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${x[1]}"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`).join('')}</div>` : '';
       _rdShell(`<div class="up-view em-view" style="--line:${c.line};--band:${c.band}"><div class="scr-head read-head"><h1 class="read-h1">Which defense?</h1></div>
         <p class="up-lede">${escapeHtml(UP_Q.which[0])}</p>
         <p class="em-how">Choose up to nine emotions to work with. They start sorted from easy to hard, and you can move any of them. Choosing one before a practice is optional.</p>
@@ -8774,7 +8798,8 @@ function app(tab){
         const stOf = (it, i) => it.st === 'paid' ? 'paid' : (from + i) === at ? 'now' : it.st === 'done' ? 'done' : it.locked ? 'locked' : 'ahead';
         rows = win.map((it, i) => {
           const c = _upCols(it, def), st = stOf(it, i);
-          const word = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : st === 'done' ? escapeHtml(UP_ST.done) : '';
+          const word = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
+            : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(M.R[it.key])) : '';
           const solid = st === 'done' && win[i + 1] && stOf(win[i + 1], i + 1) === 'done';
           return `<span class="up-h-row" data-st="${st}"${solid ? ' data-seg="1"' : ''} style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
             <span class="up-h-t"><b>${escapeHtml(it.title)}</b>${word ? `<span>${word}</span>` : ''}</span></span>`;
@@ -8804,7 +8829,7 @@ function app(tab){
       const meta = reco.openEnded ? `Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}`
         : (est ? `About ${est} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}` : escapeHtml(CAP(Store.practiceLabel(reco.practiceKey))));
       const lineCol = reco.practiceKey==='anchoring' ? 'var(--s-safety-tx)' : reco.practiceKey==='self-regulation' ? `var(--s-${({fightflight:'fight',shutdown:'shutdown',freeze:'freeze'})[def||'freeze']}-tx)` : 'var(--ink)';
-      card = `<div class="rd-lcard p8-reco${animateIn?' p8-draw':''}" id="foryou" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)};--line:${lineCol}">
+      card = `<div class="rd-lcard p8-reco${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)};--line:${lineCol}">
         <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
           <span class="p8-reco-foot"><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button></span></span>

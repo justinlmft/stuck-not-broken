@@ -1541,9 +1541,27 @@
     });
     return { cleared, next, hi, strongest, so };
   }
+  // stepResults() (2026-10-02, the Unstucking Pathway: "Practiced with [result]' based on the user's input and/or checking post
+  // practice"): each step's latest practice, keyed like the pathway (a defense sequence key, a safety practice, or the practice
+  // itself): the member's own after-practice answer, and whether the check-in after showed more safety.
+  function stepResults(){
+    const out = {}, SEQ = SAFETY_SEQUENCE || [];
+    data.sessions.forEach(s => {
+      if(!s || !s.practiceKey) return;
+      const k = s.practiceKey === 'self-regulation' ? sequenceKeyOf(s)
+              : s.practiceKey === 'anchoring' ? ((s.skill && SEQ.indexOf(s.skill) >= 0) ? s.skill : 'anchoring')
+              : s.practiceKey;
+      if(!k) return;
+      const af = s.afterFeeling || null, up = !!_movedUp(s);
+      if(!af && !up && out[k]) return;   // a practice with nothing to say keeps the last one that did
+      out[k] = { af, up, outcome: _outcomeOf(s) };
+    });
+    return out;
+  }
   // levelProgress() (2026-10-02, the Unstucking Pathway): each defense step at each level of emotion (1 easy, 2 medium, 3 hard).
   // A session's emotionIntent is "word|level" when the member chose one of their emotions (bare family keys from before
-  // carry no level). Same "completed within capacity" rule as skillProgress(): >=2 good outcomes and no bad in the last 2.
+  // carry no level). A level is done once a practice at it has a successful result (Justin, 2026-10-02: "a 'done' mark for the
+  // level should only come if it's a successful result"); `last` is that level's latest practice, for "Practiced with ...".
   // { [sequence key]: { [level]: { done, n, words:[...] } } }. Justin: "i want to let them choose which level".
   function levelProgress(){
     const acc = {};
@@ -1556,10 +1574,11 @@
       b.n++; if(o === 'good') b.good++;
       b.last.push(o); if(b.last.length > 2) b.last.shift();
       b.words[m[1]] = 1;
+      b.lastS = { af: s.afterFeeling || null, up: !!_movedUp(s), w: m[1] };
     });
     const out = {};
     Object.keys(acc).forEach(k => { out[k] = {}; Object.keys(acc[k]).forEach(t => { const b = acc[k][t];
-      out[k][t] = { done: b.good >= 2 && b.last.indexOf('bad') < 0, n: b.n, words: Object.keys(b.words) }; }); });
+      out[k][t] = { done: b.good >= 1, n: b.n, words: Object.keys(b.words), last: b.lastS || null }; }); });
     return out;
   }
   // safetyProgress() (2026-10-02, the Unstucking Pathway): the same "completed within capacity" rule as skillProgress()
@@ -2334,7 +2353,7 @@
     learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
-    skillProgress, safetyProgress, levelProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
+    skillProgress, safetyProgress, levelProgress, stepResults, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
     prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
