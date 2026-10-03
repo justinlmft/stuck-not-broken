@@ -8014,7 +8014,9 @@ function app(tab){
     currentTab = 'practice';
     const tk = reco.practiceKey==='self-regulation' ? { cls:'def-'+(_domDefense()||'freeze') } : trackOf(reco.practiceKey);
     const planNm = Store.getName();
-    const planTitle = planNm ? `${escapeHtml(planNm)}’s custom practice` : 'Your custom practice';
+    // a step chosen on the Unstucking Pathway is headed by the step's own name, not "custom practice" (Justin, 2026-10-03: "The
+    // pathway's chosen step still goes to the custom one for me")
+    const planTitle = (reco.fromPath && reco.pathTitle) ? escapeHtml(reco.pathTitle) : planNm ? `${escapeHtml(planNm)}’s custom practice` : 'Your custom practice';
     const chLabel = reco.challenge!=null ? Store.challengeLabel(reco.challenge) : null;
     // the customized items used to be a separate key/value list; they now live inside
     // "what to expect" as track-colored tokens woven into the sentence.
@@ -8059,11 +8061,11 @@ function app(tab){
         </div>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">${reco.fromPath ? 'From the Unstucking Pathway' : 'Why this practice was chosen for you'}</p>
+        <p class="sec-h">${reco.fromPath ? (planNm ? `${escapeHtml(planNm)}’s next step` : 'Your next step') : 'Why this practice was chosen for you'}</p>
         <p class="plan-why">${escapeHtml(properCase(reco.reason))}</p>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">What to expect in your custom practice</p>
+        <p class="sec-h">${reco.fromPath ? 'What to expect' : 'What to expect in your custom practice'}</p>
         <p class="plan-about">${escapeHtml(properCase(aboutOf(reco.practiceKey, reco.sense)))}</p>
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
         ${(()=>{ const ch = _planChapters(reco); return ch.length ? `<div class="plan-books"><p class="plan-books-h">Learn more about these skills:</p><ul class="plan-books-l">${ch.map(p=>`<li><a href="#" class="rd-inlink plan-book" data-piece="${escapeHtml(p.id)}">${escapeHtml(p.title)}</a></li>`).join('')}</ul></div>` : ''; })()}
@@ -8500,7 +8502,7 @@ function app(tab){
       const c = items.length ? _upCols(items[0], def) : null;
       return `<div class="up-path"${c ? ` style="--line:${c.line}"` : ''}>${rows.join('')}</div>${_UP_DOWN}`;
     }
-    const lede = M.paid ? 'Each skill opens when the one before it is completed within your capacity. Some also wait until your check-ins show enough safety. The reading is optional. To skip ahead, use Make your own on the Practice tab.'
+    const lede = M.paid ? 'Each skill opens when the one before it is completed within your capacity. Some also wait until your check-ins show enough safety. The reading is optional. To skip ahead, open any step and practice it anyway.'
       : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
     _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
       <p class="up-lede">${escapeHtml(lede)}</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
@@ -8514,7 +8516,7 @@ function app(tab){
       if(e.target.closest('[data-pickopen]')){ _upPickOpen = true; _upKeep(); return screenPathway(); }
       const b = e.target.closest('[data-up]'); if(!b) return;
       const it = _upFind(M, b.dataset.up); if(!it) return;
-      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(M.reco, screenPathway); }
+      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(Object.assign({}, M.reco, { fromPath:true, pathTitle:it.title }), screenPathway); }
       if(it.kind === 'emo' && M.paid){ _upKeep(); return screenEmotions(); }
       _upItemSheet(it, M, def);
     };
@@ -8599,7 +8601,7 @@ function app(tab){
     if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
     if(it.locked){
       body = `<p class="up-sh-st">${LOCK_SVG}${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
-      return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it in Make your own'), () => _upMaker(it));
+      return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it anyway'), () => _upPractice(it));
     }
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
     if(M.paid && it.kind === 'def' && _emoLevelable(it.key)) body += _upLevelBlock(M.LP[it.key]);
@@ -8637,7 +8639,7 @@ function app(tab){
                  descDefense: p.depth === 'description', holdWatch:false, sense, silence:sil };
       }
       reco.reason = 'You chose this step on the Unstucking Pathway.';
-      reco.variety = true; reco.fromPath = true;
+      reco.variety = true; reco.fromPath = true; reco.pathTitle = it.title;
       const sh = document.getElementById('p8-sheet'); if(sh) sh.remove();
       return renderPlan(reco, screenPathway);
     }

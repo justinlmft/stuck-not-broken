@@ -3999,3 +3999,10 @@ body.reduce-motion .jr-fmenu{transition:none}
    yellow is not right still. nor is the purple"): mixed into white it went pastel, into the dark card it went muddy */
 .p8-reco[data-k="anchoring"] .rd-lcard-band,.p8-reco[data-k="self-regulation"] .rd-lcard-band{background:var(--band);--ink:#1A1F2A;--muted:rgba(26,31,42,.72);color:#1A1F2A}
 .p8-reco[data-k="anchoring"] .p8-go,.p8-reco[data-k="self-regulation"] .p8-go{color:#1A1F2A}
+/* round 10 (Justin, 2026-10-03: "the purple is too deep now. the black is hard to read" / "the yellow is still so soft it almost
+   matches the bg"): safety is a deeper gold so it stands off the bone page; the defense colors are lifted toward white so the
+   dark title reads; the name's underline keeps the deep ink color in dark mode too (there the -tx colors are the light ones,
+   which vanished into the band) */
+.p8-reco[data-k="anchoring"],.p8-reco[data-k="self-regulation"]{--s-safety-tx:#6E5410;--s-fight-tx:#9A3B3B;--s-shutdown-tx:#375A85;--s-freeze-tx:#634873}
+.p8-reco[data-k="anchoring"] .rd-lcard-band{background:#F2C453}
+.p8-reco[data-k="self-regulation"] .rd-lcard-band{background:color-mix(in srgb, var(--band) 70%, #fff)}
