@@ -3827,6 +3827,8 @@ body.reduce-motion .jr-fmenu{transition:none}
 
 /* ── the Unstucking Pathway (2026-10-02, option A: the path) ── */
 .up-view{gap:0}
+/* Safari's text-wrap:pretty was ending these lines early (Justin, 2026-10-02: "Still not full width") */
+.rd .up-view p,.up-view .up-n-t b,.up-view .up-l-t b,.up-view .up-pick-t b,.up-view .up-pick-t span{text-wrap:wrap}
 .up-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.45;margin:0 0 4px}
 .up-note{font-size:calc(14px * var(--type-scale));color:var(--ink);line-height:1.45;margin:12px 0 0;padding:10px 14px;border-radius:12px;background:var(--rd-card);border:1px solid var(--hairline)}
 .p8-sec.up-sec{margin-top:28px}
@@ -3881,5 +3883,23 @@ body.reduce-motion .jr-fmenu{transition:none}
 .up-go-lock .rd-lk{width:16px;height:16px;margin:0 6px 0 0;vertical-align:-3px;color:currentColor}
 .up-entry{margin:2px 0 0}
 .up-entry .p8-thumb > svg{width:20px;height:20px}
+.up-n[data-locked] .up-n-node{border-style:dashed}
+.up-n[data-locked] .up-n-node .rd-mk,.up-n[data-locked] .up-n-node > svg{opacity:.5}
+.up-n[data-locked] .up-n-t b{color:var(--ink-80)}
+.up-sub .rd-lk{display:inline-block;width:13px;height:13px;margin:0 4px 0 0;vertical-align:-2px}
+.up-sub-start{color:var(--ink);font-size:calc(14px * var(--type-scale));line-height:1.45}
+.up-pick{display:flex;flex-direction:column;border:1px solid var(--hairline);border-radius:16px;background:var(--rd-card);overflow:hidden;margin:2px 0 6px}
+.up-pick-row{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:10px 14px;background:none;border:0;border-top:1px solid var(--hairline);font:inherit;color:var(--ink);text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.up-pick-row:first-child{border-top:0}
+.up-pick-row:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+.up-pick-row[aria-disabled="true"]{cursor:default;opacity:.6}
+.up-pick-dot{width:20px;height:20px;flex:none;border-radius:50%;border:1.5px solid var(--muted);position:relative}
+.up-pick-row[aria-checked="true"] .up-pick-dot{border-color:var(--s-safety-tx)}
+.up-pick-row[aria-checked="true"] .up-pick-dot::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--s-safety-tx)}
+.up-pick-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.up-pick-t b{font-weight:500;font-size:calc(15px * var(--type-scale));line-height:1.3}
+.up-pick-t span{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.35}
+.up-pick-chg{flex:none;font-size:calc(13px * var(--type-scale));color:var(--line);font-weight:500;padding:6px 2px}
+.up-path-reads{padding-top:10px}
 .reduce-motion .up-name .p8-line path{animation:none;stroke-dashoffset:0}
 @media (prefers-reduced-motion: reduce){ .up-name .p8-line path{animation:none;stroke-dashoffset:0} .up-n-node,.up-l-node{transition:none} }

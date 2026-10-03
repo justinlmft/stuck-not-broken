@@ -8245,6 +8245,8 @@ function app(tab){
   const _UP_LINE = '<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>';
   const _UP_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   let _upY = null;
+  let _upPickOpen = false;   // the anchor choices are open again after "Change"
+  const UP_ANCHOR_READ = ['anchor-environment','sensory-anchors','anchor-memories','anchor-movement-body-breath'];
 
   function _upAnchorChosen(){ try{ const p = Store.prefSense && Store.prefSense(); return (localStorage.getItem(UP_ANCHOR_MODE) === 'chosen' && UP_ANCHORS.indexOf(p) >= 0) ? p : null; }catch(e){ return null; } }
   function _upDefTitle(key){
@@ -8348,17 +8350,13 @@ function app(tab){
       return { kind:'def', key:k, title:_upDefTitle(k), st:defSt(k), gated, need: gated ? _upNeed(i, SEQ, lowData) : null }; };
     const S = k => ({ kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st:safeSt(k) });
     const P = k => ({ kind:'present', key:k, title:(P8_ROWS.find(r=>r.k===k) || {}).t || CAP(k), st: k === nowPresent ? 'now' : 'open' });
-    // the safety anchor: the member picks one, or lets the app figure it out (Justin, 2026-10-02)
+    // the safety anchor comes first, as its own step (Justin, 2026-10-02: "The user should be able to pick it then and there.
+    // This should be a prerequite step"): the member picks one, or lets the app find the best one for them
     let anchors = null; if(paid){ try{ anchors = Store.anchorPick(); }catch(e){} }
     const chosen = _upAnchorChosen();
-    const A = k => { let st = 'paid';
-      if(paid){
-        if(chosen) st = (k === chosen) ? 'mine' : 'later';
-        else st = (anchors && anchors.why === 'winner' && anchors.sense === k) ? 'best' : (anchors && anchors.why === 'cycle' && anchors.sense === k) ? 'next'
-          : (anchors && anchors.tried && anchors.tried[k]) ? 'tried' : 'later';
-      }
-      return { kind:'anchor', key:k, title:CAP(k), st }; };
-    const auto = { kind:'anchor-auto', key:'auto', title:'Figure out my safety anchor', st: !paid ? 'paid' : chosen ? 'later' : 'mine' };
+    let mode = null; try{ mode = localStorage.getItem(UP_ANCHOR_MODE); }catch(e){}
+    const anchorMode = (mode === 'chosen' && chosen) ? chosen : mode === 'auto' ? 'auto' : null;
+    const anchorSet = paid && !!anchorMode;
     const partsOf = k => (Store.sequenceParts(k) || {});
     const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
     const lock = 'On the paid plan.';
@@ -8366,7 +8364,7 @@ function app(tab){
     // the course's order (Justin, 2026-10-02: "All the safety ones come first before going into defense")
     const secs = [
       { title:'The present moment', sub:'', items:[P('micro'), P('mindfulness')] },
-      { title:'Your safety anchor', sub: paid ? 'Choose the anchor your practices use.' : lock, items:[auto].concat(UP_ANCHORS.map(A)) },
+      { title:'Your safety anchor', sub: !paid ? lock : anchorSet ? '' : 'Start here. Choose your anchor, or let the app find the one that works best for you. The skills after this open once you choose.', picker:true, items:[] },
       { title:'Connecting with safety', sub: paid ? '' : lock, items:safe.seq.map(S) },
       { title:'Working with defense', items:SEQ.filter(k => !partsOf(k).depth).map(D) },
       { title:'Noticing it in the body overall', items:byDepth('general') },
@@ -8382,12 +8380,23 @@ function app(tab){
       secs[5].sub = 'Opens after the practices above.';
       secs[6].sub = 'Opens after the practices above. Hold & watch is offered at the end of these.';
     }
+    // the pathway opens in order (Justin, 2026-10-02: "The pathway unlocks as the user completes the skills ... the pathway is
+    // skill based and achievement based"). A step after the next one waits; anything completed, practiced or recommended stays open.
+    // Make your own still reaches every practice ("They can always customize their own if they want to skip").
+    const lockAfter = (items, nextIdx) => items.forEach((it, i) => {
+      if(!paid || it.st === 'done' || it.st === 'now' || it.st === 'tried') return;
+      if(!anchorSet){ it.locked = 'Opens after you choose your safety anchor'; return; }
+      if(it.st !== 'next' && nextIdx >= 0 && i > nextIdx) it.locked = 'Opens after ' + items[i-1].title;
+    });
+    lockAfter(secs[2].items, secs[2].items.findIndex(it => it.key === safe.next));
+    const defItems = [].concat(secs[3].items, secs[4].items, secs[5].items, secs[6].items);
+    lockAfter(defItems, defItems.findIndex(it => it.key === sp.next));
     let note = null;
     if(paid && hasHist && reco){
       if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
       else if(eased) note = 'Your practice right now is a gentler one: ' + _upDefTitle(recoKey) + '.';
     }
-    return { paid, secs, note, reco, anchors };
+    return { paid, secs, note, reco, anchors, anchorMode, anchorSet };
   }
   function _upMark(it, def){
     if(it.kind === 'anchor-auto') return MK_TYPE_ICO.surprise || '';
@@ -8419,7 +8428,8 @@ function app(tab){
       if(seen[id]) return ''; seen[id] = 1;
       const pc = window.Learning && Learning.byId(id); if(!pc) return '';
       const locked = pc.paid && !M.paid, read = _lrnIsRead(id), c = _upCols(it, def);
-      const lead = locked ? LOCK_SVG + 'Paid plan' : read ? _lrnReadMk() + 'Read' : 'Read first';
+      // reading is optional (Justin, 2026-10-02: "The skills need to go in order but the reading lessons are optional")
+      const lead = locked ? LOCK_SVG + 'Paid plan' : read ? _lrnReadMk() + 'Read' : 'Optional reading';
       const first = it.st === 'now' && !read && !locked;
       return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="margin-left:${off()}px;--line:${c.line}">
         <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t"><i>${lead}</i><b>${escapeHtml(pc.title)}</b></span></button>`;
@@ -8427,21 +8437,45 @@ function app(tab){
     const node = it => {
       const c = _upCols(it, def);
       const track = it.kind === 'safety' ? 'Safety' : it.kind === 'def' ? 'Defense' : '';
-      const words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : escapeHtml([track, UP_ST[it.st]].filter(Boolean).join(' · '));
+      const words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.locked ? LOCK_SVG : '') + escapeHtml([track, it.locked || UP_ST[it.st]].filter(Boolean).join(' · '));
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
-      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''} style="margin-left:${off()}px;--band:${c.band};--line:${c.line}">
+      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="margin-left:${off()}px;--band:${c.band};--line:${c.line}">
         <span class="up-n-node">${_upMark(it, def)}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}</span></button>`;
     };
-    const secHtml = s => `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}
+    // the safety anchor step: the choices right here, or (once chosen) what is chosen with a way to change it
+    const pickHtml = () => {
+      const cur = M.anchorMode, a = M.anchors || {};
+      const hint = k => !M.paid ? '' : (a.why === 'winner' && a.sense === k) ? 'Works best for you so far' : (a.tried && a.tried[k]) ? 'Practiced' : '';
+      let h;
+      if(!M.paid || !M.anchorSet || _upPickOpen){
+        const opts = [{ v:'auto', t:'Let the app find my best one', d:'Your practices try each anchor in turn and keep the one that helps you most.' }]
+          .concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k), d:hint(k) })));
+        h = `<div class="up-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button class="up-pick-row" type="button" role="radio" aria-checked="${cur === o.v ? 'true' : 'false'}" data-pick="${o.v}"${M.paid ? '' : ' aria-disabled="true"'}>
+          <span class="up-pick-dot" aria-hidden="true"></span><span class="up-pick-t"><b>${escapeHtml(o.t)}</b>${o.d ? `<span>${escapeHtml(o.d)}</span>` : ''}</span></button>`).join('')}</div>`;
+      } else {
+        const c = _upCols({ kind:'anchor' }, def), auto = cur === 'auto';
+        const t = auto ? 'The app finds your best one' : CAP(cur);
+        const line = auto ? (a.why === 'winner' && a.sense ? 'Works best for you so far: ' + CAP(a.sense) : 'Trying each anchor in turn') : 'Selected';
+        h = `<div class="up-path"><button class="up-n up-pick-sum" type="button" data-pickopen="1" data-st="mine" style="margin-left:0;--band:${c.band};--line:${c.line}">
+          <span class="up-n-node">${_rdMk('safety')}</span><span class="up-n-t"><b>${escapeHtml(t)}</b><span>${escapeHtml(line)}</span></span><span class="up-pick-chg">Change</span></button></div>`;
+      }
+      const reads = UP_ANCHOR_READ.map(id => lesson(id, { kind:'anchor', st:'' })).join('');
+      return h + (reads ? `<div class="up-path up-path-reads">${reads}</div>` : '');
+    };
+    const secHtml = s => s.picker ? `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub${M.paid && !M.anchorSet ? ' up-sub-start' : ''}">${s.sub === 'On the paid plan.' ? LOCK_SVG : ''}${escapeHtml(s.sub)}</p>` : ''}${pickHtml()}`
+      : `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}
       <div class="up-path">${s.items.map(it => (UP_READ[_upKeyOf(it)] || []).map(id => lesson(id, it)).join('') + node(it)).join('')}</div>`;
-    const lede = M.paid ? 'Where you are, and what comes next. A practice opens when the ones before it are completed within your capacity and your check-ins show enough safety for it.'
-      : 'Every practice in the app, in order, with the chapter to read before each one. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
+    const lede = M.paid ? 'Each skill opens when the one before it is completed within your capacity. Some also wait until your check-ins show enough safety. The reading is optional. To skip ahead, use Make your own on the Practice tab.'
+      : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
     _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
       <p class="up-lede">${escapeHtml(lede)}</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
       ${M.secs.map(secHtml).join('')}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
     const view = root.querySelector('.up-view'); if(!view) return;
     view.onclick = e => {
       const ch = e.target.closest('[data-up-ch]'); if(ch) return _upOpenChapter(ch.dataset.upCh);
+      const pk = e.target.closest('[data-pick]');
+      if(pk){ if(!M.paid) return _p8Locked(pk, 'practice'); _upPickOpen = false; return _upSetAnchor(pk.dataset.pick === 'auto' ? null : pk.dataset.pick); }
+      if(e.target.closest('[data-pickopen]')){ _upPickOpen = true; _upKeep(); return screenPathway(); }
       const b = e.target.closest('[data-up]'); if(!b) return;
       const it = _upFind(M, b.dataset.up); if(!it) return;
       if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(M.reco); }
@@ -8451,7 +8485,7 @@ function app(tab){
     if(sc){
       if(_upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
       else {
-        const target = view.querySelector('.up-n[data-st="now"]') || view.querySelector('.up-n[data-st="next"]');
+        const target = (M.paid && !M.anchorSet && view.querySelector('.up-pick')) || view.querySelector('.up-n[data-st="now"]') || view.querySelector('.up-n[data-st="next"]');
         if(target) requestAnimationFrame(() => { sc.scrollTop = Math.max(0, sc.scrollTop + target.getBoundingClientRect().top - sc.getBoundingClientRect().top - sc.clientHeight * 0.4); });
       }
     }
@@ -8502,6 +8536,10 @@ function app(tab){
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
     if(W.q && W.q.length) body += `<div class="up-sh-blk">${W.q.map(t => `<p class="up-sh-p">${escapeHtml(t)}</p>`).join('')}</div>`;
     if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
+    if(it.locked){
+      body = `<p class="up-sh-st">${LOCK_SVG}${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
+      return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it in Make your own'), () => _upPractice(it));
+    }
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
     body += _upChRows(_upChapters(it), M.paid);
     if(it.kind === 'anchor' || it.kind === 'anchor-auto'){
@@ -8538,8 +8576,8 @@ function app(tab){
   }
   // the Practice tab's row into the pathway, under the custom practice
   function _upEntry(paid){
-    let sub = 'Every practice, in order, with what to read first';
-    if(paid){ try{ const M = _upModel(); const now = M && M.secs.reduce((f, s) => f || s.items.find(it => it.st === 'now'), null); if(now) sub = 'Working on now: ' + now.title; }catch(e){} }
+    let sub = 'Every skill, in order';
+    if(paid){ try{ const M = _upModel(); const now = M && M.secs.reduce((f, s) => f || s.items.find(it => it.st === 'now'), null); if(M && !M.anchorSet) sub = 'Start here: choose your safety anchor'; else if(now) sub = 'Working on now: ' + now.title; }catch(e){} }
     else sub = LOCK_SVG + 'Paid plan · Every practice, in order';
     return `<div class="p8-list up-entry"><button class="rd-row p8-row" type="button" id="up-entry">
         <span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_ICO}</span>
