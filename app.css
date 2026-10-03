@@ -3895,6 +3895,8 @@ body.reduce-motion .jr-fmenu{transition:none}
 .up-n[data-locked] .up-n-node{border-style:dashed}
 .up-n[data-locked] .up-n-node .rd-mk,.up-n[data-locked] .up-n-node > svg{opacity:.5}
 .up-n[data-locked] .up-n-t b{color:var(--ink-80)}
+.up-n-lk{position:absolute;right:-5px;bottom:-5px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--rd-card);border:1px solid var(--hairline);color:var(--ink-80)}
+.up-n-lk .rd-lk{width:11px;height:11px}
 .up-sub .rd-lk{display:inline-block;width:13px;height:13px;margin:0 4px 0 0;vertical-align:-2px}
 .up-sub-start{color:var(--ink);font-size:calc(14px * var(--type-scale));line-height:1.45}
 .up-pick{display:flex;flex-direction:column;border:1px solid var(--hairline);border-radius:16px;background:var(--rd-card);overflow:hidden;margin:2px 0 6px}
@@ -3929,7 +3931,7 @@ body.reduce-motion .jr-fmenu{transition:none}
 .up-h-row::before{content:"";position:absolute;left:10px;top:50%;width:2px;height:48px;transform-origin:top;transform:scaleY(0);animation:upHeroLine .4s var(--ease) forwards;animation-delay:calc(var(--i) * .16s + .2s);
   background:repeating-linear-gradient(to bottom,color-mix(in srgb, var(--ink) 25%, transparent) 0 4px,transparent 4px 8px)}
 .up-h-row:last-child::before{display:none}
-.up-h-row[data-st="done"]::before{background:var(--line)}
+.up-h-row[data-seg]::before{background:var(--line)}
 .up-h-dot{position:relative;z-index:1;width:22px;height:22px;flex:none;border-radius:50%;background:var(--rd-card);border:1.5px solid color-mix(in srgb, var(--ink) 30%, transparent)}
 .up-h-row[data-st="done"] .up-h-dot{background:color-mix(in srgb, var(--band) 60%, var(--rd-card));border-color:var(--line)}
 .up-h-row[data-st="now"] .up-h-dot{border:2px solid var(--line);box-shadow:0 0 0 4px color-mix(in srgb, var(--band) 35%, transparent);animation:upHeroPulse 2.4s var(--ease) 1.2s 2}
