@@ -8239,12 +8239,12 @@ function app(tab){
   const UP_ANCHORS = ['sound','sight','touch','imagination','movement'];
   const UP_ANCHOR_CH = { sound:'sensory-anchors', sight:'sensory-anchors', touch:'sensory-anchors', imagination:'anchor-memories', movement:'anchor-movement-body-breath' };
   const UP_ANCHOR_MODE = 'snb_anchor_mode';   // 'chosen' = the member picked their anchor here; anything else = the app figures it out
-  const UP_OFFS = [0, 30, 52, 30];
   const _UP_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.6 4 5v13c3-.4 6 0 8 1.5 2-1.5 5-1.9 8-1.5V5c-3-.4-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>';
   const _UP_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></svg>';
   const _UP_LINE = '<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>';
   const _UP_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   let _upY = null;
+  const _UP_DOWN = '<span class="up-down" aria-hidden="true"><svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 6 6l4.5-4.5"/></svg></span>';
   let _upPickOpen = false;   // the anchor choices are open again after "Change"
   const UP_ANCHOR_READ = ['anchor-environment','sensory-anchors','anchor-memories','anchor-movement-body-breath'];
 
@@ -8391,6 +8391,9 @@ function app(tab){
     lockAfter(secs[2].items, secs[2].items.findIndex(it => it.key === safe.next));
     const defItems = [].concat(secs[3].items, secs[4].items, secs[5].items, secs[6].items);
     lockAfter(defItems, defItems.findIndex(it => it.key === sp.next));
+    // defense waits for every safety practice (Justin, 2026-10-02: "All the safety ones come first"; "the recommender should
+    // follow the pathway"). Anything completed, practiced or recommended stays open.
+    if(paid && anchorSet && safe.next) defItems.forEach(it => { if(it.st !== 'done' && it.st !== 'now' && it.st !== 'tried') it.locked = 'Opens after Connecting with safety'; });
     let note = null;
     if(paid && hasHist && reco){
       if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
@@ -8422,8 +8425,7 @@ function app(tab){
       });
       return;
     }
-    let n = 0; const seen = {};
-    const off = () => UP_OFFS[(n++) % UP_OFFS.length];
+    const seen = {};
     const lesson = (id, it) => {
       if(seen[id]) return ''; seen[id] = 1;
       const pc = window.Learning && Learning.byId(id); if(!pc) return '';
@@ -8431,7 +8433,7 @@ function app(tab){
       // reading is optional (Justin, 2026-10-02: "The skills need to go in order but the reading lessons are optional")
       const lead = locked ? LOCK_SVG + 'Paid plan' : read ? _lrnReadMk() + 'Read' : 'Optional reading';
       const first = it.st === 'now' && !read && !locked;
-      return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="margin-left:${off()}px;--line:${c.line}">
+      return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="--line:${c.line}">
         <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t"><i>${lead}</i><b>${escapeHtml(pc.title)}</b></span></button>`;
     };
     const node = it => {
@@ -8439,7 +8441,7 @@ function app(tab){
       const track = it.kind === 'safety' ? 'Safety' : it.kind === 'def' ? 'Defense' : '';
       const words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.locked ? LOCK_SVG : '') + escapeHtml([track, it.locked || UP_ST[it.st]].filter(Boolean).join(' · '));
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
-      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="margin-left:${off()}px;--band:${c.band};--line:${c.line}">
+      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="--band:${c.band};--line:${c.line}">
         <span class="up-n-node">${_upMark(it, def)}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}</span></button>`;
     };
     // the safety anchor step: the choices right here, or (once chosen) what is chosen with a way to change it
@@ -8456,21 +8458,36 @@ function app(tab){
         const c = _upCols({ kind:'anchor' }, def), auto = cur === 'auto';
         const t = auto ? 'The app finds your best one' : CAP(cur);
         const line = auto ? (a.why === 'winner' && a.sense ? 'Works best for you so far: ' + CAP(a.sense) : 'Trying each anchor in turn') : 'Selected';
-        h = `<div class="up-path"><button class="up-n up-pick-sum" type="button" data-pickopen="1" data-st="mine" style="margin-left:0;--band:${c.band};--line:${c.line}">
-          <span class="up-n-node">${_rdMk('safety')}</span><span class="up-n-t"><b>${escapeHtml(t)}</b><span>${escapeHtml(line)}</span></span><span class="up-pick-chg">Change</span></button></div>`;
+        h = `<button class="up-n up-pick-sum" type="button" data-pickopen="1" data-st="mine" style="--band:${c.band};--line:${c.line}">
+          <span class="up-n-node">${_rdMk('safety')}</span><span class="up-n-t"><b>${escapeHtml(t)}</b><span>${escapeHtml(line)}</span></span><span class="up-pick-chg">Change</span></button>`;
       }
       const reads = UP_ANCHOR_READ.map(id => lesson(id, { kind:'anchor', st:'' })).join('');
-      return h + (reads ? `<div class="up-path up-path-reads">${reads}</div>` : '');
+      return M.paid && M.anchorSet && !_upPickOpen ? `<div class="up-path" style="--line:var(--s-safety-tx)">${h}${reads}</div>${_UP_DOWN}`
+        : h + (reads ? `<div class="up-path up-path-reads">${reads}</div>${_UP_DOWN}` : '');
     };
     const secHtml = s => s.picker ? `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub${M.paid && !M.anchorSet ? ' up-sub-start' : ''}">${s.sub === 'On the paid plan.' ? LOCK_SVG : ''}${escapeHtml(s.sub)}</p>` : ''}${pickHtml()}`
       : `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}
-      <div class="up-path">${s.items.map(it => (UP_READ[_upKeyOf(it)] || []).map(id => lesson(id, it)).join('') + node(it)).join('')}</div>`;
+      ${pathHtml(s.items)}`;
+    // all left aligned on one line that runs top to bottom (Justin, 2026-10-02: "probabaly better off all left aligned with a
+    // visual indicator of moving up to down. indent the lessons perhaps"). Rows before the first step not yet completed are "past"
+    // and the line is drawn solid through them; the rest of the line is dashed.
+    function pathHtml(items){
+      let reached = false; const rows = [];
+      items.forEach(it => {
+        const past = !reached && it.st === 'done'; if(!past) reached = true;
+        (UP_READ[_upKeyOf(it)] || []).map(id => lesson(id, it)).filter(Boolean).forEach(h => rows.push(past ? h.replace('<button class="up-l', '<button data-past="1" class="up-l') : h));
+        rows.push(past ? node(it).replace('<button class="up-n"', '<button class="up-n" data-past="1"') : node(it));
+      });
+      const c = items.length ? _upCols(items[0], def) : null;
+      return `<div class="up-path"${c ? ` style="--line:${c.line}"` : ''}>${rows.join('')}</div>${_UP_DOWN}`;
+    }
     const lede = M.paid ? 'Each skill opens when the one before it is completed within your capacity. Some also wait until your check-ins show enough safety. The reading is optional. To skip ahead, use Make your own on the Practice tab.'
       : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
     _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
       <p class="up-lede">${escapeHtml(lede)}</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
       ${M.secs.map(secHtml).join('')}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
     const view = root.querySelector('.up-view'); if(!view) return;
+    requestAnimationFrame(() => _upRails(view)); setTimeout(() => _upRails(view), 450);
     view.onclick = e => {
       const ch = e.target.closest('[data-up-ch]'); if(ch) return _upOpenChapter(ch.dataset.upCh);
       const pk = e.target.closest('[data-pick]');
@@ -8489,6 +8506,19 @@ function app(tab){
         if(target) requestAnimationFrame(() => { sc.scrollTop = Math.max(0, sc.scrollTop + target.getBoundingClientRect().top - sc.getBoundingClientRect().top - sc.clientHeight * 0.4); });
       }
     }
+  }
+  // each section's line runs from its first step's node to its last; the solid part reaches the first step not yet completed
+  function _upRails(view){
+    view.querySelectorAll('.up-path').forEach(p => {
+      const nodes = [...p.children].map(r => r.querySelector('.up-n-node,.up-l-node')).filter(Boolean);
+      if(nodes.length < 2){ p.style.setProperty('--rail-h', '0px'); return; }
+      const top = p.getBoundingClientRect().top, mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 - top; };
+      const a = mid(nodes[0]), z = mid(nodes[nodes.length - 1]);
+      const rows = [...p.children], firstOpen = rows.findIndex(r => !r.hasAttribute('data-past'));
+      const fillTo = firstOpen < 0 ? z : firstOpen === 0 ? a : mid(rows[firstOpen].querySelector('.up-n-node,.up-l-node') || nodes[nodes.length - 1]);
+      p.style.setProperty('--rail-top', a + 'px'); p.style.setProperty('--rail-h', (z - a) + 'px'); p.style.setProperty('--rail-fill', Math.max(0, fillTo - a) + 'px');
+      p.classList.add('up-railed');
+    });
   }
   function _upKeep(){ const sc = root.querySelector('.scroll'); _upY = sc ? sc.scrollTop : null; }
   function _upOpenChapter(id){
@@ -8574,15 +8604,39 @@ function app(tab){
     _pendingPState = Object.assign(base, s);
     app('practice');
   }
-  // the Practice tab's row into the pathway, under the custom practice
+  // the Practice tab's way in (Justin, 2026-10-02: "deserves a little more visual flair. more screen real estate, an animated
+  // path, from top to bottom"): a card with the stretch of the pathway around where the member is, drawn in from the top
   function _upEntry(paid){
-    let sub = 'Every skill, in order';
-    if(paid){ try{ const M = _upModel(); const now = M && M.secs.reduce((f, s) => f || s.items.find(it => it.st === 'now'), null); if(M && !M.anchorSet) sub = 'Start here: choose your safety anchor'; else if(now) sub = 'Working on now: ' + now.title; }catch(e){} }
-    else sub = LOCK_SVG + 'Paid plan · Every practice, in order';
-    return `<div class="p8-list up-entry"><button class="rd-row p8-row" type="button" id="up-entry">
-        <span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_ICO}</span>
-        <span class="rd-row-t"><b>${UP_TITLE}</b><span>${paid ? escapeHtml(sub) : sub}</span></span><span class="wc-go">${CHEV}</span></button></div>`;
+    let rows = [];
+    try{
+      const M = _upModel();
+      if(M){
+        const def = _domDefense();
+        const steps = [].concat(M.secs[0].items, [{ kind:'anchor', key:'pick', title:'Your safety anchor', st: !M.paid ? 'paid' : M.anchorSet ? 'done' : 'now' }],
+          M.secs[2].items, M.secs[3].items, M.secs[4].items, M.secs[5].items, M.secs[6].items);
+        // where the member is: the recommended step (or the anchor, until it is chosen), else the first step not yet completed
+        let at = M.paid ? steps.findIndex(it => it.st === 'now' && it.kind !== 'present') : 0;
+        if(M.paid && !M.anchorSet) at = steps.findIndex(it => it.key === 'pick');
+        if(at < 0) at = steps.findIndex(it => it.kind !== 'present' && it.st !== 'done' && it.st !== 'open');
+        if(at < 0) at = steps.length - 1;
+        const from = Math.max(0, Math.min(at - 2, steps.length - 5));
+        rows = steps.slice(from, from + 5).map((it, i) => {
+          const c = _upCols(it, def), here = (from + i) === at;
+          const st = it.st === 'paid' ? 'paid' : here ? 'now' : it.st === 'done' ? 'done' : it.locked ? 'locked' : 'ahead';
+          const word = it.st === 'paid' ? LOCK_SVG + 'Paid plan'
+            : here ? escapeHtml(it.key === 'pick' ? 'Start here' : it.st === 'now' ? UP_ST.now : UP_ST.next)
+            : it.st === 'done' ? escapeHtml(UP_ST.done) : it.locked ? LOCK_SVG + escapeHtml(it.locked) : escapeHtml(UP_ST[it.st] || '');
+          return `<span class="up-h-row" data-st="${st}" style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
+            <span class="up-h-t"><b>${escapeHtml(it.title)}</b>${word ? `<span>${word}</span>` : ''}</span></span>`;
+        });
+      }
+    }catch(e){ rows = []; }
+    return `<button class="up-hero" type="button" id="up-entry" aria-label="${UP_TITLE}">
+        <span class="up-hero-head"><span class="up-hero-ico">${_UP_ICO}</span><b>${UP_TITLE}</b><span class="wc-go">${CHEV}</span></span>
+        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Paid plan · Every practice, in order'}</span>`}
+      </button>`;
   }
+
 
   function renderPracticeTab(animateIn){
     const paid = paidNow();

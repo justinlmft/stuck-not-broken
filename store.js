@@ -1889,6 +1889,19 @@
     if(!SEQ || !SEQ.length){
       return cfg('anchoring', null, sense, sil, "we'll start by connecting with safety.", 'safety anchoring');
     }
+    // the Unstucking Pathway's order (Justin, 2026-10-02: "the recommender should follow the pathway, though it will revert
+    // back based on the user's checkins. the pathway does not."): every safety practice comes before defense, in the
+    // engine's safety order (safetyProgress()). The check-in rules above (low data, the moment gate, the week's floor, a
+    // falling trend) still come first and ease it back to the present moment or plain anchoring.
+    const SAFE = safetyProgress();
+    if(SAFE.next){
+      const sk = SAFE.next === 'anchoring' ? null : SAFE.next;
+      const SW = { 'validate-safety':'validating safety', 'normalize-safety':'normalizing safety', 'general-safety':'noticing safety in the body overall',
+        'specific-safety':'finding where safety lives in the body', 'describe-safety':'describing safety', 'interest-safety':'noticing the interest impulse' };
+      const reason = sk ? "you have safety here. the pathway builds safety one practice at a time before working with defense. this one is " + SW[sk] + "."
+                        : "you have safety here. the pathway starts by anchoring into safety before working with defense.";
+      return cfg('anchoring', sk, sense, sil, reason, 'safety first');
+    }
     // ceiling >=1 — safety first, then a step of the sequence capped to the tier the week
     // earned (t1: up to imagery · t2: up to obstacles into imagery · t3: all of it, every
     // depth of balancing and pendulating). Scheme A band 3; the sequence fills the skill slot.
