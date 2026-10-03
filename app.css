@@ -3827,10 +3827,10 @@ body.reduce-motion .jr-fmenu{transition:none}
 
 /* ── the Unstucking Pathway (2026-10-02, option A: the path) ── */
 .up-view{gap:0}
-.up-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.45;margin:0 0 4px;max-width:60ch}
-.up-note{font-size:calc(14px * var(--type-scale));color:var(--ink);line-height:1.45;margin:12px 0 0;padding:10px 14px;border-radius:12px;background:var(--rd-card);border:1px solid var(--hairline);max-width:60ch}
+.up-lede{font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.45;margin:0 0 4px}
+.up-note{font-size:calc(14px * var(--type-scale));color:var(--ink);line-height:1.45;margin:12px 0 0;padding:10px 14px;border-radius:12px;background:var(--rd-card);border:1px solid var(--hairline)}
 .p8-sec.up-sec{margin-top:28px}
-.up-sub{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.4;margin:0 0 10px;max-width:60ch}
+.up-sub{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.4;margin:0 0 10px}
 .up-sub2{font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink-80);margin:6px 0 2px}
 .up-path{display:flex;flex-direction:column;gap:14px;padding:4px 0 2px}
 .up-n,.up-l{display:flex;align-items:center;gap:12px;background:none;border:0;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;width:max-content;max-width:calc(100% - 52px);min-height:44px;-webkit-tap-highlight-color:transparent}

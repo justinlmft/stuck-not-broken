@@ -8209,8 +8209,8 @@ function app(tab){
     'specific-safety':'Specific', 'describe-safety':'Description', 'interest-safety':'Interest Impulse' };
   // the chapter to read before a practice on the path; each one shows once, before the first practice that uses it
   const UP_READ = { micro:['making-change'], mindfulness:['mindfulness-and-meditation'], anchoring:['anchor-environment','cue-to-anchor'],
-    'validate-safety':['validating-and-normalizing'], 'validate-defense':['ssiec'], imagery:['imagery-and-invitation'], 'obstacles>imagery':['obstacles'],
-    'balancing@general':['balancing-and-pendulating'], 'describe-safety':['description'], 'interest-safety':['impulses'], 'balancing@description':['holding-and-watching'] };
+    'validate-safety':['validating-and-normalizing'], imagery:['imagery-and-invitation'], 'obstacles>imagery':['obstacles'],
+    'balancing@general':['ssiec','balancing-and-pendulating'], 'describe-safety':['description'], 'interest-safety':['impulses'], 'balancing@description':['holding-and-watching'] };
   const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'Later', open:'Always open' };
   const UP_ANCHORS = ['sound','sight','touch','imagination','movement'];
   const UP_ANCHOR_CH = { sound:'sensory-anchors', sight:'sensory-anchors', touch:'sensory-anchors', imagination:'anchor-memories', movement:'anchor-movement-body-breath' };
@@ -8312,24 +8312,19 @@ function app(tab){
     const S = k => safe.seq.indexOf(k) >= 0 ? [{ kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st:safeSt(k) }] : [];
     const P = k => ({ kind:'present', key:k, title:(P8_ROWS.find(r=>r.k===k) || {}).t || CAP(k), st: k === nowPresent ? 'now' : 'open' });
     const partsOf = k => (Store.sequenceParts(k) || {});
-    const head = [];
-    SEQ.filter(k => !partsOf(k).depth).forEach(k => {
-      if(k === 'validate-defense') head.push(...S('validate-safety'));
-      if(k === 'normalize-defense') head.push(...S('normalize-safety'));
-      head.push(D(k));
-    });
+    // the order of Circle's Unstucking Pathway course (Justin, 2026-10-02: "All the safety ones come first before going into
+    // defense. It's not one after the other"): every safety practice, then the defense practices
+    const head = SEQ.filter(k => !partsOf(k).depth).map(D);
     const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
-    const placed = ['anchoring','validate-safety','normalize-safety','general-safety','specific-safety','describe-safety','interest-safety'];
-    const extraSafe = safe.seq.filter(k => placed.indexOf(k) < 0).map(k => S(k)[0]);
     const lock = 'On the paid plan.';
     const subOf = (items, fallback) => { const g = items.find(it => it.kind === 'def'); return !paid ? lock : (g && g.gated ? g.need : fallback); };
     const secs = [
       { title:'The present moment', sub:'Always open.', items:[P('micro'), P('mindfulness')] },
-      { title:'Connecting with safety', sub: paid ? 'Always open. Every practice that works with defense starts here.' : lock, anchors:true, items:S('anchoring').concat(extraSafe) },
+      { title:'Connecting with safety', sub: paid ? 'Always open. Every practice that works with defense starts here.' : lock, anchors:true, items:safe.seq.map(k => S(k)[0]) },
       { title:'Working with defense', items:head },
-      { title:'Noticing it in the body overall', items:S('general-safety').concat(byDepth('general')) },
-      { title:'Finding where it lives in the body', items:S('specific-safety').concat(byDepth('specific')) },
-      { title:'Describing it', items:S('describe-safety').concat(S('interest-safety'), byDepth('description')) },
+      { title:'Noticing it in the body overall', items:byDepth('general') },
+      { title:'Finding where it lives in the body', items:byDepth('specific') },
+      { title:'Describing it', items:byDepth('description') },
     ];
     secs[2].sub = subOf(secs[2].items, 'Safety first, then one of these.');
     secs[3].sub = subOf(secs[3].items, '');
