@@ -4006,3 +4006,30 @@ body.reduce-motion .jr-fmenu{transition:none}
 .p8-reco[data-k="anchoring"],.p8-reco[data-k="self-regulation"]{--s-safety-tx:#6E5410;--s-fight-tx:#9A3B3B;--s-shutdown-tx:#375A85;--s-freeze-tx:#634873}
 .p8-reco[data-k="anchoring"] .rd-lcard-band{background:#F2C453}
 .p8-reco[data-k="self-regulation"] .rd-lcard-band{background:color-mix(in srgb, var(--band) 70%, #fff)}
+
+/* ── the standard onboarding (2026-10-03, option A "tab by tab") ── */
+.ob-card .ob-eb{margin:0 0 4px}
+.ob-card .ob-lbl{margin:14px 0 4px}
+.ob-card .ob-q{margin:16px 0 0}
+.ob-card .ob-sw{padding:6px 0;border-top:0}
+.ob-card .ob-sw .gs-lbl{color:var(--ink)}
+.ob-chip .ob-chip-lk{display:inline-flex;margin-left:5px;vertical-align:-2px}
+.ob-chip .ob-chip-lk .rd-lk{width:13px;height:13px;margin:0}
+.ob-chip[data-locked="1"],.ob-chip[aria-disabled="true"]{color:var(--muted)}
+.ob-chip[aria-disabled="true"]{cursor:default}
+.ob-chip:disabled{opacity:.45;cursor:default}
+.ob-card .ob-lock{display:flex;gap:6px;align-items:center}
+.ob-card .ob-lock .rd-lk{width:13px;height:13px;margin:0}
+.ob-map{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.ob-map-row{display:flex;gap:12px;align-items:flex-start}
+.ob-map-ic{width:24px;height:24px;flex:none;color:var(--ink);margin-top:1px}
+.ob-map-ic svg{width:24px;height:24px;display:block}
+.ob-map-t{display:flex;flex-direction:column;gap:1px;min-width:0}
+.ob-map-t b{font-weight:500;font-size:calc(15px * var(--type-scale));color:var(--ink)}
+.ob-map-t span{color:var(--muted);font-size:calc(13.5px * var(--type-scale));line-height:1.4}
+.wn-card .wn-sign{margin:4px 0 0}
+.wn-card .wn-fine{text-align:center;margin-top:10px}
+/* desktop: with a ring on screen the card sits low and centred, so the ringed thing stays visible above it */
+@media (min-width:720px){
+  .ob-card.ob-low{bottom:24px;transform:translateX(-50%)}
+}

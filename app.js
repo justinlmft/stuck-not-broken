@@ -846,7 +846,8 @@
       }
       // Decide only once the cloud read has finished. Without this, orientation fires in
       // the gap between "paid is known" and "history has loaded" — see Store.hydrated().
-      if((force || (paidNow() && _obHydrated() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
+      // everyone with an account gets the standard onboarding, free or paid (Justin, 2026-10-03: "Yes, everyone")
+      if((force || (_obMember() && _obHydrated() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding('first'); }, 60);
       // The old state-math "what's new" card is RETIRED (Justin, 2026-08-17: "There should
       // only ever be one"). It fired from here while whatsNewNaming() fired off 'load', with
       // a separate key, and neither checked for the other's root — so a fresh storage
@@ -1841,6 +1842,7 @@
   // through this. Backfill the local flag so the derivation runs once, not on every route.
   // (Justin, 2026-08-17: re-added the app to his home screen and got walked through again.)
   // Defaults to true when Store predates hydrated(), so this can never hard-lock orientation.
+  function _obMember(){ try{ return !!Store.user() && !(Store.isAnonymous && Store.isAnonymous()); }catch(e){ return false; } }
   function _obHydrated(){ try{ return !Store.hydrated || Store.hydrated(); }catch(e){ return true; } }
   function _orientedByHistory(){
     try{ return !!(Store.user() && Store.checkins && Store.checkins().length); }catch(e){ return false; }
@@ -1913,95 +1915,143 @@
     obTrack('whatsnew_shown', { v:'statemath' });
   }
 
-  const OB_UNLOCKS = [
-    ['spark', 'Practices created just for you', 'The app designs self-regulation practices for you and only you based on your history, practices, and preferences. (Feel free to customize further!)'],
-    ['book',  'A personal reader',                  'It’s like a blog written just for you. It changes over time.'],
-    ['chart', 'Deep data insights',                 'Get data analysis about everything, from when you’re most regulated, patterns, and which practices help. It needs a few check-ins first.']
-  ];
-  function _obIcon(k){
-    const p = k==='spark' ? '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8"/>'
-            : k==='book'  ? '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/>'
-            : '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>';
-    return '<span class="u-ic"><svg viewBox="0 0 24 24">'+p+'</svg></span>';
+  // ═════════════════════════════════════════════════════════════════════════
+  // THE STANDARD ONBOARDING (Justin, 2026-10-03: "a new onboarding sequence that walks the user through the app. this is the
+  // standard onboarding and helps them get all set up"). He picked option A, tab by tab, from the mockups
+  // (https://claude.ai/artifact/5x3Q4JCRXqD2Hz1gkkdgb7): the app moves to each tab behind the sheet and rings the main thing
+  // there, and each setting is asked on the tab where it lives. Everyone gets it, free and paid ("Yes, everyone"); paid-only
+  // choices show the lock like the rest of the app. His notes on the mockups, all applied: no time estimates anywhere ("A
+  // check-in is like 10 sec"), a voice plays a sample when it is picked, the Reflect card names daily, weekly, monthly, seasonal
+  // and annual Reflections, the Journal gets its own card, no search line on Learn, and Notifications sits on the Settings
+  // screen with his three questions. Replays (Monday's update card, Settings) skip the welcome and start at the name, with the
+  // member's own choices already selected. The choices write the SAME keys Settings, the Pathway and the player write.
+  // 🖊 the card copy is drafted from his mockup notes; his words are used where he gave them.
+  function obP(t){ return '<p class="ob-p">'+t+'</p>'; }
+  function obLbl(t){ return '<p class="ob-fine ob-lbl">'+t+'</p>'; }
+  function obChip(group,val,label,extra){ return '<button class="ob-chip" type="button" data-'+group+'="'+escapeHtml(String(val))+'"'+(extra||'')+'>'+label+'</button>'; }
+  function obChips(group, opts){ return '<div class="ob-chips" data-group="'+group+'">'+opts.map(o=>obChip(group,o[0],escapeHtml(o[1]))).join('')+'</div>'; }
+  function obSw(id,label,on,dis){ return '<div class="gs-sw ob-sw"><span class="gs-lbl">'+label+'</span><button class="set-sw'+(on?' on':'')+'" id="'+id+'" type="button" role="switch" aria-checked="'+(on?'true':'false')+'" aria-label="'+escapeHtml(label)+'"'+(dis?' disabled style="opacity:.45"':'')+'><span class="set-sw-knob"></span></button></div>'; }
+  const OB_TAB_LINE = { now:'Check in, and take a breath.', practice:'Your recommended practice, the Unstucking Pathway, and practices to make your own.',
+    reflect:'Your Reflections and Your Journal.', learn:'Articles and book chapters to read.', you:'Your patterns over time, and Settings.' };
+  // the five tabs on one card, drawn with the tab bar's own icons ("Look around myself")
+  function obTabMap(){
+    const names = { now:'Now', practice:'Practice', reflect:'Reflect', learn:'Learn', you:'You' };
+    return '<div class="ob-map">'+['now','practice','reflect','learn','you'].map(t=>{
+      let ic=''; try{ const b=document.querySelector('#tabs button[data-t="'+t+'"] .ic'); if(b) ic=b.innerHTML; }catch(e){}
+      return '<div class="ob-map-row"><span class="ob-map-ic" aria-hidden="true">'+ic+'</span><span class="ob-map-t"><b>'+names[t]+'</b><span>'+escapeHtml(OB_TAB_LINE[t])+'</span></span></div>';
+    }).join('')+'</div>';
   }
-  function obUnlockList(){
-    return '<div class="ob-unlocks">'+OB_UNLOCKS.map(u=>
-      '<div class="ob-unlock">'+_obIcon(u[0])+'<span><b>'+escapeHtml(u[1])+'</b><span class="u-s">'+escapeHtml(u[2])+'</span></span></div>').join('')+'</div>';
-  }
-  function obChip(group,val,label){ return '<button class="ob-chip" type="button" data-'+group+'="'+val+'">'+escapeHtml(label)+'</button>'; }
   const OB_METHOD_CAP = {
     sliders:'Best for someone who has a hard time identifying their state. Simply answer a few quick questions with three sliders.',
     states :'Choose your state, then fine-tune it with sliders. Best for someone familiar with their states and able to name them.',
     numbers:'One number per axis. Quickest if you already know what you would say.'
   };
+  // the background sounds offered here (Justin's picks, 2026-09-26: rain, the bowls, night, the garden spout); the rest are in the player
+  const OB_BEDS = [['none','None'],['rain','Rain'],['bowl','Singing bowl'],['night','Night'],['garden','Garden'],['surprise','Surprise me']];
+  // a voice's sample: the first intro line ("Hey. Welcome to this practice..."), from the same folders the engine plays
+  // (practice-engine data.js VOICES: Justin's takes are absolute, a dub's folder is app-relative)
+  const OB_VOICE_SAMPLE = { justin:'https://app.stucknotbroken.com/clips/INTRO-01-a.mp3', poppy:'clips-poppy/INTRO-01-a.mp3' };
+  let _obAudio = null;
+  function obStopAudio(){ try{ if(_obAudio){ _obAudio.pause(); _obAudio=null; } }catch(e){} try{ bedPreview(null); }catch(e){} }
+  function obVoiceSample(v){
+    obStopAudio();
+    const src = OB_VOICE_SAMPLE[v]; if(!src) return;
+    try{ const a=new Audio(src); a.preload='auto'; _obAudio=a; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  }
   let OB_STEPS = [];
   function obBuildSteps(){
     const nm = (Store.getName && Store.getName()) || '';
-    // 🖊 DRAFT COPY. Sentence case here, not the app's lowercase UI: Justin's call
-    // (2026-07-26) — these cards carry the most reading in the app and legibility wins.
-    // Kept short on purpose. The card gives reading room to the body and never to the
-    // buttons, so long copy costs the scroll, not the action.
+    const paid = paidNow();
+    const lockLine = t => '<p class="ob-fine ob-lock">'+LOCK_SVG+escapeHtml(t)+'</p>';
+    const ps = (typeof pushState === 'function') ? pushState() : 'unsupported';
+    const pushHint = ps==='install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then Add to Home Screen.'
+                   : ps==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there first.'
+                   : ps==='unsupported' ? 'This browser cannot show notifications from the app.' : '';
+    const pushDis = !!pushHint;
+    const pp = (typeof pushPrefsRead === 'function') ? pushPrefsRead() : {};
+    const reflOn = pp.reflect_week!==false || pp.reflect_month!==false || pp.reflect_season!==false || pp.reflect_year!==false;
     OB_STEPS = [
       { id:'welcome', tab:'now', kind:'center',
         h:'Welcome',
-        body:'<p class="ob-p">Thank you for subscribing. Three things just opened up for you:</p>'
-           + '<ol class="ob-list"><li>Practices created just for you</li>'
-           + '<li>A personal reader</li>'
-           + '<li>Deep data insights</li></ol>'
-           + '<p class="ob-p">Choose how you’d like to get started below.</p>'
-           + '<p class="ob-sign">Justin</p>'
-           + obMarkSVG(),
+        body: obP('Thank you for joining. This short walkthrough shows you around the app and gets it set up for you.')
+           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
         actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
 
-      { id:'practice', tab:'practice', kind:'spot', target:'#p7-toggle', pad:8,
-        h:'Your practice maker',
-        body:'<p class="ob-p">This opens the practice maker. Want more silence? No problem. A certain visual? Sure thing. Do it all here.</p>' },
+      { id:'name', tab:'now', kind:'center',
+        h:'What should the app call you?',
+        body: obP('(Or leave it blank.)')
+           + '<input class="ob-name" id="ob-name" type="text" placeholder="your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
 
-      { id:'reader', tab:'you', kind:'spot', target:'#you-reader', pad:8,
-        h:'Your personal reader',
-        body:'<p class="ob-p">Your personal reader changes based on your check-ins and practices. Over the moments, days, weeks, and beyond, it will have more and more information about you to learn from and build insight from.</p>' },
-
-      { id:'stats', tab:'you', kind:'spot', target:'#carousel', pad:6,
-        h:'Deep data insights',
-        body:'<p class="ob-p">Find snapshot results of your data. Check-ins and practices accumulate here.</p>' },
-
-      { id:'method', tab:'you', kind:'center',
-        h:'How do you want to check in?',
-        // preview + fixed-height wrap (Justin 2026-07-28): a real taste of the control
-        // itself, not just a caption, and a min-height floor so picking between the much
-        // taller state-picker preview and the one-line slider previews doesn't resize the
-        // whole sheet under the person's thumb.
-        body:'<p class="ob-p">All three record the same thing, so no need to worry about your history if you decide to change later.</p>'
-           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Question sliders')+obChip('method','numbers','Numbers')+obChip('method','states','State picker')+'</div>'
+      { id:'now', tab:'now', kind:'spot', target:['#mh-cta','#tb-breath'], pad:6, eb:'Now',
+        h:'Check in',
+        body: obP('Start here. A check-in tells the app how your nervous system is doing right now. Everything else builds on it.')
+           + obLbl('How do you want to check in?')
+           + obChips('method', [['sliders','Questions'],['numbers','Numbers'],['states','State']])
            + '<p class="ob-fine" data-cap="method"></p>'
            + '<div class="rs-preview ob-method-preview" id="ob-method-preview"></div>' },
 
-      { id:'defaults', tab:'practice', kind:'center',
-        h:'Practice defaults',
-        body:'<p class="ob-p">You can change these any time you want, but this sets the defaults for now.</p>'
-           + '<p class="ob-fine" style="margin:10px 0 3px">Connect to the present moment through</p>'
-           + '<div class="ob-chips" data-group="sense">'+[['touch','Touch'],['sound','Sound'],['sight','Sight'],['movement','Movement'],['imagination','Imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
-           + '<p class="ob-fine" style="margin:14px 0 3px">How much silence</p>'
-           + '<div class="ob-chips" data-group="silence">'+[[4,'A little'],[8,'Some'],[14,'A lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
+      { id:'practice', tab:'practice', kind:'spot', target:['#foryou','.p8-reco'], pad:6, eb:'Practice',
+        h:'Your recommended practice',
+        body: obP('Made from your check-ins and what has helped you most in your practices. Tap it to see why it was picked, or choose “Customize this practice” to change anything.')
+           + obLbl('How much silence')
+           + obChips('silence', [[4,'A little'],[8,'Some'],[14,'A lot']]) },
 
-      { id:'name', tab:'practice', kind:'center',
-        h:'What should the app call you?',
-        body:'<p class="ob-p">(Or leave it blank.)</p>'
-           + '<input class="ob-name" id="ob-name" type="text" placeholder="your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
+      { id:'sound', tab:'practice', kind:'spot', target:['#foryou','.p8-reco'], pad:6, eb:'Practice',
+        h:'Sound and voice',
+        body: obP('Choose what plays under your practices and whose voice guides them. Tap one to hear it. You can change both in the player too.')
+           + obLbl('Background sound')
+           + obChips('bed', OB_BEDS)
+           + obLbl('Voice')
+           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk" aria-hidden="true">'+LOCK_SVG+'</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
+           + '<p class="ob-fine" data-cap="voice"></p>' },
+
+      { id:'pathway', tab:'practice', kind:'spot', target:['#up-entry'], pad:6, eb:'Practice',
+        h:'The Unstucking Pathway',
+        body: obP('Every skill in the app, in order, from the present moment to working with defense. Each step opens as you practice the one before it.')
+           + obLbl('Your safety anchor')
+           + '<div class="ob-chips" data-group="anchor">'+[['auto','Let the app find my best one']].concat(UP_ANCHORS.map(k=>[k,CAP(k)])).map(o=>obChip('anchor',o[0],escapeHtml(o[1]), paid?'':' aria-disabled="true"')).join('')+'</div>'
+           + (paid ? '' : lockLine('Choosing your safety anchor is on the paid plan.')) },
+
+      { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'Reflect',
+        h:'Reflect',
+        body: obP('Reflections on your check-ins and practices. Aside from daily, you’ll find weekly, monthly, seasonal, and annual Reflections.') },
+
+      { id:'learn', tab:'learn', kind:'spot', target:['.rd-learn-top','.rd-learnhubs > *:first-child'], pad:6, eb:'Learn',
+        h:'Learn',
+        body: obP('Hundreds of articles and book chapters about your nervous system and how to work with it.') },
+
+      { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'Reflect',
+        h:'Your Journal',
+        body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal.')
+           + (paid ? '' : lockLine('Your Journal is on the paid plan.')) },
+
+      { id:'you', tab:'you', kind:'spot', target:['#carousel','.map-rows','.you-view .card','#set-btn'], pad:6, eb:'You',
+        h:'You',
+        body: obP('Your patterns over time: when you feel the most safety, which practices help, and your ideal practice. Settings is the gear at the top.') },
+
+      // Justin's words (2026-10-03), on the Settings screen
+      { id:'notif', screen:'settings', kind:'spot', target:['#push-row'], pad:6, eb:'Settings',
+        h:'Notifications',
+        body: obP('Set Notifications exactly as you want them in Settings, from the gear on the You tab.')
+           + (pushHint ? '<p class="ob-fine" id="ob-push-hint">'+escapeHtml(pushHint)+'</p>' : '<p class="ob-fine" id="ob-push-hint" hidden></p>')
+           + '<p class="ob-p ob-q">Do you want to be notified of new Reflections? You won’t receive daily ones.</p>'
+           + obSw('ob-n-refl','New Reflections', reflOn, pushDis)
+           + '<p class="ob-p ob-q">Do you want to receive a reminder to check in after you practice? This helps identify how your system responds.</p>'
+           + obSw('ob-n-follow','After practice reminder', !!pp.followup, pushDis)
+           + '<p class="ob-p ob-q">Select when you’d like to receive a check-in reminder. (Or not.)</p>'
+           + '<div class="ob-chips" data-group="ci">'+PUSH_DAYPARTS.map(d=>obChip('ci', d[0], escapeHtml(d[1]), pushDis?' disabled':'')).join('')+'</div>' },
 
       { id:'done', tab:'now', kind:'center',
-        h:'Done.',
-        body:'<p class="ob-p">And that’s it. Check in, do a practice, check in again. It gets more and more yours every time.</p>'
-           + '<p class="ob-sign">Justin</p>'
-           + obMarkSVG(),
-        fine:'All of this is in settings, and the walkthrough is there if you want it again.',
-        actions:[{label:'Take me in',kind:'primary',go:'end'}] },
+        h:'You’re all set',
+        body: obP('Check in, practice, then check in again. The app gets more and more yours each time.')
+           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
+        fine:'This walkthrough is in Settings whenever you want it again.',
+        actions:[{label:'Check in now',kind:'primary',go:'checkin'},{label:'Take me in',kind:'quiet',go:'end'}] },
 
       { id:'decline', tab:'now', kind:'center', standalone:true,
-        h:'Here\u2019s what opened up',
-        body:'<p class="ob-p">Enjoy exploring on your own. Here’s a brief rundown.</p>'+obUnlockList()
-           + '<p class="ob-p" style="margin-top:12px">The walkthrough is in settings whenever you want it.</p>',
-        actions:[{label:'Okay, in i go',kind:'primary',go:'end'}] }
+        h:'Where things are',
+        body: obTabMap() + '<p class="ob-fine" style="margin-top:14px">The walkthrough is in Settings whenever you want it.</p>',
+        actions:[{label:'Take me in',kind:'primary',go:'end'}] }
     ];
   }
   function obMarkSVG(){
@@ -2013,27 +2063,39 @@
       + '<g id="snb-ears" stroke-width="6.5"> <path id="snb-ear-l" d="M 120,147 C 105,148 112,193 120,194"/> <path id="snb-ear-r" d="M 279.5,147 C 294.5,148 287.5,193 279.5,194"/> </g> <path id="snb-head" stroke-width="9.5" d="M 122,273.5 L 122,86 C 122,63 152,24.5 200,24.5 C 248,24.5 277.5,63 277.5,86 L 277.5,273.5"/> <g id="snb-brows" stroke-width="5.2"> <path id="snb-brow-l" d="M 181.5,108 Q 163,109 146,120"/> <path id="snb-brow-r" d="M 218.5,108 Q 237,109 254,120"/> </g> <g id="snb-glasses" stroke-width="5.5"> <circle id="snb-lens-l" cx="164.5" cy="151" r="25.5"/> <circle id="snb-lens-r" cx="235.5" cy="151" r="25.5"/> <path id="snb-bridge" d="M 192,146 Q 200,141.5 208,146"/> <path id="snb-arm-l" d="M 137.5,148 L 122.5,147"/> <path id="snb-arm-r" d="M 262.5,148 L 277.5,147"/> </g> <g id="snb-eyes-closed" stroke-width="3.6"> <path id="snb-eyec-l" d="M 152,156 C 152.5,144 176.5,144 177,156"/> <path id="snb-eyec-r" d="M 223,156 C 223.5,144 247.5,144 248,156"/> </g> <g id="snb-eyes-open" opacity="0"> <circle id="snb-eyeo-l" cx="164.5" cy="151" r="6" fill="currentColor" stroke="none"/> <circle id="snb-eyeo-r" cx="235.5" cy="151" r="6" fill="currentColor" stroke="none"/> </g> <ellipse id="snb-cheek-l" cx="154.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(13.7 154.5 192.5)"/> <ellipse id="snb-cheek-r" cx="245.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(-13.7 245.5 192.5)"/> <g id="snb-beard" stroke-width="9.5"> <path id="snb-ridge-1l" d="M 137.5,219.5 L 137.5,305.5"/> <path id="snb-ridge-1r" d="M 261.5,219.5 L 261.5,305.5"/> <path id="snb-ridge-2" d="M 154.5,328.5 L 154.5,258.25 A 45,45 0 0 1 244.5,258.25 L 244.5,328.5"/> <path id="snb-ridge-3" d="M 175.5,343.5 L 175.5,255.5 A 24.5,24.5 0 0 1 224.5,255.5 L 224.5,343.5"/> <path id="snb-ridge-4" d="M 200,262.5 L 200,346.5"/> </g> <path id="snb-nose" stroke-width="4.2" d="M 180,189 C 183,215 217,215 220,189"/>'
       + '</svg>';
   }
-  let _ob = { i:0, min:0, on:false };
-  // no back on the first card of the run. Re-entry from settings starts at 1, so back
-  // there must not reach the welcome, which thanks them for subscribing all over again.
+  let _ob = { i:0, min:0, on:false, from:'first', view:'', lifted:null };
+  // no back on the first card of the run. A replay starts at the name, so back there must not reach the welcome, which thanks
+  // them for joining all over again.
   function obCanBack(){ return _ob.i==='decline' ? true : (typeof _ob.i==='number' && _ob.i > _ob.min); }
   function obStep(x){ return x==='decline' ? OB_STEPS.filter(s=>s.id==='decline')[0] : OB_STEPS[x]; }
   let _obResize=null;
-  function startOnboarding(fromSettings){
+  // from: 'first' (a new member's first open), 'settings' (the Settings row), 'notice' (Monday's update card)
+  function startOnboarding(from){
     if(_ob.on || $('#ob-root')) return;
+    if(from === true) from = 'settings';
+    from = from || 'first';
     obBuildSteps();
-    _ob.i = fromSettings ? 1 : 0; _ob.min = _ob.i; _ob.on = true;
-    obTrack('orient_start', { from: fromSettings?'settings':'first_open' });
+    _ob.from = from;
+    _ob.i = from==='first' ? 0 : 1; _ob.min = _ob.i; _ob.on = true; _ob.view = '';
+    obTrack('orient_start', { from: from==='first' ? 'first_open' : from, v:2 });
     if(!_obResize){ _obResize = ()=>{ if(_ob.on){ const st=obStep(_ob.i); if(st){ obPlace(st); obFade(); } } };
       window.addEventListener('resize', _obResize); }
     obPaint(true);
   }
+  function obUnlift(){ try{ if(_ob.lifted){ _ob.lifted.style.transform=''; _ob.lifted=null; } }catch(e){} const c=$('#content'); if(c) c.style.transform=''; }
   function endOnboarding(how){
     const d=$('#ob-root'); _ob.on=false;
-    setOriented(how==='skip' ? 'skipped' : 'yes');
-    obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'' });
-    const c=$('#content'); if(c) c.style.transform='';
+    obStopAudio();
+    // 'v2' = went through (or skipped) this walkthrough; any value still reads as oriented
+    setOriented(how==='skip' ? 'skipped-v2' : 'v2');
+    // the walkthrough IS the update for this member: Monday's card and the two September cards never follow it
+    try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
+    obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'', v:2, from:_ob.from });
+    obUnlift();
     if(d && d.parentNode) d.parentNode.removeChild(d);
+    // the last card was over Settings; the app opens on Now
+    if(_ob.view !== 'now'){ try{ app('now'); }catch(e){} }
+    _ob.view = '';
   }
   function obEnsureRoot(){
     let d=$('#ob-root');
@@ -2042,53 +2104,57 @@
     if(!d){ d=document.createElement('div'); d.id='ob-root'; d.className='ob-root'; document.body.appendChild(d); }
     return d;
   }
+  function obShow(st){
+    // app(tab) / screenSettings() rebuild root.innerHTML, which takes any lift with it, so switch the view FIRST and attach
+    // the sheet afterwards. Keyed by the view painted last, because Settings leaves currentTab on 'you'.
+    const view = st.screen || st.tab;
+    if(!view || view === _ob.view) return;
+    obUnlift();
+    if(st.screen === 'settings') screenSettings(); else app(st.tab);
+    _ob.view = view;
+  }
   function obPaint(first){
     let st=obStep(_ob.i); if(!st){ endOnboarding('done'); return; }
-    // the 'done' card is the very next card after 'name' — greet by the name they just
-    // typed (read live, not the value OB_STEPS was built with, which is stale by design:
-    // steps are built once at onboarding start, before anyone has typed anything).
-    // Justin, 2026-07-28: it should say the chosen name back on that next card.
+    obStopAudio();
+    // greet by the name they just typed (read live: steps are built once, before anyone has typed anything)
     if(st.id==='done'){
       const nm=(Store.getName&&Store.getName())||'';
-      if(nm) st=Object.assign({}, st, { body: st.body.replace('And that’s it.', 'And that’s it, '+escapeHtml(nm)+'.') });
+      if(nm) st=Object.assign({}, st, { h: 'You’re all set, '+nm });
     }
-    // app(tab) rebuilds root.innerHTML, which takes the overlay with it — so switch the
-    // tab FIRST and re-attach afterwards, never the other way round.
-    if(st.tab && st.tab!==currentTab){ app(st.tab); }
+    obShow(st);
     const d=obEnsureRoot();
-    obTrack('orient_step', { step: st.id });
+    obTrack('orient_step', { step: st.id, v:2 });
     const seq = OB_STEPS.filter(s=>!s.standalone && s.id!=='welcome' && s.id!=='done');
     const pos = seq.map(s=>s.id).indexOf(st.id);
-    const actions = st.actions || [{ label:(pos===seq.length-1?'Done':'Next'), kind:'primary', go:'next' }];
+    const actions = st.actions || [{ label:'Next', kind:'primary', go:'next' }];
     const showSkip = !st.actions;
-    // dims/hole fade in on EVERY step now, not just the first (the .anim classes existed
-    // in CSS but were never applied past the first paint, so a spotlight moving to a new
-    // target — or vanishing/appearing between a spot card and a centered one — used to
-    // snap instantly). The card itself gets the big rise-from-bottom only on first open;
-    // every step after that gets a lighter fade+settle so the shape genuinely transitions
-    // rather than cutting (Justin 2026-07-28: "onboarding shape-shift transition").
+    // a replay opens on the name card: say once that their own choices are already in
+    const replayNote = (_ob.from !== 'first' && _ob.i === _ob.min && typeof _ob.i === 'number') ? '<p class="ob-fine">Your current choices are already selected. Change anything, or just tap Next.</p>' : '';
     let html = '<div class="ob-dim anim" data-side="t"></div><div class="ob-dim anim" data-side="b"></div>'
              + '<div class="ob-dim anim" data-side="l"></div><div class="ob-dim anim" data-side="r"></div>';
     if(st.kind==='spot') html += '<div class="ob-hole anim"></div>';
-    html += '<div class="ob-card'+(first?' anim':' step')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
+    html += '<div class="ob-card'+(first?' anim':' step')+(st.kind==='spot'?' ob-low':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
       + '<div class="ob-top">'
       + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
           + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>Back</button>' : '<span></span>')
       + '<span></span><span class="ob-toppad"></span></div>'
       + '<div class="ob-body">'
+      + (st.eb ? '<p class="eyebrow ob-eb">'+escapeHtml(st.eb)+'</p>' : '')
       + '<h2 class="ob-h">'+escapeHtml(st.h)+'</h2>'
-      + st.body
+      + st.body + replayNote
       + (st.fine?'<p class="ob-fine">'+escapeHtml(st.fine)+'</p>':'')
       + '</div>'
       + '<div class="ob-foot">'
       + '<div class="ob-acts">'+actions.map(a=>'<button class="btn'+(a.kind==='quiet'?' quiet':'')+' block" type="button" data-go="'+a.go+'">'+escapeHtml(a.label)+'</button>').join('')+'</div>'
       + (showSkip ? '<div class="ob-row"><div class="ob-dots">'+seq.map((s,i)=>'<i class="'+(i===pos?'on':'')+'"></i>').join('')+'</div>'
-          + '<button class="ob-skip" type="button" data-go="skip">I\u2019ll take it from here</button></div>' : '')
+          + '<button class="ob-skip" type="button" data-go="skip">I’ll take it from here</button></div>' : '')
       + '</div></div>';
     d.innerHTML = html;
     obPlace(st);
     obWire(st);
     obFade();
+    // a screen that renders in steps (Learn's library, the Pathway card) can move its target after this paint: measure again
+    if(st.kind==='spot'){ setTimeout(()=>{ if(_ob.on && obStep(_ob.i)===st) obPlace(st); }, 350); }
     const card=d.querySelector('.ob-card'); if(card) card.focus && card.setAttribute('tabindex','-1');
   }
   // The footer fade means "there is more copy below". It used to paint unconditionally,
@@ -2104,52 +2170,52 @@
     // stale clientHeight and miss a body that really does overflow. Re-measure after layout.
     requestAnimationFrame(upd); setTimeout(upd, 140);
   }
+  // the first target in the step's list that is on screen with a size (layouts differ by plan, data and width)
+  function obTarget(st){
+    if(st.kind!=='spot') return null;
+    const list = Array.isArray(st.target) ? st.target : [st.target];
+    for(const sel of list){ try{ const el=document.querySelector(sel); if(el){ const r=el.getBoundingClientRect(); if(r.width && r.height) return el; } }catch(e){} }
+    return null;
+  }
   function obPlace(st){
-    const d=$('#ob-root'); const card=d.querySelector('.ob-card');
-    // positioned against the viewport now that the overlay is a child of body
-    const shellR = { left:0, top:0, width:window.innerWidth, height:window.innerHeight };
-    const contentEl = $('#content'); if(contentEl) contentEl.style.transform='';
+    const d=$('#ob-root'); if(!d) return; const card=d.querySelector('.ob-card');
+    const W=window.innerWidth, H=window.innerHeight;
     const dims = [...d.querySelectorAll('.ob-dim')];
     const hole = d.querySelector('.ob-hole');
-    let target = st.kind==='spot' ? document.querySelector(st.target) : null;
-    // Two of the three spotlight targets are MOBILE-ONLY: #p7-toggle only renders for
-    // paid-on-phone (renderMaker7b), and #carousel is replaced by the ledger on the wide
-    // you-tab. On desktop they are absent, and an unguarded measure put the ring in the
-    // top-left corner. Missing or zero-sized target => fall back to a plain centred card.
-    if(target){ const tr=target.getBoundingClientRect(); if(!tr.width || !tr.height) target=null; }
+    obUnlift();
+    const target = obTarget(st);
+    // Missing or zero-sized target => a plain card over one full dim pane. Never a ring in the corner.
     if(!target){
-      // no spotlight: one full dim pane behind the card, the rest collapsed
       dims.forEach((el,i)=>{ el.style.cssText = i===0 ? 'inset:0' : 'display:none'; });
       if(hole) hole.style.display='none';
       return;
     }
     const p = st.pad==null?8:st.pad;
-    const measure = ()=>{ const tr=target.getBoundingClientRect();
-      return { x:tr.left-p, y:tr.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
+    const measure = ()=>{ const tr=target.getBoundingClientRect(); return { x:tr.left-p, y:tr.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
+    // bring the target near the top of its own scroller first (the Pathway card, Your Journal and the You cards sit low)
+    const sc = target.closest('.scroll');
+    if(sc){ const top = target.getBoundingClientRect().top - sc.getBoundingClientRect().top; if(top > 24) sc.scrollTop = sc.scrollTop + top - 16; }
     let r = measure();
-    // the sheet is pinned to the bottom, so a low target would sit UNDER it.
-    // lift the app content by the overlap and re-measure, so the ring stays visible.
-    if(contentEl && card){
+    // the sheet is pinned to the bottom, so a target that is still low would sit UNDER it: lift its view by the overlap
+    const lift = sc || $('#content');
+    if(lift && card){
       const cardTop = card.getBoundingClientRect().top;
       const overlap = (r.y + r.h + 16) - cardTop;
-      if(overlap > 0){ contentEl.style.transform='translateY('+(-Math.round(overlap))+'px)'; r = measure(); }
+      // a target taller than the room above the sheet keeps its top on screen and runs on under the sheet
+      const up = Math.min(overlap, r.y - 12);
+      if(up > 0){ lift.style.transform='translateY('+(-Math.round(up))+'px)'; _ob.lifted = lift; r = measure(); }
     }
-    const W=shellR.width, H=shellR.height;
     const set=(el,x,y,w,h)=>{ el.style.cssText='left:'+x+'px;top:'+y+'px;width:'+Math.max(0,w)+'px;height:'+Math.max(0,h)+'px'; };
     set(dims[0], 0, 0, W, r.y);                       // top
     set(dims[1], 0, r.y+r.h, W, H-(r.y+r.h));         // bottom
     set(dims[2], 0, r.y, r.x, r.h);                   // left
     set(dims[3], r.x+r.w, r.y, W-(r.x+r.w), r.h);     // right
     if(hole){
-      // conform to the target: take its own corner radius and grow it by the pad, so the
-      // ring sits snug on a pill or a rounded button instead of boxing it in a rectangle.
+      // conform to the target: take its own corner radius and grow it by the pad
       let br = 16;
       try{ const cs=getComputedStyle(target);
         const raw = cs.borderTopLeftRadius||'';
         const v = parseFloat(raw)||0;
-        // A target with its own radius: match it and grow by the pad, so the ring is
-        // parallel to the corner. A target with NO radius (most of ours are plain text
-        // buttons) reads boxy at pad-only, so give it a pill capped at 28.
         br = raw.indexOf('%')>=0 ? Math.min(r.w,r.h)/2
            : v > 0 ? v + p
            : Math.min(r.h/2, 28);
@@ -2164,12 +2230,10 @@
       const g=b.dataset.go;
       if(g==='skip'){ return endOnboarding('skip'); }
       if(g==='end'){ return endOnboarding('done'); }
+      if(g==='checkin'){ endOnboarding('done'); try{ screenCheckin(); }catch(e){} return; }
       if(g==='decline'){ _ob.i='decline'; return obPaint(false); }
       if(g==='next'){
-        // save the just-typed name immediately on advance — the input's own 'change'
-        // listener only fires on blur, so tapping next without blurring first used to
-        // carry the name past the very card that asked for it (2026-07-28, Justin: the
-        // NEXT card after spelling it out should already say it back).
+        // save the just-typed name on advance — the input's own 'change' listener only fires on blur
         if(st && st.id==='name'){ const ne=d.querySelector('#ob-name'); if(ne && Store.setName) Store.setName(ne.value.trim()); }
         _ob.i = (typeof _ob.i==='number' ? _ob.i+1 : 0); return obPaint(false);
       }
@@ -2177,43 +2241,97 @@
       if(g==='back'){ _ob.i = (_ob.i==='decline') ? 0 : Math.max(_ob.min, _ob.i-1); return obPaint(false); }
       _ob.i = +g; obPaint(false);
     });
-    // the preference cards write the SAME keys settings writes — a walkthrough OF the app
+    const onIn = (group, val) => d.querySelectorAll('[data-group="'+group+'"] [data-'+group+']').forEach(x=>x.classList.toggle('on', x.dataset[group]===String(val)));
+    // how you check in: the same key Settings writes, with the same caption and preview
     const mSel = d.querySelector('[data-group="method"]');
     if(mSel){
       const cur = (()=>{ try{ return localStorage.getItem('snb_checkin_method')||'sliders'; }catch(e){ return 'sliders'; } })();
       const cap = d.querySelector('[data-cap="method"]');
       const prev = d.querySelector('#ob-method-preview');
-      // numbers preview is a live illustration, same as settings: dragging its slider
-      // moves the value on the right rather than sitting static.
       const bindPrev=()=>{ if(!prev) return; const r=prev.querySelector('.ci-prev-range'), n=prev.querySelector('.ci-prev-num'); if(r&&n) r.oninput=()=>{ n.textContent = Math.round((+r.value)/10); }; };
-      const mark=(v)=>{ mSel.querySelectorAll('[data-method]').forEach(x=>x.classList.toggle('on', x.dataset.method===v));
-                        if(cap) cap.textContent = OB_METHOD_CAP[v]||'';
-                        if(prev){ prev.innerHTML = _methodPreview(v); bindPrev(); } };
+      const mark=(v)=>{ onIn('method', v); if(cap) cap.textContent = OB_METHOD_CAP[v]||''; if(prev){ prev.innerHTML = _methodPreview(v); bindPrev(); } obFade(); };
       mark(cur);
       mSel.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
         try{ localStorage.setItem('snb_checkin_method', b.dataset.method); }catch(e){}
         mark(b.dataset.method); haptic('save'); obTrack('orient_pref',{pref:'method',value:b.dataset.method});
       });
     }
-    const sSel = d.querySelector('[data-group="sense"]');
-    if(sSel){
-      const cur = (Store.prefSense && Store.prefSense()) || '';
-      sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on', x.dataset.sense===cur));
-      sSel.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
-        if(Store.setPrefSense) Store.setPrefSense(b.dataset.sense);
-        sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on',x===b));
-        haptic('save'); obTrack('orient_pref',{pref:'sense',value:b.dataset.sense});
-      });
-    }
+    // how much silence
     const qSel = d.querySelector('[data-group="silence"]');
     if(qSel){
-      const cur = (Store.prefSilence && Store.prefSilence());
-      qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on', +x.dataset.silence===cur));
+      onIn('silence', (Store.prefSilence && Store.prefSilence()));
       qSel.querySelectorAll('[data-silence]').forEach(b=>b.onclick=()=>{
         if(Store.setPrefSilence) Store.setPrefSilence(+b.dataset.silence);
-        qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on',x===b));
-        haptic('save'); obTrack('orient_pref',{pref:'silence',value:b.dataset.silence});
+        onIn('silence', b.dataset.silence); haptic('save'); obTrack('orient_pref',{pref:'silence',value:b.dataset.silence});
       });
+    }
+    // background sound: the same preference the maker and the player use, with a few seconds of it when picked
+    const bSel = d.querySelector('[data-group="bed"]');
+    if(bSel){
+      const cur = bedPref();
+      onIn('bed', cur.bed);
+      bSel.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{
+        const bed = b.dataset.bed, lv = (bedPref().level) || BED_LEVEL_DEFAULT;
+        if(Store.setPrefBed) Store.setPrefBed(bed==='none' ? 'none' : bed, bed==='none' ? null : lv);
+        onIn('bed', bed); haptic('save'); obTrack('orient_pref',{pref:'bed',value:bed});
+        if(_obAudio){ try{ _obAudio.pause(); }catch(e){} _obAudio=null; }
+        bedPreview({ bed, level:lv });
+      });
+    }
+    // voice (Justin, 2026-10-03: "The user should hear a sample of the Voices when they select"): a free member hears Poppy
+    // too, but the choice stays Justin's, with the plan named under it
+    const vSel = d.querySelector('[data-group="voice"]');
+    if(vSel){
+      const cap = d.querySelector('[data-cap="voice"]');
+      onIn('voice', voicePref());
+      vSel.querySelectorAll('[data-voice]').forEach(b=>b.onclick=()=>{
+        const v = b.dataset.voice;
+        try{ bedPreview(null); }catch(e){}
+        obVoiceSample(v);
+        if(!voiceOk(v)){ if(cap) cap.textContent = voiceName(v)+' is on the paid plan.'; obTrack('orient_pref',{pref:'voice_locked',value:v}); obFade(); return; }
+        if(cap) cap.textContent = '';
+        if(Store.setPrefVoice) Store.setPrefVoice(v);
+        onIn('voice', v); haptic('save'); obTrack('orient_pref',{pref:'voice',value:v});
+      });
+    }
+    // the safety anchor: the same choice as the Pathway's first step (and Settings' sense); 'auto' = let the app find it
+    const aSel = d.querySelector('[data-group="anchor"]');
+    if(aSel){
+      let mode=null; try{ mode = localStorage.getItem(UP_ANCHOR_MODE); }catch(e){}
+      const chosen = (typeof _upAnchorChosen === 'function') ? _upAnchorChosen() : null;
+      onIn('anchor', mode==='chosen' && chosen ? chosen : mode==='auto' ? 'auto' : '');
+      if(!paidNow()) aSel.querySelectorAll('[data-anchor]').forEach(b=>b.onclick=()=>{ try{ b.blur(); }catch(e){} });
+      else aSel.querySelectorAll('[data-anchor]').forEach(b=>b.onclick=()=>{
+        const v = b.dataset.anchor;
+        try{
+          if(v==='auto') localStorage.setItem(UP_ANCHOR_MODE, 'auto');
+          else { if(Store.setPrefSense) Store.setPrefSense(v); localStorage.setItem(UP_ANCHOR_MODE, 'chosen'); }
+        }catch(e){}
+        onIn('anchor', v); haptic('save'); obTrack('orient_pref',{pref:'anchor',value:v});
+      });
+    }
+    // notifications: the same preferences as Settings → Notifications. Turning the first thing on is what asks the phone,
+    // from this tap; a refusal turns the switch back and says why.
+    if(st.id==='notif'){
+      let cur = (typeof pushPrefsRead === 'function') ? pushPrefsRead() : {};
+      const hint = d.querySelector('#ob-push-hint');
+      const say = t => { if(hint){ hint.textContent = t; hint.hidden = false; obFade(); } };
+      const ensure = async ()=>{ if(pushState()==='on') return true; const r = await pushRequest('onboarding'); if(r==='on') return true;
+        say(r==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back to Settings.' : 'Notifications were not turned on. You can try again any time in Settings.'); return false; };
+      const save = patch => { pushPrefsSave(patch).then(p=>{ cur=p; }); try{ pushTrack('push_prefs', { origin:'onboarding' }); }catch(e){} };
+      const bindSw = (id, fn) => { const b=d.querySelector('#'+id); if(!b) return; b.onclick=async()=>{ if(b.disabled) return;
+        const on=!b.classList.contains('on'); b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false');
+        if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); haptic('save'); }; };
+      bindSw('ob-n-refl', on => save({ reflect_week:on, reflect_month:on, reflect_season:on, reflect_year:on }));
+      bindSw('ob-n-follow', on => save({ followup:on }));
+      const ct0 = cur.checkin_times || {};
+      d.querySelectorAll('[data-ci]').forEach(b=>{ b.classList.toggle('on', ct0[b.dataset.ci]!==undefined); b.setAttribute('aria-pressed', String(ct0[b.dataset.ci]!==undefined));
+        b.onclick=async()=>{ if(b.disabled) return; const k=b.dataset.ci, on=!b.classList.contains('on');
+          b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on));
+          if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-pressed','false'); return; }
+          const ct=Object.assign({}, cur.checkin_times||{}); const dp=PUSH_DAYPARTS.find(x=>x[0]===k);
+          if(on) ct[k]=(dp&&dp[2])||'09:00'; else delete ct[k];
+          save({ checkin_times:ct }); haptic('save'); }; });
     }
     const nameEl = d.querySelector('#ob-name');
     if(nameEl) nameEl.addEventListener('change', e=>{ if(Store.setName) Store.setName(e.target.value.trim()); });
@@ -2304,7 +2422,41 @@ function whatsNewLaunch(){
   const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_launch_seen',{}); }catch(e){}
 }
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewLaunch(); whatsNewPush(); }catch(e){} }, ms)); });   // auth lands async; both cards are idempotent; the launch card takes the load, the push card waits for the next
+// Monday's update card (Justin, 2026-10-03: "monday's app update notice needs to invite the user to go through the onboarding since
+// there is simply so much new stuff in the app"). His card, signed by him, so first person is fine here, as on the earlier cards;
+// copy from the mockups with his edits ("capitalize Journal, you can leave the '2 minutes' in"). Once per device, only for members
+// who were already using the app (oriented): a new member gets the walkthrough itself, and finishing or skipping the walkthrough
+// sets this key. It REPLACES September's two cards (prod has shown both since 2026-09-28): showing it marks them seen, and they no
+// longer run. The main button starts the walkthrough at the name card; it also stays in Settings.
+const _WN_ONB_KEY='snb_whatsnew_launch_2026_10';
+function whatsNewOnboard(){
+  try{ if(localStorage.getItem(_WN_ONB_KEY)==='1') return; }catch(e){ return; }
+  if(!_obMember() || !_obHydrated() || !oriented()) return;
+  if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  if(document.body.classList.contains('in-practice') || document.getElementById('weaver')) return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Major app update">'
+    + '<div class="wn-mark-wrap">' + obMarkSVG() + '</div>'
+    + '<h2 class="wn-h">Major app update</h2>'
+    + '<p class="wn-p">There is so much new in the app that a list wouldn’t do it justice: the Unstucking Pathway, the Learn library, your Journal, a new Practice tab, and more.</p>'
+    + '<p class="wn-p">So I made a short walkthrough. It shows you around and helps you get set up. It takes about two minutes.</p>'
+    + '<p class="ob-sign wn-sign">Justin</p>'
+    + '<button class="btn block" id="wn-go" type="button" style="margin-top:22px">Show me around</button>'
+    + '<button class="btn quiet block" id="wn-ok" type="button" style="margin-top:8px">Not now</button>'
+    + '<p class="ob-fine wn-fine">You can find it again in Settings.</p></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
+  const close=()=>{ document.removeEventListener('keydown', onKey, true); d.remove(); };
+  function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(_){} } }
+  document.addEventListener('keydown', onKey, true);
+  const ok=d.querySelector('#wn-ok'); if(ok) ok.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(e){} };
+  const go=d.querySelector('#wn-go'); if(go){ go.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_go',{}); }catch(e){} try{ app('now'); }catch(e){} setTimeout(()=>startOnboarding('notice'), 80); };
+    try{ go.focus({preventScroll:true}); }catch(e){} }
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_seen',{}); }catch(e){}
+}
+// September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} }, ms)); });
 
 function app(tab){
     currentTab = tab;
@@ -2758,8 +2910,8 @@ function app(tab){
   // an announcement card that has not been dismissed on this device owns this load
   const _tipOtherCardPending = () => {
     try{
-      if(typeof _WN_LAUNCH_KEY === 'string' && _tipLS(_WN_LAUNCH_KEY) !== '1') return true;
-      if(typeof _WN_PUSH_KEY === 'string' && _tipLS(_WN_PUSH_KEY) !== '1') return true;
+      // Monday's update card (2026-10-03) owns the load until it has been shown; September's two are retired
+      if(typeof _WN_ONB_KEY === 'string' && _tipLS(_WN_ONB_KEY) !== '1') return true;
       if(typeof _WN_YOU_KEY === 'string' && typeof _WN_YOU_UNTIL === 'number'
          && Date.now() < _WN_YOU_UNTIL && _tipLS(_WN_YOU_KEY) !== '1') return true;
     }catch(e){}
@@ -9463,7 +9615,7 @@ function app(tab){
 
           <div class="gs-card">
             <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Orientation</span>
-              <button class="linkbtn" id="set-walkthrough" type="button">Show me the app orientation</button></div>
+              <button class="linkbtn" id="set-walkthrough" type="button">Walk me through the app</button></div>
           </div>
 
           <div class="gs-card">
@@ -9552,7 +9704,7 @@ function app(tab){
         </div>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
-    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding(true), 80); };
+    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
     { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same
