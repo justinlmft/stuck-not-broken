@@ -939,7 +939,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:91fb2bbb686d6807cb62560986e368d1 */
+<script>/* @module data.js md5:199bc0be80be4b32bad7f83bb336dc07 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -975,11 +975,12 @@ if (!TABLE) {
  * Justin: "you're using the setup lines, plus the emotion naming, plus the what to do with it. so the emotion naming connects with
  * what to do with it." The files are NEW names, so they are not in the generated clip table (that reads the deploy repo's main):
  * their take counts live here and join the table at load. Justin's are app-relative (EMO_FOLDER) until they are on main too.
- * Take counts are the smaller of the two voices' (Poppy read a few extra; the table is shared). HURT and RAGE have no naming
- * take at the start — those use the CHOSEN line. */
+ * Take counts are the LARGER of the two voices' (Justin, 2026-10-04: "I wanted all of poppy's takes in there for variety"):
+ * Poppy read three extra (REMIND-WORRY-b, NOW-THEN-e/f), so Justin's voice lists them as `lacks` (VOICES) and the runtime
+ * deals each voice only the takes it has. HURT and RAGE have no naming take at the start — those use the CHOSEN line. */
 const EMO_TAKES = Object.freeze({
   'EMO-REMIND-CHOSEN': 2,
-  'EMO-REMIND-WORRY': 1,
+  'EMO-REMIND-WORRY': 2,
   'EMO-REMIND-NERVOUS': 2,
   'EMO-REMIND-ANNOYED': 2,
   'EMO-REMIND-ANXIOUS': 2,
@@ -1031,7 +1032,7 @@ const EMO_TAKES = Object.freeze({
   'EMO-NOW-REJECTED': 3,
   'EMO-NOW-ABANDONED': 3,
   'EMO-NOW-FEAR': 4,
-  'EMO-NOW-THEN': 4,
+  'EMO-NOW-THEN': 6,
   'EMO-NOW-CAPACITY': 1
 });
 Object.keys(EMO_TAKES).forEach(id => { if (!Object.prototype.hasOwnProperty.call(TABLE, id)) TABLE[id] = EMO_TAKES[id]; });
@@ -1245,6 +1246,8 @@ const EMO_CAPTIONS = Object.freeze({
     "EMO-NOW-THEN-b.mp3": "If you still want to pay attention to that emotion now is the time, but you can also switch to something else if you like.",
     "EMO-NOW-THEN-c.mp3": "If you still want to pay attention to that emotion, now is the time to do it, but you can always switch to something else if you like.",
     "EMO-NOW-THEN-d.mp3": "Now is the time to pay attention to it, but you can also switch if you need to.",
+    "EMO-NOW-THEN-e.mp3": "Now's the time to pay attention to it, but you can also switch if something else comes up.",
+    "EMO-NOW-THEN-f.mp3": "Now's the time for us to pay attention to it, but you can always switch if you need to, and you can always go back to something easier if you need to.",
     "EMO-NOW-WORRY-a.mp3": "You had chosen to pay attention to worry.",
     "EMO-NOW-WORRY-b.mp3": "You wanted to pay attention to worry.",
     "EMO-REMIND-ABANDONED-a.mp3": "You chose to work with feeling abandoned.",
@@ -1303,7 +1306,8 @@ const EMO_CAPTIONS = Object.freeze({
     "EMO-REMIND-THEN-f.mp3": "Keep that in the back of your mind, but we're gonna try and connect with a safety emotion first.",
     "EMO-REMIND-THEN-g.mp3": "I want you to keep that emotion in mind, but we're gonna try and connect with first the present moment and then with a safety emotion.",
     "EMO-REMIND-THEN-h.mp3": "Let's keep that emotion in mind for now, but instead of going into that now, we're actually gonna focus on simple mindfulness and then a safety emotion.",
-    "EMO-REMIND-WORRY-a.mp3": "You chose to work with worry."
+    "EMO-REMIND-WORRY-a.mp3": "You chose to work with worry.",
+    "EMO-REMIND-WORRY-b.mp3": "You picked working with worry."
   }),
 });
 
@@ -1341,7 +1345,9 @@ const CLIP_FOLDER = 'https://app.stucknotbroken.com/clips/';
  * Adding a voice = one folder + one row here + its name in copy.js `voiceNames`. */
 const VOICE_DEFAULT = 'justin';
 const VOICES = Object.freeze({
-  justin: Object.freeze({ folder: CLIP_FOLDER, own: true }),
+  /* `lacks`: takes this voice never read (2026-10-04: Poppy's three extra emotion-reminder reads). The runtime deals a voice only
+   * the takes it has; one already dealt before a mid-practice voice change plays in a voice that has it. */
+  justin: Object.freeze({ folder: CLIP_FOLDER, own: true, lacks: new Set(['EMO-REMIND-WORRY-b.mp3', 'EMO-NOW-THEN-e.mp3', 'EMO-NOW-THEN-f.mp3']) }),
   /* Poppy, a Descript AI voice. Justin dubbed the whole script (807 lines) 2026-09-28; sliced by the transcript's words
    * (807/807 aligned, cuts in the silence between reads), +0.7 dB to sit at the library's level, the name taken out of
    * the lines ("Hey." for "Hey, it's Justin."). claude/poppy-dub/README.md has the recipe. */
@@ -1354,7 +1360,15 @@ const VOICES = Object.freeze({
 function voiceKey(v) { return Object.prototype.hasOwnProperty.call(VOICES, v) ? v : VOICE_DEFAULT; }
 /* does `voice` have its own take of `file`? A voice may list `missing` files (lines not dubbed yet): those takes play in
  * Justin's voice, with his trims, pause points and captions. No voice lists any now. */
-function voiceHas(file, voice) { const m = VOICES[voiceKey(voice)].missing; return !(m && m.has(file)); }
+function voiceHas(file, voice) { const r = VOICES[voiceKey(voice)], m = r.missing, l = r.lacks; return !(m && m.has(file)) && !(l && l.has(file)); }
+/* the voice a file can play in: the chosen one if it has it, else Justin's, else the first voice that has it (a take only
+ * another voice read — 2026-10-04) */
+function voiceFor(file, voice) {
+  const v = voiceKey(voice);
+  if (voiceHas(file, v)) return v;
+  if (voiceHas(file, VOICE_DEFAULT)) return VOICE_DEFAULT;
+  return Object.keys(VOICES).find(k => voiceHas(file, k)) || VOICE_DEFAULT;
+}
 
 /* The one way a file name becomes a URL. `base` is the device's app root (`./` in the page,
  * an absolute origin in the tests); it is ignored when the folder is already absolute. `voice` picks
@@ -2416,7 +2430,7 @@ const API = {
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
   BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, breathPairName, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
-  CLIP_FOLDER, EMO_FOLDER, EMO_TAKES, EMOTION_KEYS, emotionKey, EMO_CAPTIONS, clipUrl, VOICES, VOICE_DEFAULT, voiceKey, voiceHas, VOICE_HOLDS, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
+  CLIP_FOLDER, EMO_FOLDER, EMO_TAKES, EMOTION_KEYS, emotionKey, EMO_CAPTIONS, clipUrl, VOICES, VOICE_DEFAULT, voiceKey, voiceHas, voiceFor, VOICE_HOLDS, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
 
@@ -3772,7 +3786,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_PLAN = API
 
 })();
 /* @endmodule plan.js */</script>
-<script>/* @module runtime.js md5:6e2947041334398c4cdfd005d8a4e188 */
+<script>/* @module runtime.js md5:e6e2a44f9c338088290b7db97932838a */
 (function(){
 /* practice-engine/runtime.js — E6. The transport: it walks a plan and makes sound happen.
  *
@@ -4222,13 +4236,17 @@ class Runtime {
      * written for the Interest Impulse practice alone and must never play inside a defense
      * practice, so those beats carry every take but E. Same shape as `take`, same one reader. */
     /* a take taken out of rotation (data.js TAKES_OUT, 2026-09-24) is never dealt, pooled or not */
-    const inRotation = D.takesInRotation(beat.id);
+    /* …and only the takes the person's voice actually read (2026-10-04: Poppy read a few emotion-reminder lines more
+     * often than Justin; each voice is dealt its own). Never empties a pool: a voice with none of them keeps them all. */
+    const voiced = list => { const v = this.voice(), l = list.filter(t => D.voiceHas(D.fileFor(beat.id, t), v)); return l.length ? l : list; };
+    const inRotation = voiced(D.takesInRotation(beat.id));
     if (beat.pool) {
       const bad = beat.pool.find(t => TAKE_LETTERS.indexOf(t) < 0 || TAKE_LETTERS.indexOf(t) >= n);
       if (bad !== undefined || !beat.pool.length) {
         throw new Error(`runtime(): ${beat.id} has no take "${bad}" in its pool (it has ${n}).`);
       }
-      const pool = beat.pool.filter(t => inRotation.includes(t));
+      let pool = beat.pool.filter(t => inRotation.includes(t));
+      if (!pool.length) pool = beat.pool.filter(t => D.takesInRotation(beat.id).includes(t));
       if (!pool.length) throw new Error(`runtime(): every take in ${beat.id}'s pool is out of rotation.`);
       const j = Math.floor(this.dev.random() * pool.length) % pool.length;
       return D.fileFor(beat.id, pool[j]);
@@ -4246,7 +4264,8 @@ class Runtime {
 
   variantsOf(beat) {
     const n = D.takes(beat.id);
-    return Array.from({ length: n }, (_, i) => D.fileFor(beat.id, TAKE_LETTERS[i]));
+    const v = this.voice();
+    return Array.from({ length: n }, (_, i) => D.fileFor(beat.id, TAKE_LETTERS[i])).filter(f => D.voiceHas(f, v));
   }
 
   // ── transport ─────────────────────────────────────────────────────────────────────────
@@ -4550,7 +4569,8 @@ class Runtime {
   voice() { return D.voiceKey(this.plan.cfg && this.plan.cfg.voice); }
   _voiceFor(file) {
     const v = this.voice();
-    return (this._fellBack[file] || !D.voiceHas(file, v)) ? D.VOICE_DEFAULT : v;   // a line the voice has not dubbed yet: Justin's
+    if (this._fellBack[file] && D.voiceHas(file, D.VOICE_DEFAULT)) return D.VOICE_DEFAULT;
+    return D.voiceFor(file, v);   // a line the voice has not dubbed yet: Justin's (a take only another voice read: that voice)
   }
 
   /* the chosen voice has no such file (a family not dubbed yet, a failed upload): the same take in Justin's voice, with his
