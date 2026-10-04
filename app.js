@@ -4267,7 +4267,8 @@ function app(tab){
     if(paid && !opts.preview){ _rdJournalWire(post); if(opts.goSec) requestAnimationFrame(()=>_lrnGoTo(opts.goSec)); }
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
     root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));
-    const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco);
+    // Back from the plan comes back to this reflection, where the reader was (Justin, 2026-10-04: "Back should be true back")
+    const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco, _trueBack(()=>screenReaderPost(post, opts)));
     const mo = $('#rd-more'); if(mo) mo.onclick = ()=>screenReaderEssay(post.teach.state, post);
     if(post.chipQ && paid && !opts.preview) _wireCtxChips('r'+post.key);
     // each snapshot shares as its own square card
@@ -4705,7 +4706,7 @@ function app(tab){
     // the Journal: locked for free; the sheet slides up, one question at a time, swipe or Next/Previous between them
     root.querySelectorAll('.rd-jr-locked').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     root.querySelectorAll('.rd-jr').forEach(_jrWire);
-    root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), 'practice'); });
+    root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), _trueBack(()=>screenLearnPiece(piece, ctx, fromPost, from))); });
     if(goSec) requestAnimationFrame(()=>_lrnGoTo(goSec));
     // read = reached the end (Keep learning in view), not just opened
     const endEl = root.querySelector('.rd-keep');
@@ -8187,6 +8188,12 @@ function app(tab){
     if(k === 'self-regulation'){ if(reco.prefix === 'obstacles') ids.push('obstacles'); ids.push(SKILL[reco.skill] || 'ssiec'); if(reco.depth === 'description' || reco.descDefense) ids.push('description'); if(reco.holdWatch) ids.push('holding-and-watching'); }
     if(k !== 'mindfulness' && reco.sense && SENSE[reco.sense]) ids.push(SENSE[reco.sense]);
     return [...new Set(ids)].map(id=>L.byId(id)).filter(Boolean).slice(0, 3);
+  }
+  // "Back should be true back" (Justin, 2026-10-04): a screen that opens the plan hands it a way back to itself, and the reader
+  // lands where they were on it
+  function _trueBack(show){
+    const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0;
+    return ()=>{ show(); requestAnimationFrame(()=>{ const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; }); };
   }
   function renderPlan(reco, from){
     // The plan reader IS the matching, rendered — "why this practice, for you, now".
