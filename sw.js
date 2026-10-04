@@ -5,7 +5,7 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v584';
+const SHELL_VERSION = 'snb-app-shell-v585';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
@@ -74,11 +74,31 @@ async function purgeOldClipTakes() {
   } catch (e) { /* best effort — never block activation */ }
 }
 
+/* 2026-10-04 (Justin, listening to Poppy: "That's two takes in one"): two of her takes were re-cut under the SAME names, and
+   AUDIO_CACHE is cache-first, so a phone that played the old cut would keep it. Those exact files are dropped once (marker
+   below) and re-cache on next play. Add a file here whenever a take is re-cut in place; bump the mark with it. */
+const AUDIO_RECUT_MARK = './__audio-recut-2026-10-04';
+const AUDIO_RECUT = ['/clips-poppy/IMG-02-a.mp3', '/clips-poppy/OBST-05-a.mp3'];
+async function purgeRecutTakes() {
+  try {
+    const cache = await caches.open(AUDIO_CACHE);
+    if (await cache.match(AUDIO_RECUT_MARK)) return;
+    const reqs = await cache.keys();
+    let n = 0;
+    for (const r of reqs) {
+      const p = new URL(r.url).pathname;
+      if (AUDIO_RECUT.some((f) => p.endsWith(f))) { await cache.delete(r); n++; }
+    }
+    await cache.put(AUDIO_RECUT_MARK, new Response(String(n), { headers: { 'Content-Type': 'text/plain' } }));
+  } catch (e) { /* best effort — never block activation */ }
+}
+
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== SHELL_VERSION && k !== AUDIO_CACHE).map((k) => caches.delete(k)));
     await purgeOldClipTakes();
+    await purgeRecutTakes();
     await self.clients.claim();
   })());
 });
