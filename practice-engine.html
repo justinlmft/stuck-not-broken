@@ -939,7 +939,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:36cb3a4f98019c111127bbe344041564 */
+<script>/* @module data.js md5:91fb2bbb686d6807cb62560986e368d1 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -965,6 +965,347 @@ if (!TABLE) {
     'clip-table.js is missing — run `python3 harness/build-clip-table.py` first. It is generated ' +
     'on demand and deliberately not committed, so a stale copy cannot drift.');
 }
+
+/* ✅ THE EMOTION REMINDERS (Justin, 2026-10-04, recording v2e — both voices). When the person chose an emotion in the app
+ * before a self-regulation practice, the practice names it back twice instead of asking them to choose one:
+ *   EMO-REMIND-<EMOTION>  "You chose to work with worry."            + EMO-REMIND-THEN  "Keep that one in mind while we connect
+ *   EMO-REMIND-CHOSEN     (their own words, or no clip for the word)    with safety first." — at the end of the setup
+ *   EMO-NOW-<EMOTION>     "You wanted to pay attention to worry."    + EMO-NOW-THEN     "Now's the time, but you can also
+ *   EMO-NOW-CHOSEN        (their own words: one full read)              switch…" + EMO-NOW-CAPACITY — in place of Validating
+ * Justin: "you're using the setup lines, plus the emotion naming, plus the what to do with it. so the emotion naming connects with
+ * what to do with it." The files are NEW names, so they are not in the generated clip table (that reads the deploy repo's main):
+ * their take counts live here and join the table at load. Justin's are app-relative (EMO_FOLDER) until they are on main too.
+ * Take counts are the smaller of the two voices' (Poppy read a few extra; the table is shared). HURT and RAGE have no naming
+ * take at the start — those use the CHOSEN line. */
+const EMO_TAKES = Object.freeze({
+  'EMO-REMIND-CHOSEN': 2,
+  'EMO-REMIND-WORRY': 1,
+  'EMO-REMIND-NERVOUS': 2,
+  'EMO-REMIND-ANNOYED': 2,
+  'EMO-REMIND-ANXIOUS': 2,
+  'EMO-REMIND-IRRITABLE': 1,
+  'EMO-REMIND-ANGRY': 2,
+  'EMO-REMIND-FRUSTRATED': 2,
+  'EMO-REMIND-DISAPPOINTMENT': 2,
+  'EMO-REMIND-NUMB': 2,
+  'EMO-REMIND-SAD': 3,
+  'EMO-REMIND-ALONE': 2,
+  'EMO-REMIND-REGRET': 2,
+  'EMO-REMIND-INVISIBLE': 2,
+  'EMO-REMIND-DEPRESSED': 2,
+  'EMO-REMIND-SURPRISED': 2,
+  'EMO-REMIND-INSECURITY': 2,
+  'EMO-REMIND-PANIC': 2,
+  'EMO-REMIND-OVERWHELM': 2,
+  'EMO-REMIND-GRIEF': 2,
+  'EMO-REMIND-GUILT': 2,
+  'EMO-REMIND-SHAME': 2,
+  'EMO-REMIND-REJECTED': 2,
+  'EMO-REMIND-ABANDONED': 2,
+  'EMO-REMIND-FEAR': 2,
+  'EMO-REMIND-THEN': 8,
+  'EMO-NOW-CHOSEN': 3,
+  'EMO-NOW-WORRY': 2,
+  'EMO-NOW-NERVOUS': 2,
+  'EMO-NOW-ANNOYED': 2,
+  'EMO-NOW-ANXIOUS': 2,
+  'EMO-NOW-IRRITABLE': 3,
+  'EMO-NOW-ANGRY': 2,
+  'EMO-NOW-FRUSTRATED': 2,
+  'EMO-NOW-DISAPPOINTMENT': 2,
+  'EMO-NOW-NUMB': 3,
+  'EMO-NOW-SAD': 2,
+  'EMO-NOW-ALONE': 2,
+  'EMO-NOW-REGRET': 2,
+  'EMO-NOW-INVISIBLE': 2,
+  'EMO-NOW-HURT': 2,
+  'EMO-NOW-DEPRESSED': 2,
+  'EMO-NOW-SURPRISED': 2,
+  'EMO-NOW-INSECURITY': 2,
+  'EMO-NOW-PANIC': 2,
+  'EMO-NOW-RAGE': 2,
+  'EMO-NOW-OVERWHELM': 2,
+  'EMO-NOW-GRIEF': 2,
+  'EMO-NOW-GUILT': 3,
+  'EMO-NOW-SHAME': 3,
+  'EMO-NOW-REJECTED': 3,
+  'EMO-NOW-ABANDONED': 3,
+  'EMO-NOW-FEAR': 4,
+  'EMO-NOW-THEN': 4,
+  'EMO-NOW-CAPACITY': 1
+});
+Object.keys(EMO_TAKES).forEach(id => { if (!Object.prototype.hasOwnProperty.call(TABLE, id)) TABLE[id] = EMO_TAKES[id]; });
+/* the app's emotion words (and a few spellings of them) → the clip's name */
+const EMOTION_KEYS = Object.freeze({
+  worry: 'WORRY', worried: 'WORRY', nervous: 'NERVOUS', annoyed: 'ANNOYED', anxious: 'ANXIOUS', anxiety: 'ANXIOUS', irritable: 'IRRITABLE',
+  angry: 'ANGRY', anger: 'ANGRY', frustrated: 'FRUSTRATED', frustration: 'FRUSTRATED', disappointment: 'DISAPPOINTMENT', disappointed: 'DISAPPOINTMENT',
+  numb: 'NUMB', numbness: 'NUMB', sad: 'SAD', sadness: 'SAD', alone: 'ALONE', lonely: 'ALONE', regret: 'REGRET', invisible: 'INVISIBLE',
+  hurt: 'HURT', depressed: 'DEPRESSED', surprised: 'SURPRISED', surprise: 'SURPRISED', insecurity: 'INSECURITY', insecure: 'INSECURITY',
+  panic: 'PANIC', rage: 'RAGE', overwhelm: 'OVERWHELM', overwhelmed: 'OVERWHELM', grief: 'GRIEF', guilt: 'GUILT', guilty: 'GUILT',
+  shame: 'SHAME', ashamed: 'SHAME', rejected: 'REJECTED', rejection: 'REJECTED', abandoned: 'ABANDONED', fear: 'FEAR', afraid: 'FEAR', scared: 'FEAR',
+});
+/* the word the app sent ("Worry", "worry|1", "My own words") → its key, or null for words of the person's own */
+function emotionKey(word) {
+  const w = String(word == null ? '' : word).split('|')[0].trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(EMOTION_KEYS, w) ? EMOTION_KEYS[w] : null;
+}
+/* their captions, per voice: the files are not in either voice's captions.json yet */
+const EMO_CAPTIONS = Object.freeze({
+  justin: Object.freeze({
+    "EMO-NOW-ABANDONED-a.mp3": "You had wanted to pay attention to feeling abandoned.",
+    "EMO-NOW-ABANDONED-b.mp3": "The emotion that you chose ahead of time to pay attention to was abandoned.",
+    "EMO-NOW-ABANDONED-c.mp3": "The experience that you had chosen ahead of time to pay attention to was abandoned.",
+    "EMO-NOW-ALONE-a.mp3": "You wanted to pay attention to feeling alone.",
+    "EMO-NOW-ALONE-b.mp3": "Beforehand, you chose to pay attention to feeling alone.",
+    "EMO-NOW-ANGRY-a.mp3": "You wanted to pay attention to feeling angry.",
+    "EMO-NOW-ANGRY-b.mp3": "You wanted to pay attention to the emotion of anger.",
+    "EMO-NOW-ANNOYED-a.mp3": "You wanted to pay attention to feeling annoyed.",
+    "EMO-NOW-ANNOYED-b.mp3": "You wanted to pay attention to feeling annoyed.",
+    "EMO-NOW-ANXIOUS-a.mp3": "You wanted to pay attention to feeling anxious.",
+    "EMO-NOW-ANXIOUS-b.mp3": "The emotion that you wanted to pay attention to is anxious.",
+    "EMO-NOW-CAPACITY-a.mp3": "Make sure you're working within your capacity.",
+    "EMO-NOW-CHOSEN-a.mp3": "You wanted to pay attention to the emotion you chose earlier. Now's the time, but you can also switch to something else if you like.",
+    "EMO-NOW-CHOSEN-b.mp3": "You wanted to pay attention to a specific emotion. You chose it before we started. So now's the time that we're gonna pay attention to it. You can also switch if you want.",
+    "EMO-NOW-CHOSEN-c.mp3": "You chose an emotion to pay attention to before we started, and now is the time for us to pay attention to it. You can also switch if you want.",
+    "EMO-NOW-DEPRESSED-a.mp3": "You wanted to pay attention to feeling depressed.",
+    "EMO-NOW-DEPRESSED-b.mp3": "The emotion you chose ahead of time to feel and pay attention to was depressed.",
+    "EMO-NOW-DISAPPOINTMENT-a.mp3": "You wanted to pay attention to disappointment.",
+    "EMO-NOW-DISAPPOINTMENT-b.mp3": "The emotion you chose ahead of time was disappointment.",
+    "EMO-NOW-FEAR-a.mp3": "You wanted to pay attention to fear.",
+    "EMO-NOW-FEAR-b.mp3": "The emotion you chose ahead of time to pay attention to was fear.",
+    "EMO-NOW-FEAR-c.mp3": "You had wanted to pay attention to fear.",
+    "EMO-NOW-FEAR-d.mp3": "The emotion that you chose before we began was fear.",
+    "EMO-NOW-FRUSTRATED-a.mp3": "You chose to pay attention to feeling frustrated.",
+    "EMO-NOW-FRUSTRATED-b.mp3": "The emotion you chose ahead of time was frustration.",
+    "EMO-NOW-GRIEF-a.mp3": "You wanted to pay attention to grief.",
+    "EMO-NOW-GRIEF-b.mp3": "The emotion you chose ahead of time to pay attention to was grief.",
+    "EMO-NOW-GUILT-a.mp3": "You wanted to pay attention to guilt.",
+    "EMO-NOW-GUILT-b.mp3": "You chose to pay attention to guilt.",
+    "EMO-NOW-GUILT-c.mp3": "The emotion you chose ahead of time to pay attention to was guilt.",
+    "EMO-NOW-HURT-a.mp3": "You wanted to pay attention to feeling hurt.",
+    "EMO-NOW-HURT-b.mp3": "The emotion you wanted to pay attention to ahead of time was hurt.",
+    "EMO-NOW-INSECURITY-a.mp3": "You wanted to pay attention to insecurity.",
+    "EMO-NOW-INSECURITY-b.mp3": "The emotion you chose ahead of time to pay attention to was insecurity.",
+    "EMO-NOW-INVISIBLE-a.mp3": "You wanted to pay attention to feeling invisible.",
+    "EMO-NOW-INVISIBLE-b.mp3": "The emotion you chose to feel ahead of time was invisible.",
+    "EMO-NOW-IRRITABLE-a.mp3": "You had wanted to pay attention to feeling irritable.",
+    "EMO-NOW-IRRITABLE-b.mp3": "The emotion you chose beforehand was irritable.",
+    "EMO-NOW-IRRITABLE-c.mp3": "The emotion you chose to pay attention to at the beginning was irritable.",
+    "EMO-NOW-NERVOUS-a.mp3": "You wanted to pay attention to feeling nervous.",
+    "EMO-NOW-NERVOUS-b.mp3": "You wanted to pay attention to feeling nervous.",
+    "EMO-NOW-NUMB-a.mp3": "You wanted to pay attention to feeling numb.",
+    "EMO-NOW-NUMB-b.mp3": "The emotion that you chose ahead of time was feeling numb.",
+    "EMO-NOW-NUMB-c.mp3": "The emotion you chose ahead of time was numbness.",
+    "EMO-NOW-OVERWHELM-a.mp3": "You wanted to pay attention to overwhelm.",
+    "EMO-NOW-OVERWHELM-b.mp3": "The emotion that you chose ahead of time to pay attention to was overwhelm.",
+    "EMO-NOW-PANIC-a.mp3": "You wanted to pay attention to panic.",
+    "EMO-NOW-PANIC-b.mp3": "The emotion you chose ahead of time to pay attention to was panic.",
+    "EMO-NOW-RAGE-a.mp3": "You wanted to pay attention to rage.",
+    "EMO-NOW-RAGE-b.mp3": "The emotion that you chose ahead of time to pay attention to was rage.",
+    "EMO-NOW-REGRET-a.mp3": "You wanted to pay attention to regret beforehand.",
+    "EMO-NOW-REGRET-b.mp3": "The emotion that you had chose to pay attention to was regret.",
+    "EMO-NOW-REJECTED-a.mp3": "You wanted to pay attention to feeling rejected.",
+    "EMO-NOW-REJECTED-b.mp3": "You chose ahead of time to pay attention to feeling rejected.",
+    "EMO-NOW-REJECTED-c.mp3": "The emotion you chose ahead of time to pay attention to was rejection.",
+    "EMO-NOW-SAD-a.mp3": "You wanted to pay attention to feeling sad.",
+    "EMO-NOW-SAD-b.mp3": "The emotion that you chose ahead of time was sadness.",
+    "EMO-NOW-SHAME-a.mp3": "You wanted to pay attention to shame.",
+    "EMO-NOW-SHAME-b.mp3": "You had chosen to pay attention to shame.",
+    "EMO-NOW-SHAME-c.mp3": "The emotion you chose ahead of time to pay attention to was shame.",
+    "EMO-NOW-SURPRISED-a.mp3": "You wanted to pay attention to feeling surprised.",
+    "EMO-NOW-SURPRISED-b.mp3": "The emotion you chose ahead of time to pay attention to was surprise.",
+    "EMO-NOW-THEN-a.mp3": "Now's the time, but you can also switch to something else if you like.",
+    "EMO-NOW-THEN-b.mp3": "If you still want to pay attention to that emotion, now is the time, but you can also switch to something else if you like.",
+    "EMO-NOW-THEN-c.mp3": "If you still wanna pay attention to that emotion, now is the time to do it, but you can always switch to something else if you like.",
+    "EMO-NOW-THEN-d.mp3": "Now is the time to pay attention to it, but you can also switch if you need to.",
+    "EMO-NOW-WORRY-a.mp3": "You wanted to pay attention to worry.",
+    "EMO-NOW-WORRY-b.mp3": "You wanted to pay attention to worry.",
+    "EMO-REMIND-ABANDONED-a.mp3": "You chose to work with feeling abandoned.",
+    "EMO-REMIND-ABANDONED-b.mp3": "The emotion you chose to work with ahead of time is feeling abandoned.",
+    "EMO-REMIND-ALONE-a.mp3": "You chose to work with feeling alone.",
+    "EMO-REMIND-ALONE-b.mp3": "The emotion you wanted to practice feeling is alone.",
+    "EMO-REMIND-ANGRY-a.mp3": "You chose beforehand to work on feeling anger.",
+    "EMO-REMIND-ANGRY-b.mp3": "You chose beforehand to work on feeling anger.",
+    "EMO-REMIND-ANNOYED-a.mp3": "You chose to work with feeling annoyed.",
+    "EMO-REMIND-ANNOYED-b.mp3": "You picked working with annoyed.",
+    "EMO-REMIND-ANXIOUS-a.mp3": "You chose to work with feeling anxious.",
+    "EMO-REMIND-ANXIOUS-b.mp3": "You chose to work with the emotion of anxiousness.",
+    "EMO-REMIND-CHOSEN-a.mp3": "You chose an emotion to work with before we started.",
+    "EMO-REMIND-CHOSEN-b.mp3": "You chose an emotion already before we started.",
+    "EMO-REMIND-DEPRESSED-a.mp3": "You chose to work with feeling depressed.",
+    "EMO-REMIND-DEPRESSED-b.mp3": "You chose to work with feeling depressed.",
+    "EMO-REMIND-DISAPPOINTMENT-a.mp3": "You chose to work with disappointment.",
+    "EMO-REMIND-DISAPPOINTMENT-b.mp3": "The emotion you want to work with is disappointment.",
+    "EMO-REMIND-FEAR-a.mp3": "You chose to work with fear.",
+    "EMO-REMIND-FEAR-b.mp3": "The emotion you chose to work with is fear.",
+    "EMO-REMIND-FRUSTRATED-a.mp3": "You chose to work with the emotion of frustration.",
+    "EMO-REMIND-FRUSTRATED-b.mp3": "You chose to work with the emotion of frustration.",
+    "EMO-REMIND-GRIEF-a.mp3": "You chose to work with grief.",
+    "EMO-REMIND-GRIEF-b.mp3": "The emotion you chose to work with is grief.",
+    "EMO-REMIND-GUILT-a.mp3": "You chose to work with guilt.",
+    "EMO-REMIND-GUILT-b.mp3": "The emotion you chose to work with is guilt.",
+    "EMO-REMIND-INSECURITY-a.mp3": "You chose to work with insecurity before we begin.",
+    "EMO-REMIND-INSECURITY-b.mp3": "You chose to spend some time with the emotion of insecurity.",
+    "EMO-REMIND-INVISIBLE-a.mp3": "You chose to work with feeling invisible.",
+    "EMO-REMIND-INVISIBLE-b.mp3": "You chose to pay attention to feeling invisible.",
+    "EMO-REMIND-IRRITABLE-a.mp3": "You chose to work with feeling irritable.",
+    "EMO-REMIND-NERVOUS-a.mp3": "You chose to work with feeling nervous.",
+    "EMO-REMIND-NERVOUS-b.mp3": "You chose to work with feeling nervous.",
+    "EMO-REMIND-NUMB-a.mp3": "You chose to work with feeling numb.",
+    "EMO-REMIND-NUMB-b.mp3": "You wanted to work with feeling numb.",
+    "EMO-REMIND-OVERWHELM-a.mp3": "You chose to work with overwhelm.",
+    "EMO-REMIND-OVERWHELM-b.mp3": "You chose to spend some time with the emotion of overwhelm.",
+    "EMO-REMIND-PANIC-a.mp3": "You chose to spend some time with the emotion of panic.",
+    "EMO-REMIND-PANIC-b.mp3": "The emotion you want to focus on is panic.",
+    "EMO-REMIND-REGRET-a.mp3": "You chose to work with feeling regret.",
+    "EMO-REMIND-REGRET-b.mp3": "You chose to work with feeling regret.",
+    "EMO-REMIND-REJECTED-a.mp3": "You chose to work with rejection.",
+    "EMO-REMIND-REJECTED-b.mp3": "The emotion you chose to work with ahead of time is rejection.",
+    "EMO-REMIND-SAD-a.mp3": "You chose to work with feeling sad.",
+    "EMO-REMIND-SAD-b.mp3": "The emotion you wanted to focus on is sadness.",
+    "EMO-REMIND-SAD-c.mp3": "The emotion you wanted to practice feeling is sadness.",
+    "EMO-REMIND-SHAME-a.mp3": "The emotion you chose to work with is shame.",
+    "EMO-REMIND-SHAME-b.mp3": "The emotion you chose to work with beforehand is shame.",
+    "EMO-REMIND-SURPRISED-a.mp3": "You chose to work with feeling surprised.",
+    "EMO-REMIND-SURPRISED-b.mp3": "You chose to spend some time with the emotion of surprised.",
+    "EMO-REMIND-THEN-a.mp3": "But we're gonna connect with safety first.",
+    "EMO-REMIND-THEN-b.mp3": "But for now, we're gonna focus on connecting with safety.",
+    "EMO-REMIND-THEN-c.mp3": "Keep that one in mind while we connect with safety first.",
+    "EMO-REMIND-THEN-d.mp3": "Keep that one in mind. We'll pay attention to it later, but for now, we'll focus on safety.",
+    "EMO-REMIND-THEN-e.mp3": "We'll get to that, but we're gonna try and connect with safety first.",
+    "EMO-REMIND-THEN-f.mp3": "Keep that in the back of your mind, but we're gonna try and connect with a safety emotion first.",
+    "EMO-REMIND-THEN-g.mp3": "I want you to keep that emotion in mind, but we're gonna try and connect with first the present moment and then with a safety emotion.",
+    "EMO-REMIND-THEN-h.mp3": "Let's keep that emotion in mind for now, but instead of going into that now, we're actually gonna focus on simple mindfulness and then a safety emotion.",
+    "EMO-REMIND-WORRY-a.mp3": "You chose to work with worry."
+  }),
+  poppy: Object.freeze({
+    "EMO-NOW-ABANDONED-a.mp3": "You had wanted to pay attention to feeling abandoned.",
+    "EMO-NOW-ABANDONED-b.mp3": "The emotion that you chose ahead of time to pay attention to was abandoned.",
+    "EMO-NOW-ABANDONED-c.mp3": "The experience that you had chosen ahead of time to pay attention to was abandoned.",
+    "EMO-NOW-ALONE-a.mp3": "You wanted to pay attention to feeling alone.",
+    "EMO-NOW-ALONE-b.mp3": "Beforehand, you chose to pay attention to feeling alone.",
+    "EMO-NOW-ANGRY-a.mp3": "You wanted to pay attention to feeling angry.",
+    "EMO-NOW-ANGRY-b.mp3": "You wanted to pay attention to the emotion of anger.",
+    "EMO-NOW-ANNOYED-a.mp3": "You had wanted to pay attention to feeling annoyed.",
+    "EMO-NOW-ANNOYED-b.mp3": "You had chosen to pay attention to feeling annoyed.",
+    "EMO-NOW-ANXIOUS-a.mp3": "You wanted to pay attention to feeling anxious.",
+    "EMO-NOW-ANXIOUS-b.mp3": "The emotion that you wanted to pay attention to is anxious.",
+    "EMO-NOW-CAPACITY-a.mp3": "Make sure you're working within your capacity.",
+    "EMO-NOW-CHOSEN-a.mp3": "You wanted to pay attention to the emotion you chose earlier. Now's the time, but you can also switch to something else if you like.",
+    "EMO-NOW-CHOSEN-b.mp3": "You wanted to pay attention to a specific emotion. You chose it before we started. So now's the time that we're gonna pay attention to it. You can also switch if you want.",
+    "EMO-NOW-CHOSEN-c.mp3": "You chose an emotion to pay attention to before we started, and now is the time for us to pay attention to it. You can also switch if you want.",
+    "EMO-NOW-DEPRESSED-a.mp3": "You wanted to pay attention to feeling depressed.",
+    "EMO-NOW-DEPRESSED-b.mp3": "The emotion you chose ahead of time to feel and pay attention to was depressed.",
+    "EMO-NOW-DISAPPOINTMENT-a.mp3": "You wanted to pay attention to disappointment.",
+    "EMO-NOW-DISAPPOINTMENT-b.mp3": "The emotion you chose ahead of time was disappointment.",
+    "EMO-NOW-FEAR-a.mp3": "You wanted to pay attention to fear.",
+    "EMO-NOW-FEAR-b.mp3": "The emotion you chose ahead of time to pay attention to was fear.",
+    "EMO-NOW-FEAR-c.mp3": "You had wanted to pay attention to fear.",
+    "EMO-NOW-FEAR-d.mp3": "The emotion that you chose before we began was fear.",
+    "EMO-NOW-FRUSTRATED-a.mp3": "You chose to pay attention to feeling frustrated.",
+    "EMO-NOW-FRUSTRATED-b.mp3": "The emotion you chose ahead of time was frustration.",
+    "EMO-NOW-GRIEF-a.mp3": "You wanted to pay attention to grief.",
+    "EMO-NOW-GRIEF-b.mp3": "The emotion you chose ahead of time to pay attention to was grief.",
+    "EMO-NOW-GUILT-a.mp3": "You wanted to pay attention to guilt.",
+    "EMO-NOW-GUILT-b.mp3": "You chose to pay attention to guilt.",
+    "EMO-NOW-GUILT-c.mp3": "The emotion you chose ahead of time to pay attention to was guilt.",
+    "EMO-NOW-HURT-a.mp3": "You wanted to pay attention to feeling hurt.",
+    "EMO-NOW-HURT-b.mp3": "The emotion you wanted to pay attention to ahead of time was hurt.",
+    "EMO-NOW-INSECURITY-a.mp3": "You wanted to pay attention to insecurity.",
+    "EMO-NOW-INSECURITY-b.mp3": "The emotion you chose ahead of time to pay attention to was insecurity.",
+    "EMO-NOW-INVISIBLE-a.mp3": "You wanted to pay attention to feeling invisible.",
+    "EMO-NOW-INVISIBLE-b.mp3": "The emotion you chose to feel ahead of time was invisible.",
+    "EMO-NOW-IRRITABLE-a.mp3": "You had wanted to pay attention to feeling irritable.",
+    "EMO-NOW-IRRITABLE-b.mp3": "The emotion you chose beforehand was irritable.",
+    "EMO-NOW-IRRITABLE-c.mp3": "The emotion you chose to pay attention to at the beginning was irritable.",
+    "EMO-NOW-NERVOUS-a.mp3": "You wanted to pay attention to feeling nervous.",
+    "EMO-NOW-NERVOUS-b.mp3": "You wanted to pay attention to feeling nervous.",
+    "EMO-NOW-NUMB-a.mp3": "You wanted to pay attention to feeling numb.",
+    "EMO-NOW-NUMB-b.mp3": "The emotion that you chose ahead of time was feeling numb.",
+    "EMO-NOW-NUMB-c.mp3": "The emotion you chose ahead of time was numbness.",
+    "EMO-NOW-OVERWHELM-a.mp3": "You wanted to pay attention to overwhelm.",
+    "EMO-NOW-OVERWHELM-b.mp3": "The emotion that you chose ahead of time to pay attention to was overwhelm.",
+    "EMO-NOW-PANIC-a.mp3": "You wanted to pay attention to panic.",
+    "EMO-NOW-PANIC-b.mp3": "The emotion you chose ahead of time to pay attention to was panic.",
+    "EMO-NOW-RAGE-a.mp3": "You wanted to pay attention to rage.",
+    "EMO-NOW-RAGE-b.mp3": "The emotion that you chose ahead of time to pay attention to was rage.",
+    "EMO-NOW-REGRET-a.mp3": "You wanted to pay attention to regret beforehand.",
+    "EMO-NOW-REGRET-b.mp3": "The emotion that you had chose to pay attention to was regret.",
+    "EMO-NOW-REJECTED-a.mp3": "You wanted to pay attention to feeling rejected.",
+    "EMO-NOW-REJECTED-b.mp3": "You chose ahead of time to pay attention to feeling rejected.",
+    "EMO-NOW-REJECTED-c.mp3": "The emotion you chose ahead of time to pay attention to was rejection.",
+    "EMO-NOW-SAD-a.mp3": "You wanted to pay attention to feeling sad.",
+    "EMO-NOW-SAD-b.mp3": "The emotion that you chose ahead of time was sadness.",
+    "EMO-NOW-SHAME-a.mp3": "You wanted to pay attention to shame.",
+    "EMO-NOW-SHAME-b.mp3": "You had chosen to pay attention to shame.",
+    "EMO-NOW-SHAME-c.mp3": "The emotion you chose ahead of time to pay attention to was shame.",
+    "EMO-NOW-SURPRISED-a.mp3": "You wanted to pay attention to feeling surprised.",
+    "EMO-NOW-SURPRISED-b.mp3": "The emotion you chose ahead of time to pay attention to was surprise.",
+    "EMO-NOW-THEN-a.mp3": "Now's the time, but you can also switch to something else if you like.",
+    "EMO-NOW-THEN-b.mp3": "If you still want to pay attention to that emotion now is the time, but you can also switch to something else if you like.",
+    "EMO-NOW-THEN-c.mp3": "If you still want to pay attention to that emotion, now is the time to do it, but you can always switch to something else if you like.",
+    "EMO-NOW-THEN-d.mp3": "Now is the time to pay attention to it, but you can also switch if you need to.",
+    "EMO-NOW-WORRY-a.mp3": "You had chosen to pay attention to worry.",
+    "EMO-NOW-WORRY-b.mp3": "You wanted to pay attention to worry.",
+    "EMO-REMIND-ABANDONED-a.mp3": "You chose to work with feeling abandoned.",
+    "EMO-REMIND-ABANDONED-b.mp3": "The emotion you chose to work with ahead of time is feeling abandoned.",
+    "EMO-REMIND-ALONE-a.mp3": "You chose to work with feeling alone.",
+    "EMO-REMIND-ALONE-b.mp3": "The emotion you wanted to practice feeling is alone.",
+    "EMO-REMIND-ANGRY-a.mp3": "You chose beforehand to work on feeling anger.",
+    "EMO-REMIND-ANGRY-b.mp3": "You chose to pay attention to anger.",
+    "EMO-REMIND-ANNOYED-a.mp3": "You chose to work with feeling annoyed.",
+    "EMO-REMIND-ANNOYED-b.mp3": "You picked working with annoyed.",
+    "EMO-REMIND-ANXIOUS-a.mp3": "You chose to work with feeling anxious.",
+    "EMO-REMIND-ANXIOUS-b.mp3": "You chose to work with the emotion of anxiousness.",
+    "EMO-REMIND-CHOSEN-a.mp3": "You chose an emotion to work with before we started.",
+    "EMO-REMIND-CHOSEN-b.mp3": "You chose an emotion already before we started.",
+    "EMO-REMIND-DEPRESSED-a.mp3": "You chose to work with feeling depressed.",
+    "EMO-REMIND-DEPRESSED-b.mp3": "You wanted to pay attention to a depressed feeling.",
+    "EMO-REMIND-DISAPPOINTMENT-a.mp3": "You chose to work with disappointment.",
+    "EMO-REMIND-DISAPPOINTMENT-b.mp3": "The emotion you want to work with is disappointment.",
+    "EMO-REMIND-FEAR-a.mp3": "You chose to work with fear.",
+    "EMO-REMIND-FEAR-b.mp3": "The emotion you chose to work with is fear.",
+    "EMO-REMIND-FRUSTRATED-a.mp3": "You chose to work with the emotion of frustration.",
+    "EMO-REMIND-FRUSTRATED-b.mp3": "You chose to pay attention to frustration.",
+    "EMO-REMIND-GRIEF-a.mp3": "You chose to work with grief.",
+    "EMO-REMIND-GRIEF-b.mp3": "The emotion you chose to work with is grief.",
+    "EMO-REMIND-GUILT-a.mp3": "You chose to work with guilt.",
+    "EMO-REMIND-GUILT-b.mp3": "The emotion you chose to work with is guilt.",
+    "EMO-REMIND-INSECURITY-a.mp3": "You chose to work with insecurity before we began.",
+    "EMO-REMIND-INSECURITY-b.mp3": "You chose to spend some time with the emotion of insecurity.",
+    "EMO-REMIND-INVISIBLE-a.mp3": "You chose to work with feeling invisible.",
+    "EMO-REMIND-INVISIBLE-b.mp3": "You chose to pay attention to feeling invisible.",
+    "EMO-REMIND-IRRITABLE-a.mp3": "You chose to work with feeling irritable.",
+    "EMO-REMIND-NERVOUS-a.mp3": "You chose to work with feeling nervous.",
+    "EMO-REMIND-NERVOUS-b.mp3": "You picked working with nervous.",
+    "EMO-REMIND-NUMB-a.mp3": "You chose to work with numbness.",
+    "EMO-REMIND-NUMB-b.mp3": "You wanted to work with feeling numb.",
+    "EMO-REMIND-OVERWHELM-a.mp3": "You chose to work with overwhelm.",
+    "EMO-REMIND-OVERWHELM-b.mp3": "You chose to spend some time with the emotion of overwhelm.",
+    "EMO-REMIND-PANIC-a.mp3": "You chose to spend some time with the emotion of panic.",
+    "EMO-REMIND-PANIC-b.mp3": "The emotion you want to focus on is panic.",
+    "EMO-REMIND-REGRET-a.mp3": "You chose to work with feeling regret.",
+    "EMO-REMIND-REGRET-b.mp3": "You wanted to pay attention to regret.",
+    "EMO-REMIND-REJECTED-a.mp3": "You chose to work with rejection.",
+    "EMO-REMIND-REJECTED-b.mp3": "The emotion you chose to work with ahead of time is rejection.",
+    "EMO-REMIND-SAD-a.mp3": "You chose to work with feeling sad.",
+    "EMO-REMIND-SAD-b.mp3": "The emotion you wanted to focus on is sadness.",
+    "EMO-REMIND-SAD-c.mp3": "The emotion you wanted to practice feeling is sadness.",
+    "EMO-REMIND-SHAME-a.mp3": "The emotion you chose to work with is shame.",
+    "EMO-REMIND-SHAME-b.mp3": "The emotion you chose to work with beforehand is shame.",
+    "EMO-REMIND-SURPRISED-a.mp3": "You chose to work with feeling surprised.",
+    "EMO-REMIND-SURPRISED-b.mp3": "You chose to spend some time with the emotion of surprise.",
+    "EMO-REMIND-THEN-a.mp3": "But we're gonna connect with safety first.",
+    "EMO-REMIND-THEN-b.mp3": "But for now, we're gonna focus on connecting with safety.",
+    "EMO-REMIND-THEN-c.mp3": "Keep that one in mind while we connect with safety first.",
+    "EMO-REMIND-THEN-d.mp3": "Keep that one in mind. We'll pay attention to it later, but for now, we'll focus on safety.",
+    "EMO-REMIND-THEN-e.mp3": "We'll get to that, but we're gonna try and connect with safety first.",
+    "EMO-REMIND-THEN-f.mp3": "Keep that in the back of your mind, but we're gonna try and connect with a safety emotion first.",
+    "EMO-REMIND-THEN-g.mp3": "I want you to keep that emotion in mind, but we're gonna try and connect with first the present moment and then with a safety emotion.",
+    "EMO-REMIND-THEN-h.mp3": "Let's keep that emotion in mind for now, but instead of going into that now, we're actually gonna focus on simple mindfulness and then a safety emotion.",
+    "EMO-REMIND-WORRY-a.mp3": "You chose to work with worry."
+  }),
+});
 
 // ---------------------------------------------------------------------------
 // WHERE THE TAKES LIVE — one constant, read by manifest.js, runtime.js and page.js
@@ -1018,8 +1359,12 @@ function voiceHas(file, voice) { const m = VOICES[voiceKey(voice)].missing; retu
 /* The one way a file name becomes a URL. `base` is the device's app root (`./` in the page,
  * an absolute origin in the tests); it is ignored when the folder is already absolute. `voice` picks
  * the folder (Justin's when it is missing or unknown). */
+/* Justin's emotion reminders sit beside the app (the beta branch's `clips/`) until they are copied to main with the release; app-relative,
+   new names, so no cached old take can win. Same place once on main: the app's `clips/` IS app.stucknotbroken.com/clips/. */
+const EMO_FOLDER = 'clips/';
 function clipUrl(base, file, voice) {
-  const folder = VOICES[voiceKey(voice)].folder;
+  let folder = VOICES[voiceKey(voice)].folder;
+  if (folder === CLIP_FOLDER && /^EMO-/.test(file)) folder = EMO_FOLDER;
   return (/^[a-z][a-z0-9+.-]*:\/\//i.test(folder) ? '' : (base || '')) + folder + file;
 }
 
@@ -1245,6 +1590,12 @@ const ROLE = {
   setupModeOpen:    must('SETUP-MODE-OPEN'),
   intentSet:        must('INTENT-SET'),
   intentTolerable:  must('INTENT-TOLERABLE'),   // which defense to bring: tolerable, not mild (2026-09-05)
+  // the emotion reminders (2026-10-04): the general lines and the "what to do with it" lines; the named ones are looked up per emotion
+  emoRemindChosen:  must('EMO-REMIND-CHOSEN'),
+  emoRemindThen:    must('EMO-REMIND-THEN'),
+  emoNowChosen:     must('EMO-NOW-CHOSEN'),
+  emoNowThen:       must('EMO-NOW-THEN'),
+  emoNowCapacity:   must('EMO-NOW-CAPACITY'),
 
   // the two half-openers (E3.15 — played back to back with the practice's own
   // continuation as ONE sentence, so the gap between them is zero, not `short`)
@@ -2065,7 +2416,7 @@ const API = {
   MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
   BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, breathPairName, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
-  CLIP_FOLDER, clipUrl, VOICES, VOICE_DEFAULT, voiceKey, voiceHas, VOICE_HOLDS, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
+  CLIP_FOLDER, EMO_FOLDER, EMO_TAKES, EMOTION_KEYS, emotionKey, EMO_CAPTIONS, clipUrl, VOICES, VOICE_DEFAULT, voiceKey, voiceHas, VOICE_HOLDS, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
   must, family, prefixed, takes, exists, allIds, fileFor, anchorsFor, practices, TAKES_OUT, takesInRotation,
 };
 
@@ -2074,7 +2425,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:2e8a56643940678ad0d70fd9c567f09b */
+<script>/* @module plan.js md5:62d9ed28c417170719c57a05aad9bc51 */
 (function(){
 /* practice-engine — the planner.
  *
@@ -2285,7 +2636,9 @@ function defenseBase(add, cfg, prefixed, permitGate) {
     add(obst[OBST.validate], 'obstacles');
     add(obst[OBST.normalize], 'obstacles');
   } else {
-    add(D.ROLE.validateDefense, 'defense');
+    /* a chosen emotion is already validated: name it, then normalize (Justin, 2026-10-04) */
+    const emo = emotionOf(cfg, prefixed);
+    if (emo) emotionNow(add, emo); else add(D.ROLE.validateDefense, 'defense');
     add(D.ROLE.normalizeDefense, 'defense');
   }
   /* ✅ PERMIT-DEFENSE CARRIES THE BUTTONS AND THE REWIND NOW (Justin, 2026-09-17: "i think it
@@ -2574,6 +2927,37 @@ function introFirst(add) {
   D.FAMILY.introFirst.forEach(id => add(id, 'opening', { kind: KIND.setup, skippable: true }));
 }
 
+// ── the emotion reminders (Justin, 2026-10-04) ──────────────────────────────────────────
+/* When the person chose an emotion in the app before a self-regulation practice, the practice does not ask them to choose one
+ * (INTENT-SET) — it names their choice back, twice:
+ *   • at the end of the setup: the emotion's name, then what to do with it for now ("Keep that one in mind while we connect with
+ *     safety first"). Their own words, or an emotion with no naming take, get the general line ("You chose an emotion to work with
+ *     before we started").
+ *   • in place of Validating, where the defense work begins (Justin: "if they already picked an emotion, they've already validated.
+ *     and then i say it aloud. we can pretty much go to normalizing after that"): the name again, then "Now's the time, but you can
+ *     also switch…", then "Make sure you're working within your capacity." Their own words get one full read instead of the pair.
+ * Never under Obstacles: there the emotion is not chosen in advance, it arrives from the statements. No emotion chosen = the
+ * practice exactly as before. */
+function emotionOf(cfg, prefixed) {
+  if (!cfg.emotion || prefixed) return null;
+  const key = D.emotionKey(cfg.emotion);
+  const named = prefix => (key && D.exists(prefix + key) ? prefix + key : null);
+  return { key, remind: named('EMO-REMIND-'), now: named('EMO-NOW-') };
+}
+function emotionReminder(add, emo) {
+  add(emo.remind || D.ROLE.emoRemindChosen, 'opening', { kind: KIND.join, emotionReminder: true });
+  add(D.ROLE.emoRemindThen, 'opening', { kind: KIND.setup, emotionReminder: true });
+}
+function emotionNow(add, emo) {
+  if (emo.now) {
+    add(emo.now, 'defense', { kind: KIND.join });
+    add(D.ROLE.emoNowThen, 'defense', { kind: KIND.join });
+  } else {
+    add(D.ROLE.emoNowChosen, 'defense', { kind: KIND.join });
+  }
+  add(D.ROLE.emoNowCapacity, 'defense');
+}
+
 // ── the plan builder ────────────────────────────────────────────────────────────────────
 
 /* cfg:
@@ -2713,6 +3097,9 @@ function plan(cfg) {
   if (cfg.holdWatch) add(D.practices()[HOLD_WATCH].setup, 'opening', { kind: KIND.setup });
 
   if (cfg.mode === 'open') add(D.ROLE.setupModeOpen, 'opening', { kind: KIND.setup });
+  /* the emotion they chose in the app, named back at the end of the setup (2026-10-04, see emotionOf) */
+  const emo = ((skill && !prefixed) || base) ? emotionOf(cfg, prefixed) : null;
+  if (emo) emotionReminder(add, emo);
   /* ✅ THE INTENTIONAL BREATH IS THE FIRST BEAT AFTER THE SETUP (CA review 2026-09-17, applied on
    * Justin's direction): the builder's rule is that the breath comes before "choose a non-safety
    * emotion", not after it. It used to open the mindfulness run instead. */
@@ -2734,7 +3121,8 @@ function plan(cfg) {
   /* ✅ Takes A and C each read a sentence twice in one breath (CA review 2026-09-17), so the
    * shuffle left them out until they were re-cut. C was re-cut 2026-09-20 (a start trim in
    * data.js TAKE_TRIMS) and is back in; A is still out. */
-  if ((skill && !prefixed) || base) add(D.ROLE.intentSet, 'opening', { pool: poolExcluding(D.ROLE.intentSet, INTENT_SET_DOUBLED) });
+  /* an emotion chosen in the app has already been chosen: INTENT-SET ("choose an emotion now") does not ask again (2026-10-04) */
+  if (((skill && !prefixed) || base) && !emo) add(D.ROLE.intentSet, 'opening', { pool: poolExcluding(D.ROLE.intentSet, INTENT_SET_DOUBLED) });
   /* ✅ WHICH DEFENSE TO BRING — INTENT-TOLERABLE (Justin, 2026-09-05, CA item 10). The engine
    * titrates how deep a practice goes and said nothing about what the listener brings, so a
    * first-ever defense practice could arrive carrying stuck shame and be validated without a
@@ -2926,7 +3314,7 @@ function plan(cfg) {
      * teaches them as one chapter — so a permission clip plus a silence between them would be the
      * OBST-01 split (§7 rule 8) under a new ID. In the Validate practice it follows the validating
      * beat, which is the whole base there; in Validate & Normalize it follows the normalizing beat. */
-    add(D.ROLE.validateDefense, 'defense');
+    if (emo) emotionNow(add, emo); else add(D.ROLE.validateDefense, 'defense');   // a chosen emotion is already validated (2026-10-04)
     if (base.normalize) add(D.ROLE.normalizeDefense, 'defense');
     /* ✅ THE NON-SAFETY 0–10 IS ASKED HERE TOO (Justin, 2026-09-22, "we can try that out"). The two base
      * practices turn toward a non-safety emotion and never asked how intense it was. It is asked ONCE,
@@ -2988,7 +3376,7 @@ function plan(cfg) {
  * not. The first-practice intro (E5.34) is the same button, now reaching a little further. */
 const SKIP_TO = Object.freeze([D.ROLE.setupModeOpen, D.ROLE.arriveBreath]);
 function skippableIntro(beats) {
-  const to = beats.findIndex(b => SKIP_TO.includes(b.id));
+  const to = beats.findIndex(b => SKIP_TO.includes(b.id) || b.emotionReminder);   // "Skip intro" never skips the emotion they chose
   for (let i = 0; i < to; i++) beats[i].skippable = true;
 }
 
@@ -3369,7 +3757,7 @@ function terminatorOf(beats) {
 
 const API = {
   WARM_UP_SENSES, FULL_RUN_SENSES, MINDFULNESS_CLOSE, MIND_EMOTION, MIND_INVITE, CLOSE_ORDER, ENDING_OPEN_NEUTRAL, INTENT_SET_DOUBLED, describeOrder,
-  plan, gapFor, KIND, ANCHORING, MINDFULNESS, TINY, SHORT_PRACTICES,
+  plan, gapFor, KIND, emotionOf, ANCHORING, MINDFULNESS, TINY, SHORT_PRACTICES,
   SAFETY_LEVELS, SAFETY_HALF_LEVEL, BASE_THROUGH_LEVEL, INTEREST_SAFETY, INTEREST_SAFETY_TAKE,
   BASE_PRACTICES, DEPTHS, DEPTH_OFFERED_BY, DEPTH_OFFERED_BY_PREFIX, DEPTH_SETUP,
   SKILLS, OBSTACLES_PREFIX, OBSTACLES_SETUP, OBST,
@@ -4543,7 +4931,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:a7430d9355fb4c0209ba78d271b85f42 */
+<script>/* @module host.js md5:56ffd486eed27767d5c721425f353967 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -4670,6 +5058,10 @@ function parseLaunch(query, { practices } = {}) {
   if (voice && Object.prototype.hasOwnProperty.call(D.VOICES, voice)) out.voice = voice;
   /* the voices this person may choose (2026-09-30, Justin: "make the ai voices paid only"): `voices=justin,poppy`. The app sends
    * `voices=justin` for a free member; absent = every voice. Justin's is always in. A voice outside the list is not taken. */
+  /* the emotion they chose in the app (2026-10-04): `emotion=<word>` (the app's word, or their own words). A self-regulation
+   * practice names it back instead of asking them to choose one (plan.js emotionOf); every other practice ignores it. */
+  const emo = get('emotion');
+  if (emo && emo.trim()) out.emotion = emo.trim().slice(0, 60);
   const vs = get('voices');
   if (vs != null) {
     const list = [D.VOICE_DEFAULT].concat(String(vs).split(',').filter(k => k !== D.VOICE_DEFAULT && Object.prototype.hasOwnProperty.call(D.VOICES, k)));
@@ -7772,7 +8164,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:b8829bcac9a206feb96d9853cf31f768 */
+<script>/* @module page.js md5:9d545cff80606e9c3f8411602b25d857 */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -8056,6 +8448,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       bed: cfg.bed, bedLevel: cfg.bedLevel, bedSurprise: !!cfg.bedSurprise, voice: D.voiceKey(cfg.voice),
       depth: cfg.depth || undefined, prefix: cfg.prefix || undefined,
       holdWatch: !!cfg.holdWatch, holdSeconds: cfg.holdSeconds,
+      emotion: cfg.emotion || undefined,
       /* which four of the thirty-two obstacle statements is not a sequencing decision, so the
        * planner takes them in order unless a dealer is supplied. Here is where the shuffle
        * belongs — a plan has to be reproducible to be assertable, and a session does not. */
@@ -8390,7 +8783,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     if (capsByVoice[v] || capsAsked[v]) return;
     capsAsked[v] = true;
     fetch(D.clipUrl(BASE, 'captions.json', v)).then(r => (r.ok ? r.json() : {})).then(j => {
-      capsByVoice[v] = D.applyCaptionTrims(j || {}, v);
+      capsByVoice[v] = Object.assign({}, D.EMO_CAPTIONS[v] || {}, D.applyCaptionTrims(j || {}, v));   // + the emotion reminders (2026-10-04)
       if (v !== curVoice) return;
       CAPTIONS = capsByVoice[v];
       if (curFile && !capHeld) { caption = CAPS.captionFor(CAPTIONS[curFile] || ''); renderCaption(true); }
@@ -8398,7 +8791,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
   }
   function useVoiceCaptions(voice) {
     curVoice = D.voiceKey(voice);
-    CAPTIONS = capsByVoice[curVoice] || {};
+    CAPTIONS = capsByVoice[curVoice] || Object.assign({}, D.EMO_CAPTIONS[curVoice] || {});
     loadCaptions(curVoice);
   }
   loadCaptions(curVoice);
@@ -9058,6 +9451,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
        * it is snapped onto the one vocabulary here rather than being allowed to open a
        * practice on a value no control can show. */
       if (launch.voice) cfg.voice = launch.voice;   // 2026-09-29, VOICES: the person's voice, from the app
+      if (launch.emotion) cfg.emotion = launch.emotion;   // 2026-10-04: the emotion they chose in the app, named back (plan.js emotionOf)
       if (launch.bed) { cfg.bed = launch.bed; if (launch.bedLevel) cfg.bedLevel = launch.bedLevel; cfg.bedSurprise = !!launch.bedSurprise; }
       if (typeof launch.silence === 'number') {
         cfg.silence = COPY.SILENCE_STEPS.reduce((b, s) =>

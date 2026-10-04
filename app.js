@@ -7848,7 +7848,9 @@ function app(tab){
   }
   // prefix (Obstacles first) and depth ride along for Balancing / Pendulating (2026-09-20: the
   // recommender follows the engine's sequence, whose steps carry both).
-  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice'];
+  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice','emotion'];
+  // an emotion as the app keeps it ("Worry|1", or their own words) → the word the practice names
+  function _emoWord(v){ return String(v == null ? '' : v).split('|')[0].trim().slice(0, 60); }
   function _playerSrc(src){
     if(typeof src !== 'string' || src.indexOf('player.html?') !== 0) return src;
     const q = new URLSearchParams(src.slice('player.html?'.length));
@@ -9288,6 +9290,7 @@ function app(tab){
       if(L.depth) ps.depth=L.depth;
       if(hold){ ps.holdwatch='1'; ps.holdsecs=String(pState.holdSeconds||60); }
       if(pState.open) ps.open='1';
+      if(pState.emotion) ps.emotion=_emoWord(pState.emotion);   // the emotion they chose, named back in the practice (2026-10-04)
     }
     practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:(launchSkill||pState.skill),prefix:(k==='self-regulation'?L.prefix:null),depth:(k==='self-regulation'?L.depth:null),silence:sil,descDefense:deep,holdWatch:hold,holdWatchTargetSeconds:(hold?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
   }
@@ -9308,6 +9311,8 @@ function app(tab){
     const params = { embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) };
     if(reco.skill) params.skill = reco.skill;
     if(reco.openEnded && reco.practiceKey !== 'micro') params.open = '1';   // no set ending (Pathway, 2026-10-03)
+    // the emotion they chose ("Working with"), named back in the practice instead of asking them to choose one (Justin, 2026-10-04)
+    if(reco.practiceKey==='self-regulation' && reco.emotionIntent) params.emotion = _emoWord(reco.emotionIntent);
     // recommender-preset dials ride into the player (both already gate-checked in
     // store.js: the step of the skill sequence, with its prefix and depth; hold & watch at the top tier).
     if(reco.practiceKey==='self-regulation' && reco.descDefense) params.descdef = '1';
