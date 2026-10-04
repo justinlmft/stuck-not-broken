@@ -2713,7 +2713,7 @@ function app(tab){
         <div class="gs-card">
           <p class="gs-h">New reflections</p>
           <p class="gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
-          ${sw('nt-r-week','Weekly reflection', prefs.reflect_week!==false, dis)}<p class="gs-fine" style="margin-top:-4px">Sunday morning, 8 am</p>
+          ${sw('nt-r-week','Weekly reflection', prefs.reflect_week!==false, dis)}<p class="gs-fine" style="margin-top:-4px">Sunday morning, 6 am</p>
           ${sw('nt-r-month','Monthly reflection', prefs.reflect_month!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each month</p>
           ${sw('nt-r-season','Season reflection', prefs.reflect_season!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each season</p>
           ${sw('nt-r-year','Year reflection', prefs.reflect_year!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of December 31</p>
@@ -4176,7 +4176,6 @@ function app(tab){
     const legacyRows = legacy.map(m=>_archRow(m)).join('');
     const list = (rows || legacyRows) ? `<section class="rd-list" aria-label="Your posts">${rows}${legacyRows}</section>` : '';
     const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
-    const preview = window.SNB_IS_STAGING ? `<section class="rd-preview"><span class="rd-eyeb">Beta only · show me this period's post</span><div class="p-chips">${['week','month','season','year'].map(k=>`<button class="p-chip" type="button" data-preview="${k}">${CAP(k)}</button>`).join('')}</div></section>` : '';
     // Your Journal from Reflect (Justin, 2026-10-02): every journal answer, from the articles and the reflections
     const jn = paidNow() ? _lrnJournalItems().length : 0;
     const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Paid plan'}</span></span><span class="wc-go">${CHEV}</span></button>`;
@@ -4186,22 +4185,13 @@ function app(tab){
           ${todayHTML}
           ${journalHTML}
           ${empty}
-          ${list}
-          ${preview}`);
+          ${list}`);
     const byKey = {}; posts.forEach(p=>byKey[p.key]=p);
     root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
     root.querySelectorAll('.rd-list .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
     const ci = $('#rd-checkin'); if(ci) ci.onclick = ()=>screenCheckin();
     const rj = $('#rd-journal'); if(rj) rj.onclick = ()=>{ if(!paidNow()) return _p8Locked(rj, 'reader'); screenJournal('reflect'); };
     root.querySelectorAll('.rd-today [data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning && Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, dailyLearn.ctx, null); });
-    root.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>{
-      const k=b.dataset.preview, R2=window.Reader, now2=Date.now();
-      const start = k==='week' ? R2.weekStart(now2) : k==='month' ? R2.monthStart(now2) : k==='season' ? R2.quarterStart(now2) : R2.yearStart(now2);
-      const p = R2.PERIOD[k](start);
-      const post = _rdBuild(p, _rdData(), _rdPosts(), now2);
-      if(post) screenReaderPost(post, { preview:true });
-      else { b.textContent = 'No check-ins yet'; setTimeout(()=>{ b.textContent = CAP(k); }, 1800); }
-    });
   }
   const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 

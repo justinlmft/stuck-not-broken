@@ -24,7 +24,7 @@
   'use strict';
 
   const DAY = 864e5;
-  const WEEK_HOUR = 8;      // the Sunday issue: 8 am local (🖊 proposed)
+  const WEEK_HOUR = 6;      // the Sunday issue: 6 am local (Justin, 2026-10-04: "I wanted it to be here right when I woke up")
   const EVE_HOUR = 18;      // month / season / year: 6 pm local on the last day
 
   // ---------------------------------------------------------------- calendar
