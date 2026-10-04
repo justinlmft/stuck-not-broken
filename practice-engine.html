@@ -939,7 +939,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:a8953fa7a857a5d088f9376bd1cdbba4 */
+<script>/* @module data.js md5:d597cd0fe10eab9325812c471b81b425 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1376,9 +1376,12 @@ function voiceFor(file, voice) {
 /* Justin's emotion reminders sit beside the app (the beta branch's `clips/`) until they are copied to main with the release; app-relative,
    new names, so no cached old take can win. Same place once on main: the app's `clips/` IS app.stucknotbroken.com/clips/. */
 const EMO_FOLDER = 'clips/';
+/* Justin's takes re-cut in place (2026-10-04): the new cut sits beside the app under the same name until the release copies it
+   to main, so on beta it is read app-relative like the emotion reminders. Once on main, app-relative IS the same address. */
+const RECUT_HERE = new Set(['IMG-02-a.mp3', 'OBST-05-a.mp3']);
 function clipUrl(base, file, voice) {
   let folder = VOICES[voiceKey(voice)].folder;
-  if (folder === CLIP_FOLDER && /^EMO-/.test(file)) folder = EMO_FOLDER;
+  if (folder === CLIP_FOLDER && (/^EMO-/.test(file) || RECUT_HERE.has(file))) folder = EMO_FOLDER;
   return (/^[a-z][a-z0-9+.-]*:\/\//i.test(folder) ? '' : (base || '')) + folder + file;
 }
 
@@ -1485,6 +1488,10 @@ function bedUrl(base, key, level) {
  * this table. A trim here for a file that has already been replaced would cut it twice. */
 const TAKE_TRIMS = Object.freeze({
   'MIND-03-e.mp3':            { start: 5.33, caption: ['Which sounds stay? ', ''] },
+  /* 2026-10-04 (Justin, on Poppy's dub: "That's two takes in one" — "yeah same cut on mine"): the FILES were re-cut with the
+   * repeated "Where is it?" spliced out (see RECUT_HERE), so only the caption changes here; no start/end trim. */
+  'IMG-02-a.mp3':             { caption: ['physical space? Where is it? ', 'physical space? '] },
+  'OBST-05-a.mp3':            { caption: ['physical space? Where is it? ', 'physical space? '] },
   /* CLOSE-03-e had a start trim here for one afternoon (2026-09-24): the take opened "If that feels a little silly,
    * that is all right. Try it anyways." before saying what to do. Justin: "shouldn't the silly portion … connect to
    * the gratitude of the anchor? they go together" — so the FILE was re-cut with that sentence moved to the end, after
@@ -2031,7 +2038,7 @@ const CLIP_HOLDS = Object.freeze({
   'IMG-01-b.mp3': Object.freeze([{ at: 2.7, pause: 1.69 }]),
   'IMG-01-c.mp3': Object.freeze([{ at: 1.73, pause: 1.11 }]),
   'IMG-01-e.mp3': Object.freeze([{ at: 3.65, pause: 1.98 }]),
-  'IMG-02-a.mp3': Object.freeze([{ at: 2.9, pause: 1.17 }, { at: 7.19, pause: 1.64 }]),
+  'IMG-02-a.mp3': Object.freeze([{ at: 2.9, pause: 1.17 }, { at: 6.37, pause: 1.64 }]),   // re-cut 2026-10-04 (repeated "Where is it?" out)
   'IMG-02-b.mp3': Object.freeze([{ at: 1.12, pause: 0.93 }]),
   'IMG-02-c.mp3': Object.freeze([{ at: 1.21, pause: 0.91 }, { at: 4.13, pause: 1.38 }, { at: 6.57, pause: 2.38 }]),
   'IMG-02-d.mp3': Object.freeze([{ at: 2.32, pause: 1.55 }]),
@@ -2072,7 +2079,7 @@ const CLIP_HOLDS = Object.freeze({
   'OBST-04-a.mp3': Object.freeze([{ at: 4.61, pause: 0.91 }]),
   'OBST-04-b.mp3': Object.freeze([{ at: 3.58, pause: 1.23 }]),
   'OBST-04-c.mp3': Object.freeze([{ at: 2.14, pause: 1.07 }]),
-  'OBST-05-a.mp3': Object.freeze([{ at: 3.52, pause: 1.2 }, { at: 6.97, pause: 1.51 }]),
+  'OBST-05-a.mp3': Object.freeze([{ at: 3.52, pause: 1.2 }, { at: 6.0, pause: 1.51 }]),   // re-cut 2026-10-04, same splice
   'OBST-05-b.mp3': Object.freeze([{ at: 0.97, pause: 0.94 }]),
   'OBST-05-c.mp3': Object.freeze([{ at: 1.2, pause: 1.23 }, { at: 5.03, pause: 1.45 }]),
   'OBST-05-d.mp3': Object.freeze([{ at: 0.99, pause: 0.92 }, { at: 6.8, pause: 1.79 }]),
