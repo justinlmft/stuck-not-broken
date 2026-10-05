@@ -17,3 +17,5 @@ Supabase keys live in `config.js`. The anon key is safe to ship in client code â
 ## Note for AI agents
 
 There is exactly one app and one repo. Do not look for, create, or deploy to any other repo or "mirror". Historical copies (e.g. `snb-guided-practice`) are deprecated.
+
+<!-- 2026-10-05: redeploy nudge after a GitHub Actions outage stalled the Pages build of b8212c8 -->
