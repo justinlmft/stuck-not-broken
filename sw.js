@@ -5,12 +5,12 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v522';
+const SHELL_VERSION = 'snb-app-shell-v586';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=218', './app.js?v=325', './icons.js?v=2', './current.js?v=19',
-  './config.js?v=9', './store.js?v=101', './from-justin.js?v=22', './player.html', './practice-engine.html',
+  './', './index.html', './app.css?v=261', './app.js?v=375', './icons.js?v=2', './current.js?v=19',
+  './config.js?v=9', './store.js?v=113', './from-justin.js?v=25', './reader.js?v=8', './learning.js?v=19', './player.html', './practice-engine.html',
   './clips/silence-30s.wav', './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 
@@ -27,7 +27,9 @@ const SCOPE_PATH = new URL(self.registration.scope).pathname;
    written from the real read and are most likely to need correcting.
    Scoped to captions*.json on purpose: packs/*.pack.json stay on the audio path, unchanged.
    See ENGINE-CONTRACT.md §A5. */
-const isAudio = (url) => /\/(clips|packs)\//.test(url.pathname) && !/\/captions[^/]*\.json$/.test(url.pathname);
+/* 2026-09-29 (VOICES): a voice's folder (`clips-poppy/`, and any `clips-<voice>/` after it) is audio too — cached on play, played offline
+   once heard. The same never-versioned rule holds there: a re-cut dub take gets a new name, never new content under an old one. */
+const isAudio = (url) => /\/(clips|clips-[a-z0-9]+|packs)\//.test(url.pathname) && !/\/captions[^/]*\.json$/.test(url.pathname);
 
 self.addEventListener('install', (e) => {
   /* 2026-08-17 — skipWaiting is BACK. Removing it on 08-16 did stop the player reloading
@@ -72,11 +74,31 @@ async function purgeOldClipTakes() {
   } catch (e) { /* best effort — never block activation */ }
 }
 
+/* 2026-10-04 (Justin, listening to Poppy: "That's two takes in one"): two of her takes were re-cut under the SAME names, and
+   AUDIO_CACHE is cache-first, so a phone that played the old cut would keep it. Those exact files are dropped once (marker
+   below) and re-cache on next play. Add a file here whenever a take is re-cut in place; bump the mark with it. */
+const AUDIO_RECUT_MARK = './__audio-recut-2026-10-04b';   // b: Justin's two takes re-cut too ("same cut on mine")
+const AUDIO_RECUT = ['/clips-poppy/IMG-02-a.mp3', '/clips-poppy/OBST-05-a.mp3', '/clips/IMG-02-a.mp3', '/clips/OBST-05-a.mp3'];
+async function purgeRecutTakes() {
+  try {
+    const cache = await caches.open(AUDIO_CACHE);
+    if (await cache.match(AUDIO_RECUT_MARK)) return;
+    const reqs = await cache.keys();
+    let n = 0;
+    for (const r of reqs) {
+      const p = new URL(r.url).pathname;
+      if (AUDIO_RECUT.some((f) => p.endsWith(f))) { await cache.delete(r); n++; }
+    }
+    await cache.put(AUDIO_RECUT_MARK, new Response(String(n), { headers: { 'Content-Type': 'text/plain' } }));
+  } catch (e) { /* best effort — never block activation */ }
+}
+
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
     await Promise.all(keys.filter((k) => k !== SHELL_VERSION && k !== AUDIO_CACHE).map((k) => caches.delete(k)));
     await purgeOldClipTakes();
+    await purgeRecutTakes();
     await self.clients.claim();
   })());
 });

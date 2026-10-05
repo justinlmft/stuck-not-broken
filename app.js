@@ -665,6 +665,7 @@
   // second row — a plus for "check in again" once it shrinks, a play for the micro
   // practice, an open book for the personal-reader doorway.
   const ICO_PLUS  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+  const ICO_SPARK = '<svg class="mh-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.1 6.2 6.4 2.3-6.4 2.3L12 19.5l-2.1-6.2L3.5 11l6.4-2.3z"/><path d="M19 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" opacity=".7"/></svg>';
   const ICO_PRAC  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.52.86l11.14-6.86a1 1 0 0 0 0-1.72L9.52 4.28A1 1 0 0 0 8 5.14z"></path></svg>';
   const ICO_READ  = '<svg class="mh-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10.5 5 8.3 4.5 5.5 4.5A1.5 1.5 0 0 0 4 6v11a1.5 1.5 0 0 0 1.5 1.5c2.8 0 5 .5 6.5 2 1.5-1.5 3.7-2 6.5-2A1.5 1.5 0 0 0 20 17V6a1.5 1.5 0 0 0-1.5-1.5c-2.8 0-5 .5-6.5 2zM12 6.5v13"></path></svg>';
   // the personal reader adjusts to your MOST RECENT check-in, so it's "waiting" whenever
@@ -747,7 +748,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -825,7 +826,12 @@
     if(h==='checkin'){ app('now'); return screenCheckin(); }
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
-    const _r = app(currentTab);
+    if(h==='reader'){ return app('reflect'); }   // a new-reflection notification (2026-09-30)
+    // the saved reader place, once per boot; a post that has not loaded yet is tried again on the next route
+    if(_rdPending === undefined) _rdPending = _rdTakeLoc();   // read once, before anything overwrites it
+    const _back = !!(_rdPending && _rdRestore(_rdPending));
+    if(_back || !_rdPending || _rdPending.k !== 'post' || !Store.hydrated || Store.hydrated()) _rdPending = null;
+    const _r = _back ? undefined : app(currentTab);
     // MEMBER ONBOARDING (item 114): gate on paid && not yet oriented. Deliberately NOT
     // the ?checkout= return param — someone who closes the tab at Stripe and comes back
     // tomorrow still gets oriented, and so does an Academy member who never saw Stripe.
@@ -841,7 +847,8 @@
       }
       // Decide only once the cloud read has finished. Without this, orientation fires in
       // the gap between "paid is known" and "history has loaded" — see Store.hydrated().
-      if((force || (paidNow() && _obHydrated() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding(false); }, 60);
+      // everyone with an account gets the standard onboarding, free or paid (Justin, 2026-10-03: "Yes, everyone")
+      if((force || (_obMember() && _obHydrated() && !oriented())) && !_liveJoin()) setTimeout(()=>{ if(!_ob.on) startOnboarding('first'); }, 60);
       // The old state-math "what's new" card is RETIRED (Justin, 2026-08-17: "There should
       // only ever be one"). It fired from here while whatsNewNaming() fired off 'load', with
       // a separate key, and neither checked for the other's root — so a fresh storage
@@ -850,6 +857,7 @@
     return _r;
   }
   let currentTab = 'now';
+  let _rdPending;   // the saved reader place (undefined = not read yet); used once, at boot
   let authMode = 'in';
   let lastEmail = '';
   // captured at load, before the hash is consumed anywhere; also set by the
@@ -917,7 +925,7 @@
           </button>
           <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">You\u2019re joining a live practice. Sign in to check in.</div>':''}
           <h1 style="margin:10px 0 12px">${up?'An app to guide you through emotional regulation.':'Your nervous system, over time.'}</h1>
-          <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices tuned to you, and watch your patterns become visible over time.</p>
+          <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices based on what helps you, and watch your patterns become visible over time.</p>
           <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
           ${up ? '<div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
           <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
@@ -1298,7 +1306,7 @@
     const OPTS = [
       { key:'micro',       open:true,  title:'A tiny practice',          sub:`about ${estTiny} min · one sense, done` },
       { key:'mindfulness', open:true,  title:'Simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
-      { key:'anchoring',   open:false, title:'Safety anchoring',        sub:'Settling in through your senses' },
+      { key:'anchoring',   open:false, title:'Safety anchoring',        sub:'Connecting with safety through your senses' },
       { key:'self-regulation',        open:false, title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
       { key:'more',        open:false, title:'More practices',           sub:'Standalone guided practices' },
     ];
@@ -1417,7 +1425,7 @@
       // the mirror's vocabulary; flag any clause that reads off and I'll adjust.
       const cv = mv>0 ? "you're feeling more connected"        : mv<0 ? 'connecting feels harder right now'          : 'connecting is about the same';
       const cd = md<0 ? 'doing things feels more within reach' : md>0 ? 'doing things takes more effort right now'   : 'doing things is about the same';
-      const cs = ms<0 ? 'your energy settled'                  : ms>0 ? "there's more energy in your body"           : 'your energy is about the same';
+      const cs = ms<0 ? 'your energy eased'                  : ms>0 ? "there's more energy in your body"           : 'your energy is about the same';
       const cap = (t)=>t.charAt(0).toUpperCase()+t.slice(1);
       body = `${cap(cv)}. ${cap(cd)}. And ${cs}.`;
     } else if(net < 0){
@@ -1600,7 +1608,7 @@
   //   · unlimited check-ins · the immediate state read (the mirror) · the two mindfulness
   //   practices (a tiny practice ~2min, simple mindfulness ~6min) · their own saved
   //   check-in history, as they recorded it · the breath · export.
-  // THE BASE PLAN ($12/mo) adds:
+  // THE PAID PLAN ($12/mo) adds:
   //   · the MATCHING — practices built from their check-ins
   //   · the other practices — connect with safety, self-regulation, the session library
   //   · the PATTERNS across all their check-ins (the You-tab cards + the deep read)
@@ -1622,7 +1630,11 @@
     matching: 'practices built from your check-ins',
     practice: 'The other practices',
     patterns: 'the patterns across your check-ins',
-    reader:   'the reader',
+    reader:   'The rest of your reflection',
+    voice:    'The other voices',   // 2026-09-30: the AI voices are paid only 🖊
+    impacts:  'Practice impacts',   // 2026-09-30 (Justin: "i want free users to see what they are missing out on") 🖊
+    ideal:    'Your ideal practice',
+    maker:    'Make my own',
   };
   let _subFrom = null;
   function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
@@ -1658,7 +1670,7 @@
 
   // ---------------------------------------------------------------- subscribe
   // NOT a paywall. Nothing is blocked and there is no exit cost — this screen is only
-  // ever reached by someone who chose it (settings, or by reaching for a base-plan
+  // ever reached by someone who chose it (settings, or by reaching for a paid-plan
   // thing). Free stays free, with no time limit. No trial, no card until this moment,
   // no countdown, no discount, no "you're missing out".
   // 🖊 COPY IS DRAFT — Justin is rewriting the offer copy; this is the honest placeholder,
@@ -1670,9 +1682,9 @@
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">The base plan</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(what)+' is on the base plan.' : 'Choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
+          <p class="eyebrow">The paid plan</p>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is on the paid plan.' : 'Choose your plan'}</h1>
+          <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the other voices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
           ${planPickerHTML()}
           <p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
@@ -1831,6 +1843,7 @@
   // through this. Backfill the local flag so the derivation runs once, not on every route.
   // (Justin, 2026-08-17: re-added the app to his home screen and got walked through again.)
   // Defaults to true when Store predates hydrated(), so this can never hard-lock orientation.
+  function _obMember(){ try{ return !!Store.user() && !(Store.isAnonymous && Store.isAnonymous()); }catch(e){ return false; } }
   function _obHydrated(){ try{ return !Store.hydrated || Store.hydrated(); }catch(e){ return true; } }
   function _orientedByHistory(){
     try{ return !!(Store.user() && Store.checkins && Store.checkins().length); }catch(e){ return false; }
@@ -1903,95 +1916,143 @@
     obTrack('whatsnew_shown', { v:'statemath' });
   }
 
-  const OB_UNLOCKS = [
-    ['spark', 'Practices created just for you', 'The app designs self-regulation practices for you and only you based on your history, practices, and preferences. (Feel free to customize further!)'],
-    ['book',  'A personal reader',                  'It’s like a blog written just for you. It changes over time.'],
-    ['chart', 'Deep data insights',                 'Get data analysis about everything, from when you’re most regulated, patterns, and which practices help. It needs a few check-ins first.']
-  ];
-  function _obIcon(k){
-    const p = k==='spark' ? '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.8 2.8M14.9 14.9l2.8 2.8M17.7 6.3l-2.8 2.8M9.1 14.9l-2.8 2.8"/>'
-            : k==='book'  ? '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/>'
-            : '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>';
-    return '<span class="u-ic"><svg viewBox="0 0 24 24">'+p+'</svg></span>';
+  // ═════════════════════════════════════════════════════════════════════════
+  // THE STANDARD ONBOARDING (Justin, 2026-10-03: "a new onboarding sequence that walks the user through the app. this is the
+  // standard onboarding and helps them get all set up"). He picked option A, tab by tab, from the mockups
+  // (https://claude.ai/artifact/5x3Q4JCRXqD2Hz1gkkdgb7): the app moves to each tab behind the sheet and rings the main thing
+  // there, and each setting is asked on the tab where it lives. Everyone gets it, free and paid ("Yes, everyone"); paid-only
+  // choices show the lock like the rest of the app. His notes on the mockups, all applied: no time estimates anywhere ("A
+  // check-in is like 10 sec"), a voice plays a sample when it is picked, the Reflect card names daily, weekly, monthly, seasonal
+  // and annual Reflections, the Journal gets its own card, no search line on Learn, and Notifications sits on the Settings
+  // screen with his three questions. Replays (Monday's update card, Settings) skip the welcome and start at the name, with the
+  // member's own choices already selected. The choices write the SAME keys Settings, the Pathway and the player write.
+  // 🖊 the card copy is drafted from his mockup notes; his words are used where he gave them.
+  function obP(t){ return '<p class="ob-p">'+t+'</p>'; }
+  function obLbl(t){ return '<p class="ob-fine ob-lbl">'+t+'</p>'; }
+  function obChip(group,val,label,extra){ return '<button class="ob-chip" type="button" data-'+group+'="'+escapeHtml(String(val))+'"'+(extra||'')+'>'+label+'</button>'; }
+  function obChips(group, opts){ return '<div class="ob-chips" data-group="'+group+'">'+opts.map(o=>obChip(group,o[0],escapeHtml(o[1]))).join('')+'</div>'; }
+  function obSw(id,label,on,dis){ return '<div class="gs-sw ob-sw"><span class="gs-lbl">'+label+'</span><button class="set-sw'+(on?' on':'')+'" id="'+id+'" type="button" role="switch" aria-checked="'+(on?'true':'false')+'" aria-label="'+escapeHtml(label)+'"'+(dis?' disabled style="opacity:.45"':'')+'><span class="set-sw-knob"></span></button></div>'; }
+  const OB_TAB_LINE = { now:'Check in, and take a breath.', practice:'Your recommended practice, the Unstucking Pathway, and practices to make your own.',
+    reflect:'Your Reflections and Your Journal.', learn:'Articles and book chapters to read.', you:'Your patterns over time, and Settings.' };
+  // the five tabs on one card, drawn with the tab bar's own icons ("Look around myself")
+  function obTabMap(){
+    const names = { now:'Now', practice:'Practice', reflect:'Reflect', learn:'Learn', you:'You' };
+    return '<div class="ob-map">'+['now','practice','reflect','learn','you'].map(t=>{
+      let ic=''; try{ const b=document.querySelector('#tabs button[data-t="'+t+'"] .ic'); if(b) ic=b.innerHTML; }catch(e){}
+      return '<div class="ob-map-row"><span class="ob-map-ic" aria-hidden="true">'+ic+'</span><span class="ob-map-t"><b>'+names[t]+'</b><span>'+escapeHtml(OB_TAB_LINE[t])+'</span></span></div>';
+    }).join('')+'</div>';
   }
-  function obUnlockList(){
-    return '<div class="ob-unlocks">'+OB_UNLOCKS.map(u=>
-      '<div class="ob-unlock">'+_obIcon(u[0])+'<span><b>'+escapeHtml(u[1])+'</b><span class="u-s">'+escapeHtml(u[2])+'</span></span></div>').join('')+'</div>';
-  }
-  function obChip(group,val,label){ return '<button class="ob-chip" type="button" data-'+group+'="'+val+'">'+escapeHtml(label)+'</button>'; }
   const OB_METHOD_CAP = {
     sliders:'Best for someone who has a hard time identifying their state. Simply answer a few quick questions with three sliders.',
     states :'Choose your state, then fine-tune it with sliders. Best for someone familiar with their states and able to name them.',
     numbers:'One number per axis. Quickest if you already know what you would say.'
   };
+  // the background sounds offered here (Justin's picks, 2026-09-26: rain, the bowls, night, the garden spout); the rest are in the player
+  const OB_BEDS = [['none','None'],['rain','Rain'],['bowl','Singing bowl'],['night','Night'],['garden','Garden'],['surprise','Surprise me']];
+  // a voice's sample: the first intro line ("Hey. Welcome to this practice..."), from the same folders the engine plays
+  // (practice-engine data.js VOICES: Justin's takes are absolute, a dub's folder is app-relative)
+  const OB_VOICE_SAMPLE = { justin:'https://app.stucknotbroken.com/clips/INTRO-01-a.mp3', poppy:'clips-poppy/INTRO-01-a.mp3' };
+  let _obAudio = null;
+  function obStopAudio(){ try{ if(_obAudio){ _obAudio.pause(); _obAudio=null; } }catch(e){} try{ bedPreview(null); }catch(e){} }
+  function obVoiceSample(v){
+    obStopAudio();
+    const src = OB_VOICE_SAMPLE[v]; if(!src) return;
+    try{ const a=new Audio(src); a.preload='auto'; _obAudio=a; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  }
   let OB_STEPS = [];
   function obBuildSteps(){
     const nm = (Store.getName && Store.getName()) || '';
-    // 🖊 DRAFT COPY. Sentence case here, not the app's lowercase UI: Justin's call
-    // (2026-07-26) — these cards carry the most reading in the app and legibility wins.
-    // Kept short on purpose. The card gives reading room to the body and never to the
-    // buttons, so long copy costs the scroll, not the action.
+    const paid = paidNow();
+    const lockLine = t => '<p class="ob-fine ob-lock">'+LOCK_SVG+escapeHtml(t)+'</p>';
+    const ps = (typeof pushState === 'function') ? pushState() : 'unsupported';
+    const pushHint = ps==='install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then Add to Home Screen.'
+                   : ps==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there first.'
+                   : ps==='unsupported' ? 'This browser cannot show notifications from the app.' : '';
+    const pushDis = !!pushHint;
+    const pp = (typeof pushPrefsRead === 'function') ? pushPrefsRead() : {};
+    const reflOn = pp.reflect_week!==false || pp.reflect_month!==false || pp.reflect_season!==false || pp.reflect_year!==false;
     OB_STEPS = [
       { id:'welcome', tab:'now', kind:'center',
         h:'Welcome',
-        body:'<p class="ob-p">Thank you for subscribing. Three things just opened up for you:</p>'
-           + '<ol class="ob-list"><li>Practices created just for you</li>'
-           + '<li>A personal reader</li>'
-           + '<li>Deep data insights</li></ol>'
-           + '<p class="ob-p">Choose how you’d like to get started below.</p>'
-           + '<p class="ob-sign">Justin</p>'
-           + obMarkSVG(),
+        body: obP('Thank you for joining. This short walkthrough shows you around the app and gets it set up for you.')
+           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
         actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
 
-      { id:'practice', tab:'practice', kind:'spot', target:'#p7-toggle', pad:8,
-        h:'Your practice maker',
-        body:'<p class="ob-p">This opens the practice maker. Want more silence? No problem. A certain visual? Sure thing. Do it all here.</p>' },
+      { id:'name', tab:'now', kind:'center',
+        h:'What should the app call you?',
+        body: obP('(Or leave it blank.)')
+           + '<input class="ob-name" id="ob-name" type="text" placeholder="your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
 
-      { id:'reader', tab:'you', kind:'spot', target:'#you-reader', pad:8,
-        h:'Your personal reader',
-        body:'<p class="ob-p">Your personal reader changes based on your check-ins and practices. Over the moments, days, weeks, and beyond, it will have more and more information about you to learn from and build insight from.</p>' },
-
-      { id:'stats', tab:'you', kind:'spot', target:'#carousel', pad:6,
-        h:'Deep data insights',
-        body:'<p class="ob-p">Find snapshot results of your data. Check-ins and practices accumulate here.</p>' },
-
-      { id:'method', tab:'you', kind:'center',
-        h:'How do you want to check in?',
-        // preview + fixed-height wrap (Justin 2026-07-28): a real taste of the control
-        // itself, not just a caption, and a min-height floor so picking between the much
-        // taller state-picker preview and the one-line slider previews doesn't resize the
-        // whole sheet under the person's thumb.
-        body:'<p class="ob-p">All three record the same thing, so no need to worry about your history if you decide to change later.</p>'
-           + '<div class="ob-chips" data-group="method">'+obChip('method','sliders','Question sliders')+obChip('method','numbers','Numbers')+obChip('method','states','State picker')+'</div>'
+      { id:'now', tab:'now', kind:'spot', target:['#mh-cta','#tb-breath'], pad:6, eb:'Now',
+        h:'Check in',
+        body: obP('Start here. A check-in tells the app how your nervous system is doing right now. Everything else builds on it.')
+           + obLbl('How do you want to check in?')
+           + obChips('method', [['sliders','Questions'],['numbers','Numbers'],['states','State']])
            + '<p class="ob-fine" data-cap="method"></p>'
            + '<div class="rs-preview ob-method-preview" id="ob-method-preview"></div>' },
 
-      { id:'defaults', tab:'practice', kind:'center',
-        h:'Practice defaults',
-        body:'<p class="ob-p">You can change these any time you want, but this sets the defaults for now.</p>'
-           + '<p class="ob-fine" style="margin:10px 0 3px">Connect to the present moment through</p>'
-           + '<div class="ob-chips" data-group="sense">'+[['touch','Touch'],['sound','Sound'],['sight','Sight'],['movement','Movement'],['imagination','Imagination']].map(s=>obChip('sense',s[0],s[1])).join('')+'</div>'
-           + '<p class="ob-fine" style="margin:14px 0 3px">How much silence</p>'
-           + '<div class="ob-chips" data-group="silence">'+[[4,'A little'],[8,'Some'],[14,'A lot']].map(p=>obChip('silence',p[0],p[1])).join('')+'</div>' },
+      { id:'practice', tab:'practice', kind:'spot', target:['#foryou','.p8-reco'], pad:6, eb:'Practice',
+        h:'Your recommended practice',
+        body: obP('Made from your check-ins and what has helped you most in your practices. Tap it to see why it was picked, or choose “Customize this practice” to change anything.')
+           + obLbl('How much silence')
+           + obChips('silence', [[4,'A little'],[8,'Some'],[14,'A lot']]) },
 
-      { id:'name', tab:'practice', kind:'center',
-        h:'What should the app call you?',
-        body:'<p class="ob-p">(Or leave it blank.)</p>'
-           + '<input class="ob-name" id="ob-name" type="text" placeholder="your name" autocomplete="given-name" value="'+escapeHtml(nm)+'">' },
+      { id:'sound', tab:'practice', kind:'spot', target:['#foryou','.p8-reco'], pad:6, eb:'Practice',
+        h:'Sound and voice',
+        body: obP('Choose what plays under your practices and whose voice guides them. Tap one to hear it. You can change both in the player too.')
+           + obLbl('Background sound')
+           + obChips('bed', OB_BEDS)
+           + obLbl('Voice')
+           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk" aria-hidden="true">'+LOCK_SVG+'</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
+           + '<p class="ob-fine" data-cap="voice"></p>' },
+
+      { id:'pathway', tab:'practice', kind:'spot', target:['#up-entry'], pad:6, eb:'Practice',
+        h:'The Unstucking Pathway',
+        body: obP('Every skill in the app, in order, from the present moment to working with defense. Each step opens as you practice the one before it.')
+           + obLbl('Your safety anchor')
+           + '<div class="ob-chips" data-group="anchor">'+[['auto','Let the app find my best one']].concat(UP_ANCHORS.map(k=>[k,CAP(k)])).map(o=>obChip('anchor',o[0],escapeHtml(o[1]), paid?'':' aria-disabled="true"')).join('')+'</div>'
+           + (paid ? '' : lockLine('Choosing your safety anchor is on the paid plan.')) },
+
+      { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'Reflect',
+        h:'Reflect',
+        body: obP('Reflections on your check-ins and practices. Aside from daily, you’ll find weekly, monthly, seasonal, and annual Reflections.') },
+
+      { id:'learn', tab:'learn', kind:'spot', target:['.rd-learn-top','.rd-learnhubs > *:first-child'], pad:6, eb:'Learn',
+        h:'Learn',
+        body: obP('Hundreds of articles and book chapters about your nervous system and how to work with it.') },
+
+      { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'Reflect',
+        h:'Your Journal',
+        body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal.')
+           + (paid ? '' : lockLine('Your Journal is on the paid plan.')) },
+
+      { id:'you', tab:'you', kind:'spot', target:['#carousel','.map-rows','.you-view .card','#set-btn'], pad:6, eb:'You',
+        h:'You',
+        body: obP('Your patterns over time: when you feel the most safety, which practices help, and your ideal practice. Settings is the gear at the top.') },
+
+      // Justin's words (2026-10-03), on the Settings screen
+      { id:'notif', screen:'settings', kind:'spot', target:['#push-row'], pad:6, eb:'Settings',
+        h:'Notifications',
+        body: obP('Set Notifications exactly as you want them in Settings, from the gear on the You tab.')
+           + (pushHint ? '<p class="ob-fine" id="ob-push-hint">'+escapeHtml(pushHint)+'</p>' : '<p class="ob-fine" id="ob-push-hint" hidden></p>')
+           + '<p class="ob-p ob-q">Do you want to be notified of new Reflections? You won’t receive daily ones.</p>'
+           + obSw('ob-n-refl','New Reflections', reflOn, pushDis)
+           + '<p class="ob-p ob-q">Do you want to receive a reminder to check in after you practice? This helps identify how your system responds.</p>'
+           + obSw('ob-n-follow','After practice reminder', !!pp.followup, pushDis)
+           + '<p class="ob-p ob-q">Select when you’d like to receive a check-in reminder. (Or not.)</p>'
+           + '<div class="ob-chips" data-group="ci">'+PUSH_DAYPARTS.map(d=>obChip('ci', d[0], escapeHtml(d[1]), pushDis?' disabled':'')).join('')+'</div>' },
 
       { id:'done', tab:'now', kind:'center',
-        h:'Done.',
-        body:'<p class="ob-p">And that’s it. Check in, do a practice, check in again. It gets more and more yours every time.</p>'
-           + '<p class="ob-sign">Justin</p>'
-           + obMarkSVG(),
-        fine:'All of this is in settings, and the walkthrough is there if you want it again.',
-        actions:[{label:'Take me in',kind:'primary',go:'end'}] },
+        h:'You’re all set',
+        body: obP('Check in, practice, then check in again. The app gets more and more yours each time.')
+           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
+        fine:'This walkthrough is in Settings whenever you want it again.',
+        actions:[{label:'Check in now',kind:'primary',go:'checkin'},{label:'Take me in',kind:'quiet',go:'end'}] },
 
       { id:'decline', tab:'now', kind:'center', standalone:true,
-        h:'Here\u2019s what opened up',
-        body:'<p class="ob-p">Enjoy exploring on your own. Here’s a brief rundown.</p>'+obUnlockList()
-           + '<p class="ob-p" style="margin-top:12px">The walkthrough is in settings whenever you want it.</p>',
-        actions:[{label:'Okay, in i go',kind:'primary',go:'end'}] }
+        h:'Where things are',
+        body: obTabMap() + '<p class="ob-fine" style="margin-top:14px">The walkthrough is in Settings whenever you want it.</p>',
+        actions:[{label:'Take me in',kind:'primary',go:'end'}] }
     ];
   }
   function obMarkSVG(){
@@ -2003,27 +2064,39 @@
       + '<g id="snb-ears" stroke-width="6.5"> <path id="snb-ear-l" d="M 120,147 C 105,148 112,193 120,194"/> <path id="snb-ear-r" d="M 279.5,147 C 294.5,148 287.5,193 279.5,194"/> </g> <path id="snb-head" stroke-width="9.5" d="M 122,273.5 L 122,86 C 122,63 152,24.5 200,24.5 C 248,24.5 277.5,63 277.5,86 L 277.5,273.5"/> <g id="snb-brows" stroke-width="5.2"> <path id="snb-brow-l" d="M 181.5,108 Q 163,109 146,120"/> <path id="snb-brow-r" d="M 218.5,108 Q 237,109 254,120"/> </g> <g id="snb-glasses" stroke-width="5.5"> <circle id="snb-lens-l" cx="164.5" cy="151" r="25.5"/> <circle id="snb-lens-r" cx="235.5" cy="151" r="25.5"/> <path id="snb-bridge" d="M 192,146 Q 200,141.5 208,146"/> <path id="snb-arm-l" d="M 137.5,148 L 122.5,147"/> <path id="snb-arm-r" d="M 262.5,148 L 277.5,147"/> </g> <g id="snb-eyes-closed" stroke-width="3.6"> <path id="snb-eyec-l" d="M 152,156 C 152.5,144 176.5,144 177,156"/> <path id="snb-eyec-r" d="M 223,156 C 223.5,144 247.5,144 248,156"/> </g> <g id="snb-eyes-open" opacity="0"> <circle id="snb-eyeo-l" cx="164.5" cy="151" r="6" fill="currentColor" stroke="none"/> <circle id="snb-eyeo-r" cx="235.5" cy="151" r="6" fill="currentColor" stroke="none"/> </g> <ellipse id="snb-cheek-l" cx="154.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(13.7 154.5 192.5)"/> <ellipse id="snb-cheek-r" cx="245.5" cy="192.5" rx="20" ry="6.5" fill="var(--snb-cheek,#F19EEB)" stroke="none" transform="rotate(-13.7 245.5 192.5)"/> <g id="snb-beard" stroke-width="9.5"> <path id="snb-ridge-1l" d="M 137.5,219.5 L 137.5,305.5"/> <path id="snb-ridge-1r" d="M 261.5,219.5 L 261.5,305.5"/> <path id="snb-ridge-2" d="M 154.5,328.5 L 154.5,258.25 A 45,45 0 0 1 244.5,258.25 L 244.5,328.5"/> <path id="snb-ridge-3" d="M 175.5,343.5 L 175.5,255.5 A 24.5,24.5 0 0 1 224.5,255.5 L 224.5,343.5"/> <path id="snb-ridge-4" d="M 200,262.5 L 200,346.5"/> </g> <path id="snb-nose" stroke-width="4.2" d="M 180,189 C 183,215 217,215 220,189"/>'
       + '</svg>';
   }
-  let _ob = { i:0, min:0, on:false };
-  // no back on the first card of the run. Re-entry from settings starts at 1, so back
-  // there must not reach the welcome, which thanks them for subscribing all over again.
+  let _ob = { i:0, min:0, on:false, from:'first', view:'', lifted:null };
+  // no back on the first card of the run. A replay starts at the name, so back there must not reach the welcome, which thanks
+  // them for joining all over again.
   function obCanBack(){ return _ob.i==='decline' ? true : (typeof _ob.i==='number' && _ob.i > _ob.min); }
   function obStep(x){ return x==='decline' ? OB_STEPS.filter(s=>s.id==='decline')[0] : OB_STEPS[x]; }
   let _obResize=null;
-  function startOnboarding(fromSettings){
+  // from: 'first' (a new member's first open), 'settings' (the Settings row), 'notice' (Monday's update card)
+  function startOnboarding(from){
     if(_ob.on || $('#ob-root')) return;
+    if(from === true) from = 'settings';
+    from = from || 'first';
     obBuildSteps();
-    _ob.i = fromSettings ? 1 : 0; _ob.min = _ob.i; _ob.on = true;
-    obTrack('orient_start', { from: fromSettings?'settings':'first_open' });
+    _ob.from = from;
+    _ob.i = from==='first' ? 0 : 1; _ob.min = _ob.i; _ob.on = true; _ob.view = '';
+    obTrack('orient_start', { from: from==='first' ? 'first_open' : from, v:2 });
     if(!_obResize){ _obResize = ()=>{ if(_ob.on){ const st=obStep(_ob.i); if(st){ obPlace(st); obFade(); } } };
       window.addEventListener('resize', _obResize); }
     obPaint(true);
   }
+  function obUnlift(){ try{ if(_ob.lifted){ _ob.lifted.style.transform=''; _ob.lifted=null; } }catch(e){} const c=$('#content'); if(c) c.style.transform=''; }
   function endOnboarding(how){
     const d=$('#ob-root'); _ob.on=false;
-    setOriented(how==='skip' ? 'skipped' : 'yes');
-    obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'' });
-    const c=$('#content'); if(c) c.style.transform='';
+    obStopAudio();
+    // 'v2' = went through (or skipped) this walkthrough; any value still reads as oriented
+    setOriented(how==='skip' ? 'skipped-v2' : 'v2');
+    // the walkthrough IS the update for this member: Monday's card and the two September cards never follow it
+    try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
+    obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'', v:2, from:_ob.from });
+    obUnlift();
     if(d && d.parentNode) d.parentNode.removeChild(d);
+    // the last card was over Settings; the app opens on Now
+    if(_ob.view !== 'now'){ try{ app('now'); }catch(e){} }
+    _ob.view = '';
   }
   function obEnsureRoot(){
     let d=$('#ob-root');
@@ -2032,53 +2105,57 @@
     if(!d){ d=document.createElement('div'); d.id='ob-root'; d.className='ob-root'; document.body.appendChild(d); }
     return d;
   }
+  function obShow(st){
+    // app(tab) / screenSettings() rebuild root.innerHTML, which takes any lift with it, so switch the view FIRST and attach
+    // the sheet afterwards. Keyed by the view painted last, because Settings leaves currentTab on 'you'.
+    const view = st.screen || st.tab;
+    if(!view || view === _ob.view) return;
+    obUnlift();
+    if(st.screen === 'settings') screenSettings(); else app(st.tab);
+    _ob.view = view;
+  }
   function obPaint(first){
     let st=obStep(_ob.i); if(!st){ endOnboarding('done'); return; }
-    // the 'done' card is the very next card after 'name' — greet by the name they just
-    // typed (read live, not the value OB_STEPS was built with, which is stale by design:
-    // steps are built once at onboarding start, before anyone has typed anything).
-    // Justin, 2026-07-28: it should say the chosen name back on that next card.
+    obStopAudio();
+    // greet by the name they just typed (read live: steps are built once, before anyone has typed anything)
     if(st.id==='done'){
       const nm=(Store.getName&&Store.getName())||'';
-      if(nm) st=Object.assign({}, st, { body: st.body.replace('And that’s it.', 'And that’s it, '+escapeHtml(nm)+'.') });
+      if(nm) st=Object.assign({}, st, { h: 'You’re all set, '+nm });
     }
-    // app(tab) rebuilds root.innerHTML, which takes the overlay with it — so switch the
-    // tab FIRST and re-attach afterwards, never the other way round.
-    if(st.tab && st.tab!==currentTab){ app(st.tab); }
+    obShow(st);
     const d=obEnsureRoot();
-    obTrack('orient_step', { step: st.id });
+    obTrack('orient_step', { step: st.id, v:2 });
     const seq = OB_STEPS.filter(s=>!s.standalone && s.id!=='welcome' && s.id!=='done');
     const pos = seq.map(s=>s.id).indexOf(st.id);
-    const actions = st.actions || [{ label:(pos===seq.length-1?'Done':'Next'), kind:'primary', go:'next' }];
+    const actions = st.actions || [{ label:'Next', kind:'primary', go:'next' }];
     const showSkip = !st.actions;
-    // dims/hole fade in on EVERY step now, not just the first (the .anim classes existed
-    // in CSS but were never applied past the first paint, so a spotlight moving to a new
-    // target — or vanishing/appearing between a spot card and a centered one — used to
-    // snap instantly). The card itself gets the big rise-from-bottom only on first open;
-    // every step after that gets a lighter fade+settle so the shape genuinely transitions
-    // rather than cutting (Justin 2026-07-28: "onboarding shape-shift transition").
+    // a replay opens on the name card: say once that their own choices are already in
+    const replayNote = (_ob.from !== 'first' && _ob.i === _ob.min && typeof _ob.i === 'number') ? '<p class="ob-fine">Your current choices are already selected. Change anything, or just tap Next.</p>' : '';
     let html = '<div class="ob-dim anim" data-side="t"></div><div class="ob-dim anim" data-side="b"></div>'
              + '<div class="ob-dim anim" data-side="l"></div><div class="ob-dim anim" data-side="r"></div>';
     if(st.kind==='spot') html += '<div class="ob-hole anim"></div>';
-    html += '<div class="ob-card'+(first?' anim':' step')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
+    html += '<div class="ob-card'+(first?' anim':' step')+(st.kind==='spot'?' ob-low':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
       + '<div class="ob-top">'
       + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
           + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>Back</button>' : '<span></span>')
       + '<span></span><span class="ob-toppad"></span></div>'
       + '<div class="ob-body">'
+      + (st.eb ? '<p class="eyebrow ob-eb">'+escapeHtml(st.eb)+'</p>' : '')
       + '<h2 class="ob-h">'+escapeHtml(st.h)+'</h2>'
-      + st.body
+      + st.body + replayNote
       + (st.fine?'<p class="ob-fine">'+escapeHtml(st.fine)+'</p>':'')
       + '</div>'
       + '<div class="ob-foot">'
       + '<div class="ob-acts">'+actions.map(a=>'<button class="btn'+(a.kind==='quiet'?' quiet':'')+' block" type="button" data-go="'+a.go+'">'+escapeHtml(a.label)+'</button>').join('')+'</div>'
       + (showSkip ? '<div class="ob-row"><div class="ob-dots">'+seq.map((s,i)=>'<i class="'+(i===pos?'on':'')+'"></i>').join('')+'</div>'
-          + '<button class="ob-skip" type="button" data-go="skip">I\u2019ll take it from here</button></div>' : '')
+          + '<button class="ob-skip" type="button" data-go="skip">I’ll take it from here</button></div>' : '')
       + '</div></div>';
     d.innerHTML = html;
     obPlace(st);
     obWire(st);
     obFade();
+    // a screen that renders in steps (Learn's library, the Pathway card) can move its target after this paint: measure again
+    if(st.kind==='spot'){ setTimeout(()=>{ if(_ob.on && obStep(_ob.i)===st) obPlace(st); }, 350); }
     const card=d.querySelector('.ob-card'); if(card) card.focus && card.setAttribute('tabindex','-1');
   }
   // The footer fade means "there is more copy below". It used to paint unconditionally,
@@ -2094,52 +2171,52 @@
     // stale clientHeight and miss a body that really does overflow. Re-measure after layout.
     requestAnimationFrame(upd); setTimeout(upd, 140);
   }
+  // the first target in the step's list that is on screen with a size (layouts differ by plan, data and width)
+  function obTarget(st){
+    if(st.kind!=='spot') return null;
+    const list = Array.isArray(st.target) ? st.target : [st.target];
+    for(const sel of list){ try{ const el=document.querySelector(sel); if(el){ const r=el.getBoundingClientRect(); if(r.width && r.height) return el; } }catch(e){} }
+    return null;
+  }
   function obPlace(st){
-    const d=$('#ob-root'); const card=d.querySelector('.ob-card');
-    // positioned against the viewport now that the overlay is a child of body
-    const shellR = { left:0, top:0, width:window.innerWidth, height:window.innerHeight };
-    const contentEl = $('#content'); if(contentEl) contentEl.style.transform='';
+    const d=$('#ob-root'); if(!d) return; const card=d.querySelector('.ob-card');
+    const W=window.innerWidth, H=window.innerHeight;
     const dims = [...d.querySelectorAll('.ob-dim')];
     const hole = d.querySelector('.ob-hole');
-    let target = st.kind==='spot' ? document.querySelector(st.target) : null;
-    // Two of the three spotlight targets are MOBILE-ONLY: #p7-toggle only renders for
-    // paid-on-phone (renderMaker7b), and #carousel is replaced by the ledger on the wide
-    // you-tab. On desktop they are absent, and an unguarded measure put the ring in the
-    // top-left corner. Missing or zero-sized target => fall back to a plain centred card.
-    if(target){ const tr=target.getBoundingClientRect(); if(!tr.width || !tr.height) target=null; }
+    obUnlift();
+    const target = obTarget(st);
+    // Missing or zero-sized target => a plain card over one full dim pane. Never a ring in the corner.
     if(!target){
-      // no spotlight: one full dim pane behind the card, the rest collapsed
       dims.forEach((el,i)=>{ el.style.cssText = i===0 ? 'inset:0' : 'display:none'; });
       if(hole) hole.style.display='none';
       return;
     }
     const p = st.pad==null?8:st.pad;
-    const measure = ()=>{ const tr=target.getBoundingClientRect();
-      return { x:tr.left-p, y:tr.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
+    const measure = ()=>{ const tr=target.getBoundingClientRect(); return { x:tr.left-p, y:tr.top-p, w:tr.width+p*2, h:tr.height+p*2 }; };
+    // bring the target near the top of its own scroller first (the Pathway card, Your Journal and the You cards sit low)
+    const sc = target.closest('.scroll');
+    if(sc){ const top = target.getBoundingClientRect().top - sc.getBoundingClientRect().top; if(top > 24) sc.scrollTop = sc.scrollTop + top - 16; }
     let r = measure();
-    // the sheet is pinned to the bottom, so a low target would sit UNDER it.
-    // lift the app content by the overlap and re-measure, so the ring stays visible.
-    if(contentEl && card){
+    // the sheet is pinned to the bottom, so a target that is still low would sit UNDER it: lift its view by the overlap
+    const lift = sc || $('#content');
+    if(lift && card){
       const cardTop = card.getBoundingClientRect().top;
       const overlap = (r.y + r.h + 16) - cardTop;
-      if(overlap > 0){ contentEl.style.transform='translateY('+(-Math.round(overlap))+'px)'; r = measure(); }
+      // a target taller than the room above the sheet keeps its top on screen and runs on under the sheet
+      const up = Math.min(overlap, r.y - 12);
+      if(up > 0){ lift.style.transform='translateY('+(-Math.round(up))+'px)'; _ob.lifted = lift; r = measure(); }
     }
-    const W=shellR.width, H=shellR.height;
     const set=(el,x,y,w,h)=>{ el.style.cssText='left:'+x+'px;top:'+y+'px;width:'+Math.max(0,w)+'px;height:'+Math.max(0,h)+'px'; };
     set(dims[0], 0, 0, W, r.y);                       // top
     set(dims[1], 0, r.y+r.h, W, H-(r.y+r.h));         // bottom
     set(dims[2], 0, r.y, r.x, r.h);                   // left
     set(dims[3], r.x+r.w, r.y, W-(r.x+r.w), r.h);     // right
     if(hole){
-      // conform to the target: take its own corner radius and grow it by the pad, so the
-      // ring sits snug on a pill or a rounded button instead of boxing it in a rectangle.
+      // conform to the target: take its own corner radius and grow it by the pad
       let br = 16;
       try{ const cs=getComputedStyle(target);
         const raw = cs.borderTopLeftRadius||'';
         const v = parseFloat(raw)||0;
-        // A target with its own radius: match it and grow by the pad, so the ring is
-        // parallel to the corner. A target with NO radius (most of ours are plain text
-        // buttons) reads boxy at pad-only, so give it a pill capped at 28.
         br = raw.indexOf('%')>=0 ? Math.min(r.w,r.h)/2
            : v > 0 ? v + p
            : Math.min(r.h/2, 28);
@@ -2154,12 +2231,10 @@
       const g=b.dataset.go;
       if(g==='skip'){ return endOnboarding('skip'); }
       if(g==='end'){ return endOnboarding('done'); }
+      if(g==='checkin'){ endOnboarding('done'); try{ screenCheckin(); }catch(e){} return; }
       if(g==='decline'){ _ob.i='decline'; return obPaint(false); }
       if(g==='next'){
-        // save the just-typed name immediately on advance — the input's own 'change'
-        // listener only fires on blur, so tapping next without blurring first used to
-        // carry the name past the very card that asked for it (2026-07-28, Justin: the
-        // NEXT card after spelling it out should already say it back).
+        // save the just-typed name on advance — the input's own 'change' listener only fires on blur
         if(st && st.id==='name'){ const ne=d.querySelector('#ob-name'); if(ne && Store.setName) Store.setName(ne.value.trim()); }
         _ob.i = (typeof _ob.i==='number' ? _ob.i+1 : 0); return obPaint(false);
       }
@@ -2167,43 +2242,97 @@
       if(g==='back'){ _ob.i = (_ob.i==='decline') ? 0 : Math.max(_ob.min, _ob.i-1); return obPaint(false); }
       _ob.i = +g; obPaint(false);
     });
-    // the preference cards write the SAME keys settings writes — a walkthrough OF the app
+    const onIn = (group, val) => d.querySelectorAll('[data-group="'+group+'"] [data-'+group+']').forEach(x=>x.classList.toggle('on', x.dataset[group]===String(val)));
+    // how you check in: the same key Settings writes, with the same caption and preview
     const mSel = d.querySelector('[data-group="method"]');
     if(mSel){
       const cur = (()=>{ try{ return localStorage.getItem('snb_checkin_method')||'sliders'; }catch(e){ return 'sliders'; } })();
       const cap = d.querySelector('[data-cap="method"]');
       const prev = d.querySelector('#ob-method-preview');
-      // numbers preview is a live illustration, same as settings: dragging its slider
-      // moves the value on the right rather than sitting static.
       const bindPrev=()=>{ if(!prev) return; const r=prev.querySelector('.ci-prev-range'), n=prev.querySelector('.ci-prev-num'); if(r&&n) r.oninput=()=>{ n.textContent = Math.round((+r.value)/10); }; };
-      const mark=(v)=>{ mSel.querySelectorAll('[data-method]').forEach(x=>x.classList.toggle('on', x.dataset.method===v));
-                        if(cap) cap.textContent = OB_METHOD_CAP[v]||'';
-                        if(prev){ prev.innerHTML = _methodPreview(v); bindPrev(); } };
+      const mark=(v)=>{ onIn('method', v); if(cap) cap.textContent = OB_METHOD_CAP[v]||''; if(prev){ prev.innerHTML = _methodPreview(v); bindPrev(); } obFade(); };
       mark(cur);
       mSel.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
         try{ localStorage.setItem('snb_checkin_method', b.dataset.method); }catch(e){}
         mark(b.dataset.method); haptic('save'); obTrack('orient_pref',{pref:'method',value:b.dataset.method});
       });
     }
-    const sSel = d.querySelector('[data-group="sense"]');
-    if(sSel){
-      const cur = (Store.prefSense && Store.prefSense()) || '';
-      sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on', x.dataset.sense===cur));
-      sSel.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
-        if(Store.setPrefSense) Store.setPrefSense(b.dataset.sense);
-        sSel.querySelectorAll('[data-sense]').forEach(x=>x.classList.toggle('on',x===b));
-        haptic('save'); obTrack('orient_pref',{pref:'sense',value:b.dataset.sense});
-      });
-    }
+    // how much silence
     const qSel = d.querySelector('[data-group="silence"]');
     if(qSel){
-      const cur = (Store.prefSilence && Store.prefSilence());
-      qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on', +x.dataset.silence===cur));
+      onIn('silence', (Store.prefSilence && Store.prefSilence()));
       qSel.querySelectorAll('[data-silence]').forEach(b=>b.onclick=()=>{
         if(Store.setPrefSilence) Store.setPrefSilence(+b.dataset.silence);
-        qSel.querySelectorAll('[data-silence]').forEach(x=>x.classList.toggle('on',x===b));
-        haptic('save'); obTrack('orient_pref',{pref:'silence',value:b.dataset.silence});
+        onIn('silence', b.dataset.silence); haptic('save'); obTrack('orient_pref',{pref:'silence',value:b.dataset.silence});
       });
+    }
+    // background sound: the same preference the maker and the player use, with a few seconds of it when picked
+    const bSel = d.querySelector('[data-group="bed"]');
+    if(bSel){
+      const cur = bedPref();
+      onIn('bed', cur.bed);
+      bSel.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{
+        const bed = b.dataset.bed, lv = (bedPref().level) || BED_LEVEL_DEFAULT;
+        if(Store.setPrefBed) Store.setPrefBed(bed==='none' ? 'none' : bed, bed==='none' ? null : lv);
+        onIn('bed', bed); haptic('save'); obTrack('orient_pref',{pref:'bed',value:bed});
+        if(_obAudio){ try{ _obAudio.pause(); }catch(e){} _obAudio=null; }
+        bedPreview({ bed, level:lv });
+      });
+    }
+    // voice (Justin, 2026-10-03: "The user should hear a sample of the Voices when they select"): a free member hears Poppy
+    // too, but the choice stays Justin's, with the plan named under it
+    const vSel = d.querySelector('[data-group="voice"]');
+    if(vSel){
+      const cap = d.querySelector('[data-cap="voice"]');
+      onIn('voice', voicePref());
+      vSel.querySelectorAll('[data-voice]').forEach(b=>b.onclick=()=>{
+        const v = b.dataset.voice;
+        try{ bedPreview(null); }catch(e){}
+        obVoiceSample(v);
+        if(!voiceOk(v)){ if(cap) cap.textContent = voiceName(v)+' is on the paid plan.'; obTrack('orient_pref',{pref:'voice_locked',value:v}); obFade(); return; }
+        if(cap) cap.textContent = '';
+        if(Store.setPrefVoice) Store.setPrefVoice(v);
+        onIn('voice', v); haptic('save'); obTrack('orient_pref',{pref:'voice',value:v});
+      });
+    }
+    // the safety anchor: the same choice as the Pathway's first step (and Settings' sense); 'auto' = let the app find it
+    const aSel = d.querySelector('[data-group="anchor"]');
+    if(aSel){
+      let mode=null; try{ mode = localStorage.getItem(UP_ANCHOR_MODE); }catch(e){}
+      const chosen = (typeof _upAnchorChosen === 'function') ? _upAnchorChosen() : null;
+      onIn('anchor', mode==='chosen' && chosen ? chosen : mode==='auto' ? 'auto' : '');
+      if(!paidNow()) aSel.querySelectorAll('[data-anchor]').forEach(b=>b.onclick=()=>{ try{ b.blur(); }catch(e){} });
+      else aSel.querySelectorAll('[data-anchor]').forEach(b=>b.onclick=()=>{
+        const v = b.dataset.anchor;
+        try{
+          if(v==='auto') localStorage.setItem(UP_ANCHOR_MODE, 'auto');
+          else { if(Store.setPrefSense) Store.setPrefSense(v); localStorage.setItem(UP_ANCHOR_MODE, 'chosen'); }
+        }catch(e){}
+        onIn('anchor', v); haptic('save'); obTrack('orient_pref',{pref:'anchor',value:v});
+      });
+    }
+    // notifications: the same preferences as Settings → Notifications. Turning the first thing on is what asks the phone,
+    // from this tap; a refusal turns the switch back and says why.
+    if(st.id==='notif'){
+      let cur = (typeof pushPrefsRead === 'function') ? pushPrefsRead() : {};
+      const hint = d.querySelector('#ob-push-hint');
+      const say = t => { if(hint){ hint.textContent = t; hint.hidden = false; obFade(); } };
+      const ensure = async ()=>{ if(pushState()==='on') return true; const r = await pushRequest('onboarding'); if(r==='on') return true;
+        say(r==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back to Settings.' : 'Notifications were not turned on. You can try again any time in Settings.'); return false; };
+      const save = patch => { pushPrefsSave(patch).then(p=>{ cur=p; }); try{ pushTrack('push_prefs', { origin:'onboarding' }); }catch(e){} };
+      const bindSw = (id, fn) => { const b=d.querySelector('#'+id); if(!b) return; b.onclick=async()=>{ if(b.disabled) return;
+        const on=!b.classList.contains('on'); b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false');
+        if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); haptic('save'); }; };
+      bindSw('ob-n-refl', on => save({ reflect_week:on, reflect_month:on, reflect_season:on, reflect_year:on }));
+      bindSw('ob-n-follow', on => save({ followup:on }));
+      const ct0 = cur.checkin_times || {};
+      d.querySelectorAll('[data-ci]').forEach(b=>{ b.classList.toggle('on', ct0[b.dataset.ci]!==undefined); b.setAttribute('aria-pressed', String(ct0[b.dataset.ci]!==undefined));
+        b.onclick=async()=>{ if(b.disabled) return; const k=b.dataset.ci, on=!b.classList.contains('on');
+          b.classList.toggle('on',on); b.setAttribute('aria-pressed',String(on));
+          if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-pressed','false'); return; }
+          const ct=Object.assign({}, cur.checkin_times||{}); const dp=PUSH_DAYPARTS.find(x=>x[0]===k);
+          if(on) ct[k]=(dp&&dp[2])||'09:00'; else delete ct[k];
+          save({ checkin_times:ct }); haptic('save'); }; });
     }
     const nameEl = d.querySelector('#ob-name');
     if(nameEl) nameEl.addEventListener('change', e=>{ if(Store.setName) Store.setName(e.target.value.trim()); });
@@ -2283,7 +2412,7 @@ function whatsNewLaunch(){
     + '<p class="wn-p">There are way too many updates to list, but here\'s a few:</p>'
     + '<ul class="wn-p" style="margin:0;padding-left:20px">'
     + '<li>The guided practices now talk back! You can answer many questions from the player during your practice and change the course of the practice.</li>'
-    + '<li>Add background audio to your practice (tap Customize in the player) to help you settle even more.</li>'
+    + '<li>Add background audio to your practice (tap Customize in the player) to help you feel even more at ease.</li>'
     + '<li>Even better recommendations based on your check-ins and practices, including your ideal practice time.</li>'
     + '<li>Randomish tips: you\'ll get a &ldquo;Did you know&rdquo; every now and again to help you get the most out of the app.</li>'
     + '</ul>'
@@ -2294,18 +2423,85 @@ function whatsNewLaunch(){
   const b=d.querySelector('#wn-ok'); if(b) b.onclick=close;
   try{ if(Store.trackEvent) Store.trackEvent('whatsnew_launch_seen',{}); }catch(e){}
 }
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewLaunch(); whatsNewPush(); }catch(e){} }, ms)); });   // auth lands async; both cards are idempotent; the launch card takes the load, the push card waits for the next
+// Monday's update card (Justin, 2026-10-03: "monday's app update notice needs to invite the user to go through the onboarding since
+// there is simply so much new stuff in the app"). His card, signed by him, so first person is fine here, as on the earlier cards;
+// copy from the mockups with his edits ("capitalize Journal, you can leave the '2 minutes' in"). Once per device, only for members
+// who were already using the app (oriented): a new member gets the walkthrough itself, and finishing or skipping the walkthrough
+// sets this key. It REPLACES September's two cards (prod has shown both since 2026-09-28): showing it marks them seen, and they no
+// longer run. The main button starts the walkthrough at the name card; it also stays in Settings.
+const _WN_ONB_KEY='snb_whatsnew_launch_2026_10';
+function whatsNewOnboard(){
+  try{ if(localStorage.getItem(_WN_ONB_KEY)==='1') return; }catch(e){ return; }
+  if(!_obMember() || !_obHydrated() || !oriented()) return;
+  if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  if(document.body.classList.contains('in-practice') || document.getElementById('weaver')) return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Major app update">'
+    + '<div class="wn-mark-wrap">' + obMarkSVG() + '</div>'
+    + '<h2 class="wn-h">Major app update</h2>'
+    + '<p class="wn-p">There is so much new in the app that a list wouldn’t do it justice: the Unstucking Pathway, the Learn library, your Journal, a new Practice tab, and more.</p>'
+    + '<p class="wn-p">So I made a short walkthrough. It shows you around and helps you get set up. It takes about two minutes.</p>'
+    + '<p class="ob-sign wn-sign">Justin</p>'
+    + '<button class="btn block" id="wn-go" type="button" style="margin-top:22px">Show me around</button>'
+    + '<button class="btn quiet block" id="wn-ok" type="button" style="margin-top:8px">Not now</button>'
+    + '<p class="ob-fine wn-fine">You can find it again in Settings.</p></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
+  const close=()=>{ document.removeEventListener('keydown', onKey, true); d.remove(); };
+  function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(_){} } }
+  document.addEventListener('keydown', onKey, true);
+  const ok=d.querySelector('#wn-ok'); if(ok) ok.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(e){} };
+  const go=d.querySelector('#wn-go'); if(go){ go.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_go',{}); }catch(e){} try{ app('now'); }catch(e){} setTimeout(()=>startOnboarding('notice'), 80); };
+    try{ go.focus({preventScroll:true}); }catch(e){} }
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_seen',{}); }catch(e){}
+  _wnShownThisLoad = true;
+}
+let _wnShownThisLoad = false;
+// Academy progress has come over (Justin, 2026-10-03: "is there a way to notify them that their progress is brought over but give
+// them a chance to reset it?"; the card "should be able to name what they completed"). Once per Stage reached, on a load with no
+// other card; Keep or Start fresh, changeable in Settings. Paid members only, since the Pathway's steps are on the paid plan.
+function whatsNewAcademy(){
+  if(_wnShownThisLoad || !_obMember() || !_obHydrated() || !paidNow()) return;
+  const s = _acadStage(); if(s < 2) return;
+  const c = _acadChoice(); if(c && c.stage >= s) return;
+  try{ if(localStorage.getItem(_WN_ONB_KEY)!=='1') return; }catch(e){ return; }   // Monday's card and the walkthrough go first
+  if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  if(document.body.classList.contains('in-practice') || document.getElementById('weaver')) return;
+  const what = s >= 3 ? 'the safety skills and the defense skills' : 'the seven safety skills';
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Your Academy progress is here">'
+    + '<div class="wn-mark-wrap">' + obMarkSVG() + '</div>'
+    + '<h2 class="wn-h">Your Academy progress is here</h2>'
+    + '<p class="wn-p">You completed ' + escapeHtml(_acadDone(s)) + ' in the Unstucking Academy. On the Unstucking Pathway, ' + what + ' are open and marked Completed in the Academy. Each one is checked off as you practice it here.</p>'
+    + '<p class="wn-p">Keep it, or start the Pathway fresh.</p>'
+    + '<button class="btn block" id="wn-keep" type="button" style="margin-top:22px">Keep my progress</button>'
+    + '<button class="btn quiet block" id="wn-fresh" type="button" style="margin-top:8px">Start fresh</button>'
+    + '<p class="ob-fine wn-fine">You can change this in Settings.</p></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  _wnShownThisLoad = true;
+  const close=(choice)=>{ _acadSetChoice(choice); d.remove(); try{ if(currentTab==='practice') app('practice'); }catch(e){} };
+  const k=d.querySelector('#wn-keep'); if(k){ k.onclick=()=>close('keep'); try{ k.focus({preventScroll:true}); }catch(e){} }
+  const f=d.querySelector('#wn-fresh'); if(f) f.onclick=()=>close('fresh');
+  try{ if(Store.trackEvent) Store.trackEvent('academy_card_seen',{ stage:s }); }catch(e){}
+}
+// September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} }, ms)); });
 
 function app(tab){
     currentTab = tab;
-    if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); mintWeeks(); mintMonths(); mintQuarters(); }
+    if(tab !== 'reflect' && tab !== 'learn') _rdSaveLoc({ k:'tab', tab });
+    if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} } }
+    if(tab === 'reflect') return screenReader();
+    if(tab === 'learn') return screenLearn();
     const u = Store.user();
     setHTML(`
       <header class="appbar">
       </header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     ({ now:tabNow, you:tabYou, practice:tabPractice }[tab] || tabNow)();
@@ -2365,18 +2561,19 @@ function app(tab){
   const PUSH_PREFS_KEY = 'snb_push_prefs';
   const PUSH_DAYPARTS = [['morning','Morning','09:00'],['afternoon','Afternoon','14:00'],['evening','Evening','19:00'],['late','Late night','22:00']];
   const PUSH_DAYS = ['S','M','T','W','T','F','S'];
-  function pushPrefsDefault(){ return { followup:false, checkin_times:{}, practice_time:null, practice_days:[0,1,2,3,4,5,6] }; }
+  // the four reflection notifications start ON (Justin, 2026-09-30: "start them on"); everything else starts off
+  function pushPrefsDefault(){ return { followup:false, checkin_times:{}, practice_time:null, practice_days:[0,1,2,3,4,5,6], reflect_week:true, reflect_month:true, reflect_season:true, reflect_year:true }; }
   function pushPrefsRead(){ try{ return Object.assign(pushPrefsDefault(), JSON.parse(localStorage.getItem(PUSH_PREFS_KEY)||'{}')||{}); }catch(e){ return pushPrefsDefault(); } }
   async function pushPrefsSave(patch){
     const p = Object.assign(pushPrefsRead(), patch||{});
     try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){}
     const u = Store.user();
-    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], practice_best:!!p.practice_best, practice_best_minutes:p.practice_best_minutes||null, tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
+    if(u && window.sb){ try{ await window.sb.from('push_prefs').upsert({ user_id:u.id, followup:!!p.followup, checkin_times:p.checkin_times||{}, practice_time:p.practice_time||null, practice_days:p.practice_days||[0,1,2,3,4,5,6], practice_best:!!p.practice_best, practice_best_minutes:p.practice_best_minutes||null, reflect_week:p.reflect_week!==false, reflect_month:p.reflect_month!==false, reflect_season:p.reflect_season!==false, reflect_year:p.reflect_year!==false, tz:pushTz(), name:((Store.getName&&Store.getName())||'').slice(0,40)||null, updated_at:new Date().toISOString() }, { onConflict:'user_id' }); }catch(e){} }
     return p;
   }
   async function pushPrefsLoad(){
     const u = Store.user(); if(!u || !window.sb) return pushPrefsRead();
-    try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days,practice_best,practice_best_minutes').eq('user_id', u.id).maybeSingle();
+    try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days,practice_best,practice_best_minutes,reflect_week,reflect_month,reflect_season,reflect_year').eq('user_id', u.id).maybeSingle();
       if(r && r.data){ const p=Object.assign(pushPrefsDefault(), r.data); try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){} return p; }
     }catch(e){}
     return pushPrefsRead();
@@ -2467,7 +2664,7 @@ function app(tab){
     const hint = s==='install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
                : s==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
                : s==='unsupported' ? 'This browser cannot show notifications from the app.'
-               : 'Nothing is on unless you choose it. A reminder you miss does not repeat, and nothing here counts or keeps score.';
+               : 'New reflections start on. Everything else is off unless you choose it. A reminder you miss does not repeat, and nothing here counts or keeps score.';
     const days = (prefs.practice_days||[]);
     /* ✅ THE BEST-TIME REMINDER (Justin, 2026-09-25: "a notification and a callout during that actual time of day and day
      * of the week with the ideal practice set up… this should be a notification setting that can be turned off or on";
@@ -2513,6 +2710,14 @@ function app(tab){
             </div>
           </div>
         </div>
+        <div class="gs-card">
+          <p class="gs-h">New reflections</p>
+          <p class="gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
+          ${sw('nt-r-week','Weekly reflection', prefs.reflect_week!==false, dis)}<p class="gs-fine" style="margin-top:-4px">Sunday morning, 6 am</p>
+          ${sw('nt-r-month','Monthly reflection', prefs.reflect_month!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each month</p>
+          ${sw('nt-r-season','Season reflection', prefs.reflect_season!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each season</p>
+          ${sw('nt-r-year','Year reflection', prefs.reflect_year!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of December 31</p>
+        </div>
         ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-card"><p class="gs-h">Beta</p><div class="gs-actions"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div></div>' : ''}
         </div>
       </div></div>`);
@@ -2523,6 +2728,7 @@ function app(tab){
     const bindSw2=(id,fn)=>{ const b=$('#'+id); if(!b) return; b.onclick=async()=>{ if(b.disabled) return; const on=!b.classList.contains('on'); b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false'); if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); }; };
     const save = (patch)=>{ pushPrefsSave(patch).then(p=>{ cur=p; }); pushTrack('push_prefs', { followup:!!(patch.followup!==undefined?patch.followup:cur.followup) }); };
     bindSw2('nt-followup', on=>save({ followup:on }));
+    ['week','month','season','year'].forEach(k=>bindSw2('nt-r-'+k, on=>save({ ['reflect_'+k]:on })));
     PUSH_DAYPARTS.forEach(d=>{
       const box=$('#nt-cit-'+d[0]), inp=$('#nt-time-'+d[0]);
       bindSw2('nt-ci-'+d[0], on=>{ if(box) box.style.display=on?'':'none'; const ct=Object.assign({}, cur.checkin_times||{}); if(on) ct[d[0]]=(inp&&inp.value)||d[2]; else delete ct[d[0]]; save({ checkin_times:ct }); });
@@ -2735,8 +2941,8 @@ function app(tab){
   // an announcement card that has not been dismissed on this device owns this load
   const _tipOtherCardPending = () => {
     try{
-      if(typeof _WN_LAUNCH_KEY === 'string' && _tipLS(_WN_LAUNCH_KEY) !== '1') return true;
-      if(typeof _WN_PUSH_KEY === 'string' && _tipLS(_WN_PUSH_KEY) !== '1') return true;
+      // Monday's update card (2026-10-03) owns the load until it has been shown; September's two are retired
+      if(typeof _WN_ONB_KEY === 'string' && _tipLS(_WN_ONB_KEY) !== '1') return true;
       if(typeof _WN_YOU_KEY === 'string' && typeof _WN_YOU_UNTIL === 'number'
          && Date.now() < _WN_YOU_UNTIL && _tipLS(_WN_YOU_KEY) !== '1') return true;
     }catch(e){}
@@ -2792,14 +2998,24 @@ function app(tab){
     if(on) return ({
       now:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.4" fill="currentColor" stroke="none"/><path fill="none" d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
       practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
-      you:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>'
+      you:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>',
+      learn:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V17h5v-1.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z" fill="currentColor"/><path fill="none" d="M9.5 20h5M10.5 22h3"/></svg>',
+      reflect:'<svg viewBox="0 0 24 24"><path d="M11.2 6C9.2 4.6 6.6 4.2 3 4.5c-.3 0-.5.3-.5.6v13.2c0 .3.3.6.6.5 3.3-.3 5.9.1 8.1 1.4zM12.8 6c2-1.4 4.6-1.8 8.2-1.5.3 0 .5.3.5.6v13.2c0 .3-.3.6-.6.5-3.3-.3-5.9.1-8.1 1.4z" fill="currentColor"/></svg>'
     }[t]||'');
     return ({
     now:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
     practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    you:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>'
+    you:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>',
+    learn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V17h5v-1.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/><path d="M9.5 20h5M10.5 22h3"/></svg>',
+    reflect:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7.2 4.5 3.5 4.8v13.4c3.7-.3 6.5.2 8.5 1.8 2-1.6 4.8-2.1 8.5-1.8V4.8C16.8 4.5 14 5 12 6.5z"/><path d="M12 6.5V20"/></svg>'
   }[t]||''); }
-  function tabBtn(t){ const on=currentTab===t, L=CAP(t); return `<button data-t="${t}" class="${on?'on':''}" aria-label="${L}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
+  function tabBtn(t){ const on=currentTab===t, L=CAP(t), dot = (t==='reflect' && !on && _rdHasNew()); return `<button data-t="${t}" class="${on?'on':''}${dot?' tab-new':''}" aria-label="${L}${dot?', a new reflection is ready':''}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
+  // the four tabs. Reflect (Justin, 2026-10-01): "Reflect" not "Reflections", because it is an action, like Practice
+  // Learn (Justin, 2026-10-01): its own tab, separate from Reflect ("connected but different paths")
+  function TABS(){ return tabBtn('now') + tabBtn('practice') + tabBtn('reflect') + tabBtn('learn') + tabBtn('you'); }
+  // a dot on Reflect when the newest released post has not been opened from the hub yet
+  function _rdHasNew(){ try{ const ps=_rdPosts(); if(!ps.length) return false; const top=ps.slice().sort((a,b)=>b.release-a.release)[0]; if(Date.now()-top.release > 7*864e5) return false; return localStorage.getItem('snb_rd_seen_key')!==top.key; }catch(e){ return false; } }
+  function _rdMarkSeen(){ try{ const ps=_rdPosts(); if(!ps.length) return; const top=ps.slice().sort((a,b)=>b.release-a.release)[0]; localStorage.setItem('snb_rd_seen_key', top.key); }catch(e){} }
   const content = () => $('#content');
 
   // ---------------------------------------------------------------- TODAY
@@ -2821,6 +3037,54 @@ function app(tab){
     return P[seg]?'<svg class="seg-ico" viewBox="0 0 24 24" aria-hidden="true">'+P[seg]+'</svg>':'';
   }
   function segPoss(seg){ return seg==='late'?'night':seg; }
+  /* ✅ THE TIME-OF-DAY ICON COMES ALIVE (Justin, 2026-09-30: "the little time of day icons on the Now screen need some life. They
+   * should animate in, over the logo glyph. Just once per time of day, then resets every time of day." · "Icons should be hand drawn"
+   * · "it animates in, it sits there for a few seconds, and then it animates out. We can try that out first."). Hand-drawn strokes
+   * (an open ensō sun, a wavy horizon, a drawn crescent, four-point stars) draw themselves in one after another above the glyph /
+   * greeting, sit ~3 s, then let go unevenly (wabi-sabi: each stroke erases on along its own line at its own moment), and the space
+   * folds away. Once per time of day per person on this device; the next time of day plays again. The late night that runs past
+   * midnight counts as one time of day. The You tab's charts keep the quiet ink icons (segIco). */
+  const TOD_ICONS = {"morning":{"body":["M7.34 14.96 C7.34 14.75 7.27 14.12 7.37 13.74 C7.47 13.36 7.73 13.01 7.94 12.66 C8.14 12.31 8.32 11.92 8.6 11.62 C8.88 11.31 9.22 11.01 9.59 10.84 C9.96 10.68 10.41 10.68 10.82 10.62 C11.22 10.56 11.59 10.54 12 10.47 C12.41 10.4 12.9 10.12 13.3 10.19 C13.69 10.26 14.03 10.66 14.38 10.9 C14.73 11.14 15.04 11.38 15.39 11.62 C15.75 11.87 16.28 12.03 16.53 12.37 C16.77 12.71 16.74 13.24 16.87 13.66 C17 14.09 17.24 14.71 17.31 14.92"],"rays":["M5.77 13.39 Q4.55 12.86 3.25 12.65","M7.65 10.07 Q6.93 9.32 6.31 8.48","M11.48 8.52 Q11.25 7.66 11.35 6.78","M15.73 9.94 Q16.25 9.05 16.92 8.27","M18.53 12.98 Q19.35 12.86 20.08 12.46"]},"afternoon":{"body":["M14.14 8.3 C14.34 8.46 15 8.87 15.37 9.24 C15.74 9.61 16.19 10.04 16.35 10.52 C16.52 11.01 16.39 11.62 16.34 12.14 C16.29 12.67 16.24 13.2 16.06 13.68 C15.88 14.17 15.62 14.7 15.26 15.05 C14.89 15.4 14.35 15.57 13.88 15.8 C13.41 16.04 12.95 16.34 12.44 16.44 C11.93 16.54 11.35 16.5 10.82 16.4 C10.3 16.29 9.67 16.14 9.28 15.8 C8.88 15.46 8.71 14.84 8.45 14.38 C8.18 13.91 7.81 13.49 7.69 13 C7.57 12.51 7.7 11.98 7.72 11.44 C7.74 10.89 7.6 10.25 7.79 9.75 C7.99 9.25 8.44 8.75 8.89 8.45 C9.33 8.15 9.95 8.16 10.47 7.93 C10.99 7.69 11.74 7.2 12 7.06"],"rays":["M18.54 12.14 Q19.86 12.17 21.17 12.2","M16.26 16.97 Q17.24 17.96 18.06 19.07","M12.52 18.36 Q12.45 19.85 12.77 21.31","M7.18 16.57 Q6.5 17.15 5.89 17.8","M5.75 12.03 Q4.43 11.88 3.1 12.05","M7.74 7.63 Q6.77 6.87 6.04 5.89","M11.74 5.36 Q11.88 4.1 11.65 2.86","M16.37 7.08 Q16.85 6.26 17.61 5.68"]},"evening":{"moon":["M15.2 4.6 C14.37 4.68 11.7 4.3 10.2 5.1 C8.7 5.9 6.8 7.82 6.2 9.4 C5.6 10.98 5.83 13 6.6 14.6 C7.37 16.2 9.17 18.23 10.8 19 C12.43 19.77 14.93 19.73 16.4 19.2 C17.87 18.67 19.07 16.37 19.6 15.8","M19.6 15.8 C18.77 15.9 16.03 16.77 14.6 16.4 C13.17 16.03 11.67 14.77 11 13.6 C10.33 12.43 10.33 10.63 10.6 9.4 C10.87 8.17 11.83 7 12.6 6.2 C13.37 5.4 14.77 4.87 15.2 4.6"],"star":["M18.24 4.07 Q18.57 6.16 20.67 6.46 Q18.47 6.56 18.54 8.77 Q18.25 6.47 16.12 6.25 Q18.15 6.16 18.38 4.34"]},"late":{"stars":["M11.73 3.99 Q12.12 6.44 14.84 6.54 Q12.28 6.72 12.2 9.21 Q11.79 6.81 9.13 6.76 Q11.86 6.33 11.69 4.33","M17.95 11.39 Q18.21 13.06 19.99 13.06 Q18.22 13.38 17.97 15.13 Q17.93 13.34 16.15 13.18 Q17.75 13.13 17.78 11.62","M7.08 13.42 Q7.48 15.47 9.47 15.44 Q7.4 15.79 7.32 17.79 Q7.06 15.73 5.06 15.41 Q7.02 15.55 7.33 13.69"]}};
+  /* each time of day moves like itself (Justin, 2026-09-30: "the morning one should rise above the logo glyphs … The bottom lines may
+   * not be needed as the logo acts as the horizon"): the morning sun RISES from behind the line below it (the glyph or the greeting
+   * is the horizon), draws its rays, then keeps climbing as it fades; the afternoon sun draws itself high, its rays turn a little,
+   * then it slides down toward the horizon; the evening moon rises and its star twinkles on, then the moon sinks; the late-night
+   * stars come out one by one, twinkle, and go out one by one. `outAt` = when it starts to leave; the space folds after. */
+  const TOD_PLAN = { morning:{ outAt:5.6, fold:7.2, horizon:16.2 }, afternoon:{ outAt:5.1, fold:6.8, horizon:21.5 },
+                     evening:{ outAt:5.5, fold:7.1, horizon:21.5 }, late:{ outAt:5.0, fold:6.6, horizon:26 } };
+  const TOD_FOLD = 0.6;
+  let todPlaying = null;   // {key, start}: a play in progress survives a re-render of the Now screen (it resumes where it was)
+  function todKey(seg){
+    const n = new Date(); if(seg==='late' && n.getHours()<5) n.setDate(n.getDate()-1);   // 1am belongs to the night that began at 10pm
+    const u = (Store.user()&&Store.user().id)||'anon';
+    return 'snb_tod_'+u+'_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate()+'_'+seg;
+  }
+  // the markup for the Now screen's icon: the animation, or nothing once it has played in this time of day
+  function todIco(seg){
+    const P = TOD_ICONS[seg], T = TOD_PLAN[seg]; if(!P || !T) return '';
+    const key = todKey(seg), now = Date.now(), total = T.fold + TOD_FOLD;
+    let t0 = 0;
+    if(todPlaying && todPlaying.key===key){ t0 = (now - todPlaying.start)/1000; if(t0 >= total) return ''; }
+    else {
+      let seen = false; try{ seen = localStorage.getItem(key)==='1'; }catch(e){}
+      if(seen) return '';
+      todPlaying = { key, start: now }; try{ localStorage.setItem(key,'1'); }catch(e){}
+    }
+    const f = v => v.toFixed(2)+'s';
+    const path = (d, di, dd, extra) => `<path pathLength="1" style="--di:${f(di)};--dd:${f(dd)}${extra||''}" d="${d}"/>`;
+    const uneven = (i, spread) => (((i*7919 + seg.length*104729) % 97) / 97) * spread;   // a fixed, uneven moment per stroke
+    let body = '';
+    if(seg==='morning'){
+      body = `<g class="tod-g">${P.body.map(d=>path(d, 0.15, 1.7)).join('')}${P.rays.map((d,i)=>path(d, 1.75+i*0.11, 0.5, ';--do:'+f(T.outAt+uneven(i,0.5)))).join('')}</g>`;
+    } else if(seg==='afternoon'){
+      body = `<g class="tod-g">${P.body.map(d=>path(d, 0.1, 0.95)).join('')}<g class="tod-rays">${P.rays.map((d,i)=>path(d, 0.9+i*0.07, 0.45, ';--do:'+f(T.outAt+uneven(i,0.4)))).join('')}</g></g>`;
+    } else if(seg==='evening'){
+      body = `<g class="tod-g"><g class="tod-moon">${P.moon.map((d,i)=>path(d, 0.15+i*0.5, 1.5)).join('')}</g><g class="tod-star"><path d="${P.star[0]}"/></g></g>`;
+    } else {
+      body = `<g class="tod-g">${P.stars.map((d,i)=>`<g class="tod-star" style="--si:${f(0.25+i*0.45)};--tw:${f(2.3+i*0.55)};--so:${f(T.outAt+[0.5,0,0.95][i%3])}"><path d="${d}"/></g>`).join('')}</g>`;
+    }
+    return `<span class="mh-peri tod tod-${seg}" aria-hidden="true" style="--t0:${(-t0).toFixed(2)}s;--out:${f(T.outAt)};--dg:${f(T.fold)};--tt:${f(total)}"><svg class="tod-ico" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="tod-sky"><rect x="-8" y="-14" width="40" height="${T.horizon+14}"/></clipPath></defs><g clip-path="url(#tod-sky)">${body}</g></svg></span>`;
+  }
   // per-user AND per-day: a new account on the same device must not inherit
   // the previous account's "already breathed today" settled state
   function breathKey(){ const n=new Date(); const u=(Store.user()&&Store.user().id)||'anon'; return 'snb_breath_'+u+'_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate(); }
@@ -2936,9 +3200,18 @@ function app(tab){
       return bs; }catch(e){ return null; } })();
     const mhRestKind = _bsHere ? 'best' : (readerNew ? 'reader' : (checkedIn ? 'micro' : null));   // the best time only lasts a few hours, so it goes first
     const mhThird = true;
+    /* ✅ THE BEST TIME IS A SPECIAL MOMENT (Justin, 2026-10-03: "That needs more love to it. It's a special moment"; he picked
+     * option C of the mockups): the button becomes a small gold card that names the setup, and one tap starts it. */
+    const _bsCardHTML = ()=>{
+      let what = '';
+      try{ const r = bestSetupReco(_bsHere);
+        const nm = CAP(r.practiceKey==='self-regulation' && r.offerKey ? _upDefTitle(r.offerKey) : Store.practiceLabel(r.practiceKey));
+        const a = r.practiceKey!=='mindfulness' && r.practiceKey!=='micro' && r.sense ? ' with ' + r.sense : '';
+        what = [(nm || '') + a, r.silence ? `${r.silence} seconds of silence` : ''].filter(Boolean).join(', '); }catch(e){}
+      return `<span class="mh-bt-txt"><span class="mh-bt-eb">${ICO_SPARK}Your best time</span><span class="mh-bt-what">${escapeHtml(what || 'Your best setup is ready')}</span></span><span class="mh-bt-go" aria-hidden="true">${ICO_PRAC}</span>`; };
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">Your reflection is ready</span>`   // 🖊
-      : kind==='best' ? `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">It's your best time to practice</span>`
+      : kind==='best' ? _bsCardHTML()
       : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Do a 2 minute practice</span>`;          // 🖊
 
     // moment-home (2026-07-23): the "now" screen settles to a calm center — the
@@ -2950,8 +3223,8 @@ function app(tab){
       <div class="tb-hero">
         <div class="mh-top">
           ${checkedIn
-            ? `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><button class="mh-state" id="mh-state" type="button" aria-label="What ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
-            : `<span class="mh-peri" aria-hidden="true">${segIco(seg)}</span><h2 class="tb-greet mh-greet">${greet}</h2>`}
+            ? `${todIco(seg)}<button class="mh-state" id="mh-state" type="button" aria-label="What ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
+            : `${todIco(seg)}<h2 class="tb-greet mh-greet">${greet}</h2>`}
         </div>
         <button class="tb-breath" id="tb-breath" aria-label="Take one intentional breath">
           <span class="tb-stage">
@@ -2968,12 +3241,12 @@ function app(tab){
         ${checkedIn
           ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
                <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="Check in again" title="Check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
-               ${mhThird ? `<button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
+               ${mhThird ? `<button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}"${mhRestKind==='best'?' aria-label="It\'s your best time to practice. Start your best setup."':''}>${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
           : `<p class="mh-noci">No check-in this ${segLabel(seg)} yet</p>
              <div class="mh-secondrow no-checkin" id="mh-2nd">
-               <button class="btn quiet mh-third" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
+               <button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">Check in</button>`}
       </div>
@@ -2997,7 +3270,7 @@ function app(tab){
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
-      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? renderPlan(bestSetupReco(_bsHere), 'now') : _launchMicro();
+      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? launchWeaver(bestSetupReco(_bsHere)) : _launchMicro();
 
       // RESTING state: the reader doorway when a reflection is waiting; else, once
       // checked in, the "Do a 2 minute practice" invite (2026-07-28: never collapses once
@@ -3009,7 +3282,7 @@ function app(tab){
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
         const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
         const showRest = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
-          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing');
+          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing'); tt.classList.toggle('mh-best', mhRestKind==='best');
           r.classList.add('revealed','third-in'); };
         if(!mhRestKind){                                 // nothing to rest on → collapse the slot
           if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
@@ -3025,7 +3298,7 @@ function app(tab){
       const _postBreath = ()=>{
         const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing');
+        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing','mh-best');
         // reset to the full check-in instantly (footer is dim from the breath, so no blip)
         row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
         _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
@@ -3099,13 +3372,14 @@ function app(tab){
       }
       later(()=>{
         if(phase) phase.textContent='Out';
-        if(reduce){ ring.style.transition = 'opacity 6s'; ring.style.opacity = '.45'; }
+        // in for 4, out for 5 (Justin, 2026-10-03; the out breath was 6)
+        if(reduce){ ring.style.transition = 'opacity 5s'; ring.style.opacity = '.45'; }
         else{
-          ring.style.transition = 'transform 6s cubic-bezier(.4,0,.5,1), opacity 6s';
+          ring.style.transition = 'transform 5s cubic-bezier(.4,0,.5,1), opacity 5s';
           ring.style.transform  = 'scale(.78)'; ring.style.opacity = '.4';
         }
       }, 4300);
-      later(finish, 10600);
+      later(finish, 9600);
     }, 380);
   }
 
@@ -3365,9 +3639,1087 @@ function app(tab){
     }catch(e){ return { html:'', wire:null }; }
   }
 
-  function screenReflectionDeep(){
+  // ===========================================================================
+  // THE READER BLOG (2026-09-30; spec: snb-business Reader-Rework/READER-BLOG-SPEC.md).
+  // A daily post, a Sunday issue, and month / season / year posts on the calendar,
+  // built by reader.js from the margin and saved (frozen) when each period is released.
+  // Free members read the daily post and each issue's title and first snapshot; the
+  // rest sits below, locked (Justin, 2026-09-30).
+  // ===========================================================================
+  const RD_TIER = { week:'rweek', month:'rmonth', season:'rseason', year:'ryear' };
+  const RD_KIND_LABEL = { week:'Your week', month:'Your month', season:'Your season', year:'Your year' };
+  const RD_SNAP_TITLE = { week:'Your week', inside:'Inside your practices', firstlast:'First and latest' };
+  const RD_SNAP_CAP = {
+    inside:'Safety per practice from start to finish.',
+    firstlast:'Your first check-in of the year, and your latest.'
+  };
+  function _rdData(){ return { checkins: Store.checkins(), sessions: Store.sessions(), store: Store }; }
+  function _rdPosts(){
+    return (Store.mints ? Store.mints() : []).filter(m => m && /^r(week|month|season|year)$/.test(m.tier||'') && m.data && m.data.post)
+      .map(m => Object.assign({ _id:m.id }, m.data.post));
+  }
+  // build one post for a period from the data as it stands now
+  function _rdBuild(p, data, posts, endOverride){
+    const R = window.Reader; if(!R) return null;
+    const per = endOverride ? Object.assign({}, p, { end:endOverride }) : p;
+    const f = R.compute(per, data); if(!f.n) return null;
+    const ctx = { name: (Store.getName && Store.getName()) || '', data, prev: R.compute(R.prevPeriod(p), data), prevAnswer: _rdPrevAnswer(p) };
+    // which teaching paragraph comes next: one per post, in order, never repeated until all have been shown
+    const tc = {}; (posts||[]).forEach(x=>{ if(x.teach && x.teach.state) tc[x.teach.state] = (tc[x.teach.state]||0) + 1; });
+    ctx.teachCounts = tc;
+    if(p.kind === 'week'){
+      const pw = []; let q = p; for(let i=0;i<6;i++){ q = R.prevPeriod(q); pw.push(R.compute(q, data)); }
+      ctx.prevWeeks = pw;
+      const ms = R.PERIOD.month(R.monthStart(p.start + 3*864e5));
+      ctx.monthSoFar = R.compute(Object.assign({}, ms, { end: Math.min(ms.end, per.end) }), data);
+      ctx.monthPrev = R.compute(R.prevPeriod(ms), data);
+      const lastW = (posts||[]).filter(x=>x.kind==='week' && x.release < p.release).sort((a,b)=>b.release-a.release)[0];
+      ctx.lastLead = lastW ? lastW.lead : null;
+      return R.buildWeek(f, ctx);
+    }
+    try{ ctx.movement = Store.skillMovement ? Store.skillMovement(p.start, per.end) : null; }catch(e){}
+    if(p.kind === 'month'){
+      let fastest = null; for(let i=1;i<=12;i++){ const m = R.compute(R.PERIOD.month(R.addMonths(p.start,-i)), data); if(m.comebacks && (fastest==null || m.comebacks.avg < fastest)) fastest = m.comebacks.avg; }
+      ctx.fastestBefore = fastest;
+      return R.buildMonth(f, ctx);
+    }
+    if(p.kind === 'season') return R.buildSeason(f, ctx);
+    return R.buildYear(f, ctx);
+  }
+  // save every post whose day has come (oldest first, so the teaching order holds)
+  function _rdMint(){
+    const R = window.Reader; if(!R || !Store.saveMint || !Store.hasMint) return;
+    const now = Date.now(), data = _rdData();
+    R.duePeriods(now).filter(p=>p.release <= now).sort((a,b)=>a.release-b.release).forEach(p=>{
+      const tier = RD_TIER[p.kind]; if(Store.hasMint(tier, p.key)) return;
+      const post = _rdBuild(p, data, _rdPosts());
+      if(post) Store.saveMint({ tier, date:p.key, dateMs:p.release, text:post.title, data:{ post } });
+    });
+  }
+  const LOCK_SVG = '<svg class="rd-lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  const SHARE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M6 12v6.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V12"/></svg>';
+  // the logo marks of a state, each mark the same height whether alone or in a pair
+  // (Justin, 2026-10-01: "those are essential"; "a group of 2 glyphs looks smaller than a single one")
+  function _rdMk(key, cls){
+    const ax = STATE_AXES[key]; if(!ax) return '';
+    const col = STATE_COLOR(key);
+    return `<span class="rd-mk${cls?' '+cls:''}" aria-hidden="true">${ax.map(([icn])=>ico(icn,{cls:'rd-mkg', color:col})).join('')}</span>`;
+  }
+  // a change from one state to another: the first state's marks, a gradient arrow, the next state's marks
+  function _rdFlow(a, b){
+    return `<div class="rd-flow" aria-hidden="true">${_rdMk(a)}<span class="rd-flow-path" style="background:linear-gradient(90deg,${STATE_COLOR(a)},${STATE_COLOR(b)})"></span>${CB_ARROW.replace('class="cb-arrow"', `class="rd-flow-arw" style="color:${STATE_COLOR(b)}"`)}${_rdMk(b)}</div>`;
+  }
+  const RD_ORDER = ['safety','play','stillness','fightflight','freeze','shutdown'];
+  // "getting back to safety": from the defensive state, the steps it took, to the heart
+  function _rdThenNow(d){
+    return `<div class="rd-tn">${(d.rows||[]).map(r=>{
+      const k = r[2] || null, n = Math.max(1, Math.min(8, Math.round(r[1]||1))), from = k ? STATE_COLOR(k) : 'var(--muted)';
+      const dots = Array.from({length:n}).map((_,i)=>`<i style="background:color-mix(in srgb, ${from} ${Math.round(100-(i+1)*100/(n+1))}%, ${STATE_COLOR('safety')})"></i>`).join('');
+      return `<div class="rd-tn-row"><span class="rd-tn-lbl">${escapeHtml(r[0])}</span>${k ? _rdMk(k) : '<span class="rd-tn-nomk"></span>'}<span class="rd-tn-dots" style="background-image:linear-gradient(90deg,${from},${STATE_COLOR('safety')})">${dots}</span>${_rdMk('safety')}<span class="rd-tn-n">${escapeHtml('about ' + Math.round(r[1]))}</span></div>`;
+    }).join('')}</div>`;
+  }
+  function _rdSnapInner(x, post){
+    // first and latest (Justin, 2026-10-02): only the state's own marks, large, joined by the from-to gradient
+    if(x.snap === 'firstlast'){ const a = x.data.a, b = x.data.b;
+      return `<div class="rd-fl"><span class="rd-fl-i">${_rdMk(a, 'rd-mk-fl')}<span>${escapeHtml(STATE_LABEL(a))}</span></span><span class="rd-fl-path" aria-hidden="true" style="background:linear-gradient(90deg,${STATE_COLOR(a)},${STATE_COLOR(b)})"></span><span class="rd-fl-i">${_rdMk(b, 'rd-mk-fl')}<span>${escapeHtml(STATE_LABEL(b))}</span></span></div>`; }
+    if(x.snap === 'thennow') return _rdThenNow(x.data);
+    let d = x.data;
+    if((x.snap === 'strip' || x.snap === 'ribbon') && post && window.Reader.weekStart) d = Object.assign({}, d, { ws0: window.Reader.weekStart(post.start) });
+    let html = window.Reader.snapSVG(x.snap, d, STATE_COLOR);
+    // the week: a legend of colored dots for the states in it (Justin: dots, not marks, here)
+    if(x.snap === 'week' && !d.focus){
+      const ks = RD_ORDER.filter(k => (d.pts||[]).some(p=>p.key===k));
+      if(ks.length) html += `<div class="rd-legend">${ks.map(k=>`<span><i style="background:${STATE_COLOR(k)}"></i>${escapeHtml(STATE_LABEL(k))}</span>`).join('')}</div>`;
+    }
+    return html;
+  }
+  // "Sam's summer 2026", "Sam's 2026" (Justin, 2026-10-01)
+  function _rdOwner(){ const nm = (Store.getName && Store.getName()) || ''; return nm ? nm + "'s" : 'Your'; }
+  function _rdStripTitle(post, kind){
+    if(!post) return '';
+    const y = new Date(post.start).getFullYear();
+    if(kind === 'ribbon') return _rdOwner() + ' ' + y;
+    const season = String(post.label||'').replace(/^Your /,'');
+    return _rdOwner() + ' ' + season + ' ' + y;
+  }
+  const RD_NOCAP = { week:1, monthgrid:1, strip:1, ribbon:1 };
+  function _rdSnapHTML(x, i, opts){
+    opts = opts || {};
+    let title = x.title || RD_SNAP_TITLE[x.snap] || '';
+    if(x.snap === 'strip' || x.snap === 'ribbon') title = _rdStripTitle(opts.post, x.snap);
+    if(x.snap === 'monthgrid' && opts.post) title = _rdOwner() + ' ' + new Date(opts.post.start).toLocaleString('en-US',{ month:'long' });
+    const cap = RD_NOCAP[x.snap] ? '' : (x.snap === 'inside' ? RD_SNAP_CAP.inside : (x.caption || RD_SNAP_CAP[x.snap] || ''));
+    const mk = x.snap === 'inside' ? _rdMk('safety') : '';
+    return `<figure class="rd-snap" data-i="${i}">
+      <div class="rd-snap-top"><span class="rd-eyeb${mk?' rd-eyeb-mk':''}">${mk}${escapeHtml(title)}</span>${opts.noShare ? '' : `<button class="panel-share rd-share" type="button" aria-label="Share this snapshot">${SHARE_SVG}</button>`}</div>
+      ${_rdSnapInner(x, opts.post)}
+      ${cap ? `<figcaption class="rd-cap">${escapeHtml(cap)}</figcaption>` : ''}
+    </figure>`;
+  }
+  function _rdMeta(post){ return escapeHtml((post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind]) + ' · ' + (post.minutes||1) + ' min read'); }
+  function _rdFirstSnap(post){ return (post.blocks||[]).find(x=>x.snap); }
+
+  // the blog home: the Reflect tab. Round 5 (Justin, 2026-10-01): a tab of its own, paper + cards,
+  // the cover reads as a post with a Read button, Today in its own card, past days cut, no "Earlier".
+  function screenReflectionDeep(){ return app('reflect'); }
+  const BACK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+  // where the member is in Reflect and Learn, so coming back from another app, a locked screen or a reload lands on the
+  // same screen (Justin, 2026-10-02: "make it persistent"). loc = { k:'piece'|'hub'|'post', id } or { k:'tab', tab }.
+  const _RD_LOC = 'snb_rd_loc', _RD_LOC_TTL = 2 * 3600e3;
+  function _rdSaveLoc(loc){ try{ localStorage.setItem(_RD_LOC, JSON.stringify(Object.assign({ t:Date.now(), y:0 }, loc))); }catch(e){} }
+  function _rdTakeLoc(){
+    try{ const o = JSON.parse(localStorage.getItem(_RD_LOC) || 'null'); if(!o || Date.now() - o.t > _RD_LOC_TTL) return null; return o; }catch(e){ return null; }
+  }
+  // back to the saved screen and scroll point; false when it can't be found (then the caller routes as usual)
+  function _rdRestore(o){
+    try{
+      const L = window.Learning;
+      if(o.k === 'piece'){ const pc = L && L.byId(o.id); if(!pc) return false; screenLearnPiece(pc, null, null, { label:'Learn', go:screenLearn }); }
+      else if(o.k === 'hub'){ if(!(L && L.HUBS[o.id])) return false; screenLearnHub(o.id, null); }
+      else if(o.k === 'journal'){ screenJournal(o.from || 'you'); }
+      else if(o.k === 'pathway'){ screenPathway(); }
+      else if(o.k === 'post'){ const pt = _rdPosts().find(x=>x.key === o.id); if(!pt) return false; screenReaderPost(pt); }
+      else if(o.k === 'tab' && o.tab){ app(o.tab); }
+      else return false;
+      if(o.y){ const sc = root.querySelector('.scroll'); if(sc) requestAnimationFrame(()=>{ sc.scrollTop = o.y; }); }
+      return true;
+    }catch(e){ return false; }
+  }
+  function _rdTrackScroll(){
+    const sc = root.querySelector('.scroll'); if(!sc) return; let tm = null;
+    sc.addEventListener('scroll', ()=>{ clearTimeout(tm); tm = setTimeout(()=>{ try{ const o = JSON.parse(localStorage.getItem(_RD_LOC) || 'null'); if(o){ o.y = Math.round(sc.scrollTop); o.t = Date.now(); localStorage.setItem(_RD_LOC, JSON.stringify(o)); } }catch(e){} }, 250); }, { passive:true });
+  }
+  function _rdShell(inner, opts){
+    opts = opts || {};
+    currentTab = opts.tab || 'reflect';
+    // a screen below a top level gets a back button floating over the bottom bar (Justin, 2026-10-01); the top-left back
+    // link is gone (2026-10-02: "can go away. Instead the pop up back button is available"). Back and Search sit together
+    // on the left; when Search opens it pushes Back out of the way.
+    const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
+    // Learn search (Justin, 2026-10-02: "I don't want a search bar at the top. Make it a pop-up menu item, just like the back
+    // button is ... just the magnifying glass that expands when tapped")
+    const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search articles" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
+    setHTML(`
+      <header class="appbar read-appbar"></header>
+      <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
+      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
+      <nav class="tabbar" id="tabs">${TABS()}</nav>`);
+    document.body.classList.add('rd-on');
+    if(opts.onBack) document.body.classList.add('rd-sub');
+    _rdSaveLoc(opts.loc || { k:'tab', tab:currentTab });
+    _rdTrackScroll();
+    $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    const tb = $('#tab-back'); if(tb && opts.onBack) tb.onclick = opts.onBack;
+  }
+  // what comes next, said plainly under Today (Justin: "it's not clear what is coming or how it comes")
+  function _rdNextLine(){
+    const d = new Date(), h = d.getHours(), dow = d.getDay();
+    const t = new Date(d); t.setDate(d.getDate()+1);
+    const lastOfMonth = t.getDate() === 1, m = d.getMonth();
+    if(lastOfMonth && h < 18){
+      const what = m === 11 ? 'Your year in review' : (m % 3 === 2 ? 'Your season reflection' : 'Your monthly reflection');
+      return what + ' arrives at 6 this evening.';
+    }
+    if(dow === 0 && h < 8) return 'Your weekly reflection arrives at 8 this morning.';
+    return 'Your next weekly reflection arrives ' + (dow === 0 ? 'next Sunday' : 'Sunday') + ' morning.';
+  }
+  function _listAnd(a){ return a.length<=1 ? (a[0]||'') : a.slice(0,-1).join(', ') + ' and ' + a[a.length-1]; }
+  // what the person named under the previous post of this kind (the chip question), or null
+  function _rdPrevAnswer(p){
+    try{
+      const R = window.Reader; const pk = R.prevPeriod({ kind:p.kind, start:p.start }).key;
+      const tags = (_ctxLoad()['r'+pk]||[]).filter(t=>t && t!=='something else');
+      if(!tags.length) return null;
+      const prev = _rdPosts().find(x=>x.key===pk);
+      const q = (prev && prev.chipQ) || '';
+      return { tags, dir: /more safety/.test(q) ? 'safe' : /toward defense/.test(q) ? 'def' : 'mixed' };
+    }catch(e){ return null; }
+  }
+  // read marks (Justin, 2026-10-02): a piece is read once its end (Keep learning) comes into view. A read piece
+  // keeps a check and moves to the back of its row; it is never dropped. Synced with the member's data as
+  // contexts 'lr:{piece}' (labels: the day it was read).
+  function _lrnIsRead(id){ const v = _ctxLoad()['lr:' + id]; return !!(v && v.length); }
+  function _lrnMarkRead(id){
+    if(!id || _lrnIsRead(id)) return;
+    const day = new Date().toISOString().slice(0, 10);
+    try{ if(Store.saveContexts) Store.saveContexts('lr:' + id, 'read', [day]); else { const m=_ctxLoad(); m['lr:' + id] = [day]; _ctxSave(m); } }catch(e){}
+  }
+  // unread first, read at the back, each keeping its own order
+  function _lrnByRead(list){ return list.filter(p=>!_lrnIsRead(p.id)).concat(list.filter(p=>_lrnIsRead(p.id))); }
+  const _LRN_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"></path></svg>';
+  const _lrnReadMk = () => `<span class="rd-readmk" role="img" aria-label="Read">${_LRN_CHECK}</span>`;
+  // the Learn tab, below the top card (Justin, 2026-10-02, option C): a row of articles for each state that has
+  // them, six at most and then a "See all" card that opens the hub; states with none yet in one line; then the
+  // topic hubs as a list ("the pills are not helpful")
+  const _LRN_SHELF = 6;
+  // the state rows in the member's order (Justin, 2026-10-02): their most frequent state first, then the next, and so on.
+  // Counted over the last four weeks of check-ins (all of them if there are none in that window); states they have not
+  // checked in as keep the usual order after.
+  function _lrnStateOrder(){
+    const L = window.Learning, n = {}, now = Date.now();
+    let cs = []; try{ cs = Store.checkins ? Store.checkins() : []; }catch(e){}
+    let win = cs.filter(c=>c && c.t >= now - 28*864e5); if(!win.length) win = cs;
+    win.forEach(c=>{ const k = _cDom(c); if(k) n[k] = (n[k]||0) + 1; });
+    return L.STATE_HUBS.slice().sort((a,b)=> (n[b]||0) - (n[a]||0) || L.STATE_HUBS.indexOf(a) - L.STATE_HUBS.indexOf(b));
+  }
+  function _rdLearnSection(){
+    const L = window.Learning; if(!L || !L.HUBS) return '';
+    const paid = paidNow();
+    const shelf = k => {
+      const all = L.inGroup(k); if(!all.length) return '';
+      const ps = _lrnByRead(all).slice(0, _LRN_SHELF);
+      const cards = ps.map(p=>{ const read = _lrnIsRead(p.id);
+        // the marks live on the row's heading only (Justin, 2026-10-02: on every card too "it's too much"); the card keeps a strip of the state's color
+        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${p.paid && !paid ? LOCK_SVG + 'Paid plan · ' : ''}${read?_lrnReadMk() + 'Read · ':''}${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
+      const more = all.length > _LRN_SHELF ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(all.length + ' articles')}</span><span class="wc-go">${CHEV}</span></button>` : '';
+      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(_lrnHubCount(k))}</span><span class="wc-go">${CHEV}</span></button>
+        <div class="ll-row">${cards}${more}</div></div>`;
+    };
+    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
+    const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
+    return `<section class="rd-learn rd-learnhubs">${_lrnStateOrder().map(shelf).join('')}
+        ${soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : ''}
+        ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
+      </section>`;
+  }
+  // Learn search (Justin, 2026-10-02: "We need a search feature for sure"): titles, descriptions, section headings and the
+  // articles' own words. Titles and descriptions answer at once; the word index (learn/search.json, ~300 KB over the wire)
+  // loads the first time someone types, then the results fill in.
+  let _lrnQ = '', _lrnSIdx = null, _lrnSIdxP = null;
+  const _lrnText = {};
+  function _lrnSearchIndex(){
+    if(_lrnSIdx) return Promise.resolve(_lrnSIdx);
+    if(!_lrnSIdxP){
+      const f = (window.Learning.PIECES && window.Learning.PIECES.SEARCH) || 'learn/search.json';
+      _lrnSIdxP = fetch(f).then(r=>{ if(!r.ok) throw new Error('search'); return r.json(); })
+        .then(d=>{ _lrnSIdx = d || {}; return _lrnSIdx; }).catch(()=>{ _lrnSIdxP = null; return null; });
+    }
+    return _lrnSIdxP;
+  }
+  const _lrnNorm = t => String(t||'').toLowerCase().replace(/<[^>]+>/g, '').replace(/\]\([^)]*\)/g, '').replace(/[\[\]]/g, '').replace(/[‘’]/g, "'");
+  // the hand-made pieces carry their text in learning.js: index them the same way, once
+  function _lrnPieceIdx(p){
+    if(_lrnSIdx && _lrnSIdx[p.id]) return _lrnSIdx[p.id];
+    if(_lrnText[p.id]) return _lrnText[p.id];
+    if(!p.blocks) return ['', ''];
+    const hs = [], tx = [];
+    p.blocks.forEach(b=>{ if(b.h) hs.push(b.h); if(b.h3) hs.push(b.h3); ['p','h','h3'].forEach(k=>{ if(typeof b[k] === 'string') tx.push(b[k]); }); ['ul','ol','q'].forEach(k=>{ if(Array.isArray(b[k])) tx.push(b[k].join(' ')); }); });
+    return (_lrnText[p.id] = [_lrnNorm(hs.join(' · ')), ' ' + _lrnNorm(tx.join(' ')).split(/[^a-z0-9'-]+/).filter(w=>w.length > 2).join(' ')]);
+  }
+  function _lrnSearch(q){
+    const L = window.Learning;
+    const terms = _lrnNorm(q).split(/[^a-z0-9'-]+/).map(t=>t.replace(/^['-]+|['-]+$/g, '')).filter(t=>t.length >= 2);
+    if(!terms.length) return [];
+    const out = [];
+    L.PIECES.forEach((p, i)=>{
+      const ti = _lrnNorm(p.title), de = _lrnNorm(p.desc), e = _lrnPieceIdx(p), words = ' ' + (e[1]||'');
+      let score = 0;
+      for(const t of terms){
+        let n = 0;
+        if(ti.indexOf(t) >= 0) n += 10;
+        if(de.indexOf(t) >= 0) n += 4;
+        if((e[0]||'').indexOf(t) >= 0) n += 3;
+        if(words.indexOf(' ' + t) >= 0) n += 1;
+        if(!n) return;                       // every word has to be somewhere in the piece
+        score += n;
+      }
+      out.push({ p, score, i });
+    });
+    return out.sort((a,b)=> b.score - a.score || a.i - b.i).map(x=>x.p);
+  }
+  // the Journal's icon: a pencil writing (Justin, 2026-10-02: "Journal and Reflect need to have different icons"; Reflect is the book)
+  const _JR_PEN = '<svg class="rd-jr-pen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.5 5.5l3 3L9 18l-4 1 1-4z"/><path d="M13.5 7.5l3 3"/><path d="M13 19.5h6"/></svg>';
+  const _LRN_SEARCH_SVG = '<svg class="ll-q-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>';
+  // the Learn tab: search, what to read now, the state hubs, the topic hubs
+  function screenLearn(keepQuery){
+    const L = window.Learning;
+    if(!keepQuery) _lrnQ = '';
+    const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
+    const forNow = lastK ? _lrnForDaily(lastK) : null;
+    _rdShell(`
+          <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
+          <div id="ll-results" aria-live="polite"></div>
+          <div id="ll-browse">
+          ${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
+          ${_rdLearnSection()}
+          </div>`, { tab:'learn', search:true });
+    const here = { label:'Learn', go:()=>screenLearn(true) };
+    const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
+    root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
+    root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+    _lrnSearchWire(open);
+  }
+  // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
+  function _lrnSearchWire(open){
+    const dock = $('#fl-dock'), sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
+    if(!sf || !qi || !res || !browse) return;
+    let shown = 30, tm = null;
+    const sc = root.querySelector('.scroll');
+    const draw = ()=>{
+      const q = _lrnQ.trim();
+      if(q.length < 2){ res.innerHTML = ''; browse.hidden = false; return; }
+      if(!browse.hidden && sc) sc.scrollTop = 0;
+      browse.hidden = true;
+      const hits = _lrnSearch(q), more = hits.length > shown;
+      const loading = !_lrnSIdx;
+      res.innerHTML = `<section class="rd-learn ll-res">
+          <p class="ll-res-n">${hits.length ? escapeHtml(hits.length === 1 ? '1 article' : hits.length + ' articles') : escapeHtml('No articles match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching the article text…</span>' : ''}</p>
+          ${hits.length ? `<div class="rd-list rd-list-flat">${hits.slice(0, shown).map(_lrnRowHTML).join('')}</div>` : ''}
+          ${more ? `<button class="ll-showall ll-res-more" type="button">Show more</button>` : ''}
+        </section>`;
+      res.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+      const mb = res.querySelector('.ll-res-more'); if(mb) mb.onclick = ()=>{ shown += 30; draw(); };
+      if(loading) _lrnSearchIndex().then(d=>{ if(d && res.isConnected && _lrnQ.trim() === q) draw(); });
+    };
+    // while typing on a phone only the search field rides up with the keyboard (Justin, 2026-10-02: "the keyboard pushes up
+    // the entire bottom menu"): the bottom menu hides, and the field sits on the top edge of the keyboard
+    const vv = window.visualViewport, coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
+    const lift = ()=>{
+      if(!dock.isConnected){ if(vv){ vv.removeEventListener('resize', lift); vv.removeEventListener('scroll', lift); } document.body.classList.remove('ll-sf-typing'); return; }
+      const typing = coarse && vv && document.activeElement === qi;
+      document.body.classList.toggle('ll-sf-typing', !!typing);
+      if(typing){ dock.style.position = 'fixed'; dock.style.bottom = 'auto'; dock.style.top = Math.max(8, vv.offsetTop + vv.height - dock.offsetHeight - 10) + 'px'; }
+      else { dock.style.position = ''; dock.style.bottom = ''; dock.style.top = ''; }
+    };
+    if(vv){ vv.addEventListener('resize', lift); vv.addEventListener('scroll', lift); }
+    const setOpen = on => { sf.classList.toggle('open', on); dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
+    setOpen(!!_lrnQ);
+    sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
+    qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; clearTimeout(tm); tm = setTimeout(draw, 120); };
+    qi.onkeydown = e=>{ if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
+    qi.onfocus = ()=>{ _lrnSearchIndex(); lift(); };
+    qi.onblur = ()=>{ lift(); setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
+    qx.onmousedown = e=>e.preventDefault();
+    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
+    if(_lrnQ) draw();
+  }
+  // the member's Journal (Justin, 2026-10-02: "people need to see where their journal answers live, like an actual Journal
+  // in the You tab"). Answers are contexts 'l:{piece}:{reflection}' = [answer, day, question].
+  function _lrnJournalItems(){
+    const m = _ctxLoad(), L = window.Learning, out = [];
+    let posts = null;
+    Object.keys(m).forEach(k=>{
+      const v = m[k] || []; if(!v[0]) return;
+      // a reflection's journal (Reflect): 'rj:{post key}:{n}'
+      const rj = /^rj:(.+):(\d+)$/.exec(k);
+      if(rj){ if(!posts) posts = _rdPosts(); const post = posts.find(p=>p.key === rj[1]); if(!post) return;
+        out.push({ post, rid:rj[2], text:String(v[0]), day:v[1] || '', q:v[2] || (post.journal||[])[+rj[2]] || '' }); return; }
+      const mm = /^l:(.+):([^:]+)$/.exec(k); if(!mm) return;
+      const piece = L.byId(mm[1]); if(!piece) return;
+      out.push({ piece, rid:mm[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
+    });
+    return out.sort((a,b)=> (b.day||'').localeCompare(a.day||''));
+  }
+  // grouped by article (the You tab's count, and older callers)
+  function _lrnJournal(){
+    const by = {};
+    _lrnJournalItems().forEach(it=>{ const id = it.piece ? 'l:' + it.piece.id : 'r:' + it.post.key;
+      (by[id] = by[id] || { piece:it.piece, post:it.post, items:[], last:'' }).items.push(it); if(it.day > by[id].last) by[id].last = it.day; });
+    return Object.values(by).sort((a,b)=> (b.last||'').localeCompare(a.last||''));
+  }
+  const _jrDay = d => { if(!d) return ''; try{ return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric' }); }catch(e){ return ''; } };
+  const _jrMonth = d => { try{ return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'long', year:'numeric' }); }catch(e){ return ''; } };
+  // a journal question as a heading (Justin, 2026-10-02: "The journal question should lead as the heading (or a condensing of
+  // it)"): its first question, without the "(yes or no)" asides
+  function _jrHead(piece, rid, stored){
+    const b = (piece.blocks||[]).find(x=>x.reflect === rid);
+    let t = String(b ? b.prompt || '' : stored || '').replace(/<[^>]+>/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\*\*?/g, '').trim();
+    t = t.replace(/\s*\((?:yes or no|y\/n|true or false)\)\s*/gi, ' ').trim();
+    const q = t.indexOf('?');
+    if(q > 0 && q < t.length - 1 && q >= 25) t = t.slice(0, q + 1);
+    return t.replace(/^./, c=>c.toUpperCase());
+  }
+  // the Journal's view (Justin: "grouped by topic, just like the learning hubs ... Make this the standard view. But also make
+  // a filter so that the user can group them by date or by article"); remembered on this device
+  function _jrView(v){ try{ if(v) localStorage.setItem('snb_journal_view', v); return localStorage.getItem('snb_journal_view') || 'topic'; }catch(e){ return v || 'topic'; } }
+  // Recommended journal (Justin: "based on something relevant in their data"): a question they haven't answered yet, from an
+  // article about the state of their latest check-in, one they've read, or the topics they already write about
+  function _jrRecoPiece(items){
+    const L = window.Learning;
+    const lastC = Store.lastCheckin ? Store.lastCheckin() : null, st = lastC ? _cDom(lastC) : null;
+    const arts = items.filter(it=>it.piece);
+    const done = {}; arts.forEach(it=>{ done[it.piece.id] = (done[it.piece.id]||0) + 1; });
+    const topics = {}; arts.forEach(it=>(it.piece.groups||[]).forEach(g=>{ topics[g] = (topics[g]||0) + 1; }));
+    const day = new Date().toISOString().slice(0, 10);
+    const h = id => { let x = 0; const k = id + day; for(let i = 0; i < k.length; i++) x = (x * 31 + k.charCodeAt(i)) >>> 0; return x % 1000 / 1000; };
+    let best = null, bestS = -1;
+    L.PIECES.forEach(p=>{
+      if(!p.jr || (done[p.id]||0) >= p.jr) return;
+      let sc = h(p.id);
+      if(st && (p.state === st || (p.groups||[]).indexOf(st) >= 0)) sc += 6;
+      if(_lrnIsRead(p.id)) sc += 3;
+      sc += Math.min(2, (p.groups||[]).filter(g=>topics[g]).length);
+      if(sc > bestS){ best = p; bestS = sc; }
+    });
+    return best ? { piece:best, st } : null;
+  }
+  function _jrRecoHTML(r){
+    const p = r.piece, ans = _ctxLoad();
+    const b = (p.blocks||[]).find(x=>x.reflect && !((ans['l:' + p.id + ':' + x.reflect]||[])[0])); if(!b) return '';
+    const st = p.state || r.st || null;
+    const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
+    return `<section class="rd-learn rd-learn-top jr-reco"><span class="rd-eyeb">Recommended journal</span>
+      <button class="rd-lcard" type="button" data-piece="${escapeHtml(p.id)}" data-rf="${escapeHtml(b.reflect)}" style="--band:${st ? STATE_COLOR(st) : 'var(--hairline)'}">
+        <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Journal')}</span>`}</span><span class="rd-lcard-title">${escapeHtml(_jrHead(p, b.reflect))}</span></span>
+        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml('From ' + p.title)}</span><span class="rd-read">Write${CHEV}</span></span>
+      </button></section>`;
+  }
+  // Your Journal opens from the You tab or from Reflect (Justin, 2026-10-02: "The Journal feels like it should be reachable
+  // from Reflect"); Back returns where it came from
+  let _jrFrom = 'you';
+  const _JR_FILTER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
+  function screenJournal(from){
+    if(from) _jrFrom = from === 'reflect' ? 'reflect' : 'you';
+    if(!paidNow()) return gateSubscribe('reader');
+    const L = window.Learning, items = _lrnJournalItems();
+    const fromR = _jrFrom === 'reflect';
+    // the Group by choice is a small menu beside Back (Justin, 2026-10-02: "a popup next to the back button, not taking up space at the top")
+    const VIEWS = [['topic', 'Topic'], ['date', 'Date'], ['article', 'Article']];
+    const view = _jrView();
+    const dock = items.length ? `<div class="jr-fpop" id="jr-fpop"><button class="jr-fbtn" id="jr-fbtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Group by ${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}">${_JR_FILTER_SVG}<span>${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}</span></button>
+      <div class="jr-fmenu" id="jr-fmenu" role="menu" aria-label="Group by"><span class="jr-fmenu-h">Group by</span>${VIEWS.map(([k, t])=>`<button class="jr-fopt${k === view ? ' on' : ''}" type="button" role="menuitemradio" aria-checked="${k === view}" data-jrview="${k}">${escapeHtml(t)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg></button>`).join('')}</div></div>` : '';
+    const shell = inner => _rdShell(`<span class="rd-eyeb">${fromR ? 'Reflect' : 'You'}</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:fromR ? 'Reflect' : 'You', onBack:()=>app(fromR ? 'reflect' : 'you'), tab:fromR ? 'reflect' : 'you', loc:{ k:'journal', from:_jrFrom }, dock });
+    const reco = _jrRecoPiece(items);
+    // the questions come from the articles themselves (older answers kept only the answer)
+    const need = [...new Set(items.filter(it=>it.piece).map(it=>it.piece).concat(reco ? [reco.piece] : []))].filter(p=>!p.blocks);
+    if(need.length){
+      shell(`<p class="rd-meta">One moment…</p>`);
+      Promise.all(need.map(p=>_lrnLoad(p).catch(()=>null))).then(()=>{ if(root.querySelector('.rd-title') && /Your Journal/.test(root.querySelector('.rd-title').textContent) && root.querySelector('.rd-meta')) screenJournal(); });
+      return;
+    }
+    const recoHTML = reco ? _jrRecoHTML(reco) : '';
+    if(!items.length){
+      shell(`${recoHTML}<p class="read-p">Nothing here yet. When you answer a journal question in a Learn article or a reflection, your answer is kept here.</p><button class="rd-checkin jr-go" type="button">Go to Learn</button>`);
+      const g = root.querySelector('.jr-go'); if(g) g.onclick = ()=>app('learn');
+      _jrWireList();
+      return;
+    }
+    const card = it => `<button class="jr-item" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}"><b class="jr-h">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</b><span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : '<span></span>'}<span class="jr-src">${it.piece ? 'Back to this lesson' : 'Back to this reflection'}${CHEV}</span></span></button>`;
+    const order = (p, rid) => p ? (p.blocks||[]).findIndex(x=>x.reflect === rid) : +rid;
+    let groups = [];
+    if(view === 'date'){
+      const by = {}; items.forEach(it=>{ const m = it.day ? it.day.slice(0, 7) : ''; (by[m] = by[m] || []).push(it); });
+      groups = Object.keys(by).sort().reverse().map(m=>({ head:`<b>${escapeHtml(m ? _jrMonth(m + '-15') : 'Earlier')}</b>`, items:by[m] }));
+    } else if(view === 'article'){
+      groups = _lrnJournal().map(g=>({ head:`<b>${escapeHtml(g.piece ? g.piece.title : g.post.title)}</b>`, art:g.piece ? g.piece.id : null, postKey:g.post ? g.post.key : null, items:g.items.slice().sort((a,b)=> order(a.piece, a.rid) - order(b.piece, b.rid)) }));
+    } else {
+      // every topic the article belongs to, in the Learn tab's order: one answer can sit under more than one
+      const keys = _lrnStateOrder().concat(L.TOPIC_ORDER), by = {};
+      // a reflection's answers sit under the state the reflection is about, or under Reflect
+      items.forEach(it=>{ const gs = it.piece ? (it.piece.groups||[]) : [it.post.teachState && L.HUBS[it.post.teachState] ? it.post.teachState : '_reflect']; gs.forEach(g=>{ if(L.HUBS[g] || g === '_reflect') (by[g] = by[g] || []).push(it); }); });
+      const name = k => k === '_reflect' ? 'Reflect' : _lrnHubName(k);
+      groups = ['_reflect'].concat(keys).filter(k=>by[k]).map(k=>({ head:`${k === '_reflect' ? '' : _rdMk(k)}<b>${escapeHtml(name(k))}</b><span class="ll-n">${escapeHtml(by[k].length === 1 ? '1 entry' : by[k].length + ' entries')}</span>`, items:by[k] }));
+    }
+    const html = groups.map(g=>`<section class="jr-group">${g.art || g.postKey ? `<button class="jr-gh jr-art" type="button" ${g.art ? `data-art="${escapeHtml(g.art)}"` : `data-post="${escapeHtml(g.postKey)}"`}>${g.head}<span class="wc-go">${CHEV}</span></button>` : `<h3 class="jr-gh">${g.head}</h3>`}${g.items.map(card).join('')}</section>`).join('');
+    shell(`${recoHTML}${html}`);
+    _jrWireFilter();
+    _jrWireList();
+  }
+  // the Group by menu beside Back: animates in and out (never pops), closes on a pick, a tap outside or Escape
+  function _jrWireFilter(){
+    const pop = $('#jr-fpop'), btn = $('#jr-fbtn'); if(!pop || !btn) return;
+    const set = (open)=>{ pop.classList.toggle('open', open); btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if(open){ document.addEventListener('pointerdown', away, true); document.addEventListener('keydown', esc); } else { document.removeEventListener('pointerdown', away, true); document.removeEventListener('keydown', esc); } };
+    const away = (e)=>{ if(!pop.contains(e.target)) set(false); };
+    const esc = (e)=>{ if(e.key === 'Escape'){ set(false); try{ btn.focus(); }catch(_){} } };
+    btn.onclick = ()=>set(!pop.classList.contains('open'));
+    pop.querySelectorAll('[data-jrview]').forEach(b=>b.onclick=()=>{
+      set(false); if(b.dataset.jrview === _jrView()) return;
+      _jrView(b.dataset.jrview); const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0;
+      setTimeout(()=>{ screenJournal(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; }, 180);
+    });
+  }
+  function _jrWireList(){
+    const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : 'you' };
+    const openPost = (key, sec) => { const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
+    root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
+    root.querySelectorAll('.jr-art[data-post]').forEach(b=>b.onclick=()=>openPost(b.dataset.post));
+    root.querySelectorAll('.jr-item, .jr-reco [data-rf]').forEach(b=>b.onclick=()=>{ if(b.dataset.post) return openPost(b.dataset.post, 'rj-' + b.dataset.rf); const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
+  }
+  function screenReader(){
+    _markReaderSeen();
+    try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} }
+    const R = window.Reader, now = Date.now(), DAY = 864e5;
+    const posts = R ? R.shelf(_rdPosts(), now) : [];
+    _rdMarkSeen();
+    const cover = posts[0] || null;
+    const fresh = cover && (now - cover.release) < 7*DAY;
+    const coverEyeb = !cover ? '' : (cover.kind==='week' ? (fresh ? (new Date().getDay()===0 ? 'New this Sunday' : 'New this week') : 'This week') : (fresh ? 'New · ' : '') + RD_KIND_LABEL[cover.kind]);
+    const fs = cover ? _rdFirstSnap(cover) : null;
+    const coverHTML = cover ? `<button class="rd-cover" type="button" data-post="${escapeHtml(cover.key)}" style="--band:${STATE_COLOR(cover.teachState||'safety')}">
+        <span class="rd-cover-band${fs && fs.snap === 'monthgrid' ? ' rd-band-plain' : ''}"><span class="rd-cover-bandtop"><span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>${_rdMk(cover.teachState||'safety','rd-mk-lg')}</span>${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs, cover)}</span>` : ''}</span>
+        <span class="rd-cover-body">
+          <span class="rd-cover-title">${escapeHtml(cover.title)}</span>
+          <span class="rd-cover-foot"><span class="rd-cover-meta">${escapeHtml(cover.label||'')}</span><span class="rd-read">Read · ${escapeHtml(String(cover.minutes||1))} min${CHEV}</span></span>
+        </span>
+      </button>` : '';
+    // Today, live (Justin, 2026-10-01: the eyebrow is "Today"; an explicit exception to the no-"today" copy rule)
+    const td = Store.today ? Store.today() : null;
+    const dn = (td && td.n>=1 && FromJustin.daily) ? FromJustin.daily(td) : null;
+    const todayBody = (td && td.n>=1)
+      ? `${dn ? `<p class="read-p rd-today-p">${boldHtml(dn.text)}</p>` : ''}${momentTimeline(td.moments, td.sessions)}`
+      : `<p class="read-p rd-today-p">No check-ins yet. Your note for the day starts with your first one.</p>`;
+    const lastC = (td && td.n>=1 && Store.lastCheckin) ? Store.lastCheckin() : null;
+    const lastK = lastC ? _cDom(lastC) : null;
+    const dailyLearn = (td && td.n>=1 && lastK) ? _lrnForDaily(lastK) : null;
+    const todayHTML = `<section class="rd-today">
+        <div class="rd-today-top"><span class="rd-eyeb">Today</span>${lastK ? _rdMk(lastK) : ''}</div>
+        ${todayBody}
+        ${dailyLearn ? _lrnCardHTML(dailyLearn, 'rd-lcard-sm') : ''}
+        <div class="rd-today-foot"><p>${escapeHtml(_rdNextLine())}</p><button class="rd-checkin" id="rd-checkin" type="button">Check in</button></div>
+      </section>`;
+    // the posts, as a list (past days are cut: Justin, 2026-10-01)
+    const thumb = p => `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.teachState||'safety')}</span>`;
+    const rows = posts.slice(1).map(p=>`<button class="rd-row" type="button" data-post="${escapeHtml(p.key)}">${thumb(p)}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_rdMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`).join('');
+    const legacy = (Store.mints ? Store.mints() : []).filter(m=>/^(weekly|monthly|quarterly)$/.test(m.tier) && m.dateMs >= now - 92*DAY);
+    const legacyRows = legacy.map(m=>_archRow(m)).join('');
+    const list = (rows || legacyRows) ? `<section class="rd-list" aria-label="Your posts">${rows}${legacyRows}</section>` : '';
+    const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
+    // Your Journal from Reflect (Justin, 2026-10-02): every journal answer, from the articles and the reflections
+    const jn = paidNow() ? _lrnJournalItems().length : 0;
+    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Paid plan'}</span></span><span class="wc-go">${CHEV}</span></button>`;
+    _rdShell(`
+          <div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
+          ${coverHTML}
+          ${todayHTML}
+          ${journalHTML}
+          ${empty}
+          ${list}`);
+    const byKey = {}; posts.forEach(p=>byKey[p.key]=p);
+    root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
+    root.querySelectorAll('.rd-list .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
+    const ci = $('#rd-checkin'); if(ci) ci.onclick = ()=>screenCheckin();
+    const rj = $('#rd-journal'); if(rj) rj.onclick = ()=>{ if(!paidNow()) return _p8Locked(rj, 'reader'); screenJournal('reflect'); };
+    root.querySelectorAll('.rd-today [data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning && Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, dailyLearn.ctx, null); });
+  }
+  const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+  // one saved day (no longer linked from the hub since past days were cut; kept for old links)
+  function screenReaderDay(id){
+    const m = (Store.mints ? Store.mints() : []).find(x=>x.id===id); if(!m) return screenReader();
+    const d0 = m.dateMs, d1 = d0 + 864e5;
+    const moments = Store.checkins().filter(c=>c && c.t>=d0 && c.t<d1 && typeof c.v==='number').sort((a,b)=>a.t-b.t).map(c=>Object.assign({}, c, { dom:_cDom(c) }));
+    const sessions = Store.sessions().filter(s=>s && s.t>=d0 && s.t<d1);
+    const d = new Date(d0);
+    _rdShell(`
+        <span class="rd-eyeb">${escapeHtml(DAYS_LONG[d.getDay()] + ', ' + d.toLocaleDateString(undefined,{month:'long',day:'numeric'}))}</span>
+        <p class="read-p" style="margin:8px 0 0">${boldHtml(m.text||'')}</p>
+        ${momentTimeline(moments, sessions)}`, { back:'Reflect', onBack:screenReader });
+  }
+
+  // a reflection's journal questions (Justin, 2026-10-02: "The reflect journals need the same treatment as the article ones"):
+  // the same closed Journal button and sheet as the articles, answers kept in Your Journal as 'rj:{post}:{n}' = [answer, day, question]
+  const _rdJrKey = (post, i) => 'rj:' + post.key + ':' + i;
+  function _rdJournalCard(post){
+    const qs = post.journal || [], m = _ctxLoad(), n = qs.length;
+    const steps = qs.map((q, i)=>{ const saved = ((m[_rdJrKey(post, i)]) || [])[0] || '', id = 'rj-' + i;
+      return `<div class="rd-jr-step"${i ? ' hidden' : ''} data-step="${i}"><div class="rd-refl-one" id="sec-${id}"><label class="read-p rd-refl-q" for="${id}">${escapeHtml(q)}</label><textarea class="rd-refl-in" id="${id}" data-rj="${i}" rows="3" placeholder="Write here">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-rj-save="${i}">${saved ? 'Saved' : 'Save'}</button></div></div>`; }).join('');
+    const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${qs.map((q,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
+    return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(n === 1 ? '1 question' : n + ' questions')}</p>
+      <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}<p class="rd-refl-where">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p></div></div></div>`;
+  }
+  function _rdJournalWire(post){
+    root.querySelectorAll('.rd-journal .rd-jr').forEach(_jrWire);
+    root.querySelectorAll('[data-rj-save]').forEach(btn=>btn.onclick=()=>{
+      const i = +btn.dataset.rjSave, ta = root.querySelector(`[data-rj="${i}"]`), q = (post.journal||[])[i];
+      if(!ta || q == null) return; const txt = ta.value.trim(), key = _rdJrKey(post, i);
+      const val = txt ? [txt, new Date().toISOString().slice(0, 10), q] : [];
+      try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m=_ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
+      btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
+    });
+    root.querySelectorAll('[data-rj]').forEach(ta=>ta.oninput=()=>{ const b = root.querySelector(`[data-rj-save="${ta.dataset.rj}"]`); if(b) b.textContent = 'Save'; });
+  }
+  // one post
+  function screenReaderPost(post, opts){
+    opts = opts || {};
+    const paid = paidNow();
+    const blocks = post.blocks || [];
+    const firstSnapI = blocks.findIndex(x=>x.snap);
+    const cut = paid ? blocks.length : (firstSnapI >= 0 ? firstSnapI + 1 : 1);
+    const shown = blocks.slice(0, cut);
+    // free: the title and the first snapshot are open; the essay's opening paragraph is part of the locked rest
+    const freeShown = paid ? shown : shown.filter(x=>x.snap);
+    const blockHTML = (x, i) => x.snap ? _rdSnapHTML(x, i, { post }) : `<p class="read-p${x.teach?' rd-teach':''}">${boldHtml(x.p)}</p>`;
+    const body = freeShown.map((x)=>blockHTML(x, blocks.indexOf(x))).join('');
+    const isNewest = !opts.preview && (function(){ const ps = _rdPosts().filter(x=>x.kind===post.kind).sort((a,b)=>b.release-a.release); return ps[0] && ps[0].key===post.key; })();
+    const reco = (paid && (isNewest || opts.preview)) ? _recommendSafe() : null;
+    // what they named last time, shown back under the question (Justin approved, 2026-10-01)
+    // (skipped when the post itself already says it, as posts built after the answer do)
+    const prevA = (paid && post.chipQ && !opts.preview && !blocks.some(x=>x.p && /^Last (week|month|season|year), you named/.test(x.p))) ? _rdPrevAnswer(post) : null;
+    const lastWord = { week:'week', month:'month', season:'season', year:'year' }[post.kind] || 'time';
+    let learn = null; try{ learn = opts.preview ? null : _lrnForPost(post); }catch(e){ learn = null; }
+    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is on the paid plan.</b><span>The full post, the other snapshots, your journal and your next practice.</span></span></button>`
+      : `
+        ${(post.journal||[]).length && !opts.preview ? `<section class="rd-journal"><h3 class="sec-h rd-jr-sr" id="sec-journal">Journal</h3>${_rdJournalCard(post)}</section>` : (post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
+        ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
+        ${prevA ? `<p class="rd-lastnamed">Last ${lastWord} you named ${escapeHtml(_listAnd(prevA.tags))}.</p>` : ''}
+        ${reco ? `<section class="rd-next"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>` : ''}
+        ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
+    _rdShell(`
+        ${opts.preview ? '<p class="rd-eyeb" style="color:var(--s-fight)">Beta preview · this period so far · not saved</p>' : ''}
+        <span class="rd-eyeb rd-eyeb-mk">${_rdMk(post.teachState||'safety')}${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
+        <h1 class="rd-title">${escapeHtml(post.title)}</h1>
+        <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
+        ${body}
+        ${tail}
+        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back: opts.from ? opts.from.label : 'Reflect', onBack: opts.from ? opts.from.go : screenReader, tab: opts.from && opts.from.tab, loc:{ k:'post', id:post.key } });
+    if(paid && !opts.preview){ _rdJournalWire(post); if(opts.goSec) requestAnimationFrame(()=>_lrnGoTo(opts.goSec)); }
+    const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
+    root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));
+    // Back from the plan comes back to this reflection, where the reader was (Justin, 2026-10-04: "Back should be true back")
+    const bg = $('#rd-begin'); if(bg) bg.onclick = ()=>renderPlan(reco, _trueBack(()=>screenReaderPost(post, opts)));
+    const mo = $('#rd-more'); if(mo) mo.onclick = ()=>screenReaderEssay(post.teach.state, post);
+    if(post.chipQ && paid && !opts.preview) _wireCtxChips('r'+post.key);
+    // each snapshot shares as its own square card
+    root.querySelectorAll('.rd-share').forEach(b=>b.onclick=()=>{ const fig=b.closest('.rd-snap'); const t=(fig.querySelector('.rd-eyeb')||{}).textContent||''; openShare(t + ' · ' + post.title, fig); });
+  }
+
+  // the full state essay behind "More about …"
+  function screenReaderEssay(state, from){
+    const E = window.Reader && window.Reader.ESSAY[state]; if(!E) return screenReader();
+    _rdShell(`
+        <div class="rd-essay-glyph">${triGlyph(state)}</div>
+        <h1 class="rd-title">${escapeHtml(E.title)}</h1>
+        ${E.sections.map(s=>`<h3 class="sec-h" style="margin:22px 0 8px">${escapeHtml(s[0])}</h3>${s[1].map(t=>`<p class="read-p">${escapeHtml(t)}</p>`).join('')}`).join('')}`,
+      { back:'Back', onBack:()=> from ? screenReaderPost(from) : screenReader() });
+  }
+
+  // ===========================================================================
+  // RECOMMENDED LEARNING (Justin, 2026-10-01; spec READER-BLOG-SPEC.md, map LEARNING-GROUPS.md).
+  // At the end of every post (the daily one too): one of Justin's pieces, at full length, with the
+  // member's own data in callouts labeled "{Name}'s {context}". Free members read the whole piece;
+  // their results are locked. The library is learning.js (window.Learning).
+  // ===========================================================================
+  const LRN_NOUN = { week:'this week', month:'this month', season:'this season', year:'this year', daily:'lately', recent:'in the last four weeks' };
+  const LRN_POSS = { week:"this week's", month:"this month's", season:"this season's", year:"this year's", daily:'your recent', recent:'your' };
+  const _lrnOf = ctx => ctx.poss + ' check-ins' + (ctx.kind === 'recent' ? ' in the last four weeks' : '');
+  function _lrnPicks(){ try{ return JSON.parse(localStorage.getItem('snb_lrn_picks')||'{}') || {}; }catch(e){ return {}; } }
+  function _lrnSavePick(key, v){ try{ const m=_lrnPicks(); m[key]=v; localStorage.setItem('snb_lrn_picks', JSON.stringify(m)); }catch(e){} }
+  // the next piece in a group: a post keeps the piece it was given; a new post takes the next one in line
+  function _lrnChoose(group, postKey){
+    const L = window.Learning, pieces = L ? L.inGroup(group) : []; if(!pieces.length) return null;
+    const picks = _lrnPicks(), had = picks[postKey];
+    if(had && had.group === group){ const p = L.byId(had.id); if(p) return p; }
+    const used = Object.keys(picks).filter(k=>picks[k] && picks[k].group===group).length;
+    const p = pieces[used % pieces.length];
+    _lrnSavePick(postKey, { id:p.id, group });
+    return p;
+  }
+  function _lrnPeriodCtx(kind, start, end){
+    const R = window.Reader; const per = { kind: (kind==='daily' || kind==='recent') ? 'week' : kind, start, end };
+    let f = null; try{ f = R.compute(per, _rdData()); }catch(e){ f = null; }
+    return { kind, f, noun:LRN_NOUN[kind], poss:LRN_POSS[kind] };
+  }
+  // one post: rotate the way of matching post to post (state, insight, journal); fall through to the next way
+  function _lrnForPost(post){
+    const L = window.Learning, R = window.Reader; if(!L || !R || !post) return null;
+    const ps = _rdPosts().slice().sort((a,b)=>a.release-b.release);
+    let idx = ps.findIndex(x=>x.key===post.key); if(idx < 0) idx = ps.length;
+    let tags = (_ctxLoad()['r'+post.key]||[]).filter(t=>t && t!=='something else'), tagWhen = 'this';
+    if(!tags.length){ const pa = _rdPrevAnswer(post); if(pa){ tags = pa.tags; tagWhen = 'last'; } }
+    const st = post.teachState || 'safety';
+    const ways = [
+      () => ({ group: st, why: `${STATE_LABEL(st)} led your ${post.kind==='week'?'week':post.kind}, so this one is about ${STATE_NAME(st)}, with your own check-ins in it.` }),
+      () => (post.lead && L.INSIGHT_GROUP[post.lead]) ? { group: L.INSIGHT_GROUP[post.lead], why: 'Picked for what your week showed, with your own check-ins in it.' } : null,
+      () => tags.length && L.CHIP_GROUP[tags[0]] ? { group: L.CHIP_GROUP[tags[0]], why: `${tagWhen==='this' ? 'You named' : 'Last ' + (post.kind==='week'?'week':post.kind) + ', you named'} ${tags[0]}. This one goes with it.` } : null
+    ];
+    for(let k=0;k<3;k++){
+      const w = ways[(idx + k) % 3](); if(!w) continue;
+      const piece = _lrnChoose(w.group, post.key); if(!piece) continue;
+      const per = R.PERIOD[post.kind] ? R.PERIOD[post.kind](post.start) : null;
+      const ctx = _lrnPeriodCtx(post.kind, post.start, per ? per.end : post.release);
+      return { piece, why: w.why, ctx };
+    }
+    return null;
+  }
+  // the daily post (Today): the latest check-in's state, over the last seven days
+  function _lrnForDaily(stateKey){
+    const L = window.Learning; if(!L) return null;
+    const d = new Date(); d.setHours(0,0,0,0);
+    const piece = _lrnChoose(stateKey, 'd' + d.toISOString().slice(0,10)); if(!piece) return null;
+    const now = Date.now();
+    return { piece, why: `Your latest check-in was ${STATE_NAME(stateKey)}. This one is about ${STATE_NAME(piece.state)}.`, ctx: _lrnPeriodCtx('daily', now - 7*864e5, now + 1) };
+  }
+  // what a piece is about, in a line (Justin, 2026-10-02: the old "your latest check-in was X, this one is about X" line
+  // was "redundant and boring"; the badge says it's for them, the description says what it is)
+  function _lrnDesc(p){
+    if(p.desc) return p.desc;
+    const first = ((p.blocks||[]).find(b=>b.p) || {}).p || '';
+    const t = first.replace(/<[^>]+>/g,''); return t.length > 150 ? t.slice(0, t.lastIndexOf(' ', 147)) + '…' : t;
+  }
+  function _lrnCardHTML(learn, cls){
+    const p = learn.piece, st = p.state || null;
+    const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
+    return `<button class="rd-lcard${cls?' '+cls:''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${st ? STATE_COLOR(st) : 'var(--hairline)'}">
+        <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}</span><span class="rd-lcard-title">${escapeHtml(p.title)}</span></span>
+        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(_lrnDesc(p))}</span><span class="rd-read">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span>
+      </button>`;
+  }
+  // words for a share, never "X of N"
+  function _lrnShareWords(x){ return x >= 0.9 ? 'Almost all' : x >= 0.6 ? 'Most' : x >= 0.45 ? 'About half' : x >= 0.3 ? 'About a third' : x >= 0.2 ? 'About a quarter' : 'A few'; }
+  const _lrnTimes = n => n===1 ? 'once' : n===2 ? 'twice' : n + ' times';
+  const _lrnPart = t => { const h = new Date(t).getHours(); return h < 12 ? 'morning' : h < 17 ? 'afternoon' : h < 21 ? 'evening' : 'night'; };
+  // one callout: { mk, label, text, card } or null when the data has nothing to show (then it is skipped)
+  // Callout ids (learning.js blocks): 'share:<state>', 'eased:<state>', 'time:<state>', 'freeze-and-shutdown',
+  // 'safety-share', 'practice-rise', 'mixed-safe', 'comeback'. Old ids 'freeze-share' and 'freeze-eased' still work.
+  const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
+  const _lrnSegOf = t => { const h = new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; };
+  function _lrnCallout(id, ctx){
+    const f = ctx.f; if(!f || !f.n) return null;
+    const rs = f.rs || [], owner = _rdOwner();
+    if(id === 'freeze-share') id = 'share:freeze';
+    if(id === 'freeze-eased') id = 'eased:freeze';
+    const [kind, st] = id.split(':');
+    if(kind === 'share' && st && st !== 'safety'){
+      const hit = rs.filter(r=>r.key===st); if(!hit.length) return null;
+      let days = '';
+      if(ctx.kind === 'week'){
+        const cnt = {}; hit.forEach(r=>{ const d=new Date(r.t).getDay(); cnt[d]=(cnt[d]||0)+1; });
+        const ds = Object.keys(cnt).map(Number).sort((a,b)=>a-b);
+        let best = null; for(let i=0;i<ds.length;i++){ let j=i; while(j+1<ds.length && ds[j+1]===ds[j]+1) j++; const run=ds.slice(i,j+1), c=run.reduce((a,d)=>a+cnt[d],0); if(!best || c>best.c) best={ run, c }; i=j; }
+        if(hit.length >= 2 && best && best.c/hit.length >= 0.6 && best.run.length <= 4) days = best.run.length===1 ? ', mostly on ' + DAYS_LONG[best.run[0]] : ', mostly ' + DAYS_LONG[best.run[0]] + ' to ' + DAYS_LONG[best.run[best.run.length-1]];
+      }
+      const card = ctx.kind === 'week' ? `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('week', { ws:f.p.start, focus:st, pts: rs.map(r=>({ d:new Date(r.t).getDay(), h:new Date(r.t).getHours()+new Date(r.t).getMinutes()/60, m:r.m, key:r.key })) }, STATE_COLOR)}</figure>` : '';
+      const text = hit.length === 1 ? `One of ${_lrnOf(ctx)} was ${STATE_NAME(st)}${days}.` : `${_lrnShareWords(hit.length/rs.length)} of ${_lrnOf(ctx)} were ${STATE_NAME(st)}${days}.`;
+      return { mk:st, label: owner + ' ' + STATE_NAME(st), text, card };
+    }
+    if(id === 'safety-share' || id === 'share:safety'){
+      if(f.n < 5) return null;
+      const share = f.nSafe / f.n;
+      const amt = f.n >= 10 ? Math.round(share*100) + '%' : _lrnShareWords(share);
+      if(amt === '100%' && f.n < 20) return null;
+      return { mk:'safety', label: owner + ' safety', text: `${amt} of ${_lrnOf(ctx)} had more safety than defense.` };
+    }
+    if(id === 'freeze-and-shutdown'){
+      const nf = rs.filter(r=>r.key==='freeze').length, ns = rs.filter(r=>r.key==='shutdown').length; if(!nf || !ns) return null;
+      let seq = 0; for(let i=1;i<rs.length;i++) if(rs[i-1].key==='freeze' && rs[i].key==='shutdown') seq++;
+      const text = `Freeze ${_lrnTimes(nf)} ${ctx.noun}, shutdown ${_lrnTimes(ns)}.` + (seq ? ` ${CAP(_lrnTimes(seq))}, shutdown came right after freeze.` : '');
+      return { mk:'freeze', label: owner + ' freeze and shutdown', text, card: seq ? _rdFlow('freeze','shutdown') : '' };
+    }
+    if(id === 'practice-rise'){
+      const ps = (f.practices||[]).filter(x=>x.s0!=null && x.s1!=null); if(!ps.length) return null;
+      const up = ps.filter(x=>x.s1 > x.s0).length; if(!up) return null;
+      const text = up === ps.length ? (ps.length === 1 ? `When you practiced ${ctx.noun}, safety went up.` : `Each time you practiced ${ctx.noun}, safety went up.`) : `Safety went up in ${up===1?'one practice':up+' practices'} ${ctx.noun}.`;
+      const ins = ps.slice(-5).map(x=>({ day:DAYS_LONG[x.day].slice(0,3), anchor:null, s0:x.s0, s1:x.s1, best:false }));
+      return { mk:'safety', label: owner + ' practices', text, card: `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('inside', ins, STATE_COLOR)}<figcaption class="rd-cap">${escapeHtml(RD_SNAP_CAP.inside)}</figcaption></figure>` };
+    }
+    if(kind === 'eased' && st){
+      let pair = null;
+      for(let i=rs.length-1;i>=0 && !pair;i--){ if(rs[i].key!==st) continue; for(let j=i+1;j<rs.length;j++) if(rs[j].safe){ pair = [rs[i], rs[j]]; break; } }
+      if(!pair) return null;
+      const d0 = DAYS_LONG[new Date(pair[0].t).getDay()], same = new Date(pair[0].t).toDateString() === new Date(pair[1].t).toDateString();
+      const by = same ? 'that ' + _lrnPart(pair[1].t) : DAYS_LONG[new Date(pair[1].t).getDay()] + ' ' + _lrnPart(pair[1].t);
+      return { mk:st, label: owner + ' ' + d0, text: `${d0}'s ${STATE_NAME(st)} eased by ${by}.`, card: _rdFlow(st, pair[1].key) };
+    }
+    if(kind === 'time' && st){
+      // the part of the day this state showed up most (3+ check-ins of it, and a clear lead)
+      const hit = rs.filter(r=> st==='safety' ? r.safe : r.key===st); if(hit.length < 3) return null;
+      const cnt = {}; hit.forEach(r=>{ const s=_lrnSegOf(r.t); cnt[s]=(cnt[s]||0)+1; });
+      const top = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]); if(cnt[top[0]] < 2 || (top[1] && cnt[top[1]] === cnt[top[0]])) return null;
+      const seg = _LRN_SEG[top[0]];
+      const what = st==='safety' ? 'More safety than defense' : CAP(STATE_NAME(st));
+      const mx = Math.max.apply(null, Object.values(cnt)), col = STATE_COLOR(st);
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${['morning','afternoon','evening','late'].map((s,i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${CAP(_LRN_SEG[s])}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(100*(cnt[s]||0)/mx)}%;background:${col}"></span></span><span class="help-pct"></span></div>`).join('')}</div></div>`;
+      return { mk:st, label: owner + ' ' + seg, text: `${what} showed up most in your ${seg} ${ctx.noun}.`, card };
+    }
+    if(kind === 'context' && (st === 'people' || st === 'places')){
+      // what the member named on their check-ins ("I've had more of"), over the last eight weeks
+      const want = st === 'people' ? ['friends','family','partner'] : ['nature'];
+      const now = Date.now(), c8 = _lrnPeriodCtx('recent', now - 56*864e5, now + 1), rs8 = (c8.f && c8.f.rs) || [], m = _ctxLoad();
+      const tagged = [], named = {};
+      rs8.forEach(r=>{ const tags = m['c'+r.t+'+'] || m['c'+r.t] || []; const hit = tags.filter(t=>want.indexOf(t) >= 0); if(hit.length){ tagged.push(r); hit.forEach(t=>named[t]=1); } });
+      if(tagged.length < 3 || rs8.length < 5) return null;
+      const sh = tagged.filter(r=>r.safe).length / tagged.length, all = rs8.filter(r=>r.safe).length / rs8.length;
+      const amt = tagged.length >= 10 ? Math.round(sh*100) + '%' : _lrnShareWords(sh).toLowerCase();
+      if(amt === '100%' && tagged.length < 20) return null;
+      const names = _listAnd(Object.keys(named).map(t=> t === 'partner' ? 'a partner' : t));
+      const text = `In the last eight weeks, when you'd had more ${st === 'people' ? 'time with ' + names : names}, ${amt} of those check-ins had more safety than defense.`;
+      const bar = (lbl, x, c, i) => `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${lbl}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(x*100)}%;background:${c}"></span></span><span class="help-pct"></span></div>`;
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${bar(st === 'people' ? 'With more people time' : 'With more ' + names, sh, STATE_COLOR('safety'), 0)}${bar('All your check-ins', all, 'var(--hairline)', 1)}</div></div>`;
+      return { mk:'safety', label: owner + (st === 'people' ? ' people' : ' surroundings'), text: CAP(text.charAt(0)) + text.slice(1), card };
+    }
+    if(id === 'mixed-safe'){
+      const np = rs.filter(r=>r.key==='play').length, ns = rs.filter(r=>r.key==='stillness').length; if(!np && !ns) return null;
+      const parts = []; if(np) parts.push(`${STATE_NAME('play')} ${_lrnTimes(np)}`); if(ns) parts.push(`stillness ${_lrnTimes(ns)}`);
+      const mk = np >= ns ? 'play' : 'stillness';
+      return { mk, label: owner + ' ' + (np && ns ? 'play and stillness' : np ? STATE_NAME('play') : 'stillness'), text: `${CAP(ctx.noun)}, ` + parts.map((p,i)=> i===0 ? p.replace(/ (once|twice|\d+ times)$/, ' showed up $1') : p).join(' and ') + '.' };
+    }
+    if(id === 'comeback'){
+      const cb = f.comebacks; if(!cb || cb.n < 1) return null;
+      const phrase = cb.avg <= 1.5 ? 'within a check-in or two' : 'within about ' + Math.round(cb.avg) + ' check-ins';
+      return { mk:'safety', label: owner + ' way back to safety', text: `After defense showed up ${ctx.noun}, you had more safety than defense again ${phrase}.` };
+    }
+    return null;
+  }
+  function _lrnInline(s){ return escapeHtml(s).replace(/&lt;(\/?)(b|i|s)&gt;/g, '<$1$2>')
+      .replace(/\[([^\]]+)\]\(((?:piece|hub|anchor):[a-z0-9-]+(?:#[a-z0-9-]+)?)\)/g, '<a href="#" class="rd-inlink" data-lnk="$2">$1</a>')
+      .replace(/\[([^\]]+)\]\((https:\/\/[^)\s"]+)\)/g, '<a href="$2" class="rd-inlink rd-exlink" target="_blank" rel="noopener">$1</a>'); }
+  // scroll a section of the open article into view (a TOC tap, an anchor link, a piece:id#section link)
+  // one Journal card in an article: the sheet slides up from the bottom (Justin, 2026-10-02: "it needs to animate up, not just
+  // appear") and down again on Done, a tap outside, or a pull down on its top; swipe left and right between the questions
+  // ("I found myself trying to swipe through journal entries"), with dots to show where you are
+  function _jrWire(j){
+    const steps = [...j.querySelectorAll('.rd-jr-step')], dots = [...j.querySelectorAll('.rd-jr-dots i')];
+    const pv = j.querySelector('.rd-jr-prev'), nx = j.querySelector('.rd-jr-next');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const show = (k, now) => {
+      const was = j._step || 0; k = Math.max(0, Math.min(steps.length - 1, k));
+      steps.forEach((s, x)=>{ s.hidden = x !== k; s.style.transform = ''; s.classList.remove('jr-in-l', 'jr-in-r'); });
+      if(!now && !reduce && k !== was) steps[k].classList.add(k > was ? 'jr-in-r' : 'jr-in-l');
+      dots.forEach((d, x)=>d.classList.toggle('on', x === k)); if(pv) pv.hidden = k === 0; if(nx) nx.hidden = k === steps.length - 1; j._step = k;
+    };
+    j._show = show;
+    if(pv) pv.onclick = ()=>show((j._step||0) - 1);
+    if(nx) nx.onclick = ()=>show((j._step||0) + 1);
+    dots.forEach((d, x)=>d.onclick = ()=>show(x));
+    const pill = j.querySelector('.rd-jr-pill'), sh = j.querySelector('.rd-jr-sheet');
+    if(!pill || !sh || pill.classList.contains('rd-jr-locked')) return;
+    const box = sh.querySelector('.rd-jr-sheet-in');
+    let tmr = null;
+    const open = ()=>{ clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); };
+    const close = ()=>{ sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on');
+      tmr = setTimeout(()=>{ sh.hidden = true; }, reduce ? 0 : 320); };
+    j._open = open;
+    pill.onclick = open;
+    j.querySelector('.rd-jr-done').onclick = close;
+    sh.onclick = e=>{ if(e.target === sh) close(); };
+    // swipe: horizontal on the questions moves between them; down on the top of the sheet closes it
+    let x0 = 0, y0 = 0, dir = '', cur = null, fromTop = false;
+    box.addEventListener('touchstart', e=>{ const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dir = ''; cur = steps[j._step||0];
+      fromTop = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab') || box.scrollTop <= 0 && !e.target.closest('textarea'); }, { passive:true });
+    box.addEventListener('touchmove', e=>{ const t = e.touches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if(!dir){ if(Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.3 && steps.length > 1) dir = 'x'; else if(dy > 10 && Math.abs(dy) > Math.abs(dx) && fromTop) dir = 'y'; else if(Math.abs(dy) > 10) dir = 'none'; }
+      if(dir === 'x' && cur){ const k = j._step||0, edge = (k === 0 && dx > 0) || (k === steps.length - 1 && dx < 0); cur.style.transform = `translateX(${edge ? dx / 4 : dx}px)`; cur.style.transition = 'none'; }
+      if(dir === 'y'){ box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, dy)}px)`; }
+    }, { passive:true });
+    box.addEventListener('touchend', e=>{ const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      if(dir === 'x' && cur){ cur.style.transition = ''; const k = j._step||0;
+        if(dx < -50 && k < steps.length - 1) show(k + 1); else if(dx > 50 && k > 0) show(k - 1); else cur.style.transform = ''; }
+      if(dir === 'y'){ box.style.transition = ''; if(dy > 90) close(); else box.style.transform = ''; }
+      dir = ''; cur = null;
+    });
+  }
+  function _lrnGoTo(sec){
+    let el = sec && root.querySelector('#sec-' + CSS.escape(sec)); if(!el) return;
+    // the "Journal" heading in the table of contents: it is hidden in the article, so go to the Journal card (Justin,
+    // 2026-10-02: on "Play: safety and mobilization together" it did not work; then: "It should only navigate down there")
+    if(el.classList.contains('rd-jr-sr')){ const card = el.nextElementSibling; if(card && card.classList.contains('rd-jr')){ _lrnScrollTo(card); return; } }
+    const fold = el.closest('details'); if(fold) fold.open = true;
+    const jr = el.closest('.rd-jr');
+    if(jr && jr._open){ const st = el.closest('.rd-jr-step'); if(st && jr._show) jr._show(+st.dataset.step, true); jr._open(); return; }
+    _lrnScrollTo(el);
+  }
+  function _lrnScrollTo(el){
+    const sc = root.querySelector('.scroll'); if(!sc) return;
+    const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12;
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    try{ sc.scrollTo({ top, behavior: reduce ? 'auto' : 'smooth' }); }catch(e){ sc.scrollTop = top; }
+  }
+  // in-app links inside a piece or hub: [text](piece:id) opens that piece, [text](hub:key) opens that hub,
+  // [text](piece:id#section) opens it at a section, [text](anchor:section) goes to a section of this article
+  function _lrnWireLinks(back){
+    root.querySelectorAll('[data-lnk]').forEach(el=>el.onclick=(e)=>{ e.preventDefault();
+      const ix = el.dataset.lnk.indexOf(':'), k = el.dataset.lnk.slice(0, ix), rest = el.dataset.lnk.slice(ix + 1), L = window.Learning;
+      const [id, sec] = rest.split('#');
+      if(k==='anchor'){ _lrnGoTo(id); return; }
+      if(k==='piece'){ const pc = L && L.byId(id); if(pc) screenLearnPiece(pc, null, null, back, sec); }
+      else if(k==='hub' && L && L.HUBS[id]) screenLearnHub(id, back);
+    });
+  }
+  // one callout, or its locked version for free members
+  function _lrnCallHTML(c, paid){
+    const col = STATE_COLOR(c.mk);
+    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
+    return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}</div>`;
+  }
+  // a block of piece or hub text
+  function _lrnBlockHTML(b){
+    const aid = b.id ? ` id="sec-${escapeHtml(b.id)}"` : '';
+    if(b.h) return `<h2 class="rd-lh"${aid}>${_lrnInline(b.h)}</h2>`;
+    if(b.h3) return `<h3 class="rd-lh3"${aid}>${_lrnInline(b.h3)}</h3>`;
+    if(b.q) return `<blockquote class="rd-lq">${(Array.isArray(b.q) ? b.q : [b.q]).map(t=>`<p>${_lrnInline(t)}</p>`).join('')}${b.cite ? `<cite class="rd-lq-cite">${_lrnInline(b.cite)}</cite>` : ''}</blockquote>`;
+    if(b.ul) return `<ul class="rd-llist">${b.ul.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ul>`;
+    if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
+    return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
+  }
+  const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
+  const _lrnHubCount = key => { const n = window.Learning.inGroup(key).length; return n === 1 ? '1 article' : n + ' articles'; };
+  // a row that opens a piece (hubs, keep learning)
+  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}">${p.state ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.state)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${p.paid && !paidNow() ? LOCK_SVG + 'Paid plan · ' : ''}${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml((p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  // a row that opens a hub
+  const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
+
+  // one learning hub: a state or a topic, Justin's intro, the member's own data (states), its articles, related hubs
+  function screenLearnHub(key, back, keepQuery){
+    if(!keepQuery) _lrnQ = '';
+    const L = window.Learning, hub = L.HUBS[key] || { intro:[] }, isState = L.STATE_HUBS.indexOf(key) >= 0;
+    const paid = paidNow(), pieces = L.inGroup(key);
+    const here = ()=>screenLearnHub(key, back, true);
+    let mine = '';
+    if(isState){
+      const now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28*864e5, now + 1);
+      const sh = _lrnCallout(key === 'safety' ? 'safety-share' : 'share:' + key, ctx), tm = _lrnCallout('time:' + key, ctx);
+      if(sh) mine = _lrnCallHTML({ mk:key, label: _rdOwner() + ' ' + STATE_NAME(key), text: sh.text + (tm ? ' ' + tm.text.replace(' in the last four weeks.', '.') : '') }, paid);
+    }
+    // related hubs: the ones its articles share most, six at most (2026-10-02, the library grew to ~150)
+    const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = (related[g]||0) + 1; }));
+    const relKeys = Object.keys(related).sort((a,b)=> related[b] - related[a]).slice(0, 6);
+    _rdShell(`
+        <div id="ll-results" aria-live="polite"></div>
+        <div id="ll-browse">
+        <span class="rd-eyeb">Learning hub</span>
+        <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
+        ${mine}
+        ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
+        <section class="rd-learn"><h3 class="sec-h">Articles</h3>
+          ${pieces.length ? `<div class="rd-list rd-list-flat">${_lrnByRead(pieces).map((p, i)=>i < 12 ? _lrnRowHTML(p) : _lrnRowHTML(p).replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"')).join('')}</div>${pieces.length > 12 ? `<button class="ll-showall" type="button">Show all ${pieces.length} articles</button>` : ''}` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
+        </section>
+        ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
+        </div>`,
+      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true });
+    root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('.ll-showall').forEach(b=>b.onclick=()=>{ root.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
+    root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+    root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
+    _lrnWireLinks({ label:'Back', go:here, tab:'learn' });
+    _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+  }
+  // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
+  // "Practice this" (Justin, 2026-10-01): the practice the ARTICLE is about, tuned to what works for this member
+  // (their customizer sense and silence; otherwise what the app has learned), and said plainly when it goes
+  // further than the practices their check-ins point to right now. "Recommended practice" stays the member's own.
+  const _LRN_RANK = { micro:0, mindfulness:1, more:1, anchoring:2, 'self-regulation':3 };
+  function _lrnPracticeThis(b){
+    const base = _recommendSafe(true) || {}, key = b.practice === 'custom' ? base.practiceKey : b.practice;
+    const sense = (Store.prefSense && Store.prefSense()) || b.sense || base.sense || 'touch';
+    const pSil = Store.prefSilence ? Store.prefSilence() : null, silence = pSil != null ? pSil : (base.silence || 8);
+    const over = (_LRN_RANK[key] || 0) > (_LRN_RANK[base.practiceKey] || 0);
+    const title = b.practice === 'custom' ? 'Your custom practice' : CAP(Store.practiceLabel(key)) + ' through ' + sense;
+    const note = over ? 'This goes further than your practices right now. Your check-ins point to ' + Store.practiceLabel(base.practiceKey) + ' first.' : '';
+    return { title, note, over, reco: b.practice === 'custom' ? base : { practiceKey:key, sense, silence, reason: (b.why || '') + (over ? ' ' + note : '') || null } };
+  }
+  function _lrnPracticeReco(b){
+    return _lrnPracticeThis(b).reco;
+  }
+  // pieces past the first few keep their text in learn/<id>.json, loaded when opened (2026-10-02: ~150 podcast articles)
+  const _lrnBodies = {};
+  function _lrnLoad(piece){
+    if(piece.blocks) return Promise.resolve(piece);
+    if(_lrnBodies[piece.id]) return _lrnBodies[piece.id];
+    return (_lrnBodies[piece.id] = fetch(piece.file).then(r=>{ if(!r.ok) throw new Error('not found'); return r.json(); })
+      .then(d=>{ piece.blocks = d.blocks || []; piece.toc = d.toc || []; return piece; })
+      .catch(e=>{ delete _lrnBodies[piece.id]; throw e; }));
+  }
+  // "In this article": the sections, folded until opened (Justin, 2026-10-02: "a drop-down TOC")
+  function _lrnTocHTML(toc){
+    if(!toc || toc.length < 2) return '';
+    const li = t => `<li><a href="#" class="rd-toc-a" data-lnk="anchor:${escapeHtml(t.id)}">${escapeHtml(t.title)}</a>${t.sections && t.sections.length ? `<ol>${t.sections.map(li).join('')}</ol>` : ''}</li>`;
+    return `<details class="rd-toc"><summary><span>In this article</span><span class="rd-toc-n">${toc.length} sections</span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary><ol>${toc.map(li).join('')}</ol></details>`;
+  }
+  function screenLearnPiece(piece, ctx, fromPost, from, goSec){
+    if(!piece.blocks){
+      const backTo = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenLearn;
+      _rdShell(`<span class="rd-eyeb">Recommended learning</span><h1 class="rd-title">${escapeHtml(piece.title)}</h1><p class="rd-meta">One moment…</p>`,
+        { back: from ? from.label : 'Learn', onBack: backTo, tab:'learn', loc:{ k:'piece', id:piece.id } });
+      _lrnLoad(piece).then(()=>{ if(root.querySelector('.rd-meta') && /One moment/.test(root.querySelector('.rd-meta').textContent)) screenLearnPiece(piece, ctx, fromPost, from, goSec); })
+        .catch(()=>{ const m = root.querySelector('.rd-meta'); if(m) m.textContent = "This article didn't load. Check your connection and try again."; });
+      return;
+    }
+    const paid = paidNow(), st = piece.state || null, L = window.Learning;
+    // opened from a hub or a link: no post period, so the callouts mirror the last seven days
+    if(!ctx){ const now = Date.now(); ctx = _lrnPeriodCtx('daily', now - 7*864e5, now + 1); }
+    const back = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenReader;
+    const here = ()=>screenLearnPiece(piece, ctx, fromPost, from);
+    // reflections (Justin, 2026-10-02: "great but they are a lot. Overwhelming" and "behind the paywall"): a run of questions
+    // is one card with the first question open and the rest folded under "N more questions"; free members see one locked card
+    // per article and no other questions
+    let reflSeen = 0;
+    const reflOne = b => { const saved = ((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0] || '';
+      return `<div class="rd-refl-one" id="sec-rf-${escapeHtml(b.reflect)}"><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`; };
+    // the Journal (Justin, 2026-10-02: "all questions need to be hidden behind a closed 'Journal'. When it's tapped, it opens and
+    // the first question is shown"; free members see no questions). He picked look C: a small Journal button that slides a sheet
+    // up over the article, one question at a time; swipe between questions (the Next button is for bigger screens only).
+    const reflCard = (run, titled) => {
+      reflSeen++;
+      const n = run.length, count = n === 1 ? '1 question' : n + ' questions';
+      if(!paid){
+        if(reflSeen > 1) return '';
+        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
+      }
+      const steps = run.map((b, k)=>`<div class="rd-jr-step"${k ? ' hidden' : ''} data-step="${k}">${reflOne(b)}</div>`).join('');
+      const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
+      const where = `<p class="rd-refl-where">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p>`;
+      return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(count)}</p>
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}${where}</div></div></div>`;
+    };
+    // a chapter on the paid plan: free members read the opening, then a lock (Justin, 2026-10-02)
+    const gated = !!piece.paid && !paid;
+    let blocks = piece.blocks || [];
+    if(gated){ const keep = []; let words = 0;
+      for(const b of blocks){ if(keep.length && (b.h || b.h3 || b.reflect || b.practice || b.callout)) break; if(b.p || b.q || b.ul || b.ol){ keep.push(b); words += JSON.stringify(b).split(/\s+/).length; if(keep.length >= 3 || words > 160) break; } else if(!keep.length && !b.h && !b.h3) continue; else keep.push(b); }
+      blocks = keep; }
+    const parts = [];
+    for(let i = 0; i < blocks.length; i++){
+      const b = blocks[i];
+      if(b.reflect){ const run = [b]; while(i + 1 < blocks.length && blocks[i + 1].reflect) run.push(blocks[++i]); parts.push(reflCard(run, !!(i - run.length >= 0 && (blocks[i - run.length].h || blocks[i - run.length].h3)))); continue; }
+      if(b.practice){ const pt = _lrnPracticeThis(b);
+        parts.push(`<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`); continue; }
+      if(b.callout){ const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid) : ''); continue; }
+      // a "Journal" or "Reflect" heading right above the questions: the Journal card says it, so the heading stays only for the table of contents
+      if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
+      parts.push(_lrnBlockHTML(b));
+    }
+    const body = parts.join('') + (gated ? `<div class="rd-gate"><button class="rd-lock rd-gate-btn" type="button">${LOCK_SVG}<span><b>The rest of this chapter is on the paid plan</b><span>The whole chapter, its journal questions and the practice that goes with it.</span></span></button></div>` : '');
+    // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
+    const nx = L.nextFor ? L.nextFor(piece) : null;
+    const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
+    // book chapters: where it comes from, and where to get the book (Curriculum Advisor's LINKS.md, Justin 10-01)
+    const book = piece.book ? `<section class="rd-book"><p class="read-p">From <i>${escapeHtml(piece.book)}</i>.</p><div class="rd-book-links">${piece.book_url ? `<a class="rd-book-a" href="${escapeHtml(piece.book_url)}" target="_blank" rel="noopener">Get the book</a>` : ''}${piece.book_amazon ? `<a class="rd-book-a" href="${escapeHtml(piece.book_amazon)}" target="_blank" rel="noopener">On Amazon</a>` : ''}</div></section>` : '';
+    const keep = `<section class="rd-learn rd-keep"><h3 class="sec-h">Keep learning</h3>
+        ${nx ? `<span class="rd-eyeb rd-keep-eyeb">Read next</span><div class="rd-list rd-list-flat">${_lrnRowHTML(nx)}</div>` : ''}
+        ${hubKeys.length ? `<span class="rd-eyeb rd-keep-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubKeys.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div>` : ''}
+      </section>`;
+    _rdShell(`
+        ${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}Recommended learning · ${escapeHtml(STATE_NAME(st))}</span>` : `<span class="rd-eyeb">Recommended learning</span>`}
+        <h1 class="rd-title">${escapeHtml(piece.title)}</h1>
+        <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
+        ${gated ? '' : _lrnTocHTML(piece.toc)}
+        ${body}
+        ${book}${piece.episode ? `<section class="rd-book"><p class="read-p">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p></section>` : ''}
+        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id } });
+    root.querySelectorAll('.rd-call-lock, .rd-gate-btn').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
+    root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
+    root.querySelectorAll('.rd-keep [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
+    _lrnWireLinks({ label:'Back', go:here, tab:tabNow });
+    // in-article reflections (paid): saved to the member's own data, keyed to the piece
+    root.querySelectorAll('.rd-refl-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('[data-refl-save]').forEach(btn=>btn.onclick=()=>{
+      const id = btn.dataset.reflSave, ta = root.querySelector(`[data-refl="${id}"]`), b = (piece.blocks||[]).find(x=>x.reflect===id);
+      if(!ta || !b) return; const txt = ta.value.trim(), key = 'l:' + piece.id + ':' + id;
+      const q = _lrnNorm(b.prompt || '').replace(/^./, c=>c.toUpperCase()), val = txt ? [txt, new Date().toISOString().slice(0, 10), q] : [];
+      try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m=_ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
+      btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
+    });
+    root.querySelectorAll('[data-refl]').forEach(ta=>ta.oninput=()=>{ const s = root.querySelector(`[data-refl-save="${ta.dataset.refl}"]`); if(s) s.textContent = 'Save'; });
+    // the Journal: locked for free; the sheet slides up, one question at a time, swipe or Next/Previous between them
+    root.querySelectorAll('.rd-jr-locked').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('.rd-jr').forEach(_jrWire);
+    root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), _trueBack(()=>screenLearnPiece(piece, ctx, fromPost, from))); });
+    if(goSec) requestAnimationFrame(()=>_lrnGoTo(goSec));
+    // read = reached the end (Keep learning in view), not just opened
+    const endEl = root.querySelector('.rd-keep');
+    if(endEl && !gated && !_lrnIsRead(piece.id)){
+      if('IntersectionObserver' in window){ const io = new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ _lrnMarkRead(piece.id); io.disconnect(); } }, { threshold:0.01 }); io.observe(endEl); }
+      else { const sc = root.querySelector('.scroll'); if(sc) sc.addEventListener('scroll', function f(){ if(sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 40){ _lrnMarkRead(piece.id); sc.removeEventListener('scroll', f); } }); }
+    }
+  }
+
+  // (retired 2026-09-30: the essay-per-state reader. Kept for reference until the next declutter.)
+  function _screenReflectionDeepOld(){
     // The reader — the weekly letter written from this person's own check-ins — is the
-    // base plan. Guarded here as well as at every call site (defense in depth).
+    // paid plan. Guarded here as well as at every call site (defense in depth).
     // (When the evergreen/personalized content tagging lands, the evergreen essays come
     // back out from behind this line and become free. That pass is not done yet.)
     _markReaderSeen();   // any reader-open clears the nudge for this check-in — incl. free
@@ -3542,7 +4894,7 @@ function app(tab){
         <div class="view read" style="gap:0">
           <div class="read-flow">
             <div class="scr-head read-head">
-              <h1 class="read-h1">Your Reflections</h1>
+              <h1 class="read-h1">Reflect</h1>
               <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
               ${readState}
               ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="Past Reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
@@ -3556,7 +4908,7 @@ function app(tab){
           ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
         </div>
       </div>
-      <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
+      <nav class="tabbar reader-rail" id="tabs">${TABS()}</nav>`);
     $('#deep-back').onclick = ()=>app('now');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
@@ -3840,7 +5192,7 @@ function app(tab){
     return `<button class="arch-row${extraClass?' '+extraClass:''}" data-id="${escapeHtml(m.id)}" data-ms="${m.dateMs}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span>${body}</span><span class="wc-go">${CHEV}</span></button>`;
   }
   function screenArchive(){
-    if(!paidNow()) return gateSubscribe('reader');   // the reader's back issues — base plan
+    if(!paidNow()) return gateSubscribe('reader');   // the reader's back issues — paid plan
     const all = Store.mints ? Store.mints() : [];   // sorted newest-first
     const now = Date.now();
     const first = Store.firstCheckinT ? Store.firstCheckinT() : null;
@@ -3932,9 +5284,10 @@ function app(tab){
     }
   }
   function screenMintedEntry(id){
-    if(!paidNow()) return gateSubscribe('reader');   // a minted reader issue — base plan
+    if(!paidNow()) return gateSubscribe('reader');   // a minted reader issue — paid plan
+    currentTab = 'reflect';
     const m = (Store.mints ? Store.mints() : []).find(x => x.id===id);
-    if(!m) return screenArchive();
+    if(!m) return screenReader();
     if(m.tier==='weekly' && m.data && m.data.issue){
       const card = m.data.card || {};
       // same desktop composition as the live reader: reading column + sticky
@@ -3951,8 +5304,8 @@ function app(tab){
             ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
           </div>
         </div>
-        <nav class="tabbar reader-rail" id="tabs">${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}</nav>`);
-      $('#me-back').onclick = screenArchive;
+        <nav class="tabbar reader-rail" id="tabs">${TABS()}</nav>`);
+      $('#me-back').onclick = screenReader;
       $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
       const sb = $('#me-share'); if(sb) sb.onclick = ()=>shareWeekCard(card);
       return;
@@ -3967,7 +5320,7 @@ function app(tab){
             <p style="font-size:calc(16px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${escapeHtml(m.text)}</p>
           </div>
         </div>`);
-      $('#me-back').onclick = screenArchive;
+      $('#me-back').onclick = screenReader;
       return;
     }
     const ctx = Store.dayArc ? Store.dayArc(m.dateMs) : null;
@@ -3981,7 +5334,7 @@ function app(tab){
           ${tl}
         </div>
       </div>`);
-    $('#me-back').onclick = screenArchive;
+    $('#me-back').onclick = screenReader;
   }
 
   // (recoCardHTML / wireReco / trendHTML — old today-card renderers — were dead
@@ -4076,7 +5429,7 @@ function app(tab){
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
 
@@ -5026,7 +6379,7 @@ function app(tab){
     for(let i=0;i<8;i++){
       const mid=Math.round((lo+hi)/2);
       c.setAttribute('style', styleAt(mid,'auto'));
-      if(c.scrollHeight<=mid){ side=mid; hi=mid-1; } else { lo=mid+1; }
+      if(c.scrollHeight<=mid && c.scrollWidth<=mid){ side=mid; hi=mid-1; } else { lo=mid+1; }
       if(lo>hi) break;
     }
     c.setAttribute('style', styleAt(side, side+'px'));
@@ -5389,6 +6742,16 @@ function app(tab){
         ws=_sundayStart(t);
         prefix = mm[2]==='-' ? 'less of ' : 'more of ';
       }
+      else if(/^rw\d/.test(k)){                                // the reader's weekly question (2026-10-01)
+        const p=k.slice(2).split('-').map(Number); if(p.length<3||p.some(isNaN)) return;
+        ws=new Date(p[0],p[1]-1,p[2]).getTime();
+      }
+      else if(/^rm\d/.test(k)){                                // the reader's monthly question: counts for each week that starts in that month
+        const p=k.slice(2).split('-').map(Number); if(p.length<2||p.some(isNaN)) return;
+        const m0=new Date(p[0],p[1]-1,1).getTime(), m1=new Date(p[0],p[1],1).getTime();
+        for(let t=_sundayStart(m0); t<m1; t=_sundayStart(t+8*864e5)){ if(t<m0) continue; const set=wkTags[t]=wkTags[t]||{}; m[k].forEach(lb=>{ set[lb]=1; }); }
+        return;
+      }
       else if(k[0]==='w'||k[0]==='d'){
         const p=k.slice(1).split('-').map(Number);          // local date parts
         if(p.length<3||p.some(isNaN)) return;
@@ -5525,7 +6888,7 @@ function app(tab){
   // account is promised: their own saved check-ins, exactly as they recorded them — the
   // date, the time, the state they named, and the app's mirror of what they set. No
   // trend, no pattern, no verdict, no score: the app does not read it back to them, it
-  // simply keeps it and shows it. That read-back is what the base plan is.
+  // simply keeps it and shows it. That read-back is what the paid plan is.
   // 🖊 copy draft.
   function tabHistoryFree(c, allCs){
     const cs = allCs.slice().sort((a,b)=>b.t-a.t);   // newest first
@@ -5560,13 +6923,31 @@ function app(tab){
       <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; on the base plan</span>
+          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; on the paid plan</span>
+        </span><span class="wc-go">${CHEV}</span>
+      </button>
+      <button class="tb-row p-locked" id="hx-impacts" style="margin-top:10px">
+        <span class="tb-row-text">
+          <span class="tb-row-title">Practice impacts</span>
+          <span class="tb-row-sub">How each practice shifts your states &middot; on the paid plan</span>
+        </span><span class="wc-go">${CHEV}</span>
+      </button>
+      <button class="tb-row p-locked" id="hx-ideal" style="margin-top:10px">
+        <span class="tb-row-text">
+          <span class="tb-row-title">Ideal practice</span>
+          <span class="tb-row-sub">Your best time, anchor and setup &middot; on the paid plan</span>
+        </span><span class="wc-go">${CHEV}</span>
+      </button>
+      <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
+        <span class="tb-row-text">
+          <span class="tb-row-title">Your Journal</span>
+          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; on the paid plan</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
-        <h3 class="yr-h">Your Reflection</h3>
-        <p class="yr-lede">The personal read of your patterns, in plain language.</p>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt" style="color:var(--muted)">Read your full reflection &middot; on the base plan</span></span>
+        <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
+        <p class="yr-lede">${(function(){ try{ const r=FromJustin.daily?FromJustin.daily():null; return (r&&r.text)?escapeHtml(r.text):'Your daily post and your Sunday reflection, from your own check-ins.'; }catch(e){ return 'Your daily post and your Sunday reflection, from your own check-ins.'; } })()}</p></span></span>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
       </a>
       <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">Your check-ins.</h2></div>
       <div class="deep">${dayHTML}</div>
@@ -5574,7 +6955,10 @@ function app(tab){
     const ad=$('#add-ci');  if(ad) ad.onclick = screenCheckin;
     const sb1=$('#set-btn'); if(sb1) sb1.onclick = screenSettings;
     const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
-    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); gateSubscribe('reader'); };
+    const hi=$('#hx-impacts');  if(hi) hi.onclick = ()=>gateSubscribe('impacts');
+    const hd=$('#hx-ideal');    if(hd) hd.onclick = ()=>gateSubscribe('ideal');
+    const hj=$('#hx-journal');  if(hj) hj.onclick = ()=>gateSubscribe('reader');
+    const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); app('reflect'); };
   }
 
   // ── You-tab pattern cards, rebuilt on margin (2026-09-07, Justin: "margin number
@@ -5954,7 +7338,7 @@ function app(tab){
           <span class="gr-line-val gr-pt-val" style="left:${lx0}%;top:${ly0}%">${stateMarks(dom0)}</span>
           <span class="gr-line-val gr-line-val-now gr-pt-val gr-pt-val-end" style="left:${lx1}%;top:${ly1}%">${stateMarks(dom1)}</span>
         </div><div class="gr-line-labs"><span>${thenLabel}</span><span>Now</span></div></div></div>
-        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'held steady'} ${isAll?'since you started':'over '+periodPhrase}.</p>
+        <p class="cb-line cb-line-lead">Your safety has ${up?'grown':'stayed about the same'} ${isAll?'since you started':'over '+periodPhrase}.</p>
         ${_seeData([[CAP(thenLabel),_yTrio(startCs)],['Now',_yTrio(recentCs)],['Check-ins in each end',k]],isAll?'Your first check-ins against your most recent ones.':'Your earliest check-ins in this time period against your most recent ones.', null, true)}`, Math.round(g*100));
     })();
 
@@ -6024,10 +7408,10 @@ function app(tab){
         return `<div class="rd-mini"><div class="rc-chart rd-chart" aria-hidden="true">${vals.map((v,i)=>`<div class="rc-col${i===last?' rc-col-best':''}" style="--sd:${i*60}ms"><span class="rc-bar" style="height:${Math.max(6,Math.round(v*70))}px;background:${i===last?STATE_COLOR(st):mute(STATE_COLOR(st))}"></span></div>`).join('')}</div><div class="rd-axis" aria-hidden="true"><span>${w[0].label}</span><span>now</span></div><div class="rd-lbl">${stateMarks(st)}${CAP(name)}</div></div>`; };
       const trend=(k)=>w[w.length-1][KM[k]]-w[0][KM[k]];
       const changes=[['v',trend('v')],['sym',-trend('sym')],['dor',-trend('dor')]].sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
-      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are holding steady.' : (changes[0][0]==='v' ? `Your safety has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
+      const lead = Math.abs(changes[0][1])<0.06 ? 'All three are about the same.' : (changes[0][0]==='v' ? `Your safety has ${trend('v')>0?'risen':'fallen'} the most.` : `Your ${_READ_NAME[changes[0][0]]} has ${trend(changes[0][0])<0?'come down':'risen'} the most.`);
       push('readings','each state over time',`
         ${shareBtn('readings')}<h2 class="panel-title">Each state over time</h2>
-        <div class="rd-row">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
+        <div class="rd-trio">${mini('v','safety','safety')}${mini('sym','fight/flight','fightflight')}${mini('dor','shutdown','shutdown')}</div>
         ${_seeData(w.map((x,i)=>[`${x.label}${i===w.length-1?' to now':''}`, `${_yTrio(x.cs)} <span class="sd-rng">(${x.cs.length})</span>`]),null,n,true)}`,
         w.map(x=>Math.round(x.v*100)+'/'+Math.round(x.s*100)+'/'+Math.round(x.d*100)).join(','));
     })();
@@ -6187,7 +7571,7 @@ function app(tab){
       return;
     }
     // The pattern cards + the deep read are the app reading a person's history BACK to
-    // them — that is the base plan. Their OWN saved check-ins, exactly as they recorded
+    // them — that is the paid plan. Their OWN saved check-ins, exactly as they recorded
     // them, are free forever. So a free account doesn't get a locked, teasing version of
     // this tab; it gets a real one: their history, raw. Free makes people feel seen; paid
     // is how they change.
@@ -6242,10 +7626,17 @@ function app(tab){
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
 
           <a class="you-reader" id="you-reader" href="#">
-            <h3 class="yr-h">Your Reflection</h3>
-            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p>
-            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your full reflection</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+            <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
+            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p></span></span>
+            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>
+          ${(function(){ let n = 0; try{ n = _lrnJournal().reduce((a,g)=>a + g.items.length, 0); }catch(e){}
+            const paid = paidNow();
+            return `<a class="you-reader you-journal" id="you-journal" href="#">
+            <span class="yr-top"><span class="yr-art yr-art-jr" aria-hidden="true">${_JR_PEN}</span><span class="yr-hd"><h3 class="yr-h">Your Journal</h3>
+            <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.') : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.'}</p></span></span>
+            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'On the paid plan'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+          </a>`; })()}
 
           <div class="deep">
             <div class="deep-block">
@@ -6320,6 +7711,7 @@ function app(tab){
       const addBtn=$('#add-ci'); if(addBtn) addBtn.onclick=screenCheckin;
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
+      const yjn=$('#you-journal'); if(yjn) yjn.onclick=(e)=>{ e.preventDefault(); screenJournal('you'); };
       // SHARE_TXT is GONE, and so is SHARE_VIZ (2026-08-01). Both were parallel decks that
       // had to be kept in step with the cards by hand, and both had drifted: SHARE_VIZ still
       // drew the 'times' card's RETIRED dot strip long after it became a bar chart, and
@@ -6398,7 +7790,7 @@ function app(tab){
       <header class="appbar"><button class="backbtn" id="sd-back">Back</button></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
     $('#sd-back').onclick = ()=>app('you');
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
@@ -6456,7 +7848,9 @@ function app(tab){
   }
   // prefix (Obstacles first) and depth ride along for Balancing / Pendulating (2026-09-20: the
   // recommender follows the engine's sequence, whose steps carry both).
-  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol'];
+  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice','emotion'];
+  // an emotion as the app keeps it ("Worry|1", or their own words) → the word the practice names
+  function _emoWord(v){ return String(v == null ? '' : v).split('|')[0].trim().slice(0, 60); }
   function _playerSrc(src){
     if(typeof src !== 'string' || src.indexOf('player.html?') !== 0) return src;
     const q = new URLSearchParams(src.slice('player.html?'.length));
@@ -6478,6 +7872,9 @@ function app(tab){
     // the background sound the person chose last (2026-09-26) rides on EVERY launch — the maker, the recommended
     // practice, the chooser, the state cards — unless the launch names its own
     if(!e.has('bed')){ const b=bedPref(); if(b.bed!=='none'){ e.set('bed', b.bed); e.set('bedvol', b.level); } }
+    // the voice the person chose (2026-09-29, VOICES) rides on every launch the same way; Justin's is the default and is not sent
+    if(!e.has('voice')){ const v=voicePref(); if(v!=='justin') e.set('voice', v); }
+    if(!paidNow()){ e.set('voices', 'justin'); if(e.has('voice') && !voiceOk(e.get('voice'))) e.delete('voice'); }   // 2026-09-30: AI voices paid only
     // 2026-09-28 (Justin, desktop: the player light inside a dark app): the player takes the theme the APP is showing,
     // never its own guess — the same document class the app painted with
     try{ e.set('theme', document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'); }catch(_){}
@@ -6493,7 +7890,7 @@ function app(tab){
         <iframe class="weaver-frame" id="weaver" src="${src}" title="guided practice" allow="autoplay; screen-wake-lock"></iframe>
       </div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`);
     // quiet placeholder until the player document has loaded (it then shows its
     // own "preparing your audio" line) — never a blank screen after "begin".
@@ -6513,7 +7910,7 @@ function app(tab){
   const P_OPTS=[
     {key:'micro',      title:'A tiny practice',          sub:'About two minutes, one sense, done'},
     {key:'mindfulness',title:'Simple mindfulness',       sub:'The gentlest, a calm place to start'},
-    {key:'anchoring',  title:'Safety anchoring',        sub:'Settling in through your senses'},
+    {key:'anchoring',  title:'Safety anchoring',        sub:'Connecting with safety through your senses'},
     {key:'self-regulation',       title:'Practice self-regulation', sub:'The deepest, meeting what is hard'},
     {key:'more',       title:'More practices',           sub:'Standalone guided practices'},
   ];
@@ -6542,6 +7939,18 @@ function app(tab){
     return known ? { bed:p.bed, level:bedLevelKey(p.level) } : { bed:'none', level:null }; }
   function bedSay(b){ return b.bed==='surprise' ? 'a surprise sound' : (BED_SAY[b.bed]||b.bed); }
   function bedWords(b){ b=b||bedPref(); if(b.bed==='none') return 'no background sound'; return bedSay(b)+' in the background'; }
+  // ---- the voice (2026-09-29, VOICES — Justin, 2026-09-28 night: "i am not replacing my voice. it stays as a 'Justin' option,
+  // alongside 'Poppy', just like users can pick between background noises and visuals… I am expecting to add a couple more").
+  // [key, name] — keys MUST match practice-engine data.js VOICES; the names are his (no voice is called "AI" unless he names it so).
+  // Remembered (Store.prefVoice, synced like the sound), carried on every launch (_playerSrc), changed from the maker, Settings
+  // or the player's customizer (the report brings a change back).
+  const VOICES=[['justin','Justin'],['poppy','Poppy']];   // AI Justin was here 2026-09-30 and came out the same day (Justin: "the natural Justin is better"); a saved 'aijustin' reads as Justin
+  // ✅ THE AI VOICES ARE PAID ONLY (Justin, 2026-09-30: "make the ai voices paid only" — in Poppy's prod release). Justin's own voice is for
+  // everyone; a free member's saved AI voice is kept (it comes back if they subscribe) but plays as Justin's, and every launch tells the
+  // player `voices=justin`, so its customizer shows no Voice row. Reaching for an AI voice opens the paid-plan screen.
+  function voiceOk(v){ return v==='justin' || paidNow(); }
+  function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) && voiceOk(v) ? v : 'justin'; }
+  function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
@@ -6601,7 +8010,7 @@ function app(tab){
   // deepest one, describing it.
   // the safety practices, in the engine's order; '' is plain Connect (sends no skill)
   const MK_SAFETY = [
-    ['',                 'settling into safety',                    "You'll settle into safety and stay there."],
+    ['',                 'connect with safety',                     "You'll connect with safety and stay there."],   // not "settling into safety" (Justin, 2026-10-02)
     ['validate-safety',  'finding safety and naming it',            "You'll find safety in your body and name what it is."],
     ['normalize-safety', 'naming it and seeing why it makes sense', "You'll find safety, name it, and see why it makes sense."],
     ['general-safety',   'noticing it in the body overall',         "You'll find safety, name it, see why it makes sense, and notice how it feels in the body overall."],
@@ -6654,6 +8063,7 @@ function app(tab){
       const name = T(sk==='balancing'?'balancing':'pendulating');
       const lead = pState.obst
         ? `This practice gives you four Obstacle statements and leads you through ${name} whatever emotion surfaces in response`
+        : _emoParse(pState.emotion) ? `This practice leads you through ${name}, working with ${_emoPhrase(pState.emotion)}`
         : `This practice leads you through ${name} ${MK_EMO_WORDS[pState.emotion] || 'whatever emotion surfaces'}`;
       return `${lead}, ${mkDepthWords(pState.depth)}.`;
     }
@@ -6672,7 +8082,7 @@ function app(tab){
     else if(k==='self-regulation') bits.push(mkSelfLine());
     else bits.push(aboutOf(k, pState.sense));
     if((k==='self-regulation'||k==='micro'||(k==='anchoring' && pState.safetySkill)) && pState.sense) bits.push(`your safety anchor is ${pState.sense}.`);
-    if(k==='self-regulation' && !pState.obst && !mkHasDepth(pState.skill) && MK_EMO_WORDS[pState.emotion]) bits.push(`you're working with ${MK_EMO_WORDS[pState.emotion]}.`);
+    if(k==='self-regulation' && !pState.obst && !mkHasDepth(pState.skill) && _emoPhrase(pState.emotion)) bits.push(`you're working with ${_emoPhrase(pState.emotion)}.`);
     if(k==='self-regulation' && pState.holdWatch && holdWatchOffered(pState.skill, pState.deepest)) bits.push(MK_HOLD_LINE);
     if(k!=='micro') bits.push(`with ${silLabel(pState.silence)} silence between the guidance.`);
     if(openEnded) bits.push('It keeps going until you choose to stop.');
@@ -6730,6 +8140,7 @@ function app(tab){
       // preload — consume it once rather than re-deriving from today's recommendation,
       // which may have moved on since that shape was chosen.
       pState = _pendingPState; _pendingPState = null;
+      pState._openKey = pState.key || pState.mkKey || null;   // land with that practice's sheet open
     } else {
       // plain arrival at the practice tab: "make my own" starts from scratch, not
       // silently pre-filled with today's recommendation (that's what the "made for
@@ -6741,7 +8152,7 @@ function app(tab){
                  deepest:false, prefix:null, depth:null, obst:false, safetySkill:'', holdWatch:false, holdSeconds:60, open:false, emotion:null,
                  makerOpen:false, mkKey:'anchoring' };
     }
-    renderPracticeChooser(true);   // animate the tuned card in on tab arrival only
+    renderPracticeTab(true);   // animate the Recommended card in on tab arrival only
   }
 
   // (the old "for you" pre-screen \u2014 renderForYou/practiceContextLine \u2014 was dead
@@ -6764,6 +8175,28 @@ function app(tab){
   // what it is, its shape, why it was chosen — with Begin / change.
   // sentence-case a lowercase advisor string for the blog-styled plan screen
   function properCase(s){ return String(s==null?'':s).replace(/(^|[.!?]\s+)([a-z])/g,(m,p,c)=>p+c.toUpperCase()).replace(/\bi\b/g,'I').replace(/\bi(['’])/g,'I$1'); }
+  // the book chapters that teach a practice in depth (Justin, 2026-10-02: "links within the practice description that go to
+  // the appropriate chapters from the books"): the skill first, then the anchor
+  function _planChapters(reco){
+    const L = window.Learning; if(!L) return [];
+    const SENSE = { touch:'sensory-anchors', sound:'sensory-anchors', sight:'sensory-anchors', movement:'anchor-movement-body-breath', imagination:'anchor-memories' };
+    const SKILL = { 'validate-defense':'validating-and-normalizing', 'normalize-defense':'validating-and-normalizing', imagery:'imagery-and-invitation', obstacles:'obstacles',
+      balancing:'balancing-and-pendulating', pendulating:'balancing-and-pendulating', 'validate-safety':'validating-and-normalizing', 'normalize-safety':'validating-and-normalizing',
+      'general-safety':'cue-to-anchor', 'specific-safety':'cue-to-anchor', 'describe-safety':'description', 'interest-safety':'impulses' };
+    const k = reco.practiceKey, ids = [];
+    if(k === 'micro') ids.push('making-change');
+    if(k === 'mindfulness') ids.push('mindfulness-and-meditation');
+    if(k === 'anchoring') ids.push(SKILL[reco.skill] || 'cue-to-anchor');
+    if(k === 'self-regulation'){ if(reco.prefix === 'obstacles') ids.push('obstacles'); ids.push(SKILL[reco.skill] || 'ssiec'); if(reco.depth === 'description' || reco.descDefense) ids.push('description'); if(reco.holdWatch) ids.push('holding-and-watching'); }
+    if(k !== 'mindfulness' && reco.sense && SENSE[reco.sense]) ids.push(SENSE[reco.sense]);
+    return [...new Set(ids)].map(id=>L.byId(id)).filter(Boolean).slice(0, 3);
+  }
+  // "Back should be true back" (Justin, 2026-10-04): a screen that opens the plan hands it a way back to itself, and the reader
+  // lands where they were on it
+  function _trueBack(show){
+    const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0;
+    return ()=>{ show(); requestAnimationFrame(()=>{ const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; }); };
+  }
   function renderPlan(reco, from){
     // The plan reader IS the matching, rendered — "why this practice, for you, now".
     // It is the paid line. Guard here as well as at the call sites (defense in depth).
@@ -6771,9 +8204,11 @@ function app(tab){
     from = from || 'practice';   // where "back" returns to: the chooser, or the Now tab's row
     clearFigures(); document.body.classList.remove('in-practice');
     currentTab = 'practice';
-    const tk = trackOf(reco.practiceKey);
+    const tk = reco.practiceKey==='self-regulation' ? { cls:'def-'+(_domDefense()||'freeze') } : trackOf(reco.practiceKey);
     const planNm = Store.getName();
-    const planTitle = planNm ? `${escapeHtml(planNm)}’s custom practice` : 'Your custom practice';
+    // a step chosen on the Unstucking Pathway is headed by the step's own name, not "custom practice" (Justin, 2026-10-03: "The
+    // pathway's chosen step still goes to the custom one for me")
+    const planTitle = (reco.fromPath && reco.pathTitle) ? escapeHtml(reco.pathTitle) : planNm ? `${escapeHtml(planNm)}’s custom practice` : 'Your custom practice';
     const chLabel = reco.challenge!=null ? Store.challengeLabel(reco.challenge) : null;
     // the customized items used to be a separate key/value list; they now live inside
     // "what to expect" as track-colored tokens woven into the sentence.
@@ -6789,18 +8224,26 @@ function app(tab){
       (reco.holdWatch && holdWatchOffered(reco.skill, reco.descDefense)) ? `${hl('hold & watch')} at the end, for ${hl(holdDurWords(reco.holdWatchTargetSeconds||30))}` : null,
       `with ${hl(silLabel(reco.silence))} silence between guidance`,
       (reco.practiceKey!=='more' && bedPref().bed!=='none') ? hl(bedWords()) : null,
-      chLabel ? `challenge level at ${hl(chLabel)}` : null,
+      chLabel ? `set for ${hl(chLabel)}` : null,   // no "level" (retired vocabulary)
       reco.openEnded ? `${hl('open-ended')}, so it keeps going until you choose to stop` : (planEst ? `about ${hl(planEst+' minutes')} in all` : null),
     ].filter(Boolean);
     const joinList = (a)=> a.length<=1 ? (a[0]||'') : a.slice(0,-1).join(', ')+' and '+a[a.length-1];
-    const shapedSentence = shapeBits.length ? `Tuned for you, ${joinList(shapeBits)}.` : '';
+    // said plainly (Justin, 2026-10-02: "I really don't like the 'tuned to you' language … 'Based on what's been most helpful
+    // from your practices'"): that line once there are practices to go on; a surprise says it is random; otherwise just the shape
+    let _hadPractice = false; try{ _hadPractice = ((Store.sessions && Store.sessions()) || []).length > 0; }catch(e){}
+    const shapeLead = reco.surprise ? 'Surprise me' : reco.variety ? 'Your choices' : _hadPractice ? 'Based on what’s been most helpful from your practices' : '';
+    const _capFirst = t => t.replace(/^((?:<[^>]+>)*)([a-z])/, (m,p,ch)=>p+ch.toUpperCase());
+    const shapedSentence = shapeBits.length ? (shapeLead ? `${shapeLead}: ${joinList(shapeBits)}.` : `${_capFirst(joinList(shapeBits))}.`) : '';
+    // Back floats at the bottom left like Learn and Reflect (Justin, 2026-10-02, the Practice tab redesign)
+    document.body.classList.remove('rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
     root.innerHTML = `
-      <header class="appbar"><button class="backbtn" id="plan-back">Back</button></header>
+      <header class="appbar read-appbar"></header>
       <div class="scroll" id="content"></div>
+      <div class="fl-dock" id="fl-dock"><button class="tab-back-float" id="plan-back" type="button">${BACK_SVG}<span>Back</span></button></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
-    $('#plan-back').onclick = ()=>app(from);
+    $('#plan-back').onclick = ()=>(typeof from === 'function' ? from() : app(from));   // a step from the Unstucking Pathway comes back to it
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     $('#content').innerHTML = `<div class="view plan-view track-${tk.cls}">
       <div class="plan-head">
@@ -6810,36 +8253,26 @@ function app(tab){
         </div>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">Why this practice was chosen for you</p>
+        <p class="sec-h">${reco.fromPath ? (planNm ? `${escapeHtml(planNm)}’s next step` : 'Your next step') : 'Why this practice was chosen for you'}</p>
         <p class="plan-why">${escapeHtml(properCase(reco.reason))}</p>
       </div>
       <div class="plan-sec">
-        <p class="sec-h">What to expect in your custom practice</p>
+        <p class="sec-h">${reco.fromPath ? 'What to expect' : 'What to expect in your custom practice'}</p>
         <p class="plan-about">${escapeHtml(properCase(aboutOf(reco.practiceKey, reco.sense)))}</p>
         ${shapedSentence?`<p class="plan-about plan-shaped">${shapedSentence}</p>`:''}
+        ${(()=>{ const ch = _planChapters(reco); return ch.length ? `<div class="plan-books"><p class="plan-books-h">Learn more about these skills:</p><ul class="plan-books-l">${ch.map(p=>`<li><a href="#" class="rd-inlink plan-book" data-piece="${escapeHtml(p.id)}">${escapeHtml(p.title)}</a></li>`).join('')}</ul></div>` : ''; })()}
       </div>
+      ${_emoPlanRow(reco)}
       <div class="plan-actions">
-        <button class="set-quiet actionbar-aux" id="plan-change">Change this practice</button>
+        <button class="set-quiet actionbar-aux" id="plan-change">Customize this practice</button>
         <button class="btn block" id="plan-begin">Begin</button>
       </div>
     </div>`;
     $('#plan-begin').onclick = ()=>launchWeaver(reco);
-    $('#plan-change').onclick = ()=>{
-      // stage the current shape for tabPractice() to pick up, then navigate once — it
-      // used to call app('practice') (which rendered the tab's own from-scratch chooser
-      // once) and THEN overwrite pState and render a second time, a visible double-render
-      // for what should be a single hop straight into editing this practice
-      // (Justin 2026-07-28: "consolidate the repetitive practice screen"). Landing with
-      // the maker already open (rather than the collapsed toggle) skips re-showing the
-      // same "made for you" card the person just came from.
-      _pendingPState = { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
-                 deepest:holdWatchOffered(reco.skill, reco.descDefense),
-                 prefix:((reco.skill==='balancing'||reco.skill==='pendulating') ? (reco.prefix||null) : null),
-                 depth:((reco.skill==='balancing'||reco.skill==='pendulating') ? (reco.depth||null) : null),
-                 holdWatch:(!!reco.holdWatch && holdWatchOffered(reco.skill, reco.descDefense)), holdSeconds:reco.holdWatchTargetSeconds||60, open:false, emotion:null,
-                 makerOpen:true, mkKey:(MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring') };
-      app('practice');
-    };
+    _emoPlanWire(reco, from);
+    root.querySelectorAll('.plan-book').forEach(a=>a.onclick=e=>{ e.preventDefault(); const pc = window.Learning && Learning.byId(a.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:()=>renderPlan(reco, from), tab:'practice' }); });
+    // the same sheet as the Practice tab, filled in with this practice (Justin, 2026-10-02: "Customize this practice")
+    $('#plan-change').onclick = ()=>{ _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
   }
 
   // caret shown on every dial — an obvious "opens a menu" chevron (replaces the old
@@ -6878,613 +8311,988 @@ function app(tab){
     wrap.querySelectorAll('[data-val]').forEach(b=>b.onclick=()=>{ close(); onPick(b.dataset.val); haptic('start'); });
   }
 
-  // ---- 7b: the "make my own" sentence-maker (paid, mobile) --------------------
-  // Heading + the recommended "made for you" card (kept), then a collapsible
-  // "make my own" that reads as one plain sentence whose underlined words are dials.
-  // The sentence is fully dynamic: each clause appears only when it applies to the
-  // chosen practice (mindfulness has no sense; micro has no silence; only
-  // self-regulation carries skill / emotion / hold-&-watch / length). Picking a
-  // standalone session or "surprise" collapses every dial but the type.
-  /* ✅ VARIETY (Justin, 2026-09-25: "we should also offer the user variety if they want it… they can pick from a
-   * menu, including 'random'"). In the recommended card: "Change the safety anchor" opens a menu at the bottom of
-   * the screen with the anchors and "Surprise me". A pick changes THIS practice only (settings are untouched) and
-   * opens it ready to start; it still counts toward finding the person's best anchor (store.js anchorPick). */
-  function varietyLink(reco){
-    if(!reco || reco.practiceKey==='mindfulness' || !reco.sense) return '';
-    /* ✅ Inside the recommended card, named for what it changes (Justin, 2026-09-25: "should live within the Recommended
-     * practice's card. Right now, I don't know the difference between it and 'Make my own.' And name it 'Change the
-     * safety anchor' instead.") */
-    return `<button class="vs-link" id="vs-open" type="button">Change the safety anchor</button>`;
+  // ── THE PRACTICE TAB, ONE LIST (Justin, 2026-10-02: option A, "the cleanest and simplest to grasp") ─────────
+  // One screen for everyone, paid and free, phone and computer: the Recommended card on top, then every practice as a row
+  // with a cover square ("Make your own", "Guided practices"). Tapping a practice slides up one sheet with its choices as
+  // labeled rows; each row opens the menus the maker already had. Locked things keep full opacity and show the lock and
+  // "Paid plan"; a tap jiggles the lock, then opens the paid plan screen. Safety is the safety yellow everywhere (not the
+  // brand's phase-two blue: "it creates a dilemma with the other safety heart coloring"); the self-regulation mark follows
+  // the person's dominant defensive state, in its color and its marks.
+  // the person's leading defense over the last week (flight/fight, shutdown, or freeze when the two are level), or null
+  // with too little to go on. Same flavour rule as the naming engine (current.js): level unless one is 1.4x the other.
+  function _domDefense(){
+    try{
+      const cs = (Store.checkins && Store.checkins()) || []; if(!cs.length) return null;
+      const wk = Date.now() - 7*864e5;
+      let r = cs.filter(c => +new Date(c.t) >= wk); if(r.length < 2) r = cs.slice(-5);
+      const s = r.reduce((a,c)=>a+(+c.sym||0),0)/r.length, d = r.reduce((a,c)=>a+(+c.dor||0),0)/r.length;
+      if(s + d <= 0) return null;
+      if(Math.max(s,d) < 1.4*Math.min(s,d)) return 'freeze';
+      return s > d ? 'fightflight' : 'shutdown';
+    }catch(e){ return null; }
   }
-  function bindVariety(reco){
-    const b=$('#vs-open'); if(!b) return;
-    b.onclick=(e)=>{ e.stopPropagation(); openVariety(reco); };
-    b.onkeydown=(e)=>e.stopPropagation();
+  // the defense marks: the leading defense's own marks in its color, or (nothing to go on) both marks in their own colors
+  function _defMk(k){
+    if(k) return _rdMk(k);
+    return `<span class="rd-mk" aria-hidden="true">${ico('bolt',{cls:'rd-mkg', color:STATE_COLOR('fightflight')})}${ico('x',{cls:'rd-mkg', color:STATE_COLOR('shutdown')})}</span>`;
   }
-  function openVariety(reco){
-    const senses = reco.practiceKey==='micro' ? ['touch','sound','sight'] : P_SENSES;
-    const others = senses.filter(x=>x!==reco.sense);
-    const old=document.getElementById('vs-sheet'); if(old) old.remove();
-    const wrap=document.createElement('div');
-    wrap.id='vs-sheet'; wrap.className='vs-wrap';
-    wrap.innerHTML=`<div class="vs-scrim" data-vs-close></div>
-      <div class="vs-sheet" role="dialog" aria-modal="true" aria-labelledby="vs-h">
-        <p class="vs-h" id="vs-h">Anchor this practice with</p>
-        <div class="vs-opts">${senses.map(x=>`<button class="vs-opt${x===reco.sense?' vs-rec':''}" type="button" data-vs="${x}"><span>${CAP(x)}</span>${x===reco.sense?'<span class="vs-tag">recommended</span>':''}</button>`).join('')}
-          <button class="vs-opt vs-surprise" type="button" data-vs="surprise"><span>Surprise me</span></button>
-        </div>
-        <button class="vs-cancel" type="button" data-vs-close>Cancel</button>
-      </div>`;
-    document.body.appendChild(wrap);
-    requestAnimationFrame(()=>wrap.classList.add('on'));
-    const close=()=>{ wrap.classList.remove('on'); setTimeout(()=>wrap.remove(),260); };
-    wrap.querySelectorAll('[data-vs-close]').forEach(x=>x.onclick=close);
-    wrap.querySelectorAll('[data-vs]').forEach(x=>x.onclick=()=>{
-      let pick=x.dataset.vs;
-      if(pick==='surprise') pick=others[Math.floor(Math.random()*others.length)]||reco.sense;
-      close();
-      if(pick===reco.sense) return renderPlan(reco);
-      const r=Object.assign({}, reco, { sense:pick, variety:true,
-        reason: `you picked ${pick} for this practice. the recommendation picks up again next time.` });
-      renderPlan(r);
-    });
-    const f=wrap.querySelector('.vs-opt'); if(f) try{ f.focus(); }catch(e){}
+  const P8_LINE = { micro:'Practice connecting with the present moment.', mindfulness:'Practice connecting with the present moment.',
+    anchoring:'Practice connecting with safety.', 'self-regulation':'Practice connecting with defense after anchoring into safety.' };
+  const P8_ROWS = [
+    { k:'micro', t:'A tiny practice', s:'the present moment' },
+    { k:'mindfulness', t:'Simple mindfulness', s:'the present moment' },
+    { k:'anchoring', t:'Safety anchoring', s:'connecting with safety' },
+    { k:'self-regulation', t:'Self-regulation', s:'connecting with defense' },
+    { k:'surprise', t:'Surprise me', s:'A self-regulation practice put together at random' },
+  ];
+  // the cover square's mark for each practice (ink glyphs for the present-moment ones and the guided ones)
+  function _p8Mark(k, def){
+    if(k==='anchoring') return _rdMk('safety');
+    if(k==='self-regulation') return _defMk(def);
+    if(mkIsSession(k)) return MK_TYPE_ICO.session;
+    return MK_TYPE_ICO[k] || '';
   }
-
-  function renderMaker7b(animateIn){
-    const c=content();
-    const reco = _recommendSafe(true);
-    const rtk = trackOf(reco.practiceKey);
-    // defensive: some entry paths (e.g. the plan screen's "change this practice") seed
-    // pState without a maker type. Never open the maker on a blank practice type.
-    if(!pState.mkKey || (MK_SHAPED.indexOf(pState.mkKey)<0 && !mkIsSession(pState.mkKey) && pState.mkKey!=='surprise')){
-      pState.mkKey = (MK_SHAPED.indexOf(reco.practiceKey)>=0 ? reco.practiceKey : 'anchoring');
-    }
-    if(!pState.sense) pState.sense='touch';
-    if(!pState.skill) pState.skill='imagery';
-    if(!pState.silence) pState.silence=8;
+  // the band and choice color of a practice: safety yellow, the leading defense, or neutral
+  function _p8Band(k, def){
+    if(k==='anchoring') return STATE_COLOR('safety');
+    if(k==='self-regulation') return def ? STATE_COLOR(def) : STATE_COLOR('freeze');
+    return 'var(--hairline)';
+  }
+  function _p8Tc(k, def){
+    if(k==='anchoring') return 'track-safety';
+    if(k==='self-regulation') return 'track-def-' + (def || 'freeze');
+    return '';
+  }
+  // a locked thing was tapped: the lock jiggles, then the paid plan screen opens
+  function _p8Locked(el, what){
+    const lk = el && el.querySelector('.rd-lk');
+    const reduce = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if(!lk || reduce) return gateSubscribe(what);
+    if(el._jig) return; el._jig = true;
+    lk.classList.remove('p8-jig'); void lk.getBoundingClientRect(); lk.classList.add('p8-jig');
+    haptic('start');
+    setTimeout(()=>{ el._jig = false; lk.classList.remove('p8-jig'); gateSubscribe(what); }, 520);
+  }
+  // pState from a recommendation, for "Customize this practice"
+  function _pStateFromReco(reco){
+    const bp = (reco.skill==='balancing'||reco.skill==='pendulating');
+    pState = Object.assign({}, pState||{}, { key:(reco.practiceKey==='more'?null:reco.practiceKey), sense:reco.sense||'touch', skill:reco.skill||'imagery', silence:reco.silence||8, med:null,
+      deepest:holdWatchOffered(reco.skill, reco.descDefense), prefix:(bp ? (reco.prefix||null) : null), depth:(bp ? (reco.depth||null) : null),
+      obst:false, safetySkill:'', holdWatch:(!!reco.holdWatch && holdWatchOffered(reco.skill, reco.descDefense)), holdSeconds:reco.holdWatchTargetSeconds||60,
+      open:!!reco.openEnded, emotion:(reco.emotionIntent||null) });
+    if(pState.key==='micro' && ['movement','imagination'].indexOf(pState.sense)>=0) pState.sense='touch';
     mkNormalize();
-    const tunedNm = Store.getName();
-    // the hand-drawn underline sits under the NAME (or "your"), not under "practice"
-    // (Justin 2026-07-24) — so the possessive lead is its own underlined span.
-    const nameLead = tunedNm ? `${escapeHtml(tunedNm)}’s` : 'your';
-    const _tEst = estMinutes(reco.practiceKey, reco.silence);
-    const tunedCard = `
-      <div class="wincard tuned-card track-${rtk.cls}${animateIn?' tc-in':''}" id="foryou" role="button" tabindex="0">
-        <span class="wc-text">
-          <span class="tuned-kicker">Made for you</span>
-          <span class="wc-title"><span class="tuned-name">${CAP(nameLead)}<svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg></span> custom practice</span>
-          <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
-          ${reco.openEnded ? `<span class="tuned-meta">Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : (_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : '')}
-          ${varietyLink(reco)}
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </div>`;
+  }
+  // a random self-regulation practice, shown as its plan first (Justin 2026-07-24: surprise reveals the details before it begins)
+  function _p8Surprise(){
+    const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
+    const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
+    const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
+    renderPlan({ practiceKey:'self-regulation', sense:rsense, skill:rskill, silence:rsilence, holdWatch:false, holdWatchTargetSeconds:null, surprise:true,
+                 reason:'A surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
+  }
 
-    c.innerHTML=`<div class="view p-view p7-view">
-      <div class="scr-head"><p class="eyebrow"></p><h2 class="scr-h">Your practice.</h2></div>
-      ${tunedCard}
-      <button class="p7-maker-toggle" id="p7-toggle" type="button" aria-expanded="${pState.makerOpen?'true':'false'}"></button>
-      <div class="p7-shape" id="p7-shape" ${pState.makerOpen?'':'hidden'}></div>
-    </div>`;
+  // ── the Unstucking Pathway (Justin, 2026-10-02: "Skill progress bar or map that is connected to lessons on each skill so the
+  // user can see where they are and where they are going"; he picked option A, the path, and named it). Every practice in the
+  // order of the Academy's Unstucking Pathway course: the present moment, the safety anchor, every safety skill, then defense.
+  // Skill names only; what each skill is comes from the chapter's own words. Never a score: a step is "Completed within your
+  // capacity" (the recommender's cleared rule; Justin: never "gone well"). "Working on now" is whatever the recommended practice
+  // picked, so the two never disagree; when the recommendation eases back, the screen says so.
+  const UP_TITLE = 'The Unstucking Pathway';
+  // skill names as the book says them (Justin, 2026-10-02: "I don't use 'general' and 'specific' as skill names ... Use 'Non-safety
+  // generally' and 'Non-safety specifically' and the mirror for the safety path. 'Normalizing' should be 'Normalizing safety/non-safety'
+  // respective to the skill. Same with Validating. 'Description' = Describing safety/non-safety")
+  const UP_DEF_TITLE = { 'validate-defense':'Validating non-safety', 'normalize-defense':'Normalizing non-safety', imagery:'Imagery & invitation', balancing:'Balancing', pendulating:'Pendulating' };
+  const UP_SAFE_TITLE = { anchoring:'Anchoring', 'validate-safety':'Validating safety', 'normalize-safety':'Normalizing safety', 'general-safety':'Safety generally',
+    'specific-safety':'Safety specifically', 'describe-safety':'Describing safety', 'interest-safety':'Interest Impulse' };
+  // what each skill is, in the chapter's own words (Justin, 2026-10-02: "pull from the relevant article's words don't make up your own")
+  const UP_Q = {
+    mindfulness: ['For our purposes, mindfulness refers to an awareness of your present moment experience, whether internal or external. Mindfulness is about being present in the moment and approaching things with curiosity.'],
+    micro: ['Mindfulness can happen anywhere and at any time, even in a defensive state or while moving around.'],
+    senses: ['Sensory safety anchors use your five senses. These five senses take information from the external environment and send it to your brainstem.'],
+    imagination: ['If you struggle to identify memories that serve as safety anchors, your imagination can be a powerful substitute: it often produces similar effects.'],
+    movement: ['Once neurocepting safety cues passively from the environment, you can use active means to feel safety, even anchoring into it. We’ll focus on movement as one avenue for active safety anchoring.'],
+    anchoring: ['Safety is the foundation for everything we do. We start in safety, maintain safety, and end in safety. To get firmly anchored in safety, you will work from the outside in and brain to body.'],
+    validating: ['Validating is the courageous and honest act of acknowledging what is truly happening within you.', 'Validation is recognizing your present internal experience without judgment or attempts to change it.'],
+    normalizing: ['Normalizing is the process of making sense of your SSIEC (State, Sensation, Impulse, Emotion, and Cognition) experiences by situating them within the context of your life, past and/or present.', 'Normalizing recognizes that your experiences are not random occurrences but logical outcomes given your unique history and circumstances.'],
+    general: ['After validating and normalizing the safety emotion, we take the process a step further and begin to embody it.', '“What does [safety emotion] feel like in my body overall?”'],
+    specific: ['After identifying the overall experience in the body, we narrow it down further to see if there is one spot where it’s even more obvious.', '“Where does [safety emotion] live in my body?”'],
+    describeSafety: ['If you can maintain safety while noticing where it lives in the body, then it’s time to Experience it. You will Experience it by using description. Describing helps you mindfully connect with your somatic felt experience in the present moment.'],
+    interest: ['After describing what the safety emotion feels like in that one spot in your body, ask yourself whether you feel curious about non-safety experiences. If the Interest Impulse is present, you have successfully anchored deeply in your safety state and are ready to shift your focus toward defense.'],
+    imagery: ['Imagery & Invitation intentionally allow mild to moderate defensive activation through thought, while you also do something else. Imagery uses your imagination to craft a picture of your emotions. Invitation permits that emotion to coexist with you instead of rejecting it.'],
+    obstacles: ['Think of Obstacles as unexpected visitors that appear during your mindful practice. They’re internal experiences (Sensations, Impulses, Emotions, Cognitions) that surface and likely disrupt your focus.'],
+    balancing: ['Balancing is your ability to mindfully anchor in safety, allow a defensive experience, and then intentionally shift your focus back to safety, allowing both safety and defense to be present within you at the same time.'],
+    pendulating: ['Pendulating is the ability to deliberately and consciously shift between feelings of safety and defense. It’s similar to Balancing, but with Pendulating, you continuously alternate between defense and safety.'],
+    generalDef: ['When you first practice Balancing and Pendulating, you’ll focus on the Anchored Awareness and Witnessing levels, recognizing defense and how it appears in the body in general.'],
+    describeDef: ['When you’re ready to connect more deeply, Description is the skill that allows you to Experience defense fully.'],
+    which: ['“But which non-safety experiences, Justin?” Great question!'],   // (Justin, 2026-10-02: cut "Here are... allows.")
+    hold: ['Holding is kind of like a frozen moment in time. You pay attention to both safety and defense as Sensations in your body.', 'Watching is remaining open to what may happen next as a result of Holding.'],
+  };
+  // the chapter to read before a practice on the path; each one shows once, before the first practice that uses it
+  const UP_READ = { micro:['making-change'], mindfulness:['mindfulness-and-meditation'], 'anchor:sound':['anchor-environment','sensory-anchors'],
+    'anchor:imagination':['anchor-memories'], 'anchor:movement':['anchor-movement-body-breath'], anchoring:['cue-to-anchor'],
+    'validate-safety':['validating-and-normalizing'], 'describe-safety':['description'], 'interest-safety':['impulses'],
+    imagery:['imagery-and-invitation'], 'obstacles>imagery':['obstacles'], 'balancing@general':['ssiec','balancing-and-pendulating'],
+    'balancing@description':['holding-and-watching'] };
+  // what a step says under its name; an empty one says nothing (Justin, 2026-10-02: "'Later' is also a non statement. Cut it.")
+  const UP_ST = { done:'Completed within your capacity', now:'Working on now', next:'Up next', tried:'Practiced', later:'', open:'',
+    best:'Works best for you', mine:'Selected' };
+  const UP_ANCHORS = ['sound','sight','touch','imagination','movement'];
+  // ── Academy progress on the Pathway (Justin, 2026-10-03). The Circle API cannot read lesson-by-lesson progress, so the
+  // Stage tags Circle adds itself when a member finishes every lesson in a Stage are the record (Store.academyStage(),
+  // 0–3, stamped by circle-membership / membership-sweep). He picked "opens the steps, app confirms": "people tend to mark
+  // things off without actually mastering the skill just to get through it. this app actually tracks their skill
+  // performance." So Stage 2 opens the seven safety steps and Stage 3 the defense steps, each marked "Completed in the
+  // Academy"; the filled check still comes only from a good result in the app, and the recommended practice still goes by
+  // the member's own results. Stage 1 (Foundational Knowledge) is knowledge, not a skill step. The member can keep it or
+  // start fresh (a card, then Settings); the choice syncs with the account (contexts "academy:choice", ["keep|2"]).
+  const ACAD_CTX = 'academy:choice';
+  const ACAD_STAGE_NAME = { 1:'Stage 1: Foundational Knowledge', 2:'Stage 2: Building Safety', 3:'Stage 3: Unstucking Defense' };
+  function _acadStage(){ try{ return (Store.academyStage && Store.academyStage()) || 0; }catch(e){ return 0; } }
+  function _acadChoice(){ try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : {}; const v = m && Array.isArray(m[ACAD_CTX]) ? m[ACAD_CTX][0] : null;
+    const p = /^(keep|fresh)\|([0-3])$/.exec(String(v || '')); return p ? { choice:p[1], stage:+p[2] } : null; }catch(e){ return null; } }
+  function _acadSetChoice(choice){
+    const v = choice + '|' + _acadStage();
+    try{ if(Store.saveContexts) Store.saveContexts(ACAD_CTX, 'Academy progress', [v]); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[ACAD_CTX] = [v]; _ctxSave(m); } }catch(e){}
+    try{ if(Store.trackEvent) Store.trackEvent('academy_choice', { choice, stage:_acadStage() }); }catch(e){}
+  }
+  // the Stage the Pathway counts: none once the member chose to start fresh
+  function _acadOn(){ const s = _acadStage(); if(s < 2) return 0; const c = _acadChoice(); return c && c.choice === 'fresh' ? 0 : s; }
+  // what they completed, in words: "Stage 2: Building Safety and Stage 3: Unstucking Defense"
+  function _acadDone(s){ return [2,3].filter(n => n <= s).map(n => ACAD_STAGE_NAME[n]).join(' and '); }
+  const UP_ANCHOR_CH = { sound:'sensory-anchors', sight:'sensory-anchors', touch:'sensory-anchors', imagination:'anchor-memories', movement:'anchor-movement-body-breath' };
+  const UP_ANCHOR_MODE = 'snb_anchor_mode';   // 'chosen' = the member picked their anchor here; anything else = the app figures it out
+  const _UP_BOOK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.5C10 5 7 4.6 4 5v13c3-.4 6 0 8 1.5 2-1.5 5-1.9 8-1.5V5c-3-.4-6 0-8 1.5z"/><path d="M12 6.5v13"/></svg>';
+  const _UP_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6.5a3.5 3.5 0 0 0 0-7h-5a3.5 3.5 0 0 1 0-7H16"/></svg>';
+  const _UP_LINE = '<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>';
+  const _UP_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  let _upY = null;
+  const _UP_DOWN = '<span class="up-down" aria-hidden="true"><svg viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 6 6l4.5-4.5"/></svg></span>';
+  let _upPickOpen = false;   // the anchor choices are open again after "Change"
+  const UP_ANCHOR_READ = ['anchor-environment','sensory-anchors','anchor-memories','anchor-movement-body-breath'];
 
-    const tuned=$('#foryou'); if(tuned){ tuned.onclick=()=>renderPlan(reco); tuned.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); renderPlan(reco); } }; }
-    bindVariety(reco);
-    const toggle=$('#p7-toggle');
-    const paintToggle=()=>{
-      const open=pState.makerOpen;
-      toggle.textContent = open ? 'Hide' : 'Make my own';
-      toggle.setAttribute('aria-expanded', open?'true':'false');
-    };
-    paintToggle();
-    toggle.onclick=()=>{
-      pState.makerOpen=!pState.makerOpen;
-      const sh=$('#p7-shape');
-      if(pState.makerOpen){ sh.hidden=false; paintMaker(true); } else { sh.hidden=true; sh.innerHTML=''; }
-      paintToggle();
-    };
-    if(pState.makerOpen) paintMaker(true);
-
-    // build one dial pill (an underlined, tappable word in the sentence)
-    function dial(kind, label, extraCls){
-      return `<button class="p7-dial${extraCls?' '+extraCls:''}" type="button" data-dial="${kind}"><span class="p7-dial-t">${escapeHtml(label)}</span>${MK_CARET}</button>`;
+  function _upAnchorChosen(){ try{ const p = Store.prefSense && Store.prefSense(); return (localStorage.getItem(UP_ANCHOR_MODE) === 'chosen' && UP_ANCHORS.indexOf(p) >= 0) ? p : null; }catch(e){ return null; } }
+  function _upDefTitle(key){
+    const p = Store.sequenceParts ? Store.sequenceParts(key) : null; if(!p) return CAP(key || '');
+    if(p.skill === 'obstacles') return 'Obstacles';
+    const t = UP_DEF_TITLE[p.skill] || CAP(p.skill);
+    return p.prefix === 'obstacles' ? t + ' with Obstacles' : t;
+  }
+  // the chapter's words for a step, then (for a practice whose shape the name doesn't say) the practice in Justin's 2026-09-20 wording
+  function _upWhat(it){
+    if(it.kind === 'open') return { q:[], line:'The same practice with no set ending. It keeps going until you choose to stop, then closes.' };
+    if(it.kind === 'present') return { q:UP_Q[it.key] || [] };
+    if(it.kind === 'emo') return { q:UP_Q.which };
+    if(it.kind === 'anchor-auto') return { q:[], line:'The app picks an anchor for each practice and keeps track of which one helps you connect with safety most.' };
+    if(it.kind === 'anchor') return { q:UP_Q[it.key === 'imagination' ? 'imagination' : it.key === 'movement' ? 'movement' : 'senses'] };
+    if(it.kind === 'safety'){
+      const S = { anchoring:'anchoring', 'validate-safety':'validating', 'normalize-safety':'normalizing', 'general-safety':'general',
+        'specific-safety':'specific', 'describe-safety':'describeSafety', 'interest-safety':'interest' };
+      return { q:UP_Q[S[it.key]] || [] };
     }
-    // assemble the live sentence for the current maker state
-    function sentenceHTML(){
-      const k = pState.mkKey;
-      const typeLabel = mkPill(k);
-      let s = `A ${dial('type', typeLabel || 'choose', typeLabel ? '' : 'is-empty')} practice`;
-      if(MK_SHAPED.indexOf(k)>=0){
-        if(k!=='mindfulness') s += `, anchored through ${dial('sense', pState.sense)}`;
-        if(k==='anchoring') s += `, ${dial('safety', mkSafetyRow(pState.safetySkill)[1])}`;
-        if(k==='self-regulation'){
-          const sk=pState.skill;
-          if(mkTakesObstacles(sk)) s += `, ${dial('obst', MK_OBST_WORDS(pState.obst))}`;
-          s += `, leading you through ${dial('skill', skillLabel(sk))}`;
-          // with Obstacle statements the emotion is whatever the statements bring up
-          if(mkTakesObstacles(sk) && pState.obst) s += ` whatever emotion surfaces in response`;
-          else s += ` ${dial('emotion', MK_EMO_WORDS[pState.emotion] || 'whatever emotion surfaces')}`;
-          if(mkHasDepth(sk)) s += `, ${dial('depth', mkDepthWords(pState.depth))}`;
-          // hold & watch is offered at the deepest depth only, as an add-on
-          if(holdWatchOffered(sk, pState.deepest)){
-            s += pState.holdWatch
-              ? `, holding &amp; watching for ${dial('hold', holdDurWords(pState.holdSeconds))}`
-              : `, ${dial('hold', 'without hold & watch')}`;
-          }
-        }
-        if(k!=='micro') s += `, with ${dial('silence', silLabel(pState.silence))} silence`;
-        // how it ends, said literally (Justin, 2026-09-20: "we're trying to say the practice has a planned ending")
-        if(k==='self-regulation') s += ` and ${dial('length', pState.open?'no set ending':'a planned ending')}`;
+    const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+    if(p.skill === 'obstacles') return { q:UP_Q.obstacles, line:'This practice gives you four Obstacle statements and leads you through Imagery & invitation with whatever comes up.' };
+    if(!p.depth) return { q:UP_Q[{ 'validate-defense':'validating', 'normalize-defense':'normalizing', imagery:'imagery' }[p.skill]] || [] };
+    const name = UP_DEF_TITLE[p.skill] || CAP(p.skill), dw = mkDepthWords(p.depth);
+    let q = (UP_Q[p.skill] || []).concat(p.depth === 'description' ? UP_Q.describeDef.concat(UP_Q.hold) : UP_Q.generalDef);
+    const line = p.prefix === 'obstacles'
+      ? `This practice gives you four Obstacle statements and leads you through ${name} whatever emotion surfaces in response, ${dw}.`
+      : `This practice leads you through ${name} whatever emotion surfaces, ${dw}.` + (p.depth === 'description' ? ' Hold & watch is offered at the end.' : '');
+    return { q, line };
+  }
+  // the chapters for a step's sheet: the same links as the practice plan (_planChapters)
+  function _upChapters(it){
+    const ids = [];
+    if(it.kind === 'open') it = it.key === 'self-regulation' ? { kind:'none' } : _upBase(it);
+    if(it.kind === 'none') return [];
+    if(it.kind === 'anchor') ids.push(UP_ANCHOR_CH[it.key], 'anchor-environment');
+    else if(it.kind === 'anchor-auto') ids.push('anchor-environment', 'sensory-anchors');
+    else if(it.kind === 'present') ids.push(it.key === 'micro' ? 'making-change' : 'mindfulness-and-meditation');
+    else if(it.kind === 'safety'){
+      const S = { anchoring:['cue-to-anchor','anchor-environment'], 'validate-safety':['validating-and-normalizing'], 'normalize-safety':['validating-and-normalizing'],
+        'general-safety':['cue-to-anchor'], 'specific-safety':['cue-to-anchor'], 'describe-safety':['description'], 'interest-safety':['impulses'] };
+      ids.push(...(S[it.key] || ['cue-to-anchor']));
+    } else {
+      const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+      if(p.skill === 'validate-defense') ids.push('ssiec');
+      if(p.skill === 'obstacles' || p.prefix === 'obstacles') ids.push('obstacles');
+      const K = { 'validate-defense':'validating-and-normalizing', 'normalize-defense':'validating-and-normalizing', imagery:'imagery-and-invitation', obstacles:'imagery-and-invitation',
+        balancing:'balancing-and-pendulating', pendulating:'balancing-and-pendulating' };
+      if(K[p.skill]) ids.push(K[p.skill]);
+      if(p.depth === 'description') ids.push('description', 'holding-and-watching');
+    }
+    const L = window.Learning; if(!L) return [];
+    return [...new Set(ids)].map(id => L.byId(id)).filter(Boolean);
+  }
+  // what has to be true before the recommendation offers a step (the tier table and skillCeiling, said plainly)
+  function _upNeed(i, SEQ, lowData){
+    if(lowData) return 'Opens once there is a full week of check-ins.';
+    if(i <= SEQ.indexOf('imagery')) return 'Opens when your week of check-ins shows more safety.';
+    if(i <= SEQ.indexOf('obstacles>imagery')) return 'Opens when Normalizing and Imagery & invitation are completed within your capacity, and your week of check-ins shows more safety and less defense.';
+    return 'Opens when Obstacles is completed within your capacity, and most days of your week show more safety and less defense.';
+  }
+
+  // the whole pathway, read from the store; null until the engine's order has loaded
+  function _upModel(){
+    const paid = paidNow();
+    const SEQ = Store.skillSequence ? Store.skillSequence() : null;
+    const safe = Store.safetyProgress ? Store.safetyProgress() : null;
+    if(!SEQ || !SEQ.length || !safe || !safe.seq.length || !Store.skillProgress) return null;
+    const sp = Store.skillProgress();
+    let reco = null, ceiling = 0, bw = null, gateOpen = true, hasHist = false;
+    try{ hasHist = ((Store.sessions && Store.sessions()) || []).length > 0; }catch(e){}
+    if(paid){
+      reco = _recommendSafe(true);
+      try{ bw = Store.baselineWeek(); ceiling = Store.skillCeiling(bw, sp.cleared) || 0; }catch(e){}
+      try{ const last = Store.lastCheckin(); gateOpen = !last || !!Store.momentGate(last).open; }catch(e){}
+    }
+    const lowData = !!(bw && bw.lowData);
+    const TOP = { 1:'imagery', 2:'obstacles>imagery' };
+    const capIdx = ceiling >= 3 ? SEQ.length - 1 : ceiling >= 1 ? SEQ.indexOf(TOP[ceiling]) : -1;
+    const recoKey = (reco && reco.practiceKey === 'self-regulation' && reco.offerKey && SEQ.indexOf(reco.offerKey) >= 0) ? reco.offerKey : null;
+    // "Working on now" is the recommended practice, whichever kind it is: a defense practice, a safety practice
+    // (a plain anchoring recommendation is Anchoring), or a present-moment one
+    const rk = reco ? reco.practiceKey : null;
+    const nowSafe = paid && rk === 'anchoring' ? (reco.skill && safe.seq.indexOf(reco.skill) >= 0 ? reco.skill : safe.seq[0]) : null;
+    const nowPresent = paid && (rk === 'mindfulness' || rk === 'micro') ? rk : null;
+    const nextOpen = !!(sp.next && SEQ.indexOf(sp.next) >= 0 && SEQ.indexOf(sp.next) <= capIdx);
+    const eased = !!(recoKey && sp.next && SEQ.indexOf(recoKey) < SEQ.indexOf(sp.next));
+    const defSt = k => {
+      if(!paid) return 'paid';
+      if(k === recoKey) return 'now';
+      if(sp.cleared[k]) return 'done';
+      if(k === sp.next && nextOpen) return 'next';
+      if(sp.so && sp.so[k] && sp.so[k].n) return 'tried';
+      return 'later';
+    };
+    const safeSt = k => {
+      if(!paid) return 'paid';
+      if(k === nowSafe) return 'now';
+      if(safe.cleared[k]) return 'done';
+      if(k === safe.next) return 'next';
+      if(safe.so[k] && safe.so[k].n) return 'tried';
+      return 'later';
+    };
+    const D = k => { const i = SEQ.indexOf(k), gated = paid && i > capIdx;
+      const st = defSt(k);
+      return { kind:'def', key:k, title:_upDefTitle(k), st, gated, need: gated ? _upNeed(i, SEQ, lowData) : null, academy: acad >= 3 && (st === 'next' || st === 'later') }; };
+    const acad = paid ? _acadOn() : 0;
+    const S = k => { const st = safeSt(k);
+      return { kind:'safety', key:k, title:UP_SAFE_TITLE[k] || CAP(k), st, academy: acad >= 2 && (st === 'next' || st === 'later') }; };
+    // a present-moment practice is completed once it has been practiced (Justin, 2026-10-02: "If completed, fill them in")
+    let did = {}; try{ ((Store.sessions && Store.sessions()) || []).forEach(x => { if(x && x.practiceKey) did[x.practiceKey] = 1; }); }catch(e){}
+    const P = k => ({ kind:'present', key:k, title:(P8_ROWS.find(r=>r.k===k) || {}).t || CAP(k), st: k === nowPresent ? 'now' : did[k] ? 'done' : 'open' });
+    // the safety anchor comes first, as its own step (Justin, 2026-10-02: "The user should be able to pick it then and there.
+    // This should be a prerequite step"): the member picks one, or lets the app find the best one for them
+    let anchors = null; if(paid){ try{ anchors = Store.anchorPick(); }catch(e){} }
+    const chosen = _upAnchorChosen();
+    let mode = null; try{ mode = localStorage.getItem(UP_ANCHOR_MODE); }catch(e){}
+    const anchorMode = (mode === 'chosen' && chosen) ? chosen : mode === 'auto' ? 'auto' : null;
+    const anchorSet = paid && !!anchorMode;
+    const partsOf = k => (Store.sequenceParts(k) || {});
+    // the member's emotions, easy to hard, and each defense step's levels (store.js levelProgress())
+    let LP = {}; if(paid){ try{ LP = (Store.levelProgress && Store.levelProgress()) || {}; }catch(e){} }
+    let R = {}; try{ R = (Store.stepResults && Store.stepResults()) || {}; }catch(e){}
+    const emo = _emoList();
+    const E = { kind:'emo', key:'list', title:'Your emotions', st: !paid ? 'paid' : emo.length ? 'done' : 'open', emo };
+    const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
+    const lock = 'On the paid plan.';
+    // the course's order (Justin, 2026-10-02: "All the safety ones come first before going into defense")
+    const secs = [
+      { title:'The present moment', sub:'', items:[P('micro'), P('mindfulness')] },
+      { title:'Your safety anchor', sub: !paid ? lock : anchorSet ? '' : 'Start here. Choose your anchor, or let the app find the one that works best for you. The skills after this open once you choose.', picker:true, items:[] },
+      { id:'safety', title:'Connecting with safety', sub: paid ? '' : lock, items:safe.seq.map(S) },
+      // Book 3's own place for it (Justin, 2026-10-02: "The 'Which Defense?' location sounds good to me"): optional, never a lock
+      { id:'which', title:'Which defense?', sub: paid ? '' : lock, items:[E] },
+      { id:'def', title:'Working with defense', items:SEQ.filter(k => !partsOf(k).depth).map(D) },
+      { id:'general', title:'Non-safety generally', items:byDepth('general') },
+      { id:'specific', title:'Non-safety specifically', items:byDepth('specific') },
+      { id:'description', title:'Describing non-safety', items:byDepth('description') },
+    ];
+    const SEC = id => secs.find(x => x.id === id);
+    // no "Opens when..." lines under the headings either (Justin, 2026-10-02); a waiting step's sheet says what opens it
+    SEC('def').sub = SEC('general').sub = SEC('specific').sub = paid ? '' : lock;
+    SEC('description').sub = paid ? '' : lock;   // "Hold & watch is offered at the end of these" cut (Justin, 2026-10-03: "is unneeded")
+    // the pathway opens in order (Justin, 2026-10-02: "The pathway unlocks as the user completes the skills ... the pathway is
+    // skill based and achievement based"). A step after the next one waits; anything completed, practiced or recommended stays open.
+    // Make your own still reaches every practice ("They can always customize their own if they want to skip").
+    const lockAfter = (items, nextIdx) => items.forEach((it, i) => {
+      if(!paid || it.st === 'done' || it.st === 'now' || it.st === 'tried' || it.academy) return;
+      if(!anchorSet){ it.locked = 'Opens after you choose your safety anchor'; return; }
+      if(it.st !== 'next' && nextIdx >= 0 && i > nextIdx) it.locked = 'Opens after ' + items[i-1].title;
+    });
+    lockAfter(SEC('safety').items, SEC('safety').items.findIndex(it => it.key === safe.next));
+    const defItems = [].concat(SEC('def').items, SEC('general').items, SEC('specific').items, SEC('description').items);
+    lockAfter(defItems, defItems.findIndex(it => it.key === sp.next));
+    // defense waits for every safety practice (Justin, 2026-10-02: "All the safety ones come first"; "the recommender should
+    // follow the pathway"). Anything completed, practiced or recommended stays open.
+    // a member who completed Stage 2 in the Academy has done the safety work, so defense does not wait on it here
+    if(paid && anchorSet && safe.next && acad < 2) defItems.forEach(it => { if(it.st !== 'done' && it.st !== 'now' && it.st !== 'tried' && !it.academy) it.locked = 'Opens after Connecting with safety'; });
+    // ✅ NO SET ENDING CLOSES EACH SECTION (Justin, 2026-10-03: "the no ending should end each respective section. Not all of them
+    // in one group ... we should loop in the audio for the other two practices as well"). The engine already runs every practice
+    // open-ended except the tiny one (ENDING-OPEN, then the breath loop until Finish). Present moment, safety, and self-regulation
+    // (after the last defense step) each end with their own. It opens once the step before it is completed (or the Academy did it).
+    let openDid = {}; try{ ((Store.sessions && Store.sessions()) || []).forEach(x => { if(x && x.completed && x.openEnded && x.practiceKey) openDid[x.practiceKey] = 1; }); }catch(e){}
+    const OPEN_TITLE = { mindfulness:'Mindfulness, no set ending', anchoring:'Safety, no set ending', 'self-regulation':'Self-regulation, no set ending' };
+    const O = (pk, before) => {
+      const free = pk === 'mindfulness';
+      const it = { kind:'open', key:pk, title:OPEN_TITLE[pk], st: (!paid && !free) ? 'paid' : openDid[pk] ? 'done' : 'open' };
+      const prev = before[before.length - 1];
+      const ready = before.every(x => x.st === 'done' || x.academy);
+      if(it.st === 'open' && prev && !ready) it.locked = 'Opens after ' + prev.title;
+      return it;
+    };
+    secs[0].items.push(O('mindfulness', secs[0].items.filter(x => x.key === 'mindfulness')));
+    SEC('safety').items.push(O('anchoring', SEC('safety').items.slice()));
+    SEC('description').items.push(O('self-regulation', defItems.slice()));
+    let note = null;
+    if(paid && hasHist && reco){
+      if(!gateOpen && nowPresent) note = 'Your practice right now is with the present moment, because your last check-in shows a lot of defense.';
+      else if(eased) note = 'Your practice right now is a gentler one: ' + _upDefTitle(recoKey) + '.';
+    }
+    return { paid, secs, SEC, defItems, note, reco, anchors, anchorMode, anchorSet, LP, R };
+  }
+  // a no-set-ending step is drawn as the practice it is
+  const _upBase = it => it.kind !== 'open' ? it : it.key === 'anchoring' ? { kind:'safety', key:'anchoring' } : it.key === 'self-regulation' ? { kind:'def', key:'imagery' } : { kind:'present', key:it.key };
+  function _upMark(it, def){
+    it = _upBase(it);
+    if(it.kind === 'anchor-auto') return MK_TYPE_ICO.surprise || '';
+    if(it.kind === 'emo') return _UP_EMO_ICO;
+    return (it.kind === 'safety' || it.kind === 'anchor') ? _rdMk('safety') : it.kind === 'def' ? _defMk(def) : (MK_TYPE_ICO[it.key] || '');
+  }
+  function _upCols(it, def){
+    it = _upBase(it);
+    if(it.kind === 'safety' || it.kind === 'anchor' || it.kind === 'anchor-auto') return { band:STATE_COLOR('safety'), line:'var(--s-safety-tx)' };
+    if(it.kind === 'def' || it.kind === 'emo'){ const d = def || 'freeze'; return { band:STATE_COLOR(d), line:`var(--s-${({ fightflight:'fight', shutdown:'shutdown', freeze:'freeze' })[d]}-tx)` }; }
+    return { band:'var(--hairline)', line:'var(--ink)' };
+  }
+  const _upKeyOf = it => (it.kind === 'anchor' || it.kind === 'anchor-auto') ? 'anchor:' + it.key : it.key;
+  function _upFind(M, id){ for(const s of M.secs){ const it = s.items.find(x => x.kind + '|' + x.key === id); if(it) return it; } return null; }
+
+  function screenPathway(){
+    const def = _domDefense();
+    const back = () => app('practice');
+    const M = _upModel();
+    if(!M){
+      _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="up-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+      Promise.resolve(Store.sequenceReady ? Store.sequenceReady() : false).then(() => {
+        const w = document.getElementById('up-wait'); if(!w) return;
+        if(_upModel()) screenPathway(); else w.textContent = "The pathway didn't load. Check your connection and try again.";
+      });
+      return;
+    }
+    const seen = {};
+    const lesson = (id, it) => {
+      if(seen[id]) return ''; seen[id] = 1;
+      const pc = window.Learning && Learning.byId(id); if(!pc) return '';
+      const locked = pc.paid && !M.paid, read = _lrnIsRead(id), c = _upCols(it, def);
+      // reading is optional (Justin, 2026-10-02: "The skills need to go in order but the reading lessons are optional")
+      // (2026-10-02: "'Optional reading' is overused. Just take it out.")
+      const lead = locked ? LOCK_SVG + 'Paid plan' : read ? _lrnReadMk() + 'Read' : '';
+      const first = it.st === 'now' && !read && !locked;
+      return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="--line:${c.line}">
+        <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t">${lead ? `<i>${lead}</i>` : ''}<b>${escapeHtml(pc.title)}</b></span></button>`;
+    };
+    const node = it => {
+      const c = _upCols(it, def);
+      // the state is drawn, not spelled out (Justin, 2026-10-02: "'Working on now' is not needed since it's visually explained
+      // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
+      // with a small lock.
+      // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
+      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
+      if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
+      if(it.academy && !words) words = 'Completed in the Academy';
+      // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
+      const lv = M.paid && it.kind === 'def' && _emoLevelable(it.key) ? _upLevels(M.LP[it.key]) : '';
+      const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
+      return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="--band:${c.band};--line:${c.line}">
+        <span class="up-n-node">${_upMark(it, def)}${it.locked ? `<span class="up-n-lk">${LOCK_SVG}</span>` : ''}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}${lv}</span></button>`;
+    };
+    // the safety anchor step: the choices right here, or (once chosen) what is chosen with a way to change it
+    const pickHtml = () => {
+      const cur = M.anchorMode, a = M.anchors || {};
+      const hint = k => !M.paid ? '' : (a.why === 'winner' && a.sense === k) ? 'Works best for you so far' : (a.tried && a.tried[k]) ? 'Practiced' : '';
+      let h;
+      if(!M.paid || !M.anchorSet || _upPickOpen){
+        const opts = [{ v:'auto', t:'Let the app find my best one', d:'Your practices try each anchor in turn and keep the one that helps you most.' }]
+          .concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k), d:hint(k) })));
+        h = `<div class="up-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button class="up-pick-row" type="button" role="radio" aria-checked="${cur === o.v ? 'true' : 'false'}" data-pick="${o.v}"${M.paid ? '' : ' aria-disabled="true"'}>
+          <span class="up-pick-dot" aria-hidden="true"></span><span class="up-pick-t"><b>${escapeHtml(o.t)}</b>${o.d ? `<span>${escapeHtml(o.d)}</span>` : ''}</span></button>`).join('')}</div>`;
+      } else {
+        const c = _upCols({ kind:'anchor' }, def), auto = cur === 'auto';
+        const t = auto ? 'The app identifies your best safety anchor through your practices.' : CAP(cur);
+        const line = auto && a.why === 'winner' && a.sense ? 'Works best for you so far: ' + CAP(a.sense) : '';
+        h = `<button class="up-n up-pick-sum" type="button" data-pickopen="1" data-st="mine" style="--band:${c.band};--line:${c.line}">
+          <span class="up-n-node">${_rdMk('safety')}</span><span class="up-n-t"><b>${escapeHtml(t)}</b>${line ? `<span>${escapeHtml(line)}</span>` : ''}</span><span class="up-pick-chg">Change</span></button>`;
       }
-      // the background sound, on every practice the engine plays (not the guided sessions)
-      if(!mkIsSession(k) && k!=='surprise'){ const bw=bedWords(); s += `, and ${dial('bed', bw)}`; }
-      return s + '.';
+      const reads = UP_ANCHOR_READ.map(id => lesson(id, { kind:'anchor', st:'' })).join('');
+      return M.paid && M.anchorSet && !_upPickOpen ? `<div class="up-path" style="--line:var(--s-safety-tx)">${h}${reads}</div>${_UP_DOWN}`
+        : h + (reads ? `<div class="up-path up-path-reads">${reads}</div>${_UP_DOWN}` : '');
+    };
+    const secHtml = s => s.picker ? `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub${M.paid && !M.anchorSet ? ' up-sub-start' : ''}">${s.sub === 'On the paid plan.' ? LOCK_SVG : ''}${escapeHtml(s.sub)}</p>` : ''}${pickHtml()}`
+      : `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}
+      ${pathHtml(s.items)}`;
+    // all left aligned on one line that runs top to bottom (Justin, 2026-10-02: "probabaly better off all left aligned with a
+    // visual indicator of moving up to down. indent the lessons perhaps"). Rows before the first step not yet completed are "past"
+    // and the line is drawn solid through them; the rest of the line is dashed.
+    function pathHtml(items){
+      let reached = false; const rows = [];
+      items.forEach(it => {
+        const past = !reached && it.st === 'done'; if(!past) reached = true;
+        (UP_READ[_upKeyOf(it)] || []).map(id => lesson(id, it)).filter(Boolean).forEach(h => rows.push(past ? h.replace('<button class="up-l', '<button data-past="1" class="up-l') : h));
+        rows.push(past ? node(it).replace('<button class="up-n"', '<button class="up-n" data-past="1"') : node(it));
+      });
+      const c = items.length ? _upCols(items[0], def) : null;
+      return `<div class="up-path"${c ? ` style="--line:${c.line}"` : ''}>${rows.join('')}</div>${_UP_DOWN}`;
     }
-    // the dynamic "what this is" explainer — proper-cased (sentence case, not lowercase),
-    // with the user's own dial choices shown in bold so they can see their shaping reflected.
-    function explainHTML(){
-      const k = pState.mkKey;
-      const b = (t)=>`<strong>${escapeHtml(String(t))}</strong>`;
-      if(k==='surprise') return "This is a randomly created practice, weaving together various self-regulation skills. This is best for the curious and motivated.";
-      if(mkIsSession(k)){ const m=P_MEDS.find(x=>x.id===k); return m ? escapeHtml(properCase(`a full, standalone guided practice, ${m.est.replace('~','about ')}. ${m.sub}, played start to finish.`)) : ''; }
-      const est = estMinutes(k, k==='micro'?2:pState.silence);
-      const openEnded = (k==='self-regulation' && !!pState.open);
-      const label = Store.practiceLabel(k);
-      const bits = [];
-      // opening: what it is + how long (the type + length are user choices → bold)
-      const head = /^a /.test(label) ? `A ${b(label.replace(/^a /,''))}` : `A guided ${b(label)} practice`;
-      // no duration for an open-ended practice - see expectText() above, same reason
-      const timePhrase = openEnded ? `, ${b('open-ended')}` : (est ? `, about ${b(est+' minutes')}` : '');
-      bits.push(head + timePhrase + '.');
-      // the approved "about" prose, proper-cased; bold the anchor sense where anchoring names it
-      let about = escapeHtml(properCase(aboutOf(k, pState.sense)));
-      if(k==='anchoring' && pState.sense) about = about.replace(pState.sense, b(pState.sense));
-      // a safety practice beyond settling in says what it does instead of the general line
-      if(k==='anchoring' && pState.safetySkill) about = escapeHtml(mkSafetyRow(pState.safetySkill)[2]);
-      if(k==='self-regulation') about = escapeHtml(mkSelfLine());
-      bits.push(about);
-      if((k==='self-regulation'||k==='micro'||k==='anchoring') && pState.sense && !(k==='anchoring' && !pState.safetySkill)) bits.push(`Your safety anchor is ${b(pState.sense)}.`);
-      if(k==='self-regulation' && !pState.obst && !mkHasDepth(pState.skill) && pState.emotion){ const w=MK_EMO_WORDS[pState.emotion]; if(w) bits.push(`You're working with ${b(w)}.`); }
-      // Justin's line, shown only once hold & watch is added
-      if(k==='self-regulation' && pState.holdWatch && holdWatchOffered(pState.skill, pState.deepest)) bits.push(escapeHtml(MK_HOLD_LINE));
-      if(k!=='micro') bits.push(`With ${b(silLabel(pState.silence))} silence between the guidance.`);
-      { const bp=bedPref(); if(bp.bed!=='none') bits.push(`You'll hear ${b(bedSay(bp))} in the background the whole way through.`); }
-      if(openEnded) bits.push('It keeps going until you choose to stop.');
-      return bits.filter(Boolean).join(' ');
+    const lede = M.paid ? 'Each skill opens when the one before it is completed within your capacity. Some also wait until your check-ins show enough safety. The reading is optional. To skip ahead, open any step and practice it anyway.'
+      : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
+    _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
+      <p class="up-lede">${escapeHtml(lede)}</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
+      ${M.secs.map(secHtml).join('')}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+    const view = root.querySelector('.up-view'); if(!view) return;
+    requestAnimationFrame(() => _upRails(view)); setTimeout(() => _upRails(view), 450);
+    view.onclick = e => {
+      const ch = e.target.closest('[data-up-ch]'); if(ch) return _upOpenChapter(ch.dataset.upCh);
+      const pk = e.target.closest('[data-pick]');
+      if(pk){ if(!M.paid) return _p8Locked(pk, 'practice'); _upPickOpen = false; return _upSetAnchor(pk.dataset.pick === 'auto' ? null : pk.dataset.pick); }
+      if(e.target.closest('[data-pickopen]')){ _upPickOpen = true; _upKeep(); return screenPathway(); }
+      const b = e.target.closest('[data-up]'); if(!b) return;
+      const it = _upFind(M, b.dataset.up); if(!it) return;
+      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(Object.assign({}, M.reco, { fromPath:true, pathTitle:it.title }), screenPathway); }
+      if(it.kind === 'emo' && M.paid){ _upKeep(); return screenEmotions(); }
+      _upItemSheet(it, M, def);
+    };
+    // land on their spot (Justin, 2026-10-02: "Any time the user opens the pathway, they should land on their spot"): the anchor
+    // choice until it is made, else the current step, else the next one; coming back from a chapter or a sheet keeps the place
+    const sc = root.querySelector('.scroll');
+    if(sc){
+      if(_upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
+      else {
+        const target = (M.paid && !M.anchorSet && view.querySelector('.up-pick'))
+          || view.querySelector('.up-n[data-st="now"]') || view.querySelector('.up-n[data-st="next"]') || view.querySelector('.up-n[data-st="tried"]');
+        if(target){
+          let moved = false; const mark = () => { moved = true; };
+          const go = () => { if(moved || !target.isConnected) return; const y = Math.max(0, sc.scrollTop + target.getBoundingClientRect().top - sc.getBoundingClientRect().top - sc.clientHeight * 0.35); sc.scrollTop = y; };
+          requestAnimationFrame(go); setTimeout(go, 120); setTimeout(() => { go(); sc.removeEventListener('touchstart', mark); sc.removeEventListener('wheel', mark); }, 480);
+          sc.addEventListener('touchstart', mark, { passive:true }); sc.addEventListener('wheel', mark, { passive:true });
+        }
+      }
     }
+  }
+  // each section's line runs from its first step's node to its last; the solid part reaches the first step not yet completed
+  function _upRails(view){
+    view.querySelectorAll('.up-path').forEach(p => {
+      const nodes = [...p.children].map(r => r.querySelector('.up-n-node,.up-l-node')).filter(Boolean);
+      if(nodes.length < 2){ p.style.setProperty('--rail-h', '0px'); return; }
+      const top = p.getBoundingClientRect().top, mid = el => { const r = el.getBoundingClientRect(); return r.top + r.height / 2 - top; };
+      const a = mid(nodes[0]), z = mid(nodes[nodes.length - 1]);
+      const rows = [...p.children], firstOpen = rows.findIndex(r => !r.hasAttribute('data-past'));
+      // solid only between completed steps (Justin, 2026-10-02: "If not, then don't fill them and leave the lines dashed")
+      const lastPast = firstOpen < 0 ? rows.length - 1 : firstOpen - 1;
+      const pastNode = lastPast >= 0 ? rows[lastPast].querySelector('.up-n-node,.up-l-node') : null;
+      const fillTo = pastNode ? mid(pastNode) : a;
+      p.style.setProperty('--rail-top', a + 'px'); p.style.setProperty('--rail-h', (z - a) + 'px'); p.style.setProperty('--rail-fill', Math.max(0, fillTo - a) + 'px');
+      p.classList.add('up-railed');
+    });
+  }
+  function _upKeep(){ const sc = root.querySelector('.scroll'); _upY = sc ? sc.scrollTop : null; }
+  function _upOpenChapter(id){
+    const pc = window.Learning && Learning.byId(id); if(!pc) return;
+    const sh = document.getElementById('p8-sheet'); if(sh) sh.remove();
+    _upKeep();
+    screenLearnPiece(pc, null, null, { label:UP_TITLE, go:screenPathway });
+  }
+  // the one-size sheet (same frame as the practice sheet): what it is, when it opens, the chapters, and one button
+  function _upSheet(mark, title, body, btn, onGo){
+    const old = document.getElementById('p8-sheet'); if(old) old.remove();
+    const wrap = document.createElement('div'); wrap.id = 'p8-sheet'; wrap.className = 'p7-sheet p8-sheet';
+    wrap.innerHTML = `<div class="p7-sheet-card p8-card up-card" role="dialog" aria-modal="true" aria-labelledby="up-h">
+      <div class="p8-grab" aria-hidden="true"></div>
+      <div class="p8-head"><span class="rd-thumb rd-thumb-mk p8-thumb">${mark}</span><h3 class="p8-h" id="up-h">${escapeHtml(title)}</h3>
+        <button class="p8-x" id="up-x" type="button" aria-label="Close">${_UP_X}</button></div>
+      <div class="p8-body up-sh-body">${body}</div>
+      ${btn ? `<div class="p8-foot">${btn}</div>` : ''}</div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add('on'));
+    const close = () => { wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(() => { try{ wrap.remove(); }catch(e){} }, 320); };
+    const onKey = e => { if(e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    wrap.addEventListener('click', e => {
+      if(e.target === wrap) return close();
+      const ch = e.target.closest('[data-up-ch]'); if(ch){ document.removeEventListener('keydown', onKey); return _upOpenChapter(ch.dataset.upCh); }
+      const go = e.target.closest('#up-go'); if(!go) return;
+      if(go.dataset.lock) return _p8Locked(go, 'practice');
+      close(); if(onGo) onGo();
+    });
+    wrap.querySelector('#up-x').onclick = close;
+    try{ wrap.querySelector('#up-x').focus({ preventScroll:true }); }catch(e){}
+  }
+  // the chapters, under the same words as the practice plan's list (Justin, 2026-10-02: "needs to say what I told you before")
+  const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">Learn more about these skills:</p><div class="p8-list">${list.map(pc => {
+      const locked = pc.paid && !paid, read = _lrnIsRead(pc.id);
+      return `<button class="rd-row p8-row" type="button" data-up-ch="${escapeHtml(pc.id)}"><span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_BOOK}</span>
+        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Paid plan · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
+    }).join('')}</div></div>` : '';
+  const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
+    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
+  function _upItemSheet(it, M, def){
+    const W = _upWhat(it);
+    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
+    let body = st ? `<p class="up-sh-st">${st}</p>` : '';
+    // Academy progress (2026-10-03): open, named, and checked off here once a practice shows it
+    if(it.academy) body = `<p class="up-sh-st">Completed in the Academy</p><div class="up-sh-blk"><p class="up-sh-p">It is checked off here once a practice shows it.</p></div>`;
+    if(W.q && W.q.length) body += `<div class="up-sh-blk">${W.q.map(t => `<p class="up-sh-p">${escapeHtml(t)}</p>`).join('')}</div>`;
+    if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
+    if(it.locked){
+      body = `<p class="up-sh-st">${LOCK_SVG}${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
+      return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it anyway'), () => _upPractice(it));
+    }
+    if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
+    if(M.paid && it.kind === 'def' && _emoLevelable(it.key)) body += _upLevelBlock(M.LP[it.key]);
+    body += _upChRows(_upChapters(it), M.paid);
+    if(it.kind === 'anchor' || it.kind === 'anchor-auto'){
+      const btn = it.st === 'mine' ? '' : _upGoBtn(M.paid, it.kind === 'anchor' ? 'Make this my safety anchor' : 'Let the app figure it out');
+      return _upSheet(_upMark(it, def), it.title, body, btn, () => _upSetAnchor(it.kind === 'anchor' ? it.key : null));
+    }
+    const open = it.kind === 'present' || (it.kind === 'open' && it.key === 'mindfulness') || M.paid;
+    _upSheet(_upMark(it, def), it.title, body, _upGoBtn(open, 'Practice this'), () => _upPractice(it));
+  }
+  // pick the safety anchor here, the same setting as in Settings; null = let the app figure it out
+  function _upSetAnchor(sense){
+    try{
+      if(sense){ if(Store.setPrefSense) Store.setPrefSense(sense); localStorage.setItem(UP_ANCHOR_MODE, 'chosen'); }
+      else localStorage.setItem(UP_ANCHOR_MODE, 'auto');
+    }catch(e){}
+    try{ haptic('save'); }catch(e){}
+    _upKeep(); screenPathway();
+  }
+  // "Practice this" (Justin, 2026-10-02: "Choosing a practice on the Pathway takes the user to the custom practice screen. this does
+  // not seem right"): the step's own plan, the same screen as the recommended practice (what to expect, Working with, the
+  // chapters, Begin), and Back comes back to the pathway. "Customize this practice" there still opens Make your own.
+  function _upPractice(it){
+    if(paidNow()){
+      let sense = 'touch', sil = 8;
+      try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) sense = ap.sense; }catch(e){}
+      try{ const ps = Store.prefSilence && Store.prefSilence(); if(ps != null) sil = ps; }catch(e){}
+      let reco;
+      if(it.kind === 'open') reco = _upOpenReco(it, sense, sil);
+      else if(it.kind === 'present') reco = { practiceKey:it.key, sense, silence: it.key === 'micro' ? 2 : sil };
+      else if(it.kind === 'safety') reco = { practiceKey:'anchoring', skill: it.key === 'anchoring' ? null : it.key, sense, silence:sil };
+      else {
+        const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+        reco = { practiceKey:'self-regulation', skill:p.skill, prefix:p.prefix || null, depth:p.depth || null, offerKey:it.key,
+                 descDefense: p.depth === 'description', holdWatch:false, sense, silence:sil };
+      }
+      reco.reason = 'You chose this step on the Unstucking Pathway.';
+      reco.variety = true; reco.fromPath = true; reco.pathTitle = it.title;
+      const sh = document.getElementById('p8-sheet'); if(sh) sh.remove();
+      return renderPlan(reco, screenPathway);
+    }
+    return _upMaker(it);
+  }
+  // a no-set-ending step: the section's practice, open-ended. Self-regulation runs the furthest defense step the member has
+  // completed (or the recommended one, or Imagery & invitation).
+  function _upOpenReco(it, sense, sil){
+    if(it.key === 'mindfulness') return { practiceKey:'mindfulness', sense, silence:sil, openEnded:true };
+    if(it.key === 'anchoring') return { practiceKey:'anchoring', skill:null, sense, silence:sil, openEnded:true };
+    let key = null;
+    try{ const M = _upModel(); if(M){ const d = M.defItems.filter(x => x.st === 'done' || x.academy); if(d.length) key = d[d.length - 1].key; else if(M.reco && M.reco.offerKey) key = M.reco.offerKey; } }catch(e){}
+    const p = (key && Store.sequenceParts && Store.sequenceParts(key)) || { skill:'imagery' };
+    return { practiceKey:'self-regulation', skill:p.skill, prefix:p.prefix || null, depth:p.depth || null, offerKey:key,
+             descDefense: p.depth === 'description', holdWatch:false, sense, silence:sil, openEnded:true };
+  }
+  // free members (a tiny practice and Simple mindfulness): the Practice tab with that practice's sheet, already set
+  function _upMaker(it){
+    if(it.kind === 'open' && it.key === 'mindfulness'){   // free: Simple mindfulness with no set ending (the plan screen is paid)
+      const r = _upOpenReco(it, 'touch', 8); r.reason = 'You chose this step on the Unstucking Pathway.'; r.fromPath = true; r.pathTitle = it.title;
+      const sh = document.getElementById('p8-sheet'); if(sh) sh.remove();
+      return launchWeaver(r);
+    }
+    const base = { key:null, sense:'touch', skill:'imagery', silence:8, med:null, deepest:false, prefix:null, depth:null, obst:false, safetySkill:'',
+      holdWatch:false, holdSeconds:60, open:false, emotion:null, makerOpen:false, mkKey:'anchoring' };
+    let s;
+    if(it.kind === 'present') s = { key:it.key };
+    else if(it.kind === 'safety') s = { key:'anchoring', safetySkill: it.key === 'anchoring' ? '' : it.key };
+    else {
+      const p = (Store.sequenceParts && Store.sequenceParts(it.key)) || {};
+      s = { key:'self-regulation', skill: p.skill === 'obstacles' ? 'imagery' : (p.practice || 'imagery'), obst: p.skill === 'obstacles' || p.prefix === 'obstacles',
+            prefix: p.prefix || null, depth: p.depth || null, deepest: p.depth === 'description', emotion: _emoLevelable(it.key) ? _emoSuggest(it.key) : null };
+    }
+    if(it.kind !== 'present'){ try{ const ap = Store.anchorPick && Store.anchorPick(); if(ap && ap.sense) base.sense = ap.sense; }catch(e){} }
+    _pendingPState = Object.assign(base, s);
+    app('practice');
+  }
+  // ── which defense: the member's emotions, easy to hard (Justin, 2026-10-02: "allow the user to select 9 emotions from a large
+  // list ... We can pre sort them but also allow the user to change the sorting. 1 is easy and 3 is hard"; own words allowed;
+  // choosing one before a practice is optional, "But we should still track the emotion difficulty they have accomplished").
+  // Kept on this device for now (localStorage); what each practice worked with is saved with the practice (emotion_intent,
+  // "word|level"), so the levels completed follow the member everywhere.
+  const UP_EMO_ALL = [['Worry',1],['Nervous',1],['Annoyed',1],['Anxious',2],['Irritable',2],['Angry',2],['Frustrated',2],['Disappointment',2],
+    ['Numb',2],['Sad',2],['Alone',2],['Regret',2],['Invisible',2],['Hurt',2],['Depressed',2],['Surprised',2],['Insecurity',3],['Panic',3],
+    ['Rage',3],['Overwhelm',3],['Grief',3],['Guilt',3],['Shame',3],['Rejected',3],['Abandoned',3],['Fear',3]];
+  const UP_EMO_MAX = 9, UP_EMO_KEY = 'snb_emotions', UP_TIER = ['', 'Easy', 'Medium', 'Hard'];
+  const _UP_EMO_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h6M5 12h10M5 17h14"/></svg>';
+  const _UP_UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>';
+  const _UP_DN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+  // kept with the account like the journal answers (contexts, key "emo:list", ["Worry|1", ...]), so it follows the member to
+  // every device; the first build kept it on the device only (snb_emotions), which is moved over once
+  const UP_EMO_CTX = 'emo:list';
+  const _emoOk = x => x && typeof x.w === 'string' && x.w && [1,2,3].indexOf(x.t) >= 0;
+  function _emoList(){
+    let raw = null;
+    try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m && Array.isArray(m[UP_EMO_CTX])) raw = m[UP_EMO_CTX].map(_emoParse).filter(Boolean); }catch(e){}
+    if(!raw){ try{ const a = JSON.parse(localStorage.getItem(UP_EMO_KEY) || 'null'); if(Array.isArray(a) && a.filter(_emoOk).length){ raw = a.filter(_emoOk); _emoSave(raw); } }catch(e){} }
+    return _emoSort((raw || []).filter(_emoOk)).slice(0, UP_EMO_MAX);
+  }
+  function _emoSave(a){
+    const labels = _emoSort(a.filter(_emoOk)).map(e => e.w + '|' + e.t);
+    try{ if(Store.saveContexts) Store.saveContexts(UP_EMO_CTX, 'Which defense?', labels); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[UP_EMO_CTX] = labels; _ctxSave(m); } }catch(e){}
+    try{ localStorage.removeItem(UP_EMO_KEY); }catch(e){}
+  }
+  // "Practiced with [result]" (Justin, 2026-10-02: "based on the user's input and/or checking post practice"): the member's own
+  // after-practice answer, else what the check-in after showed
+  const UP_RES = { more:'more connection and presence', same:'no change in connection', less:'less connection and presence', struggle:'a struggle', unsure:'an unclear result' };
+  function _upResWords(r){ return !r ? '' : (r.af && UP_RES[r.af]) ? UP_RES[r.af] : r.up ? 'more safety after'
+    : r.rose ? 'more safety by the end' : r.held ? 'safety held to the end' : r.easy ? 'a full, relaxed breath at the end' : ''; }
+  function _upPracticed(r){ const w = _upResWords(r); return w ? 'Practiced with ' + w : 'Practiced'; }
+  const _UP_CHECK = '<svg class="up-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  function _emoSort(a){ return [1,2,3].reduce((o, t) => o.concat(a.filter(e => e.t === t)), []); }
+  const _emoVal = e => e.w + '|' + e.t;
+  function _emoParse(v){ const m = /^(.+)\|([123])$/.exec(String(v || '')); return m ? { w:m[1], t:+m[2] } : null; }
+  // for the practice's rows ("Working with: Frustrated") and its sentence ("working with feeling frustrated"); the four older
+  // families (anxious, angry, sad, fear) still read as before
+  function _emoWord(v){ const p = _emoParse(v); return p ? p.w : ((typeof MK_EMO_WORDS !== 'undefined' && MK_EMO_WORDS[v]) || null); }
+  function _emoPhrase(v){ const p = _emoParse(v); return p ? 'feeling ' + p.w.toLowerCase() : ((typeof MK_EMO_WORDS !== 'undefined' && MK_EMO_WORDS[v]) || null); }
+  function _emoCounts(a){ return [1,2,3].map(t => [a.filter(e => e.t === t).length, UP_TIER[t].toLowerCase()]).filter(x => x[0]).map(x => x[0] + ' ' + x[1]).join(' · '); }
+  const _emoLevelable = key => { const p = (Store.sequenceParts && Store.sequenceParts(key)) || {}; return !!p.skill && p.skill !== 'obstacles' && p.prefix !== 'obstacles'; };
+  // the "Working with" choices: whatever surfaces, then the member's emotions under Easy, Medium and Hard. With no list yet,
+  // the four families as before and a way to choose their emotions.
+  function _emoOpts(){
+    const L = _emoList();
+    const none = [{ val:'', menu:'whatever emotion surfaces', sub:'Let a feeling arrive on its own' }];
+    if(!L.length) return [{ opts: none.concat((Store.EMOTION_FAMILIES || []).map(f => ({ val:f.key, menu:MK_EMO_WORDS[f.key] || f.label, sub:f.hint }))) },
+      { opts:[{ val:'__choose', menu:'Choose your emotions', sub:'Sorted from easy to hard, on the Unstucking Pathway' }] }];
+    return [{ opts:none }].concat([1,2,3].filter(t => L.some(e => e.t === t)).map(t => ({ label:UP_TIER[t], opts:L.filter(e => e.t === t).map(e => ({ val:_emoVal(e), menu:e.w })) })));
+  }
+  // the emotion to preselect for a step: the level asked for, else the easiest level not yet completed on that step; the first
+  // emotion the member put in that level (or the nearest level that has one)
+  function _emoSuggest(key, tier){
+    const L = _emoList(); if(!L.length) return null;
+    let t = tier;
+    if(!t){ let LP = {}; try{ LP = (Store.levelProgress && Store.levelProgress()) || {}; }catch(e){} const lp = LP[key] || {}; t = [1,2,3].find(x => !(lp[x] && lp[x].done)) || 3; }
+    const e = L.find(x => x.t === t) || L.find(x => x.t === t - 1) || L.find(x => x.t === t + 1) || null;
+    return e ? _emoVal(e) : null;
+  }
+  // the three marks on a defense step (filled = completed within capacity at that level)
+  function _upLevels(lp){
+    lp = lp || {};
+    return `<span class="up-lv">${[1,2,3].map(t => { const on = !!(lp[t] && lp[t].done);
+      return `<i${on ? ' data-on="1"' : ''}>${on ? _UP_CHECK : ''}${UP_TIER[t]}</i>`; }).join('')}</span>`;
+  }
+  function _upLevelBlock(lp){
+    lp = lp || {};
+    const row = t => { const x = lp[t]; const said = x && x.words && x.words.length ? x.words.join(', ') : '';
+      if(!x) return `<div class="up-lv-row"><b>${UP_TIER[t]}</b><span>Not yet</span></div>`;
+      const l = x.last || {}, res = _upResWords(l), also = (x.words || []).filter(w => w !== l.w);
+      return `<div class="up-lv-row"${x.done ? ' data-on="1"' : ''}><b>${UP_TIER[t]}</b><span>${x.done ? _UP_CHECK : ''}Practiced with ${escapeHtml((l.w || said).toLowerCase())}${res ? ', ' + escapeHtml(res) : ''}${also.length ? escapeHtml(' (also ' + also.join(', ').toLowerCase() + ')') : ''}</span></div>`; };
+    return `<div class="up-sh-blk"><p class="up-sh-lbl">Levels of emotion</p>${[1,2,3].map(row).join('')}<p class="up-sh-p up-sh-line">Choose the level before you practice, under Working with. A level is checked once a practice at it goes well.</p></div>`;
+  }
+  // the plan's "Working with" row (the reminder of what the practice is aimed at; not for Obstacles practices)
+  function _emoPlanRow(reco){
+    if(!reco || reco.practiceKey !== 'self-regulation' || reco.skill === 'obstacles' || reco.prefix === 'obstacles') return '';
+    if(!reco._emoSet){ reco._emoSet = 1; if(!reco.emotionIntent){ const v = _emoSuggest(reco.offerKey, reco.emotionTier); if(v) reco.emotionIntent = v; } }
+    const p = _emoParse(reco.emotionIntent), w = _emoWord(reco.emotionIntent);
+    return `<div class="plan-sec plan-emo"><p class="sec-h">Working with</p>
+      <button class="plan-emo-btn" id="plan-emo" type="button"><span class="plan-emo-t"><b>${escapeHtml(CAP(w || 'whatever emotion surfaces'))}</b>${p ? `<i>${UP_TIER[p.t]}</i>` : ''}</span>${typeof MK_CARET !== 'undefined' ? MK_CARET : ''}</button></div>`;
+  }
+  function _emoPlanWire(reco, from){
+    const b = document.getElementById('plan-emo'); if(!b) return;
+    b.onclick = () => openDialSheet('Working with', _emoOpts(), reco.emotionIntent || '', '', v => {
+      if(v === '__choose') return screenEmotions(() => renderPlan(reco, from));
+      reco.emotionIntent = v || null; renderPlan(reco, from);
+    });
+  }
+  // the "Which defense?" screen: up to nine emotions in three levels with a line between each; move them up and down (across a
+  // line changes the level), take them out, add from the list or in your own words
+  function screenEmotions(onDone){
+    const done = typeof onDone === 'function' ? onDone : screenPathway;
+    let L = _emoList(), msg = '';
+    const def = _domDefense(), c = _upCols({ kind:'emo' }, def);
+    const save = () => { L = _emoSort(L); _emoSave(L); try{ haptic('save'); }catch(e){} };
+    const paint = () => {
+      const has = new Set(L.map(e => e.w.toLowerCase())), full = L.length >= UP_EMO_MAX;
+      const row = (e, i) => `<div class="em-row"><span class="em-w">${escapeHtml(e.w)}</span>
+        <button class="em-b" type="button" data-mv="up" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} up"${i === 0 && e.t === 1 ? ' disabled' : ''}>${_UP_UP}</button>
+        <button class="em-b" type="button" data-mv="dn" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} down"${i === L.length - 1 && e.t === 3 ? ' disabled' : ''}>${_UP_DN}</button>
+        <button class="em-b em-x" type="button" data-rm="${i}" aria-label="Take out ${escapeHtml(e.w)}">${_UP_X}</button></div>`;
+      const tier = t => `<div class="em-tier" data-t="${t}"><p class="em-tier-h">${UP_TIER[t]}</p>${L.map((e, i) => e.t === t ? row(e, i) : '').join('') || '<p class="em-none">None yet</p>'}</div>`;
+      // loose, in alphabetical order (Justin, 2026-10-02: "the unpicked emotions should not be grouped. just leave them loose. but
+      // when they are selected, they can go into the three tiers"); each still goes to its suggested level when picked
+      const left = UP_EMO_ALL.filter(x => !has.has(x[0].toLowerCase())).sort((a, b) => a[0].localeCompare(b[0]));
+      const chips = left.length ? `<div class="em-chips">${left.map(x => `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${x[1]}"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`).join('')}</div>` : '';
+      _rdShell(`<div class="up-view em-view" style="--line:${c.line};--band:${c.band}"><div class="scr-head read-head"><h1 class="read-h1">Which defense?</h1></div>
+        <p class="up-lede">${escapeHtml(UP_Q.which[0])}</p>
+        <p class="em-how">Choose up to nine emotions to work with. They start sorted from easy to hard, and you can move any of them. Choosing one before a practice is optional.</p>
+        <h3 class="p8-sec up-sec">Your emotions <span class="em-n">${L.length} of ${UP_EMO_MAX}</span></h3>
+        <div class="em-list">${tier(1)}${tier(2)}${tier(3)}</div>
+        <h3 class="p8-sec up-sec">Add an emotion</h3>
+        ${full ? '<p class="em-how">You have nine. Take one out to add another.</p>' : ''}
+        ${chips}
+        <form class="em-own" id="em-own" autocomplete="off"><label class="em-add-h" for="em-own-in">In your own words</label>
+          <div class="em-own-row"><input id="em-own-in" class="em-own-in" type="text" maxlength="30" placeholder="A feeling, in your words"${full ? ' disabled' : ''}>
+          <button class="em-own-go" type="submit"${full ? ' disabled' : ''}>Add</button></div>${msg ? `<p class="em-msg">${escapeHtml(msg)}</p>` : ''}</form>
+        <button class="btn block em-done" id="em-done" type="button">Done</button></div>`, { tab:'practice', onBack:done, loc:{ k:'pathway' } });
+      const view = root.querySelector('.em-view'); if(!view) return;
+      view.onclick = e => {
+        const mv = e.target.closest('[data-mv]');
+        if(mv){ const i = +mv.dataset.i, x = L[i]; if(!x) return;
+          if(mv.dataset.mv === 'up'){ if(i > 0 && L[i-1].t === x.t){ L[i] = L[i-1]; L[i-1] = x; } else if(x.t > 1) x.t--; }
+          else { if(i < L.length - 1 && L[i+1].t === x.t){ L[i] = L[i+1]; L[i+1] = x; } else if(x.t < 3) x.t++; }
+          msg = ''; save(); return keep(paint); }
+        const rm = e.target.closest('[data-rm]'); if(rm){ L.splice(+rm.dataset.rm, 1); msg = ''; save(); return keep(paint); }
+        const ad = e.target.closest('[data-add]'); if(ad && L.length < UP_EMO_MAX){ L.push({ w:ad.dataset.add, t:+ad.dataset.t }); msg = ''; save(); return keep(paint); }
+        if(e.target.closest('#em-done')) return done();
+      };
+      const f = view.querySelector('#em-own');
+      if(f) f.onsubmit = ev => { ev.preventDefault(); const inp = view.querySelector('#em-own-in'); let w = (inp && inp.value || '').replace(/\s+/g, ' ').replace(/[|]/g, '').trim();
+        if(!w || L.length >= UP_EMO_MAX) return;
+        w = w.charAt(0).toUpperCase() + w.slice(1);
+        if(L.some(e => e.w.toLowerCase() === w.toLowerCase())){ msg = w + ' is already on your list.'; return keep(paint); }
+        L.push({ w, t:2 }); msg = ''; save(); keep(paint); };
+    };
+    const keep = fn => { const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; fn(); const sc2 = root.querySelector('.scroll'); if(sc2) sc2.scrollTop = y; };
+    paint();
+  }
 
-    function paintMaker(cue){
-      const sh=$('#p7-shape'); if(!sh) return;
-      const k=pState.mkKey; const tk=trackOf(k);
-      sh.className='p7-shape track-'+tk.cls;
-      sh.innerHTML=`
-        <p class="p7-shape-h">Make my own</p>
-        <p class="p7-sentence">${sentenceHTML()}</p>
-        <p class="p7-explain" id="p7-explain">${explainHTML()}</p>
-        <div class="p7-actions"><button class="btn block" id="p7-begin">Begin</button></div>`;
-      sh.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
-      const bg=$('#p7-begin'); if(bg) bg.onclick=beginMaker;
-      // when the maker first opens, briefly pulse the practice-type pill so it's clear
-      // the type is tappable (it's the first, primary dial). (Justin 2026-07-24)
-      if(cue){ const td=sh.querySelector('[data-dial="type"]'); if(td){ td.classList.add('p7-dial-cue'); td.addEventListener('animationend',()=>td.classList.remove('p7-dial-cue'),{once:true}); } }
-    }
+  // the Practice tab's way in (Justin, 2026-10-02: "deserves a little more visual flair. more screen real estate, an animated
+  // path, from top to bottom"): a card with the stretch of the pathway around where the member is, drawn in from the top
+  function _upEntry(paid){
+    _upY = null;   // opened from the Practice tab: land on their spot, not wherever they last were
+    let rows = [];
+    try{
+      const M = _upModel();
+      if(M){
+        const def = _domDefense();
+        const steps = [].concat(M.secs[0].items, [{ kind:'anchor', key:'pick', title:'Your safety anchor', st: !M.paid ? 'paid' : M.anchorSet ? 'done' : 'now' }],
+          M.SEC('safety').items, M.SEC('which').items, M.defItems, M.SEC('description').items.filter(x => x.kind === 'open'));
+        // where the member is: the recommended step (or the anchor, until it is chosen), else the first step not yet completed
+        let at = M.paid ? steps.findIndex(it => it.st === 'now' && it.kind !== 'present') : 0;
+        if(M.paid && !M.anchorSet) at = steps.findIndex(it => it.key === 'pick');
+        if(at < 0) at = steps.findIndex(it => it.kind !== 'present' && it.st !== 'done' && it.st !== 'open');
+        if(at < 0) at = steps.length - 1;
+        const from = Math.max(0, Math.min(at - 2, steps.length - 5));
+        const win = steps.slice(from, from + 5);
+        const stOf = (it, i) => it.st === 'paid' ? 'paid' : (from + i) === at ? 'now' : it.st === 'done' ? 'done' : it.locked ? 'locked' : 'ahead';
+        rows = win.map((it, i) => {
+          const c = _upCols(it, def), st = stOf(it, i);
+          const word = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
+            : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
+          const solid = st === 'done' && win[i + 1] && stOf(win[i + 1], i + 1) === 'done';
+          return `<span class="up-h-row" data-st="${st}"${solid ? ' data-seg="1"' : ''} style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
+            <span class="up-h-t"><b>${escapeHtml(it.title)}</b>${word ? `<span>${word}</span>` : ''}</span></span>`;
+        });
+      }
+    }catch(e){ rows = []; }
+    return `<button class="up-hero" type="button" id="up-entry" aria-label="${UP_TITLE}">
+        <span class="up-hero-head"><span class="up-hero-ico">${_UP_ICO}</span><b>${UP_TITLE}</b><span class="wc-go">${CHEV}</span></span>
+        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Paid plan · Every practice, in order'}</span>`}
+      </button>`;
+  }
 
-    // open the right brand sheet for a given dial, then repaint on choose
+
+  function renderPracticeTab(animateIn){
+    const paid = paidNow();
+    const def = _domDefense();
+    const nm = Store.getName();
+    // the person's name with a hand-drawn underline that draws itself in (Justin, 2026-10-02: "It used to say the user's name
+    // with an animated underline. That was plenty"): no eyebrow, no badge, and the card itself no longer slides in
+    const _line = `<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`;
+    const title = `<span class="p8-name">${nm ? `${escapeHtml(nm)}’s` : 'Your'}${_line}</span> custom practice`;
+    const lockMeta = LOCK_SVG + 'Paid plan';
+    let card, reco = null;
+    if(paid){
+      reco = _recommendSafe(true);
+      const est = estMinutes(reco.practiceKey, reco.silence);
+      const meta = reco.openEnded ? `Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}`
+        : (est ? `About ${est} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}` : escapeHtml(CAP(Store.practiceLabel(reco.practiceKey))));
+      const lineCol = reco.practiceKey==='anchoring' ? 'var(--s-safety-tx)' : reco.practiceKey==='self-regulation' ? `var(--s-${({fightflight:'fight',shutdown:'shutdown',freeze:'freeze'})[def||'freeze']}-tx)` : 'var(--ink)';
+      card = `<div class="rd-lcard p8-reco${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)};--line:${lineCol}">
+        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
+        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
+          <span class="p8-reco-foot"><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button></span></span>
+      </div>`;
+    } else {
+      card = `<div class="rd-lcard p8-reco p8-locked" id="foryou-lock" role="button" tabindex="0" style="--band:var(--hairline)">
+        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
+        <span class="rd-lcard-body"><span class="rd-lcard-why">Built from your check-ins, and fitted to what your system can hold now.</span>
+          <span class="p8-reco-foot"><span class="p8-lockline">${lockMeta}</span></span></span>
+      </div>`;
+    }
+    const sil = (pState && pState.silence) || 8;
+    const row = (k, t, sub, locked) => `<button class="rd-row p8-row" type="button" data-p8="${escapeHtml(k)}"${locked?' data-p8lock="1"':''}>
+        <span class="rd-thumb rd-thumb-mk p8-thumb">${_p8Mark(k, def)}</span>
+        <span class="rd-row-t"><b>${escapeHtml(t)}</b><span>${locked ? lockMeta + ' · ' : ''}${escapeHtml(sub)}</span></span>
+        <span class="wc-go">${CHEV}</span></button>`;
+    const mine = P8_ROWS.map(r=>{
+      const est = r.k==='surprise' ? null : estMinutes(r.k, r.k==='micro' ? 2 : sil);
+      const sub = est ? `About ${est} min · ${r.s}` : r.s;
+      return row(r.k, r.t, sub, !paid && !practiceFree(r.k));
+    }).join('');
+    const guided = P_MEDS.map(m=>row(m.id, m.title, `${m.est.replace('~','About ')} · ${m.sub.charAt(0).toLowerCase()+m.sub.slice(1)}`, !paid)).join('');
+    // the same page frame as Reflect and Learn (Justin, 2026-10-02: "Use Reflect's spacing across the board")
+    _rdShell(`<div class="p8-view">
+      <div class="scr-head read-head"><h1 class="read-h1">Practice</h1></div>
+      ${card}
+      ${_upEntry(paid)}
+      <h3 class="p8-sec">Make your own</h3>
+      <div class="p8-list">${mine}</div>
+      <h3 class="p8-sec">Guided practices</h3>
+      <div class="p8-list">${guided}</div>
+    </div>`, { tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    const fy = $('#foryou');
+    if(fy){
+      fy.onclick = (e)=>{ if(e.target.closest('#p8-cust')) return; renderPlan(reco); };
+      fy.onkeydown = (e)=>{ if(e.target===fy && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); renderPlan(reco); } };
+      const cu = $('#p8-cust'); if(cu) cu.onclick = (e)=>{ e.stopPropagation(); _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
+    }
+    const fl = $('#foryou-lock');
+    if(fl){ fl.onclick = ()=>_p8Locked(fl, 'matching'); fl.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); _p8Locked(fl, 'matching'); } }; }
+    root.querySelectorAll('[data-p8]').forEach(b=>b.onclick=()=>{
+      const k = b.dataset.p8;
+      if(b.dataset.p8lock) return _p8Locked(b, 'practice');
+      if(k==='surprise') return _p8Surprise();
+      openPracticeSheet(k);
+    });
+    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>screenPathway();
+    // a caller staged a shape to open straight into (older "change this practice" paths)
+    if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
+  }
+
+  // ── the practice sheet: one size, slides up, the practice's choices as labeled rows, then a line, the length and Begin ──
+  function openPracticeSheet(k){
+    if(!pState) tabPractice();
+    const def = _domDefense();
+    const isSession = mkIsSession(k);
+    const med = isSession ? P_MEDS.find(m=>m.id===k) : null;
+    if(!isSession){
+      if(!pState.sense) pState.sense='touch';
+      if(!pState.skill) pState.skill='imagery';
+      if(!pState.silence) pState.silence=8;
+      if(k==='micro' && ['movement','imagination'].indexOf(pState.sense)>=0) pState.sense='touch';
+      mkNormalize();
+    }
+    const tc = _p8Tc(k, def);
+    const title = med ? med.title : ((P8_ROWS.find(r=>r.k===k)||{}).t || CAP(Store.practiceLabel(k)));
+    const old = document.getElementById('p8-sheet'); if(old) old.remove();
+    const wrap = document.createElement('div'); wrap.id='p8-sheet'; wrap.className='p7-sheet p8-sheet';
+    wrap.innerHTML = `<div class="p7-sheet-card p8-card ${tc}" role="dialog" aria-modal="true" aria-labelledby="p8-h">
+      <div class="p8-grab" aria-hidden="true"></div>
+      <div class="p8-head"><span class="rd-thumb rd-thumb-mk p8-thumb">${_p8Mark(k, def)}</span><h3 class="p8-h" id="p8-h">${escapeHtml(title)}</h3>
+        <button class="p8-x" id="p8-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="p8-body" id="p8-body"></div>
+      <div class="p8-foot"><p class="p8-sum" id="p8-sum"></p><p class="p8-mins" id="p8-mins"></p><button class="btn block" id="p8-begin" type="button">Begin</button></div>
+    </div>`;
+    document.body.appendChild(wrap);
+    const bedName = ()=>{ const b = bedPref(); if(b.bed==='none') return 'Nothing'; if(b.bed==='surprise') return 'Surprise me'; const s = BED_SOUNDS.find(x=>x[0]===b.bed); return CAP(s ? s[1] : b.bed); };
+    const rowsOf = ()=>{
+      if(isSession) return [];
+      const sk = pState.skill, R = [];
+      if(k!=='mindfulness') R.push(['sense','Anchor', CAP(pState.sense)]);
+      if(k==='anchoring') R.push(['safety','Safety practice', CAP(mkSafetyRow(pState.safetySkill)[1])]);
+      if(k==='self-regulation'){
+        R.push(['skill','Skill', CAP(skillLabel(sk))]);
+        if(mkTakesObstacles(sk)) R.push(['obst','Obstacle statements', pState.obst ? 'With' : 'Without']);
+        if(!(mkTakesObstacles(sk) && pState.obst)) R.push(['emotion','Working with', CAP(_emoWord(pState.emotion) || 'whatever emotion surfaces')]);
+        if(mkHasDepth(sk)) R.push(['depth','Practice depth', CAP(mkDepthWords(pState.depth))]);   // not "How deep" (Justin, 2026-10-02: intimidating)
+        if(holdWatchOffered(sk, pState.deepest)) R.push(['hold','Hold & watch', pState.holdWatch ? CAP(holdDurWords(pState.holdSeconds)) : 'Off']);
+      }
+      if(k!=='micro') R.push(['silence','Silence', CAP(silLabel(pState.silence))]);
+      if(k==='self-regulation') R.push(['length','Ending', pState.open ? 'No set ending' : 'A planned ending']);
+      R.push(['voice','Voice', voiceName(voicePref())]);
+      R.push(['bed','Background sound', bedName()]);
+      return R;
+    };
+    // the line, then the length under it, small: "~10min" (Justin, 2026-10-02)
+    const sumText = ()=>{
+      if(isSession) return `${med.sub}.`;
+      const open = (k==='self-regulation' && !!pState.open);
+      return P8_LINE[k] + (open ? ' It keeps going until you choose to stop.' : '');
+    };
+    const minsText = ()=>{
+      if(isSession){ const n = (med.est.match(/\d+/)||[''])[0]; return n ? `~${n}min` : ''; }
+      if(k==='self-regulation' && pState.open) return '';
+      const est = estMinutes(k, k==='micro' ? 2 : pState.silence); return est ? `~${est}min` : '';
+    };
+    const paint = ()=>{
+      $('#p8-body').innerHTML = rowsOf().map(([kind, l, v])=>`<button class="p8-set" type="button" data-dial="${kind}"><span class="p8-set-k">${escapeHtml(l)}</span><span class="p8-set-v">${escapeHtml(v)}</span><span class="wc-go">${CHEV}</span></button>`).join('');
+      $('#p8-sum').textContent = sumText(); const mn = $('#p8-mins'); mn.textContent = minsText(); mn.hidden = !mn.textContent;
+      wrap.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
+    };
     function openDial(kind){
-      const k=pState.mkKey; const tkCls='track-'+trackOf(k).cls;
-      if(kind==='type'){
-        openDialSheet('What would you like to practice?', MK_TYPE_GROUPS(), k, tkCls, (v)=>{
-          pState.mkKey=v;
-          // entering self-regulation: make sure the seeded dials are valid for it
-          if(v==='self-regulation'){ if(!pState.skill) pState.skill='imagery'; if(!pState.sense) pState.sense='touch'; }
-          if(v==='micro' && ['movement','imagination'].indexOf(pState.sense)>=0) pState.sense='touch';
-          paintMaker();
-        });
-      } else if(kind==='sense'){
+      if(kind==='sense'){
         const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
-        openDialSheet('Anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tkCls, (v)=>{ pState.sense=v; paintMaker(); });
+        openDialSheet('Anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tc, (v)=>{ pState.sense=v; paint(); });
       } else if(kind==='safety'){
-        openDialSheet('Which safety practice?', [{opts:MK_SAFETY.map(([val,l])=>({val:val||'plain',menu:l}))}], pState.safetySkill||'plain', tkCls, (v)=>{ pState.safetySkill=(v==='plain'?'':v); paintMaker(); });
+        openDialSheet('Which safety practice?', [{opts:MK_SAFETY.map(([val,l])=>({val:val||'plain',menu:l}))}], pState.safetySkill||'plain', tc, (v)=>{ pState.safetySkill=(v==='plain'?'':v); paint(); });
       } else if(kind==='skill'){
-        openDialSheet('Which skill?', [{opts:MK_SELF_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tkCls, (v)=>{
-          pState.skill=v; pState.depth=null; pState.deepest=false;
-          mkNormalize(); paintMaker();
-        });
+        openDialSheet('Which skill?', [{opts:MK_SELF_SKILLS.map(([val,l])=>({val,menu:l,sub:MK_SKILL_SUB[val]}))}], pState.skill, tc, (v)=>{ pState.skill=v; pState.depth=null; pState.deepest=false; mkNormalize(); paint(); });
       } else if(kind==='obst'){
-        openDialSheet('Obstacle statements', [{opts:[{val:'1',menu:'With Obstacle statements',sub:'Four statements first, then the skill'},{val:'0',menu:'Without Obstacle statements',sub:'Start with the skill'}]}], pState.obst?'1':'0', tkCls, (v)=>{ pState.obst=(v==='1'); pState.prefix=pState.obst?'obstacles':null; mkNormalize(); paintMaker(); });
-      } else if(kind==='depth'){
-        openDialSheet('What depth level would you like this practice?', [{opts:MK_DEPTHS.map(([val,l])=>({val,menu:l}))}], pState.depth||'general', tkCls, (v)=>{ pState.depth=v; pState.deepest=(v==='description'); mkNormalize(); paintMaker(); });
+        openDialSheet('Obstacle statements', [{opts:[{val:'1',menu:'With Obstacle statements',sub:'Four statements first, then the skill'},{val:'0',menu:'Without Obstacle statements',sub:'Start with the skill'}]}], pState.obst?'1':'0', tc, (v)=>{ pState.obst=(v==='1'); pState.prefix=pState.obst?'obstacles':null; mkNormalize(); paint(); });
       } else if(kind==='emotion'){
-        const opts=[{val:'',menu:'whatever emotion surfaces',sub:'Let a feeling arrive on its own'}].concat(Store.EMOTION_FAMILIES.map(f=>({val:f.key,menu:MK_EMO_WORDS[f.key]||f.label,sub:f.hint})));
-        openDialSheet('Working with', [{opts}], pState.emotion||'', tkCls, (v)=>{ pState.emotion=v||null; paintMaker(); });
+        // the member's emotions, easy to hard (the Unstucking Pathway's "Which defense?", 2026-10-02)
+        openDialSheet('Working with', _emoOpts(), pState.emotion||'', tc, (v)=>{
+          if(v==='__choose'){ const sh=document.getElementById('p8-sheet'); if(sh) sh.remove(); return screenEmotions(()=>app('practice')); }
+          pState.emotion=v||null; paint(); });
+      } else if(kind==='depth'){
+        openDialSheet('Practice depth', [{opts:MK_DEPTHS.map(([val,l])=>({val,menu:l}))}], pState.depth||'general', tc, (v)=>{ pState.depth=v; pState.deepest=(v==='description'); mkNormalize(); paint(); });
       } else if(kind==='hold'){
         const opts=[{val:'off',menu:'No hold & watch'},{val:'30',menu:'Hold & watch for 30 sec'},{val:'60',menu:'Hold & watch for 1 min'},{val:'90',menu:'Hold & watch for 90 sec'},{val:'120',menu:'Hold & watch for 2 min'}];
-        openDialSheet(MK_HOLD_LINE, [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tkCls, (v)=>{
-          if(v==='off'){ pState.holdWatch=false; } else { pState.holdWatch=true; pState.holdSeconds=+v; }
-          paintMaker();
-        });
+        openDialSheet(MK_HOLD_LINE, [{opts}], pState.holdWatch?String(pState.holdSeconds):'off', tc, (v)=>{ if(v==='off'){ pState.holdWatch=false; } else { pState.holdWatch=true; pState.holdSeconds=+v; } paint(); });
       } else if(kind==='silence'){
-        openDialSheet('How much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tkCls, (v)=>{ pState.silence=+v; paintMaker(); });
-      } else if(kind==='bed'){
-        openBedSheet(tkCls, ()=>paintMaker());
+        openDialSheet('How much silence?', [{opts:P_SILENCE.map(([val,l])=>({val,menu:l}))}], pState.silence, tc, (v)=>{ pState.silence=+v; paint(); });
       } else if(kind==='length'){
-        openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(pState.open), tkCls, (v)=>{ pState.open=(v==='true'); paintMaker(); });
+        openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(!!pState.open), tc, (v)=>{ pState.open=(v==='true'); paint(); });
+      } else if(kind==='voice'){
+        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)) return gateSubscribe('voice'); if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paint(); });
+      } else if(kind==='bed'){
+        openBedSheet(tc, ()=>paint());
       }
     }
-
-    function beginMaker(){
-      const k=pState.mkKey;
-      if(k==='surprise'){
-        // shape a random self-regulation practice, then show its plan (details) BEFORE it
-        // begins — the plan screen's own "begin" launches it. (Justin 2026-07-24: surprise
-        // must reveal the practice's details first, not autostart.)
-        const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
-        const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
-        const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
-        // no hold & watch: a surprise never goes to the deepest depth, where it lives
-        renderPlan({ practiceKey:'self-regulation', sense:rsense, skill:rskill, silence:rsilence,
-                     holdWatch:false, holdWatchTargetSeconds:null,
-                     reason:'A surprise practice, shaped at random to meet what is hard while keeping you anchored in safety.' }, 'practice');
-        return;
-      }
-      if(mkIsSession(k)){
-        practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k});
-        return;
-      }
-      const sil = k==='micro' ? 2 : pState.silence;
-      const ps={embed:'1',autostart:'1',practice:k,sense:pState.sense,silence:String(sil)};
-      mkNormalize();
-      const L = mkSelfLaunch();
-      const mkDeep = (k==='self-regulation' && L.deep);
-      const mkHold = (k==='self-regulation' && L.hold);
-      let launchSkill = null;
-      if(k==='anchoring' && pState.safetySkill){ ps.skill=pState.safetySkill; launchSkill=pState.safetySkill; }
-      if(k==='self-regulation'){ ps.skill=L.skill; launchSkill=L.skill;
-        if(mkDeep) ps.descdef='1';
-        if(L.prefix) ps.prefix=L.prefix;
-        if(L.depth) ps.depth=L.depth;
-        if(mkHold){ ps.holdwatch='1'; ps.holdsecs=String(pState.holdSeconds||60); }
-        if(pState.open) ps.open='1';
-      }
-      practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:(launchSkill||pState.skill),prefix:(k==='self-regulation'?L.prefix:null),depth:(k==='self-regulation'?L.depth:null),silence:sil,descDefense:mkDeep,holdWatch:mkHold,holdWatchTargetSeconds:(mkHold?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
-    }
+    paint();
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const close = ()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 320); };
+    const onKey = (e)=>{ if(e.key==='Escape' && !document.getElementById('p7-sheet')) close(); };
+    document.addEventListener('keydown', onKey);
+    wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
+    $('#p8-x').onclick = close;
+    $('#p8-begin').onclick = ()=>{ close(); _p8Launch(k); };
+    try{ $('#p8-x').focus({ preventScroll:true }); }catch(e){}
   }
 
-  function renderPracticeChooser(animateIn, fromAttr){
-    const c=content();
+  // start the practice the sheet shaped (the one launch path for every hand-made practice)
+  function _p8Launch(k){
+    if(mkIsSession(k)){
+      if(!paidNow()) return gateSubscribe('practice');
+      return practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k});
+    }
+    if(!practiceFree(k) && !paidNow()) return gateSubscribe('practice');
     mkNormalize();
-    let {key,sense,skill,silence,med}=pState;
-    // Desktop (>=720) shows a list|detail. On arrival NOTHING is selected: the list
-    // shows neutral cards and the detail column stays hidden until the user picks a
-    // practice. On pick, that card lights up, the others fade + lose their outline,
-    // and its adjust/what-to-expect reveals on the right. (Mobile <720 keeps key=null
-    // and its full-screen flow unchanged.)
-    // Must stay IDENTICAL to app.css's regular size class (see the size-class comment at the
-    // top of app.css). Reverted to width-only 2026-07-30d at Justin's call: a landscape phone
-    // takes the desktop composition on purpose.
-    const desk = !!(window.matchMedia && window.matchMedia('(min-width:720px)').matches);
-
-    // 7b — paid members on mobile get the "make my own" sentence-maker (redesign,
-    // 2026-07-24). Free accounts and desktop keep the existing chooser below,
-    // unchanged. (Desktop paid stays on the list|detail split for now.)
-    if(paidNow() && !desk){ return renderMaker7b(animateIn); }
-
-    // per-practice icons: the breath ring for mindfulness, the brand heart for
-    // safety, the brand bolt for self-regulation (matching the player's tinting),
-    // headphones for the session library — each in its track's ink color.
-    const P_ICO = {
-      micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
-      anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
-      // self-regulation meets BOTH defenses, so it carries both marks (bolt + x)
-      'self-regulation':        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
-      more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    };
-    const selCard=(o,dataAttr,selected)=>`
-      <button class="wincard p-opt${selected?' p-sel':''}" ${dataAttr}>
-        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
-        <span class="wc-text">
-          <span class="wc-title">${escapeHtml(o.title)}</span>
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </button>`;
-
-    const chip=(lbl,val,attr,on)=>
-      `<button class="p-chip${on?' on':''}" data-${attr}="${escapeHtml(String(val))}">${escapeHtml(lbl)}</button>`;
-
-    // micro keeps decisions tiny: three senses only (movement & imagination need
-    // the full anchoring ladder), no silence question (fixed short gaps)
-    const senseList = key==='micro' ? ['touch','sound','sight'] : P_SENSES;
-    const refineHTML=(key&&key!=='more')?`
-      <div class="p-refine">
-        ${key!=='mindfulness'?`<div class="p-rgroup">
-          <p class="dash-prompt">What would you like to anchor with?</p>
-          <div class="p-chips">${senseList.map(s=>chip(s,s,'sense',s===sense)).join('')}</div>
-        </div>`:''}
-        ${key==='anchoring'?`<div class="p-rgroup">
-          <p class="dash-prompt">Which safety practice?</p>
-          <div class="p-chips">${MK_SAFETY.map(([v,l])=>chip(l,v||'plain','safetysk',(v||'')===(pState.safetySkill||''))).join('')}</div>
-        </div>`:''}
-        ${key==='self-regulation'?`<div class="p-rgroup">
-          <p class="dash-prompt">Which skill do you want to practice?</p>
-          <div class="p-chips">${MK_SELF_SKILLS.map(([v,l])=>chip(l,v,'skill',v===skill)).join('')}</div>
-        </div>`:''}
-        ${key==='self-regulation'&&mkTakesObstacles(skill)?`<div class="p-rgroup">
-          <p class="dash-prompt">Start with Obstacle statements?</p>
-          <div class="p-chips">${[[true,MK_OBST_WORDS(true)],[false,MK_OBST_WORDS(false)]].map(([v,l])=>chip(l,v,'obst',v===!!pState.obst)).join('')}</div>
-        </div>`:''}
-        ${key==='self-regulation'&&mkHasDepth(skill)?`<div class="p-rgroup">
-          <p class="dash-prompt">What depth level would you like this practice?</p>
-          <div class="p-chips">${MK_DEPTHS.map(([v,l])=>chip(l,v,'depth',v===pState.depth)).join('')}</div>
-        </div>`:''}
-        ${key==='self-regulation'&&!(mkTakesObstacles(skill)&&pState.obst)?`<div class="p-rgroup">
-          <p class="dash-prompt">Working with anything now?</p>
-          <div class="p-chips">${[['','let it surface']].concat(Store.EMOTION_FAMILIES.map(f=>[f.key,f.label])).map(([v,l])=>
-            `<button class="p-chip${(pState.emotion||'')===v?' on':''}" data-emo="${escapeHtml(v)}">${escapeHtml(l)}</button>`).join('')}</div>
-          <p class="ch-cap" id="p-emo-hint">${(()=>{const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);return f?escapeHtml(f.hint):'Choosing ahead of time helps you notice it when it arrives. Optional.';})()}</p>
-        </div>`:''}
-        ${key==='self-regulation'?`<div class="p-rgroup" id="p-hw-group" style="${holdWatchOffered(skill, pState.deepest)?'':'display:none'}">
-          <p class="dash-prompt">Add hold &amp; watch?</p>
-          <div class="p-chips">${[[true,'add hold & watch'],[false,'no hold & watch']].map(([v,l])=>chip(l,v,'holdwatch',v===!!pState.holdWatch)).join('')}</div>
-          <p class="ch-cap">${escapeHtml(MK_HOLD_LINE)}</p>
-        </div>`:''}
-        ${key==='self-regulation'?`<div class="p-rgroup" id="p-hd-group" style="${(holdWatchOffered(skill, pState.deepest)&&pState.holdWatch)?'':'display:none'}">
-          <p class="dash-prompt">How long to hold &amp; watch?</p>
-          <div class="p-chips">${[[30,'30 sec'],[60,'1 min'],[90,'90 sec'],[120,'2 min']].map(([v,l])=>chip(l,v,'holdsec',v===pState.holdSeconds)).join('')}</div>
-        </div>`:''}
-        ${key!=='micro'?`<div class="p-rgroup">
-          <p class="dash-prompt">How much silence between guidance?</p>
-          <div class="p-chips">${P_SILENCE.map(([v,l])=>chip(l,v,'sil',v===silence)).join('')}</div>
-        </div>`:''}
-        ${key==='self-regulation'?`<div class="p-rgroup">
-          <p class="dash-prompt">How should the practice end?</p>
-          <div class="p-chips">${[[false,'a planned ending'],[true,'no set ending']].map(([v,l])=>chip(l,v,'open',v===!!pState.open)).join('')}</div>
-        </div>`:''}
-        <p class="ch-cap p-expect" id="p-expect">${chooserExpect()}</p>
-        ${key==='self-regulation'?'<button class="p-surprise" id="p-surprise">Surprise me</button>':''}
-      </div>`:'';
-
-    const medsHTML=key==='more'?`
-      <div class="p-med-list">
-        ${P_MEDS.map(m=>`<button class="p-med-row${med===m.id?' on':''}" data-pmed="${m.id}">
-          <span class="p-med-title">${escapeHtml(m.title)}</span>
-          <span class="p-med-meta">${escapeHtml(m.est)} · ${escapeHtml(m.sub)}</span>
-        </button>`).join('')}
-      </div>`:'';
-
-    const canBegin=!!(key&&(key!=='more'||med));
-
-    const _paid = paidNow();
-    const reco = _recommendSafe(true);
-    const tk = trackOf(reco.practiceKey);
-    const tunedNm = Store.getName();
-    const tunedHeading = tunedNm ? `${escapeHtml(tunedNm)}'s custom practice` : 'your custom practice';
-    const _tEst = estMinutes(reco.practiceKey, reco.silence);
-    // The matched card is the paid line itself. For a free account it is NOT rendered
-    // faded-with-the-answer-showing (that would hand over the thing while pretending not
-    // to, and dangle it besides) — it is simply not there. What's there instead is the
-    // practices they have, and one quiet line saying where the matching lives.
-    const tunedCard = !_paid ? '' : `
-      <button class="wincard tuned-card track-${tk.cls}${animateIn?' tc-in':''}${pState.tunedSel?' tuned-sel':''}" id="foryou">
-        <span class="wc-text">
-          <span class="tuned-kicker">Made for you</span>
-          <span class="wc-title">${tunedHeading}</span>
-          <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>
-          <span class="wc-reason">${escapeHtml(properCase(reco.reason))}</span>
-          ${reco.openEnded ? `<span class="tuned-meta">Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : (_tEst ? `<span class="tuned-meta">About ${_tEst} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}</span>` : '')}
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </button>`;
-
-    // heading-friendly short names: "adjust your safety practice", never
-    // "adjust your connect with safety practice" / "your a tiny practice practice"
-    const P_ADJUST = { anchoring:'safety', micro:'tiny', mindfulness:'mindfulness' };
-    const heading = !key ? (_paid ? '' : 'Pick a practice.')
-      : (key==='more' ? 'Choose a practice.'
-      : `adjust your <span class="p-adjust-name">${escapeHtml(P_ADJUST[key]||Store.practiceLabel(key))}</span> practice.`);
-    // free: the full menu in the real order, nothing hidden — the base-plan practices are
-    // FADED INK ONLY (same card, same fill, no padlock, no dashes), exactly as the guest
-    // pick renders them. Tapping one asks; it never scolds.
-    const optCards = P_OPTS.map(o=>{
-      const locked = !_paid && !practiceFree(o.key);
-      return locked
-        ? selCard(o, `data-plock="${o.key}"`, false).replace('class="wincard p-opt', 'class="wincard p-opt p-locked')
-        : selCard(o, `data-pkey="${o.key}"`, key===o.key && !pState.tunedSel);
-    }).join('');
-    const freeFoot = (!_paid && !key)
-      ? '<p class="fineprint" style="text-align:center;margin:14px 2px 0;opacity:.72">Practices built from your check-ins are on the base plan.</p>'
-      : '';
-
-    // ✅ ONLY WHAT IS BELOW THE TAP REFRESHES (Justin, 2026-09-24, beta on desktop: "When I click on a skill, the
-    // entire customizer refreshes. Visually, it is very unnerving … The only thing that should refresh are the items
-    // underneath it."). A tap on skill / obstacle statements / depth changes which questions come AFTER it, so those
-    // re-render — and re-animate, top down — while everything from the top down to the tapped row stays exactly as it
-    // is on screen. Anything unexpected (no panel on screen, the row not found) falls back to the full render.
-    let partialDone=false;
-    if(fromAttr){
-      const live=c.querySelector('.p-refine');
-      const tpl=document.createElement('template'); tpl.innerHTML=refineHTML.trim();
-      const fresh=tpl.content.querySelector('.p-refine');
-      const sel='[data-'+fromAttr+']';
-      if(live&&fresh){
-        const liveKids=Array.from(live.children), freshKids=Array.from(fresh.children);
-        const li=liveKids.findIndex(g=>g.querySelector(sel)), fi=freshKids.findIndex(g=>g.querySelector(sel));
-        if(li>=0&&fi>=0){
-          const liveChips=liveKids[li].querySelectorAll(sel), freshChips=freshKids[fi].querySelectorAll(sel);
-          liveChips.forEach((b,k)=>{ if(freshChips[k]) b.classList.toggle('on',freshChips[k].classList.contains('on')); });
-          liveKids.slice(li+1).forEach(g=>g.remove());
-          freshKids.slice(fi+1).forEach((g,k)=>{ g.style.animationDelay=(0.04+k*0.07).toFixed(2)+'s'; live.appendChild(g); });
-          partialDone=true;
-        }
-      }
+    const sil = k==='micro' ? 2 : pState.silence;
+    const ps = {embed:'1',autostart:'1',practice:k,sense:pState.sense,silence:String(sil)};
+    const L = mkSelfLaunch();
+    const deep = (k==='self-regulation' && L.deep), hold = (k==='self-regulation' && L.hold);
+    let launchSkill = null;
+    if(k==='anchoring' && pState.safetySkill){ ps.skill=pState.safetySkill; launchSkill=pState.safetySkill; }
+    if(k==='self-regulation'){ ps.skill=L.skill; launchSkill=L.skill;
+      if(deep) ps.descdef='1';
+      if(L.prefix) ps.prefix=L.prefix;
+      if(L.depth) ps.depth=L.depth;
+      if(hold){ ps.holdwatch='1'; ps.holdsecs=String(pState.holdSeconds||60); }
+      if(pState.open) ps.open='1';
+      if(pState.emotion) ps.emotion=_emoWord(pState.emotion);   // the emotion they chose, named back in the practice (2026-10-04)
     }
-    if(partialDone){ /* the rows below were replaced in place; handlers are re-bound below */ }
-    else if(!desk){
-      // ---- MOBILE (<720): unchanged full-screen flow (list OR adjust) ----
-      c.innerHTML=`<div class="view p-view${key?' track-'+trackOf(key).cls:''}">
-      ${heading?`<div class="scr-head">
-        <p class="eyebrow"></p>
-        <h2 class="scr-h">${heading}</h2>
-        ${key&&key!=='more'?`<svg class="p-adjust-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`:''}
-      </div>`:''}
-      <div class="p-bottom">
-        ${!key
-          ? `${tunedCard}<div class="p-opts" id="p-opts-list">${optCards}</div>${freeFoot}`
-          : `${refineHTML}${medsHTML}`}
-      </div>
-      ${key?`<div class="actionbar">
-        <button class="set-quiet actionbar-aux" id="p-cancel">Back</button>
-        <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>Begin</button>
-      </div>`:''}
-    </div>`;
-    } else {
-      // ---- DESKTOP (>=720): persistent list | detail. The list (tuned card +
-      // practice cards) stays left; the selected practice's adjust/what-to-expect
-      // renders on the right. No navigation, no bottom bleed. Reuses the exact same
-      // refine/meds markup + handlers + begin flow as mobile. ----
-      // D135 / the defect underneath D226 (fixed 2026-07-30d): this used to be
-      // `_paid ? '' : 'Pick a practice.'`, so a paid account got NO .scr-head, no heading and
-      // no eyebrow on the >=720 practice screen — the one screen in the app with no title.
-      // It only became obvious once a rotated phone started landing here. Every screen gets a head.
-      const deskHeading = 'Pick a practice.';
-      c.innerHTML=`<div class="view p-view p-split-view${key?' has-detail':''}${key?' track-'+trackOf(key).cls:''}">
-      ${deskHeading?`<div class="scr-head">
-        <p class="eyebrow"></p>
-        <h2 class="scr-h">${deskHeading}</h2>
-      </div>`:''}
-      <div class="p-split">
-        <div class="p-list-col">
-          ${tunedCard}<div class="p-opts${key?' has-sel':''}" id="p-opts-list">${optCards}</div>${freeFoot}
-        </div>
-        <div class="p-detail-col">
-          ${key ? `${refineHTML}${medsHTML}
-            <div class="actionbar p-detail-bar">
-              <button class="btn block" id="p-begin"${canBegin?'':' disabled'}>Begin</button>
-            </div>` : ''}
-        </div>
-      </div>
-    </div>`;
-    }
-
-    c.querySelectorAll('[data-pkey]').forEach(b=>b.onclick=()=>{pState.tunedSel=false;pState.key=desk?b.dataset.pkey:(pState.key===b.dataset.pkey?null:b.dataset.pkey);pState.med=null;renderPracticeChooser();});
-    c.querySelectorAll('[data-plock]').forEach(b=>b.onclick=()=>gateSubscribe('practice'));
-    const cancelBtn=$('#p-cancel'); if(cancelBtn) cancelBtn.onclick=()=>{pState.key=null;pState.med=null;pState.tunedSel=false;renderPracticeChooser();};
-    c.querySelectorAll('[data-pmed]').forEach(b=>b.onclick=()=>{
-      pState.med=b.dataset.pmed;
-      c.querySelectorAll('[data-pmed]').forEach(r=>r.classList.toggle('on',r.dataset.pmed===pState.med));
-      const bb=$('#p-begin'); if(bb){bb.disabled=false;bb.removeAttribute('disabled');}
-    });
-    // the live "what to expect" paragraph rebuilds (with a soft crossfade) on every chip tap
-    const updExpect=()=>{ const el=$('#p-expect'); if(el){ el.classList.remove('cap-in'); void el.offsetWidth;
-      el.textContent=chooserExpect(); el.classList.add('cap-in'); } };
-    c.querySelectorAll('[data-sense]').forEach(b=>b.onclick=()=>{
-      pState.sense=b.dataset.sense;
-      c.querySelectorAll('[data-sense]').forEach(r=>r.classList.toggle('on',r.dataset.sense===pState.sense));
-      updExpect();
-    });
-    c.querySelectorAll('[data-skill]').forEach(b=>b.onclick=()=>{
-      // the groups below the skill depend on it (Obstacles, what to do with what surfaces,
-      // hold & watch), so the panel is rebuilt rather than toggled
-      pState.skill=b.dataset.skill; pState.depth=null; pState.deepest=false;
-      mkNormalize(); renderPracticeChooser(false,'skill');
-    });
-    c.querySelectorAll('[data-safetysk]').forEach(b=>b.onclick=()=>{
-      pState.safetySkill = b.dataset.safetysk==='plain' ? '' : b.dataset.safetysk;
-      c.querySelectorAll('[data-safetysk]').forEach(r=>r.classList.toggle('on',r.dataset.safetysk===(pState.safetySkill||'plain')));
-      updExpect();
-    });
-    c.querySelectorAll('[data-obst]').forEach(b=>b.onclick=()=>{
-      pState.obst = b.dataset.obst==='true'; pState.prefix = pState.obst ? 'obstacles' : null;
-      mkNormalize(); renderPracticeChooser(false,'obst');
-    });
-    c.querySelectorAll('[data-depth]').forEach(b=>b.onclick=()=>{
-      pState.depth = b.dataset.depth; pState.deepest = (pState.depth==='description');
-      mkNormalize(); renderPracticeChooser(false,'depth');
-    });
-    c.querySelectorAll('[data-emo]').forEach(b=>b.onclick=()=>{
-      pState.emotion = b.dataset.emo || null;
-      c.querySelectorAll('[data-emo]').forEach(r=>r.classList.toggle('on',(r.dataset.emo||null)===pState.emotion));
-      const h=$('#p-emo-hint');
-      if(h){ const f=Store.EMOTION_FAMILIES.find(x=>x.key===pState.emotion);
-        h.textContent = f ? f.hint : 'Choosing ahead of time helps you notice it when it arrives. Optional.'; }
-    });
-    c.querySelectorAll('[data-holdwatch]').forEach(b=>b.onclick=()=>{
-      pState.holdWatch=b.dataset.holdwatch==='true';
-      c.querySelectorAll('[data-holdwatch]').forEach(r=>r.classList.toggle('on',(r.dataset.holdwatch==='true')===pState.holdWatch));
-      const hdg=$('#p-hd-group'); if(hdg) hdg.style.display=(pState.holdWatch&&holdWatchOffered(pState.skill, pState.deepest))?'':'none';
-      updExpect();
-    });
-    c.querySelectorAll('[data-holdsec]').forEach(b=>b.onclick=()=>{
-      pState.holdSeconds=+b.dataset.holdsec;
-      c.querySelectorAll('[data-holdsec]').forEach(r=>r.classList.toggle('on',+r.dataset.holdsec===pState.holdSeconds));
-      updExpect();
-    });
-    c.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{
-      pState.open=b.dataset.open==='true';
-      c.querySelectorAll('[data-open]').forEach(r=>r.classList.toggle('on',(r.dataset.open==='true')===pState.open));
-      updExpect();
-    });
-    c.querySelectorAll('[data-sil]').forEach(b=>b.onclick=()=>{
-      pState.silence=+b.dataset.sil;
-      c.querySelectorAll('[data-sil]').forEach(r=>r.classList.toggle('on',r.dataset.sil===String(pState.silence)));
-      updExpect();
-    });
-
-    const surpriseBtn=$('#p-surprise');
-    if(surpriseBtn)surpriseBtn.onclick=()=>{
-      const rskill=P_SKILLS[Math.floor(Math.random()*P_SKILLS.length)][0];
-      const rsense=P_SENSES[Math.floor(Math.random()*P_SENSES.length)];
-      const rsilence=P_SILENCE[Math.floor(Math.random()*P_SILENCE.length)][0];
-      // no hold & watch: a surprise never goes to the deepest depth, where it lives
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'self-regulation',sense:rsense,silence:String(rsilence),skill:rskill}).toString(),{practiceKey:'self-regulation',sense:rsense,skill:rskill,silence:rsilence,holdWatch:false,holdWatchTargetSeconds:null});
-    };
-
-    const tuned=$('#foryou'); if(tuned) tuned.onclick=()=>{
-      // Desktop: the recommended card opens its detail in the right panel (like the
-      // practice cards) instead of navigating to the plan screen. Mobile keeps the plan.
-      if(desk && reco.practiceKey && reco.practiceKey!=='more'){
-        pState.tunedSel=true; pState.key=reco.practiceKey; pState.med=null;
-        if(reco.sense) pState.sense=reco.sense;
-        if(reco.skill) pState.skill=reco.skill;
-        pState.obst=false; pState.safetySkill='';
-        if(reco.silence) pState.silence=reco.silence;
-        pState.deepest = holdWatchOffered(reco.skill, reco.descDefense);
-        const _bp = (reco.skill==='balancing'||reco.skill==='pendulating');
-        pState.prefix = _bp ? (reco.prefix||null) : null; pState.depth = _bp ? (reco.depth||null) : null;
-        pState.holdWatch = !!reco.holdWatch && pState.deepest;
-        if(pState.holdWatch && reco.holdWatchTargetSeconds) pState.holdSeconds=reco.holdWatchTargetSeconds;
-        renderPracticeChooser();
-      } else { renderPlan(reco); }
-    };
-    const beginBtn=$('#p-begin');
-    // attach regardless of initial canBegin: for "More meditations" the button starts
-    // disabled (no session picked yet) and is enabled when a session is chosen — but the
-    // handler must already be wired, or clicking the enabled button does nothing.
-    if(beginBtn)beginBtn.onclick=()=>{
-      mkNormalize();
-      const {key,sense,skill,silence,med}=pState;
-      const L = mkSelfLaunch();
-      let src;
-      if(key==='more'){
-        src='player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(med);
-      }else{
-        const sil = key==='micro' ? 2 : silence;   // micro runs on fixed short gaps
-        const ps={embed:'1',autostart:'1',practice:key,sense,silence:String(sil)};
-        if(key==='anchoring'&&pState.safetySkill) ps.skill=pState.safetySkill;
-        if(key==='self-regulation'){ ps.skill=L.skill;
-          if(L.deep) ps.descdef='1';
-          if(L.prefix) ps.prefix=L.prefix;
-          if(L.depth) ps.depth=L.depth;
-          if(L.hold){ps.holdwatch='1';ps.holdsecs=String(pState.holdSeconds||60);}
-          if(pState.open) ps.open='1';
-        }
-        src='player.html?'+new URLSearchParams(ps).toString();
-      }
-      const chDeep = (key==='self-regulation' && L.deep);
-      const chHold = (key==='self-regulation' && L.hold);
-      const launchSkill = key==='self-regulation' ? L.skill : (key==='anchoring' && pState.safetySkill) ? pState.safetySkill : skill;
-      practiceShell(src,{practiceKey:key,sense,skill:launchSkill,prefix:(key==='self-regulation'?L.prefix:null),depth:(key==='self-regulation'?L.depth:null),silence:(key==='micro'?2:silence),descDefense:chDeep,holdWatch:chHold,holdWatchTargetSeconds:(chHold?(pState.holdSeconds||60):null),openEnded:(key==='self-regulation'?!!pState.open:false),emotionIntent:(key==='self-regulation'?(pState.emotion||null):null)});
-    };
+    practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:(launchSkill||pState.skill),prefix:(k==='self-regulation'?L.prefix:null),depth:(k==='self-regulation'?L.depth:null),silence:sil,descDefense:deep,holdWatch:hold,holdWatchTargetSeconds:(hold?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
   }
 
   // Today's "a practice for now" row → one-tap autostart of the recommended practice,
@@ -7502,6 +9310,9 @@ function app(tab){
     if(reco && !practiceFree(reco.practiceKey) && !paidNow()) return gateSubscribe('practice');
     const params = { embed:'1', autostart:'1', practice:reco.practiceKey, sense:reco.sense||'touch', silence:String(reco.silence||8) };
     if(reco.skill) params.skill = reco.skill;
+    if(reco.openEnded && reco.practiceKey !== 'micro') params.open = '1';   // no set ending (Pathway, 2026-10-03)
+    // the emotion they chose ("Working with"), named back in the practice instead of asking them to choose one (Justin, 2026-10-04)
+    if(reco.practiceKey==='self-regulation' && reco.emotionIntent) params.emotion = _emoWord(reco.emotionIntent);
     // recommender-preset dials ride into the player (both already gate-checked in
     // store.js: the step of the skill sequence, with its prefix and depth; hold & watch at the top tier).
     if(reco.practiceKey==='self-regulation' && reco.descDefense) params.descdef = '1';
@@ -7534,6 +9345,8 @@ function app(tab){
       if(m.sense!==undefined && m.sense!==null) reco.sense=m.sense;
       if(typeof m.silence==='number') reco.silence=m.silence;
       // the background sound it ENDED on is the one remembered (a change in the player's menu counts)
+      // the voice it ENDED on is the one remembered (2026-09-29): a change in the player's customizer counts
+      if(typeof m.voice==='string' && Store.setPrefVoice && VOICES.some(x=>x[0]===m.voice) && voiceOk(m.voice) && m.voice!==voicePref()) Store.setPrefVoice(m.voice);
       if(typeof m.bed==='string' && Store.setPrefBed){ const keep = m.bedPref==='surprise' ? 'surprise' : m.bed; Store.setPrefBed(keep, m.bed==='none' ? null : (m.bedVolume||'soft')); }   // a surprise stays a surprise (2026-09-28)
       if(m.descDefense!==undefined) reco.descDefense=m.descDefense;
       if(m.meditationId!==undefined) reco.meditationId=m.meditationId;
@@ -7737,7 +9550,7 @@ function app(tab){
              "Non-safety rose some. Giving it attention tends to do that at first.",
              "It got louder while you were with it. That's a normal part of turning toward it."],
       same: ["Non-safety held about where it was. You stayed with it, and that counts."],
-      down: ["Non-safety eased off by the end. You stayed with it, and it settled some.",
+      down: ["Non-safety eased off by the end. You stayed with it, and it quieted some.",
              "Non-safety came down a bit while you stayed with it."],
     };
     let line = '';
@@ -7859,7 +9672,7 @@ function app(tab){
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
       <nav class="tabbar" id="tabs">
-        ${tabBtn('now')}${tabBtn('practice')}${tabBtn('you')}
+        ${TABS()}
       </nav>`;
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const u=Store.user();
@@ -7871,6 +9684,7 @@ function app(tab){
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
     const lv = (localStorage.getItem('snb_live_nudge')||'1');        // "we're live" invitations — on by default
     const psc = (localStorage.getItem('snb_practice_scene')||'');    // practice scene — '' = surprise me (random per session)
+    const pvc = voicePref();                                          // the voice (2026-09-29, VOICES) — Justin's by default
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
     // among values; switches flip a state) — settings pass 2026-07-05
@@ -7915,7 +9729,7 @@ function app(tab){
 
           <div class="gs-card">
             <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Orientation</span>
-              <button class="linkbtn" id="set-walkthrough" type="button">Show me the app orientation</button></div>
+              <button class="linkbtn" id="set-walkthrough" type="button">Walk me through the app</button></div>
           </div>
 
           <div class="gs-card">
@@ -7939,6 +9753,12 @@ function app(tab){
                 ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</button>`).join('')}
               </div>
               <p class="rs-cap" id="scene-cap"></p>
+            </div></div>
+            <button class="rs-disc-btn" id="voice-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Voice</span><span class="rs-disc-val"><span id="voice-val">${escapeHtml(voiceName(pvc))}</span> ${_svgChev}</span></button>
+            <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
+              <div class="scene-grid">
+                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}">${escapeHtml(l)}${voiceOk(k)?'':'<span class="lk" aria-hidden="true"></span>'}</button>`).join('')}
+              </div>
             </div></div>
           </div>
 
@@ -7975,7 +9795,7 @@ function app(tab){
             if(b && b.sub_status==='active')
               return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your subscription is active. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
-            // legacy / Academy accounts have the whole base plan without a subscription —
+            // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
             var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.circle)
@@ -7983,6 +9803,10 @@ function app(tab){
             if(ent.legacy)
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
             return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
+
+          ${(function(){ const s=_acadStage(); if(s < 2 || !paidNow()) return '';
+            const on = _acadOn() > 0;
+            return `<div class="gs-card"><p class="gs-h">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}
 
           <div class="gs-card">
             <p class="gs-h">Your history</p>
@@ -7998,7 +9822,8 @@ function app(tab){
         </div>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
-    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding(true), 80); };
+    const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
+    { const t=$('#acad-toggle'); if(t) t.onclick=()=>{ _acadSetChoice(_acadOn() > 0 ? 'fresh' : 'keep'); haptic('save'); screenSettings(); }; }
     { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
     // check-in reads snb_checkin_method on open. all three methods capture the same
@@ -8025,6 +9850,15 @@ function app(tab){
     // practice-scene disclosure toggle
     (function(){ const btn=$('#scene-btn'), body=$('#scene-body');
       if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
+    // the voice (2026-09-29): same disclosure; a tap is saved straight away (and synced), like the scene
+    (function(){ const btn=$('#voice-btn'), body=$('#voice-body');
+      if(btn&&body){ _discSetOpen(body, btn.getAttribute('aria-expanded')==='true'); btn.onclick=()=>_discToggle(btn, body); } })();
+    document.querySelectorAll('.voice-opt').forEach(b=>b.onclick=()=>{
+      if(!voiceOk(b.dataset.voice)) return gateSubscribe('voice');   // 2026-09-30: the AI voices are on the paid plan
+      if(Store.setPrefVoice) Store.setPrefVoice(b.dataset.voice);
+      document.querySelectorAll('.voice-opt').forEach(x=>x.classList.toggle('on', x===b));
+      const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);
+    });
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='One moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
@@ -8274,6 +10108,9 @@ function routeSafe(){
      thanks, the guest offer and reflection, and the live-practice screens. None of them
      should ever be replaced by a background repaint the person did not ask for. */
   if(document.querySelector('.fb-view')) return;   // and so do the screens that follow it
+  // 2026-10-02 (Justin: leaving the app or locking the screen lost the article he was on): an article, hub or post
+  // stays put through the unlock refresh; the member moves on from it themselves
+  if(document.body.classList.contains('rd-sub') && Store.user && Store.user()) return;
   route();
 }
 try{ pushConsumeOpen(); }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally

@@ -486,8 +486,14 @@
       auth.billing = (rowRes && rowRes.data) || null;
       const ent = (entRes && entRes.data) || null;
       auth.ent = { circle: !!(ent && ent.circle_member), legacy: !!(ent && ent.legacy) };
+      // the Unstucking Academy Stage this member completed (0–3), stamped from their Circle Stage tags by
+      // circle-membership / membership-sweep (2026-10-03). Its own read, so a database without the column yet
+      // never breaks the entitlement read above.
+      try{ const ar = await sb.from('entitlements').select('academy_stage').eq('user_id', auth.user.id).maybeSingle();
+        if(ar && !ar.error) auth.ent.academy = (ar.data && +ar.data.academy_stage) || 0; }catch(e){}
+      if(auth.ent.academy == null){ const c0 = _readBillingCache(); auth.ent.academy = (c0 && +c0.academy) || 0; }
       _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
-                           circle: auth.ent.circle, legacy: auth.ent.legacy, at: Date.now() });
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy, at: Date.now() });
       if(typeof notify === 'function') notify();
     }catch(e){ /* keep last-known cache */ }
   }
@@ -531,6 +537,11 @@
   }
   // WHY this account has the base plan — display only (settings names the reason
   // instead of calling a grandfathered/Academy account "the free plan", 2026-07-14).
+  // the Academy Stage this member completed (0 = none), for the Unstucking Pathway (2026-10-03)
+  function academyStage(){
+    const e = (typeof auth.ent === 'object' && auth.ent && auth.ent.academy != null) ? auth.ent : (_readBillingCache() || {});
+    const n = +e.academy || 0; return n >= 1 && n <= 3 ? n : 0;
+  }
   function entitlement(){
     const e = (typeof auth.ent === 'object' && auth.ent) ? auth.ent : (_readBillingCache() || {});
     return { sub: _billingActive(), circle: !!e.circle, legacy: !!e.legacy };
@@ -1099,6 +1110,9 @@
     const best = {}, tried = {};
     ANCHOR_ORDER.forEach(a => { best[a] = 0; tried[a] = 0; });
     anchoring.forEach(s => { const a = _anchorOf(s); tried[a]++; if(isBestOutcome(s)) best[a]++; });
+    // the member chose their own safety anchor on the Unstucking Pathway (Justin, 2026-10-02: "just let them pick their safety
+    // anchor. Or give them a 'figure out my safety anchor' option"): that one, every time. Otherwise the app figures it out below.
+    try{ const p = prefSense(); if(localStorage.getItem('snb_anchor_mode') === 'chosen' && ANCHOR_ORDER.indexOf(p) >= 0) return { sense:p, why:'chosen', best, tried }; }catch(e){}
     const winners = ANCHOR_ORDER.filter(a => best[a] >= 3).sort((a,b) => best[b] - best[a]);
     if(winners.length) return { sense: winners[0], why: 'winner', best, tried };
     const fewest = Math.min.apply(null, ANCHOR_ORDER.map(a => tried[a]));
@@ -1350,7 +1364,7 @@
     if(!cs.length) return { pairs:[], n:0, meanConnDelta:null, meanDefDelta:null };
     // group by session + practice, keeping the earliest 'before' and the earliest 'after' after it
     const groups = {};
-    cs.forEach(c => { const k = c.live_session_id + ' ' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
+    cs.forEach(c => { const k = c.live_session_id + '\u0000' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
     const pairs = [];
     Object.keys(groups).forEach(k => {
       const g = groups[k].slice().sort((a,b) => a.t - b.t);
@@ -1537,6 +1551,87 @@
       if(r >= bestRate){ bestRate = r; strongest = k; }
     });
     return { cleared, next, hi, strongest, so };
+  }
+  // the closing sequence (2026-10-02, Justin: "a level check can also occur if the user made it through the practice but quit
+  // after the outgoing sequence of the intentional breath onward, but only if their safety level held or increased, and/or if
+  // their breath was full and relaxed (chest or belly is fine)"): reached 'closing', then safety held or rose across the
+  // practice's 0-10 safety answers, or the last breath check was full and relaxed.
+  function _closingSigns(s){
+    const out = { rose:false, held:false, easy:false };
+    if(!s || s.reached !== 'closing') return out;
+    const sa = (Array.isArray(s.safetyReadings) ? s.safetyReadings : []).map(Number).filter(x => !isNaN(x));
+    if(sa.length >= 2){ out.rose = sa[sa.length - 1] > sa[0]; out.held = sa[sa.length - 1] >= sa[0]; }
+    const br = (s.details && Array.isArray(s.details.breath)) ? s.details.breath.map(x => x && x.value).filter(Boolean) : [];
+    let i = -1; br.forEach((v, j) => { if(v === 'chest' || v === 'belly') i = j; });
+    const last = i >= 0 ? br.slice(i) : br;
+    out.easy = last.indexOf('full') >= 0 && last.indexOf('relaxed') >= 0;
+    return out;
+  }
+  // stepResults() (2026-10-02, the Unstucking Pathway: "Practiced with [result]' based on the user's input and/or checking post
+  // practice"): each step's latest practice, keyed like the pathway (a defense sequence key, a safety practice, or the practice
+  // itself): the member's own after-practice answer, and whether the check-in after showed more safety.
+  function stepResults(){
+    const out = {}, SEQ = SAFETY_SEQUENCE || [];
+    data.sessions.forEach(s => {
+      if(!s || !s.practiceKey) return;
+      const k = s.practiceKey === 'self-regulation' ? sequenceKeyOf(s)
+              : s.practiceKey === 'anchoring' ? ((s.skill && SEQ.indexOf(s.skill) >= 0) ? s.skill : 'anchoring')
+              : s.practiceKey;
+      if(!k) return;
+      const af = s.afterFeeling || null, up = !!_movedUp(s), c = _closingSigns(s);
+      if(!af && !up && !c.held && !c.easy && out[k]) return;   // a practice with nothing to say keeps the last one that did
+      out[k] = { af, up, rose: c.rose, held: c.held, easy: c.easy, outcome: _outcomeOf(s) };
+    });
+    return out;
+  }
+  // levelProgress() (2026-10-02, the Unstucking Pathway): each defense step at each level of emotion (1 easy, 2 medium, 3 hard).
+  // A session's emotionIntent is "word|level" when the member chose one of their emotions (bare family keys from before
+  // carry no level). A level is done once a practice at it has a successful result, or reached the closing sequence with
+  // safety held or a full, relaxed breath (_closingSigns) (Justin, 2026-10-02: "a 'done' mark for the
+  // level should only come if it's a successful result"); `last` is that level's latest practice, for "Practiced with ...".
+  // { [sequence key]: { [level]: { done, n, words:[...] } } }. Justin: "i want to let them choose which level".
+  function levelProgress(){
+    const acc = {};
+    data.sessions.forEach(s => {
+      if(!s || s.practiceKey !== 'self-regulation' || !s.emotionIntent) return;
+      const m = /^(.+)\|([123])$/.exec(String(s.emotionIntent)); if(!m) return;
+      const k = sequenceKeyOf(s); if(!k) return;
+      const t = +m[2], o = _outcomeOf(s);
+      const byK = acc[k] = acc[k] || {}, b = byK[t] = byK[t] || { good:0, n:0, last:[], words:{} };
+      // a successful result, or the closing sequence reached with safety held or a full, relaxed breath (and no answer saying otherwise)
+      const c = _closingSigns(s), ok = o === 'good' || (o !== 'bad' && (c.held || c.easy));
+      b.n++; if(ok) b.good++;
+      b.last.push(o); if(b.last.length > 2) b.last.shift();
+      b.words[m[1]] = 1;
+      b.lastS = { af: s.afterFeeling || null, up: !!_movedUp(s), rose: c.rose, held: c.held, easy: c.easy, w: m[1] };
+    });
+    const out = {};
+    Object.keys(acc).forEach(k => { out[k] = {}; Object.keys(acc[k]).forEach(t => { const b = acc[k][t];
+      out[k][t] = { done: b.good >= 1, n: b.n, words: Object.keys(b.words), last: b.lastS || null }; }); });
+    return out;
+  }
+  // safetyProgress() (2026-10-02, the Unstucking Pathway): the same "completed within capacity" rule as skillProgress()
+  // (>=2 good outcomes and no bad in the last 2), over the anchoring practices, in the engine's safety order
+  // (SEQUENCE.safety). A plain anchoring practice (no safety skill, or the maker's leftover skill) counts as the first one,
+  // connect with safety. next = the first safety practice after the furthest completed one that is not completed yet.
+  function safetyProgress(){
+    const SEQ = SAFETY_SEQUENCE || [];
+    const so = {};
+    SEQ.forEach(k => so[k] = { good:0, bad:0, n:0, last:[] });
+    if(!SEQ.length) return { seq:[], cleared:{}, next:null, so };
+    data.sessions.forEach(s => {
+      if(!s || s.practiceKey !== 'anchoring') return;
+      const k = (s.skill && so[s.skill]) ? s.skill : SEQ[0];
+      const o = _outcomeOf(s), b = so[k];
+      b.n++;
+      if(o==='good') b.good++; else if(o==='bad') b.bad++;
+      b.last.push(o); if(b.last.length>2) b.last.shift();
+    });
+    const cleared = {};
+    SEQ.forEach(k => { const p = so[k]; cleared[k] = p.good >= 2 && p.last.indexOf('bad') < 0; });
+    let hi = -1; SEQ.forEach((k,i) => { if(cleared[k]) hi = i; });
+    let next = null; for(let i = hi + 1; i < SEQ.length; i++){ if(!cleared[SEQ[i]]){ next = SEQ[i]; break; } }
+    return { seq:SEQ.slice(), cleared, next, so };
   }
   // one-sentence descriptions of each skill + dial, so the reader can name the skill AND teach
   // what it is (a path to the fuller practice-tab breakdown sits in the reader copy). Straw
@@ -1812,7 +1907,7 @@
     let ceiling = 0;                    // the tier the week earns (set once we have a check-in)
     if(!last){
       return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
-        'a simple place to start. after checking in, you will get a practice attuned to your system.', 'simplest place to begin');
+        'a simple place to start. after checking in, you will get a practice based on what helps you most.', 'simplest place to begin');
     }
     // derived, not the stored name (B1, 2026-08-22): a pre-rework row keeps its old
     // label in the cloud but is READ by today's rule — matters for someone returning
@@ -1837,7 +1932,7 @@
     if(!gate.open){
       let reason = dom==='shutdown' ? "you are pulling toward shutdown. nothing to push against. we'll keep it simple and just notice the present moment, gently."
                  : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small and stay with the present moment."
-                 : "there's a lot of defense active right now. we'll stay with the present moment and let some of it settle.";
+                 : "there's a lot of defense active right now. we'll stay with the present moment and let some of it ease.";
       if(falling) reason = "safety has been slipping in the last few check-ins, so connecting with it may be hard right now. this one keeps it simple and stays with the present moment.";
       // 2026-09-25 (Justin): mindfulness is about the present moment, not safety. it is the practice for someone
       // who is struggling to even connect with safety; safety is the anchoring practice. none of these reasons may
@@ -1863,6 +1958,19 @@
     if(!SEQ || !SEQ.length){
       return cfg('anchoring', null, sense, sil, "we'll start by connecting with safety.", 'safety anchoring');
     }
+    // the Unstucking Pathway's order (Justin, 2026-10-02: "the recommender should follow the pathway, though it will revert
+    // back based on the user's checkins. the pathway does not."): every safety practice comes before defense, in the
+    // engine's safety order (safetyProgress()). The check-in rules above (low data, the moment gate, the week's floor, a
+    // falling trend) still come first and ease it back to the present moment or plain anchoring.
+    const SAFE = safetyProgress();
+    if(SAFE.next){
+      const sk = SAFE.next === 'anchoring' ? null : SAFE.next;
+      const SW = { 'validate-safety':'validating safety', 'normalize-safety':'normalizing safety', 'general-safety':'noticing safety in the body overall',
+        'specific-safety':'finding where safety lives in the body', 'describe-safety':'describing safety', 'interest-safety':'noticing the interest impulse' };
+      const reason = sk ? "you have safety here. the pathway builds safety one practice at a time before working with defense. this one is " + SW[sk] + "."
+                        : "you have safety here. the pathway starts by anchoring into safety before working with defense.";
+      return cfg('anchoring', sk, sense, sil, reason, 'safety first');
+    }
     // ceiling >=1 — safety first, then a step of the sequence capped to the tier the week
     // earned (t1: up to imagery · t2: up to obstacles into imagery · t3: all of it, every
     // depth of balancing and pendulating). Scheme A band 3; the sequence fills the skill slot.
@@ -1887,6 +1995,17 @@
     // back (a step above the tier drops to the tier's top step).
     let key = sp.next || sp.strongest || (SEQ.indexOf(L.favSkill) >= 0 ? L.favSkill : SEQ[0]);
     if(SEQ.indexOf(key) > capIdx) key = SEQ[capIdx];
+    // the level of emotion to suggest (Justin, 2026-10-02): easy until the whole sequence is completed, then back through it at
+    // medium, then at hard. Only a suggestion: the member chooses the level before practicing. Obstacles practices have none.
+    let emoTier = 1;
+    if(!sp.next){
+      const LP = levelProgress(), lv = k => { const p = sequenceParts(k) || {}; return p.skill !== 'obstacles' && p.prefix !== 'obstacles'; };
+      emoTier = 3;
+      for(const t of [2, 3]){
+        const k2 = SEQ.find((k, i) => i <= capIdx && lv(k) && !(LP[k] && LP[k][t] && LP[k][t].done));
+        if(k2){ key = k2; emoTier = t; break; }
+      }
+    }
     let dialDown = false, droppedStep = false, leftTrack = false;
     if(hardLast){
       if(prevMost && _outcomeOf(prevMost)==='bad'){                       // two heavy ones in a row
@@ -1919,9 +2038,9 @@
     let reason;
     if(dialDown){
       reason = stepPhrase(key)
-        ? "last one was a lot, so we'll stay with the same practice and keep it gentler: a bit shorter, with more quiet space to settle."
-        : "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler: a bit shorter, with more quiet space to settle.";
-      if(lastMost && lastMost.emotionIntent) reason += " if you work with " + lastMost.emotionIntent + " again, maybe at a gentler intensity this time.";
+        ? "last one was a lot, so we'll stay with the same practice and keep it gentler: a bit shorter, with more quiet space between the guidance."
+        : "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler: a bit shorter, with more quiet space between the guidance.";
+      if(lastMost && lastMost.emotionIntent) reason += " if you work with " + String(lastMost.emotionIntent).replace(/\|[123]$/, '') + " again, maybe at a gentler intensity this time.";
     } else if(droppedStep && hardLast){
       reason = "the last couple were a lot, so we'll ease back to " + _stepWords(key, skill) + " for now. that's just where your system is right now, and it's completely normal. the practices after this one will still be here when you're ready.";
     } else if(droppedStep){
@@ -1930,7 +2049,7 @@
       reason = "strong safety has become your norm, and you're anchored right now. " + (stepPhrase(key) ? "this practice " + stepPhrase(key) + ", then holds safety and defense together so you can watch what unfolds."
                                      : "we'll practice " + _skillWord(skill) + " at its deepest, and hold safety and defense together to watch what unfolds.");
     } else if(descIntro){
-      reason = "you've been steady with balancing and pendulation on their own. this one adds describing the defense out loud, one step deeper, on the skill you're strongest in.";
+      reason = "you've done well with balancing and pendulation on their own. this one adds describing the defense out loud, one step deeper, on the skill you're strongest in.";
     } else if(dys){
       reason = "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose.";
     } else if(sp.hi < 0){
@@ -1940,7 +2059,7 @@
         ? "you have safety here, and your practice history has earned the next practice. it " + stepPhrase(key) + ". one practice at a time, and you can always go back to an easier one."
         : "you have safety here, and your practice history has earned the next practice: " + _skillWord(skill) + ". one practice at a time, and you can always go back to an easier one.";
     } else if(ceiling>=3){
-      reason = "you've got steady safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
+      reason = "you've got reliable safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
     } else if(L.sessionsDone>=3 && L.favPractice==='self-regulation'){
       reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
     } else {
@@ -1950,7 +2069,8 @@
     const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
     return cfg('self-regulation', skill, sense, sil3, reason, dialDown ? 'same step, smaller dose' : droppedStep ? 'one step easier' : 'room to go deeper',
                { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedStep,
-                 prefix: part.prefix, depth: part.depth, offerKey: key });
+                 prefix: part.prefix, depth: part.depth, offerKey: key,
+                 emotionTier: (part.skill === 'obstacles' || part.prefix === 'obstacles') ? null : emoTier });
 
     function cfg(practiceKey, skill, sense, silence, reason, tag, extras){
       const pSil = prefSilence();
@@ -2042,7 +2162,7 @@
   function emotionShift(s){
     s = s || (data.sessions[data.sessions.length-1] || null);
     if(!s) return null;
-    const intent = s.emotionIntent || null;
+    const intent = s.emotionIntent ? String(s.emotionIntent).replace(/\|[123]$/, '') : null;   // "word|level" (2026-10-02) reads as the word
     const surfaced = s.emotionSurfaced ? String(s.emotionSurfaced).split(',').map(x=>x.trim()).filter(Boolean) : [];
     if(!intent && !surfaced.length) return null;
     return { intent, surfaced, connected: surfaced.indexOf('connected')>=0,
@@ -2125,24 +2245,38 @@
   // cloud row written later by another device wins on the next hydrate (pullPrefs), and never the other way round.
   function prefBed(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_bed')||'null'); return (v && typeof v.bed==='string') ? v : null; }catch(e){ return null; } }
   function setPrefBed(bed, level){ try{ if(bed) localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(bed), level:(level||null), at:Date.now() })); else localStorage.removeItem('snb_pref_bed'); }catch(e){} _syncPrefs(); }
+  // the voice (2026-09-29, VOICES): { voice: 'justin'|'poppy'|…, at: ms }, or null = never chosen (Justin's, the default). Synced the
+  // same way as the sound (public.preferences.pref_voice), with the same rule: the later choice wins.
+  function _voiceRaw(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_voice')||'null'); return (v && typeof v.voice==='string') ? v : null; }catch(e){ return null; } }
+  function prefVoice(){ const v=_voiceRaw(); return v ? v.voice : null; }
+  function setPrefVoice(voice){ try{ if(voice) localStorage.setItem('snb_pref_voice', JSON.stringify({ voice:String(voice), at:Date.now() })); else localStorage.removeItem('snb_pref_voice'); }catch(e){} _syncPrefs(); }
   // default sense/silence and the background sound also live in the cloud (public.preferences) so they aren't
   // device-only and can inform analysis. Fire-and-forget upsert of the current values.
   function _syncPrefs(){ if(!CLOUD || !auth.user) return; try{
     const b=prefBed();
-    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), pref_bed:(b?b.bed:null), pref_bed_level:(b?(b.level||null):null), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), pref_bed:(b?b.bed:null), pref_bed_level:(b?(b.level||null):null), pref_voice:prefVoice(), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
   }catch(e){} }
   // the cloud's background sound, once per hydrate: taken when this device has never chosen, or when the cloud row was written
   // after this device's choice (another phone chose later). A device that has chosen but never reached the cloud pushes up instead.
   async function pullPrefs(){ if(!CLOUD || !auth.user) return; try{
-    const r = await sb.from('preferences').select('pref_bed,pref_bed_level,updated_at').eq('user_id', auth.user.id).maybeSingle();
-    if(r.error || !r.data) { if(prefBed()) _syncPrefs(); return; }
-    const row=r.data, local=prefBed(), cloudAt=row.updated_at ? Date.parse(row.updated_at) : 0;
+    const r = await sb.from('preferences').select('pref_bed,pref_bed_level,pref_voice,updated_at').eq('user_id', auth.user.id).maybeSingle();
+    if(r.error || !r.data) { if(prefBed() || _voiceRaw()) _syncPrefs(); return; }
+    const row=r.data, local=prefBed(), lv=_voiceRaw(), cloudAt=row.updated_at ? Date.parse(row.updated_at) : 0;
+    let changed=false, push=false;
     if(row.pref_bed){
       if(!local || (cloudAt && (!local.at || cloudAt > local.at))){
         try{ localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(row.pref_bed), level:(row.pref_bed_level||null), at:(cloudAt||Date.now()) })); }catch(e){}
-        notify();
+        changed=true;
       }
-    } else if(local){ _syncPrefs(); }
+    } else if(local){ push=true; }
+    if(row.pref_voice){   // 2026-09-29: the voice, by the same rule
+      if(!lv || (cloudAt && (!lv.at || cloudAt > lv.at))){
+        try{ localStorage.setItem('snb_pref_voice', JSON.stringify({ voice:String(row.pref_voice), at:(cloudAt||Date.now()) })); }catch(e){}
+        changed=true;
+      }
+    } else if(lv){ push=true; }
+    if(changed) notify();
+    if(push) _syncPrefs();
   }catch(e){} }
 
   async function reset(){
@@ -2248,12 +2382,12 @@
     learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
     challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
     newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
-    skillProgress, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
+    skillProgress, safetyProgress, levelProgress, stepResults, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
-    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, pullPrefs,
+    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
     saveContexts,
-    isPaid, hydrated, entitlement, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    isPaid, hydrated, entitlement, academyStage, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
     liveFetch, livePoll,
   };

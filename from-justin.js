@@ -61,7 +61,7 @@
         {
           "id": "safe-ref-1",
           "type": "reflection",
-          "text": "In a settled moment like this one, the same problems are still there; they just don't run the show. That steadiness is worth noticing instead of rushing past."
+          "text": "In a calmer moment like this one, the same problems are still there; they just don't run the show. That calm is worth noticing instead of rushing past."
         },
         {
           "id": "safe-ref-2",
@@ -112,7 +112,7 @@
         {
           "id": "regmob-ref-1",
           "type": "reflection",
-          "text": "On days like this it's easier to say the honest thing, set the limit, start the thing you've been putting off. The same energy that feels like too much when you're on edge feels like fuel when you're steady."
+          "text": "On days like this it's easier to say the honest thing, set the limit, start the thing you've been putting off. The same energy that feels like too much when you're on edge feels like fuel when you have more safety."
         },
         {
           "id": "regmob-ref-2",
@@ -414,49 +414,54 @@
   // shared Arc line; a post-practice check-in swaps in a shared Delta line. Arrays
   // cycle no-repeat. State keys map dom -> his sections (play=safe & mobile,
   // stillness=safe & immobile, neutral=present/neutral).
+  // Plain-language rewrite (2026-09-30, Justin: "simply say what is trying to be said, in natural
+  // language… at maybe an 8th grade level"). His own rewrite opens the shutdown set. 🖊
+  // {This} becomes "This morning" / "This afternoon" / "This evening" / "Tonight".
   const DAILY = {
     safety: { policy:'open',
-      meet:["You're grounded in the here and now.","You're connected with the present moment.","Present and connected. (enough, at least.)"],
-      point:["Worth staying with for a moment, before the next thing pulls at you. (Which it probably will.)","A good opportunity to get familiar with this state, so it's easier to find again.","Rest in it for a moment. Take it in."],
-      ask:["What helped you arrive here, even a little?","What feels possible right now that doesn't always?","How is your body naturally breathing right now?"] },
+      meet:["You're grounded in the present moment.","You're connected with the present moment.","Present and connected, at least enough."],
+      point:["Stay with this for a moment, before the next thing pulls at you.","This is a good chance to get to know this state, so it's easier to find again.","Rest in it for a moment and take it in."],
+      ask:["What helped you get here, even a little?","What feels possible right now that doesn't always?","How is your body breathing right now?"] },
     play: { policy:'open',
-      meet:["Charged up but connected.","Energy moving, and it feels more like fuel than pressure.","Wound up but in a good way, with some ease in the mix."],
-      point:["Point it at one thing that matters.","If it wants company, spend it with someone who has earned your trust.","Keep a little safety in the mix, and it stays energized without the crash."],
-      ask:["What do you most want to put this toward right now?","What's one thing worth starting today?","What's something you've been putting off that you have the energy for now?","How is your body naturally breathing right now?"] },
+      meet:["Lots of energy, and you feel connected.","Your energy feels helpful, not stressful.","Energized, with some ease mixed in."],
+      point:["Use it on one thing that matters.","If you want company, spend it with someone you trust.","Keep a little safety with it, and the energy lasts without a crash."],
+      ask:["What do you want to use this energy for right now?","What's one thing worth starting now?","What have you been putting off that you have the energy for now?","How is your body breathing right now?"] },
     stillness: { policy:'open',
-      meet:["Quiet, and okay being quiet.","Slowed all the way down, and okay with the slowness.","Settled and soft right now.","Stillness internally. And ability to connect with stillness externally."],
-      point:["This is an opportunity for real rest.","Nowhere to be for a minute. Let yourself marinate in it."],
-      ask:["When it's this quiet, what's been waiting for your attention?","What's easier to hear now than when things are loud?","An opportunity to connect with your inner world.","How is your body naturally breathing right now?"] },
+      meet:["Quiet, and okay with being quiet.","Slowed down, and okay with it.","At ease and calm right now.","Still inside, and able to be still where you are."],
+      point:["This is a chance for real rest.","Nowhere to be for a minute. Let yourself enjoy it."],
+      ask:["When it's this quiet, what's been waiting for your attention?","What's easier to hear when things are quiet?","This is a good time to notice what's going on inside you. What do you notice?","How is your body breathing right now?"] },
     fightflight: { policy:'sparing',
-      meet:["Wound up and hard to settle.","A lot of charge moving, looking for somewhere to go.","Maybe irritable. Maybe anxious. Maybe both?"],
-      point:["The internal activation is real, and the discomfort that it brings.","This kind of charge needs somewhere to go. A little movement on purpose helps more than holding still."],
-      ask:["What type of movement would your system love right now? Would you rather go for a run or lift weights? Use your legs or your arms?","What's the feeling underneath the internal activation?","How is your body naturally breathing right now?"] },
+      meet:["Wound up and hard to slow down.","A lot of energy that needs somewhere to go.","Maybe irritable. Maybe anxious. Maybe both?"],
+      point:["The activation inside is real, and so is the discomfort it brings.","This energy needs somewhere to go. A little movement on purpose helps more than holding still."],
+      ask:["What kind of movement would feel good right now? A run or lifting weights? Using your legs or your arms?","What's the feeling under the activation?","How is your body breathing right now?"] },
     shutdown: { policy:'withhold',
-      meet:["Heavy, far-off, low on energy.","Flat and slowed down right now.","Little energy to care. Yet, you're showing up here."],
-      point:["You don't force your way out of this. One small, low-demand thing is plenty: a sip of tea, a look out the window, a toe wiggle.","It can feel permanent from the inside, even though it isn't. And yeah, maybe it's been this way for a long while."],
-      ask:["What's one sound you can hear without trying?","What's one color in front of you right now?","How is your body naturally breathing right now?"] },
+      meet:["{This} is heavier and slower so far.","Heavy, far away and low on energy.","Not much energy to care. And yet, you're here."],
+      point:["Your system might need one small, low-demand thing, like a sip of tea or a glance out the window.","You don't have to force your way out of this. One small, easy thing is plenty, like wiggling your toes.","It can feel like it will last forever, even though it won't. And maybe it's been this way for a long time."],
+      ask:["What's one sound you can hear without trying?","What's one color you can see right now?","How is your body breathing right now?"] },
     freeze: { policy:'sparing',
-      meet:["Braced. Wanting to move yet stuck at the same time.","Immobile on the outside, but a lot is going on inside.","Holding your breath without meaning to, huh?"],
-      point:["The way through isn't forced. A wiggle of the toes, a neck rotation, one big breath into the chest.","Pushing hard tends to lock it tighter. Smaller and slower is better for the system when you can."],
-      ask:["Can you roll your wrists or wiggle your toes? If so, a little movement just opened up.","Can you let the feeling be here without pushing it away? If not, that's okay for now.","Can you take one intentional breath and let it out slower? And then, can you stretch one part of your body?","How is your body naturally breathing right now?"] },
+      meet:["Tense. Wanting to move, but stuck at the same time.","Still on the outside, but a lot going on inside.","Holding your breath without meaning to?"],
+      point:["You don't have to force it. Try wiggling your toes, turning your neck or one big breath into your chest.","Pushing hard tends to make it tighter. Smaller and slower is better for your body when you can."],
+      ask:["Can you roll your wrists or wiggle your toes? If so, a little movement just opened up.","Can you let the feeling be here without pushing it away? If not, that's okay for now.","Can you take one slow breath and let it out even slower? Then stretch one part of your body?","How is your body breathing right now?"] },
     neutral: { policy:'open',
-      meet:["Hard to pin down right now, and that's fine.","Somewhere in between, nothing too obvious."],
+      meet:["Hard to tell right now, and that's fine.","Somewhere in between, nothing too clear."],
       point:["Nothing to change. Noticing is enough.","Check in whenever you're ready, or let it be for now."],
-      ask:["If you had to guess, what's one word for how this moment sits in your body?","How is your body naturally breathing right now?"] }
+      ask:["If you had to guess, what's one word for how your body feels right now?","How is your body breathing right now?"] }
   };
-  // Shared Arc line — 2nd+ same-day check-in, keyed to within-day movement.
+  // Shared Arc line — 2nd+ check-in of the day, keyed to the movement since the first.
   const DAILY_ARC = {
-    eased:   ["A couple of check-ins in today, and things have eased since this morning. Worth noticing the shift."],
-    charged: ["You started more grounded, and there's more energy now. Pay attention to that feeling and what it might want."],
-    mixed:   ["You've moved through a few different places today. That's range (and you're still showing up), not instability."],
-    steady:  ["Today has held pretty steady so far."]
+    eased:   ["You've checked in a few times, and things have eased since earlier. Notice that shift."],
+    charged: ["You started out more grounded, and there's more energy now. Notice that feeling and what it might want."],
+    mixed:   ["You've been in a few different states so far. That's range, not instability, and you're still showing up."],
+    steady:  ["Your check-ins have stayed about the same so far."]
   };
-  // Shared Delta line — post-practice check-in, keyed to the shift (the safety moment).
+  // Shared Delta line — the check-in right after a practice, keyed to the shift.
   const DAILY_DELTA = {
-    eased:    ["You did a practice, and you're more grounded now than before. These little practices add up over time."],
-    held:     ["The practice didn't shift much this time, which is okay. Showing up for the practice is the rep that builds, whether or not it moves obviously. An imperfect rep is still a rep."],
-    struggled:["That was a tough one to stay with, and you stayed anyway. That's the rep, even when it doesn't feel like one. It's something to learn from and adapt to next time."]
+    eased:    ["You did a practice, and you're more grounded now than before. These small practices add up."],
+    held:     ["The practice didn't change much this time, and that's okay. Showing up for the practice still counts, even when it doesn't feel like much."],
+    struggled:["That was a hard one to stay with, and you stayed anyway. That counts. It's something to learn from for next time."]
   };
+  const _THIS = { morning:'This morning', afternoon:'This afternoon', evening:'This evening', late:'Tonight' };
+  function _thisSeg(){ const h=new Date().getHours(); return _THIS[h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late']; }
   function _dailySecond(key, st){
     // pick Point or Ask: open -> alternate Ask/Point; sparing -> Ask ~1 in 4; withhold -> Point only
     let useAsk = false;
@@ -479,7 +484,7 @@
     }
     const dom = t.last.dom;
     const st = DAILY[dom] || DAILY.neutral;
-    const parts = [ cycle('daily-meet:'+dom, st.meet), _dailySecond(dom, st) ];
+    const parts = [ cycle('daily-meet:'+dom, st.meet).replace('{This}', _thisSeg()), _dailySecond(dom, st) ];
     // same-day extra line: a post-practice latest moment -> Delta; else 2+ moments -> Arc
     const M = t.moments || [];
     const lastM = M[M.length-1], prevM = M.length>=2 ? M[M.length-2] : null;
@@ -559,9 +564,9 @@
   const ESSAY_DOOR = {
     freeze:      'The practice tab has something shaped for where you are right now. In freeze, the place to start is safety, built in small doses. Anchor into a bit of safety first. Once anchored, connecting with the defense side becomes possible.',
     shutdown:    'The practice tab has something shaped for where you are right now. In shutdown, that means the smallest doses: simple mindfulness and safety building, nothing that asks for effort you don\'t have.',
-    fightflight: 'The practice tab has something shaped for where you are right now. With this much charge, the order matters: settle a little of the energy first, find some safety, and then it\'s easier to work with what\'s underneath.',
+    fightflight: 'The practice tab has something shaped for where you are right now. With this much charge, the order matters: ease a little of the energy first, find some safety, and then it\'s easier to work with what\'s underneath.',
     play:        'The practice tab has something shaped for a state like this: using the energy while you have it, in a way that builds capacity instead of spending it all at once.',
-    stillness:   'The practice tab has something shaped for a settled state like this. This kind of quiet is good ground for gentle inner work, in doses, while you have the calm to hold it.',
+    stillness:   'The practice tab has something shaped for a quiet state like this. This kind of quiet is good ground for gentle inner work, in doses, while you have the calm to hold it.',
     safety:      'This is the state with the most capacity available, which makes it the right time for the harder practices: anchoring into safety, then connecting with a little of the harder stuff in a dose, then coming back. The practice tab has that work waiting when you want it.'
   };
   const DEFENSE_TELL = {
@@ -614,7 +619,7 @@
     const move = d >= 0.05 ? 'a little higher than it\'s been' : d <= -0.05 ? 'a bit lower than usual' : 'about where it\'s been';
     const close = d >= 0.05 ? 'That\'s how a baseline shifts: one week at a time.'
                 : d <= -0.05 ? 'A quieter week is a moment in the bigger picture, not a slide. Gentle is fine for now.'
-                : 'Holding steady is its own kind of solid ground.';
+                : 'You can build on that.';
     return 'Zoom out for a second. Over the past month, safety has been ' + hl(band(base.avgV)) + '. This week came in ' + hl(move) + '. ' + close;
   }
   const ESSAYS = {
@@ -628,10 +633,10 @@
       ]});
       const why=[
         'Freeze holds because both pedals stay pressed. The energy underneath doesn\'t drain on its own, and the brake doesn\'t lift until your body gets enough cues of safety. Until then, the state keeps itself going.',
-        'Two coping habits keep it pressed longer. The first is forcing through the day and collapsing at the end of it, then doing the same thing tomorrow. Force reads to your body as more threat, so the brake holds tighter. The second is faking rest. Doom-scrolling looks like rest, but it numbs the experience instead of letting your system settle. It\'s coping, and coping is fine. It just won\'t lift the brake.',
+        'Two coping habits keep it pressed longer. The first is forcing through the day and collapsing at the end of it, then doing the same thing tomorrow. Force reads to your body as more threat, so the brake holds tighter. The second is faking rest. Doom-scrolling looks like rest, but it numbs the experience instead of letting your system rest. It\'s coping, and coping is fine. It just won\'t lift the brake.',
         'Your thinking plays a part here too. Freeze thinking runs scattered and all-or-nothing: everything feels impossible, or it all has to happen right now. Those thoughts stem from the state, and they feed it back, because a mind insisting on all-or-nothing keeps the body braced. You don\'t have to argue with the thoughts. When a little safety comes in and the state thaws, the thinking loosens with it.'
       ];
-      if((ctx.streak||0)>=3) why.push('You\'ve checked in around freeze for '+hl(ctx.streak+' days')+' now. Long stretches in one place are common; that\'s basically what stuck means. It doesn\'t mean you\'ve stalled, and it isn\'t evidence that this is who you are. It\'s a state. States shift, even the ones that have been around a long time.');
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around freeze for '+hl(ctx.streak+' days')+' now. Long spells in one place are common; that\'s basically what stuck means. It doesn\'t mean you\'ve stalled, and it isn\'t evidence that this is who you are. It\'s a state. States shift, even the ones that have been around a long time.');
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
       const shift=[
         'Thawing doesn\'t announce itself. It shows up small. A breath that goes deeper on its own. A stretch that happens without deciding to. The urge to move starting to feel more like wanting to than having to.',
@@ -662,7 +667,7 @@
         'Shutdown stays because the body doesn\'t have enough energy yet to come back online. Pushing against it, forcing yourself up and out, spends what little energy there is and deepens the collapse instead.',
         'It also stays because the mind starts telling a story that matches the state: that this is just who you are now, that nothing will help. The hopelessness feels like stone-carved truth. It isn\'t. Thoughts follow states, and that story is the shutdown talking, not the facts.'
       ];
-      if((ctx.streak||0)>=3) why.push('You\'ve checked in around shutdown for '+hl(ctx.streak+' days')+' now. Long stretches here are common, and they\'re exactly when the "this is just me now" story gets loudest. It\'s a state. States shift, even the slow ones.');
+      if((ctx.streak||0)>=3) why.push('You\'ve checked in around shutdown for '+hl(ctx.streak+' days')+' now. Long periods here are common, and they\'re exactly when the "this is just me now" story gets loudest. It\'s a state. States shift, even the slow ones.');
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:why });
       const shift=[
         'The first signs of energy returning are small and easy to miss. Caring a little about one thing. Noticing you\'re hungry. A window you actually wanted open.',
@@ -696,14 +701,14 @@
         'Your thinking reinforces your state as well. No, it\'s not just a matter of changing how you think since your thoughts also stem from your state. So, the blame, the worst-case thinking, the everything-is-urgent feeling. That\'s the brain narrating a revved-up body, not the truth about your life. When your state shifts more toward safety, your thinking will change on its own.'
       ]});
       const shift=[
-        'As mobilized flight/fight combines with safety, the urgency settles more and more. Some things that are actually urgent still get your urgent attention, but with more patience. And the other stuff... it can wait without everything falling apart. With safety, your mobilization turns into motivation to create and get stuff done. With others, you\'re more likely to play and share in fun.',
+        'As mobilized flight/fight combines with safety, the urgency eases more and more. Some things that are actually urgent still get your urgent attention, but with more patience. And the other stuff... it can wait without everything falling apart. With safety, your mobilization turns into motivation to create and get stuff done. With others, you\'re more likely to play and share in fun.',
         'But what if there isn\'t enough safety in the system? If not, then flight/fight continues to be anxious and angry. Over time, it will lean more toward shutdown or possibly freeze. No, it\'s not a character defect. It\'s just a system that needs more safety.'
       ];
       if(ctx.dir==='rising') shift.push('You\'re reporting more safety in your last few check-ins than you were before. Not a big drop in charge, but a real one.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'Move a little, on purpose. Thirty seconds of shaking out your hands, a quick walk, palms pushed against a wall. Give the energy somewhere to go, then name the feeling underneath it. Naming it is a solid first step to letting it move through instead of running you.',
-        'And try taking one intentional breath and lengthening the exhale. It\'s not a cure for your activation, but it might open the potential for a bit of settling or open a path for mindful movement.',
+        'And try taking one intentional breath and lengthening the exhale. It\'s not a cure for your activation, but it might open the potential for a bit of calm or open a path for mindful movement.',
         _essayInsight(ctx)
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
@@ -737,7 +742,7 @@
         _essayInsight(ctx)
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
-        'Keep a little safety mixed into this energy, and it stays fuel instead of turning into a fire. Over time, you get to mobilize during the day and still settle into stillness in the evening, and the drive stops costing you on the back end.',
+        'Keep a little safety mixed into this energy, and it stays fuel instead of turning into a fire. Over time, you get to mobilize during the day and still ease into stillness in the evening, and the drive stops costing you on the back end.',
         'It\'s just how the body works. Whether you\'re mobile or immobile, change is always close.'
       ].filter(Boolean)});
       return sec;
@@ -747,7 +752,7 @@
       const sec=[];
       sec.push({ id:'blog-2', heading:H('What ',true,' is'), paras:[
         _essayOpen(ctx),
-        'Stillness is your body slowed all the way down with safety mixed in. It\'s the same slowing you\'d feel in shutdown, but the safety changes everything. Immobility without fear is stillness. Immobility with fear mixed in is a different state entirely. On your own, this shows up as rest and reflection. Shared with someone safe, the same settledness becomes intimacy. (A pet counts, but we don\'t need to call it "intimacy.")',
+        'Stillness is your body slowed all the way down with safety mixed in. It\'s the same slowing you\'d feel in shutdown, but the safety changes everything. Immobility without fear is stillness. Immobility with fear mixed in is a different state entirely. On your own, this shows up as rest and reflection. Shared with someone safe, the same stillness becomes intimacy. (A pet counts, but we don\'t need to call it "intimacy.")',
         'Rest isn\'t a reward you earn after everything\'s done. It\'s how your system restores its balance. This is the state behind real sleep, sitting still without crawling out of your skin, and easy closeness with someone safe.'
       ]});
       sec.push({ id:'blog-3', heading:H('Why ',true,' stays'), paras:[
@@ -793,7 +798,7 @@
       if(ctx.dir==='rising') shift.push('Your data says this state is getting stronger. You\'re reporting more safety in your last few check-ins than you were before. Safety adds a little at a time and keeps building. Keep it up.');
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
-        'Notice it on purpose. Where exactly do you feel... settled or calm? Playful or motivated? Those emotions are a great sign of safety, but pay attention. If you can notice what safety feels like in your body, then you\'re anchored into it and deepening the experience. As best you can, look inward and really feel the safety within you. How does your body breathe in safety? What\'s your posture like? Are you more likely to smile? To hug someone?',
+        'Notice it on purpose. Where exactly do you feel... at ease or calm? Playful or motivated? Those emotions are a great sign of safety, but pay attention. If you can notice what safety feels like in your body, then you\'re anchored into it and deepening the experience. As best you can, look inward and really feel the safety within you. How does your body breathe in safety? What\'s your posture like? Are you more likely to smile? To hug someone?',
         'And don\'t grab it too tight. Can you let it be here without needing it to stay? Giving your system permission to move in and out of safety is part of how the capacity grows.',
         _essayInsight(ctx)
       ]});
@@ -875,7 +880,7 @@
   // "SSIEC" is internal and never shown. Bridges are offered as a lens ("could be"),
   // never scored — more-safety stays the only scored axis. Straw phrasing 🖊 Justin owns;
   // the Direction-1 per-session template and the change-data conditional are his approved copy.
-  const EMO_BRIDGE = { anxious:'flight activation', angry:'fight activation', sad:'a move toward shutdown', fear:'a freeze response', connected:'a sign of safety in the system' };
+  const EMO_BRIDGE = { anxious:'flight energy', angry:'fight energy', sad:'a move toward shutdown', fear:'freeze', connected:'a sign of safety' };
   const PAT_BRIDGE = { anxious:'mobilized energy, the body geared up to act', angry:'mobilized energy, the body geared up to act', sad:'the body conserving, pulling inward', fear:'energy and brake at once', connected:'a sign of safety' };
   const _SKILL_WORD = { 'validate-defense':'validating', 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
   function _skillWord(k){ return _SKILL_WORD[k] || k; }
@@ -886,19 +891,19 @@
     const surf = (shift.surfaced || []).slice();
     if(!shift.intent){
       if(!surf.length) return '';
-      return 'You didn\'t set an intention this time, and ' + _artA(surf[0]) + surf[0] + ' emotion surfaced. Good job noticing what was maybe already there.';
+      return 'You didn\'t pick a feeling to work with this time, and ' + _artA(surf[0]) + surf[0] + ' feeling came up. Good job noticing what was already there.';
     }
     const nonConn = surf.filter(k => k!=='connected');
     const hasConn = surf.indexOf('connected') >= 0;
     let whatSurfaced;
-    if(!surf.length) whatSurfaced = 'not much this time';
+    if(!surf.length) whatSurfaced = 'nothing in particular';
     else { const primary = nonConn[0] || surf[0];
       whatSurfaced = _artA(primary) + primary + ' one';
       if(hasConn && primary!=='connected') whatSurfaced += ', along with a connected one'; }
-    let s = 'You set out to work with ' + _artA(shift.intent) + shift.intent + ' emotion, and what surfaced was ' + whatSurfaced + '. This is totally normal and expected. The body brings forth what it\'s ready for, not necessarily what we have planned for it.';
+    let s = 'You set out to work with ' + _artA(shift.intent) + shift.intent + ' feeling, and ' + whatSurfaced + ' came up. That\'s normal. Your body brings up what it\'s ready for, not always what we plan.';
     const bits = [];
     const primary = nonConn[0];
-    if(primary && EMO_BRIDGE[primary]) bits.push('The ' + primary + ' emotion could be ' + EMO_BRIDGE[primary]);
+    if(primary && EMO_BRIDGE[primary]) bits.push('The ' + primary + ' feeling could be ' + EMO_BRIDGE[primary]);
     if(hasConn) bits.push('the connected one is ' + EMO_BRIDGE.connected);
     if(bits.length) s += ' ' + bits.join('; ') + '.';
     return s;
@@ -1003,7 +1008,7 @@
   function _fillMQ(t, o){
     return String(t==null?'':t)
       .replace(/\{DOM\}/g,o.DOM||'').replace(/\{FIRST\}/g,o.FIRST||'').replace(/\{LAST\}/g,o.LAST||'')
-      .replace(/\{PCT\}/g,o.PCT!=null?String(o.PCT):'').replace(/\{DAY\}/g,o.DAY||'').replace(/\{SPAN\}/g,o.SPAN||'this stretch')
+      .replace(/\{PCT\}/g,o.PCT!=null?String(o.PCT):'').replace(/\{DAY\}/g,o.DAY||'').replace(/\{SPAN\}/g,o.SPAN||'this period')
       .replace(/\{N\}/g,o.N||'').replace(/\{DAYS\}/g,o.DAYS!=null?String(o.DAYS):'');
   }
   const _QSPAN = { q:'these past three months', half:'these past six months', year:'this past year' };
@@ -1012,11 +1017,11 @@
     where: ["Most of your check-ins reflect {DOM} about {PCT}%.","About {PCT}% of this month's check-ins leaned mostly toward {DOM}."],
     baseline: {
       up: ["Baseline update: your safety baseline is sitting higher than last month. This is the kind of shift only a month can show, and it's yours.","Baseline update: across the month, your baseline climbed. Worth celebrating and leaning a bit more into."],
-      down: ["Baseline update: your safety baseline is running a bit lower than last month. Baselines dip with life context, and they come back the same way they formed: small, steady reps. Go easy.","Baseline update: a quieter month, with your baseline down a little. Not a setback, just a season. Keep the basics going."],
-      flat: ["Baseline update: your safety baseline held steady across the month. Stable is something you can build on."]
+      down: ["Baseline update: your safety baseline is running a bit lower than last month. Baselines dip with life context, and they come back the same way they formed: small reps, repeated. Go easy.","Baseline update: a quieter month, with your baseline down a little. Not a setback, just a season. Keep the basics going."],
+      flat: ["Baseline update: your safety baseline stayed about the same across the month. You can build on that."]
     },
     rhythm_dow: ["Looks like your {DAY} tend to carry a bit more safety state than other days. Worth noticing what's different about them, so you can do more of it.","Your {DAY} carry a little more safety than the rest, more often than not. A small clue about what's working for you."],
-    recovery: ["There's also a pattern in how your system rebounds after a dip into defense. It tends to return to safety within {N}. It knows the way back. Now you pay attention and follow its lead.","After an energized stretch, you usually find your way to more safety within {N}. That shows capacity building."],
+    recovery: ["There's also a pattern in how your system rebounds after a dip into defense. It tends to return to safety within {N}. It knows the way back. Now you pay attention and follow its lead.","After an energized spell, you usually find your way to more safety within {N}. That shows capacity building."],
     close: ["No grades here. Just a month of getting to know your nervous system, one honest moment at a time. Keep going.","A month in, and this picture is yours now. It gets clearer the longer you stay with it.","Whatever this month held, you showed up for it. That's the part that compounds."]
   };
   function monthly(ctx0){
@@ -1044,7 +1049,7 @@
     },
     thennow: {
       improved: ["When {SPAN} began, your check-ins reflected mostly {FIRST}. Lately they reflect more {LAST}. That's not just a mood, it's a sustainable autonomic shift that you earned. (And are still earning.)","By the end of {SPAN} you're sitting closer to {LAST}, after starting mostly in {FIRST}. The data is just showing what you've been building."],
-      steady_reg: ["Across {SPAN}, your system stayed mostly steady, {FIRST} early and {LAST} lately. A long regulated run like this shows sustainable progress."],
+      steady_reg: ["Across {SPAN}, your system stayed mostly regulated, {FIRST} early and {LAST} lately. A long regulated run like this shows sustainable progress."],
       holding: ["Across {SPAN}, there's been a lot of {FIRST}, and it's close to {LAST}. Stuck defense can last a while, can't it? It won't last forever, though."]
     },
     baseline: {
@@ -1078,9 +1083,9 @@
     parts.push(_fillMQ(cycle('q-tot', QUARTERLY.totals), o));
     // self-regulation arc + emotion mix over the span (recommender-v2)
     const _when = { q:'3 months ago', half:'6 months ago', year:'A year ago' };
-    const mvLine = _skillMovementLine(ctx0.movement, _when[mark] || 'Earlier in this stretch');
+    const mvLine = _skillMovementLine(ctx0.movement, _when[mark] || 'Earlier in this period');
     if(mvLine) parts.push(mvLine.charAt(0).toUpperCase() + mvLine.slice(1));
-    const emoLine = _periodEmotionLine(ctx0.emotion, _QSPAN[mark] || 'this stretch');
+    const emoLine = _periodEmotionLine(ctx0.emotion, _QSPAN[mark] || 'this period');
     if(emoLine) parts.push(emoLine);
     parts.push(cycle('q-close:'+mark, QUARTERLY.close[mark]));
     return { text: parts.join(' '), stats: st, mark: mark };
@@ -1131,7 +1136,7 @@
     }
     if(ctx.recoveryDay && ctx.defenseState){
       out.variant = 'recovery';
-      out.paras.push('The week had a dip in the middle: ' + hl(_feltName(ctx.defenseState)) + ' showed up and stayed for a stretch. Here\'s the part worth keeping: you came back. By ' + hl(ctx.recoveryDay) + ', safety was back in the mix. This is evidence that your system knows how to return to safety. Dips will happen. That\'s completely normal. We just want to navigate it as regulated as possible. Reflect while it\'s fresh:');
+      out.paras.push('The week had a dip in the middle: ' + hl(_feltName(ctx.defenseState)) + ' showed up and stayed for a while. Here\'s the part worth keeping: you came back. By ' + hl(ctx.recoveryDay) + ', safety was back in the mix. This is evidence that your system knows how to return to safety. Dips will happen. That\'s completely normal. We just want to navigate it as regulated as possible. Reflect while it\'s fresh:');
       out.bullets = [
         'What helped you find your way back?',
         'Did a person, a place, or a practice make the difference?',
@@ -1168,7 +1173,7 @@
       out.variant = 'lowdata';
       out.paras.push(yr
         ? 'Only ' + n + ' check-ins across the whole year, so the long trends here are rough sketches at best. That\'s okay. Every check-in you add sharpens the picture. A few honest seconds a day is plenty.'
-        : 'Only ' + n + ' check-ins across the whole quarter, so it\'s tough to give you substantial trends over a stretch this long. Nothing wrong with that. The more moments you capture, the more a season like this has to say. A few honest seconds a day is plenty.');
+        : 'Only ' + n + ' check-ins across the whole quarter, so it\'s tough to give you substantial trends over a span this long. Nothing wrong with that. The more moments you capture, the more a season like this has to say. A few honest seconds a day is plenty.');
       return out;
     }
     out.paras.push(yr
@@ -1198,7 +1203,7 @@
         out.variant='down';
         out.paras.push(yr
           ? 'A year ago, your baseline sat around ' + b1 + '% safety. Today it\'s ' + b2 + '%. Some years take more than they give. The baseline will rebuild the way it always forms: a month at a time, on small, repeatable practices. You already know how, because you\'ve already done it. Worth reflecting on gently, without a verdict. Ask yourself:'
-          : 'When the quarter began, your baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. It\'s been a heavier season, and your baseline felt it. Baselines dip with context, and they rebuild the same way they formed. Small, steady, repeatable. Worth some honest reflection, journaling or just thinking it over. Ask yourself:');
+          : 'When the quarter began, your baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. It\'s been a heavier season, and your baseline felt it. Baselines dip with context, and they rebuild the same way they formed. Small and repeatable. Worth some honest reflection, journaling or just thinking it over. Ask yourself:');
         out.bullets = yr ? [
           'What did this year ask of you?',
           'What changed in your life context that pulled on your system?',
@@ -1207,14 +1212,14 @@
         ] : [
           'What did this season ask of you?',
           'Did something in your life context change that pulled on your system?',
-          'Were there people or places that still added safety, even in a heavier stretch?',
+          'Were there people or places that still added safety, even in a heavier time?',
           'What\'s one small, repeatable thing you could give your system next quarter?'
         ];
         out.chipQ = yr ? 'What pulled you toward defense this year?' : 'What pulled you toward defense this season?';
       } else {
         out.variant='flat';
         out.paras.push(yr
-          ? 'Your baseline held around ' + b1 + '% safety across the year. A steady year is a real result, especially if the year itself wasn\'t steady.'
+          ? 'Your baseline held around ' + b1 + '% safety across the year. Holding your baseline for a whole year is a real result, especially if the year itself was hard.'
           : 'Your baseline held around ' + b1 + '% safety across the quarter. Holding a baseline through three months of real life is not nothing. Stable is a foundation, and foundations get built on.');
       }
     }
