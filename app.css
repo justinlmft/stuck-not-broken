@@ -4048,3 +4048,61 @@ body.reduce-motion .jr-fmenu{transition:none}
 /* the switches' 44px tap area reaches 8px past the card's edge, which let the Notifications card slide sideways (Justin, 2026-10-03: "wobbly") */
 .ob-body{overflow-x:hidden}
 .ob-card .set-sw::before{inset:-8px 0}
+
+/* ============================================================
+   DESKTOP TWEAKS (Justin, 2026-10-05)
+   ============================================================ */
+/* 1. Back and Search float at the TOP on desktop, level with "Now" in the rail ("they are at the bottom. align them
+   with 'Now' on left menu for height"). Centre of the 48px dock = centre of the "Now" label: the rail's top padding
+   + the mark (2 + 24 + 16) + the rail's 4px gap + the button's 2px top padding + half the label line. Phones are
+   untouched (bottom, above the tab bar). */
+.you-readers{display:contents}
+@media (min-width:720px){
+  .fl-dock{left:132px;top:calc(max(26px, env(safe-area-inset-top)) + 34.5px);bottom:auto}
+}
+/* below a full-width shell the content column runs under the dock, so screens with a dock start their content
+   below it; at the full shell width the dock sits in the margin beside the column and nothing moves */
+@media (min-width:720px) and (max-width:1199.98px){
+  #screen:has(> .fl-dock) > .scroll > .view{padding-top:calc(max(26px, env(safe-area-inset-top)) + 92px)}
+}
+@media (min-width:1200px){
+  /* an opened search field stays in the margin, clear of the column (dock width/2 - 343px = the gap to the column) */
+  .fl-dock .ll-sfloat.open{max-width:max(170px, calc(50% - 343px))}
+  .fl-dock .ll-sf-x{width:34px}
+}
+
+/* 2. The You tab on desktop mirrors the phone ("only 4 cards should show at a time at most per time period, just
+   like mobile. Since the screen is wider, it's okay to show more than one card at a time. And the Your Journal and
+   Your Reflection cards can live side by side at full width."). The same daily hand of up to four cards (youPick)
+   is laid out as a grid instead of a swipe carousel: one column on a mid-width window, two at the full width. */
+@media (min-width:720px){
+  #screen .play-view .carousel{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;overflow:visible;scroll-snap-type:none}
+  #screen .play-view .carousel > .panel{flex:none;width:auto;max-width:none;min-width:0}
+  #screen .play-view .dots{display:none}
+  #screen .play-view .you-readers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0 2px;align-items:stretch}
+  #screen .play-view .you-readers > .you-reader{margin:0;display:flex;flex-direction:column}
+  #screen .play-view .you-readers > .you-reader .yr-go{margin-top:auto}
+  #screen .play-view .you-readers > .you-reader .yr-top{margin-bottom:16px}
+}
+@media (min-width:1120px){
+  #screen .view.play-view{max-width:980px}
+}
+
+/* ===== READER NOTES 2026-10-05 ===== */
+/* TOC + "More stats" slide open (the height is animated from app.js) */
+.rd-toc > ol,.rd-call-more > .sd-body{box-sizing:border-box;overflow:hidden}
+.rd-toc.rd-closing .rd-toc-chev svg{transform:rotate(90deg)}
+.see-data.rd-call-more.rd-closing .sd-sum::after{transform:rotate(45deg) translateY(-2px)}
+/* a stat card's time period, on the card */
+.rd-call-who{flex-wrap:wrap;row-gap:2px}
+.rd-call-lbl{min-width:0}
+.rd-call-per{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500;font-size:calc(12px * var(--type-scale));color:var(--muted);white-space:nowrap}
+/* a stat card's drop-down stats */
+.rd-call .rd-call-more{margin-top:0;padding-top:2px}
+.rd-call-more > .sd-body{margin-top:0;padding-top:8px}
+.rd-call-more .sd-summary,.rd-call-more .sd-sum{color:var(--ink-80, var(--ink))}
+.rd-call-more .sd-row{border-bottom-color:color-mix(in srgb, var(--cs) 25%, transparent)}
+.rd-call-more .sd-body{border-top-color:color-mix(in srgb, var(--cs) 35%, transparent)}
+.rd-call-more .sd-val{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+/* the Journal sheet: the focus line sits inside the box, so the sheet's edges never cut it off */
+.rd-jr-sheet-in .rd-refl-in:focus{outline:2px solid var(--ink);outline-offset:-2px}
