@@ -7613,18 +7613,17 @@ function app(tab){
             const _defN = _recent.filter(x=>{ const m=_cMargin(x); return m!=null && m<0; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const pk = youPick(youCards(cs, allCs, periodPhrase, activePeriod, days), activePeriod, _tender);
-            // desktop ledger (2026-07-19): at wide the carousel stays empty and a
-            // one-card-at-a-time ledger is built after render — ALL cards listed.
-            window._youAll = pk.all;
-            const _wide = window.matchMedia && matchMedia('(min-width:1120px)').matches;
+            // desktop mirrors the phone (Justin, 2026-10-05: "only 4 cards should show at a time at most per time
+            // period, just like mobile"): the same daily hand everywhere; on a wide screen the CSS lays it out as a
+            // grid instead of a swipe carousel. (The 2026-07-19 one-at-a-time ledger that listed ALL cards is gone.)
             const picked = pk.picked;
-            window._youSlides = _wide ? [] : picked.map(s=>s[1]);
-            if(_wide) return '';
+            window._youSlides = picked.map(s=>s[1]);
             return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
 
           <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
 
+          <div class="you-readers">
           <a class="you-reader" id="you-reader" href="#">
             <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
             <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p></span></span>
@@ -7637,6 +7636,7 @@ function app(tab){
             <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.') : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.'}</p></span></span>
             <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'On the paid plan'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>`; })()}
+          </div>
 
           <div class="deep">
             <div class="deep-block">
@@ -7654,55 +7654,6 @@ function app(tab){
             </div>
           </div>
         </div>`;
-
-      // ---- desktop ledger (2026-07-19): wide screens get the pattern cards as a
-      // quiet list + ONE card at a time (master-detail) instead of a swipe
-      // carousel. Runs BEFORE the shared bindings below so the injected card's
-      // taps/links bind exactly like carousel content. Compact is untouched.
-      if(window.matchMedia && matchMedia('(min-width:1120px)').matches && window._youAll && window._youAll.length){
-        const cvEl=$('#carousel'), dtEl=$('#dots');
-        if(cvEl){
-          const all=window._youAll;
-          let key=window._youLedgerKey; if(!all.some(s=>s[0]===key)) key=all[0][0];
-          window._youLedgerKey=key;
-          // 2026-09-09 (Justin): the glyph icons in this list "look terrible" — every entry is a dot
-          // now, coloured by its state where the card is about one state, hairline otherwise.
-          const _dot=(c)=>'<span class="yl-ic"><span class="yl-dot"'+(c?' style="background:'+c+'"':'')+'></span></span>';
-          const _I={
-            safety:_dot(STATE_COLOR('safety')), comeback:_dot(STATE_COLOR('safety')), safeDays:_dot(STATE_COLOR('safety')),
-            started:_dot(STATE_COLOR('safety')), holds:_dot(STATE_COLOR('safety')), coact:_dot(STATE_COLOR('freeze')),
-            'ax-play':_dot(STATE_COLOR('play')), 'ax-fightflight':_dot(STATE_COLOR('fightflight')), 'ax-stillness':_dot(STATE_COLOR('stillness')),
-            'ax-shutdown':_dot(STATE_COLOR('shutdown')), 'ax-freeze':_dot(STATE_COLOR('freeze')),
-          };
-          const cur=all.find(s=>s[0]===key);
-          const wrap=document.createElement('div'); wrap.className='you-ledger';
-          // heading approved verbatim (Justin, 2026-07-19) — no sub: the period
-          // pills above already say the window, the list already invites choice.
-          wrap.innerHTML='<h2 class="yl-h">What your check-ins show.</h2>'
-            +'<nav class="yl-list" aria-label="what your check-ins show">'
-            +all.map(s=>'<button type="button" class="yl-item'+(s[0]===key?' on':'')+'" data-led="'+s[0]+'">'+(_I[s[0]]||'<span class="yl-ic"><span class="yl-dot"></span></span>')+'<span class="yl-nm">'+CAP(s[1])+'</span></button>').join('')
-            +'</nav>'
-            +'<section class="panel yl-detail" role="group" aria-label="'+cur[1]+'">'+cur[2]+'</section>';
-          cvEl.style.display='none'; if(dtEl) dtEl.style.display='none';
-          cvEl.parentNode.insertBefore(wrap, cvEl);
-          // the desktop ledger shows exactly one card at a time (not a swipe
-          // carousel), so it's always the thing on screen the instant it's built —
-          // no need to wait for an IntersectionObserver, just trigger its entrance
-          // animation (gated behind `.panel-in`, see app.css) immediately.
-          const _ylPanel = wrap.querySelector('.yl-detail'); if(_ylPanel) _ylPanel.classList.add('panel-in');
-          // desktop top-alignment: lift the week/all toggle to the row just under the
-          // heading, so "What your check-ins show." tops the screen on the same line
-          // as the rail's first word (Justin 2026-07-20). Compact carousel untouched.
-          const _fb = c.querySelector('.filter-bar'), _ylh = wrap.querySelector('.yl-h');
-          if(_fb && _ylh) _ylh.after(_fb);
-          wrap.querySelectorAll('.yl-item').forEach(b=>b.onclick=()=>{ window._youLedgerKey=b.dataset.led; render(); });
-        }
-      }
-      if(!window._youMqlBound){
-        window._youMqlBound=true;
-        try{ matchMedia('(min-width:1120px)').addEventListener('change',()=>{ try{ if(currentTab==='you') app('you'); }catch(e){} }); }catch(e){}
-      }
-
 
       // panels peek (see CSS): one snap unit = a panel's width + the 14px gap
       const snapUnit = (cv)=>{ const p=cv&&cv.firstElementChild; return p ? p.offsetWidth+14 : (cv?cv.clientWidth:1)||1; };
@@ -7762,7 +7713,7 @@ function app(tab){
           const _calmCv = matchMedia('(prefers-reduced-motion:reduce)').matches || document.body.classList.contains('reduce-motion');
           const _panels = carousel.querySelectorAll('.panel');
           if(!_calmCv && 'IntersectionObserver' in window){
-            const _pio = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('panel-in'); _pio.unobserve(e.target); } }), { root:carousel, threshold:0.55 });
+            const _pio = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('panel-in'); _pio.unobserve(e.target); } }), (function(){ const _sw = carousel.scrollWidth > carousel.clientWidth + 2; return { root:_sw ? carousel : null, threshold:_sw ? 0.55 : 0.15 }; })());
             _panels.forEach(p=>_pio.observe(p));
           } else {
             _panels.forEach(p=>p.classList.add('panel-in'));
