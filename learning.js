@@ -1238,7 +1238,8 @@
     "h": "From the research"
    },
    {
-    "q": "\"Studies have identified areas of the PAG that are organized to regulate flight, fight, or freeze behaviors and the autonomic states that support these behaviors. Stimulating rostrally within the lateral and dorsolateral [periaqueductal gray] produces confrontational defensive behaviors (i.e., fight), while stimulating caudally within the lateral PAG and dorsolateral PAG produces escape behaviors (i.e., flight). Autonomic shifts such as increases in heart rate and blood pressure parallel these behaviors.\" (Porges)"
+    "q": "\"Studies have identified areas of the PAG that are organized to regulate flight, fight, or freeze behaviors and the autonomic states that support these behaviors. Stimulating rostrally within the lateral and dorsolateral [periaqueductal gray] produces confrontational defensive behaviors (i.e., fight), while stimulating caudally within the lateral PAG and dorsolateral PAG produces escape behaviors (i.e., flight). Autonomic shifts such as increases in heart rate and blood pressure parallel these behaviors.\" (Porges)",
+    "cite": "Porges, S. W. (2003). Social engagement and attachment: A phylogenetic perspective. <i>Annals of the New York Academy of Sciences, 1008</i>, 31–47. [doi.org/10.1196/annals.1301.004](https://doi.org/10.1196/annals.1301.004)"
    },
    {
     "p": "My translation: certain brain areas control autonomic responses resulting in aggressive or evasive behaviors. Our physiology changes when these areas are stimulated."

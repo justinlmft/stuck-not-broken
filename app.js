@@ -4214,7 +4214,7 @@ function app(tab){
   function _rdJournalCard(post){
     const qs = post.journal || [], m = _ctxLoad(), n = qs.length;
     const steps = qs.map((q, i)=>{ const saved = ((m[_rdJrKey(post, i)]) || [])[0] || '', id = 'rj-' + i;
-      return `<div class="rd-jr-step"${i ? ' hidden' : ''} data-step="${i}"><div class="rd-refl-one" id="sec-${id}"><label class="read-p rd-refl-q" for="${id}">${escapeHtml(q)}</label><textarea class="rd-refl-in" id="${id}" data-rj="${i}" rows="3" placeholder="Write here">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-rj-save="${i}">${saved ? 'Saved' : 'Save'}</button></div></div>`; }).join('');
+      return `<div class="rd-jr-step"${i ? ' hidden' : ''} data-step="${i}"><div class="rd-refl-one" id="sec-${id}"><label class="read-p rd-refl-q" for="${id}">${escapeHtml(q)}</label><textarea class="rd-refl-in" id="${id}" data-rj="${i}" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write here">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-rj-save="${i}">${saved ? 'Saved' : 'Save'}</button></div></div>`; }).join('');
     const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${qs.map((q,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
     return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(n === 1 ? '1 question' : n + ' questions')}</p>
       <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}<p class="rd-refl-where">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p></div></div></div>`;
@@ -4291,9 +4291,33 @@ function app(tab){
   // member's own data in callouts labeled "{Name}'s {context}". Free members read the whole piece;
   // their results are locked. The library is learning.js (window.Learning).
   // ===========================================================================
-  const LRN_NOUN = { week:'this week', month:'this month', season:'this season', year:'this year', daily:'lately', recent:'in the last four weeks' };
-  const LRN_POSS = { week:"this week's", month:"this month's", season:"this season's", year:"this year's", daily:'your recent', recent:'your' };
-  const _lrnOf = ctx => ctx.poss + ' check-ins' + (ctx.kind === 'recent' ? ' in the last four weeks' : '');
+  const LRN_NOUN = { week:'this week', month:'this month', season:'this season', year:'this year', daily:'lately', recent:'in the last four weeks',
+    d7:'in the last 7 days', d14:'in the last two weeks', d30:'in the last 30 days', d90:'in the last three months' };
+  const LRN_POSS = { week:"this week's", month:"this month's", season:"this season's", year:"this year's", daily:'your recent', recent:'your', d7:'your', d14:'your', d30:'your', d90:'your' };
+  const _lrnSpan = k => /^(daily|recent|d\d+)$/.test(k);
+  const _lrnOf = ctx => ctx.poss + ' check-ins' + ((ctx.kind === 'recent' || /^d\d+$/.test(ctx.kind)) ? ' ' + ctx.noun : '');
+  // the time period a stat card covers, on the card (Justin, 2026-10-05: "include a time period on the stat card")
+  const LRN_PER = { daily:'Last 7 days', recent:'Last 4 weeks', d7:'Last 7 days', d14:'Last 2 weeks', d30:'Last 30 days', d90:'Last 3 months', w8:'Last 8 weeks' };
+  function _lrnPerLabel(ctx){
+    if(!ctx) return '';
+    if(LRN_PER[ctx.kind]) return LRN_PER[ctx.kind];
+    const md = t => new Date(t).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    if(ctx.kind === 'week' && ctx.start) return 'Week of ' + md(ctx.start);
+    if(ctx.kind === 'month' && ctx.start) return new Date(ctx.start).toLocaleDateString('en-US', { month:'long', year:'numeric' });
+    if(ctx.kind === 'year' && ctx.start) return String(new Date(ctx.start).getFullYear());
+    if(ctx.start && ctx.end) return md(ctx.start) + ' – ' + md(ctx.end - 1);
+    return '';
+  }
+  // opened from a hub or a link there is no post period, so the stat cards take a time period at random for variety
+  // (Justin, 2026-10-05: "No time period filter needed for the user, it can be a random time period"). It holds for the
+  // day per article, and only picks a period with a few check-ins in it.
+  function _lrnRandCtx(seed){
+    const now = Date.now(), key = seed + '|' + new Date().toDateString(); let h = 7;
+    for(let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) | 0;
+    const all = [['d7',7],['d14',14],['d30',30],['d90',90]].map(([k,d])=>_lrnPeriodCtx(k, now - d*864e5, now + 1));
+    const ok = all.filter(c=>c.f && c.f.n >= 3), pool = ok.length ? ok : all;
+    return pool[Math.abs(h) % pool.length];
+  }
   function _lrnPicks(){ try{ return JSON.parse(localStorage.getItem('snb_lrn_picks')||'{}') || {}; }catch(e){ return {}; } }
   function _lrnSavePick(key, v){ try{ const m=_lrnPicks(); m[key]=v; localStorage.setItem('snb_lrn_picks', JSON.stringify(m)); }catch(e){} }
   // the next piece in a group: a post keeps the piece it was given; a new post takes the next one in line
@@ -4307,9 +4331,9 @@ function app(tab){
     return p;
   }
   function _lrnPeriodCtx(kind, start, end){
-    const R = window.Reader; const per = { kind: (kind==='daily' || kind==='recent') ? 'week' : kind, start, end };
+    const R = window.Reader; const per = { kind: _lrnSpan(kind) ? 'week' : kind, start, end };
     let f = null; try{ f = R.compute(per, _rdData()); }catch(e){ f = null; }
-    return { kind, f, noun:LRN_NOUN[kind], poss:LRN_POSS[kind] };
+    return { kind, f, noun:LRN_NOUN[kind], poss:LRN_POSS[kind], start, end };
   }
   // one post: rotate the way of matching post to post (state, insight, journal); fall through to the next way
   function _lrnForPost(post){
@@ -4437,7 +4461,7 @@ function app(tab){
       const text = `In the last eight weeks, when you'd had more ${st === 'people' ? 'time with ' + names : names}, ${amt} of those check-ins had more safety than defense.`;
       const bar = (lbl, x, c, i) => `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${lbl}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(x*100)}%;background:${c}"></span></span><span class="help-pct"></span></div>`;
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${bar(st === 'people' ? 'With more people time' : 'With more ' + names, sh, STATE_COLOR('safety'), 0)}${bar('All your check-ins', all, 'var(--hairline)', 1)}</div></div>`;
-      return { mk:'safety', label: owner + (st === 'people' ? ' people' : ' surroundings'), text: CAP(text.charAt(0)) + text.slice(1), card };
+      return { mk:'safety', label: owner + (st === 'people' ? ' people' : ' surroundings'), text: CAP(text.charAt(0)) + text.slice(1), card, per: Object.assign({}, c8, { kind:'w8' }) };
     }
     if(id === 'mixed-safe'){
       const np = rs.filter(r=>r.key==='play').length, ns = rs.filter(r=>r.key==='stillness').length; if(!np && !ns) return null;
@@ -4528,10 +4552,29 @@ function app(tab){
     });
   }
   // one callout, or its locked version for free members
-  function _lrnCallHTML(c, paid){
-    const col = STATE_COLOR(c.mk);
-    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
-    return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})"><span class="rd-call-who">${_rdMk(c.mk)}${escapeHtml(c.label)}</span><p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}</div>`;
+  // the stats under a stat card (Justin, 2026-10-05: "The reader's stat cards should have drop-down stats as they are fairly
+  // minimal info"): the same time period as the card, folded under "More stats"
+  function _lrnMoreStats(c, ctx){
+    const f = ctx && ctx.f; if(!f || !f.n) return '';
+    const rs = f.rs || [], rows = [], add = (l, v) => { if(v != null && v !== '') rows.push(`<div class="sd-row"><span class="sd-lbl">${l}</span><span class="sd-val">${v}</span></div>`); };
+    add('Check-ins', f.n);
+    if(f.days) add('Days with a check-in', f.days.length);
+    add('More safety than defense', Math.round(100 * (f.nSafe || 0) / f.n) + '%');
+    if(c.mk && c.mk !== 'safety'){ const k = rs.filter(r=>r.key===c.mk).length; if(k) add(CAP(STATE_NAME(c.mk)) + ' check-ins', k); }
+    const fk = x => x && (x.key || (typeof x === 'string' ? x : null));
+    if(fk(f.defFlavor)) add('Most common defense', escapeHtml(STATE_LABEL(fk(f.defFlavor))));
+    if(fk(f.safeFlavor)) add('Most common safety', escapeHtml(STATE_LABEL(fk(f.safeFlavor))));
+    const seg = {}; rs.forEach(r=>{ const k=_lrnSegOf(r.t); seg[k]=(seg[k]||0)+1; });
+    const top = Object.keys(seg).sort((a,b)=>seg[b]-seg[a]);
+    if(top.length && rs.length >= 3 && !(top[1] && seg[top[1]] === seg[top[0]])) add('Most check-ins in', escapeHtml(CAP(_LRN_SEG[top[0]])));
+    const np = (f.practices || []).length; if(np) add('Practices', np + (f.minutes >= 1 ? ' · ' + Math.round(f.minutes) + ' min' : ''));
+    return `<details class="see-data rd-call-more"><summary class="sd-sum"><span>More stats</span></summary><div class="sd-body">${rows.join('')}</div></details>`;
+  }
+  function _lrnCallHTML(c, paid, ctx){
+    const col = STATE_COLOR(c.mk), pc = c.per || ctx, per = _lrnPerLabel(pc);
+    const who = `<span class="rd-call-who">${_rdMk(c.mk)}<span class="rd-call-lbl">${escapeHtml(c.label)}</span>${per ? `<span class="rd-call-per">${escapeHtml(per)}</span>` : ''}</span>`;
+    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
+    return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}${_lrnMoreStats(c, pc)}</div>`;
   }
   // a block of piece or hub text
   function _lrnBlockHTML(b){
@@ -4560,7 +4603,7 @@ function app(tab){
     if(isState){
       const now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28*864e5, now + 1);
       const sh = _lrnCallout(key === 'safety' ? 'safety-share' : 'share:' + key, ctx), tm = _lrnCallout('time:' + key, ctx);
-      if(sh) mine = _lrnCallHTML({ mk:key, label: _rdOwner() + ' ' + STATE_NAME(key), text: sh.text + (tm ? ' ' + tm.text.replace(' in the last four weeks.', '.') : '') }, paid);
+      if(sh) mine = _lrnCallHTML({ mk:key, label: _rdOwner() + ' ' + STATE_NAME(key), text: sh.text + (tm ? ' ' + tm.text.replace(' in the last four weeks.', '.') : '') }, paid, ctx);
     }
     // related hubs: the ones its articles share most, six at most (2026-10-02, the library grew to ~150)
     const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = (related[g]||0) + 1; }));
@@ -4596,7 +4639,7 @@ function app(tab){
     const pSil = Store.prefSilence ? Store.prefSilence() : null, silence = pSil != null ? pSil : (base.silence || 8);
     const over = (_LRN_RANK[key] || 0) > (_LRN_RANK[base.practiceKey] || 0);
     const title = b.practice === 'custom' ? 'Your custom practice' : CAP(Store.practiceLabel(key)) + ' through ' + sense;
-    const note = over ? 'This goes further than your practices right now. Your check-ins point to ' + Store.practiceLabel(base.practiceKey) + ' first.' : '';
+    const note = over ? 'This practice is more advanced than what you\'ve unlocked on the Unstucking Pathway. ' + CAP(Store.practiceLabel(base.practiceKey)) + ' is recommended for now.' : '';
     return { title, note, over, reco: b.practice === 'custom' ? base : { practiceKey:key, sense, silence, reason: (b.why || '') + (over ? ' ' + note : '') || null } };
   }
   function _lrnPracticeReco(b){
@@ -4617,6 +4660,27 @@ function app(tab){
     const li = t => `<li><a href="#" class="rd-toc-a" data-lnk="anchor:${escapeHtml(t.id)}">${escapeHtml(t.title)}</a>${t.sections && t.sections.length ? `<ol>${t.sections.map(li).join('')}</ol>` : ''}</li>`;
     return `<details class="rd-toc"><summary><span>In this article</span><span class="rd-toc-n">${toc.length} sections</span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary><ol>${toc.map(li).join('')}</ol></details>`;
   }
+  // the TOC slides down when opened and back up when closed (Justin, 2026-10-05: "TOC needs to animate down when it's
+  // opened"); a stat card's "More stats" does the same. A <details> can't animate its own opening, so the tap is taken
+  // here: open, then grow the list from 0 to its height; close, shrink it to 0, then close.
+  document.addEventListener('click', e=>{
+    const sm = e.target.closest && e.target.closest('.rd-toc > summary, .rd-call-more > summary'); if(!sm) return;
+    const d = sm.parentElement, body = sm.nextElementSibling;
+    if(!body || !body.animate || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    e.preventDefault();
+    if(d._anim){ d._anim.cancel(); d._anim = null; }
+    const opening = !d.open || d.classList.contains('rd-closing');
+    if(opening){
+      d.classList.remove('rd-closing'); d.open = true;
+      const h = body.offsetHeight, cs = getComputedStyle(body);
+      d._anim = body.animate([{ height:'0px', paddingTop:'0px', paddingBottom:'0px', opacity:0 }, { height:h + 'px', paddingTop:cs.paddingTop, paddingBottom:cs.paddingBottom, opacity:1 }], { duration:280, easing:'cubic-bezier(.2,.8,.2,1)' });
+      d._anim.onfinish = ()=>{ d._anim = null; };
+    } else {
+      const h = body.offsetHeight, cs = getComputedStyle(body); d.classList.add('rd-closing');
+      d._anim = body.animate([{ height:h + 'px', paddingTop:cs.paddingTop, paddingBottom:cs.paddingBottom, opacity:1 }, { height:'0px', paddingTop:'0px', paddingBottom:'0px', opacity:0 }], { duration:200, easing:'cubic-bezier(.4,0,.6,1)', fill:'forwards' });
+      d._anim.onfinish = ()=>{ d.open = false; d.classList.remove('rd-closing'); if(d._anim){ d._anim.cancel(); d._anim = null; } };
+    }
+  });
   function screenLearnPiece(piece, ctx, fromPost, from, goSec){
     if(!piece.blocks){
       const backTo = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenLearn;
@@ -4627,8 +4691,8 @@ function app(tab){
       return;
     }
     const paid = paidNow(), st = piece.state || null, L = window.Learning;
-    // opened from a hub or a link: no post period, so the callouts mirror the last seven days
-    if(!ctx){ const now = Date.now(); ctx = _lrnPeriodCtx('daily', now - 7*864e5, now + 1); }
+    // opened from a hub or a link: no post period, so the callouts take a random time period (see _lrnRandCtx)
+    if(!ctx) ctx = _lrnRandCtx(piece.id);
     const back = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenReader;
     const here = ()=>screenLearnPiece(piece, ctx, fromPost, from);
     // reflections (Justin, 2026-10-02: "great but they are a lot. Overwhelming" and "behind the paywall"): a run of questions
@@ -4636,7 +4700,7 @@ function app(tab){
     // per article and no other questions
     let reflSeen = 0;
     const reflOne = b => { const saved = ((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0] || '';
-      return `<div class="rd-refl-one" id="sec-rf-${escapeHtml(b.reflect)}"><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`; };
+      return `<div class="rd-refl-one" id="sec-rf-${escapeHtml(b.reflect)}"><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`; };
     // the Journal (Justin, 2026-10-02: "all questions need to be hidden behind a closed 'Journal'. When it's tapped, it opens and
     // the first question is shown"; free members see no questions). He picked look C: a small Journal button that slides a sheet
     // up over the article, one question at a time; swipe between questions (the Next button is for bigger screens only).
@@ -4665,7 +4729,7 @@ function app(tab){
       if(b.reflect){ const run = [b]; while(i + 1 < blocks.length && blocks[i + 1].reflect) run.push(blocks[++i]); parts.push(reflCard(run, !!(i - run.length >= 0 && (blocks[i - run.length].h || blocks[i - run.length].h3)))); continue; }
       if(b.practice){ const pt = _lrnPracticeThis(b);
         parts.push(`<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`); continue; }
-      if(b.callout){ const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid) : ''); continue; }
+      if(b.callout){ const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid, ctx) : ''); continue; }
       // a "Journal" or "Reflect" heading right above the questions: the Journal card says it, so the heading stays only for the table of contents
       if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
       parts.push(_lrnBlockHTML(b));
@@ -4675,7 +4739,7 @@ function app(tab){
     const nx = L.nextFor ? L.nextFor(piece) : null;
     const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
     // book chapters: where it comes from, and where to get the book (Curriculum Advisor's LINKS.md, Justin 10-01)
-    const book = piece.book ? `<section class="rd-book"><p class="read-p">From <i>${escapeHtml(piece.book)}</i>.</p><div class="rd-book-links">${piece.book_url ? `<a class="rd-book-a" href="${escapeHtml(piece.book_url)}" target="_blank" rel="noopener">Get the book</a>` : ''}${piece.book_amazon ? `<a class="rd-book-a" href="${escapeHtml(piece.book_amazon)}" target="_blank" rel="noopener">On Amazon</a>` : ''}</div></section>` : '';
+    const book = piece.book ? `<section class="rd-book"><p class="read-p">From <i>${escapeHtml(piece.book)}</i>.</p><div class="rd-book-links">${piece.book_url ? `<a class="rd-book-a" href="${escapeHtml(piece.book_url)}" target="_blank" rel="noopener">Buy the PDFs</a>` : ''}${piece.book_amazon ? `<a class="rd-book-a" href="${escapeHtml(piece.book_amazon)}" target="_blank" rel="noopener">Buy on Amazon</a>` : ''}</div></section>` : '';
     const keep = `<section class="rd-learn rd-keep"><h3 class="sec-h">Keep learning</h3>
         ${nx ? `<span class="rd-eyeb rd-keep-eyeb">Read next</span><div class="rd-list rd-list-flat">${_lrnRowHTML(nx)}</div>` : ''}
         ${hubKeys.length ? `<span class="rd-eyeb rd-keep-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubKeys.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div>` : ''}
