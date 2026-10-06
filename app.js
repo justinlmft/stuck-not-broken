@@ -71,14 +71,6 @@
     if(!_isRead(c)) return null;
     try{ return window.PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; }
   }
-  // safety-governed: capacity covers load in this same reading. Replaces the
-  // REG={safety,play,stillness} bucket lookup, which asked which word won.
-  function _cReg(c){ const m=_cMargin(c); return m != null && m >= 0; }
-  function _meanMargin(arr){
-    const r=_reads(arr), n=r.length; if(!n) return null;
-    let t=0; for(let i=0;i<n;i++) t+=_cMargin(r[i]);
-    return t/n;
-  }
   // recommend() has blanked screens twice (B2, Pass 3): a failure here must cost the
   // card, never the tab. Reported loudly in the console, never swallowed. Callers
   // that must render SOME practice pass needShape=true and get the same 'anchoring'
@@ -3458,38 +3450,6 @@ function app(tab){
     if(!pts || pts.length<3) return pts||[];
     return pts.map((p,i)=>{ const a=pts[i-1]||p, b=pts[i+1]||p; return { x:p.x, v:(a.v+p.v+b.v)/3 }; });
   }
-  // "where you've been": a proportional bar of the state mix + a labeled legend.
-  function stateMixBar(dist, order){
-    const states = (order||[]).filter(k=>dist && dist[k]>0);
-    if(!states.length) return '';
-    const segs = states.map(k=>`<div style="width:${dist[k]}%;background:${STATE_COLOR(k)}"></div>`).join('');
-    const legend = states.map(k=>`<span class="vz-key"><span class="vz-sw" style="background:${STATE_COLOR(k)}"></span>${escapeHtml(STATE_LABEL(k))} ${dist[k]}%</span>`).join('');
-    return `<div class="sec-viz"><div class="mix-bar">${segs}</div><div class="vz-legend">${legend}</div></div>`;
-  }
-  // "what that state is": the brand triGlyph lit to the dominant state — the state's face.
-  function stateGlyphViz(dom){ return `<div class="sec-viz sec-glyph">${triGlyph(dom)}</div>`; }
-  // "your movement": a smooth safety trend line over the recent days.
-  // "the fork ahead": the person's real trajectory flowing into a split — up toward more
-  // safety, down toward THEIR most-common defense state. Both equal weight: awareness, not a prediction.
-  // route a section id to its visual (from the reader's real signals)
-  function sectionViz(id, c){
-    if(!c) return '';
-    if(id==='blog-1' && c.dist && c.order) return stateMixBar(c.dist, c.order);
-    if(id==='blog-2' && c.dom) return stateGlyphViz(c.dom);
-    // fresh sections reuse the You-tab card visuals (Justin 2026-07-05): the reader
-    // and the cards speak the same visual language
-    if(id==='blog-pats' && c.patterns){
-      const p=c.patterns;
-      if(p.day) return `<div class="wk-strip" aria-hidden="true" style="margin:14px 0 4px">${['s','m','t','w','t','f','s'].map((lb,i)=>`<span class="wk-cell" style="animation-delay:${i*45}ms">${i===p.day.idx?`<span class="wk-mark">${ico('heart',{color:STATE_COLOR('safety')})}</span>`:'<span class="wk-dot"></span>'}<span class="wk-lb">${lb}</span></span>`).join('')}</div>`;
-      if(p.shift) return cbGlyphViz(p.shift.a, 'safety'===p.shift.b?'safety':p.shift.b, 'cb-viz-inset');
-      return '';
-    }
-    if(id==='blog-zoom' && c.zoomPct!=null){
-      return `<div class="safety-meter" style="margin:14px 0 4px"><span class="safety-meter-fill" style="width:${c.zoomPct}%"></span></div>`;
-    }
-    // trend-arc (blog-3) + fork (blog-4) removed per Justin; helpers kept for possible reuse.
-    return '';
-  }
   // a section heading is {pre, state, post}: color just the state word in its own palette
   // color (no fragile text-matching). Falls back to a plain string for mints saved before
   // this change existed (those are frozen and will never carry the new shape).
@@ -3545,98 +3505,6 @@ function app(tab){
         b.classList.toggle('on', i<0); b.setAttribute('aria-pressed', i<0?'true':'false');
       };
     });
-  }
-  function _fmtRange(a, b){
-    const f = t=>new Date(t).toLocaleDateString(undefined,{month:'long',day:'numeric'});
-    return f(a)+' to '+f(b);
-  }
-  // a dip in the middle with a comeback: >=2 consecutive defense check-ins, then safety
-  function _recoverySignal(cs){
-    let dipStart=-1, run=0;
-    for(let i=0;i<cs.length;i++){
-      if(!_REGDOMS[cs[i].dom]){ run++; if(run===2 && dipStart<0) dipStart=i-1; }
-      else { if(dipStart>0) return { day:new Date(cs[i].t).toLocaleDateString(undefined,{weekday:'long'}), def:cs[dipStart].dom }; run=0; }
-    }
-    return null;
-  }
-  // practice payoff: check-ins within 3h after sessions carry more safety than the 3h before
-  function _payoffSignal(cs, sess){
-    if(!sess.length) return 0;
-    const b=[], a=[];
-    sess.forEach(s=>{ cs.forEach(c=>{ const d=c.t-s.t; if(d>0&&d<=3*36e5) a.push(c.v); else if(d<0&&d>=-3*36e5) b.push(c.v); }); });
-    const avg = x=>x.reduce((p,q)=>p+q,0)/x.length;
-    return (a.length>=2 && b.length>=2 && avg(a)>avg(b)+0.05) ? sess.length : 0;
-  }
-  // a personal quarter/year just closed (anchored to first check-in, same math as
-  // mintQuarters): section shows through the first Sun–Mon window on/after the close
-  function _periodVisit(now){
-    const first = Store.firstCheckinT ? Store.firstCheckinT() : null; if(!first) return null;
-    let end=null, idx=0;
-    for(let i=1;i<=40;i++){ const e=_addMonths(first,i*3); if(e<=now){ end=e; idx=i; } else break; }
-    if(!end) return null;
-    const winStart = _sundayStart(end) + ((new Date(end).getDay()<=1) ? 0 : WEEK_MS);
-    if(now < winStart || now >= winStart + 2*864e5) return null;
-    const start = _addMonths(first,(idx-1)*3);
-    const mark = (idx%4===0)?'year':'q';
-    const st = Store.periodStats(start, end); if(!st) return null;
-    const D28 = 28*864e5;
-    const b1s = Store.periodStats(start, Math.min(start+D28,end));
-    const b2s = Store.periodStats(Math.max(end-D28,start), end);
-    const mn = t=>new Date(t).toLocaleDateString(undefined,{month:'long'});
-    const my = t=>new Date(t).toLocaleDateString(undefined,{month:'long',year:'numeric'});
-    const rangeLabel = mark==='year' ? my(start)+' to '+my(end-1) : mn(start)+' to '+mn(end-1);
-    return { key:(mark==='year'?'y':'q')+new Date(start).toISOString().slice(0,10),
-      ctx: { mark, n:st.n, dom:st.dom, firstDom:st.firstDom,
-             b1:(b1s&&b1s.n>=8)?b1s.regShare*100:null, b2:(b2s&&b2s.n>=8)?b2s.regShare*100:null,
-             rangeLabel } };
-  }
-  function _visitSectionHTML(sec, key){
-    if(!sec) return { html:'', wire:null };
-    const P=(t)=>t?`<p class="read-p">${boldHtml(t)}</p>`:'';
-    const bullets = (sec.bullets&&sec.bullets.length) ? `<ul class="wr-list">${sec.bullets.map(b=>`<li>${boldHtml(b)}</li>`).join('')}</ul>` : '';
-    const chips = sec.chipQ ? _ctxChipsHTML(sec.chipQ, key) : '';
-    const foot = sec.footer ? `<p class="wr-foot">${boldHtml(sec.footer)}</p>` : '';
-    const html = `
-      <section class="wr" style="margin:0 0 4px">
-        ${sec.eyebrow?`<p class="wr-eyeb">${escapeHtml(sec.eyebrow)}</p>`:''}
-        <h2 class="read-h2">${escapeHtml(sec.heading)}</h2>
-        ${sec.paras.map(P).join('')}
-        ${bullets}
-        ${chips}
-        ${foot}
-      </section>
-      <hr style="border:none;border-top:0.5px solid var(--hairline);margin:18px 0 20px">`;
-    return { html, wire: sec.chipQ ? ()=>_wireCtxChips(key) : null };
-  }
-  function buildVisitSection(){
-    try{
-      if(!(window.FromJustin && FromJustin.weekReview && Store.periodStats)) return { html:'', wire:null };
-      const now = Date.now(), dow = new Date(now).getDay();
-      const pv = _periodVisit(now);
-      if(pv && FromJustin.periodSection) return _visitSectionHTML(FromJustin.periodSection(pv.ctx), pv.key);
-      if(dow!==0 && dow!==1) return { html:'', wire:null };
-      const ws = _sundayStart(now) - WEEK_MS, we = ws + WEEK_MS;
-      const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&!!_cDom(c)).sort((a,b)=>a.t-b.t);
-      if(!cs.length) return { html:'', wire:null };
-      const st = Store.periodStats(ws, we), prev = Store.periodStats(ws-WEEK_MS, ws);
-      let shiftDir=null;
-      if(st && prev && prev.n>=3 && st.dom!==prev.dom){
-        if(_REGDOMS[st.dom] && !_REGDOMS[prev.dom]) shiftDir='safety';
-        else if(!_REGDOMS[st.dom] && _REGDOMS[prev.dom]) shiftDir='defense';
-      }
-      const rec = _recoverySignal(cs);
-      const sess = (Store.sessions?Store.sessions():[]).filter(s=>s&&typeof s.t==='number'&&s.t>=ws&&s.t<we);
-      const tn = Store.tenure ? Store.tenure() : null;
-      const base = (tn && tn.days>=28) ? Store.periodStats(ws-28*864e5, ws) : null;
-      const ctx = {
-        n:cs.length, pct:st?st.domShare:null, dom:st?st.dom:null, prevDom:prev?prev.dom:null, shiftDir,
-        recoveryDay:rec?rec.day:null, defenseState:rec?rec.def:null,
-        practicesK:sess.length, payoffK:_payoffSignal(cs, sess),
-        weekPct: st?st.regShare*100:null, basePct: (base&&base.n>=8)?base.regShare*100:null,
-        rangeLabel:_fmtRange(ws, we-1)
-      };
-      return _visitSectionHTML(FromJustin.weekReview(ctx), 'w'+new Date(ws).toISOString().slice(0,10));
-    }catch(e){ return { html:'', wire:null }; }
   }
 
   // ===========================================================================
@@ -4195,18 +4063,6 @@ function app(tab){
   }
   const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
-  // one saved day (no longer linked from the hub since past days were cut; kept for old links)
-  function screenReaderDay(id){
-    const m = (Store.mints ? Store.mints() : []).find(x=>x.id===id); if(!m) return screenReader();
-    const d0 = m.dateMs, d1 = d0 + 864e5;
-    const moments = Store.checkins().filter(c=>c && c.t>=d0 && c.t<d1 && typeof c.v==='number').sort((a,b)=>a.t-b.t).map(c=>Object.assign({}, c, { dom:_cDom(c) }));
-    const sessions = Store.sessions().filter(s=>s && s.t>=d0 && s.t<d1);
-    const d = new Date(d0);
-    _rdShell(`
-        <span class="rd-eyeb">${escapeHtml(DAYS_LONG[d.getDay()] + ', ' + d.toLocaleDateString(undefined,{month:'long',day:'numeric'}))}</span>
-        <p class="read-p" style="margin:8px 0 0">${boldHtml(m.text||'')}</p>
-        ${momentTimeline(moments, sessions)}`, { back:'Reflect', onBack:screenReader });
-  }
 
   // a reflection's journal questions (Justin, 2026-10-02: "The reflect journals need the same treatment as the article ones"):
   // the same closed Journal button and sheet as the articles, answers kept in Your Journal as 'rj:{post}:{n}' = [answer, day, question]
@@ -4780,232 +4636,6 @@ function app(tab){
     }
   }
 
-  // (retired 2026-09-30: the essay-per-state reader. Kept for reference until the next declutter.)
-  function _screenReflectionDeepOld(){
-    // The reader — the weekly letter written from this person's own check-ins — is the
-    // paid plan. Guarded here as well as at every call site (defense in depth).
-    // (When the evergreen/personalized content tagging lands, the evergreen essays come
-    // back out from behind this line and become free. That pass is not done yet.)
-    _markReaderSeen();   // any reader-open clears the nudge for this check-in — incl. free
-                         // users who then hit the subscribe/upgrade prompt below
-    if(!paidNow()) return gateSubscribe('reader');
-    const note = FromJustin.today();
-    const last = Store.lastCheckin();
-    const cs   = Store.checkins();
-    const paced = groupByDay(cs);
-    // today block (daily altitude): the live daily reflection + the moment timeline,
-    // shown above the weekly letter. From moment one.
-    const td = Store.today ? Store.today() : null;
-    const dailyNote = FromJustin.daily ? FromJustin.daily(td||undefined) : null;
-    const todayBlock = (td && td.n>=1) ? `
-      <section style="margin:0 0 4px">
-        <h2 class="read-h2">Today, so far</h2>
-        ${dailyNote ? `<p class="read-lead">${boldHtml(dailyNote.text)}</p>` : ''}
-        ${momentTimeline(td.moments, td.sessions)}
-      </section>
-      <hr style="border:none;border-top:0.5px solid var(--hairline);margin:18px 0 20px">` : '';
-
-    // signals over the last 7 days (fall back to all check-ins)
-    const wk = cs.filter(c => c.t >= Date.now() - 7*864e5);
-    const base = wk.length ? wk : cs;
-    let dom=null, share=null, dir=null, variance=null, streak=0;
-    if(base.length){
-      const freq={}; let nk=0; base.forEach(c=>{ const k=_rowKey(c); if(!k) return; nk++; freq[k]=(freq[k]||0)+1; });
-      let bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
-      share = nk ? Math.round((freq[dom]||0)/nk*100) : null;
-    }
-    if(!dom && last) dom = _cDom(last);
-    if(cs.length>=2){ const _tr=Store.trend(); dir=_tr?_tr.dir:null; }   // null-safe: never crash the reader
-    if(base.length>=3){
-      const avgV=base.reduce((s,c)=>s+c.v,0)/base.length;
-      const sd=Math.sqrt(base.reduce((s,c)=>s+(c.v-avgV)*(c.v-avgV),0)/base.length);
-      variance = sd>0.18 ? 'shifts' : 'consistent';
-    }
-    if(dom && paced.length>=2){ for(let i=paced.length-1;i>=0;i--){ if(paced[i].dom===dom) streak++; else break; } }
-
-    // essay-model signals (reader rework 2026-07-03): counts woven into sentences,
-    // freeze->shutdown drift, and the dominant non-safety state for the safety essay.
-    let f2s = 0; const _wkKeys = base.slice().sort((a,b)=>a.t-b.t).map(_rowKey);
-    for(let i=1;i<_wkKeys.length;i++){ if(_wkKeys[i-1]==='freeze' && _wkKeys[i]==='shutdown') f2s++; }
-    const _DYSD = { fightflight:1, shutdown:1, freeze:1 };
-    const _defCnt = {}; cs.forEach(c=>{ const k=_rowKey(c); if(k && _DYSD[k]) _defCnt[k]=(_defCnt[k]||0)+1; });
-    const defDom = Object.keys(_defCnt).sort((a,b)=>_defCnt[b]-_defCnt[a])[0] || null;
-    // patterns: the written version of the You-tab stats (same helpers, full history).
-    // each self-gates; the section only appears when >=2 signals are real.
-    const patterns = (function(){
-      try{
-        const wdR=_weekdayPattern(cs), dpR=_daypartPattern(cs);
-        const trnR=Store.transitions?Store.transitions():null;
-        const recR=Store.recovery?Store.recovery():null;
-        const rtR=recR?_recoveryTrend():null;
-        const prR=_personalRecords(cs, 8);   // reader: bound "your most regulated week" to the last ~2 months
-        const ceR=_contextEffect();
-        const peR=ceR?_peWindowed():null;
-        return {
-          day:wdR, seg:dpR,
-          shift:trnR?{a:trnR.a,b:trnR.b,count:trnR.count}:null,
-          comeback:recR?{phrase:(recR.avg<=1.5?'a check-in or two':'about '+Math.round(recR.avg)+' check-ins'), n:recR.n, faster:!!(rtR&&rtR.dir==='faster')}:null,
-          record:(prR&&prR.bestWeek)?prR.bestWeek:null,
-          context:ceR?{label:ceR.label,tagPct:ceR.tagPct,typPct:ceR.typPct,peRate:peR?Math.round(peR.rate*20)*5:null}:null,
-          ctxStates:_contextStateLink()
-        };
-      }catch(e){ return null; }
-    })();
-    const issue = (dom && FromJustin.blog) ? FromJustin.blog({
-      dom:dom, dir:dir, count:base.length, streak:streak,
-      nState:base.filter(c=>c.dom===dom).length, nTotal:base.length,
-      f2s:f2s, defDom:defDom, name:((Store.getName&&Store.getName())||''),
-      patterns:patterns,
-      emotion:(Store.emotionPatterns?Store.emotionPatterns():null),
-      skillStory:(Store.skillStory?Store.skillStory():null)
-    }) : null;
-
-    /* 2026-08-17 — TWO CLAIMS, NEVER FUSED. A band is a property of one reading: capacity
-       against load in that same moment. A period is not a reading, so it has no band, and
-       joining a modal state to a mean margin produced things like "Shutdown — low" with the
-       qualifier computed on the safety scale (four check-ins at shutdown near zero, three at
-       safety well positive: modal state defense, mean margin positive). Averaging the circuits
-       instead is no better — 90/10/10 and 10/90/10 average to a state nobody was ever in.
-       So the reader states a FREQUENCY claim and a QUANTITY claim side by side, each true on
-       its own. Both come straight out of periodStats, which already defines them; the 25%
-       threshold for naming the runner-up is the one from-justin.js already uses for the same
-       clause. Credit: Claude Code caught the category error. */
-    let readState = '';
-    if(issue && Store.periodStats){
-      const ps = Store.periodStats(Date.now() - 7*864e5, Date.now());
-      if(ps && ps.n >= 2 && ps.dom){
-        const sec  = (ps.second && ps.secondShare >= 25) ? ps.second : null;
-        const most = 'Most of your check-ins were ' + STATE_NAME(ps.dom)
-                   + (sec ? ', with some ' + STATE_NAME(sec) : '') + '.';
-        const ahead = ps.reg === 0
-          ? 'Safety was never ahead of defense across your ' + ps.n + ' check-ins.'
-          : ps.reg === ps.n
-            ? 'Safety was ahead of defense in every one of your ' + ps.n + ' check-ins.'
-            : 'Safety was ahead of defense in ' + ps.reg + ' of your ' + ps.n + ' check-ins.';
-        readState = '<p class="read-state">' + escapeHtml(most) + '</p>'
-                  + '<p class="read-state-sub">' + escapeHtml(ahead) + '</p>';
-      }
-    }
-
-    // per-section visuals: computed from the reader's own recent signals so each picture
-    // illustrates the words of its section (mix bar, state glyph, trend line, personal fork).
-    const _now = Date.now();
-    const _ps = Store.periodStats ? Store.periodStats(_now-7*864e5, _now) : null;
-    const _base28 = Store.periodStats ? Store.periodStats(_now-28*864e5, _now) : null;
-    const vizCtx = { dom:dom, dist:_ps?_ps.dist:null, order:_ps?_ps.order:null, defenseState:(_ps&&_ps.defenseStates&&_ps.defenseStates[0])||null,
-                     patterns:patterns, zoomPct:(_base28&&_base28.n>=8)?Math.round(_base28.regShare*100):null };
-    const P = (t)=> t ? `<p class="read-p">${boldHtml(t)}</p>` : '';
-    // the daily note now lives in the today block above; only fall back to a lead
-    // paragraph when there are no moments today (todayBlock empty).
-    const lead = (!todayBlock && dailyNote) ? `<p class="read-lead" style="margin:0 0 4px">${boldHtml(dailyNote.text)}</p>` : '';
-
-    let bodyHTML;
-    if(issue){
-      // dek (one-line subtitle) replaces the old "short version" bullets — the
-      // TL;DR list re-fragmented exactly what the essay model fixes.
-      const dekHTML = issue.dek ? `<p class="read-dek">${boldHtml(issue.dek)}</p>` : '';
-      // the closing section's landing line is the issue's most quotable sentence — set it
-      // as a pull-quote (reader-beauty pass)
-      const PQ = (t)=> t ? `<blockquote class="read-pq">${boldHtml(t)}</blockquote>` : '';
-      // fresh (data-driven) sections get the highlight treatment: an accent hairline in
-      // the issue's state color + a quiet eyebrow, so what's NEW is scannable at a glance.
-      // they're also shareable — same 1080x1080 cards as the You tab (Justin 2026-07-05)
-      const _shareable = { 'blog-pats':1, 'blog-zoom':1 };
-      const sectionsHTML = issue.sections.map(sec=>`
-        <section${sec.fresh?` class="sec-fresh" style="margin-top:22px;--fresh-col:${STATE_COLOR(issue.dom)}"`:` style="margin-top:22px"`}>
-          ${sec.fresh?'<p class="fresh-eyeb">From your check-ins · updates as you do</p>':''}
-          <h3 id="${sec.id}" class="sec-h" style="margin:0 0 8px;scroll-margin-top:14px">${renderHeading(issue.dom, sec.heading)}</h3>
-          ${sec.paras.map((t,i)=> (sec.id==='blog-6' && i===sec.paras.length-1) ? PQ(t) : P(t)).join('')}
-          ${sectionViz(sec.id, vizCtx)}
-          ${_shareable[sec.id]?`<button class="linkbtn sec-share" type="button" data-share-sec="${sec.id}">Share this →</button>`:''}
-        </section>`).join('');
-      bodyHTML = `
-        ${lead}
-        ${dekHTML}
-        ${readerTOC(issue)}
-        ${sectionsHTML}`;
-    } else {
-      bodyHTML = `${lead}${P('Check in a few times, and a more personal summary will show up here.')}`;
-    }
-
-    // the visiting section (week / quarter / year) — one at a time, above the essay
-    const visit = buildVisitSection();
-    const hasArchive = (Store.mints && Store.mints().length > 0);
-    const archiveLink = hasArchive ? `<button class="linkbtn arch-link" id="open-arch" style="margin-top:26px">Past Reflections →</button>` : '';
-    // the reader closes into a practice: when you've finished reading what your
-    // check-ins are saying, the practice shaped from them is one tap away (the plan
-    // reader, then begin). links to the SAME recommendation as the practice tab.
-    const reco = _recommendSafe();
-    const practiceCTA = reco ? `<div class="read-to-practice">
-            <p class="read-p" style="margin:0 0 12px">When you're ready, here is the practice shaped from these check-ins.</p>
-            <button class="btn block" id="read-begin-practice" type="button">The practice made for you</button>
-          </div>` : '';
-    // quiet read-time line (HIG: set expectations; a reluctant reader wants the size of the ask)
-    const _rtWords = String(todayBlock+visit.html+bodyHTML).replace(/<[^>]*>/g,' ').split(/\s+/).filter(Boolean).length;
-    const _rtMins = Math.max(1, Math.round(_rtWords/200));
-    const _uname = (Store.getName && Store.getName()) || '';
-    // desktop contents rail: a second copy of the essay TOC lives in .read-aside and
-    // shows only >=720 (CSS), where it becomes a quiet sticky rail that fills the window
-    // beside the reading column (HIG Layout: secondary info in another part of the
-    // window). The inline TOC inside bodyHTML keeps its mobile position; CSS hides it
-    // >=720. .read-flow wraps the reading column so the aside can stretch full-height
-    // for a real sticky. Mobile is unchanged (.read-aside is display:none, .read-flow
-    // is a flex column that preserves the prior child spacing).
-    const asideTOC = issue ? readerTOC(issue) : '';
-    setHTML(`
-      <header class="appbar read-appbar"><button class="backbtn" id="deep-back">Back</button></header>
-      <div class="scroll">
-        <div class="view read" style="gap:0">
-          <div class="read-flow">
-            <div class="scr-head read-head">
-              <h1 class="read-h1">Reflect</h1>
-              <p class="read-time">${_uname ? escapeHtml(_uname)+' · ' : ''}${_rtMins} min read · from your real check-ins</p>
-              ${readState}
-              ${hasArchive ? `<button class="read-arch" type="button" id="open-arch-top" aria-label="Past Reflections"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4.4L6 21V4.5a1 1 0 0 1 1-1z"/></svg></button>` : ''}
-            </div>
-            ${todayBlock}
-            ${visit.html}
-            ${bodyHTML}
-            ${practiceCTA}
-            ${archiveLink}
-          </div>
-          ${asideTOC ? `<aside class="read-aside">${asideTOC}</aside>` : ''}
-        </div>
-      </div>
-      <nav class="tabbar reader-rail" id="tabs">${TABS()}</nav>`);
-    $('#deep-back').onclick = ()=>app('now');
-    $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
-    const _rbp=$('#read-begin-practice'); if(_rbp) _rbp.onclick = ()=>renderPlan(reco);
-    // fresh-section share: the same image cards the You tab shares
-    // VOICE, intentional (Justin): share strings are FIRST-PERSON and lowercase-start
-    // ("my nervous system's most common shift…") — the user speaking, not the app.
-    // Do not "correct" them in a sentence-case sweep.
-    (function(){
-      const _sig = 'Stuck Not Broken · stucknotbroken.com/stuck';
-      root.querySelectorAll('.sec-share').forEach(b=>b.addEventListener('click',()=>{
-        const which=b.dataset.shareSec;
-        if(which==='blog-pats' && patterns){
-          if(patterns.day){ openShare(`${patterns.day.pct}% of my ${patterns.day.label} check-ins have safety in them. ${_sig}`); return; }
-          if(patterns.shift){ openShare(`my nervous system's most common shift: ${STATE_NAME(patterns.shift.a)} to ${STATE_NAME(patterns.shift.b)}. i can see the pattern now. ${_sig}`); return; }
-        }
-        if(which==='blog-zoom' && vizCtx.zoomPct!=null){ openShare(`my safety baseline this month. ${_sig}`); return; }
-      }));
-    })();
-    if(visit.wire) visit.wire();
-    const ab = $('#open-arch'); if(ab) ab.onclick = screenArchive;
-    const at = $('#open-arch-top'); if(at) at.onclick = screenArchive;
-    // sections breathe in as you reach them (scoped by .read-anim so content is
-    // always visible if anything here fails; reduced motion = everything static)
-    try{
-      const rv = root.querySelector('.view.read');
-      const calm = matchMedia('(prefers-reduced-motion:reduce)').matches || document.body.classList.contains('reduce-motion');
-      if(rv && !calm && 'IntersectionObserver' in window){
-        rv.classList.add('read-anim');
-        const io = new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('sec-in'); io.unobserve(e.target); } }), { rootMargin:'0px 0px -8% 0px' });
-        rv.querySelectorAll('section').forEach(s=>io.observe(s));
-      }
-    }catch(e){}
-  }
 
   // ---- reflections archive (minted past reflections) -------------------------
   function fmtMintDate(ms){
@@ -5034,21 +4664,6 @@ function app(tab){
   // ---- weekly altitude: mint each closed Sunday-week's letter (the for-you reader
   // content), computed over that exact 7-day window so it's honest even on a late open.
   const WEEK_MS = 7*864e5;
-  function _sundayStart(t){ const d=new Date(t); d.setHours(0,0,0,0); d.setDate(d.getDate()-d.getDay()); return d.getTime(); }
-  // windowed equivalent of Store.weekMix() over an explicit set of in-window check-ins
-  function _windowMix(cs){
-    const n=cs.length; if(n<6) return null;                 // weekMix self-gates >=6; below that no secondary lines
-    const cnt={}; _reads(cs).forEach(c=>{const k=_cDom(c); cnt[k]=(cnt[k]||0)+1;});
-    const order=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
-    const dom=order[0], second=order[1]||null;
-    // regulated = margin >= 0, same quantity that picks the name. Computed-Quiet rows
-    // are not readable margins (D-A) and leave the sample entirely (num and denom).
-    const rd=_reads(cs); const nR=rd.length||1;
-    let reg=0; rd.forEach(c=>{ if(_cReg(c)) reg++; });
-    const regShare=reg/nR, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
-    return { n, dom, domShare:Math.round(cnt[dom]/nR*100), second, secondShare: second?Math.round(cnt[second]/nR*100):0,
-             reg, dys:nR-reg, nRead:nR, regShare, lean, distinct:order.length, meanMargin:_meanMargin(cs), defenseStates:order.filter(d=>DEFENSE_SIDE[d]) };
-  }
   // windowed equivalent of Store.recovery() over an explicit set of in-window check-ins
   // (Store.recovery() is always all-time, no period param — so the "getting back to
   // safety" card's trip-count used to cite an all-time number no matter which period
@@ -5068,103 +4683,7 @@ function app(tab){
     if(gaps.length<3) return null;
     return { avg: gaps.reduce((a,b)=>a+b,0)/gaps.length, n: gaps.length };
   }
-  function weeklyIssueFor(ws){
-    if(!FromJustin.blog) return null;
-    const we = ws + WEEK_MS;
-    const cs = Store.checkins().filter(c=>c&&typeof c.t==='number'&&c.t>=ws&&c.t<we&&!!_rowKey(c)).sort((a,b)=>a.t-b.t);
-    const n = cs.length;
-    if(n < 3) return null;                                   // sparse week: skip minting in v1
-    const freq={}; cs.forEach(c=>{ const k=_rowKey(c); freq[k]=(freq[k]||0)+1; });
-    let dom=null,bestN=-1; for(const k in freq){ if(freq[k]>bestN){ bestN=freq[k]; dom=k; } }
-    const share = Math.round(bestN/n*100);
-    const dv = cs[n-1].v - cs[0].v; const dir = dv>0.08?'rising' : dv<-0.08?'falling' : 'steady';
-    const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
-    const sd = Math.sqrt(cs.reduce((s,c)=>s+(c.v-avgV)*(c.v-avgV),0)/n);
-    const variance = sd>0.18 ? 'shifts' : 'consistent';
-    const mix = _windowMix(cs);
-    // force the full-week framing (it IS a complete week) + suppress the from-now secondary
-    // lines (transitions/time-of-day/recovery/payoff) with empty overrides so the snapshot
-    // never borrows current data.
-    // essay-model weekly snapshot: pass explicit window counts; null the live-borrowing
-    // signals (pi/baseline/defDom) so a frozen week never reads current data.
-    const issue = FromJustin.blog({ dom, dir, count:n, streak:0, nState:bestN, nTotal:n,
-      f2s:0, defDom:null, pi:null, baseline:null, stage:'week', tenure:{stage:'week',days:7,returning:false} });
-    if(!issue) return null;
-    const doms = Object.keys(freq).sort((a,b)=>freq[b]-freq[a]);     // doms[0] = the week's dominant state (lights the triGlyph)
-    const traj = dir==='rising' ? 'leaned toward safe' : dir==='falling' ? 'kept showing up all week' : 'stayed with it all week';
-    const card = {
-      dateLabel: 'Week of ' + new Date(ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}),
-      n: n, dir: dir, traj: traj, doms: doms
-    };
-    const summary = issue.dek || ((issue.bullets && issue.bullets[0]) ? issue.bullets[0].text : (n + ' check-ins this week.'));
-    return { issue, card, summary };
-  }
-  function mintWeeks(){
-    try{
-      if(!(FromJustin.blog && Store.saveMint && Store.hasMint)) return;
-      const cs = Store.checkins(); if(!cs.length) return;
-      let firstT = Infinity; cs.forEach(c=>{ if(c&&typeof c.t==='number'&&c.t<firstT) firstT=c.t; });
-      if(!isFinite(firstT)) return;
-      const thisWeek = _sundayStart(Date.now());
-      for(let ws = _sundayStart(firstT); ws < thisWeek; ws += WEEK_MS){
-        const key = 'w' + new Date(ws).toISOString().slice(0,10);
-        if(Store.hasMint('weekly', key)) continue;
-        const built = weeklyIssueFor(ws);
-        if(!built) continue;
-        Store.saveMint({ tier:'weekly', date:key, dateMs:ws, text:built.summary, data:{ issue:built.issue, card:built.card } });
-      }
-    }catch(e){}
-  }
 
-  // ---- monthly + quarterly minting (long-range altitudes) --------------------
-  function _monthStart(t){ const d=new Date(t); d.setHours(0,0,0,0); d.setDate(1); return d.getTime(); }
-  function _addMonths(t, n){ const d=new Date(t); d.setDate(1); d.setMonth(d.getMonth()+n); return d.getTime(); }
-  function mintMonths(){
-    try{
-      if(!(FromJustin.monthly && Store.periodStats && Store.saveMint && Store.hasMint)) return;
-      const first = Store.firstCheckinT ? Store.firstCheckinT() : null; if(!first) return;
-      const thisMonth = _monthStart(Date.now());
-      for(let ms = _monthStart(first); ms < thisMonth; ){
-        const me = _addMonths(ms, 1);
-        const key = 'm' + new Date(ms).toISOString().slice(0,7);
-        if(!Store.hasMint('monthly', key)){
-          const st = Store.periodStats(ms, me);
-          if(st && st.n>=8){
-            const note = FromJustin.monthly({ stats:st, baseline:Store.baselineDelta(ms,me), recovery:(Store.recovery?Store.recovery():null),
-              emotion:(Store.emotionPatterns?Store.emotionPatterns(ms,me):null), movement:(Store.skillMovement?Store.skillMovement(ms,me):null) });
-            if(note && note.text){
-              const label = new Date(ms).toLocaleDateString(undefined,{ month:'long', year:'numeric' });
-              Store.saveMint({ tier:'monthly', date:key, dateMs:ms, text:note.text, data:{ label } });
-            }
-          }
-        }
-        ms = me;
-      }
-    }catch(e){}
-  }
-  function mintQuarters(){
-    try{
-      if(!(FromJustin.quarterly && Store.periodStats && Store.saveMint && Store.hasMint)) return;
-      const first = Store.firstCheckinT ? Store.firstCheckinT() : null; if(!first) return;
-      const now = Date.now();
-      for(let q=1; q<=40; q++){
-        const start = _addMonths(first, (q-1)*3), end = _addMonths(first, q*3);
-        if(end > now) break;
-        const key = 'q' + q + '-' + new Date(start).toISOString().slice(0,10);
-        if(Store.hasMint('quarterly', key)) continue;
-        const st = Store.periodStats(start, end);
-        if(!st || st.n<12) continue;
-        const mark = (q%4===0)?'year' : (q%4===2)?'half' : 'q';
-        const note = FromJustin.quarterly({ stats:st, baseline:Store.baselineDelta(start,end), recovery:(Store.recovery?Store.recovery():null), mark:mark,
-          emotion:(Store.emotionPatterns?Store.emotionPatterns(start,end):null), movement:(Store.skillMovement?Store.skillMovement(start,end):null) });
-        if(note && note.text){
-          const lead = mark==='year'?'A year' : mark==='half'?'6 months' : 'A quarter';
-          const label = lead + ' to ' + new Date(end-1).toLocaleDateString(undefined,{ month:'long', day:'numeric', year:'numeric' });
-          Store.saveMint({ tier:'quarterly', date:key, dateMs:start, text:note.text, data:{ label, mark } });
-        }
-      }
-    }catch(e){}
-  }
 
   // the guardrailed share card: the user's name + their personal triGlyph (the brand
   // logo) lit to the week's dominant state. Proud = showing-up + trajectory, never a ranking.
@@ -5254,98 +4773,6 @@ function app(tab){
     const snip = (sub || m.tier!=='daily') ? '' : String(m.text||'').split('. ')[0];
     const body = sub ? `<span class="arch-sub">${escapeHtml(sub)}</span>` : (snip ? `<span class="arch-snip">${escapeHtml(snip)}.</span>` : '');
     return `<button class="arch-row${extraClass?' '+extraClass:''}" data-id="${escapeHtml(m.id)}" data-ms="${m.dateMs}"><span class="arch-row-main"><span class="arch-date">${escapeHtml(label)}${tag}</span>${body}</span><span class="wc-go">${CHEV}</span></button>`;
-  }
-  function screenArchive(){
-    if(!paidNow()) return gateSubscribe('reader');   // the reader's back issues — paid plan
-    const all = Store.mints ? Store.mints() : [];   // sorted newest-first
-    const now = Date.now();
-    const first = Store.firstCheckinT ? Store.firstCheckinT() : null;
-    let closedQ = 0;
-    if(first){ for(let i=1;i<=40;i++){ if(_addMonths(first,i*3)<=now) closedQ=i; else break; } }
-    const curQStart  = first ? _addMonths(first, closedQ*3) : 0;
-    const prevQStart = (first && closedQ>0) ? _addMonths(first,(closedQ-1)*3) : null;
-    const weekStart  = _sundayStart(now);
-
-    // pinned week: the best week of the last closed quarter simply remains — no
-    // stamp, no "kept" label; the sub-line says why it's still here. 🖊
-    let pinned=null, pinnedSub='';
-    if(prevQStart!=null){
-      let best=-1;
-      all.forEach(m=>{
-        if(m.tier!=='weekly' || m.dateMs<prevQStart || m.dateMs>=curQStart) return;
-        const st = Store.periodStats(m.dateMs, m.dateMs+WEEK_MS);
-        const share = st?st.regShare:0;
-        if(share>best){ best=share; pinned=m; }
-      });
-      if(pinned){
-        const qst = Store.periodStats(prevQStart, curQStart);
-        pinnedSub = (qst && qst.lean==='dysregulated') ? 'The week you found your way back' : 'The most safety of your quarter';
-      }
-    }
-    const dailies    = all.filter(m=>m.tier==='daily'   && m.dateMs>=weekStart);
-    const currents   = all.filter(m=>(m.tier==='weekly'||m.tier==='monthly') && m.dateMs>=curQStart);
-    const qAll       = all.filter(m=>m.tier==='quarterly' && !(m.data&&m.data.mark==='year'));
-    const quarterlies= qAll.slice(0,3);
-    const annual     = all.find(m=>m.tier==='quarterly' && m.data && m.data.mark==='year') || null;
-
-    // quarter turn since last visit? caption always; animation only for exactly one
-    // turn (away longer = no theater, the shelf simply is its current state), and
-    // never under calm/reduced motion. HIG: the caption does the explaining, the
-    // motion is garnish. Arrival before departure: the quarterly settles in first.
-    const qKey = String(curQStart||0);
-    let seen=null; try{ seen=localStorage.getItem('snb-arch-q'); }catch(e){}
-    const turned  = seen!=null && seen!==qKey && closedQ>0;
-    const oneTurn = turned && prevQStart!=null && seen===String(prevQStart);
-    const calm = matchMedia('(prefers-reduced-motion:reduce)').matches || document.body.classList.contains('reduce-motion');
-    const animate = oneTurn && !calm;
-    try{ localStorage.setItem('snb-arch-q', qKey); }catch(e){}
-
-    // ghosts: the just-expired rows, shown once and folded away (only while animating)
-    let ghosts=[], arriving=null, dropQ=null;
-    if(animate){
-      ghosts = all.filter(m=>(m.tier==='weekly'||m.tier==='monthly') && m.dateMs>=prevQStart && m.dateMs<curQStart && (!pinned || m.id!==pinned.id));
-      arriving = quarterlies.find(m=>m.dateMs>=prevQStart) || null;
-      dropQ = qAll[3] || null;
-    }
-    const caption = turned ? `<p class="arch-note">This quarter has closed into a single reflection</p>` : ''; // 🖊
-    const EYEB = t=>`<p class="arch-eyeb">${t}</p>`;
-    const G = m=>_archRow(m,'arch-ghost');
-    const ghostsHTML = ghosts.sort((a,b)=>b.dateMs-a.dateMs).map(G).join('');
-    const parts = [];
-    if(dailies.length)  parts.push(EYEB('This week') + dailies.map(m=>_archRow(m)).join(''));
-    if(currents.length || ghosts.length) parts.push(EYEB('This quarter') + currents.map(m=>_archRow(m)).join('') + ghostsHTML);
-    if(pinned || quarterlies.length || dropQ){
-      parts.push(EYEB('Quarters')
-        + (pinned ? _archRow(pinned,'',pinnedSub) : '')
-        + quarterlies.map(m=>_archRow(m, (arriving&&m.id===arriving.id)?'arch-in':'')).join('')
-        + (dropQ ? _archRow(dropQ,'arch-ghost') : ''));
-    }
-    if(annual) parts.push(EYEB('Your year') + _archRow(annual));
-    const rows = parts.length ? parts.join('')
-      : `<p style="font-size:calc(15px * var(--type-scale));line-height:1.6;color:var(--muted);margin:8px 0 0">Your reflections will collect here as each day and week closes.</p>`;
-    setHTML(`
-      <header class="appbar"><button class="backbtn" id="arch-back">Back</button></header>
-      <div class="scroll">
-        <div class="view read" style="gap:0">
-          <h1 class="read-h1">Past Reflections</h1>
-          ${caption}
-          ${rows}
-        </div>
-      </div>`);
-    $('#arch-back').onclick = screenReflectionDeep;
-    document.querySelectorAll('.arch-row').forEach(b => b.onclick = ()=>screenMintedEntry(b.dataset.id));
-    if(animate){
-      try{
-        const inEl = arriving ? root.querySelector('.arch-in') : null;
-        if(inEl) requestAnimationFrame(()=>{ inEl.style.maxHeight = Math.max(inEl.scrollHeight,90)+'px'; inEl.classList.add('here'); });
-        const gs = Array.prototype.slice.call(root.querySelectorAll('.arch-ghost'))
-          .sort((a,b)=>(+a.dataset.ms)-(+b.dataset.ms));           // oldest fades first
-        gs.forEach((el,i)=>{
-          setTimeout(()=>el.classList.add('gone'), (inEl?1500:400) + i*350);
-          setTimeout(()=>{ el.style.maxHeight = el.scrollHeight+'px'; requestAnimationFrame(()=>el.classList.add('fold')); }, (inEl?1500:400) + i*350 + 1500);
-        });
-      }catch(e){}
-    }
   }
   function screenMintedEntry(id){
     if(!paidNow()) return gateSubscribe('reader');   // a minted reader issue — paid plan
@@ -6564,16 +5991,6 @@ function app(tab){
     (arr||[]).forEach(c=>{ const k=_rowKey(c); if(!k) return; n++; if(_REGDOMS[k]) r++; });
     return n ? Math.round(r/n*100) : null;
   }
-  function _weekdayPattern(cs){
-    if(cs.length < 14) return null;
-    const by={};
-    cs.forEach(c=>{ const d=new Date(c.t).getDay(); (by[d]=by[d]||[]).push(c); });
-    let best=null;
-    Object.keys(by).forEach(d=>{ const a=by[d]; if(a.length>=3){ const p=_safeShare(a); if(best==null||p>best.pct) best={ day:+d, pct:p }; } });
-    if(!best) return null;
-    const names=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    return { label:names[best.day], idx:best.day, pct:best.pct };
-  }
   // mirror of _weekdayPattern, but the LEAST-regulated day (Justin 2026-07-29d).
   // same gating (>=3 check-ins/day, >=14 total) so it never fires on thin data.
   function _weekdayPatternWorst(cs){
@@ -6596,18 +6013,6 @@ function app(tab){
       .map(r=>({ key:r[0], label:r[1], pct:Math.round(cnt[r[0]]/safe.length*100) }))
       .sort((a,b)=>b.pct-a.pct);
     return rows.length>=2 ? rows : null;
-  }
-  function _daypartPattern(cs){
-    if(cs.length < 12) return null;
-    const by={};
-    cs.forEach(c=>{ const s=segOf(c.t); (by[s]=by[s]||[]).push(c); });
-    let best=null;
-    Object.keys(by).forEach(s=>{ const a=by[s]; if(a.length>=3){ const p=_safeShare(a); if(best==null||p>best.pct) best={ seg:s, pct:p }; } });
-    if(!best) return null;
-    const names={ morning:'morning', afternoon:'afternoon', evening:'evening', late:'late night' };
-    // `key` is the raw segment (for building the daypart strip visual); `seg` stays the
-    // human label so existing "${dp.seg}" copy is unaffected.
-    return { seg:names[best.seg]||best.seg, key:best.seg, pct:best.pct };
   }
   // mirror of _daypartPattern, but the LEAST-regulated time of day (Justin 2026-07-29e:
   // "do a least regulated time of day as well"). Same gating as the "best" version.
@@ -6651,36 +6056,6 @@ function app(tab){
     const h=Math.floor(eps.length/2), avg=a=>a.reduce((s,v)=>s+v,0)/a.length;
     const early=avg(eps.slice(0,h)), late=avg(eps.slice(-h));
     return { dir: late<=early-0.75?'faster' : late>=early+0.75?'slower' : 'steady', n:eps.length };
-  }
-  // personal records: high-water marks ONLY — a record can be improved but never
-  // lost, so there's nothing to "break" (no streaks: chain logic teaches that a
-  // dip is a failure, which is the opposite of the app's teaching — Justin 2026-07-05).
-  // maxWeeksBack: when set, bestWeek only looks at weeks within that many weeks of now —
-  // used by the reader essay so "your most regulated week" can't reach back to an
-  // arbitrarily old week the essay isn't otherwise discussing (Justin 2026-07-28).
-  // The You-tab stats-card call stays unbounded (a legitimate all-time personal best).
-  function _personalRecords(allCs, maxWeeksBack){
-    const cs = allCs.filter(c=>_rowKey(c)).sort((a,b)=>a.t-b.t);
-    if(cs.length<12) return null;
-    const wk={}; cs.forEach(c=>{ const ws=_sundayStart(c.t); (wk[ws]=wk[ws]||[]).push(c); });
-    const curWs=_sundayStart(Date.now());
-    const oldestWs = maxWeeksBack!=null ? (curWs - maxWeeksBack*7*864e5) : -Infinity;
-    let bw=null;
-    Object.keys(wk).forEach(ws=>{ if(+ws===curWs || +ws<oldestWs) return; const a=wk[ws];
-      if(a.length>=4){ const reg=a.filter(c=>_REGDOMS[_rowKey(c)]).length/a.length; if(!bw||reg>bw.share) bw={ ws:+ws, share:reg }; } });
-    const bestWeek = bw ? { label:new Date(bw.ws).toLocaleDateString(undefined,{month:'long',day:'numeric'}), pct:Math.round(bw.share*100), ws:bw.ws } : null;
-    // fastest comeback: the shortest completed dip->safety trip (a recovery record)
-    let fastest=null, n=0, i=0;
-    while(i<cs.length){
-      if(!_REGDOMS[_rowKey(cs[i])]){ let j=i, steps=0, found=false;
-        while(j<cs.length){ if(_REGDOMS[_rowKey(cs[j])]){ found=true; break; } j++; steps++; }
-        if(found){ n++; if(!fastest||steps<fastest.steps) fastest={ steps, dom:_rowKey(cs[i]) }; }
-        i=j;
-      } else i++;
-    }
-    if(n<3) fastest=null;                                    // needs several real comebacks to call one a record
-    if(!bestWeek && !fastest) return null;
-    return { bestWeek, fastest };
   }
   // ---- the baseline card, rebuilt (§7.2, Justin 2026-07-27) ----
   // (retired: the old 28-day _baselineCard %/meter — replaced by the spectrum card below)
@@ -6780,70 +6155,6 @@ function app(tab){
         ${keyPrev}
       </div>`;
   }
-  // context effect: the tagged label whose weeks differ most from a typical week.
-  // returns BOTH percentages (never a "points" delta — Justin 2026-07-05: confusing).
-  // attribution guardrail: only ever rendered WITH the practice effect beside it.
-  function _contextEffect(){
-    const m=_ctxLoad();
-    // key shapes:
-    //   c{t}+  = "i've had more of" for check-in t (v3)
-    //   c{t}-  = "i've had less of" for check-in t (v3)
-    //   c{t}   = legacy pre-v3 tag (aliased to "more of" on read; also carried by save)
-    //   w{YYYY-MM-DD} = weekly reader question   d{...} = daily reader question
-    // per-check-in tags fold into their containing week; labels prefixed with the
-    // direction so "more of X" and "less of X" are separate signals downstream.
-    // legacy c{t} would double-count with new c{t}+; we skip legacy when the
-    // suffixed key exists for the same check-in.
-    const wkTags={};
-    Object.keys(m).forEach(k=>{
-      if(!(m[k]||[]).length) return;
-      let ws=null, prefix='';
-      if(k[0]==='c'){
-        const mm=/^c(\d+)([+-]?)$/.exec(k); if(!mm) return;
-        const t=Number(mm[1]); if(!isFinite(t)) return;
-        // legacy no-suffix: skip if the '+' key already carries this check-in
-        if(mm[2]==='' && ('c'+t+'+') in m) return;
-        ws=_sundayStart(t);
-        prefix = mm[2]==='-' ? 'less of ' : 'more of ';
-      }
-      else if(/^rw\d/.test(k)){                                // the reader's weekly question (2026-10-01)
-        const p=k.slice(2).split('-').map(Number); if(p.length<3||p.some(isNaN)) return;
-        ws=new Date(p[0],p[1]-1,p[2]).getTime();
-      }
-      else if(/^rm\d/.test(k)){                                // the reader's monthly question: counts for each week that starts in that month
-        const p=k.slice(2).split('-').map(Number); if(p.length<2||p.some(isNaN)) return;
-        const m0=new Date(p[0],p[1]-1,1).getTime(), m1=new Date(p[0],p[1],1).getTime();
-        for(let t=_sundayStart(m0); t<m1; t=_sundayStart(t+8*864e5)){ if(t<m0) continue; const set=wkTags[t]=wkTags[t]||{}; m[k].forEach(lb=>{ set[lb]=1; }); }
-        return;
-      }
-      else if(k[0]==='w'||k[0]==='d'){
-        const p=k.slice(1).split('-').map(Number);          // local date parts
-        if(p.length<3||p.some(isNaN)) return;
-        const t=new Date(p[0],p[1]-1,p[2]).getTime();
-        ws = k[0]==='w' ? t : _sundayStart(t);
-      }
-      if(ws==null) return;
-      const set=wkTags[ws]=wkTags[ws]||{};
-      m[k].forEach(lb=>{ set[prefix+lb]=1; });
-    });
-    const tagged=Object.keys(wkTags);
-    if(tagged.length<2) return null;
-    const weeks={};
-    Store.checkins().forEach(c=>{ if(!_rowKey(c)) return; const ws=_sundayStart(c.t); (weeks[ws]=weeks[ws]||[]).push(c); });
-    const share=ws=>{ const a=weeks[ws]; if(!a||a.length<3) return null; return a.filter(c=>_REGDOMS[_rowKey(c)]).length/a.length; };
-    const all=Object.keys(weeks).map(ws=>share(+ws)).filter(v=>v!=null);
-    if(all.length<3) return null;
-    const typPct=Math.round(all.reduce((s,v)=>s+v,0)/all.length*100);
-    const byLabel={};
-    tagged.forEach(ws=>{
-      const v=share(+ws); if(v==null) return;
-      Object.keys(wkTags[ws]).forEach(lb=>{ (byLabel[lb]=byLabel[lb]||[]).push(v); });
-    });
-    let best=null;
-    Object.keys(byLabel).forEach(lb=>{ const a=byLabel[lb];
-      if(a.length>=2){ const p=Math.round(a.reduce((s,v)=>s+v,0)/a.length*100); if(!best||Math.abs(p-typPct)>Math.abs(best.tagPct-typPct)) best={ label:lb, tagPct:p, n:a.length }; } });
-    return (best && Math.abs(best.tagPct-typPct)>=5) ? { label:best.label, tagPct:best.tagPct, typPct } : null;
-  }
 
   // windowed practice effect (2026-07-05, Justin): a check-in a week later says
   // nothing about the practice — only pairs within 12 hours count, so the stat
@@ -6898,16 +6209,6 @@ function app(tab){
     });
     return out;
   }
-  function _peWindowed(){
-    const pairs = _pePairs().filter(p=>p.dAfter!=null);
-    const total = pairs.length;
-    if(total < 6) return null;
-    let moved=0, sum=0;
-    pairs.forEach(p=>{ sum += p.dAfter; if(p.dAfter > 0) moved++; });
-    // `moved`/`rate` kept so existing callers and copy keep working; `mean` is the
-    // measure that actually carries the information.
-    return { moved, total, rate:moved/total, mean:sum/total };
-  }
   function _peInsightsWindowed(){
     const g={};
     _pePairs().forEach(p=>{
@@ -6924,27 +6225,6 @@ function app(tab){
     return Object.keys(g).map(k=>g[k]).filter(o=>o.total>=4)
       .map(o=>Object.assign(o,{rate:o.moved/o.total, mean:o.sum/o.total}))
       .sort((a,b)=>b.total-a.total||b.mean-a.mean);
-  }
-  // context ↔ state link: which tag gets named most around safe check-ins, and which
-  // around defense. only per-check-in ('c') tags carry a state, so only they count.
-  function _contextStateLink(){
-    const m=_ctxLoad();
-    const byT={}; Store.checkins().forEach(c=>{ const k=_rowKey(c); if(k) byT[c.t]=k; });
-    const safe={}, def={};
-    Object.keys(m).forEach(k=>{
-      if(k[0]!=='c'||!(m[k]||[]).length) return;
-      const mm=/^c(\d+)([+-]?)$/.exec(k); if(!mm) return;
-      const t=Number(mm[1]);
-      // legacy no-suffix: skip if we already have a '+' row for the same check-in
-      if(mm[2]==='' && ('c'+t+'+') in m) return;
-      const dom=byT[t]; if(!dom) return;
-      const prefix = mm[2]==='-' ? 'less of ' : 'more of ';
-      const tgt=_REGDOMS[dom]?safe:def;
-      m[k].forEach(lb=>{ tgt[prefix+lb]=(tgt[prefix+lb]||0)+1; });
-    });
-    const top=o=>{ const e=Object.entries(o).sort((a,b)=>b[1]-a[1])[0]; return (e&&e[1]>=2)?{label:e[0],n:e[1]}:null; };
-    const s=top(safe), d=top(def);
-    return (s||d) ? { safe:s, def:d } : null;
   }
 
   // ---- the free You tab: your check-in history, raw ----
