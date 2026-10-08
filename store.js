@@ -596,6 +596,14 @@
     if(!CLOUD) return { error:'unavailable' };
     const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
     const res = await _postFn('create-checkout', { origin: origin || 'member', src: _src, plan: p });
+    if(res && res.error === 'already_included'){
+      // the server found an Academy membership (or a direct grant) that already includes the paid plan, and refused
+      // before any charge (2026-10-08). Re-read the entitlement so the app opens up, and tell the screen.
+      try{ await fetchBilling(); }catch(e){}
+      trackEvent('checkout_error', { origin: origin||'member', plan: p, reason: 'already_included' });
+      return { included: true };
+    }
+    if(res && res.error === 'already_subscribed') return { error: 'You already have the paid plan. You can manage it from settings.' };
     if(res.url){
       // funnel: record the handoff to Stripe so the gap between subscribe_click and payment
       // stops being a black box (paired with checkout_cancel on the return). Await the write

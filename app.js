@@ -989,6 +989,7 @@
           const plan = _planChoice;
           return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
             Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
+              if(r && r.included) return screenIncluded();
               if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your account is ready. you can subscribe from settings."); }
             }));
         }
@@ -1690,10 +1691,27 @@
       const plan = _planChoice;
       screenSubscribe(null, true);
       Promise.resolve(Store.startCheckout('member', plan)).then(res=>{
+        if(res && res.included) return screenIncluded();
         if(res && res.error) return screenSubscribe(res.error);   // else the browser is redirecting to Stripe
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
     const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ _subFrom=null; route(); };
+  }
+
+  // An Academy member (or a direct grant) already has the paid plan: create-checkout refuses before any charge and
+  // this says so (2026-10-08, after an Academy member was charged for a yearly plan). 🖊 copy is draft.
+  function screenIncluded(){
+    setHTML(`
+      <div class="view gate">
+        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
+        <div class="gate-body">
+          <p class="eyebrow">Already included</p>
+          <h1 style="margin:10px 0 12px">You already have the full app.</h1>
+          <p class="lede" style="margin-bottom:24px">Your account already includes everything in the paid plan, through the Unstucking Academy or a direct grant. There is nothing to pay, and you were not charged.</p>
+          <button class="btn block" id="inc-go">Continue</button>
+        </div>
+      </div>`);
+    $('#inc-go').onclick = ()=>{ _subFrom = null; currentTab = 'now'; route(); };
   }
 
   function screenConfirm(email){
