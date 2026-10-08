@@ -803,6 +803,19 @@
       return guestCheckin('before');
     }
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
+    // A paid sign-up link (?start=signup&plan=…, the /app page's subscribe buttons) opened while ALREADY signed in
+    // used to do nothing: the hand-off to checkout only ran after a sign-in (2026-10-08, found testing the Academy
+    // guard). Hand off here too. The server decides: Academy members and direct grants get "already included",
+    // someone already subscribed gets a plain line, everyone else goes to the payment page they chose.
+    if(_paidSignupPending && !(Store.isAnonymous && Store.isAnonymous())){
+      _paidSignupPending = false; _doorSignup = false;
+      const plan = _planChoice;
+      Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
+        Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
+          if(r && r.included) return screenIncluded();
+          if(r && r.error) showToast(/already have the paid plan/.test(r.error) ? r.error : "couldn't open the payment page right now. you can subscribe from settings.");
+        }));
+    }
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
     // ('success' is the retired trial return; kept so an in-flight old link still lands.)
     try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('Your subscription is active.'); } else if(co==='cancel'){ if(Store.trackEvent) Store.trackEvent('checkout_cancel', {}); } } }catch(e){}
