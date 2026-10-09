@@ -359,6 +359,7 @@
   // ---- row mappers (cloud columns are snake_case) ----
   const rowToCheckin = r => { const c = { t:r.t, v:r.v, sym:r.sym, dor:r.dor, note:r.note, dom:r.dom,
     challenge:(typeof r.challenge==='number'?r.challenge:null), source:(r.source||null) };
+    if(typeof r.tz_offset_min==='number') c.tz_offset_min = r.tz_offset_min;
     // live check-in tags (2026-07-17, Live-Checkin-Plan Phase 1) — carried both ways so
     // the live flow's "which readings are done" survives a device switch.
     if(r.live_session_id){ c.live_session_id=r.live_session_id; c.joined=r.joined||null; }
@@ -382,6 +383,9 @@
     r.session_id      = c.session_id || null;
     r.phase           = c.phase || null;
     r.practice_ref    = c.practice_ref || null;
+    // the device's UTC offset in minutes when the check-in was made (2026-10-08, CA: lets the
+    // baseline measure count a person's own local days). Always emitted, null for older readings.
+    r.tz_offset_min   = (typeof c.tz_offset_min==='number') ? c.tz_offset_min : null;
     return r; };
   // practice_label = a data-clear name for the practice track. The internal keys 'most'
   // and 'more' are opaque, so they are stored as 'self-regulation' and 'guided meditation'
@@ -912,6 +916,8 @@
     const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:dom.key,
                   challenge:(typeof c.challenge==='number'?c.challenge:null),
                   source:(c.source||null) };   // e.g. 'post-practice' — lets practiceEffect use clean before/after pairs
+    // UTC offset in minutes, east positive (Pacific daylight = -420). Analytics only; never shown.
+    try { const off = -new Date(rec.t).getTimezoneOffset(); if(Number.isFinite(off) && Math.abs(off) <= 840) rec.tz_offset_min = off; } catch(e){}
     // live check-in tags ride along only when the check-in happened inside a live session
     if(c.live_session_id){ rec.live_session_id=c.live_session_id; rec.practice_ref=c.practice_ref||null; rec.phase=c.phase||null; rec.joined=c.joined||null; }
     else {
