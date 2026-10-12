@@ -803,6 +803,19 @@
       return guestCheckin('before');
     }
     if(_recovery) return screenNewPassword();   // arrived via a password-reset email link
+    // A paid sign-up link (?start=signup&plan=…, the /app page's subscribe buttons) opened while ALREADY signed in
+    // used to do nothing: the hand-off to checkout only ran after a sign-in (2026-10-08, found testing the Academy
+    // guard). Hand off here too. The server decides: Academy members and direct grants get "already included",
+    // someone already subscribed gets a plain line, everyone else goes to the payment page they chose.
+    if(_paidSignupPending && !(Store.isAnonymous && Store.isAnonymous())){
+      _paidSignupPending = false; _doorSignup = false;
+      const plan = _planChoice;
+      Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
+        Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
+          if(r && r.included) return screenIncluded();
+          if(r && r.error) showToast(/already have the paid plan/.test(r.error) ? r.error : "couldn't open the payment page right now. you can subscribe from settings.");
+        }));
+    }
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
     // ('success' is the retired trial return; kept so an in-flight old link still lands.)
     try{ const q=new URLSearchParams(location.search); const co=q.get('checkout'); if(co){ history.replaceState(null,'',location.pathname); if(co==='success'||co==='success-sub'){ if(Store.refreshBilling) Store.refreshBilling(); showToast('Your subscription is active.'); } else if(co==='cancel'){ if(Store.trackEvent) Store.trackEvent('checkout_cancel', {}); } } }catch(e){}
@@ -989,6 +1002,7 @@
           const plan = _planChoice;
           return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
             Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
+              if(r && r.included) return screenIncluded();
               if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your account is ready. you can subscribe from settings."); }
             }));
         }
@@ -1690,10 +1704,27 @@
       const plan = _planChoice;
       screenSubscribe(null, true);
       Promise.resolve(Store.startCheckout('member', plan)).then(res=>{
+        if(res && res.included) return screenIncluded();
         if(res && res.error) return screenSubscribe(res.error);   // else the browser is redirecting to Stripe
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
     const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ _subFrom=null; route(); };
+  }
+
+  // An Academy member (or a direct grant) already has the paid plan: create-checkout refuses before any charge and
+  // this says so (2026-10-08, after an Academy member was charged for a yearly plan). 🖊 copy is draft.
+  function screenIncluded(){
+    setHTML(`
+      <div class="view gate">
+        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
+        <div class="gate-body">
+          <p class="eyebrow">Already included</p>
+          <h1 style="margin:10px 0 12px">You already have the full app.</h1>
+          <p class="lede" style="margin-bottom:24px">Your account already includes everything in the paid plan, through the Unstucking Academy or a direct grant. There is nothing to pay, and you were not charged.</p>
+          <button class="btn block" id="inc-go">Continue</button>
+        </div>
+      </div>`);
+    $('#inc-go').onclick = ()=>{ _subFrom = null; currentTab = 'now'; route(); };
   }
 
   function screenConfirm(email){
