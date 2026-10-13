@@ -5,12 +5,12 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v593';
+const SHELL_VERSION = 'snb-app-shell-v594';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=263', './app.js?v=380', './icons.js?v=2', './current.js?v=19',
-  './config.js?v=9', './store.js?v=115', './from-justin.js?v=25', './reader.js?v=8', './learning.js?v=20', './player.html', './practice-engine.html',
+  './', './index.html', './app.css?v=264', './app.js?v=381', './icons.js?v=2', './current.js?v=19',
+  './config.js?v=9', './store.js?v=115', './from-justin.js?v=25', './reader.js?v=8', './learning.js?v=21', './player.html', './practice-engine.html',
   './clips/silence-30s.wav', './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 
@@ -210,9 +210,11 @@ self.addEventListener('notificationclick', (e) => {
   try { target = new URL((e.notification.data && e.notification.data.url) || './', scope).href; } catch (err) {}
   e.waitUntil((async () => {
     const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // 2026-10-13: an open app is told where to go instead of being navigated. navigate() is missing
+    // or ignored on iOS, so the app came to the front on the Now screen. The app routes itself.
     for (const c of list) {
       if (c.url && c.url.indexOf(scope) === 0 && 'focus' in c) {
-        try { if ('navigate' in c) await c.navigate(target); } catch (err) {}
+        try { c.postMessage({ type: 'SNB_NOTIF_OPEN', url: target }); } catch (err) {}
         return c.focus();
       }
     }

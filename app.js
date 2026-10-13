@@ -2784,7 +2784,25 @@ function app(tab){
     };
   }
   // a subscription the browser rotated while the app was closed (sw.js pushsubscriptionchange)
-  try{ if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', ev=>{ const d=ev.data||{}; if(d.type==='PUSH_RESUBSCRIBED' && d.sub) pushSaveSub(d.sub); }); }catch(e){}
+  try{ if('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', ev=>{ const d=ev.data||{}; if(d.type==='PUSH_RESUBSCRIBED' && d.sub) pushSaveSub(d.sub); if(d.type==='SNB_NOTIF_OPEN' && d.url) notifOpen(d.url); }); }catch(e){}
+  // 2026-10-13: a tapped notification while the app is already open. The service worker no longer
+  // reloads the page (WindowClient.navigate is missing or ignored on iOS, so the app just came to the
+  // front on whatever screen it was on); it hands the link over and the app goes there itself.
+  function notifOpen(url){
+    try{
+      const u=new URL(url, location.href);
+      const id=u.searchParams.get('push');
+      if(id){ pushTrack('push_opened', { delivery:id, warm:true }); try{ if(window.sb && Store.user()) window.sb.from('push_deliveries').update({ opened_at:new Date().toISOString() }).eq('id', id).then(()=>{}, ()=>{}); }catch(e){} }
+      notifGo((u.hash||'').replace('#',''));
+    }catch(e){}
+  }
+  function notifGo(h){
+    if(!Store.user || !Store.user() || (Store.isAnonymous && Store.isAnonymous())) return;
+    if(document.getElementById('weaver')) return;   // a live practice owns the screen
+    if(h==='checkin'){ if(document.getElementById('ci-reading')) return; app('now'); return screenCheckin(); }
+    if(h==='practice') return app('practice');
+    if(h==='reader') return app('reflect');
+  }
   // ── end web push ─────────────────────────────────────────────────────────────────────
   // ── tips: "did you know" cards (2026-09-10) ──────────────────────────────────────────
   // ROADMAP 16, Justin's idea, his words: "offer the user customizations every now and
@@ -3067,14 +3085,13 @@ function app(tab){
    * greeting, sit ~3 s, then let go unevenly (wabi-sabi: each stroke erases on along its own line at its own moment), and the space
    * folds away. Once per time of day per person on this device; the next time of day plays again. The late night that runs past
    * midnight counts as one time of day. The You tab's charts keep the quiet ink icons (segIco). */
-  const TOD_ICONS = {"morning":{"body":["M7.34 14.96 C7.34 14.75 7.27 14.12 7.37 13.74 C7.47 13.36 7.73 13.01 7.94 12.66 C8.14 12.31 8.32 11.92 8.6 11.62 C8.88 11.31 9.22 11.01 9.59 10.84 C9.96 10.68 10.41 10.68 10.82 10.62 C11.22 10.56 11.59 10.54 12 10.47 C12.41 10.4 12.9 10.12 13.3 10.19 C13.69 10.26 14.03 10.66 14.38 10.9 C14.73 11.14 15.04 11.38 15.39 11.62 C15.75 11.87 16.28 12.03 16.53 12.37 C16.77 12.71 16.74 13.24 16.87 13.66 C17 14.09 17.24 14.71 17.31 14.92"],"rays":["M5.77 13.39 Q4.55 12.86 3.25 12.65","M7.65 10.07 Q6.93 9.32 6.31 8.48","M11.48 8.52 Q11.25 7.66 11.35 6.78","M15.73 9.94 Q16.25 9.05 16.92 8.27","M18.53 12.98 Q19.35 12.86 20.08 12.46"]},"afternoon":{"body":["M14.14 8.3 C14.34 8.46 15 8.87 15.37 9.24 C15.74 9.61 16.19 10.04 16.35 10.52 C16.52 11.01 16.39 11.62 16.34 12.14 C16.29 12.67 16.24 13.2 16.06 13.68 C15.88 14.17 15.62 14.7 15.26 15.05 C14.89 15.4 14.35 15.57 13.88 15.8 C13.41 16.04 12.95 16.34 12.44 16.44 C11.93 16.54 11.35 16.5 10.82 16.4 C10.3 16.29 9.67 16.14 9.28 15.8 C8.88 15.46 8.71 14.84 8.45 14.38 C8.18 13.91 7.81 13.49 7.69 13 C7.57 12.51 7.7 11.98 7.72 11.44 C7.74 10.89 7.6 10.25 7.79 9.75 C7.99 9.25 8.44 8.75 8.89 8.45 C9.33 8.15 9.95 8.16 10.47 7.93 C10.99 7.69 11.74 7.2 12 7.06"],"rays":["M18.54 12.14 Q19.86 12.17 21.17 12.2","M16.26 16.97 Q17.24 17.96 18.06 19.07","M12.52 18.36 Q12.45 19.85 12.77 21.31","M7.18 16.57 Q6.5 17.15 5.89 17.8","M5.75 12.03 Q4.43 11.88 3.1 12.05","M7.74 7.63 Q6.77 6.87 6.04 5.89","M11.74 5.36 Q11.88 4.1 11.65 2.86","M16.37 7.08 Q16.85 6.26 17.61 5.68"]},"evening":{"moon":["M15.2 4.6 C14.37 4.68 11.7 4.3 10.2 5.1 C8.7 5.9 6.8 7.82 6.2 9.4 C5.6 10.98 5.83 13 6.6 14.6 C7.37 16.2 9.17 18.23 10.8 19 C12.43 19.77 14.93 19.73 16.4 19.2 C17.87 18.67 19.07 16.37 19.6 15.8","M19.6 15.8 C18.77 15.9 16.03 16.77 14.6 16.4 C13.17 16.03 11.67 14.77 11 13.6 C10.33 12.43 10.33 10.63 10.6 9.4 C10.87 8.17 11.83 7 12.6 6.2 C13.37 5.4 14.77 4.87 15.2 4.6"],"star":["M18.24 4.07 Q18.57 6.16 20.67 6.46 Q18.47 6.56 18.54 8.77 Q18.25 6.47 16.12 6.25 Q18.15 6.16 18.38 4.34"]},"late":{"stars":["M11.73 3.99 Q12.12 6.44 14.84 6.54 Q12.28 6.72 12.2 9.21 Q11.79 6.81 9.13 6.76 Q11.86 6.33 11.69 4.33","M17.95 11.39 Q18.21 13.06 19.99 13.06 Q18.22 13.38 17.97 15.13 Q17.93 13.34 16.15 13.18 Q17.75 13.13 17.78 11.62","M7.08 13.42 Q7.48 15.47 9.47 15.44 Q7.4 15.79 7.32 17.79 Q7.06 15.73 5.06 15.41 Q7.02 15.55 7.33 13.69"]}};
-  /* each time of day moves like itself (Justin, 2026-09-30: "the morning one should rise above the logo glyphs … The bottom lines may
-   * not be needed as the logo acts as the horizon"): the morning sun RISES from behind the line below it (the glyph or the greeting
-   * is the horizon), draws its rays, then keeps climbing as it fades; the afternoon sun draws itself high, its rays turn a little,
-   * then it slides down toward the horizon; the evening moon rises and its star twinkles on, then the moon sinks; the late-night
-   * stars come out one by one, twinkle, and go out one by one. `outAt` = when it starts to leave; the space folds after. */
-  const TOD_PLAN = { morning:{ outAt:5.6, fold:7.2, horizon:16.2 }, afternoon:{ outAt:5.1, fold:6.8, horizon:21.5 },
-                     evening:{ outAt:5.5, fold:7.1, horizon:21.5 }, late:{ outAt:5.0, fold:6.6, horizon:26 } };
+  /* 2026-10-13 (Justin: "Cut out the hand drawn icons. Keep them as clean shapes with fun animations. And make them bigger."
+   * He picked A, line, from the mockups, https://claude.ai/artifact/DivnfFBH3mPMByM4b5fap9 · "The morning sun should be only half
+   * out at most."). Clean, even strokes at 64px (was 42). Morning: the sun comes up from behind the logo, never more than half
+   * out, its rays pop out one by one, and it bobs. Afternoon: the sun pops in, its rays turn, then it slides down. Evening: the
+   * moon swings in, its star blinks on. Late night: three stars pop in one after another, twinkle, and a shooting star crosses
+   * once. Then it leaves and its space folds away, once per time of day, as before. The You tab's charts keep segIco. */
+  const TOD_PLAN = { morning:{ outAt:5.4, fold:6.4 }, afternoon:{ outAt:5.2, fold:6.3 }, evening:{ outAt:5.4, fold:6.4 }, late:{ outAt:5.6, fold:6.5 } };
   const TOD_FOLD = 0.6;
   let todPlaying = null;   // {key, start}: a play in progress survives a re-render of the Now screen (it resumes where it was)
   function todKey(seg){
@@ -3082,9 +3099,19 @@ function app(tab){
     const u = (Store.user()&&Store.user().id)||'anon';
     return 'snb_tod_'+u+'_'+n.getFullYear()+'-'+(n.getMonth()+1)+'-'+n.getDate()+'_'+seg;
   }
+  const _todP = (a,r,cx,cy) => [cx + r*Math.cos(a*Math.PI/180), cy + r*Math.sin(a*Math.PI/180)];
+  const _todF = v => v.toFixed(2);
+  function _todRay(a, r1, r2, cx, cy, i){ const p = _todP(a,r1,cx,cy), q = _todP(a,r2,cx,cy); return `<line class="tod-ray" style="--i:${i}" x1="${_todF(p[0])}" y1="${_todF(p[1])}" x2="${_todF(q[0])}" y2="${_todF(q[1])}"/>`; }
+  function _todStar(cx, cy, R, r){ let d = ''; for(let i=0;i<8;i++){ const p = _todP(-90 + i*45, i%2 ? r : R, cx, cy); d += (i ? 'L' : 'M') + _todF(p[0]) + ' ' + _todF(p[1]); } return d + 'Z'; }
+  // a crescent: the outer circle less an offset inner one, as one closed path
+  function _todMoon(cx, cy, R, ox, oy, r){
+    const dx = ox-cx, dy = oy-cy, d = Math.hypot(dx,dy), a = (R*R - r*r + d*d)/(2*d), h = Math.sqrt(R*R - a*a), xm = cx + a*dx/d, ym = cy + a*dy/d;
+    const p1 = [xm + h*dy/d, ym - h*dx/d], p2 = [xm - h*dy/d, ym + h*dx/d];
+    return `M${_todF(p1[0])} ${_todF(p1[1])}A${R} ${R} 0 1 0 ${_todF(p2[0])} ${_todF(p2[1])}A${r} ${r} 0 0 1 ${_todF(p1[0])} ${_todF(p1[1])}Z`;
+  }
   // the markup for the Now screen's icon: the animation, or nothing once it has played in this time of day
   function todIco(seg){
-    const P = TOD_ICONS[seg], T = TOD_PLAN[seg]; if(!P || !T) return '';
+    const T = TOD_PLAN[seg]; if(!T) return '';
     const key = todKey(seg), now = Date.now(), total = T.fold + TOD_FOLD;
     let t0 = 0;
     if(todPlaying && todPlaying.key===key){ t0 = (now - todPlaying.start)/1000; if(t0 >= total) return ''; }
@@ -3093,20 +3120,20 @@ function app(tab){
       if(seen) return '';
       todPlaying = { key, start: now }; try{ localStorage.setItem(key,'1'); }catch(e){}
     }
-    const f = v => v.toFixed(2)+'s';
-    const path = (d, di, dd, extra) => `<path pathLength="1" style="--di:${f(di)};--dd:${f(dd)}${extra||''}" d="${d}"/>`;
-    const uneven = (i, spread) => (((i*7919 + seg.length*104729) % 97) / 97) * spread;   // a fixed, uneven moment per stroke
     let body = '';
     if(seg==='morning'){
-      body = `<g class="tod-g">${P.body.map(d=>path(d, 0.15, 1.7)).join('')}${P.rays.map((d,i)=>path(d, 1.75+i*0.11, 0.5, ';--do:'+f(T.outAt+uneven(i,0.5)))).join('')}</g>`;
+      // the horizon is the bottom of the drawing (the logo below it): the sun's centre stops ON it, so it is half out at most
+      body = `<defs><clipPath id="tod-hz"><rect x="-12" y="-20" width="88" height="72"/></clipPath></defs><g clip-path="url(#tod-hz)"><g class="tod-all">${[-162,-126,-90,-54,-18].map((a,i)=>_todRay(a, 17, 24, 32, 52, i)).join('')}<circle class="tod-sun" cx="32" cy="52" r="12"/></g></g>`;
     } else if(seg==='afternoon'){
-      body = `<g class="tod-g">${P.body.map(d=>path(d, 0.1, 0.95)).join('')}<g class="tod-rays">${P.rays.map((d,i)=>path(d, 0.9+i*0.07, 0.45, ';--do:'+f(T.outAt+uneven(i,0.4)))).join('')}</g></g>`;
+      body = `<g class="tod-all"><g class="tod-rays">${[0,45,90,135,180,225,270,315].map((a,i)=>_todRay(a, 17, 24, 32, 32, i)).join('')}</g><circle class="tod-sun" cx="32" cy="32" r="11.5"/></g>`;
     } else if(seg==='evening'){
-      body = `<g class="tod-g"><g class="tod-moon">${P.moon.map((d,i)=>path(d, 0.15+i*0.5, 1.5)).join('')}</g><g class="tod-star"><path d="${P.star[0]}"/></g></g>`;
+      body = `<g class="tod-all"><g class="tod-moon"><path d="${_todMoon(27,37,19,37.5,28.5,15.5)}"/></g><g class="tod-star"><path d="${_todStar(51,13,7.5,2.6)}"/></g></g>`;
     } else {
-      body = `<g class="tod-g">${P.stars.map((d,i)=>`<g class="tod-star" style="--si:${f(0.25+i*0.45)};--tw:${f(2.3+i*0.55)};--so:${f(T.outAt+[0.5,0,0.95][i%3])}"><path d="${d}"/></g>`).join('')}</g>`;
+      const S = [[17,28,11],[43,11,7.5],[49,42,9]];
+      body = `<g class="tod-all"><line class="tod-streak" pathLength="1" x1="4" y1="2" x2="26" y2="16"/>${S.map((x,i)=>`<g class="tod-st" style="--i:${i};--cx:${x[0]}px;--cy:${x[1]}px"><path d="${_todStar(x[0],x[1],x[2],x[2]*.36)}"/></g>`).join('')}</g>`;
     }
-    return `<span class="mh-peri tod tod-${seg}" aria-hidden="true" style="--t0:${(-t0).toFixed(2)}s;--out:${f(T.outAt)};--dg:${f(T.fold)};--tt:${f(total)}"><svg class="tod-ico" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="tod-sky"><rect x="-8" y="-14" width="40" height="${T.horizon+14}"/></clipPath></defs><g clip-path="url(#tod-sky)">${body}</g></svg></span>`;
+    const f = v => v.toFixed(2)+'s';
+    return `<span class="mh-peri tod tod-${seg}" aria-hidden="true" style="--t0:${(-t0).toFixed(2)}s;--out:${f(T.outAt)};--dg:${f(T.fold)};--tt:${f(total)}"><svg class="tod-ico" viewBox="0 0 64 64" aria-hidden="true"><g class="tod-x">${body}</g></svg></span>`;
   }
   // per-user AND per-day: a new account on the same device must not inherit
   // the previous account's "already breathed today" settled state
@@ -4184,7 +4211,7 @@ function app(tab){
   const _lrnSpan = k => /^(daily|recent|d\d+)$/.test(k);
   const _lrnOf = ctx => ctx.poss + ' check-ins' + ((ctx.kind === 'recent' || /^d\d+$/.test(ctx.kind)) ? ' ' + ctx.noun : '');
   // the time period a stat card covers, on the card (Justin, 2026-10-05: "include a time period on the stat card")
-  const LRN_PER = { daily:'Last 7 days', recent:'Last 4 weeks', d7:'Last 7 days', d14:'Last 2 weeks', d30:'Last 30 days', d90:'Last 3 months', w8:'Last 8 weeks' };
+  const LRN_PER = { all:'All your practices', daily:'Last 7 days', recent:'Last 4 weeks', d7:'Last 7 days', d14:'Last 2 weeks', d30:'Last 30 days', d90:'Last 3 months', w8:'Last 8 weeks' };
   function _lrnPerLabel(ctx){
     if(!ctx) return '';
     if(LRN_PER[ctx.kind]) return LRN_PER[ctx.kind];
@@ -4276,6 +4303,10 @@ function app(tab){
   // 'safety-share', 'practice-rise', 'mixed-safe', 'comeback'. Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   const _lrnSegOf = t => { const h = new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; };
+  function _lrnBars2(l1, x1, l2, x2){
+    const bar = (lbl, x, c, i) => `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(lbl)}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(x*100)}%;background:${c}"></span></span><span class="help-pct"></span></div>`;
+    return `<div class="rd-snap rd-snap-in"><div class="help-bars">${bar(l1, x1, STATE_COLOR('safety'), 0)}${bar(l2, x2, 'var(--hairline)', 1)}</div></div>`;
+  }
   function _lrnCallout(id, ctx){
     const f = ctx.f; if(!f || !f.n) return null;
     const rs = f.rs || [], owner = _rdOwner();
@@ -4334,6 +4365,21 @@ function app(tab){
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${['morning','afternoon','evening','late'].map((s,i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${CAP(_LRN_SEG[s])}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(100*(cnt[s]||0)/mx)}%;background:${col}"></span></span><span class="help-pct"></span></div>`).join('')}</div></div>`;
       return { mk:st, label: owner + ' ' + seg, text: `${what} showed up most in your ${seg} ${ctx.noun}.`, card };
     }
+    // 2026-10-13: the rest of the check-in's "I've had more of" chips too (work, family, hobbies, spiritual, body & movement, rest, practice)
+    const _CTX_MORE = { work:[['work'],'work'], family:[['family'],'time with family'], hobbies:[['hobbies'],'time for hobbies'], spiritual:[['spiritual'],'spiritual time'],
+      body:[['body & movement'],'movement'], rest:[['rest'],'rest'], practice:[['practice'],'practice'] };
+    if(kind === 'context' && _CTX_MORE[st]){
+      const [want, words] = _CTX_MORE[st];
+      const now = Date.now(), c8 = _lrnPeriodCtx('recent', now - 56*864e5, now + 1), rs8 = (c8.f && c8.f.rs) || [], m = _ctxLoad();
+      const tagged = rs8.filter(r=>{ const tags = m['c'+r.t+'+'] || m['c'+r.t] || []; return tags.some(t=>want.indexOf(t) >= 0); });
+      if(tagged.length < 3 || rs8.length < 5) return null;
+      const sh = tagged.filter(r=>r.safe).length / tagged.length, all = rs8.filter(r=>r.safe).length / rs8.length;
+      const amt = tagged.length >= 10 ? Math.round(sh*100) + '%' : _lrnShareWords(sh).toLowerCase();
+      if(amt === '100%' && tagged.length < 20) return null;
+      const text = `In the last eight weeks, when you'd had more ${words}, ${amt} of those check-ins had more safety than defense.`;
+      const card = _lrnBars2(CAP('With more ' + words), sh, 'All your check-ins', all);
+      return { mk:'safety', label: owner + ' ' + (st === 'body' ? 'movement' : st), text, card, per: Object.assign({}, c8, { kind:'w8' }) };
+    }
     if(kind === 'context' && (st === 'people' || st === 'places')){
       // what the member named on their check-ins ("I've had more of"), over the last eight weeks
       const want = st === 'people' ? ['friends','family','partner'] : ['nature'];
@@ -4360,6 +4406,97 @@ function app(tab){
       const cb = f.comebacks; if(!cb || cb.n < 1) return null;
       const phrase = cb.avg <= 1.5 ? 'within a check-in or two' : 'within about ' + Math.round(cb.avg) + ' check-ins';
       return { mk:'safety', label: owner + ' way back to safety', text: `After defense showed up ${ctx.noun}, you had more safety than defense again ${phrase}.` };
+    }
+    // ── more of the member's own data in the articles (Justin, 2026-10-13: "many blog articles need it. Do another pass and
+    // infuse user data. Make new cards. Be creative."). Each returns null when the data has nothing to show, so it is skipped.
+    // Words for shares, never "X of N"; good and bad direction as arrows, not color (Justin, 2026-10-08).
+    const _arw = up => up === 1 ? '↑' : up === -1 ? '↓' : '→';
+    const _bars = rows => `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows.map(([lbl, x, col], i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(lbl)}</span><span class="help-track"><span class="help-fill" style="width:${x > 0 ? Math.max(4, Math.round(x*100)) : 0}%;background:${col}"></span></span><span class="help-pct"></span></div>`).join('')}</div></div>`;
+    if(id === 'dials'){
+      // the three readings on each check-in, on average: which ran highest (bars are relative to the highest, not a meter)
+      const cs = rs.map(r=>r.c).filter(c=>c && typeof c.v === 'number'); if(cs.length < 3) return null;
+      const avg = k => cs.reduce((a,c)=>a + (+c[k] || 0), 0) / cs.length;
+      const ax = [['safety','v'], ['fightflight','sym'], ['shutdown','dor']].map(([st,k])=>({ st, x:avg(k) })).sort((a,b)=>b.x - a.x);
+      const top = ax[0].x || 1, nm = st => st === 'safety' ? 'safety' : STATE_NAME(st);
+      const close = ax[0].x - ax[1].x < 0.04;
+      const text = close ? `Across ${_lrnOf(ctx)}, ${nm(ax[0].st)} and ${nm(ax[1].st)} ran about even, with ${nm(ax[2].st)} lower.`
+        : `Across ${_lrnOf(ctx)}, ${nm(ax[0].st)} ran highest of your three readings, then ${nm(ax[1].st)}, then ${nm(ax[2].st)}.`;
+      return { mk:ax[0].st, label: owner + ' three readings', text, card: _bars(ax.map(a=>[CAP(nm(a.st)), a.x / top, STATE_COLOR(a.st)])) };
+    }
+    if(id === 'before-after'){
+      // practices with a check-in before and after (Reader pairs: d = the change in safety over defense)
+      const pr = f.pairs || []; if(pr.length < 2) return null;
+      const up = pr.filter(x=>x.d > 0).length; if(!up) return null;
+      const text = up === pr.length ? `Every practice ${ctx.noun} with a check-in before and after ended with more safety.`
+        : `${_lrnShareWords(up/pr.length)} of your practices ${ctx.noun} with a check-in before and after ended with more safety.`;
+      const row = pr.slice(-7).map(x=>`<span class="lc-ar"><b>${_arw(x.d > 0 ? 1 : x.d < 0 ? -1 : 0)}</b><i>${DAYS_LONG[new Date(x.t).getDay()].slice(0,3)}</i></span>`).join('');
+      return { mk:'safety', label: owner + ' before and after', text, card:`<div class="rd-snap rd-snap-in lc-arrows" aria-hidden="true">${row}</div><p class="rd-cap">↑ more safety after · ↓ less · → no change</p>` };
+    }
+    if(id === 'anchor-best'){
+      // the anchor (sense) whose practices lifted safety most, from two or more practices with it
+      const an = (f.anchors || []).filter(a=>a.n >= 2 && a.lift > 0); if(!an.length) return null;
+      const SENSE = { sound:'sound', sight:'sight', touch:'touch', imagination:'imagination', movement:'movement' };
+      const nmA = a => SENSE[a] || String(a).replace(/[-_]/g, ' ');
+      const text = an.length === 1 ? `Safety rose most when you anchored through ${nmA(an[0].anchor)} ${ctx.noun}.`
+        : `Safety rose most when you anchored through ${nmA(an[0].anchor)} ${ctx.noun}, then ${nmA(an[1].anchor)}.`;
+      const top = an[0].lift;
+      return { mk:'safety', label: owner + ' anchors', text, card: _bars(an.slice(0, 5).map(a=>[CAP(nmA(a.anchor)), a.lift / top, STATE_COLOR('safety')])) };
+    }
+    if(id === 'weekday'){
+      // the day of the week with the most safety (2+ check-ins that day, 3+ days to compare, a clear lead)
+      const wd = f.weekdays || {}, ks = Object.keys(wd); if(ks.length < 3) return null;
+      ks.sort((a,b)=>wd[b].share - wd[a].share); if(wd[ks[0]].share - wd[ks[1]].share < 0.1 || wd[ks[0]].share <= 0) return null;
+      const text = `${DAYS_LONG[+ks[0]]}s had the most safety in ${_lrnOf(ctx)}.`;
+      const col = STATE_COLOR('safety');
+      const card = `<div class="rd-snap rd-snap-in lc-week" aria-hidden="true">${[1,2,3,4,5,6,0].map(d=>{ const w = wd[d]; return `<span class="lc-wd${+ks[0] === d ? ' on' : ''}"><i style="height:${w ? Math.max(6, Math.round(w.share*100)) : 0}%;background:${w ? col : 'transparent'}"></i><b>${DAYS_LONG[d].slice(0,1)}</b></span>`; }).join('')}</div>`;
+      return { mk:'safety', label: owner + ' week', text, card };
+    }
+    if(id === 'emotions-worked'){
+      // the emotions the member has practiced with, by how hard they ranked them (every practice so far, not one period)
+      let ss = []; try{ ss = (Store.sessions && Store.sessions()) || []; }catch(e){}
+      const by = { 1:{}, 2:{}, 3:{} };
+      ss.forEach(x=>{ const pe = x && x.completed && _emoParse(x.emotionIntent); if(pe) by[pe.t][pe.w] = 1; });
+      const tiers = [1,2,3].filter(t=>Object.keys(by[t]).length); if(!tiers.length) return null;
+      const all = [].concat(...tiers.map(t=>Object.keys(by[t]).map(w=>w.toLowerCase())));
+      const lo = UP_TIER[tiers[0]].toLowerCase(), hi = UP_TIER[tiers[tiers.length - 1]].toLowerCase();
+      const text = `You've practiced with ${_listAnd(all.slice(0, 6))}${all.length > 6 ? ' and more' : ''} so far, ${lo === hi ? 'all ' + lo : 'from ' + lo + ' up to ' + hi}.`;
+      const card = `<div class="rd-snap rd-snap-in lc-emo">${tiers.map(t=>`<div class="lc-emo-row"><b>${UP_TIER[t]}</b><span>${Object.keys(by[t]).map(w=>`<i>${escapeHtml(w)}</i>`).join('')}</span></div>`).join('')}</div>`;
+      return { mk: _domDefense() || 'freeze', label: owner + ' emotions', text, card, per:{ kind:'all' } };
+    }
+    if(id === 'stretch'){
+      // the longest run of days that leaned toward defense, and when safety came back
+      const sr = f.stretch; if(!sr) return null;
+      const fk = sr.flavor && sr.flavor.key;
+      const back = sr.back ? ` Safety came back ${DAYS_LONG[sr.back.day]} ${_LRN_SEG[sr.back.seg] ? (sr.back.seg === 'late' ? 'night' : sr.back.seg) : ''}.`.replace(' .', '.') : '';
+      const text = `Your longest run of days leaning toward defense ${ctx.noun} was ${sr.days} days${fk ? ', mostly ' + STATE_NAME(fk) : ''}.${back}`;
+      return { mk: fk || 'freeze', label: owner + ' harder days', text, card: sr.back && fk ? _rdFlow(fk, 'safety') : '' };
+    }
+    if(id === 'intensity'){
+      // inside practices: did the intensity of what came up ease from the first 0–10 to the last
+      const ps = (f.practices || []).filter(x=>x.i0 != null && x.i1 != null); if(ps.length < 2) return null;
+      const ez = ps.filter(x=>x.i1 < x.i0).length; if(!ez) return null;
+      const text = ez === ps.length ? `Intensity eased in every practice ${ctx.noun} where you rated it.` : `Intensity eased in ${_lrnShareWords(ez/ps.length).toLowerCase()} of your practices ${ctx.noun} where you rated it.`;
+      const row = ps.slice(-7).map(x=>`<span class="lc-ar"><b>${_arw(x.i1 < x.i0 ? -1 : x.i1 > x.i0 ? 1 : 0)}</b><i>${DAYS_LONG[x.day].slice(0,3)}</i></span>`).join('');
+      return { mk:'safety', label: owner + ' intensity', text, card:`<div class="rd-snap rd-snap-in lc-arrows" aria-hidden="true">${row}</div><p class="rd-cap">↓ intensity eased · ↑ rose · → no change</p>` };
+    }
+    if(id === 'practice-time'){
+      const ps = f.practices || []; if(ps.length < 2) return null;
+      const cnt = {}; ps.forEach(x=>{ cnt[x.seg] = (cnt[x.seg]||0) + 1; });
+      const top = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
+      const when = top[0] && (!top[1] || cnt[top[1]] < cnt[top[0]]) ? `, mostly in the ${top[0] === 'late' ? 'late night' : top[0]}` : '';
+      const mins = f.minutes >= 1 ? `, ${Math.round(f.minutes)} minutes in all` : '';
+      const text = `You practiced ${_lrnTimes(ps.length)} ${ctx.noun}${mins}${when}.`;
+      const mx = Math.max.apply(null, Object.values(cnt));
+      return { mk:'safety', label: owner + ' practice', text, card: _bars(['morning','afternoon','evening','late'].map(sg=>[CAP(_LRN_SEG[sg]), (cnt[sg]||0) / mx, cnt[sg] ? 'var(--ink-80)' : 'var(--hairline)'])) };
+    }
+    if(id === 'recent-path'){
+      // the last few check-ins, in order, as the states they were
+      const last = rs.slice(-5); if(last.length < 3) return null;
+      const keys = last.map(r=>r.key), uniq = [...new Set(keys)];
+      const text = uniq.length === 1 ? `Your last ${last.length} check-ins ${ctx.noun} were all ${STATE_NAME(uniq[0])}.`
+        : `Your last ${last.length} check-ins ${ctx.noun} went ${_listAnd(keys.map(k=>STATE_NAME(k)))}.`;
+      const card = `<div class="rd-snap rd-snap-in lc-path" aria-hidden="true">${last.map((r,i)=>`${i ? '<span class="lc-path-arw">→</span>' : ''}<span class="lc-path-i">${_rdMk(r.key)}<i>${DAYS_LONG[new Date(r.t).getDay()].slice(0,3)}</i></span>`).join('')}</div>`;
+      return { mk: keys[keys.length-1], label: owner + ' latest check-ins', text, card };
     }
     return null;
   }
@@ -4568,6 +4705,42 @@ function app(tab){
       d._anim.onfinish = ()=>{ d.open = false; d.classList.remove('rd-closing'); if(d._anim){ d._anim.cancel(); d._anim = null; } };
     }
   });
+  // ── the member's emotions, easy to hard, inside an article (Justin, 2026-10-13: "a section where the user can select their
+  // tiered emotions to focus on ... more blogs should have that too. And when they enter it in the blog it also changes it in
+  // the settings"). The same list as the Pathway's "Which defense?" and Settings (contexts "emo:list"), so a change here is a
+  // change everywhere. Paid, like the Pathway; free members see it locked.
+  function _lrnEmoInner(){
+    const L = _emoList(), has = new Set(L.map(e=>e.w.toLowerCase())), full = L.length >= UP_EMO_MAX;
+    const tier = t => { const es = L.filter(e=>e.t === t);
+      return `<div class="lc-emo-row"><b>${UP_TIER[t]}</b><span>${es.length ? es.map(e=>`<button class="lc-emo-on" type="button" data-emo-rm="${escapeHtml(e.w)}" aria-label="Take out ${escapeHtml(e.w)}">${escapeHtml(e.w)}<span aria-hidden="true">×</span></button>`).join('') : '<em>None yet</em>'}</span></div>`; };
+    const left = UP_EMO_ALL.filter(x=>!has.has(x[0].toLowerCase())).sort((a,b)=>a[0].localeCompare(b[0]));
+    return `<span class="rd-call-who"><span class="rd-call-lbl">${escapeHtml(_rdOwner())} emotions, easy to hard</span><span class="rd-call-per">${L.length} of ${UP_EMO_MAX}</span></span>
+      <p class="read-p rd-call-p">${L.length ? 'These are the emotions you chose to work with in practice. Start with the easier ones, and move to harder ones as your capacity grows.' : 'Choose up to nine emotions to work with in practice. Each one goes to easy, medium or hard to start, and you can move it.'}</p>
+      <div class="lc-emo">${[1,2,3].map(tier).join('')}</div>
+      ${left.length ? `<details class="see-data rd-call-more"><summary class="sd-sum"><span>${full ? 'You have nine. Take one out to add another.' : 'Add an emotion'}</span></summary><div class="sd-body"><div class="em-chips">${left.map(x=>`<button class="em-chip" type="button" data-emo-add="${escapeHtml(x[0])}" data-t="${x[1]}"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`).join('')}</div></div></details>` : ''}
+      <button class="set-quiet lc-emo-more" type="button" data-emo-open="1">Sort them or add your own</button>
+      <p class="rd-cap">This is the same list as on the Unstucking Pathway and in Settings.</p>`;
+  }
+  function _lrnEmoHTML(paid){
+    if(!paid) return `<div class="rd-call rd-call-locked" id="sec-emo" style="--cs:var(--ink-80);--cw:var(--bone-deep)"><span class="rd-call-who"><span class="rd-call-lbl">Your emotions, easy to hard</span></span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Choose and sort your emotions on the paid plan.</span></button></div>`;
+    return `<div class="rd-call lc-emo-card" id="sec-emo" data-emo-card="1" style="--cs:var(--ink-80);--cw:var(--bone-deep)">${_lrnEmoInner()}</div>`;
+  }
+  function _lrnEmoWire(back){
+    root.querySelectorAll('[data-emo-card]').forEach(card=>{
+      card.onclick = e=>{
+        const rm = e.target.closest('[data-emo-rm]'), ad = e.target.closest('[data-emo-add]'), op = e.target.closest('[data-emo-open]');
+        if(op) return screenEmotions(back);
+        if(!rm && !ad) return;
+        let L = _emoList();
+        if(rm){ const w = rm.dataset.emoRm.toLowerCase(); L = L.filter(x=>x.w.toLowerCase() !== w); }
+        else if(L.length < UP_EMO_MAX && !L.some(x=>x.w.toLowerCase() === ad.dataset.emoAdd.toLowerCase())) L.push({ w:ad.dataset.emoAdd, t:+ad.dataset.t });
+        _emoSave(L); try{ haptic('save'); }catch(err){}
+        const wasOpen = !!(card.querySelector('details') && card.querySelector('details').open);
+        card.innerHTML = _lrnEmoInner();
+        const d = card.querySelector('details'); if(d && wasOpen) d.open = true;
+      };
+    });
+  }
   function screenLearnPiece(piece, ctx, fromPost, from, goSec){
     if(!piece.blocks){
       const backTo = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenLearn;
@@ -4617,6 +4790,7 @@ function app(tab){
       if(b.practice){ const pt = _lrnPracticeThis(b);
         parts.push(`<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`); continue; }
       if(b.callout){ const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid, ctx) : ''); continue; }
+      if(b.emotions){ parts.push(_lrnEmoHTML(paid)); continue; }
       // a "Journal" or "Reflect" heading right above the questions: the Journal card says it, so the heading stays only for the table of contents
       if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
       parts.push(_lrnBlockHTML(b));
@@ -4657,6 +4831,7 @@ function app(tab){
     // the Journal: locked for free; the sheet slides up, one question at a time, swipe or Next/Previous between them
     root.querySelectorAll('.rd-jr-locked').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     root.querySelectorAll('.rd-jr').forEach(_jrWire);
+    _lrnEmoWire(()=>screenLearnPiece(piece, ctx, fromPost, from, 'emo'));
     root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), _trueBack(()=>screenLearnPiece(piece, ctx, fromPost, from))); });
     if(goSec) requestAnimationFrame(()=>_lrnGoTo(goSec));
     // read = reached the end (Keep learning in view), not just opened
@@ -9054,6 +9229,12 @@ function app(tab){
           </div>
 
           <div class="gs-card">
+            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Your emotions</span>
+              <button class="linkbtn" id="set-emotions" type="button">${paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : 'Paid plan'}</button></div>
+            <p class="gs-note" style="margin:6px 0 0">The emotions you work with in practice, easy to hard. The same list as on the Unstucking Pathway and in articles.</p>
+          </div>
+
+          <div class="gs-card">
             <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Orientation</span>
               <button class="linkbtn" id="set-walkthrough" type="button">Walk me through the app</button></div>
           </div>
@@ -9148,6 +9329,7 @@ function app(tab){
         </div>
       </div>`;
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
+    const sem=$('#set-emotions'); if(sem) sem.onclick=()=>{ if(!paidNow()) return gateSubscribe('pathway'); screenEmotions(()=>screenSettings()); };
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
     { const t=$('#acad-toggle'); if(t) t.onclick=()=>{ _acadSetChoice(_acadOn() > 0 ? 'fresh' : 'keep'); haptic('save'); screenSettings(); }; }
     { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
@@ -9437,6 +9619,11 @@ function routeSafe(){
   // 2026-10-02 (Justin: leaving the app or locking the screen lost the article he was on): an article, hub or post
   // stays put through the unlock refresh; the member moves on from it themselves
   if(document.body.classList.contains('rd-sub') && Store.user && Store.user()) return;
+  // 2026-10-13 (Justin: tapping a check-in notification landed on the Now screen): the deep link
+  // drew the check-in, then the boot's hydrate() / billing / membership notifies called route(),
+  // which repainted app(currentTab) = Now over it. A check-in the member is on stays put too
+  // (the same repaint would wipe one mid-answer on an unlock token refresh).
+  if(document.getElementById('ci-reading') && Store.user && Store.user()) return;
   route();
 }
 try{ pushConsumeOpen(); }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally
