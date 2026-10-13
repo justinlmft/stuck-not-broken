@@ -2979,41 +2979,51 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    The icon is now a sibling ABOVE the row in both states, so the card has one composition.
    It is aria-hidden decorative, so moving it out of the button costs nothing semantically. */
 .mh-top > .mh-peri{margin-bottom:2px}
-/* the time-of-day icon comes alive (2026-09-30): each time of day moves like itself — the morning sun rises from behind the glyph
-   (its horizon), the afternoon sun draws high and slides down, the evening moon rises with a twinkling star, the night's stars come
-   out one by one; then it leaves and its space folds away. Once per time of day (app.js todIco). */
-.mh-peri.tod{max-height:48px;margin-bottom:-6px;animation:todFold .6s var(--ease) calc(var(--dg) + var(--t0)) forwards}
-.mh-peri.tod svg{width:42px;height:42px;stroke:currentColor;stroke-width:1.25;fill:none;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
-.mh-peri.tod path[pathLength]{stroke-dasharray:1 1;stroke-dashoffset:1;animation:todIn var(--dd,.65s) cubic-bezier(.45,.05,.3,1) calc(var(--di) + var(--t0)) forwards}
-.mh-peri.tod path[pathLength][style*="--do"]{animation:todIn var(--dd,.65s) cubic-bezier(.45,.05,.3,1) calc(var(--di) + var(--t0)) forwards,todOut .8s cubic-bezier(.5,0,.75,.4) calc(var(--do) + var(--t0)) forwards}
-.mh-peri.tod g{transform-box:fill-box;transform-origin:center}
-/* morning: rises from below the horizon, keeps climbing as it goes */
-.tod-morning .tod-g{animation:todRise 2.3s cubic-bezier(.2,.65,.25,1) calc(0s + var(--t0)) both,todClimb 1.6s cubic-bezier(.45,0,.7,.6) calc(var(--out) + .25s + var(--t0)) forwards}
-/* afternoon: high and full, the rays turn a touch, then it slides down toward the horizon */
-.tod-afternoon .tod-g{animation:todPop 1s cubic-bezier(.2,.7,.3,1) calc(0s + var(--t0)) both,todSet 1.7s cubic-bezier(.5,0,.8,.5) calc(var(--out) + .2s + var(--t0)) forwards}
-.tod-afternoon .tod-rays{animation:todTurn 3.6s ease-in-out calc(1.3s + var(--t0)) both}
-/* evening: the moon rises, its star twinkles on (and once more), then the moon sinks */
-.tod-evening .tod-moon{animation:todRise 2.3s cubic-bezier(.2,.65,.25,1) calc(0s + var(--t0)) both,todSink 1.5s cubic-bezier(.5,0,.8,.5) calc(var(--out) + .35s + var(--t0)) forwards}
-.tod-evening .tod-star{animation:todTwinkleIn .75s cubic-bezier(.3,1.4,.5,1) calc(1.95s + var(--t0)) both,todTwinkle .9s ease-in-out calc(3.7s + var(--t0)) none,todStarOut .6s ease-in calc(var(--out) + var(--t0)) forwards}
-/* late night: the stars come out one by one, twinkle, and go out one by one */
-.tod-late .tod-star{animation:todTwinkleIn .75s cubic-bezier(.3,1.4,.5,1) calc(var(--si) + var(--t0)) both,todTwinkle 1.2s ease-in-out calc(var(--tw) + var(--t0)) none,todStarOut .9s ease-in calc(var(--so) + var(--t0)) forwards}
-@keyframes todIn{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-@keyframes todOut{0%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-1;opacity:0}}
-@keyframes todRise{from{transform:translateY(9px)}to{transform:translateY(0)}}
-@keyframes todClimb{from{transform:translateY(0);opacity:1}to{transform:translateY(-6px);opacity:0}}
-@keyframes todPop{from{transform:scale(.84);opacity:.15}to{transform:scale(1);opacity:1}}
-@keyframes todSet{from{transform:translate(0,0);opacity:1}to{transform:translate(3px,10px);opacity:0}}
-@keyframes todTurn{from{transform:rotate(0)}to{transform:rotate(14deg)}}
-@keyframes todSink{from{transform:translateY(0);opacity:1}to{transform:translateY(9px);opacity:0}}
-@keyframes todTwinkleIn{0%{transform:scale(0) rotate(-35deg);opacity:0}70%{transform:scale(1.18) rotate(4deg);opacity:1}100%{transform:scale(1) rotate(0);opacity:1}}
-@keyframes todTwinkle{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.72);opacity:.5}}
-@keyframes todStarOut{from{transform:scale(1);opacity:1}to{transform:scale(.4);opacity:0}}
-@keyframes todFold{from{max-height:48px;opacity:1;margin-bottom:-6px}to{max-height:0;opacity:0;margin-bottom:-10px}}
+/* the time-of-day icon (2026-10-13, option A "line", replacing the hand-drawn strokes of 09-30): clean even strokes at 64px,
+   playful motion, then it leaves and its space folds away. Once per time of day (app.js todIco). */
+.mh-peri.tod{max-height:70px;margin-bottom:-4px;animation:todFold .6s var(--ease) calc(var(--dg) + var(--t0)) forwards}
+.mh-peri.tod svg{width:64px;height:64px;overflow:visible;fill:none;stroke:currentColor;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
+.mh-peri.tod g,.mh-peri.tod line,.mh-peri.tod circle{transform-box:view-box}
+.mh-peri.tod .tod-ray{transform-origin:32px 32px;animation:todRayPop .5s cubic-bezier(.3,1.6,.5,1) calc(1s + var(--i)*.09s + var(--t0)) both}
+/* morning: up from behind the logo, never past half; rays pop out one by one; a small bob; then it floats up and away */
+.tod-morning .tod-ray{transform-origin:32px 52px}
+.tod-morning .tod-sun{animation:todRise 1.3s cubic-bezier(.3,1.35,.5,1) var(--t0) both}
+.tod-morning .tod-all{animation:todBob 2.4s ease-in-out calc(1.9s + var(--t0)) infinite}
+.tod-morning .tod-x{animation:todOutUp .8s cubic-bezier(.5,0,.75,.4) calc(var(--out) + var(--t0)) forwards}
+/* afternoon: the sun pops in, the rays turn, then it slides down toward the horizon */
+.tod-afternoon .tod-sun{transform-origin:32px 32px;animation:todPopIn .8s cubic-bezier(.3,1.35,.5,1) var(--t0) both}
+.tod-afternoon .tod-ray{animation-delay:calc(.5s + var(--i)*.06s + var(--t0))}
+.tod-afternoon .tod-rays{transform-origin:32px 32px;animation:todTurn 6s linear calc(1.2s + var(--t0)) infinite}
+.tod-afternoon .tod-x{animation:todOutSet .9s cubic-bezier(.5,0,.75,.4) calc(var(--out) + var(--t0)) forwards}
+/* evening: the moon swings in as if hung on a thread, its star blinks on twice, then the moon sinks */
+.tod-evening .tod-moon{transform-origin:30px 4px;animation:todSwing 1.6s cubic-bezier(.3,1.35,.5,1) var(--t0) both}
+.tod-evening .tod-star{transform-origin:51px 13px;animation:todStarPop .55s cubic-bezier(.3,1.6,.5,1) calc(1.1s + var(--t0)) both,todBlink 2.6s ease-in-out calc(1.9s + var(--t0)) infinite}
+.tod-evening .tod-x{animation:todOutSink .9s cubic-bezier(.5,0,.75,.4) calc(var(--out) + var(--t0)) forwards}
+/* late night: three stars pop in one after another and twinkle in a wave, a shooting star crosses once, the stars go out */
+.tod-late .tod-st{transform-origin:var(--cx) var(--cy);animation:todStarPop .55s cubic-bezier(.3,1.6,.5,1) calc(var(--i)*.28s + var(--t0)) both,todTwk 2.4s ease-in-out calc(1.2s + var(--i)*.35s + var(--t0)) infinite}
+.tod-late .tod-streak{stroke-dasharray:1 1;stroke-dashoffset:1;animation:todStreak 1.1s cubic-bezier(.5,0,.3,1) calc(1.5s + var(--t0)) both}
+.tod-late .tod-x{animation:todFadeOut .8s ease-in calc(var(--out) + var(--t0)) forwards}
+@keyframes todRise{from{transform:translateY(26px)}to{transform:translateY(0)}}
+@keyframes todRayPop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes todBob{0%,100%{transform:translateY(0)}50%{transform:translateY(2px)}}
+@keyframes todPopIn{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes todTurn{to{transform:rotate(360deg)}}
+@keyframes todSwing{0%{transform:rotate(-38deg) translateY(-6px);opacity:0}100%{transform:rotate(0) translateY(0);opacity:1}}
+@keyframes todStarPop{0%{transform:scale(0) rotate(-45deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes todBlink{0%,30%,60%,100%{transform:scale(1);opacity:1}15%,45%{transform:scale(.55);opacity:.45}}
+@keyframes todTwk{0%,100%{transform:scale(1)}50%{transform:scale(.7)}}
+@keyframes todStreak{0%{stroke-dashoffset:1;opacity:1}60%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-1;opacity:0}}
+@keyframes todOutUp{to{transform:translateY(-10px);opacity:0}}
+@keyframes todOutSet{to{transform:translate(6px,16px);opacity:0}}
+@keyframes todOutSink{to{transform:translateY(14px) rotate(8deg);opacity:0}}
+@keyframes todFadeOut{to{opacity:0}}
+@keyframes todFold{from{max-height:70px;opacity:1;margin-bottom:-4px}to{max-height:0;opacity:0;margin-bottom:-10px}}
 @media (prefers-reduced-motion:reduce){
   .mh-peri.tod *{animation:none!important;stroke-dasharray:none!important;stroke-dashoffset:0!important;transform:none!important;opacity:1!important}
+  .mh-peri.tod .tod-streak{display:none}
   .mh-peri.tod{animation:todQuiet var(--tt) linear var(--t0) forwards}
 }
-@keyframes todQuiet{0%{opacity:0;max-height:48px}8%{opacity:1}78%{opacity:1;max-height:48px;margin-bottom:-6px}92%{opacity:0;max-height:48px;margin-bottom:-6px}100%{opacity:0;max-height:0;margin-bottom:-10px}}
+@keyframes todQuiet{0%{opacity:0;max-height:70px}8%{opacity:1}78%{opacity:1;max-height:70px;margin-bottom:-4px}92%{opacity:0;max-height:70px;margin-bottom:-4px}100%{opacity:0;max-height:0;margin-bottom:-10px}}
 .mh-state .mh-peri{display:inline-flex;color:var(--ink)}
 .mh-state .mh-peri svg{width:24px;height:24px}
 .mh-state .mh-glyph{display:inline-flex}
@@ -3379,7 +3389,7 @@ body.reduce-motion .vs-scrim,body.reduce-motion .vs-sheet{transition:none}
 .rd-empty{color:var(--muted)}
 .rd-fl{display:flex;align-items:center;justify-content:center;gap:14px;padding:18px 4px 10px}
 .rd-fl-i{display:flex;flex-direction:column;align-items:center;gap:10px;flex:0 1 auto;min-width:0;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink)}
-.rd-fl-i .rd-mk-fl{--mk:44px}
+.rd-fl-i .rd-mk-fl{--mk:48px}
 .rd-fl-path{flex:1 1 48px;max-width:96px;min-width:28px;height:3px;border-radius:2px;margin-bottom:28px}
 
 .rd-essay-glyph .triglyph{height:28px;width:auto;margin:4px 0 6px}
@@ -3429,26 +3439,26 @@ body.rd-on .rd-lock{background:var(--rd-card)}
 /* ── Reader rounds 6 and 7 (Justin, 2026-10-01): the logo marks and the state-to-state transitions
    everywhere in the reader ("those are essential"), each mark in a pair the same size as a single
    mark, captions cut, no widowed words, and Recommended Learning at the end of every post ── */
-.rd-mk{--mk:16px;display:inline-flex;align-items:center;gap:calc(var(--mk) * .14);flex:none}
+.rd-mk{--mk:18px;display:inline-flex;align-items:center;flex:none}
 .rd-mk .rd-mkg{height:var(--mk);width:auto;display:block}
-.rd-mk-lg{--mk:26px}
+.rd-mk-lg{--mk:29px}
 .rd .rd-eyeb-mk{display:flex;align-items:center;gap:8px}
 .rd-cover-bandtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .rd-today-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .rd-thumb-mk{display:grid;place-items:center;background:var(--rd-card)}
 .rd-thumb-mk::after{content:none}
-.rd-thumb-mk .rd-mk{--mk:15px}
+.rd-thumb-mk .rd-mk{--mk:17px}
 .rd-legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:calc(12px * var(--type-scale));color:var(--muted)}
 .rd-legend span{display:inline-flex;align-items:center;gap:5px}
 .rd-legend i{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
 .rd-flow{display:flex;align-items:center;gap:8px}
-.rd-flow .rd-mk{--mk:22px}
+.rd-flow .rd-mk{--mk:24px}
 .rd-flow-path{flex:1;height:3px;border-radius:2px;min-width:24px}
 .rd-flow-arw{width:14px;height:14px;flex:none}
 .rd-tn{display:flex;flex-direction:column;gap:14px;padding-top:10px}
 .rd-tn-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 .rd-tn-lbl{flex:0 0 100%;font-size:calc(13px * var(--type-scale));color:var(--muted)}
-.rd-tn .rd-mk{--mk:18px}
+.rd-tn .rd-mk{--mk:20px}
 .rd-tn-nomk{width:18px;flex:none}
 .rd-tn-dots{flex:1;min-width:0;display:flex;justify-content:space-evenly;align-items:center;height:16px;background-size:100% 2px;background-position:center;background-repeat:no-repeat}
 .rd-tn-dots i{width:8px;height:8px;border-radius:50%;flex:none}
@@ -3499,7 +3509,7 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
   background:var(--bone);border:1px solid color-mix(in srgb, var(--band) 70%, #1A1F2A);border-radius:16px;padding:12px 14px;min-height:88px}
 @media (prefers-color-scheme: dark){ :root:not(.theme-light) .rd-hubtile{border-color:color-mix(in srgb, var(--band) 60%, var(--rd-card))} }
 :root.theme-dark .rd-hubtile{border-color:color-mix(in srgb, var(--band) 60%, var(--rd-card))}
-.rd-hubtile .rd-mk{--mk:20px;margin-bottom:2px}
+.rd-hubtile .rd-mk{--mk:22px;margin-bottom:2px}
 .rd-hubtile b{font-weight:500;font-size:calc(16px * var(--type-scale))}
 .rd-hubtile span:last-child{font-size:calc(12.5px * var(--type-scale));color:var(--muted)}
 .rd-hubtile:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -3557,7 +3567,7 @@ body.in-practice .fl-dock{display:none}
 .ll-h{margin-top:10px}
 .ll-shelf{margin:4px 0 18px}
 .ll-shelf-h{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:0;padding:6px 0;min-height:44px;font:inherit;color:var(--ink);cursor:pointer;text-align:left}
-.ll-shelf-h .rd-mk{--mk:18px}
+.ll-shelf-h .rd-mk{--mk:20px}
 .ll-shelf-h b{font-weight:600;font-size:calc(15px * var(--type-scale))}
 .ll-shelf-h .ll-n{color:var(--muted);font-size:calc(13px * var(--type-scale));flex:1}
 .ll-shelf-h:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
@@ -3668,7 +3678,7 @@ body.ll-sf-typing .fl-dock{transition:top .12s ease}
 .jr-view-l{font-size:calc(13px * var(--type-scale));color:var(--muted)}
 .jr-view .p-chip{padding:8px 14px}
 .jr-gh{display:flex;align-items:center;gap:8px;margin:0;padding:16px 0 4px;border-top:1px solid var(--hairline);font:inherit;font-weight:400;color:var(--ink)}
-.jr-gh .rd-mk{--mk:18px}
+.jr-gh .rd-mk{--mk:20px}
 .jr-gh b{font-weight:600;font-size:calc(15.5px * var(--type-scale));line-height:1.35}
 .jr-gh .ll-n{color:var(--muted);font-size:calc(13px * var(--type-scale));flex:1}
 button.jr-gh{width:100%;text-align:left;background:transparent;border-left:0;border-right:0;border-bottom:0;cursor:pointer}
@@ -3767,7 +3777,7 @@ body.jr-sheet-on .fl-dock{visibility:hidden}
 .p8-row .wc-go{align-self:center}
 .p8-thumb{background:var(--rd-card);color:var(--ink)}
 .p8-thumb > svg{width:20px;height:20px}
-.p8-thumb .rd-mk{--mk:16px}
+.p8-thumb .rd-mk{--mk:18px}
 .rd-lk.p8-jig{animation:p8Jig .5s ease both;transform-origin:50% 35%}
 @keyframes p8Jig{0%,100%{transform:rotate(0)}18%{transform:rotate(-16deg)}36%{transform:rotate(13deg)}54%{transform:rotate(-9deg)}72%{transform:rotate(5deg)}88%{transform:rotate(-2deg)}}
 /* the practice sheet: one size whatever the practice, the choices scroll inside it, Begin always in reach */
@@ -3860,7 +3870,7 @@ body.reduce-motion .jr-fmenu{transition:none}
 .up-n:focus-visible,.up-l:focus-visible,.up-chip:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:12px}
 .up-n-node{position:relative;width:56px;height:56px;flex:none;border-radius:18px;display:grid;place-items:center;background:var(--rd-card);border:1.5px solid var(--hairline);transition:transform .18s var(--ease)}
 .up-n:active .up-n-node,.up-l:active .up-l-node{transform:scale(.96)}
-.up-n-node .rd-mk{--mk:18px}
+.up-n-node .rd-mk{--mk:20px}
 .up-n-node > svg{width:22px;height:22px;color:var(--ink)}
 .up-n-t,.up-l-t{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .up-n-t b{font-weight:500;font-size:calc(15px * var(--type-scale));line-height:1.3;color:var(--ink)}
@@ -4106,3 +4116,28 @@ body.reduce-motion .jr-fmenu{transition:none}
 .rd-call-more .sd-val{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
 /* the Journal sheet: the focus line sits inside the box, so the sheet's edges never cut it off */
 .rd-jr-sheet-in .rd-refl-in:focus{outline:2px solid var(--ink);outline-offset:-2px}
+
+/* 2026-10-13 — new article data cards + the emotions card (Justin: "Make new cards. Be creative.") */
+.lc-arrows{display:flex;gap:6px;flex-wrap:wrap}
+.lc-ar{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:38px;padding:8px 6px;border-radius:12px;background:var(--bone-deep)}
+.lc-ar b{font-size:calc(20px * var(--type-scale));font-weight:500;line-height:1;color:var(--ink)}
+.lc-ar i{font-style:normal;font-size:calc(12px * var(--type-scale));color:var(--muted)}
+.lc-week{display:flex;gap:6px;align-items:flex-end;height:96px}
+.lc-wd{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%}
+.lc-wd i{display:block;width:100%;max-width:26px;border-radius:6px 6px 3px 3px;opacity:.55}
+.lc-wd.on i{opacity:1}
+.lc-wd b{font-size:calc(12px * var(--type-scale));font-weight:500;color:var(--muted)}
+.lc-wd.on b{color:var(--ink)}
+.lc-path{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lc-path-i{display:flex;flex-direction:column;align-items:center;gap:3px}
+.lc-path-i i{font-style:normal;font-size:calc(12px * var(--type-scale));color:var(--muted)}
+.lc-path-arw{color:var(--muted)}
+.lc-emo{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.lc-emo-row{display:flex;gap:10px;align-items:flex-start}
+.lc-emo-row > b{flex:none;width:64px;font-weight:500;font-size:calc(14px * var(--type-scale));padding-top:6px}
+.lc-emo-row > span{display:flex;flex-wrap:wrap;gap:6px}
+.lc-emo-row i,.lc-emo-on{font-style:normal;font:inherit;font-size:calc(14px * var(--type-scale));padding:5px 11px;border-radius:999px;background:var(--bone-deep);border:1px solid var(--hairline);color:var(--ink)}
+.lc-emo-on{display:inline-flex;align-items:center;gap:6px;min-height:36px;cursor:pointer}
+.lc-emo-on span{color:var(--muted)}
+.lc-emo-row em{font-style:normal;color:var(--muted);font-size:calc(14px * var(--type-scale));padding-top:6px}
+.lc-emo-more{margin-top:12px}
