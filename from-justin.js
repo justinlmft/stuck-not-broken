@@ -76,7 +76,7 @@
         {
           "id": "safe-jp-1",
           "type": "journal prompt",
-          "text": "What's one small thing that helped you feel a little more like yourself today?"
+          "text": "What's one small thing that helps you feel a little more like yourself now?"
         },
         {
           "id": "safe-jp-2",
@@ -127,7 +127,7 @@
         {
           "id": "regmob-jp-2",
           "type": "journal prompt",
-          "text": "Is there a boundary or a conversation that feels possible today that didn't last week?"
+          "text": "Is there a boundary or a conversation that feels possible now that didn't last week?"
         },
         {
           "id": "regmob-jp-3",
@@ -235,7 +235,7 @@
         {
           "id": "dysimm-rem-3",
           "type": "reminder",
-          "text": "On the heavy days, getting through is maybe enough. You don't owe anyone more than that today."
+          "text": "On the heavy days, getting through is maybe enough. You don't owe anyone more than that now."
         },
         {
           "id": "dysimm-ref-1",
@@ -341,7 +341,7 @@
         {
           "id": "neutral-jp-1",
           "type": "journal prompt",
-          "text": "If you had to guess, what's one word for how today feels in your body?"
+          "text": "If you had to guess, what's one word for how your body feels now?"
         }
       ]
     }
@@ -678,7 +678,7 @@
       sec.push({ id:'blog-4', heading:H('How you\'ll know it\'s shifting',false), paras:shift });
       sec.push({ id:'blog-5', heading:H('What to try',false), paras:[
         'Very small, very low demand. One sip of tea. A dimmer light. One thing you can hear without trying. You don\'t climb out of shutdown by forcing it. You offer your body a small cue of safety, and it may allow a little more energy back in. Pay close attention to a breath that wants to be bigger, an ankle that wants to stretch, or a bit of motivation to do the thing you\'ve wanted to do forever.',
-        'In the heavy moments, getting through is enough. You don\'t owe anyone more than that today, including yourself. Showing up here and checking in honestly already counts.',
+        'In the heavy moments, getting through is enough. You don\'t owe anyone more than that now, including yourself. Showing up here and checking in honestly already counts.',
         _essayInsight(ctx)
       ]});
       sec.push({ id:'blog-6', heading:H('Where this can go',false), paras:[
@@ -1185,7 +1185,7 @@
       if(d>=5){
         out.variant='up';
         out.paras.push(yr
-          ? 'A year ago, your baseline sat around ' + b1 + '% safety. Today it\'s ' + b2 + '%. A year is long enough that this isn\'t a mood or a season. This is your nervous system, rebuilt a little, by you. That deserves real reflection. Journal on it, or just sit with it over a tea. Ask yourself:'
+          ? 'A year ago, your baseline sat around ' + b1 + '% safety. Now it\'s ' + b2 + '%. A year is long enough that this isn\'t a mood or a season. This is your nervous system, rebuilt a little, by you. That deserves real reflection. Journal on it, or just sit with it over a tea. Ask yourself:'
           : 'When the quarter began, your baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. That climb is slow, which is exactly what makes it trustworthy. That\'s evidence of more safety, and over three months it didn\'t happen by accident. This is worth reflecting on properly. Journal on it, or just think it through while you sip a tea. Ask yourself:');
         out.bullets = yr ? [
           'What do you know you did this year that connected you with safety?',
@@ -1202,7 +1202,7 @@
       } else if(d<=-5){
         out.variant='down';
         out.paras.push(yr
-          ? 'A year ago, your baseline sat around ' + b1 + '% safety. Today it\'s ' + b2 + '%. Some years take more than they give. The baseline will rebuild the way it always forms: a month at a time, on small, repeatable practices. You already know how, because you\'ve already done it. Worth reflecting on gently, without a verdict. Ask yourself:'
+          ? 'A year ago, your baseline sat around ' + b1 + '% safety. Now it\'s ' + b2 + '%. Some years take more than they give. The baseline will rebuild the way it always forms: a month at a time, on small, repeatable practices. You already know how, because you\'ve already done it. Worth reflecting on gently, without a verdict. Ask yourself:'
           : 'When the quarter began, your baseline sat around ' + b1 + '% safety. It\'s ' + b2 + '% now. It\'s been a heavier season, and your baseline felt it. Baselines dip with context, and they rebuild the same way they formed. Small and repeatable. Worth some honest reflection, journaling or just thinking it over. Ask yourself:');
         out.bullets = yr ? [
           'What did this year ask of you?',
