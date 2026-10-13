@@ -3624,12 +3624,29 @@ function app(tab){
   }
   const LOCK_SVG = '<svg class="rd-lk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   const SHARE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/><path d="M6 12v6.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V12"/></svg>';
-  // the logo marks of a state, each mark the same height whether alone or in a pair
-  // (Justin, 2026-10-01: "those are essential"; "a group of 2 glyphs looks smaller than a single one")
+  // the logo marks of a state, cut straight from the logo lockup: every mark keeps the logo's own
+  // relative size (the bolt is the tallest mark, the heart the shortest) and the logo's own spacing,
+  // so a pair is a piece of the logo, never re-proportioned (Justin, 2026-10-13: "the bolt is smaller
+  // than the heart ... follow the brand standard"). --mk = the full logo height = the bolt.
+  // Ink bounds in the lockup's coordinates (viewBox -4 -9.4 1305 459.8), measured with getBBox.
+  const _LK_X = { heart:[4,453.26], bolt:[475.76,883.28], x:[895.41,1284] };
+  const _LK_Y0 = 4, _LK_H = 438.31;
+  const _LK_GAP = 17.3;   // heart+x never touch in the logo: the logo's average gap (22.5 heart-bolt, 12.1 bolt-x)
+  function _lkSvg(marks){   // marks: [[icon, color], ...] in logo order
+    let x0 = _LK_X[marks[0][0]][0], end = null, prev = null, paths = '';
+    marks.forEach(([icn, col])=>{
+      const ic = window.SNB_ICONS && SNB_ICONS[icn]; if(!ic) return;
+      const [a, b] = _LK_X[icn];
+      const dx = (prev === 'heart' && icn === 'x') ? (end + _LK_GAP - a) : 0;   // close the bolt's empty slot
+      paths += `<path${dx ? ` transform="translate(${dx.toFixed(2)} 0)"` : ''} style="fill:${col}" d="${ic.d}"></path>`;
+      end = b + dx; prev = icn;
+    });
+    return `<svg class="rd-mkg" viewBox="${x0} ${_LK_Y0} ${(end - x0).toFixed(2)} ${_LK_H}" aria-hidden="true">${paths}</svg>`;
+  }
   function _rdMk(key, cls){
     const ax = STATE_AXES[key]; if(!ax) return '';
     const col = STATE_COLOR(key);
-    return `<span class="rd-mk${cls?' '+cls:''}" aria-hidden="true">${ax.map(([icn])=>ico(icn,{cls:'rd-mkg', color:col})).join('')}</span>`;
+    return `<span class="rd-mk${cls?' '+cls:''}" aria-hidden="true">${_lkSvg(ax.map(([icn])=>[icn, col]))}</span>`;
   }
   // a change from one state to another: the first state's marks, a gradient arrow, the next state's marks
   function _rdFlow(a, b){
@@ -7835,7 +7852,7 @@ function app(tab){
   // the defense marks: the leading defense's own marks in its color, or (nothing to go on) both marks in their own colors
   function _defMk(k){
     if(k) return _rdMk(k);
-    return `<span class="rd-mk" aria-hidden="true">${ico('bolt',{cls:'rd-mkg', color:STATE_COLOR('fightflight')})}${ico('x',{cls:'rd-mkg', color:STATE_COLOR('shutdown')})}</span>`;
+    return `<span class="rd-mk" aria-hidden="true">${_lkSvg([['bolt', STATE_COLOR('fightflight')], ['x', STATE_COLOR('shutdown')]])}</span>`;
   }
   const P8_LINE = { micro:'Practice connecting with the present moment.', mindfulness:'Practice connecting with the present moment.',
     anchoring:'Practice connecting with safety.', 'self-regulation':'Practice connecting with defense after anchoring into safety.' };
