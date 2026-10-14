@@ -333,11 +333,10 @@ p{margin:0;text-wrap:pretty}
 .gb-ring{width:104px;height:104px;border-radius:50%;border:1.5px solid var(--ink);opacity:.66;animation:t-breathe 9s var(--ease) infinite;will-change:transform,opacity}
 .gb-txt{font-size:calc(13px * var(--type-scale));color:var(--muted)}
 .gate-breath:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:12px}
-/* sign in / create an account: both doors at the top, never below the fold (Dan, 2026-10-14) */
-.gate .gate-tabs{margin:0 0 16px}
+/* sign in / create an account: "New here? Create an account" is a full button under Sign in (Dan, 2026-10-14) */
 .gate .gate-sep{margin:-6px 0 14px}
 /* short screens (a laptop, a small phone): a smaller breath ring so the form starts higher */
-@media (max-height:760px){ .gate .gb-ring{width:72px;height:72px} .gate .gate-breath{gap:10px;margin-bottom:14px} .gate h1{margin:6px 0 8px!important} .gate .lede{margin-bottom:16px!important} }
+@media (max-height:760px){ .gate .gb-ring{width:56px;height:56px} .gate .gate-breath{gap:8px;margin-bottom:10px;margin-top:8px} .gate h1{margin:4px 0 6px!important} .gate .lede{margin-bottom:12px!important} .gate .field{margin-bottom:10px} .gate #guest-start{margin-top:2px!important} .gate #go-up + p.fineprint{margin-top:8px!important} }
 /* a mouse or trackpad: show a thin scrollbar on the sign-in screen, so it's clear there's more below */
 @media (hover:hover) and (pointer:fine){ .gate{scrollbar-width:thin} .gate::-webkit-scrollbar{display:block;width:8px} .gate::-webkit-scrollbar-thumb{background:var(--hairline);border-radius:4px} }
 @media (prefers-reduced-motion:reduce){.gb-ring{animation:none;opacity:.5}}

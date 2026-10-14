@@ -931,7 +931,6 @@
           <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">You\u2019re joining a live practice. Sign in to check in.</div>':''}
           <h1 style="margin:10px 0 12px">${up?'An app to guide you through emotional regulation.':'Your nervous system, over time.'}</h1>
           <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices based on what helps you, and watch your patterns become visible over time.</p>
-          ${Store.cloud()?`<div class="play-filter seg gate-tabs" role="tablist" aria-label="Sign in or create an account"><button class="period-pill${up?'':' on'}" id="tab-in" type="button" role="tab" aria-selected="${!up}">Sign in</button><button class="period-pill${up?' on':''}" id="tab-up" type="button" role="tab" aria-selected="${up}">Create an account</button></div>`:''}
           ${up&&Store.cloud()?'<p class="fineprint gate-sep">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>':''}
           <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
           ${up ? '<div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
@@ -941,10 +940,11 @@
             : `<p class="autherr">${escapeHtml(err)}</p>`):''}
           <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':(up?'Create account':'Sign in')}</button>
           ${up&&!Store.cloud()?'<p class="fineprint" style="margin-top:12px;text-align:center">Already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">Log in</button></p>':''}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">New here, or just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a check-in, no account needed</button>'}
+          ${up||!Store.cloud()?'':'<button class="btn block quiet" id="go-up" type="button" style="margin-top:10px"'+(busy?' disabled':'')+'>New here? Create an account</button>'}
+          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">Just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a check-in, no account needed</button>'}
           ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
           <p class="fineprint" style="margin-top:6px">An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>`:''}
-          <p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'Sign in':'Create an account'}</button></p>
+          ${up||!Store.cloud()?`<p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'Sign in':'Create an account'}</button></p>`:''}
           ${up?'':'<p class="fineprint" style="margin-top:6px">The breath above needs no account. The rest of the app does. It keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
           ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">Forgot your password?</button></p>'}
           ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}
@@ -953,12 +953,12 @@
     if(busy) return;
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
     const gs=$('#guest-start'); if(gs) gs.onclick = startGuestFlow;
-    $('#toggle').onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); };
-    // the two tabs at the top (Dan, 2026-10-14: "I can't find a way to scroll down to see if there's a 'sign up' link")
+    { const tg=$('#toggle'); if(tg) tg.onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); }; }
+    // "New here? Create an account" as a full button right under Sign in (Justin, 2026-10-14, option C, after Dan
+    // couldn't find the sign-up link: "I can't find a way to scroll down to see if there's a 'sign up' link")
     { const keep=()=>{ const e=$('#em'); if(e) lastEmail=e.value.trim(); };
-      const ti=$('#tab-in'), tu=$('#tab-up'), eu=$('#err-up');
-      if(ti) ti.onclick=()=>{ if(!up) return; keep(); authMode='in'; screenSignIn(); };
-      if(tu) tu.onclick=()=>{ if(up) return; keep(); authMode='up'; screenSignIn(); };
+      const gu=$('#go-up'), eu=$('#err-up');
+      if(gu) gu.onclick=()=>{ keep(); authMode='up'; screenSignIn(); };
       if(eu) eu.onclick=()=>{ keep(); authMode='up'; screenSignIn(); setTimeout(()=>{ const pw=$('#pw'); if(pw) pw.focus(); }, 50); }; }
     { const _tt=$('#toggle-top'); if(_tt) _tt.onclick=()=>{ authMode='in'; screenSignIn(); }; }
     $('#go').onclick = submit;
