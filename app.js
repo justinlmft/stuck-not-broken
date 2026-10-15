@@ -9479,7 +9479,7 @@ function app(tab){
             ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
             <p class="ch-cap" id="glyph-cap"></p>
             <div class="gs-actions" style="margin-top:14px">
-              <button class="set-quiet" id="export">Export your check-ins</button>
+              <button class="set-quiet" id="export">Export your check-ins and journal</button>
               <button class="set-quiet" id="privacy">How your data is handled</button>
               <button class="set-quiet" id="signout">Sign out</button>
             </div>
@@ -9660,9 +9660,13 @@ function app(tab){
     const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
     // version line: read the ?v= off the live script tag so it never drifts from a deploy
     try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version'); if(ve) ve.textContent='Stuck Not Broken · app v'+(vm?vm[1]:'dev'); }catch(e){}
+    // the member's own data, one file (Justin, 2026-10-15: "agreed to add journal answers"): every check-in, and every journal
+    // answer with the article or reflection it was written under, the question, and the day
     $('#export').onclick = ()=>{
-      const blob = new Blob([JSON.stringify(Store.checkins(),null,2)],{type:'application/json'});
-      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-checkins.json'; a.click();
+      let journal = [];
+      try{ journal = _lrnJournalItems().map(it=>({ from: it.piece ? it.piece.title : it.post.title, question: it.q || (it.piece ? _jrHead(it.piece, it.rid, '') : '') || '', answer: it.text, day: it.day || '' })); }catch(e){}
+      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), checkins: Store.checkins(), journal },null,2)],{type:'application/json'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-stuck-not-broken-data.json'; a.click();
     };
     $('#signout').onclick = async ()=>{
       // one accidental tap used to sign you straight out (Justin, 2026-07-05)
