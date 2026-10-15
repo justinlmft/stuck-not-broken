@@ -7450,7 +7450,7 @@ function app(tab){
   }
   // prefix (Obstacles first) and depth ride along for Balancing / Pendulating (2026-09-20: the
   // recommender follows the engine's sequence, whose steps carry both).
-  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice','emotion'];
+  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice','emotion','pieces'];
   // an emotion as the app keeps it ("Worry|1", or their own words) → the word the practice names
   function _emoWord(v){ return String(v == null ? '' : v).split('|')[0].trim().slice(0, 60); }
   function _playerSrc(src){
@@ -7476,6 +7476,8 @@ function app(tab){
     if(!e.has('bed')){ const b=bedPref(); if(b.bed!=='none'){ e.set('bed', b.bed); e.set('bedvol', b.level); } }
     // the voice the person chose (2026-09-29, VOICES) rides on every launch the same way; Justin's is the default and is not sent
     if(!e.has('voice')){ const v=voicePref(); if(v!=='justin') e.set('voice', v); }
+    // the member's Mindfulness pieces (2026-10-15) ride on every Mindfulness launch the same way; the default run is not sent
+    if(e.get('practice')==='mindfulness' && !e.has('pieces')){ const pc=mindPieces(); if(pc.join()!==MIND_PIECES_DEFAULT.join()) e.set('pieces', pc.join(',')); }
     if(!paidNow()){ e.set('voices', 'justin'); if(e.has('voice') && !voiceOk(e.get('voice'))) e.delete('voice'); }   // 2026-09-30: AI voices paid only
     // 2026-09-28 (Justin, desktop: the player light inside a dark app): the player takes the theme the APP is showing,
     // never its own guess — the same document class the app painted with
@@ -7553,6 +7555,88 @@ function app(tab){
   function voiceOk(v){ return v==='justin' || paidNow(); }
   function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) && voiceOk(v) ? v : 'justin'; }
   function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
+  // ── BUILD YOUR OWN MINDFULNESS (Justin, 2026-10-15: "yes i want it to mimic the live practice. the user can choose to do as many
+  // mindfulness practices as they like with the breath in between, before, and after. so, more customization even on the free tier.
+  // they can choose which order to do the mindfulness pieces as well by dragging the order"). His pick of the mockups: A, one list,
+  // switch and drag, in the practice's customizer like Voice ("It should be in the player customizer, like choosing a voice or
+  // background noise"); no running order shown, just the time, which changes with the choices. Keys MUST match practice-engine
+  // data.js MIND_PIECES. Kept with the account (contexts "mind:pieces", like the emotion list), free plan included.
+  const MIND_PIECES = [['sight','Sight','What pulls at your eyes'],['sound','Sound','Near and far'],['touch','Touch','What you’re resting on, your skin'],
+    ['movement','Movement','Ankles to neck, then a pause'],['imagination','Imagination','A place you make up or remember']];
+  const MIND_PIECES_DEFAULT = ['sight','sound','touch'];
+  const UP_MIND_CTX = 'mind:pieces';
+  function _mindClean(a){ const ks = MIND_PIECES.map(x=>x[0]); return (Array.isArray(a)?a:[]).filter((k,i,arr)=>ks.indexOf(k)>=0 && arr.indexOf(k)===i); }
+  function mindPieces(){ let a = null; try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m) a = _mindClean(m[UP_MIND_CTX]); }catch(e){}
+    return a && a.length ? a : MIND_PIECES_DEFAULT.slice(); }
+  function setMindPieces(a){ a = _mindClean(a); if(!a.length) return;
+    try{ if(Store.saveContexts) Store.saveContexts(UP_MIND_CTX, 'Mindfulness pieces', a); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[UP_MIND_CTX] = a; _ctxSave(m); } }catch(e){} }
+  const _mindName = k => (MIND_PIECES.find(x=>x[0]===k)||[k,k])[1];
+  function mindPiecesWords(a){ a = a || mindPieces(); return a.length === MIND_PIECES.length ? 'All five' : a.map(_mindName).join(', '); }
+  // the time each piece adds, and the rest of the practice (seconds; silence 4 / 8 / 12). Measured 2026-10-15 from the recorded
+  // clips (every take's length, averaged) plus the engine's own gaps and pause points (plan.js gapFor, data.js holdSeconds).
+  const MIND_EST_S = { 4:{ rest:160, sight:80, sound:78, touch:82, movement:158, imagination:95 },
+                       8:{ rest:193, sight:98, sound:98, touch:102, movement:198, imagination:128 },
+                       12:{ rest:225, sight:116, sound:119, touch:122, movement:238, imagination:160 } };
+  function mindMinutes(sil, a){ const s = [4,8,12].reduce((b,x)=>Math.abs(x-(sil||8))<Math.abs(b-(sil||8))?x:b, 8), t = MIND_EST_S[s];
+    return Math.max(1, Math.round((t.rest + (a || mindPieces()).reduce((n,k)=>n+(t[k]||0),0)) / 60)); }
+  const _GRIP = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+  // the Pieces sheet: every piece always listed, the ones in the practice on top and numbered in the order they play; a switch
+  // puts a piece in or takes it out, the handle drags it (arrow keys on the handle do the same). At least one stays in.
+  function openMindPiecesSheet(trackCls, sil, onChange){
+    const old=document.getElementById('p7-sheet'); if(old) old.remove();
+    const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
+    let on = mindPieces(), order = on.concat(MIND_PIECES.map(x=>x[0]).filter(k=>on.indexOf(k)<0));
+    const save = ()=>{ setMindPieces(on); onChange&&onChange(); };
+    wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true" aria-labelledby="mp-h">
+      <div class="p7-sheet-title" id="mp-h">Pieces</div>
+      <p class="mp-note">Turn on the ones you want. Drag to change the order.</p>
+      <ol class="mp-list" id="mp-list"></ol>
+      <div class="p7-sheet-foot mp-foot"><span class="mp-mins" id="mp-mins" aria-live="polite"></span><button class="p7-sheet-done" type="button">Done</button></div>
+    </div>`;
+    document.body.appendChild(wrap);
+    const list = wrap.querySelector('#mp-list');
+    const paint = (focusKey)=>{
+      order = on.concat(order.filter(k=>on.indexOf(k)<0));
+      list.innerHTML = order.map(k=>{ const i = on.indexOf(k), inn = i>=0, d = MIND_PIECES.find(x=>x[0]===k);
+        return `<li class="mp-row${inn?'':' off'}" data-k="${k}">
+          ${inn?`<button class="mp-grip" type="button" aria-label="Move ${escapeHtml(d[1])}, number ${i+1} of ${on.length}. Use the arrow keys.">${_GRIP}</button>`:'<span class="mp-grip" aria-hidden="true"></span>'}
+          <span class="mp-n" aria-hidden="true">${inn?i+1:''}</span>
+          <span class="mp-main"><span class="mp-l">${escapeHtml(d[1])}</span><span class="mp-sub">${escapeHtml(d[2])}</span></span>
+          <button class="set-sw${inn?' on':''}" type="button" role="switch" aria-checked="${inn}" aria-label="${escapeHtml(d[1])}"><span class="set-sw-knob"></span></button>
+        </li>`; }).join('');
+      wrap.querySelector('#mp-mins').textContent = `~${mindMinutes(sil, on)}min`;
+      list.querySelectorAll('.set-sw').forEach(b=>b.onclick=()=>{ const k=b.closest('.mp-row').dataset.k, i=on.indexOf(k);
+        if(i>=0){ if(on.length===1){ const r=b.closest('.mp-row'); r.classList.remove('mp-no'); void r.offsetWidth; r.classList.add('mp-no'); haptic('start'); return; }
+          on.splice(i,1); order = [k].concat(order.filter(x=>x!==k)); }   // out: first of the ones not in
+        else { on.push(k); }
+        haptic('start'); save(); paint(); const nb = list.querySelector(`[data-k="${k}"] .set-sw`); if(nb) nb.focus({ preventScroll:true }); });
+      list.querySelectorAll('button.mp-grip').forEach(g=>{
+        const li = g.closest('.mp-row'), k = li.dataset.k;
+        // the move and the release are heard on the window while a drag is on, so a finger that leaves the handle keeps dragging
+        const move = e=>{
+          const rows = [...list.querySelectorAll('.mp-row:not(.off)')].filter(r=>r!==li);
+          let before = null; for(const r of rows){ const b=r.getBoundingClientRect(); if(e.clientY < b.top + b.height/2){ before = r; break; } }
+          if(before){ if(li.nextSibling !== before) list.insertBefore(li, before); }
+          else { const lastOn = rows[rows.length-1]; if(lastOn && lastOn.nextSibling !== li) list.insertBefore(li, lastOn.nextSibling); } };
+        const end = ()=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+          li.classList.remove('drag');
+          const now = [...list.querySelectorAll('.mp-row:not(.off)')].map(r=>r.dataset.k);
+          if(now.join() !== on.join()){ on = now; haptic('start'); save(); } paint(k); };
+        g.addEventListener('pointerdown', e=>{ if(e.button > 0) return; e.preventDefault(); li.classList.add('drag');
+          window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end); });
+        g.addEventListener('keydown', e=>{ const i = on.indexOf(k), j = e.key==='ArrowUp' ? i-1 : e.key==='ArrowDown' ? i+1 : -1;
+          if(j<0 || j>=on.length) return; e.preventDefault(); on.splice(i,1); on.splice(j,0,k); save(); paint(k); });
+      });
+      if(focusKey){ const f = list.querySelector(`[data-k="${focusKey}"] button.mp-grip`); if(f) f.focus({ preventScroll:true }); }
+    };
+    paint();
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const close=()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown',onKey); setTimeout(()=>{try{wrap.remove();}catch(e){}},320); };
+    const onKey=(e)=>{ if(e.key==='Escape') close(); };
+    document.addEventListener('keydown',onKey);
+    wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+    wrap.querySelector('.p7-sheet-done').onclick=close;
+  }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
@@ -7768,6 +7852,7 @@ function app(tab){
   // Last regenerated 2026-08-04 (DESC chunks split per question; INVITE removed from imagery).
   const PRACTICE_EST = { micro:{4:2,8:2,12:2}, mindfulness:{4:6,8:7,12:8}, anchoring:{4:8,8:10,12:12}, 'self-regulation':{4:10,8:13,12:15} };
   function estMinutes(key, sil){
+    if(key === 'mindfulness') return mindMinutes(sil);   // 2026-10-15: from the member's own pieces
     const t = PRACTICE_EST[key]; if(!t) return null;
     const s = [4,8,12].reduce((b,x)=>Math.abs(x-(sil||8))<Math.abs(b-(sil||8))?x:b, 8);
     return t[s] || null;
@@ -8801,6 +8886,7 @@ function app(tab){
       if(isSession) return [];
       const sk = pState.skill, R = [];
       if(k!=='mindfulness') R.push(['sense','Anchor', CAP(pState.sense)]);
+      if(k==='mindfulness') R.push(['pieces','Pieces', mindPiecesWords()]);
       if(k==='anchoring') R.push(['safety','Safety practice', CAP(mkSafetyRow(pState.safetySkill)[1])]);
       if(k==='self-regulation'){
         R.push(['skill','Skill', CAP(skillLabel(sk))]);
@@ -8859,6 +8945,8 @@ function app(tab){
         openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)) return gateSubscribe('voice'); if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paint(); });
       } else if(kind==='bed'){
         openBedSheet(tc, ()=>paint());
+      } else if(kind==='pieces'){
+        openMindPiecesSheet(tc, pState.silence, ()=>paint());
       }
     }
     paint();

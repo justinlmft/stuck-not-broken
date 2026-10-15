@@ -4161,3 +4161,28 @@ body.reduce-motion .jr-fmenu{transition:none}
 .lc-emo-on span{color:var(--muted)}
 .lc-emo-row em{font-style:normal;color:var(--muted);font-size:calc(14px * var(--type-scale));padding-top:6px}
 .lc-emo-more{margin-top:12px}
+
+/* ── the Mindfulness Pieces sheet (2026-10-15, Justin's pick A: one list, switch and drag) ── */
+.mp-note{margin:0;padding:0 22px 10px;font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.4}
+.mp-list{list-style:none;margin:0;padding:0 14px}
+.mp-row{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 4px;border:1px solid var(--hairline);border-radius:14px;
+  background:var(--bone);margin:0 0 8px;transition:box-shadow .15s var(--ease),opacity .2s var(--ease)}
+.mp-row.off .mp-main,.mp-row.off .mp-n{opacity:.5}
+.mp-row.drag{box-shadow:0 8px 24px var(--shade);position:relative;z-index:1}
+.mp-grip{flex:none;width:34px;height:40px;display:flex;align-items:center;justify-content:center;border:0;background:none;
+  color:var(--muted);padding:0;cursor:grab;touch-action:none;border-radius:8px}
+button.mp-grip:active{cursor:grabbing}
+button.mp-grip:focus-visible{outline:2px solid var(--tc-ink);outline-offset:1px}
+.mp-n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--tc-ink);color:var(--bone);font-size:calc(12.5px * var(--type-scale));
+  font-weight:600;display:flex;align-items:center;justify-content:center}
+.mp-row.off .mp-n{background:none;border:1.5px solid var(--hairline)}
+.mp-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mp-l{font-size:calc(16px * var(--type-scale));color:var(--ink);line-height:1.25}
+.mp-sub{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.35}
+.mp-row .set-sw.on{background:var(--tc-ink)}
+.mp-row .set-sw.on .set-sw-knob{background:var(--bone)}
+.mp-foot{justify-content:space-between;align-items:center}
+.mp-mins{font-size:calc(15px * var(--type-scale));color:var(--ink-80);font-variant-numeric:tabular-nums}
+.mp-no{animation:mp-no .32s var(--ease)}
+@keyframes mp-no{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.mp-no{animation:none}.mp-row{transition:none}}
