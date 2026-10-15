@@ -79,7 +79,7 @@
   // tab in sessionStorage — it has to survive the check-in and the practice, because the
   // events that matter fire later. Missing/invalid = 'direct'.
   // Stamped on checkins.source and on every events.meta.src for the session.
-  const SRC_ALLOW = ['stuck','app-page','app-page-free','app-page-paid','youtube','podcast','newsletter','circle','cohort','blog','mindful-moment','direct'];   // app-page-free / app-page-paid: the /app page's pricing cards (Web Designer's ask, 2026-09-26)
+  const SRC_ALLOW = ['stuck','app-page','app-page-free','app-page-paid','youtube','podcast','podcast-pre','podcast-mid','podcast-post','newsletter','circle','cohort','blog','mindful-moment','direct'];   // app-page-free / app-page-paid: the /app page's pricing cards (Web Designer's ask, 2026-09-26)   // podcast-pre / -mid / -post: which podcast ad slot a show-notes click came from (Get More Sales, 2026-10-06)
   const SRC_KEY = 'snb_src';
   let _src = 'direct';
   try{
