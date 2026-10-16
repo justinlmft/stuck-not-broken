@@ -2363,6 +2363,12 @@
       ).then(function(){}, function(){});
     }catch(e){}
   }
+  // remove one context set entirely (local + cloud row); the analytics mirror follows via trg_unmirror_context
+  function clearContexts(periodKey){
+    const m=_ctxAll(); if(periodKey in m){ delete m[periodKey]; _ctxWrite(m); }
+    if(!CLOUD || !auth.user) return;
+    try{ sb.from('contexts').delete().eq('user_id', auth.user.id).eq('period_key', periodKey).then(function(){}, function(){}); }catch(e){}
+  }
   async function pullContexts(){
     if(!CLOUD || !auth.user) return;
     try{
@@ -2400,7 +2406,7 @@
     skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
     emotionShift, emotionPatterns,
     prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
-    saveContexts,
+    saveContexts, clearContexts,
     isPaid, hydrated, entitlement, academyStage, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
     trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
     liveFetch, livePoll,

@@ -5479,17 +5479,23 @@ function app(tab){
       // legacy c{t} (pre-v3) is aliased to "more of" for read paths; on save we
       // additionally overwrite legacy c{t} with the "more of" set so the old key
       // stays consistent if any older code path still reads it.
-      const _saveCtx = (t)=>{ try{
+      // only a direction the member tagged is written (ROADMAP-DETAIL 14, 2026-10-15): an untagged check-in used to
+      // write two empty rows every time. On an edit, a direction the member emptied is cleared (row deleted), and
+      // the legacy c{t} alias with it when "more of" is emptied, so an old pre-v3 row can't come back on read.
+      const _saveCtx = (t, isEdit)=>{ try{
         const kMore='c'+t+'+', kLess='c'+t+'-', m=_ctxLoad();
         const arrMore=Array.from(ctxSelMore), arrLess=Array.from(ctxSelLess);
-        m[kMore]=arrMore; m[kLess]=arrLess; m['c'+t]=arrMore;   // legacy alias
+        if(arrMore.length){ m[kMore]=arrMore; m['c'+t]=arrMore; } else { delete m[kMore]; delete m['c'+t]; }   // c{t} = legacy alias
+        if(arrLess.length) m[kLess]=arrLess; else delete m[kLess];
         _ctxSave(m);
         if(window.Store && Store.saveContexts){
-          Store.saveContexts(kMore, "i've had more of", arrMore);
-          Store.saveContexts(kLess, "i've had less of", arrLess);
+          if(arrMore.length) Store.saveContexts(kMore, "i've had more of", arrMore);
+          else if(isEdit && Store.clearContexts){ Store.clearContexts(kMore); Store.clearContexts('c'+t); }
+          if(arrLess.length) Store.saveContexts(kLess, "i've had less of", arrLess);
+          else if(isEdit && Store.clearContexts) Store.clearContexts(kLess);
         }
       }catch(e){} };
-      if(editRec){ Store.updateCheckin(editRec.t, vals); _saveCtx(editRec.t); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('you'); showToast('check-in updated'); return; }
+      if(editRec){ Store.updateCheckin(editRec.t, vals); _saveCtx(editRec.t, true); ciSaveQ(editRec.t, qIdx); haptic('save'); FromJustin.refresh(); app('you'); showToast('check-in updated'); return; }
       const rec = Store.addCheckin(vals);
       _saveCtx(rec.t);
       ciSaveQ(rec.t, qIdx);
