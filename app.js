@@ -3653,6 +3653,16 @@ function app(tab){
     });
     return `<svg class="rd-mkg" viewBox="${x0} ${_LK_Y0} ${(end - x0).toFixed(2)} ${_LK_H}" aria-hidden="true">${paths}</svg>`;
   }
+  // one state's marks placed inside a larger SVG, centred on cx,cy at height h (the week card)
+  function _lkG(key, cx, cy, h){
+    const ax = STATE_AXES[key]; if(!ax) return '';
+    const sv = _lkSvg(ax.map(([icn])=>[icn, STATE_COLOR(key)])), vb = /viewBox="([\d.]+) [\d.]+ ([\d.]+)/.exec(sv), x0 = +vb[1], w = +vb[2];
+    const sc = h / _LK_H, inner = sv.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+    return `<g transform="translate(${(cx - w*sc/2).toFixed(2)} ${(cy - h/2).toFixed(2)}) scale(${sc.toFixed(5)}) translate(${-x0} ${-_LK_Y0})">${inner}</g>`;
+  }
+  function _lkW(key, h){ const ax = STATE_AXES[key]; if(!ax) return 0; const ks = ax.map(([i])=>i);
+    const a = _LK_X[ks[0]][0], b = ks.length > 1 && ks[0] === 'heart' && ks[1] === 'x' ? _LK_X.heart[1] + _LK_GAP + (_LK_X.x[1]-_LK_X.x[0]) : _LK_X[ks[ks.length-1]][1];
+    return (b - a) * h / _LK_H; }
   function _rdMk(key, cls){
     const ax = STATE_AXES[key]; if(!ax) return '';
     const col = STATE_COLOR(key);
@@ -4329,6 +4339,16 @@ function app(tab){
   // Callout ids (learning.js blocks): 'share:<state>', 'eased:<state>', 'time:<state>', 'freeze-and-shutdown',
   // 'safety-share', 'practice-rise', 'mixed-safe', 'comeback'. Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
+  // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
+  function _lrnWhenParts(r, set){
+    const newest = set[set.length-1].t, d = new Date(r.t);
+    const day = newest - r.t < 6*864e5 ? DAYS_LONG[d.getDay()].slice(0,3) : d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+    return [day, d.toLocaleTimeString(undefined, { hour:'numeric' }).replace(/\s?([AP])M$/i, (m, x)=>' ' + x.toLowerCase() + 'm')];
+  }
+  function _lrnWhen(set){ return (r, dayOnly) => { const newest = set[set.length-1].t, d = new Date(r.t), sg = _lrnSegOf(r.t);
+    const day = newest - r.t < 6*864e5 ? DAYS_LONG[d.getDay()] : d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+    return dayOnly ? `on ${day}` : `on ${day} ${sg === 'late' ? 'night' : sg}`; }; }
+  function _lrnNumWord(n){ return ['zero','one','two','three','four','five','six','seven','eight','nine','ten'][n] || String(n); }
   const _lrnSegOf = t => { const h = new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; };
   function _lrnBars2(l1, x1, l2, x2){
     const bar = (lbl, x, c, i) => `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(lbl)}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(x*100)}%;background:${c}"></span></span><span class="help-pct"></span></div>`;
@@ -4517,13 +4537,67 @@ function app(tab){
       return { mk:'safety', label: owner + ' practice', text, card: _bars(['morning','afternoon','evening','late'].map(sg=>[CAP(_LRN_SEG[sg]), (cnt[sg]||0) / mx, cnt[sg] ? 'var(--ink-80)' : 'var(--hairline)'])) };
     }
     if(id === 'recent-path'){
-      // the last few check-ins, in order, as the states they were
+      // the ribbon (Justin, 2026-10-14: "B and D are very cool"): the last five check-ins, oldest to newest, as one band of
+      // color, and under each step whether it was more or less regulated than the one before (more safety compared with
+      // defense = the check-in's margin went up). Plain words only: no ladder, no "higher".
       const last = rs.slice(-5); if(last.length < 3) return null;
       const keys = last.map(r=>r.key), uniq = [...new Set(keys)];
-      const text = uniq.length === 1 ? `Your last ${last.length} check-ins ${ctx.noun} were all ${STATE_NAME(uniq[0])}.`
-        : `Your last ${last.length} check-ins ${ctx.noun} went ${_listAnd(keys.map(k=>STATE_NAME(k)))}.`;
-      const card = `<div class="rd-snap rd-snap-in lc-path" aria-hidden="true">${last.map((r,i)=>`${i ? '<span class="lc-path-arw">→</span>' : ''}<span class="lc-path-i">${_rdMk(r.key)}<i>${DAYS_LONG[new Date(r.t).getDay()].slice(0,3)}</i></span>`).join('')}</div>`;
+      const when = _lrnWhen(last), a = last[0], z = last[last.length-1];
+      const steps = last.slice(1).map((r,i)=>{ const dm = r.m - last[i].m; return Math.abs(dm) < 0.05 ? 0 : (dm > 0 ? 1 : -1); });
+      const ups = steps.filter(x=>x>0).length, downs = steps.filter(x=>x<0).length, net = z.m - a.m;
+      const from = `from ${STATE_NAME(a.key)} ${when(a)} to ${STATE_NAME(z.key)} ${when(z)}`;
+      const dipAt = steps.map((x,i)=>x<0 ? last[i+1] : null).filter(Boolean);
+      const dips = downs === 1 ? `, with one dip ${when(dipAt[0], true)}` : downs > 1 ? `, with ${_lrnNumWord(downs)} dips along the way` : '';
+      let text;
+      if(uniq.length === 1) text = `Your last ${last.length} check-ins ${ctx.noun} were all ${STATE_NAME(uniq[0])}.`;
+      else if(!downs && ups) text = `You regulated more with each check-in, ${from}.`;
+      else if(net >= 0.05) text = `You regulated more across your last ${last.length} check-ins, ${from}${dips}.`;
+      else if(!ups && downs) text = `Each check-in had less safety than the one before, ${from}.`;
+      else if(net <= -0.05) text = `Your last ${last.length} check-ins had less safety as they went, ${from}.`;
+      else text = `Your last ${last.length} check-ins went back and forth, ${from}.`;
+      const n = last.length, cols = `grid-template-columns:repeat(${n},1fr)`;
+      const stops = last.map((r,i)=>`${STATE_COLOR(r.key)} ${Math.round(i/n*100+4)}% ${Math.round((i+1)/n*100-4)}%`).join(', ');
+      const words = ['less safety','about the same','more safety'];   // Justin, 2026-10-14: "more safety" / "less safety" where it's simpler
+      const card = `<div class="rd-snap rd-snap-in lc-rib" aria-hidden="true">
+        <div class="lc-rib-row" style="${cols}">${last.map(r=>`<span>${_rdMk(r.key, 'lc-rib-mk')}</span>`).join('')}</div>
+        <div class="lc-rib-band" style="background:linear-gradient(90deg, ${stops})"></div>
+        <div class="lc-rib-row lc-rib-when" style="${cols}">${last.map(r=>{ const w = _lrnWhenParts(r, last); return `<span><b>${escapeHtml(w[0])}</b>${escapeHtml(w[1])}</span>`; }).join('')}</div>
+        <div class="lc-rib-row lc-rib-dir" style="${cols}"><span></span>${steps.map(x=>`<span class="${x<0?'lc-less':''}"><i>${words[x+1]}</i></span>`).join('')}</div>
+      </div>`;
       return { mk: keys[keys.length-1], label: owner + ' latest check-ins', text, card };
+    }
+    if(id === 'week'){
+      // the week (Justin, 2026-10-14): the last 7 days as a small calendar, days across, part of the day down, every
+      // check-in in its box (any number per day: the latest marks that fit side by side, then a count), empty days left empty
+      const endT = Math.min(ctx.end || Date.now(), Date.now()), e0 = new Date(endT); e0.setHours(0,0,0,0);
+      const start = e0.getTime() - 6*864e5, inWk = rs.filter(r=>r.t >= start && r.t < e0.getTime() + 864e5);
+      if(inWk.length < 3) return null;
+      const SEGS = ['morning','afternoon','evening','late'], dayOf = t => Math.floor((new Date(t).setHours(0,0,0,0) - start) / 864e5);
+      const cnt = {}, mSum = {}, mN = {}; inWk.forEach(r=>{ const sg=_lrnSegOf(r.t); cnt[sg]=(cnt[sg]||0)+1; mSum[sg]=(mSum[sg]||0)+r.m; mN[sg]=(mN[sg]||0)+1; });
+      const top = SEGS.slice().sort((x,y)=>(cnt[y]||0)-(cnt[x]||0)), segW = sg => sg === 'late' ? 'late night' : sg;
+      const most = (cnt[top[0]]||0) > (cnt[top[1]]||0) ? `, most often in the ${segW(top[0])}` : '';
+      const avg = SEGS.filter(sg=>(mN[sg]||0) >= 2).map(sg=>[sg, mSum[sg]/mN[sg]]).sort((x,y)=>y[1]-x[1]);
+      const best = avg.length >= 2 && avg[0][1] - avg[1][1] >= 0.05 ? ` Your ${_LRN_SEG[avg[0][0]]} had the most safety.` : '';
+      const span = ctx.kind === 'week' ? 'that week' : 'in the last 7 days';
+      const text = `You checked in ${_lrnTimes(inWk.length)} ${span}${most}.${best}`;
+      const W=340, Hh=166, Lw=62, cw=(W-Lw)/7, top0=22, rh=35; let g='';
+      for(let i=0;i<7;i++){ const d = new Date(start + i*864e5 + 3600e3); g += `<text class="lc-wk-t" text-anchor="middle" x="${(Lw+cw*i+cw/2).toFixed(1)}" y="12">${DAYS_LONG[d.getDay()].slice(0,3)}</text>`; }
+      SEGS.forEach((sg,j)=>{ g += `<text class="lc-wk-t" x="0" y="${top0+rh*j+rh/2+4}">${sg === 'late' ? 'night' : sg}</text>`; });
+      for(let i=0;i<7;i++) SEGS.forEach((sg,j)=>{
+        const here = inWk.filter(r=>dayOf(r.t)===i && _lrnSegOf(r.t)===sg), x0=Lw+cw*i+2, y0=top0+rh*j+2, w=cw-4, h=rh-4;
+        if(!here.length){ g += `<rect x="${x0.toFixed(1)}" y="${y0}" width="${w.toFixed(1)}" height="${h}" rx="7" class="lc-wk-empty"/>`; return; }
+        g += `<rect x="${x0.toFixed(1)}" y="${y0}" width="${w.toFixed(1)}" height="${h}" rx="7" style="fill:${STATE_COLOR(here[here.length-1].key)};opacity:.32"/>`;
+        // as many of the latest marks as fit at a readable size (never under 11px), the rest as a count
+        const gap = 2, room = w - 6, base = here.length === 1 ? 17 : 14; let show, mh;
+        for(let k = Math.min(here.length, 3); k >= 1; k--){
+          show = here.slice(-k); const w0 = show.reduce((a,r)=>a+_lkW(r.key, base),0);
+          mh = w0 + gap*(k-1) > room ? base * (room - gap*(k-1)) / w0 : base; if(mh >= 11 || k === 1) break; }
+        const ws = show.map(r=>_lkW(r.key, mh)), tot = ws.reduce((a,b)=>a+b,0) + gap*(ws.length-1);
+        let x = x0 + w/2 - tot/2; show.forEach((r,k)=>{ g += _lkG(r.key, x + ws[k]/2, y0 + h/2, mh); x += ws[k] + gap; });
+        if(here.length > show.length) g += `<text class="lc-wk-n" text-anchor="end" x="${(x0+w-3).toFixed(1)}" y="${y0+h-3}">+${here.length-show.length}</text>`;
+      });
+      const card = `<div class="rd-snap rd-snap-in lc-wk"><svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Your check-ins by day and part of the day">${g}</svg><p class="rd-cap">Each box is part of a day, tinted by its latest check-in.${/lc-wk-n/.test(g) ? ' A number like +2 means more check-ins in that box.' : ''}</p></div>`;
+      return { mk: inWk[inWk.length-1].key, label: owner + ' week', text, card };
     }
     return null;
   }
@@ -9317,7 +9391,7 @@ function app(tab){
             ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
             <p class="ch-cap" id="glyph-cap"></p>
             <div class="gs-actions" style="margin-top:14px">
-              <button class="set-quiet" id="export">Export your check-ins</button>
+              <button class="set-quiet" id="export">Export your check-ins and journal</button>
               <button class="set-quiet" id="privacy">How your data is handled</button>
               <button class="set-quiet" id="signout">Sign out</button>
             </div>
@@ -9498,9 +9572,13 @@ function app(tab){
     const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
     // version line: read the ?v= off the live script tag so it never drifts from a deploy
     try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version'); if(ve) ve.textContent='Stuck Not Broken · app v'+(vm?vm[1]:'dev'); }catch(e){}
+    // the member's own data, one file (Justin, 2026-10-15: "agreed to add journal answers"): every check-in, and every journal
+    // answer with the article or reflection it was written under, the question, and the day
     $('#export').onclick = ()=>{
-      const blob = new Blob([JSON.stringify(Store.checkins(),null,2)],{type:'application/json'});
-      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-checkins.json'; a.click();
+      let journal = [];
+      try{ journal = _lrnJournalItems().map(it=>({ from: it.piece ? it.piece.title : it.post.title, question: it.q || (it.piece ? _jrHead(it.piece, it.rid, '') : '') || '', answer: it.text, day: it.day || '' })); }catch(e){}
+      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), checkins: Store.checkins(), journal },null,2)],{type:'application/json'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='my-stuck-not-broken-data.json'; a.click();
     };
     $('#signout').onclick = async ()=>{
       // one accidental tap used to sign you straight out (Justin, 2026-07-05)

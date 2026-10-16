@@ -4135,6 +4135,20 @@ body.reduce-motion .jr-fmenu{transition:none}
 .lc-wd b{font-size:calc(12px * var(--type-scale));font-weight:500;color:var(--muted)}
 .lc-wd.on b{color:var(--ink)}
 .lc-path{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* the ribbon (latest check-ins) and the week (2026-10-14) */
+.lc-rib{gap:0}
+.lc-rib-row{display:grid;justify-items:center;align-items:end;text-align:center}
+.lc-rib-mk{--mk:22px}
+.lc-rib-band{height:14px;border-radius:7px;margin:8px 0}
+.lc-rib-when{font-size:calc(11px * var(--type-scale));line-height:1.3;color:var(--muted)}
+.lc-rib-when b{display:block;color:var(--ink-80);font-weight:500}
+.lc-rib-dir{margin-top:10px;font-size:calc(11px * var(--type-scale));line-height:1.25;color:var(--muted);align-items:start}
+.lc-rib-dir i{display:block;font-style:normal;transform:translateX(-50%);max-width:7ch}
+.lc-rib-dir .lc-less{color:var(--ink-80);font-weight:500}
+.lc-wk svg{display:block;width:100%;height:auto}
+.lc-wk .lc-wk-t{font-size:11px;fill:var(--muted);font-family:inherit}
+.lc-wk .lc-wk-empty{fill:var(--bone-deep);opacity:.7}
+.lc-wk .lc-wk-n{font-size:9px;font-weight:600;fill:var(--ink-80);font-family:inherit}
 .lc-path-i{display:flex;flex-direction:column;align-items:center;gap:3px}
 .lc-path-i i{font-style:normal;font-size:calc(12px * var(--type-scale));color:var(--muted)}
 .lc-path-arw{color:var(--muted)}
