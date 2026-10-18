@@ -188,6 +188,7 @@ window.SNBChallenges = {
 "days":20,
 "kind":"sense",
 "outside":true,
+"after":"sensory",
 "shift":"Then shift focus between it and what else is around you.",
 "desc":"The same 20 prompts, outside of your Passive Safety Environment. About a minute a day. Shift focus between the sense and what else is around you.",
 "builds":"You'll mindfully connect with one of your senses each day, then slowly work your way from your initial impression of it to your felt sense.",
@@ -526,6 +527,7 @@ window.SNBChallenges = {
 "days":20,
 "kind":"micro",
 "longer":true,
+"after":"micro",
 "desc":"The same 20 days, with a second, longer sentence that names a little more each week: a safety emotion, where you feel it in your body, what it feels like, and what it wants to do.",
 "builds":"The sentence starts super easy on Day 1, then gets more complex over the 20 days. This one sentence will help you identify a safety feeling, where it lives in the body, what it feels like, and what it wants to do.",
 "bestAfter":"Best after Micro-Journaling, which starts with the one sentence.",
@@ -881,32 +883,88 @@ window.SNBChallenges = {
 "prompts":[
 {
 "eb":"DAILY MINDFULNESS ALARM · DAY 1",
-"h":"When your alarm goes off, spend no more than two minutes mindfully experiencing the present moment.",
-"qs":"What is happening externally through your senses? What is happening internally?",
+"h":"What's around you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening externally through your senses? (Maybe what you see, hear, smell, taste, or touch?)",
 "topic":"DAY 1"
 },
 {
 "eb":"DAILY MINDFULNESS ALARM · DAY 2",
-"h":"When your alarm goes off, spend no more than two minutes mindfully experiencing the present moment.",
-"qs":"What is happening externally through your senses? What is happening internally? What got in the way of mindfulness?",
+"h":"What's around you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening externally through your senses? (Maybe what you see, hear, smell, taste, or touch?) What got in the way of mindfulness?",
 "topic":"DAY 2"
 },
 {
 "eb":"DAILY MINDFULNESS ALARM · DAY 3",
-"h":"When your alarm goes off, spend no more than two minutes mindfully experiencing the present moment.",
-"qs":"What is happening externally through your senses? What is happening internally? What got in the way of mindfulness?",
+"h":"What's around you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening externally through your senses? (Maybe what you see, hear, smell, taste, or touch?) What got in the way of mindfulness?",
 "topic":"DAY 3"
 },
 {
 "eb":"DAILY MINDFULNESS ALARM · DAY 4",
-"h":"When your alarm goes off, spend no more than two minutes mindfully experiencing the present moment.",
-"qs":"What is happening externally through your senses? What is happening internally? What got in the way of mindfulness? Has your motivation for this challenge changed?",
+"h":"What's around you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening externally through your senses? (Maybe what you see, hear, smell, taste, or touch?) What got in the way of mindfulness? Has your motivation for this challenge changed?",
 "topic":"DAY 4"
 },
 {
 "eb":"DAILY MINDFULNESS ALARM · DAY 5",
-"h":"When your alarm goes off, spend no more than two minutes mindfully experiencing the present moment.",
-"qs":"What is happening externally through your senses? What is happening internally? What got in the way of mindfulness? Has your motivation for this challenge changed?",
+"h":"What's around you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening externally through your senses? (Maybe what you see, hear, smell, taste, or touch?) What got in the way of mindfulness? Has your motivation for this challenge changed?",
+"topic":"DAY 5"
+}
+],
+"keep":{
+"practice":"micro",
+"article":"silence-essential-mindfulness"
+}
+},
+"alarm-in":{
+"name":"Daily Mindfulness Alarm: Inside",
+"days":5,
+"kind":"short",
+"desc":"The same five alarms, turned inward. Each time, notice what is happening inside you.",
+"builds":"Set an alarm to go off at a different time on each of the five days. Set them right now, before anything else clutters your mind. (Different times each day are best, but if you prefer a predictable time, that's fine, too.)",
+"takeaway":"It may seem like a small challenge, and it is, but the repetition and intentionality are huge. It's easy to skip a day or quit altogether, and you didn't. Give yourself a kind word or two, or a whole sentence.",
+"after":"alarm",
+"bestAfter":"Best after Daily Mindfulness Alarm, which starts with your senses.",
+"prompts":[
+{
+"eb":"DAILY MINDFULNESS ALARM · DAY 1",
+"h":"What's inside you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening internally? (Maybe your breath, muscle tension, warmth, or something else?) If you don't notice anything, that's okay, too.",
+"topic":"DAY 1"
+},
+{
+"eb":"DAILY MINDFULNESS ALARM · DAY 2",
+"h":"What's inside you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening internally? (Maybe your breath, muscle tension, warmth, or something else?) If you don't notice anything, that's okay, too. What got in the way of mindfulness?",
+"topic":"DAY 2"
+},
+{
+"eb":"DAILY MINDFULNESS ALARM · DAY 3",
+"h":"What's inside you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening internally? (Maybe your breath, muscle tension, warmth, or something else?) If you don't notice anything, that's okay, too. What got in the way of mindfulness?",
+"topic":"DAY 3"
+},
+{
+"eb":"DAILY MINDFULNESS ALARM · DAY 4",
+"h":"What's inside you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening internally? (Maybe your breath, muscle tension, warmth, or something else?) If you don't notice anything, that's okay, too. What got in the way of mindfulness? Has your motivation for this challenge changed?",
+"topic":"DAY 4"
+},
+{
+"eb":"DAILY MINDFULNESS ALARM · DAY 5",
+"h":"What's inside you",
+"instr":"Spend no more than two minutes mindfully experiencing the present moment.",
+"qs":"What is happening internally? (Maybe your breath, muscle tension, warmth, or something else?) If you don't notice anything, that's okay, too. What got in the way of mindfulness? Has your motivation for this challenge changed?",
 "topic":"DAY 5"
 }
 ],
@@ -924,41 +982,46 @@ window.SNBChallenges = {
 "prompts":[
 {
 "eb":"PASSIVE SAFETY ENVIRONMENT · CHECKING IN",
-"h":"Choose one small space in your home where you want to enhance your sense of safety. Spend a few moments there.",
+"instr":"Choose one small space in your home where you want to enhance your sense of safety. Spend a few moments there.",
 "qs":"When was the last time you really checked in with this space? What gets in the way of using it more often? What helps you remember to use this space mindfully?",
 "closing":"There's nothing to fix right now. Just notice what the space is communicating to you.",
+"h":"Checking in",
 "topic":"CHECKING IN"
 },
 {
 "eb":"PASSIVE SAFETY ENVIRONMENT · TIDYING",
 "intro":"Your Passive Safety Environment is not your entire home. It's one small space within your home, and you can give that space a little attention.",
-"h":"Spend a few minutes in your chosen space and notice whether it needs a little care.",
+"instr":"Spend a few minutes in your chosen space and notice whether it needs a little care.",
 "qs":"Is there anything to tidy up? Is there anything you could declutter? What small change would make the space feel more supportive?",
 "closing":"You don't need to redo the whole room. One small act of order can reduce overwhelm and strengthen passive cues of safety.",
+"h":"Tidying",
 "topic":"TIDYING"
 },
 {
 "eb":"PASSIVE SAFETY ENVIRONMENT · EMOTIONS",
 "intro":"A space can influence how we feel without saying a word.",
-"h":"Settle into your chosen space. Take a breath and extend your exhale.",
+"instr":"Settle into your chosen space. Take a breath and extend your exhale.",
 "qs":"What emotions do you notice in this small exercise? Does the space make it easier to settle, or does something else become noticeable? What changes when you give your emotional experience a little attention?",
 "closing":"There's no right emotion to find. Simply notice what is present.",
+"h":"Emotions",
 "topic":"EMOTIONS"
 },
 {
 "eb":"PASSIVE SAFETY ENVIRONMENT · SENSATIONS",
 "intro":"Notice not only what you feel emotionally, but also how that experience shows up in your body.",
-"h":"Spend a few moments in your chosen space. Take a slow breath and exhale gently.",
+"instr":"Spend a few moments in your chosen space. Take a slow breath and exhale gently.",
 "qs":"What emotions are present now? What does it feel like to have those emotions? What physical sensations come with your emotional experience in this space?",
 "closing":"Move slowly and stay connected to the present moment as you observe.",
+"h":"Sensations",
 "topic":"SENSATIONS"
 },
 {
 "eb":"PASSIVE SAFETY ENVIRONMENT · TIPS",
 "intro":"A small Passive Safety Environment can be a powerful support for your daily practices.",
-"h":"Think about the space you have been exploring and any other environments that help you feel more supported.",
+"instr":"Think about the space you have been exploring and any other environments that help you feel more supported.",
 "qs":"What helps make a Passive Safety Environment effective for you? What details help your space communicate safety? Do you experiment with other environments for safety, and what do you look for internally?",
 "closing":"There's no single formula. Your helpful cues are your own.",
+"h":"Tips",
 "topic":"TIPS"
 }
 ],
@@ -976,37 +1039,41 @@ window.SNBChallenges = {
 "prompts":[
 {
 "eb":"CONNECTION · YOUR ENVIRONMENT",
-"h":"Spend a few moments connecting with the environment around you.",
+"instr":"Spend a few moments connecting with the environment around you.",
 "action":"Use your senses to notice what brings you deeper into connection with the present moment.",
 "qs":"What do you see, hear, feel, smell, or taste? Which part of your environment helped you connect most strongly? What did safety feel like in that moment?",
 "closing":"There's no need to make the moment special. Let your attention rest on what is already here.",
+"h":"Your environment",
 "topic":"YOUR ENVIRONMENT"
 },
 {
 "eb":"CONNECTION · A PET",
 "intro":"Connection can happen with other mammals too. Dogs, cats, and other animals can offer moments of co-regulation through simple, shared attention.",
-"h":"Spend a moment connecting with a pet.",
+"instr":"Spend a moment connecting with a pet.",
 "action":"Notice a natural interaction, such as greeting an animal, sitting together, or sharing a little attention.",
 "qs":"What did you notice about the animal's presence? How did your body respond during the interaction? What did safety or connection feel like in that moment?",
 "closing":"No pet is required. You can repeat the environment practice from your last prompt, or notice an animal during an ordinary interaction.",
+"h":"A pet",
 "topic":"A PET"
 },
 {
 "eb":"CONNECTION · YOUR BREATH",
 "intro":"Connection can also turn inward. Your breath is available in every moment and can help you notice what is happening right now.",
-"h":"Bring your attention to your breath without changing it.",
+"instr":"Bring your attention to your breath without changing it.",
 "action":"Notice what your breath is doing right now.",
 "qs":"Where is your breath moving? Is it shallow, deep, quick, slow, easy, or restricted? What changes, if anything, when you bring your attention to it?",
 "closing":"You don't need to control your breath. Simply notice whether there is more or less safety as you connect with yourself this way.",
+"h":"Your breath",
 "topic":"YOUR BREATH"
 },
 {
 "eb":"CONNECTION · YOUR EMOTIONS",
 "intro":"Connection with yourself can include your emotional experience. You don't need to find a specific emotion or make it go away.",
-"h":"Bring gentle attention to your emotional experience.",
+"instr":"Bring gentle attention to your emotional experience.",
 "action":"Notice the emotion that is most present, or choose an emotion you want to feel and can recall.",
 "qs":"What emotion do you notice? Where does it live in your body? What is it like to feel that emotion in this moment?",
 "closing":"Keep it light and stay grounded in the present. There's no need to push into anything overwhelming.",
+"h":"Your emotions",
 "topic":"YOUR EMOTIONS"
 }
 ],
@@ -1029,37 +1096,41 @@ window.SNBChallenges = {
 "prompts":[
 {
 "eb":"CO-REGULATION · SMILES",
-"h":"At some point, notice a smile. It doesn't matter who is smiling or what the context is.",
+"instr":"At some point, notice a smile. It doesn't matter who is smiling or what the context is.",
 "action":"Pause for a moment and notice what happens inside you when you see it.",
 "qs":"What was happening around the smile? What did you notice in your body? Did the smile bring any sense of safety, connection, or ease?",
 "closing":"There's nothing to force. Simply observe the moment with curiosity.",
+"h":"Smiles",
 "topic":"SMILES"
 },
 {
 "eb":"CO-REGULATION · EYE CRINKLES",
 "intro":"A smile can carry more than movement around the mouth.",
-"h":"At some point, look for eye crinkles in a smile. Notice them in another person, in a photo, or in your own reflection.",
+"instr":"At some point, look for eye crinkles in a smile. Notice them in another person, in a photo, or in your own reflection.",
 "action":"Take a moment to observe the context and your response.",
 "qs":"What did you notice around the person's eyes? What happened in your body when you noticed the eye crinkles? Did the expression communicate warmth, safety, or connection to you?",
 "closing":"You don't need to analyze the smile. Just notice what you experience.",
+"h":"Eye crinkles",
 "topic":"EYE CRINKLES"
 },
 {
 "eb":"CO-REGULATION · UPPER FACE MOVEMENT",
 "intro":"Co-regulation can come through the whole upper half of the face, from the cheeks to the forehead. When someone has access to safety, you might notice a smile with upper cheek movement, a squint while listening, or eyebrows and forehead showing emotion.",
-"h":"At some point, keep an eye out for movement in the upper face.",
+"instr":"At some point, keep an eye out for movement in the upper face.",
 "action":"Notice the face of someone you interact with, or watch your own face in a mirror.",
 "qs":"Do you notice eyebrow movement? Do you see forehead creases, upper cheek movement, or eye crinkles? What happens inside you as you notice these expressions?",
 "closing":"There's no right expression to find. Stay curious about the small signals of connection and safety.",
+"h":"Upper face movement",
 "topic":"UPPER FACE MOVEMENT"
 },
 {
 "eb":"CO-REGULATION · VOCAL PROSODY",
 "intro":"Co-regulation can happen through sound as well as facial expression. Vocal prosody is the changes in tone, rhythm, pitch, and emphasis that help communicate emotion and connection.",
-"h":"At some point, listen closely to someone's voice.",
+"instr":"At some point, listen closely to someone's voice.",
 "action":"Notice how the voice sounds in the context of the conversation.",
 "qs":"What changes do you hear in the tone, rhythm, or pitch? Does the voice communicate warmth, interest, playfulness, or safety? How did listening to the voice affect your own state?",
 "closing":"You don't need to judge the voice. Just notice how sound reaches you.",
+"h":"Vocal prosody",
 "topic":"VOCAL PROSODY"
 }
 ],
@@ -1077,33 +1148,37 @@ window.SNBChallenges = {
 "prompts":[
 {
 "eb":"GIVING · TO OTHERS",
-"h":"Extend your attention outward and give something to another person.",
+"instr":"Extend your attention outward and give something to another person.",
 "action":"Choose one simple act of kindness. Give a moment of listening or attention. Offer gratitude to someone who has earned it. Give an open door, a helping hand, or a little care to someone who needs it.",
 "closing":"Notice how the act affects your state. You might feel more connection, less connection, or something unexpected.",
+"h":"To others",
 "topic":"TO OTHERS"
 },
 {
 "eb":"GIVING · TO YOUR ENVIRONMENT",
 "intro":"Your environment receives your attention too. A small act of care can change the way a space feels and leave it better than you found it.",
-"h":"Choose a home, work, or outdoor space and give it some time, energy, and attention.",
+"instr":"Choose a home, work, or outdoor space and give it some time, energy, and attention.",
 "action":"Offer one kind act to your environment. Clean something up or declutter a small area. Tidy, decorate, or care for a space that supports you. Leave the space better than when you arrived.",
 "closing":"Notice how giving attention to your environment affects your state.",
+"h":"To your environment",
 "topic":"TO YOUR ENVIRONMENT"
 },
 {
 "eb":"GIVING · TO YOURSELF",
 "intro":"Giving to yourself is not selfish. Your needs matter, and meeting them can be a meaningful act of care.",
-"h":"Ask yourself what you truly need right now, then give yourself some of it.",
+"instr":"Ask yourself what you truly need right now, then give yourself some of it.",
 "action":"Choose one mindful act of self-care. Give yourself time to exhale slowly or rest. Give yourself connection with another person. Give yourself something you don't need but would enjoy, such as a small indulgence.",
 "closing":"Whatever you choose, experience the giving to yourself. You might even say something kind to yourself.",
+"h":"To yourself",
 "topic":"TO YOURSELF"
 },
 {
 "eb":"GIVING · TO YOUR FUTURE SELF",
 "intro":"Giving can be an investment in the person you will be tomorrow. A small act now can support your growth later.",
-"h":"Choose one action that supports your future self.",
+"instr":"Choose one action that supports your future self.",
 "action":"Offer yourself something that will make tomorrow a little more supported. Write a note of encouragement. Set a boundary that protects your energy. Plan something that supports your growth or well-being.",
 "closing":"Notice how it feels to care for yourself across time.",
+"h":"To your future self",
 "topic":"TO YOUR FUTURE SELF"
 }
 ],
@@ -1122,28 +1197,31 @@ window.SNBChallenges = {
 {
 "eb":"SMALL STEPS · NAME THE GOAL",
 "intro":"It can be huge, such as making more friends, remodeling a room, or getting a new job. It can also be smaller, such as eating healthier, completing a course, or creating a mindfulness routine.",
-"h":"Choose one goal you have.",
+"instr":"Choose one goal you have.",
 "action":"Write the goal down and give it your full attention for a moment.",
 "qs":"What is the one goal you want to name? Why does this goal matter to you? What do you notice as you put the goal into words?",
 "closing":"You don't need to act on it yet. Naming the goal is this step.",
+"h":"Name the goal",
 "topic":"NAME THE GOAL"
 },
 {
 "eb":"SMALL STEPS · PICTURE IT",
 "intro":"A goal can feel overwhelming when you look at the whole distance between where you are and where you want to be. That feeling is understandable.",
-"h":"Remind yourself what your goal is, then imagine achieving it.",
+"instr":"Remind yourself what your goal is, then imagine achieving it.",
 "action":"Picture that moment in detail.",
 "qs":"What is happening when you reach your goal? Who is with you, and how do you feel? What do you notice in your body as you imagine it?",
 "closing":"You don't need to solve the whole goal now. Let the picture of success give you information and encouragement.",
+"h":"Picture it",
 "topic":"PICTURE IT"
 },
 {
 "eb":"SMALL STEPS · THE SMALLEST STEP",
 "intro":"Progress matters more than perfection. Turn your goal into one small action that is realistic, easy, and possible to finish in a short amount of time.",
-"h":"Remind yourself what your goal is, then find one small step that could support it.",
+"instr":"Remind yourself what your goal is, then find one small step that could support it.",
 "action":"Use this sentence: I can make daily progress on my [goal] by [small daily step].",
 "qs":"What is one action that would help you move toward your goal? Is the step small enough to feel realistic and manageable? What might you adjust to make it even easier to begin?",
 "closing":"You don't have to take the action yet. Finding a small step is progress in itself.",
+"h":"The smallest step",
 "topic":"THE SMALLEST STEP"
 }
 ],
@@ -1161,37 +1239,41 @@ window.SNBChallenges = {
 "prompts":[
 {
 "eb":"SENSES THAT FIND YOU · SOUND",
-"h":"Notice when a sound unexpectedly pulls your focus. It might be a bird's chirp, a car horn, footsteps approaching, or something else.",
+"instr":"Notice when a sound unexpectedly pulls your focus. It might be a bird's chirp, a car horn, footsteps approaching, or something else.",
 "action":"When a sound catches your attention, pause for a moment.",
 "qs":"What do you feel in your body? Does the sound feel neutral, calming, or activating? Do you notice any shift in your state?",
 "closing":"There's no need to seek out a particular sound. Let your everyday environment offer the invitation.",
+"h":"Sound",
 "topic":"SOUND"
 },
 {
 "eb":"SENSES THAT FIND YOU · SIGHT",
 "intro":"A color, a movement, or a facial expression can draw your eyes without any effort.",
-"h":"At some point, notice what visually pulls your attention.",
+"instr":"At some point, notice what visually pulls your attention.",
 "action":"When your eyes lock onto something, pause and notice what it is.",
 "qs":"Is it movement, brightness, a color, or a facial expression? What happens in your body? Do you feel drawn in, repelled, or neutral?",
 "closing":"Let your attention notice what is already in front of you.",
+"h":"Sight",
 "topic":"SIGHT"
 },
 {
 "eb":"SENSES THAT FIND YOU · TOUCH",
 "intro":"Wind against your skin, the warmth of a cup, or the pressure of a handshake can all become invitations to pay attention.",
-"h":"Instead of seeking out a particular texture or temperature, notice when something feels new, pleasant, or uncomfortable.",
+"instr":"Instead of seeking out a particular texture or temperature, notice when something feels new, pleasant, or uncomfortable.",
 "action":"Pay attention to the first unexpected sensation you feel.",
 "qs":"Does it feel comforting, irritating, or neutral? Where do you notice it most, such as your hands, face, or feet? Does it bring relaxation, tension, or neutrality?",
 "closing":"Notice whether the sensation reminds you of safety or alertness.",
+"h":"Touch",
 "topic":"TOUCH"
 },
 {
 "eb":"SENSES THAT FIND YOU · SCENT",
 "intro":"Smells can pull us into memories, emotions, and unnoticed shifts in state.",
-"h":"Notice when an aroma naturally pulls your focus. It might be fresh coffee, cut grass, someone's perfume, or something unexpected.",
+"instr":"Notice when an aroma naturally pulls your focus. It might be fresh coffee, cut grass, someone's perfume, or something unexpected.",
 "action":"When a scent captures your attention, pause and notice.",
 "qs":"Does it remind you of something? Do you feel safe, activated, or neutral? How does your body react?",
 "closing":"Let the scent show you where your attention and body go.",
+"h":"Scent",
 "topic":"SCENT"
 }
 ],
@@ -1217,44 +1299,49 @@ window.SNBChallenges = {
 "prompts":[
 {
 "eb":"MUSIC · IMMOBILITY",
-"h":"Notice how music affects or encourages immobility, whether that's a quiet, restful stillness or something heavier.",
+"instr":"Notice how music affects or encourages immobility, whether that's a quiet, restful stillness or something heavier.",
 "action":"Play a song you naturally turn to in these moments.",
 "qs":"How does it feel in your body? Does it deepen your stillness, or feel heavy and immobilizing? Does it offer a sense of comfort and safety?",
 "closing":"There's nothing to fix. Just observe with curiosity.",
+"h":"Immobility",
 "topic":"IMMOBILITY"
 },
 {
 "eb":"MUSIC · ENERGY",
 "intro":"Music can meet us in an energized, mobilized state, helping us move, act, or engage.",
-"h":"Notice how music affects your energy and movement.",
+"instr":"Notice how music affects your energy and movement.",
 "action":"Play a song that makes you feel energized and alive.",
 "qs":"Does it spark movement, like tapping your foot or nodding your head? Does it make you smile or laugh? Is there a sense of playfulness in the rhythm or lyrics?",
 "closing":"You don't need to force a reaction. Just notice what happens.",
+"h":"Energy",
 "topic":"ENERGY"
 },
 {
 "eb":"MUSIC · SAFETY",
 "intro":"Music can meet us in shutdown and in mobilization. This one is about safety, the state where we feel calm, connected, and playful.",
-"h":"Notice how music supports your sense of safety and connection.",
+"instr":"Notice how music supports your sense of safety and connection.",
 "action":"Play a song that makes you feel grounded and at ease. Or notice one when it comes on.",
 "qs":"Does it bring a sense of calm, connection, or playfulness? Do you use different music when climbing out of a defensive state? Is there a difference between the music that creates safety and the music that guides you toward it?",
 "closing":"No need to analyze too much. Just listen and observe.",
+"h":"Safety",
 "topic":"SAFETY"
 },
 {
 "eb":"MUSIC · LIKES AND DISLIKES",
 "intro":"Safety can feel like a pull toward something we like, while defense can feel like a push away from something overwhelming. Our music preferences can reflect this.",
-"h":"Notice how your music preferences interact with your nervous system.",
+"instr":"Notice how your music preferences interact with your nervous system.",
 "action":"Think about your musical preferences, including what you feel pulled toward and what you feel pushed away from.",
 "qs":"What genres or songs do you feel pulled toward? Do they help you settle into safety? What genres or songs do you avoid or feel pushed away from? Do they activate defense? Have these preferences changed over time as your nervous system has shifted?",
 "closing":"There's no right or wrong. Just notice with curiosity.",
+"h":"Likes and dislikes",
 "topic":"LIKES AND DISLIKES"
 },
 {
 "eb":"MUSIC · CHANGES OVER TIME",
 "intro":"Our music preferences can shift as we grow and access more safety. What once felt comforting might no longer resonate, and new sounds might feel unexpectedly soothing or energizing.",
-"h":"Think about how your relationship with music has changed over time.",
+"instr":"Think about how your relationship with music has changed over time.",
 "qs":"Do you still enjoy the same types of music as you did in the past? What's changed? Have certain songs or genres lost their appeal, while new ones feel more aligned? As you access more safety, do you notice your music tastes shifting?",
+"h":"Changes over time",
 "topic":"CHANGES OVER TIME"
 }
 ],
@@ -1273,28 +1360,31 @@ window.SNBChallenges = {
 {
 "eb":"STATES IN REAL LIFE · SAFETY",
 "intro":"Safety is not just an idea. It's a state you can learn to recognize in yourself and notice in everyday situations.",
-"h":"Think about a recent situation when you had access to your safety state.",
+"instr":"Think about a recent situation when you had access to your safety state.",
 "action":"Reflect on what helped you recognize that state.",
 "qs":"How do you recognize when you're in a state of safety? What happens when you begin to lose access to safety? What is one thing you're actively doing to anchor in safety?",
 "closing":"There's no perfect way to feel safe. Notice the signals that are meaningful to you.",
+"h":"Safety",
 "topic":"SAFETY"
 },
 {
 "eb":"STATES IN REAL LIFE · FIGHT OR FLIGHT",
 "intro":"Our nervous system can shift from safety into a mobilized fight or flight state. Learning to recognize that shift can help you respond with more understanding.",
-"h":"Think about a recent situation when you noticed yourself becoming mobilized.",
+"instr":"Think about a recent situation when you noticed yourself becoming mobilized.",
 "action":"Reflect on what changed in your body, thoughts, emotions, or behavior.",
 "qs":"How do you recognize when you're in a fight or flight state? What signals tell you that you've shifted out of safety? What helps you notice the shift without judging yourself for it?",
 "closing":"The goal is not to prevent every shift. It's to become more familiar with your own patterns.",
+"h":"Fight or flight",
 "topic":"FIGHT OR FLIGHT"
 },
 {
 "eb":"STATES IN REAL LIFE · SHUTDOWN",
 "intro":"The nervous system can shift from mobilization into shutdown or freeze. These states can look different from person to person, so noticing your own pattern matters.",
-"h":"Think about a recent situation when you noticed yourself becoming still, disconnected, or less able to respond.",
+"instr":"Think about a recent situation when you noticed yourself becoming still, disconnected, or less able to respond.",
 "action":"Reflect on what changed in your body, thoughts, emotions, or behavior.",
 "qs":"How do you recognize when you're in shutdown or freeze? What happens when you shift from fight or flight into a more immobilized state? What helps you notice the shift with compassion?",
 "closing":"There's nothing wrong with your nervous system for responding this way. Notice the pattern and what you need.",
+"h":"Shutdown",
 "topic":"SHUTDOWN"
 }
 ],
@@ -1309,6 +1399,7 @@ window.SNBChallenges = {
 "pse",
 "connection",
 "sensory",
+"alarm-in",
 "sensory-out",
 "coreg",
 "micro",
@@ -1341,7 +1432,9 @@ window.SNBChallenges = {
 "everyDone":"You've finished every challenge. Start any of them again from See all challenges.",
 "remH":"Want a reminder?",
 "remBody":"You'll get one reminder on days when a new challenge step opens up. Just one. And you can always change this reminder in settings.",
-"remFine":"You can change this any time in Settings, under Notifications.",
+"remStarted":"{c} has started.",
+"remGo":"Go to your first prompt",
+"remFail":"Notifications didn't turn on, so there's no reminder for now. You can turn it on any time in Settings, under Notifications.",
 "freeStart":"Start with the paid plan"
 },
 "ANS":{

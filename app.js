@@ -8856,13 +8856,14 @@ function app(tab){
       if(!fin('pse') || !fin('sensory')) return false;
       try{ const bw = Store.baselineWeek(); return !!bw && !bw.lowData && bw.safety >= 0.45 && bw.defense <= 0.60; }catch(e){ return false; }
     }
+    if(id === 'alarm-in') return fin('alarm');
     if(id === 'micro-long'){
       if(!fin('micro')) return false;
       try{ const sp = Store.safetyProgress(); return !!(sp && sp.seq && sp.seq.length && sp.seq.every(k=>sp.cleared[k])); }catch(e){ return false; }
     }
     return true;
   }
-  const _CH_HELD_GATE = { sensory:1, 'sensory-out':1, micro:1, 'micro-long':1, digital:1, senses:1, music:1, steps:1, states:1 };
+  const _CH_HELD_GATE = { 'alarm-in':1, sensory:1, 'sensory-out':1, micro:1, 'micro-long':1, digital:1, senses:1, music:1, steps:1, states:1 };
   function _chHeld(id){
     let gateClosed = false; try{ const last = Store.lastCheckin(); gateClosed = !!last && !Store.momentGate(last).open; }catch(e){}
     if(gateClosed && _CH_HELD_GATE[id]) return true;
@@ -8876,7 +8877,7 @@ function app(tab){
   }
   // the first challenge in the order that isn't finished (the one in progress counts); `skip` leaves one out
   function _chFirstUnfinished(skip){ return _chAll().find(s=>s.id !== skip && !s.finished) || null; }
-  function _chEb(s, p){ return s.c.ebPrefix ? s.c.ebPrefix + ' · ' + p.topic : p.eb; }
+  function _chEb(s, n){ return (s.c.name + ' · Day ' + n + ' of ' + s.c.days).toUpperCase(); }   // Justin, 2026-10-18: show where they are
   function _chBar(s){ const n = s.c.days; let h = ''; for(let i = 0; i < n; i++) h += `<span${i < s.done ? ' class="on"' : ''}></span>`; return `<span class="ch-bar" style="--n:${n}" aria-hidden="true">${h}</span>`; }
   function _chNextLine(s){ const p = s.c.prompts[Math.min(s.done, s.c.days - 1)], T = _CH().T; return (s.ready ? T.ready : T.later).replace('{t}', _chTopic(p.topic)); }
   const _chDaysWord = c => c.days + ' days';
@@ -8928,8 +8929,7 @@ function app(tab){
       if(paid && a && s.id === a.id) bits.push('In progress');
       else if(paid && s.started) bits.push('Paused');
       else if(s.id === rec) bits.push(T.badge);
-      else if(s.id === 'sensory-out' && !(by.sensory && by.sensory.runs)) bits.push('Best after Sensory Mindfulness');
-      else if(s.id === 'micro-long' && !(by.micro && by.micro.runs)) bits.push('Best after Micro-Journaling');
+      else if(s.c.after && by[s.c.after] && !by[s.c.after].runs) bits.push('Best after ' + by[s.c.after].c.name);
       return lock + escapeHtml(bits.join(' · '));
     };
     const open = all.filter(s=>!s.finished), fin = all.filter(s=>s.finished);
@@ -8961,7 +8961,7 @@ function app(tab){
     if(c.where) lines.push(`<p class="ch-sh-p">${escapeHtml(c.where)}</p>`);
     if(c.ways) lines.push(`<p class="ch-sh-p">${escapeHtml(c.waysIntro)}</p><ul class="ch-ways">${c.ways.map(w=>`<li><b>${escapeHtml(w.k)}</b> · ${escapeHtml(w.line)}</li>`).join('')}</ul>`);
     if(c.needPse && !(by.pse && by.pse.runs)) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.needPse)}</p>`);
-    if(c.bestAfter && !((id === 'sensory-out' ? by.sensory : by.micro) || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
+    if(c.bestAfter && c.after && !(by[c.after] || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
     const len = `${paid ? '' : LOCK_SVG + 'Paid plan · '}${c.days} days · one prompt a day`;
     let foot = '';
     if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(T.freeStart)}</button>`;
@@ -8993,7 +8993,7 @@ function app(tab){
       if(isCur) return close(()=>screenChPrompt(id));
       _chStart(id);
       let asked = false; try{ asked = !!((_ctxLoad()['chr:asked'] || [])[0]); }catch(e){}
-      if(!asked) return _chAskReminder(wrap, ()=>close(()=>screenChPrompt(id)));
+      if(!asked) return _chAskReminder(wrap, c.name, ()=>close(()=>screenChPrompt(id)));
       close(()=>screenChPrompt(id));
     };
   }
@@ -9006,31 +9006,41 @@ function app(tab){
   }
 
   // ---- the reminder: asked once, right after the first Start (Justin, 2026-10-17) ----
-  function _chAskReminder(wrap, then){
+  function _chAskReminder(wrap, name, then){
     const T = _CH().T;
     _chPut('chr:asked', 'challenge reminder asked', ['1']);
     const st = pushState();
     const card = wrap.querySelector('.ch-sheet-card');
     const head = card.querySelector('#ch-sh-h'); if(head) head.textContent = T.remH;
+    const hd = card.querySelector('.ch-sh-head');
+    if(hd) hd.insertAdjacentHTML('beforebegin', `<p class="ch-started"><span class="ch-check">${_CH_CHECK}</span>${escapeHtml(T.remStarted.replace('{c}', name))}</p>`);
+    // the close X and a tap outside also go on to the first prompt: the challenge has started either way
+    let gone = false; const go = ()=>{ if(gone) return; gone = true; then(); };
+    const x = card.querySelector('#ch-sh-x'); if(x) x.onclick = go;
+    wrap.addEventListener('click', e=>{ if(e.target === wrap){ e.stopImmediatePropagation(); go(); } }, true);
     const body = card.querySelector('.ch-sh-body'), foot = card.querySelector('#ch-sh-foot');
     const cant = (st === 'install' || st === 'blocked' || st === 'unsupported');
     const hint = st === 'install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
       : st === 'blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
       : 'This browser cannot show notifications from the app.';
+    const goBtn = `<button class="ch-pill" type="button" id="ch-rem-go">${escapeHtml(T.remGo)}</button>`;
     body.innerHTML = `<p class="ch-sh-p">${escapeHtml(T.remBody)}</p>` + (cant ? `<p class="ch-sh-note">${hint}</p>`
-      : `<label class="ch-time"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`);
-    foot.innerHTML = cant ? `<button class="ch-pill-o" type="button" id="ch-rem-no">Continue</button>`
-      : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button><p class="ch-sh-fine">${escapeHtml(T.remFine)}</p>`;
-    const no = foot.querySelector('#ch-rem-no'); if(no) no.onclick = ()=>then();
+      : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`);
+    foot.innerHTML = cant ? goBtn
+      : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`;
+    const wire = ()=>{ const g = foot.querySelector('#ch-rem-go'); if(g) g.onclick = go; const no = foot.querySelector('#ch-rem-no'); if(no) no.onclick = go; };
+    wire();
     const yes = foot.querySelector('#ch-rem-yes');
     if(yes) yes.onclick = async ()=>{
       yes.disabled = true;
       const tm = (card.querySelector('#ch-rem-t') || {}).value || '09:00';
       let ok = pushState() === 'on';
       if(!ok){ const r = await pushRequest('challenge'); ok = r === 'on'; }
-      if(ok){ await _chRemindSet(tm); return then(); }
-      yes.disabled = false;
-      const n = foot.querySelector('.ch-sh-fine'); if(n) n.textContent = 'Notifications were not turned on. You can try again any time in Settings, under Notifications.';
+      if(ok){ await _chRemindSet(tm); return go(); }
+      // notifications didn't turn on: say so plainly, and the only way on is the first prompt
+      const row = card.querySelector('#ch-rem-row'); if(row) row.remove();
+      foot.innerHTML = `<p class="ch-sh-note">${escapeHtml(T.remFail)}</p>` + goBtn;
+      wire();
     };
   }
   // the server sends one reminder at the member's time on the day a new prompt opens (push_prefs.challenge_open);
@@ -9062,16 +9072,16 @@ function app(tab){
     if(c.kind === 'sense'){ box = [p.instr + (c.outside && !gateClosed ? ' ' + c.shift : ''), p.q]; ans = p.ans; }
     else if(c.kind === 'digital'){ box = null; ans = p.ans; }
     else if(c.kind === 'micro'){ box = [p.instr]; ans = 'micro'; stem = String(p.stem || '').replace(/\.\.\.$/, ' ').replace(/\s+$/, ' '); stem2 = c.longer ? p.long : ''; }
-    else { box = [p.action, p.qs].filter(Boolean); }
+    else { box = [p.instr, p.action, p.qs].filter(Boolean); }
     const two = ans === 'like' || ans === 'smile';
     const opt = (ans === 'tell' || ans === 'sens') ? S.ANS[ans][0] : '';
-    const boxHTML = b => b && b.length ? `<div class="ch-box">${b.map((x, i)=>`<p${i === b.length - 1 && b.length > 1 && (c.kind === 'sense' || c.kind === 'digital') ? ' class="ch-q"' : ''}>${escapeHtml(x)}</p>`).join('')}</div>` : '';
+    const boxHTML = b => b && b.length ? `<div class="ch-box">${b.map((x, i)=>`<p${i === b.length - 1 && b.length > 1 ? ' class="ch-q"' : ''}>${escapeHtml(x)}</p>`).join('')}</div>` : '';
     const ansHTML = two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
       : ans === 'micro' ? `<textarea class="ch-ta" id="ch-ta" aria-label="Finish the sentence" rows="3" autocapitalize="sentences" spellcheck="true">${escapeHtml(stem)}</textarea>${stem2 ? `<textarea class="ch-ta" id="ch-ta2" rows="3" autocapitalize="sentences" spellcheck="true" aria-label="The longer sentence">${escapeHtml(stem2)}</textarea>` : ''}`
       : `<label class="ch-jl" for="ch-ta">${escapeHtml(T.jLabel)}</label><textarea class="ch-ta" id="ch-ta" rows="3" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(T.jPh)}"></textarea>${opt ? `<button class="ch-opt ch-opt-one" type="button" data-a="${escapeHtml(opt)}" aria-pressed="false">${escapeHtml(opt)}</button>` : ''}`;
     const ways = c.kind === 'digital' ? `<p class="ch-wayq">${escapeHtml(c.wayQ)}</p><div class="ch-ans" role="group" aria-label="${escapeHtml(c.wayQ)}">${c.ways.map(w=>`<button class="ch-opt ch-way" type="button" data-w="${escapeHtml(w.k)}" aria-pressed="false">${escapeHtml(w.k)}</button>`).join('')}</div><div id="ch-dbox"></div>` : '';
     _rdShell(`<div class="ch-view ch-prompt">
-        <span class="ch-lbl">${escapeHtml(_chEb(s, p))}</span>
+        <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
         <h1 class="rd-title ch-ph">${escapeHtml(heading)}</h1>
         ${intro ? `<p class="ch-intro">${escapeHtml(intro)}</p>` : ''}
         ${ways}${boxHTML(box)}
@@ -9132,7 +9142,7 @@ function app(tab){
     const pr = k.practice ? _chPracticeName(k.practice) : null;
     const art = k.article && window.Learning ? window.Learning.byId(k.article) : null;
     _rdShell(`<div class="ch-view">
-        <span class="ch-lbl">${escapeHtml(_chEb(s, p))}</span>
+        <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
         <div class="ch-saved"><span class="ch-check ch-check-lg">${_CH_CHECK}</span><h1 class="rd-title ch-ph">${escapeHtml(T.saved)}</h1></div>
         <p class="ch-intro">${escapeHtml(T.tomorrow)}</p>
         ${pr || art ? `<span class="ch-lbl ch-lbl-gap">${escapeHtml(T.keep)}</span>` : ''}
