@@ -8993,7 +8993,7 @@ function app(tab){
       if(isCur) return close(()=>screenChPrompt(id));
       _chStart(id);
       let asked = false; try{ asked = !!((_ctxLoad()['chr:asked'] || [])[0]); }catch(e){}
-      if(!asked) return _chAskReminder(wrap, c.name, ()=>close(()=>screenChPrompt(id)));
+      if(!asked) return close(()=>screenChReminder(id));   // the reminder is the challenge's first step, on its own screen (Justin, 2026-10-18)
       close(()=>screenChPrompt(id));
     };
   }
@@ -9006,41 +9006,38 @@ function app(tab){
   }
 
   // ---- the reminder: asked once, right after the first Start (Justin, 2026-10-17) ----
-  function _chAskReminder(wrap, name, then){
-    const T = _CH().T;
+  // ---- the reminder: the first step inside the challenge, asked once ever (Justin, 2026-10-17/18: "shouldn't the user be taken
+  // immediately to the beginning of the challenge after they select it? maybe the timer thing is the first pre-step") ----
+  function screenChReminder(id){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return screenChallenges();
     _chPut('chr:asked', 'challenge reminder asked', ['1']);
     const st = pushState();
-    const card = wrap.querySelector('.ch-sheet-card');
-    const head = card.querySelector('#ch-sh-h'); if(head) head.textContent = T.remH;
-    const hd = card.querySelector('.ch-sh-head');
-    if(hd) hd.insertAdjacentHTML('beforebegin', `<p class="ch-started"><span class="ch-check">${_CH_CHECK}</span>${escapeHtml(T.remStarted.replace('{c}', name))}</p>`);
-    // the close X and a tap outside also go on to the first prompt: the challenge has started either way
-    let gone = false; const go = ()=>{ if(gone) return; gone = true; then(); };
-    const x = card.querySelector('#ch-sh-x'); if(x) x.onclick = go;
-    wrap.addEventListener('click', e=>{ if(e.target === wrap){ e.stopImmediatePropagation(); go(); } }, true);
-    const body = card.querySelector('.ch-sh-body'), foot = card.querySelector('#ch-sh-foot');
     const cant = (st === 'install' || st === 'blocked' || st === 'unsupported');
     const hint = st === 'install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
       : st === 'blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
       : 'This browser cannot show notifications from the app.';
     const goBtn = `<button class="ch-pill" type="button" id="ch-rem-go">${escapeHtml(T.remGo)}</button>`;
-    body.innerHTML = `<p class="ch-sh-p">${escapeHtml(T.remBody)}</p>` + (cant ? `<p class="ch-sh-note">${hint}</p>`
-      : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`);
-    foot.innerHTML = cant ? goBtn
-      : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`;
-    const wire = ()=>{ const g = foot.querySelector('#ch-rem-go'); if(g) g.onclick = go; const no = foot.querySelector('#ch-rem-no'); if(no) no.onclick = go; };
+    _rdShell(`<div class="ch-view">
+        <span class="ch-lbl">${escapeHtml((s.c.name + ' · ' + T.remEb).toUpperCase())}</span>
+        <h1 class="rd-title ch-ph">${escapeHtml(T.remH)}</h1>
+        <p class="ch-intro">${escapeHtml(T.remBody)}</p>
+        ${cant ? `<p class="ch-sh-note">${hint}</p>` : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`}
+        <div class="ch-rem-foot" id="ch-rem-foot">${cant ? goBtn : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`}</div>
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    const go = ()=>screenChPrompt(id);
+    const foot = $('#ch-rem-foot');
+    const wire = ()=>{ const g = $('#ch-rem-go'); if(g) g.onclick = go; const no = $('#ch-rem-no'); if(no) no.onclick = go; };
     wire();
-    const yes = foot.querySelector('#ch-rem-yes');
+    const yes = $('#ch-rem-yes');
     if(yes) yes.onclick = async ()=>{
       yes.disabled = true;
-      const tm = (card.querySelector('#ch-rem-t') || {}).value || '09:00';
+      const tm = ($('#ch-rem-t') || {}).value || '09:00';
       let ok = pushState() === 'on';
       if(!ok){ const r = await pushRequest('challenge'); ok = r === 'on'; }
       if(ok){ await _chRemindSet(tm); return go(); }
       // notifications didn't turn on: say so plainly, and the only way on is the first prompt
-      const row = card.querySelector('#ch-rem-row'); if(row) row.remove();
-      foot.innerHTML = `<p class="ch-sh-note">${escapeHtml(T.remFail)}</p>` + goBtn;
-      wire();
+      const row = $('#ch-rem-row'); if(row) row.remove();
+      if(foot){ foot.innerHTML = `<p class="ch-sh-note">${escapeHtml(T.remFail)}</p>` + goBtn; wire(); }
     };
   }
   // the server sends one reminder at the member's time on the day a new prompt opens (push_prefs.challenge_open);

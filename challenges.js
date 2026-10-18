@@ -1432,7 +1432,7 @@ window.SNBChallenges = {
 "everyDone":"You've finished every challenge. Start any of them again from See all challenges.",
 "remH":"Want a reminder?",
 "remBody":"You'll get one reminder on days when a new challenge step opens up. Just one. And you can always change this reminder in settings.",
-"remStarted":"{c} has started.",
+"remEb":"Getting started",
 "remGo":"Go to your first prompt",
 "remFail":"Notifications didn't turn on, so there's no reminder for now. You can turn it on any time in Settings, under Notifications.",
 "freeStart":"Start with the paid plan"

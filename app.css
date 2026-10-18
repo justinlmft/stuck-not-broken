@@ -4293,3 +4293,4 @@ button.mp-grip:focus-visible{outline:2px solid var(--tc-ink);outline-offset:1px}
 .mh-chal .mh-bt-go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ch-started{display:flex;align-items:center;gap:8px;margin:2px 22px 0;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink)}
 .ch-started .ch-check svg{width:20px;height:20px}
+.ch-rem-foot{display:flex;flex-direction:column;gap:12px;margin-top:4px}
