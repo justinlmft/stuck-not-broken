@@ -516,17 +516,17 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      page.css               f3d4534ee2274e7bf5be1d25f7a14dda    37790 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                36cb3a4f98019c111127bbe344041564    83416 bytes
-     plan.js                2e8a56643940678ad0d70fd9c567f09b    84718 bytes
-     runtime.js             6e2947041334398c4cdfd005d8a4e188    53311 bytes
-     host.js                a7430d9355fb4c0209ba78d271b85f42    40428 bytes
+     data.js                1d3688f95356b539e140dd6345f58f65   115621 bytes
+     plan.js                1c74cd93fb194f29b9def29980a7b6fc    89313 bytes
+     runtime.js             e6e2a44f9c338088290b7db97932838a    53941 bytes
+     host.js                6291aaa2c719962fc031191af5da8ce6    41257 bytes
      browser-device.js      0e38e7e713e772b8706ea17adc1ee56a    11495 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
      session.js             7278badb890e3a47940d2bbf70f34c41    84731 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                e0952fc4c807c1dfcc991f10b97d9e4e    15665 bytes
-     page.js                b8829bcac9a206feb96d9853cf31f768    70298 bytes
+     page.js                71ac54c5f585e05149961877084d7f2b    70785 bytes
 -->
 </head>
 <body>
@@ -2473,7 +2473,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:f6cf82b4c28e766d9da3ceeaa5430f24 */
+<script>/* @module plan.js md5:1c74cd93fb194f29b9def29980a7b6fc */
 (function(){
 /* practice-engine — the planner.
  *
@@ -2840,9 +2840,12 @@ const SKILLS = {
    * rename merged the swing and its check into one clip, so translating it literally made the
    * practice say the same thing twice in a row. The swing to defense is what belongs between
    * them — this is the Balancing skill, after all. */
+  /* ✅ ONE RETURN, NOT A SWING (Justin, 2026-10-19): "Balancing is supposed to be safety to
+   * defense to safety, and that's it… this one went back to defense and back to safety again.
+   * That is now a pendulating practice. Balancing does not go that far." The defense half is
+   * already in view when this runs (the base + depth found it), so safety → defense → safety
+   * is complete with ONE PEND-SAFETY. The PEND-DEFENSE that sat here made it a second trip. */
   balancing: (add, cfg) => {
-    add(D.ROLE.pendSafety, 'balancing');
-    add(D.ROLE.pendDefense, 'balancing');
     add(D.ROLE.pendSafety, 'balancing');
   },
 
