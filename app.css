@@ -4294,3 +4294,11 @@ button.mp-grip:focus-visible{outline:2px solid var(--tc-ink);outline-offset:1px}
 .ch-started{display:flex;align-items:center;gap:8px;margin:2px 22px 0;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink)}
 .ch-started .ch-check svg{width:20px;height:20px}
 .ch-rem-foot{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.ch-jr{margin:4px 0 2px}
+.ch-jr-ok{display:inline-flex;vertical-align:-3px;margin-right:4px;color:var(--ink)}
+.ch-jr-ok svg{width:16px;height:16px}
+.ch-jr .ch-opt-one{margin-top:2px}
+/* the bottom menu steps aside for writing (Justin, 2026-10-19: the Journal sheet's Save sat partly behind it, and it rode on top of
+   the phone keyboard: "this menu is not needed during typing"). Phones only; the left rail on bigger screens stays. */
+@media (max-width:719px){ body.jr-sheet-on #screen > .tabbar, body.kb-on #screen > .tabbar{display:none} }
+body.kb-on:not(.ll-sf-typing) .fl-dock{visibility:hidden}

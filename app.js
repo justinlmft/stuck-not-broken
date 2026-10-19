@@ -9073,9 +9073,18 @@ function app(tab){
     const two = ans === 'like' || ans === 'smile';
     const opt = (ans === 'tell' || ans === 'sens') ? S.ANS[ans][0] : '';
     const boxHTML = b => b && b.length ? `<div class="ch-box">${b.map((x, i)=>`<p${i === b.length - 1 && b.length > 1 ? ' class="ch-q"' : ''}>${escapeHtml(x)}</p>`).join('')}</div>` : '';
+    // the journal is the app's standard one (Justin, 2026-10-19: "the mindfulness practice [should] have more visual space and then
+    // there's a 'Journal' button with the icon just like in the articles. this should be the standard journal UI and UX"): a Journal
+    // button under the practice; the writing happens in the sheet that slides up, as in the articles
+    const jq = c.kind === 'sense' || c.kind === 'digital' ? p.q : c.kind === 'micro' ? p.instr : T.jLabel;
+    const field = ans === 'micro'
+      ? `<textarea class="rd-refl-in" id="ch-ta" aria-label="Finish the sentence" rows="3" autocapitalize="sentences" spellcheck="true">${escapeHtml(stem)}</textarea>${stem2 ? `<textarea class="rd-refl-in" id="ch-ta2" rows="3" autocapitalize="sentences" spellcheck="true" aria-label="The longer sentence">${escapeHtml(stem2)}</textarea>` : ''}`
+      : `<textarea class="rd-refl-in" id="ch-ta" rows="3" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(T.jPh)}"></textarea>${opt ? `<button class="ch-opt ch-opt-one" type="button" data-a="${escapeHtml(opt)}" aria-pressed="false">${escapeHtml(opt)}</button>` : ''}`;
     const ansHTML = two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
-      : ans === 'micro' ? `<textarea class="ch-ta" id="ch-ta" aria-label="Finish the sentence" rows="3" autocapitalize="sentences" spellcheck="true">${escapeHtml(stem)}</textarea>${stem2 ? `<textarea class="ch-ta" id="ch-ta2" rows="3" autocapitalize="sentences" spellcheck="true" aria-label="The longer sentence">${escapeHtml(stem2)}</textarea>` : ''}`
-      : `<label class="ch-jl" for="ch-ta">${escapeHtml(T.jLabel)}</label><textarea class="ch-ta" id="ch-ta" rows="3" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(T.jPh)}"></textarea>${opt ? `<button class="ch-opt ch-opt-one" type="button" data-a="${escapeHtml(opt)}" aria-pressed="false">${escapeHtml(opt)}</button>` : ''}`;
+      : `<div class="rd-jr rd-jr-c ch-jr" id="ch-jr"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub" id="ch-jr-sub">${escapeHtml(T.jLabel)}</p>
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div>
+            <div class="rd-jr-track"><div class="rd-jr-step" data-step="0"><div class="rd-refl-one"><label class="read-p rd-refl-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<button class="rd-refl-save" type="button" id="ch-save" disabled>Save</button></div></div></div>
+            <p class="rd-refl-where">What you write is kept in Your Journal, in the You tab.</p></div></div></div>`;
     const ways = c.kind === 'digital' ? `<p class="ch-wayq">${escapeHtml(c.wayQ)}</p><div class="ch-ans" role="group" aria-label="${escapeHtml(c.wayQ)}">${c.ways.map(w=>`<button class="ch-opt ch-way" type="button" data-w="${escapeHtml(w.k)}" aria-pressed="false">${escapeHtml(w.k)}</button>`).join('')}</div><div id="ch-dbox"></div>` : '';
     _rdShell(`<div class="ch-view ch-prompt">
         <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
@@ -9089,6 +9098,14 @@ function app(tab){
       </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
     let pick = '', way = '';
     const done = $('#ch-done'), ta = $('#ch-ta'), ta2 = $('#ch-ta2');
+    const _q = c.kind === 'sense' || c.kind === 'digital' ? p.q : c.kind === 'micro' ? (p.stem || heading) : heading;
+    const _text = ()=>{
+      let text = two ? pick : (ta ? ta.value.trim() : '');
+      if(!two && pick) text = text ? pick + ' ' + text : pick;
+      if(ta2 && ta2.value.trim() && ta2.value.trim() !== stem2.trim()) text += '\n' + ta2.value.trim();
+      if(way) text = way + ': ' + text;
+      return text;
+    };
     const valid = ()=>{
       if(c.kind === 'digital' && !way) return false;
       if(two) return !!pick;
@@ -9110,15 +9127,25 @@ function app(tab){
       const ab = $('#ch-ansbox'); if(ab) ab.hidden = false;
       paint();
     });
-    if(ta) ta.oninput = paint; if(ta2) ta2.oninput = paint;
+    const jr = $('#ch-jr'); if(jr) _jrWire(jr);
+    const save = $('#ch-save'), sub = $('#ch-jr-sub');
+    const paintSave = ()=>{ if(save){ save.disabled = !valid(); save.textContent = 'Save'; } if(sub && !valid()) sub.textContent = T.jLabel; };
+    const _paint0 = paint; const paintAll = ()=>{ _paint0(); paintSave(); };
+    if(ta) ta.oninput = paintAll; if(ta2) ta2.oninput = paintAll;
+    root.querySelectorAll('.ch-opt-one').forEach(b=>b.addEventListener('click', ()=>paintSave()));
+    // Save keeps the note in the journal now and closes the sheet; Done on the page finishes the day
+    if(save) save.onclick = ()=>{
+      if(!valid()) return;
+      _chPut('chj:' + id + ':' + s.runs + ':' + n, jq, [_text(), _chYmd(), _q, p.topic]);
+      save.textContent = 'Saved';
+      if(sub) sub.innerHTML = `<span class="ch-jr-ok">${_CH_CHECK}</span>Saved`;
+      haptic('tap');
+      const d = jr && jr.querySelector('.rd-jr-done'); if(d) setTimeout(()=>d.click(), 250);
+    };
     if(ta && ans === 'micro'){ ta.addEventListener('focus', ()=>{ try{ const L = ta.value.length; ta.setSelectionRange(L, L); }catch(e){} }); }
     if(done) done.onclick = ()=>{
       if(!valid()) return;
-      let text = two ? pick : (ta ? ta.value.trim() : '');
-      if(!two && pick) text = text ? pick + ' ' + text : pick;
-      if(ta2 && ta2.value.trim() && ta2.value.trim() !== stem2.trim()) text += '\n' + ta2.value.trim();
-      if(way) text = way + ': ' + text;
-      const q = c.kind === 'sense' || c.kind === 'digital' ? p.q : c.kind === 'micro' ? (p.stem || heading) : heading;
+      const text = _text(), q = _q;
       const today = _chYmd();
       _chPut('chj:' + id + ':' + s.runs + ':' + n, q, [text, today, q, p.topic]);
       _chPut('chd:' + id + ':' + n, 'challenge day done', [today]);
@@ -10233,7 +10260,11 @@ function routeSafe(){
   if(document.getElementById('ci-reading') && Store.user && Store.user()) return;
   route();
 }
-try{ pushConsumeOpen(); }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally
+try{ pushConsumeOpen(); }catch(e){}
+// while a text field has the focus on a phone, the bottom menu steps aside (Justin, 2026-10-19: "this menu is not needed during typing")
+try{ if(window.matchMedia && matchMedia('(pointer:coarse)').matches){ const _kbTxt = el => !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && /^(text|search|email|password|url|tel|number)$/.test(el.type || 'text')) || el.isContentEditable);
+  document.addEventListener('focusin', e=>{ if(_kbTxt(e.target)) document.body.classList.add('kb-on'); });
+  document.addEventListener('focusout', ()=>{ setTimeout(()=>{ if(!_kbTxt(document.activeElement)) document.body.classList.remove('kb-on'); }, 80); }); } }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally
 Store.init(routeSafe);
 addEventListener('load',()=>{ setTimeout(()=>{ try{ pushSyncExisting(); }catch(e){} }, 3000); });
 })();
