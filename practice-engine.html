@@ -2449,7 +2449,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:62d9ed28c417170719c57a05aad9bc51 */
+<script>/* @module plan.js md5:ddd208551b83bf4baade87c3fa53916e */
 (function(){
 /* practice-engine — the planner.
  *
@@ -2816,9 +2816,12 @@ const SKILLS = {
    * rename merged the swing and its check into one clip, so translating it literally made the
    * practice say the same thing twice in a row. The swing to defense is what belongs between
    * them — this is the Balancing skill, after all. */
+  /* ✅ ONE RETURN, NOT A SWING (Justin, 2026-10-19): "Balancing is supposed to be safety to
+   * defense to safety, and that's it… this one went back to defense and back to safety again.
+   * That is now a pendulating practice. Balancing does not go that far." The defense half is
+   * already in view when this runs (the base + depth found it), so safety → defense → safety
+   * is complete with ONE PEND-SAFETY. The PEND-DEFENSE that sat here made it a second trip. */
   balancing: (add, cfg) => {
-    add(D.ROLE.pendSafety, 'balancing');
-    add(D.ROLE.pendDefense, 'balancing');
     add(D.ROLE.pendSafety, 'balancing');
   },
 
