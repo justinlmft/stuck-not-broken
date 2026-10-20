@@ -2548,10 +2548,8 @@ const WN_ICONS = {
 function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
 const WN_UPDATES = [
   { id:'2026-10-challenges', when:'October 2026', items:[
-    { i:'flag',  t:'Challenges', b:'Small daily activities to practice mindfulness and connect with your inner world. One prompt a day. A missed day waits for you. On the paid plan.' },
-    { i:'pen',   t:'One journal', b:'Tap the Journal button in an article, a practice or a challenge. Everything you write is kept together in Your Journal.' },
-    { i:'bell',  t:'A reminder, if you want one', b:'Pick a time for one reminder on days a new challenge prompt opens. It stays off unless you turn it on.' },
-    { i:'wave',  t:'Balancing, refined', b:'Balancing practices now go from safety to defense and back to safety once, the way the skill is taught.' } ] },
+    /* Justin, 2026-10-19: "only list the challenges with the challenge icon". Ships to prod with the challenges. */
+    { i:'flag',  t:'Challenges', b:'Small daily activities to practice mindfulness and connect with your inner world. One prompt a day. A missed day waits for you. On the paid plan.' } ] },
   { id:'2026-10-06', when:'October 6, 2026', items:[
     { i:'path',  t:'The Unstucking Pathway', b:'The skills in order, checked off as you practice them.' },
     { i:'book',  t:'The Learn library', b:'Articles to read when you want to understand more.' },
@@ -2617,17 +2615,25 @@ function screenUpdates(from){
     : '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + '</p><div class="wnh-list">'
       + u.items.map(it => '<div class="wnh-item">' + wnIcon(it.i,'wnh-ic') + '<div><h3 class="wnh-t">' + escapeHtml(it.t) + '</h3><p class="wnh-b">' + escapeHtml(it.b) + '</p></div></div>').join('')
       + '</div></section>').join('');
-  setHTML(`
-    <header class="appbar"><button class="backbtn" id="wnh-back" type="button">${from==='settings' ? 'Settings' : 'Back'}</button></header>
-    <div class="scroll"><div class="view settings-view">
+  // Back floats at the bottom left, as on every other screen (Justin, 2026-10-19: "cut the back button at the top left. we use
+  // the dynamic back button at the bottom left")
+  clearFigures(); document.body.classList.remove('in-practice','rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
+  root.innerHTML = `
+    <header class="appbar read-appbar"></header>
+    <div class="scroll" id="content"><div class="view settings-view">
       <div class="scr-head">
         <p class="eyebrow"></p>
         <h2 class="scr-h">Past Updates</h2>
         <p class="scr-lede">Everything new in the app, newest first.</p>
       </div>
       <div class="wnh">${cards}</div>
-    </div></div>`);
-  const back=$('#wnh-back'); if(back) back.onclick=()=>{ if(from==='settings') screenSettings(); else app(currentTab||'now'); };
+    </div></div>
+    <div class="fl-dock" id="fl-dock"><button class="tab-back-float" id="wnh-back" type="button">${BACK_SVG}<span>Back</span></button></div>
+    <nav class="tabbar" id="tabs">
+      ${TABS()}
+    </nav>`;
+  $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+  const back=$('#wnh-back'); if(back) back.onclick=()=>{ document.body.classList.remove('rd-sub'); if(from==='settings') screenSettings(); else app(currentTab||'now'); };
   const rd=$('#wnh-read'); if(rd) rd.onclick=()=>openWhatsNewSheet(WN_UPDATES[0], { fromHistory:true });
   try{ window.scrollTo(0,0); }catch(e){}
 }
