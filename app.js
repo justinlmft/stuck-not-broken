@@ -2547,7 +2547,7 @@ const WN_ICONS = {
 };
 function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
 const WN_UPDATES = [
-  { id:'2026-10-challenges', when:'October 2026', items:[
+  { id:'2026-10-challenges', when:'October 2026', cta:{ label:'Take a challenge', go:'challenges' }, items:[
     /* Justin, 2026-10-19: "only list the challenges with the challenge icon". Ships to prod with the challenges. */
     { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are on the $12/mo paid plan only.)' } ] },   // Justin's copy, 2026-10-19
   { id:'2026-10-06', when:'October 6, 2026', items:[
@@ -2568,6 +2568,8 @@ const WN_UPDATES = [
     { i:'phone', t:'Practices keep playing', b:'A practice no longer stops when your screen locks.' } ] }
 ];
 const _wnSeenKey = u => 'snb_wn_seen_' + u.id;
+// where an update's own button goes (WN_UPDATES[].cta.go)
+const WN_GO = { challenges: () => screenChallenges() };
 function wnMarkLatestSeen(){ try{ localStorage.setItem(_wnSeenKey(WN_UPDATES[0]), '1'); }catch(e){} }
 function _wnItemsHTML(u){ return u.items.map(it => '<div class="wns-item">' + wnIcon(it.i) + '<div><h3 class="wns-t">' + escapeHtml(it.t) + '</h3><p class="wns-b">' + escapeHtml(it.b) + '</p></div></div>').join(''); }
 // the sheet itself; opts.fromHistory: opened from Past Updates, so no link back to it and Continue returns there
@@ -2581,7 +2583,13 @@ function openWhatsNewSheet(u, opts){
     + '<h2 class="wns-h" id="wns-h">What’s New</h2>'
     + '<div class="wns-list">' + _wnItemsHTML(u) + '</div></div>'
     + '<div class="wns-foot">' + (opts.fromHistory ? '' : '<button class="wns-past" id="wns-past" type="button">See past updates<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>')
-    + '<button class="btn block wns-ok" id="wns-ok" type="button">Continue</button></div></div>';
+    /* an update can carry its own door (Justin, 2026-10-19: "make the continue button into a 'Take a Challenge' button that
+       takes the user to the challenges screen. And a 'Not right now' button"); without one, a plain Continue */
+    + (u.cta && WN_GO[u.cta.go]
+        ? '<button class="btn block wns-go" id="wns-go" type="button">' + escapeHtml(u.cta.label) + '</button>'
+          + '<button class="btn quiet block wns-later" id="wns-ok" type="button">Not right now</button>'
+        : '<button class="btn block wns-ok" id="wns-ok" type="button">Continue</button>')
+    + '</div></div>';
   document.body.appendChild(d);
   requestAnimationFrame(()=>d.classList.add('on'));
   const close=()=>{ document.removeEventListener('keydown', onKey, true); d.remove(); };
@@ -2589,6 +2597,7 @@ function openWhatsNewSheet(u, opts){
   document.addEventListener('keydown', onKey, true);
   d.addEventListener('click', e=>{ if(e.target===d) close(); });
   const ok=d.querySelector('#wns-ok'); if(ok) ok.onclick=close;
+  const go=d.querySelector('#wns-go'); if(go) go.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_cta',{ v:u.id, go:u.cta.go }); }catch(e){} WN_GO[u.cta.go](); };
   try{ d.querySelector('.wns-card').focus({preventScroll:true}); }catch(e){}   // focus moves into the sheet, without a ring on Continue
   const past=d.querySelector('#wns-past'); if(past) past.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_past_opened',{ from:'sheet' }); }catch(e){} screenUpdates('sheet'); };
   return true;
