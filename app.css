@@ -4161,3 +4161,185 @@ body.reduce-motion .jr-fmenu{transition:none}
 .lc-emo-on span{color:var(--muted)}
 .lc-emo-row em{font-style:normal;color:var(--muted);font-size:calc(14px * var(--type-scale));padding-top:6px}
 .lc-emo-more{margin-top:12px}
+
+/* ── the Mindfulness Pieces sheet (2026-10-15, Justin's pick A: one list, switch and drag) ── */
+.mp-note{margin:0;padding:0 22px 10px;font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.4}
+.mp-list{list-style:none;margin:0;padding:0 14px}
+.mp-row{display:flex;align-items:center;gap:10px;padding:12px 12px 12px 4px;border:1px solid var(--hairline);border-radius:14px;
+  background:var(--bone);margin:0 0 8px;transition:box-shadow .15s var(--ease),opacity .2s var(--ease)}
+.mp-row.off .mp-main,.mp-row.off .mp-n{opacity:.5}
+.mp-row.drag{box-shadow:0 8px 24px var(--shade);position:relative;z-index:1}
+.mp-grip{flex:none;width:34px;height:40px;display:flex;align-items:center;justify-content:center;border:0;background:none;
+  color:var(--muted);padding:0;cursor:grab;touch-action:none;border-radius:8px}
+button.mp-grip:active{cursor:grabbing}
+button.mp-grip:focus-visible{outline:2px solid var(--tc-ink);outline-offset:1px}
+.mp-n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--tc-ink);color:var(--bone);font-size:calc(12.5px * var(--type-scale));
+  font-weight:600;display:flex;align-items:center;justify-content:center}
+.mp-row.off .mp-n{background:none;border:1.5px solid var(--hairline)}
+.mp-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.mp-l{font-size:calc(16px * var(--type-scale));color:var(--ink);line-height:1.25}
+.mp-sub{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.35}
+.mp-row .set-sw.on{background:var(--tc-ink)}
+.mp-row .set-sw.on .set-sw-knob{background:var(--bone)}
+.mp-foot{justify-content:space-between;align-items:center}
+.mp-mins{font-size:calc(15px * var(--type-scale));color:var(--ink-80);font-variant-numeric:tabular-nums}
+.mp-no{animation:mp-no .32s var(--ease)}
+@keyframes mp-no{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.mp-no{animation:none}.mp-row{transition:none}}
+
+/* ── Challenges (ROADMAP-DETAIL 10, the "Optional challenges" mockup, Justin 2026-10-16/17/18) ─────────────────
+   Buttons black or outlined, never yellow. Gold only on the Recommended card (the best-time styling Justin asked for).
+   Done = a plain check on the quiet grey card; open = white with the hairline. Progress fills ink, never a state color. */
+.ch-view{display:flex;flex-direction:column;gap:16px;padding-bottom:96px}
+.ch-h1{margin:8px 0 0}
+.ch-ph{margin:-4px 0 0;font-size:calc(24px * var(--type-scale))}
+.ch-intro{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.45;color:var(--ink-80)}
+.ch-fine{margin:0;font-size:calc(13px * var(--type-scale));line-height:1.4;color:var(--muted)}
+.ch-lbl{font-size:calc(12px * var(--type-scale));font-weight:500;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+.ch-lbl-gap{margin-top:10px}
+.ch-list{display:flex;flex-direction:column;gap:8px}
+.ch-bar{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:3px}
+.ch-bar span{height:6px;border-radius:3px;background:var(--bone-deep)}
+.ch-bar span.on{background:var(--ink)}
+.ch-cur{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:16px;background:var(--field);border:1.5px solid var(--hairline);text-align:left;font:inherit;color:var(--ink);cursor:pointer}
+.ch-cur-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.ch-cur-top b{font-size:calc(17px * var(--type-scale));font-weight:500}
+.ch-cur-top span{font-size:calc(13px * var(--type-scale));color:var(--muted);font-weight:500;white-space:nowrap;flex:none}
+.ch-cur-sub{font-size:calc(14px * var(--type-scale));color:var(--ink-80)}
+.ch-row{display:flex;align-items:center;gap:12px;min-height:58px;padding:8px 14px 8px 16px;border-radius:14px;background:var(--bone-deep);border:1px solid transparent;text-align:left;font:inherit;color:var(--ink);cursor:pointer;width:100%}
+.ch-row-open{background:var(--field);border-color:var(--hairline)}
+.ch-row-t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ch-row-t b{font-size:calc(16px * var(--type-scale));font-weight:500}
+.ch-row-t > span{font-size:calc(13px * var(--type-scale));color:var(--muted);display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+.ch-chev{flex:none;display:inline-flex;color:var(--muted)}
+.ch-chev svg,.ch-go svg,.ch-rec-go svg,.ch-pill-o svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ch-check{flex:none;display:inline-flex;color:var(--ink)}
+.ch-check svg{width:22px;height:22px}
+.ch-check-lg svg{width:28px;height:28px}
+.ch-rec{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:72px;padding:10px 10px 10px 16px;border-radius:14px;
+  background:color-mix(in srgb,var(--s-safety) 24%,var(--bone));border:1.5px solid var(--s-safety-tx);box-shadow:0 0 0 3px color-mix(in srgb,var(--s-safety) 35%,transparent);
+  margin-bottom:4px;text-align:left;font:inherit;color:var(--ink);cursor:pointer;width:100%}
+.ch-rec-t{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ch-rec-t b{font-size:calc(16px * var(--type-scale));font-weight:500}
+.ch-rec-t > span:last-child{font-size:calc(13px * var(--type-scale));color:var(--ink-80);display:inline-flex;align-items:center;gap:4px}
+.ch-rec-eb{display:flex;align-items:center;gap:5px;font-size:calc(11.5px * var(--type-scale));font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--s-safety-tx)}
+.ch-rec-eb svg{width:14px;height:14px}
+.ch-rec-go{flex:none;width:38px;height:38px;border-radius:50%;background:var(--s-safety);color:#3E2F08;display:inline-flex;align-items:center;justify-content:center}
+.ch-go{flex:none;width:36px;height:36px;border-radius:50%;background:var(--ink);color:var(--bone);display:inline-flex;align-items:center;justify-content:center}
+.ch-pill,.ch-pill-o{min-height:50px;border-radius:25px;font:500 calc(16px * var(--type-scale)) inherit;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;cursor:pointer;padding:0 20px}
+.ch-pill{background:var(--ink);color:var(--bone);border:0}
+.ch-pill[disabled]{opacity:.4;cursor:default}
+.ch-pill-o{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.ch-link{background:none;border:0;padding:0;min-height:44px;text-align:left;font:inherit;font-size:calc(15px * var(--type-scale));color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.ch-link-c{text-align:center}
+/* the sheet */
+.ch-sheet-card{display:flex;flex-direction:column;max-height:min(720px,90vh);max-height:min(720px,90dvh);overflow:hidden;padding-top:6px}
+.ch-sh-head{display:flex;align-items:center;gap:12px;padding:4px 10px 6px 22px;flex:none}
+.ch-sh-h{font-size:calc(21px * var(--type-scale));font-weight:500;color:var(--ink);margin:0;flex:1;letter-spacing:-.01em}
+.ch-sh-body{padding:4px 22px 6px;overflow:auto;display:flex;flex-direction:column;gap:12px}
+.ch-sh-p{margin:0;font-size:calc(16px * var(--type-scale));line-height:1.5;color:var(--ink-80)}
+.ch-sh-fine{margin:0;font-size:calc(13px * var(--type-scale));line-height:1.45;color:var(--muted)}
+.ch-sh-len{margin:0;font-size:calc(14px * var(--type-scale));color:var(--muted);display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.ch-ways{margin:0;padding:0 0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:calc(15px * var(--type-scale));line-height:1.45;color:var(--ink-80)}
+.ch-ways b{font-weight:500;color:var(--ink)}
+.ch-sh-foot{flex:none;padding:12px 22px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+.ch-sh-note{margin:0;font-size:calc(14px * var(--type-scale));line-height:1.45;color:var(--ink-80);background:var(--bone-deep);border-radius:12px;padding:12px 14px}
+.ch-recfirst{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:64px;padding:8px 10px 8px 16px;border-radius:14px;background:var(--field);border:1.5px solid var(--ink);text-align:left;font:inherit;color:var(--ink);cursor:pointer;width:100%}
+.ch-recfirst > span:first-child{display:flex;flex-direction:column;gap:3px;min-width:0}
+.ch-recfirst b{font-size:calc(16px * var(--type-scale));font-weight:500}
+.ch-time{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:52px;padding:0 16px;border-radius:14px;background:var(--field);border:1px solid var(--hairline);font-size:calc(16px * var(--type-scale));color:var(--ink)}
+.ch-time input{font:inherit;font-weight:500;background:transparent;border:0;color:var(--ink);min-height:44px;text-align:right}
+/* the prompt */
+.ch-box{background:var(--bone-deep);border-radius:16px;padding:16px;font-size:calc(15px * var(--type-scale));line-height:1.5;display:flex;flex-direction:column;gap:14px;color:var(--ink)}
+.ch-box p{margin:0}
+.ch-box p.ch-q{font-weight:500}
+.ch-wayq{margin:0;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink)}
+.ch-ans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ch-opt{min-height:56px;border-radius:14px;border:1.5px solid var(--hairline);background:var(--bone);color:var(--ink);font:500 calc(15px * var(--type-scale)) inherit;font-family:inherit;padding:6px 8px;cursor:pointer;line-height:1.2}
+.ch-opt.on{border-color:var(--ink);background:var(--field)}
+.ch-opt-one{width:100%;min-height:48px;margin-top:10px}
+.ch-jl{display:block;font-size:calc(14px * var(--type-scale));font-weight:500;color:var(--ink);margin:0 0 8px}
+.ch-ta{width:100%;box-sizing:border-box;min-height:96px;border-radius:14px;border:1px solid var(--hairline);background:var(--field);color:var(--ink);font:inherit;font-size:calc(16px * var(--type-scale));line-height:1.45;padding:12px 14px;resize:vertical}
+.ch-ta + .ch-ta{margin-top:10px}
+.ch-ta:focus-visible,.ch-opt:focus-visible,.ch-pill:focus-visible,.ch-pill-o:focus-visible,.ch-row:focus-visible,.ch-rec:focus-visible,.ch-cur:focus-visible,.ch-keep:focus-visible,.ch-entry:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+/* after Done and finished */
+.ch-saved{display:flex;align-items:center;gap:10px}
+.ch-saved .ch-ph{margin:0}
+.ch-keep{display:flex;align-items:center;gap:12px;min-height:68px;padding:10px 10px 10px 16px;border-radius:14px;background:var(--field);border:1px solid var(--hairline);text-align:left;font:inherit;color:var(--ink);cursor:pointer;width:100%}
+.ch-keep-strong{border:1.5px solid var(--ink)}
+.ch-keep-t{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ch-keep-t > span{font-size:calc(13px * var(--type-scale));color:var(--muted)}
+.ch-keep-t > span:first-child{font-size:calc(12px * var(--type-scale))}
+.ch-keep-t b{font-size:calc(16px * var(--type-scale));font-weight:500}
+.ch-note{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-radius:14px;background:var(--field);border:1px solid var(--hairline)}
+.ch-note p{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.45;color:var(--ink)}
+.ch-take{display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:14px;border:1px solid var(--hairline)}
+.ch-take p{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--ink)}
+/* the Practice tab's card */
+.ch-entry{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:var(--field);border:1px solid var(--hairline);text-align:left;font:inherit;color:var(--ink);cursor:pointer;width:100%;margin-top:12px}
+.ch-entry-head{display:flex;align-items:center;gap:10px}
+.ch-entry-head b{flex:1;font-size:calc(16px * var(--type-scale));font-weight:500}
+.ch-entry-ico{display:inline-flex;color:var(--ink)}
+.ch-entry-ico svg{width:22px;height:22px}
+.ch-entry-body{display:flex;flex-direction:column;gap:8px}
+.ch-entry-name{font-size:calc(14px * var(--type-scale));font-weight:500}
+.ch-entry-sub{font-size:calc(14px * var(--type-scale));color:var(--ink-80);line-height:1.4;display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap}
+/* Now: the third slot when a challenge prompt is waiting (black outline, ink go circle; not the best-time gold) */
+.mh-secondrow.revealed .mh-third.mh-chal{border-color:var(--ink);border-width:1.5px;background:var(--field);padding-left:16px;padding-right:10px;justify-content:space-between;gap:10px;text-align:left}
+.mh-chal .mh-bt-txt{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mh-chal .mh-bt-eb{font-size:calc(11.5px * var(--type-scale));font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.mh-chal .mh-bt-what{font-size:calc(13px * var(--type-scale));color:var(--ink);font-weight:500;line-height:1.25}
+.mh-chal .mh-bt-go{flex:none;width:38px;height:38px;border-radius:50%;background:var(--ink);color:var(--bone);display:inline-flex;align-items:center;justify-content:center}
+.mh-chal .mh-bt-go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ch-started{display:flex;align-items:center;gap:8px;margin:2px 22px 0;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink)}
+.ch-started .ch-check svg{width:20px;height:20px}
+.ch-rem-foot{display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.ch-jr{margin:4px 0 2px}
+.ch-jr-ok{display:inline-flex;vertical-align:-3px;margin-right:4px;color:var(--ink)}
+.ch-jr-ok svg{width:16px;height:16px}
+.ch-jr .ch-opt-one{margin-top:2px}
+/* the bottom menu steps aside for writing (Justin, 2026-10-19: the Journal sheet's Save sat partly behind it, and it rode on top of
+   the phone keyboard: "this menu is not needed during typing"). Phones only; the left rail on bigger screens stays. */
+@media (max-width:719px){ body.jr-sheet-on #screen > .tabbar, body.kb-on #screen > .tabbar{display:none} }
+body.kb-on:not(.ll-sf-typing) .fl-dock{visibility:hidden}
+
+/* What's New as a slide-up sheet, plus the Past Updates log (Justin, 2026-10-19: "the slide-up is a better option"; mockup
+   "What's New sheet"). Ink line icons (state colors never decorate), one black button, the scrim and the sheet's slide
+   are the Journal sheet's. Reduce Motion lands on the end-state. */
+.wns{position:fixed;inset:0;z-index:130;display:flex;align-items:flex-end;justify-content:center;
+  background:var(--scrim-off);transition:background .28s var(--ease)}
+.wns.on{background:var(--scrim)}
+.wns-card{width:100%;max-width:520px;max-height:92vh;max-height:92dvh;overflow:hidden;box-sizing:border-box;background:var(--bone);
+  border-top-left-radius:20px;border-top-right-radius:20px;padding:10px 0 0;
+  display:flex;flex-direction:column;transform:translateY(100%);transition:transform .32s var(--ease)}
+/* the list scrolls; See past updates and Continue stay in view at the bottom, as in Apple's sheets */
+.wns-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 28px;-webkit-overflow-scrolling:touch}
+.wns-foot{flex:0 0 auto;display:flex;flex-direction:column;padding:12px 28px max(20px,env(safe-area-inset-bottom));background:var(--bone)}
+.wns.on .wns-card{transform:none}
+.wns-card:focus{outline:none}
+.wns-grab{width:36px;height:5px;border-radius:3px;background:var(--hairline);align-self:center;margin:0 0 24px;flex:0 0 auto}
+.wns-eyebrow{margin:0 0 8px;font-size:calc(12px * var(--type-scale));font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.wns-h{margin:0 0 28px;font-size:calc(30px * var(--type-scale));line-height:1.12;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.wns-list{display:flex;flex-direction:column;gap:24px;margin:0 0 8px}
+.wns-item{display:flex;gap:18px;align-items:flex-start}
+.wns-ic{flex:0 0 auto;width:30px;height:30px;color:var(--ink);margin-top:1px}
+.wns-t{margin:0 0 4px;font-size:calc(17px * var(--type-scale));line-height:1.4;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.wns-b{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--muted)}
+.wns-past{align-self:center;display:inline-flex;align-items:center;gap:4px;min-height:44px;margin:0 0 8px;padding:0 8px;background:none;border:0;
+  font:inherit;font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.wns-ok{flex:0 0 auto}
+body.reduce-motion .wns,body.reduce-motion .wns-card{transition:none}
+@media (prefers-reduced-motion:reduce){ .wns,.wns-card{transition:none} }
+.wnh{display:flex;flex-direction:column;gap:16px;margin-top:8px}
+.wnh-card{background:var(--bone-deep);border-radius:18px;padding:24px}
+.wnh-when{margin:0 0 16px;font-size:calc(12px * var(--type-scale));font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
+.wnh-list{display:flex;flex-direction:column;gap:18px}
+.wnh-item{display:flex;gap:14px;align-items:flex-start}
+.wnh-ic{flex:0 0 auto;width:24px;height:24px;color:var(--ink);margin-top:1px}
+.wnh-t{margin:0;font-size:calc(16px * var(--type-scale));line-height:1.4;font-weight:600;color:var(--ink)}
+.wnh-b{margin:2px 0 0;font-size:calc(15px * var(--type-scale));line-height:1.45;color:var(--muted)}
+.wnh-names{display:flex;flex-direction:column;gap:14px}
+.wnh-name{display:flex;gap:14px;align-items:center;font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink)}
+.wnh-name .wnh-ic{margin-top:0}
+.wnh-read{display:inline-flex;align-items:center;min-height:44px;margin-top:8px;padding:0;background:none;border:0;font:inherit;
+  font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}

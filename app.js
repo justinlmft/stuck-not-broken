@@ -832,6 +832,7 @@
     if(h==='practice' || _doorPractice){ _doorPractice=false; return app('practice'); }
     if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
     if(h==='reader'){ return app('reflect'); }   // a new-reflection notification (2026-09-30)
+    if(h==='challenge'){ app('practice'); return _chOpenFromLink(); }   // the challenge reminder (2026-10-18)
     // the saved reader place, once per boot; a post that has not loaded yet is tried again on the next route
     if(_rdPending === undefined) _rdPending = _rdTakeLoc();   // read once, before anything overwrites it
     const _back = !!(_rdPending && _rdRestore(_rdPending));
@@ -1651,6 +1652,7 @@
     impacts:  'Practice impacts',   // 2026-09-30 (Justin: "i want free users to see what they are missing out on") 🖊
     ideal:    'Your ideal practice',
     maker:    'Make my own',
+    challenges: 'Challenges',
   };
   let _subFrom = null;
   function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
@@ -2124,6 +2126,7 @@
     setOriented(how==='skip' ? 'skipped-v2' : 'v2');
     // the walkthrough IS the update for this member: Monday's card and the two September cards never follow it
     try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
+    try{ wnMarkLatestSeen(); }catch(e){}   // and the What's New sheet (2026-10-19): a member who just had the tour does not also get the newest update
     obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'', v:2, from:_ob.from });
     obUnlift();
     if(d && d.parentNode) d.parentNode.removeChild(d);
@@ -2519,8 +2522,124 @@ function whatsNewAcademy(){
   const f=d.querySelector('#wn-fresh'); if(f) f.onclick=()=>close('fresh');
   try{ if(Store.trackEvent) Store.trackEvent('academy_card_seen',{ stage:s }); }catch(e){}
 }
+/* ✅ WHAT'S NEW, AS A SLIDE-UP SHEET (Justin, 2026-10-19: "i like the icons and the readability and the screen real estate.
+ * i think we are doing a pop-up currently. the slide-up is a better option. and there is also an option to see prior
+ * updates. we should probably have a history log." Mockup "What's New sheet", approved the same day: "yep nailed it").
+ * One list, WN_UPDATES, newest first: the newest entry is the sheet a returning member sees once; every entry is the
+ * Past Updates log (from the sheet's "See past updates" and from Settings). The app speaks here, not Justin. Icons are
+ * ink line icons: state colors never decorate. A new update = a new entry at the TOP of the list, with a new id; it
+ * goes out with the features it names (an entry naming beta-only features stays off prod). */
+const WN_ICONS = {
+  flag:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+  pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  wave:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  path:'<path d="M4 19c4 0 4-6 8-6s4-6 8-6"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="7" r="1.5"/>',
+  book:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5"/>',
+  play:'<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4Z"/>',
+  chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/>',
+  music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  bulb:'<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>',
+  chart:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 15v-3"/><path d="M12 15V9"/><path d="M16 15v-5"/>',
+  lines:'<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h6"/>',
+  phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>'
+};
+function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
+const WN_UPDATES = [
+  { id:'2026-10-challenges', when:'October 2026', items:[
+    /* Justin, 2026-10-19: "only list the challenges with the challenge icon". Ships to prod with the challenges. */
+    { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are on the $12/mo paid plan only.)' } ] },   // Justin's copy, 2026-10-19
+  { id:'2026-10-06', when:'October 6, 2026', items:[
+    { i:'path',  t:'The Unstucking Pathway', b:'The skills in order, checked off as you practice them.' },
+    { i:'book',  t:'The Learn library', b:'Articles to read when you want to understand more.' },
+    { i:'pen',   t:'Your Journal', b:'One place for everything you write in the app.' },
+    { i:'play',  t:'A new Practice tab', b:'Every practice in one place, plus a short walkthrough in Settings.' } ] },
+  { id:'2026-09-28', when:'September 28, 2026', items:[
+    { i:'chat',  t:'Practices that respond', b:'Answer questions in the player and change where the practice goes.' },
+    { i:'music', t:'Background audio', b:'Tap Customize in the player to add a background sound.' },
+    { i:'clock', t:'Better recommendations', b:'Based on your check-ins and practices, including your ideal practice time.' },
+    { i:'bulb',  t:'Did you know', b:'A tip now and then to help you get the most out of the app.' } ] },
+  { id:'2026-09-09', when:'September 9, 2026', items:[
+    { i:'bell',  t:'Notifications', b:'Choose exactly what you hear about and when. You’re in control.' },
+    { i:'chart', t:'Data cards on the You tab', b:'New cards about your check-ins and practices, changing each day.' } ] },
+  { id:'2026-08-16', when:'August 16, 2026', items:[
+    { i:'lines', t:'Clearer check-in names', b:'Each check-in names the state, how strong it is, and a second state when there is one.' },
+    { i:'phone', t:'Practices keep playing', b:'A practice no longer stops when your screen locks.' } ] }
+];
+const _wnSeenKey = u => 'snb_wn_seen_' + u.id;
+function wnMarkLatestSeen(){ try{ localStorage.setItem(_wnSeenKey(WN_UPDATES[0]), '1'); }catch(e){} }
+function _wnItemsHTML(u){ return u.items.map(it => '<div class="wns-item">' + wnIcon(it.i) + '<div><h3 class="wns-t">' + escapeHtml(it.t) + '</h3><p class="wns-b">' + escapeHtml(it.b) + '</p></div></div>').join(''); }
+// the sheet itself; opts.fromHistory: opened from Past Updates, so no link back to it and Continue returns there
+function openWhatsNewSheet(u, opts){
+  opts = opts || {};
+  if(document.getElementById('wn-root')) return false;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wns';
+  d.innerHTML = '<div class="wns-card" role="dialog" aria-modal="true" aria-labelledby="wns-h" tabindex="-1">'
+    + '<div class="wns-grab" aria-hidden="true"></div>'
+    + '<div class="wns-body"><p class="wns-eyebrow">' + escapeHtml(u.when) + '</p>'
+    + '<h2 class="wns-h" id="wns-h">What’s New</h2>'
+    + '<div class="wns-list">' + _wnItemsHTML(u) + '</div></div>'
+    + '<div class="wns-foot">' + (opts.fromHistory ? '' : '<button class="wns-past" id="wns-past" type="button">See past updates<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>')
+    + '<button class="btn block wns-ok" id="wns-ok" type="button">Continue</button></div></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ document.removeEventListener('keydown', onKey, true); d.remove(); };
+  function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(); } }
+  document.addEventListener('keydown', onKey, true);
+  d.addEventListener('click', e=>{ if(e.target===d) close(); });
+  const ok=d.querySelector('#wns-ok'); if(ok) ok.onclick=close;
+  try{ d.querySelector('.wns-card').focus({preventScroll:true}); }catch(e){}   // focus moves into the sheet, without a ring on Continue
+  const past=d.querySelector('#wns-past'); if(past) past.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_past_opened',{ from:'sheet' }); }catch(e){} screenUpdates('sheet'); };
+  return true;
+}
+// once per update, to a member who was already using the app; never over onboarding, another card, a tip or a practice
+function whatsNewSheet(){
+  if(_wnShownThisLoad || !_obMember() || !_obHydrated() || !oriented()) return;
+  const u = WN_UPDATES[0];
+  try{ if(localStorage.getItem(_wnSeenKey(u))==='1') return; }catch(e){ return; }
+  try{ if(localStorage.getItem(_WN_ONB_KEY)!=='1') return; }catch(e){ return; }   // Monday's card and the walkthrough go first
+  if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  if(document.body.classList.contains('in-practice') || document.body.classList.contains('jr-sheet-on') || document.getElementById('weaver')) return;
+  if(!openWhatsNewSheet(u)) return;
+  wnMarkLatestSeen();
+  _wnShownThisLoad = true;
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_sheet_seen',{ v:u.id }); }catch(e){}
+}
+// Past Updates: every entry, newest first; the newest as names only, with "Read this update" opening its sheet
+function screenUpdates(from){
+  const cards = WN_UPDATES.map((u,i) => i===0
+    ? '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + ' · Latest</p><div class="wnh-names">'
+      + u.items.map(it => '<div class="wnh-name">' + wnIcon(it.i,'wnh-ic') + '<span>' + escapeHtml(it.t) + '</span></div>').join('')
+      + '</div><button class="wnh-read" id="wnh-read" type="button">Read this update</button></section>'
+    : '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + '</p><div class="wnh-list">'
+      + u.items.map(it => '<div class="wnh-item">' + wnIcon(it.i,'wnh-ic') + '<div><h3 class="wnh-t">' + escapeHtml(it.t) + '</h3><p class="wnh-b">' + escapeHtml(it.b) + '</p></div></div>').join('')
+      + '</div></section>').join('');
+  // Back floats at the bottom left, as on every other screen (Justin, 2026-10-19: "cut the back button at the top left. we use
+  // the dynamic back button at the bottom left")
+  clearFigures(); document.body.classList.remove('in-practice','rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
+  root.innerHTML = `
+    <header class="appbar read-appbar"></header>
+    <div class="scroll" id="content"><div class="view settings-view">
+      <div class="scr-head">
+        <p class="eyebrow"></p>
+        <h2 class="scr-h">Past Updates</h2>
+        <p class="scr-lede">Everything new in the app, newest first.</p>
+      </div>
+      <div class="wnh">${cards}</div>
+    </div></div>
+    <div class="fl-dock" id="fl-dock"><button class="tab-back-float" id="wnh-back" type="button">${BACK_SVG}<span>Back</span></button></div>
+    <nav class="tabbar" id="tabs">
+      ${TABS()}
+    </nav>`;
+  $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+  const back=$('#wnh-back'); if(back) back.onclick=()=>{ document.body.classList.remove('rd-sub'); if(from==='settings') screenSettings(); else app(currentTab||'now'); };
+  const rd=$('#wnh-read'); if(rd) rd.onclick=()=>openWhatsNewSheet(WN_UPDATES[0], { fromHistory:true });
+  try{ window.scrollTo(0,0); }catch(e){}
+}
 // September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} }, ms)); });
+// the What's New sheet comes last: it waits for Monday's card and the Academy card, and never shares a load with either
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
 
 function app(tab){
     currentTab = tab;
@@ -2607,11 +2726,13 @@ function app(tab){
   async function pushPrefsLoad(){
     const u = Store.user(); if(!u || !window.sb) return pushPrefsRead();
     try{ const r = await window.sb.from('push_prefs').select('followup,checkin_times,practice_time,practice_days,practice_best,practice_best_minutes,reflect_week,reflect_month,reflect_season,reflect_year').eq('user_id', u.id).maybeSingle();
-      if(r && r.data){ const p=Object.assign(pushPrefsDefault(), r.data); try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){} return p; }
+      if(r && r.data){ const p=Object.assign(pushPrefsDefault(), r.data);
+        try{ const c = await window.sb.from('push_prefs').select('challenge_time').eq('user_id', u.id).maybeSingle(); if(c && !c.error && c.data) p.challenge_time = c.data.challenge_time || null; else p.challenge_time = pushPrefsRead().challenge_time || null; }catch(e){}
+        try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){} return p; }
     }catch(e){}
     return pushPrefsRead();
   }
-  const pushAnyOn = (p) => !!(p.followup || Object.keys(p.checkin_times||{}).length || p.practice_time);
+  const pushAnyOn = (p) => !!(p.followup || Object.keys(p.checkin_times||{}).length || p.practice_time || p.challenge_time);
   function pushKeyBytes(b64u){
     const s = (b64u||'').replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4 - (b64u||'').length % 4) % 4);
     const bin = atob(s); const out = new Uint8Array(bin.length);
@@ -2744,6 +2865,12 @@ function app(tab){
           </div>
         </div>
         <div class="gs-card">
+          <p class="gs-h">Challenge reminder</p>
+          <p class="gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
+          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}Paid plan</p>` + sw('nt-chal','Challenge reminder', false, true)}
+          <div id="nt-cht" style="${prefs.challenge_time && paidNow()?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-chal', prefs.challenge_time||'09:00', dis, null)}</div>
+        </div>
+        <div class="gs-card">
           <p class="gs-h">New reflections</p>
           <p class="gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
           ${sw('nt-r-week','Weekly reflection', prefs.reflect_week!==false, dis)}<p class="gs-fine" style="margin-top:-4px">Sunday morning, 6 am</p>
@@ -2781,6 +2908,10 @@ function app(tab){
       if(inp) inp.onchange=()=>{ if(cur.practice_time && inp.value) save({ practice_time:inp.value }); };
       root.querySelectorAll('.nt-day').forEach(b=>b.onclick=()=>{ const i=+b.dataset.day; const d=(cur.practice_days||[]).slice(); const k=d.indexOf(i); if(k>=0) d.splice(k,1); else d.push(i); d.sort(); b.classList.toggle('on',k<0); b.setAttribute('aria-pressed',String(k<0)); save({ practice_days:d }); });
     }
+    { const box=$('#nt-cht'), inp=$('#nt-time-chal');
+      if(paidNow()){ bindSw2('nt-chal', on=>{ if(box) box.style.display=on?'':'none'; _chRemindSet(on ? ((inp&&inp.value)||'09:00') : null); cur = pushPrefsRead(); try{ _chPut('chr:asked', 'challenge reminder asked', ['1']); }catch(e){} });
+        if(inp) inp.onchange=()=>{ if(pushPrefsRead().challenge_time && inp.value) _chRemindSet(inp.value); }; }
+    }
     const t=$('#nt-test'); if(t) t.onclick=async()=>{
       t.disabled=true; t.textContent='Sending…';
       try{
@@ -2812,6 +2943,7 @@ function app(tab){
     if(h==='checkin'){ if(document.getElementById('ci-reading')) return; app('now'); return screenCheckin(); }
     if(h==='practice') return app('practice');
     if(h==='reader') return app('reflect');
+    if(h==='challenge') return _chOpenFromLink();
   }
   // ── end web push ─────────────────────────────────────────────────────────────────────
   // ── tips: "did you know" cards (2026-09-10) ──────────────────────────────────────────
@@ -3258,7 +3390,8 @@ function app(tab){
       const d=new Date(); if(d.getDay()!==bs.dayKey || segOf(d.getTime())!==bs.segKey) return null;
       if((Store.sessions()||[]).some(s=>s && s.completed && sameDay(s.t))) return null;
       return bs; }catch(e){ return null; } })();
-    const mhRestKind = _bsHere ? 'best' : (readerNew ? 'reader' : (checkedIn ? 'micro' : null));   // the best time only lasts a few hours, so it goes first
+    const _chNow = _chNowReady();   // a challenge prompt is waiting (Justin, 2026-10-17: "something on the Now screen that populates when the daily challenge is pending")
+    const mhRestKind = _bsHere ? 'best' : _chNow ? 'challenge' : (readerNew ? 'reader' : (checkedIn ? 'micro' : null));   // the best time only lasts a few hours, so it goes first
     const mhThird = true;
     /* ✅ THE BEST TIME IS A SPECIAL MOMENT (Justin, 2026-10-03: "That needs more love to it. It's a special moment"; he picked
      * option C of the mockups): the button becomes a small gold card that names the setup, and one tap starts it. */
@@ -3272,6 +3405,7 @@ function app(tab){
     const mhThirdHTML = (kind)=> kind==='reader'
       ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">Your reflection is ready</span>`   // 🖊
       : kind==='best' ? _bsCardHTML()
+      : kind==='challenge' && _chNow ? _chNowHTML(_chNow)
       : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Do a 2 minute practice</span>`;          // 🖊
 
     // moment-home (2026-07-23): the "now" screen settles to a calm center — the
@@ -3301,12 +3435,12 @@ function app(tab){
         ${checkedIn
           ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
                <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="Check in again" title="Check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
-               ${mhThird ? `<button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}"${mhRestKind==='best'?' aria-label="It\'s your best time to practice. Start your best setup."':''}>${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
+               ${mhThird ? `<button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':mhRestKind==='challenge'?' mh-chal':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}"${mhRestKind==='best'?' aria-label="It\'s your best time to practice. Start your best setup."':''}>${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
           : `<p class="mh-noci">No check-in this ${segLabel(seg)} yet</p>
              <div class="mh-secondrow no-checkin" id="mh-2nd">
-               <button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
+               <button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':mhRestKind==='challenge'?' mh-chal':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
              </div>
              <button class="btn quiet block mh-primary" id="mh-cta" type="button">Check in</button>`}
       </div>
@@ -3330,7 +3464,7 @@ function app(tab){
       practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
     const third = c.querySelector('#mh-third');
     if(third){
-      third.onclick = ()=> (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? launchWeaver(bestSetupReco(_bsHere)) : _launchMicro();
+      third.onclick = ()=> (third.dataset.kind==='challenge' && _chNow) ? screenChPrompt(_chNow.id) : (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? launchWeaver(bestSetupReco(_bsHere)) : _launchMicro();
 
       // RESTING state: the reader doorway when a reflection is waiting; else, once
       // checked in, the "Do a 2 minute practice" invite (2026-07-28: never collapses once
@@ -3342,7 +3476,7 @@ function app(tab){
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
         const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
         const showRest = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
-          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing'); tt.classList.toggle('mh-best', mhRestKind==='best');
+          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing'); tt.classList.toggle('mh-best', mhRestKind==='best'); tt.classList.toggle('mh-chal', mhRestKind==='challenge');
           r.classList.add('revealed','third-in'); };
         if(!mhRestKind){                                 // nothing to rest on → collapse the slot
           if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
@@ -3358,7 +3492,7 @@ function app(tab){
       const _postBreath = ()=>{
         const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
         clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing','mh-best');
+        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing','mh-best','mh-chal');
         // reset to the full check-in instantly (footer is dim from the breath, so no blip)
         row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
         _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
@@ -3972,6 +4106,7 @@ function app(tab){
       const piece = L.byId(mm[1]); if(!piece) return;
       out.push({ piece, rid:mm[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
     });
+    try{ _chJournalItems().forEach(it=>out.push(it)); }catch(e){}
     return out.sort((a,b)=> (b.day||'').localeCompare(a.day||''));
   }
   // grouped by article (the You tab's count, and older callers)
@@ -4058,7 +4193,7 @@ function app(tab){
       _jrWireList();
       return;
     }
-    const card = it => `<button class="jr-item" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}"><b class="jr-h">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</b><span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : '<span></span>'}<span class="jr-src">${it.piece ? 'Back to this lesson' : 'Back to this reflection'}${CHEV}</span></span></button>`;
+    const card = it => `<button class="jr-item" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}"><b class="jr-h">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</b><span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : '<span></span>'}<span class="jr-src">${it.piece ? 'Back to this lesson' : it.chal ? 'Back to this challenge' : 'Back to this reflection'}${CHEV}</span></span></button>`;
     const order = (p, rid) => p ? (p.blocks||[]).findIndex(x=>x.reflect === rid) : +rid;
     let groups = [];
     if(view === 'date'){
@@ -4070,9 +4205,9 @@ function app(tab){
       // every topic the article belongs to, in the Learn tab's order: one answer can sit under more than one
       const keys = _lrnStateOrder().concat(L.TOPIC_ORDER), by = {};
       // a reflection's answers sit under the state the reflection is about, or under Reflect
-      items.forEach(it=>{ const gs = it.piece ? (it.piece.groups||[]) : [it.post.teachState && L.HUBS[it.post.teachState] ? it.post.teachState : '_reflect']; gs.forEach(g=>{ if(L.HUBS[g] || g === '_reflect') (by[g] = by[g] || []).push(it); }); });
-      const name = k => k === '_reflect' ? 'Reflect' : _lrnHubName(k);
-      groups = ['_reflect'].concat(keys).filter(k=>by[k]).map(k=>({ head:`${k === '_reflect' ? '' : _rdMk(k)}<b>${escapeHtml(name(k))}</b><span class="ll-n">${escapeHtml(by[k].length === 1 ? '1 entry' : by[k].length + ' entries')}</span>`, items:by[k] }));
+      items.forEach(it=>{ const gs = it.chal ? ['_chal'] : it.piece ? (it.piece.groups||[]) : [it.post.teachState && L.HUBS[it.post.teachState] ? it.post.teachState : '_reflect']; gs.forEach(g=>{ if(L.HUBS[g] || g === '_reflect' || g === '_chal') (by[g] = by[g] || []).push(it); }); });
+      const name = k => k === '_reflect' ? 'Reflect' : k === '_chal' ? 'Challenges' : _lrnHubName(k);
+      groups = ['_reflect', '_chal'].concat(keys).filter(k=>by[k]).map(k=>({ head:`${k === '_reflect' || k === '_chal' ? '' : _rdMk(k)}<b>${escapeHtml(name(k))}</b><span class="ll-n">${escapeHtml(by[k].length === 1 ? '1 entry' : by[k].length + ' entries')}</span>`, items:by[k] }));
     }
     const html = groups.map(g=>`<section class="jr-group">${g.art || g.postKey ? `<button class="jr-gh jr-art" type="button" ${g.art ? `data-art="${escapeHtml(g.art)}"` : `data-post="${escapeHtml(g.postKey)}"`}>${g.head}<span class="wc-go">${CHEV}</span></button>` : `<h3 class="jr-gh">${g.head}</h3>`}${g.items.map(card).join('')}</section>`).join('');
     shell(`${recoHTML}${html}`);
@@ -4095,7 +4230,7 @@ function app(tab){
   }
   function _jrWireList(){
     const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : 'you' };
-    const openPost = (key, sec) => { const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
+    const openPost = (key, sec) => { if(/^chal:/.test(key)) return screenChallenges(); const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
     root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
     root.querySelectorAll('.jr-art[data-post]').forEach(b=>b.onclick=()=>openPost(b.dataset.post));
     root.querySelectorAll('.jr-item, .jr-reco [data-rf]').forEach(b=>b.onclick=()=>{ if(b.dataset.post) return openPost(b.dataset.post, 'rj-' + b.dataset.rf); const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
@@ -7456,7 +7591,7 @@ function app(tab){
   }
   // prefix (Obstacles first) and depth ride along for Balancing / Pendulating (2026-09-20: the
   // recommender follows the engine's sequence, whose steps carry both).
-  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice','emotion'];
+  const _ENGINE_PASS = ['embed','autostart','sense','silence','holdwatch','holdsecs','open','descdef','first','prefix','depth','bed','bedvol','voice','emotion','pieces'];
   // an emotion as the app keeps it ("Worry|1", or their own words) → the word the practice names
   function _emoWord(v){ return String(v == null ? '' : v).split('|')[0].trim().slice(0, 60); }
   function _playerSrc(src){
@@ -7482,6 +7617,7 @@ function app(tab){
     if(!e.has('bed')){ const b=bedPref(); if(b.bed!=='none'){ e.set('bed', b.bed); e.set('bedvol', b.level); } }
     // the voice the person chose (2026-09-29, VOICES) rides on every launch the same way; Justin's is the default and is not sent
     if(!e.has('voice')){ const v=voicePref(); if(v!=='justin') e.set('voice', v); }
+    // the member's Mindfulness pieces (2026-10-15) ride on every Mindfulness launch the same way; the default run is not sent
     if(!paidNow()){ e.set('voices', 'justin'); if(e.has('voice') && !voiceOk(e.get('voice'))) e.delete('voice'); }   // 2026-09-30: AI voices paid only
     // 2026-09-28 (Justin, desktop: the player light inside a dark app): the player takes the theme the APP is showing,
     // never its own guess — the same document class the app painted with
@@ -7559,6 +7695,90 @@ function app(tab){
   function voiceOk(v){ return v==='justin' || paidNow(); }
   function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) && voiceOk(v) ? v : 'justin'; }
   function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
+  // PROD BUILD (2026-10-19): the Pieces row, the pieces= launch param and the pieces time estimate are taken out here; build-your-own
+  // Mindfulness stays beta-only until its new lines are recorded (Justin, 10-15). The code below is inert on prod.
+  // ── BUILD YOUR OWN MINDFULNESS (Justin, 2026-10-15: "yes i want it to mimic the live practice. the user can choose to do as many
+  // mindfulness practices as they like with the breath in between, before, and after. so, more customization even on the free tier.
+  // they can choose which order to do the mindfulness pieces as well by dragging the order"). His pick of the mockups: A, one list,
+  // switch and drag, in the practice's customizer like Voice ("It should be in the player customizer, like choosing a voice or
+  // background noise"); no running order shown, just the time, which changes with the choices. Keys MUST match practice-engine
+  // data.js MIND_PIECES. Kept with the account (contexts "mind:pieces", like the emotion list), free plan included.
+  const MIND_PIECES = [['sight','Sight','What pulls at your eyes'],['sound','Sound','Near and far'],['touch','Touch','What you’re resting on, your skin'],
+    ['movement','Movement','Ankles to neck, then a pause'],['imagination','Imagination','A place you make up or remember']];
+  const MIND_PIECES_DEFAULT = ['sight','sound','touch'];
+  const UP_MIND_CTX = 'mind:pieces';
+  function _mindClean(a){ const ks = MIND_PIECES.map(x=>x[0]); return (Array.isArray(a)?a:[]).filter((k,i,arr)=>ks.indexOf(k)>=0 && arr.indexOf(k)===i); }
+  function mindPieces(){ let a = null; try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m) a = _mindClean(m[UP_MIND_CTX]); }catch(e){}
+    return a && a.length ? a : MIND_PIECES_DEFAULT.slice(); }
+  function setMindPieces(a){ a = _mindClean(a); if(!a.length) return;
+    try{ if(Store.saveContexts) Store.saveContexts(UP_MIND_CTX, 'Mindfulness pieces', a); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[UP_MIND_CTX] = a; _ctxSave(m); } }catch(e){} }
+  const _mindName = k => (MIND_PIECES.find(x=>x[0]===k)||[k,k])[1];
+  function mindPiecesWords(a){ a = a || mindPieces(); return a.length === MIND_PIECES.length ? 'All five' : a.map(_mindName).join(', '); }
+  // the time each piece adds, and the rest of the practice (seconds; silence 4 / 8 / 12). Measured 2026-10-15 from the recorded
+  // clips (every take's length, averaged) plus the engine's own gaps and pause points (plan.js gapFor, data.js holdSeconds).
+  const MIND_EST_S = { 4:{ rest:160, sight:80, sound:78, touch:82, movement:158, imagination:95 },
+                       8:{ rest:193, sight:98, sound:98, touch:102, movement:198, imagination:128 },
+                       12:{ rest:225, sight:116, sound:119, touch:122, movement:238, imagination:160 } };
+  function mindMinutes(sil, a){ const s = [4,8,12].reduce((b,x)=>Math.abs(x-(sil||8))<Math.abs(b-(sil||8))?x:b, 8), t = MIND_EST_S[s];
+    return Math.max(1, Math.round((t.rest + (a || mindPieces()).reduce((n,k)=>n+(t[k]||0),0)) / 60)); }
+  const _GRIP = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+  // the Pieces sheet: every piece always listed, the ones in the practice on top and numbered in the order they play; a switch
+  // puts a piece in or takes it out, the handle drags it (arrow keys on the handle do the same). At least one stays in.
+  function openMindPiecesSheet(trackCls, sil, onChange){
+    const old=document.getElementById('p7-sheet'); if(old) old.remove();
+    const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
+    let on = mindPieces(), order = on.concat(MIND_PIECES.map(x=>x[0]).filter(k=>on.indexOf(k)<0));
+    const save = ()=>{ setMindPieces(on); onChange&&onChange(); };
+    wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true" aria-labelledby="mp-h">
+      <div class="p7-sheet-title" id="mp-h">Pieces</div>
+      <p class="mp-note">Turn on the ones you want. Drag to change the order.</p>
+      <ol class="mp-list" id="mp-list"></ol>
+      <div class="p7-sheet-foot mp-foot"><span class="mp-mins" id="mp-mins" aria-live="polite"></span><button class="p7-sheet-done" type="button">Done</button></div>
+    </div>`;
+    document.body.appendChild(wrap);
+    const list = wrap.querySelector('#mp-list');
+    const paint = (focusKey)=>{
+      order = on.concat(order.filter(k=>on.indexOf(k)<0));
+      list.innerHTML = order.map(k=>{ const i = on.indexOf(k), inn = i>=0, d = MIND_PIECES.find(x=>x[0]===k);
+        return `<li class="mp-row${inn?'':' off'}" data-k="${k}">
+          ${inn?`<button class="mp-grip" type="button" aria-label="Move ${escapeHtml(d[1])}, number ${i+1} of ${on.length}. Use the arrow keys.">${_GRIP}</button>`:'<span class="mp-grip" aria-hidden="true"></span>'}
+          <span class="mp-n" aria-hidden="true">${inn?i+1:''}</span>
+          <span class="mp-main"><span class="mp-l">${escapeHtml(d[1])}</span><span class="mp-sub">${escapeHtml(d[2])}</span></span>
+          <button class="set-sw${inn?' on':''}" type="button" role="switch" aria-checked="${inn}" aria-label="${escapeHtml(d[1])}"><span class="set-sw-knob"></span></button>
+        </li>`; }).join('');
+      wrap.querySelector('#mp-mins').textContent = `~${mindMinutes(sil, on)}min`;
+      list.querySelectorAll('.set-sw').forEach(b=>b.onclick=()=>{ const k=b.closest('.mp-row').dataset.k, i=on.indexOf(k);
+        if(i>=0){ if(on.length===1){ const r=b.closest('.mp-row'); r.classList.remove('mp-no'); void r.offsetWidth; r.classList.add('mp-no'); haptic('start'); return; }
+          on.splice(i,1); order = [k].concat(order.filter(x=>x!==k)); }   // out: first of the ones not in
+        else { on.push(k); }
+        haptic('start'); save(); paint(); const nb = list.querySelector(`[data-k="${k}"] .set-sw`); if(nb) nb.focus({ preventScroll:true }); });
+      list.querySelectorAll('button.mp-grip').forEach(g=>{
+        const li = g.closest('.mp-row'), k = li.dataset.k;
+        // the move and the release are heard on the window while a drag is on, so a finger that leaves the handle keeps dragging
+        const move = e=>{
+          const rows = [...list.querySelectorAll('.mp-row:not(.off)')].filter(r=>r!==li);
+          let before = null; for(const r of rows){ const b=r.getBoundingClientRect(); if(e.clientY < b.top + b.height/2){ before = r; break; } }
+          if(before){ if(li.nextSibling !== before) list.insertBefore(li, before); }
+          else { const lastOn = rows[rows.length-1]; if(lastOn && lastOn.nextSibling !== li) list.insertBefore(li, lastOn.nextSibling); } };
+        const end = ()=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+          li.classList.remove('drag');
+          const now = [...list.querySelectorAll('.mp-row:not(.off)')].map(r=>r.dataset.k);
+          if(now.join() !== on.join()){ on = now; haptic('start'); save(); } paint(k); };
+        g.addEventListener('pointerdown', e=>{ if(e.button > 0) return; e.preventDefault(); li.classList.add('drag');
+          window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end); });
+        g.addEventListener('keydown', e=>{ const i = on.indexOf(k), j = e.key==='ArrowUp' ? i-1 : e.key==='ArrowDown' ? i+1 : -1;
+          if(j<0 || j>=on.length) return; e.preventDefault(); on.splice(i,1); on.splice(j,0,k); save(); paint(k); });
+      });
+      if(focusKey){ const f = list.querySelector(`[data-k="${focusKey}"] button.mp-grip`); if(f) f.focus({ preventScroll:true }); }
+    };
+    paint();
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const close=()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown',onKey); setTimeout(()=>{try{wrap.remove();}catch(e){}},320); };
+    const onKey=(e)=>{ if(e.key==='Escape') close(); };
+    document.addEventListener('keydown',onKey);
+    wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
+    wrap.querySelector('.p7-sheet-done').onclick=close;
+  }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
   function bedPreview(b){ try{ if(_bedPreview){ _bedPreview.pause(); _bedPreview=null; } clearTimeout(_bedPreviewT);
@@ -8709,6 +8929,421 @@ function app(tab){
   }
 
 
+  // ── CHALLENGES (ROADMAP-DETAIL 10; Justin 2026-10-16/17/18) ─────────────────────────────────────────────
+  // The copy of record is snb-business Projects/App Designer/CHALLENGES-SCRIPT.md, built into challenges.js
+  // (window.SNBChallenges) by build_challenges.py. Nothing member-facing is typed here except what that script
+  // marks for the app. Paid plan only: free members see everything, locked. One challenge at a time; starting
+  // another pauses it. One prompt a day, the next opens at local midnight, a missed day waits, no streaks.
+  // Progress lives in contexts (synced like journal answers):
+  //   chs:{id}       [start or resume stamp]  present = started and not finished; the newest stamp is the one in progress
+  //   chd:{id}:{n}   [YYYY-MM-DD]             day n done
+  //   chf:{id}       [times finished]
+  //   chj:{id}:{run}:{n}  [answer, YYYY-MM-DD, question, topic]   the journal note (Your Journal reads these)
+  //   chr:asked      ['1']                    the reminder question was asked
+  const _CH = () => window.SNBChallenges || null;
+  const _CH_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12.5l5 5L19.5 7"/></svg>';
+  const _CH_STAR = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.1 6.2 6.4 2.3-6.4 2.3L12 19.5l-2.1-6.2L3.5 11l6.4-2.3z"/><path d="M19 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" opacity=".7"/></svg>';
+  const _CH_ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M4 10h16"/><path d="M9 15l2 2 4-4"/></svg>';
+  const _CH_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+  function _chYmd(t){ const d = t != null ? new Date(t) : new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+  function _chTomorrow(){ const d = new Date(); d.setDate(d.getDate()+1); return _chYmd(d.getTime()); }
+  function _chPut(key, q, arr){ try{ if(Store.saveContexts) Store.saveContexts(key, q, arr); else { const m=_ctxLoad(); m[key]=arr; _ctxSave(m); } }catch(e){} }
+  function _chDel(key){ try{ if(Store.clearContexts) Store.clearContexts(key); else { const m=_ctxLoad(); delete m[key]; _ctxSave(m); } }catch(e){} }
+  const _chTopic = t => String(t||'').toLowerCase();
+  const _chSentence = t => { t = _chTopic(t); return t.charAt(0).toUpperCase() + t.slice(1); };
+  // where one challenge stands
+  function _chState(id){
+    const S = _CH(), c = S && S.C[id]; if(!c) return null;
+    const m = _ctxLoad();
+    const runs = +((m['chf:' + id] || [])[0] || 0);
+    const stamp = m['chs:' + id] ? +(m['chs:' + id][0] || 0) || 1 : 0;
+    let done = 0, last = '';
+    for(let n = 1; n <= c.days; n++){ const v = m['chd:' + id + ':' + n]; if(v && v[0]){ done = n; if(String(v[0]) > last) last = String(v[0]); } else break; }
+    const started = !!stamp && done < c.days;
+    return { id, c, runs, stamp, done, last, started, finished: runs > 0 && !started, ready: started && last !== _chYmd() };
+  }
+  function _chAll(){ const S = _CH(); return S ? S.ORDER.map(_chState).filter(Boolean) : []; }
+  // the one in progress: the newest start stamp among the started ones; the rest are paused
+  function _chActive(){ let best = null; _chAll().forEach(s=>{ if(s.started && (!best || s.stamp > best.stamp)) best = s; }); return best; }
+  // §5: conditions for suggesting (never for starting) and the holds (suggesting only)
+  function _chCond(id, by){
+    const fin = k => by[k] && by[k].runs > 0;
+    if(id === 'sensory') return fin('pse');
+    if(id === 'sensory-out'){
+      if(!fin('pse') || !fin('sensory')) return false;
+      try{ const bw = Store.baselineWeek(); return !!bw && !bw.lowData && bw.safety >= 0.45 && bw.defense <= 0.60; }catch(e){ return false; }
+    }
+    if(id === 'alarm-in') return fin('alarm');
+    if(id === 'micro-long'){
+      if(!fin('micro')) return false;
+      try{ const sp = Store.safetyProgress(); return !!(sp && sp.seq && sp.seq.length && sp.seq.every(k=>sp.cleared[k])); }catch(e){ return false; }
+    }
+    return true;
+  }
+  const _CH_HELD_GATE = { 'alarm-in':1, sensory:1, 'sensory-out':1, micro:1, 'micro-long':1, digital:1, senses:1, music:1, steps:1, states:1 };
+  function _chHeld(id){
+    let gateClosed = false; try{ const last = Store.lastCheckin(); gateClosed = !!last && !Store.momentGate(last).open; }catch(e){}
+    if(gateClosed && _CH_HELD_GATE[id]) return true;
+    if(id === 'states'){ try{ const bw = Store.baselineWeek(); if(!bw || bw.lowData || bw.safety < 0.40) return true; }catch(e){ return true; } }
+    return false;
+  }
+  // the Recommended card plus the next three that qualify, in the fixed order
+  function _chSuggested(){
+    const all = _chAll(), by = {}; all.forEach(s=>by[s.id] = s);
+    return all.filter(s=>!s.started && !s.finished && _chCond(s.id, by) && !_chHeld(s.id));
+  }
+  // the first challenge in the order that isn't finished (the one in progress counts); `skip` leaves one out
+  function _chFirstUnfinished(skip){ return _chAll().find(s=>s.id !== skip && !s.finished) || null; }
+  function _chEb(s, n){ return (s.c.name + ' · Day ' + n + ' of ' + s.c.days).toUpperCase(); }   // Justin, 2026-10-18: show where they are
+  function _chBar(s){ const n = s.c.days; let h = ''; for(let i = 0; i < n; i++) h += `<span${i < s.done ? ' class="on"' : ''}></span>`; return `<span class="ch-bar" style="--n:${n}" aria-hidden="true">${h}</span>`; }
+  function _chNextLine(s){ const p = s.c.prompts[Math.min(s.done, s.c.days - 1)], T = _CH().T; return (s.ready ? T.ready : T.later).replace('{t}', _chTopic(p.topic)); }
+  const _chDaysWord = c => c.days + ' days';
+
+  // ---- the Practice tab's Challenges card ----
+  function _chEntryHTML(paid){
+    const S = _CH(); if(!S) return '';
+    const a = paid ? _chActive() : null;
+    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}Paid plan</span>`
+      : a ? `<span class="ch-entry-name">${escapeHtml(a.c.name)}</span>${_chBar(a)}<span class="ch-entry-sub">${escapeHtml(_chNextLine(a))}</span>`
+      : `<span class="ch-entry-sub">${escapeHtml(S.T.intro)}</span>`;
+    return `<button class="ch-entry" type="button" id="ch-entry"><span class="ch-entry-head"><span class="ch-entry-ico">${_CH_ICO}</span><b>Challenges</b><span class="wc-go">${CHEV}</span></span><span class="ch-entry-body">${body}</span></button>`;
+  }
+  // ---- Now: the third slot when a challenge prompt is waiting ----
+  function _chNowReady(){ try{ if(!paidNow()) return null; const a = _chActive(); return a && a.ready ? a : null; }catch(e){ return null; } }
+  function _chNowHTML(a){ const p = a.c.prompts[a.done]; return `<span class="mh-bt-txt"><span class="mh-bt-eb">Your challenge</span><span class="mh-bt-what">${escapeHtml(a.c.name + ': ' + _chTopic(p.topic))}</span></span><span class="mh-bt-go" aria-hidden="true">${CHEV}</span>`; }
+
+  // ---- 1 · Challenges ----
+  function screenChallenges(){
+    const S = _CH(); if(!S) return app('practice');
+    const paid = paidNow(), T = S.T;
+    const a = paid ? _chActive() : null;
+    const paused = paid ? _chAll().filter(s=>s.started && (!a || s.id !== a.id)) : [];
+    const sug = _chSuggested().slice(0, 4);
+    const lock = paid ? '' : LOCK_SVG + 'Paid plan · ';
+    const cur = a ? `<button class="ch-cur" type="button" data-ch="${a.id}" data-go="${a.ready ? 'prompt' : 'sheet'}"><span class="ch-cur-top"><b>${escapeHtml(a.c.name)}</b><span>In progress</span></span>${_chBar(a)}<span class="ch-cur-sub">${escapeHtml(_chNextLine(a))}</span></button>` : '';
+    const pausedHTML = paused.map(s=>`<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>Paused · day ${s.done + 1} of ${s.c.days}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
+    const cards = sug.map((s, i)=> i === 0
+      ? `<button class="ch-rec" type="button" data-ch="${s.id}" aria-label="${escapeHtml(T.badge + ': ' + s.c.name + ', ' + _chDaysWord(s.c))}"><span class="ch-rec-t"><span class="ch-rec-eb">${_CH_STAR}${escapeHtml(T.badge)}</span><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))}</span></span><span class="ch-rec-go" aria-hidden="true">${CHEV}</span></button>`
+      : `<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t ch-row-in"><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
+    _rdShell(`<div class="ch-view">
+        <h1 class="rd-title ch-h1">Challenges</h1>
+        <p class="ch-intro">${escapeHtml(T.intro)}</p>
+        ${cur}${pausedHTML}
+        ${cards ? `<span class="ch-lbl">${escapeHtml(T.more)}</span><div class="ch-list">${cards}</div>` : ''}
+        <button class="ch-pill-o" type="button" id="ch-all">${escapeHtml(T.seeAll)}${CHEV}</button>
+      </div>`, { back:'Practice', onBack:()=>app('practice'), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    _chWire(screenChallenges);
+    const al = $('#ch-all'); if(al) al.onclick = ()=>screenChallengesAll();
+  }
+  // ---- 1a · All challenges: open first in the order, finished at the bottom ----
+  function screenChallengesAll(){
+    const S = _CH(), T = S.T, paid = paidNow();
+    const all = _chAll(), sug = _chSuggested(), rec = sug[0] ? sug[0].id : null, a = paid ? _chActive() : null, by = {};
+    all.forEach(s=>by[s.id] = s);
+    const lock = paid ? '' : LOCK_SVG + 'Paid plan · ';
+    const sub = s => {
+      const bits = [_chDaysWord(s.c)];
+      if(paid && a && s.id === a.id) bits.push('In progress');
+      else if(paid && s.started) bits.push('Paused');
+      else if(s.id === rec) bits.push(T.badge);
+      else if(s.c.after && by[s.c.after] && !by[s.c.after].runs) bits.push('Best after ' + by[s.c.after].c.name);
+      return lock + escapeHtml(bits.join(' · '));
+    };
+    const open = all.filter(s=>!s.finished), fin = all.filter(s=>s.finished);
+    _rdShell(`<div class="ch-view">
+        <h1 class="rd-title ch-h1">All challenges</h1>
+        <p class="ch-intro">In the suggested order. Start any of them, any time.</p>
+        <div class="ch-list">${open.map(s=>`<button class="ch-row ch-row-open" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>${sub(s)}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('')}</div>
+        ${fin.length ? `<span class="ch-lbl">FINISHED</span><div class="ch-list">${fin.map(s=>`<button class="ch-row ch-row-done" type="button" data-ch="${s.id}"><span class="ch-check">${_CH_CHECK}</span><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))} · your notes are in your journal</span></span><span class="ch-chev">${CHEV}</span></button>`).join('')}</div>` : ''}
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    _chWire(screenChallengesAll);
+  }
+  function _chWire(back){
+    root.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{
+      const id = b.dataset.ch;
+      if(b.dataset.go === 'prompt') return screenChPrompt(id);
+      openChSheet(id, back);
+    });
+  }
+
+  // ---- 1b · the detail sheet ----
+  function openChSheet(id, back){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
+    const paid = paidNow(), c = s.c, a = paid ? _chActive() : null, by = {}; _chAll().forEach(x=>by[x.id] = x);
+    const isCur = !!(a && a.id === id);
+    const first = _chFirstUnfinished();
+    const order = S.ORDER, recFirst = paid && !isCur && first && first.id !== id && order.indexOf(first.id) < order.indexOf(id) ? first : null;
+    const lines = [];
+    if(c.builds) lines.push(`<p class="ch-sh-p">${escapeHtml(c.builds)}</p>`);
+    if(c.where) lines.push(`<p class="ch-sh-p">${escapeHtml(c.where)}</p>`);
+    if(c.ways) lines.push(`<p class="ch-sh-p">${escapeHtml(c.waysIntro)}</p><ul class="ch-ways">${c.ways.map(w=>`<li><b>${escapeHtml(w.k)}</b> · ${escapeHtml(w.line)}</li>`).join('')}</ul>`);
+    if(c.needPse && !(by.pse && by.pse.runs)) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.needPse)}</p>`);
+    if(c.bestAfter && c.after && !(by[c.after] || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
+    const len = `${paid ? '' : LOCK_SVG + 'Paid plan · '}${c.days} days · one prompt a day`;
+    let foot = '';
+    if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(T.freeStart)}</button>`;
+    else if(isCur) foot = s.ready ? `<button class="ch-pill" type="button" id="ch-sh-go">Open the prompt</button>` : `<p class="ch-sh-note">You're on day ${s.done + 1} of ${c.days}. ${escapeHtml(T.tomorrow)}</p>`;
+    else {
+      const verb = s.started ? 'Pick up where you left off' : s.finished ? 'Start again' : T.start;
+      foot = (a ? `<p class="ch-sh-note">${escapeHtml(T.pause.replace('{c}', a.c.name))}</p>` : '')
+        + (recFirst ? `<button class="ch-recfirst" type="button" id="ch-sh-rf" aria-label="${escapeHtml(T.recFirst + ': ' + recFirst.c.name)}"><span><span class="ch-lbl">${escapeHtml(T.recFirst.toUpperCase())}</span><b>${escapeHtml(recFirst.c.name)}</b></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : '')
+        + `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(verb)}</button>`;
+    }
+    const old = document.getElementById('ch-sheet'); if(old) old.remove();
+    const wrap = document.createElement('div'); wrap.id = 'ch-sheet'; wrap.className = 'p7-sheet ch-sheet';
+    wrap.innerHTML = `<div class="p7-sheet-card ch-sheet-card" role="dialog" aria-modal="true" aria-labelledby="ch-sh-h">
+      <div class="p8-grab" aria-hidden="true"></div>
+      <div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
+      <div class="ch-sh-body"><p class="ch-sh-p">${escapeHtml(c.desc)}</p>${lines.join('')}<p class="ch-sh-len">${len}</p></div>
+      <div class="ch-sh-foot" id="ch-sh-foot">${foot}</div>
+    </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(()=>wrap.classList.add('on'));
+    const onKey = e=>{ if(e.key === 'Escape') close(); };
+    const close = (then)=>{ wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} if(typeof then === 'function') then(); }, 300); };
+    document.addEventListener('keydown', onKey);
+    wrap.addEventListener('click', e=>{ if(e.target === wrap) close(); });
+    $('#ch-sh-x').onclick = ()=>close();
+    const rf = $('#ch-sh-rf'); if(rf) rf.onclick = ()=>close(()=>openChSheet(recFirst.id, back));
+    const go = $('#ch-sh-go'); if(go) go.onclick = ()=>{
+      if(!paid) return close(()=>gateSubscribe('challenges'));
+      if(isCur) return close(()=>screenChPrompt(id));
+      _chStart(id);
+      let asked = false; try{ asked = !!((_ctxLoad()['chr:asked'] || [])[0]); }catch(e){}
+      if(!asked) return close(()=>screenChReminder(id));   // the reminder is the challenge's first step, on its own screen (Justin, 2026-10-18)
+      close(()=>screenChPrompt(id));
+    };
+  }
+  function _chStart(id){
+    const s = _chState(id); if(!s) return;
+    if(s.finished){ for(let n = 1; n <= s.c.days; n++){ if((_ctxLoad()['chd:' + id + ':' + n] || [])[0]) _chDel('chd:' + id + ':' + n); } }
+    _chPut('chs:' + id, 'challenge started', [String(Date.now())]);
+    try{ pushTrack && pushTrack('challenge_start', { id, resume: !!s.started }); }catch(e){}
+    _chRemindSync();
+  }
+
+  // ---- the reminder: asked once, right after the first Start (Justin, 2026-10-17) ----
+  // ---- the reminder: the first step inside the challenge, asked once ever (Justin, 2026-10-17/18: "shouldn't the user be taken
+  // immediately to the beginning of the challenge after they select it? maybe the timer thing is the first pre-step") ----
+  function screenChReminder(id){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return screenChallenges();
+    _chPut('chr:asked', 'challenge reminder asked', ['1']);
+    const st = pushState();
+    const cant = (st === 'install' || st === 'blocked' || st === 'unsupported');
+    const hint = st === 'install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
+      : st === 'blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
+      : 'This browser cannot show notifications from the app.';
+    const goBtn = `<button class="ch-pill" type="button" id="ch-rem-go">${escapeHtml(T.remGo)}</button>`;
+    _rdShell(`<div class="ch-view">
+        <span class="ch-lbl">${escapeHtml((s.c.name + ' · ' + T.remEb).toUpperCase())}</span>
+        <h1 class="rd-title ch-ph">${escapeHtml(T.remH)}</h1>
+        <p class="ch-intro">${escapeHtml(T.remBody)}</p>
+        ${cant ? `<p class="ch-sh-note">${hint}</p>` : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`}
+        <div class="ch-rem-foot" id="ch-rem-foot">${cant ? goBtn : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`}</div>
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    const go = ()=>screenChPrompt(id);
+    const foot = $('#ch-rem-foot');
+    const wire = ()=>{ const g = $('#ch-rem-go'); if(g) g.onclick = go; const no = $('#ch-rem-no'); if(no) no.onclick = go; };
+    wire();
+    const yes = $('#ch-rem-yes');
+    if(yes) yes.onclick = async ()=>{
+      yes.disabled = true;
+      const tm = ($('#ch-rem-t') || {}).value || '09:00';
+      let ok = pushState() === 'on';
+      if(!ok){ const r = await pushRequest('challenge'); ok = r === 'on'; }
+      if(ok){ await _chRemindSet(tm); return go(); }
+      // notifications didn't turn on: say so plainly, and the only way on is the first prompt
+      const row = $('#ch-rem-row'); if(row) row.remove();
+      if(foot){ foot.innerHTML = `<p class="ch-sh-note">${escapeHtml(T.remFail)}</p>` + goBtn; wire(); }
+    };
+  }
+  // the server sends one reminder at the member's time on the day a new prompt opens (push_prefs.challenge_open);
+  // nothing on a day the prompt is already done, and nothing for a missed day (snb-push, kind 'challenge')
+  async function _chRemindSet(tm){ const p = pushPrefsRead(); p.challenge_time = tm || null; try{ localStorage.setItem(PUSH_PREFS_KEY, JSON.stringify(p)); }catch(e){} await _chRemindSync(); }
+  async function _chRemindSync(){
+    try{
+      const p = pushPrefsRead(), a = paidNow() ? _chActive() : null;
+      const open = a ? (a.ready ? _chYmd() : _chTomorrow()) : null;
+      const u = Store.user(); if(!u || !window.sb) return;
+      // its own write: a database without these columns turns this away without touching the rest of push_prefs
+      const row = { challenge_time: p.challenge_time || null, challenge_open: (p.challenge_time && open) || null, challenge_name: a ? a.c.name : null };
+      const r = await window.sb.from('push_prefs').update(row).eq('user_id', u.id).select('user_id');
+      if(!r.error && (!r.data || !r.data.length)) await pushPrefsSave({});   // no row yet: make one, then retry once
+      if(!r.error && (!r.data || !r.data.length)) await window.sb.from('push_prefs').update(row).eq('user_id', u.id);
+    }catch(e){}
+  }
+
+  // ---- 2 · one prompt ----
+  function screenChPrompt(id){
+    const S = _CH(), T = S.T, s = _chState(id);
+    if(!s) return screenChallenges();
+    if(!paidNow()) return gateSubscribe('challenges');
+    if(!s.started) return openChSheet(id, screenChallenges);
+    if(!s.ready) return openChSheet(id, screenChallenges);
+    const c = s.c, n = s.done + 1, p = c.prompts[s.done], last = n === c.days;
+    let gateClosed = false; try{ const lc = Store.lastCheckin(); gateClosed = !!lc && !Store.momentGate(lc).open; }catch(e){}
+    let heading = p.h || _chSentence(p.topic), intro = p.intro || '', box = [], closing = p.closing || '', ans = 'note', stem = '', stem2 = '';
+    if(c.kind === 'sense'){ box = [p.instr + (c.outside && !gateClosed ? ' ' + c.shift : ''), p.q]; ans = p.ans; }
+    else if(c.kind === 'digital'){ box = null; ans = p.ans; }
+    else if(c.kind === 'micro'){ box = [p.instr]; ans = 'micro'; stem = String(p.stem || '').replace(/\.\.\.$/, ' ').replace(/\s+$/, ' '); stem2 = c.longer ? p.long : ''; }
+    else { box = [p.instr, p.action, p.qs].filter(Boolean); }
+    const two = ans === 'like' || ans === 'smile';
+    const opt = (ans === 'tell' || ans === 'sens') ? S.ANS[ans][0] : '';
+    const boxHTML = b => b && b.length ? `<div class="ch-box">${b.map((x, i)=>`<p${i === b.length - 1 && b.length > 1 ? ' class="ch-q"' : ''}>${escapeHtml(x)}</p>`).join('')}</div>` : '';
+    // the journal is the app's standard one (Justin, 2026-10-19: "the mindfulness practice [should] have more visual space and then
+    // there's a 'Journal' button with the icon just like in the articles. this should be the standard journal UI and UX"): a Journal
+    // button under the practice; the writing happens in the sheet that slides up, as in the articles
+    const jq = c.kind === 'sense' || c.kind === 'digital' ? p.q : c.kind === 'micro' ? p.instr : T.jLabel;
+    const field = ans === 'micro'
+      ? `<textarea class="rd-refl-in" id="ch-ta" aria-label="Finish the sentence" rows="3" autocapitalize="sentences" spellcheck="true">${escapeHtml(stem)}</textarea>${stem2 ? `<textarea class="rd-refl-in" id="ch-ta2" rows="3" autocapitalize="sentences" spellcheck="true" aria-label="The longer sentence">${escapeHtml(stem2)}</textarea>` : ''}`
+      : `<textarea class="rd-refl-in" id="ch-ta" rows="3" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(T.jPh)}"></textarea>${opt ? `<button class="ch-opt ch-opt-one" type="button" data-a="${escapeHtml(opt)}" aria-pressed="false">${escapeHtml(opt)}</button>` : ''}`;
+    const ansHTML = two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
+      : `<div class="rd-jr rd-jr-c ch-jr" id="ch-jr"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub" id="ch-jr-sub">${escapeHtml(T.jLabel)}</p>
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div>
+            <div class="rd-jr-track"><div class="rd-jr-step" data-step="0"><div class="rd-refl-one"><label class="read-p rd-refl-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<button class="rd-refl-save" type="button" id="ch-save" disabled>Save</button></div></div></div>
+            <p class="rd-refl-where">What you write is kept in Your Journal, in the You tab.</p></div></div></div>`;
+    const ways = c.kind === 'digital' ? `<p class="ch-wayq">${escapeHtml(c.wayQ)}</p><div class="ch-ans" role="group" aria-label="${escapeHtml(c.wayQ)}">${c.ways.map(w=>`<button class="ch-opt ch-way" type="button" data-w="${escapeHtml(w.k)}" aria-pressed="false">${escapeHtml(w.k)}</button>`).join('')}</div><div id="ch-dbox"></div>` : '';
+    _rdShell(`<div class="ch-view ch-prompt">
+        <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
+        <h1 class="rd-title ch-ph">${escapeHtml(heading)}</h1>
+        ${intro ? `<p class="ch-intro">${escapeHtml(intro)}</p>` : ''}
+        ${ways}${boxHTML(box)}
+        ${closing ? `<p class="ch-fine">${escapeHtml(closing)}</p>` : ''}
+        <div id="ch-ansbox"${c.kind === 'digital' ? ' hidden' : ''}>${ansHTML}</div>
+        <button class="ch-pill" type="button" id="ch-done" disabled>Done</button>
+        ${last ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    let pick = '', way = '';
+    const done = $('#ch-done'), ta = $('#ch-ta'), ta2 = $('#ch-ta2');
+    const _q = c.kind === 'sense' || c.kind === 'digital' ? p.q : c.kind === 'micro' ? (p.stem || heading) : heading;
+    const _text = ()=>{
+      let text = two ? pick : (ta ? ta.value.trim() : '');
+      if(!two && pick) text = text ? pick + ' ' + text : pick;
+      if(ta2 && ta2.value.trim() && ta2.value.trim() !== stem2.trim()) text += '\n' + ta2.value.trim();
+      if(way) text = way + ': ' + text;
+      return text;
+    };
+    const valid = ()=>{
+      if(c.kind === 'digital' && !way) return false;
+      if(two) return !!pick;
+      const t = ta ? ta.value.trim() : '';
+      if(ans === 'micro') return t.length > stem.trim().length;
+      return !!t || !!pick;
+    };
+    const paint = ()=>{ if(done) done.disabled = !valid(); };
+    root.querySelectorAll('.ch-opt[data-a]').forEach(b=>b.onclick=()=>{
+      const on = !(b.getAttribute('aria-pressed') === 'true');
+      root.querySelectorAll('.ch-opt[data-a]').forEach(x=>{ x.setAttribute('aria-pressed', 'false'); x.classList.remove('on'); });
+      if(on || two){ b.setAttribute('aria-pressed', 'true'); b.classList.add('on'); pick = b.dataset.a; } else pick = '';
+      haptic('tap'); paint();
+    });
+    root.querySelectorAll('.ch-way').forEach(b=>b.onclick=()=>{
+      way = b.dataset.w; root.querySelectorAll('.ch-way').forEach(x=>{ const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+      const w = c.ways.find(x=>x.k === way), db = $('#ch-dbox');
+      if(db) db.innerHTML = boxHTML([w.instr.split('{media}').join(p.media), c.dont.split('{media}').join(p.media), p.q]);
+      const ab = $('#ch-ansbox'); if(ab) ab.hidden = false;
+      paint();
+    });
+    const jr = $('#ch-jr'); if(jr) _jrWire(jr);
+    const save = $('#ch-save'), sub = $('#ch-jr-sub');
+    const paintSave = ()=>{ if(save){ save.disabled = !valid(); save.textContent = 'Save'; } if(sub && !valid()) sub.textContent = T.jLabel; };
+    const _paint0 = paint; const paintAll = ()=>{ _paint0(); paintSave(); };
+    if(ta) ta.oninput = paintAll; if(ta2) ta2.oninput = paintAll;
+    root.querySelectorAll('.ch-opt-one').forEach(b=>b.addEventListener('click', ()=>paintSave()));
+    // Save keeps the note in the journal now and closes the sheet; Done on the page finishes the day
+    if(save) save.onclick = ()=>{
+      if(!valid()) return;
+      _chPut('chj:' + id + ':' + s.runs + ':' + n, jq, [_text(), _chYmd(), _q, p.topic]);
+      save.textContent = 'Saved';
+      if(sub) sub.innerHTML = `<span class="ch-jr-ok">${_CH_CHECK}</span>Saved`;
+      haptic('tap');
+      const d = jr && jr.querySelector('.rd-jr-done'); if(d) setTimeout(()=>d.click(), 250);
+    };
+    if(ta && ans === 'micro'){ ta.addEventListener('focus', ()=>{ try{ const L = ta.value.length; ta.setSelectionRange(L, L); }catch(e){} }); }
+    if(done) done.onclick = ()=>{
+      if(!valid()) return;
+      const text = _text(), q = _q;
+      const today = _chYmd();
+      _chPut('chj:' + id + ':' + s.runs + ':' + n, q, [text, today, q, p.topic]);
+      _chPut('chd:' + id + ':' + n, 'challenge day done', [today]);
+      haptic('done');
+      try{ pushTrack && pushTrack('challenge_day', { id, day:n }); }catch(e){}
+      if(last) return _chFinish(id);
+      _chRemindSync();
+      screenChSaved(id, n);
+    };
+  }
+  // ---- 2b · after Done: keep going ----
+  function _chPracticeName(k){ const r = P8_ROWS.find(x=>x.k === k); if(r) return { t:r.t, sub:(estMinutes(k, k === 'micro' ? 2 : 8) ? `About ${estMinutes(k, k === 'micro' ? 2 : 8)} min · ` : '') + r.s };
+    const m = P_MEDS.find(x=>x.id === k); return m ? { t:m.title, sub:`${m.est.replace('~', 'About ')} · ${m.sub.charAt(0).toLowerCase() + m.sub.slice(1)}` } : { t:k, sub:'' }; }
+  function screenChSaved(id, n){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return screenChallenges();
+    const c = s.c, p = c.prompts[n - 1];
+    const k = Object.assign({}, c.keep || {}, ((c.keep || {}).byDay || {})[String(n)] || {}, ((c.keep || {}).bySense || {})[p.h] || {});
+    const pr = k.practice ? _chPracticeName(k.practice) : null;
+    const art = k.article && window.Learning ? window.Learning.byId(k.article) : null;
+    _rdShell(`<div class="ch-view">
+        <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
+        <div class="ch-saved"><span class="ch-check ch-check-lg">${_CH_CHECK}</span><h1 class="rd-title ch-ph">${escapeHtml(T.saved)}</h1></div>
+        <p class="ch-intro">${escapeHtml(T.tomorrow)}</p>
+        ${pr || art ? `<span class="ch-lbl ch-lbl-gap">${escapeHtml(T.keep)}</span>` : ''}
+        ${pr ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-k-pr"><span class="ch-keep-t"><span>A practice</span><b>${escapeHtml(pr.t)}</b><span>${escapeHtml(pr.sub)}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : ''}
+        ${art ? `<button class="ch-keep" type="button" id="ch-k-art"><span class="ch-keep-t"><span>Learn more</span><b>${escapeHtml(art.title)}</b><span>An article</span></span><span class="ch-chev">${CHEV}</span></button>` : ''}
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    const kp = $('#ch-k-pr'); if(kp) kp.onclick = ()=>{ app('practice'); setTimeout(()=>{ try{ openPracticeSheet(k.practice); }catch(e){} }, 30); };
+    const ka = $('#ch-k-art'); if(ka) ka.onclick = ()=>screenLearnPiece(art, null, null, { label:'Challenges', go:()=>screenChallenges() });
+  }
+  // ---- 3 · finished ----
+  function _chFinish(id){
+    const s = _chState(id); if(!s) return screenChallenges();
+    const run = s.runs;
+    _chPut('chf:' + id, 'challenge finished', [String(run + 1), _chYmd()]);
+    _chDel('chs:' + id);
+    try{ pushTrack && pushTrack('challenge_finish', { id }); }catch(e){}
+    _chRemindSync();
+    screenChFinished(id, run);
+  }
+  function _chNotes(id){
+    const m = _ctxLoad(), out = [], pre = 'chj:' + id + ':';
+    Object.keys(m).forEach(key=>{ if(key.indexOf(pre) !== 0) return; const v = m[key] || []; if(!v[0]) return; const parts = key.slice(pre.length).split(':'); out.push({ run:+parts[0], n:+parts[1], text:String(v[0]), day:v[1] || '', q:v[2] || '', topic:v[3] || '' }); });
+    return out.sort((a,b)=> a.run - b.run || a.n - b.n);
+  }
+  function screenChFinished(id, run){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return screenChallenges();
+    const all = _chNotes(id), mine = all.filter(x=>x.run === run);
+    const per = {}; mine.forEach(x=>{ per[x.topic] = x; });   // the most recent note for each topic
+    const notes = Object.keys(per).map(t=>per[t]).slice(0, 4);
+    const next = _chFirstUnfinished(id);
+    _rdShell(`<div class="ch-view">
+        <span class="ch-lbl">${escapeHtml(s.c.name)}</span>
+        <h1 class="rd-title ch-h1">${escapeHtml(T.finH)}</h1>
+        <p class="ch-intro">${escapeHtml(T.finLine.replace('{c}', s.c.name))}</p>
+        ${notes.map(x=>`<div class="ch-note"><span class="ch-lbl">${escapeHtml(String(x.topic).toUpperCase())}</span><p>${escapeHtml(x.text).replace(/\n/g, '<br>')}</p></div>`).join('')}
+        ${all.length ? `<button class="ch-link" type="button" id="ch-jr">${escapeHtml(T.finAll.replace('{n}', String(all.length)))}</button>` : ''}
+        <div class="ch-take"><span class="ch-lbl">TAKEAWAY</span><p>${escapeHtml(s.c.takeaway)}</p></div>
+        ${next ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-next"><span class="ch-keep-t"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><b>${escapeHtml(next.c.name)}</b><span>${escapeHtml(_chDaysWord(next.c))}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
+        <button class="ch-link ch-link-c" type="button" id="ch-all">${escapeHtml(T.seeAll)}</button>
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+    const jr = $('#ch-jr'); if(jr) jr.onclick = ()=>screenJournal('you');
+    const nx = $('#ch-next'); if(nx) nx.onclick = ()=>{ screenChallenges(); setTimeout(()=>openChSheet(next.id, screenChallenges), 30); };
+    const al = $('#ch-all'); if(al) al.onclick = ()=>screenChallengesAll();
+  }
+  // Your Journal: a challenge note reads as an entry like the others, grouped under Challenges
+  function _chJournalItems(){
+    const S = _CH(); if(!S) return [];
+    const m = _ctxLoad(), out = [];
+    Object.keys(m).forEach(key=>{
+      const mm = /^chj:([^:]+):(\d+):(\d+)$/.exec(key); if(!mm) return;
+      const v = m[key] || []; if(!v[0]) return; const c = S.C[mm[1]]; if(!c) return;
+      out.push({ chal:mm[1], post:{ key:'chal:' + mm[1], title:c.name, teachState:null }, rid:mm[3], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
+    });
+    return out;
+  }
+  // a notification or a cold open with #challenge
+  function _chOpenFromLink(){ const a = paidNow() ? _chActive() : null; if(a && a.ready) return screenChPrompt(a.id); return screenChallenges(); }
+  // ── end CHALLENGES ──
+
+
   function renderPracticeTab(animateIn){
     const paid = paidNow();
     const def = _domDefense();
@@ -8753,6 +9388,7 @@ function app(tab){
       <div class="scr-head read-head"><h1 class="read-h1">Practice</h1></div>
       ${card}
       ${_upEntry(paid)}
+      ${_chEntryHTML(paid)}
       <h3 class="p8-sec">Make your own</h3>
       <div class="p8-list">${mine}</div>
       <h3 class="p8-sec">Guided practices</h3>
@@ -8773,6 +9409,7 @@ function app(tab){
       openPracticeSheet(k);
     });
     const upE = $('#up-entry'); if(upE) upE.onclick = ()=>screenPathway();
+    const chE = $('#ch-entry'); if(chE) chE.onclick = ()=>screenChallenges();
     // a caller staged a shape to open straight into (older "change this practice" paths)
     if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
   }
@@ -8865,6 +9502,8 @@ function app(tab){
         openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)) return gateSubscribe('voice'); if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paint(); });
       } else if(kind==='bed'){
         openBedSheet(tc, ()=>paint());
+      } else if(kind==='pieces'){
+        openMindPiecesSheet(tc, pState.silence, ()=>paint());
       }
     }
     paint();
@@ -9347,6 +9986,11 @@ function app(tab){
           </div>
 
           <div class="gs-card">
+            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">What’s New</span>
+              <button class="linkbtn" id="set-updates" type="button">Past updates</button></div>
+          </div>
+
+          <div class="gs-card">
             <p class="gs-h">Appearance</p>
             <p class="gs-lbl2">Text size</p>
             <div class="set-seg ts-seg" id="seg-text">
@@ -9438,6 +10082,7 @@ function app(tab){
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const sem=$('#set-emotions'); if(sem) sem.onclick=()=>{ if(!paidNow()) return gateSubscribe('pathway'); screenEmotions(()=>screenSettings()); };
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
+    const sup=$('#set-updates'); if(sup) sup.onclick=()=>{ try{ if(Store.trackEvent) Store.trackEvent('whatsnew_past_opened',{ from:'settings' }); }catch(e){} screenUpdates('settings'); };
     { const t=$('#acad-toggle'); if(t) t.onclick=()=>{ _acadSetChoice(_acadOn() > 0 ? 'fresh' : 'keep'); haptic('save'); screenSettings(); }; }
     { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
@@ -9737,7 +10382,11 @@ function routeSafe(){
   if(document.getElementById('ci-reading') && Store.user && Store.user()) return;
   route();
 }
-try{ pushConsumeOpen(); }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally
+try{ pushConsumeOpen(); }catch(e){}
+// while a text field has the focus on a phone, the bottom menu steps aside (Justin, 2026-10-19: "this menu is not needed during typing")
+try{ if(window.matchMedia && matchMedia('(pointer:coarse)').matches){ const _kbTxt = el => !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && /^(text|search|email|password|url|tel|number)$/.test(el.type || 'text')) || el.isContentEditable);
+  document.addEventListener('focusin', e=>{ if(_kbTxt(e.target)) document.body.classList.add('kb-on'); });
+  document.addEventListener('focusout', ()=>{ setTimeout(()=>{ if(!_kbTxt(document.activeElement)) document.body.classList.remove('kb-on'); }, 80); }); } }catch(e){}   // ?push=<id> from a tapped notification: count it, then route normally
 Store.init(routeSafe);
 addEventListener('load',()=>{ setTimeout(()=>{ try{ pushSyncExisting(); }catch(e){} }, 3000); });
 })();
