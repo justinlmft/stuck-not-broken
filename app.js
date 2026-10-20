@@ -2549,7 +2549,7 @@ function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0
 const WN_UPDATES = [
   { id:'2026-10-challenges', when:'October 2026', items:[
     /* Justin, 2026-10-19: "only list the challenges with the challenge icon". Ships to prod with the challenges. */
-    { i:'flag',  t:'Challenges', b:'Small daily activities to practice mindfulness and connect with your inner world. One prompt a day. A missed day waits for you. On the paid plan.' } ] },
+    { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are on the $12/mo paid plan only.)' } ] },   // Justin's copy, 2026-10-19
   { id:'2026-10-06', when:'October 6, 2026', items:[
     { i:'path',  t:'The Unstucking Pathway', b:'The skills in order, checked off as you practice them.' },
     { i:'book',  t:'The Learn library', b:'Articles to read when you want to understand more.' },
