@@ -4325,9 +4325,12 @@ body.kb-on:not(.ll-sf-typing) .fl-dock{visibility:hidden}
 .wns-ic{flex:0 0 auto;width:30px;height:30px;color:var(--ink);margin-top:1px}
 .wns-t{margin:0 0 4px;font-size:calc(17px * var(--type-scale));line-height:1.4;font-weight:600;color:var(--ink);letter-spacing:-.01em}
 .wns-b{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--muted)}
-.wns-past{align-self:center;display:inline-flex;align-items:center;gap:4px;min-height:44px;margin:0 0 8px;padding:0 8px;background:none;border:0;
+.wns-past{align-self:flex-start;display:inline-flex;align-items:center;gap:4px;min-height:44px;margin:0 0 8px;padding:0;background:none;border:0;
   font:inherit;font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
-.wns-ok{flex:0 0 auto}
+.wns-ok,.wns-go{flex:0 0 auto}
+.wns-later{flex:0 0 auto;margin-top:8px}
+/* every line in the sheet starts at the left edge (Justin, 2026-10-19: "Left align all text") */
+.wns-card{text-align:left}
 body.reduce-motion .wns,body.reduce-motion .wns-card{transition:none}
 @media (prefers-reduced-motion:reduce){ .wns,.wns-card{transition:none} }
 .wnh{display:flex;flex-direction:column;gap:16px;margin-top:8px}
