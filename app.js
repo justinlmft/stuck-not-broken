@@ -2126,6 +2126,7 @@
     setOriented(how==='skip' ? 'skipped-v2' : 'v2');
     // the walkthrough IS the update for this member: Monday's card and the two September cards never follow it
     try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
+    try{ wnMarkLatestSeen(); }catch(e){}   // and the What's New sheet (2026-10-19): a member who just had the tour does not also get the newest update
     obTrack(how==='skip' ? 'orient_skip' : 'orient_complete', { step: (obStep(_ob.i)||{}).id||'', v:2, from:_ob.from });
     obUnlift();
     if(d && d.parentNode) d.parentNode.removeChild(d);
@@ -2521,8 +2522,118 @@ function whatsNewAcademy(){
   const f=d.querySelector('#wn-fresh'); if(f) f.onclick=()=>close('fresh');
   try{ if(Store.trackEvent) Store.trackEvent('academy_card_seen',{ stage:s }); }catch(e){}
 }
+/* ✅ WHAT'S NEW, AS A SLIDE-UP SHEET (Justin, 2026-10-19: "i like the icons and the readability and the screen real estate.
+ * i think we are doing a pop-up currently. the slide-up is a better option. and there is also an option to see prior
+ * updates. we should probably have a history log." Mockup "What's New sheet", approved the same day: "yep nailed it").
+ * One list, WN_UPDATES, newest first: the newest entry is the sheet a returning member sees once; every entry is the
+ * Past Updates log (from the sheet's "See past updates" and from Settings). The app speaks here, not Justin. Icons are
+ * ink line icons: state colors never decorate. A new update = a new entry at the TOP of the list, with a new id; it
+ * goes out with the features it names (an entry naming beta-only features stays off prod). */
+const WN_ICONS = {
+  flag:'<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+  pen:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  wave:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  path:'<path d="M4 19c4 0 4-6 8-6s4-6 8-6"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="7" r="1.5"/>',
+  book:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5"/>',
+  play:'<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4Z"/>',
+  chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z"/>',
+  music:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  bulb:'<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>',
+  chart:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 15v-3"/><path d="M12 15V9"/><path d="M16 15v-5"/>',
+  lines:'<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h6"/>',
+  phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>'
+};
+function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
+const WN_UPDATES = [
+  { id:'2026-10-challenges', when:'October 2026', items:[
+    { i:'flag',  t:'Challenges', b:'Small daily activities to practice mindfulness and connect with your inner world. One prompt a day. A missed day waits for you. On the paid plan.' },
+    { i:'pen',   t:'One journal', b:'Tap the Journal button in an article, a practice or a challenge. Everything you write is kept together in Your Journal.' },
+    { i:'bell',  t:'A reminder, if you want one', b:'Pick a time for one reminder on days a new challenge prompt opens. It stays off unless you turn it on.' },
+    { i:'wave',  t:'Balancing, refined', b:'Balancing practices now go from safety to defense and back to safety once, the way the skill is taught.' } ] },
+  { id:'2026-10-06', when:'October 6, 2026', items:[
+    { i:'path',  t:'The Unstucking Pathway', b:'The skills in order, checked off as you practice them.' },
+    { i:'book',  t:'The Learn library', b:'Articles to read when you want to understand more.' },
+    { i:'pen',   t:'Your Journal', b:'One place for everything you write in the app.' },
+    { i:'play',  t:'A new Practice tab', b:'Every practice in one place, plus a short walkthrough in Settings.' } ] },
+  { id:'2026-09-28', when:'September 28, 2026', items:[
+    { i:'chat',  t:'Practices that respond', b:'Answer questions in the player and change where the practice goes.' },
+    { i:'music', t:'Background audio', b:'Tap Customize in the player to add a background sound.' },
+    { i:'clock', t:'Better recommendations', b:'Based on your check-ins and practices, including your ideal practice time.' },
+    { i:'bulb',  t:'Did you know', b:'A tip now and then to help you get the most out of the app.' } ] },
+  { id:'2026-09-09', when:'September 9, 2026', items:[
+    { i:'bell',  t:'Notifications', b:'Choose exactly what you hear about and when. You’re in control.' },
+    { i:'chart', t:'Data cards on the You tab', b:'New cards about your check-ins and practices, changing each day.' } ] },
+  { id:'2026-08-16', when:'August 16, 2026', items:[
+    { i:'lines', t:'Clearer check-in names', b:'Each check-in names the state, how strong it is, and a second state when there is one.' },
+    { i:'phone', t:'Practices keep playing', b:'A practice no longer stops when your screen locks.' } ] }
+];
+const _wnSeenKey = u => 'snb_wn_seen_' + u.id;
+function wnMarkLatestSeen(){ try{ localStorage.setItem(_wnSeenKey(WN_UPDATES[0]), '1'); }catch(e){} }
+function _wnItemsHTML(u){ return u.items.map(it => '<div class="wns-item">' + wnIcon(it.i) + '<div><h3 class="wns-t">' + escapeHtml(it.t) + '</h3><p class="wns-b">' + escapeHtml(it.b) + '</p></div></div>').join(''); }
+// the sheet itself; opts.fromHistory: opened from Past Updates, so no link back to it and Continue returns there
+function openWhatsNewSheet(u, opts){
+  opts = opts || {};
+  if(document.getElementById('wn-root')) return false;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wns';
+  d.innerHTML = '<div class="wns-card" role="dialog" aria-modal="true" aria-labelledby="wns-h" tabindex="-1">'
+    + '<div class="wns-grab" aria-hidden="true"></div>'
+    + '<div class="wns-body"><p class="wns-eyebrow">' + escapeHtml(u.when) + '</p>'
+    + '<h2 class="wns-h" id="wns-h">What’s New</h2>'
+    + '<div class="wns-list">' + _wnItemsHTML(u) + '</div></div>'
+    + '<div class="wns-foot">' + (opts.fromHistory ? '' : '<button class="wns-past" id="wns-past" type="button">See past updates<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>')
+    + '<button class="btn block wns-ok" id="wns-ok" type="button">Continue</button></div></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  const close=()=>{ document.removeEventListener('keydown', onKey, true); d.remove(); };
+  function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(); } }
+  document.addEventListener('keydown', onKey, true);
+  d.addEventListener('click', e=>{ if(e.target===d) close(); });
+  const ok=d.querySelector('#wns-ok'); if(ok) ok.onclick=close;
+  try{ d.querySelector('.wns-card').focus({preventScroll:true}); }catch(e){}   // focus moves into the sheet, without a ring on Continue
+  const past=d.querySelector('#wns-past'); if(past) past.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_past_opened',{ from:'sheet' }); }catch(e){} screenUpdates('sheet'); };
+  return true;
+}
+// once per update, to a member who was already using the app; never over onboarding, another card, a tip or a practice
+function whatsNewSheet(){
+  if(_wnShownThisLoad || !_obMember() || !_obHydrated() || !oriented()) return;
+  const u = WN_UPDATES[0];
+  try{ if(localStorage.getItem(_wnSeenKey(u))==='1') return; }catch(e){ return; }
+  try{ if(localStorage.getItem(_WN_ONB_KEY)!=='1') return; }catch(e){ return; }   // Monday's card and the walkthrough go first
+  if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  if(document.body.classList.contains('in-practice') || document.body.classList.contains('jr-sheet-on') || document.getElementById('weaver')) return;
+  if(!openWhatsNewSheet(u)) return;
+  wnMarkLatestSeen();
+  _wnShownThisLoad = true;
+  try{ if(Store.trackEvent) Store.trackEvent('whatsnew_sheet_seen',{ v:u.id }); }catch(e){}
+}
+// Past Updates: every entry, newest first; the newest as names only, with "Read this update" opening its sheet
+function screenUpdates(from){
+  const cards = WN_UPDATES.map((u,i) => i===0
+    ? '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + ' · Latest</p><div class="wnh-names">'
+      + u.items.map(it => '<div class="wnh-name">' + wnIcon(it.i,'wnh-ic') + '<span>' + escapeHtml(it.t) + '</span></div>').join('')
+      + '</div><button class="wnh-read" id="wnh-read" type="button">Read this update</button></section>'
+    : '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + '</p><div class="wnh-list">'
+      + u.items.map(it => '<div class="wnh-item">' + wnIcon(it.i,'wnh-ic') + '<div><h3 class="wnh-t">' + escapeHtml(it.t) + '</h3><p class="wnh-b">' + escapeHtml(it.b) + '</p></div></div>').join('')
+      + '</div></section>').join('');
+  setHTML(`
+    <header class="appbar"><button class="backbtn" id="wnh-back" type="button">${from==='settings' ? 'Settings' : 'Back'}</button></header>
+    <div class="scroll"><div class="view settings-view">
+      <div class="scr-head">
+        <p class="eyebrow"></p>
+        <h2 class="scr-h">Past Updates</h2>
+        <p class="scr-lede">Everything new in the app, newest first.</p>
+      </div>
+      <div class="wnh">${cards}</div>
+    </div></div>`);
+  const back=$('#wnh-back'); if(back) back.onclick=()=>{ if(from==='settings') screenSettings(); else app(currentTab||'now'); };
+  const rd=$('#wnh-read'); if(rd) rd.onclick=()=>openWhatsNewSheet(WN_UPDATES[0], { fromHistory:true });
+  try{ window.scrollTo(0,0); }catch(e){}
+}
 // September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} }, ms)); });
+// the What's New sheet comes last: it waits for Monday's card and the Academy card, and never shares a load with either
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
 
 function app(tab){
     currentTab = tab;
@@ -9870,6 +9981,11 @@ function app(tab){
           </div>
 
           <div class="gs-card">
+            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">What’s New</span>
+              <button class="linkbtn" id="set-updates" type="button">Past updates</button></div>
+          </div>
+
+          <div class="gs-card">
             <p class="gs-h">Appearance</p>
             <p class="gs-lbl2">Text size</p>
             <div class="set-seg ts-seg" id="seg-text">
@@ -9961,6 +10077,7 @@ function app(tab){
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const sem=$('#set-emotions'); if(sem) sem.onclick=()=>{ if(!paidNow()) return gateSubscribe('pathway'); screenEmotions(()=>screenSettings()); };
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
+    const sup=$('#set-updates'); if(sup) sup.onclick=()=>{ try{ if(Store.trackEvent) Store.trackEvent('whatsnew_past_opened',{ from:'settings' }); }catch(e){} screenUpdates('settings'); };
     { const t=$('#acad-toggle'); if(t) t.onclick=()=>{ _acadSetChoice(_acadOn() > 0 ? 'fresh' : 'keep'); haptic('save'); screenSettings(); }; }
     { const a=$('#set-change-ci'); if(a) a.onclick=screenChangeCheckin; const b=$('#set-manage-pr'); if(b) b.onclick=screenManagePractices; }
     // "your check-in" method chooser (turn 6): the choice lives in settings; the
