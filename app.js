@@ -4443,8 +4443,14 @@ function app(tab){
     const now = Date.now(), key = seed + '|' + new Date().toDateString(); let h = 7;
     for(let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) | 0;
     const all = [['d7',7],['d14',14],['d30',30],['d90',90]].map(([k,d])=>_lrnPeriodCtx(k, now - d*864e5, now + 1));
-    const ok = all.filter(c=>c.f && c.f.n >= 3), pool = ok.length ? ok : all;
-    return pool[Math.abs(h) % pool.length];
+    // only periods the member's check-ins actually span, so a member who started a week ago sees "Last 7 days", never
+    // "Last 3 months" (Justin, 2026-10-21: "someone who used the app for a week should see a result here, too"). The last
+    // 7 days always qualify; with too few check-ins in any of those, the shortest period that has 3 or more.
+    let first = null; try{ (Store.checkins() || []).forEach(c=>{ if(c && c.t && (first === null || c.t < first)) first = c.t; }); }catch(e){}
+    const fits = all.filter((c, i)=> i === 0 || (first !== null && first <= c.start));
+    const ok = fits.filter(c=>c.f && c.f.n >= 3);
+    if(!ok.length) return all.find(c=>c.f && c.f.n >= 3) || all[0];
+    return ok[Math.abs(h) % ok.length];
   }
   function _lrnPicks(){ try{ return JSON.parse(localStorage.getItem('snb_lrn_picks')||'{}') || {}; }catch(e){ return {}; } }
   function _lrnSavePick(key, v){ try{ const m=_lrnPicks(); m[key]=v; localStorage.setItem('snb_lrn_picks', JSON.stringify(m)); }catch(e){} }
@@ -4940,6 +4946,11 @@ function app(tab){
     const np = (f.practices || []).length; if(np) add('Practices', np + (f.minutes >= 1 ? ' · ' + Math.round(f.minutes) + ' min' : ''));
     return `<details class="see-data rd-call-more"><summary class="sd-sum"><span>More stats</span></summary><div class="sd-body">${rows.join('')}</div></details>`;
   }
+  // a paid member with fewer than 3 check-ins: where their results will show (no state color: nothing is known yet)
+  function _lrnWaitHTML(n){
+    const so = n === 1 ? ' You have 1 check-in so far.' : n > 1 ? ' You have ' + n + ' check-ins so far.' : '';
+    return `<div class="rd-call rd-call-wait" style="--cs:var(--hairline);--cw:var(--rd-card)"><p class="read-p rd-call-p">${'Your results show here after 3 check-ins.' + so}</p></div>`.replace(/check-in/g,'check&#8209;in');
+  }
   function _lrnCallHTML(c, paid, ctx){
     const col = STATE_COLOR(c.mk), pc = c.per || ctx, per = _lrnPerLabel(pc);
     const who = `<span class="rd-call-who">${_rdMk(c.mk)}<span class="rd-call-lbl">${escapeHtml(c.label)}</span>${per ? `<span class="rd-call-per">${escapeHtml(per)}</span>` : ''}</span>`;
@@ -5129,13 +5140,18 @@ function app(tab){
     if(gated){ const keep = []; let words = 0;
       for(const b of blocks){ if(keep.length && (b.h || b.h3 || b.reflect || b.practice || b.callout)) break; if(b.p || b.q || b.ul || b.ol){ keep.push(b); words += JSON.stringify(b).split(/\s+/).length; if(keep.length >= 3 || words > 160) break; } else if(!keep.length && !b.h && !b.h3) continue; else keep.push(b); }
       blocks = keep; }
-    const parts = [];
+    const parts = [], nCi = gCheckinCount();
+    let waitShown = false;
     for(let i = 0; i < blocks.length; i++){
       const b = blocks[i];
       if(b.reflect){ const run = [b]; while(i + 1 < blocks.length && blocks[i + 1].reflect) run.push(blocks[++i]); parts.push(reflCard(run, !!(i - run.length >= 0 && (blocks[i - run.length].h || blocks[i - run.length].h3)))); continue; }
       if(b.practice){ const pt = _lrnPracticeThis(b);
         parts.push(`<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`); continue; }
-      if(b.callout){ const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid, ctx) : ''); continue; }
+      if(b.callout){
+        // under 3 check-ins in all, no card can show yet: one plain line in place of the first card, nothing for the rest
+        // (Justin, 2026-10-21: "Your results show here after 3 check-ins. You have [1 or 2] check-ins so far.")
+        if(paid && nCi < 3){ if(!waitShown){ waitShown = true; parts.push(_lrnWaitHTML(nCi)); } continue; }
+        const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid, ctx) : ''); continue; }
       if(b.emotions){ parts.push(_lrnEmoHTML(paid)); continue; }
       // a "Journal" or "Reflect" heading right above the questions: the Journal card says it, so the heading stays only for the table of contents
       if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
