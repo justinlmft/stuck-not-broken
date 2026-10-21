@@ -5844,68 +5844,72 @@ function app(tab){
       s.type==='capacity-builder' ? 'I practiced capacity building today.' : 'I practiced mindfulness today.');   // 🖊 CB variant
     $('#lv-done').onclick = ()=>{ _liveClear(); app('now'); showToast('saved with your check-ins'); };
   }
-  // the "we're live" nudge: small, invitational, always rejectable, off-switch in settings.
-  // free-for-all events show for everyone; member events only to members (kind, no upsell).
+  // "live now" card on the Now screen (option B, Justin 2026-10-21): replaces the
+  // pop-up. Shown to everyone while a practice is live; the tag says who it is for.
+  // Not an upsell and not a join link: it opens the in-app follow-along + check-in.
+  // Dismiss hides it for this session; Settings "Live practice invitations" turns it off.
+  let _liveNowS = null, _liveNowT = 0, _liveTick = null;
+  const _liveAnimDone = {};
+  function _liveCardPaint(){
+    const foot = document.querySelector('#content .now .mh-foot');
+    let card = document.getElementById('lv-card');
+    const s = _liveNowS;
+    let show = !!(s && foot && currentTab==='now');
+    try{
+      if(show && localStorage.getItem('snb_live_nudge')==='0') show=false;
+      if(show && sessionStorage.getItem('snb_live_seen')===s.code) show=false;
+      if(show && _liveJoin()) show=false;
+      if(show && s.expires_at && Date.parse(s.expires_at) < Date.now()) show=false;
+    }catch(e){}
+    const view = document.querySelector('#content .now');
+    if(view) view.classList.toggle('lv-on', show);
+    if(!show){ if(card) card.remove(); return; }
+    if(card && card.dataset.code===s.code && card.parentNode===foot) return;
+    if(card) card.remove();
+    const cb = s.type==='capacity-builder';
+    const title = CAP(LIVE_NAME[s.type]||'live practice') + ' with ' + CAP(s.host||'justin');
+    card = document.createElement('div');
+    card.id = 'lv-card'; card.className = 'lv-card'; card.dataset.code = s.code;
+    card.setAttribute('role','region'); card.setAttribute('aria-label','Live now');
+    if(!_liveAnimDone[s.code]){ card.classList.add('lv-in'); _liveAnimDone[s.code]=1; }
+    card.innerHTML = `<div class="lv-card-top">
+        <svg class="lv-card-ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"></circle><path class="lv-arc1" d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7"></path><path class="lv-arc2" d="M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"></path></svg>
+        <span class="lv-card-eb">Live now</span>
+        <span class="lv-card-tag">${cb ? 'Academy members' : 'Open to everyone'}</span>
+      </div>
+      <p class="lv-card-title">${escapeHtml(title)}</p>
+      <div class="lv-card-row">
+        <button class="lv-card-go" id="lv-card-go" type="button"><span>Follow along and check in</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+        <span class="lv-card-div" aria-hidden="true"></span>
+        <button class="lv-card-x" id="lv-card-x" type="button">Dismiss</button>
+      </div>`;
+    foot.insertBefore(card, foot.firstChild);
+    card.querySelector('#lv-card-go').onclick = ()=>{
+      try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:s.code, joined:'self', t:Date.now() })); }catch(e2){}
+      card.remove(); screenLive();
+    };
+    card.querySelector('#lv-card-x').onclick = ()=>{
+      try{ sessionStorage.setItem('snb_live_seen', s.code); }catch(e2){}
+      _liveCardPaint();                                       // takes the card away and gives the ring its room back
+    };
+  }
   function liveNudge(){
     try{
-      if(localStorage.getItem('snb_live_nudge')==='0') return;
+      // re-check every minute while the Now screen is up, so the card arrives and leaves on its own
+      if(!_liveTick) _liveTick = setInterval(()=>{
+        if(currentTab!=='now' || !document.querySelector('#content .now')){ clearInterval(_liveTick); _liveTick=null; return; }
+        liveNudge();
+      }, 60*1000);
+      if(localStorage.getItem('snb_live_nudge')==='0'){ _liveCardPaint(); return; }
       if(!Store.user() || (Store.isAnonymous&&Store.isAnonymous())) return;
-      if(_liveJoin()) return;
-      const K='snb_live_poll_t';
-      if(Date.now() - (+localStorage.getItem(K)||0) < 15*1000) return;   // poll at most every 15s (was 3 min; too slow to re-check on app reopen)
-      localStorage.setItem(K, String(Date.now()));
+      _liveCardPaint();                                       // paint from the last answer right away (Now re-renders a lot)
+      if(Date.now() - _liveNowT < 15*1000) return;            // poll at most every 15s
+      _liveNowT = Date.now();
       Store.livePoll().then(r=>{
-        if(!r || !Array.isArray(r.live) || !r.live.length) return;
-        const e=(Store.entitlement&&Store.entitlement())||{};
-        const s=r.live.find(x=>x.type!=='capacity-builder' || e.sub||e.circle||e.legacy);
-        if(!s) return;
-        if(sessionStorage.getItem('snb_live_seen')===s.code) return;
-        if(currentTab!=='now' || !document.querySelector('#content .view')) return;   // still on Now?
-        if(document.querySelector('.lv-pop')) return;                                   // never stack two
-        // a POP-UP, not a card (Justin 2026-07-17): white on purpose against the bone
-        // app, the tri-glyph logo on top, marks arriving one by one — significant and
-        // a little fun, still fully rejectable in one tap.
-        // THE COPY IS SESSION-AUTHORED: the builder sends host + invite at Present
-        // (updatable without an app deploy). Built-in lines are only the fallback. 🖊
-        const who = s.type==='capacity-builder'
-          ? 'You’re an unstucking academy co-regulation student and welcome to join.'
-          : (e.circle ? 'You’re an unstucking academy student and welcome to join.'      // 🖊 variant
-          :  e.sub    ? 'You’re a subscriber and welcome to join.'                        // 🖊 variant
-          :             'You’re a free subscriber and welcome to join.');
-        const line = s.invite ? escapeHtml(s.invite)
-          : ('right now, '+escapeHtml(s.host||'justin')+' is hosting a '+escapeHtml(LIVE_NAME[s.type]||'live')+' practice. '+who);
-        const el=document.createElement('div');
-        el.className='lv-pop';
-        const room=(typeof s.room==='string' && /^https?:\/\/\S+$/i.test(s.room.trim())) ? s.room.trim() : null;   // builder-published live room URL (Option A: link out only)
-        const head=room?'Join us live!':"we're practicing live";   // 🖊 no room → don't over-promise
-        const btns=room
-          ? '<button class="btn block" id="lv-n-watch">Watch live &rarr;</button><button class="btn quiet block" id="lv-n-join">Just check in</button>'
-          : '<button class="btn block" id="lv-n-join">Check in &rarr;</button>';
-        el.innerHTML=`<div class="lv-pop-card" role="dialog" aria-modal="true" aria-label="${head}">
-          <div class="lv-pop-logo" aria-hidden="true">${triLogo()}</div>
-          <p class="lv-pop-h">${head}</p>
-          <p class="lv-pop-b">${line}</p>
-          ${btns}
-          <button class="set-quiet" id="lv-n-no">Not now</button>
-          <button class="set-quiet lv-pop-off" id="lv-n-off">Turn off these notifications</button>
-        </div>`;
-        document.body.appendChild(el);
-        const _close=()=>{ sessionStorage.setItem('snb_live_seen', s.code); el.remove(); };
-        el.addEventListener('click', ev=>{ if(ev.target===el) _close(); });
-        const w=el.querySelector('#lv-n-watch'); if(w) w.onclick=()=>{
-          try{ window.open(room,'_blank','noopener'); }catch(e2){}
-          _close();
-        };
-        const j=el.querySelector('#lv-n-join'); if(j) j.onclick=()=>{
-          try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:s.code, joined:'self', t:Date.now() })); }catch(e2){}
-          el.remove(); screenLive();
-        };
-        const n=el.querySelector('#lv-n-no'); if(n) n.onclick=_close;
-        const off=el.querySelector('#lv-n-off'); if(off) off.onclick=()=>{
-          try{ localStorage.setItem('snb_live_nudge','0'); }catch(e2){}
-          _close(); showToast('you can turn these back on in settings');   // 🖊
-        };
-      });
+        if(!r || !Array.isArray(r.live)) return;              // network hiccup: keep what we had
+        _liveNowS = r.live.find(x=>x && x.code && sessionStorage.getItem('snb_live_seen')!==x.code) || null;
+        _liveCardPaint();
+      }).catch(()=>{});
     }catch(e){}
   }
 

@@ -4346,3 +4346,32 @@ body.reduce-motion .wns,body.reduce-motion .wns-card{transition:none}
 .wnh-name .wnh-ic{margin-top:0}
 .wnh-read{display:inline-flex;align-items:center;min-height:44px;margin-top:8px;padding:0;background:none;border:0;font:inherit;
   font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+/* ---- "live now" card on the Now screen (option B, Justin 2026-10-21) ----
+   outlined in ink, white field, a broadcast mark that breathes, rises in once. */
+.lv-card{display:flex;flex-direction:column;gap:10px;box-sizing:border-box;padding:14px 16px 4px;border:1.5px solid var(--ink);border-radius:20px;background:var(--field);color:var(--ink);text-align:left}
+.lv-card-top{display:flex;align-items:center;gap:10px}
+.lv-card-ico{flex:none;color:var(--ink)}
+.lv-card-eb{font-size:calc(12px * var(--type-scale));font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.lv-card-tag{margin-left:auto;font-size:calc(12px * var(--type-scale));font-weight:500;padding:4px 10px;border:1px solid var(--ink-80);border-radius:999px;color:var(--ink-80);white-space:nowrap}
+.lv-card-title{margin:0;font-size:calc(18px * var(--type-scale));font-weight:500;line-height:1.3}
+.lv-card-row{display:flex;align-items:center;gap:6px}
+.lv-card-go{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:6px;min-height:44px;padding:0;border:0;background:transparent;font:inherit;font-size:calc(14.5px * var(--type-scale));font-weight:500;color:var(--ink);cursor:pointer;text-align:left}
+.lv-card-go span{text-wrap:balance}
+.lv-card-go svg{flex:none}
+.lv-card-div{flex:none;width:1px;height:22px;background:var(--hairline)}
+.lv-card-x{flex:none;min-height:44px;padding:0 2px 0 6px;border:0;background:transparent;font:inherit;font-size:calc(14.5px * var(--type-scale));color:var(--muted);cursor:pointer}
+.lv-card-go:focus-visible,.lv-card-x:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
+@keyframes lvInkIn{0%{opacity:0;transform:translateY(40px)}70%{opacity:1;transform:translateY(-3px)}100%{opacity:1;transform:none}}
+@keyframes lvArc{0%,15%{opacity:.25}35%,60%{opacity:1}85%,100%{opacity:.25}}
+.lv-card.lv-in{animation:lvInkIn .8s var(--ease) both}
+.lv-arc1{animation:lvArc 2.2s ease-in-out infinite}
+.lv-arc2{animation:lvArc 2.2s ease-in-out .25s infinite}
+@media (prefers-reduced-motion:reduce){.lv-card.lv-in,.lv-arc1,.lv-arc2{animation:none}}
+body.reduce-motion .lv-card.lv-in,body.reduce-motion .lv-arc1,body.reduce-motion .lv-arc2{animation:none}
+/* while the card shows, the ring steps back so Check in stays on screen */
+.now.tb.mh.lv-on .tb-hero{gap:12px}
+.now.tb.mh.lv-on .tb-stage{width:140px;height:140px}
+.now.tb.mh.lv-on .tb-breath{gap:12px}
+.now.tb.mh.lv-on:not(.breathing) .tb-esc{display:none}
+.now.tb.mh.lv-on .mh-noci{display:none}
