@@ -4577,7 +4577,7 @@ function app(tab){
       const up = ps.filter(x=>x.s1 > x.s0).length; if(!up) return null;
       const text = up === ps.length ? (ps.length === 1 ? `When you practiced ${ctx.noun}, safety went up.` : `Each time you practiced ${ctx.noun}, safety went up.`) : `Safety went up in ${up===1?'one practice':up+' practices'} ${ctx.noun}.`;
       const ins = ps.slice(-5).map(x=>({ day:DAYS_LONG[x.day].slice(0,3), anchor:null, s0:x.s0, s1:x.s1, best:false }));
-      return { mk:'safety', label: owner + ' practices', text, card: `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('inside', ins, STATE_COLOR)}<figcaption class="rd-cap">${escapeHtml(RD_SNAP_CAP.inside)}</figcaption></figure>` };
+      return { mk:'safety', label: owner + ' safety in practice', text, card: `<figure class="rd-snap rd-snap-in">${window.Reader.snapSVG('inside', ins, STATE_COLOR)}<figcaption class="rd-cap">${escapeHtml(RD_SNAP_CAP.inside)}</figcaption></figure>` };
     }
     if(kind === 'eased' && st){
       let pair = null;
@@ -4585,7 +4585,7 @@ function app(tab){
       if(!pair) return null;
       const d0 = DAYS_LONG[new Date(pair[0].t).getDay()], same = new Date(pair[0].t).toDateString() === new Date(pair[1].t).toDateString();
       const by = same ? 'that ' + _lrnPart(pair[1].t) : DAYS_LONG[new Date(pair[1].t).getDay()] + ' ' + _lrnPart(pair[1].t);
-      return { mk:st, label: owner + ' ' + d0, text: `${d0}'s ${STATE_NAME(st)} eased by ${by}.`, card: _rdFlow(st, pair[1].key) };
+      return { mk:st, label: owner + ' ' + STATE_NAME(st) + ' easing', text: `${d0}'s ${STATE_NAME(st)} eased by ${by}.`, card: _rdFlow(st, pair[1].key) };
     }
     if(kind === 'time' && st){
       // the part of the day this state showed up most (3+ check-ins of it, and a clear lead)
@@ -4596,7 +4596,7 @@ function app(tab){
       const what = st==='safety' ? 'More safety than defense' : CAP(STATE_NAME(st));
       const mx = Math.max.apply(null, Object.values(cnt)), col = STATE_COLOR(st);
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${['morning','afternoon','evening','late'].map((s,i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${CAP(_LRN_SEG[s])}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(100*(cnt[s]||0)/mx)}%;background:${col}"></span></span><span class="help-pct"></span></div>`).join('')}</div></div>`;
-      return { mk:st, label: owner + ' ' + seg, text: `${what} showed up most in your ${seg} ${ctx.noun}.`, card };
+      return { mk:st, label: owner + ' ' + (st === 'safety' ? 'safety' : STATE_NAME(st)) + ' by time of day', text: `${what} showed up most in your ${seg} ${ctx.noun}.`, card };
     }
     // 2026-10-13: the rest of the check-in's "I've had more of" chips too (work, family, hobbies, spiritual, body & movement, rest, practice)
     const _CTX_MORE = { work:[['work'],'work'], family:[['family'],'time with family'], hobbies:[['hobbies'],'time for hobbies'], spiritual:[['spiritual'],'spiritual time'],
@@ -4611,7 +4611,7 @@ function app(tab){
       if(amt === '100%' && tagged.length < 20) return null;
       const text = `In the last eight weeks, when you'd had more ${words}, ${amt} of those check-ins had more safety than defense.`;
       const card = _lrnBars2(CAP('With more ' + words), sh, 'All your check-ins', all);
-      return { mk:'safety', label: owner + ' ' + (st === 'body' ? 'movement' : st), text, card, per: Object.assign({}, c8, { kind:'w8' }) };
+      return { mk:'safety', label: owner + ' safety with more ' + words, text, card, per: Object.assign({}, c8, { kind:'w8' }) };
     }
     if(kind === 'context' && (st === 'people' || st === 'places')){
       // what the member named on their check-ins ("I've had more of"), over the last eight weeks
@@ -4627,7 +4627,7 @@ function app(tab){
       const text = `In the last eight weeks, when you'd had more ${st === 'people' ? 'time with ' + names : names}, ${amt} of those check-ins had more safety than defense.`;
       const bar = (lbl, x, c, i) => `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${lbl}</span><span class="help-track"><span class="help-fill" style="width:${Math.round(x*100)}%;background:${c}"></span></span><span class="help-pct"></span></div>`;
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${bar(st === 'people' ? 'With more people time' : 'With more ' + names, sh, STATE_COLOR('safety'), 0)}${bar('All your check-ins', all, 'var(--hairline)', 1)}</div></div>`;
-      return { mk:'safety', label: owner + (st === 'people' ? ' people' : ' surroundings'), text: CAP(text.charAt(0)) + text.slice(1), card, per: Object.assign({}, c8, { kind:'w8' }) };
+      return { mk:'safety', label: owner + (st === 'people' ? ' safety with people' : ' safety in nature'), text: CAP(text.charAt(0)) + text.slice(1), card, per: Object.assign({}, c8, { kind:'w8' }) };
     }
     if(id === 'mixed-safe'){
       const np = rs.filter(r=>r.key==='play').length, ns = rs.filter(r=>r.key==='stillness').length; if(!np && !ns) return null;
@@ -4663,17 +4663,27 @@ function app(tab){
       const text = up === pr.length ? `Every practice ${ctx.noun} with a check-in before and after ended with more safety.`
         : `${_lrnShareWords(up/pr.length)} of your practices ${ctx.noun} with a check-in before and after ended with more safety.`;
       const row = pr.slice(-7).map(x=>`<span class="lc-ar"><b>${_arw(x.d > 0 ? 1 : x.d < 0 ? -1 : 0)}</b><i>${DAYS_LONG[new Date(x.t).getDay()].slice(0,3)}</i></span>`).join('');
-      return { mk:'safety', label: owner + ' before and after', text, card:`<div class="rd-snap rd-snap-in lc-arrows" aria-hidden="true">${row}</div><p class="rd-cap">↑ more safety after · ↓ less · → no change</p>` };
+      return { mk:'safety', label: owner + ' safety before and after', text, card:`<div class="rd-snap rd-snap-in lc-arrows" aria-hidden="true">${row}</div><p class="rd-cap">↑ more safety after · ↓ less · → no change</p>` };
     }
     if(id === 'anchor-best'){
-      // the anchor (sense) whose practices lifted safety most, from two or more practices with it
-      const an = (f.anchors || []).filter(a=>a.n >= 2 && a.lift > 0); if(!an.length) return null;
-      const SENSE = { sound:'sound', sight:'sight', touch:'touch', imagination:'imagination', movement:'movement' };
-      const nmA = a => SENSE[a] || String(a).replace(/[-_]/g, ' ');
-      const text = an.length === 1 ? `Safety rose most when you anchored through ${nmA(an[0].anchor)} ${ctx.noun}.`
-        : `Safety rose most when you anchored through ${nmA(an[0].anchor)} ${ctx.noun}, then ${nmA(an[1].anchor)}.`;
-      const top = an[0].lift;
-      return { mk:'safety', label: owner + ' anchors', text, card: _bars(an.slice(0, 5).map(a=>[CAP(nmA(a.anchor)), a.lift / top, STATE_COLOR('safety')])) };
+      // every anchor side by side, so there is something to compare (Justin, 2026-10-21: "i see only touch listed ... a
+      // yellow bar with nothing to compare it to. this is almost useless. put the other anchors in there as well."):
+      // the bar is how much safety rose on average in practices with that anchor, the number is how many practices,
+      // and an anchor not used in the period says so
+      const all = f.anchors || []; if(!all.length) return null;
+      const SENSES = ['sight','sound','touch','imagination','movement'], by = {}; all.forEach(a=>{ by[a.anchor] = a; });
+      const keys = SENSES.concat(all.map(a=>a.anchor).filter(k=>SENSES.indexOf(k) < 0));
+      const nmA = a => String(a).replace(/[-_]/g, ' ');
+      const lifted = all.filter(a=>a.n >= 2 && a.lift > 0), untried = keys.filter(k=>!by[k]);
+      const orList = a => a.length <= 1 ? (a[0]||'') : a.slice(0,-1).join(', ') + ' or ' + a[a.length-1];
+      let text = lifted.length ? `Safety rose most when you anchored through ${nmA(lifted[0].anchor)} ${ctx.noun}` + (lifted[1] ? `, then ${nmA(lifted[1].anchor)}.` : '.')
+        : `You anchored through ${_listAnd(keys.filter(k=>by[k]).map(nmA))} ${ctx.noun}.`;
+      if(untried.length) text += ` You haven't anchored through ${orList(untried.map(nmA))} ${ctx.noun}.`;
+      const top = Math.max.apply(null, all.map(a=>a.lift).concat(0)) || 1, col = STATE_COLOR('safety');
+      const rows = keys.map((k, i)=>{ const a = by[k], x = a && a.lift > 0 ? Math.max(4, Math.round(100 * a.lift / top)) : 0;
+        return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nmA(k)))}</span><span class="help-track"><span class="help-fill" style="width:${x}%;background:${col}"></span></span><span class="help-pct">${a ? a.n : '–'}</span></div>`; }).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar: how much safety rose, on average, in practices with that anchor. Number: how many practices. A dash: not used in this period.</p>`;
+      return { mk:'safety', label: owner + ' safety anchors', text, card };
     }
     if(id === 'weekday'){
       // the day of the week with the most safety (2+ check-ins that day, 3+ days to compare, a clear lead)
@@ -4682,7 +4692,7 @@ function app(tab){
       const text = `${DAYS_LONG[+ks[0]]}s had the most safety in ${_lrnOf(ctx)}.`;
       const col = STATE_COLOR('safety');
       const card = `<div class="rd-snap rd-snap-in lc-week" aria-hidden="true">${[1,2,3,4,5,6,0].map(d=>{ const w = wd[d]; return `<span class="lc-wd${+ks[0] === d ? ' on' : ''}"><i style="height:${w ? Math.max(6, Math.round(w.share*100)) : 0}%;background:${w ? col : 'transparent'}"></i><b>${DAYS_LONG[d].slice(0,1)}</b></span>`; }).join('')}</div>`;
-      return { mk:'safety', label: owner + ' week', text, card };
+      return { mk:'safety', label: owner + ' safety by weekday', text, card };
     }
     if(id === 'emotions-worked'){
       // the emotions the member has practiced with, by how hard they ranked them (every practice so far, not one period)
@@ -4708,9 +4718,11 @@ function app(tab){
       // inside practices: did the intensity of what came up ease from the first 0–10 to the last
       const ps = (f.practices || []).filter(x=>x.i0 != null && x.i1 != null); if(ps.length < 2) return null;
       const ez = ps.filter(x=>x.i1 < x.i0).length; if(!ez) return null;
-      const text = ez === ps.length ? `Intensity eased in every practice ${ctx.noun} where you rated it.` : `Intensity eased in ${_lrnShareWords(ez/ps.length).toLowerCase()} of your practices ${ctx.noun} where you rated it.`;
+      // Justin, 2026-10-21: "intensity of what? ... '[user]'s [state] intensity' is all you need to do." The 0–10 here is
+      // INTENSITY-DEFENSE, the non-safety emotion, so the label says defense and the card takes the member's defense color.
+      const text = ez === ps.length ? `The non-safety emotion's intensity eased in every practice ${ctx.noun} where you rated it.` : `The non-safety emotion's intensity eased in ${_lrnShareWords(ez/ps.length).toLowerCase()} of your practices ${ctx.noun} where you rated it.`;
       const row = ps.slice(-7).map(x=>`<span class="lc-ar"><b>${_arw(x.i1 < x.i0 ? -1 : x.i1 > x.i0 ? 1 : 0)}</b><i>${DAYS_LONG[x.day].slice(0,3)}</i></span>`).join('');
-      return { mk:'safety', label: owner + ' intensity', text, card:`<div class="rd-snap rd-snap-in lc-arrows" aria-hidden="true">${row}</div><p class="rd-cap">↓ intensity eased · ↑ rose · → no change</p>` };
+      return { mk: _domDefense() || 'freeze', label: owner + ' defense intensity', text, card:`<div class="rd-snap rd-snap-in lc-arrows" aria-hidden="true">${row}</div><p class="rd-cap">↓ defense intensity eased · ↑ rose · → no change</p>` };
     }
     if(id === 'practice-time'){
       const ps = f.practices || []; if(ps.length < 2) return null;
@@ -4720,7 +4732,7 @@ function app(tab){
       const mins = f.minutes >= 1 ? `, ${Math.round(f.minutes)} minutes in all` : '';
       const text = `You practiced ${_lrnTimes(ps.length)} ${ctx.noun}${mins}${when}.`;
       const mx = Math.max.apply(null, Object.values(cnt));
-      return { mk:'safety', label: owner + ' practice', text, card: _bars(['morning','afternoon','evening','late'].map(sg=>[CAP(_LRN_SEG[sg]), (cnt[sg]||0) / mx, cnt[sg] ? 'var(--ink-80)' : 'var(--hairline)'])) };
+      return { mk:'safety', label: owner + ' practice times', text, card: _bars(['morning','afternoon','evening','late'].map(sg=>[CAP(_LRN_SEG[sg]), (cnt[sg]||0) / mx, cnt[sg] ? 'var(--ink-80)' : 'var(--hairline)'])) };
     }
     if(id === 'recent-path'){
       // the ribbon (Justin, 2026-10-14: "B and D are very cool"): the last five check-ins, oldest to newest, as one band of
@@ -4783,7 +4795,7 @@ function app(tab){
         if(here.length > show.length) g += `<text class="lc-wk-n" text-anchor="end" x="${(x0+w-3).toFixed(1)}" y="${y0+h-3}">+${here.length-show.length}</text>`;
       });
       const card = `<div class="rd-snap rd-snap-in lc-wk"><svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Your check-ins by day and part of the day">${g}</svg><p class="rd-cap">Each box is part of a day, tinted by its latest check-in.${/lc-wk-n/.test(g) ? ' A number like +2 means more check-ins in that box.' : ''}</p></div>`;
-      return { mk: inWk[inWk.length-1].key, label: owner + ' week', text, card };
+      return { mk: inWk[inWk.length-1].key, label: owner + ' week of check-ins', text, card };
     }
     if(kind === 'amount' && st){
       // how much of one state the member has had (the article data pass, 2026-10-21: Justin, "each state should show the
