@@ -5754,11 +5754,8 @@ function app(tab){
       else return _liveEnd('We couldn’t find that live practice','The code may have been mistyped, or the practice may be over. Nothing is lost.');   // 🖊
     }
     try{ localStorage.setItem('snb_live_sess', JSON.stringify(s)); }catch(e){}
-    // capacity builders are an academy practice; mindful moments are for everyone. 🖊
-    if(s.type==='capacity-builder'){
-      const e=(Store.entitlement&&Store.entitlement())||{};
-      if(!(e.sub||e.circle||e.legacy)) return _liveEnd('This one is an academy practice','Capacity builders are part of the unstucking academy. Mindful moments are open to everyone, and you’re always welcome there.');
-    }
+    // check-ins are free for anyone, at every live practice, capacity builders included (Justin, 2026-10-21).
+    // The old capacity-builder gate is gone: it told new Academy members "this one is an academy practice".
     const next=_liveNext(s);
     if(!next) return screenLiveTrail(s);
     if(!s.live) return _liveDone(s).size ? screenLiveTrail(s) : _liveEnd('This live practice has ended','It’s okay to have missed it. The practices in the app are always here.');   // 🖊
