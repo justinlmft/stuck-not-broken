@@ -10,7 +10,7 @@ const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
   './', './index.html', './app.css?v=275', './app.js?v=401', './icons.js?v=2', './challenges.js?v=4', './current.js?v=19',
-  './config.js?v=9', './store.js?v=118', './from-justin.js?v=26', './reader.js?v=8', './learning.js?v=21', './player.html', './practice-engine.html',
+  './config.js?v=9', './store.js?v=117', './from-justin.js?v=26', './reader.js?v=8', './learning.js?v=21', './player.html', './practice-engine.html',
   './clips/silence-30s.wav', './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 
