@@ -146,7 +146,8 @@
 
   // ── installable PWA: capture the browser's install prompt + small helpers ──
   let _deferredInstall = null;
-  const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true
+    || !!(Store.inStoreApp && Store.inStoreApp());   // the App Store app is already installed (2026-10-21)
   const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '');
   // in-app browsers (instagram/facebook/gmail/etc.) and non-Safari iOS browsers
   // can't "add to home screen" — the #1 install snag for new members (Claudia hit
@@ -813,6 +814,7 @@
       Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
         Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
           if(r && r.included) return screenIncluded();
+          if(storeResult(r)) return;
           if(r && r.error) showToast(/already have the paid plan/.test(r.error) ? r.error : "couldn't open the payment page right now. you can subscribe from settings.");
         }));
     }
@@ -1014,6 +1016,7 @@
           return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
             Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
               if(r && r.included) return screenIncluded();
+              if(storeResult(r)) return;
               if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your account is ready. you can subscribe from settings."); }
             }));
         }
@@ -1598,6 +1601,8 @@
         return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>{
           if(paid){
             return Promise.resolve(Store.startGuestCheckout ? Store.startGuestCheckout(_planChoice) : { error:'unavailable' }).then(r=>{
+              if(r && r.included) return screenIncluded();
+              if(storeResult(r)) return;
               if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your free account is ready."); }
             });
           }
@@ -1663,16 +1668,19 @@
   // discount/urgency framing (standing brand guardrail). The annual card names its monthly
   // equivalent ($9 a month) only as a factual comparison, matching the /app page. Reads and
   // writes the shared _planChoice so every surface agrees. 🖊 copy draft — flag if register is off.
+  // Inside the store app the prices come from the App Store (localized, Apple's rule); $12 and $108 are the fallback.
+  let _storePx = null;
   function planPickerHTML(){
     const annual = _planChoice==='annual';
+    const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
     return `<div class="plans" role="radiogroup" aria-label="billing interval">
       <button type="button" class="plan${annual?'':' on'}" data-plan="monthly" role="radio" aria-checked="${annual?'false':'true'}">
-        <span class="price">$12<span class="per"> / month</span></span>
+        <span class="price">${escapeHtml(pxM)}<span class="per"> / month</span></span>
         <span class="plan-sub">Billed monthly</span>
       </button>
       <button type="button" class="plan${annual?' on':''}" data-plan="annual" role="radio" aria-checked="${annual?'true':'false'}">
-        <span class="price">$108<span class="per"> / year</span></span>
-        <span class="plan-sub">Billed once a year · that's $9 a month</span>
+        <span class="price">${escapeHtml(pxA)}<span class="per"> / year</span></span>
+        <span class="plan-sub">Billed once a year${_storePx ? '' : " · that's $9 a month"}</span>
       </button>
     </div>`;
   }
@@ -1696,6 +1704,8 @@
   // staying free must never be styled as a shameful exit.
   function screenSubscribe(err, busy){
     const what = _subFrom && SUB_WHAT[_subFrom];
+    const inStore = !!(Store.inStoreApp && Store.inStoreApp());
+    if(inStore && !_storePx && !busy) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; if(document.getElementById('pw-go') && !document.getElementById('pw-go').disabled) screenSubscribe(err); } });
     setHTML(`
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
@@ -1704,9 +1714,12 @@
           <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is on the paid plan.' : 'Choose your plan'}</h1>
           <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the other voices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
           ${planPickerHTML()}
-          <p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>
+          ${inStore
+            ? `<p class="fineprint" style="margin-bottom:18px">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
+            : `<p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>`}
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'One moment…':'Subscribe'}</button>
+          ${inStore ? `<p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-restore" style="font-size:inherit;padding:2px"${busy?' disabled':''}>Restore purchases</button></p>` : ''}
           <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">Not now</button></p>
         </div>
       </div>`);
@@ -1718,9 +1731,29 @@
       Promise.resolve(Store.startCheckout('member', plan)).then(res=>{
         if(res && res.included) return screenIncluded();
         if(res && res.error) return screenSubscribe(res.error);   // else the browser is redirecting to Stripe
+        if(storeResult(res)) return;                              // the App Store answered (store app only)
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
+    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
+      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
+    });
+    const rs=$('#pw-restore'); if(rs) rs.onclick = ()=>{
+      screenSubscribe(null, true);
+      Promise.resolve(Store.restorePurchases()).then(r=>{
+        if(r && r.paid){ _subFrom=null; currentTab='now'; route(); showToast('Your paid plan is active.'); }
+        else screenSubscribe('No App Store purchase was found for this account.');
+      }).catch(()=>screenSubscribe('No App Store purchase was found for this account.'));
+    };
     const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ _subFrom=null; route(); };
+  }
+
+  // The App Store's answer to a purchase (store app only). Returns true when it handled the screen.
+  function storeResult(res){
+    if(!res) return false;
+    if(res.purchased){ _subFrom=null; currentTab='now'; route(); showToast('Your paid plan is active.'); return true; }
+    if(res.pending){ _subFrom=null; currentTab='now'; route(); showToast('Your purchase is waiting for approval. The paid plan opens once it is approved.'); return true; }
+    if(res.cancelled){ if(document.getElementById('pw-go')) screenSubscribe(); else { currentTab='now'; route(); } return true; }
+    return false;
   }
 
   // An Academy member (or a direct grant) already has the paid plan: create-checkout refuses before any charge and
@@ -9652,11 +9685,22 @@ function app(tab){
   // furthest phase, whether the defense half was reached, rewinds, beats played, and the
   // prefix / depth / sequence key / Interest Impulse answer. Columns added 2026-09-19.
   const ENGINE_REPORT = ['details','timeline','outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings','intensityReadings','handedOffTo','handedOffFrom','offers'];   // + the 0–10 answers, 2026-09-20; + intensity, 2026-09-21; + the four buttons (which was tapped, the number, how long it paused) and the switch into mindfulness, 2026-09-23
+  // Apple Health Mindful Minutes (store app only, opt-in from Settings; Justin, 2026-10-20). The minutes practiced,
+  // ending now. Never check-in results or anything else.
+  const HEALTH_KEY = 'snb_health_mindful';
+  function healthOn(){ try{ return localStorage.getItem(HEALTH_KEY)==='1'; }catch(e){ return false; } }
+  function healthMaybeLog(minutes){
+    const m = +minutes || 0;
+    if(m < 1 || !healthOn() || !(Store.inStoreApp && Store.inStoreApp())) return;
+    const end = new Date(), start = new Date(end.getTime() - Math.round(m * 60000));
+    try{ Store.healthLogMindful(start.toISOString(), end.toISOString()); }catch(e){}
+  }
   function logSession(reco, completed, endedEarly, minutes){
     // Defense in depth: never log a self-regulation ('self-regulation') session for an
     // anonymous guest (the guest UI cannot produce one; refuse it regardless).
     if(reco && reco.practiceKey==='self-regulation' && Store.isAnonymous && Store.isAnonymous()) return;
     if(window._sessionLogged) return; window._sessionLogged=true;
+    healthMaybeLog(minutes);
     // skills exist on the self-regulation track and, since the engine, on the safety track
     // (validate-safety … interest-safety). Gate here at the save boundary so no session can
     // inherit a leftover default skill (e.g. the customizer's default 'imagery'): a safety
@@ -10061,12 +10105,17 @@ function app(tab){
           ${(function(){ var b=(Store.billing&&Store.billing())||null;
             // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
             // never worded as though the free account is deficient. 🖊 copy draft.
+            var inStore = !!(Store.inStoreApp && Store.inStoreApp());
+            var ent = (Store.entitlement && Store.entitlement()) || {};
+            if(ent.store==='apple')
+              return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your paid plan is through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
+            if(b && b.sub_status==='active' && inStore)
+              return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note" style="margin:0">Your subscription is active. You subscribed on the website, so you can change or cancel it there.</p></div>`;
             if(b && b.sub_status==='active')
               return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your subscription is active. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
             // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
-            var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.circle)
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes the full app. You joined the Unstucking Academy before the app became a separate purchase, so it stays included at no charge.</p></div>`;
             if(ent.legacy)
@@ -10076,6 +10125,12 @@ function app(tab){
           ${(function(){ const s=_acadStage(); if(s < 2 || !paidNow()) return '';
             const on = _acadOn() > 0;
             return `<div class="gs-card"><p class="gs-h">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}
+
+          ${(Store.inStoreApp && Store.inStoreApp()) ? `<div class="gs-card">
+            <p class="gs-h">Apple Health</p>
+            <p class="gs-note">${healthOn() ? 'The minutes you practice are added to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.' : 'Add the minutes you practice to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.'}</p>
+            <button class="set-quiet" id="health-toggle" type="button">${healthOn() ? 'Stop adding minutes' : 'Add my practice minutes'}</button>
+          </div>` : ''}
 
           <div class="gs-card">
             <p class="gs-h">Your history</p>
@@ -10131,6 +10186,14 @@ function app(tab){
       const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);
     });
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
+    const hlt=$('#health-toggle'); if(hlt) hlt.onclick=()=>{
+      if(healthOn()){ try{ localStorage.removeItem(HEALTH_KEY); }catch(e){} return screenSettings(); }
+      hlt.disabled = true;
+      Promise.resolve(Store.healthRequest()).then(ok=>{
+        if(ok){ try{ localStorage.setItem(HEALTH_KEY,'1'); }catch(e){} screenSettings(); showToast('Your practice minutes will be added to Apple Health.'); }
+        else { hlt.disabled = false; showToast('Apple Health did not allow it. You can allow it in the Health app, under Sharing, then Apps.'); }
+      });
+    };
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='One moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
         .catch(e=>{ mgs.disabled=false; mgs.textContent=t; showToast(String((e&&e.message)||e)); }); };
@@ -10261,6 +10324,7 @@ function app(tab){
         <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
         <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
         <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
+        ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede" style="margin-bottom:14px"><strong>Your paid plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
         <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
         <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep my account</button>

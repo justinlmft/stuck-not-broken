@@ -490,6 +490,10 @@
       auth.billing = (rowRes && rowRes.data) || null;
       const ent = (entRes && entRes.data) || null;
       auth.ent = { circle: !!(ent && ent.circle_member), legacy: !!(ent && ent.legacy) };
+      // the paid plan bought in the App Store / Google Play (2026-10-21). Its own read, so a database without the
+      // table yet (prod, until the store apps launch) never breaks the reads above.
+      try{ const sr = await sb.from('store_subscriptions').select('store,status,expires_at').eq('user_id', auth.user.id);
+        auth.store = (sr && !sr.error) ? _storeLive(sr.data) : null; }catch(e){ auth.store = null; }
       // the Unstucking Academy Stage this member completed (0–3), stamped from their Circle Stage tags by
       // circle-membership / membership-sweep (2026-10-03). Its own read, so a database without the column yet
       // never breaks the entitlement read above.
@@ -497,7 +501,9 @@
         if(ar && !ar.error) auth.ent.academy = (ar.data && +ar.data.academy_stage) || 0; }catch(e){}
       if(auth.ent.academy == null){ const c0 = _readBillingCache(); auth.ent.academy = (c0 && +c0.academy) || 0; }
       _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
-                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy, at: Date.now() });
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy,
+                           store: auth.store || null, at: Date.now() });
+      _storeSyncOnce();
       if(typeof notify === 'function') notify();
     }catch(e){ /* keep last-known cache */ }
   }
@@ -507,6 +513,16 @@
     return c ? { sub_status:c.status } : null;
   }
   function _billingActive(){ const b = billing(); return !!(b && (b.sub_status==='trialing' || b.sub_status==='active')); }
+  // a live store subscription: 'active' or in Apple's/Google's grace period, not past its end
+  function _storeLive(rows){
+    const now = Date.now();
+    const r = (rows||[]).find(x => x && (x.status==='active' || x.status==='grace') && (!x.expires_at || new Date(x.expires_at).getTime() > now));
+    return r ? r.store : null;
+  }
+  function _storeActive(){
+    if(auth.store !== undefined) return auth.store || null;
+    const c = _readBillingCache(); return (c && c.store) || null;
+  }
 
   // ---- the free/paid FEATURE line (2026-07-13) ----
   // FREE IS UNCONDITIONAL (2026-07-13): nobody is ever blocked out of the app by a
@@ -535,6 +551,7 @@
     if(!CLOUD) return true;                    // on-device mode is never gated
     if(isAnonymous()) return false;            // a guest has no account yet
     if(_billingActive()) return true;          // paying
+    if(_storeActive()) return true;            // paying through the App Store / Google Play
     if(typeof auth.ent === 'object' && auth.ent) return !!(auth.ent.circle || auth.ent.legacy);
     const c = _readBillingCache();             // network hasn't answered yet
     return !!(c && (c.circle || c.legacy));
@@ -548,7 +565,7 @@
   }
   function entitlement(){
     const e = (typeof auth.ent === 'object' && auth.ent) ? auth.ent : (_readBillingCache() || {});
-    return { sub: _billingActive(), circle: !!e.circle, legacy: !!e.legacy };
+    return { sub: _billingActive(), store: _storeActive(), circle: !!e.circle, legacy: !!e.legacy };
   }
   async function _postFn(name, body){
     const cfg = global.SNB_CONFIG || {};
@@ -598,6 +615,7 @@
 
   async function startCheckout(origin, plan){
     if(!CLOUD) return { error:'unavailable' };
+    if(inStoreApp()) return _storePurchase(origin, plan);
     const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
     const res = await _postFn('create-checkout', { origin: origin || 'member', src: _src, plan: p });
     if(res && res.error === 'already_included'){
@@ -662,7 +680,96 @@
     const row = { user_id: auth.user.id, name:String(name), meta: Object.assign({}, meta||{}, { src:_src, plat:_plat, pwa:_installed }), t:new Date().toISOString() };
     try{ return sb.from('events').insert(row).then(()=>{}, ()=>{}); }catch(e){ return Promise.resolve(); }
   }
-  async function openPortal(){ if(!CLOUD) return { error:'unavailable' }; const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res; }
+  async function openPortal(){
+    if(!CLOUD) return { error:'unavailable' };
+    const st = _storeActive();
+    if(inStoreApp()){
+      if(st === 'apple'){ try{ await _native().manageSubscriptions(); return {}; }catch(e){ return { error: STORE_MANAGE_HINT }; } }
+      // Bought on the website: the store app does not open Stripe (store rules). Say where it lives, no link.
+      return { error: 'You subscribed on the website. You can change or cancel it there.' };
+    }
+    if(st === 'apple') return { error: STORE_MANAGE_HINT };
+    if(st === 'google') return { error: 'Your paid plan is through Google Play. You can change or cancel it in the Play Store app.' };
+    const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res;
+  }
+
+  // ---- the store apps (2026-10-21) ----
+  // Inside the iPhone store app (Capacitor, SNBNative bridge: store-apps/ios/App/App/SNBNativePlugin.swift) the paid plan
+  // is bought from Apple, same plans, same prices as the website (Justin, 2026-10-20). The app never decides "paid" by
+  // itself: every signed Apple transaction goes to the apple-store edge function, which checks Apple's signature and
+  // writes store_subscriptions; isPaid() then reads that like any other source. Outside the store app none of this runs.
+  const STORE_PRODUCTS = { monthly:'com.stucknotbroken.app.paid.monthly', annual:'com.stucknotbroken.app.paid.annual' };
+  const STORE_MANAGE_HINT = "Your paid plan is through the App Store. You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.";
+  function _native(){
+    try{ const C = global.Capacitor; return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SNBNative) || null; }
+    catch(e){ return null; }
+  }
+  function inStoreApp(){ return !!_native(); }
+  async function _sendStoreTransactions(jws){
+    const list = (jws||[]).filter(Boolean); if(!list.length || !auth.user || isAnonymous()) return { paid: isPaid() };
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { paid: isPaid() };
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/apple-store/verify', {
+        method:'POST', headers:{ Authorization:'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+        body: JSON.stringify({ jws: list }),
+      });
+      let b = {}; try{ b = await r.json(); }catch(e){}
+      await fetchBilling();
+      return { paid: !!(b && b.paid) || isPaid() };
+    }catch(e){ return { paid: isPaid(), error: 'offline' }; }
+  }
+  // Once per launch, after the first billing read: hand Apple's current entitlements to the server, so a purchase
+  // whose confirmation never reached us (closed app, lost signal) still unlocks the plan.
+  let _storeSynced = '';   // the account already synced this launch
+  function _storeSyncOnce(){
+    const N = _native(); if(!N || !auth.user || isAnonymous() || _storeSynced === auth.user.id) return;
+    _storeSynced = auth.user.id;
+    Promise.resolve(N.currentEntitlements()).then(r => { if(r && r.transactions && r.transactions.length) _sendStoreTransactions(r.transactions); }).catch(()=>{});
+  }
+  (function(){ const N = _native(); if(N && N.addListener) try{
+    N.addListener('transaction', ev => { if(ev && ev.jws) _sendStoreTransactions([ev.jws]); });
+  }catch(e){} })();
+  let _storePrices = null;
+  async function storePrices(){
+    const N = _native(); if(!N) return null;
+    if(_storePrices) return _storePrices;
+    try{
+      const r = await N.getProducts({ ids: [STORE_PRODUCTS.monthly, STORE_PRODUCTS.annual] });
+      const by = {}; ((r && r.products) || []).forEach(p => { if(p.id === STORE_PRODUCTS.monthly) by.monthly = p.displayPrice; if(p.id === STORE_PRODUCTS.annual) by.annual = p.displayPrice; });
+      if(by.monthly || by.annual) _storePrices = by;
+    }catch(e){}
+    return _storePrices;
+  }
+  async function _storePurchase(origin, plan){
+    const N = _native();
+    if(!auth.user || isAnonymous()) return { error: 'Create your account first, then choose the paid plan.' };
+    try{ await fetchBilling(); }catch(e){}
+    if(isPaid()) return { included: true };    // Stripe, the Academy, a grant, or the store already: never sell it twice
+    const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
+    trackEvent('store_purchase_start', { origin: origin || 'member', plan: p, store: 'apple' });
+    let r;
+    try{ r = await N.purchase({ productId: STORE_PRODUCTS[p], accountToken: auth.user.id }); }
+    catch(e){ trackEvent('checkout_error', { origin: origin||'member', plan: p, reason: 'store_failed' }); return { error: "The App Store couldn't complete that. Nothing was charged. Please try again in a moment." }; }
+    if(r && r.status === 'purchased'){
+      const v = await _sendStoreTransactions([r.jws]);
+      trackEvent('store_purchase_done', { origin: origin||'member', plan: p, store: 'apple', unlocked: !!v.paid });
+      return v.paid ? { purchased: true } : { error: "Your purchase went through. The app is still confirming it, and the paid plan will open shortly." };
+    }
+    if(r && r.status === 'pending') return { pending: true };
+    trackEvent('checkout_cancel', { origin: origin||'member', plan: p, store: 'apple' });
+    return { cancelled: true };
+  }
+  async function restorePurchases(){
+    const N = _native(); if(!N) return { paid: isPaid() };
+    try{ const r = await N.restore(); return await _sendStoreTransactions((r && r.transactions) || []); }
+    catch(e){ return { paid: isPaid() }; }
+  }
+  // Apple Health Mindful Minutes (opt-in; Justin, 2026-10-20). Minutes practiced only, never check-in results.
+  async function healthStatus(){ const N = _native(); if(!N) return 'unavailable'; try{ const r = await N.healthAvailable(); return (r && r.status) || 'unavailable'; }catch(e){ return 'unavailable'; } }
+  async function healthRequest(){ const N = _native(); if(!N) return false; try{ const r = await N.healthRequest(); return !!(r && r.granted); }catch(e){ return false; } }
+  async function healthLogMindful(startISO, endISO){ const N = _native(); if(!N) return false; try{ const r = await N.healthLogMindful({ start:startISO, end:endISO }); return !!(r && r.saved); }catch(e){ return false; } }
 
   function readProfile(){ try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch(e){ return null; } }
   function writeProfile(p){ try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch(e){} }
@@ -2408,6 +2515,7 @@
     prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
     saveContexts, clearContexts,
     isPaid, hydrated, entitlement, academyStage, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    inStoreApp, storePrices, restorePurchases, healthStatus, healthRequest, healthLogMindful,
     trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
     liveFetch, livePoll,
   };
