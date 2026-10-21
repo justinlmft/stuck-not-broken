@@ -1732,7 +1732,7 @@
         <div class="gate-body">
           <p class="eyebrow">Already included</p>
           <h1 style="margin:10px 0 12px">You already have the full app.</h1>
-          <p class="lede" style="margin-bottom:24px">Your account already includes everything in the paid plan, through the Unstucking Academy or a direct grant. There is nothing to pay, and you were not charged.</p>
+          <p class="lede" style="margin-bottom:24px">Your account already includes everything in the paid plan. There is nothing to pay, and you were not charged.</p>
           <button class="btn block" id="inc-go">Continue</button>
         </div>
       </div>`);
@@ -10066,7 +10066,7 @@ function app(tab){
             // never call that "the free plan", and never show them a subscribe button.
             var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.circle)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your Unstucking Academy membership includes the full app. Nothing to pay for here.</p></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes the full app. You joined the Unstucking Academy before the app became a separate purchase, so it stays included at no charge.</p></div>`;
             if(ent.legacy)
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
             return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
