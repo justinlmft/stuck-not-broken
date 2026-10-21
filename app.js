@@ -4524,6 +4524,7 @@ function app(tab){
   // 'dials', 'before-after', 'anchor-best', 'weekday', 'emotions-worked', 'stretch', 'intensity', 'practice-time', 'recent-path', 'week',
   // 'amount:<safety|fightflight|shutdown|play|stillness|freeze|motivation|intimacy>' (2026-10-21: how much of one state).
   // 'mix:<state>+<state>[+<state>]' (2026-10-21, data pass 2: two or three states side by side, e.g. 'mix:freeze+shutdown').
+  // 'states' (2026-10-21, data pass 3: every state the app reads side by side, how many check-ins had each).
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -4898,6 +4899,29 @@ function app(tab){
       const card = _bars(ax.map(a=>[CAP(nm(a.k)), a.x / top, STATE_COLOR(a.k)])) + `<p class="rd-cap">How much of each you had on average, side by side.</p>`;
       const names = ks.map(nm);
       return { mk: ks[0], label: owner + ' ' + (names.length === 2 ? names.join(' and ') : names.slice(0,-1).join(', ') + ' and ' + names[names.length-1]) + ' compared', text, card };
+    }
+    if(id === 'states'){
+      // every state the app reads, side by side (the article data pass, run 3, 2026-10-21): how many check-ins had each
+      // state, so a section that asks which state the member is in most shows their own. All six rows always show, with a
+      // dash where a state had none. Appease and fawn are not states in the app (Justin, 2026-07-12), so they never get a
+      // row. When a defense state led, the second line names the safety-side state there was the most of, so the numbers
+      // resolve to hope; with no safety-side check-in in the period, null (another card says more).
+      const KS = ['safety','play','stillness','fightflight','freeze','shutdown'], SAFE = { safety:1, play:1, stillness:1 };
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      const cnt = {}; rs.forEach(r=>{ if(NM[r.key]) cnt[r.key] = (cnt[r.key]||0) + 1; });
+      const N = KS.reduce((a,k)=>a + (cnt[k]||0), 0); if(N < 3) return null;
+      const ord = KS.filter(k=>cnt[k]).sort((a,b)=> cnt[b] - cnt[a] || (SAFE[b]||0) - (SAFE[a]||0));
+      const safeTop = ord.find(k=>SAFE[k]); if(!safeTop) return null;
+      const of = _lrnOf(ctx), nm = k => NM[k];
+      let text;
+      if(ord.length === 1) text = `All of ${of} were ${nm(ord[0])}.`;
+      else if(cnt[ord[0]] === cnt[ord[1]]) text = `${CAP(of)} were as often ${nm(ord[0])} as ${nm(ord[1])}.`;
+      else text = `${CAP(of)} were most often ${nm(ord[0])}, then ${nm(ord[1])}.`;
+      if(!SAFE[ord[0]]) text += ` ${CAP(nm(safeTop))} was the state on ${cnt[safeTop] === 1 ? 'one' : _lrnShareWords(cnt[safeTop] / N).toLowerCase()} of them.`;
+      const mx = Math.max.apply(null, KS.map(k=>cnt[k]||0)) || 1;
+      const rows = KS.map((k, i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nm(k)))}</span><span class="help-track"><span class="help-fill" style="width:${cnt[k] ? Math.max(4, Math.round(100 * cnt[k] / mx)) : 0}%;background:${STATE_COLOR(k)}"></span></span><span class="help-pct">${cnt[k] || '–'}</span></div>`).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar and number: how many check-ins had that state. A dash: none in this period.</p>`;
+      return { mk: ord[0], label: owner + ' check-ins by state', text, card };
     }
     return null;
   }
