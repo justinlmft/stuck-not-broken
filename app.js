@@ -4523,6 +4523,7 @@ function app(tab){
   // 'safety-share', 'practice-rise', 'mixed-safe', 'comeback', 'context:<people|places|work|family|hobbies|spiritual|body|rest|practice>',
   // 'dials', 'before-after', 'anchor-best', 'weekday', 'emotions-worked', 'stretch', 'intensity', 'practice-time', 'recent-path', 'week',
   // 'amount:<safety|fightflight|shutdown|play|stillness|freeze|motivation|intimacy>' (2026-10-21: how much of one state).
+  // 'mix:<state>+<state>[+<state>]' (2026-10-21, data pass 2: two or three states side by side, e.g. 'mix:freeze+shutdown').
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -4861,6 +4862,42 @@ function app(tab){
         card = _bars(['high','moderate','low'].map(b=>[CAP(b), nb[b] / mx, col])) + `<p class="rd-cap">Your check-ins, by how much ${escapeHtml(nm)} each one had.</p>`;
       }
       return { mk:sk, label: owner + ' ' + nm, text, card };
+    }
+    if(kind === 'mix' && st){
+      // two or three states side by side (the article data pass, run 2, 2026-10-21): how much of each the member had on
+      // average, read the same way as 'amount' (safety v, flight/fight sym, shutdown dor; play, stillness and freeze from the
+      // blends the check-in screen paints), so a section that sets states against each other ("freeze is not shutdown",
+      // "the immobility of stillness is without fear") shows the member's own. Bars compare the states with each other,
+      // never with a goal. The second line points to the most of a safety-side state, or to the least of the leading
+      // defense state, by part of the day, so the numbers resolve to hope.
+      const n0 = c => +c.v || 0, n1 = c => +c.sym || 0, n2 = c => +c.dor || 0, bl = (a, b) => Math.min(1, Math.min(a, b) * 1.4);
+      const FN = { safety:n0, fightflight:n1, shutdown:n2, play:c=>bl(n0(c), n1(c)), stillness:c=>bl(n0(c), n2(c)), freeze:c=>bl(n1(c), n2(c)) };
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      const ks = st.split('+').filter((k, i, a)=>FN[k] && a.indexOf(k) === i); if(ks.length < 2 || ks.length > 3) return null;
+      const cs = rs.filter(r=>r.c && typeof r.c.v === 'number'); if(cs.length < 3) return null;
+      const ax = ks.map(k=>({ k, x: cs.reduce((a,r)=>a + FN[k](r.c), 0) / cs.length }));
+      const top = Math.max.apply(null, ax.map(a=>a.x)); if(top < 0.05) return null;
+      const ord = ax.slice().sort((a,b)=>b.x - a.x), of = _lrnOf(ctx), nm = k => NM[k];
+      let text;
+      if(ord.length === 2) text = ord[0].x - ord[1].x < 0.04 ? `Across ${of}, you had about as much ${nm(ord[0].k)} as ${nm(ord[1].k)}.` : `Across ${of}, you had more ${nm(ord[0].k)} than ${nm(ord[1].k)}.`;
+      else text = ord[0].x - ord[2].x < 0.04 ? `Across ${of}, you had about as much ${nm(ord[0].k)} as ${nm(ord[1].k)} and ${nm(ord[2].k)}.`
+        : ord[0].x - ord[1].x < 0.04 ? `Across ${of}, you had the most ${nm(ord[0].k)} and ${nm(ord[1].k)}, then ${nm(ord[2].k)}.`
+        : `Across ${of}, you had the most ${nm(ord[0].k)}, then ${nm(ord[1].k)}, then ${nm(ord[2].k)}.`;
+      const UP = { safety:1, play:1, stillness:1 }, upK = ks.filter(k=>UP[k]).sort((a,b)=>ax.find(o=>o.k===b).x - ax.find(o=>o.k===a).x)[0];
+      const hk = upK || ord[0].k, up = !!upK, SEGS = ['morning','afternoon','evening','late'], sum = {}, cnt = {};
+      cs.forEach(r=>{ const sg = _lrnSegOf(r.t); sum[sg] = (sum[sg]||0) + FN[hk](r.c); cnt[sg] = (cnt[sg]||0) + 1; });
+      const avg = SEGS.filter(sg=>(cnt[sg]||0) >= 2).map(sg=>[sg, sum[sg]/cnt[sg]]).sort((a,b)=> up ? b[1]-a[1] : a[1]-b[1]);
+      if(avg.length >= 2 && Math.abs(avg[0][1] - avg[1][1]) >= 0.05) text += ` You had the ${up ? 'most' : 'least'} ${nm(hk)} in your ${_LRN_SEG[avg[0][0]]}.`;
+      else {
+        // no clear part of the day: the one check-in with the most (or the least) of it, when it stands out from the rest
+        const mean = cs.reduce((a,r)=>a + FN[hk](r.c), 0) / cs.length, newest = cs[cs.length-1].t;
+        const pick = cs.reduce((a,r)=> !a || (up ? FN[hk](r.c) > FN[hk](a.c) : FN[hk](r.c) < FN[hk](a.c)) ? r : a, null);
+        if(pick && Math.abs(FN[hk](pick.c) - mean) >= 0.05){ const d = new Date(pick.t), sg = _lrnSegOf(pick.t), pw = sg === 'late' ? 'night' : sg;
+          text += ` You had the ${up ? 'most' : 'least'} ${nm(hk)} ` + (newest - pick.t < 6*864e5 ? `on ${DAYS_LONG[d.getDay()]} ${pw}.` : `on the ${pw} of ${d.toLocaleDateString('en-US', { month:'short', day:'numeric' })}.`); }
+      }
+      const card = _bars(ax.map(a=>[CAP(nm(a.k)), a.x / top, STATE_COLOR(a.k)])) + `<p class="rd-cap">How much of each you had on average, side by side.</p>`;
+      const names = ks.map(nm);
+      return { mk: ks[0], label: owner + ' ' + (names.length === 2 ? names.join(' and ') : names.slice(0,-1).join(', ') + ' and ' + names[names.length-1]) + ' compared', text, card };
     }
     return null;
   }
