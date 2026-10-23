@@ -4525,6 +4525,8 @@ function app(tab){
   // 'amount:<safety|fightflight|shutdown|play|stillness|freeze|motivation|intimacy>' (2026-10-21: how much of one state).
   // 'mix:<state>+<state>[+<state>]' (2026-10-21, data pass 2: two or three states side by side, e.g. 'mix:freeze+shutdown').
   // 'states' (2026-10-21, data pass 3: every state the app reads side by side, how many check-ins had each).
+  // 'part:<morning|afternoon|evening|late>' (2026-10-23, data pass 14: 'states' for the check-ins in one part of the day).
+  // 'weeks:<safety|fightflight|shutdown|play|stillness|freeze>' (2026-10-23, data pass 15: one state week by week, up to eight weeks).
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -4922,6 +4924,78 @@ function app(tab){
       const rows = KS.map((k, i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nm(k)))}</span><span class="help-track"><span class="help-fill" style="width:${cnt[k] ? Math.max(4, Math.round(100 * cnt[k] / mx)) : 0}%;background:${STATE_COLOR(k)}"></span></span><span class="help-pct">${cnt[k] || '–'}</span></div>`).join('');
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar and number: how many check-ins had that state. A dash: none in this period.</p>`;
       return { mk: ord[0], label: owner + ' check-ins by state', text, card };
+    }
+    if(kind === 'part' && st){
+      // the states of the check-ins in one part of the day (the article data pass, run 14, 2026-10-23: "Rigid morning
+      // routines" asks what the body actually needs in the morning, a sluggish shutdown morning or a stressed one): every
+      // state side by side, like 'states', for that part of the day only, with a dash where a state had none. Needs 3+
+      // check-ins in that part of the day. When a defense state led, the second line names the safety-side state there was
+      // the most of then; with none, the other part of the day with the most safety-side check-ins; with none at all, null.
+      const SEGW = { morning:'morning', afternoon:'afternoon', evening:'evening', late:'late-night' }; if(!SEGW[st]) return null;
+      const KS = ['safety','play','stillness','fightflight','freeze','shutdown'], SAFE = { safety:1, play:1, stillness:1 };
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      const inSeg = rs.filter(r=>NM[r.key] && _lrnSegOf(r.t) === st); if(inSeg.length < 3) return null;
+      const cnt = {}; inSeg.forEach(r=>{ cnt[r.key] = (cnt[r.key]||0) + 1; });
+      const N = inSeg.length, ord = KS.filter(k=>cnt[k]).sort((a,b)=> cnt[b] - cnt[a] || (SAFE[b]||0) - (SAFE[a]||0));
+      const of = ctx.poss + ' ' + SEGW[st] + ' check-ins' + ((ctx.kind === 'recent' || /^d\d+$/.test(ctx.kind)) ? ' ' + ctx.noun : ''), nm = k => NM[k];
+      let text;
+      if(ord.length === 1) text = `All of ${of} were ${nm(ord[0])}.`;
+      else if(cnt[ord[0]] === cnt[ord[1]]) text = `${CAP(of)} were as often ${nm(ord[0])} as ${nm(ord[1])}.`;
+      else text = `${CAP(of)} were most often ${nm(ord[0])}, then ${nm(ord[1])}.`;
+      if(!SAFE[ord[0]]){
+        const safeTop = ord.find(k=>SAFE[k]);
+        if(safeTop) text += ` ${CAP(nm(safeTop))} was the state on ${cnt[safeTop] === 1 ? 'one' : _lrnShareWords(cnt[safeTop] / N).toLowerCase()} of them.`;
+        else {
+          const by = {}; rs.forEach(r=>{ if(!NM[r.key]) return; const sg = _lrnSegOf(r.t); by[sg] = by[sg] || { n:0, s:0 }; by[sg].n++; if(SAFE[r.key]) by[sg].s++; });
+          const best = Object.keys(by).filter(sg=>sg !== st && by[sg].n >= 2 && by[sg].s).sort((a,b)=> by[b].s / by[b].n - by[a].s / by[a].n)[0];
+          if(!best) return null;
+          text += ` Your ${_LRN_SEG[best]} had more safety.`;
+        }
+      }
+      const mx = Math.max.apply(null, KS.map(k=>cnt[k]||0)) || 1;
+      const rows = KS.map((k, i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nm(k)))}</span><span class="help-track"><span class="help-fill" style="width:${cnt[k] ? Math.max(4, Math.round(100 * cnt[k] / mx)) : 0}%;background:${STATE_COLOR(k)}"></span></span><span class="help-pct">${cnt[k] || '–'}</span></div>`).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar and number: how many of your ${escapeHtml(SEGW[st])} check-ins had that state. A dash: none in this period.</p>`;
+      return { mk: ord[0], label: owner + ' ' + SEGW[st] + ' check-ins by state', text, card };
+    }
+    if(kind === 'weeks' && st){
+      // one state week by week (the article data pass, run 15, 2026-10-23: "A way to see progress" says an objective
+      // number could show someone "Hey, you are making progress"): how much of the state the member had on average in each
+      // of their last weeks, side by side, read like 'amount' (safety v, flight/fight sym, shutdown dor; play, stillness and
+      // freeze from the check-in screen's blends). Seven-day blocks counted back from now, up to eight, from the first block
+      // with a check-in; a block with none shows a dash. Needs 2+ blocks with 2+ check-ins, else null. The line compares the
+      // latest such block with the earliest; when that is not the hopeful direction, it names the block with the most of a
+      // safety-side state (or the least of a defense state), so the numbers resolve to hope.
+      const n0 = c => +c.v || 0, n1 = c => +c.sym || 0, n2 = c => +c.dor || 0, bl = (a, b) => Math.min(1, Math.min(a, b) * 1.4);
+      const FN = { safety:n0, fightflight:n1, shutdown:n2, play:c=>bl(n0(c), n1(c)), stillness:c=>bl(n0(c), n2(c)), freeze:c=>bl(n1(c), n2(c)) };
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      if(!FN[st]) return null;
+      const up = st === 'safety' || st === 'play' || st === 'stillness', nm = NM[st], W = 7*864e5;
+      const now = Date.now(), c8 = _lrnPeriodCtx('recent', now - 8*W, now + 1);
+      const xs = ((c8.f && c8.f.rs) || []).filter(r=>r.c && typeof r.c.v === 'number' && r.t > now - 8*W);
+      if(xs.length < 4) return null;
+      const wk = []; for(let i=0;i<8;i++) wk.push({ i, start: now - (i+1)*W, n:0, sum:0 });
+      xs.forEach(r=>{ const i = Math.min(7, Math.floor((now - r.t) / W)); wk[i].n++; wk[i].sum += FN[st](r.c); });
+      let last = 7; while(last > 0 && !wk[last].n) last--;
+      const shown = wk.slice(0, last + 1).reverse();   // oldest first
+      const ok = shown.filter(w=>w.n >= 2); if(ok.length < 2) return null;
+      ok.forEach(w=>{ w.x = w.sum / w.n; });
+      const md = t => new Date(t).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      const wkName = w => w.i === 0 ? 'your last 7 days' : 'the week of ' + md(w.start);
+      const E = ok[0], L = ok[ok.length-1], best = ok.slice().sort((a,b)=> up ? b.x - a.x : a.x - b.x)[0];
+      const better = up ? L.x - E.x >= 0.05 : E.x - L.x >= 0.05;
+      const flat = Math.max.apply(null, ok.map(w=>w.x)) - Math.min.apply(null, ok.map(w=>w.x)) < 0.05;
+      // nothing hopeful to point to yet (little of a safety-side state, or a lot of a defense state, every week): another card says more
+      if(!better && (up ? Math.max.apply(null, ok.map(w=>w.x)) < 0.33 : flat && Math.min.apply(null, ok.map(w=>w.x)) >= 0.33)) return null;
+      let text;
+      if(better) text = `You had ${up ? 'more' : 'less'} ${nm} in ${wkName(L)} than in ${wkName(E)}.`;
+      else if(flat) text = `Your ${nm} was about the same from week to week.`;
+      else text = `You had the ${up ? 'most' : 'least'} ${nm} in ${wkName(best)}.`;
+      const mx = Math.max.apply(null, shown.filter(w=>w.n).map(w=>w.sum / w.n)) || 1, col = STATE_COLOR(st);
+      const rows = shown.map((w, k)=>{ const x = w.n ? (w.sum / w.n) / mx : 0;
+        return `<div class="help-row" style="--sd:${k*60}ms"><span class="help-lbl">${escapeHtml(w.i === 0 ? 'Last 7 days' : md(w.start))}</span><span class="help-track"><span class="help-fill" style="width:${w.n && x > 0 ? Math.max(4, Math.round(100 * x)) : 0}%;background:${col}"></span></span><span class="help-pct">${w.n || '–'}</span></div>`; }).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Each row is a week, by the day it started. Bar: how much ${escapeHtml(nm)} you had on average that week. Number: how many check-ins. A dash: none that week.</p>`;
+      const pc = _lrnPeriodCtx('recent', shown[0].start, now + 1);
+      return { mk:st, label: owner + ' ' + nm + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
     }
     return null;
   }
