@@ -8783,7 +8783,7 @@ function app(tab){
   let _plData = null; const _plBodies = {};
   function _plLoad(){
     if(_plData) return Promise.resolve(_plData);
-    return fetch('pathway/manifest.json?v=1').then(r => r.json()).then(d => { _plData = d; return d; });
+    return fetch('pathway/manifest.json?v=2').then(r => r.json()).then(d => { _plData = d; return d; });
   }
   function _plBody(row){
     if(row.c == null) return Promise.resolve('');
@@ -8918,7 +8918,7 @@ function app(tab){
     const r = _plData.rows.find(x => x.id === id); if(!r) return screenPathway();
     if(r.q) return screenPathQuiz(r);
     const nx = _plNext(id);
-    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata" src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}"></video></div>` : '';
+    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${r.v.indexOf('/downloads/default.mp4') > 0 ? ` poster="${escapeHtml(r.v.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}"></video></div>` : '';
     _rdShell(`<div class="pl-lesson">${video}
       <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
       <h1 class="rd-title">${escapeHtml(r.t)}</h1>
