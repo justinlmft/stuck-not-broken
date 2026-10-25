@@ -8918,7 +8918,7 @@ function app(tab){
     const r = _plData.rows.find(x => x.id === id); if(!r) return screenPathway();
     if(r.q) return screenPathQuiz(r);
     const nx = _plNext(id);
-    const video = r.v ? `<video class="pl-video" controls playsinline preload="metadata" src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}"></video>` : '';
+    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata" src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}"></video></div>` : '';
     _rdShell(`<div class="pl-lesson">${video}
       <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
       <h1 class="rd-title">${escapeHtml(r.t)}</h1>
@@ -8933,27 +8933,50 @@ function app(tab){
     const d = document.getElementById('pl-done');
     if(d) d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); };
   }
-  // a quiz: one question at a time, the answer shown after each pick, nothing scored or kept but "done"
-  function screenPathQuiz(r, qi, picked){
-    qi = qi || 0;
-    const Q = r.q[qi], has = picked != null, last = qi === r.q.length - 1, nx = _plNext(r.id);
-    const opts = Q.o.map((o, i) => {
-      const st = !has ? '' : i === Q.a ? 'right' : i === picked ? 'mine' : 'dim';
-      return `<button class="pl-opt" type="button" data-opt="${i}"${st ? ` data-r="${st}"` : ''}${has ? ' aria-disabled="true"' : ''}><span>${escapeHtml(o)}</span>${st === 'right' ? '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</button>`;
-    }).join('');
+  // a quiz: one question at a time, nothing scored or kept but "done". Justin (2026-10-25): no answer is revealed, a wrong
+  // pick just fades so you can choose again; the right pick gets a small drawn check, no green, no "Yes, that one" line. The
+  // quiz is built once and updated in place, so a tap never moves the screen.
+  const PL_CHECK = '<svg class="pl-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  function _plQuizQ(r, qi){
+    const Q = r.q[qi], last = qi === r.q.length - 1;
     const dots = r.q.map((x, i) => `<i${i < qi ? ' data-d="1"' : i === qi ? ' data-d="2"' : ''}></i>`).join('');
-    _rdShell(`<div class="pl-quiz"><div class="pl-dots" aria-hidden="true">${dots}</div>
+    const opts = Q.o.map((o, i) => `<button class="pl-opt" type="button" data-opt="${i}"><span>${escapeHtml(o)}</span>${PL_CHECK}</button>`).join('');
+    return `<div class="pl-dots" aria-hidden="true">${dots}</div>
       <span class="rd-eyeb">${escapeHtml(r.t)}</span><h1 class="rd-title">${escapeHtml(Q.q)}</h1>
-      <div class="pl-opts">${opts}</div>
-      ${has ? `<p class="pl-fb">${picked === Q.a ? 'Yes, that one.' : 'Here is the answer.'}</p>` : ''}
-      <button class="pl-done" type="button" id="pl-next"${has ? '' : ' disabled'}>${last ? 'Done' : 'Next question'}</button></div>`,
-      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+      <div class="pl-opts" role="group">${opts}</div>
+      <p class="pl-sr" aria-live="polite"></p>
+      <button class="pl-done" type="button" id="pl-next" disabled>${last ? 'Done' : 'Next question'}</button>`;
+  }
+  function screenPathQuiz(r){
+    let qi = 0, got = false;
+    const nx = _plNext(r.id);
+    _rdShell(`<div class="pl-quiz">${_plQuizQ(r, 0)}</div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
     const v = root.querySelector('.pl-quiz'); if(!v) return;
     v.onclick = e => {
       const o = e.target.closest('[data-opt]');
-      if(o && !has){ try{ haptic('tap'); }catch(err){} return screenPathQuiz(r, qi, +o.dataset.opt); }
-      if(e.target.closest('#pl-next') && has){
-        if(!last) return screenPathQuiz(r, qi + 1, null);
+      if(o){
+        if(got || o.dataset.r) return;
+        const right = +o.dataset.opt === r.q[qi].a, sr = v.querySelector('.pl-sr');
+        if(right){
+          got = true; o.dataset.r = 'yes';
+          v.querySelectorAll('.pl-opt:not([data-r])').forEach(b => { b.dataset.r = 'rest'; });
+          v.querySelector('#pl-next').disabled = false;
+          if(sr) sr.textContent = 'Right.';
+          try{ haptic('save'); }catch(err){}
+        } else {
+          o.dataset.r = 'no'; o.setAttribute('aria-disabled', 'true');
+          if(sr) sr.textContent = 'Not that one. Try another.';
+          try{ haptic('tap'); }catch(err){}
+        }
+        return;
+      }
+      if(e.target.closest('#pl-next') && got){
+        if(qi < r.q.length - 1){
+          qi++; got = false; v.innerHTML = _plQuizQ(r, qi);
+          const sc = root.querySelector('.scroll');   // only bring the new question into view if it sits above the screen
+          if(sc && v.getBoundingClientRect().top < sc.getBoundingClientRect().top) v.scrollIntoView({ behavior:'smooth', block:'start' });
+          return;
+        }
         _plMarkDone(r.id); try{ haptic('save'); }catch(err){}
         return nx ? screenPathLesson(nx.id) : screenPathway();
       }
