@@ -8783,12 +8783,12 @@ function app(tab){
   let _plData = null; const _plBodies = {};
   function _plLoad(){
     if(_plData) return Promise.resolve(_plData);
-    return fetch('pathway/manifest.json?v=2').then(r => r.json()).then(d => { _plData = d; return d; });
+    return fetch('pathway/manifest.json?v=3').then(r => r.json()).then(d => { _plData = d; return d; });
   }
   function _plBody(row){
     if(row.c == null) return Promise.resolve('');
     if(_plBodies[row.c]) return Promise.resolve(_plBodies[row.c][row.id] || '');
-    return fetch('pathway/body-' + row.c + '.json?v=2').then(r => r.ok ? r.json() : {}).then(d => { _plBodies[row.c] = d; return d[row.id] || ''; }).catch(() => '');
+    return fetch('pathway/body-' + row.c + '.json?v=3').then(r => r.ok ? r.json() : {}).then(d => { _plBodies[row.c] = d; return d[row.id] || ''; }).catch(() => '');
   }
   function _plIsDone(id){ const v = _ctxLoad()['ls:' + id]; return !!(v && v.length); }
   function _plMarkDone(id){
