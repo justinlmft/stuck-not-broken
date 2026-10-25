@@ -8788,7 +8788,7 @@ function app(tab){
   function _plBody(row){
     if(row.c == null) return Promise.resolve('');
     if(_plBodies[row.c]) return Promise.resolve(_plBodies[row.c][row.id] || '');
-    return fetch('pathway/body-' + row.c + '.json?v=1').then(r => r.ok ? r.json() : {}).then(d => { _plBodies[row.c] = d; return d[row.id] || ''; }).catch(() => '');
+    return fetch('pathway/body-' + row.c + '.json?v=2').then(r => r.ok ? r.json() : {}).then(d => { _plBodies[row.c] = d; return d[row.id] || ''; }).catch(() => '');
   }
   function _plIsDone(id){ const v = _ctxLoad()['ls:' + id]; return !!(v && v.length); }
   function _plMarkDone(id){
@@ -8929,6 +8929,7 @@ function app(tab){
       const b = document.getElementById('pl-body'); if(!b) return;
       b.innerHTML = h || (r.v ? '' : '<p>The written part of this lesson is on its way.</p>');
       b.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+      b.onclick = e => { const a = e.target.closest('a[data-ln]'); if(!a) return; e.preventDefault(); const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; screenPathLesson(+a.dataset.ln); };   // in-app links to other Pathway lessons
     });
     const d = document.getElementById('pl-done');
     if(d) d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); };

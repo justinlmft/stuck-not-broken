@@ -4422,6 +4422,7 @@ body.reduce-motion .lv-card.lv-in,body.reduce-motion .lv-arc1,body.reduce-motion
 .pl-body li{margin:.25em 0}
 .pl-body strong,.pl-body b{color:var(--ink);font-weight:600}
 .pl-body a{color:var(--link)}
+.pl-body a.pl-ln{color:var(--ink);text-decoration:underline;text-underline-offset:2px;font-weight:500}
 .pl-wait{color:var(--muted)}
 .pl-foot{display:flex;flex-direction:column;gap:8px;padding-top:8px}
 .pl-foot p{margin:0;text-align:center;font-size:13px;color:var(--muted)}
