@@ -8771,7 +8771,195 @@ function app(tab){
   const _upKeyOf = it => (it.kind === 'anchor' || it.kind === 'anchor-auto') ? 'anchor:' + it.key : it.key;
   function _upFind(M, id){ for(const s of M.secs){ const it = s.items.find(x => x.kind + '|' + x.key === id); if(it) return it; } return null; }
 
+    // ── THE UNSTUCKING PATHWAY, WITH LESSONS (Justin, 2026-10-25: "C is the better direction. Move forward with it."). Circle's
+  // course layout in our look: sections in Circle's order, a tile + title row per lesson, the app's practice steps placed after
+  // the lessons that teach them, a Show toggle (Justin: "change their pathway from lessons only to practices only to both"),
+  // and Continue. The practice steps keep every rule of the classic pathway (_upModel); the classic screen stays below as
+  // _screenPathwayClassic for reference. Lesson data: pathway/manifest.json (+ body-N.json), built from the Circle course.
+  const PL_VIEW = 'snb_pathway_view';
+  const PL_CIRCLE = 'https://assets-v2.circle.so/';   // videos play from Circle until they are on Cloudflare Stream
+  const PL_TINT = ['var(--bone-deep)', 'rgba(91,160,112,.16)', 'rgba(88,145,197,.16)', 'rgba(210,154,74,.18)'];
+  const PL_KIND = { video:'Video', activity:'Activity', reflection:'Reflection', self:'On your own', quiz:'Quiz', text:'Reading' };
+  let _plData = null; const _plBodies = {};
+  function _plLoad(){
+    if(_plData) return Promise.resolve(_plData);
+    return fetch('pathway/manifest.json?v=1').then(r => r.json()).then(d => { _plData = d; return d; });
+  }
+  function _plBody(row){
+    if(row.c == null) return Promise.resolve('');
+    if(_plBodies[row.c]) return Promise.resolve(_plBodies[row.c][row.id] || '');
+    return fetch('pathway/body-' + row.c + '.json?v=1').then(r => r.ok ? r.json() : {}).then(d => { _plBodies[row.c] = d; return d[row.id] || ''; }).catch(() => '');
+  }
+  function _plIsDone(id){ const v = _ctxLoad()['ls:' + id]; return !!(v && v.length); }
+  function _plMarkDone(id){
+    if(!id || _plIsDone(id)) return;
+    const day = new Date().toISOString().slice(0, 10);
+    try{ if(Store.saveContexts) Store.saveContexts('ls:' + id, 'done', [day]); else { const m = _ctxLoad(); m['ls:' + id] = [day]; _ctxSave(m); } }catch(e){}
+  }
+  function _plView(){ let v = null; try{ v = localStorage.getItem(PL_VIEW); }catch(e){} return v === 'lessons' || v === 'practices' ? v : 'both'; }
+  function _plLen(sec){ if(!sec) return ''; const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+  // a lesson's skill → the practice step it teaches
+  function _plMatch(sk, it){
+    if(sk === 'anchor') return it.kind === 'anchorpick';
+    if(it.kind === 'open' || !it.key) return false;
+    const k = it.key;
+    if(k === sk) return true;
+    if(sk.indexOf('@') < 0){ const base = k.split(/[@>]/)[0]; return base === sk && (k.indexOf('@') < 0 || /@general$/.test(k)); }
+    return false;
+  }
+  // every row in order: each stage's lessons in Circle's order, each practice step after the last lesson that teaches it,
+  // practice steps keeping the pathway's own order
+  function _plRows(D, M){
+    const out = [[], [], [], []];
+    const L = [[], [], [], []]; D.rows.forEach(r => L[r.s].push(r));
+    const P = [[], [], [], []];
+    if(M){
+      P[2] = [].concat(M.secs[0].items, [{ kind:'anchorpick', key:'anchor', title:'Your safety anchor', st: M.anchorSet ? 'done' : (M.paid ? 'next' : 'paid') }], M.SEC('safety').items);
+      P[3] = [].concat(M.SEC('which').items, M.defItems);
+    }
+    for(let s = 0; s < 4; s++){
+      const pos = []; let prev = 0;
+      P[s].forEach(it => {
+        let last = -1; L[s].forEach((r, i) => { if(r.sk && _plMatch(r.sk, it)) last = i; });
+        prev = Math.max(last, prev); pos.push(prev);
+      });
+      L[s].forEach((r, i) => {
+        out[s].push({ type:'lesson', row:r, done:_plIsDone(r.id) });
+        P[s].forEach((it, j) => { if(pos[j] === i) out[s].push({ type:'practice', it, done: it.st === 'done' }); });
+      });
+    }
+    return out;
+  }
   function screenPathway(){
+    const def = _domDefense();
+    const back = () => app('practice');
+    const M = _upModel();
+    if(!M || !_plData){
+      _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="pl-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+      Promise.all([_plLoad(), Promise.resolve(Store.sequenceReady ? Store.sequenceReady() : false)]).then(() => {
+        const w = document.getElementById('pl-wait'); if(!w) return;
+        if(_upModel() && _plData) screenPathway(); else w.textContent = "The pathway didn't load. Check your connection and try again.";
+      }).catch(() => { const w = document.getElementById('pl-wait'); if(w) w.textContent = "The pathway didn't load. Check your connection and try again."; });
+      return;
+    }
+    const view = _plView(), all = _plRows(_plData, M);
+    const keep = x => view === 'both' || (view === 'lessons' ? x.type === 'lesson' : x.type === 'practice');
+    let total = 0, done = 0, firstOpen = null;
+    all.forEach(sec => sec.filter(keep).forEach(x => { total++; if(x.done) done++; else if(!firstOpen && !(x.type === 'practice' && (x.it.locked || x.it.st === 'paid'))) firstOpen = x; }));
+    const pct = total ? Math.round(done / total * 100) : 0;
+    const CK = '<span class="pl-ck" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+    const PLAY = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>';
+    const rowHtml = (x, s) => {
+      if(x.type === 'lesson'){
+        const r = x.row, locked = !M.paid;
+        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>Paid plan</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
+        return `<button class="pl-row" type="button" data-pl="${r.id}" style="--pl-tint:${PL_TINT[s]}">
+          <span class="pl-tile"><b>${escapeHtml(PL_KIND[r.k] || 'Lesson')}</b><span>${r.v ? PLAY + ' ' + _plLen(r.d) : r.q ? r.q.length + ' questions' : ''}</span></span>
+          <span class="pl-t"><b>${escapeHtml(r.t)}</b>${meta ? `<span class="pl-st">${meta}</span>` : ''}</span></button>`;
+      }
+      const it = x.it, id = it.kind + '|' + it.key;
+      const words = it.st === 'paid' ? LOCK_SVG + '<span>Paid plan</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
+        : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? LOCK_SVG : '';
+      const mark = it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(it, def);
+      let pick = '';
+      if(it.kind === 'anchorpick' && M.paid && (!M.anchorSet || _upPickOpen)){
+        const opts = [{ v:'auto', t:'Let the app find my best one' }].concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k) })));
+        pick = `<div class="pl-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button type="button" role="radio" aria-checked="${M.anchorMode === o.v ? 'true' : 'false'}" data-pick="${o.v}">${escapeHtml(o.t)}</button>`).join('')}</div>`;
+      }
+      return `<button class="pl-row" type="button" data-k="practice" data-up="${escapeHtml(id)}"${it.locked ? ' data-locked="1"' : ''} style="--pl-tint:${PL_TINT[s]}">
+        <span class="pl-tile"><b>Practice</b><span class="pl-mk">${mark}</span></span>
+        <span class="pl-t"><b>${escapeHtml(it.title)}</b>${words ? `<span class="pl-st">${words}</span>` : ''}</span></button>${pick}`;
+    };
+    const secs = all.map((sec, s) => {
+      const rows = sec.filter(keep);
+      const body = rows.length ? rows.map(x => rowHtml(x, s)).join('') : (sec.length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
+      return body ? `<section class="pl-sec"><h2>${escapeHtml(_plData.stages[s])}</h2>${body}</section>` : '';
+    }).join('');
+    const tabs = [['both','Both'],['lessons','Lessons'],['practices','Practices']].map(([k, l]) => `<button type="button" data-view="${k}" aria-pressed="${view === k ? 'true' : 'false'}">${l}</button>`).join('');
+    _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
+      <p class="pl-lede">Lessons and practices, one small step at a time.</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
+      <div class="pl-prog"><div class="pl-prog-top"><b>Your progress</b><span>${pct}%</span></div><div class="pl-bar"><i style="width:${pct}%"></i></div></div>
+      <div class="pl-showwrap"><span class="rd-eyeb">Show</span><div class="pl-show" role="group" aria-label="Show on the Pathway">${tabs}</div></div>
+      ${secs}
+      ${firstOpen ? '<button class="pl-go" type="button" data-go="1">Continue</button>' : ''}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+    const v = root.querySelector('.pl-view'); if(!v) return;
+    const openPractice = it => {
+      if(it.kind === 'anchorpick'){ if(!M.paid) return gateSubscribe('practice'); _upPickOpen = !_upPickOpen || !M.anchorSet; _upKeep(); return screenPathway(); }
+      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(Object.assign({}, M.reco, { fromPath:true, pathTitle:it.title }), screenPathway); }
+      if(it.kind === 'emo' && M.paid){ _upKeep(); return screenEmotions(); }
+      _upItemSheet(it, M, def);
+    };
+    v.onclick = e => {
+      const tv = e.target.closest('[data-view]');
+      if(tv){ try{ localStorage.setItem(PL_VIEW, tv.dataset.view); }catch(err){} try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
+      const pk = e.target.closest('[data-pick]');
+      if(pk){ _upPickOpen = false; return _upSetAnchor(pk.dataset.pick === 'auto' ? null : pk.dataset.pick); }
+      if(e.target.closest('[data-go]') && firstOpen){
+        if(firstOpen.type === 'lesson'){ _upKeep(); return screenPathLesson(firstOpen.row.id); }
+        return openPractice(firstOpen.it);
+      }
+      const l = e.target.closest('[data-pl]');
+      if(l){ if(!M.paid) return gateSubscribe('practice'); _upKeep(); return screenPathLesson(+l.dataset.pl); }
+      const b = e.target.closest('[data-up]'); if(!b) return;
+      if(b.dataset.up === 'anchorpick|anchor') return openPractice({ kind:'anchorpick' });
+      const it = _upFind(M, b.dataset.up); if(it) openPractice(it);
+    };
+    const sc = root.querySelector('.scroll');
+    if(sc && _upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
+  }
+  // the order lessons are walked in: the same rows as the list, lessons only
+  function _plNext(id){
+    if(!_plData) return null;
+    const i = _plData.rows.findIndex(r => r.id === id);
+    return i >= 0 && i < _plData.rows.length - 1 ? _plData.rows[i + 1] : null;
+  }
+  function screenPathLesson(id){
+    if(!_plData){ _plLoad().then(() => screenPathLesson(id)); return; }
+    const r = _plData.rows.find(x => x.id === id); if(!r) return screenPathway();
+    if(r.q) return screenPathQuiz(r);
+    const nx = _plNext(id);
+    const video = r.v ? `<video class="pl-video" controls playsinline preload="metadata" src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}"></video>` : '';
+    _rdShell(`<div class="pl-lesson">${video}
+      <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
+      <h1 class="rd-title">${escapeHtml(r.t)}</h1>
+      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div>
+      <div class="pl-foot"><button class="pl-done" type="button" id="pl-done">Done</button>${nx ? `<p>Next: ${escapeHtml(nx.t)}</p>` : ''}</div></div>`,
+      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+    _plBody(r).then(h => {
+      const b = document.getElementById('pl-body'); if(!b) return;
+      b.innerHTML = h || (r.v ? '' : '<p>The written part of this lesson is on its way.</p>');
+      b.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+    });
+    const d = document.getElementById('pl-done');
+    if(d) d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); };
+  }
+  // a quiz: one question at a time, the answer shown after each pick, nothing scored or kept but "done"
+  function screenPathQuiz(r, qi, picked){
+    qi = qi || 0;
+    const Q = r.q[qi], has = picked != null, last = qi === r.q.length - 1, nx = _plNext(r.id);
+    const opts = Q.o.map((o, i) => {
+      const st = !has ? '' : i === Q.a ? 'right' : i === picked ? 'mine' : 'dim';
+      return `<button class="pl-opt" type="button" data-opt="${i}"${st ? ` data-r="${st}"` : ''}${has ? ' aria-disabled="true"' : ''}><span>${escapeHtml(o)}</span>${st === 'right' ? '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}</button>`;
+    }).join('');
+    const dots = r.q.map((x, i) => `<i${i < qi ? ' data-d="1"' : i === qi ? ' data-d="2"' : ''}></i>`).join('');
+    _rdShell(`<div class="pl-quiz"><div class="pl-dots" aria-hidden="true">${dots}</div>
+      <span class="rd-eyeb">${escapeHtml(r.t)}</span><h1 class="rd-title">${escapeHtml(Q.q)}</h1>
+      <div class="pl-opts">${opts}</div>
+      ${has ? `<p class="pl-fb">${picked === Q.a ? 'Yes, that one.' : 'Here is the answer.'}</p>` : ''}
+      <button class="pl-done" type="button" id="pl-next"${has ? '' : ' disabled'}>${last ? 'Done' : 'Next question'}</button></div>`,
+      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+    const v = root.querySelector('.pl-quiz'); if(!v) return;
+    v.onclick = e => {
+      const o = e.target.closest('[data-opt]');
+      if(o && !has){ try{ haptic('tap'); }catch(err){} return screenPathQuiz(r, qi, +o.dataset.opt); }
+      if(e.target.closest('#pl-next') && has){
+        if(!last) return screenPathQuiz(r, qi + 1, null);
+        _plMarkDone(r.id); try{ haptic('save'); }catch(err){}
+        return nx ? screenPathLesson(nx.id) : screenPathway();
+      }
+    };
+  }
+  function _screenPathwayClassic(){
     const def = _domDefense();
     const back = () => app('practice');
     const M = _upModel();

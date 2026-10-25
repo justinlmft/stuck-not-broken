@@ -4375,3 +4375,66 @@ body.reduce-motion .lv-card.lv-in,body.reduce-motion .lv-arc1,body.reduce-motion
 .now.tb.mh.lv-on .tb-breath{gap:12px}
 .now.tb.mh.lv-on:not(.breathing) .tb-esc{display:none}
 .now.tb.mh.lv-on .mh-noci{display:none}
+
+/* ── The Unstucking Pathway with lessons (2026-10-25): Circle's course layout, flat on paper ── */
+.pl-view{display:flex;flex-direction:column;gap:24px;padding-bottom:24px}
+.pl-lede{margin:-8px 0 0;font-size:15px;line-height:22px;color:var(--muted)}
+.pl-prog{border:1px solid var(--hairline);border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.pl-prog-top{display:flex;justify-content:space-between;align-items:baseline}
+.pl-prog-top b{font-size:16px;font-weight:500}
+.pl-prog-top span{font-size:15px;color:var(--muted)}
+.pl-bar{height:6px;border-radius:999px;background:var(--bone-deep);overflow:hidden}
+.pl-bar i{display:block;height:100%;border-radius:999px;background:var(--ink)}
+.pl-showwrap{display:flex;flex-direction:column;gap:10px}
+.pl-show{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--hairline);border-radius:999px;padding:3px}
+.pl-show button{min-height:44px;border:0;border-radius:999px;background:none;font:inherit;font-size:15px;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pl-show button[aria-pressed="true"]{background:var(--bone-deep);color:var(--ink);font-weight:600}
+.pl-sec{display:flex;flex-direction:column;gap:16px}
+.pl-sec h2{margin:8px 0 0;font-size:22px;font-weight:600;letter-spacing:-.015em}
+.pl-empty{margin:0;font-size:15px;line-height:22px;color:var(--muted)}
+.pl-row{display:flex;gap:16px;align-items:center;border:0;background:none;padding:0;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pl-row:active{transform:scale(.985)}
+.pl-row:focus-visible,.pl-show button:focus-visible,.pl-opt:focus-visible,.pl-go:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.pl-tile{width:128px;height:72px;flex-shrink:0;box-sizing:border-box;border-radius:14px;background:var(--pl-tint);border:1.5px solid transparent;padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between}
+.pl-row[data-k="practice"] .pl-tile{border-color:var(--sky)}
+.pl-tile b{font-size:13px;font-weight:600;color:var(--ink)}
+.pl-tile>span{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--ink-80)}
+.pl-mk svg{width:22px;height:22px}
+.pl-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.pl-t b{font-size:17px;line-height:23px;font-weight:500;color:var(--ink)}
+.pl-st{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.pl-st svg{width:14px;height:14px}
+.pl-ck{width:20px;height:20px;flex-shrink:0;border-radius:999px;background:var(--ink);color:var(--bone);display:inline-flex;align-items:center;justify-content:center}
+.pl-ck svg{width:12px;height:12px}
+.pl-nx{width:20px;height:20px;flex-shrink:0;box-sizing:border-box;border-radius:999px;background:var(--s-safety);border:1px solid var(--ink)}
+.pl-row[data-locked="1"] .pl-t b{color:var(--muted)}
+.pl-pick{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 4px 144px}
+.pl-pick button{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--hairline);background:none;font:inherit;font-size:15px;color:var(--ink);cursor:pointer}
+.pl-pick button[aria-checked="true"]{border-color:var(--ink);background:var(--bone-deep);font-weight:600}
+.pl-go{position:sticky;bottom:16px;align-self:flex-end;min-height:52px;padding:0 28px;border-radius:999px;border:0;background:var(--ink);color:var(--bone);font:inherit;font-size:17px;font-weight:500;cursor:pointer}
+.pl-lesson,.pl-quiz{display:flex;flex-direction:column;gap:16px;padding-bottom:24px}
+.pl-video{display:block;width:100%;aspect-ratio:16/9;border-radius:16px;background:#000}
+.pl-body{font-size:calc(17px * var(--type-scale, 1));line-height:1.65;color:var(--ink-80);max-width:66ch}
+.pl-body h2,.pl-body h3{margin:1.2em 0 .4em;font-size:19px;line-height:1.3;font-weight:600;color:var(--ink)}
+.pl-body p{margin:0 0 .9em}
+.pl-body ul,.pl-body ol{margin:0 0 .9em;padding-left:1.25em}
+.pl-body li{margin:.25em 0}
+.pl-body strong,.pl-body b{color:var(--ink);font-weight:600}
+.pl-body a{color:var(--link)}
+.pl-wait{color:var(--muted)}
+.pl-foot{display:flex;flex-direction:column;gap:8px;padding-top:8px}
+.pl-foot p{margin:0;text-align:center;font-size:13px;color:var(--muted)}
+.pl-done{width:100%;min-height:52px;border-radius:999px;border:0;background:var(--ink);color:var(--bone);font:inherit;font-size:17px;font-weight:500;cursor:pointer}
+.pl-done:disabled{background:var(--bone-deep);color:var(--muted);cursor:default}
+.pl-dots{display:flex;gap:4px}
+.pl-dots i{flex:1;height:6px;border-radius:999px;background:var(--bone-deep)}
+.pl-dots i[data-d="1"]{background:var(--s-still)}
+.pl-dots i[data-d="2"]{background:var(--ink)}
+.pl-opts{display:flex;flex-direction:column;gap:12px}
+.pl-opt{display:flex;align-items:center;gap:12px;min-height:56px;padding:14px 18px;border-radius:16px;border:1.5px solid var(--hairline);background:var(--bone);width:100%;text-align:left;font:inherit;font-size:17px;line-height:24px;color:var(--ink);cursor:pointer}
+.pl-opt span{flex:1}
+.pl-opt[data-r="right"]{background:var(--s-still);border-color:var(--s-still-tx);color:#1a1f2a}
+.pl-opt[data-r="mine"]{border-color:var(--ink)}
+.pl-opt[data-r="dim"]{opacity:.55}
+.pl-fb{margin:0;font-size:16px;font-weight:600}
+@media (max-width:420px){.pl-tile{width:112px;height:66px}.pl-pick{margin-left:0}}
