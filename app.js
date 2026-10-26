@@ -741,7 +741,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -4600,17 +4600,199 @@ function app(tab){
     const forNow = lastK ? _lrnForDaily(lastK) : null;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
+          ${_lmChipsHTML()}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
-          ${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
-          ${_rdLearnSection()}
+          ${_lmFiltered() ? _lmListHTML() : `${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
+          ${_rdLearnSection()}`}
           </div>`, { tab:'learn', search:true });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
     root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+    _lmWire();
     _lrnSearchWire(open);
+  }
+  // ---- Listen and watch (2026-10-26; mockups "Learn Library Mockups"). Justin: "throw all of the free Learn content in
+  // together and have it be filtered by media and topic." The list is learn/media.json, built from Captivate and YouTube by
+  // media-catalog (snb-business learn-media/catalog.json). s: p podcast · c Stucknaut Collective (paid) · v video · s Short.
+  // Topics are read from titles for now (g); the transcript pass will tag each episode properly.
+  let _lmMedia = 'all', _lmTopic = 'all', _lmData = null, _lmP = null, _lmShown = 40;
+  const _LM_STATES = ['safety', 'fightflight', 'freeze', 'shutdown'];
+  const _LM_TOPICS = [['all', 'All topics'], ['safety', null], ['fightflight', null], ['freeze', null], ['shutdown', null], ['feel', 'Feelings'], ['rel', 'Relationships'], ['family', 'Family and parenting'], ['work', 'Work and stress']];
+  function _lmLoad(){
+    if(_lmData) return Promise.resolve(_lmData);
+    if(!_lmP) _lmP = fetch('learn/media.json?v=1').then(r=>{ if(!r.ok) throw new Error('media'); return r.json(); })
+      .then(d=>{ _lmData = d && d.items ? d : { items:[] }; return _lmData; }).catch(()=>{ _lmP = null; return null; });
+    return _lmP;
+  }
+  const _lmById = id => _lmData ? _lmData.items.find(x=>x.i === id) || null : null;
+  const _LM_IC = { read:'M4 5h7a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-7a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h7z', listen:'M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z', watch:'M5 5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM10 9l5 3-5 3z' };
+  const _lmIcon = k => `<span class="lm-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${_LM_IC[k]}"/></svg></span>`;
+  const _lmLen = n => { if(!n) return ''; if(n < 60) return 'under a minute'; const m = Math.round(n / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); };
+  const _lmClock = s => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = String(s % 60).padStart(2, '0'); return h ? h + ':' + String(m).padStart(2, '0') + ':' + ss : m + ':' + ss; };
+  const _lmDate = d => { try{ return d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) : ''; }catch(e){ return ''; } };
+  const _lmKind = x => x.s === 'p' ? 'Podcast' : x.s === 'c' ? 'Stucknaut Collective' : x.s === 'v' ? 'Video' : 'Short';
+  const _lmIsListen = x => x.s === 'p' || x.s === 'c';
+  const _lmState = x => (x.g || []).find(g=>_LM_STATES.indexOf(g) >= 0) || null;
+  function _lmRowHTML(x){
+    const lock = x.s === 'c' && !paidNow();
+    return `<button class="lm-row" type="button" data-media="${escapeHtml(x.i)}">${_lmIcon(_lmIsListen(x) ? 'listen' : 'watch')}<span class="lm-tx"><b>${escapeHtml(x.t)}</b><span class="lm-meta">${lock ? LOCK_SVG : ''}<span>${escapeHtml(_lmKind(x) + (x.n ? ' · ' + _lmLen(x.n) : ''))}</span></span></span><span class="wc-go">${CHEV}</span></button>`;
+  }
+  function _lmArtRowHTML(p){
+    const lock = p.paid && !paidNow();
+    return `<button class="lm-row${_lrnIsRead(p.id) ? ' is-read' : ''}" type="button" data-piece="${escapeHtml(p.id)}">${_lmIcon('read')}<span class="lm-tx"><b>${escapeHtml(p.title)}</b><span class="lm-meta">${lock ? LOCK_SVG : ''}<span>${escapeHtml(p.paid ? 'Book chapter' : 'Article')}</span>${_lrnIsRead(p.id) ? _lrnReadMk() : ''}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  }
+  function _lmChipsHTML(){
+    const chip = (grp, id, label, on, mk) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${grp}="${id}" aria-pressed="${on}">${mk || ''}<span>${escapeHtml(label)}</span></button>`;
+    return `<div class="lm-chips" role="group" aria-label="Media">${[['all', 'All'], ['read', 'Read'], ['listen', 'Listen'], ['watch', 'Watch']].map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
+          <div class="lm-chips lm-chips-t" role="group" aria-label="Topic">${_LM_TOPICS.map(([id, l])=>chip('lmt', id, l || STATE_LABEL(id), _lmTopic === id, _LM_STATES.indexOf(id) >= 0 ? _rdMk(id) : '')).join('')}</div>`;
+  }
+  const _lmFiltered = () => _lmMedia === 'all' && _lmTopic === 'all' ? false : true;
+  function _lmListHTML(){
+    const L = window.Learning, t = _lmTopic, m = _lmMedia;
+    const arts = (m === 'all' || m === 'read') ? L.PIECES.filter(p=>t === 'all' || p.state === t || (p.groups || []).indexOf(t) >= 0) : [];
+    const med = m === 'read' ? [] : _lmData ? _lmData.items.filter(x=>(m === 'all' || (m === 'listen') === _lmIsListen(x)) && (t === 'all' || (x.g || []).indexOf(t) >= 0)) : null;
+    const rows = _lrnByRead(arts).map(_lmArtRowHTML).concat((med || []).map(_lmRowHTML));
+    const n = rows.length, wait = med === null;
+    return `<section class="rd-learn lm-list"><p class="ll-res-n">${escapeHtml(n === 1 ? '1 piece' : n + ' pieces')}${wait ? ' <span class="ll-res-wait">Loading episodes and videos…</span>' : ''}</p>
+          <div class="lm-rows">${rows.slice(0, _lmShown).join('')}</div>${n > _lmShown ? '<button class="ll-showall lm-more" type="button">Show more</button>' : ''}</section>`;
+  }
+  // redraw Learn where it was: the page's scroll and the topic row's scroll both stay put
+  function _lmRedraw(top){
+    const sc = root.querySelector('.scroll'), tr = root.querySelector('.lm-chips-t');
+    const y = top ? 0 : sc ? sc.scrollTop : 0, x = tr ? tr.scrollLeft : 0;
+    screenLearn(true);
+    const s2 = root.querySelector('.scroll'), t2 = root.querySelector('.lm-chips-t');
+    if(s2) s2.scrollTop = y; if(t2) t2.scrollLeft = x;
+  }
+  function _lmWire(){
+    root.querySelectorAll('[data-lmm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lmm; _lmShown = 40; _lmRedraw(true); });
+    root.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lmt; _lmShown = 40; _lmRedraw(true); });
+    if(!_lmData) setTimeout(_lmLoad, 1200);
+    const box = root.querySelector('.lm-list'); if(!box) return;
+    const here = { label:'Learn', go:()=>screenLearn(true) };
+    box.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here); });
+    box.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    const mb = box.querySelector('.lm-more'); if(mb) mb.onclick = ()=>{ _lmShown += 40; _lmRedraw(); };
+    if(!_lmData && _lmMedia !== 'read') _lmLoad().then(d=>{ if(d && box.isConnected) _lmRedraw(); });
+  }
+  // the member's own data for what this piece covers (the same idea as the articles' callouts)
+  function _lmCheckinsHTML(x){
+    const st = _lmState(x); if(!st) return '';
+    let cs = []; try{ cs = Store.checkins ? Store.checkins() : []; }catch(e){}
+    const now = Date.now(), win = cs.filter(c=>c && c.t >= now - 28 * 864e5); if(!win.length) return '';
+    const n = win.filter(c=>_cDom(c) === st).length, pct = Math.round(100 * n / win.length);
+    const line = n ? `${pct}% of your check-ins over the last 4 weeks were mostly ${STATE_NAME(st)}.` : `None of your check-ins over the last 4 weeks were mostly ${STATE_NAME(st)}.`;
+    return `<div class="lm-card"><span class="rd-eyeb">From your check-ins</span><h2 class="lm-h">${_rdMk(st)}<span>${escapeHtml(STATE_LABEL(st))}</span></h2><p class="read-p">${escapeHtml(line)}</p></div>`;
+  }
+  // DRAFT journal prompts (App Designer, 2026-10-26), for Justin to replace; the transcript pass will give each episode its own
+  const _LM_JQ = { safety:'When you notice a little safety, what do you notice first?', fightflight:'When flight/fight comes up, where do you feel it first?',
+    freeze:'When you notice freeze, what helps the brake ease a little?', shutdown:'When you notice numbness or heaviness, what do you notice first?' };
+  function _lmJournalHTML(x){
+    const st = _lmState(x); if(!st) return '';
+    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
+    const saved = ((_ctxLoad()['mj:' + x.i + ':1']) || [])[0] || '';
+    return `<div class="lm-card"><span class="rd-eyeb">Journal</span><label class="read-p rd-refl-q" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="rd-refl-in" id="lm-j" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><button class="lm-save" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div>`;
+  }
+  function _lmWireCards(x){
+    const st = _lmState(x), js = $('#lm-jsave'), jt = $('#lm-j');
+    if(js && jt && st){
+      jt.oninput = ()=>{ js.textContent = 'Save to my journal'; };
+      js.onclick = ()=>{ const txt = jt.value.trim(), key = 'mj:' + x.i + ':1', q = _LM_JQ[st], val = txt ? [txt, new Date().toISOString().slice(0, 10), q, x.t, st] : [];
+        try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m = _ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
+        js.textContent = txt ? 'Saved' : 'Save to my journal'; haptic && haptic('save'); };
+    }
+    root.querySelectorAll('.rd-jr-locked, .lm-sub').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+  }
+  const _LM_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>';
+  const _LM_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+  // an episode, a video or a Short
+  function screenMedia(id, from){
+    const back = from && from.go ? from.go : ()=>screenLearn(true);
+    const x = _lmById(id);
+    if(!x){
+      _rdShell(`<p class="rd-meta">One moment…</p>`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
+      _lmLoad().then(d=>{ const m = root.querySelector('.rd-meta'); if(!m) return; if(d && _lmById(id)) screenMedia(id, from); else m.textContent = "This didn't load. Check your connection and try again."; });
+      return;
+    }
+    const here = { label:'Back', go:()=>screenMedia(id, from) };
+    const meta = [x.e ? 'Episode ' + x.e : '', _lmLen(x.n), _lmDate(x.d)].filter(Boolean).join(' · ');
+    if(x.s === 's'){
+      const ci = _lmCheckinsHTML(x) + _lmJournalHTML(x);
+      _rdShell(`<div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+          <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1>
+          ${ci ? `<div class="lm-sheet" id="lm-sheet" aria-hidden="true">${ci}</div>` : ''}`,
+        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">Your check-ins</button>` : '' });
+      document.body.classList.add('lm-dark');
+      const cb = $('#lm-ci'), sh = $('#lm-sheet');
+      if(cb && sh) cb.onclick = ()=>{ const on = !sh.classList.contains('open'); sh.classList.toggle('open', on); sh.setAttribute('aria-hidden', on ? 'false' : 'true'); cb.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+      _lmWireCards(x);
+      return;
+    }
+    const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();
+    const eyeb = x.s === 'p' ? 'Podcast · Stuck Not Broken' : x.s === 'c' ? 'Stucknaut Collective' : 'Video';
+    const player = !listen
+      ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
+      : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with the paid plan.</p><button class="lm-save lm-sub" type="button">See the paid plan</button></div>`
+      : `<div class="lm-player" id="lm-player">
+            <div class="lm-bar" id="lm-bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="lm-fill" id="lm-fill"></span></div>
+            <div class="lm-times"><span id="lm-el">0:00</span><span id="lm-rem">${x.n ? '-' + _lmClock(x.n) : ''}</span></div>
+            <div class="lm-ctl"><button class="lm-skip" type="button" data-skip="-15" aria-label="Back 15 seconds">15</button><button class="lm-play" id="lm-play" type="button" aria-label="Play">${_LM_PLAY}</button><button class="lm-skip" type="button" data-skip="30" aria-label="Forward 30 seconds">30</button></div>
+            <p class="lm-note" id="lm-note" hidden></p><audio id="lm-audio" preload="none"></audio></div>`;
+    const pair = x.y ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.y)}">${_lmIcon('watch')}<span class="lm-tx"><b>Watch the video</b><span class="lm-meta"><span>The same episode on video</span></span></span><span class="wc-go">${CHEV}</span></button>`
+      : x.p ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.p)}">${_lmIcon('listen')}<span class="lm-tx"><b>Listen to the episode</b><span class="lm-meta"><span>The podcast version</span></span></span><span class="wc-go">${CHEV}</span></button>` : '';
+    _rdShell(`<div class="lm-head"><span class="rd-eyeb">${escapeHtml(eyeb)}</span><h1 class="rd-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="lm-meta-l">${escapeHtml(meta)}</p>` : ''}</div>
+          ${player}${_lmCheckinsHTML(x)}${_lmJournalHTML(x)}${pair}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
+    root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    _lmWireCards(x);
+    if(listen && !locked) _lmWirePlayer(x);
+  }
+  function _lmWirePlayer(x){
+    const a = $('#lm-audio'); if(!a) return;
+    const pb = $('#lm-play'), fill = $('#lm-fill'), bar = $('#lm-bar'), el = $('#lm-el'), rem = $('#lm-rem'), note = $('#lm-note');
+    const key = 'snb_lm_pos_' + x.i;
+    let ready = false, loading = false;
+    const say = t => { note.textContent = t; note.hidden = !t; };
+    const dur = () => isFinite(a.duration) && a.duration > 0 ? a.duration : (x.n || 0);
+    const paint = () => { const d = dur(), t = a.currentTime || 0; fill.style.width = d ? Math.min(100, 100 * t / d) + '%' : '0'; el.textContent = _lmClock(t); rem.textContent = d ? '-' + _lmClock(d - t) : ''; bar.setAttribute('aria-valuenow', d ? Math.round(100 * t / d) : 0); };
+    const setIcon = () => { pb.innerHTML = a.paused ? _LM_PLAY : _LM_PAUSE; pb.setAttribute('aria-label', a.paused ? 'Play' : 'Pause'); };
+    const start = async () => {
+      if(!ready){
+        if(loading) return; loading = true;
+        let src = x.a || null;
+        if(x.s === 'c'){
+          say('One moment…');
+          const r = Store.collectiveAudio ? await Store.collectiveAudio(x.m) : { error:'unavailable', status:0 };
+          loading = false;
+          if(r.upgrade){ say(''); return gateSubscribe('reader'); }
+          if(!r.src) return say(r.status === 503 ? "Collective audio isn't connected yet." : r.status === 401 ? 'Sign in to listen.' : "This episode didn't load. Check your connection and try again.");
+          say(''); src = r.src;
+        }
+        loading = false;
+        if(!src) return say("This episode didn't load. Try again in a moment.");
+        a.src = src; ready = true;
+        let pos = 0; try{ pos = +localStorage.getItem(key) || 0; }catch(e){}
+        if(pos > 5) a.addEventListener('loadedmetadata', ()=>{ if(pos < dur() - 10) a.currentTime = pos; }, { once:true });
+        if('mediaSession' in navigator){ try{
+          navigator.mediaSession.metadata = new MediaMetadata({ title:x.t, artist:x.s === 'c' ? 'Stucknaut Collective' : 'Stuck Not Broken', artwork:[{ src:'icon-512.png', sizes:'512x512', type:'image/png' }] });
+          navigator.mediaSession.setActionHandler('seekbackward', ()=>{ a.currentTime = Math.max(0, a.currentTime - 15); });
+          navigator.mediaSession.setActionHandler('seekforward', ()=>{ a.currentTime = Math.min(dur(), a.currentTime + 30); });
+        }catch(e){} }
+      }
+      a.play().catch(()=>say("This episode didn't play. Try again in a moment."));
+    };
+    pb.onclick = () => { if(a.paused) start(); else a.pause(); };
+    root.querySelectorAll('[data-skip]').forEach(b=>b.onclick=()=>{ if(!ready) return; a.currentTime = Math.max(0, Math.min(dur(), a.currentTime + (+b.dataset.skip))); paint(); });
+    bar.onclick = e => { if(!ready) return; const r = bar.getBoundingClientRect(); a.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * dur(); paint(); };
+    bar.onkeydown = e => { if(!ready) return; if(e.key === 'ArrowRight'){ a.currentTime = Math.min(dur(), a.currentTime + 30); e.preventDefault(); } if(e.key === 'ArrowLeft'){ a.currentTime = Math.max(0, a.currentTime - 15); e.preventDefault(); } paint(); };
+    let saveT = 0;
+    a.ontimeupdate = () => { paint(); if(Date.now() - saveT > 5000){ saveT = Date.now(); try{ localStorage.setItem(key, String(Math.floor(a.currentTime))); }catch(e){} } };
+    a.onplay = a.onpause = setIcon;
+    a.onended = () => { setIcon(); try{ localStorage.removeItem(key); }catch(e){} };
+    a.onerror = () => { if(!a.getAttribute('src')) return; ready = false; say("This episode didn't load. Check your connection and try again."); };
+    paint();
   }
   // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
   function _lrnSearchWire(open){
@@ -4672,6 +4854,9 @@ function app(tab){
       out.push({ piece, rid:mm[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
     });
     try{ _chJournalItems().forEach(it=>out.push(it)); }catch(e){}
+    // an episode's or a video's journal (2026-10-26): 'mj:{media id}:{n}' = [answer, day, question, title, state]
+    Object.keys(m).forEach(k=>{ const mj = /^mj:(.+):(\d+)$/.exec(k); if(!mj) return; const v = m[k] || []; if(!v[0]) return;
+      out.push({ media:mj[1], post:{ key:'media:' + mj[1], title:v[3] || 'Listen and watch', teachState:v[4] || null }, rid:mj[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' }); });
     return out.sort((a,b)=> (b.day||'').localeCompare(a.day||''));
   }
   // grouped by article (the You tab's count, and older callers)
@@ -4795,7 +4980,7 @@ function app(tab){
   }
   function _jrWireList(){
     const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : 'you' };
-    const openPost = (key, sec) => { if(/^chal:/.test(key)) return screenChallenges(); const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
+    const openPost = (key, sec) => { if(/^chal:/.test(key)) return screenChallenges(); if(/^media:/.test(key)) return screenMedia(key.slice(6), here); const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
     root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
     root.querySelectorAll('.jr-art[data-post]').forEach(b=>b.onclick=()=>openPost(b.dataset.post));
     root.querySelectorAll('.jr-item, .jr-reco [data-rf]').forEach(b=>b.onclick=()=>{ if(b.dataset.post) return openPost(b.dataset.post, 'rj-' + b.dataset.rf); const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });

@@ -2500,7 +2500,23 @@
     }catch(e){}
   }
 
+  // Stucknaut Collective audio (2026-10-26): a short-lived streaming address from collective-audio, paid members only.
+  // The private show's own audio addresses never reach the phone.
+  async function collectiveAudio(mediaId){
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      if(!sb) return { error:'not signed in', status:401 };
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { error:'not signed in', status:401 };
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/collective-audio', { method:'POST',
+        headers:{ Authorization:'Bearer ' + session.access_token, 'Content-Type':'application/json' }, body: JSON.stringify({ media_id: mediaId }) });
+      let b = {}; try{ b = await r.json(); }catch(e){}
+      if(!r.ok || !b.src) return { error:(b && b.error) || 'something went wrong', status:r.status, upgrade:!!(b && b.upgrade) };
+      return { src:b.src };
+    }catch(e){ return { error:String((e && e.message) || e), status:0 }; }
+  }
   global.Store = {
+    collectiveAudio,
     init, signUp, signIn, signInAnonymously, isAnonymous, linkIdentity, signOut, user, cloud, syncStatus,
     resetPassword, updatePassword, onPasswordRecovery, deleteAccount,
     addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc, seedDemo,
