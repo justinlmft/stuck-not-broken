@@ -2001,10 +2001,10 @@
   function obChips(group, opts){ return '<div class="ob-chips" data-group="'+group+'">'+opts.map(o=>obChip(group,o[0],escapeHtml(o[1]))).join('')+'</div>'; }
   function obSw(id,label,on,dis){ return '<div class="gs-sw ob-sw"><span class="gs-lbl">'+label+'</span><button class="set-sw'+(on?' on':'')+'" id="'+id+'" type="button" role="switch" aria-checked="'+(on?'true':'false')+'" aria-label="'+escapeHtml(label)+'"'+(dis?' disabled style="opacity:.45"':'')+'><span class="set-sw-knob"></span></button></div>'; }
   const OB_TAB_LINE = { now:'Check in, and take a breath.', practice:'Your recommended practice, the Unstucking Pathway, and practices to make your own.',
-    community:'Live sessions with Justin, and the community.', learn:'Articles and book chapters to read.', you:'Your Reflections, Your Journal, your patterns over time, and Settings.' };
+    community:'Mindful Moment, live with Justin every Wednesday.', learn:'Articles and book chapters to read.', you:'Your Reflections, Your Journal, your patterns over time, and Settings.' };
   // the five tabs on one card, drawn with the tab bar's own icons ("Look around myself")
   function obTabMap(){
-    const names = { now:'Now', practice:'Practice', community:'Community', learn:'Learn', you:'You' };
+    const names = { now:'Now', practice:'Practice', community:lwTabName(), learn:'Learn', you:'You' };
     return '<div class="ob-map">'+['now','practice','community','learn','you'].map(t=>{
       let ic=''; try{ const b=document.querySelector('#tabs button[data-t="'+t+'"] .ic'); if(b) ic=b.innerHTML; }catch(e){}
       return '<div class="ob-map-row"><span class="ob-map-ic" aria-hidden="true">'+ic+'</span><span class="ob-map-t"><b>'+names[t]+'</b><span>'+escapeHtml(OB_TAB_LINE[t])+'</span></span></div>';
@@ -2716,12 +2716,21 @@ function app(tab){
   const LW_DAILY_SRC = 'https://cdn.jsdelivr.net/npm/@daily-co/daily-js@0.93.0/dist/daily.js';
   const LW_UPGRADE_URL = 'https://www.stucknotbroken.com/checkout/co-regulator';
   const LW_OPEN_EARLY_MIN = 10;
+  // ── THE TWO SWITCHES (Justin, 2026-10-26: "make the current community tab into a calendar tab that lists the mindful
+  // moments? and hide the forum? then reveal it when the time comes"). Until the Co-Regulator tier launches, the tab is
+  // "Calendar" and lists Mindful Moment only; the Feed is hidden. Justin (the host) still sees every session so the
+  // Co-Regulator build can be tested. Flip both to true on Co-Regulator launch day: the tab becomes "Community" again.
+  const LW_COREG_LIVE = false;   // Capacity Builder + Q&A on the schedule for members
+  const LW_FORUM_LIVE = false;   // the Feed (Discuss, Ask & Share) segment
   const LW_KIND = {
     capacity_builder:{ name:'Capacity Builder', line:'Live practice with other students', video:true },
     mindful_moment:  { name:'Mindful Moment', line:'Livestream with chat', video:false },
     qa:              { name:'Q&A', line:'Group video, recorded', video:true }
   };
-  function lwCommunityIco(on){ return on ? '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5" fill="currentColor"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/><path fill="none" d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>'; }   // a function, so the tab bar can use it before this line runs
+  // the tab's name follows the switches: "Calendar" until the Co-Regulator tier and the forum are live
+  function lwTabName(){ return (LW_COREG_LIVE || LW_FORUM_LIVE) ? 'Community' : 'Calendar'; }
+  function lwCalendarIco(on){ return '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"' + (on ? ' fill="currentColor"' : ' fill="none"') + '/><path fill="none" d="M8 3v4M16 3v4"/><path fill="none" d="M3.5 10h17"' + (on ? ' stroke="var(--bone-deep)"' : '') + '/></svg>'; }
+  function lwCommunityIco(on){ if(!(LW_COREG_LIVE || LW_FORUM_LIVE)) return lwCalendarIco(on); return on ? '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5" fill="currentColor"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/><path fill="none" d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>'; }   // a function, so the tab bar can use it before this line runs
   const LW_ICO = {
     mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>',
@@ -2783,6 +2792,7 @@ function app(tab){
       ]);
       if(sr && sr.error) throw sr.error;
       _lw.sched = ((sr && sr.data) || []).filter(s => _lwEnd(s) > Date.now());
+      _lw.all = _lw.sched;
       _lw.rem = {}; ((rr && rr.data) || []).forEach(r => { _lw.rem[r.session_id] = r.channels || []; });
       _lw.access = (ar && ar.status === 200) ? ar.data : { signed_in:false, co_regulator:false, host:false };
       _lw.err = null;
@@ -2793,14 +2803,15 @@ function app(tab){
   // ---- the Community tab ----
   function screenCommunity(){
     currentTab = 'community';
+    if(!LW_FORUM_LIVE) _lw.tab = 'live';
     setHTML(`
       <header class="appbar"></header>
       <div class="scroll" id="content"><div class="view lw-view">
-        <div class="scr-head"><h2 class="scr-h lw-h1">Community</h2></div>
-        <div class="lw-seg" role="group" aria-label="Show">
+        <div class="scr-head"><h2 class="scr-h lw-h1">${lwTabName()}</h2>${LW_FORUM_LIVE ? '' : '<p class="lw-p lw-muted lw-lede">Live with Justin. Mindful Moment is free for everyone.</p>'}</div>
+        ${LW_FORUM_LIVE ? `<div class="lw-seg" role="group" aria-label="Show">
           <button type="button" data-lw-tab="feed" aria-pressed="${_lw.tab==='feed'}">Feed</button>
           <button type="button" data-lw-tab="live" aria-pressed="${_lw.tab==='live'}">Live</button>
-        </div>
+        </div>` : ''}
         <div id="lw-body"></div>
       </div></div>
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
@@ -2816,8 +2827,10 @@ function app(tab){
       return;
     }
     if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The schedule did not load. Pull down or try again in a moment.' : 'One moment…'}</p>`; return; }
-    if(!_lw.sched.length){ el.innerHTML = `<p class="lw-quiet">No live sessions are scheduled yet.</p>`; return; }
-    el.innerHTML = `<div class="lw-list">${_lw.sched.map(s => {
+    // before the Co-Regulator launch, members see Mindful Moment only; Justin sees everything
+    const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
+    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live sessions are scheduled yet.</p>`; return; }
+    el.innerHTML = `<div class="lw-list">${list.map(s => {
       const K = _lwKind(s), t = _lwStart(s), d = new Date(t), live = _lwDoorOpen(s), ok = _lwAllowed(s), rem = !!_lw.rem[s.id];
       const btn = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
         : live ? `<button class="lw-pill lw-pill-go" type="button" data-lw-join="${s.id}">Join</button>`
@@ -3723,7 +3736,7 @@ function app(tab){
     reflect:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7.2 4.5 3.5 4.8v13.4c3.7-.3 6.5.2 8.5 1.8 2-1.6 4.8-2.1 8.5-1.8V4.8C16.8 4.5 14 5 12 6.5z"/><path d="M12 6.5V20"/></svg>',
     community:lwCommunityIco(false)
   }[t]||''); }
-  function tabBtn(t){ const on=currentTab===t || (t==='you' && currentTab==='reflect'), L=CAP(t), dot = (t==='you' && currentTab!=='reflect' && _rdHasNew()); return `<button data-t="${t}" class="${on?'on':''}${dot?' tab-new':''}" aria-label="${L}${dot?', a new reflection is ready':''}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
+  function tabBtn(t){ const on=currentTab===t || (t==='you' && currentTab==='reflect'), L=(t==='community' ? lwTabName() : CAP(t)), dot = (t==='you' && currentTab!=='reflect' && _rdHasNew()); return `<button data-t="${t}" class="${on?'on':''}${dot?' tab-new':''}" aria-label="${L}${dot?', a new reflection is ready':''}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
   // the four tabs. Reflect (Justin, 2026-10-01): "Reflect" not "Reflections", because it is an action, like Practice
   // Learn (Justin, 2026-10-01): its own tab, separate from Reflect ("connected but different paths")
   // 2026-10-26 (Circle move, Justin approved the menu): Now, Practice, Community, Learn, You. Reflect folds into You:
