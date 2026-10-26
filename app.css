@@ -4556,3 +4556,11 @@ body.lw-in-room .tabbar{display:none}
 .lw-chat-form .btn{min-height:48px;border-radius:999px;padding:0 18px}
 .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (min-width:900px){.lw-call .lw-call-body{max-width:1100px;width:100%;margin:0 auto;box-sizing:border-box}.lw-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+/* desktop: keep the stage within the window, and put Mindful Moment's chat beside the video (Justin hosts from a computer) */
+@media (min-width:900px){
+  .lw-call .lw-stage{aspect-ratio:auto;height:min(58dvh,620px)}
+  .lw-mm .lw-call-body{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+  .lw-mm .lw-stage{height:min(68dvh,720px)}
+  .lw-mm .lw-mm-chat{height:min(68dvh,720px);min-height:0}
+  .lw-mm .lw-tap{grid-column:1}
+}
