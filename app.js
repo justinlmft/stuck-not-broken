@@ -8780,6 +8780,7 @@ function app(tab){
   const PL_CIRCLE = 'https://assets-v2.circle.so/';   // videos play from Circle until they are on Cloudflare Stream
   const PL_TINT = ['var(--bone-deep)', 'rgba(91,160,112,.16)', 'rgba(88,145,197,.16)', 'rgba(210,154,74,.18)'];
   const PL_KIND = { video:'Video', activity:'Activity', reflection:'Reflection', self:'On your own', quiz:'Quiz', text:'Reading' };
+  function _plHls(){ try { return /Apple/.test(navigator.vendor || '') && !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl'); } catch(e){ return false; } }   // iPhone / Safari play Stream's adaptive HLS natively
   let _plData = null; const _plBodies = {};
   function _plLoad(){
     if(_plData) return Promise.resolve(_plData);
@@ -8918,13 +8919,26 @@ function app(tab){
     const r = _plData.rows.find(x => x.id === id); if(!r) return screenPathway();
     if(r.q) return screenPathQuiz(r);
     const nx = _plNext(id);
-    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${r.v.indexOf('/downloads/default.mp4') > 0 ? ` poster="${escapeHtml(r.v.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}">${(r.v.match(/cloudflarestream\.com\/([0-9a-f]{32})\//) || [])[1] ? `<track kind="captions" srclang="en" label="English" src="pathway/captions/${r.v.match(/cloudflarestream\.com\/([0-9a-f]{32})\//)[1]}.vtt">` : ''}</video></div>` : '';
+    const mp4 = r.v ? (r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v) : '';
+    const sid = (mp4.match(/cloudflarestream\.com\/([0-9a-f]{32})\//) || [])[1];
+    const hls = sid && _plHls() ? mp4.replace('/downloads/default.mp4', '/manifest/video.m3u8') : '';   // adaptive stream (quality follows the signal), captions ride inside it
+    const trk = sid ? `<track kind="captions" srclang="en" label="English" src="pathway/captions/${sid}.vtt">` : '';
+    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${sid ? ` poster="${escapeHtml(mp4.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(hls || mp4)}">${hls ? '' : trk}</video></div><p class="pl-verr" hidden>Couldn't load the video. <button type="button" class="pl-vretry">Try again</button></p>` : '';
     _rdShell(`<div class="pl-lesson">${video}
       <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
       <h1 class="rd-title">${escapeHtml(r.t)}</h1>
       <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div>
       <div class="pl-foot"><button class="pl-done" type="button" id="pl-done">Done</button>${nx ? `<p>Next: ${escapeHtml(nx.t)}</p>` : ''}</div></div>`,
       { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+    const ve = root.querySelector('.pl-video'), ver = root.querySelector('.pl-verr');
+    if(ve){   // stream fails -> fall back to the plain file (with its caption track); that fails too -> a calm "Try again"
+      ve.addEventListener('error', () => {
+        if(hls && ve.getAttribute('src') === hls){ ve.setAttribute('src', mp4); if(trk) ve.insertAdjacentHTML('beforeend', trk); ve.load(); return; }
+        if(ver) ver.hidden = false;
+      });
+      const rb = root.querySelector('.pl-vretry');
+      if(rb) rb.onclick = () => { if(ver) ver.hidden = true; ve.load(); };
+    }
     _plBody(r).then(h => {
       const b = document.getElementById('pl-body'); if(!b) return;
       b.innerHTML = h || (r.v ? '' : '<p>The written part of this lesson is on its way.</p>');
