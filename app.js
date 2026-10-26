@@ -8918,7 +8918,7 @@ function app(tab){
     const r = _plData.rows.find(x => x.id === id); if(!r) return screenPathway();
     if(r.q) return screenPathQuiz(r);
     const nx = _plNext(id);
-    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${r.v.indexOf('/downloads/default.mp4') > 0 ? ` poster="${escapeHtml(r.v.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}"></video></div>` : '';
+    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${r.v.indexOf('/downloads/default.mp4') > 0 ? ` poster="${escapeHtml(r.v.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v)}">${(r.v.match(/cloudflarestream\.com\/([0-9a-f]{32})\//) || [])[1] ? `<track kind="captions" srclang="en" label="English" src="pathway/captions/${r.v.match(/cloudflarestream\.com\/([0-9a-f]{32})\//)[1]}.vtt">` : ''}</video></div>` : '';
     _rdShell(`<div class="pl-lesson">${video}
       <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
       <h1 class="rd-title">${escapeHtml(r.t)}</h1>
