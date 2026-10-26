@@ -835,6 +835,7 @@
     if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
     if(h==='reader'){ return app('reflect'); }   // a new-reflection notification (2026-09-30)
     if(h==='challenge'){ app('practice'); return _chOpenFromLink(); }   // the challenge reminder (2026-10-18)
+    if(h==='live'){ _lw.tab = 'live'; return app('community'); }   // a live session reminder, push or email (2026-10-26)
     // the saved reader place, once per boot; a post that has not loaded yet is tried again on the next route
     if(_rdPending === undefined) _rdPending = _rdTakeLoc();   // read once, before anything overwrites it
     const _back = !!(_rdPending && _rdRestore(_rdPending));
@@ -2900,9 +2901,26 @@ function app(tab){
     sh.el.querySelector('#lw-rem-save').onclick = async () => {
       const channels = Array.from(on); if(!uid){ sh.close(); return; }
       if(!channels.length){ return sh.el.querySelector('#lw-rem-off') ? sh.el.querySelector('#lw-rem-off').click() : sh.close(); }
-      const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels, sent_at:null }, { onConflict:'user_id,session_id' });
+      // the app notification needs notifications on; ask now, inside this tap (the one place iOS allows it)
+      let pushNote = '';
+      if(on.has('app') && pushState() !== 'on'){
+        const st = pushState();
+        const got = (st === 'install' || st === 'blocked' || st === 'unsupported') ? st : await pushRequest('live');
+        if(got !== 'on') pushNote = got === 'install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then Add to Home Screen.'
+          : got === 'blocked' ? 'Notifications are turned off for this app in your device settings, so the app notification can\'t reach you.'
+          : got === 'unsupported' ? 'This browser can\'t show notifications from the app.'
+          : 'Notifications were not turned on, so the app notification can\'t reach you.';
+      }
+      let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
+      const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels, sent_at:null, tz }, { onConflict:'user_id,session_id' });
       if(r && r.error){ showToast('That did not save. Try again in a moment.'); return; }
-      _lw.rem[s.id] = channels; haptic('save'); sh.close(); _lwBody();
+      _lw.rem[s.id] = channels; haptic('save'); _lwBody();
+      if(!pushNote) return sh.close();
+      // saved, but the app notification can't reach them: say so plainly in the sheet, and let them close it
+      const btns = sh.el.querySelector('.lw-sh-btns');
+      if(!btns) return sh.close();
+      btns.innerHTML = `<p class="lw-p">${escapeHtml(pushNote + (on.has('email') ? ' The email reminder is on.' : ''))}</p><button class="btn block" type="button" id="lw-rem-done">Done</button>`;
+      btns.querySelector('#lw-rem-done').onclick = () => sh.close();
     };
     const off = sh.el.querySelector('#lw-rem-off');
     if(off) off.onclick = async () => {
@@ -3486,6 +3504,7 @@ function app(tab){
     if(h==='practice') return app('practice');
     if(h==='reader') return app('reflect');
     if(h==='challenge') return _chOpenFromLink();
+    if(h==='live'){ if(_lwRoom) return; _lw.tab = 'live'; return app('community'); }   // a live session reminder (2026-10-26)
   }
   // ── end web push ─────────────────────────────────────────────────────────────────────
   // ── tips: "did you know" cards (2026-09-10) ──────────────────────────────────────────
