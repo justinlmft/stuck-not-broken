@@ -741,7 +741,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -4451,6 +4451,15 @@ function app(tab){
     const sc = root.querySelector('.scroll'); if(!sc) return; let tm = null;
     sc.addEventListener('scroll', ()=>{ clearTimeout(tm); tm = setTimeout(()=>{ try{ const o = JSON.parse(localStorage.getItem(_RD_LOC) || 'null'); if(o){ o.y = Math.round(sc.scrollTop); o.t = Date.now(); localStorage.setItem(_RD_LOC, JSON.stringify(o)); } }catch(e){} }, 250); }, { passive:true });
   }
+  // breadcrumbs on tablet and desktop (Justin, 2026-10-26: the floating Back "looks weird at bigger sizes ... it's a dynamic
+  // button that comes up from the bottom menu"; picked breadcrumbs): ‹ Learn / Topic / This video. The arrow goes back to
+  // where the member came from; each name opens that page. Phones keep the floating Back (CSS shows one or the other).
+  function _rdCrumbHTML(parts){
+    return `<nav class="rd-crumb" aria-label="Breadcrumb"><button class="rd-crumb-back" type="button" data-crumb="back" aria-label="Back">${BACK_SVG}</button>${parts.map((p, i)=>i < parts.length - 1
+      ? `<a href="#" class="rd-crumb-a" data-crumb="${i}">${escapeHtml(p.label)}</a><span class="rd-crumb-sep" aria-hidden="true">/</span>`
+      : `<span class="rd-crumb-here" aria-current="page">${escapeHtml(p.label)}</span>`).join('')}</nav>`;
+  }
+  const _rdCrumbTopic = (k, go) => k && window.Learning.HUBS[k] ? [{ label:_lrnHubName(k), go:()=>screenLearnHub(k, { label:'Learn', go }) }] : [];
   function _rdShell(inner, opts){
     opts = opts || {};
     currentTab = opts.tab || 'reflect';
@@ -4463,8 +4472,8 @@ function app(tab){
     const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
       <header class="appbar read-appbar"></header>
-      <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
-      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
+      <div class="scroll"><div class="view read rd" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${inner}</div></div>
+      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock${opts.crumb && tabBack && !sFloat && !opts.dock ? ' fl-backonly' : ''}" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     if(opts.onBack) document.body.classList.add('rd-sub');
@@ -4472,6 +4481,8 @@ function app(tab){
     _rdTrackScroll();
     $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const tb = $('#tab-back'); if(tb && opts.onBack) tb.onclick = opts.onBack;
+    if(opts.crumb){ document.body.classList.add('rd-crumbs');
+      root.querySelectorAll('[data-crumb]').forEach(b=>b.onclick=e=>{ e.preventDefault(); const k = b.dataset.crumb; if(k === 'back'){ if(opts.onBack) opts.onBack(); return; } const p = opts.crumb[+k]; if(p && p.go) p.go(); }); }
   }
   // what comes next, said plainly under Today (Justin: "it's not clear what is coming or how it comes")
   function _rdNextLine(){
@@ -4821,7 +4832,16 @@ function app(tab){
     const cs = ids.map(id=>{ try{ return _lrnCallout(id, ctx); }catch(e){ return null; } }).filter(Boolean);
     if(!cs.length) return '';
     let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    return `<section class="lm-lead">${_lrnCallHTML(cs[h % cs.length], true, ctx)}</section>`;
+    let c = cs[h % cs.length];
+    // week by week on a media page: one row of columns, oldest to newest (Justin, 2026-10-26: eight rows "is too much
+    // vertical ... Just saying 'the past 8 weeks' is enough")
+    if(c.cols){
+      const col = STATE_COLOR(c.mk), k = c.cols.length;
+      const bars = c.cols.map(w=>`<span class="lm-col"><i style="height:${w.n && w.x > 0 ? Math.max(6, Math.round(100 * w.x)) : 0}%;background:${col}"></i></span>`).join('');
+      c = Object.assign({}, c, { card:`<div class="rd-snap rd-snap-in lm-cols" role="img" aria-label="${escapeHtml(c.text)}">${bars}</div><p class="rd-cap">The past ${k === 1 ? 'week' : k + ' weeks'}</p>` });
+      return `<section class="lm-lead">${_lrnCallHTML(c, true, ctx).replace(/<span class="rd-call-per">[^<]*<\/span>/, '')}</section>`;
+    }
+    return `<section class="lm-lead">${_lrnCallHTML(c, true, ctx)}</section>`;
   }
   // DRAFT journal prompts (App Designer, 2026-10-26), for Justin to replace; the transcript pass will give each episode its own
   const _LM_JQ = { safety:'When you notice a little safety, what do you notice first?', fightflight:'When flight/fight comes up, where do you feel it first?',
@@ -4907,6 +4927,8 @@ function app(tab){
   }
   const _LM_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>';
   const _LM_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+  const _lmCrumb = x => { const L = window.Learning, go = ()=>screenLearn(true);
+    return [{ label:'Learn', go }].concat(_rdCrumbTopic((x.g || []).find(k=>L.HUBS[k]), go), [{ label: x.s === 's' ? 'This Short' : _lmIsListen(x) ? 'This episode' : 'This video' }]); };
   // an episode, a video or a Short
   function screenMedia(id, from){
     const back = from && from.go ? from.go : ()=>screenLearn(true);
@@ -4920,11 +4942,11 @@ function app(tab){
     const meta = [x.e ? 'Episode ' + x.e : '', _lmLen(x.n), _lmDate(x.d)].filter(Boolean).join(' · ');
     if(x.s === 's'){
       const ci = _lmLeadHTML(x) + _lmJournalHTML(x) + `<div class="lm-desc" id="lm-desc" hidden></div>` + `<div class="lm-sheet-keep">${_lmKeepHTML(x)}</div>`;
-      _rdShell(`<div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+      _rdShell(`<div class="lm-spage"><div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
           <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1>
-          ${ci ? `<div class="lm-sheet" id="lm-sheet" aria-hidden="true">${ci}</div>` : ''}`,
-        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">About this Short</button>` : '' });
-      document.body.classList.add('lm-dark');
+          ${ci ? `<div class="lm-sheet" id="lm-sheet" aria-hidden="true">${ci}</div>` : ''}</div>`,
+        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x), dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">About this Short</button>` : '' });
+      document.body.classList.add('lm-dark', 'lm-wide');
       const cb = $('#lm-ci'), sh = $('#lm-sheet');
       if(cb && sh) cb.onclick = ()=>{ const on = !sh.classList.contains('open'); sh.classList.toggle('open', on); sh.setAttribute('aria-hidden', on ? 'false' : 'true'); cb.setAttribute('aria-expanded', on ? 'true' : 'false'); };
       _lmWireCards(x);
@@ -4943,8 +4965,9 @@ function app(tab){
             <p class="lm-note" id="lm-note" hidden></p><audio id="lm-audio" preload="none"></audio></div>`;
     const pair = x.y ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.y)}">${_lmIcon('watch')}<span class="lm-tx"><b>Watch the video</b><span class="lm-meta"><span>The same episode on video</span></span></span><span class="wc-go">${CHEV}</span></button>`
       : x.p ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.p)}">${_lmIcon('listen')}<span class="lm-tx"><b>Listen to the episode</b><span class="lm-meta"><span>The podcast version</span></span></span><span class="wc-go">${CHEV}</span></button>` : '';
-    _rdShell(`<div class="lm-head"><span class="rd-eyeb">${escapeHtml(eyeb)}</span><h1 class="rd-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="lm-meta-l">${escapeHtml(meta)}</p>` : ''}</div>
-          ${player}${_lmLeadHTML(x)}${_lmJournalHTML(x)}<div class="lm-desc" id="lm-desc" hidden></div>${_lmKeepHTML(x)}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
+    _rdShell(`<div class="lm-page"><div class="lm-main"><div class="lm-head"><span class="rd-eyeb">${escapeHtml(eyeb)}</span><h1 class="rd-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="lm-meta-l">${escapeHtml(meta)}</p>` : ''}</div>
+          ${player}<div class="lm-desc" id="lm-desc" hidden></div></div><div class="lm-side">${_lmLeadHTML(x)}${_lmJournalHTML(x)}${_lmKeepHTML(x)}</div></div>`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x) });
+    document.body.classList.add('lm-wide');
     root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
     _lmFillDesc(x);
     _lmWireKeep(root, here);
@@ -5925,7 +5948,8 @@ function app(tab){
         return `<div class="help-row" style="--sd:${k*60}ms"><span class="help-lbl">${escapeHtml(w.i === 0 ? 'Last 7 days' : md(w.start))}</span><span class="help-track"><span class="help-fill" style="width:${w.n && x > 0 ? Math.max(4, Math.round(100 * x)) : 0}%;background:${col}"></span></span><span class="help-pct">${w.n || '–'}</span></div>`; }).join('');
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Each row is a week, by the day it started. Bar: how much ${escapeHtml(nm)} you had on average that week. Number: how many check-ins. A dash: none that week.</p>`;
       const pc = _lrnPeriodCtx('recent', shown[0].start, now + 1);
-      return { mk:st, label: owner + ' ' + nm + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
+      const cols = shown.map(w=>({ x: w.n ? (w.sum / w.n) / mx : 0, n: w.n }));
+      return { mk:st, cols, label: owner + ' ' + nm + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
     }
     return null;
   }
@@ -6031,7 +6055,7 @@ function app(tab){
   function _lrnCallHTML(c, paid, ctx){
     const col = STATE_COLOR(c.mk), pc = c.per || ctx, per = _lrnPerLabel(pc);
     const who = `<span class="rd-call-who">${_rdMk(c.mk)}<span class="rd-call-lbl">${escapeHtml(c.label)}</span>${per ? `<span class="rd-call-per">${escapeHtml(per)}</span>` : ''}</span>`;
-    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
+    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your results show here on the paid plan.</span></button></div>`;
     return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}${_lrnMoreStats(c, pc)}</div>`;
   }
   // a block of piece or hub text
@@ -6084,7 +6108,7 @@ function app(tab){
           : `<section class="rd-learn"><p class="read-p rd-empty">${_lmData ? 'Lessons for this hub are on the way.' : 'One moment…'}</p></section>`}
         ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
         </div>`,
-      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true });
+      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true, crumb:[{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }] });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     root.querySelectorAll('.lm-hubsec .ll-showall').forEach(b=>b.onclick=()=>{ b.parentElement.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
     root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
@@ -6259,7 +6283,8 @@ function app(tab){
         ${gated ? '' : _lrnTocHTML(piece.toc)}
         ${body}
         ${book}${piece.episode ? `<section class="rd-book"><p class="read-p">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p></section>` : ''}
-        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id } });
+        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id },
+          crumb:[{ label:'Learn', go:()=>screenLearn(true) }].concat(_rdCrumbTopic(piece.state || (piece.groups || []).find(g=>L.HUBS[g]), ()=>screenLearn(true)), [{ label: piece.book ? 'This chapter' : 'This article' }]) });
     root.querySelectorAll('.rd-call-lock, .rd-gate-btn').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
     root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
