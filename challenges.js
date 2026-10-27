@@ -1435,7 +1435,7 @@ window.SNBChallenges = {
 "remEb":"Getting started",
 "remGo":"Go to your first prompt",
 "remFail":"Notifications didn't turn on, so there's no reminder for now. You can turn it on any time in Settings, under Notifications.",
-"freeStart":"Start with the paid plan"
+"freeStart":"Start with Self-Regulator"
 },
 "ANS":{
 "like":[

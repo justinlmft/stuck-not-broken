@@ -838,7 +838,7 @@
         Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
           if(r && r.included) return screenIncluded();
           if(storeResult(r)) return;
-          if(r && r.error) showToast(/already have the paid plan/.test(r.error) ? r.error : "couldn't open the payment page right now. you can subscribe from settings.");
+          if(r && r.error) showToast(/already have Self-Regulator/.test(r.error) ? r.error : "couldn't open the payment page right now. you can subscribe from settings.");
         }));
     }
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
@@ -1734,9 +1734,9 @@
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">The paid plan</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is on the paid plan.' : 'Choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the other voices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
+          <p class="eyebrow">Self-Regulator</p>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is part of Self-Regulator.' : 'Choose your plan'}</h1>
+          <p class="lede" style="margin-bottom:6px">It adds the full Unstucking Pathway, every article and practice, the other voices, challenges, the members’ podcast, and your personal insights: the patterns across your check-ins and the reader. Cancel anytime.</p>
           ${planPickerHTML()}
           ${inStore
             ? `<p class="fineprint" style="margin-bottom:18px">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
@@ -1764,7 +1764,7 @@
     const rs=$('#pw-restore'); if(rs) rs.onclick = ()=>{
       screenSubscribe(null, true);
       Promise.resolve(Store.restorePurchases()).then(r=>{
-        if(r && r.paid){ _subFrom=null; currentTab='now'; route(); showToast('Your paid plan is active.'); }
+        if(r && r.paid){ _subFrom=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); }
         else screenSubscribe('No App Store purchase was found for this account.');
       }).catch(()=>screenSubscribe('No App Store purchase was found for this account.'));
     };
@@ -1774,8 +1774,8 @@
   // The App Store's answer to a purchase (store app only). Returns true when it handled the screen.
   function storeResult(res){
     if(!res) return false;
-    if(res.purchased){ _subFrom=null; currentTab='now'; route(); showToast('Your paid plan is active.'); return true; }
-    if(res.pending){ _subFrom=null; currentTab='now'; route(); showToast('Your purchase is waiting for approval. The paid plan opens once it is approved.'); return true; }
+    if(res.purchased){ _subFrom=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); return true; }
+    if(res.pending){ _subFrom=null; currentTab='now'; route(); showToast('Your purchase is waiting for approval. Self-Regulator opens once it is approved.'); return true; }
     if(res.cancelled){ if(document.getElementById('pw-go')) screenSubscribe(); else { currentTab='now'; route(); } return true; }
     return false;
   }
@@ -1789,7 +1789,7 @@
         <div class="gate-body">
           <p class="eyebrow">Already included</p>
           <h1 style="margin:10px 0 12px">You already have the full app.</h1>
-          <p class="lede" style="margin-bottom:24px">Your account already includes everything in the paid plan. There is nothing to pay, and you were not charged.</p>
+          <p class="lede" style="margin-bottom:24px">Your account already includes everything in Self-Regulator. There is nothing to pay, and you were not charged.</p>
           <button class="btn block" id="inc-go">Continue</button>
         </div>
       </div>`);
@@ -2103,7 +2103,7 @@
         body: obP('Every skill in the app, in order, from the present moment to working with defense. Each step opens as you practice the one before it.')
            + obLbl('Your safety anchor')
            + '<div class="ob-chips" data-group="anchor">'+[['auto','Let the app find my best one']].concat(UP_ANCHORS.map(k=>[k,CAP(k)])).map(o=>obChip('anchor',o[0],escapeHtml(o[1]), paid?'':' aria-disabled="true"')).join('')+'</div>'
-           + (paid ? '' : lockLine('Choosing your safety anchor is on the paid plan.')) },
+           + (paid ? '' : lockLine('Choosing your safety anchor is part of Self-Regulator.')) },
 
       { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'Reflect',
         h:'Reflect',
@@ -2116,7 +2116,7 @@
       { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'Reflect',
         h:'Your Journal',
         body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal.')
-           + (paid ? '' : lockLine('Your Journal is on the paid plan.')) },
+           + (paid ? '' : lockLine('Your Journal is part of Self-Regulator.')) },
 
       { id:'you', tab:'you', kind:'spot', target:['#carousel','.map-rows','.you-view .card','#set-btn'], pad:6, eb:'You',
         h:'You',
@@ -2382,7 +2382,7 @@
         const v = b.dataset.voice;
         try{ bedPreview(null); }catch(e){}
         obVoiceSample(v);
-        if(!voiceOk(v)){ if(cap) cap.textContent = voiceName(v)+' is on the paid plan.'; obTrack('orient_pref',{pref:'voice_locked',value:v}); obFade(); return; }
+        if(!voiceOk(v)){ if(cap) cap.textContent = voiceName(v)+' is part of Self-Regulator.'; obTrack('orient_pref',{pref:'voice_locked',value:v}); obFade(); return; }
         if(cap) cap.textContent = '';
         if(Store.setPrefVoice) Store.setPrefVoice(v);
         onIn('voice', v); haptic('save'); obTrack('orient_pref',{pref:'voice',value:v});
@@ -2606,7 +2606,7 @@ function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0
 const WN_UPDATES = [
   { id:'2026-10-challenges', when:'October 2026', cta:{ label:'Take a challenge', go:'challenges' }, items:[
     /* Justin, 2026-10-19: "only list the challenges with the challenge icon". Ships to prod with the challenges. */
-    { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are on the $12/mo paid plan only.)' } ] },   // Justin's copy, 2026-10-19
+    { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are part of Self-Regulator, $12 a month.)' } ] },   // Justin's copy, 2026-10-19
   { id:'2026-10-06', when:'October 6, 2026', items:[
     { i:'path',  t:'The Unstucking Pathway', b:'The skills in order, checked off as you practice them.' },
     { i:'book',  t:'The Learn library', b:'Articles to read when you want to understand more.' },
@@ -2751,6 +2751,17 @@ function app(tab){
     mindful_moment:  { name:'Mindful Moment', line:'Livestream with chat', video:false },
     qa:              { name:'Q&A', line:'Group video, recorded', video:true }
   };
+  // live-event terms (🖊 draft, 2026-10-27). Change a word here = new version = every member agrees again.
+  const LW_TERMS_VERSION = '2026-10-27';
+  const LW_TERMS = [
+    'Live sessions are not therapy. Justin teaches and guides practice. Joining does not make him your therapist, and nothing here is treatment.',
+    'If you are in crisis, call or text 988 in the US, or your local emergency number. Nobody in a live session can respond to an emergency.',
+    'Your camera, your mic and the chat are always optional.',
+    'Each session says on the Calendar whether it is recorded.',
+    'Be kind. No harassment, hate, or sexual or violent content. Justin can remove anyone from a session.',
+    'What others share stays in the session. Do not record, screenshot or pass on other members\u2019 names, faces or words.',
+    'Your check-ins are private. Nobody else sees your answers.'
+  ];
   // the tab's name follows the switches: "Calendar" until the Co-Regulator tier and the forum are live
   function lwTabName(){ return (LW_COREG_LIVE || LW_FORUM_LIVE) ? 'Community' : 'Calendar'; }
   function lwCalendarIco(on){ return '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"' + (on ? ' fill="currentColor"' : ' fill="none"') + '/><path fill="none" d="M8 3v4M16 3v4"/><path fill="none" d="M3.5 10h17"' + (on ? ' stroke="var(--bone-deep)"' : '') + '/></svg>'; }
@@ -2771,7 +2782,7 @@ function app(tab){
   const LW_MARK_VB = { heart:'-4.0 36.4 478.2 386.7', bolt:'462.3 -9.4 434.4 459.8', x:'887.4 11.7 413.6 422.6' };
   const lwMark = (m, col) => { const I = window.SNB_ICONS||{}; return `<svg class="lw-mark" viewBox="${LW_MARK_VB[m]}" aria-hidden="true"><path fill="${col}" d="${(I[m]&&I[m].d)||''}"/></svg>`; };
 
-  let _lw = { tab:'live', sched:null, rem:{}, access:null, loading:false, err:null };
+  let _lw = { tab:'live', sched:null, rem:{}, access:null, loading:false, err:null, series:{}, terms:false };
   let _lwRoom = null;   // the open live view: { s, phase, co, cam, mic, chat:[], ... }
 
   const _lwKind = s => LW_KIND[s.kind] || { name:s.title || 'Live', line:'', video:true };
@@ -2780,6 +2791,16 @@ function app(tab){
   const _lwDoorOpen = s => { const n = Date.now(); return n >= _lwStart(s) - LW_OPEN_EARLY_MIN*60000 && n <= _lwEnd(s); };
   const _lwAllowed = s => s.access === 'free' || !!(_lw.access && _lw.access.co_regulator);
   const _lwIsHost = () => !!(_lw.access && _lw.access.host);
+  // what a session is: the session's own words, else its series' words, else the built-in line
+  const _lwSummary = s => (s.summary || (_lw.series[s.kind] || {}).summary || _lwKind(s).line || '').trim();
+  const _lwDesc = s => (s.description || (_lw.series[s.kind] || {}).description || '').trim();
+  function _lwFacts(s){
+    const K = _lwKind(s), f = [(s.duration_min || 60) + ' minutes'];
+    f.push(K.video ? 'Camera and mic on or off, your choice.' : 'You are not on camera or mic.');
+    f.push(s.recorded ? (K.video ? 'Recorded, so members can watch it later. Keep your camera off if you would rather not appear.' : 'Recorded, so members can watch it later.') : 'Not recorded. No replay.');
+    f.push(s.access === 'free' ? 'Free for everyone.' : 'Part of Co-Regulator.');
+    return f;
+  }
   function _lwClock(t){
     const d = new Date(t), h = d.getHours(), m = d.getMinutes();
     return (h % 12 || 12) + ':' + String(m).padStart(2,'0');
@@ -2803,18 +2824,32 @@ function app(tab){
       return { status:r.status, data:d };
     }catch(e){ return { status:0, data:{ error:'offline' } }; }
   }
+  function _lwSched(cols, since, until){
+    return window.sb.from('live_schedule').select(cols).gte('starts_at', since).lte('starts_at', until).eq('canceled', false).order('starts_at', { ascending:true }).limit(40);
+  }
   async function _lwLoad(){
     if(!window.sb){ _lw.err = 'offline'; return; }
     _lw.loading = true;
     try{
       const since = new Date(Date.now() - 4*3600e3).toISOString();
       const until = new Date(Date.now() + 42*864e5).toISOString();
-      const [sr, rr, ar] = await Promise.all([
-        window.sb.from('live_schedule').select('id,kind,title,starts_at,duration_min,access,recorded,canceled').gte('starts_at', since).lte('starts_at', until).eq('canceled', false).order('starts_at', { ascending:true }).limit(40),
+      let [sr, rr, ar] = await Promise.all([
+        _lwSched('id,kind,title,starts_at,duration_min,access,recorded,canceled,summary,description', since, until),
         (Store.user && Store.user()) ? window.sb.from('live_reminders').select('session_id,channels') : Promise.resolve({ data:[] }),
         _lwFn({ action:'access' })
       ]);
+      // a backend without the description columns yet: load the schedule without them
+      if(sr && sr.error){ sr = await _lwSched('id,kind,title,starts_at,duration_min,access,recorded,canceled', since, until); }
       if(sr && sr.error) throw sr.error;
+      try{
+        const uid = Store.user && Store.user() && Store.user().id;
+        const [se, te] = await Promise.all([
+          window.sb.from('live_series').select('kind,summary,description'),
+          uid ? window.sb.from('live_terms_acceptance').select('version').eq('user_id', uid).eq('version', LW_TERMS_VERSION) : Promise.resolve({ data:[] })
+        ]);
+        _lw.series = {}; ((se && !se.error && se.data) || []).forEach(r => { _lw.series[r.kind] = r; });
+        _lw.terms = !!(te && !te.error && te.data && te.data.length);
+      }catch(e){}
       _lw.sched = ((sr && sr.data) || []).filter(s => _lwEnd(s) > Date.now());
       _lw.all = _lw.sched;
       _lw.rem = {}; ((rr && rr.data) || []).forEach(r => { _lw.rem[r.session_id] = r.channels || []; });
@@ -2861,12 +2896,13 @@ function app(tab){
         : `<button class="lw-pill${rem?' lw-pill-on':''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}">${rem ? 'Reminder on' : 'Remind me'}</button>`;
       return `<div class="lw-row">
         <span class="lw-date" aria-hidden="true"><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span></span>
-        <span class="lw-row-t"><b>${escapeHtml(K.name)}</b><span>${live ? 'Live now' : escapeHtml(_lwWeekday(t))}, ${_lwRange(s)}</span><span class="lw-sub">${escapeHtml(K.line)}</span></span>
+        <button class="lw-row-t lw-row-open" type="button" data-lw-info="${s.id}"><b>${escapeHtml(K.name)}</b><span>${live ? 'Live now' : escapeHtml(_lwWeekday(t))}, ${_lwRange(s)}</span><span class="lw-sub">${escapeHtml(_lwSummary(s))}</span></button>
         ${btn}</div>`;
     }).join('')}</div>`;
     el.querySelectorAll('[data-lw-up]').forEach(b => b.onclick = () => _lwUpgradeSheet());
     el.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(_lw.sched.find(s => s.id === b.dataset.lwRem)));
-    el.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => screenLiveRoom(_lw.sched.find(s => s.id === b.dataset.lwJoin)));
+    el.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(_lw.sched.find(s => s.id === b.dataset.lwJoin)));
+    el.querySelectorAll('[data-lw-info]').forEach(b => b.onclick = () => _lwInfoSheet(_lw.sched.find(s => s.id === b.dataset.lwInfo)));
   }
 
   // ---- slide-up sheets (the app's own sheet: .p7-sheet / .p8-card) ----
@@ -2887,6 +2923,41 @@ function app(tab){
     const x = wrap.querySelector('#lw-sh-x'); if(x){ x.onclick = close; try{ x.focus({ preventScroll:true }); }catch(e){} }
     return { el:wrap, close };
   }
+  // what a session is: the description, the facts, and the one thing to do next
+  function _lwInfoSheet(s){
+    if(!s) return;
+    const K = _lwKind(s), open = _lwDoorOpen(s), ok = _lwAllowed(s), rem = !!_lw.rem[s.id];
+    const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
+    const act = !ok ? '<button class="btn block" type="button" id="lw-in-up">Upgrade</button>'
+      : open ? '<button class="btn block" type="button" id="lw-in-join">Join</button>'
+      : `<button class="btn block${rem ? ' quiet' : ''}" type="button" id="lw-in-rem">${rem ? 'Change reminder' : 'Remind me'}</button>`;
+    const sh = _lwSheet(K.name, `<p class="lw-p lw-muted">${open ? 'Live now' : escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
+      ${paras || `<p class="lw-p">${escapeHtml(_lwSummary(s))}</p>`}
+      <ul class="lw-rules lw-facts">${_lwFacts(s).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+      <div class="lw-sh-btns">${act}</div>`);
+    const b = id => sh.el.querySelector(id);
+    if(b('#lw-in-up')) b('#lw-in-up').onclick = () => { sh.close(); _lwUpgradeSheet(); };
+    if(b('#lw-in-join')) b('#lw-in-join').onclick = () => { sh.close(); _lwGoJoin(s); };
+    if(b('#lw-in-rem')) b('#lw-in-rem').onclick = () => { sh.close(); setTimeout(() => _lwRemindSheet(s), 340); };
+  }
+  // every join goes through here: a member agrees to the live terms once per version, then joins
+  function _lwGoJoin(s){
+    if(!s) return;
+    const uid = Store.user && Store.user() && Store.user().id;
+    const anon = !uid || (Store.isAnonymous && Store.isAnonymous());
+    if(anon || _lwIsHost() || _lw.terms) return screenLiveRoom(s);
+    const sh = _lwSheet('Before you join live', `<p class="lw-p lw-muted">You only see this once, and again if it changes.</p>
+      <ul class="lw-rules lw-terms">${LW_TERMS.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
+      <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-tm-ok">I agree</button><button class="btn block quiet" type="button" id="lw-tm-no">Not now</button></div>`);
+    sh.el.querySelector('#lw-tm-no').onclick = sh.close;
+    const ok = sh.el.querySelector('#lw-tm-ok');
+    ok.onclick = async () => {
+      ok.disabled = true;
+      const r = await window.sb.from('live_terms_acceptance').insert({ user_id:uid, version:LW_TERMS_VERSION });
+      if(r && r.error && r.error.code !== '23505'){ ok.disabled = false; showToast('That did not save. Try again in a moment.'); return; }
+      _lw.terms = true; sh.close(); screenLiveRoom(s);
+    };
+  }
   function _lwUpgradeSheet(){
     const sh = _lwSheet('Co-Regulator', `<p class="lw-p">Capacity Builder and the monthly Q&amp;A are part of Co-Regulator, along with Discuss, Ask &amp; Share. $39 a month, cancel anytime.</p>
       <p class="lw-p lw-muted">Mindful Moment is free for everyone, Wednesdays at 9 am Pacific.</p>
@@ -2897,7 +2968,7 @@ function app(tab){
     const K = _lwKind(s), z = t => new Date(t).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
     const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Stuck Not Broken//Live//EN','BEGIN:VEVENT',
       'UID:' + s.id + '@stucknotbroken.com','DTSTAMP:' + z(Date.now()),'DTSTART:' + z(_lwStart(s)),'DTEND:' + z(_lwEnd(s)),
-      'SUMMARY:' + K.name + ' with Justin','DESCRIPTION:Join from the Community tab in the Stuck Not Broken app.',
+      'SUMMARY:' + K.name + ' with Justin','DESCRIPTION:' + (_lwSummary(s) + ' Join from the ' + lwTabName() + ' tab in the Stuck Not Broken app.').replace(/[\\,;]/g, m => '\\' + m),
       'URL:' + location.origin + '/','BEGIN:VALARM','TRIGGER:-PT15M','ACTION:DISPLAY','DESCRIPTION:' + K.name + ' starts in 15 minutes','END:VALARM',
       'END:VEVENT','END:VCALENDAR'].join('\r\n');
     try{
@@ -3450,7 +3521,7 @@ function app(tab){
         <div class="gs-card">
           <p class="gs-h">Challenge reminder</p>
           <p class="gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
-          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}Paid plan</p>` + sw('nt-chal','Challenge reminder', false, true)}
+          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}Self-Regulator</p>` + sw('nt-chal','Challenge reminder', false, true)}
           <div id="nt-cht" style="${prefs.challenge_time && paidNow()?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-chal', prefs.challenge_time||'09:00', dis, null)}</div>
         </div>
         <div class="gs-card">
@@ -4704,7 +4775,7 @@ function app(tab){
     const parts = [_lmMi(k, label)];
     if(len) parts.push(escapeHtml(len));
     if(date) parts.push(escapeHtml(_lmMY(date)));
-    if(lock) parts.push(LOCK_SVG + 'Paid plan');
+    if(lock) parts.push(LOCK_SVG + 'Self-Regulator');
     if(read) parts.push(_lrnReadMk() + 'Read');
     return parts.join(_LM_SEP);
   }
@@ -4888,7 +4959,7 @@ function app(tab){
     freeze:'When you notice freeze, what helps the brake ease a little?', shutdown:'When you notice numbness or heaviness, what do you notice first?' };
   function _lmJournalHTML(x){
     const st = _lmState(x); if(!st) return '';
-    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
+    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
     const saved = ((_ctxLoad()['mj:' + x.i + ':1']) || [])[0] || '';
     return `<div class="lm-card lm-card-o"><span class="rd-eyeb">Journal</span><label class="read-p rd-refl-q" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="rd-refl-in" id="lm-j" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><button class="lm-save" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div>`;
   }
@@ -4908,7 +4979,7 @@ function app(tab){
   let _lmDesc = null, _lmDescP = null;
   function _lmDescLoad(){
     if(_lmDesc) return Promise.resolve(_lmDesc);
-    if(!_lmDescP) _lmDescP = fetch('learn/media-desc.json?v=2').then(r=>{ if(!r.ok) throw new Error('desc'); return r.json(); })
+    if(!_lmDescP) _lmDescP = fetch('learn/media-desc.json?v=3').then(r=>{ if(!r.ok) throw new Error('desc'); return r.json(); })
       .then(d=>{ _lmDesc = d && d.d ? d.d : {}; return _lmDesc; }).catch(()=>{ _lmDescP = null; return null; });
     return _lmDescP;
   }
@@ -5035,6 +5106,19 @@ function app(tab){
       box.querySelectorAll('.lm-tile[data-prac]').forEach(b=>b.onclick=()=>renderPlan(_lrnPracticeReco({ practice:'custom' }), _trueBack(here.go)));
     }
     const mods = () => [...box.querySelectorAll('.lm-mod')];
+    // a half card with no partner in its row fills the row (2026-10-27). Placeholders count; a card being dragged doesn't.
+    const _lmSolo = () => {
+      let pend = null; const solo = [];
+      [...box.children].forEach(m=>{
+        if(!(m.classList.contains('lm-mod') || m.classList.contains('lm-ph')) || m.hidden || m.classList.contains('lm-drag')) return;
+        if(!m.classList.contains('lm-half')){ if(pend) solo.push(pend); pend = null; return; }
+        pend = pend ? null : m;
+      });
+      if(pend) solo.push(pend);
+      [...box.children].forEach(m=>m.classList.toggle('lm-fill', solo.indexOf(m) >= 0));
+    };
+    _lmSolo();
+    if(window.MutationObserver) new MutationObserver(_lmSolo).observe(box, { childList:true, subtree:true, attributes:true, attributeFilter:['hidden', 'data-sz'] });
     // save the cards here in their new order; cards this page did not draw keep their place after the card they followed
     const save = () => {
       const cur = mods().map(m=>({ id:m.dataset.mod, off:m.hidden, size: m.dataset.sz || '' }));
@@ -5122,7 +5206,7 @@ function app(tab){
     const eyeb = x.s === 'p' ? 'Podcast · Stuck Not Broken' : x.s === 'c' ? 'Stucknaut Collective' : 'Video';
     const player = !listen
       ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
-      : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with the paid plan.</p><button class="lm-save lm-sub" type="button">See the paid plan</button></div>`
+      : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with Self-Regulator.</p><button class="lm-save lm-sub" type="button">See Self-Regulator</button></div>`
       : `<div class="lm-player" id="lm-player" role="region" aria-label="Player">
             <div class="lm-bar" id="lm-bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="lm-fill" id="lm-fill"></span></div>
             <div class="lm-ctl"><span class="lm-t" id="lm-el">0:00</span><button class="lm-skip" type="button" data-skip="-15" aria-label="Back 15 seconds">15</button><button class="lm-play" id="lm-play" type="button" aria-label="Play">${_LM_PLAY}</button><button class="lm-skip" type="button" data-skip="30" aria-label="Forward 30 seconds">30</button><span class="lm-t lm-t-r" id="lm-rem">${x.n ? '-' + _lmClock(x.n) : ''}</span></div>
@@ -5436,7 +5520,7 @@ function app(tab){
     const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
     // Your Journal from Reflect (Justin, 2026-10-02): every journal answer, from the articles and the reflections
     const jn = paidNow() ? _lrnJournalItems().length : 0;
-    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Paid plan'}</span></span><span class="wc-go">${CHEV}</span></button>`;
+    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Self-Regulator'}</span></span><span class="wc-go">${CHEV}</span></button>`;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
           ${coverHTML}
@@ -5495,7 +5579,7 @@ function app(tab){
     const prevA = (paid && post.chipQ && !opts.preview && !blocks.some(x=>x.p && /^Last (week|month|season|year), you named/.test(x.p))) ? _rdPrevAnswer(post) : null;
     const lastWord = { week:'week', month:'month', season:'season', year:'year' }[post.kind] || 'time';
     let learn = null; try{ learn = opts.preview ? null : _lrnForPost(post); }catch(e){ learn = null; }
-    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is on the paid plan.</b><span>The full post, the other snapshots, your journal and your next practice.</span></span></button>`
+    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is part of Self-Regulator.</b><span>The full post, the other snapshots, your journal and your next practice.</span></span></button>`
       : `
         ${(post.journal||[]).length && !opts.preview ? `<section class="rd-journal"><h3 class="sec-h rd-jr-sr" id="sec-journal">Journal</h3>${_rdJournalCard(post)}</section>` : (post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
         ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
@@ -6220,7 +6304,7 @@ function app(tab){
   function _lrnCallHTML(c, paid, ctx){
     const col = STATE_COLOR(c.mk), pc = c.per || ctx, per = _lrnPerLabel(pc);
     const who = `<span class="rd-call-who">${_rdMk(c.mk)}<span class="rd-call-lbl">${escapeHtml(c.label)}</span>${per ? `<span class="rd-call-per">${escapeHtml(per)}</span>` : ''}</span>`;
-    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your results show here on the paid plan.</span></button></div>`;
+    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your results show here with Self-Regulator.</span></button></div>`;
     return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}${_lrnMoreStats(c, pc)}</div>`;
   }
   // a block of piece or hub text
@@ -6353,7 +6437,7 @@ function app(tab){
       <p class="rd-cap">This is the same list as on the Unstucking Pathway and in Settings.</p>`;
   }
   function _lrnEmoHTML(paid){
-    if(!paid) return `<div class="rd-call rd-call-locked" id="sec-emo" style="--cs:var(--ink-80);--cw:var(--bone-deep)"><span class="rd-call-who"><span class="rd-call-lbl">Your emotions, easy to hard</span></span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Choose and sort your emotions on the paid plan.</span></button></div>`;
+    if(!paid) return `<div class="rd-call rd-call-locked" id="sec-emo" style="--cs:var(--ink-80);--cw:var(--bone-deep)"><span class="rd-call-who"><span class="rd-call-lbl">Your emotions, easy to hard</span></span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Choose and sort your emotions with Self-Regulator.</span></button></div>`;
     return `<div class="rd-call lc-emo-card" id="sec-emo" data-emo-card="1" style="--cs:var(--ink-80);--cw:var(--bone-deep)">${_lrnEmoInner()}</div>`;
   }
   function _lrnEmoWire(back){
@@ -6400,7 +6484,7 @@ function app(tab){
       const n = run.length, count = n === 1 ? '1 question' : n + ' questions';
       if(!paid){
         if(reflSeen > 1) return '';
-        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
+        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
       }
       const steps = run.map((b, k)=>`<div class="rd-jr-step"${k ? ' hidden' : ''} data-step="${k}">${reflOne(b)}</div>`).join('');
       const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
@@ -6431,7 +6515,7 @@ function app(tab){
       if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
       parts.push(_lrnBlockHTML(b));
     }
-    const body = parts.join('') + (gated ? `<div class="rd-gate"><button class="rd-lock rd-gate-btn" type="button">${LOCK_SVG}<span><b>The rest of this chapter is on the paid plan</b><span>The whole chapter, its journal questions and the practice that goes with it.</span></span></button></div>` : '');
+    const body = parts.join('') + (gated ? `<div class="rd-gate"><button class="rd-lock rd-gate-btn" type="button">${LOCK_SVG}<span><b>The rest of this chapter is part of Self-Regulator</b><span>The whole chapter, its journal questions and the practice that goes with it.</span></span></button></div>` : '');
     // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
     const nx = L.nextFor ? L.nextFor(piece) : null;
     const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
@@ -8117,25 +8201,25 @@ function app(tab){
       <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; on the paid plan</span>
+          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-impacts" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Practice impacts</span>
-          <span class="tb-row-sub">How each practice shifts your states &middot; on the paid plan</span>
+          <span class="tb-row-sub">How each practice shifts your states &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-ideal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Ideal practice</span>
-          <span class="tb-row-sub">Your best time, anchor and setup &middot; on the paid plan</span>
+          <span class="tb-row-sub">Your best time, anchor and setup &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Your Journal</span>
-          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; on the paid plan</span>
+          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
@@ -8828,7 +8912,7 @@ function app(tab){
             return `<a class="you-reader you-journal" id="you-journal" href="#">
             <span class="yr-top"><span class="yr-art yr-art-jr" aria-hidden="true">${_JR_PEN}</span><span class="yr-hd"><h3 class="yr-h">Your Journal</h3>
             <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.') : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.'}</p></span></span>
-            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'On the paid plan'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'Part of Self-Regulator'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>`; })()}
           </div>
 
@@ -9545,7 +9629,7 @@ function app(tab){
   // One screen for everyone, paid and free, phone and computer: the Recommended card on top, then every practice as a row
   // with a cover square ("Make your own", "Guided practices"). Tapping a practice slides up one sheet with its choices as
   // labeled rows; each row opens the menus the maker already had. Locked things keep full opacity and show the lock and
-  // "Paid plan"; a tap jiggles the lock, then opens the paid plan screen. Safety is the safety yellow everywhere (not the
+  // "Self-Regulator"; a tap jiggles the lock, then opens the paid plan screen. Safety is the safety yellow everywhere (not the
   // brand's phase-two blue: "it creates a dilemma with the other safety heart coloring"); the self-regulation mark follows
   // the person's dominant defensive state, in its color and its marks.
   // the person's leading defense over the last week (flight/fight, shutdown, or freeze when the two are level), or null
@@ -9826,7 +9910,7 @@ function app(tab){
     const emo = _emoList();
     const E = { kind:'emo', key:'list', title:'Your emotions', st: !paid ? 'paid' : emo.length ? 'done' : 'open', emo };
     const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
-    const lock = 'On the paid plan.';
+    const lock = 'Part of Self-Regulator.';
     // the course's order (Justin, 2026-10-02: "All the safety ones come first before going into defense")
     const secs = [
       { title:'The present moment', sub:'', items:[P('micro'), P('mindfulness')] },
@@ -9981,13 +10065,13 @@ function app(tab){
     const rowHtml = (x, s) => {
       if(x.type === 'lesson'){
         const r = x.row, locked = !M.paid;
-        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>Paid plan</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
+        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>Self-Regulator</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
         return `<button class="pl-row" type="button" data-pl="${r.id}" style="--pl-tint:${PL_TINT[s]}">
           <span class="pl-tile"><b>${escapeHtml(PL_KIND[r.k] || 'Lesson')}</b><span>${r.v ? PLAY + ' ' + _plLen(r.d) : r.q ? r.q.length + ' questions' : ''}</span></span>
           <span class="pl-t"><b>${escapeHtml(r.t)}</b>${meta ? `<span class="pl-st">${meta}</span>` : ''}</span></button>`;
       }
       const it = x.it, id = it.kind + '|' + it.key;
-      const words = it.st === 'paid' ? LOCK_SVG + '<span>Paid plan</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
+      const words = it.st === 'paid' ? LOCK_SVG + '<span>Self-Regulator</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
         : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? LOCK_SVG : '';
       const mark = it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(it, def);
       let pick = '';
@@ -10144,7 +10228,7 @@ function app(tab){
       const locked = pc.paid && !M.paid, read = _lrnIsRead(id), c = _upCols(it, def);
       // reading is optional (Justin, 2026-10-02: "The skills need to go in order but the reading lessons are optional")
       // (2026-10-02: "'Optional reading' is overused. Just take it out.")
-      const lead = locked ? LOCK_SVG + 'Paid plan' : read ? _lrnReadMk() + 'Read' : '';
+      const lead = locked ? LOCK_SVG + 'Self-Regulator' : read ? _lrnReadMk() + 'Read' : '';
       const first = it.st === 'now' && !read && !locked;
       return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="--line:${c.line}">
         <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t">${lead ? `<i>${lead}</i>` : ''}<b>${escapeHtml(pc.title)}</b></span></button>`;
@@ -10155,7 +10239,7 @@ function app(tab){
       // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
       // with a small lock.
       // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
-      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
+      let words = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
       if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
       if(it.academy && !words) words = 'Completed in the Academy';
       // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
@@ -10185,7 +10269,7 @@ function app(tab){
       return M.paid && M.anchorSet && !_upPickOpen ? `<div class="up-path" style="--line:var(--s-safety-tx)">${h}${reads}</div>${_UP_DOWN}`
         : h + (reads ? `<div class="up-path up-path-reads">${reads}</div>${_UP_DOWN}` : '');
     };
-    const secHtml = s => s.picker ? `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub${M.paid && !M.anchorSet ? ' up-sub-start' : ''}">${s.sub === 'On the paid plan.' ? LOCK_SVG : ''}${escapeHtml(s.sub)}</p>` : ''}${pickHtml()}`
+    const secHtml = s => s.picker ? `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub${M.paid && !M.anchorSet ? ' up-sub-start' : ''}">${s.sub === 'Part of Self-Regulator.' ? LOCK_SVG : ''}${escapeHtml(s.sub)}</p>` : ''}${pickHtml()}`
       : `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}
       ${pathHtml(s.items)}`;
     // all left aligned on one line that runs top to bottom (Justin, 2026-10-02: "probabaly better off all left aligned with a
@@ -10202,7 +10286,7 @@ function app(tab){
       return `<div class="up-path"${c ? ` style="--line:${c.line}"` : ''}>${rows.join('')}</div>${_UP_DOWN}`;
     }
     const lede = M.paid ? 'Each skill opens when the one before it is completed within your capacity. Some also wait until your check-ins show enough safety. The reading is optional. To skip ahead, open any step and practice it anyway.'
-      : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
+      : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is part of Self-Regulator.';
     _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
       <p class="up-lede">${escapeHtml(lede)}</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
       ${M.secs.map(secHtml).join('')}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
@@ -10288,13 +10372,13 @@ function app(tab){
   const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">Learn more about these skills:</p><div class="p8-list">${list.map(pc => {
       const locked = pc.paid && !paid, read = _lrnIsRead(pc.id);
       return `<button class="rd-row p8-row" type="button" data-up-ch="${escapeHtml(pc.id)}"><span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_BOOK}</span>
-        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Paid plan · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
+        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Self-Regulator · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
     }).join('')}</div></div>` : '';
   const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
-    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
+    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Self-Regulator</button>`;
   function _upItemSheet(it, M, def){
     const W = _upWhat(it);
-    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
+    const st = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
     // Academy progress (2026-10-03): open, named, and checked off here once a practice shows it
     if(it.academy) body = `<p class="up-sh-st">Completed in the Academy</p><div class="up-sh-blk"><p class="up-sh-p">It is checked off here once a practice shows it.</p></div>`;
@@ -10542,7 +10626,7 @@ function app(tab){
         const stOf = (it, i) => it.st === 'paid' ? 'paid' : (from + i) === at ? 'now' : it.st === 'done' ? 'done' : it.locked ? 'locked' : 'ahead';
         rows = win.map((it, i) => {
           const c = _upCols(it, def), st = stOf(it, i);
-          const word = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
+          const word = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
             : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
           const solid = st === 'done' && win[i + 1] && stOf(win[i + 1], i + 1) === 'done';
           return `<span class="up-h-row" data-st="${st}"${solid ? ' data-seg="1"' : ''} style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
@@ -10552,7 +10636,7 @@ function app(tab){
     }catch(e){ rows = []; }
     return `<button class="up-hero" type="button" id="up-entry" aria-label="${UP_TITLE}">
         <span class="up-hero-head"><span class="up-hero-ico">${_UP_ICO}</span><b>${UP_TITLE}</b><span class="wc-go">${CHEV}</span></span>
-        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Paid plan · Every practice, in order'}</span>`}
+        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Self-Regulator · Every practice, in order'}</span>`}
       </button>`;
   }
 
@@ -10560,7 +10644,7 @@ function app(tab){
   // ── CHALLENGES (ROADMAP-DETAIL 10; Justin 2026-10-16/17/18) ─────────────────────────────────────────────
   // The copy of record is snb-business Projects/App Designer/CHALLENGES-SCRIPT.md, built into challenges.js
   // (window.SNBChallenges) by build_challenges.py. Nothing member-facing is typed here except what that script
-  // marks for the app. Paid plan only: free members see everything, locked. One challenge at a time; starting
+  // marks for the app. Self-Regulator only: free members see everything, locked. One challenge at a time; starting
   // another pauses it. One prompt a day, the next opens at local midnight, a missed day waits, no streaks.
   // Progress lives in contexts (synced like journal answers):
   //   chs:{id}       [start or resume stamp]  present = started and not finished; the newest stamp is the one in progress
@@ -10631,7 +10715,7 @@ function app(tab){
   function _chEntryHTML(paid){
     const S = _CH(); if(!S) return '';
     const a = paid ? _chActive() : null;
-    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}Paid plan</span>`
+    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}Self-Regulator</span>`
       : a ? `<span class="ch-entry-name">${escapeHtml(a.c.name)}</span>${_chBar(a)}<span class="ch-entry-sub">${escapeHtml(_chNextLine(a))}</span>`
       : `<span class="ch-entry-sub">${escapeHtml(S.T.intro)}</span>`;
     return `<button class="ch-entry" type="button" id="ch-entry"><span class="ch-entry-head"><span class="ch-entry-ico">${_CH_ICO}</span><b>Challenges</b><span class="wc-go">${CHEV}</span></span><span class="ch-entry-body">${body}</span></button>`;
@@ -10647,7 +10731,7 @@ function app(tab){
     const a = paid ? _chActive() : null;
     const paused = paid ? _chAll().filter(s=>s.started && (!a || s.id !== a.id)) : [];
     const sug = _chSuggested().slice(0, 4);
-    const lock = paid ? '' : LOCK_SVG + 'Paid plan · ';
+    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
     const cur = a ? `<button class="ch-cur" type="button" data-ch="${a.id}" data-go="${a.ready ? 'prompt' : 'sheet'}"><span class="ch-cur-top"><b>${escapeHtml(a.c.name)}</b><span>In progress</span></span>${_chBar(a)}<span class="ch-cur-sub">${escapeHtml(_chNextLine(a))}</span></button>` : '';
     const pausedHTML = paused.map(s=>`<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>Paused · day ${s.done + 1} of ${s.c.days}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
     const cards = sug.map((s, i)=> i === 0
@@ -10668,7 +10752,7 @@ function app(tab){
     const S = _CH(), T = S.T, paid = paidNow();
     const all = _chAll(), sug = _chSuggested(), rec = sug[0] ? sug[0].id : null, a = paid ? _chActive() : null, by = {};
     all.forEach(s=>by[s.id] = s);
-    const lock = paid ? '' : LOCK_SVG + 'Paid plan · ';
+    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
     const sub = s => {
       const bits = [_chDaysWord(s.c)];
       if(paid && a && s.id === a.id) bits.push('In progress');
@@ -10707,7 +10791,7 @@ function app(tab){
     if(c.ways) lines.push(`<p class="ch-sh-p">${escapeHtml(c.waysIntro)}</p><ul class="ch-ways">${c.ways.map(w=>`<li><b>${escapeHtml(w.k)}</b> · ${escapeHtml(w.line)}</li>`).join('')}</ul>`);
     if(c.needPse && !(by.pse && by.pse.runs)) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.needPse)}</p>`);
     if(c.bestAfter && c.after && !(by[c.after] || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
-    const len = `${paid ? '' : LOCK_SVG + 'Paid plan · '}${c.days} days · one prompt a day`;
+    const len = `${paid ? '' : LOCK_SVG + 'Self-Regulator · '}${c.days} days · one prompt a day`;
     let foot = '';
     if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(T.freeStart)}</button>`;
     else if(isCur) foot = s.ready ? `<button class="ch-pill" type="button" id="ch-sh-go">Open the prompt</button>` : `<p class="ch-sh-note">You're on day ${s.done + 1} of ${c.days}. ${escapeHtml(T.tomorrow)}</p>`;
@@ -10980,7 +11064,7 @@ function app(tab){
     // with an animated underline. That was plenty"): no eyebrow, no badge, and the card itself no longer slides in
     const _line = `<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`;
     const title = `<span class="p8-name">${nm ? `${escapeHtml(nm)}’s` : 'Your'}${_line}</span> custom practice`;
-    const lockMeta = LOCK_SVG + 'Paid plan';
+    const lockMeta = LOCK_SVG + 'Self-Regulator';
     let card, reco = null;
     if(paid){
       reco = _recommendSafe(true);
@@ -11616,7 +11700,7 @@ function app(tab){
 
           <div class="gs-card">
             <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Your emotions</span>
-              <button class="linkbtn" id="set-emotions" type="button">${paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : 'Paid plan'}</button></div>
+              <button class="linkbtn" id="set-emotions" type="button">${paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : 'Self-Regulator'}</button></div>
             <p class="gs-note" style="margin:6px 0 0">The emotions you work with in practice, easy to hard. The same list as on the Unstucking Pathway and in articles.</p>
           </div>
 
@@ -11693,19 +11777,19 @@ function app(tab){
             var inStore = !!(Store.inStoreApp && Store.inStoreApp());
             var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.store==='apple')
-              return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your paid plan is through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator, through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
             if(b && b.sub_status==='active' && inStore)
-              return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note" style="margin:0">Your subscription is active. You subscribed on the website, so you can change or cancel it there.</p></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">You’re on Self-Regulator. You subscribed on the website, so you can change or cancel it there.</p></div>`;
             if(b && b.sub_status==='active')
-              return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your subscription is active. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
             // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
             if(ent.circle)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes the full app. You joined the Unstucking Academy before the app became a separate purchase, so it stays included at no charge.</p></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes everything in Self-Regulator. You joined the Unstucking Academy before Self-Regulator was a separate purchase, so it stays included at no charge.</p></div>`;
             if(ent.legacy)
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
-            return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
+            return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Free. It has no time limit.</p><button class="set-quiet" id="go-sub">Get Self-Regulator &middot; monthly or annual</button></div>`; })()}
 
           ${(function(){ const s=_acadStage(); if(s < 2 || !paidNow()) return '';
             const on = _acadOn() > 0;
@@ -11909,7 +11993,7 @@ function app(tab){
         <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
         <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
         <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
-        ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede" style="margin-bottom:14px"><strong>Your paid plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
+        ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede" style="margin-bottom:14px"><strong>Your Self-Regulator plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
         <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
         <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep my account</button>

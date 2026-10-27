@@ -625,7 +625,7 @@
       trackEvent('checkout_error', { origin: origin||'member', plan: p, reason: 'already_included' });
       return { included: true };
     }
-    if(res && res.error === 'already_subscribed') return { error: 'You already have the paid plan. You can manage it from settings.' };
+    if(res && res.error === 'already_subscribed') return { error: 'You already have Self-Regulator. You can manage it from Settings.' };
     if(res.url){
       // funnel: record the handoff to Stripe so the gap between subscribe_click and payment
       // stops being a black box (paired with checkout_cancel on the return). Await the write
@@ -689,7 +689,7 @@
       return { error: 'You subscribed on the website. You can change or cancel it there.' };
     }
     if(st === 'apple') return { error: STORE_MANAGE_HINT };
-    if(st === 'google') return { error: 'Your paid plan is through Google Play. You can change or cancel it in the Play Store app.' };
+    if(st === 'google') return { error: 'You’re on Self-Regulator through Google Play. You can change or cancel it in the Play Store app.' };
     const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res;
   }
 
@@ -699,7 +699,7 @@
   // itself: every signed Apple transaction goes to the apple-store edge function, which checks Apple's signature and
   // writes store_subscriptions; isPaid() then reads that like any other source. Outside the store app none of this runs.
   const STORE_PRODUCTS = { monthly:'com.stucknotbroken.app.paid.monthly', annual:'com.stucknotbroken.app.paid.annual' };
-  const STORE_MANAGE_HINT = "Your paid plan is through the App Store. You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.";
+  const STORE_MANAGE_HINT = "You’re on Self-Regulator through the App Store. You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.";
   function _native(){
     try{ const C = global.Capacitor; return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SNBNative) || null; }
     catch(e){ return null; }
@@ -744,7 +744,7 @@
   }
   async function _storePurchase(origin, plan){
     const N = _native();
-    if(!auth.user || isAnonymous()) return { error: 'Create your account first, then choose the paid plan.' };
+    if(!auth.user || isAnonymous()) return { error: 'Create your account first, then choose Self-Regulator.' };
     try{ await fetchBilling(); }catch(e){}
     if(isPaid()) return { included: true };    // Stripe, the Academy, a grant, or the store already: never sell it twice
     const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
@@ -755,7 +755,7 @@
     if(r && r.status === 'purchased'){
       const v = await _sendStoreTransactions([r.jws]);
       trackEvent('store_purchase_done', { origin: origin||'member', plan: p, store: 'apple', unlocked: !!v.paid });
-      return v.paid ? { purchased: true } : { error: "Your purchase went through. The app is still confirming it, and the paid plan will open shortly." };
+      return v.paid ? { purchased: true } : { error: "Your purchase went through. The app is still confirming it, and Self-Regulator will open shortly." };
     }
     if(r && r.status === 'pending') return { pending: true };
     trackEvent('checkout_cancel', { origin: origin||'member', plan: p, store: 'apple' });

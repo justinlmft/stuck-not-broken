@@ -4472,6 +4472,11 @@ body.reduce-motion .pl-opt[data-r]{animation:none}body.reduce-motion .pl-opt[dat
 .lw-row-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:calc(14px * var(--type-scale));line-height:1.35}
 .lw-row-t b{color:var(--ink);font-weight:500;font-size:calc(17px * var(--type-scale))}
 .lw-row-t .lw-sub{font-size:calc(13px * var(--type-scale))}
+.lw-row-open{appearance:none;background:none;border:0;padding:4px 0;margin:0;font:inherit;text-align:left;cursor:pointer;min-height:44px;justify-content:center;border-radius:8px}
+.lw-row-open:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.lw-row-open .lw-sub{text-decoration:underline;text-decoration-color:var(--hairline);text-underline-offset:3px}
+.lw-facts{margin:4px 0 12px}
+.lw-terms{margin:0 0 12px;gap:10px}
 .lw-pill{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border-radius:999px;border:1.5px solid var(--hairline);background:transparent;color:var(--ink);font:inherit;font-size:calc(14px * var(--type-scale));font-weight:500;cursor:pointer;white-space:nowrap}
 .lw-pill .rd-lk{width:16px;height:16px}
 .lw-pill-on{border-color:var(--ink)}
@@ -4750,6 +4755,13 @@ body.lm-arr .lm-mod:nth-child(2n){animation-delay:-.16s}
 .lm-mods{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;align-items:stretch}
 .lm-mod{grid-column:span 2;min-width:0}
 .lm-mod.lm-half,.lm-ph.lm-half{grid-column:span 1}
+.lm-mod.lm-half.lm-fill,.lm-ph.lm-half.lm-fill{grid-column:span 2}
+/* 2. the Short's breadcrumb on its dark page (720 to 999px; from 1000px the page is light again) */
+@media (max-width:999px){
+  body.lm-dark .rd-crumb,body.lm-dark .rd-crumb-here{color:rgba(250,249,245,.72)}
+  body.lm-dark .rd-crumb-a,body.lm-dark .rd-crumb-back{color:#FAF9F5}
+  body.lm-dark .rd-crumb-a{text-decoration-color:rgba(250,249,245,.4)}
+}
 .lm-ph{grid-column:span 2}
 .lm-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;height:100%;min-height:132px;box-sizing:border-box;padding:16px;border-radius:18px;border:1px solid var(--hairline);background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
 .lm-tile .rd-eyeb{margin:0}
