@@ -2752,14 +2752,14 @@ function app(tab){
     qa:              { name:'Q&A', line:'Group video, recorded', video:true }
   };
   // live-event terms (🖊 draft, 2026-10-27). Change a word here = new version = every member agrees again.
-  const LW_TERMS_VERSION = '2026-10-27';
+  const LW_TERMS_VERSION = '2026-10-27b';
   const LW_TERMS = [
-    'Live sessions are not therapy. Justin teaches and guides practice. Joining does not make him your therapist, and nothing here is treatment.',
-    'If you are in crisis, call or text 988 in the US, or your local emergency number. Nobody in a live session can respond to an emergency.',
+    'Live events are not therapy. Justin teaches and guides practice. Joining does not make him your therapist, and nothing here is treatment.',
+    'If you are in crisis, call or text 988 in the US, or your local emergency number. Nobody at a live event can respond to an emergency.',
     'Your camera, your mic and the chat are always optional.',
-    'Each session says on the Calendar whether it is recorded.',
-    'Be kind. No harassment, hate, or sexual or violent content. Justin can remove anyone from a session.',
-    'What others share stays in the session. Do not record, screenshot or pass on other members\u2019 names, faces or words.',
+    'Each live event says on the Calendar whether it is recorded. Justin asks before using anyone\u2019s words, voice or image outside the event, and anonymizes what he shares.',
+    'Be kind. No harassment, hate, or sexual or violent content, and no details of traumatic experiences. Justin can remove anyone from a live event.',
+    'What others share stays in the event. Do not record, screenshot or pass on other members\u2019 names, faces or words.',
     'Your check-ins are private. Nobody else sees your answers.'
   ];
   // the tab's name follows the switches: "Calendar" until the Co-Regulator tier and the forum are live
@@ -2779,10 +2779,18 @@ function app(tab){
     ask:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M18.4 5.6l-2.1 2.1M21 12h-3"/><path d="M8 20h8M9 16a4 4 0 1 1 6 0v1H9z"/></svg>'
   };
   // the three marks, one at a time (each mark's own box, from the design system's glyph data)
+  Object.assign(LW_ICO, {
+    micOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M4 4l16 16"/></svg>',
+    camOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3M3 3l18 18"/></svg>',
+    alarm:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.2 1.6M4.5 6l3-2.5M19.5 6l-3-2.5M7.2 19l-1.4 1.8M16.8 19l1.4 1.8"/></svg>',
+    alarmOn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7" fill="currentColor"/><path d="M12 9.5V13l2.2 1.6" stroke="var(--bone)"/><path d="M4.5 6l3-2.5M19.5 6l-3-2.5M7.2 19l-1.4 1.8M16.8 19l1.4 1.8"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    devices:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
+  });
   const LW_MARK_VB = { heart:'-4.0 36.4 478.2 386.7', bolt:'462.3 -9.4 434.4 459.8', x:'887.4 11.7 413.6 422.6' };
   const lwMark = (m, col) => { const I = window.SNB_ICONS||{}; return `<svg class="lw-mark" viewBox="${LW_MARK_VB[m]}" aria-hidden="true"><path fill="${col}" d="${(I[m]&&I[m].d)||''}"/></svg>`; };
 
-  let _lw = { tab:'live', sched:null, rem:{}, access:null, loading:false, err:null, series:{}, terms:false };
+  let _lw = { tab:'live', sched:null, rem:{}, access:null, loading:false, err:null, series:{}, terms:false, live:{} };
   let _lwRoom = null;   // the open live view: { s, phase, co, cam, mic, chat:[], ... }
 
   const _lwKind = s => LW_KIND[s.kind] || { name:s.title || 'Live', line:'', video:true };
@@ -2805,6 +2813,23 @@ function app(tab){
     const d = new Date(t), h = d.getHours(), m = d.getMinutes();
     return (h % 12 || 12) + ':' + String(m).padStart(2,'0');
   }
+  // compact: "9", "9:25" (Justin, 2026-10-27: "use 'Mon' instead of 'Monday' and '9' instead of '9:00'")
+  function _lwClockC(t){ const d = new Date(t), m = d.getMinutes(); return (d.getHours() % 12 || 12) + (m ? ':' + String(m).padStart(2,'0') : ''); }
+  function _lwRangeC(s){
+    const a = _lwStart(s), b = _lwEnd(s), pa = new Date(a).getHours() < 12, pb = new Date(b).getHours() < 12;
+    return _lwClockC(a) + (pa === pb ? '' : (pa ? ' am' : ' pm')) + ' to ' + _lwClockC(b) + (pb ? ' am' : ' pm');
+  }
+  const _lwWhen = s => new Date(_lwStart(s)).toLocaleDateString('en-US', { weekday:'short' }) + ' ' + _lwRangeC(s);
+  // RSVP = a live_reminders row; its channels are the reminders (empty = RSVP'd, no reminder)
+  const _lwRsvp = s => !!_lw.rem[s.id];
+  const _lwRemOn = s => (_lw.rem[s.id] || []).some(c => c === 'app' || c === 'email');
+  // Justin is in the room (a beat in the last 90 seconds) and the door is open for members
+  const _lwIsLive = s => !!_lw.live[s.id] && _lwDoorOpen(s);
+  const _lwUid = () => { try{ const u = Store.user && Store.user(); return u && !(Store.isAnonymous && Store.isAnonymous()) ? u.id : null; }catch(e){ return null; } };
+  // a state glyph, lit at once (no ease-in), for the chat and the check-in result
+  const _lwGlyph = k => triGlyph(k).replace(/data-col="([^"]+)"/g, 'data-col="$1" style="fill:$1"');
+  // the member's photo (Settings → Photo), else null
+  function _lwAvatar(){ try{ const u = Store.user && Store.user(); const m = (u && u.user_metadata) || {}; return localStorage.getItem('snb_av_' + (u && u.id)) || m.avatar_url || null; }catch(e){ return null; } }
   function _lwRange(s){
     const a = _lwStart(s), b = _lwEnd(s), pa = new Date(a).getHours() < 12, pb = new Date(b).getHours() < 12;
     return _lwClock(a) + (pa === pb ? '' : (pa ? ' am' : ' pm')) + ' to ' + _lwClock(b) + (pb ? ' am' : ' pm');
@@ -2827,37 +2852,59 @@ function app(tab){
   function _lwSched(cols, since, until){
     return window.sb.from('live_schedule').select(cols).gte('starts_at', since).lte('starts_at', until).eq('canceled', false).order('starts_at', { ascending:true }).limit(40);
   }
+  const _lwCacheKey = () => 'snb_lw_v1_' + (_lwUid() || 'anon');
+  function _lwCacheSave(){ try{ localStorage.setItem(_lwCacheKey(), JSON.stringify({ at:Date.now(), sched:_lw.sched, series:_lw.series, rem:_lw.rem, terms:_lw.terms, access:_lw.access })); }catch(e){} }
+  function _lwCacheLoad(){
+    try{
+      const c = JSON.parse(localStorage.getItem(_lwCacheKey()) || 'null'); if(!c || !Array.isArray(c.sched) || Date.now() - c.at > 7*864e5) return false;
+      _lw.sched = c.sched.filter(s => _lwEnd(s) > Date.now()); _lw.series = c.series || {}; _lw.rem = c.rem || {}; _lw.terms = !!c.terms;
+      if(!_lw.access && c.access) _lw.access = c.access;
+      return true;
+    }catch(e){ return false; }
+  }
+  async function _lwPresence(){
+    const ids = (_lw.sched || []).filter(s => Date.now() >= _lwStart(s) - 60*60000 && Date.now() <= _lwEnd(s)).map(s => s.id);
+    if(!ids.length || !window.sb){ _lw.live = {}; return; }
+    try{
+      const r = await window.sb.from('live_presence').select('session_id,host_beat').in('session_id', ids);
+      const live = {}; ((r && !r.error && r.data) || []).forEach(p => { if(Date.now() - new Date(p.host_beat).getTime() < 90000) live[p.session_id] = true; });
+      _lw.live = live;
+    }catch(e){}
+  }
   async function _lwLoad(){
     if(!window.sb){ _lw.err = 'offline'; return; }
     _lw.loading = true;
     try{
       const since = new Date(Date.now() - 4*3600e3).toISOString();
       const until = new Date(Date.now() + 42*864e5).toISOString();
-      let [sr, rr, ar] = await Promise.all([
+      const uid = _lwUid();
+      // the access check is the slow one (an edge function): it updates the list when it lands
+      _lwFn({ action:'access' }).then(ar => {
+        _lw.access = (ar && ar.status === 200) ? ar.data : (_lw.access || { signed_in:false, co_regulator:false, host:false });
+        _lwCacheSave(); if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody();
+      });
+      let [sr, rr, se, te] = await Promise.all([
         _lwSched('id,kind,title,starts_at,duration_min,access,recorded,canceled,summary,description', since, until),
-        (Store.user && Store.user()) ? window.sb.from('live_reminders').select('session_id,channels') : Promise.resolve({ data:[] }),
-        _lwFn({ action:'access' })
+        uid ? window.sb.from('live_reminders').select('session_id,channels') : Promise.resolve({ data:[] }),
+        window.sb.from('live_series').select('kind,summary,description'),
+        uid ? window.sb.from('live_terms_acceptance').select('version').eq('user_id', uid).eq('version', LW_TERMS_VERSION) : Promise.resolve({ data:[] })
       ]);
       // a backend without the description columns yet: load the schedule without them
       if(sr && sr.error){ sr = await _lwSched('id,kind,title,starts_at,duration_min,access,recorded,canceled', since, until); }
       if(sr && sr.error) throw sr.error;
-      try{
-        const uid = Store.user && Store.user() && Store.user().id;
-        const [se, te] = await Promise.all([
-          window.sb.from('live_series').select('kind,summary,description'),
-          uid ? window.sb.from('live_terms_acceptance').select('version').eq('user_id', uid).eq('version', LW_TERMS_VERSION) : Promise.resolve({ data:[] })
-        ]);
-        _lw.series = {}; ((se && !se.error && se.data) || []).forEach(r => { _lw.series[r.kind] = r; });
-        _lw.terms = !!(te && !te.error && te.data && te.data.length);
-      }catch(e){}
       _lw.sched = ((sr && sr.data) || []).filter(s => _lwEnd(s) > Date.now());
       _lw.all = _lw.sched;
-      _lw.rem = {}; ((rr && rr.data) || []).forEach(r => { _lw.rem[r.session_id] = r.channels || []; });
-      _lw.access = (ar && ar.status === 200) ? ar.data : { signed_in:false, co_regulator:false, host:false };
+      _lw.rem = {}; ((rr && !rr.error && rr.data) || []).forEach(r => { _lw.rem[r.session_id] = r.channels || []; });
+      _lw.series = {}; ((se && !se.error && se.data) || []).forEach(r => { _lw.series[r.kind] = r; });
+      _lw.terms = !!(te && !te.error && te.data && te.data.length);
+      await _lwPresence();
       _lw.err = null;
-    }catch(e){ _lw.err = 'load'; }
+      _lwCacheSave();
+    }catch(e){ if(!_lw.sched) _lw.err = 'load'; }
     _lw.loading = false;
   }
+  // a few seconds after the app opens, load the Calendar in the background so the tab is ready
+  try{ window.addEventListener('load', () => setTimeout(() => { try{ if(!_lw.sched && !_lw.loading && window.sb && _lwUid()) _lwLoad(); }catch(e){} }, 4000)); }catch(e){}
 
   // ---- the Community tab ----
   function screenCommunity(){
@@ -2876,8 +2923,14 @@ function app(tab){
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
     document.querySelectorAll('[data-lw-tab]').forEach(b => b.onclick = () => { _lw.tab = b.dataset.lwTab; screenCommunity(); });
+    if(!_lw.sched) _lwCacheLoad();
     _lwBody();
     if(_lw.tab === 'live' && !_lw.loading){ _lwLoad().then(() => { if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody(); }); }
+    clearInterval(_lw.poll);
+    _lw.poll = setInterval(() => {
+      if(currentTab !== 'community' || !document.getElementById('lw-body')){ clearInterval(_lw.poll); return; }
+      if((_lw.sched || []).some(s => Date.now() >= _lwStart(s) - 60*60000 && Date.now() <= _lwEnd(s))) _lwPresence().then(() => { if(currentTab === 'community') _lwBody(); });
+    }, 30000);
   }
   function _lwBody(){
     const el = document.getElementById('lw-body'); if(!el) return;
@@ -2885,24 +2938,40 @@ function app(tab){
       el.innerHTML = `<div class="lw-card"><b>Discuss, Ask &amp; Share</b><span>The conversation is moving here from the Academy. Until then, it carries on in the Academy as it does now.</span></div>`;
       return;
     }
-    if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The schedule did not load. Pull down or try again in a moment.' : 'One moment…'}</p>`; return; }
+    if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment\u2026'}</p>`; return; }
     // before the Co-Regulator launch, members see Mindful Moment only; Justin sees everything
     const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
-    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live sessions are scheduled yet.</p>`; return; }
+    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>`; return; }
     el.innerHTML = `<div class="lw-list">${list.map(s => {
-      const K = _lwKind(s), t = _lwStart(s), d = new Date(t), live = _lwDoorOpen(s), ok = _lwAllowed(s), rem = !!_lw.rem[s.id];
-      const btn = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
-        : live ? `<button class="lw-pill lw-pill-go" type="button" data-lw-join="${s.id}">Join</button>`
-        : `<button class="lw-pill${rem?' lw-pill-on':''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}">${rem ? 'Reminder on' : 'Remind me'}</button>`;
-      return `<div class="lw-row">
-        <span class="lw-date" aria-hidden="true"><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span></span>
-        <button class="lw-row-t lw-row-open" type="button" data-lw-info="${s.id}"><b>${escapeHtml(K.name)}</b><span>${live ? 'Live now' : escapeHtml(_lwWeekday(t))}, ${_lwRange(s)}</span><span class="lw-sub">${escapeHtml(_lwSummary(s))}</span></button>
-        ${btn}</div>`;
+      const K = _lwKind(s), d = new Date(_lwStart(s)), open = _lwDoorOpen(s), live = _lwIsLive(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
+      const act = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
+        : open ? `<button class="lw-pill lw-pill-go" type="button" data-lw-join="${s.id}">Join</button>`
+        : `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>`;
+      const alarm = (ok && !open) ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : '';
+      return `<div class="lw-row${live ? ' lw-row-live' : ''}">
+        <button class="lw-row-hit" type="button" data-lw-info="${s.id}" aria-label="${escapeHtml(K.name + ', ' + _lwWhen(s) + '. Details')}"></button>
+        <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
+        <span class="lw-row-t"><b>${escapeHtml(K.name)}</b><span class="lw-when">${live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : escapeHtml(_lwWhen(s))}</span><span class="lw-acts">${act}</span></span>
+        ${alarm}</div>`;
     }).join('')}</div>`;
     el.querySelectorAll('[data-lw-up]').forEach(b => b.onclick = () => _lwUpgradeSheet());
     el.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(_lw.sched.find(s => s.id === b.dataset.lwRem)));
+    el.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(_lw.sched.find(s => s.id === b.dataset.lwRsvp)));
     el.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(_lw.sched.find(s => s.id === b.dataset.lwJoin)));
     el.querySelectorAll('[data-lw-info]').forEach(b => b.onclick = () => _lwInfoSheet(_lw.sched.find(s => s.id === b.dataset.lwInfo)));
+  }
+  function _lwNeedAccount(){
+    return _lwSheet('Use an account', `<p class="lw-p">Live events need a free account, so Justin knows who is in the room. You can make one in Settings.</p>
+      <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-acct">Go to Settings</button></div>`).el.querySelector('#lw-acct').onclick = () => { const o = document.getElementById('lw-sheet'); if(o) o.remove(); screenSettings(); };
+  }
+  async function _lwRsvpToggle(s){
+    if(!s) return; const uid = _lwUid(); if(!uid) return _lwNeedAccount();
+    const was = _lw.rem[s.id];
+    if(was){ delete _lw.rem[s.id]; _lwBody(); const r = await window.sb.from('live_reminders').delete().eq('user_id', uid).eq('session_id', s.id); if(r && r.error){ _lw.rem[s.id] = was; showToast('That did not save. Try again in a moment.'); } }
+    else { _lw.rem[s.id] = []; haptic('save'); _lwBody(); let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
+      const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels:[], sent_at:null, tz }, { onConflict:'user_id,session_id' });
+      if(r && r.error){ delete _lw.rem[s.id]; showToast('That did not save. Try again in a moment.'); } }
+    _lwCacheSave(); _lwBody();
   }
 
   // ---- slide-up sheets (the app's own sheet: .p7-sheet / .p8-card) ----
@@ -2926,18 +2995,20 @@ function app(tab){
   // what a session is: the description, the facts, and the one thing to do next
   function _lwInfoSheet(s){
     if(!s) return;
-    const K = _lwKind(s), open = _lwDoorOpen(s), ok = _lwAllowed(s), rem = !!_lw.rem[s.id];
+    const K = _lwKind(s), open = _lwDoorOpen(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
     const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
     const act = !ok ? '<button class="btn block" type="button" id="lw-in-up">Upgrade</button>'
       : open ? '<button class="btn block" type="button" id="lw-in-join">Join</button>'
-      : `<button class="btn block${rem ? ' quiet' : ''}" type="button" id="lw-in-rem">${rem ? 'Change reminder' : 'Remind me'}</button>`;
-    const sh = _lwSheet(K.name, `<p class="lw-p lw-muted">${open ? 'Live now' : escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
+      : `<button class="btn block${rsvp ? ' quiet' : ''}" type="button" id="lw-in-rsvp">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>
+         <button class="btn block quiet" type="button" id="lw-in-rem">${rem ? LW_ICO.alarmOn + 'Reminder on' : LW_ICO.alarm + 'Set a reminder'}</button>`;
+    const sh = _lwSheet(K.name, `<p class="lw-p lw-muted">${_lwIsLive(s) ? 'Live now' : escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRangeC(s)}.</p>
       ${paras || `<p class="lw-p">${escapeHtml(_lwSummary(s))}</p>`}
       <ul class="lw-rules lw-facts">${_lwFacts(s).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
-      <div class="lw-sh-btns">${act}</div>`);
+      <div class="lw-sh-btns lw-in-btns">${act}</div>`);
     const b = id => sh.el.querySelector(id);
     if(b('#lw-in-up')) b('#lw-in-up').onclick = () => { sh.close(); _lwUpgradeSheet(); };
     if(b('#lw-in-join')) b('#lw-in-join').onclick = () => { sh.close(); _lwGoJoin(s); };
+    if(b('#lw-in-rsvp')) b('#lw-in-rsvp').onclick = () => { sh.close(); _lwRsvpToggle(s); };
     if(b('#lw-in-rem')) b('#lw-in-rem').onclick = () => { sh.close(); setTimeout(() => _lwRemindSheet(s), 340); };
   }
   // every join goes through here: a member agrees to the live terms once per version, then joins
@@ -2979,10 +3050,11 @@ function app(tab){
   }
   function _lwRemindSheet(s){
     if(!s) return;
-    const K = _lwKind(s), cur = _lw.rem[s.id] || null;
+    if(!_lwUid()) return _lwNeedAccount();
+    const K = _lwKind(s), cur = _lwRemOn(s) ? _lw.rem[s.id] : null;
     const on = new Set(cur || ['app']);
     const row = (k, label, sub) => `<button class="lw-opt" type="button" role="switch" data-ch="${k}" aria-checked="${on.has(k)}"><span class="lw-opt-t"><b>${label}</b><span>${sub}</span></span><span class="set-sw${on.has(k)?' on':''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
-    const sh = _lwSheet('Remind me', `<p class="lw-p"><b>${escapeHtml(K.name)}</b>, ${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
+    const sh = _lwSheet('Remind me', `<p class="lw-p"><b>${escapeHtml(K.name)}</b>, ${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRangeC(s)}.</p>
       <div class="lw-opts">${row('app','App notification','15 minutes before')}${row('email','Email','The morning of')}</div>
       <button class="lw-cal" type="button" id="lw-cal">Add to my calendar</button>
       <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-rem-save">Save</button>${cur ? '<button class="btn block quiet" type="button" id="lw-rem-off">Turn off this reminder</button>' : ''}</div>`);
@@ -3008,7 +3080,7 @@ function app(tab){
       let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
       const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels, sent_at:null, tz }, { onConflict:'user_id,session_id' });
       if(r && r.error){ showToast('That did not save. Try again in a moment.'); return; }
-      _lw.rem[s.id] = channels; haptic('save'); _lwBody();
+      _lw.rem[s.id] = channels; haptic('save'); _lwCacheSave(); _lwBody();
       if(!pushNote) return sh.close();
       // saved, but the app notification can't reach them: say so plainly in the sheet, and let them close it
       const btns = sh.el.querySelector('.lw-sh-btns');
@@ -3018,8 +3090,8 @@ function app(tab){
     };
     const off = sh.el.querySelector('#lw-rem-off');
     if(off) off.onclick = async () => {
-      await window.sb.from('live_reminders').delete().eq('user_id', uid).eq('session_id', s.id);
-      delete _lw.rem[s.id]; sh.close(); _lwBody();
+      await window.sb.from('live_reminders').update({ channels:[] }).eq('user_id', uid).eq('session_id', s.id);
+      _lw.rem[s.id] = []; _lwCacheSave(); sh.close(); _lwBody();
     };
   }
 
@@ -3045,15 +3117,12 @@ function app(tab){
     sh.el.querySelector('#lw-ci-save').onclick = () => {
       try{ Store.addCheckin({ v:vals.v/100, sym:(100-vals.b)/100, dor:(100-vals.x)/100, source:'live-' + (s ? s.kind.replace(/_/g,'-') : 'session') + '-' + phase }); }catch(e){}
       haptic('save');
-      const B = n => n < 18 ? 0 : n < 45 ? 1 : n < 72 ? 2 : 3;
-      const MV = ['connecting feels very hard right now','connecting takes effort','connecting is doable','connecting feels easy right now'];
-      const MS = ['your body is calm','a little extra energy in your body','a good amount of energy in your body','your body is very revved up'];
-      const MD = ['doing things feels within reach','doing things takes a little extra push','doing things takes real effort right now','doing much of anything feels out of reach'];
-      const tag = s ? K.name + ', ' + _lwLongDate(_lwStart(s)) : K.name;
+      let dom = { key:'neutral', label:'' }; try{ dom = window.PVCurrent.dominantOf(vals.v/100, (100-vals.b)/100, (100-vals.x)/100) || dom; }catch(e){}
+      if(R){ R.lastKey = dom.key; const room = document.getElementById('lw-room'); if(room){ room.querySelectorAll('[data-lw-st]').forEach(b => { b.outerHTML = _lwStateTg(); }); _lwWireStateTg(room); } }
       const box = sh.el.querySelector('.lw-sh-body'), h = sh.el.querySelector('#lw-sh-h');
-      if(h) h.textContent = 'Saved to your check-ins';
-      box.innerHTML = `<p class="lw-p">You're reporting: ${MV[B(vals.v)]}, ${MS[B(100-vals.b)]}, and ${MD[B(100-vals.x)]}.</p>
-        <p class="lw-p lw-muted">Marked with ${escapeHtml(tag)}. Only you see it.</p>
+      if(h) h.textContent = 'Saved';
+      box.innerHTML = `<div class="lw-ci-res" role="img" aria-label="${escapeHtml(dom.label || '')}">${_lwGlyph(dom.key)}<p class="lw-ci-res-n">${escapeHtml(dom.label || '')}</p></div>
+        <p class="lw-p lw-muted lw-ci-res-note">Only you see it.</p>
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-ci-back">${phase === 'after' ? 'Done' : 'Back to the practice'}</button></div>`;
       box.querySelector('#lw-ci-back').onclick = sh.close;
     };
@@ -3070,11 +3139,11 @@ function app(tab){
   function screenLiveRoom(s){
     if(!s) return;
     if(!(Store.user && Store.user()) || (Store.isAnonymous && Store.isAnonymous())){
-      return _lwSheet('Join with an account', `<p class="lw-p">Live sessions need a free account, so Justin knows who is in the room. You can make one in Settings.</p>
+      return _lwSheet('Join with an account', `<p class="lw-p">Live events need a free account, so Justin knows who is in the room. You can make one in Settings.</p>
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-acct">Go to Settings</button></div>`).el.querySelector('#lw-acct').onclick = () => { const o=document.getElementById('lw-sheet'); if(o) o.remove(); screenSettings(); };
     }
     const K = _lwKind(s);
-    _lwRoom = { s, phase:(K.video && !_lwIsHost()) ? 'lobby' : 'joining', cam:false, mic:false, chat:[], unread:0, co:null, sharing:false, err:null, joinedAt:0, preview:null, needsTap:false };
+    _lwRoom = { s, phase:(K.video && !_lwIsHost()) ? 'lobby' : 'joining', cam:false, mic:false, chat:[], unread:0, co:null, sharing:false, err:null, joinedAt:0, preview:null, needsTap:false, showState:false, lastKey:null, role:null };
     document.body.classList.add('lw-in-room');
     _lwRender();
     if(_lwRoom.phase === 'joining') _lwJoin();
@@ -3083,7 +3152,7 @@ function app(tab){
     const R = _lwRoom; _lwRoom = null;
     try{ if(R && R.preview) R.preview.getTracks().forEach(t => t.stop()); }catch(e){}
     try{ if(R && R.co){ R.co.leave().catch(()=>{}).then(() => { try{ R.co.destroy(); }catch(e){} }); } }catch(e){}
-    clearInterval(R && R.tick);
+    clearInterval(R && R.tick); _lwBeatStop(R);
     document.body.classList.remove('lw-in-room');
     const o = document.getElementById('lw-sheet'); if(o) o.remove();
     _lw.tab = 'live'; app('community');
@@ -3098,8 +3167,8 @@ function app(tab){
         <p class="lw-p lw-muted">${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
         <div class="lw-preview${R.cam?' on':''}"><video id="lw-prev" autoplay playsinline muted></video>${R.cam ? '' : '<span class="lw-prev-off"><span class="lw-av">You</span><span>Your camera is off</span></span>'}</div>
         <div class="lw-toggles">
-          <button type="button" class="lw-tg${R.cam?' on':''}" id="lw-tg-cam" aria-pressed="${R.cam}">${LW_ICO.cam}${R.cam ? 'Camera on' : 'Camera off'}</button>
-          <button type="button" class="lw-tg${R.mic?' on':''}" id="lw-tg-mic" aria-pressed="${R.mic}">${LW_ICO.mic}${R.mic ? 'Mic on' : 'Mic off'}</button>
+          <button type="button" class="lw-tg${R.cam?' on':''}" id="lw-tg-cam" aria-pressed="${R.cam}">${R.cam ? LW_ICO.cam : LW_ICO.camOff}${R.cam ? 'Camera on' : 'Camera off'}</button>
+          <button type="button" class="lw-tg${R.mic?' on':''}" id="lw-tg-mic" aria-pressed="${R.mic}">${R.mic ? LW_ICO.mic : LW_ICO.micOff}${R.mic ? 'Mic on' : 'Mic off'}</button>
         </div>
         <ul class="lw-rules"><li>Camera on or off is up to you.</li><li>You do not have to speak or type.</li><li>${s.recorded ? 'This one is recorded so others can watch it later.' : 'Not recorded. No replay.'}</li></ul>
         ${R.err ? `<p class="lw-err" role="alert">${escapeHtml(R.err)}</p>` : ''}
@@ -3144,18 +3213,18 @@ function app(tab){
     const mm = !K.video, member = !host;
     const ctl = (id, ico, label, extra) => `<button type="button" class="lw-ctl${extra||''}" id="${id}">${ico}<span>${label}</span></button>`;
     const ctls = [ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
-    if(!(mm && member)){ ctls.push(ctl('lw-c-mic', LW_ICO.mic, R.mic ? 'Mic on' : 'Mic off', R.mic ? ' on' : '')); ctls.push(ctl('lw-c-cam', LW_ICO.cam, R.cam ? 'Camera on' : 'Camera off', R.cam ? ' on' : '')); }
+    if(!(mm && member)){ ctls.push(ctl('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic ? ' on' : '')); ctls.push(ctl('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam ? ' on' : '')); ctls.push(ctl('lw-c-dev', LW_ICO.devices, 'Devices')); }
     if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
     if(host) ctls.push(ctl('lw-c-ask', LW_ICO.ask, 'Send check-in'));
     ctls.push(ctl('lw-c-ci', LW_ICO.checkin, 'Check in'));
     if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
     setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}" id="lw-room">
-      <div class="lw-call-head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b><span id="lw-call-sub"></span></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></div>
+      <div class="lw-call-head"><span class="lw-call-t"><span class="lw-eyb">Live event</span><b>${escapeHtml(K.name)}</b><span id="lw-call-sub"></span></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></div>
       <div class="lw-call-body">
         <div class="lw-stage" id="lw-stage"></div>
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
-        ${mm ? `<div class="lw-mm-chat"><div class="lw-mm-chat-h"><b>Chat</b><span class="lw-muted">Optional</span></div><div class="lw-chat-list" id="lw-chat-list"></div>
-          <form class="lw-chat-form" id="lw-chat-form"><label class="vh" for="lw-chat-in">Share what you notice</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="Share what you notice"><button class="btn" type="submit">Send</button></form></div>`
+        ${mm ? `<div class="lw-mm-chat"><div class="lw-mm-chat-h"><b>Chat</b><span class="lw-muted">Optional</span></div>${_lwStateTg()}<div class="lw-chat-list" id="lw-chat-list"></div>
+          <form class="lw-chat-form" id="lw-chat-form"><label class="vh" for="lw-chat-in">Share a present moment reflection</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="Share a present moment reflection"><button class="btn" type="submit">Send</button></form></div>`
           : `<div class="lw-grid" id="lw-grid"></div>`}
       </div>
       <div class="lw-ctls" style="--n:${ctls.length}">${ctls.join('')}</div>
@@ -3172,6 +3241,8 @@ function app(tab){
       try{ if(R.sharing){ co.stopScreenShare(); } else { await co.startScreenShare(); } }catch(e){ showToast('Screen sharing did not start.'); }
     };
     const ask = document.getElementById('lw-c-ask'); if(ask) ask.onclick = () => { try{ co.sendAppMessage({ t:'checkin' }, '*'); }catch(e){} showToast('Check-in sent to everyone'); };
+    const dev = document.getElementById('lw-c-dev'); if(dev) dev.onclick = _lwDevicesSheet;
+    _lwWireStateTg(document.getElementById('lw-room'));
     $('#lw-c-ci').onclick = () => _lwCheckin('during');
     const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
     const tap = document.getElementById('lw-tap'); if(tap) tap.onclick = () => { R.needsTap = false; document.querySelectorAll('#lw-audio audio').forEach(a => { try{ a.play(); }catch(e){} }); _lwRender(); };
@@ -3186,11 +3257,12 @@ function app(tab){
       const e = r.data || {};
       R.err = e.upgrade ? 'Capacity Builder and the Q&A are part of Co-Regulator.'
         : r.status === 425 ? 'The room opens ' + LW_OPEN_EARLY_MIN + ' minutes before the start.'
-        : r.status === 410 ? 'This session has ended.'
+        : r.status === 410 ? 'This live event has ended.'
         : r.status === 401 ? 'Sign in to join.'
         : 'The room did not open. Try again in a moment.';
       R.phase = 'joining'; return _lwRender();
     }
+    R.role = r.data.role;
     if(r.data.role === 'host'){ _lw.access = Object.assign({}, _lw.access || {}, { host:true, co_regulator:true }); }
     let Daily; try{ Daily = await _lwLoadDaily(); }catch(e){ R.err = 'The video service did not load. Check your connection and try again.'; return _lwRender(); }
     if(_lwRoom !== R) return;
@@ -3206,8 +3278,8 @@ function app(tab){
     co.on('local-screen-share-stopped', () => { R.sharing = false; if(R.phase === 'call') _lwRender(); });
     co.on('app-message', ev => {
       const d = ev && ev.data; if(!d) return;
-      if(d.t === 'chat' && d.text){ R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text).slice(0,500), host:!!d.host }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
-      if(d.t === 'checkin' && !host && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
+      if(d.t === 'chat' && d.text){ R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text).slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st) }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
+      if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
     });
     co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
     co.on('error', () => { if(_lwRoom === R){ R.err = 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
@@ -3216,33 +3288,82 @@ function app(tab){
     }catch(e){ R.err = 'The room did not open. Try again in a moment.'; R.phase = 'joining'; return _lwRender(); }
     if(_lwRoom !== R){ try{ co.leave(); co.destroy(); }catch(e){} return; }
     R.phase = 'call'; R.joinedAt = Date.now();
+    if(R.role === 'host') _lwBeatStart(R);
     _lwRender();
     R.tick = setInterval(() => { if(_lwRoom === R && R.phase === 'call') _lwPaintHead(); }, 30000);
   }
   function _lwLeaveCall(){
     const R = _lwRoom; if(!R || !R.co) return;
-    const co = R.co; R.co = null; R.phase = 'left'; clearInterval(R.tick);
+    const co = R.co; R.co = null; R.phase = 'left'; clearInterval(R.tick); _lwBeatStop(R);
     try{ co.leave().catch(()=>{}).then(() => { try{ co.destroy(); }catch(e){} }); }catch(e){}
     _lwRender();
   }
   function _lwSend(text){
     const R = _lwRoom; text = String(text||'').trim(); if(!R || !R.co || !text) return;
     const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member');
-    try{ R.co.sendAppMessage({ t:'chat', who, text:text.slice(0,500), host:_lwIsHost() }, '*'); }catch(e){}
-    R.chat.push({ who:'You', text:text.slice(0,500), host:_lwIsHost() }); _lwPaintChat();
+    const av = _lwAvatar(), st = R.showState && R.lastKey ? R.lastKey : null;
+    try{ R.co.sendAppMessage({ t:'chat', who, text:text.slice(0,500), host:_lwIsHost(), av, st }, '*'); }catch(e){}
+    R.chat.push({ who:'You', text:text.slice(0,500), host:_lwIsHost(), av, st }); _lwPaintChat();
   }
+  const _lwSafeAv = u => (typeof u === 'string' && /^https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]+\.jpg(\?v=\d+)?$/.test(u)) ? u : null;
+  const _lwSafeSt = k => (typeof k === 'string' && STATE_AXES[k]) ? k : null;
+  function _lwMsgHTML(m, anim){
+    const av = m.av ? `<img src="${escapeHtml(m.av)}" alt="" loading="lazy">` : escapeHtml((m.who || '?').charAt(0));
+    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b><span>${escapeHtml(m.text)}</span></div></div>`;
+  }
+  // a list already on screen only gets the new messages (they animate in); a fresh list is drawn whole
   function _lwPaintChat(){
     const R = _lwRoom; if(!R) return;
-    const html = R.chat.length ? R.chat.map(m => `<div class="lw-msg${m.host?' lw-msg-host':''}"><b>${escapeHtml(m.who)}</b><span>${escapeHtml(m.text)}</span></div>`).join('') : '<p class="lw-muted lw-p">Nothing yet. You do not have to type anything.</p>';
-    ['lw-chat-list','lw-chat-sheet-list'].forEach(id => { const el = document.getElementById(id); if(el){ el.innerHTML = html; el.scrollTop = el.scrollHeight; } });
+    ['lw-chat-list','lw-chat-sheet-list'].forEach(id => {
+      const el = document.getElementById(id); if(!el) return;
+      const n = +(el.dataset.n || -1);
+      if(!R.chat.length){ el.innerHTML = '<p class="lw-muted lw-p">Nothing yet. You do not have to type anything.</p>'; el.dataset.n = 0; return; }
+      if(n <= 0 || n > R.chat.length) el.innerHTML = R.chat.map(m => _lwMsgHTML(m, n === 0)).join('');
+      else if(n < R.chat.length) el.insertAdjacentHTML('beforeend', R.chat.slice(n).map(m => _lwMsgHTML(m, true)).join(''));
+      el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
+    });
+  }
+  // "Show my state": the member's last check-in at this event, as a glyph beside their name in the chat
+  function _lwStateTg(){
+    const R = _lwRoom; if(!R) return '';
+    const on = !!R.showState, k = R.lastKey;
+    return `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-st>${k ? _lwGlyph(k) : ''}<span>${on ? (k ? 'Showing my state in the chat' : 'Check in to show your state') : 'Show my state in the chat'}</span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
+  }
+  function _lwWireStateTg(scope){
+    if(!scope) return;
+    scope.querySelectorAll('[data-lw-st]').forEach(b => b.onclick = () => { const R = _lwRoom; if(!R) return; R.showState = !R.showState; b.outerHTML = _lwStateTg(); _lwWireStateTg(scope); });
+  }
+  // pick the camera and the mic
+  async function _lwDevicesSheet(){
+    const R = _lwRoom; if(!R || !R.co) return;
+    let devs = [], cur = {};
+    try{ devs = ((await R.co.enumerateDevices()) || {}).devices || []; }catch(e){}
+    try{ cur = (await R.co.getInputDevices()) || {}; }catch(e){}
+    const opts = (kind, sel) => devs.filter(d => d.kind === kind).map((d, i) => `<option value="${escapeHtml(d.deviceId)}"${d.deviceId === sel ? ' selected' : ''}>${escapeHtml(d.label || (kind === 'videoinput' ? 'Camera ' : 'Microphone ') + (i + 1))}</option>`).join('');
+    const sh = _lwSheet('Devices', `<div class="lw-dev"><label for="lw-dev-cam">Camera</label><select id="lw-dev-cam">${opts('videoinput', cur.camera && cur.camera.deviceId) || '<option>No camera found</option>'}</select>
+      <label for="lw-dev-mic">Microphone</label><select id="lw-dev-mic">${opts('audioinput', cur.mic && cur.mic.deviceId) || '<option>No microphone found</option>'}</select></div>
+      <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-dev-done">Done</button></div>`, { host:document.getElementById('lw-room') });
+    const c = sh.el.querySelector('#lw-dev-cam'), m = sh.el.querySelector('#lw-dev-mic');
+    c.onchange = () => { try{ R.co.setInputDevicesAsync({ videoDeviceId:c.value }); }catch(e){ showToast('That camera did not start.'); } };
+    m.onchange = () => { try{ R.co.setInputDevicesAsync({ audioDeviceId:m.value }); }catch(e){ showToast('That microphone did not start.'); } };
+    sh.el.querySelector('#lw-dev-done').onclick = sh.close;
+  }
+  // Justin's presence: a beat every 30 s while he is in the room, so the Calendar can say "Live now"
+  function _lwBeatStart(R){
+    const sid = R.s.id, beat = () => { try{ window.sb.rpc('live_host_beat', { sid, here:true }); }catch(e){} };
+    beat(); clearInterval(R.beat); R.beat = setInterval(beat, 30000);
+  }
+  function _lwBeatStop(R){
+    if(!R || !R.beat) return; clearInterval(R.beat); R.beat = null;
+    try{ window.sb.rpc('live_host_beat', { sid:R.s.id, here:false }); }catch(e){}
   }
   function _lwChatSheet(){
     const R = _lwRoom; if(!R) return; R.unread = 0;
     const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat';
     const sh = _lwSheet('Chat', `<p class="lw-p lw-muted">Everyone in this call sees the chat. It is gone when the call ends. To write to Justin alone, use Messages.</p>
-      <div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>
+      ${_lwStateTg()}<div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>
       <form class="lw-chat-form" id="lw-chat-sheet-form"><label class="vh" for="lw-chat-sheet-in">Write to the group</label><input id="lw-chat-sheet-in" type="text" maxlength="500" autocomplete="off" placeholder="Write to the group"><button class="btn" type="submit">Send</button></form>`, { host:document.getElementById('lw-room') });
-    _lwPaintChat();
+    _lwWireStateTg(sh.el); _lwPaintChat();
     sh.el.querySelector('#lw-chat-sheet-form').onsubmit = e => { e.preventDefault(); const i = sh.el.querySelector('#lw-chat-sheet-in'); _lwSend(i.value); i.value = ''; };
   }
   function _lwPaintHead(){
@@ -11636,6 +11757,27 @@ function app(tab){
   }
   async function clearOffline(){ try{ await caches.delete('snb-audio-v1'); }catch(e){} }
 
+  // the member's photo (2026-10-27): a square JPEG, 256 px, in the public `avatars` bucket as <user id>.jpg
+  async function _setPhoto(file){
+    const uid = _lwUid(); if(!uid || !window.sb) return;
+    try{
+      if(!file){
+        await window.sb.storage.from('avatars').remove([uid + '.jpg']);
+        await window.sb.auth.updateUser({ data:{ avatar_url:null } });
+        try{ localStorage.removeItem('snb_av_' + uid); }catch(e){}
+        return;
+      }
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+      const n = Math.min(img.naturalWidth, img.naturalHeight), cv = document.createElement('canvas'); cv.width = cv.height = 256;
+      cv.getContext('2d').drawImage(img, (img.naturalWidth - n) / 2, (img.naturalHeight - n) / 2, n, n, 0, 0, 256, 256);
+      const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', .86));
+      const up = await window.sb.storage.from('avatars').upload(uid + '.jpg', blob, { upsert:true, contentType:'image/jpeg', cacheControl:'3600' });
+      if(up && up.error) throw up.error;
+      const url = window.sb.storage.from('avatars').getPublicUrl(uid + '.jpg').data.publicUrl + '?v=' + Date.now();
+      await window.sb.auth.updateUser({ data:{ avatar_url:url } });
+      try{ localStorage.setItem('snb_av_' + uid, url); }catch(e){}
+    }catch(e){ showToast('The photo did not save. Try again in a moment.'); }
+  }
   function screenSettings(){
     clearFigures(); document.body.classList.remove('in-practice');
     currentTab='you';
@@ -11681,6 +11823,7 @@ function app(tab){
 
           <div class="gs-card">
             <div class="gs-row"><span class="gs-k">Name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="add your name"></div>
+            ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="gs-row"><span class="gs-k">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div><p class="gs-note gs-photo-note">Shows next to your messages in live event chat.</p>` : ''}
             <div class="gs-row"><span class="gs-k">Account</span><span class="gs-v">${escapeHtml(u.email||'on this device')}</span></div>
           </div>
 
@@ -11814,6 +11957,9 @@ function app(tab){
           <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
         </div>
       </div>`;
+    const phBtn = $('#ph-btn'), phFile = $('#ph-file'), phX = $('#ph-x');
+    if(phBtn && phFile){ phBtn.onclick = () => phFile.click(); phFile.onchange = () => { const f = phFile.files && phFile.files[0]; if(f) _setPhoto(f).then(screenSettings); }; }
+    if(phX) phX.onclick = () => _setPhoto(null).then(screenSettings);
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const sem=$('#set-emotions'); if(sem) sem.onclick=()=>{ if(!paidNow()) return gateSubscribe('pathway'); screenEmotions(()=>screenSettings()); };
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
