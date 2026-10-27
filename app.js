@@ -4660,7 +4660,13 @@ function app(tab){
   // ---- round 2 (2026-10-26): Justin's asks. One meta line on every card ([media icon] · length · date), counts in lessons,
   // every combined list grouped by type, a published-date filter, and a Filter button with a slide-up sheet that holds the
   // filters (the chip rows moved into it; the page shows only what is on, each with an ×).
-  let _lmWhen = 'any';
+  let _lmWhen = 'any', _lmDur = 'any';
+  // Length (Justin, 2026-10-26: "a run time/read filter"): run time for episodes and videos, reading time for articles
+  const _LM_DURS = [['any', 'Any length'], ['u5', 'Under 5 min'], ['5to15', '5 to 15 min'], ['15to30', '15 to 30 min'], ['o30', 'Over 30 min']];
+  function _lmDurOk(min){
+    if(_lmDur === 'any') return true; if(min == null) return false;
+    return _lmDur === 'u5' ? min < 5 : _lmDur === '5to15' ? min >= 5 && min < 15 : _lmDur === '15to30' ? min >= 15 && min < 30 : min >= 30;
+  }
   const _LM_TYPES = [['a', 'Articles'], ['p', 'Podcast'], ['c', 'Stucknaut Collective'], ['v', 'Videos'], ['s', 'Shorts']];
   const _LM_NOUN = { a:'articles', p:'episodes', c:'episodes', v:'videos', s:'Shorts' };
   const _LM_MEDIA = [['all', 'All'], ['read', 'Read'], ['listen', 'Listen'], ['watch', 'Watch']];
@@ -4704,9 +4710,9 @@ function app(tab){
   // every lesson that matches, grouped by type in the library's order. hub: a hub's own lessons, no date filter
   function _lmGroups(m, t, hub){
     const L = window.Learning;
-    const okW = hub ? ()=>true : _lmWhenOk;
-    const arts = (m === 'all' || m === 'read') ? (hub ? L.inGroup(t) : L.PIECES.filter(p=>t === 'all' || p.state === t || (p.groups || []).indexOf(t) >= 0)).filter(p=>okW(_lmArtDate(p))) : [];
-    const med = m === 'read' || !_lmData ? [] : _lmData.items.filter(x=>(m === 'all' || (m === 'listen') === _lmIsListen(x)) && (t === 'all' || (x.g || []).indexOf(t) >= 0) && okW(x.d));
+    const okW = hub ? ()=>true : _lmWhenOk, okD = hub ? ()=>true : _lmDurOk;
+    const arts = (m === 'all' || m === 'read') ? (hub ? L.inGroup(t) : L.PIECES.filter(p=>t === 'all' || p.state === t || (p.groups || []).indexOf(t) >= 0)).filter(p=>okW(_lmArtDate(p)) && okD(p.minutes || 1)) : [];
+    const med = m === 'read' || !_lmData ? [] : _lmData.items.filter(x=>(m === 'all' || (m === 'listen') === _lmIsListen(x)) && (t === 'all' || (x.g || []).indexOf(t) >= 0) && okW(x.d) && okD(x.n ? x.n / 60 : x.s === 's' ? 0.5 : null));
     const out = [];
     _LM_TYPES.forEach(([k, label])=>{ const list = k === 'a' ? _lrnByRead(arts) : med.filter(x=>x.s === k); if(list.length) out.push({ k, label, list }); });
     return out;
@@ -4720,7 +4726,7 @@ function app(tab){
       out.push(`<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="${cls}">${rows.map(e=>g.k === 'a' ? rowA(e) : rowM(e)).join('')}</div>`); });
     return out.join('');
   }
-  const _lmFiltered = () => !(_lmMedia === 'all' && _lmTopic === 'all' && _lmWhen === 'any');
+  const _lmFiltered = () => !(_lmMedia === 'all' && _lmTopic === 'all' && _lmWhen === 'any' && _lmDur === 'any');
   // the filtered list: each type under its own heading, the first eight of each, then "Show all" for that type
   let _lmOpen = {};
   function _lmListHTML(){
@@ -4737,9 +4743,10 @@ function app(tab){
     if(_lmMedia !== 'all') on.push(['lmm', (_LM_MEDIA.find(x=>x[0] === _lmMedia) || [])[1]]);
     if(_lmTopic !== 'all') on.push(['lmt', _lmTopicLabel(_lmTopic)]);
     if(_lmWhen !== 'any') on.push(['lmw', (_LM_WHENS.find(x=>x[0] === _lmWhen) || [])[1]]);
+    if(_lmDur !== 'any') on.push(['lmd', (_LM_DURS.find(x=>x[0] === _lmDur) || [])[1]]);
     return `<div class="lm-active" role="group" aria-label="Filters">${on.map(([g, l])=>`<button class="lm-chip on" type="button" data-lmx="${g}" aria-label="Take off ${escapeHtml(l)}"><span>${escapeHtml(l)}</span><span class="lm-x" aria-hidden="true">×</span></button>`).join('')}${on.length > 1 ? '<button class="lm-clear" type="button" data-lmx="all">Clear all</button>' : ''}</div>`;
   }
-  const _lmOnCount = () => (_lmMedia !== 'all') + (_lmTopic !== 'all') + (_lmWhen !== 'any');
+  const _lmOnCount = () => (_lmMedia !== 'all') + (_lmTopic !== 'all') + (_lmWhen !== 'any') + (_lmDur !== 'any');
   const _lmFbtnHTML = () => { const n = _lmOnCount(); return `<button class="jr-fbtn lm-fbtn" id="lm-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="lm-fsheet" aria-label="${n ? 'Filter, ' + n + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${n ? `<span class="lm-fn" aria-hidden="true">${n}</span>` : ''}</button>`; };
   function _lmSheetHTML(){
     const L = window.Learning;
@@ -4753,6 +4760,8 @@ function app(tab){
           <span class="rd-eyeb">Media</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
           <span class="rd-eyeb">Published</span><div class="lm-chips">${_LM_WHENS.map(([id, l])=>chip('lmw', id, l, _lmWhen === id)).join('')}</div>
           <p class="lm-fs-note">Most articles have no published date, so they show under Any time.</p>
+          <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lmd', id, l, _lmDur === id)).join('')}</div>
+          <p class="lm-fs-note">Run time for episodes and videos, reading time for articles.</p>
           <span class="rd-eyeb">Topic</span><div class="lm-chips">${chip('lmt', 'all', 'All topics', _lmTopic === 'all')}${states.map(k=>chip('lmt', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
         </div>
         <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lm-fclear">Clear all</button><button class="lm-fshow" type="button" id="lm-fshow">Show</button></div>
@@ -4762,12 +4771,13 @@ function app(tab){
     const btn = $('#lm-fbtn'), sh = $('#lm-fsheet'); if(!btn || !sh) return;
     const box = sh.querySelector('.rd-jr-sheet-in'), show = $('#lm-fshow');
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const now = () => [_lmMedia, _lmTopic, _lmWhen].join('|');
+    const now = () => [_lmMedia, _lmTopic, _lmWhen, _lmDur].join('|');
     let before = now(), tmr = null;
     const paint = () => {
       sh.querySelectorAll('[data-lmm]').forEach(b=>{ const on = b.dataset.lmm === _lmMedia; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
       sh.querySelectorAll('[data-lmt]').forEach(b=>{ const on = b.dataset.lmt === _lmTopic; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
       sh.querySelectorAll('[data-lmw]').forEach(b=>{ const on = b.dataset.lmw === _lmWhen; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      sh.querySelectorAll('[data-lmd]').forEach(b=>{ const on = b.dataset.lmd === _lmDur; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
       show.textContent = _lmFiltered() ? 'Show ' + _lmLessons(_lmN(_lmGroups(_lmMedia, _lmTopic))) : 'Show all lessons';
     };
     const esc = e => { if(e.key === 'Escape') close(); };
@@ -4783,7 +4793,8 @@ function app(tab){
     sh.querySelectorAll('[data-lmm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lmm; paint(); });
     sh.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lmt; paint(); });
     sh.querySelectorAll('[data-lmw]').forEach(b=>b.onclick=()=>{ _lmWhen = b.dataset.lmw; paint(); });
-    $('#lm-fclear').onclick = () => { _lmMedia = 'all'; _lmTopic = 'all'; _lmWhen = 'any'; paint(); };
+    sh.querySelectorAll('[data-lmd]').forEach(b=>b.onclick=()=>{ _lmDur = b.dataset.lmd; paint(); });
+    $('#lm-fclear').onclick = () => { _lmMedia = 'all'; _lmTopic = 'all'; _lmWhen = 'any'; _lmDur = 'any'; paint(); };
     // down on the top of the sheet closes it, as the Journal sheet does
     let y0 = 0, dragging = false;
     box.addEventListener('touchstart', e=>{ y0 = e.touches[0].clientY; dragging = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab'); }, { passive:true });
@@ -4800,7 +4811,7 @@ function app(tab){
   }
   function _lmWire(){
     root.querySelectorAll('[data-lmx]').forEach(b=>b.onclick=()=>{ const g = b.dataset.lmx;
-      if(g === 'lmm' || g === 'all') _lmMedia = 'all'; if(g === 'lmt' || g === 'all') _lmTopic = 'all'; if(g === 'lmw' || g === 'all') _lmWhen = 'any';
+      if(g === 'lmm' || g === 'all') _lmMedia = 'all'; if(g === 'lmt' || g === 'all') _lmTopic = 'all'; if(g === 'lmw' || g === 'all') _lmWhen = 'any'; if(g === 'lmd' || g === 'all') _lmDur = 'any';
       _lmOpen = {}; _lmRedraw(true); });
     _lmWireSheet();
     // the library list gives the counts and the episode and video cards: once it is here, draw Learn again where it was
@@ -4874,7 +4885,7 @@ function app(tab){
   let _lmDesc = null, _lmDescP = null;
   function _lmDescLoad(){
     if(_lmDesc) return Promise.resolve(_lmDesc);
-    if(!_lmDescP) _lmDescP = fetch('learn/media-desc.json?v=1').then(r=>{ if(!r.ok) throw new Error('desc'); return r.json(); })
+    if(!_lmDescP) _lmDescP = fetch('learn/media-desc.json?v=2').then(r=>{ if(!r.ok) throw new Error('desc'); return r.json(); })
       .then(d=>{ _lmDesc = d && d.d ? d.d : {}; return _lmDesc; }).catch(()=>{ _lmDescP = null; return null; });
     return _lmDescP;
   }
@@ -4992,7 +5003,7 @@ function app(tab){
   }
   function _lmWireMods(here){
     const box = root.querySelector('.lm-mods'), bar = root.querySelector('.lm-arr-bar'), foot = root.querySelector('.lm-arr-foot'); if(!box) return;
-    const sc = root.querySelector('.scroll'), sheet = root.querySelector('.lm-sheet'), L = window.Learning;
+    const sc = root.querySelector('.scroll'), L = window.Learning;
     // the cards' own links
     if(here){
       box.querySelectorAll('.lm-tile[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here.go, tab:'learn' }); });
@@ -5026,6 +5037,7 @@ function app(tab){
     const start = (m, x, y) => {
       const r = m.getBoundingClientRect(), ph = document.createElement('div');
       ph.className = 'lm-ph' + (m.classList.contains('lm-half') ? ' lm-half' : ''); ph.style.height = r.height + 'px';
+      if(getComputedStyle(box).flexDirection === 'row') ph.style.width = r.width + 'px';
       m.parentNode.insertBefore(ph, m);
       drag = { m, ph, dx: x - r.left, dy: y - r.top };
       m.classList.add('lm-drag'); m.style.width = r.width + 'px'; m.style.left = r.left + 'px'; m.style.top = r.top + 'px';
@@ -5035,9 +5047,11 @@ function app(tab){
       const { m, ph } = drag; m.style.left = (x - drag.dx) + 'px'; m.style.top = (y - drag.dy) + 'px';
       const others = mods().filter(o=>o !== m && !o.hidden);
       // the card the finger is before: any card lower down, or the same row and to the right of the finger
-      const before = others.find(o=>{ const r = o.getBoundingClientRect(); return y < r.top || (y <= r.bottom && x < r.left + r.width / 2); });
+      const row = getComputedStyle(box).flexDirection === 'row' && getComputedStyle(box).display === 'flex';
+      const before = others.find(o=>{ const r = o.getBoundingClientRect(); return row ? x < r.left + r.width / 2 : y < r.top || (y <= r.bottom && x < r.left + r.width / 2); });
       if((before && ph.nextElementSibling !== before) || (!before && ph !== box.lastElementChild)) flip(others, ()=>{ if(before) box.insertBefore(ph, before); else box.appendChild(ph); });
-      const sp = sheet && sheet.classList.contains('open') ? sheet : sc;
+      if(row){ const r = box.getBoundingClientRect(); if(x < r.left + 50) box.scrollLeft -= 12; else if(x > r.right - 50) box.scrollLeft += 12; }
+      const sp = sc;
       if(sp){ const r = sp.getBoundingClientRect(); if(y < r.top + 70) sp.scrollTop -= 12; else if(y > Math.min(r.bottom, window.innerHeight - 120) - 70) sp.scrollTop += 12; }
     };
     const end = () => { const { m, ph } = drag; drag = null; ph.parentNode.insertBefore(m, ph); ph.remove();
@@ -5057,28 +5071,6 @@ function app(tab){
     box.addEventListener('contextmenu', e=>{ if(timer || drag || document.body.classList.contains('lm-arr')) e.preventDefault(); });
     box.addEventListener('click', e=>{ if(eatClick || (document.body.classList.contains('lm-arr') && !e.target.closest('.lm-mod-x, .lm-mod-sz, textarea'))){ e.preventDefault(); e.stopPropagation(); } }, true);
   }
-  // the Short's peek strip (phones): the first cards in the member's order, a name and one line each
-  function _lmPeek(){
-    const pk = $('#lm-peek'), sh = $('#lm-sheet'), cb = $('#lm-ci'); if(!pk || !sh) return;
-    const line = m => { const q = s => { const e = m.querySelector(s); return e ? e.textContent.trim() : ''; };
-      return q('.lm-tile-t') || q('.rd-call-p') || q('.rd-refl-q') || q('.lm-about-b .read-p') || [...m.querySelectorAll('.rd-row-t b')].map(b=>b.textContent.trim()).join(', '); };
-    const draw = () => {
-      const ms = [...sh.querySelectorAll('.lm-mod')].filter(m=>!m.hidden).map(m=>({ m, t:line(m) })).filter(o=>o.t).slice(0, 4);
-      pk.innerHTML = ms.map((o, i)=>`<button class="lm-pk" type="button" data-pk="${i}"><span class="rd-eyeb">${escapeHtml(o.m.dataset.name || '')}</span><span class="lm-pk-t">${escapeHtml(o.t)}</span></button>`).join('');
-      pk.hidden = !ms.length;
-      pk.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>open(ms[+b.dataset.pk].m));
-    };
-    const open = m => { if(!sh.classList.contains('open') && cb) cb.click(); if(m) setTimeout(()=>{ sh.scrollTop = Math.max(0, m.offsetTop - 16); }, 80); };
-    draw();
-    setTimeout(draw, 1200);   // the About text arrives a moment later
-    // swipe up anywhere outside the sheet opens it; swipe down on the open sheet's top closes it
-    let y0 = null; const area = root.querySelector('.scroll');
-    area.addEventListener('touchstart', e=>{ y0 = sh.contains(e.target) ? null : e.touches[0].clientY; }, { passive:true });
-    area.addEventListener('touchend', e=>{ if(y0 == null) return; const dy = e.changedTouches[0].clientY - y0; y0 = null; if(dy < -50 && !sh.classList.contains('open')) open(null); }, { passive:true });
-    let s0 = null;
-    sh.addEventListener('touchstart', e=>{ s0 = sh.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive:true });
-    sh.addEventListener('touchend', e=>{ if(s0 == null) return; const dy = e.changedTouches[0].clientY - s0; s0 = null; if(dy > 70 && sh.classList.contains('open') && !document.body.classList.contains('lm-arr') && cb) cb.click(); }, { passive:true });
-  }
   // an episode, a video or a Short
   function screenMedia(id, from){
     const back = from && from.go ? from.go : ()=>screenLearn(true);
@@ -5093,17 +5085,14 @@ function app(tab){
     if(x.s === 's'){
       const ci = _lmModsHTML(x);
       _rdShell(`<div class="lm-spage"><div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
-          <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1><div class="lm-peek" id="lm-peek" hidden></div>
-          ${ci ? `<div class="lm-sheet" id="lm-sheet" aria-hidden="true">${ci}</div>` : ''}</div>`,
-        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x), dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">Swipe up for more<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>` : '' });
+          <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1>
+          ${ci ? `<div class="lm-sheet lm-strip" id="lm-sheet" role="region" aria-label="More with this Short">${ci}</div>` : ''}</div>`,
+        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x) });
       document.body.classList.add('lm-dark', 'lm-wide');
-      const cb = $('#lm-ci'), sh = $('#lm-sheet');
-      if(cb && sh) cb.onclick = ()=>{ const on = !sh.classList.contains('open'); sh.classList.toggle('open', on); sh.setAttribute('aria-hidden', on ? 'false' : 'true'); cb.setAttribute('aria-expanded', on ? 'true' : 'false'); if(cb.querySelector('svg')) cb.innerHTML = (on ? 'Close' : 'Swipe up for more') + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${on ? 'M6 9l6 6 6-6' : 'M6 15l6-6 6 6'}"/></svg>`; };
       _lmWireCards(x);
       _lmFillDesc(x);
       _lmWireKeep(root, here);
       _lmWireMods(here);
-      _lmPeek();
       return;
     }
     const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();

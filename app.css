@@ -4781,3 +4781,47 @@ body.lm-arr .lm-mod-sz{display:flex}
 .lm-short-t{color:#ECEAE3}
 #lm-ci svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 @media (min-width:1000px){ .lm-peek{display:none !important} body.lm-wide .lm-spage > .lm-short{height:min(calc(100dvh - 160px), 760px)} }
+
+/* the Short on phones (2026-10-26): its cards in one sideways row under the video; no sheet */
+@media (max-width:999px){
+  .lm-sheet.lm-strip{position:static;transform:none;max-height:none;overflow:visible;background:transparent;color:inherit;padding:0;border-radius:0;transition:none}
+  .lm-strip .lm-mods{display:flex;flex-direction:row;align-items:flex-start;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin:14px -30px 0;padding:10px 30px 8px;scroll-padding:0 30px}
+  .lm-strip .lm-mods::-webkit-scrollbar{display:none}
+  .lm-strip .lm-mod{flex:none;width:84%;box-sizing:border-box;padding:18px;border-radius:18px;background:var(--bone);color:var(--ink);scroll-snap-align:start}
+  .lm-strip .lm-mod.lm-half,.lm-strip .lm-ph.lm-half{width:46%}
+  .lm-strip .lm-ph{flex:none;width:84%}
+  .lm-strip .lm-mod > .lm-card-o{border:0;padding:0;background:transparent}
+  .lm-strip .lm-mod[data-mod="lead"]{padding:0;background:transparent}
+  .lm-strip .lm-mod[data-mod="lead"] .rd-call{border-radius:18px}
+  .lm-strip .lm-desc .lm-about{border:0}
+  .lm-strip .lm-mod > .lm-lead,.lm-strip .lm-mod > .lm-card-o,.lm-strip .lm-mod > .lm-desc{margin:0}
+  .lm-strip .lm-tile{border:0;padding:0;border-radius:0;min-height:120px}
+  .lm-strip .lm-mod-x,.lm-strip .lm-mod-sz{top:-8px}
+  .lm-strip .lm-mod-x{left:-6px}
+  .lm-strip .lm-mod-sz{right:-6px}
+  .lm-strip .lm-arr-bar,.lm-strip .lm-arr-foot{margin-left:0;margin-right:0}
+  .lm-strip .lm-arr-bar{position:static;margin:14px 0 0;padding:0;background:transparent}
+  .lm-strip .lm-arr-tip{color:#C0BCB2}
+  .lm-strip .lm-arr-done{background:#ECEAE3;color:#14171E}
+  .lm-strip .lm-arr-foot .lm-chip{color:#ECEAE3;border-color:#3A3C42;background:transparent}
+  .lm-strip .lm-arr-reset{color:#ECEAE3}
+  .lm-strip .lm-mod.lm-drag{width:auto}
+  .lm-spage > .lm-short{height:max(260px, min(calc(100dvh - 500px), 620px))}
+}
+
+/* phones: Back joins the bottom menu (2026-10-26). The menu slides right and keeps its icons; Back sits to its left. */
+@media (max-width:719px){
+  #screen > .tabbar{transition:margin-left .3s cubic-bezier(.2,.8,.2,1)}
+  #screen > .tabbar button .lb{transition:opacity .2s ease, max-height .3s cubic-bezier(.2,.8,.2,1);max-height:20px;overflow:hidden}
+  #screen:has(> .fl-dock:not(.sf-open) > .tab-back-float) > .tabbar{margin-left:120px}
+  #screen:has(> .fl-dock:not(.sf-open) > .tab-back-float) > .tabbar button{gap:0;padding-left:0;padding-right:0}
+  #screen:has(> .fl-dock:not(.sf-open) > .tab-back-float) > .tabbar button .lb{opacity:0;max-height:0}
+  #screen > .fl-dock > .tab-back-float{position:absolute;left:-2px;bottom:-78px;height:60px;width:98px;max-width:98px;justify-content:center;padding:0 12px 0 6px;border-radius:20px;border:0;box-shadow:none;animation:tabBackJoin .3s cubic-bezier(.2,.8,.2,1) both}
+  #screen > .fl-dock.sf-open > .tab-back-float{max-width:0;width:0;padding:0;opacity:0}
+  body.lm-dark #screen > .fl-dock > .tab-back-float{background:var(--bone-deep)}
+  @keyframes tabBackJoin{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+}
+@media (max-width:719px) and (prefers-reduced-motion: reduce){
+  #screen > .tabbar,#screen > .tabbar button .lb{transition:none}
+  #screen > .fl-dock > .tab-back-float{animation:none}
+}
