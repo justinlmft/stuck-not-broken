@@ -4460,7 +4460,7 @@ function app(tab){
     const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
     // Learn search (Justin, 2026-10-02: "I don't want a search bar at the top. Make it a pop-up menu item, just like the back
     // button is ... just the magnifying glass that expands when tapped")
-    const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search articles" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
+    const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
       <header class="appbar read-appbar"></header>
       <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
@@ -4528,16 +4528,24 @@ function app(tab){
     const L = window.Learning; if(!L || !L.HUBS) return '';
     const paid = paidNow();
     const shelf = k => {
-      const all = L.inGroup(k); if(!all.length) return '';
-      const ps = _lrnByRead(all).slice(0, _LRN_SHELF);
-      const cards = ps.map(p=>{ const read = _lrnIsRead(p.id);
+      const all = L.inGroup(k), med = _lmData ? _lmData.items.filter(x=>(x.g || []).indexOf(k) >= 0) : [];
+      if(!all.length && !med.length) return '';
+      // grouped by type, not mixed (Justin, 2026-10-26): articles, then episodes, then videos, two of each when there are
+      // two; a type with fewer leaves its room to the others
+      const arts = _lrnByRead(all), eps = med.filter(x=>x.s === 'p'), vids = med.filter(x=>x.s === 'v');
+      let ne = Math.min(eps.length, 2), nv = Math.min(vids.length, 2), na = Math.min(arts.length, _LRN_SHELF - ne - nv);
+      ne = Math.min(eps.length, _LRN_SHELF - na - nv); nv = Math.min(vids.length, _LRN_SHELF - na - ne);
+      const artCard = p=>{ const read = _lrnIsRead(p.id);
         // the marks live on the row's heading only (Justin, 2026-10-02: on every card too "it's too much"); the card keeps a strip of the state's color
-        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${p.paid && !paid ? LOCK_SVG + 'Paid plan · ' : ''}${read?_lrnReadMk() + 'Read · ':''}${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
-      const more = all.length > _LRN_SHELF ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(all.length + ' articles')}</span><span class="wc-go">${CHEV}</span></button>` : '';
-      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(_lrnHubCount(k))}</span><span class="wc-go">${CHEV}</span></button>
+        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta lm-m">${_lmArtMeta(p)}</span></button>`; };
+      const medCard = x=>`<button class="ll-card" type="button" data-media="${escapeHtml(x.i)}" style="--band:${STATE_COLOR(_lmState(x) || k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(x.t)}</b><span class="ll-card-meta lm-m">${_lmMedMeta(x)}</span></button>`;
+      const cards = arts.slice(0, na).map(artCard).concat(eps.slice(0, ne).map(medCard), vids.slice(0, nv).map(medCard)).join('');
+      const total = all.length + med.length, cnt = _lrnHubCount(k);
+      const more = total > na + ne + nv ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>` : '';
+      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>
         <div class="ll-row">${cards}${more}</div></div>`;
     };
-    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
+    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length && !(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0))).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
     const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
     return `<section class="rd-learn rd-learnhubs">${_lrnStateOrder().map(shelf).join('')}
         ${soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : ''}
@@ -4599,20 +4607,22 @@ function app(tab){
     const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
     const forNow = lastK ? _lrnForDaily(lastK) : null;
     _rdShell(`
-          <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
-          ${_lmChipsHTML()}
+          <div class="scr-head read-head" id="lm-learn"><h1 class="read-h1">Learn</h1></div>
+          ${_lmActiveHTML()}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
           ${_lmFiltered() ? _lmListHTML() : `${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
           ${_rdLearnSection()}`}
-          </div>`, { tab:'learn', search:true });
+          </div>
+          ${_lmSheetHTML()}`, { tab:'learn', search:true, dock:_lmFbtnHTML() });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
     root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+    root.querySelectorAll('.rd-learnhubs [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
     _lmWire();
-    _lrnSearchWire(open);
+    _lrnSearchWire(open, id=>screenMedia(id, here));
   }
   // ---- Listen and watch (2026-10-26; mockups "Learn Library Mockups"). Justin: "throw all of the free Learn content in
   // together and have it be filtered by media and topic." The list is learn/media.json, built from Captivate and YouTube by
@@ -4636,47 +4646,157 @@ function app(tab){
   const _lmKind = x => x.s === 'p' ? 'Podcast' : x.s === 'c' ? 'Stucknaut Collective' : x.s === 'v' ? 'Video' : 'Short';
   const _lmIsListen = x => x.s === 'p' || x.s === 'c';
   const _lmState = x => (x.g || []).find(g=>_LM_STATES.indexOf(g) >= 0) || null;
+  // ---- round 2 (2026-10-26): Justin's asks. One meta line on every card ([media icon] · length · date), counts in lessons,
+  // every combined list grouped by type, a published-date filter, and a Filter button with a slide-up sheet that holds the
+  // filters (the chip rows moved into it; the page shows only what is on, each with an ×).
+  let _lmWhen = 'any';
+  const _LM_TYPES = [['a', 'Articles'], ['p', 'Podcast'], ['c', 'Stucknaut Collective'], ['v', 'Videos'], ['s', 'Shorts']];
+  const _LM_NOUN = { a:'articles', p:'episodes', c:'episodes', v:'videos', s:'Shorts' };
+  const _LM_MEDIA = [['all', 'All'], ['read', 'Read'], ['listen', 'Listen'], ['watch', 'Watch']];
+  const _LM_WHENS = [['any', 'Any time'], ['month', 'Past month'], ['year', 'Past year'], ['older', 'Older than a year']];
+  const _LM_MI = { read:'<path d="M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"/>',
+    listen:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"/>', watch:'<path d="M8 5.5v13l11-6.5z"/>' };
+  const _lmMi = (k, label) => `<svg class="lm-mi" viewBox="0 0 24 24" role="img" aria-label="${escapeHtml(label)}">${_LM_MI[k]}</svg>`;
+  const _LM_SEP = '<span class="lm-sep" aria-hidden="true">·</span>';
+  function _lmMetaHTML(k, label, len, date, lock, read){
+    const parts = [_lmMi(k, label)];
+    if(len) parts.push(escapeHtml(len));
+    if(date) parts.push(escapeHtml(_lmDate(date)));
+    if(lock) parts.push(LOCK_SVG + 'Paid plan');
+    if(read) parts.push(_lrnReadMk() + 'Read');
+    return parts.join(_LM_SEP);
+  }
+  // articles have no published date of their own; the ones made from a podcast episode take the episode's date when its
+  // number is unique in the feed (the new season restarted at 1)
+  let _lmEpDate = null;
+  function _lmArtDate(p){
+    if(!p || !p.episode || !_lmData) return '';
+    if(!_lmEpDate){ const n = {}; _lmEpDate = {}; _lmData.items.forEach(x=>{ if(x.s === 'p' && x.e){ n[x.e] = (n[x.e] || 0) + 1; _lmEpDate[x.e] = x.d; } }); Object.keys(n).forEach(e=>{ if(n[e] > 1) delete _lmEpDate[e]; }); }
+    return _lmEpDate[p.episode] || '';
+  }
+  const _lmArtMeta = p => _lmMetaHTML('read', p.paid ? 'Book chapter' : 'Article', (p.minutes || 1) + ' min read', _lmArtDate(p), p.paid && !paidNow(), _lrnIsRead(p.id));
+  const _lmMedMeta = x => _lmMetaHTML(_lmIsListen(x) ? 'listen' : 'watch', _lmKind(x) + (_lmIsListen(x) ? ' episode' : ''), x.s === 's' && !x.n ? 'under a minute' : _lmLen(x.n), x.d, x.s === 'c' && !paidNow(), false);
   function _lmRowHTML(x){
-    const lock = x.s === 'c' && !paidNow();
-    return `<button class="lm-row" type="button" data-media="${escapeHtml(x.i)}">${_lmIcon(_lmIsListen(x) ? 'listen' : 'watch')}<span class="lm-tx"><b>${escapeHtml(x.t)}</b><span class="lm-meta">${lock ? LOCK_SVG : ''}<span>${escapeHtml(_lmKind(x) + (x.n ? ' · ' + _lmLen(x.n) : ''))}</span></span></span><span class="wc-go">${CHEV}</span></button>`;
+    return `<button class="lm-row" type="button" data-media="${escapeHtml(x.i)}"><span class="lm-tx"><b>${escapeHtml(x.t)}</b><span class="lm-m">${_lmMedMeta(x)}</span></span><span class="wc-go">${CHEV}</span></button>`;
   }
   function _lmArtRowHTML(p){
-    const lock = p.paid && !paidNow();
-    return `<button class="lm-row${_lrnIsRead(p.id) ? ' is-read' : ''}" type="button" data-piece="${escapeHtml(p.id)}">${_lmIcon('read')}<span class="lm-tx"><b>${escapeHtml(p.title)}</b><span class="lm-meta">${lock ? LOCK_SVG : ''}<span>${escapeHtml(p.paid ? 'Book chapter' : 'Article')}</span>${_lrnIsRead(p.id) ? _lrnReadMk() : ''}</span></span><span class="wc-go">${CHEV}</span></button>`;
+    return `<button class="lm-row${_lrnIsRead(p.id) ? ' is-read' : ''}" type="button" data-piece="${escapeHtml(p.id)}"><span class="lm-tx"><b>${escapeHtml(p.title)}</b><span class="lm-m">${_lmArtMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`;
   }
-  function _lmChipsHTML(){
-    const chip = (grp, id, label, on, mk) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${grp}="${id}" aria-pressed="${on}">${mk || ''}<span>${escapeHtml(label)}</span></button>`;
-    return `<div class="lm-chips" role="group" aria-label="Media">${[['all', 'All'], ['read', 'Read'], ['listen', 'Listen'], ['watch', 'Watch']].map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
-          <div class="lm-chips lm-chips-t" role="group" aria-label="Topic">${_LM_TOPICS.map(([id, l])=>chip('lmt', id, l || STATE_LABEL(id), _lmTopic === id, _LM_STATES.indexOf(id) >= 0 ? _rdMk(id) : '')).join('')}</div>`;
+  const _lmTopicLabel = t => window.Learning.TOPICS[t] || STATE_LABEL(t);
+  function _lmWhenOk(d){
+    if(_lmWhen === 'any') return true; if(!d) return false;
+    const age = (Date.now() - new Date(d + 'T12:00:00').getTime()) / 864e5;
+    return _lmWhen === 'month' ? age <= 31 : _lmWhen === 'year' ? age <= 366 : age > 366;
   }
-  const _lmFiltered = () => _lmMedia === 'all' && _lmTopic === 'all' ? false : true;
+  // every lesson that matches, grouped by type in the library's order. hub: a hub's own lessons, no date filter
+  function _lmGroups(m, t, hub){
+    const L = window.Learning;
+    const okW = hub ? ()=>true : _lmWhenOk;
+    const arts = (m === 'all' || m === 'read') ? (hub ? L.inGroup(t) : L.PIECES.filter(p=>t === 'all' || p.state === t || (p.groups || []).indexOf(t) >= 0)).filter(p=>okW(_lmArtDate(p))) : [];
+    const med = m === 'read' || !_lmData ? [] : _lmData.items.filter(x=>(m === 'all' || (m === 'listen') === _lmIsListen(x)) && (t === 'all' || (x.g || []).indexOf(t) >= 0) && okW(x.d));
+    const out = [];
+    _LM_TYPES.forEach(([k, label])=>{ const list = k === 'a' ? _lrnByRead(arts) : med.filter(x=>x.s === k); if(list.length) out.push({ k, label, list }); });
+    return out;
+  }
+  const _lmN = gs => gs.reduce((s, g)=>s + g.list.length, 0);
+  const _lmLessons = n => n === 1 ? '1 lesson' : n + ' lessons';
+  // the groups as rows under their own headings, `limit` rows in all (the rest behind Show more)
+  function _lmGroupsHTML(gs, rowA, rowM, limit, cls){
+    let left = limit == null ? Infinity : limit; const out = [];
+    gs.forEach(g=>{ if(left <= 0) return; const rows = g.list.slice(0, left); left -= rows.length;
+      out.push(`<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="${cls}">${rows.map(e=>g.k === 'a' ? rowA(e) : rowM(e)).join('')}</div>`); });
+    return out.join('');
+  }
+  const _lmFiltered = () => !(_lmMedia === 'all' && _lmTopic === 'all' && _lmWhen === 'any');
+  // the filtered list: each type under its own heading, the first eight of each, then "Show all" for that type
+  let _lmOpen = {};
   function _lmListHTML(){
-    const L = window.Learning, t = _lmTopic, m = _lmMedia;
-    const arts = (m === 'all' || m === 'read') ? L.PIECES.filter(p=>t === 'all' || p.state === t || (p.groups || []).indexOf(t) >= 0) : [];
-    const med = m === 'read' ? [] : _lmData ? _lmData.items.filter(x=>(m === 'all' || (m === 'listen') === _lmIsListen(x)) && (t === 'all' || (x.g || []).indexOf(t) >= 0)) : null;
-    const rows = _lrnByRead(arts).map(_lmArtRowHTML).concat((med || []).map(_lmRowHTML));
-    const n = rows.length, wait = med === null;
-    return `<section class="rd-learn lm-list"><p class="ll-res-n">${escapeHtml(n === 1 ? '1 piece' : n + ' pieces')}${wait ? ' <span class="ll-res-wait">Loading episodes and videos…</span>' : ''}</p>
-          <div class="lm-rows">${rows.slice(0, _lmShown).join('')}</div>${n > _lmShown ? '<button class="ll-showall lm-more" type="button">Show more</button>' : ''}</section>`;
+    const gs = _lmGroups(_lmMedia, _lmTopic), n = _lmN(gs), wait = !_lmData && _lmMedia !== 'read';
+    const sec = g => { const all = !!_lmOpen[g.k] || g.list.length <= 10, rows = all ? g.list : g.list.slice(0, 8);
+      return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="lm-rows">${rows.map(e=>g.k === 'a' ? _lmArtRowHTML(e) : _lmRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall lm-more" type="button" data-lmgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
+    return `<section class="rd-learn lm-list"><p class="ll-res-n">${escapeHtml(n || wait ? _lmLessons(n) : 'No lessons match these filters.')}${wait ? ' <span class="ll-res-wait">Loading episodes and videos…</span>' : ''}</p>
+          ${gs.map(sec).join('')}${!n && !wait ? '<button class="lm-clear" type="button" data-lmx="all">Clear filters</button>' : ''}</section>`;
+  }
+  // what is filtered, under the heading: one pill each, × takes it off
+  function _lmActiveHTML(){
+    if(!_lmFiltered()) return '';
+    const on = [];
+    if(_lmMedia !== 'all') on.push(['lmm', (_LM_MEDIA.find(x=>x[0] === _lmMedia) || [])[1]]);
+    if(_lmTopic !== 'all') on.push(['lmt', _lmTopicLabel(_lmTopic)]);
+    if(_lmWhen !== 'any') on.push(['lmw', (_LM_WHENS.find(x=>x[0] === _lmWhen) || [])[1]]);
+    return `<div class="lm-active" role="group" aria-label="Filters">${on.map(([g, l])=>`<button class="lm-chip on" type="button" data-lmx="${g}" aria-label="Take off ${escapeHtml(l)}"><span>${escapeHtml(l)}</span><span class="lm-x" aria-hidden="true">×</span></button>`).join('')}${on.length > 1 ? '<button class="lm-clear" type="button" data-lmx="all">Clear all</button>' : ''}</div>`;
+  }
+  const _lmOnCount = () => (_lmMedia !== 'all') + (_lmTopic !== 'all') + (_lmWhen !== 'any');
+  const _lmFbtnHTML = () => { const n = _lmOnCount(); return `<button class="jr-fbtn lm-fbtn" id="lm-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="lm-fsheet" aria-label="${n ? 'Filter, ' + n + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${n ? `<span class="lm-fn" aria-hidden="true">${n}</span>` : ''}</button>`; };
+  function _lmSheetHTML(){
+    const L = window.Learning;
+    const chip = (grp, id, label, on, mk) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${grp}="${id}" aria-pressed="${on}">${mk || ''}<span>${escapeHtml(label)}</span></button>`;
+    const hasMed = k => !!(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0));
+    const states = L.STATE_HUBS.filter(k=>L.inGroup(k).length || hasMed(k)), topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length || hasMed(k));
+    return `<div class="rd-jr-sheet lm-fsheet" id="lm-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in">
+        <span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="lm-fs-body">
+          <span class="rd-eyeb">Media</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
+          <span class="rd-eyeb">Published</span><div class="lm-chips">${_LM_WHENS.map(([id, l])=>chip('lmw', id, l, _lmWhen === id)).join('')}</div>
+          <p class="lm-fs-note">Most articles have no published date, so they show under Any time.</p>
+          <span class="rd-eyeb">Topic</span><div class="lm-chips">${chip('lmt', 'all', 'All topics', _lmTopic === 'all')}${states.map(k=>chip('lmt', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
+        </div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lm-fclear">Clear all</button><button class="lm-fshow" type="button" id="lm-fshow">Show</button></div>
+      </div></div>`;
+  }
+  function _lmWireSheet(){
+    const btn = $('#lm-fbtn'), sh = $('#lm-fsheet'); if(!btn || !sh) return;
+    const box = sh.querySelector('.rd-jr-sheet-in'), show = $('#lm-fshow');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const now = () => [_lmMedia, _lmTopic, _lmWhen].join('|');
+    let before = now(), tmr = null;
+    const paint = () => {
+      sh.querySelectorAll('[data-lmm]').forEach(b=>{ const on = b.dataset.lmm === _lmMedia; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      sh.querySelectorAll('[data-lmt]').forEach(b=>{ const on = b.dataset.lmt === _lmTopic; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      sh.querySelectorAll('[data-lmw]').forEach(b=>{ const on = b.dataset.lmw === _lmWhen; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      show.textContent = _lmFiltered() ? 'Show ' + _lmLessons(_lmN(_lmGroups(_lmMedia, _lmTopic))) : 'Show all lessons';
+    };
+    const esc = e => { if(e.key === 'Escape') close(); };
+    const open = () => { clearTimeout(tmr); before = now(); paint(); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc); };
+    const close = () => {
+      document.removeEventListener('keydown', esc);
+      sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); btn.setAttribute('aria-expanded', 'false');
+      tmr = setTimeout(()=>{ sh.hidden = true; if(now() !== before){ _lmOpen = {}; _lmRedraw(true); } else try{ btn.focus({ preventScroll:true }); }catch(e){} }, reduce ? 0 : 320);
+    };
+    btn.onclick = open;
+    sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
+    sh.onclick = e => { if(e.target === sh) close(); };
+    sh.querySelectorAll('[data-lmm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lmm; paint(); });
+    sh.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lmt; paint(); });
+    sh.querySelectorAll('[data-lmw]').forEach(b=>b.onclick=()=>{ _lmWhen = b.dataset.lmw; paint(); });
+    $('#lm-fclear').onclick = () => { _lmMedia = 'all'; _lmTopic = 'all'; _lmWhen = 'any'; paint(); };
+    // down on the top of the sheet closes it, as the Journal sheet does
+    let y0 = 0, dragging = false;
+    box.addEventListener('touchstart', e=>{ y0 = e.touches[0].clientY; dragging = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab'); }, { passive:true });
+    box.addEventListener('touchmove', e=>{ if(!dragging) return; const dy = e.touches[0].clientY - y0; box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, dy)}px)`; }, { passive:true });
+    box.addEventListener('touchend', e=>{ if(!dragging) return; dragging = false; box.style.transition = ''; if(e.changedTouches[0].clientY - y0 > 90) close(); else box.style.transform = ''; });
   }
   // redraw Learn where it was: the page's scroll and the topic row's scroll both stay put
   function _lmRedraw(top){
-    const sc = root.querySelector('.scroll'), tr = root.querySelector('.lm-chips-t');
+    const sc = root.querySelector('.scroll'), tr = root.querySelector('.lm-active');
     const y = top ? 0 : sc ? sc.scrollTop : 0, x = tr ? tr.scrollLeft : 0;
     screenLearn(true);
-    const s2 = root.querySelector('.scroll'), t2 = root.querySelector('.lm-chips-t');
+    const s2 = root.querySelector('.scroll'), t2 = root.querySelector('.lm-active');
     if(s2) s2.scrollTop = y; if(t2) t2.scrollLeft = x;
   }
   function _lmWire(){
-    root.querySelectorAll('[data-lmm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lmm; _lmShown = 40; _lmRedraw(true); });
-    root.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lmt; _lmShown = 40; _lmRedraw(true); });
-    if(!_lmData) setTimeout(_lmLoad, 1200);
+    root.querySelectorAll('[data-lmx]').forEach(b=>b.onclick=()=>{ const g = b.dataset.lmx;
+      if(g === 'lmm' || g === 'all') _lmMedia = 'all'; if(g === 'lmt' || g === 'all') _lmTopic = 'all'; if(g === 'lmw' || g === 'all') _lmWhen = 'any';
+      _lmOpen = {}; _lmRedraw(true); });
+    _lmWireSheet();
+    // the library list gives the counts and the episode and video cards: once it is here, draw Learn again where it was
+    if(!_lmData) _lmLoad().then(d=>{ if(d && root.querySelector('#lm-learn') && !(document.activeElement && document.activeElement.id === 'll-q') && !document.body.classList.contains('jr-sheet-on')) _lmRedraw(); });
     const box = root.querySelector('.lm-list'); if(!box) return;
+    box.querySelectorAll('[data-lmgrp]').forEach(b=>b.onclick=()=>{ _lmOpen[b.dataset.lmgrp] = true; _lmRedraw(); });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     box.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here); });
     box.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
-    const mb = box.querySelector('.lm-more'); if(mb) mb.onclick = ()=>{ _lmShown += 40; _lmRedraw(); };
-    if(!_lmData && _lmMedia !== 'read') _lmLoad().then(d=>{ if(d && box.isConnected) _lmRedraw(); });
   }
   // the member's own data for what this piece covers (the same idea as the articles' callouts)
   function _lmCheckinsHTML(x){
@@ -4706,6 +4826,66 @@ function app(tab){
     }
     root.querySelectorAll('.rd-jr-locked, .lm-sub').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
   }
+  // descriptions (round 2): learn/media-desc.json, {d:{id:text}} from the episode show notes and the video descriptions,
+  // links and hashtags taken out (snb-business learn-media/media-desc.py). Loaded on the first media screen. An episode
+  // without one takes its video's, and the other way round.
+  let _lmDesc = null, _lmDescP = null;
+  function _lmDescLoad(){
+    if(_lmDesc) return Promise.resolve(_lmDesc);
+    if(!_lmDescP) _lmDescP = fetch('learn/media-desc.json?v=1').then(r=>{ if(!r.ok) throw new Error('desc'); return r.json(); })
+      .then(d=>{ _lmDesc = d && d.d ? d.d : {}; return _lmDesc; }).catch(()=>{ _lmDescP = null; return null; });
+    return _lmDescP;
+  }
+  const _lmDescOf = x => _lmDesc ? (_lmDesc[x.i] || (x.y && _lmDesc[x.y]) || (x.p && _lmDesc[x.p]) || '') : '';
+  function _lmDescHTML(x){
+    const ps = _lmDescOf(x).split(/\n{2,}/).map(t=>t.trim()).filter(Boolean); if(!ps.length) return '';
+    const p = t => `<p class="read-p">${escapeHtml(t)}</p>`;
+    return `<span class="rd-eyeb">About this ${x.s === 'p' || x.s === 'c' ? 'episode' : x.s === 's' ? 'Short' : 'video'}</span>${p(ps[0])}${ps.length > 1 ? `<div class="lm-desc-more" hidden>${ps.slice(1).map(p).join('')}</div><button class="lm-desc-btn" type="button" aria-expanded="false">Show more</button>` : ''}`;
+  }
+  function _lmWireDesc(scope){
+    const b = scope.querySelector('.lm-desc-btn'), m = scope.querySelector('.lm-desc-more'); if(!b || !m) return;
+    b.onclick = () => { const on = m.hidden; m.hidden = !on; b.textContent = on ? 'Show less' : 'Show more'; b.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+  }
+  function _lmFillDesc(x){
+    const box = $('#lm-desc'); if(!box) return;
+    const fill = () => { const h = _lmDescHTML(x); box.innerHTML = h; box.hidden = !h; _lmWireDesc(box); };
+    if(_lmDesc) return fill();
+    _lmDescLoad().then(d=>{ if(d && box.isConnected) fill(); });
+  }
+  // Keep learning on every media screen, as the articles have (Justin, 2026-10-26): something to read, to listen to, to
+  // watch, a practice, and the learning hubs. Picked by the topics the piece shares (from titles until the transcript pass);
+  // among equal picks the piece's own id chooses, so each screen keeps its picks and they vary across screens.
+  function _lmKeepHTML(x){
+    const L = window.Learning, g = x.g || [], st = _lmState(x), paid = paidNow();
+    let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const pick = (list, score) => { let best = 0, top = []; list.forEach(e=>{ const n = score(e); if(n > best){ best = n; top = [e]; } else if(n && n === best) top.push(e); }); return top.length ? top[h % top.length] : null; };
+    const shared = gs => (gs || []).filter(k=>g.indexOf(k) >= 0).length;
+    const rows = [];
+    if(g.length){
+      const sc = p => shared(p.groups) + (st && p.state === st ? 1 : 0);
+      const read = pick(L.PIECES.filter(p=>!_lrnIsRead(p.id)), sc) || pick(L.PIECES, sc);
+      if(read) rows.push(['Read next', _lrnRowHTML(read)]);
+    }
+    const others = _lmData ? _lmData.items.filter(e=>e.i !== x.i && e.i !== x.y && e.i !== x.p && (paid || e.s !== 'c')) : [];
+    const next = kinds => { const list = others.filter(e=>kinds.indexOf(e.s) >= 0); return g.length ? pick(list, e=>shared(e.g)) : list[0] || null; };
+    const lis = next(x.s === 'c' ? ['c', 'p'] : ['p']), wat = next(x.s === 's' ? ['s'] : ['v']);
+    const ord = _lmIsListen(x) ? [['Listen next', lis], ['Watch next', wat]] : [['Watch next', wat], ['Listen next', lis]];
+    ord.forEach(([l, e])=>{ if(e) rows.push([l, _lrnMediaRowHTML(e)]); });
+    const pt = _lrnPracticeThis({ practice:'custom' });
+    const hubs = g.filter(k=>L.HUBS[k]);
+    return `<section class="rd-learn rd-keep lm-keep"><h3 class="sec-h">Keep learning</h3>
+        ${rows.map(([l, r])=>`<span class="rd-eyeb rd-keep-eyeb">${escapeHtml(l)}</span><div class="rd-list rd-list-flat">${r}</div>`).join('')}
+        <span class="rd-eyeb rd-keep-eyeb">Practice</span><button class="rd-pcard" type="button" data-prac="custom"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button>
+        ${hubs.length ? `<span class="rd-eyeb rd-keep-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubs.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div>` : ''}
+      </section>`;
+  }
+  function _lmWireKeep(scope, here){
+    const L = window.Learning;
+    scope.querySelectorAll('.lm-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here.go, tab:'learn' }); });
+    scope.querySelectorAll('.lm-keep [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    scope.querySelectorAll('.lm-keep [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    scope.querySelectorAll('.lm-keep [data-prac]').forEach(b=>b.onclick=()=>renderPlan(_lrnPracticeReco({ practice:'custom' }), _trueBack(here.go)));
+  }
   const _LM_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>';
   const _LM_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
   // an episode, a video or a Short
@@ -4720,15 +4900,17 @@ function app(tab){
     const here = { label:'Back', go:()=>screenMedia(id, from) };
     const meta = [x.e ? 'Episode ' + x.e : '', _lmLen(x.n), _lmDate(x.d)].filter(Boolean).join(' · ');
     if(x.s === 's'){
-      const ci = _lmCheckinsHTML(x) + _lmJournalHTML(x);
+      const ci = `<div class="lm-desc lm-card" id="lm-desc" hidden></div>` + _lmCheckinsHTML(x) + _lmJournalHTML(x) + `<div class="lm-sheet-keep">${_lmKeepHTML(x)}</div>`;
       _rdShell(`<div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
           <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1>
           ${ci ? `<div class="lm-sheet" id="lm-sheet" aria-hidden="true">${ci}</div>` : ''}`,
-        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">Your check-ins</button>` : '' });
+        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">About this Short</button>` : '' });
       document.body.classList.add('lm-dark');
       const cb = $('#lm-ci'), sh = $('#lm-sheet');
       if(cb && sh) cb.onclick = ()=>{ const on = !sh.classList.contains('open'); sh.classList.toggle('open', on); sh.setAttribute('aria-hidden', on ? 'false' : 'true'); cb.setAttribute('aria-expanded', on ? 'true' : 'false'); };
       _lmWireCards(x);
+      _lmFillDesc(x);
+      _lmWireKeep(root, here);
       return;
     }
     const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();
@@ -4743,8 +4925,10 @@ function app(tab){
     const pair = x.y ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.y)}">${_lmIcon('watch')}<span class="lm-tx"><b>Watch the video</b><span class="lm-meta"><span>The same episode on video</span></span></span><span class="wc-go">${CHEV}</span></button>`
       : x.p ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.p)}">${_lmIcon('listen')}<span class="lm-tx"><b>Listen to the episode</b><span class="lm-meta"><span>The podcast version</span></span></span><span class="wc-go">${CHEV}</span></button>` : '';
     _rdShell(`<div class="lm-head"><span class="rd-eyeb">${escapeHtml(eyeb)}</span><h1 class="rd-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="lm-meta-l">${escapeHtml(meta)}</p>` : ''}</div>
-          ${player}${_lmCheckinsHTML(x)}${_lmJournalHTML(x)}${pair}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
+          ${player}<div class="lm-desc" id="lm-desc" hidden></div>${pair}${_lmCheckinsHTML(x)}${_lmJournalHTML(x)}${_lmKeepHTML(x)}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
     root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    _lmFillDesc(x);
+    _lmWireKeep(root, here);
     _lmWireCards(x);
     if(listen && !locked) _lmWirePlayer(x);
   }
@@ -4793,27 +4977,47 @@ function app(tab){
     a.onerror = () => { if(!a.getAttribute('src')) return; ready = false; say("This episode didn't load. Check your connection and try again."); };
     paint();
   }
+  // episodes and videos in search (round 2): their titles, and their descriptions once those are here
+  function _lmSearch(q){
+    if(!_lmData) return [];
+    const terms = _lrnNorm(q).split(/[^a-z0-9'-]+/).map(t=>t.replace(/^['-]+|['-]+$/g, '')).filter(t=>t.length >= 2);
+    if(!terms.length) return [];
+    const out = [];
+    _lmData.items.forEach((x, i)=>{
+      const ti = _lrnNorm(x.t), de = _lmDesc ? _lrnNorm(_lmDesc[x.i] || '') : '';
+      let score = 0;
+      for(const t of terms){ const n = (ti.indexOf(t) >= 0 ? 10 : 0) + (de.indexOf(t) >= 0 ? 2 : 0); if(!n) return; score += n; }
+      out.push({ x, score, i });
+    });
+    return out.sort((a,b)=> b.score - a.score || a.i - b.i).map(o=>o.x);
+  }
   // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
-  function _lrnSearchWire(open){
+  function _lrnSearchWire(open, openMedia){
+    openMedia = openMedia || (id=>screenMedia(id, { label:'Learn', go:()=>screenLearn(true) }));
     const dock = $('#fl-dock'), sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
     if(!sf || !qi || !res || !browse) return;
-    let shown = 30, tm = null;
+    let shown = 30, tm = null, openG = {};
     const sc = root.querySelector('.scroll');
     const draw = ()=>{
       const q = _lrnQ.trim();
       if(q.length < 2){ res.innerHTML = ''; browse.hidden = false; return; }
       if(!browse.hidden && sc) sc.scrollTop = 0;
       browse.hidden = true;
-      const hits = _lrnSearch(q), more = hits.length > shown;
-      const loading = !_lrnSIdx;
+      const hits = _lrnSearch(q), mh = _lmSearch(q);
+      const gs = [{ k:'a', label:'Articles', list:hits }].concat(_LM_TYPES.slice(1).map(([k, label])=>({ k, label, list:mh.filter(x=>x.s === k) }))).filter(g=>g.list.length);
+      const n = hits.length + mh.length;
+      const loading = !_lrnSIdx || !_lmData;
+      // each type under its own heading: the first few, then "Show all" for that type
+      const sec = g => { const cap = g.k === 'a' ? 10 : 5, all = !!openG[g.k] || g.list.length <= cap + 2, rows = all ? g.list : g.list.slice(0, cap);
+        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="rd-list rd-list-flat">${rows.map(e=>g.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
       res.innerHTML = `<section class="rd-learn ll-res">
-          <p class="ll-res-n">${hits.length ? escapeHtml(hits.length === 1 ? '1 article' : hits.length + ' articles') : escapeHtml('No articles match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching the article text…</span>' : ''}</p>
-          ${hits.length ? `<div class="rd-list rd-list-flat">${hits.slice(0, shown).map(_lrnRowHTML).join('')}</div>` : ''}
-          ${more ? `<button class="ll-showall ll-res-more" type="button">Show more</button>` : ''}
+          <p class="ll-res-n">${n ? escapeHtml(_lmLessons(n)) : escapeHtml('No lessons match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching…</span>' : ''}</p>
+          ${gs.map(sec).join('')}
         </section>`;
       res.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
-      const mb = res.querySelector('.ll-res-more'); if(mb) mb.onclick = ()=>{ shown += 30; draw(); };
-      if(loading) _lrnSearchIndex().then(d=>{ if(d && res.isConnected && _lrnQ.trim() === q) draw(); });
+      res.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>openMedia(b.dataset.media));
+      res.querySelectorAll('[data-sgrp]').forEach(b=>b.onclick=()=>{ openG[b.dataset.sgrp] = true; draw(); });
+      if(loading) Promise.all([_lrnSearchIndex(), _lmLoad()]).then(([d, m])=>{ if((d || m) && res.isConnected && _lrnQ.trim() === q) draw(); });
     };
     // while typing on a phone only the search field rides up with the keyboard (Justin, 2026-10-02: "the keyboard pushes up
     // the entire bottom menu"): the bottom menu hides, and the field sits on the top edge of the keyboard
@@ -4829,9 +5033,9 @@ function app(tab){
     const setOpen = on => { sf.classList.toggle('open', on); dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
     setOpen(!!_lrnQ);
     sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
-    qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; clearTimeout(tm); tm = setTimeout(draw, 120); };
+    qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; openG = {}; clearTimeout(tm); tm = setTimeout(draw, 120); };
     qi.onkeydown = e=>{ if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
-    qi.onfocus = ()=>{ _lrnSearchIndex(); lift(); };
+    qi.onfocus = ()=>{ _lrnSearchIndex(); _lmLoad(); _lmDescLoad(); lift(); };
     qi.onblur = ()=>{ lift(); setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
     qx.onmousedown = e=>e.preventDefault();
     qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
@@ -5822,9 +6026,13 @@ function app(tab){
     return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
   }
   const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
-  const _lrnHubCount = key => { const n = window.Learning.inGroup(key).length; return n === 1 ? '1 article' : n + ' articles'; };
+  // a hub's count is every lesson on its topic: articles, episodes and videos (Justin, 2026-10-26: "Safety · 345 lessons");
+  // blank for the moment the library list is still loading
+  const _lrnHubCount = key => { if(!_lmData){ _lmLoad(); return ''; } const n = window.Learning.inGroup(key).length + _lmData.items.filter(x=>(x.g || []).indexOf(key) >= 0).length; return n === 1 ? '1 lesson' : n + ' lessons'; };
   // a row that opens a piece (hubs, keep learning)
-  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}">${p.state ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.state)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${p.paid && !paidNow() ? LOCK_SVG + 'Paid plan · ' : ''}${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml((p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}">${p.state ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.state)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span class="lm-m">${_lmArtMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  // a row that opens an episode, a video or a Short (hubs, search, keep learning)
+  const _lrnMediaRowHTML = x => { const st = _lmState(x); return `<button class="rd-row" type="button" data-media="${escapeHtml(x.i)}">${st ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(st)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(x.t)}</b><span class="lm-m">${_lmMedMeta(x)}</span></span><span class="wc-go">${CHEV}</span></button>`; };
   // a row that opens a hub
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
@@ -5843,6 +6051,8 @@ function app(tab){
     // related hubs: the ones its articles share most, six at most (2026-10-02, the library grew to ~150)
     const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = (related[g]||0) + 1; }));
     const relKeys = Object.keys(related).sort((a,b)=> related[b] - related[a]).slice(0, 6);
+    // every lesson on the hub's topic, grouped by type (Justin, 2026-10-26); episodes and videos come once the library list is here
+    const hubGroups = _lmGroups('all', key, true);
     _rdShell(`
         <div id="ll-results" aria-live="polite"></div>
         <div id="ll-browse">
@@ -5850,18 +6060,20 @@ function app(tab){
         <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
         ${mine}
         ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
-        <section class="rd-learn"><h3 class="sec-h">Articles</h3>
-          ${pieces.length ? `<div class="rd-list rd-list-flat">${_lrnByRead(pieces).map((p, i)=>i < 12 ? _lrnRowHTML(p) : _lrnRowHTML(p).replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"')).join('')}</div>${pieces.length > 12 ? `<button class="ll-showall" type="button">Show all ${pieces.length} articles</button>` : ''}` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
-        </section>
+        ${hubGroups.length ? hubGroups.map(gr=>{ const n = gr.k === 'a' ? 12 : 6;
+            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3><div class="rd-list rd-list-flat">${gr.list.map((e, i)=>{ const r = gr.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e); return i < n ? r : r.replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"'); }).join('')}</div>${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
+          : `<section class="rd-learn"><p class="read-p rd-empty">${_lmData ? 'Lessons for this hub are on the way.' : 'One moment…'}</p></section>`}
         ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
         </div>`,
       { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
-    root.querySelectorAll('.ll-showall').forEach(b=>b.onclick=()=>{ root.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
+    root.querySelectorAll('.lm-hubsec .ll-showall').forEach(b=>b.onclick=()=>{ b.parentElement.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
     root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+    root.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, { label:'Back', go:here }));
+    if(!_lmData){ const t = root.querySelector('.rd-hub-title'); _lmLoad().then(d=>{ if(d && t && t.isConnected){ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; } }); }
     root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
     _lrnWireLinks({ label:'Back', go:here, tab:'learn' });
-    _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+    _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); }, id=>screenMedia(id, { label:'Back', go:here }));
   }
   // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
   // "Practice this" (Justin, 2026-10-01): the practice the ARTICLE is about, tuned to what works for this member

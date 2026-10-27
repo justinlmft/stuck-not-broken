@@ -4616,3 +4616,43 @@ body.lm-dark .scroll,body.lm-dark .view.read{background:#14171E;color:var(--bone
 .lm-sheet .lm-card{background:transparent;margin:0;padding:20px 20px 4px}
 .lm-sheet .rd-jr{margin:12px 20px 0}
 @media (prefers-reduced-motion:reduce){.lm-sheet{transition:none}}
+
+/* Learn library round 2 (2026-10-26): one meta line on every card, type groups, the Filter button and sheet, descriptions */
+.lm-m{display:block;font-size:13px;line-height:18px;color:var(--muted)}
+.rd-row-t .lm-m{font-size:calc(12.5px * var(--type-scale))}
+.lm-m span{font-size:inherit;color:inherit}
+.lm-mi{display:inline-block;width:14px;height:14px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.lm-sep{display:inline-block;margin:0 5px}
+.lm-m .rd-lk{width:13px;height:13px;vertical-align:-2px;margin-right:3px;display:inline-block}
+.lm-m .rd-readmk{display:inline-block;vertical-align:-3px;margin-right:2px}
+.ll-card-meta.lm-m{padding:0 12px}
+.lm-gh{display:flex;align-items:baseline;gap:8px;margin:20px 0 8px;font-size:calc(15px * var(--type-scale));font-weight:600;color:var(--ink)}
+.lm-gh:first-of-type{margin-top:4px}
+.lm-gn{font-size:13px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.ll-res .lm-gh{margin-top:16px}
+.lm-active{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 16px}
+.lm-x{font-size:17px;line-height:1;margin-left:2px}
+.lm-clear{min-height:36px;padding:0 6px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.lm-list > .lm-clear{margin-top:4px}
+.lm-fbtn{position:relative}
+.lm-fn{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;background:var(--ink);color:var(--bone);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+.fl-dock.sf-open .lm-fbtn{display:none}
+.lm-fsheet .rd-jr-sheet-in{height:auto;max-height:min(640px, 88dvh)}
+.lm-fs-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px;padding:4px 0 8px}
+.lm-fs-body .rd-eyeb{margin-top:6px}
+.lm-fs-body .lm-chips{margin:0}
+.lm-fs-note{margin:0;font-size:13px;line-height:18px;color:var(--muted)}
+.lm-fs-foot{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:1px solid var(--hairline)}
+.lm-fshow{min-height:48px;padding:0 22px;border-radius:999px;border:0;background:var(--ink);color:var(--bone);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.lm-fshow:focus-visible,.lm-clear:focus-visible,.lm-desc-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.lm-desc{display:flex;flex-direction:column;gap:10px;margin:0 0 20px}
+.lm-desc[hidden]{display:none}
+.lm-desc .read-p,.lm-desc-more .read-p{margin:0;white-space:pre-line}
+.lm-desc-more{display:flex;flex-direction:column;gap:10px}
+.lm-desc-more[hidden]{display:none}
+.lm-desc-btn{align-self:flex-start;min-height:40px;padding:0;border:0;background:transparent;color:var(--ink);font:inherit;font-size:15px;font-weight:500;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.lm-keep{margin-top:8px}
+.lm-keep .rd-pcard{margin:0 0 4px}
+.lm-sheet .lm-desc.lm-card{margin:0}
+.lm-sheet-keep{padding:4px 20px 0}
+.lm-sheet .lm-keep .sec-h{margin-top:12px}
