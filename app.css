@@ -4586,6 +4586,43 @@ body.lw-in-room .tabbar{display:none}
 .lw-st-t{color:inherit}
 .lw-st-s{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.35}
 /* a check-in shared in the chat, drawn like the share cards (2026-10-27) */
+/* mic / camera with a device arrow (2026-10-27) */
+.lw-split{display:flex;align-items:stretch;min-width:0;border-radius:14px}
+.lw-split > .lw-ctl{flex:1;min-width:0}
+.lw-split.on{background:var(--bone-deep)}
+.lw-split.on > .lw-ctl.on{background:transparent}
+.lw-caret{flex:none;width:30px;border:0;border-radius:0 14px 14px 0;background:transparent;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.lw-caret svg{width:16px;height:16px}
+.lw-caret:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.lw-devmenu{position:fixed;z-index:90;box-sizing:border-box;padding:12px 6px 6px;border-radius:14px;border:1px solid var(--hairline);background:var(--raised, var(--bone));box-shadow:0 8px 28px var(--shade-soft, rgba(0,0,0,.12));display:flex;flex-direction:column}
+.lw-devmenu .lw-eyb{padding:0 10px 6px}
+.lw-devmenu button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 10px;border:0;border-radius:10px;background:none;font:inherit;font-size:15px;color:var(--ink);text-align:left;cursor:pointer}
+.lw-devmenu button:hover,.lw-devmenu button:focus-visible{background:var(--bone-deep);outline:none}
+.lw-devmenu button svg,.lw-devmenu button i{flex:none;width:18px;height:18px}
+.lw-devmenu button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* recording, in the header */
+.lw-call-r{display:flex;align-items:center;gap:14px}
+.lw-rec{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.lw-rec:empty{display:none}
+.lw-rec-on{display:inline-flex;align-items:center;gap:6px;color:var(--ink);font-weight:500}
+.lw-rec-on i{width:8px;height:8px;border-radius:50%;background:var(--danger, #B3261E);animation:lwPulse 1.6s ease-in-out infinite}
+.lw-rec-b{min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--hairline);background:transparent;color:var(--ink);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.lw-rec-on i{animation:none}}
+@media (max-width:699px){
+  .lw-call-head{flex-wrap:wrap;row-gap:8px}
+  .lw-call-r{width:100%;justify-content:space-between}
+  .lw-ctls{gap:2px;padding-left:6px;padding-right:6px}
+  .lw-ctl{font-size:11px}
+  .lw-caret{width:20px}
+}
+/* the thank-you screen */
+.lw-thanks{gap:12px}
+.lw-thanks .lw-h1{margin:0}
+.lw-next{margin-top:12px}
+.lw-next .lw-row{border-top:1px solid var(--hairline);margin-top:8px}
+.lw-up{margin-top:12px;padding-top:18px;border-top:1px solid var(--hairline);display:flex;flex-direction:column;gap:6px}
+.lw-up .lw-p{margin:0}
+.lw-up .btn{margin-top:8px}
 .lw-shcard{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:6px;width:100%;max-width:280px;box-sizing:border-box;border:1px solid var(--hairline);border-radius:14px;padding:14px 16px 12px;background:var(--bone)}
 .lw-shcard .ww-eyeb{margin:0}
 .lw-shcard-g .triglyph{height:36px}

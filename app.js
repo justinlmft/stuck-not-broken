@@ -2787,6 +2787,7 @@ function app(tab){
     check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
     devices:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
   });
+  LW_ICO.caret = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 14l5-5 5 5"/></svg>';
   const LW_MARK_VB = { heart:'-4.0 36.4 478.2 386.7', bolt:'462.3 -9.4 434.4 459.8', x:'887.4 11.7 413.6 422.6' };
   const lwMark = (m, col) => { const I = window.SNB_ICONS||{}; return `<svg class="lw-mark" viewBox="${LW_MARK_VB[m]}" aria-hidden="true"><path fill="${col}" d="${(I[m]&&I[m].d)||''}"/></svg>`; };
 
@@ -3080,7 +3081,7 @@ function app(tab){
       let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
       const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels, sent_at:null, tz }, { onConflict:'user_id,session_id' });
       if(r && r.error){ showToast('That did not save. Try again in a moment.'); return; }
-      _lw.rem[s.id] = channels; haptic('save'); _lwCacheSave(); _lwBody();
+      _lw.rem[s.id] = channels; haptic('save'); _lwCacheSave(); _lwBody(); if(_lwRoom && _lwRoom.phase === 'left') _lwRender();
       if(!pushNote) return sh.close();
       // saved, but the app notification can't reach them: say so plainly in the sheet, and let them close it
       const btns = sh.el.querySelector('.lw-sh-btns');
@@ -3091,7 +3092,7 @@ function app(tab){
     const off = sh.el.querySelector('#lw-rem-off');
     if(off) off.onclick = async () => {
       await window.sb.from('live_reminders').update({ channels:[] }).eq('user_id', uid).eq('session_id', s.id);
-      _lw.rem[s.id] = []; _lwCacheSave(); sh.close(); _lwBody();
+      _lw.rem[s.id] = []; _lwCacheSave(); sh.close(); _lwBody(); if(_lwRoom && _lwRoom.phase === 'left') _lwRender();
     };
   }
 
@@ -3200,28 +3201,48 @@ function app(tab){
       return;
     }
     if(R.phase === 'left'){
-      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby">
-        <h1 class="lw-h1">You left ${escapeHtml(K.name)}</h1>
-        <p class="lw-p">If you like, check in once more now that the practice is over.${_lwEnd(s) > Date.now() ? ' You can rejoin while it is running.' : ''}</p>
-        <button class="btn block" type="button" id="lw-ci-after">Check in</button>
+      // thank you, the next event with a quick RSVP, and Self-Regulator for members without a paid plan (Justin, 2026-10-27)
+      if(!_lw.sched && !_lw.loading){ _lwLoad().then(() => { if(_lwRoom === R && R.phase === 'left') _lwRender(); }); }
+      const nx = (_lw.sched || []).find(x => x.id !== s.id && _lwStart(x) > Date.now() && (LW_COREG_LIVE || host || x.kind === 'mindful_moment'));
+      let nxHTML = '';
+      if(nx){
+        const NK = _lwKind(nx), d = new Date(_lwStart(nx)), ok = _lwAllowed(nx), rsvp = _lwRsvp(nx), rem = _lwRemOn(nx);
+        nxHTML = `<div class="lw-next"><p class="lw-eyb">Next on the Calendar</p><div class="lw-row lw-row-static">
+          <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
+          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}Upgrade</button>`}</span></span>
+          ${ok ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : ''}</div></div>`;
+      }
+      const up = (!host && !paidNow()) ? `<div class="lw-up"><p class="lw-eyb">Between live events</p>
+          <p class="lw-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
+          <p class="lw-p lw-muted">$12 a month, cancel anytime.</p>
+          <button class="btn block" type="button" id="lw-ty-up">See Self-Regulator</button></div>` : '';
+      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby lw-thanks">
+        <p class="lw-eyb">Live event</p>
+        <h1 class="lw-h1">Thank you for being here.</h1>
+        <p class="lw-p lw-muted">${escapeHtml(K.name)}, ${escapeHtml(_lwLongDate(_lwStart(s)))}.</p>
+        ${nxHTML}${up}
         ${_lwEnd(s) > Date.now() ? '<button class="btn block quiet" type="button" id="lw-rejoin">Rejoin</button>' : ''}
       </div><div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
       $('#lw-back').onclick = _lwExit;
-      $('#lw-ci-after').onclick = () => _lwCheckin('after');
+      const tyR = document.getElementById('lw-ty-rsvp'); if(tyR) tyR.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); });
+      const tyA = document.getElementById('lw-ty-rem'); if(tyA) tyA.onclick = () => _lwRemindSheet(nx);
+      const tyC = document.getElementById('lw-ty-co'); if(tyC) tyC.onclick = () => _lwUpgradeSheet();
+      const tyU = document.getElementById('lw-ty-up'); if(tyU) tyU.onclick = () => { _lwExit(); gateSubscribe('live'); };
       const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; _lwRender(); _lwJoin(); };
       return;
     }
     // in the call
     const mm = !K.video, member = !host;
     const ctl = (id, ico, label, extra) => `<button type="button" class="lw-ctl${extra||''}" id="${id}">${ico}<span>${label}</span></button>`;
+    // mic and camera: the button toggles, the up arrow beside it picks the device (Justin, 2026-10-27)
+    const split = (id, ico, label, on, kind) => `<div class="lw-split${on ? ' on' : ''}"><button type="button" class="lw-ctl${on ? ' on' : ''}" id="${id}">${ico}<span>${label}</span></button><button type="button" class="lw-caret" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></div>`;
     const ctls = [ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
-    if(!(mm && member)){ ctls.push(ctl('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic ? ' on' : '')); ctls.push(ctl('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam ? ' on' : '')); ctls.push(ctl('lw-c-dev', LW_ICO.devices, 'Devices')); }
+    if(!(mm && member)){ ctls.push(split('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')); ctls.push(split('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')); }
     if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
     if(host) ctls.push(ctl('lw-c-ask', LW_ICO.ask, 'Send check-in'));
-    ctls.push(ctl('lw-c-ci', LW_ICO.checkin, 'Check in'));
     if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
     setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}" id="lw-room">
-      <div class="lw-call-head"><span class="lw-call-t"><span class="lw-eyb">Live event</span><b>${escapeHtml(K.name)}</b><span id="lw-call-sub"></span></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></div>
+      <div class="lw-call-head"><span class="lw-call-t"><span class="lw-eyb">Live event</span><b>${escapeHtml(K.name)}</b><span id="lw-call-sub"></span></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span></div>
       <div class="lw-call-body">
         <div class="lw-stage" id="lw-stage"></div>
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
@@ -3234,9 +3255,8 @@ function app(tab){
     _lwPaint();
     const co = R.co;
     $('#lw-c-leave').onclick = () => { const sh = _lwSheet('Leave the call?', `<p class="lw-p">Stopping is fine.${_lwEnd(s) > Date.now() ? ' You can rejoin while it is running.' : ''}</p>
-        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-lw-go">Leave</button><button class="btn block quiet" type="button" id="lw-lw-ci">Check in before you leave</button><button class="btn block quiet" type="button" id="lw-lw-stay">Stay</button></div>`, { host:document.getElementById('lw-room') });
+        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-lw-go">Leave</button><button class="btn block quiet" type="button" id="lw-lw-stay">Stay</button></div>`, { host:document.getElementById('lw-room') });
       sh.el.querySelector('#lw-lw-stay').onclick = sh.close;
-      sh.el.querySelector('#lw-lw-ci').onclick = () => { sh.close(); setTimeout(() => _lwCheckin('after', { thenLeave:true }), 340); };
       sh.el.querySelector('#lw-lw-go').onclick = () => { sh.close(); _lwLeaveCall(); }; };
     const mic = document.getElementById('lw-c-mic'); if(mic) mic.onclick = () => { R.mic = !R.mic; try{ co.setLocalAudio(R.mic); }catch(e){} _lwRender(); };
     const cam = document.getElementById('lw-c-cam'); if(cam) cam.onclick = () => { R.cam = !R.cam; try{ co.setLocalVideo(R.cam); }catch(e){} _lwRender(); };
@@ -3244,9 +3264,9 @@ function app(tab){
       try{ if(R.sharing){ co.stopScreenShare(); } else { await co.startScreenShare(); } }catch(e){ showToast('Screen sharing did not start.'); }
     };
     const ask = document.getElementById('lw-c-ask'); if(ask) ask.onclick = () => { try{ co.sendAppMessage({ t:'checkin' }, '*'); }catch(e){} showToast('Check-in sent to everyone'); };
-    const dev = document.getElementById('lw-c-dev'); if(dev) dev.onclick = _lwDevicesSheet;
+    document.querySelectorAll('#lw-room [data-lw-dev]').forEach(b => b.onclick = e => { e.stopPropagation(); _lwDevMenu(b.dataset.lwDev, b); });
+    _lwPaintRec();
     _lwWireStateTg(document.getElementById('lw-room'));
-    $('#lw-c-ci').onclick = () => _lwCheckin('during');
     const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
     const tap = document.getElementById('lw-tap'); if(tap) tap.onclick = () => { R.needsTap = false; document.querySelectorAll('#lw-audio audio').forEach(a => { try{ a.play(); }catch(e){} }); _lwRender(); };
     const f = document.getElementById('lw-chat-form'); if(f){ f.onsubmit = e => { e.preventDefault(); const i = $('#lw-chat-in'); _lwSend(i.value); i.value = ''; }; _lwPaintChat(); }
@@ -3279,6 +3299,9 @@ function app(tab){
     ['participant-joined','participant-updated','participant-left','track-started','track-stopped','active-speaker-change'].forEach(ev => co.on(ev, repaint));
     co.on('local-screen-share-started', () => { R.sharing = true; if(R.phase === 'call') _lwRender(); });
     co.on('local-screen-share-stopped', () => { R.sharing = false; if(R.phase === 'call') _lwRender(); });
+    co.on('recording-started', () => { R.rec = 'on'; _lwPaintRec(); });
+    co.on('recording-stopped', () => { R.rec = R.recWant === 'paused' ? 'paused' : 'off'; _lwPaintRec(); });
+    co.on('recording-error', () => { R.rec = 'off'; _lwPaintRec(); if(_lwIsHost()) showToast('The recording stopped. Tap Record to start it again.'); });
     co.on('app-message', ev => {
       const d = ev && ev.data; if(!d) return;
       if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
@@ -3293,6 +3316,7 @@ function app(tab){
     R.phase = 'call'; R.joinedAt = Date.now();
     if(R.role === 'host') _lwBeatStart(R);
     _lwRender();
+    if(R.role === 'host' && R.s.recorded && !R.rec) _lwRec('start');   // Justin will forget: it records the moment he is in
     R.tick = setInterval(() => { if(_lwRoom === R && R.phase === 'call') _lwPaintHead(); }, 30000);
   }
   function _lwLeaveCall(){
@@ -3353,6 +3377,47 @@ function app(tab){
       const room = document.getElementById('lw-room'); _lwWireStateTg(room); const shx = document.getElementById('lw-sheet'); if(shx && !(room && room.contains(shx))) _lwWireStateTg(shx);
     });
   }
+  // the device list above the mic or camera button
+  async function _lwDevMenu(kind, anchor){
+    const R = _lwRoom; if(!R || !R.co) return;
+    const old = document.getElementById('lw-devmenu'); if(old){ const same = old.dataset.kind === kind; old.remove(); if(same) return; }
+    let devs = [], cur = {};
+    try{ devs = (((await R.co.enumerateDevices()) || {}).devices || []).filter(d => d.kind === kind); }catch(e){}
+    try{ cur = (await R.co.getInputDevices()) || {}; }catch(e){}
+    const sel = kind === 'audioinput' ? (cur.mic && cur.mic.deviceId) : (cur.camera && cur.camera.deviceId);
+    const m = document.createElement('div'); m.id = 'lw-devmenu'; m.className = 'lw-devmenu'; m.dataset.kind = kind; m.setAttribute('role', 'menu');
+    m.innerHTML = `<p class="lw-eyb">${kind === 'audioinput' ? 'Microphone' : 'Camera'}</p>` + (devs.length ? devs.map((d, i) => `<button type="button" role="menuitemradio" aria-checked="${d.deviceId === sel}" data-id="${escapeHtml(d.deviceId)}">${d.deviceId === sel ? LW_ICO.check : '<i></i>'}<span>${escapeHtml(d.label || (kind === 'audioinput' ? 'Microphone ' : 'Camera ') + (i + 1))}</span></button>`).join('') : `<p class="lw-p lw-muted">${kind === 'audioinput' ? 'No microphone found.' : 'No camera found.'}</p>`);
+    (document.getElementById('lw-room') || document.body).appendChild(m);
+    const r = anchor.getBoundingClientRect(), w = Math.min(300, window.innerWidth - 24);
+    m.style.width = w + 'px'; m.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2)) + 'px'; m.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+    const close = () => { m.remove(); document.removeEventListener('click', out, true); document.removeEventListener('keydown', key); };
+    const out = e => { if(!m.contains(e.target)) close(); };
+    const key = e => { if(e.key === 'Escape') close(); };
+    setTimeout(() => { document.addEventListener('click', out, true); document.addEventListener('keydown', key); }, 0);
+    m.querySelectorAll('[data-id]').forEach(b => b.onclick = () => {
+      try{ R.co.setInputDevicesAsync(kind === 'audioinput' ? { audioDeviceId:b.dataset.id } : { videoDeviceId:b.dataset.id }); }catch(e){ showToast(kind === 'audioinput' ? 'That microphone did not start.' : 'That camera did not start.'); }
+      close();
+    });
+    const first = m.querySelector('[aria-checked="true"]') || m.querySelector('[data-id]'); if(first) try{ first.focus({ preventScroll:true }); }catch(e){}
+  }
+  // ---- recording: starts by itself when Justin joins an event marked recorded; he can pause, resume or stop it
+  function _lwPaintRec(){
+    const R = _lwRoom, el = document.getElementById('lw-rec'); if(!R || !el) return;
+    const host = _lwIsHost(), st = R.rec || 'off';
+    if(!host){ el.innerHTML = st === 'on' ? '<span class="lw-rec-on"><i aria-hidden="true"></i>Recording</span>' : ''; return; }
+    if(!R.s.recorded){ el.innerHTML = ''; return; }
+    el.innerHTML = st === 'on' ? '<span class="lw-rec-on"><i aria-hidden="true"></i>Recording</span><button type="button" class="lw-rec-b" data-rec="pause">Pause</button><button type="button" class="lw-rec-b" data-rec="stop">Stop</button>'
+      : st === 'paused' ? '<span class="lw-rec-off">Paused</span><button type="button" class="lw-rec-b" data-rec="start">Resume</button><button type="button" class="lw-rec-b" data-rec="stop">Stop</button>'
+      : st === 'starting' ? '<span class="lw-rec-off">Starting the recording…</span>'
+      : '<span class="lw-rec-off">Not recording</span><button type="button" class="lw-rec-b" data-rec="start">Record</button>';
+    el.querySelectorAll('[data-rec]').forEach(b => b.onclick = () => _lwRec(b.dataset.rec));
+  }
+  function _lwRec(what){
+    const R = _lwRoom; if(!R || !R.co) return;
+    if(what === 'start'){ R.rec = 'starting'; R.recWant = 'on'; _lwPaintRec(); try{ R.co.startRecording(); }catch(e){ R.rec = 'off'; _lwPaintRec(); showToast('The recording did not start.'); } return; }
+    R.recWant = what === 'pause' ? 'paused' : 'stopped';
+    try{ R.co.stopRecording(); }catch(e){}
+  }
   // pick the camera and the mic
   async function _lwDevicesSheet(){
     const R = _lwRoom; if(!R || !R.co) return;
@@ -3390,7 +3455,7 @@ function app(tab){
     const R = _lwRoom; if(!R || !R.co) return;
     const sub = document.getElementById('lw-call-sub'), here = document.querySelector('#lw-here span');
     const mins = Math.max(0, Math.round((Date.now() - _lwStart(R.s)) / 60000));
-    if(sub) sub.textContent = (Date.now() < _lwStart(R.s) ? 'Starting soon. ' : mins + ' min in. ') + (R.s.recorded ? 'Recorded.' : 'Not recorded.');
+    if(sub) sub.textContent = (Date.now() < _lwStart(R.s) ? 'Starting soon.' : mins + ' min in.') + (R.s.recorded ? '' : ' Not recorded.');
     try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; }catch(e){}
   }
   // video / audio for every participant. Elements are kept by session id so a repaint never restarts a stream.
