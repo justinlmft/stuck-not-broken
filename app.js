@@ -3241,12 +3241,13 @@ function app(tab){
     if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
     if(host) ctls.push(ctl('lw-c-ask', LW_ICO.ask, 'Send check-in'));
     if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
+    ctls.push(ctl('lw-c-set', LW_ICO.devices, 'Settings'));
     setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}" id="lw-room">
       <div class="lw-call-head"><span class="lw-call-t"><span class="lw-eyb">Live event</span><b>${escapeHtml(K.name)}</b><span id="lw-call-sub"></span></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span></div>
       <div class="lw-call-body">
         <div class="lw-stage" id="lw-stage"></div>
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
-        ${mm ? `<div class="lw-mm-chat"><div class="lw-mm-chat-h"><b>Chat</b><span class="lw-muted">Optional</span></div>${_lwStateTg()}<div class="lw-chat-list" id="lw-chat-list"></div>
+        ${mm ? `<div class="lw-mm-chat"><div class="lw-mm-chat-h"><b>Chat</b></div><div class="lw-chat-list" id="lw-chat-list"></div>
           <form class="lw-chat-form" id="lw-chat-form"><label class="vh" for="lw-chat-in">Share a present moment reflection</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="Share a present moment reflection"><button class="btn" type="submit">Send</button></form></div>`
           : `<div class="lw-grid" id="lw-grid"></div>`}
       </div>
@@ -3261,11 +3262,23 @@ function app(tab){
     const mic = document.getElementById('lw-c-mic'); if(mic) mic.onclick = () => { R.mic = !R.mic; try{ co.setLocalAudio(R.mic); }catch(e){} _lwRender(); };
     const cam = document.getElementById('lw-c-cam'); if(cam) cam.onclick = () => { R.cam = !R.cam; try{ co.setLocalVideo(R.cam); }catch(e){} _lwRender(); };
     const sh = document.getElementById('lw-c-share'); if(sh) sh.onclick = async () => {
-      try{ if(R.sharing){ co.stopScreenShare(); } else { await co.startScreenShare(); } }catch(e){ showToast('Screen sharing did not start.'); }
+      if(R.sharing){ try{ co.stopScreenShare(); }catch(e){} return; }
+      // stay in the room (Justin, 2026-10-27): ask the browser not to jump to what is being shared (Chrome's Conditional
+      // Focus), then hand the picture to the call. Browsers without it share the old way.
+      try{
+        if(window.CaptureController && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia){
+          const ctl = new CaptureController();
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:true, controller:ctl, selfBrowserSurface:'exclude', surfaceSwitching:'include' });
+          try{ ctl.setFocusBehavior('no-focus-change'); }catch(e){}
+          const vt = stream.getVideoTracks()[0]; if(vt) vt.addEventListener('ended', () => { try{ co.stopScreenShare(); }catch(e){} });
+          await co.startScreenShare({ mediaStream:stream });
+        } else await co.startScreenShare();
+      }catch(e){ if(!(e && e.name === 'NotAllowedError')) showToast('Screen sharing did not start.'); }
     };
     const ask = document.getElementById('lw-c-ask'); if(ask) ask.onclick = () => { try{ co.sendAppMessage({ t:'checkin' }, '*'); }catch(e){} showToast('Check-in sent to everyone'); };
     document.querySelectorAll('#lw-room [data-lw-dev]').forEach(b => b.onclick = e => { e.stopPropagation(); _lwDevMenu(b.dataset.lwDev, b); });
     _lwPaintRec();
+    const setB = document.getElementById('lw-c-set'); if(setB) setB.onclick = _lwSettingsSheet;
     _lwWireStateTg(document.getElementById('lw-room'));
     const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
     const tap = document.getElementById('lw-tap'); if(tap) tap.onclick = () => { R.needsTap = false; document.querySelectorAll('#lw-audio audio').forEach(a => { try{ a.play(); }catch(e){} }); _lwRender(); };
@@ -3354,7 +3367,7 @@ function app(tab){
     ['lw-chat-list','lw-chat-sheet-list'].forEach(id => {
       const el = document.getElementById(id); if(!el) return;
       const n = +(el.dataset.n || -1);
-      if(!R.chat.length){ el.innerHTML = '<p class="lw-muted lw-p">Nothing yet. You do not have to type anything.</p>'; el.dataset.n = 0; return; }
+      if(!R.chat.length){ el.innerHTML = ''; el.dataset.n = 0; return; }
       if(n <= 0 || n > R.chat.length) el.innerHTML = R.chat.map(m => _lwMsgHTML(m, n === 0)).join('');
       else if(n < R.chat.length) el.insertAdjacentHTML('beforeend', R.chat.slice(n).map(m => _lwMsgHTML(m, true)).join(''));
       el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
@@ -3367,7 +3380,7 @@ function app(tab){
   function _lwStateTg(){
     if(!_lwRoom) return '';
     const on = _lwSigOn(); let k = null; try{ k = _signatureKey(); }catch(e){}
-    return `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-st>${k ? _lwGlyph(k) : ''}<span><span class="lw-st-t">${on ? 'Your state glyph shows in the chat' : 'Show your state glyph in the chat'}</span><span class="lw-st-s">${k ? 'The state you come back to most in your check-ins. Also in Settings.' : 'It shows once you have a few check-ins. Also in Settings.'}</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
+    return `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-st>${k ? _lwGlyph(k) : ''}<span><span class="lw-st-t">State glyph in the chat</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
   }
   function _lwWireStateTg(scope){
     if(!scope) return;
@@ -3376,6 +3389,11 @@ function app(tab){
       document.querySelectorAll('[data-lw-st]').forEach(x => { x.outerHTML = _lwStateTg(); });
       const room = document.getElementById('lw-room'); _lwWireStateTg(room); const shx = document.getElementById('lw-sheet'); if(shx && !(room && room.contains(shx))) _lwWireStateTg(shx);
     });
+  }
+  // live event settings, from the bottom bar
+  function _lwSettingsSheet(){
+    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}</div>`, { host:document.getElementById('lw-room') });
+    _lwWireStateTg(sh.el);
   }
   // the device list above the mic or camera button
   async function _lwDevMenu(kind, anchor){
@@ -3446,7 +3464,7 @@ function app(tab){
     const R = _lwRoom; if(!R) return; R.unread = 0;
     const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat';
     const sh = _lwSheet('Chat', `<p class="lw-p lw-muted">Everyone in this call sees the chat. It is gone when the call ends. To write to Justin alone, use Messages.</p>
-      ${_lwStateTg()}<div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>
+      <div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>
       <form class="lw-chat-form" id="lw-chat-sheet-form"><label class="vh" for="lw-chat-sheet-in">Write to the group</label><input id="lw-chat-sheet-in" type="text" maxlength="500" autocomplete="off" placeholder="Write to the group"><button class="btn" type="submit">Send</button></form>`, { host:document.getElementById('lw-room') });
     _lwWireStateTg(sh.el); _lwPaintChat();
     sh.el.querySelector('#lw-chat-sheet-form').onsubmit = e => { e.preventDefault(); const i = sh.el.querySelector('#lw-chat-sheet-in'); _lwSend(i.value); i.value = ''; };
@@ -12337,6 +12355,7 @@ function app(tab){
    the screen that follows a practice (feedback / exit reason) renders from it. */
 function routeSafe(){
   if(document.getElementById('weaver')) return;    // a live practice owns the screen
+  if(document.getElementById('lw-room')) return;   // and so does a live event (2026-10-27: sharing the screen and coming back repainted the Calendar over it)
   /* 2026-08-17, second half of the same bug (Justin, on device): finish a practice while
      the phone is still LOCKED and renderFeedback() draws the after-practice check-in
      while hidden — then the unlock fires the token refresh, route() runs because the

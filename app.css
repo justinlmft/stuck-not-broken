@@ -4585,6 +4585,9 @@ body.lw-in-room .tabbar{display:none}
 .lw-st-tg > span:first-of-type{display:flex;flex-direction:column;gap:2px}
 .lw-st-t{color:inherit}
 .lw-st-s{font-size:calc(12.5px * var(--type-scale));color:var(--muted);line-height:1.35}
+.lw-set{padding:4px 0 12px}
+.lw-set .lw-st-tg{font-size:calc(16px * var(--type-scale));color:var(--ink);min-height:52px}
+.lw-set .lw-st-tg .triglyph{height:20px}
 /* a check-in shared in the chat, drawn like the share cards (2026-10-27) */
 /* mic / camera with a device arrow (2026-10-27) */
 .lw-split{display:flex;align-items:stretch;min-width:0;border-radius:14px}
