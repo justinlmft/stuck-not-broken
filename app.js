@@ -4746,7 +4746,7 @@ function app(tab){
           ${player}${_lmCheckinsHTML(x)}${_lmJournalHTML(x)}${pair}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
     root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
     _lmWireCards(x);
-    if(listen && !locked){ const pl = $('#lm-player'); if(pl){ root.appendChild(pl); document.body.classList.add('lm-player-on'); } _lmWirePlayer(x); }
+    if(listen && !locked) _lmWirePlayer(x);
   }
   function _lmWirePlayer(x){
     const a = $('#lm-audio'); if(!a) return;
