@@ -741,7 +741,7 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -4736,10 +4736,9 @@ function app(tab){
     const player = !listen
       ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
       : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with the paid plan.</p><button class="lm-save lm-sub" type="button">See the paid plan</button></div>`
-      : `<div class="lm-player" id="lm-player">
+      : `<div class="lm-player" id="lm-player" role="region" aria-label="Player">
             <div class="lm-bar" id="lm-bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="lm-fill" id="lm-fill"></span></div>
-            <div class="lm-times"><span id="lm-el">0:00</span><span id="lm-rem">${x.n ? '-' + _lmClock(x.n) : ''}</span></div>
-            <div class="lm-ctl"><button class="lm-skip" type="button" data-skip="-15" aria-label="Back 15 seconds">15</button><button class="lm-play" id="lm-play" type="button" aria-label="Play">${_LM_PLAY}</button><button class="lm-skip" type="button" data-skip="30" aria-label="Forward 30 seconds">30</button></div>
+            <div class="lm-ctl"><span class="lm-t" id="lm-el">0:00</span><button class="lm-skip" type="button" data-skip="-15" aria-label="Back 15 seconds">15</button><button class="lm-play" id="lm-play" type="button" aria-label="Play">${_LM_PLAY}</button><button class="lm-skip" type="button" data-skip="30" aria-label="Forward 30 seconds">30</button><span class="lm-t lm-t-r" id="lm-rem">${x.n ? '-' + _lmClock(x.n) : ''}</span></div>
             <p class="lm-note" id="lm-note" hidden></p><audio id="lm-audio" preload="none"></audio></div>`;
     const pair = x.y ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.y)}">${_lmIcon('watch')}<span class="lm-tx"><b>Watch the video</b><span class="lm-meta"><span>The same episode on video</span></span></span><span class="wc-go">${CHEV}</span></button>`
       : x.p ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.p)}">${_lmIcon('listen')}<span class="lm-tx"><b>Listen to the episode</b><span class="lm-meta"><span>The podcast version</span></span></span><span class="wc-go">${CHEV}</span></button>` : '';
@@ -4747,7 +4746,7 @@ function app(tab){
           ${player}${_lmCheckinsHTML(x)}${_lmJournalHTML(x)}${pair}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
     root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
     _lmWireCards(x);
-    if(listen && !locked) _lmWirePlayer(x);
+    if(listen && !locked){ const pl = $('#lm-player'); if(pl){ root.appendChild(pl); document.body.classList.add('lm-player-on'); } _lmWirePlayer(x); }
   }
   function _lmWirePlayer(x){
     const a = $('#lm-audio'); if(!a) return;

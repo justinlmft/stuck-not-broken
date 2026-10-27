@@ -4588,14 +4588,17 @@ body.lw-in-room .tabbar{display:none}
 .lm-head{display:flex;flex-direction:column;gap:10px;margin:0 0 20px}
 .lm-head .rd-title{margin:0}
 .lm-meta-l{margin:0;font-size:14px;line-height:20px;color:var(--muted)}
-.lm-player{position:sticky;top:12px;z-index:5;display:flex;flex-direction:column;gap:8px;padding:16px 20px;border-radius:28px;background:var(--ink);color:var(--bone);margin:0 0 20px}
+.lm-player{position:fixed;left:12px;right:12px;bottom:150px;z-index:35;max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:4px;padding:8px 16px 12px;border-radius:24px;background:var(--ink);color:var(--bone);box-sizing:border-box}
+body.lm-player-on .view.read{padding-bottom:150px}
+.lm-t{flex:1;font-size:13px;line-height:18px;color:var(--hairline);font-variant-numeric:tabular-nums}
+.lm-t-r{text-align:right}
 .lm-bar{position:relative;height:20px;cursor:pointer;touch-action:manipulation}
 .lm-bar::before{content:"";position:absolute;left:0;right:0;top:8px;height:4px;border-radius:999px;background:#4E4A41}
 .lm-fill{position:absolute;left:0;top:8px;height:4px;width:0;border-radius:999px;background:var(--bone)}
 .lm-times{display:flex;justify-content:space-between;font-size:13px;line-height:18px;color:var(--hairline);font-variant-numeric:tabular-nums}
-.lm-ctl{display:flex;align-items:center;justify-content:center;gap:24px}
-.lm-skip{width:48px;height:48px;border-radius:999px;border:1px solid #4E4A41;background:transparent;color:var(--bone);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
-.lm-play{width:64px;height:64px;border-radius:999px;border:0;background:var(--bone);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.lm-ctl{display:flex;align-items:center;justify-content:center;gap:16px}
+.lm-skip{width:44px;height:44px;flex:none;border-radius:999px;border:1px solid #4E4A41;background:transparent;color:var(--bone);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.lm-play{width:56px;height:56px;flex:none;border-radius:999px;border:0;background:var(--bone);display:flex;align-items:center;justify-content:center;cursor:pointer}
 .lm-play svg{width:24px;height:24px;fill:var(--ink)}
 .lm-note{margin:0;text-align:center;font-size:13px;line-height:18px;color:#C7C4BB}
 .lm-video{position:relative;aspect-ratio:16/9;border-radius:18px;overflow:hidden;background:#14171E;margin:0 0 20px}
