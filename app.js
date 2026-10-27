@@ -4842,7 +4842,8 @@ function app(tab){
   function _lmDescHTML(x){
     const ps = _lmDescOf(x).split(/\n{2,}/).map(t=>t.trim()).filter(Boolean); if(!ps.length) return '';
     const p = t => `<p class="read-p">${escapeHtml(t)}</p>`;
-    return `<span class="rd-eyeb">About this ${x.s === 'p' || x.s === 'c' ? 'episode' : x.s === 's' ? 'Short' : 'video'}</span>${p(ps[0])}${ps.length > 1 ? `<div class="lm-desc-more" hidden>${ps.slice(1).map(p).join('')}</div><button class="lm-desc-btn" type="button" aria-expanded="false">Show more</button>` : ''}`;
+    // closed until tapped (Justin, 2026-10-26: "make it a drop-down option"), the same drop-down as "In this article"
+    return `<details class="rd-toc lm-about"><summary><span>About this ${x.s === 'p' || x.s === 'c' ? 'episode' : x.s === 's' ? 'Short' : 'video'}</span><span class="rd-toc-n"></span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary><div class="lm-about-b">${ps.map(p).join('')}</div></details>`;
   }
   function _lmWireDesc(scope){
     const b = scope.querySelector('.lm-desc-btn'), m = scope.querySelector('.lm-desc-more'); if(!b || !m) return;

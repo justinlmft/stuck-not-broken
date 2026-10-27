@@ -4656,3 +4656,9 @@ body.lm-dark .scroll,body.lm-dark .view.read{background:#14171E;color:var(--bone
 .lm-sheet .lm-desc.lm-card{margin:0}
 .lm-sheet-keep{padding:4px 20px 0}
 .lm-sheet .lm-keep .sec-h{margin-top:12px}
+
+/* the description as a closed drop-down (2026-10-26) */
+.lm-desc .lm-about{margin:0}
+.rd-toc > .lm-about-b{box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;border-top:1px solid var(--hairline)}
+.lm-about-b .read-p{margin:0;white-space:pre-line}
+.lm-sheet .lm-desc.lm-card{padding:16px 20px 4px}
