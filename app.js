@@ -741,6 +741,29 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
+  // phones: Back joins the bottom menu (r7), animated between screens (r8, 2026-10-27). Every screen draws a new menu,
+  // so the new one starts where the last one was and moves to where this screen wants it.
+  let _tbWas = false;
+  function _tbSync(){
+    const tb = root.querySelector(':scope > .tabbar'), back = root.querySelector(':scope > .fl-dock > .tab-back-float');
+    const want = !!(tb && back), was = _tbWas; _tbWas = want;
+    const mm = q => !!(window.matchMedia && matchMedia(q).matches);
+    const move = mm('(max-width:719px)') && !mm('(prefers-reduced-motion: reduce)') && want !== was;
+    if(tb && !tb.classList.contains('tb-seen')){
+      tb.classList.add('tb-seen');
+      if(move){ tb.classList.add('tb-still'); tb.classList.toggle('tb-cond', was); void tb.offsetWidth; tb.classList.remove('tb-still'); }
+      tb.classList.toggle('tb-cond', want);
+    } else if(tb) tb.classList.toggle('tb-cond', want);
+    if(!move) return;
+    if(want){ back.classList.add('tb-enter'); back.addEventListener('animationend', ()=>back.classList.remove('tb-enter'), { once:true }); }
+    else if(tb){
+      // the arrow of the screen just left slides out as the menu widens
+      const g = document.createElement('div'); g.className = 'fl-dock tb-ghost'; g.setAttribute('aria-hidden', 'true');
+      g.innerHTML = `<span class="tab-back-float tb-leave">${BACK_SVG}</span>`;
+      root.appendChild(g); setTimeout(()=>g.remove(), 360);
+    }
+  }
+  if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))) _tbSync(); }).observe(root, { childList:true });
   function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing

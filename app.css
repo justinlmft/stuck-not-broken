@@ -4809,19 +4809,32 @@ body.lm-arr .lm-mod-sz{display:flex}
   .lm-spage > .lm-short{height:max(260px, min(calc(100dvh - 500px), 620px))}
 }
 
-/* phones: Back joins the bottom menu (2026-10-26). The menu slides right and keeps its icons; Back sits to its left. */
+/* phones: Back joins the bottom menu (r7 2026-10-26, smooth r8 2026-10-27). The menu slides right and keeps its icons;
+   Back is an arrow to its left, the same height. JS (_tbSync) starts each new menu where the last one was. */
 @media (max-width:719px){
-  #screen > .tabbar{transition:margin-left .3s cubic-bezier(.2,.8,.2,1)}
-  #screen > .tabbar button .lb{transition:opacity .2s ease, max-height .3s cubic-bezier(.2,.8,.2,1);max-height:20px;overflow:hidden}
-  #screen:has(> .fl-dock:not(.sf-open) > .tab-back-float) > .tabbar{margin-left:120px}
-  #screen:has(> .fl-dock:not(.sf-open) > .tab-back-float) > .tabbar button{gap:0;padding-left:0;padding-right:0}
-  #screen:has(> .fl-dock:not(.sf-open) > .tab-back-float) > .tabbar button .lb{opacity:0;max-height:0}
-  #screen > .fl-dock > .tab-back-float{position:absolute;left:-2px;bottom:-78px;height:60px;width:98px;max-width:98px;justify-content:center;padding:0 12px 0 6px;border-radius:20px;border:0;box-shadow:none;animation:tabBackJoin .3s cubic-bezier(.2,.8,.2,1) both}
-  #screen > .fl-dock.sf-open > .tab-back-float{max-width:0;width:0;padding:0;opacity:0}
+  #screen > .tabbar{transition:margin-left .36s cubic-bezier(.32,.72,0,1)}
+  #screen > .tabbar button{transition:gap .36s cubic-bezier(.32,.72,0,1)}
+  #screen > .tabbar button .lb{max-height:18px;overflow:hidden;transition:opacity .22s ease .1s, max-height .36s cubic-bezier(.32,.72,0,1)}
+  #screen > .tabbar.tb-cond{margin-left:82px}
+  #screen > .tabbar.tb-cond button{gap:0}
+  #screen > .tabbar.tb-cond button .lb{opacity:0;max-height:0;transition:opacity .14s ease, max-height .36s cubic-bezier(.32,.72,0,1)}
+  #screen:has(> .fl-dock.sf-open) > .tabbar.tb-cond{margin-left:14px}
+  #screen:has(> .fl-dock.sf-open) > .tabbar.tb-cond button{gap:4px}
+  #screen:has(> .fl-dock.sf-open) > .tabbar.tb-cond button .lb{opacity:1;max-height:18px}
+  #screen > .tabbar.tb-still,#screen > .tabbar.tb-still button,#screen > .tabbar.tb-still button .lb{transition:none !important}
+  #screen > .fl-dock > .tab-back-float{position:absolute;left:-2px;bottom:-78px;width:60px;height:60px;max-width:60px;justify-content:center;padding:0;gap:0;border-radius:20px;border:0;box-shadow:none;animation:none;
+    transition:opacity .2s ease, transform .36s cubic-bezier(.32,.72,0,1)}
+  #screen > .fl-dock > .tab-back-float > span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  #screen > .fl-dock > .tab-back-float svg{width:24px;height:24px}
+  #screen > .fl-dock.sf-open > .tab-back-float{max-width:60px;width:60px;padding:0;margin:0;opacity:0;transform:translateX(-72px);pointer-events:none}
+  #screen > .fl-dock > .tab-back-float.tb-enter{animation:tbIn .36s cubic-bezier(.32,.72,0,1) both}
+  #screen > .fl-dock > .tab-back-float.tb-leave{animation:tbOut .36s cubic-bezier(.32,.72,0,1) both;pointer-events:none}
+  .fl-dock.tb-ghost{pointer-events:none}
   body.lm-dark #screen > .fl-dock > .tab-back-float{background:var(--bone-deep)}
-  @keyframes tabBackJoin{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+  @keyframes tbIn{from{opacity:0;transform:translateX(-72px)}to{opacity:1;transform:none}}
+  @keyframes tbOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(-72px)}}
 }
 @media (max-width:719px) and (prefers-reduced-motion: reduce){
-  #screen > .tabbar,#screen > .tabbar button .lb{transition:none}
-  #screen > .fl-dock > .tab-back-float{animation:none}
+  #screen > .tabbar,#screen > .tabbar button,#screen > .tabbar button .lb,#screen > .fl-dock > .tab-back-float{transition:none !important;animation:none !important}
 }
+
