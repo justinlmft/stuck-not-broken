@@ -4715,3 +4715,33 @@ body.lm-dark .scroll,body.lm-dark .view.read{background:#14171E;color:var(--bone
   body.lm-wide #lm-ci{display:none}
   body.lm-wide.rd-crumbs .lm-short-e{margin-top:0}
 }
+
+/* step 4: the cards move like an iPhone home screen (2026-10-26) */
+.lm-mods{display:flex;flex-direction:column;gap:16px}
+/* the before/after arrows sit in a row (the snapshot frame made them a column, in articles too) */
+.rd-snap.lc-arrows{flex-direction:row}
+.lm-mod{position:relative}
+.lm-mod[hidden]{display:none}
+.lm-mod > .lm-lead,.lm-mod > .lm-card,.lm-mod > .lm-desc,.lm-mod > .rd-jr{margin:0}
+.lm-mod > .lm-keep{margin-top:8px}
+.view.read .lm-mod,.view.read .lm-mod *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.view.read .lm-mod textarea{-webkit-user-select:text;user-select:text}
+.lm-mod-x{display:none;position:absolute;left:-8px;top:-8px;z-index:3;width:28px;height:28px;padding:0;border-radius:999px;border:2px solid var(--bone);background:var(--muted);color:var(--bone);font:inherit;font-size:18px;line-height:22px;cursor:pointer}
+body.lm-arr .lm-mod-x{display:block}
+body.lm-arr .lm-mod{animation:lmWig .32s ease-in-out infinite alternate}
+body.lm-arr .lm-mod:nth-child(2n){animation-delay:-.16s}
+@keyframes lmWig{from{transform:rotate(-.6deg)}to{transform:rotate(.6deg)}}
+.lm-mod.lm-drag{position:fixed;z-index:80;margin:0;animation:none !important;transform:scale(1.03);outline:2px solid var(--ink);outline-offset:4px;border-radius:18px;background:var(--bone);pointer-events:none}
+.lm-ph{border:2px dashed var(--hairline);border-radius:18px;box-sizing:border-box}
+.lm-arr-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:12px;margin:0 0 16px;padding:10px 0;background:var(--bone)}
+.lm-arr-bar[hidden],.lm-arr-foot[hidden]{display:none}
+.lm-arr-tip{flex:1;font-size:14px;line-height:20px;color:var(--ink-80, var(--ink))}
+.lm-arr-done{min-height:40px;padding:0 18px;border-radius:999px;border:0;background:var(--ink);color:var(--bone);font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.lm-arr-foot{display:flex;flex-direction:column;align-items:flex-start;gap:12px;margin-top:20px}
+.lm-arr-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.lm-arr-add .lm-arr-tip{flex-basis:100%}
+.lm-sheet .lm-arr-bar,.lm-sheet .lm-mods,.lm-sheet .lm-arr-foot{margin-left:20px;margin-right:20px}
+.lm-sheet .lm-mods{margin-top:16px}
+.lm-sheet .lm-mod > .lm-lead,.lm-sheet .lm-mod > .lm-card-o,.lm-sheet .lm-mod > .lm-desc{margin:0}
+@media (prefers-reduced-motion: reduce){ body.lm-arr .lm-mod{animation:none} }
+@media (min-width:1000px){ body.lm-wide .lm-sheet .lm-arr-bar,body.lm-wide .lm-sheet .lm-mods,body.lm-wide .lm-sheet .lm-arr-foot{margin-left:0;margin-right:0} }
