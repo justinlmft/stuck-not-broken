@@ -5057,6 +5057,28 @@ function app(tab){
     box.addEventListener('contextmenu', e=>{ if(timer || drag || document.body.classList.contains('lm-arr')) e.preventDefault(); });
     box.addEventListener('click', e=>{ if(eatClick || (document.body.classList.contains('lm-arr') && !e.target.closest('.lm-mod-x, .lm-mod-sz, textarea'))){ e.preventDefault(); e.stopPropagation(); } }, true);
   }
+  // the Short's peek strip (phones): the first cards in the member's order, a name and one line each
+  function _lmPeek(){
+    const pk = $('#lm-peek'), sh = $('#lm-sheet'), cb = $('#lm-ci'); if(!pk || !sh) return;
+    const line = m => { const q = s => { const e = m.querySelector(s); return e ? e.textContent.trim() : ''; };
+      return q('.lm-tile-t') || q('.rd-call-p') || q('.rd-refl-q') || q('.lm-about-b .read-p') || [...m.querySelectorAll('.rd-row-t b')].map(b=>b.textContent.trim()).join(', '); };
+    const draw = () => {
+      const ms = [...sh.querySelectorAll('.lm-mod')].filter(m=>!m.hidden).map(m=>({ m, t:line(m) })).filter(o=>o.t).slice(0, 4);
+      pk.innerHTML = ms.map((o, i)=>`<button class="lm-pk" type="button" data-pk="${i}"><span class="rd-eyeb">${escapeHtml(o.m.dataset.name || '')}</span><span class="lm-pk-t">${escapeHtml(o.t)}</span></button>`).join('');
+      pk.hidden = !ms.length;
+      pk.querySelectorAll('[data-pk]').forEach(b=>b.onclick=()=>open(ms[+b.dataset.pk].m));
+    };
+    const open = m => { if(!sh.classList.contains('open') && cb) cb.click(); if(m) setTimeout(()=>{ sh.scrollTop = Math.max(0, m.offsetTop - 16); }, 80); };
+    draw();
+    setTimeout(draw, 1200);   // the About text arrives a moment later
+    // swipe up anywhere outside the sheet opens it; swipe down on the open sheet's top closes it
+    let y0 = null; const area = root.querySelector('.scroll');
+    area.addEventListener('touchstart', e=>{ y0 = sh.contains(e.target) ? null : e.touches[0].clientY; }, { passive:true });
+    area.addEventListener('touchend', e=>{ if(y0 == null) return; const dy = e.changedTouches[0].clientY - y0; y0 = null; if(dy < -50 && !sh.classList.contains('open')) open(null); }, { passive:true });
+    let s0 = null;
+    sh.addEventListener('touchstart', e=>{ s0 = sh.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive:true });
+    sh.addEventListener('touchend', e=>{ if(s0 == null) return; const dy = e.changedTouches[0].clientY - s0; s0 = null; if(dy > 70 && sh.classList.contains('open') && !document.body.classList.contains('lm-arr') && cb) cb.click(); }, { passive:true });
+  }
   // an episode, a video or a Short
   function screenMedia(id, from){
     const back = from && from.go ? from.go : ()=>screenLearn(true);
@@ -5071,16 +5093,17 @@ function app(tab){
     if(x.s === 's'){
       const ci = _lmModsHTML(x);
       _rdShell(`<div class="lm-spage"><div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
-          <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1>
+          <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1><div class="lm-peek" id="lm-peek" hidden></div>
           ${ci ? `<div class="lm-sheet" id="lm-sheet" aria-hidden="true">${ci}</div>` : ''}</div>`,
-        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x), dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">About this Short</button>` : '' });
+        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x), dock: ci ? `<button class="lm-ci-btn" id="lm-ci" type="button" aria-expanded="false" aria-controls="lm-sheet">Swipe up for more<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>` : '' });
       document.body.classList.add('lm-dark', 'lm-wide');
       const cb = $('#lm-ci'), sh = $('#lm-sheet');
-      if(cb && sh) cb.onclick = ()=>{ const on = !sh.classList.contains('open'); sh.classList.toggle('open', on); sh.setAttribute('aria-hidden', on ? 'false' : 'true'); cb.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+      if(cb && sh) cb.onclick = ()=>{ const on = !sh.classList.contains('open'); sh.classList.toggle('open', on); sh.setAttribute('aria-hidden', on ? 'false' : 'true'); cb.setAttribute('aria-expanded', on ? 'true' : 'false'); if(cb.querySelector('svg')) cb.innerHTML = (on ? 'Close' : 'Swipe up for more') + `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${on ? 'M6 9l6 6 6-6' : 'M6 15l6-6 6 6'}"/></svg>`; };
       _lmWireCards(x);
       _lmFillDesc(x);
       _lmWireKeep(root, here);
       _lmWireMods(here);
+      _lmPeek();
       return;
     }
     const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();

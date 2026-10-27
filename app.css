@@ -4766,3 +4766,18 @@ body.lm-arr .lm-mod-sz{display:flex}
 .lm-keys{display:flex;flex-wrap:wrap;gap:6px 14px}
 .lm-key{display:inline-flex;align-items:center;gap:6px;font-size:calc(13px * var(--type-scale));line-height:18px;color:var(--ink-80, var(--ink))}
 .lm-key i{width:10px;height:10px;border-radius:3px;flex:none}
+
+/* the Short's peek strip (2026-10-26, mockup C) */
+.lm-peek{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;margin:14px -4px 0;padding:0 4px 4px;scroll-snap-type:x proximity}
+.lm-peek::-webkit-scrollbar{display:none}
+.lm-peek[hidden]{display:none}
+.lm-pk{flex:none;width:150px;min-height:96px;box-sizing:border-box;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px 14px;border-radius:16px;border:1px solid #3A3C42;background:#24262A;color:#ECEAE3;font:inherit;text-align:left;cursor:pointer;scroll-snap-align:start}
+.lm-pk .rd-eyeb{margin:0;color:#C0BCB2}
+.lm-pk-t{font-size:calc(14px * var(--type-scale));line-height:19px;font-weight:500;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lm-pk:focus-visible{outline:2px solid #ECEAE3;outline-offset:2px}
+.lm-spage:has(.lm-peek:not([hidden])) > .lm-short{height:min(calc(100dvh - 440px),620px)}
+#lm-ci{display:inline-flex;align-items:center;gap:6px}
+/* the Short's title on its dark page, in dark mode too (it used the theme's paper color, dark in dark mode) */
+.lm-short-t{color:#ECEAE3}
+#lm-ci svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media (min-width:1000px){ .lm-peek{display:none !important} body.lm-wide .lm-spage > .lm-short{height:min(calc(100dvh - 160px), 760px)} }
