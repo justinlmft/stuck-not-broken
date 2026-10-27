@@ -4809,6 +4809,20 @@ function app(tab){
     const line = n ? `${pct}% of your check-ins over the last 4 weeks were mostly ${STATE_NAME(st)}.` : `None of your check-ins over the last 4 weeks were mostly ${STATE_NAME(st)}.`;
     return `<div class="lm-card"><span class="rd-eyeb">From your check-ins</span><h2 class="lm-h">${_rdMk(st)}<span>${escapeHtml(STATE_LABEL(st))}</span></h2><p class="read-p">${escapeHtml(line)}</p></div>`;
   }
+  // the lead card (layout B, 2026-10-26): the member's own data as a picture, one of the four article callouts that fit the
+  // piece (its state week by week, its state by time of day, every state side by side, before and after practices). Among
+  // those with data, the piece's id picks, so screens vary and each keeps its card. Free: the locked card; under 3 check-ins:
+  // the wait line; nothing to show: no card.
+  function _lmLeadHTML(x){
+    const paid = paidNow(), st = _lmState(x), now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28 * 864e5, now + 1);
+    if(!paid) return `<section class="lm-lead">${_lrnCallHTML({ mk:st || 'safety', label:'Your check-ins' }, false, ctx)}</section>`;
+    const n = gCheckinCount(); if(n < 3) return `<section class="lm-lead">${_lrnWaitHTML(n)}</section>`;
+    const ids = (st ? ['weeks:' + st, 'time:' + st] : []).concat(['states', 'before-after']);
+    const cs = ids.map(id=>{ try{ return _lrnCallout(id, ctx); }catch(e){ return null; } }).filter(Boolean);
+    if(!cs.length) return '';
+    let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return `<section class="lm-lead">${_lrnCallHTML(cs[h % cs.length], true, ctx)}</section>`;
+  }
   // DRAFT journal prompts (App Designer, 2026-10-26), for Justin to replace; the transcript pass will give each episode its own
   const _LM_JQ = { safety:'When you notice a little safety, what do you notice first?', fightflight:'When flight/fight comes up, where do you feel it first?',
     freeze:'When you notice freeze, what helps the brake ease a little?', shutdown:'When you notice numbness or heaviness, what do you notice first?' };
@@ -4816,7 +4830,7 @@ function app(tab){
     const st = _lmState(x); if(!st) return '';
     if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
     const saved = ((_ctxLoad()['mj:' + x.i + ':1']) || [])[0] || '';
-    return `<div class="lm-card"><span class="rd-eyeb">Journal</span><label class="read-p rd-refl-q" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="rd-refl-in" id="lm-j" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><button class="lm-save" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div>`;
+    return `<div class="lm-card lm-card-o"><span class="rd-eyeb">Journal</span><label class="read-p rd-refl-q" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="rd-refl-in" id="lm-j" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><button class="lm-save" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div>`;
   }
   function _lmWireCards(x){
     const st = _lmState(x), js = $('#lm-jsave'), jt = $('#lm-j');
@@ -4826,7 +4840,7 @@ function app(tab){
         try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m = _ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
         js.textContent = txt ? 'Saved' : 'Save to my journal'; haptic && haptic('save'); };
     }
-    root.querySelectorAll('.rd-jr-locked, .lm-sub').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    root.querySelectorAll('.rd-jr-locked, .lm-sub, .lm-lead .rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
   }
   // descriptions (round 2): learn/media-desc.json, {d:{id:text}} from the episode show notes and the video descriptions,
   // links and hashtags taken out (snb-business learn-media/media-desc.py). Loaded on the first media screen. An episode
@@ -4872,6 +4886,8 @@ function app(tab){
     const others = _lmData ? _lmData.items.filter(e=>e.i !== x.i && e.i !== x.y && e.i !== x.p && (paid || e.s !== 'c')) : [];
     const next = kinds => { const list = others.filter(e=>kinds.indexOf(e.s) >= 0); return g.length ? pick(list, e=>shared(e.g)) : list[0] || null; };
     const lis = next(x.s === 'c' ? ['c', 'p'] : ['p']), wat = next(x.s === 's' ? ['s'] : ['v']);
+    const pair = x.y ? _lmById(x.y) : x.p ? _lmById(x.p) : null;
+    if(pair) rows.unshift([x.y ? 'The same episode on video' : 'The same episode as audio', _lrnMediaRowHTML(pair)]);
     const ord = _lmIsListen(x) ? [['Listen next', lis], ['Watch next', wat]] : [['Watch next', wat], ['Listen next', lis]];
     ord.forEach(([l, e])=>{ if(e) rows.push([l, _lrnMediaRowHTML(e)]); });
     const pt = _lrnPracticeThis({ practice:'custom' });
@@ -4903,7 +4919,7 @@ function app(tab){
     const here = { label:'Back', go:()=>screenMedia(id, from) };
     const meta = [x.e ? 'Episode ' + x.e : '', _lmLen(x.n), _lmDate(x.d)].filter(Boolean).join(' · ');
     if(x.s === 's'){
-      const ci = `<div class="lm-desc lm-card" id="lm-desc" hidden></div>` + _lmCheckinsHTML(x) + _lmJournalHTML(x) + `<div class="lm-sheet-keep">${_lmKeepHTML(x)}</div>`;
+      const ci = _lmLeadHTML(x) + _lmJournalHTML(x) + `<div class="lm-desc" id="lm-desc" hidden></div>` + `<div class="lm-sheet-keep">${_lmKeepHTML(x)}</div>`;
       _rdShell(`<div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
           <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1>
           ${ci ? `<div class="lm-sheet" id="lm-sheet" aria-hidden="true">${ci}</div>` : ''}`,
@@ -4928,7 +4944,7 @@ function app(tab){
     const pair = x.y ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.y)}">${_lmIcon('watch')}<span class="lm-tx"><b>Watch the video</b><span class="lm-meta"><span>The same episode on video</span></span></span><span class="wc-go">${CHEV}</span></button>`
       : x.p ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.p)}">${_lmIcon('listen')}<span class="lm-tx"><b>Listen to the episode</b><span class="lm-meta"><span>The podcast version</span></span></span><span class="wc-go">${CHEV}</span></button>` : '';
     _rdShell(`<div class="lm-head"><span class="rd-eyeb">${escapeHtml(eyeb)}</span><h1 class="rd-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="lm-meta-l">${escapeHtml(meta)}</p>` : ''}</div>
-          ${player}<div class="lm-desc" id="lm-desc" hidden></div>${pair}${_lmCheckinsHTML(x)}${_lmJournalHTML(x)}${_lmKeepHTML(x)}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
+          ${player}${_lmLeadHTML(x)}${_lmJournalHTML(x)}<div class="lm-desc" id="lm-desc" hidden></div>${_lmKeepHTML(x)}`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
     root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
     _lmFillDesc(x);
     _lmWireKeep(root, here);

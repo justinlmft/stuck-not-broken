@@ -4662,3 +4662,13 @@ body.lm-dark .scroll,body.lm-dark .view.read{background:#14171E;color:var(--bone
 .rd-toc > .lm-about-b{box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:12px 14px 14px;border-top:1px solid var(--hairline)}
 .lm-about-b .read-p{margin:0;white-space:pre-line}
 .lm-sheet .lm-desc.lm-card{padding:16px 20px 4px}
+
+/* media pages, layout B (2026-10-26): the media leads, one filled data card, the rest quieter */
+.lm-lead{margin:0 0 16px}
+.lm-lead .rd-call{margin:0}
+.lm-card.lm-card-o{background:transparent;border:1px solid var(--hairline)}
+.lm-desc .lm-about{border:0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);border-radius:0;background:transparent}
+.lm-desc .lm-about summary{padding:0}
+.lm-desc .rd-toc > .lm-about-b{padding:12px 0 16px;border-top:0}
+.lm-sheet .lm-lead,.lm-sheet .lm-card-o,.lm-sheet .lm-desc{margin:16px 20px 0}
+.lm-sheet .lm-card.lm-card-o{padding:20px}
