@@ -3122,9 +3122,11 @@ function app(tab){
       const box = sh.el.querySelector('.lw-sh-body'), h = sh.el.querySelector('#lw-sh-h');
       if(h) h.textContent = 'Saved';
       box.innerHTML = `<div class="lw-ci-res" role="img" aria-label="${escapeHtml(dom.label || '')}">${_lwGlyph(dom.key)}<p class="lw-ci-res-n">${escapeHtml(dom.label || '')}</p></div>
-        <p class="lw-p lw-muted lw-ci-res-note">Only you see it.</p>
-        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-ci-back">${phase === 'after' ? 'Done' : 'Back to the practice'}</button></div>`;
-      box.querySelector('#lw-ci-back').onclick = sh.close;
+        <p class="lw-p lw-muted lw-ci-res-note">${R && R.co && R.phase === 'call' ? 'Only you see it, unless you share it.' : 'Only you see it.'}</p>
+        <div class="lw-sh-btns">${R && R.co && R.phase === 'call' ? '<button class="btn block quiet" type="button" id="lw-ci-share">Share in the chat</button>' : ''}<button class="btn block" type="button" id="lw-ci-back">${opts.thenLeave ? 'Leave' : phase === 'after' ? 'Done' : 'Back to the practice'}</button></div>`;
+      box.querySelector('#lw-ci-back').onclick = () => { sh.close(); if(opts.thenLeave) _lwLeaveCall(); };
+      const shareB = box.querySelector('#lw-ci-share');
+      if(shareB) shareB.onclick = () => { if(_lwShareCard({ k:dom.key, label:dom.label || '', ev:ctx })){ shareB.disabled = true; shareB.innerHTML = LW_ICO.check + 'Shared in the chat'; haptic('save'); } else showToast('That did not send. Try again in a moment.'); };
     };
     return sh;
   }
@@ -3143,7 +3145,7 @@ function app(tab){
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-acct">Go to Settings</button></div>`).el.querySelector('#lw-acct').onclick = () => { const o=document.getElementById('lw-sheet'); if(o) o.remove(); screenSettings(); };
     }
     const K = _lwKind(s);
-    _lwRoom = { s, phase:(K.video && !_lwIsHost()) ? 'lobby' : 'joining', cam:false, mic:false, chat:[], unread:0, co:null, sharing:false, err:null, joinedAt:0, preview:null, needsTap:false, showState:false, lastKey:null, role:null };
+    _lwRoom = { s, phase:(K.video && !_lwIsHost()) ? 'lobby' : 'joining', cam:false, mic:false, chat:[], unread:0, co:null, sharing:false, err:null, joinedAt:0, preview:null, needsTap:false, lastKey:null, role:null };
     document.body.classList.add('lw-in-room');
     _lwRender();
     if(_lwRoom.phase === 'joining') _lwJoin();
@@ -3232,8 +3234,9 @@ function app(tab){
     _lwPaint();
     const co = R.co;
     $('#lw-c-leave').onclick = () => { const sh = _lwSheet('Leave the call?', `<p class="lw-p">Stopping is fine.${_lwEnd(s) > Date.now() ? ' You can rejoin while it is running.' : ''}</p>
-        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-lw-go">Leave</button><button class="btn block quiet" type="button" id="lw-lw-stay">Stay</button></div>`, { host:document.getElementById('lw-room') });
+        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-lw-go">Leave</button><button class="btn block quiet" type="button" id="lw-lw-ci">Check in before you leave</button><button class="btn block quiet" type="button" id="lw-lw-stay">Stay</button></div>`, { host:document.getElementById('lw-room') });
       sh.el.querySelector('#lw-lw-stay').onclick = sh.close;
+      sh.el.querySelector('#lw-lw-ci').onclick = () => { sh.close(); setTimeout(() => _lwCheckin('after', { thenLeave:true }), 340); };
       sh.el.querySelector('#lw-lw-go').onclick = () => { sh.close(); _lwLeaveCall(); }; };
     const mic = document.getElementById('lw-c-mic'); if(mic) mic.onclick = () => { R.mic = !R.mic; try{ co.setLocalAudio(R.mic); }catch(e){} _lwRender(); };
     const cam = document.getElementById('lw-c-cam'); if(cam) cam.onclick = () => { R.cam = !R.cam; try{ co.setLocalVideo(R.cam); }catch(e){} _lwRender(); };
@@ -3278,7 +3281,7 @@ function app(tab){
     co.on('local-screen-share-stopped', () => { R.sharing = false; if(R.phase === 'call') _lwRender(); });
     co.on('app-message', ev => {
       const d = ev && ev.data; if(!d) return;
-      if(d.t === 'chat' && d.text){ R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text).slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st) }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
+      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
       if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
     });
     co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
@@ -3301,15 +3304,25 @@ function app(tab){
   function _lwSend(text){
     const R = _lwRoom; text = String(text||'').trim(); if(!R || !R.co || !text) return;
     const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member');
-    const av = _lwAvatar(), st = R.showState && R.lastKey ? R.lastKey : null;
+    const av = _lwAvatar(), st = _lwSig();
     try{ R.co.sendAppMessage({ t:'chat', who, text:text.slice(0,500), host:_lwIsHost(), av, st }, '*'); }catch(e){}
     R.chat.push({ who:'You', text:text.slice(0,500), host:_lwIsHost(), av, st }); _lwPaintChat();
   }
   const _lwSafeAv = u => (typeof u === 'string' && /^https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]+\.jpg(\?v=\d+)?$/.test(u)) ? u : null;
   const _lwSafeSt = k => (typeof k === 'string' && STATE_AXES[k]) ? k : null;
+  const _lwSafeCard = c => { if(!c || typeof c !== 'object') return null; const k = (typeof c.k === 'string' && (STATE_AXES[c.k] || c.k === 'neutral')) ? c.k : null; if(!k) return null;
+    return { k, label:String(c.label || '').slice(0, 80), ev:String(c.ev || '').slice(0, 60) }; };
+  // a shared check-in, drawn like the app's share cards: eyebrow, the state glyph, its name, the brand foot
+  const _lwCardHTML = (c, sig) => `<div class="lw-shcard" role="img" aria-label="${escapeHtml((c.ev ? c.ev + ': ' : '') + c.label)}"><p class="ww-eyeb">${escapeHtml(c.ev)}</p><div class="lw-shcard-g">${_lwGlyph(c.k)}</div><p class="lw-shcard-l">${escapeHtml(c.label)}</p>${panelFoot(sig || null)}</div>`;
+  function _lwShareCard(card){
+    const R = _lwRoom; if(!R || !R.co || R.phase !== 'call') return false;
+    const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member'), av = _lwAvatar(), st = _lwSig();
+    try{ R.co.sendAppMessage({ t:'chat', who, text:'', host:_lwIsHost(), av, st, card }, '*'); }catch(e){ return false; }
+    R.chat.push({ who:'You', text:'', host:_lwIsHost(), av, st, card }); _lwPaintChat(); return true;
+  }
   function _lwMsgHTML(m, anim){
     const av = m.av ? `<img src="${escapeHtml(m.av)}" alt="" loading="lazy">` : escapeHtml((m.who || '?').charAt(0));
-    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b><span>${escapeHtml(m.text)}</span></div></div>`;
+    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}</div></div>`;
   }
   // a list already on screen only gets the new messages (they animate in); a fresh list is drawn whole
   function _lwPaintChat(){
@@ -3323,15 +3336,22 @@ function app(tab){
       el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
     });
   }
-  // "Show my state": the member's last check-in at this event, as a glyph beside their name in the chat
+  // the member's state glyph beside their name: their DOMINANT state across their check-ins (the share signature),
+  // one choice shared with Settings → "Your state glyph on shared images and in live chat" (Justin, 2026-10-27)
+  const _lwSigOn = () => { try{ return localStorage.getItem('snb_share_glyph') !== '0'; }catch(e){ return true; } };
+  const _lwSig = () => { try{ return _lwSigOn() ? _signatureKey() : null; }catch(e){ return null; } };
   function _lwStateTg(){
-    const R = _lwRoom; if(!R) return '';
-    const on = !!R.showState, k = R.lastKey;
-    return `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-st>${k ? _lwGlyph(k) : ''}<span>${on ? (k ? 'Showing my state in the chat' : 'Check in to show your state') : 'Show my state in the chat'}</span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
+    if(!_lwRoom) return '';
+    const on = _lwSigOn(); let k = null; try{ k = _signatureKey(); }catch(e){}
+    return `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-st>${k ? _lwGlyph(k) : ''}<span><span class="lw-st-t">${on ? 'Your state glyph shows in the chat' : 'Show your state glyph in the chat'}</span><span class="lw-st-s">${k ? 'The state you come back to most in your check-ins. Also in Settings.' : 'It shows once you have a few check-ins. Also in Settings.'}</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
   }
   function _lwWireStateTg(scope){
     if(!scope) return;
-    scope.querySelectorAll('[data-lw-st]').forEach(b => b.onclick = () => { const R = _lwRoom; if(!R) return; R.showState = !R.showState; b.outerHTML = _lwStateTg(); _lwWireStateTg(scope); });
+    scope.querySelectorAll('[data-lw-st]').forEach(b => b.onclick = () => {
+      try{ localStorage.setItem('snb_share_glyph', _lwSigOn() ? '0' : '1'); }catch(e){}
+      document.querySelectorAll('[data-lw-st]').forEach(x => { x.outerHTML = _lwStateTg(); });
+      const room = document.getElementById('lw-room'); _lwWireStateTg(room); const shx = document.getElementById('lw-sheet'); if(shx && !(room && room.contains(shx))) _lwWireStateTg(shx);
+    });
   }
   // pick the camera and the mic
   async function _lwDevicesSheet(){
@@ -11905,7 +11925,7 @@ function app(tab){
 
           <div class="gs-card">
             <p class="gs-h">Your data</p>
-            ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
+            ${gsSw('sw-glyph','Your state glyph on shared images and in live chat',gl!=='0')}
             <p class="ch-cap" id="glyph-cap"></p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins and journal</button>
@@ -12053,8 +12073,8 @@ function app(tab){
     bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); });
     // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
-      ? 'Your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
-      : 'Your share cards go out with no state signature.'; };
+      ? 'Your share cards and your live event chat messages carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
+      : 'Your share cards and chat messages go out with no state signature.'; };
     _glyphCap(gl!=='0');
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
