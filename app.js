@@ -4658,10 +4658,12 @@ function app(tab){
     listen:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"/>', watch:'<path d="M8 5.5v13l11-6.5z"/>' };
   const _lmMi = (k, label) => `<svg class="lm-mi" viewBox="0 0 24 24" role="img" aria-label="${escapeHtml(label)}">${_LM_MI[k]}</svg>`;
   const _LM_SEP = '<span class="lm-sep" aria-hidden="true">·</span>';
+  // cards and rows show the month and year as numbers, "09/26" (Justin, 2026-10-26: the full date "takes up too much space")
+  const _lmMY = d => /^\d{4}-\d{2}/.test(d || '') ? d.slice(5, 7) + '/' + d.slice(2, 4) : '';
   function _lmMetaHTML(k, label, len, date, lock, read){
     const parts = [_lmMi(k, label)];
     if(len) parts.push(escapeHtml(len));
-    if(date) parts.push(escapeHtml(_lmDate(date)));
+    if(date) parts.push(escapeHtml(_lmMY(date)));
     if(lock) parts.push(LOCK_SVG + 'Paid plan');
     if(read) parts.push(_lrnReadMk() + 'Read');
     return parts.join(_LM_SEP);
