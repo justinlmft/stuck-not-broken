@@ -4745,3 +4745,24 @@ body.lm-arr .lm-mod:nth-child(2n){animation-delay:-.16s}
 .lm-sheet .lm-mod > .lm-lead,.lm-sheet .lm-mod > .lm-card-o,.lm-sheet .lm-mod > .lm-desc{margin:0}
 @media (prefers-reduced-motion: reduce){ body.lm-arr .lm-mod{animation:none} }
 @media (min-width:1000px){ body.lm-wide .lm-sheet .lm-arr-bar,body.lm-wide .lm-sheet .lm-mods,body.lm-wide .lm-sheet .lm-arr-foot{margin-left:0;margin-right:0} }
+
+/* media page cards, round 2 (2026-10-26): each pick its own card on a two-column grid, half or full */
+.lm-mods{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;align-items:stretch}
+.lm-mod{grid-column:span 2;min-width:0}
+.lm-mod.lm-half,.lm-ph.lm-half{grid-column:span 1}
+.lm-ph{grid-column:span 2}
+.lm-tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;width:100%;height:100%;min-height:132px;box-sizing:border-box;padding:16px;border-radius:18px;border:1px solid var(--hairline);background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.lm-tile .rd-eyeb{margin:0}
+.lm-tile-t{font-size:calc(15px * var(--type-scale));line-height:20px;font-weight:500;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lm-tile .lm-m{margin-top:auto}
+.lm-tile-go{margin-top:auto;min-height:36px;padding:0 16px;border-radius:999px;background:var(--ink);color:var(--bone);display:inline-flex;align-items:center;font-size:14px;font-weight:600}
+.lm-tile:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.lm-mod:not(.lm-half) .lm-tile{min-height:0}
+.lm-hubs{display:flex;flex-direction:column;gap:6px}
+.lm-mod-sz{display:none;position:absolute;right:-8px;top:-8px;z-index:3;width:28px;height:28px;padding:0;border-radius:999px;border:2px solid var(--bone);background:var(--muted);color:var(--bone);cursor:pointer;align-items:center;justify-content:center}
+.lm-mod-sz svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+body.lm-arr .lm-mod-sz{display:flex}
+.lm-mixbar{display:flex;gap:2px;height:20px;border-radius:6px;overflow:hidden}
+.lm-keys{display:flex;flex-wrap:wrap;gap:6px 14px}
+.lm-key{display:inline-flex;align-items:center;gap:6px;font-size:calc(13px * var(--type-scale));line-height:18px;color:var(--ink-80, var(--ink))}
+.lm-key i{width:10px;height:10px;border-radius:3px;flex:none}

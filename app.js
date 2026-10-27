@@ -4841,6 +4841,12 @@ function app(tab){
       c = Object.assign({}, c, { card:`<div class="rd-snap rd-snap-in lm-cols" role="img" aria-label="${escapeHtml(c.text)}">${bars}</div><p class="rd-cap">The past ${k === 1 ? 'week' : k + ' weeks'}</p>` });
       return `<section class="lm-lead">${_lrnCallHTML(c, true, ctx).replace(/<span class="rd-call-per">[^<]*<\/span>/, '')}</section>`;
     }
+    if(c.mix){
+      const N = c.mix.reduce((a, m)=>a + m.n, 0) || 1, on = c.mix.filter(m=>m.n);
+      const seg = on.map(m=>`<span style="flex:${m.n} 1 0;background:${STATE_COLOR(m.k)}"></span>`).join('');
+      const key = on.map(m=>`<span class="lm-key"><i style="background:${STATE_COLOR(m.k)}"></i>${escapeHtml(m.nm)} ${Math.round(100 * m.n / N)}%</span>`).join('');
+      c = Object.assign({}, c, { card:`<div class="rd-snap rd-snap-in lm-mix"><div class="lm-mixbar" role="img" aria-label="${escapeHtml(on.map(m=>m.nm + ' ' + Math.round(100 * m.n / N) + '%').join(', '))}">${seg}</div><div class="lm-keys">${key}</div></div>` });
+    }
     return `<section class="lm-lead">${_lrnCallHTML(c, true, ctx)}</section>`;
   }
   // DRAFT journal prompts (App Designer, 2026-10-26), for Justin to replace; the transcript pass will give each episode its own
@@ -4885,7 +4891,7 @@ function app(tab){
   }
   function _lmFillDesc(x){
     const box = $('#lm-desc'); if(!box) return;
-    const fill = () => { const h = _lmDescHTML(x); box.innerHTML = h; box.hidden = !h; _lmWireDesc(box); };
+    const fill = () => { const h = _lmDescHTML(x); box.innerHTML = h; box.hidden = !h; _lmWireDesc(box); const m = box.closest('.lm-mod'); if(m && !h) m.remove(); };
     if(_lmDesc) return fill();
     _lmDescLoad().then(d=>{ if(d && box.isConnected) fill(); });
   }
@@ -4929,54 +4935,107 @@ function app(tab){
   const _LM_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
   const _lmCrumb = x => { const L = window.Learning, go = ()=>screenLearn(true);
     return [{ label:'Learn', go }].concat(_rdCrumbTopic((x.g || []).find(k=>L.HUBS[k]), go), [{ label: x.s === 's' ? 'This Short' : _lmIsListen(x) ? 'This episode' : 'This video' }]); };
-  // ---- the cards under the player, in the member's own order (step 4, 2026-10-26)
-  const _LM_MODS = ['lead', 'journal', 'about', 'keep'];
-  const _LM_MOD_NAME = { lead:'Your data', journal:'Journal', about:'About', keep:'Keep learning' };
+  // ---- the cards under the player, in the member's own order (step 4, 2026-10-26; round 2 the same night: each pick its own
+  // card, half or full width on a two-column grid, empty cards not drawn)
+  const _LM_MODS = ['lead', 'journal', 'about', 'same', 'next', 'other', 'read', 'practice', 'hubs'];
+  const _LM_FIXED = { lead:1, journal:1, about:1, hubs:1 };              // always full width
+  const _LM_HALF = { same:1, next:1, other:1, read:1, practice:1 };      // half width unless the member widens it
+  // the saved order: 'id', '-id' hidden, 'id:h' / 'id:f' a size the member chose
+  const _lmParse = k => { const m = /^(-)?([a-z]+)(?::([hf]))?$/.exec(k || ''); return m && _LM_MODS.indexOf(m[2]) >= 0 ? { id:m[2], off:!!m[1], size:m[3] || '' } : null; };
   function _lmLayout(){
     let v = null; try{ v = _ctxLoad()['ml:layout']; }catch(e){}
-    const out = (Array.isArray(v) ? v : []).filter(k=>typeof k === 'string' && _LM_MODS.indexOf(k.replace(/^-/, '')) >= 0);
-    const seen = out.map(k=>k.replace(/^-/, '')); _LM_MODS.forEach(k=>{ if(seen.indexOf(k) < 0) out.push(k); });
+    const out = (Array.isArray(v) ? v : []).map(_lmParse).filter(Boolean);
+    _LM_MODS.forEach((id, i)=>{ if(!out.some(o=>o.id === id)){ const prev = _LM_MODS.slice(0, i).reverse().find(p=>out.some(o=>o.id === p)); const at = prev ? out.findIndex(o=>o.id === prev) + 1 : 0; out.splice(at, 0, { id, off:false, size:'' }); } });
     return out;
   }
+  const _lmEnc = o => (o.off ? '-' : '') + o.id + (o.size ? ':' + o.size : '');
   function _lmLayoutSave(arr){ try{ if(Store.saveContexts) Store.saveContexts('ml:layout', 'layout', arr); else { const m = _ctxLoad(); m['ml:layout'] = arr; _ctxSave(m); } }catch(e){} }
+  // the picks, one card each (the same choices Keep learning made)
+  function _lmTilesHTML(x){
+    const L = window.Learning, g = x.g || [], st = _lmState(x), paid = paidNow();
+    let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const pick = (list, score) => { let best = 0, top = []; list.forEach(e=>{ const n = score(e); if(n > best){ best = n; top = [e]; } else if(n && n === best) top.push(e); }); return top.length ? top[h % top.length] : null; };
+    const shared = gs => (gs || []).filter(k=>g.indexOf(k) >= 0).length;
+    const tile = (eyeb, attr, title, meta, go) => `<button class="lm-tile" type="button" ${attr}><span class="rd-eyeb">${escapeHtml(eyeb)}</span><b class="lm-tile-t">${escapeHtml(title)}</b>${meta ? `<span class="lm-m">${meta}</span>` : ''}${go ? `<span class="lm-tile-go">${escapeHtml(go)}</span>` : ''}</button>`;
+    const med = (eyeb, e) => e ? tile(eyeb, `data-media="${escapeHtml(e.i)}"`, e.t, _lmMedMeta(e)) : '';
+    const out = {};
+    const pair = x.y ? _lmById(x.y) : x.p ? _lmById(x.p) : null;
+    out.same = med(x.y ? 'The video version' : 'The audio version', pair);
+    const others = _lmData ? _lmData.items.filter(e=>e.i !== x.i && e.i !== x.y && e.i !== x.p && (paid || e.s !== 'c')) : [];
+    const next = kinds => { const list = others.filter(e=>kinds.indexOf(e.s) >= 0); return g.length ? pick(list, e=>shared(e.g)) : list[0] || null; };
+    const lis = next(x.s === 'c' ? ['c', 'p'] : ['p']), wat = next(x.s === 's' ? ['s'] : ['v']);
+    if(_lmIsListen(x)){ out.next = med('Listen next', lis); out.other = med('Watch next', wat); }
+    else { out.next = med('Watch next', wat); out.other = med('Listen next', lis); }
+    if(g.length){
+      const sc = p => shared(p.groups) + (st && p.state === st ? 1 : 0);
+      const rp = pick(L.PIECES.filter(p=>!_lrnIsRead(p.id)), sc) || pick(L.PIECES, sc);
+      out.read = rp ? tile('Read next', `data-piece="${escapeHtml(rp.id)}"`, rp.title, _lmArtMeta(rp)) : '';
+    }
+    const pt = _lrnPracticeThis({ practice:'custom' });
+    out.practice = tile('Practice', 'data-prac="custom"', pt.title, pt.note ? escapeHtml(pt.note) : '', 'Begin');
+    const hubs = g.filter(k=>L.HUBS[k]);
+    out.hubs = hubs.length ? `<section class="lm-hubs"><span class="rd-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubs.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div></section>` : '';
+    return out;
+  }
+  const _LM_MOD_NAME = { lead:'Your data', journal:'Journal', about:'About', same:'The same episode', next:'Next', other:'Next', read:'Read next', practice:'Practice', hubs:'Learning hubs' };
   function _lmModsHTML(x){
-    const part = { lead:_lmLeadHTML(x), journal:_lmJournalHTML(x), about:'<div class="lm-desc" id="lm-desc" hidden></div>', keep:_lmKeepHTML(x) };
-    const mods = _lmLayout().map(k=>{ const off = k[0] === '-', id = k.replace(/^-/, '');
-      return `<div class="lm-mod" data-mod="${id}"${off ? ' hidden' : ''}><button class="lm-mod-x" type="button" data-mod-hide="${id}" aria-label="Hide ${_LM_MOD_NAME[id]}">−</button>${part[id] || ''}</div>`; }).join('');
+    const t = _lmTilesHTML(x);
+    const part = Object.assign({ lead:_lmLeadHTML(x), journal:_lmJournalHTML(x), about:'<div class="lm-desc" id="lm-desc" hidden></div>' }, t);
+    // About has no text until the descriptions load; it is dropped then if this piece has none (see _lmFillDesc)
+    const mods = _lmLayout().filter(o=>part[o.id]).map(o=>{
+      const half = !_LM_FIXED[o.id] && (o.size ? o.size === 'h' : !!_LM_HALF[o.id]);
+      const nm = (/<span class="rd-eyeb">([^<]+)<\/span>/.exec(part[o.id]) || [])[1] || _LM_MOD_NAME[o.id];
+      return `<div class="lm-mod${half ? ' lm-half' : ''}" data-mod="${o.id}" data-name="${escapeHtml(nm)}"${o.size ? ` data-sz="${o.size}"` : ''}${o.off ? ' hidden' : ''}><button class="lm-mod-x" type="button" data-mod-hide="${o.id}" aria-label="Hide ${escapeHtml(nm)}">−</button>${_LM_FIXED[o.id] ? '' : `<button class="lm-mod-sz" type="button" aria-label="${half ? 'Make it wider' : 'Make it narrower'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>`}${part[o.id]}</div>`; }).join('');
     return `<div class="lm-arr-bar" hidden><span class="lm-arr-tip">Drag to move. Tap − to hide.</span><button class="lm-arr-done" type="button">Done</button></div>
       <div class="lm-mods">${mods}</div>
-      <div class="lm-arr-foot" hidden><div class="lm-arr-add"></div><button class="lm-clear lm-arr-reset" type="button">Reset to the standard order</button></div>`;
+      <div class="lm-arr-foot" hidden><div class="lm-arr-add"></div><button class="lm-clear lm-arr-reset" type="button">Reset to the standard layout</button></div>`;
   }
-  function _lmWireMods(){
+  function _lmWireMods(here){
     const box = root.querySelector('.lm-mods'), bar = root.querySelector('.lm-arr-bar'), foot = root.querySelector('.lm-arr-foot'); if(!box) return;
-    const sc = root.querySelector('.scroll'), sheet = root.querySelector('.lm-sheet');
+    const sc = root.querySelector('.scroll'), sheet = root.querySelector('.lm-sheet'), L = window.Learning;
+    // the cards' own links
+    if(here){
+      box.querySelectorAll('.lm-tile[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here.go, tab:'learn' }); });
+      box.querySelectorAll('.lm-tile[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+      box.querySelectorAll('.lm-hubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+      box.querySelectorAll('.lm-tile[data-prac]').forEach(b=>b.onclick=()=>renderPlan(_lrnPracticeReco({ practice:'custom' }), _trueBack(here.go)));
+    }
     const mods = () => [...box.querySelectorAll('.lm-mod')];
-    const save = () => _lmLayoutSave(mods().map(m=>(m.hidden ? '-' : '') + m.dataset.mod));
+    // save the cards here in their new order; cards this page did not draw keep their place after the card they followed
+    const save = () => {
+      const cur = mods().map(m=>({ id:m.dataset.mod, off:m.hidden, size: m.dataset.sz || '' }));
+      const ids = cur.map(o=>o.id), out = cur.slice();
+      _lmLayout().forEach((o, i, all)=>{ if(ids.indexOf(o.id) >= 0) return; const prev = all.slice(0, i).reverse().find(p=>out.some(q=>q.id === p.id)); const at = prev ? out.findIndex(q=>q.id === prev.id) + 1 : 0; out.splice(at, 0, o); });
+      _lmLayoutSave(out.map(_lmEnc));
+    };
     const paintAdd = () => { const off = mods().filter(m=>m.hidden);
-      foot.querySelector('.lm-arr-add').innerHTML = off.length ? `<span class="lm-arr-tip">Add a card</span>${off.map(m=>`<button class="lm-chip" type="button" data-mod-show="${m.dataset.mod}"><span>${escapeHtml(_LM_MOD_NAME[m.dataset.mod])}</span><span aria-hidden="true">+</span></button>`).join('')}` : '';
+      foot.querySelector('.lm-arr-add').innerHTML = off.length ? `<span class="lm-arr-tip">Add a card</span>${off.map(m=>`<button class="lm-chip" type="button" data-mod-show="${m.dataset.mod}"><span>${escapeHtml(m.dataset.name)}</span><span aria-hidden="true">+</span></button>`).join('')}` : '';
       foot.querySelectorAll('[data-mod-show]').forEach(b=>b.onclick=()=>{ const m = box.querySelector(`[data-mod="${b.dataset.modShow}"]`); if(m){ m.hidden = false; box.appendChild(m); save(); paintAdd(); } }); };
     const setArr = on => { document.body.classList.toggle('lm-arr', on); bar.hidden = !on; foot.hidden = !on; if(on) paintAdd(); };
     setArr(false);
     bar.querySelector('.lm-arr-done').onclick = () => { setArr(false); save(); };
-    foot.querySelector('.lm-arr-reset').onclick = () => { _LM_MODS.forEach(k=>{ const m = box.querySelector(`[data-mod="${k}"]`); if(m){ m.hidden = false; box.appendChild(m); } }); save(); paintAdd(); };
-    box.querySelectorAll('[data-mod-hide]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const m = b.closest('.lm-mod'); m.hidden = true; save(); paintAdd(); });
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const flip = (els, fn) => { const r0 = new Map(els.map(el=>{ const r = el.getBoundingClientRect(); return [el, [r.left, r.top]]; })); fn();
+      if(reduce) return; els.forEach(el=>{ const r = el.getBoundingClientRect(), p = r0.get(el), dx = p[0] - r.left, dy = p[1] - r.top; if((dx || dy) && el.animate) el.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:'none' }], { duration:220, easing:'cubic-bezier(.2,.6,.2,1)' }); }); };
+    foot.querySelector('.lm-arr-reset').onclick = () => flip(mods(), ()=>{ _LM_MODS.forEach(k=>{ const m = box.querySelector(`[data-mod="${k}"]`); if(m){ m.hidden = false; delete m.dataset.sz; m.classList.toggle('lm-half', !!_LM_HALF[k]); box.appendChild(m); } }); _lmLayoutSave([]); paintAdd(); });
+    box.querySelectorAll('[data-mod-hide]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const m = b.closest('.lm-mod'); flip(mods().filter(o=>o !== m), ()=>{ m.hidden = true; }); save(); paintAdd(); });
+    box.querySelectorAll('.lm-mod-sz').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const m = b.closest('.lm-mod');
+      flip(mods(), ()=>{ const half = !m.classList.contains('lm-half'); m.classList.toggle('lm-half', half); m.dataset.sz = half ? 'h' : 'f'; b.setAttribute('aria-label', half ? 'Make it wider' : 'Make it narrower'); }); save(); });
     // hold, then drag. Outside Arrange a hold is half a second; inside it, a short one, so a quick swipe still scrolls.
     let timer = null, drag = null, eatClick = false;
-    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const flip = (els, fn) => { const r0 = new Map(els.map(el=>[el, el.getBoundingClientRect().top])); fn();
-      if(reduce) return; els.forEach(el=>{ const d = r0.get(el) - el.getBoundingClientRect().top; if(d && el.animate) el.animate([{ transform:`translateY(${d}px)` }, { transform:'none' }], { duration:200, easing:'cubic-bezier(.2,.6,.2,1)' }); }); };
-    const start = (m, y) => {
+    const start = (m, x, y) => {
       const r = m.getBoundingClientRect(), ph = document.createElement('div');
-      ph.className = 'lm-ph'; ph.style.height = r.height + 'px';
+      ph.className = 'lm-ph' + (m.classList.contains('lm-half') ? ' lm-half' : ''); ph.style.height = r.height + 'px';
       m.parentNode.insertBefore(ph, m);
-      drag = { m, ph, dy: y - r.top };
+      drag = { m, ph, dx: x - r.left, dy: y - r.top };
       m.classList.add('lm-drag'); m.style.width = r.width + 'px'; m.style.left = r.left + 'px'; m.style.top = r.top + 'px';
       try{ haptic('save'); }catch(e){}
     };
-    const move = y => {
-      const { m, ph } = drag; m.style.top = (y - drag.dy) + 'px';
+    const move = (x, y) => {
+      const { m, ph } = drag; m.style.left = (x - drag.dx) + 'px'; m.style.top = (y - drag.dy) + 'px';
       const others = mods().filter(o=>o !== m && !o.hidden);
-      const before = others.find(o=>{ const r = o.getBoundingClientRect(); return y < r.top + r.height / 2; });
+      // the card the finger is before: any card lower down, or the same row and to the right of the finger
+      const before = others.find(o=>{ const r = o.getBoundingClientRect(); return y < r.top || (y <= r.bottom && x < r.left + r.width / 2); });
       if((before && ph.nextElementSibling !== before) || (!before && ph !== box.lastElementChild)) flip(others, ()=>{ if(before) box.insertBefore(ph, before); else box.appendChild(ph); });
       const sp = sheet && sheet.classList.contains('open') ? sheet : sc;
       if(sp){ const r = sp.getBoundingClientRect(); if(y < r.top + 70) sp.scrollTop -= 12; else if(y > Math.min(r.bottom, window.innerHeight - 120) - 70) sp.scrollTop += 12; }
@@ -4984,19 +5043,19 @@ function app(tab){
     const end = () => { const { m, ph } = drag; drag = null; ph.parentNode.insertBefore(m, ph); ph.remove();
       m.classList.remove('lm-drag'); m.style.width = m.style.left = m.style.top = ''; save(); eatClick = true; setTimeout(()=>{ eatClick = false; }, 350); };
     box.addEventListener('pointerdown', e=>{
-      const m = e.target.closest('.lm-mod'); if(!m || (e.button && e.button > 0) || e.target.closest('.lm-mod-x, textarea, input')) return;
+      const m = e.target.closest('.lm-mod'); if(!m || (e.button && e.button > 0) || e.target.closest('.lm-mod-x, .lm-mod-sz, textarea, input')) return;
       const x0 = e.clientX, y0 = e.clientY, id = e.pointerId, arr = document.body.classList.contains('lm-arr');
-      let y = y0;
-      const mv = ev => { if(ev.pointerId !== id) return; y = ev.clientY; if(drag){ ev.preventDefault(); move(y); return; } if(Math.abs(ev.clientX - x0) > 8 || Math.abs(y - y0) > 8){ clearTimeout(timer); timer = null; } };
+      let x = x0, y = y0;
+      const mv = ev => { if(ev.pointerId !== id) return; x = ev.clientX; y = ev.clientY; if(drag){ ev.preventDefault(); move(x, y); return; } if(Math.abs(x - x0) > 8 || Math.abs(y - y0) > 8){ clearTimeout(timer); timer = null; } };
       const up = ev => { if(ev.pointerId !== id) return; clearTimeout(timer); timer = null; window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); if(drag) end(); };
       window.addEventListener('pointermove', mv, { passive:false }); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
       clearTimeout(timer);
-      timer = setTimeout(()=>{ timer = null; if(!arr) setArr(true); start(m, y); }, arr ? 180 : 500);
+      timer = setTimeout(()=>{ timer = null; if(!arr) setArr(true); start(m, x, y); }, arr ? 180 : 500);
     });
     // while a card is held, the page does not scroll under the finger; no long-press menu or text selection
     box.addEventListener('touchmove', e=>{ if(drag) e.preventDefault(); }, { passive:false });
     box.addEventListener('contextmenu', e=>{ if(timer || drag || document.body.classList.contains('lm-arr')) e.preventDefault(); });
-    box.addEventListener('click', e=>{ if(eatClick || (document.body.classList.contains('lm-arr') && !e.target.closest('.lm-mod-x, textarea'))){ e.preventDefault(); e.stopPropagation(); } }, true);
+    box.addEventListener('click', e=>{ if(eatClick || (document.body.classList.contains('lm-arr') && !e.target.closest('.lm-mod-x, .lm-mod-sz, textarea'))){ e.preventDefault(); e.stopPropagation(); } }, true);
   }
   // an episode, a video or a Short
   function screenMedia(id, from){
@@ -5021,7 +5080,7 @@ function app(tab){
       _lmWireCards(x);
       _lmFillDesc(x);
       _lmWireKeep(root, here);
-      _lmWireMods();
+      _lmWireMods(here);
       return;
     }
     const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();
@@ -5042,7 +5101,7 @@ function app(tab){
     _lmFillDesc(x);
     _lmWireKeep(root, here);
     _lmWireCards(x);
-    _lmWireMods();
+    _lmWireMods(here);
     if(listen && !locked) _lmWirePlayer(x);
   }
   function _lmWirePlayer(x){
@@ -5947,7 +6006,7 @@ function app(tab){
       const mx = Math.max.apply(null, KS.map(k=>cnt[k]||0)) || 1;
       const rows = KS.map((k, i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nm(k)))}</span><span class="help-track"><span class="help-fill" style="width:${cnt[k] ? Math.max(4, Math.round(100 * cnt[k] / mx)) : 0}%;background:${STATE_COLOR(k)}"></span></span><span class="help-pct">${cnt[k] || '–'}</span></div>`).join('');
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar and number: how many check-ins had that state. A dash: none in this period.</p>`;
-      return { mk: ord[0], label: owner + ' check-ins by state', text, card };
+      return { mk: ord[0], mix: KS.map(k=>({ k, n: cnt[k] || 0, nm: CAP(nm(k)) })), label: owner + ' check-ins by state', text, card };
     }
     if(kind === 'part' && st){
       // the states of the check-ins in one part of the day (the article data pass, run 14, 2026-10-23: "Rigid morning
