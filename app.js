@@ -2776,6 +2776,9 @@ function app(tab){
   function lwCalendarIco(on){ return '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"' + (on ? ' fill="currentColor"' : ' fill="none"') + '/><path fill="none" d="M8 3v4M16 3v4"/><path fill="none" d="M3.5 10h17"' + (on ? ' stroke="var(--bone-deep)"' : '') + '/></svg>'; }
   function lwCommunityIco(on){ if(!(LW_COREG_LIVE || LW_FORUM_LIVE)) return lwCalendarIco(on); return on ? '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5" fill="currentColor"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/><path fill="none" d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>'; }   // a function, so the tab bar can use it before this line runs
   const LW_ICO = {
+    rec_pause:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="6" width="3.2" height="12" rx="1"/><rect x="13.8" y="6" width="3.2" height="12" rx="1"/></svg>',
+    rec_stop:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.6"/></svg>',
+    rec_start:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.5" fill="var(--danger, #B3261E)"/></svg>',
     hangup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 14.5c4.7-4.1 12.3-4.1 17 0l-2.1 2.6-3.3-1.4v-2.3a9.6 9.6 0 0 0-6.2 0v2.3l-3.3 1.4Z"/></svg>',
     slides:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 9h7M7 12.5h10M12 17v3M8.5 20h7"/></svg>',
     mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
@@ -3754,10 +3757,12 @@ function app(tab){
     const host = _lwIsHost(), st = R.rec || 'off';
     if(!host){ el.innerHTML = st === 'on' ? '<span class="lw-rec-on"><i aria-hidden="true"></i>Recording</span>' : ''; return; }
     if(!R.s.recorded){ el.innerHTML = ''; return; }
-    el.innerHTML = st === 'on' ? '<span class="lw-rec-on"><i aria-hidden="true"></i>Recording</span><button type="button" class="lw-rec-b" data-rec="pause">Pause</button><button type="button" class="lw-rec-b" data-rec="stop">Stop</button>'
-      : st === 'paused' ? '<span class="lw-rec-off">Paused</span><button type="button" class="lw-rec-b" data-rec="start">Resume</button><button type="button" class="lw-rec-b" data-rec="stop">Stop</button>'
+    // the host's controls are icons, no words (Justin, 2026-10-28: "just a square for stop and two lines for pause"); a dot records / resumes
+    const B = (what, label) => `<button type="button" class="lw-rec-b lw-rec-${what}" data-rec="${what}" aria-label="${label}" title="${label}">${LW_ICO['rec_'+what]}</button>`;
+    el.innerHTML = st === 'on' ? '<span class="lw-rec-on"><i aria-hidden="true"></i>Recording</span>' + B('pause','Pause the recording') + B('stop','Stop the recording')
+      : st === 'paused' ? '<span class="lw-rec-off">Paused</span>' + B('start','Resume the recording') + B('stop','Stop the recording')
       : st === 'starting' ? '<span class="lw-rec-off">Starting the recording…</span>'
-      : '<span class="lw-rec-off">Not recording</span><button type="button" class="lw-rec-b" data-rec="start">Record</button>';
+      : '<span class="lw-rec-off">Not recording</span>' + B('start','Start recording');
     el.querySelectorAll('[data-rec]').forEach(b => b.onclick = () => _lwRec(b.dataset.rec));
   }
   function _lwRec(what){
