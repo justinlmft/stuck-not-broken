@@ -4638,7 +4638,9 @@ body.lw-sl-on .lw-call-head.lw-folded .lw-ppl{display:none}
 .lw-rec:empty{display:none}
 .lw-rec-on{display:inline-flex;align-items:center;gap:6px;color:var(--ink);font-weight:500}
 .lw-rec-on i{width:8px;height:8px;border-radius:50%;background:var(--danger, #B3261E);animation:lwPulse 1.6s ease-in-out infinite}
-.lw-rec-b{min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--hairline);background:transparent;color:var(--ink);font:inherit;font-size:13px;font-weight:500;cursor:pointer}
+.lw-rec-b{width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--hairline);background:transparent;color:var(--ink);cursor:pointer;flex:none}
+.lw-rec-b svg{width:18px;height:18px}
+.lw-rec-b:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.lw-rec-on i{animation:none}}
 @media (max-width:699px){
   .lw-call-head{flex-wrap:wrap;row-gap:8px}
