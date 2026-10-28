@@ -2787,6 +2787,7 @@ function app(tab){
     check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
     devices:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
   });
+  LW_ICO.gear = GEAR_SVG.replace('<svg ', '<svg fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" ');   // the You tab's Settings gear
   LW_ICO.caret = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 14l5-5 5 5"/></svg>';
   const LW_MARK_VB = { heart:'-4.0 36.4 478.2 386.7', bolt:'462.3 -9.4 434.4 459.8', x:'887.4 11.7 413.6 422.6' };
   const lwMark = (m, col) => { const I = window.SNB_ICONS||{}; return `<svg class="lw-mark" viewBox="${LW_MARK_VB[m]}" aria-hidden="true"><path fill="${col}" d="${(I[m]&&I[m].d)||''}"/></svg>`; };
@@ -2851,7 +2852,7 @@ function app(tab){
     }catch(e){ return { status:0, data:{ error:'offline' } }; }
   }
   function _lwSched(cols, since, until){
-    return window.sb.from('live_schedule').select(cols).gte('starts_at', since).lte('starts_at', until).eq('canceled', false).order('starts_at', { ascending:true }).limit(40);
+    return window.sb.from('live_schedule').select(cols).or(`starts_at.gte.${since},duration_min.gte.1440`).lte('starts_at', until).eq('canceled', false).order('starts_at', { ascending:true }).limit(40);
   }
   const _lwCacheKey = () => 'snb_lw_v1_' + (_lwUid() || 'anon');
   function _lwCacheSave(){ try{ localStorage.setItem(_lwCacheKey(), JSON.stringify({ at:Date.now(), sched:_lw.sched, series:_lw.series, rem:_lw.rem, terms:_lw.terms, access:_lw.access })); }catch(e){} }
@@ -3241,7 +3242,7 @@ function app(tab){
     if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
     if(host) ctls.push(ctl('lw-c-ask', LW_ICO.ask, 'Send check-in'));
     if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
-    ctls.push(ctl('lw-c-set', LW_ICO.devices, 'Settings'));
+    ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
     setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}" id="lw-room">
       <div class="lw-call-head"><span class="lw-call-t"><span class="lw-eyb">Live event</span><b>${escapeHtml(K.name)}</b><span id="lw-call-sub"></span></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span></div>
       <div class="lw-call-body">
