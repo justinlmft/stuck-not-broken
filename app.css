@@ -4966,15 +4966,50 @@ body.lm-arr .lm-mod-sz{display:flex}
 
 
 /* ---- Session Builder slides in the live room (2026-10-28) ---- */
-/* the builder's own student page, in a frame that follows the stage (it lives at the page level so repaints never reload it) */
-.lw-slides{position:fixed;z-index:30;border-radius:8px;overflow:hidden;background:#FAF9F5}
+/* the slide is the room's whole background; the room's parts sit on it as cards (Justin, 2026-10-28) */
+.lw-slides{position:fixed;z-index:0;pointer-events:none;background:#FAF9F5}
 .lw-slides iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
-.lw-sl-pip{position:absolute;right:10px;bottom:10px;width:min(22%,160px);aspect-ratio:3/4;object-fit:cover;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.25);background:#2A2F3A}
-.lw-sl-pip.lw-mirror{transform:scaleX(-1)}
+body.lw-sl-on #lw-room{background:transparent;position:fixed;inset:0;z-index:1;max-width:none;width:auto}
+body.lw-sl-on .lw-stage-av{width:44px;height:44px;font-size:18px}
+body.lw-sl-on .lw-call-body{display:block;overflow:visible;padding:0;max-width:none}
+body.lw-sl-on .lw-call-head,body.lw-sl-on .lw-mm-chat,body.lw-sl-on .lw-ctls,body.lw-sl-on .lw-stage,body.lw-sl-on .lw-grid{
+  position:absolute;z-index:2;background:color-mix(in srgb,var(--bone) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid color-mix(in srgb,var(--hairline) 70%,transparent);border-radius:14px;box-shadow:0 6px 24px -12px rgba(0,0,0,.35);box-sizing:border-box;margin:0}
+body.lw-sl-on .lw-call-head{padding:12px 16px;flex-wrap:wrap;row-gap:6px}
+body.lw-sl-on .lw-ctls{border-top:1px solid color-mix(in srgb,var(--hairline) 70%,transparent)}
+body.lw-sl-on .lw-mm-chat{padding:12px 14px;min-height:0}
+body.lw-sl-on .lw-mm-chat-h{border-top:0;padding-top:0}
+body.lw-sl-on .lw-stage{padding:0;overflow:hidden;aspect-ratio:4/3;height:auto}
+body.lw-sl-on .lw-stage-lb{font-size:11px}
+body.lw-sl-on .lw-grid{padding:8px}
+body.lw-sl-on .lw-tap{position:absolute;z-index:3;left:50%;top:50%;transform:translate(-50%,-50%)}
+@media (min-width:900px){
+  body.lw-sl-on .lw-call-head{top:16px;right:16px;width:360px;max-width:none;padding-left:16px;padding-right:16px}
+  body.lw-sl-on .lw-mm-chat{top:calc(var(--lw-head-b,116px) + 12px);right:16px;bottom:96px;width:360px;height:auto}
+  body.lw-sl-on .lw-ctls{left:16px;right:16px;bottom:16px;padding:8px 12px}
+  body.lw-sl-on .lw-stage{left:16px;bottom:96px;width:240px}
+  body.lw-sl-on .lw-grid{left:272px;right:392px;bottom:96px;grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+@media (max-width:899px){
+  body.lw-sl-on .lw-call-head{top:calc(env(safe-area-inset-top) + 8px);left:12px;right:12px;padding:10px 14px}
+  body.lw-sl-on .lw-ctls{left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 8px);padding:6px 8px}
+  body.lw-sl-on .lw-mm-chat{left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 92px);max-height:34dvh;height:auto}
+  body.lw-sl-on .lw-stage{right:12px;bottom:calc(env(safe-area-inset-bottom) + 92px);width:104px}
+  body.lw-sl-on .lw-mm .lw-stage{bottom:auto;top:calc(var(--lw-head-b,80px) + 8px)}
+  body.lw-sl-on .lw-grid{left:12px;right:128px;bottom:calc(env(safe-area-inset-bottom) + 92px);grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+/* answer sheets fit their content: no scrolling inside a slide-up (Justin, 2026-10-28) */
+.lw-sheet .p8-card{height:auto;max-height:calc(100dvh - 12px)}
+.lw-sheet .p8-body{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.lw-ci .lw-ci-q{margin:2px 0 10px}
+.lw-ci .sliders{gap:12px}
+.lw-ci .ci-shuffle{margin-top:6px}
+.lw-ci .ci-reading{margin-top:6px}
+.lw-ci > .lw-p{margin:8px 0 0;font-size:calc(13px * var(--type-scale))}
+.lw-ci .lw-sh-btns{flex-direction:row}
+.lw-ci .lw-sh-btns .btn{flex:1}
+.lw-slq .choicecard{max-width:none}
 /* the player's own controls, unchanged: the 0 to 10 line and the breath check (rules copied from practice-engine.html) */
-.lw-slq:empty{display:none}
-.lw-call-body > .lw-slq{grid-column:1 / -1}
-@media (min-width:900px){.lw-mm .lw-call-body > .lw-slq{grid-column:1 / span 8}}
 .lw-slq .choicecard{display:flex;flex-direction:column;gap:12px;width:100%;max-width:560px;animation:riseIn .45s var(--ease)}
 .lw-slq .choicebtn{width:100%;font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;cursor:pointer;background:var(--bone);color:var(--ink);border:1.5px solid var(--ink);border-radius:14px;padding:15px 20px;min-height:54px;text-align:center;transition:box-shadow var(--ease) .2s,transform var(--ease) .2s}
 @media(hover:hover){.lw-slq .choicebtn:hover{box-shadow:0 0 0 1.5px var(--ink)}}

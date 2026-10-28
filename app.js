@@ -3244,25 +3244,28 @@ function app(tab){
     let L = document.getElementById('lw-slides');
     if(L) return L;
     L = document.createElement('div'); L.id = 'lw-slides'; L.className = 'lw-slides'; L.hidden = true;
-    L.innerHTML = `<iframe title="Slides" src="${LW_SL_URL}?student=1" tabindex="-1"></iframe><video class="lw-sl-pip" id="lw-sl-pip" autoplay playsinline muted hidden></video>`;
+    L.innerHTML = `<iframe title="Slides" src="${LW_SL_URL}?student=1" tabindex="-1"></iframe>`;
     document.body.appendChild(L);
     L.querySelector('iframe').addEventListener('load', () => { const R = _lwRoom; if(R && R.slide) _lwSlPost(R, true); });
     if(!_lwSlLoop){ _lwSlLoop = true; _lwSlTrack(); }
     return L;
   }
   let _lwSlLoop = false;
-  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); }
-  // keep the frame over the stage as the room scrolls, resizes or repaints (the stage is redrawn often; a frame that
-  // moved in the page would reload, so it lives at the page level and follows the stage instead)
+  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); document.body.classList.remove('lw-sl-on'); }
+  // the slide is the room's whole background (Justin, 2026-10-28: "the entire screen to be the practice slide background ...
+  // the various ui elements would be cards on top"). The frame lives at the page level, under the room, and follows the
+  // room's size; body.lw-sl-on turns the room's parts into cards. On a phone the slide starts under the title card.
   function _lwSlTrack(){
-    const L = document.getElementById('lw-slides'); if(!L){ _lwSlLoop = false; return; }
-    const R = _lwRoom, st = document.getElementById('lw-stage');
-    const show = !!(R && R.phase === 'call' && R.slide && st && !R.screenOn && !document.body.classList.contains('lw-sl-hide'));
+    const L = document.getElementById('lw-slides'); if(!L){ _lwSlLoop = false; document.body.classList.remove('lw-sl-on'); return; }
+    const R = _lwRoom, room = document.getElementById('lw-room');
+    const show = !!(R && R.phase === 'call' && R.slide && room && !R.screenOn);
+    if(document.body.classList.contains('lw-sl-on') !== show) document.body.classList.toggle('lw-sl-on', show);
     if(show){
-      const r = st.getBoundingClientRect(), body = st.closest('.lw-call-body'), c = body ? body.getBoundingClientRect() : r;
-      L.style.left = r.left + 'px'; L.style.top = r.top + 'px'; L.style.width = r.width + 'px'; L.style.height = r.height + 'px';
-      const t = Math.max(0, c.top - r.top), b = Math.max(0, r.bottom - c.bottom);
-      L.style.clipPath = (t || b) ? `inset(${t}px 0 ${b}px 0 round 8px)` : '';
+      const r = room.getBoundingClientRect(), head = room.querySelector('.lw-call-head');
+      let top = r.top;
+      if(head){ const hb = Math.round(head.getBoundingClientRect().bottom - r.top); if(room.dataset.hb !== String(hb)){ room.dataset.hb = hb; room.style.setProperty('--lw-head-b', hb + 'px'); } }
+      if(window.innerWidth < 900 && head){ const h = head.getBoundingClientRect(); top = Math.max(r.top, h.bottom + 8); }
+      L.style.left = r.left + 'px'; L.style.top = top + 'px'; L.style.width = r.width + 'px'; L.style.height = Math.max(0, r.bottom - top) + 'px';
     }
     if(L.hidden === show) L.hidden = !show;
     requestAnimationFrame(_lwSlTrack);
@@ -3309,49 +3312,54 @@ function app(tab){
     try{ const r = await window.sb.from('live_answers').insert({ user_id:uid, session_id:R.s.id, kind, value:String(value), slide:R.slKey || null });
       if(r && r.error) showToast('That did not save. Try again in a moment.'); }catch(e){}
   }
-  // the player's own 0 to 10 line and breath check, under the slide that asks for them
+  // the player's own 0 to 10 line and breath check, on a slide-up sheet titled with the slide's own words. It never
+  // replaces a check-in that is still open, and it goes away when the slide moves on.
   function _lwSlCard(R, kind){
-    // the card sits under the stage, in the room itself (a plain element, so the room's repaints can carry it along)
-    if(!R.slCardEl){ R.slCardEl = document.createElement('div'); R.slCardEl.className = 'lw-slq'; R.slCardEl.id = 'lw-slq'; }
-    const box = R.slCardEl; _lwSlCardPlace(R);
-    clearTimeout(R.slFade); box.innerHTML = ''; box.classList.remove('on');
-    if(!kind || _lwQuiet()) return;
+    clearTimeout(R.slFade);
+    const open = document.getElementById('lw-sheet');
+    if(open && open.dataset.lwq){ open.dataset.lwq = ''; open.classList.remove('on'); setTimeout(() => { try{ open.remove(); }catch(e){} }, 320); }
+    if(!kind || _lwQuiet() || document.getElementById('lw-ci')) return;
+    const beat = R.slBeat || {};
+    const title = beat.h || (kind === 'breath' ? 'Breath' : kind === 'intensity' ? 'Intensity, 0 to 10' : 'Safety, 0 to 10');
     const skip = '<button class="choicebtn quietly lw-slq-skip" type="button">Skip</button>';
+    let body = '';
     if(kind === 'breath'){
       const pairs = [['chest','chest-belly','belly'],['shallow','shallow-full','full'],['tense','tense-relaxed','relaxed']];
       const word = o => o.indexOf('-') > 0 ? 'Between' : o.charAt(0).toUpperCase() + o.slice(1);
-      box.innerHTML = `<div class="choicecard">${pairs.map(pr => `<div class="breath-row">${pr.map((o, i) => { const end = i === 0 ? 'lo' : i === 2 ? 'hi' : 'mid';
+      body = `<div class="choicecard">${pairs.map(pr => `<div class="breath-row">${pr.map((o, i) => { const end = i === 0 ? 'lo' : i === 2 ? 'hi' : 'mid';
           const inner = end === 'mid' ? `<span class="sr">${word(o)}</span><span class="dot"></span>` : end === 'lo' ? `<span class="word">${word(o)}</span><span class="dot"></span>` : `<span class="dot"></span><span class="word">${word(o)}</span>`;
           return `<button class="choicebtn quietly stop ${end}" type="button" data-o="${o}" aria-pressed="false">${inner}</button>`; }).join('')}</div>`).join('')}${skip}</div>`;
+    } else {
+      let ticks = '', nums = '';
+      const INSET = 14, left = v => 'calc(' + INSET + 'px + (100% - ' + (2 * INSET) + 'px) * ' + (v / 10) + ')';
+      for(let n = 0; n <= 10; n++){ ticks += `<span class="reading-tick" style="left:${left(n)}"></span>`; nums += `<span class="reading-num" style="left:${left(n)}">${n}</span>`; }
+      body = `<div class="choicecard"><div class="reading"><div class="reading-bar" tabindex="0" role="slider" aria-label="${kind === 'intensity' ? 'How intense the non-safety is, 0 to 10' : 'Your level of safety, 0 to 10'}" aria-valuemin="0" aria-valuemax="10" aria-valuetext="not answered">${ticks}<span class="reading-dot"></span></div>
+        <div class="reading-nums" aria-hidden="true">${nums}</div><div class="reading-ends" aria-hidden="true"><span>lowest</span><span>highest</span></div></div>${skip}</div>`;
+    }
+    const sh = _lwSheet(title, `<div class="lw-slq">${body}</div>`, { host:document.getElementById('lw-room') || document.body });
+    sh.el.dataset.lwq = kind;
+    const box = sh.el.querySelector('.lw-slq');
+    box.querySelector('.lw-slq-skip').onclick = () => { clearTimeout(R.slFade); sh.close(); };
+    if(kind === 'breath'){
       box.querySelectorAll('.breath-row .stop').forEach(b => b.onclick = () => {
         const row = b.parentNode; row.querySelectorAll('.stop').forEach(x => { x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
         haptic('tap'); _lwSlSave(R, 'breath', b.dataset.o);
       });
-    } else {
-      const INSET = 14, left = v => 'calc(' + INSET + 'px + (100% - ' + (2 * INSET) + 'px) * ' + (v / 10) + ')';
-      let ticks = '', nums = '';
-      for(let n = 0; n <= 10; n++){ ticks += `<span class="reading-tick" style="left:${left(n)}"></span>`; nums += `<span class="reading-num" style="left:${left(n)}">${n}</span>`; }
-      box.innerHTML = `<div class="choicecard"><div class="reading"><div class="reading-bar" tabindex="0" role="slider" aria-label="${kind === 'intensity' ? 'How intense the non-safety is, 0 to 10' : 'Your level of safety, 0 to 10'}" aria-valuemin="0" aria-valuemax="10" aria-valuetext="not answered">${ticks}<span class="reading-dot"></span></div>
-        <div class="reading-nums" aria-hidden="true">${nums}</div><div class="reading-ends" aria-hidden="true"><span>lowest</span><span>highest</span></div></div>${skip}</div>`;
-      const wrap = box.querySelector('.reading'), bar = box.querySelector('.reading-bar'), dot = box.querySelector('.reading-dot'), numEls = box.querySelectorAll('.reading-num');
-      let now = null, slide = null;
-      const mark = v => { dot.style.left = left(v); wrap.classList.add('chosen'); numEls.forEach((s, i) => s.classList.toggle('on', i === v)); };
-      const at = x => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(10, Math.round((x - r.left - INSET) / (r.width - 2 * INSET) * 10))); };
-      // after the last answer: hold three seconds, fade, go (the player's own timing)
-      const linger = () => { clearTimeout(R.slFade); wrap.classList.remove('fading'); R.slFade = setTimeout(() => { wrap.classList.add('fading'); R.slFade = setTimeout(() => { box.innerHTML = ''; box.classList.remove('on'); }, 600); }, 3000); };
-      const choose = v => { now = v; mark(v); bar.setAttribute('aria-valuenow', String(v)); bar.setAttribute('aria-valuetext', String(v)); haptic('tap'); _lwSlSave(R, kind, v); linger(); };
-      bar.addEventListener('pointerdown', ev => { clearTimeout(R.slFade); wrap.classList.remove('fading'); slide = { id:ev.pointerId, v:at(ev.clientX) }; try{ bar.setPointerCapture(ev.pointerId); }catch(e){} wrap.classList.add('sliding'); mark(slide.v); });
-      bar.addEventListener('pointermove', ev => { if(slide && ev.pointerId === slide.id){ const v = at(ev.clientX); if(v !== slide.v){ slide.v = v; mark(v); } } });
-      bar.addEventListener('pointerup', ev => { if(slide && ev.pointerId === slide.id){ const v = slide.v; slide = null; wrap.classList.remove('sliding'); choose(v); } });
-      bar.addEventListener('pointercancel', () => { slide = null; wrap.classList.remove('sliding'); if(now === null){ wrap.classList.remove('chosen'); numEls.forEach(s => s.classList.remove('on')); } else mark(now); });
-      bar.addEventListener('keydown', ev => { if(ev.key === 'ArrowRight' || ev.key === 'ArrowUp'){ ev.preventDefault(); choose(Math.min(10, (now === null ? 4 : now) + 1)); } else if(ev.key === 'ArrowLeft' || ev.key === 'ArrowDown'){ ev.preventDefault(); choose(Math.max(0, (now === null ? 6 : now) - 1)); } });
+      return;
     }
-    box.querySelector('.lw-slq-skip').onclick = () => { clearTimeout(R.slFade); box.innerHTML = ''; box.classList.remove('on'); };
-    box.classList.add('on');
-  }
-  function _lwSlCardPlace(R){
-    const st = document.getElementById('lw-stage'), el = R && R.slCardEl; if(!st || !el) return;
-    if(st.nextElementSibling !== el) st.insertAdjacentElement('afterend', el);
+    const INSET = 14, left = v => 'calc(' + INSET + 'px + (100% - ' + (2 * INSET) + 'px) * ' + (v / 10) + ')';
+    const wrap = box.querySelector('.reading'), bar = box.querySelector('.reading-bar'), dot = box.querySelector('.reading-dot'), numEls = box.querySelectorAll('.reading-num');
+    let now = null, slide = null;
+    const mark = v => { dot.style.left = left(v); wrap.classList.add('chosen'); numEls.forEach((x, i) => x.classList.toggle('on', i === v)); };
+    const at = x => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(10, Math.round((x - r.left - INSET) / (r.width - 2 * INSET) * 10))); };
+    // after the last answer: hold three seconds, fade, close (the player's own timing)
+    const linger = () => { clearTimeout(R.slFade); wrap.classList.remove('fading'); R.slFade = setTimeout(() => { wrap.classList.add('fading'); R.slFade = setTimeout(() => { if(sh.el.isConnected) sh.close(); }, 600); }, 3000); };
+    const choose = v => { now = v; mark(v); bar.setAttribute('aria-valuenow', String(v)); bar.setAttribute('aria-valuetext', String(v)); haptic('tap'); _lwSlSave(R, kind, v); linger(); };
+    bar.addEventListener('pointerdown', ev => { clearTimeout(R.slFade); wrap.classList.remove('fading'); slide = { id:ev.pointerId, v:at(ev.clientX) }; try{ bar.setPointerCapture(ev.pointerId); }catch(e){} wrap.classList.add('sliding'); mark(slide.v); });
+    bar.addEventListener('pointermove', ev => { if(slide && ev.pointerId === slide.id){ const v = at(ev.clientX); if(v !== slide.v){ slide.v = v; mark(v); } } });
+    bar.addEventListener('pointerup', ev => { if(slide && ev.pointerId === slide.id){ const v = slide.v; slide = null; wrap.classList.remove('sliding'); choose(v); } });
+    bar.addEventListener('pointercancel', () => { slide = null; wrap.classList.remove('sliding'); if(now === null){ wrap.classList.remove('chosen'); numEls.forEach(x => x.classList.remove('on')); } else mark(now); });
+    bar.addEventListener('keydown', ev => { if(ev.key === 'ArrowRight' || ev.key === 'ArrowUp'){ ev.preventDefault(); choose(Math.min(10, (now === null ? 4 : now) + 1)); } else if(ev.key === 'ArrowLeft' || ev.key === 'ArrowDown'){ ev.preventDefault(); choose(Math.max(0, (now === null ? 6 : now) - 1)); } });
   }
   // the room's background: on only once 5 or more people have chosen to count (live_room_blend returns nothing below that)
   function _lwSlRoomPoll(R){
@@ -3774,7 +3782,7 @@ function app(tab){
     }
     const grid = document.getElementById('lw-grid');
     if(grid){
-      const tiles = ps.filter(p => p !== owner || screen || R.slide);   // with a screen on stage, Justin's camera joins the tiles
+      const tiles = ps.filter(p => p !== owner || screen);   // with a screen on stage, Justin's camera joins the tiles
       const keep = new Set();
       tiles.forEach(p => {
         const k = 'tile-' + p.session_id; keep.add(k);
@@ -3790,12 +3798,6 @@ function app(tab){
       });
       grid.querySelectorAll('[data-tile]').forEach(t => { if(!keep.has(t.dataset.tile)) t.remove(); });
     }
-    if(R.slCardEl) _lwSlCardPlace(R);
-    // with slides up and no grid (Mindful Moment), Justin's camera sits small in the slide's corner
-    const pip = document.getElementById('lw-sl-pip');
-    if(pip){ const want = R.slide && !screen && !grid && owner ? _lwTrack(owner, 'video') : null; const cur = pip.srcObject && pip.srcObject.getVideoTracks()[0];
-      if(want && cur !== want){ pip.srcObject = new MediaStream([want]); try{ pip.play().catch(()=>{}); }catch(e){} }
-      pip.hidden = !want; pip.classList.toggle('lw-mirror', !!(owner && owner.local)); }
     // remote audio (the call object does not play audio by itself)
     const box = document.getElementById('lw-audio');
     if(box){
