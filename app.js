@@ -3261,10 +3261,8 @@ function app(tab){
     const show = !!(R && R.phase === 'call' && R.slide && room && !R.screenOn);
     if(document.body.classList.contains('lw-sl-on') !== show) document.body.classList.toggle('lw-sl-on', show);
     if(show){
-      const r = room.getBoundingClientRect(), head = room.querySelector('.lw-call-head');
+      const r = room.getBoundingClientRect();
       let top = r.top;
-      if(head){ const hb = Math.round(head.getBoundingClientRect().bottom - r.top); if(room.dataset.hb !== String(hb)){ room.dataset.hb = hb; room.style.setProperty('--lw-head-b', hb + 'px'); } }
-      if(window.innerWidth < 900 && head){ const h = head.getBoundingClientRect(); top = Math.max(r.top, h.bottom + 8); }
       L.style.left = r.left + 'px'; L.style.top = top + 'px'; L.style.width = r.width + 'px'; L.style.height = Math.max(0, r.bottom - top) + 'px';
     }
     if(L.hidden === show) L.hidden = !show;
@@ -3360,6 +3358,17 @@ function app(tab){
     bar.addEventListener('pointerup', ev => { if(slide && ev.pointerId === slide.id){ const v = slide.v; slide = null; wrap.classList.remove('sliding'); choose(v); } });
     bar.addEventListener('pointercancel', () => { slide = null; wrap.classList.remove('sliding'); if(now === null){ wrap.classList.remove('chosen'); numEls.forEach(x => x.classList.remove('on')); } else mark(now); });
     bar.addEventListener('keydown', ev => { if(ev.key === 'ArrowRight' || ev.key === 'ArrowUp'){ ev.preventDefault(); choose(Math.min(10, (now === null ? 4 : now) + 1)); } else if(ev.key === 'ArrowLeft' || ev.key === 'ArrowDown'){ ev.preventDefault(); choose(Math.max(0, (now === null ? 6 : now) - 1)); } });
+  }
+  // every card in the slide room folds away for anyone who wants less on screen (Justin, 2026-10-28); remembered per device
+  const _lwFolds = () => { try{ return JSON.parse(localStorage.getItem('snb_lw_fold') || '{}') || {}; }catch(e){ return {}; } };
+  function _lwFoldWire(){
+    const room = document.getElementById('lw-room'); if(!room) return;
+    const f = _lwFolds();
+    room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = !!f[k]; c.classList.toggle('lw-folded', on);
+      const b = c.querySelector('.lw-fold[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
+    room.classList.toggle('lw-tucked', !!f.head);
+    room.querySelectorAll('.lw-fold').forEach(b => b.onclick = e => { e.stopPropagation();
+      const k = b.dataset.fold, g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); });
   }
   // the room's background: on only once 5 or more people have chosen to count (live_room_blend returns nothing below that)
   function _lwSlRoomPoll(R){
@@ -3491,19 +3500,18 @@ function app(tab){
     if(!(mm && member)){ ctls.push(split('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')); ctls.push(split('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')); }
     if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
     if(host) ctls.push(ctl('lw-c-slides', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', R.slide ? ' on' : ''));
-    if(host) ctls.push(ctl('lw-c-ask', LW_ICO.ask, 'Send check-in'));
     if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
     ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
     setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}" id="lw-room">
-      <div class="lw-call-head"><span class="lw-call-t"><span class="lw-eyb">Live event</span><b>${escapeHtml(K.name)}</b><span id="lw-call-sub"></span></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span></div>
+      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span><button type="button" class="lw-fold" data-fold="head" aria-label="Tuck the room away" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
       <div class="lw-call-body">
-        <div class="lw-stage" id="lw-stage"></div>
+        <div class="lw-stage" id="lw-stage" data-card="cam"><button type="button" class="lw-fold" data-fold="cam" aria-label="Collapse the camera" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
-        ${mm ? `<div class="lw-mm-chat"><div class="lw-mm-chat-h"><b>Chat</b></div><div class="lw-chat-list" id="lw-chat-list"></div>
+        ${mm ? `<div class="lw-mm-chat" data-card="chat"><div class="lw-mm-chat-h"><b>Chat</b><span class="lw-fold-n" id="lw-chat-n"></span><button type="button" class="lw-fold" data-fold="chat" aria-label="Collapse the chat" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="lw-chat-list" id="lw-chat-list"></div>
           <form class="lw-chat-form" id="lw-chat-form"><label class="vh" for="lw-chat-in">Share a present moment reflection</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="Share a present moment reflection"><button class="btn" type="submit">Send</button></form></div>`
           : `<div class="lw-grid" id="lw-grid"></div>`}
       </div>
-      <div class="lw-ctls" style="--n:${ctls.length}">${ctls.join('')}</div>
+      <div class="lw-ctls" data-card="ctls" style="--n:${ctls.length}">${ctls.join('')}<button type="button" class="lw-fold" data-fold="ctls" aria-label="Collapse the controls" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
       <div id="lw-audio" hidden></div></div>`);
     _lwPaint();
     const co = R.co;
@@ -3536,6 +3544,7 @@ function app(tab){
     };
     const ask = document.getElementById('lw-c-ask'); if(ask) ask.onclick = () => { try{ co.sendAppMessage({ t:'checkin' }, '*'); }catch(e){} showToast('Check-in sent to everyone'); };
     document.querySelectorAll('#lw-room [data-lw-dev]').forEach(b => b.onclick = e => { e.stopPropagation(); _lwDevMenu(b.dataset.lwDev, b); });
+    _lwFoldWire();
     _lwPaintRec();
     const setB = document.getElementById('lw-c-set'); if(setB) setB.onclick = _lwSettingsSheet;
     _lwWireStateTg(document.getElementById('lw-room'));
@@ -3636,6 +3645,7 @@ function app(tab){
       else if(n < R.chat.length) el.insertAdjacentHTML('beforeend', R.chat.slice(n).map(m => _lwMsgHTML(m, true)).join(''));
       el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
     });
+    const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? String(R.chat.length) : '';
   }
   // the member's state glyph beside their name: their DOMINANT state across their check-ins (the share signature),
   // one choice shared with Settings → "Your state glyph on shared images and in live chat" (Justin, 2026-10-27)
@@ -3746,8 +3756,6 @@ function app(tab){
   function _lwPaintHead(){
     const R = _lwRoom; if(!R || !R.co) return;
     const sub = document.getElementById('lw-call-sub'), here = document.querySelector('#lw-here span');
-    const mins = Math.max(0, Math.round((Date.now() - _lwStart(R.s)) / 60000));
-    if(sub) sub.textContent = (Date.now() < _lwStart(R.s) ? 'Starting soon.' : mins + ' min in.') + (R.s.recorded ? '' : ' Not recorded.');
     try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; }catch(e){}
   }
   // video / audio for every participant. Elements are kept by session id so a repaint never restarts a stream.

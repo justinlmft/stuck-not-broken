@@ -4971,32 +4971,99 @@ body.lm-arr .lm-mod-sz{display:flex}
 .lw-slides iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 body.lw-sl-on #lw-room{background:transparent;position:fixed;inset:0;z-index:1;max-width:none;width:auto}
 body.lw-sl-on .lw-stage-av{width:44px;height:44px;font-size:18px}
-body.lw-sl-on .lw-call-body{display:block;overflow:visible;padding:0;max-width:none}
+/* ---- the Swiss grid (Justin, 2026-10-28: "absolutely everything must exist on the brand's Swiss grid") ----
+   The room takes the slide's own grid: the same side margins (6.25%), the same top line (11%) and foot line (90.5%) as
+   every Session Builder slide, and 12 columns between the margins with the slide's 2% column gap as the one gutter,
+   across and down. The room's parts are grid items (the body box steps aside with display:contents), so every card
+   starts and ends on a column line and moves across the grid with the screen:
+     wide (1200px+)   the right 3 columns, top line to foot line: clear of the slide's text, which stops at 66%
+     900 to 1199px    the right 4 columns (they start on the slide's own image-well line)
+     under 900px      the bottom of the grid, full width; the slide's words keep the top */
+body.lw-sl-on .lw-call-body{display:contents}
+body.lw-sl-on #lw-room{--g:clamp(10px,2vw,32px);display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--g);row-gap:var(--g);
+  align-content:stretch;padding-block:11vh 9.5vh;padding-inline:max(16px,6.25vw);box-sizing:border-box}
+body.lw-sl-on #lw-room > *,body.lw-sl-on .lw-call-body > *{min-width:0}
+body.lw-sl-on #lw-audio{display:none}
 body.lw-sl-on .lw-call-head,body.lw-sl-on .lw-mm-chat,body.lw-sl-on .lw-ctls,body.lw-sl-on .lw-stage,body.lw-sl-on .lw-grid{
-  position:absolute;z-index:2;background:color-mix(in srgb,var(--bone) 90%,transparent);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-  border:1px solid color-mix(in srgb,var(--hairline) 70%,transparent);border-radius:14px;box-shadow:0 6px 24px -12px rgba(0,0,0,.35);box-sizing:border-box;margin:0}
-body.lw-sl-on .lw-call-head{padding:12px 16px;flex-wrap:wrap;row-gap:6px}
-body.lw-sl-on .lw-ctls{border-top:1px solid color-mix(in srgb,var(--hairline) 70%,transparent)}
-body.lw-sl-on .lw-mm-chat{padding:12px 14px;min-height:0}
-body.lw-sl-on .lw-mm-chat-h{border-top:0;padding-top:0}
-body.lw-sl-on .lw-stage{padding:0;overflow:hidden;aspect-ratio:4/3;height:auto}
+  position:relative;z-index:2;background:color-mix(in srgb,var(--bone) 92%,transparent);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border:1px solid color-mix(in srgb,var(--hairline) 75%,transparent);border-radius:16px;box-shadow:none;box-sizing:border-box;margin:0;
+  inset:auto;width:auto;height:auto;max-width:none;align-self:stretch}
+.lw-fold{display:none}
+body.lw-sl-on .lw-fold{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin:-6px -8px -6px 2px;flex:none;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}
+body.lw-sl-on .lw-fold:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+@media(hover:hover){body.lw-sl-on .lw-fold:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 7%,transparent)}}
+body.lw-sl-on .lw-fold svg{width:18px;height:18px;transition:transform .25s var(--ease)}
+body.lw-sl-on .lw-folded > .lw-fold svg,body.lw-sl-on .lw-folded .lw-mm-chat-h .lw-fold svg,body.lw-sl-on .lw-tucked .lw-call-head > .lw-fold svg{transform:rotate(-90deg)}
+/* the title card: the name, small; recording and the people count under it */
+body.lw-sl-on .lw-call-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:8px;row-gap:1px;padding:9px 14px;min-height:0;align-self:start}
+body.lw-sl-on .lw-call-t{grid-column:1;grid-row:1;min-width:0}
+body.lw-sl-on .lw-call-head > .lw-fold{grid-column:2;grid-row:1 / span 2;margin:0 -6px 0 0}
+body.lw-sl-on .lw-call-t b{font-size:calc(15px * var(--type-scale));font-weight:600;letter-spacing:0;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.lw-sl-on .lw-call-r{grid-column:1;grid-row:2;display:flex;flex-wrap:wrap;row-gap:4px;align-items:center;justify-content:flex-start;gap:12px;width:auto;font-size:12px;color:var(--muted)}
+body.lw-sl-on .lw-call-r:empty,body.lw-sl-on .lw-tucked .lw-call-r{display:none}
+body.lw-sl-on .lw-here{white-space:nowrap}
+/* chat */
+body.lw-sl-on .lw-mm-chat{display:flex;flex-direction:column;gap:8px;padding:10px 14px 12px;min-height:0}
+body.lw-sl-on .lw-mm-chat-h{display:flex;align-items:center;gap:8px;border-top:0;padding:0}
+body.lw-sl-on .lw-mm-chat-h b{flex:1;font-size:calc(15px * var(--type-scale));font-weight:600}
+.lw-fold-n{display:none}
+body.lw-sl-on .lw-mm-chat.lw-folded .lw-fold-n:not(:empty){display:inline-block;font-size:12px;color:var(--muted)}
+body.lw-sl-on .lw-mm-chat .lw-chat-list{flex:1;min-height:0}
+body.lw-sl-on .lw-mm-chat.lw-folded{align-self:start}
+body.lw-sl-on .lw-mm-chat.lw-folded > :not(.lw-mm-chat-h){display:none}
+/* controls */
+body.lw-sl-on .lw-ctls{display:flex;flex-wrap:wrap;align-items:center;gap:2px 4px;padding:6px 8px;align-self:end}
+body.lw-sl-on .lw-ctls > .lw-ctl,body.lw-sl-on .lw-ctls > .lw-split{flex:1 1 28%;min-width:0}
+body.lw-sl-on .lw-ctl{flex-direction:column;min-height:52px;padding:4px 2px;font-size:11px;gap:3px;margin:0}
+body.lw-sl-on .lw-ctls > .lw-ctl:first-child{margin-left:0}
+body.lw-sl-on .lw-ctls > .lw-fold{margin:0 0 0 2px}
+body.lw-sl-on .lw-ctls.lw-folded{padding:4px 6px;justify-content:center}
+body.lw-sl-on .lw-ctls.lw-folded > :not(.lw-fold){display:none}
+/* Justin's camera */
+body.lw-sl-on .lw-stage{padding:0;overflow:hidden;aspect-ratio:16/9;border-radius:16px;align-self:start}
+body.lw-sl-on .lw-stage > .lw-fold{position:absolute;top:8px;right:8px;margin:0;z-index:3;background:color-mix(in srgb,var(--bone) 80%,transparent);color:var(--ink)}
+body.lw-sl-on .lw-stage.lw-folded{aspect-ratio:auto;height:44px;padding:0 44px 0 12px;display:flex;align-items:center;justify-content:flex-start}
+body.lw-sl-on .lw-stage.lw-folded video,body.lw-sl-on .lw-stage.lw-folded .lw-stage-av{display:none}
+body.lw-sl-on .lw-stage.lw-folded .lw-stage-lb{position:static;background:none;color:var(--ink);font-size:13px;padding:0}
+body.lw-sl-on .lw-stage.lw-folded > .lw-fold{top:6px;right:6px}
 body.lw-sl-on .lw-stage-lb{font-size:11px}
-body.lw-sl-on .lw-grid{padding:8px}
-body.lw-sl-on .lw-tap{position:absolute;z-index:3;left:50%;top:50%;transform:translate(-50%,-50%)}
-@media (min-width:900px){
-  body.lw-sl-on .lw-call-head{top:16px;right:16px;width:360px;max-width:none;padding-left:16px;padding-right:16px}
-  body.lw-sl-on .lw-mm-chat{top:calc(var(--lw-head-b,116px) + 12px);right:16px;bottom:96px;width:360px;height:auto}
-  body.lw-sl-on .lw-ctls{left:16px;right:16px;bottom:16px;padding:8px 12px}
-  body.lw-sl-on .lw-stage{left:16px;bottom:96px;width:240px}
-  body.lw-sl-on .lw-grid{left:272px;right:392px;bottom:96px;grid-template-columns:repeat(6,minmax(0,1fr))}
+body.lw-sl-on .lw-stage-av{width:44px;height:44px;font-size:18px}
+body.lw-sl-on .lw-grid{padding:8px;align-self:end}
+body.lw-sl-on .lw-tap{position:fixed;z-index:3;left:50%;top:50%;transform:translate(-50%,-50%)}
+/* tucked: the title card stays as a pill on its column line; chat and controls go */
+body.lw-sl-on .lw-tucked .lw-mm-chat,body.lw-sl-on .lw-tucked .lw-ctls,body.lw-sl-on .lw-tucked .lw-grid{display:none}
+/* wide: the right 3 columns, title on the top line, controls on the foot line */
+@media (min-width:1200px){
+  body.lw-sl-on #lw-room{grid-template-rows:auto auto minmax(0,1fr) auto}
+  body.lw-sl-on #lw-room .lw-call-head{grid-column:10 / 13;grid-row:1}
+  body.lw-sl-on #lw-room .lw-stage{grid-column:10 / 13;grid-row:2}
+  body.lw-sl-on #lw-room .lw-mm-chat{grid-column:10 / 13;grid-row:3}
+  body.lw-sl-on #lw-room .lw-ctls{grid-column:10 / 13;grid-row:4}
+  body.lw-sl-on #lw-room .lw-grid{grid-column:1 / 10;grid-row:4;grid-template-columns:repeat(6,minmax(0,1fr))}
+  body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:12 / 13}
 }
+/* 900 to 1199px: the right 4 columns */
+@media (min-width:900px) and (max-width:1199px){
+  body.lw-sl-on #lw-room{grid-template-rows:auto auto minmax(0,1fr) auto}
+  body.lw-sl-on #lw-room .lw-call-head{grid-column:9 / 13;grid-row:1}
+  body.lw-sl-on #lw-room .lw-stage{grid-column:9 / 13;grid-row:2}
+  body.lw-sl-on #lw-room .lw-mm-chat{grid-column:9 / 13;grid-row:3}
+  body.lw-sl-on #lw-room .lw-ctls{grid-column:9 / 13;grid-row:4}
+  body.lw-sl-on #lw-room .lw-grid{grid-column:1 / 9;grid-row:4;grid-template-columns:repeat(4,minmax(0,1fr))}
+  body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:12 / 13}
+}
+/* under 900px: the bottom of the grid; the slide's words keep the top. Title and camera share a row (9 + 3 columns). */
 @media (max-width:899px){
-  body.lw-sl-on .lw-call-head{top:calc(env(safe-area-inset-top) + 8px);left:12px;right:12px;padding:10px 14px}
-  body.lw-sl-on .lw-ctls{left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 8px);padding:6px 8px}
-  body.lw-sl-on .lw-mm-chat{left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 92px);max-height:34dvh;height:auto}
-  body.lw-sl-on .lw-stage{right:12px;bottom:calc(env(safe-area-inset-bottom) + 92px);width:104px}
-  body.lw-sl-on .lw-mm .lw-stage{bottom:auto;top:calc(var(--lw-head-b,80px) + 8px)}
-  body.lw-sl-on .lw-grid{left:12px;right:128px;bottom:calc(env(safe-area-inset-bottom) + 92px);grid-template-columns:repeat(4,minmax(0,1fr))}
+  body.lw-sl-on #lw-room{--g:max(8px,2vw);grid-template-rows:minmax(0,1fr) auto auto auto;padding-block:11vh calc(env(safe-area-inset-bottom) + max(16px,6.25vw))}
+  body.lw-sl-on #lw-room .lw-call-head{grid-column:1 / 10;grid-row:2;align-self:end}
+  body.lw-sl-on #lw-room .lw-stage{grid-column:10 / 13;grid-row:2;align-self:end;aspect-ratio:1/1}
+  body.lw-sl-on #lw-room .lw-stage.lw-folded{grid-column:10 / 13;padding:0;aspect-ratio:auto;justify-self:stretch;width:auto}
+  body.lw-sl-on #lw-room .lw-stage.lw-folded .lw-stage-lb{display:none}
+  body.lw-sl-on #lw-room .lw-stage.lw-folded > .lw-fold{left:50%;right:auto;transform:translateX(-50%)}
+  body.lw-sl-on #lw-room .lw-mm-chat{grid-column:1 / 13;grid-row:3;max-height:30vh}
+  body.lw-sl-on #lw-room .lw-ctls{grid-column:1 / 13;grid-row:4}
+  body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:10 / 13}
+  body.lw-sl-on #lw-room .lw-grid{grid-column:1 / 13;grid-row:1;align-self:end;grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 /* answer sheets fit their content: no scrolling inside a slide-up (Justin, 2026-10-28) */
 .lw-sheet .p8-card{height:auto;max-height:calc(100dvh - 12px)}
