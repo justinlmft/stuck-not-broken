@@ -2600,10 +2600,18 @@ const WN_ICONS = {
   bulb:'<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>',
   chart:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 15v-3"/><path d="M12 15V9"/><path d="M16 15v-5"/>',
   lines:'<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h6"/>',
-  phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>'
+  phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>'
 };
 function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
 const WN_UPDATES = [
+  { id:'2026-11-self-regulator', when:'November 2026', title:'Another Major Update', sub:'(still only $12/mo)',
+    cta:{ label:'See the Calendar', go:'calendar' }, items:[
+    /* Justin's copy, 2026-10-28 ("checkins" → "check-ins", "compliment" → "complement"). Ships to prod with the Self-Regulator launch. */
+    { i:'cal',   t:'Live practices', b:'Mindful Moments are free for all app users. Find it on the new Calendar tab.' },
+    { i:'path',  t:'Pathway lessons', b:'The Unstucking Pathway now comes with deep lessons for deep learning to complement the deep practices.' },
+    { i:'book',  t:'Expanded library', b:'The Learn tab now holds everything I\u2019ve ever created, filtered for easier search, including the private Stucknaut Collective Podcast.' },
+    { i:'chart', t:'Better data integration', b:'Your check-ins and practice data are better integrated into the Learn library, with more improvements on the way.' } ] },
   { id:'2026-10-challenges', when:'October 2026', cta:{ label:'Take a challenge', go:'challenges' }, items:[
     /* Justin, 2026-10-19: "only list the challenges with the challenge icon". Ships to prod with the challenges. */
     { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are part of Self-Regulator, $12 a month.)' } ] },   // Justin's copy, 2026-10-19
@@ -2626,7 +2634,7 @@ const WN_UPDATES = [
 ];
 const _wnSeenKey = u => 'snb_wn_seen_' + u.id;
 // where an update's own button goes (WN_UPDATES[].cta.go)
-const WN_GO = { challenges: () => screenChallenges() };
+const WN_GO = { challenges: () => screenChallenges(), calendar: () => { try{ _lw.tab = 'live'; }catch(e){} app('community'); } };
 function wnMarkLatestSeen(){ try{ localStorage.setItem(_wnSeenKey(WN_UPDATES[0]), '1'); }catch(e){} }
 function _wnItemsHTML(u){ return u.items.map(it => '<div class="wns-item">' + wnIcon(it.i) + '<div><h3 class="wns-t">' + escapeHtml(it.t) + '</h3><p class="wns-b">' + escapeHtml(it.b) + '</p></div></div>').join(''); }
 // the sheet itself; opts.fromHistory: opened from Past Updates, so no link back to it and Continue returns there
@@ -2637,7 +2645,8 @@ function openWhatsNewSheet(u, opts){
   d.innerHTML = '<div class="wns-card" role="dialog" aria-modal="true" aria-labelledby="wns-h" tabindex="-1">'
     + '<div class="wns-grab" aria-hidden="true"></div>'
     + '<div class="wns-body"><p class="wns-eyebrow">' + escapeHtml(u.when) + '</p>'
-    + '<h2 class="wns-h" id="wns-h">What’s New</h2>'
+    + '<h2 class="wns-h' + (u.sub ? ' wns-h-sub' : '') + '" id="wns-h">' + escapeHtml(u.title || 'What’s New') + '</h2>'
+    + (u.sub ? '<p class="wns-sub">' + escapeHtml(u.sub) + '</p>' : '')
     + '<div class="wns-list">' + _wnItemsHTML(u) + '</div></div>'
     + '<div class="wns-foot">' + (opts.fromHistory ? '' : '<button class="wns-past" id="wns-past" type="button">See past updates<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>')
     /* an update can carry its own door (Justin, 2026-10-19: "make the continue button into a 'Take a Challenge' button that

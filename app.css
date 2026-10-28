@@ -4320,6 +4320,8 @@ body.kb-on:not(.ll-sf-typing) .fl-dock{visibility:hidden}
 .wns-grab{width:36px;height:5px;border-radius:3px;background:var(--hairline);align-self:center;margin:0 0 24px;flex:0 0 auto}
 .wns-eyebrow{margin:0 0 8px;font-size:calc(12px * var(--type-scale));font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--muted)}
 .wns-h{margin:0 0 28px;font-size:calc(30px * var(--type-scale));line-height:1.12;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.wns-h.wns-h-sub{margin-bottom:6px}
+.wns-sub{margin:0 0 28px;font-size:calc(15px * var(--type-scale));color:var(--muted)}
 .wns-list{display:flex;flex-direction:column;gap:24px;margin:0 0 8px}
 .wns-item{display:flex;gap:18px;align-items:flex-start}
 .wns-ic{flex:0 0 auto;width:30px;height:30px;color:var(--ink);margin-top:1px}
