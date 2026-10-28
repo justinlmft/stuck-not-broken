@@ -2776,6 +2776,7 @@ function app(tab){
   function lwCalendarIco(on){ return '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"' + (on ? ' fill="currentColor"' : ' fill="none"') + '/><path fill="none" d="M8 3v4M16 3v4"/><path fill="none" d="M3.5 10h17"' + (on ? ' stroke="var(--bone-deep)"' : '') + '/></svg>'; }
   function lwCommunityIco(on){ if(!(LW_COREG_LIVE || LW_FORUM_LIVE)) return lwCalendarIco(on); return on ? '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5" fill="currentColor"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/><path fill="none" d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>'; }   // a function, so the tab bar can use it before this line runs
   const LW_ICO = {
+    hangup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 14.5c4.7-4.1 12.3-4.1 17 0l-2.1 2.6-3.3-1.4v-2.3a9.6 9.6 0 0 0-6.2 0v2.3l-3.3 1.4Z"/></svg>',
     slides:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 9h7M7 12.5h10M12 17v3M8.5 20h7"/></svg>',
     mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>',
@@ -2851,8 +2852,9 @@ function app(tab){
   async function _lwToken(){
     try{ const { data:{ session } } = await window.sb.auth.getSession(); return session ? session.access_token : null; }catch(e){ return null; }
   }
+  let _lwTokLast = null;
   async function _lwFn(body){
-    const cfg = window.SNB_CONFIG || {}, tok = await _lwToken();
+    const cfg = window.SNB_CONFIG || {}, tok = await _lwToken(); if(tok) _lwTokLast = tok;
     if(!cfg.SUPABASE_URL || !tok) return { status:0, data:{ error:'not signed in' } };
     try{
       const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/live-room-token', { method:'POST',
@@ -3375,7 +3377,9 @@ function app(tab){
     const f = _lwFolds();
     room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = !!f[k]; c.classList.toggle('lw-folded', on);
       const b = c.querySelector('.lw-fold[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
-    room.classList.toggle('lw-tucked', !!f.head);
+    // each card folds on its own (Justin, 2026-10-28: "someone should be able to keep the chat open while collapsing whatever else");
+    // the title card no longer tucks the whole room away
+    room.classList.remove('lw-tucked');
     room.querySelectorAll('.lw-fold').forEach(b => b.onclick = e => { e.stopPropagation();
       const k = b.dataset.fold;
       _lwFoldMove(() => { const g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
@@ -3504,14 +3508,14 @@ function app(tab){
         <h1 class="lw-h1">Thank you for being here.</h1>
         <p class="lw-p lw-muted">${escapeHtml(K.name)}, ${escapeHtml(_lwLongDate(_lwStart(s)))}.</p>
         ${nxHTML}${up}
-        ${_lwEnd(s) > Date.now() ? '<button class="btn block quiet" type="button" id="lw-rejoin">Rejoin</button>' : ''}
+        ${_lwEnd(s) > Date.now() && !R.ended ? '<button class="btn block quiet" type="button" id="lw-rejoin">Rejoin</button>' : ''}
       </div><div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
       $('#lw-back').onclick = _lwExit;
       const tyR = document.getElementById('lw-ty-rsvp'); if(tyR) tyR.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); });
       const tyA = document.getElementById('lw-ty-rem'); if(tyA) tyA.onclick = () => _lwRemindSheet(nx);
       const tyC = document.getElementById('lw-ty-co'); if(tyC) tyC.onclick = () => _lwUpgradeSheet();
       const tyU = document.getElementById('lw-ty-up'); if(tyU) tyU.onclick = () => { _lwExit(); gateSubscribe('live'); };
-      const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; _lwRender(); _lwJoin(); };
+      const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; R.leftMarked = false; _lwRender(); _lwJoin(); };
       return;
     }
     // in the call
@@ -3519,7 +3523,8 @@ function app(tab){
     const ctl = (id, ico, label, extra) => `<button type="button" class="lw-ctl${extra||''}" id="${id}">${ico}<span>${label}</span></button>`;
     // mic and camera: the button toggles, the up arrow beside it picks the device (Justin, 2026-10-27)
     const split = (id, ico, label, on, kind) => `<div class="lw-split${on ? ' on' : ''}"><button type="button" class="lw-ctl${on ? ' on' : ''}" id="${id}">${ico}<span>${label}</span></button><button type="button" class="lw-caret" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></div>`;
-    const ctls = [ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
+    // the host hangs up with a small red square, icon only (Justin, 2026-10-28); it asks: end for everyone, or leave and keep the room open
+    const ctls = [host ? `<button type="button" class="lw-ctl lw-end" id="lw-c-leave" aria-label="End or leave the event" title="End or leave">${LW_ICO.hangup}</button>` : ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
     if(!(mm && member)){ ctls.push(split('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')); ctls.push(split('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')); }
     if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
     if(host) ctls.push(ctl('lw-c-slides', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', R.slide ? ' on' : ''));
@@ -3527,7 +3532,7 @@ function app(tab){
     ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
     // two controls only (a Mindful Moment member: Leave, Settings) → the small controls card shares a row with the title card
     setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}${ctls.length <= 2 ? ' lw-ctl2' : ''}" id="lw-room">
-      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span><button type="button" class="lw-fold" data-fold="head" aria-label="Tuck the room away" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span>${host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="false" aria-controls="lw-ppl">${LW_ICO.people}<span></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : `<span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span>`}</span>${host ? '<ul class="lw-ppl" id="lw-ppl" aria-label="Who is in the room" hidden></ul>' : ''}<button type="button" class="lw-fold" data-fold="head" aria-label="Collapse the title" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
       <div class="lw-call-body">
         <div class="lw-stage" id="lw-stage" data-card="cam"><button type="button" class="lw-fold" data-fold="cam" aria-label="Collapse the camera" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
@@ -3539,7 +3544,12 @@ function app(tab){
       <div id="lw-audio" hidden></div></div>`);
     _lwPaint();
     const co = R.co;
-    $('#lw-c-leave').onclick = () => { const sh = _lwSheet('Leave the call?', `<p class="lw-p">Stopping is fine.${_lwEnd(s) > Date.now() ? ' You can rejoin while it is running.' : ''}</p>
+    if(host) $('#lw-c-leave').onclick = () => { const sh = _lwSheet('End the event?', `<p class="lw-p">End it for everyone, or leave and keep the room open for the others.</p>
+        <div class="lw-sh-btns"><button class="btn block lw-btn-end" type="button" id="lw-end-all">End for everyone</button><button class="btn block quiet" type="button" id="lw-end-me">Leave, keep the room open</button><button class="btn block quiet" type="button" id="lw-end-stay">Stay</button></div>`, { host:document.getElementById('lw-room') });
+      sh.el.querySelector('#lw-end-stay').onclick = sh.close;
+      sh.el.querySelector('#lw-end-me').onclick = () => { sh.close(); _lwLeaveCall(); };
+      sh.el.querySelector('#lw-end-all').onclick = () => { sh.close(); R.ended = true; try{ co.sendAppMessage({ t:'end' }, '*'); }catch(e){} setTimeout(_lwLeaveCall, 400); }; };
+    else $('#lw-c-leave').onclick = () => { const sh = _lwSheet('Leave the call?', `<p class="lw-p">Stopping is fine.${_lwEnd(s) > Date.now() ? ' You can rejoin while it is running.' : ''}</p>
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-lw-go">Leave</button><button class="btn block quiet" type="button" id="lw-lw-stay">Stay</button></div>`, { host:document.getElementById('lw-room') });
       sh.el.querySelector('#lw-lw-stay').onclick = sh.close;
       sh.el.querySelector('#lw-lw-go').onclick = () => { sh.close(); _lwLeaveCall(); }; };
@@ -3613,6 +3623,7 @@ function app(tab){
       if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
       if(d.t === 'sl' && typeof d.d === 'string' && d.n > 0 && d.n < 60) _lwSlReceive(R, d, ev.fromId);
       if(d.t === 'sl-off' && _lwSlOwner(R, ev.fromId)) _lwSlOff(R, false);
+      if(d.t === 'end' && _lwSlOwner(R, ev.fromId) && !_lwIsHost()){ R.ended = true; _lwLeaveCall(); }
       if(d.t === 'sl-req' && _lwIsHost() && R.slide) _lwSlSend(R, R.slide, ev.fromId);
     });
     co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
@@ -3628,8 +3639,19 @@ function app(tab){
     if(R.role === 'host' && R.s.recorded && !R.rec) _lwRec('start');   // Justin will forget: it records the moment he is in
     R.tick = setInterval(() => { if(_lwRoom === R && R.phase === 'call') _lwPaintHead(); }, 30000);
   }
+  function _lwLeftMark(R){
+    if(!R || !R.s || R.leftMarked) return; R.leftMarked = true;
+    const cfg = window.SNB_CONFIG || {}; if(!cfg.SUPABASE_URL || !_lwTokLast) return;
+    try{ fetch(cfg.SUPABASE_URL + '/functions/v1/live-room-token', { method:'POST', keepalive:true,
+      headers:{ Authorization:'Bearer ' + _lwTokLast, 'Content-Type':'application/json' }, body:JSON.stringify({ action:'left', session_id:R.s.id }) }).catch(()=>{}); }catch(e){}
+  }
+  // the who-is-here pop-over closes on a tap elsewhere or Escape
+  document.addEventListener('pointerdown', ev => { const R = _lwRoom; if(R && R.pplOpen && !(ev.target.closest && ev.target.closest('#lw-ppl,#lw-here'))){ R.pplOpen = false; _lwPaintHead(); } });
+  document.addEventListener('keydown', ev => { const R = _lwRoom; if(ev.key === 'Escape' && R && R.pplOpen){ R.pplOpen = false; _lwPaintHead(); const b = document.getElementById('lw-here'); if(b) try{ b.focus(); }catch(e){} } });
+  addEventListener('pagehide', () => { const R = _lwRoom; if(R && R.co && R.phase === 'call') _lwLeftMark(R); });
   function _lwLeaveCall(){
     const R = _lwRoom; if(!R || !R.co) return;
+    _lwLeftMark(R);
     const co = R.co; R.co = null; R.phase = 'left'; clearInterval(R.tick); _lwBeatStop(R);
     clearInterval(R.slRoomT); R.slide = null; _lwSlRemove();
     try{ co.leave().catch(()=>{}).then(() => { try{ co.destroy(); }catch(e){} }); }catch(e){}
@@ -3781,6 +3803,16 @@ function app(tab){
     const R = _lwRoom; if(!R || !R.co) return;
     const sub = document.getElementById('lw-call-sub'), here = document.querySelector('#lw-here span');
     try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; }catch(e){}
+    // the host sees who is here (Justin, 2026-10-28): first names as the app shows them, the host first, then in the order they came
+    const ul = document.getElementById('lw-ppl'), hb = document.getElementById('lw-here');
+    if(ul && hb){
+      const open = !!R.pplOpen; ul.hidden = !open; hb.setAttribute('aria-expanded', String(open));
+      hb.onclick = e => { e.stopPropagation(); R.pplOpen = !R.pplOpen; _lwPaintHead(); };
+      let ps = []; try{ ps = Object.values(R.co.participants()); }catch(e){}
+      ps.sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || (a.local ? -1 : 0) || new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
+      ul.innerHTML = ps.map(p => { const nm = String(p.user_name || 'Guest').trim() || 'Guest';
+        return `<li><span class="lw-ppl-av" aria-hidden="true">${escapeHtml(nm.charAt(0).toUpperCase())}</span><span class="lw-ppl-nm">${escapeHtml(nm)}${p.local ? ' (you)' : ''}</span>${p.owner ? '<span class="lw-ppl-tag">host</span>' : ''}</li>`; }).join('');
+    }
   }
   // video / audio for every participant. Elements are kept by session id so a repaint never restarts a stream.
   function _lwTrack(p, kind){ const t = p && p.tracks && p.tracks[kind]; return (t && (t.state === 'playable' || t.state === 'sendable') && t.persistentTrack) ? t.persistentTrack : null; }
