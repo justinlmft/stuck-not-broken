@@ -6251,6 +6251,7 @@ function app(tab){
   // 'states' (2026-10-21, data pass 3: every state the app reads side by side, how many check-ins had each).
   // 'part:<morning|afternoon|evening|late>' (2026-10-23, data pass 14: 'states' for the check-ins in one part of the day).
   // 'weeks:<safety|fightflight|shutdown|play|stillness|freeze>' (2026-10-23, data pass 15: one state week by week, up to eight weeks).
+  // 'defense-time' (2026-10-26, data pass 50: for each part of the day, how often its check-ins had more defense than safety).
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -6721,6 +6722,31 @@ function app(tab){
       const pc = _lrnPeriodCtx('recent', shown[0].start, now + 1);
       const cols = shown.map(w=>({ x: w.n ? (w.sum / w.n) / mx : 0, n: w.n }));
       return { mk:st, cols, label: owner + ' ' + nm + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
+    }
+    if(id === 'defense-time'){
+      // when in the day defense shows up (the article data pass, run 50, 2026-10-26: "Panic at the same time" is about getting
+      // dysregulated at the same time every day, and its journal asks "Is there a time of day when you tend to feel more
+      // dysregulated?"): for each part of the day, how often its check-ins had more defense than safety, all four parts side
+      // by side, in the member's defense color. Needs 3+ check-ins with more defense, 2+ parts of the day with 2+ check-ins
+      // each, and one part that leads (by how often, then by how many). The second line names the other part of the day with
+      // the most safety, so the numbers resolve to hope; with no safety-side check-in in any other part, null.
+      const SEGS = ['morning','afternoon','evening','late'], by = {};
+      rs.forEach(r=>{ const sg = _lrnSegOf(r.t); by[sg] = by[sg] || { n:0, d:0, s:0, k:{} }; by[sg].n++; if(r.safe) by[sg].s++; else { by[sg].d++; by[sg].k[r.key] = (by[sg].k[r.key]||0) + 1; } });
+      const nd = SEGS.reduce((a,sg)=>a + (by[sg] ? by[sg].d : 0), 0); if(nd < 3) return null;
+      const el = SEGS.filter(sg=>by[sg] && by[sg].n >= 2).sort((a,b)=> by[b].d/by[b].n - by[a].d/by[a].n || by[b].d - by[a].d);
+      if(el.length < 2) return null;
+      const A = by[el[0]], B = by[el[1]];
+      if(!A.d || (A.d/A.n === B.d/B.n && A.d === B.d)) return null;
+      const safeSeg = SEGS.filter(sg=>sg !== el[0] && by[sg] && by[sg].s)
+        .sort((a,b)=> (by[b].n >= 2) - (by[a].n >= 2) || by[b].s/by[b].n - by[a].s/by[a].n || by[b].s - by[a].s)[0];
+      if(!safeSeg) return null;
+      const DEF = ['fightflight','freeze','shutdown'], mk = DEF.filter(k=>A.k[k]).sort((a,b)=>A.k[b] - A.k[a])[0] || _domDefense() || 'freeze', col = STATE_COLOR(mk);
+      const text = `More defense than safety showed up most often in your ${_LRN_SEG[el[0]]} ${ctx.noun}. Your ${_LRN_SEG[safeSeg]} had the most safety.`;
+      const mx = Math.max.apply(null, SEGS.map(sg=>by[sg] ? by[sg].d / by[sg].n : 0)) || 1;
+      const rows = SEGS.map((sg, i)=>{ const o = by[sg], x = o ? o.d / o.n / mx : 0;
+        return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(_LRN_SEG[sg]))}</span><span class="help-track"><span class="help-fill" style="width:${x > 0 ? Math.max(4, Math.round(100 * x)) : 0}%;background:${col}"></span></span><span class="help-pct">${o ? o.n : '–'}</span></div>`; }).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar: how often check-ins in that part of the day had more defense than safety. Number: how many check-ins. A dash: none in this period.</p>`;
+      return { mk, label: owner + ' defense by time of day', text, card };
     }
     return null;
   }
@@ -9715,7 +9741,9 @@ function app(tab){
   const MIND_PIECES_DEFAULT = ['sight','sound','touch'];
   const UP_MIND_CTX = 'mind:pieces';
   function _mindClean(a){ const ks = MIND_PIECES.map(x=>x[0]); return (Array.isArray(a)?a:[]).filter((k,i,arr)=>ks.indexOf(k)>=0 && arr.indexOf(k)===i); }
-  function mindPieces(){ let a = null; try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m) a = _mindClean(m[UP_MIND_CTX]); }catch(e){}
+  // prod: the default run only, no Pieces row, until the new lines are recorded (Justin, 2026-10-28: "Hide it on prod")
+  const MIND_PIECES_ON = !(typeof SNB_ENV !== 'undefined' && SNB_ENV && SNB_ENV.name === 'prod');
+  function mindPieces(){ if(!MIND_PIECES_ON) return MIND_PIECES_DEFAULT.slice(); let a = null; try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m) a = _mindClean(m[UP_MIND_CTX]); }catch(e){}
     return a && a.length ? a : MIND_PIECES_DEFAULT.slice(); }
   function setMindPieces(a){ a = _mindClean(a); if(!a.length) return;
     try{ if(Store.saveContexts) Store.saveContexts(UP_MIND_CTX, 'Mindfulness pieces', a); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[UP_MIND_CTX] = a; _ctxSave(m); } }catch(e){} }
@@ -11678,7 +11706,7 @@ function app(tab){
       if(isSession) return [];
       const sk = pState.skill, R = [];
       if(k!=='mindfulness') R.push(['sense','Anchor', CAP(pState.sense)]);
-      if(k==='mindfulness') R.push(['pieces','Pieces', mindPiecesWords()]);
+      if(k==='mindfulness' && MIND_PIECES_ON) R.push(['pieces','Pieces', mindPiecesWords()]);
       if(k==='anchoring') R.push(['safety','Safety practice', CAP(mkSafetyRow(pState.safetySkill)[1])]);
       if(k==='self-regulation'){
         R.push(['skill','Skill', CAP(skillLabel(sk))]);
