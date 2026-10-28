@@ -5065,6 +5065,40 @@ body.lw-sl-on .lw-tucked .lw-mm-chat,body.lw-sl-on .lw-tucked .lw-ctls,body.lw-s
   body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:10 / 13}
   body.lw-sl-on #lw-room .lw-grid{grid-column:1 / 13;grid-row:1;align-self:end;grid-template-columns:repeat(4,minmax(0,1fr))}
 }
+/* the title card shares the bottom row with a small controls card (Justin, 2026-10-28: "condense that and squeeze
+   something in next to it"): when the controls are just Leave and Settings, they stack in one narrow card beside the
+   title, the chat gets the height, and the camera moves to the top of the column. The title card's fold tucks both. */
+body.lw-sl-on .lw-ctl2 .lw-ctls{flex-direction:column;flex-wrap:nowrap;align-items:stretch;justify-content:center;gap:2px;padding:4px;align-self:stretch}
+body.lw-sl-on .lw-ctl2 .lw-ctls > .lw-ctl{flex:1 1 auto;flex-direction:row;justify-content:center;min-height:0;padding:4px 6px;font-size:12px;gap:6px}
+body.lw-sl-on .lw-ctl2 .lw-ctls > .lw-ctl svg{width:20px;height:20px;flex:none}
+/* icons only (Justin, 2026-10-28); the words stay for screen readers */
+body.lw-sl-on .lw-ctl2 .lw-ctls > .lw-ctl{position:relative}
+body.lw-sl-on .lw-ctl2 .lw-ctls > .lw-ctl > span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+body.lw-sl-on .lw-ctl2 .lw-ctls.lw-folded > :not(.lw-fold){display:flex}
+body.lw-sl-on .lw-ctl2 .lw-call-t b{white-space:normal;overflow:visible;text-overflow:clip;text-wrap:balance}
+body.lw-sl-on .lw-ctl2 .lw-ctls > .lw-fold{display:none}
+body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
+@media (min-width:1200px){
+  body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:auto minmax(0,1fr) auto}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:10 / 13;grid-row:1}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:10 / 13;grid-row:2}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-call-head{grid-column:10 / 12;grid-row:3}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-ctls{grid-column:12 / 13;grid-row:3}
+}
+@media (min-width:900px) and (max-width:1199px){
+  body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:auto minmax(0,1fr) auto}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:9 / 13;grid-row:1}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:9 / 13;grid-row:2}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-call-head{grid-column:9 / 12;grid-row:3}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-ctls{grid-column:12 / 13;grid-row:3}
+}
+@media (max-width:899px){
+  body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:minmax(0,1fr) auto auto}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:1 / 10;grid-row:2}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:10 / 13;grid-row:2;align-self:end}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-call-head{grid-column:1 / 10;grid-row:3}
+  body.lw-sl-on .lw-ctl2#lw-room .lw-ctls{grid-column:10 / 13;grid-row:3}
+}
 /* answer sheets fit their content: no scrolling inside a slide-up (Justin, 2026-10-28) */
 .lw-sheet .p8-card{height:auto;max-height:calc(100dvh - 12px)}
 .lw-sheet .p8-body{padding-bottom:calc(16px + env(safe-area-inset-bottom))}

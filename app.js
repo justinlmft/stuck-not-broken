@@ -3502,7 +3502,8 @@ function app(tab){
     if(host) ctls.push(ctl('lw-c-slides', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', R.slide ? ' on' : ''));
     if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
     ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
-    setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}" id="lw-room">
+    // two controls only (a Mindful Moment member: Leave, Settings) → the small controls card shares a row with the title card
+    setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}${ctls.length <= 2 ? ' lw-ctl2' : ''}" id="lw-room">
       <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span><button type="button" class="lw-fold" data-fold="head" aria-label="Tuck the room away" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
       <div class="lw-call-body">
         <div class="lw-stage" id="lw-stage" data-card="cam"><button type="button" class="lw-fold" data-fold="cam" aria-label="Collapse the camera" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
