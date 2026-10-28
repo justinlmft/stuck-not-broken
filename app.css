@@ -4651,6 +4651,8 @@ body.lw-in-room .tabbar{display:none}
 .lw-chat-form{display:flex;gap:8px;align-items:center}
 .lw-chat-form input{flex:1;min-width:0;min-height:48px;box-sizing:border-box;border-radius:999px;border:1.5px solid var(--hairline);background:var(--field);color:var(--ink);padding:0 18px;font:inherit;font-size:16px}
 .lw-chat-form .btn{min-height:48px;border-radius:999px;padding:0 18px}
+.lw-chat-form input{caret-color:var(--ink)}
+.lw-chat-form input:focus{outline:2px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
 .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (min-width:900px){.lw-call .lw-call-body{max-width:1100px;width:100%;margin:0 auto;box-sizing:border-box}.lw-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 /* desktop: keep the stage within the window, and put Mindful Moment's chat beside the video (Justin hosts from a computer) */
