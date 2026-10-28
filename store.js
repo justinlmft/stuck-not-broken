@@ -500,8 +500,14 @@
       try{ const ar = await sb.from('entitlements').select('academy_stage').eq('user_id', auth.user.id).maybeSingle();
         if(ar && !ar.error) auth.ent.academy = (ar.data && +ar.data.academy_stage) || 0; }catch(e){}
       if(auth.ent.academy == null){ const c0 = _readBillingCache(); auth.ent.academy = (c0 && +c0.academy) || 0; }
+      // free access that ends on a date (GMS 2026-10-28: Circle Self-Regulator members moved early get free months,
+      // then pay $12/mo). The server switches `legacy` off the morning after; the app stops counting it at the minute.
+      // Its own read, so a database without the column never breaks the reads above.
+      try{ const xr = await sb.from('entitlements').select('legacy_expires_at').eq('user_id', auth.user.id).maybeSingle();
+        if(xr && !xr.error) auth.ent.until = (xr.data && xr.data.legacy_expires_at) || null; }catch(e){}
+      if(auth.ent.until && new Date(auth.ent.until).getTime() <= Date.now()) auth.ent.legacy = false;
       _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
-                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy,
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy, until: auth.ent.until || null,
                            store: auth.store || null, at: Date.now() });
       _storeSyncOnce();
       if(typeof notify === 'function') notify();
@@ -554,7 +560,7 @@
     if(_storeActive()) return true;            // paying through the App Store / Google Play
     if(typeof auth.ent === 'object' && auth.ent) return !!(auth.ent.circle || auth.ent.legacy);
     const c = _readBillingCache();             // network hasn't answered yet
-    return !!(c && (c.circle || c.legacy));
+    return !!(c && (c.circle || (c.legacy && !(c.until && new Date(c.until).getTime() <= Date.now()))));
   }
   // WHY this account has the base plan — display only (settings names the reason
   // instead of calling a grandfathered/Academy account "the free plan", 2026-07-14).
@@ -565,7 +571,10 @@
   }
   function entitlement(){
     const e = (typeof auth.ent === 'object' && auth.ent) ? auth.ent : (_readBillingCache() || {});
-    return { sub: _billingActive(), store: _storeActive(), circle: !!e.circle, legacy: !!e.legacy };
+    const until = e.until || null, t = until ? new Date(until).getTime() : 0, live = !!e.legacy && !(t && t <= Date.now());
+    // ended = dated free access that ran out in the last 60 days (older dated testers never see the prompt)
+    return { sub: _billingActive(), store: _storeActive(), circle: !!e.circle, legacy: live,
+             until: (live && t) ? until : null, ended: (t && t <= Date.now() && Date.now() - t < 60*864e5) ? until : null };
   }
   async function _postFn(name, body){
     const cfg = global.SNB_CONFIG || {};

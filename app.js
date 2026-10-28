@@ -2554,6 +2554,35 @@ let _wnShownThisLoad = false;
 // Academy progress has come over (Justin, 2026-10-03: "is there a way to notify them that their progress is brought over but give
 // them a chance to reset it?"; the card "should be able to name what they completed"). Once per Stage reached, on a load with no
 // other card; Keep or Start fresh, changeable in Settings. Paid members only, since the Pathway's steps are on the paid plan.
+/* free Self-Regulator time has ended (GMS 2026-10-28): one plain prompt, once per end date; their history is untouched.
+ * 🖊 copy draft for Justin. */
+function _planDay(iso){
+  // the last day of access: the stored end is the next midnight Pacific, so show the day before it
+  try{ const d = new Date(new Date(iso).getTime() - 36e5); return d.toLocaleDateString(undefined, { month:'long', day:'numeric', year:'numeric', timeZone:'America/Los_Angeles' }); }catch(e){ return ''; }
+}
+function whatsNewFreeEnded(){
+  if(_wnShownThisLoad || !_obMember() || !_obHydrated() || paidNow()) return;
+  const ent = (Store.entitlement && Store.entitlement()) || {}; if(!ent.ended) return;
+  const u = (Store.user() && Store.user().id) || 'anon', key = 'snb_free_ended_' + u + '_' + String(ent.ended).slice(0,10);
+  try{ if(localStorage.getItem(key)) return; }catch(e){ return; }
+  if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
+  if(document.body.classList.contains('in-practice') || document.getElementById('weaver')) return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Your free Self-Regulator time has ended">'
+    + '<div class="wn-mark-wrap">' + obMarkSVG() + '</div>'
+    + '<h2 class="wn-h">Your free Self-Regulator time has ended</h2>'
+    + '<p class="wn-p">Everything you’ve done stays with you: your check-ins, practices, journal and progress.</p>'
+    + '<p class="wn-p">To keep Self-Regulator, it’s $12 a month, or $108 a year. Cancel anytime. You’re on Free until then, and Free has no time limit.</p>'
+    + '<button class="btn block" id="wn-sub" type="button" style="margin-top:22px">Get Self-Regulator</button>'
+    + '<button class="btn quiet block" id="wn-later" type="button" style="margin-top:8px">Not now</button></div>';
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('on'));
+  _wnShownThisLoad = true;
+  const close=()=>{ try{ localStorage.setItem(key, '1'); }catch(e){} d.remove(); };
+  const s=d.querySelector('#wn-sub'); if(s){ s.onclick=()=>{ close(); screenSubscribe(); }; try{ s.focus({preventScroll:true}); }catch(e){} }
+  const l=d.querySelector('#wn-later'); if(l) l.onclick=close;
+  try{ if(Store.trackEvent) Store.trackEvent('free_ended_card_seen',{}); }catch(e){}
+}
 function whatsNewAcademy(){
   if(_wnShownThisLoad || !_obMember() || !_obHydrated() || !paidNow()) return;
   const s = _acadStage(); if(s < 2) return;
@@ -2714,7 +2743,7 @@ function screenUpdates(from){
 }
 // September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
 // the What's New sheet comes last: it waits for Monday's card and the Academy card, and never shares a load with either
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
+addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewFreeEnded(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
 
 function app(tab){
     currentTab = tab;
@@ -12421,6 +12450,10 @@ function app(tab){
             if(b && b.sub_status==='active')
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
+            // free Self-Regulator until a date (GMS 2026-10-28, the early move from Circle): say when it ends and what
+            // happens after, before the Academy line (an Academy member on dated free time loses the Academy access first)
+            if(ent.legacy && ent.until)
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Self-Regulator is included free on your account until ${escapeHtml(_planDay(ent.until))}. After that it’s $12 a month, or $108 a year, and everything you’ve done stays with you.</p></div>`;
             // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
             if(ent.circle)
