@@ -5079,8 +5079,8 @@ body.lw-sl-on .lw-tap{position:fixed;z-index:3;left:50%;top:50%;transform:transl
   body.lw-sl-on #lw-room .lw-grid{grid-column:1 / 10;grid-row:4;grid-template-columns:repeat(6,minmax(0,1fr))}
   body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:12 / 13}
 }
-/* 900 to 1199px: the right 4 columns */
-@media (min-width:900px) and (max-width:1199px){
+/* 900 to 1199px, and a phone on its side (2026-10-28): the right 4 columns */
+@media (min-width:900px) and (max-width:1199px), (max-width:899px) and (orientation:landscape) and (max-height:600px){
   body.lw-sl-on #lw-room{grid-template-rows:auto auto minmax(0,1fr) auto}
   body.lw-sl-on #lw-room .lw-call-head{grid-column:9 / 13;grid-row:1}
   body.lw-sl-on #lw-room .lw-stage{grid-column:9 / 13;grid-row:2}
@@ -5090,7 +5090,7 @@ body.lw-sl-on .lw-tap{position:fixed;z-index:3;left:50%;top:50%;transform:transl
   body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:12 / 13}
 }
 /* under 900px: the bottom of the grid; the slide's words keep the top. Title and camera share a row (9 + 3 columns). */
-@media (max-width:899px){
+@media (max-width:899px) and (orientation:portrait), (max-width:899px) and (min-height:601px){
   body.lw-sl-on #lw-room{--g:max(8px,2vw);grid-template-rows:minmax(0,1fr) auto auto auto;padding-block:11vh calc(env(safe-area-inset-bottom) + max(16px,6.25vw))}
   body.lw-sl-on #lw-room .lw-call-head{grid-column:1 / 10;grid-row:2;align-self:end}
   body.lw-sl-on #lw-room .lw-stage{grid-column:10 / 13;grid-row:2;align-self:end;aspect-ratio:1/1}
@@ -5123,14 +5123,14 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
   body.lw-sl-on .lw-ctl2#lw-room .lw-call-head{grid-column:10 / 12;grid-row:3}
   body.lw-sl-on .lw-ctl2#lw-room .lw-ctls{grid-column:12 / 13;grid-row:3}
 }
-@media (min-width:900px) and (max-width:1199px){
+@media (min-width:900px) and (max-width:1199px), (max-width:899px) and (orientation:landscape) and (max-height:600px){
   body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:auto minmax(0,1fr) auto}
   body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:9 / 13;grid-row:1}
   body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:9 / 13;grid-row:2}
   body.lw-sl-on .lw-ctl2#lw-room .lw-call-head{grid-column:9 / 12;grid-row:3}
   body.lw-sl-on .lw-ctl2#lw-room .lw-ctls{grid-column:12 / 13;grid-row:3}
 }
-@media (max-width:899px){
+@media (max-width:899px) and (orientation:portrait), (max-width:899px) and (min-height:601px){
   body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:minmax(0,1fr) auto auto}
   body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:1 / 10;grid-row:2}
   body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:10 / 13;grid-row:2;align-self:end}

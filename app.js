@@ -3260,7 +3260,7 @@ function app(tab){
     L = document.createElement('div'); L.id = 'lw-slides'; L.className = 'lw-slides'; L.hidden = true;
     L.innerHTML = `<iframe title="Slides" src="${LW_SL_URL}?student=1" tabindex="-1"></iframe>`;
     document.body.appendChild(L);
-    L.querySelector('iframe').addEventListener('load', () => { const R = _lwRoom; if(R && R.slide) _lwSlPost(R, true); });
+    L.querySelector('iframe').addEventListener('load', () => { const R = _lwRoom; if(R){ R.slSafeSig = null; if(R.slide) _lwSlPost(R, true); } });
     if(!_lwSlLoop){ _lwSlLoop = true; _lwSlTrack(); }
     return L;
   }
@@ -3278,9 +3278,29 @@ function app(tab){
       const r = room.getBoundingClientRect();
       let top = r.top;
       L.style.left = r.left + 'px'; L.style.top = top + 'px'; L.style.width = r.width + 'px'; L.style.height = Math.max(0, r.bottom - top) + 'px';
+      _lwSlSafe(R, room, r);
     }
     if(L.hidden === show) L.hidden = !show;
     requestAnimationFrame(_lwSlTrack);
+  }
+  // the free area the cards leave, in px of the slide frame (2026-10-28, "optimize the slides for various screen sizes"):
+  // l and t are the room's margin and top line, r stops a gutter short of the cards on the right, b is the foot line or
+  // a gutter above the cards along the bottom. The builder lays the slide into it, so no card ever covers its words.
+  function _lwSlSafe(R, room, rr){
+    const cs = getComputedStyle(room), W = rr.width, H = rr.height; if(!W || !H) return;
+    const g = parseFloat(cs.columnGap) || 16, l = parseFloat(cs.paddingLeft) || 0, t = parseFloat(cs.paddingTop) || 0;
+    let r = W - (parseFloat(cs.paddingRight) || 0), b = H - (parseFloat(cs.paddingBottom) || 0);
+    // side layout = a card on the right half that starts near the top line; otherwise the cards sit along the bottom
+    const cards = [...room.querySelectorAll('.lw-call-head, .lw-mm-chat, .lw-ctls, .lw-stage, .lw-grid')].map(el => el.getBoundingClientRect())
+      .filter(q => q.width >= 2 && q.height >= 2).map(q => ({ x:q.left - rr.left, y:q.top - rr.top }));
+    const side = cards.some(c => c.x >= W * .5 && c.y < H * .35);
+    cards.forEach(c => { if(side && c.x >= W * .5) r = Math.min(r, c.x - g); else if(c.y >= H * .35) b = Math.min(b, c.y - g); });
+    const s = { l:Math.round(l), t:Math.round(t), r:Math.round(r), b:Math.round(b), g:Math.round(g) };
+    const sig = [s.l, s.t, s.r >> 2, s.b >> 2].join(',');   // 4px steps: a card's glide does not re-lay the slide every frame
+    if(sig === R.slSafeSig) return;
+    const f = document.querySelector('#lw-slides iframe'), w = f && f.contentWindow; if(!w) return;
+    R.slSafeSig = sig;
+    try{ w.postMessage({ snbSafe:s }, LW_SL_ORIGIN); }catch(e){}
   }
   function _lwSlPost(R, full){
     const L = _lwSlLayer(), f = L.querySelector('iframe'), w = f && f.contentWindow; if(!w || !R.slide) return;
