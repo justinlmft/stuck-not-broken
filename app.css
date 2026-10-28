@@ -4989,6 +4989,11 @@ body.lw-sl-on .lw-call-head,body.lw-sl-on .lw-mm-chat,body.lw-sl-on .lw-ctls,bod
   border:1px solid color-mix(in srgb,var(--hairline) 75%,transparent);border-radius:16px;box-shadow:none;box-sizing:border-box;margin:0;
   inset:auto;width:auto;height:auto;max-width:none;align-self:stretch}
 .lw-fold{display:none}
+/* fold/unfold glide (2026-10-28): only the cards move; the page itself and the slide behind stay live */
+html.lw-vt{view-transition-name:none}
+html.lw-vt::view-transition-group(*){animation-duration:.46s;animation-timing-function:cubic-bezier(.22,1,.36,1);overflow:clip;border-radius:16px}
+html.lw-vt::view-transition-old(*),html.lw-vt::view-transition-new(*){height:100%;width:100%;object-fit:none;object-position:left top;
+  animation-duration:.34s;animation-timing-function:cubic-bezier(.4,0,.2,1)}
 body.lw-sl-on .lw-fold{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin:-6px -8px -6px 2px;flex:none;border:0;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer}
 body.lw-sl-on .lw-fold:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 @media(hover:hover){body.lw-sl-on .lw-fold:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 7%,transparent)}}

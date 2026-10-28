@@ -3368,7 +3368,21 @@ function app(tab){
       const b = c.querySelector('.lw-fold[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
     room.classList.toggle('lw-tucked', !!f.head);
     room.querySelectorAll('.lw-fold').forEach(b => b.onclick = e => { e.stopPropagation();
-      const k = b.dataset.fold, g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); });
+      const k = b.dataset.fold;
+      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
+  }
+  // folding and unfolding glide instead of jumping (Justin, 2026-10-28: "smooth and gentle is the standard"). Each card gets a
+  // name only for the length of the move, so the browser can carry it from its old size and place to the new one; the slide
+  // behind keeps running. Browsers without view transitions, and reduced motion, change at once.
+  function _lwFoldMove(apply){
+    const room = document.getElementById('lw-room');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!room || reduce || !document.startViewTransition){ apply(); return; }
+    const named = [...room.querySelectorAll('[data-card], .lw-grid')];
+    named.forEach((c, i) => { c.style.viewTransitionName = 'lw-card-' + (c.dataset.card || 'grid' + i); });
+    document.documentElement.classList.add('lw-vt');
+    const done = () => { named.forEach(c => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('lw-vt'); };
+    try{ const t = document.startViewTransition(apply); t.finished.then(done, done); }catch(err){ done(); apply(); }
   }
   // the room's background: on only once 5 or more people have chosen to count (live_room_blend returns nothing below that)
   function _lwSlRoomPoll(R){
