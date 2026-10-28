@@ -516,17 +516,17 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      page.css               f3d4534ee2274e7bf5be1d25f7a14dda    37790 bytes
      mark.svg               63ca7f5fd56be59936d7651b4f4daa2b     8214 bytes
      clip-table.js          a1652dfdc045a698df0e133cf9e3ca30     6072 bytes
-     data.js                36cb3a4f98019c111127bbe344041564    83416 bytes
-     plan.js                2e8a56643940678ad0d70fd9c567f09b    84718 bytes
-     runtime.js             6e2947041334398c4cdfd005d8a4e188    53311 bytes
-     host.js                a7430d9355fb4c0209ba78d271b85f42    40428 bytes
+     data.js                1d3688f95356b539e140dd6345f58f65   115621 bytes
+     plan.js                1c74cd93fb194f29b9def29980a7b6fc    89313 bytes
+     runtime.js             e6e2a44f9c338088290b7db97932838a    53941 bytes
+     host.js                6291aaa2c719962fc031191af5da8ce6    41257 bytes
      browser-device.js      0e38e7e713e772b8706ea17adc1ee56a    11495 bytes
      captions.js            d5bd912dbf20d834610afb7603d42965     4133 bytes
      stall.js               b9674cd18208ad9ef35ebd266aeeeeaf     9024 bytes
      session.js             7278badb890e3a47940d2bbf70f34c41    84731 bytes
      scene.js               70e683125380fd667bacbd497e72e97a    18116 bytes
      copy.js                e0952fc4c807c1dfcc991f10b97d9e4e    15665 bytes
-     page.js                b8829bcac9a206feb96d9853cf31f768    70298 bytes
+     page.js                71ac54c5f585e05149961877084d7f2b    70785 bytes
 -->
 </head>
 <body>
@@ -939,7 +939,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
 
 })();
 /* @endmodule clip-table.js */</script>
-<script>/* @module data.js md5:d597cd0fe10eab9325812c471b81b425 */
+<script>/* @module data.js md5:1d3688f95356b539e140dd6345f58f65 */
 (function(){
 /* practice-engine — the data layer.
  *
@@ -1734,6 +1734,30 @@ const MICRO_SENSE = {
 const NATURAL_BREATH = must('MIND-02');
 const SAFETY_READING = must('MIND-01');   // the 0-10 scale; the short practices do not take it
 
+/* ✅ BUILD YOUR OWN MINDFULNESS (Justin, 2026-10-15: "yes i want it to mimic the live practice. the user can choose to do as many
+ * mindfulness practices as they like with the breath in between, before, and after … they can choose which order to do the
+ * mindfulness pieces as well by dragging the order. the app does not need the check-in audio."). Five pieces, as in the live
+ * Mindful Moment: sight, sound, touch, movement, imagination. Each is a run of clips; plan.js `short()` plays the ones the member
+ * picked, in their order, with a breath check after each. Movement is bottom up as recorded (Justin: "bottom-up is fine as is");
+ * its pause and imagination's two new lines are optional below and simply absent until recorded. */
+const MIND_PIECES = Object.freeze({
+  sight:       Object.freeze([must('MIND-05')]),
+  sound:       Object.freeze([must('MIND-03')]),
+  touch:       Object.freeze([must('MIND-04')]),
+  movement:    Object.freeze(['ANCHORING-MOVEMENT-01', 'ANCHORING-MOVEMENT-02', 'ANCHORING-MOVEMENT-03', 'ANCHORING-MOVEMENT-04',
+                 'ANCHORING-MOVEMENT-05', 'ANCHORING-MOVEMENT-10', 'ANCHORING-MOVEMENT-06', 'MIND-MOVE-PAUSE']
+                 .filter((id, i, a) => i < a.length - 1 || exists(id)).map(must)),
+  imagination: Object.freeze(['ANCHORING-IMAGINATION-01', 'ANCHORING-IMAGINATION-03', 'STUCK-OK', 'ANCHORING-IMAGINATION-05',
+                 'ANCHORING-IMAGINATION-06', 'IMAGINE-OTHER']
+                 .filter(id => !/^(STUCK-OK|IMAGINE-OTHER)$/.test(id) || exists(id)).map(must)),
+});
+/* the order a Mindfulness plays when no pieces are named: the full run since 2026-09-17, outside in */
+const MIND_PIECES_DEFAULT = Object.freeze(['sight', 'sound', 'touch']);
+/* the two new Mindfulness lines from the live practice (recording doc, Oct 15): ACKNOWLEDGE after the setup, ENCOURAGE once,
+ * after the second piece. Null until recorded, like BREATH_ACK — nothing speaks before it exists. */
+const ACKNOWLEDGE = exists('ACKNOWLEDGE') ? must('ACKNOWLEDGE') : null;
+const ENCOURAGE = exists('ENCOURAGE') ? must('ENCOURAGE') : null;
+
 /* The fifteen practices that carry a setup clip of their own, discovered from the table
  * rather than listed. Each maps to the half-opener its name ends in. */
 function practices() {
@@ -2437,7 +2461,7 @@ function takesInRotation(id) {
 
 const API = {
   ROLE, FAMILY, ANCHOR, CUTS, DELIBERATE_REUSABLES, ACK_CALLERS,
-  MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING,
+  MICRO, MICRO_ANCHORS, MICRO_SENSE, NATURAL_BREATH, SAFETY_READING, MIND_PIECES, MIND_PIECES_DEFAULT, ACKNOWLEDGE, ENCOURAGE,
   BAND_FAMILIES, BAND, BAND_LOW_PRESENT, BREATH_FULLNESS_TAKES, BREATH_CHECKS, BREATH_PAIRS, breathPairName, BREATH_FREEZE_PATTERN, BREATH_ACK, BREATH_GUIDE_MOVE, GENERAL_ACK, BREATH_ACK_FAMILIES, TRANSITION_FAMILIES, TRANSITION, OBST_STICK,
   TAP_REPLY_FAMILIES, TAP_REPLY, ANCHOR_CHOICE_FAMILIES, ANCHOR_CHOICE, ANCHOR_CHOICE_ORDER, CLIP_HOLDS, holdsFor, holdSeconds, SAFETY_LOW_MAX, SAFETY_HIGH_MIN, INTENSITY_LOW_MAX, INTENSITY_HIGH_MIN,
   CLIP_FOLDER, EMO_FOLDER, EMO_TAKES, EMOTION_KEYS, emotionKey, EMO_CAPTIONS, clipUrl, VOICES, VOICE_DEFAULT, voiceKey, voiceHas, voiceFor, VOICE_HOLDS, BED_FOLDER, BEDS, BED_NONE, BED_SURPRISE, bedSurprise, BED_LEVELS, BED_LEVEL_FILES, BED_LEVEL_LUFS, BED_LEVEL_LEGACY, BED_LEVEL_DEFAULT, bedLevel, bedUrl, TAKE_TRIMS, trimFor, applyCaptionTrims,
@@ -2449,7 +2473,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_DATA = API
 
 })();
 /* @endmodule data.js */</script>
-<script>/* @module plan.js md5:ddd208551b83bf4baade87c3fa53916e */
+<script>/* @module plan.js md5:1c74cd93fb194f29b9def29980a7b6fc */
 (function(){
 /* practice-engine — the planner.
  *
@@ -3598,18 +3622,25 @@ function short(cfg, add, beats, branches) {
   /* §3b — a practice that ends needs no announcement, so this fires only for open-ended. The
    * tiny practice is never open-ended and never reaches it. */
   if (cfg.mode === 'open') add(D.ROLE.setupModeOpen, 'opening', { kind: KIND.setup });
+  /* ✅ ACKNOWLEDGE, after the setup and before the arriving breath (Justin, 2026-10-15: "we can add in an acknowledge script
+   * unless we have somethign similar that exists" — nothing did; MIND-06/07 are mid-practice and were cut). Silent until recorded. */
+  if (isMindfulness && D.ACKNOWLEDGE) add(D.ACKNOWLEDGE, 'opening');
   add(D.ROLE.arriveBreath, 'opening');
   if (isMindfulness) {
-    /* the full run: the reading, the natural breath, then sight → check → sound → check → touch
-     * → check, the reading again. No anchor ladder. */
-    const mind = D.FAMILY.mind;
+    /* the run: the reading, the natural breath, then each chosen piece → check (default sight, sound, touch), the reading
+     * again. No anchor ladder (the movement and imagination pieces borrow anchor clips, never the ladder or its gate). */
     /* ✅ SECOND PASS (Justin, 2026-09-17): the 0–10 reading at the start and at the end — with
      * no Interest Impulse in this practice, those are its two — and NO emotion pair ("cut MIND-06
      * and MIND-07 from this practice"). */
     add(D.SAFETY_READING, 'mindfulness');
     add(D.NATURAL_BREATH, 'mindfulness');
-    FULL_RUN_SENSES.forEach(i => {
-      add(mind[i], 'mindfulness');
+    /* ✅ THE MEMBER'S PIECES, IN THEIR ORDER (Justin, 2026-10-15: "mimic the live practice … as many mindfulness practices as
+     * they like with the breath in between, before, and after … which order … by dragging"). The natural breath above is the
+     * breath before; a breath check follows every piece, so one sits between each and after the last. No pieces named is the
+     * full run as before (MIND_PIECES_DEFAULT = FULL_RUN_SENSES). ENCOURAGE plays once, after the second piece. */
+    mindPieces(cfg).forEach((piece, n) => {
+      D.MIND_PIECES[piece].forEach(id => add(id, 'mindfulness'));
+      if (n === 1 && D.ENCOURAGE) add(D.ENCOURAGE, 'mindfulness', { kind: KIND.reply });   // a word in passing: leads on after two seconds
       add(D.ROLE.breathCheck, 'mindfulness');
     });
     add(D.SAFETY_READING, 'mindfulness');
@@ -3647,6 +3678,14 @@ function short(cfg, add, beats, branches) {
   }
   /* no safety work to go back to — the three-button offer is not made in these practices */
   return { cfg, level: 0, side: 'mindfulness', beats, branches, terminates: terminatorOf(beats), returnToSafety: null };
+}
+
+/* The pieces a Mindfulness plays: `cfg.pieces`, known names only, each once, in the member's order. None (or none known) is the
+ * default run. A piece the planner does not know is dropped, never thrown on — the host already filtered it (E3.19). */
+function mindPieces(cfg) {
+  const want = Array.isArray(cfg.pieces) ? cfg.pieces : [];
+  const out = want.filter((k, i) => Object.prototype.hasOwnProperty.call(D.MIND_PIECES, k) && want.indexOf(k) === i);
+  return out.length ? out : D.MIND_PIECES_DEFAULT.slice();
 }
 
 const MINDFULNESS = 'mindfulness';
@@ -3784,7 +3823,7 @@ function terminatorOf(beats) {
 
 const API = {
   WARM_UP_SENSES, FULL_RUN_SENSES, MINDFULNESS_CLOSE, MIND_EMOTION, MIND_INVITE, CLOSE_ORDER, ENDING_OPEN_NEUTRAL, INTENT_SET_DOUBLED, describeOrder,
-  plan, gapFor, KIND, emotionOf, ANCHORING, MINDFULNESS, TINY, SHORT_PRACTICES,
+  plan, gapFor, KIND, emotionOf, ANCHORING, MINDFULNESS, TINY, SHORT_PRACTICES, mindPieces,
   SAFETY_LEVELS, SAFETY_HALF_LEVEL, BASE_THROUGH_LEVEL, INTEREST_SAFETY, INTEREST_SAFETY_TAKE,
   BASE_PRACTICES, DEPTHS, DEPTH_OFFERED_BY, DEPTH_OFFERED_BY_PREFIX, DEPTH_SETUP,
   SKILLS, OBSTACLES_PREFIX, OBSTACLES_SETUP, OBST,
@@ -4964,7 +5003,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_RUNTIME = 
 
 })();
 /* @endmodule runtime.js */</script>
-<script>/* @module host.js md5:56ffd486eed27767d5c721425f353967 */
+<script>/* @module host.js md5:6291aaa2c719962fc031191af5da8ce6 */
 (function(){
 /* practice-engine/host.js — E8. The contract with the app that embeds this player.
  *
@@ -5047,6 +5086,14 @@ function parseLaunch(query, { practices } = {}) {
    * to a Tiny practice" — and a guard here is the version of that rule that cannot be
    * forgotten by a caller. */
   if (get('first') === '1' && pk === P.TINY) out.first = true;
+
+  /* the Mindfulness pieces (2026-10-15, build your own Mindfulness): `pieces=sight,movement,…` in the member's order. Known
+   * names only, each once; Mindfulness only. None left is no parameter — the planner's default run. */
+  const pcs = get('pieces');
+  if (pcs != null && pk === P.MINDFULNESS) {
+    const list = String(pcs).split(',').filter((k, i, a) => Object.prototype.hasOwnProperty.call(D.MIND_PIECES, k) && a.indexOf(k) === i);
+    if (list.length) out.pieces = list;
+  }
 
   if (get('open') === '1' && pk !== P.TINY) out.mode = 'open';
   /* the tiny practice is never open-ended. `autostart=1` skips the setup screen, so this
@@ -8197,7 +8244,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
 
 })();
 /* @endmodule copy.js */</script>
-<script>/* @module page.js md5:9d545cff80606e9c3f8411602b25d857 */
+<script>/* @module page.js md5:71ac54c5f585e05149961877084d7f2b */
 (function(){
 /* practice-engine/page.js — the screens, the buttons, and nothing else.
  *
@@ -8482,6 +8529,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       depth: cfg.depth || undefined, prefix: cfg.prefix || undefined,
       holdWatch: !!cfg.holdWatch, holdSeconds: cfg.holdSeconds,
       emotion: cfg.emotion || undefined,
+      pieces: cfg.pieces || undefined,
       /* which four of the thirty-two obstacle statements is not a sequencing decision, so the
        * planner takes them in order unless a dealer is supplied. Here is where the shuffle
        * belongs — a plan has to be reproducible to be assertable, and a session does not. */
@@ -9485,6 +9533,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
        * practice on a value no control can show. */
       if (launch.voice) cfg.voice = launch.voice;   // 2026-09-29, VOICES: the person's voice, from the app
       if (launch.emotion) cfg.emotion = launch.emotion;   // 2026-10-04: the emotion they chose in the app, named back (plan.js emotionOf)
+      if (launch.pieces) cfg.pieces = launch.pieces.slice();   // 2026-10-15: the Mindfulness pieces the member picked, in their order
       if (launch.bed) { cfg.bed = launch.bed; if (launch.bedLevel) cfg.bedLevel = launch.bedLevel; cfg.bedSurprise = !!launch.bedSurprise; }
       if (typeof launch.silence === 'number') {
         cfg.silence = COPY.SILENCE_STEPS.reduce((b, s) =>

@@ -146,7 +146,8 @@
 
   // ── installable PWA: capture the browser's install prompt + small helpers ──
   let _deferredInstall = null;
-  const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true
+    || !!(Store.inStoreApp && Store.inStoreApp());   // the App Store app is already installed (2026-10-21)
   const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '');
   // in-app browsers (instagram/facebook/gmail/etc.) and non-Safari iOS browsers
   // can't "add to home screen" — the #1 install snag for new members (Claudia hit
@@ -740,7 +741,30 @@
   function clearFigures(){ liveFigures.forEach(f=>{try{f.destroy();}catch(e){}}); liveFigures = []; }
   function mountFigure(host, opts){ const f = window.PVCurrent(host, opts); liveFigures.push(f); return f; }
 
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing'); root.innerHTML = html; }
+  // phones: Back joins the bottom menu (r7), animated between screens (r8, 2026-10-27). Every screen draws a new menu,
+  // so the new one starts where the last one was and moves to where this screen wants it.
+  let _tbWas = false;
+  function _tbSync(){
+    const tb = root.querySelector(':scope > .tabbar'), back = root.querySelector(':scope > .fl-dock > .tab-back-float');
+    const want = !!(tb && back), was = _tbWas; _tbWas = want;
+    const mm = q => !!(window.matchMedia && matchMedia(q).matches);
+    const move = mm('(max-width:719px)') && !mm('(prefers-reduced-motion: reduce)') && want !== was;
+    if(tb && !tb.classList.contains('tb-seen')){
+      tb.classList.add('tb-seen');
+      if(move){ tb.classList.add('tb-still'); tb.classList.toggle('tb-cond', was); void tb.offsetWidth; tb.classList.remove('tb-still'); }
+      tb.classList.toggle('tb-cond', want);
+    } else if(tb) tb.classList.toggle('tb-cond', want);
+    if(!move) return;
+    if(want){ back.classList.add('tb-enter'); back.addEventListener('animationend', ()=>back.classList.remove('tb-enter'), { once:true }); }
+    else if(tb){
+      // the arrow of the screen just left slides out as the menu widens
+      const g = document.createElement('div'); g.className = 'fl-dock tb-ghost'; g.setAttribute('aria-hidden', 'true');
+      g.innerHTML = `<span class="tab-back-float tb-leave">${BACK_SVG}</span>`;
+      root.appendChild(g); setTimeout(()=>g.remove(), 360);
+    }
+  }
+  if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))) _tbSync(); }).observe(root, { childList:true });
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -813,7 +837,8 @@
       Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
         Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
           if(r && r.included) return screenIncluded();
-          if(r && r.error) showToast(/already have the paid plan/.test(r.error) ? r.error : "couldn't open the payment page right now. you can subscribe from settings.");
+          if(storeResult(r)) return;
+          if(r && r.error) showToast(/already have Self-Regulator/.test(r.error) ? r.error : "couldn't open the payment page right now. you can subscribe from settings.");
         }));
     }
     // returning from Stripe Checkout: clear the query flag, refresh billing, greet.
@@ -833,6 +858,7 @@
     if(h==='breath'){ return app('now'); }   // lands on the ring, ready to tap
     if(h==='reader'){ return app('reflect'); }   // a new-reflection notification (2026-09-30)
     if(h==='challenge'){ app('practice'); return _chOpenFromLink(); }   // the challenge reminder (2026-10-18)
+    if(h==='live'){ _lw.tab = 'live'; return app('community'); }   // a live session reminder, push or email (2026-10-26)
     // the saved reader place, once per boot; a post that has not loaded yet is tried again on the next route
     if(_rdPending === undefined) _rdPending = _rdTakeLoc();   // read once, before anything overwrites it
     const _back = !!(_rdPending && _rdRestore(_rdPending));
@@ -1014,6 +1040,7 @@
           return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>
             Promise.resolve(Store.startCheckout ? Store.startCheckout('member', plan) : { error:'unavailable' }).then(r=>{
               if(r && r.included) return screenIncluded();
+              if(storeResult(r)) return;
               if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your account is ready. you can subscribe from settings."); }
             }));
         }
@@ -1598,6 +1625,8 @@
         return Promise.resolve(Store.refreshBilling && Store.refreshBilling()).then(()=>{
           if(paid){
             return Promise.resolve(Store.startGuestCheckout ? Store.startGuestCheckout(_planChoice) : { error:'unavailable' }).then(r=>{
+              if(r && r.included) return screenIncluded();
+              if(storeResult(r)) return;
               if(r && r.error){ currentTab='now'; route(); showToast("couldn't open the payment page right now. your free account is ready."); }
             });
           }
@@ -1663,16 +1692,19 @@
   // discount/urgency framing (standing brand guardrail). The annual card names its monthly
   // equivalent ($9 a month) only as a factual comparison, matching the /app page. Reads and
   // writes the shared _planChoice so every surface agrees. 🖊 copy draft — flag if register is off.
+  // Inside the store app the prices come from the App Store (localized, Apple's rule); $12 and $108 are the fallback.
+  let _storePx = null;
   function planPickerHTML(){
     const annual = _planChoice==='annual';
+    const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
     return `<div class="plans" role="radiogroup" aria-label="billing interval">
       <button type="button" class="plan${annual?'':' on'}" data-plan="monthly" role="radio" aria-checked="${annual?'false':'true'}">
-        <span class="price">$12<span class="per"> / month</span></span>
+        <span class="price">${escapeHtml(pxM)}<span class="per"> / month</span></span>
         <span class="plan-sub">Billed monthly</span>
       </button>
       <button type="button" class="plan${annual?' on':''}" data-plan="annual" role="radio" aria-checked="${annual?'true':'false'}">
-        <span class="price">$108<span class="per"> / year</span></span>
-        <span class="plan-sub">Billed once a year · that's $9 a month</span>
+        <span class="price">${escapeHtml(pxA)}<span class="per"> / year</span></span>
+        <span class="plan-sub">Billed once a year${_storePx ? '' : " · that's $9 a month"}</span>
       </button>
     </div>`;
   }
@@ -1696,17 +1728,22 @@
   // staying free must never be styled as a shameful exit.
   function screenSubscribe(err, busy){
     const what = _subFrom && SUB_WHAT[_subFrom];
+    const inStore = !!(Store.inStoreApp && Store.inStoreApp());
+    if(inStore && !_storePx && !busy) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; if(document.getElementById('pw-go') && !document.getElementById('pw-go').disabled) screenSubscribe(err); } });
     setHTML(`
       <div class="view gate">
         <img class="mark" src="${MARK}" alt="Stuck Not Broken">
         <div class="gate-body">
-          <p class="eyebrow">The paid plan</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is on the paid plan.' : 'Choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">It adds practices built from your check-ins, the other practices, the other voices, the patterns across all your check-ins, and the reader, which follows you from the moment to the day to the week and further out. Cancel anytime.</p>
+          <p class="eyebrow">Self-Regulator</p>
+          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is part of Self-Regulator.' : 'Choose your plan'}</h1>
+          <p class="lede" style="margin-bottom:6px">It adds the full Unstucking Pathway, every article and practice, the other voices, challenges, the members’ podcast, and your personal insights: the patterns across your check-ins and the reader. Cancel anytime.</p>
           ${planPickerHTML()}
-          <p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>
+          ${inStore
+            ? `<p class="fineprint" style="margin-bottom:18px">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
+            : `<p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>`}
           ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'One moment…':'Subscribe'}</button>
+          ${inStore ? `<p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-restore" style="font-size:inherit;padding:2px"${busy?' disabled':''}>Restore purchases</button></p>` : ''}
           <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">Not now</button></p>
         </div>
       </div>`);
@@ -1718,9 +1755,29 @@
       Promise.resolve(Store.startCheckout('member', plan)).then(res=>{
         if(res && res.included) return screenIncluded();
         if(res && res.error) return screenSubscribe(res.error);   // else the browser is redirecting to Stripe
+        if(storeResult(res)) return;                              // the App Store answered (store app only)
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
+    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
+      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
+    });
+    const rs=$('#pw-restore'); if(rs) rs.onclick = ()=>{
+      screenSubscribe(null, true);
+      Promise.resolve(Store.restorePurchases()).then(r=>{
+        if(r && r.paid){ _subFrom=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); }
+        else screenSubscribe('No App Store purchase was found for this account.');
+      }).catch(()=>screenSubscribe('No App Store purchase was found for this account.'));
+    };
     const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ _subFrom=null; route(); };
+  }
+
+  // The App Store's answer to a purchase (store app only). Returns true when it handled the screen.
+  function storeResult(res){
+    if(!res) return false;
+    if(res.purchased){ _subFrom=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); return true; }
+    if(res.pending){ _subFrom=null; currentTab='now'; route(); showToast('Your purchase is waiting for approval. Self-Regulator opens once it is approved.'); return true; }
+    if(res.cancelled){ if(document.getElementById('pw-go')) screenSubscribe(); else { currentTab='now'; route(); } return true; }
+    return false;
   }
 
   // An Academy member (or a direct grant) already has the paid plan: create-checkout refuses before any charge and
@@ -1732,7 +1789,7 @@
         <div class="gate-body">
           <p class="eyebrow">Already included</p>
           <h1 style="margin:10px 0 12px">You already have the full app.</h1>
-          <p class="lede" style="margin-bottom:24px">Your account already includes everything in the paid plan. There is nothing to pay, and you were not charged.</p>
+          <p class="lede" style="margin-bottom:24px">Your account already includes everything in Self-Regulator. There is nothing to pay, and you were not charged.</p>
           <button class="btn block" id="inc-go">Continue</button>
         </div>
       </div>`);
@@ -1968,11 +2025,11 @@
   function obChips(group, opts){ return '<div class="ob-chips" data-group="'+group+'">'+opts.map(o=>obChip(group,o[0],escapeHtml(o[1]))).join('')+'</div>'; }
   function obSw(id,label,on,dis){ return '<div class="gs-sw ob-sw"><span class="gs-lbl">'+label+'</span><button class="set-sw'+(on?' on':'')+'" id="'+id+'" type="button" role="switch" aria-checked="'+(on?'true':'false')+'" aria-label="'+escapeHtml(label)+'"'+(dis?' disabled style="opacity:.45"':'')+'><span class="set-sw-knob"></span></button></div>'; }
   const OB_TAB_LINE = { now:'Check in, and take a breath.', practice:'Your recommended practice, the Unstucking Pathway, and practices to make your own.',
-    reflect:'Your Reflections and Your Journal.', learn:'Articles and book chapters to read.', you:'Your patterns over time, and Settings.' };
+    community:'Mindful Moment, live with Justin every Wednesday.', learn:'Articles and book chapters to read.', you:'Your Reflections, Your Journal, your patterns over time, and Settings.' };
   // the five tabs on one card, drawn with the tab bar's own icons ("Look around myself")
   function obTabMap(){
-    const names = { now:'Now', practice:'Practice', reflect:'Reflect', learn:'Learn', you:'You' };
-    return '<div class="ob-map">'+['now','practice','reflect','learn','you'].map(t=>{
+    const names = { now:'Now', practice:'Practice', community:lwTabName(), learn:'Learn', you:'You' };
+    return '<div class="ob-map">'+['now','practice','community','learn','you'].map(t=>{
       let ic=''; try{ const b=document.querySelector('#tabs button[data-t="'+t+'"] .ic'); if(b) ic=b.innerHTML; }catch(e){}
       return '<div class="ob-map-row"><span class="ob-map-ic" aria-hidden="true">'+ic+'</span><span class="ob-map-t"><b>'+names[t]+'</b><span>'+escapeHtml(OB_TAB_LINE[t])+'</span></span></div>';
     }).join('')+'</div>';
@@ -2046,7 +2103,7 @@
         body: obP('Every skill in the app, in order, from the present moment to working with defense. Each step opens as you practice the one before it.')
            + obLbl('Your safety anchor')
            + '<div class="ob-chips" data-group="anchor">'+[['auto','Let the app find my best one']].concat(UP_ANCHORS.map(k=>[k,CAP(k)])).map(o=>obChip('anchor',o[0],escapeHtml(o[1]), paid?'':' aria-disabled="true"')).join('')+'</div>'
-           + (paid ? '' : lockLine('Choosing your safety anchor is on the paid plan.')) },
+           + (paid ? '' : lockLine('Choosing your safety anchor is part of Self-Regulator.')) },
 
       { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'Reflect',
         h:'Reflect',
@@ -2059,7 +2116,7 @@
       { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'Reflect',
         h:'Your Journal',
         body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal.')
-           + (paid ? '' : lockLine('Your Journal is on the paid plan.')) },
+           + (paid ? '' : lockLine('Your Journal is part of Self-Regulator.')) },
 
       { id:'you', tab:'you', kind:'spot', target:['#carousel','.map-rows','.you-view .card','#set-btn'], pad:6, eb:'You',
         h:'You',
@@ -2325,7 +2382,7 @@
         const v = b.dataset.voice;
         try{ bedPreview(null); }catch(e){}
         obVoiceSample(v);
-        if(!voiceOk(v)){ if(cap) cap.textContent = voiceName(v)+' is on the paid plan.'; obTrack('orient_pref',{pref:'voice_locked',value:v}); obFade(); return; }
+        if(!voiceOk(v)){ if(cap) cap.textContent = voiceName(v)+' is part of Self-Regulator.'; obTrack('orient_pref',{pref:'voice_locked',value:v}); obFade(); return; }
         if(cap) cap.textContent = '';
         if(Store.setPrefVoice) Store.setPrefVoice(v);
         onIn('voice', v); haptic('save'); obTrack('orient_pref',{pref:'voice',value:v});
@@ -2543,13 +2600,21 @@ const WN_ICONS = {
   bulb:'<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/>',
   chart:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 15v-3"/><path d="M12 15V9"/><path d="M16 15v-5"/>',
   lines:'<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h6"/>',
-  phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>'
+  phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>'
 };
 function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
 const WN_UPDATES = [
+  { id:'2026-11-self-regulator', when:'November 2026', title:'Another Major Update', sub:'(still only $12/mo)',
+    cta:{ label:'See the Calendar', go:'calendar' }, items:[
+    /* Justin's copy, 2026-10-28 ("checkins" → "check-ins", "compliment" → "complement"). Ships to prod with the Self-Regulator launch. */
+    { i:'cal',   t:'Live practices', b:'Mindful Moments are free for all app users. Find it on the new Calendar tab.' },
+    { i:'path',  t:'Pathway lessons', b:'The Unstucking Pathway now comes with deep lessons for deep learning to complement the deep practices.' },
+    { i:'book',  t:'Expanded library', b:'The Learn tab now holds everything I\u2019ve ever created, filtered for easier search, including the private Stucknaut Collective Podcast.' },
+    { i:'chart', t:'Better data integration', b:'Your check-ins and practice data are better integrated into the Learn library, with more improvements on the way.' } ] },
   { id:'2026-10-challenges', when:'October 2026', cta:{ label:'Take a challenge', go:'challenges' }, items:[
     /* Justin, 2026-10-19: "only list the challenges with the challenge icon". Ships to prod with the challenges. */
-    { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are on the $12/mo paid plan only.)' } ] },   // Justin's copy, 2026-10-19
+    { i:'flag',  t:'Challenges', b:'Challenges are small daily activities to practice mindfulness and connect with your inner world. You\u2019ll receive one zero-pressure prompt per day. Don\u2019t worry about streaks or badges. If you skip a day, come back the next. It\u2019ll be here waiting for you. (Challenges are part of Self-Regulator, $12 a month.)' } ] },   // Justin's copy, 2026-10-19
   { id:'2026-10-06', when:'October 6, 2026', items:[
     { i:'path',  t:'The Unstucking Pathway', b:'The skills in order, checked off as you practice them.' },
     { i:'book',  t:'The Learn library', b:'Articles to read when you want to understand more.' },
@@ -2569,7 +2634,7 @@ const WN_UPDATES = [
 ];
 const _wnSeenKey = u => 'snb_wn_seen_' + u.id;
 // where an update's own button goes (WN_UPDATES[].cta.go)
-const WN_GO = { challenges: () => screenChallenges() };
+const WN_GO = { challenges: () => screenChallenges(), calendar: () => { try{ _lw.tab = 'live'; }catch(e){} app('community'); } };
 function wnMarkLatestSeen(){ try{ localStorage.setItem(_wnSeenKey(WN_UPDATES[0]), '1'); }catch(e){} }
 function _wnItemsHTML(u){ return u.items.map(it => '<div class="wns-item">' + wnIcon(it.i) + '<div><h3 class="wns-t">' + escapeHtml(it.t) + '</h3><p class="wns-b">' + escapeHtml(it.b) + '</p></div></div>').join(''); }
 // the sheet itself; opts.fromHistory: opened from Past Updates, so no link back to it and Continue returns there
@@ -2580,7 +2645,8 @@ function openWhatsNewSheet(u, opts){
   d.innerHTML = '<div class="wns-card" role="dialog" aria-modal="true" aria-labelledby="wns-h" tabindex="-1">'
     + '<div class="wns-grab" aria-hidden="true"></div>'
     + '<div class="wns-body"><p class="wns-eyebrow">' + escapeHtml(u.when) + '</p>'
-    + '<h2 class="wns-h" id="wns-h">What’s New</h2>'
+    + '<h2 class="wns-h' + (u.sub ? ' wns-h-sub' : '') + '" id="wns-h">' + escapeHtml(u.title || 'What’s New') + '</h2>'
+    + (u.sub ? '<p class="wns-sub">' + escapeHtml(u.sub) + '</p>' : '')
     + '<div class="wns-list">' + _wnItemsHTML(u) + '</div></div>'
     + '<div class="wns-foot">' + (opts.fromHistory ? '' : '<button class="wns-past" id="wns-past" type="button">See past updates<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>')
     /* an update can carry its own door (Justin, 2026-10-19: "make the continue button into a 'Take a Challenge' button that
@@ -2656,6 +2722,7 @@ function app(tab){
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} } }
     if(tab === 'reflect') return screenReader();
     if(tab === 'learn') return screenLearn();
+    if(tab === 'community') return screenCommunity();
     const u = Store.user();
     setHTML(`
       <header class="appbar">
@@ -2670,6 +2737,1115 @@ function app(tab){
     if(tab === 'now') setTimeout(liveNudge, 400);   // "we're live" invitation (quiet, dismissible)
    
   }
+  // ---------------------------------------------------------------- COMMUNITY + LIVE WITH JUSTIN
+  // (2026-10-26, the Circle move. Mockups approved by Justin 2026-10-26: https://claude.ai/artifact/8RurVVkr8fuFY7hDyvzBVW.)
+  // The Community tab replaces Reflect in the tab bar; Reflect is reached from the You tab (the tab bar
+  // lights You while it is open). Live with Justin reads public.live_schedule; Remind me writes
+  // public.live_reminders; joining asks the live-room-token edge function, the ONLY way into a Daily room,
+  // which re-checks sign-in, the door window and Co-Regulator access server side. Video is Daily's call
+  // object (daily-js, loaded on first join). Only Justin can share a screen (the token says so); members
+  // see whatever he shares on the main stage. The in-call check-in is the three sliders from the
+  // mockup and saves as an ordinary check-in, source 'live-<kind>-<before|during|after>'.
+  const LW_DAILY_SRC = 'https://cdn.jsdelivr.net/npm/@daily-co/daily-js@0.93.0/dist/daily.js';
+  const LW_UPGRADE_URL = 'https://www.stucknotbroken.com/checkout/co-regulator';
+  const LW_OPEN_EARLY_MIN = 10;
+  // ── THE TWO SWITCHES (Justin, 2026-10-26: "make the current community tab into a calendar tab that lists the mindful
+  // moments? and hide the forum? then reveal it when the time comes"). Until the Co-Regulator tier launches, the tab is
+  // "Calendar" and lists Mindful Moment only; the Feed is hidden. Justin (the host) still sees every session so the
+  // Co-Regulator build can be tested. Flip both to true on Co-Regulator launch day: the tab becomes "Community" again.
+  const LW_COREG_LIVE = false;   // Capacity Builder + Q&A on the schedule for members
+  const LW_FORUM_LIVE = false;   // the Feed (Discuss, Ask & Share) segment
+  const LW_KIND = {
+    capacity_builder:{ name:'Capacity Builder', line:'Live practice with other students', video:true },
+    mindful_moment:  { name:'Mindful Moment', line:'Livestream with chat', video:false },
+    qa:              { name:'Q&A', line:'Group video, recorded', video:true }
+  };
+  // live-event terms (🖊 draft, 2026-10-27). Change a word here = new version = every member agrees again.
+  const LW_TERMS_VERSION = '2026-10-27b';
+  const LW_TERMS = [
+    'Live events are not therapy. Justin teaches and guides practice. Joining does not make him your therapist, and nothing here is treatment.',
+    'If you are in crisis, call or text 988 in the US, or your local emergency number. Nobody at a live event can respond to an emergency.',
+    'Your camera, your mic and the chat are always optional.',
+    'Each live event says on the Calendar whether it is recorded. Justin asks before using anyone\u2019s words, voice or image outside the event, and anonymizes what he shares.',
+    'Be kind. No harassment, hate, or sexual or violent content, and no details of traumatic experiences. Justin can remove anyone from a live event.',
+    'What others share stays in the event. Do not record, screenshot or pass on other members\u2019 names, faces or words.',
+    'Your check-ins are private. Nobody else sees your answers.'
+  ];
+  // the tab's name follows the switches: "Calendar" until the Co-Regulator tier and the forum are live
+  function lwTabName(){ return (LW_COREG_LIVE || LW_FORUM_LIVE) ? 'Community' : 'Calendar'; }
+  function lwCalendarIco(on){ return '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"' + (on ? ' fill="currentColor"' : ' fill="none"') + '/><path fill="none" d="M8 3v4M16 3v4"/><path fill="none" d="M3.5 10h17"' + (on ? ' stroke="var(--bone-deep)"' : '') + '/></svg>'; }
+  function lwCommunityIco(on){ if(!(LW_COREG_LIVE || LW_FORUM_LIVE)) return lwCalendarIco(on); return on ? '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5" fill="currentColor"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/><path fill="none" d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>'; }   // a function, so the tab bar can use it before this line runs
+  const LW_ICO = {
+    slides:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 9h7M7 12.5h10M12 17v3M8.5 20h7"/></svg>',
+    mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+    cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>',
+    share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M12 13V7M9 10l3-3 3 3"/></svg>',
+    checkin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="1.8" fill="var(--bone)"/><circle cx="15" cy="12" r="1.8" fill="var(--bone)"/><circle cx="11" cy="17" r="1.8" fill="var(--bone)"/></svg>',
+    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+    leave:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
+    people:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>',
+    sound:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
+    bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>',
+    ask:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M18.4 5.6l-2.1 2.1M21 12h-3"/><path d="M8 20h8M9 16a4 4 0 1 1 6 0v1H9z"/></svg>'
+  };
+  // the three marks, one at a time (each mark's own box, from the design system's glyph data)
+  Object.assign(LW_ICO, {
+    micOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M4 4l16 16"/></svg>',
+    camOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3M3 3l18 18"/></svg>',
+    alarm:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.2 1.6M4.5 6l3-2.5M19.5 6l-3-2.5M7.2 19l-1.4 1.8M16.8 19l1.4 1.8"/></svg>',
+    alarmOn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7" fill="currentColor"/><path d="M12 9.5V13l2.2 1.6" stroke="var(--bone)"/><path d="M4.5 6l3-2.5M19.5 6l-3-2.5M7.2 19l-1.4 1.8M16.8 19l1.4 1.8"/></svg>',
+    check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+    devices:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
+  });
+  LW_ICO.gear = GEAR_SVG.replace('<svg ', '<svg fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" ');   // the You tab's Settings gear
+  LW_ICO.caret = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 14l5-5 5 5"/></svg>';
+  const LW_MARK_VB = { heart:'-4.0 36.4 478.2 386.7', bolt:'462.3 -9.4 434.4 459.8', x:'887.4 11.7 413.6 422.6' };
+  const lwMark = (m, col) => { const I = window.SNB_ICONS||{}; return `<svg class="lw-mark" viewBox="${LW_MARK_VB[m]}" aria-hidden="true"><path fill="${col}" d="${(I[m]&&I[m].d)||''}"/></svg>`; };
+
+  let _lw = { tab:'live', sched:null, rem:{}, access:null, loading:false, err:null, series:{}, terms:false, live:{} };
+  let _lwRoom = null;   // the open live view: { s, phase, co, cam, mic, chat:[], ... }
+
+  const _lwKind = s => LW_KIND[s.kind] || { name:s.title || 'Live', line:'', video:true };
+  const _lwStart = s => new Date(s.starts_at).getTime();
+  const _lwEnd = s => _lwStart(s) + (s.duration_min||60)*60000;
+  const _lwDoorOpen = s => { const n = Date.now(); return n >= _lwStart(s) - LW_OPEN_EARLY_MIN*60000 && n <= _lwEnd(s); };
+  const _lwAllowed = s => s.access === 'free' || !!(_lw.access && _lw.access.co_regulator);
+  const _lwIsHost = () => !!(_lw.access && _lw.access.host);
+  // what a session is: the session's own words, else its series' words, else the built-in line
+  const _lwSummary = s => (s.summary || (_lw.series[s.kind] || {}).summary || _lwKind(s).line || '').trim();
+  const _lwDesc = s => (s.description || (_lw.series[s.kind] || {}).description || '').trim();
+  function _lwFacts(s){
+    const K = _lwKind(s), f = [(s.duration_min || 60) + ' minutes'];
+    f.push(K.video ? 'Camera and mic on or off, your choice.' : 'You are not on camera or mic.');
+    f.push(s.recorded ? (K.video ? 'Recorded, so members can watch it later. Keep your camera off if you would rather not appear.' : 'Recorded, so members can watch it later.') : 'Not recorded. No replay.');
+    f.push(s.access === 'free' ? 'Free for everyone.' : 'Part of Co-Regulator.');
+    return f;
+  }
+  function _lwClock(t){
+    const d = new Date(t), h = d.getHours(), m = d.getMinutes();
+    return (h % 12 || 12) + ':' + String(m).padStart(2,'0');
+  }
+  // compact: "9", "9:25" (Justin, 2026-10-27: "use 'Mon' instead of 'Monday' and '9' instead of '9:00'")
+  function _lwClockC(t){ const d = new Date(t), m = d.getMinutes(); return (d.getHours() % 12 || 12) + (m ? ':' + String(m).padStart(2,'0') : ''); }
+  function _lwRangeC(s){
+    const a = _lwStart(s), b = _lwEnd(s), pa = new Date(a).getHours() < 12, pb = new Date(b).getHours() < 12;
+    return _lwClockC(a) + (pa === pb ? '' : (pa ? ' am' : ' pm')) + ' to ' + _lwClockC(b) + (pb ? ' am' : ' pm');
+  }
+  const _lwWhen = s => new Date(_lwStart(s)).toLocaleDateString('en-US', { weekday:'short' }) + ' ' + _lwRangeC(s);
+  // RSVP = a live_reminders row; its channels are the reminders (empty = RSVP'd, no reminder)
+  const _lwRsvp = s => !!_lw.rem[s.id];
+  const _lwRemOn = s => (_lw.rem[s.id] || []).some(c => c === 'app' || c === 'email');
+  // Justin is in the room (a beat in the last 90 seconds) and the door is open for members
+  const _lwIsLive = s => !!_lw.live[s.id] && _lwDoorOpen(s);
+  const _lwUid = () => { try{ const u = Store.user && Store.user(); return u && !(Store.isAnonymous && Store.isAnonymous()) ? u.id : null; }catch(e){ return null; } };
+  // a state glyph, lit at once (no ease-in), for the chat and the check-in result
+  const _lwGlyph = k => triGlyph(k).replace(/data-col="([^"]+)"/g, 'data-col="$1" style="fill:$1"');
+  // the member's photo (Settings → Photo), else null
+  function _lwAvatar(){ try{ const u = Store.user && Store.user(); const m = (u && u.user_metadata) || {}; return localStorage.getItem('snb_av_' + (u && u.id)) || m.avatar_url || null; }catch(e){ return null; } }
+  function _lwRange(s){
+    const a = _lwStart(s), b = _lwEnd(s), pa = new Date(a).getHours() < 12, pb = new Date(b).getHours() < 12;
+    return _lwClock(a) + (pa === pb ? '' : (pa ? ' am' : ' pm')) + ' to ' + _lwClock(b) + (pb ? ' am' : ' pm');
+  }
+  const _lwWeekday = t => new Date(t).toLocaleDateString('en-US', { weekday:'long' });
+  const _lwLongDate = t => new Date(t).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+  async function _lwToken(){
+    try{ const { data:{ session } } = await window.sb.auth.getSession(); return session ? session.access_token : null; }catch(e){ return null; }
+  }
+  async function _lwFn(body){
+    const cfg = window.SNB_CONFIG || {}, tok = await _lwToken();
+    if(!cfg.SUPABASE_URL || !tok) return { status:0, data:{ error:'not signed in' } };
+    try{
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/live-room-token', { method:'POST',
+        headers:{ Authorization:'Bearer ' + tok, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+      let d = {}; try{ d = await r.json(); }catch(e){}
+      return { status:r.status, data:d };
+    }catch(e){ return { status:0, data:{ error:'offline' } }; }
+  }
+  function _lwSched(cols, since, until){
+    return window.sb.from('live_schedule').select(cols).or(`starts_at.gte.${since},duration_min.gte.1440`).lte('starts_at', until).eq('canceled', false).order('starts_at', { ascending:true }).limit(40);
+  }
+  const _lwCacheKey = () => 'snb_lw_v1_' + (_lwUid() || 'anon');
+  function _lwCacheSave(){ try{ localStorage.setItem(_lwCacheKey(), JSON.stringify({ at:Date.now(), sched:_lw.sched, series:_lw.series, rem:_lw.rem, terms:_lw.terms, access:_lw.access })); }catch(e){} }
+  function _lwCacheLoad(){
+    try{
+      const c = JSON.parse(localStorage.getItem(_lwCacheKey()) || 'null'); if(!c || !Array.isArray(c.sched) || Date.now() - c.at > 7*864e5) return false;
+      _lw.sched = c.sched.filter(s => _lwEnd(s) > Date.now()); _lw.series = c.series || {}; _lw.rem = c.rem || {}; _lw.terms = !!c.terms;
+      if(!_lw.access && c.access) _lw.access = c.access;
+      return true;
+    }catch(e){ return false; }
+  }
+  async function _lwPresence(){
+    const ids = (_lw.sched || []).filter(s => Date.now() >= _lwStart(s) - 60*60000 && Date.now() <= _lwEnd(s)).map(s => s.id);
+    if(!ids.length || !window.sb){ _lw.live = {}; return; }
+    try{
+      const r = await window.sb.from('live_presence').select('session_id,host_beat').in('session_id', ids);
+      const live = {}; ((r && !r.error && r.data) || []).forEach(p => { if(Date.now() - new Date(p.host_beat).getTime() < 90000) live[p.session_id] = true; });
+      _lw.live = live;
+    }catch(e){}
+  }
+  async function _lwLoad(){
+    if(!window.sb){ _lw.err = 'offline'; return; }
+    _lw.loading = true;
+    try{
+      const since = new Date(Date.now() - 4*3600e3).toISOString();
+      const until = new Date(Date.now() + 42*864e5).toISOString();
+      const uid = _lwUid();
+      // the access check is the slow one (an edge function): it updates the list when it lands
+      _lwFn({ action:'access' }).then(ar => {
+        _lw.access = (ar && ar.status === 200) ? ar.data : (_lw.access || { signed_in:false, co_regulator:false, host:false });
+        _lwCacheSave(); if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody();
+      });
+      let [sr, rr, se, te] = await Promise.all([
+        _lwSched('id,kind,title,starts_at,duration_min,access,recorded,canceled,summary,description', since, until),
+        uid ? window.sb.from('live_reminders').select('session_id,channels') : Promise.resolve({ data:[] }),
+        window.sb.from('live_series').select('kind,summary,description'),
+        uid ? window.sb.from('live_terms_acceptance').select('version').eq('user_id', uid).eq('version', LW_TERMS_VERSION) : Promise.resolve({ data:[] })
+      ]);
+      // a backend without the description columns yet: load the schedule without them
+      if(sr && sr.error){ sr = await _lwSched('id,kind,title,starts_at,duration_min,access,recorded,canceled', since, until); }
+      if(sr && sr.error) throw sr.error;
+      _lw.sched = ((sr && sr.data) || []).filter(s => _lwEnd(s) > Date.now());
+      _lw.all = _lw.sched;
+      _lw.rem = {}; ((rr && !rr.error && rr.data) || []).forEach(r => { _lw.rem[r.session_id] = r.channels || []; });
+      _lw.series = {}; ((se && !se.error && se.data) || []).forEach(r => { _lw.series[r.kind] = r; });
+      _lw.terms = !!(te && !te.error && te.data && te.data.length);
+      await _lwPresence();
+      _lw.err = null;
+      _lwCacheSave();
+    }catch(e){ if(!_lw.sched) _lw.err = 'load'; }
+    _lw.loading = false;
+  }
+  // a few seconds after the app opens, load the Calendar in the background so the tab is ready
+  try{ window.addEventListener('load', () => setTimeout(() => { try{ if(!_lw.sched && !_lw.loading && window.sb && _lwUid()) _lwLoad(); }catch(e){} }, 4000)); }catch(e){}
+
+  // ---- the Community tab ----
+  function screenCommunity(){
+    currentTab = 'community';
+    if(!LW_FORUM_LIVE) _lw.tab = 'live';
+    setHTML(`
+      <header class="appbar"></header>
+      <div class="scroll" id="content"><div class="view lw-view">
+        <div class="scr-head"><h2 class="scr-h lw-h1">${lwTabName()}</h2>${LW_FORUM_LIVE ? '' : '<p class="lw-p lw-muted lw-lede">Live with Justin. Mindful Moment is free for everyone.</p>'}</div>
+        ${LW_FORUM_LIVE ? `<div class="lw-seg" role="group" aria-label="Show">
+          <button type="button" data-lw-tab="feed" aria-pressed="${_lw.tab==='feed'}">Feed</button>
+          <button type="button" data-lw-tab="live" aria-pressed="${_lw.tab==='live'}">Live</button>
+        </div>` : ''}
+        <div id="lw-body"></div>
+      </div></div>
+      <nav class="tabbar" id="tabs">${TABS()}</nav>`);
+    $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    document.querySelectorAll('[data-lw-tab]').forEach(b => b.onclick = () => { _lw.tab = b.dataset.lwTab; screenCommunity(); });
+    if(!_lw.sched) _lwCacheLoad();
+    _lwBody();
+    if(_lw.tab === 'live' && !_lw.loading){ _lwLoad().then(() => { if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody(); }); }
+    clearInterval(_lw.poll);
+    _lw.poll = setInterval(() => {
+      if(currentTab !== 'community' || !document.getElementById('lw-body')){ clearInterval(_lw.poll); return; }
+      if((_lw.sched || []).some(s => Date.now() >= _lwStart(s) - 60*60000 && Date.now() <= _lwEnd(s))) _lwPresence().then(() => { if(currentTab === 'community') _lwBody(); });
+    }, 30000);
+  }
+  function _lwBody(){
+    const el = document.getElementById('lw-body'); if(!el) return;
+    if(_lw.tab === 'feed'){
+      el.innerHTML = `<div class="lw-card"><b>Discuss, Ask &amp; Share</b><span>The conversation is moving here from the Academy. Until then, it carries on in the Academy as it does now.</span></div>`;
+      return;
+    }
+    if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment\u2026'}</p>`; return; }
+    // before the Co-Regulator launch, members see Mindful Moment only; Justin sees everything
+    const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
+    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>`; return; }
+    el.innerHTML = `<div class="lw-list">${list.map(s => {
+      const K = _lwKind(s), d = new Date(_lwStart(s)), open = _lwDoorOpen(s), live = _lwIsLive(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
+      const act = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
+        : open ? `<button class="lw-pill lw-pill-go" type="button" data-lw-join="${s.id}">Join</button>`
+        : `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>`;
+      const alarm = (ok && !open) ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : '';
+      return `<div class="lw-row${live ? ' lw-row-live' : ''}">
+        <button class="lw-row-hit" type="button" data-lw-info="${s.id}" aria-label="${escapeHtml(K.name + ', ' + _lwWhen(s) + '. Details')}"></button>
+        <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
+        <span class="lw-row-t"><b>${escapeHtml(K.name)}</b><span class="lw-when">${live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : escapeHtml(_lwWhen(s))}</span><span class="lw-acts">${act}</span></span>
+        ${alarm}</div>`;
+    }).join('')}</div>`;
+    el.querySelectorAll('[data-lw-up]').forEach(b => b.onclick = () => _lwUpgradeSheet());
+    el.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(_lw.sched.find(s => s.id === b.dataset.lwRem)));
+    el.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(_lw.sched.find(s => s.id === b.dataset.lwRsvp)));
+    el.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(_lw.sched.find(s => s.id === b.dataset.lwJoin)));
+    el.querySelectorAll('[data-lw-info]').forEach(b => b.onclick = () => _lwInfoSheet(_lw.sched.find(s => s.id === b.dataset.lwInfo)));
+  }
+  function _lwNeedAccount(){
+    return _lwSheet('Use an account', `<p class="lw-p">Live events need a free account, so Justin knows who is in the room. You can make one in Settings.</p>
+      <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-acct">Go to Settings</button></div>`).el.querySelector('#lw-acct').onclick = () => { const o = document.getElementById('lw-sheet'); if(o) o.remove(); screenSettings(); };
+  }
+  async function _lwRsvpToggle(s){
+    if(!s) return; const uid = _lwUid(); if(!uid) return _lwNeedAccount();
+    const was = _lw.rem[s.id];
+    if(was){ delete _lw.rem[s.id]; _lwBody(); const r = await window.sb.from('live_reminders').delete().eq('user_id', uid).eq('session_id', s.id); if(r && r.error){ _lw.rem[s.id] = was; showToast('That did not save. Try again in a moment.'); } }
+    else { _lw.rem[s.id] = []; haptic('save'); _lwBody(); let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
+      const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels:[], sent_at:null, tz }, { onConflict:'user_id,session_id' });
+      if(r && r.error){ delete _lw.rem[s.id]; showToast('That did not save. Try again in a moment.'); } }
+    _lwCacheSave(); _lwBody();
+  }
+
+  // ---- slide-up sheets (the app's own sheet: .p7-sheet / .p8-card) ----
+  function _lwSheet(title, body, opts){
+    opts = opts || {};
+    const old = document.getElementById('lw-sheet'); if(old) old.remove();
+    const wrap = document.createElement('div'); wrap.id = 'lw-sheet'; wrap.className = 'p7-sheet p8-sheet lw-sheet';
+    wrap.innerHTML = `<div class="p7-sheet-card p8-card lw-sheet-card" role="dialog" aria-modal="true" aria-labelledby="lw-sh-h">
+      <div class="p8-grab" aria-hidden="true"></div>
+      <div class="p8-head"><h3 class="p8-h" id="lw-sh-h">${escapeHtml(title)}</h3>${opts.sticky ? '' : `<button class="p8-x" id="lw-sh-x" type="button" aria-label="Close">${_UP_X}</button>`}</div>
+      <div class="p8-body lw-sh-body">${body}</div></div>`;
+    (opts.host || document.body).appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add('on'));
+    const close = () => { wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(() => { try{ wrap.remove(); }catch(e){} }, 320); if(opts.onClose) opts.onClose(); };
+    const onKey = e => { if(e.key === 'Escape' && !opts.sticky) close(); };
+    document.addEventListener('keydown', onKey);
+    wrap.addEventListener('click', e => { if(e.target === wrap && !opts.sticky) close(); });
+    const x = wrap.querySelector('#lw-sh-x'); if(x){ x.onclick = close; try{ x.focus({ preventScroll:true }); }catch(e){} }
+    return { el:wrap, close };
+  }
+  // what a session is: the description, the facts, and the one thing to do next
+  function _lwInfoSheet(s){
+    if(!s) return;
+    const K = _lwKind(s), open = _lwDoorOpen(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
+    const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
+    const act = !ok ? '<button class="btn block" type="button" id="lw-in-up">Upgrade</button>'
+      : open ? '<button class="btn block" type="button" id="lw-in-join">Join</button>'
+      : `<button class="btn block${rsvp ? ' quiet' : ''}" type="button" id="lw-in-rsvp">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>
+         <button class="btn block quiet" type="button" id="lw-in-rem">${rem ? LW_ICO.alarmOn + 'Reminder on' : LW_ICO.alarm + 'Set a reminder'}</button>`;
+    const sh = _lwSheet(K.name, `<p class="lw-p lw-muted">${_lwIsLive(s) ? 'Live now' : escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRangeC(s)}.</p>
+      ${paras || `<p class="lw-p">${escapeHtml(_lwSummary(s))}</p>`}
+      <ul class="lw-rules lw-facts">${_lwFacts(s).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+      <div class="lw-sh-btns lw-in-btns">${act}</div>`);
+    const b = id => sh.el.querySelector(id);
+    if(b('#lw-in-up')) b('#lw-in-up').onclick = () => { sh.close(); _lwUpgradeSheet(); };
+    if(b('#lw-in-join')) b('#lw-in-join').onclick = () => { sh.close(); _lwGoJoin(s); };
+    if(b('#lw-in-rsvp')) b('#lw-in-rsvp').onclick = () => { sh.close(); _lwRsvpToggle(s); };
+    if(b('#lw-in-rem')) b('#lw-in-rem').onclick = () => { sh.close(); setTimeout(() => _lwRemindSheet(s), 340); };
+  }
+  // every join goes through here: a member agrees to the live terms once per version, then joins
+  function _lwGoJoin(s){
+    if(!s) return;
+    const uid = Store.user && Store.user() && Store.user().id;
+    const anon = !uid || (Store.isAnonymous && Store.isAnonymous());
+    if(anon || _lwIsHost() || _lw.terms) return screenLiveRoom(s);
+    const sh = _lwSheet('Before you join live', `<p class="lw-p lw-muted">You only see this once, and again if it changes.</p>
+      <ul class="lw-rules lw-terms">${LW_TERMS.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>
+      <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-tm-ok">I agree</button><button class="btn block quiet" type="button" id="lw-tm-no">Not now</button></div>`);
+    sh.el.querySelector('#lw-tm-no').onclick = sh.close;
+    const ok = sh.el.querySelector('#lw-tm-ok');
+    ok.onclick = async () => {
+      ok.disabled = true;
+      const r = await window.sb.from('live_terms_acceptance').insert({ user_id:uid, version:LW_TERMS_VERSION });
+      if(r && r.error && r.error.code !== '23505'){ ok.disabled = false; showToast('That did not save. Try again in a moment.'); return; }
+      _lw.terms = true; sh.close(); screenLiveRoom(s);
+    };
+  }
+  function _lwUpgradeSheet(){
+    const sh = _lwSheet('Co-Regulator', `<p class="lw-p">Capacity Builder and the monthly Q&amp;A are part of Co-Regulator, along with Discuss, Ask &amp; Share. $39 a month, cancel anytime.</p>
+      <p class="lw-p lw-muted">Mindful Moment is free for everyone, Wednesdays at 9 am Pacific.</p>
+      <div class="lw-sh-btns"><a class="btn block" id="lw-up-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Upgrade</a></div>`);
+    const go = sh.el.querySelector('#lw-up-go'); if(go) go.addEventListener('click', () => setTimeout(sh.close, 200));
+  }
+  function _lwIcs(s){
+    const K = _lwKind(s), z = t => new Date(t).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+    const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Stuck Not Broken//Live//EN','BEGIN:VEVENT',
+      'UID:' + s.id + '@stucknotbroken.com','DTSTAMP:' + z(Date.now()),'DTSTART:' + z(_lwStart(s)),'DTEND:' + z(_lwEnd(s)),
+      'SUMMARY:' + K.name + ' with Justin','DESCRIPTION:' + (_lwSummary(s) + ' Join from the ' + lwTabName() + ' tab in the Stuck Not Broken app.').replace(/[\\,;]/g, m => '\\' + m),
+      'URL:' + location.origin + '/','BEGIN:VALARM','TRIGGER:-PT15M','ACTION:DISPLAY','DESCRIPTION:' + K.name + ' starts in 15 minutes','END:VALARM',
+      'END:VEVENT','END:VCALENDAR'].join('\r\n');
+    try{
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type:'text/calendar' }));
+      a.download = K.name.toLowerCase().replace(/[^a-z0-9]+/g,'-') + '.ics'; document.body.appendChild(a); a.click();
+      setTimeout(() => { try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} }, 1500);
+    }catch(e){}
+  }
+  function _lwRemindSheet(s){
+    if(!s) return;
+    if(!_lwUid()) return _lwNeedAccount();
+    const K = _lwKind(s), cur = _lwRemOn(s) ? _lw.rem[s.id] : null;
+    const on = new Set(cur || ['app']);
+    const row = (k, label, sub) => `<button class="lw-opt" type="button" role="switch" data-ch="${k}" aria-checked="${on.has(k)}"><span class="lw-opt-t"><b>${label}</b><span>${sub}</span></span><span class="set-sw${on.has(k)?' on':''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
+    const sh = _lwSheet('Remind me', `<p class="lw-p"><b>${escapeHtml(K.name)}</b>, ${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRangeC(s)}.</p>
+      <div class="lw-opts">${row('app','App notification','15 minutes before')}${row('email','Email','The morning of')}</div>
+      <button class="lw-cal" type="button" id="lw-cal">Add to my calendar</button>
+      <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-rem-save">Save</button>${cur ? '<button class="btn block quiet" type="button" id="lw-rem-off">Turn off this reminder</button>' : ''}</div>`);
+    sh.el.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => {
+      const k = b.dataset.ch; if(on.has(k)) on.delete(k); else on.add(k);
+      b.setAttribute('aria-checked', on.has(k)); const sw = b.querySelector('.set-sw'); if(sw) sw.classList.toggle('on', on.has(k));
+    });
+    sh.el.querySelector('#lw-cal').onclick = () => { on.add('calendar'); _lwIcs(s); };
+    const uid = Store.user && Store.user() && Store.user().id;
+    sh.el.querySelector('#lw-rem-save').onclick = async () => {
+      const channels = Array.from(on); if(!uid){ sh.close(); return; }
+      if(!channels.length){ return sh.el.querySelector('#lw-rem-off') ? sh.el.querySelector('#lw-rem-off').click() : sh.close(); }
+      // the app notification needs notifications on; ask now, inside this tap (the one place iOS allows it)
+      let pushNote = '';
+      if(on.has('app') && pushState() !== 'on'){
+        const st = pushState();
+        const got = (st === 'install' || st === 'blocked' || st === 'unsupported') ? st : await pushRequest('live');
+        if(got !== 'on') pushNote = got === 'install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then Add to Home Screen.'
+          : got === 'blocked' ? 'Notifications are turned off for this app in your device settings, so the app notification can\'t reach you.'
+          : got === 'unsupported' ? 'This browser can\'t show notifications from the app.'
+          : 'Notifications were not turned on, so the app notification can\'t reach you.';
+      }
+      let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
+      const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels, sent_at:null, tz }, { onConflict:'user_id,session_id' });
+      if(r && r.error){ showToast('That did not save. Try again in a moment.'); return; }
+      _lw.rem[s.id] = channels; haptic('save'); _lwCacheSave(); _lwBody(); if(_lwRoom && _lwRoom.phase === 'left') _lwRender();
+      if(!pushNote) return sh.close();
+      // saved, but the app notification can't reach them: say so plainly in the sheet, and let them close it
+      const btns = sh.el.querySelector('.lw-sh-btns');
+      if(!btns) return sh.close();
+      btns.innerHTML = `<p class="lw-p">${escapeHtml(pushNote + (on.has('email') ? ' The email reminder is on.' : ''))}</p><button class="btn block" type="button" id="lw-rem-done">Done</button>`;
+      btns.querySelector('#lw-rem-done').onclick = () => sh.close();
+    };
+    const off = sh.el.querySelector('#lw-rem-off');
+    if(off) off.onclick = async () => {
+      await window.sb.from('live_reminders').update({ channels:[] }).eq('user_id', uid).eq('session_id', s.id);
+      _lw.rem[s.id] = []; _lwCacheSave(); sh.close(); _lwBody(); if(_lwRoom && _lwRoom.phase === 'left') _lwRender();
+    };
+  }
+
+  // ---- the check-in sheet used inside both live views ----
+  // The app's own check-in (Justin, 2026-10-27: "behave the same way that they do in the app, with the same settings the
+  // user chose"): the member's input method (sliders, numbers or states), the same question bank and "Change the
+  // questions", the same rails and glyph colours as they move, the same reading. Skip is always there. Nobody else sees it.
+  function _lwCheckin(phase, opts){
+    opts = opts || {};
+    const R = _lwRoom, s = R ? R.s : null, K = s ? _lwKind(s) : { name:'Live' };
+    const ctx = (phase === 'before' ? 'Before ' : phase === 'after' ? 'After ' : 'During ') + K.name;
+    let method = 'sliders'; try{ method = localStorage.getItem('snb_checkin_method') || 'sliders'; }catch(e){}
+    const stM = method === 'states', numM = method === 'numbers';
+    let v = 50, sy = 50, d = 50; const axTouched = {};
+    const qIdx = { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
+    const sc = numM ? ['0','10'] : ['Harder','Easier'];
+    const AX_PLAIN = { v:'connection', sym:'mobilization', dor:'immobilization' };
+    const input = stM
+      ? `<p class="ci4-states-lede">Tap the state that fits right now.</p>
+        <div class="ci-ovr-chips ci4-states">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k => `<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_LABEL(k)}</span></button>`).join('')}</div>
+        <div class="ci-tune" id="ci-tune" hidden><p class="ci-tune-lede">Fine-tune anything that isn't quite right.</p>
+          <div class="ci4-scale" aria-hidden="true"><span>Less</span><span>More</span></div>
+          <div class="sliders">${ci4SliderHTML('v', AX_PLAIN.v, 'r-v', 50, false, true)}${ci4SliderHTML('sym', AX_PLAIN.sym, 'r-sym', 50, false, true)}${ci4SliderHTML('dor', AX_PLAIN.dor, 'r-dor', 50, false, true)}</div></div>`
+      : `<div class="ci4-scale" aria-hidden="true"><span>${sc[0]}</span><span>${sc[1]}</span></div>
+        <div class="sliders">${ci4SliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', 50, numM)}${ci4SliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 50, numM)}${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 50, numM)}</div>
+        <button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>`;
+    const body = `<div class="lw-ci checkin2 ci4${stM ? ' ci-m-states' : (numM ? ' ci-m-numbers' : '')}" id="lw-ci">
+        <p class="lw-eyb">${escapeHtml(ctx)}</p><p class="lw-ci-q">${stM ? 'How are you, right now?' : 'Right now, how easy would it be to&hellip;'}</p>
+        <div class="ci-block">${input}<div class="ci-reading lw-ci-reading"></div></div>
+        <p class="lw-muted lw-p">${K.video === false ? 'The livestream keeps playing while you check in.' : 'The call keeps going while you check in.'} Nobody else sees your answers.</p>
+        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-ci-save">Save check-in</button><button class="btn block quiet" type="button" id="lw-ci-skip">Skip</button></div>
+      </div>`;
+    const sh = _lwSheet('Check in', body, { sticky:!!opts.sticky, host:document.getElementById('lw-room') || document.body, onClose:opts.onClose });
+    const el = sh.el;
+    function refresh(){
+      const colOf = ciAxisColorFn(v, sy, d, axTouched);
+      const tune = el.querySelector('#ci-tune'), tuneOpen = !stM || !!(tune && !tune.hidden);
+      if(stM && tuneOpen){ const dk = window.PVCurrent.dominantOf(v/100, sy/100, d/100).key; el.querySelectorAll('.ci-ovr-opt').forEach(x => x.classList.toggle('on', x.dataset.ovr === dk)); }
+      if(tuneOpen){
+        setIcoLvl('v', v); setIcoLvl('sym', sy); setIcoLvl('dor', d);
+        ciPaintSliders(colOf);
+        if(numM) ['v','sym','dor'].forEach(ax => { const sl = el.querySelector('#sl-' + ax), nb = el.querySelector('#num-' + ax); if(sl && nb) nb.textContent = Math.round((+sl.value) / 10); });
+      }
+      const rd = el.querySelector('.lw-ci-reading');
+      if(rd){ rd.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, sy/100, d/100).label}</span>`; rd.hidden = false; }
+    }
+    const bind = (k, fn) => { const sl = el.querySelector('#sl-' + k); if(sl) sl.addEventListener('input', () => fn(+sl.value)); };
+    bind('v', val => { v = val; axTouched.v = 1; refresh(); });
+    bind('sym', val => { sy = stM ? val : 100 - val; axTouched.sym = 1; refresh(); });
+    bind('dor', val => { d = stM ? val : 100 - val; axTouched.dor = 1; refresh(); });
+    refresh();
+    const shuf = el.querySelector('#ci-shuffle');
+    if(shuf) shuf.onclick = () => { ['v','sym','dor'].forEach(ax => { qIdx[ax] = ciRand(ax, qIdx[ax]);
+      const q = el.querySelector('#q-' + ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
+      const sl = el.querySelector('#sl-' + ax); if(sl) sl.setAttribute('aria-label', 'How easy would it be to ' + CI_BANK[ax][qIdx[ax]]); }); };
+    if(stM){
+      const PRE = { safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15], stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
+      el.querySelectorAll('.ci-ovr-opt').forEach(b => b.onclick = () => {
+        const ax = PRE[b.dataset.ovr]; if(!ax) return;
+        el.querySelectorAll('.ci-ovr-opt').forEach(x => x.classList.toggle('on', x === b));
+        axTouched.v = 1; axTouched.sym = 1; axTouched.dor = 1;
+        v = ax[0] * 100; sy = ax[1] * 100; d = ax[2] * 100;
+        [['v', v], ['sym', sy], ['dor', d]].forEach(p => { const sl = el.querySelector('#sl-' + p[0]); if(sl) sl.value = String(Math.round(p[1])); });
+        const tune = el.querySelector('#ci-tune'); if(tune && tune.hidden){ tune.hidden = false; tune.classList.add('in'); }
+        refresh();
+      });
+    }
+    el.querySelector('#lw-ci-skip').onclick = sh.close;
+    el.querySelector('#lw-ci-save').onclick = () => {
+      const vals = { v:v/100, sym:sy/100, dor:d/100 };
+      try{ Store.addCheckin(Object.assign({ source:'live-' + (s ? s.kind.replace(/_/g,'-') : 'session') + '-' + phase }, vals)); }catch(e){}
+      haptic('save');
+      let dom = { key:'neutral', label:'' }; try{ dom = window.PVCurrent.dominantOf(vals.v, vals.sym, vals.dor) || dom; }catch(e){}
+      if(R){ R.lastKey = dom.key; R.lastVals = vals; _lwSlCountSave(R, vals); if(R.slide) _lwSlScene(R); const room = document.getElementById('lw-room'); if(room){ room.querySelectorAll('[data-lw-st]').forEach(b => { b.outerHTML = _lwStateTg(); }); _lwWireStateTg(room); } }
+      const box = sh.el.querySelector('.lw-sh-body'), h = sh.el.querySelector('#lw-sh-h');
+      if(h) h.textContent = 'Saved';
+      box.innerHTML = `<div class="lw-ci-res" role="img" aria-label="${escapeHtml(dom.label || '')}">${_lwGlyph(dom.key)}<p class="lw-ci-res-n">${escapeHtml(dom.label || '')}</p></div>
+        <p class="lw-p lw-muted lw-ci-res-note">${R && R.co && R.phase === 'call' ? 'Only you see it, unless you share it.' : 'Only you see it.'}</p>
+        <div class="lw-sh-btns">${R && R.co && R.phase === 'call' ? '<button class="btn block quiet" type="button" id="lw-ci-share">Share in the chat</button>' : ''}<button class="btn block" type="button" id="lw-ci-back">${opts.thenLeave ? 'Leave' : phase === 'after' ? 'Done' : 'Back to the practice'}</button></div>`;
+      box.querySelector('#lw-ci-back').onclick = () => { sh.close(); if(opts.thenLeave) _lwLeaveCall(); };
+      const shareB = box.querySelector('#lw-ci-share');
+      if(shareB) shareB.onclick = () => { if(_lwShareCard({ k:dom.key, label:dom.label || '', ev:ctx })){ shareB.disabled = true; shareB.innerHTML = LW_ICO.check + 'Shared in the chat'; haptic('save'); } else showToast('That did not send. Try again in a moment.'); };
+    };
+    return sh;
+  }
+
+  // ---- Session Builder slides inside the live room (2026-10-28, Justin: "reuse the design elements we already have") ----
+  // The host opens the Session Builder from the room (?room=1) and presses Present there. Every slide it would send to its
+  // student window comes here instead; the host's app passes it to every device over the call's app messages, and each
+  // device draws it with the builder's own student page in a frame over the stage. So the slides, scenes and type are the
+  // builder's, unchanged. What the room adds, per member: the app's own check-in at a check-in slide, the player's 0 to 10
+  // line and breath check under those slides (saved to live_answers; "Quiet screen" hides them), the scene in the member's
+  // own state colour (Settings), and the room's blend once 5 or more people have chosen to count.
+  const LW_SL_ORIGIN = 'https://justinlmft.github.io';
+  const LW_SL_URL = LW_SL_ORIGIN + '/snb-session-builder/';
+  const LW_SL_CHUNK = 2800;       // app messages are small; a slide goes in pieces
+  const _lwPref = (k, dflt) => { try{ const v = localStorage.getItem(k); return v === null ? dflt : v === '1'; }catch(e){ return dflt; } };
+  const _lwPrefSet = (k, on) => { try{ localStorage.setItem(k, on ? '1' : '0'); }catch(e){} };
+  const _lwQuiet = () => _lwPref('snb_lw_quiet', false);
+  const _lwTintOn = () => _lwPref('snb_lw_tint', true);
+  const _lwCount = () => _lwPref('snb_lw_count', false);
+  function _lwHex(h){ const m = String(h || '').trim().replace('#',''); if(!/^[0-9a-f]{6}$/i.test(m)) return null; const n = parseInt(m, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function _lwSlOwner(R, fromId){ try{ const p = R.co.participants()[fromId]; return !!(p && p.owner); }catch(e){ return false; } }
+  function _lwSlSend(R, payload, to){
+    if(!R || !R.co) return;
+    const s = JSON.stringify(payload), n = Math.max(1, Math.ceil(s.length / LW_SL_CHUNK)), id = (R.slSeq = (R.slSeq || 0) + 1);
+    for(let i = 0; i < n; i++){ try{ R.co.sendAppMessage({ t:'sl', id, i, n, d:s.slice(i * LW_SL_CHUNK, (i + 1) * LW_SL_CHUNK) }, to || '*'); }catch(e){} }
+  }
+  function _lwSlReceive(R, d, fromId){
+    if(!_lwSlOwner(R, fromId)) return;           // only the host's app can put a slide up
+    R.slBuf = R.slBuf || {};
+    const k = fromId + ':' + d.id, b = R.slBuf[k] = R.slBuf[k] || { n:d.n, parts:[] };
+    b.parts[d.i] = String(d.d || '');
+    if(b.parts.filter(x => x !== undefined).length < b.n) return;
+    delete R.slBuf[k];
+    let p = null; try{ p = JSON.parse(b.parts.join('')); }catch(e){ return; }
+    _lwSlApply(R, p);
+  }
+  // the host: the builder window posts each slide here
+  window.addEventListener('message', e => {
+    const R = _lwRoom; if(!R || e.origin !== LW_SL_ORIGIN || !R.slWin || e.source !== R.slWin || !_lwIsHost()) return;
+    const d = e.data || {};
+    if(d.snbRoomHello){ showToast('Choose the practice, then press Present.'); return; }
+    if(d.snbRoomEnd){ _lwSlOff(R, true); return; }
+    if(d.snbSlide === undefined) return;
+    const p = { p:String(d.snbPractice || ''), html:String(d.snbSlide), scene:!!d.snbScene, sceneName:String(d.snbSceneName || ''),
+      idx:+d.snbIdx || 0, build:+d.snbBuild || 0, beat:(d.snbBeat && typeof d.snbBeat === 'object') ? d.snbBeat : {} };
+    _lwSlApply(R, p); _lwSlSend(R, p);
+  });
+  function _lwSlOpen(){
+    const R = _lwRoom; if(!R) return;
+    if(R.slWin && !R.slWin.closed){ try{ R.slWin.focus(); }catch(e){} return; }
+    R.slWin = window.open(LW_SL_URL + '?room=1', 'snb_room_slides');
+    if(!R.slWin){ showToast('The builder did not open. Allow pop-ups for this site and try again.'); return; }
+    clearInterval(R.slWatch);
+    R.slWatch = setInterval(() => { if(!R.slWin || R.slWin.closed){ clearInterval(R.slWatch); R.slWin = null; if(_lwRoom === R) _lwSlOff(R, true); } }, 2000);
+    if(R.phase === 'call') _lwRender();
+  }
+  function _lwSlOff(R, tell){
+    if(!R) return;
+    if(tell && _lwIsHost() && R.co){ try{ R.co.sendAppMessage({ t:'sl-off' }, '*'); }catch(e){} }
+    R.slide = null; R.slBeat = null; _lwSlCard(R, null);
+    const L = document.getElementById('lw-slides'); if(L) L.hidden = true;
+    if(_lwRoom === R && R.phase === 'call') _lwRender();
+  }
+  function _lwSlLayer(){
+    let L = document.getElementById('lw-slides');
+    if(L) return L;
+    L = document.createElement('div'); L.id = 'lw-slides'; L.className = 'lw-slides'; L.hidden = true;
+    L.innerHTML = `<iframe title="Slides" src="${LW_SL_URL}?student=1" tabindex="-1"></iframe>`;
+    document.body.appendChild(L);
+    L.querySelector('iframe').addEventListener('load', () => { const R = _lwRoom; if(R && R.slide) _lwSlPost(R, true); });
+    if(!_lwSlLoop){ _lwSlLoop = true; _lwSlTrack(); }
+    return L;
+  }
+  let _lwSlLoop = false;
+  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); document.body.classList.remove('lw-sl-on'); }
+  // the slide is the room's whole background (Justin, 2026-10-28: "the entire screen to be the practice slide background ...
+  // the various ui elements would be cards on top"). The frame lives at the page level, under the room, and follows the
+  // room's size; body.lw-sl-on turns the room's parts into cards. On a phone the slide starts under the title card.
+  function _lwSlTrack(){
+    const L = document.getElementById('lw-slides'); if(!L){ _lwSlLoop = false; document.body.classList.remove('lw-sl-on'); return; }
+    const R = _lwRoom, room = document.getElementById('lw-room');
+    const show = !!(R && R.phase === 'call' && R.slide && room && !R.screenOn);
+    if(document.body.classList.contains('lw-sl-on') !== show) document.body.classList.toggle('lw-sl-on', show);
+    if(show){
+      const r = room.getBoundingClientRect();
+      let top = r.top;
+      L.style.left = r.left + 'px'; L.style.top = top + 'px'; L.style.width = r.width + 'px'; L.style.height = Math.max(0, r.bottom - top) + 'px';
+    }
+    if(L.hidden === show) L.hidden = !show;
+    requestAnimationFrame(_lwSlTrack);
+  }
+  function _lwSlPost(R, full){
+    const L = _lwSlLayer(), f = L.querySelector('iframe'), w = f && f.contentWindow; if(!w || !R.slide) return;
+    const p = R.slide, m = { snbSceneName:p.sceneName, snbScene:p.scene, snbSlide:p.html, snbJoin:{ mode:'off' } };
+    if(full || p.p !== R.slSentP){ m.snbPractice = p.p; R.slSentP = p.p; }
+    try{ w.postMessage(m, LW_SL_ORIGIN); }catch(e){}
+    _lwSlScene(R, true);
+  }
+  // tint + breathe for this device's scene. The room's blend wins once it is on; then the member's own colour.
+  function _lwSlScene(R, force){
+    const L = document.getElementById('lw-slides'), f = L && L.querySelector('iframe'), w = f && f.contentWindow; if(!w) return;
+    const key = (R.roomKey) || (!_lwIsHost() && _lwTintOn() ? R.lastKey : null);
+    const tint = key && key !== 'neutral' ? _lwHex(STATE_COLOR(key)) : null;
+    const br = !!(R.slBeat && R.slBeat.breath);
+    const sig = JSON.stringify([tint, br]);
+    if(!force && sig === R.slSceneSig) return; R.slSceneSig = sig;
+    try{ w.postMessage({ snbTint:tint, snbBreathe:br }, LW_SL_ORIGIN); }catch(e){}
+  }
+  function _lwSlApply(R, p){
+    if(_lwRoom !== R) return;
+    const wasOff = !R.slide;
+    R.slide = p; _lwSlLayer(); _lwSlPost(R, wasOff);
+    // the first slide redraws the room (Justin's camera moves aside) before anything opens on top of it
+    if(wasOff){ _lwSlRoomPoll(R); if(R.phase === 'call') _lwRender(); }
+    const beat = p.beat || {}, key = p.p + ':' + p.idx;
+    if(key !== R.slKey){
+      R.slKey = key; R.slBeat = beat;
+      if(!_lwIsHost()){
+        // a check-in slide raises the app's own check-in, once per slide; Skip is always on it
+        if((beat.ci || beat.kind === 'checkin') && !document.getElementById('lw-ci') && R.slCiDone !== key){
+          R.slCiDone = key;
+          const ph = /:(before|after)$/.exec(String(beat.ci || '')); _lwCheckin(ph ? ph[1] : 'during');
+        }
+        _lwSlCard(R, beat.z10 ? (beat.z10 === 'intensity' ? 'intensity' : 'safety') : beat.breath ? 'breath' : null);
+      }
+      _lwSlScene(R);
+    }
+  }
+  async function _lwSlSave(R, kind, value){
+    const uid = _lwUid(); if(!uid || !R) return;
+    try{ const r = await window.sb.from('live_answers').insert({ user_id:uid, session_id:R.s.id, kind, value:String(value), slide:R.slKey || null });
+      if(r && r.error) showToast('That did not save. Try again in a moment.'); }catch(e){}
+  }
+  // the player's own 0 to 10 line and breath check, on a slide-up sheet titled with the slide's own words. It never
+  // replaces a check-in that is still open, and it goes away when the slide moves on.
+  function _lwSlCard(R, kind){
+    clearTimeout(R.slFade);
+    const open = document.getElementById('lw-sheet');
+    if(open && open.dataset.lwq){ open.dataset.lwq = ''; open.classList.remove('on'); setTimeout(() => { try{ open.remove(); }catch(e){} }, 320); }
+    if(!kind || _lwQuiet() || document.getElementById('lw-ci')) return;
+    const beat = R.slBeat || {};
+    const title = beat.h || (kind === 'breath' ? 'Breath' : kind === 'intensity' ? 'Intensity, 0 to 10' : 'Safety, 0 to 10');
+    const skip = '<button class="choicebtn quietly lw-slq-skip" type="button">Skip</button>';
+    let body = '';
+    if(kind === 'breath'){
+      const pairs = [['chest','chest-belly','belly'],['shallow','shallow-full','full'],['tense','tense-relaxed','relaxed']];
+      const word = o => o.indexOf('-') > 0 ? 'Between' : o.charAt(0).toUpperCase() + o.slice(1);
+      body = `<div class="choicecard">${pairs.map(pr => `<div class="breath-row">${pr.map((o, i) => { const end = i === 0 ? 'lo' : i === 2 ? 'hi' : 'mid';
+          const inner = end === 'mid' ? `<span class="sr">${word(o)}</span><span class="dot"></span>` : end === 'lo' ? `<span class="word">${word(o)}</span><span class="dot"></span>` : `<span class="dot"></span><span class="word">${word(o)}</span>`;
+          return `<button class="choicebtn quietly stop ${end}" type="button" data-o="${o}" aria-pressed="false">${inner}</button>`; }).join('')}</div>`).join('')}${skip}</div>`;
+    } else {
+      let ticks = '', nums = '';
+      const INSET = 14, left = v => 'calc(' + INSET + 'px + (100% - ' + (2 * INSET) + 'px) * ' + (v / 10) + ')';
+      for(let n = 0; n <= 10; n++){ ticks += `<span class="reading-tick" style="left:${left(n)}"></span>`; nums += `<span class="reading-num" style="left:${left(n)}">${n}</span>`; }
+      body = `<div class="choicecard"><div class="reading"><div class="reading-bar" tabindex="0" role="slider" aria-label="${kind === 'intensity' ? 'How intense the non-safety is, 0 to 10' : 'Your level of safety, 0 to 10'}" aria-valuemin="0" aria-valuemax="10" aria-valuetext="not answered">${ticks}<span class="reading-dot"></span></div>
+        <div class="reading-nums" aria-hidden="true">${nums}</div><div class="reading-ends" aria-hidden="true"><span>lowest</span><span>highest</span></div></div>${skip}</div>`;
+    }
+    const sh = _lwSheet(title, `<div class="lw-slq">${body}</div>`, { host:document.getElementById('lw-room') || document.body });
+    sh.el.dataset.lwq = kind;
+    const box = sh.el.querySelector('.lw-slq');
+    box.querySelector('.lw-slq-skip').onclick = () => { clearTimeout(R.slFade); sh.close(); };
+    if(kind === 'breath'){
+      box.querySelectorAll('.breath-row .stop').forEach(b => b.onclick = () => {
+        const row = b.parentNode; row.querySelectorAll('.stop').forEach(x => { x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        haptic('tap'); _lwSlSave(R, 'breath', b.dataset.o);
+      });
+      return;
+    }
+    const INSET = 14, left = v => 'calc(' + INSET + 'px + (100% - ' + (2 * INSET) + 'px) * ' + (v / 10) + ')';
+    const wrap = box.querySelector('.reading'), bar = box.querySelector('.reading-bar'), dot = box.querySelector('.reading-dot'), numEls = box.querySelectorAll('.reading-num');
+    let now = null, slide = null;
+    const mark = v => { dot.style.left = left(v); wrap.classList.add('chosen'); numEls.forEach((x, i) => x.classList.toggle('on', i === v)); };
+    const at = x => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(10, Math.round((x - r.left - INSET) / (r.width - 2 * INSET) * 10))); };
+    // after the last answer: hold three seconds, fade, close (the player's own timing)
+    const linger = () => { clearTimeout(R.slFade); wrap.classList.remove('fading'); R.slFade = setTimeout(() => { wrap.classList.add('fading'); R.slFade = setTimeout(() => { if(sh.el.isConnected) sh.close(); }, 600); }, 3000); };
+    const choose = v => { now = v; mark(v); bar.setAttribute('aria-valuenow', String(v)); bar.setAttribute('aria-valuetext', String(v)); haptic('tap'); _lwSlSave(R, kind, v); linger(); };
+    bar.addEventListener('pointerdown', ev => { clearTimeout(R.slFade); wrap.classList.remove('fading'); slide = { id:ev.pointerId, v:at(ev.clientX) }; try{ bar.setPointerCapture(ev.pointerId); }catch(e){} wrap.classList.add('sliding'); mark(slide.v); });
+    bar.addEventListener('pointermove', ev => { if(slide && ev.pointerId === slide.id){ const v = at(ev.clientX); if(v !== slide.v){ slide.v = v; mark(v); } } });
+    bar.addEventListener('pointerup', ev => { if(slide && ev.pointerId === slide.id){ const v = slide.v; slide = null; wrap.classList.remove('sliding'); choose(v); } });
+    bar.addEventListener('pointercancel', () => { slide = null; wrap.classList.remove('sliding'); if(now === null){ wrap.classList.remove('chosen'); numEls.forEach(x => x.classList.remove('on')); } else mark(now); });
+    bar.addEventListener('keydown', ev => { if(ev.key === 'ArrowRight' || ev.key === 'ArrowUp'){ ev.preventDefault(); choose(Math.min(10, (now === null ? 4 : now) + 1)); } else if(ev.key === 'ArrowLeft' || ev.key === 'ArrowDown'){ ev.preventDefault(); choose(Math.max(0, (now === null ? 6 : now) - 1)); } });
+  }
+  // every card in the slide room folds away for anyone who wants less on screen (Justin, 2026-10-28); remembered per device
+  const _lwFolds = () => { try{ return JSON.parse(localStorage.getItem('snb_lw_fold') || '{}') || {}; }catch(e){ return {}; } };
+  function _lwFoldWire(){
+    const room = document.getElementById('lw-room'); if(!room) return;
+    const f = _lwFolds();
+    room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = !!f[k]; c.classList.toggle('lw-folded', on);
+      const b = c.querySelector('.lw-fold[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
+    room.classList.toggle('lw-tucked', !!f.head);
+    room.querySelectorAll('.lw-fold').forEach(b => b.onclick = e => { e.stopPropagation();
+      const k = b.dataset.fold;
+      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
+  }
+  // folding and unfolding glide instead of jumping (Justin, 2026-10-28: "smooth and gentle is the standard"). Each card gets a
+  // name only for the length of the move, so the browser can carry it from its old size and place to the new one; the slide
+  // behind keeps running. Browsers without view transitions, and reduced motion, change at once.
+  function _lwFoldMove(apply){
+    const room = document.getElementById('lw-room');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if(!room || reduce || !document.startViewTransition){ apply(); return; }
+    const named = [...room.querySelectorAll('[data-card], .lw-grid')];
+    named.forEach((c, i) => { c.style.viewTransitionName = 'lw-card-' + (c.dataset.card || 'grid' + i); });
+    document.documentElement.classList.add('lw-vt');
+    const done = () => { named.forEach(c => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('lw-vt'); };
+    try{ const t = document.startViewTransition(apply); t.finished.then(done, done); }catch(err){ done(); apply(); }
+  }
+  // the room's background: on only once 5 or more people have chosen to count (live_room_blend returns nothing below that)
+  function _lwSlRoomPoll(R){
+    clearInterval(R.slRoomT);
+    const run = async () => {
+      if(_lwRoom !== R || !R.slide){ clearInterval(R.slRoomT); return; }
+      let k = null;
+      try{ const r = await window.sb.rpc('live_room_blend', { p_session:R.s.id }); const b = r && r.data;
+        if(b && b.n >= 5 && typeof b.v === 'number'){ const dom = window.PVCurrent.dominantOf(b.v, b.sym, b.dor); k = dom && dom.key !== 'neutral' ? dom.key : null; } }catch(e){}
+      if(k !== R.roomKey){ R.roomKey = k; _lwSlScene(R); }
+    };
+    run(); R.slRoomT = setInterval(run, 20000);
+  }
+  async function _lwSlCountSave(R, vals){
+    const uid = _lwUid(); if(!uid || !R) return;
+    try{
+      if(_lwCount() && vals) await window.sb.from('live_room_share').upsert({ user_id:uid, session_id:R.s.id, v:vals.v, sym:vals.sym, dor:vals.dor, updated_at:new Date().toISOString() }, { onConflict:'session_id,user_id' });
+      else if(!_lwCount()) await window.sb.from('live_room_share').delete().eq('user_id', uid).eq('session_id', R.s.id);
+    }catch(e){}
+  }
+
+  // ---- the live view: lobby, call, after ----
+  function _lwLoadDaily(){
+    if(window.Daily) return Promise.resolve(window.Daily);
+    return new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = LW_DAILY_SRC; sc.async = true;
+      sc.onload = () => window.Daily ? res(window.Daily) : rej(new Error('daily')); sc.onerror = () => rej(new Error('daily')); document.head.appendChild(sc); });
+  }
+  const _lwCanShare = () => !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  function screenLiveRoom(s){
+    if(!s) return;
+    if(!(Store.user && Store.user()) || (Store.isAnonymous && Store.isAnonymous())){
+      return _lwSheet('Join with an account', `<p class="lw-p">Live events need a free account, so Justin knows who is in the room. You can make one in Settings.</p>
+        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-acct">Go to Settings</button></div>`).el.querySelector('#lw-acct').onclick = () => { const o=document.getElementById('lw-sheet'); if(o) o.remove(); screenSettings(); };
+    }
+    const K = _lwKind(s);
+    _lwRoom = { s, phase:(K.video && !_lwIsHost()) ? 'lobby' : 'joining', cam:false, mic:false, chat:[], unread:0, co:null, sharing:false, err:null, joinedAt:0, preview:null, needsTap:false, lastKey:null, role:null };
+    document.body.classList.add('lw-in-room');
+    _lwRender();
+    if(_lwRoom.phase === 'joining') _lwJoin();
+  }
+  function _lwExit(){
+    const R = _lwRoom; _lwRoom = null;
+    try{ if(R && R.preview) R.preview.getTracks().forEach(t => t.stop()); }catch(e){}
+    try{ if(R && R.co){ R.co.leave().catch(()=>{}).then(() => { try{ R.co.destroy(); }catch(e){} }); } }catch(e){}
+    clearInterval(R && R.tick); _lwBeatStop(R);
+    if(R){ clearInterval(R.slRoomT); clearInterval(R.slWatch); clearTimeout(R.slFade); }
+    _lwSlRemove();
+    document.body.classList.remove('lw-in-room');
+    const o = document.getElementById('lw-sheet'); if(o) o.remove();
+    _lw.tab = 'live'; app('community');
+  }
+  function _lwRender(){
+    const R = _lwRoom; if(!R) return;
+    const s = R.s, K = _lwKind(s), host = _lwIsHost();
+    const rec = s.recorded ? 'Recorded.' : 'Not recorded.';
+    if(R.phase === 'lobby'){
+      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby">
+        <h1 class="lw-h1">${escapeHtml(K.name)}</h1>
+        <p class="lw-p lw-muted">${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
+        <div class="lw-preview${R.cam?' on':''}"><video id="lw-prev" autoplay playsinline muted></video>${R.cam ? '' : '<span class="lw-prev-off"><span class="lw-av">You</span><span>Your camera is off</span></span>'}</div>
+        <div class="lw-toggles">
+          <button type="button" class="lw-tg${R.cam?' on':''}" id="lw-tg-cam" aria-pressed="${R.cam}">${R.cam ? LW_ICO.cam : LW_ICO.camOff}${R.cam ? 'Camera on' : 'Camera off'}</button>
+          <button type="button" class="lw-tg${R.mic?' on':''}" id="lw-tg-mic" aria-pressed="${R.mic}">${R.mic ? LW_ICO.mic : LW_ICO.micOff}${R.mic ? 'Mic on' : 'Mic off'}</button>
+        </div>
+        <ul class="lw-rules"><li>Camera on or off is up to you.</li><li>You do not have to speak or type.</li><li>${s.recorded ? 'This one is recorded so others can watch it later.' : 'Not recorded. No replay.'}</li></ul>
+        ${R.err ? `<p class="lw-err" role="alert">${escapeHtml(R.err)}</p>` : ''}
+        <button class="btn block" type="button" id="lw-join">Join now</button>
+        <button class="lw-link" type="button" id="lw-ci-pre">Check in first</button>
+      </div>
+      <div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
+      const v = document.getElementById('lw-prev'); if(v && R.preview) v.srcObject = R.preview;
+      $('#lw-back').onclick = _lwExit;
+      $('#lw-join').onclick = () => { R.phase = 'joining'; _lwRender(); _lwJoin(); };
+      $('#lw-ci-pre').onclick = () => _lwCheckin('before');
+      $('#lw-tg-mic').onclick = () => { R.mic = !R.mic; _lwRender(); };
+      $('#lw-tg-cam').onclick = async () => {
+        R.cam = !R.cam;
+        if(R.cam){ try{ R.preview = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' }, audio:false }); }catch(e){ R.cam = false; R.err = 'The camera is not available. You can still join with it off.'; } }
+        else if(R.preview){ R.preview.getTracks().forEach(t => t.stop()); R.preview = null; }
+        _lwRender();
+      };
+      return;
+    }
+    if(R.phase === 'joining'){
+      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby lw-center">
+        <div class="lw-wait">${triLogo('lv-breathe', true)}</div>
+        <p class="lw-p">${R.err ? escapeHtml(R.err) : 'Opening the room…'}</p>
+        ${R.err ? '<button class="btn block quiet" type="button" id="lw-back2">Back</button>' : ''}</div></div>`);
+      const b = document.getElementById('lw-back2'); if(b) b.onclick = _lwExit;
+      return;
+    }
+    if(R.phase === 'left'){
+      // thank you, the next event with a quick RSVP, and Self-Regulator for members without a paid plan (Justin, 2026-10-27)
+      if(!_lw.sched && !_lw.loading){ _lwLoad().then(() => { if(_lwRoom === R && R.phase === 'left') _lwRender(); }); }
+      const nx = (_lw.sched || []).find(x => x.id !== s.id && _lwStart(x) > Date.now() && (LW_COREG_LIVE || host || x.kind === 'mindful_moment'));
+      let nxHTML = '';
+      if(nx){
+        const NK = _lwKind(nx), d = new Date(_lwStart(nx)), ok = _lwAllowed(nx), rsvp = _lwRsvp(nx), rem = _lwRemOn(nx);
+        nxHTML = `<div class="lw-next"><p class="lw-eyb">Next on the Calendar</p><div class="lw-row lw-row-static">
+          <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
+          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}Upgrade</button>`}</span></span>
+          ${ok ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : ''}</div></div>`;
+      }
+      const up = (!host && !paidNow()) ? `<div class="lw-up"><p class="lw-eyb">Between live events</p>
+          <p class="lw-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
+          <p class="lw-p lw-muted">$12 a month, cancel anytime.</p>
+          <button class="btn block" type="button" id="lw-ty-up">See Self-Regulator</button></div>` : '';
+      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby lw-thanks">
+        <p class="lw-eyb">Live event</p>
+        <h1 class="lw-h1">Thank you for being here.</h1>
+        <p class="lw-p lw-muted">${escapeHtml(K.name)}, ${escapeHtml(_lwLongDate(_lwStart(s)))}.</p>
+        ${nxHTML}${up}
+        ${_lwEnd(s) > Date.now() ? '<button class="btn block quiet" type="button" id="lw-rejoin">Rejoin</button>' : ''}
+      </div><div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
+      $('#lw-back').onclick = _lwExit;
+      const tyR = document.getElementById('lw-ty-rsvp'); if(tyR) tyR.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); });
+      const tyA = document.getElementById('lw-ty-rem'); if(tyA) tyA.onclick = () => _lwRemindSheet(nx);
+      const tyC = document.getElementById('lw-ty-co'); if(tyC) tyC.onclick = () => _lwUpgradeSheet();
+      const tyU = document.getElementById('lw-ty-up'); if(tyU) tyU.onclick = () => { _lwExit(); gateSubscribe('live'); };
+      const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; _lwRender(); _lwJoin(); };
+      return;
+    }
+    // in the call
+    const mm = !K.video, member = !host;
+    const ctl = (id, ico, label, extra) => `<button type="button" class="lw-ctl${extra||''}" id="${id}">${ico}<span>${label}</span></button>`;
+    // mic and camera: the button toggles, the up arrow beside it picks the device (Justin, 2026-10-27)
+    const split = (id, ico, label, on, kind) => `<div class="lw-split${on ? ' on' : ''}"><button type="button" class="lw-ctl${on ? ' on' : ''}" id="${id}">${ico}<span>${label}</span></button><button type="button" class="lw-caret" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></div>`;
+    const ctls = [ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
+    if(!(mm && member)){ ctls.push(split('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')); ctls.push(split('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')); }
+    if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
+    if(host) ctls.push(ctl('lw-c-slides', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', R.slide ? ' on' : ''));
+    if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
+    ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
+    // two controls only (a Mindful Moment member: Leave, Settings) → the small controls card shares a row with the title card
+    setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}${ctls.length <= 2 ? ' lw-ctl2' : ''}" id="lw-room">
+      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span><span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span></span><button type="button" class="lw-fold" data-fold="head" aria-label="Tuck the room away" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      <div class="lw-call-body">
+        <div class="lw-stage" id="lw-stage" data-card="cam"><button type="button" class="lw-fold" data-fold="cam" aria-label="Collapse the camera" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
+        ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
+        ${mm ? `<div class="lw-mm-chat" data-card="chat"><div class="lw-mm-chat-h"><b>Chat</b><span class="lw-fold-n" id="lw-chat-n"></span><button type="button" class="lw-fold" data-fold="chat" aria-label="Collapse the chat" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="lw-chat-list" id="lw-chat-list"></div>
+          <form class="lw-chat-form" id="lw-chat-form"><label class="vh" for="lw-chat-in">Share a present moment reflection</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="Share a present moment reflection"><button class="btn" type="submit">Send</button></form></div>`
+          : `<div class="lw-grid" id="lw-grid"></div>`}
+      </div>
+      <div class="lw-ctls" data-card="ctls" style="--n:${ctls.length}">${ctls.join('')}<button type="button" class="lw-fold" data-fold="ctls" aria-label="Collapse the controls" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      <div id="lw-audio" hidden></div></div>`);
+    _lwPaint();
+    const co = R.co;
+    $('#lw-c-leave').onclick = () => { const sh = _lwSheet('Leave the call?', `<p class="lw-p">Stopping is fine.${_lwEnd(s) > Date.now() ? ' You can rejoin while it is running.' : ''}</p>
+        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-lw-go">Leave</button><button class="btn block quiet" type="button" id="lw-lw-stay">Stay</button></div>`, { host:document.getElementById('lw-room') });
+      sh.el.querySelector('#lw-lw-stay').onclick = sh.close;
+      sh.el.querySelector('#lw-lw-go').onclick = () => { sh.close(); _lwLeaveCall(); }; };
+    const mic = document.getElementById('lw-c-mic'); if(mic) mic.onclick = () => { R.mic = !R.mic; try{ co.setLocalAudio(R.mic); }catch(e){} _lwRender(); };
+    const cam = document.getElementById('lw-c-cam'); if(cam) cam.onclick = () => { R.cam = !R.cam; try{ co.setLocalVideo(R.cam); }catch(e){} _lwRender(); };
+    const sh = document.getElementById('lw-c-share'); if(sh) sh.onclick = async () => {
+      if(R.sharing){ try{ co.stopScreenShare(); }catch(e){} return; }
+      // stay in the room (Justin, 2026-10-27): ask the browser not to jump to what is being shared (Chrome's Conditional
+      // Focus), then hand the picture to the call. Browsers without it share the old way.
+      try{
+        if(window.CaptureController && navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia){
+          const ctl = new CaptureController();
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:true, controller:ctl, selfBrowserSurface:'exclude', surfaceSwitching:'include' });
+          try{ ctl.setFocusBehavior('no-focus-change'); }catch(e){}
+          const vt = stream.getVideoTracks()[0]; if(vt) vt.addEventListener('ended', () => { try{ co.stopScreenShare(); }catch(e){} });
+          await co.startScreenShare({ mediaStream:stream });
+        } else await co.startScreenShare();
+      }catch(e){ if(!(e && e.name === 'NotAllowedError')) showToast('Screen sharing did not start.'); }
+    };
+    const slB = document.getElementById('lw-c-slides'); if(slB) slB.onclick = () => {
+      if(!R.slide && !(R.slWin && !R.slWin.closed)) return _lwSlOpen();
+      const shs = _lwSheet('Slides', `<p class="lw-p">The slides come from the Session Builder window. Step through them there.</p>
+        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-sl-go">Go to the builder</button><button class="btn block quiet" type="button" id="lw-sl-off">Take the slides down</button></div>`, { host:document.getElementById('lw-room') });
+      shs.el.querySelector('#lw-sl-go').onclick = () => { shs.close(); _lwSlOpen(); };
+      shs.el.querySelector('#lw-sl-off').onclick = () => { shs.close(); try{ if(R.slWin && !R.slWin.closed) R.slWin.close(); }catch(e){} R.slWin = null; _lwSlOff(R, true); };
+    };
+    const ask = document.getElementById('lw-c-ask'); if(ask) ask.onclick = () => { try{ co.sendAppMessage({ t:'checkin' }, '*'); }catch(e){} showToast('Check-in sent to everyone'); };
+    document.querySelectorAll('#lw-room [data-lw-dev]').forEach(b => b.onclick = e => { e.stopPropagation(); _lwDevMenu(b.dataset.lwDev, b); });
+    _lwFoldWire();
+    _lwPaintRec();
+    const setB = document.getElementById('lw-c-set'); if(setB) setB.onclick = _lwSettingsSheet;
+    _lwWireStateTg(document.getElementById('lw-room'));
+    const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
+    const tap = document.getElementById('lw-tap'); if(tap) tap.onclick = () => { R.needsTap = false; document.querySelectorAll('#lw-audio audio').forEach(a => { try{ a.play(); }catch(e){} }); _lwRender(); };
+    const f = document.getElementById('lw-chat-form'); if(f){ f.onsubmit = e => { e.preventDefault(); const i = $('#lw-chat-in'); _lwSend(i.value); i.value = ''; }; _lwPaintChat(); }
+  }
+  async function _lwJoin(){
+    const R = _lwRoom; if(!R) return;
+    R.err = null;
+    const r = await _lwFn({ session_id:R.s.id, name:(Store.getName && Store.getName()) || '' });
+    if(_lwRoom !== R) return;
+    if(r.status !== 200 || !r.data.token){
+      const e = r.data || {};
+      R.err = e.upgrade ? 'Capacity Builder and the Q&A are part of Co-Regulator.'
+        : r.status === 425 ? 'The room opens ' + LW_OPEN_EARLY_MIN + ' minutes before the start.'
+        : r.status === 410 ? 'This live event has ended.'
+        : r.status === 401 ? 'Sign in to join.'
+        : 'The room did not open. Try again in a moment.';
+      R.phase = 'joining'; return _lwRender();
+    }
+    R.role = r.data.role;
+    if(r.data.role === 'host'){ _lw.access = Object.assign({}, _lw.access || {}, { host:true, co_regulator:true }); }
+    let Daily; try{ Daily = await _lwLoadDaily(); }catch(e){ R.err = 'The video service did not load. Check your connection and try again.'; return _lwRender(); }
+    if(_lwRoom !== R) return;
+    try{ if(R.preview){ R.preview.getTracks().forEach(t => t.stop()); R.preview = null; } }catch(e){}
+    const host = _lwIsHost(), mm = !_lwKind(R.s).video;
+    if(mm && !host){ R.cam = false; R.mic = false; }
+    if(host){ R.cam = true; R.mic = true; }
+    const co = Daily.createCallObject({ subscribeToTracksAutomatically:true });
+    R.co = co;
+    const repaint = () => { if(_lwRoom === R && R.phase === 'call') _lwPaint(); };
+    ['participant-joined','participant-updated','participant-left','track-started','track-stopped','active-speaker-change'].forEach(ev => co.on(ev, repaint));
+    co.on('local-screen-share-started', () => { R.sharing = true; if(R.phase === 'call') _lwRender(); });
+    co.on('local-screen-share-stopped', () => { R.sharing = false; if(R.phase === 'call') _lwRender(); });
+    co.on('recording-started', () => { R.rec = 'on'; _lwPaintRec(); });
+    co.on('recording-stopped', () => { R.rec = R.recWant === 'paused' ? 'paused' : 'off'; _lwPaintRec(); });
+    co.on('recording-error', () => { R.rec = 'off'; _lwPaintRec(); if(_lwIsHost()) showToast('The recording stopped. Tap Record to start it again.'); });
+    co.on('app-message', ev => {
+      const d = ev && ev.data; if(!d) return;
+      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
+      if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
+      if(d.t === 'sl' && typeof d.d === 'string' && d.n > 0 && d.n < 60) _lwSlReceive(R, d, ev.fromId);
+      if(d.t === 'sl-off' && _lwSlOwner(R, ev.fromId)) _lwSlOff(R, false);
+      if(d.t === 'sl-req' && _lwIsHost() && R.slide) _lwSlSend(R, R.slide, ev.fromId);
+    });
+    co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
+    co.on('error', () => { if(_lwRoom === R){ R.err = 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
+    try{
+      await co.join({ url:r.data.room_url, token:r.data.token, startVideoOff:!R.cam, startAudioOff:!R.mic });
+    }catch(e){ R.err = 'The room did not open. Try again in a moment.'; R.phase = 'joining'; return _lwRender(); }
+    if(_lwRoom !== R){ try{ co.leave(); co.destroy(); }catch(e){} return; }
+    R.phase = 'call'; R.joinedAt = Date.now();
+    if(R.role !== 'host'){ setTimeout(() => { try{ if(_lwRoom === R && R.co) R.co.sendAppMessage({ t:'sl-req' }, '*'); }catch(e){} }, 1500); }
+    if(R.role === 'host') _lwBeatStart(R);
+    _lwRender();
+    if(R.role === 'host' && R.s.recorded && !R.rec) _lwRec('start');   // Justin will forget: it records the moment he is in
+    R.tick = setInterval(() => { if(_lwRoom === R && R.phase === 'call') _lwPaintHead(); }, 30000);
+  }
+  function _lwLeaveCall(){
+    const R = _lwRoom; if(!R || !R.co) return;
+    const co = R.co; R.co = null; R.phase = 'left'; clearInterval(R.tick); _lwBeatStop(R);
+    clearInterval(R.slRoomT); R.slide = null; _lwSlRemove();
+    try{ co.leave().catch(()=>{}).then(() => { try{ co.destroy(); }catch(e){} }); }catch(e){}
+    _lwRender();
+  }
+  function _lwSend(text){
+    const R = _lwRoom; text = String(text||'').trim(); if(!R || !R.co || !text) return;
+    const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member');
+    const av = _lwAvatar(), st = _lwSig();
+    try{ R.co.sendAppMessage({ t:'chat', who, text:text.slice(0,500), host:_lwIsHost(), av, st }, '*'); }catch(e){}
+    R.chat.push({ who:'You', text:text.slice(0,500), host:_lwIsHost(), av, st }); _lwPaintChat();
+  }
+  const _lwSafeAv = u => (typeof u === 'string' && /^https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]+\.jpg(\?v=\d+)?$/.test(u)) ? u : null;
+  const _lwSafeSt = k => (typeof k === 'string' && STATE_AXES[k]) ? k : null;
+  const _lwSafeCard = c => { if(!c || typeof c !== 'object') return null; const k = (typeof c.k === 'string' && (STATE_AXES[c.k] || c.k === 'neutral')) ? c.k : null; if(!k) return null;
+    return { k, label:String(c.label || '').slice(0, 80), ev:String(c.ev || '').slice(0, 60) }; };
+  // a shared check-in, drawn like the app's share cards: eyebrow, the state glyph, its name, the brand foot
+  const _lwCardHTML = (c, sig) => `<div class="lw-shcard" role="img" aria-label="${escapeHtml((c.ev ? c.ev + ': ' : '') + c.label)}"><p class="ww-eyeb">${escapeHtml(c.ev)}</p><div class="lw-shcard-g">${_lwGlyph(c.k)}</div><p class="lw-shcard-l">${escapeHtml(c.label)}</p>${panelFoot(sig || null)}</div>`;
+  function _lwShareCard(card){
+    const R = _lwRoom; if(!R || !R.co || R.phase !== 'call') return false;
+    const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member'), av = _lwAvatar(), st = _lwSig();
+    try{ R.co.sendAppMessage({ t:'chat', who, text:'', host:_lwIsHost(), av, st, card }, '*'); }catch(e){ return false; }
+    R.chat.push({ who:'You', text:'', host:_lwIsHost(), av, st, card }); _lwPaintChat(); return true;
+  }
+  function _lwMsgHTML(m, anim){
+    const av = m.av ? `<img src="${escapeHtml(m.av)}" alt="" loading="lazy">` : escapeHtml((m.who || '?').charAt(0));
+    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}</div></div>`;
+  }
+  // a list already on screen only gets the new messages (they animate in); a fresh list is drawn whole
+  function _lwPaintChat(){
+    const R = _lwRoom; if(!R) return;
+    ['lw-chat-list','lw-chat-sheet-list'].forEach(id => {
+      const el = document.getElementById(id); if(!el) return;
+      const n = +(el.dataset.n || -1);
+      if(!R.chat.length){ el.innerHTML = ''; el.dataset.n = 0; return; }
+      if(n <= 0 || n > R.chat.length) el.innerHTML = R.chat.map(m => _lwMsgHTML(m, n === 0)).join('');
+      else if(n < R.chat.length) el.insertAdjacentHTML('beforeend', R.chat.slice(n).map(m => _lwMsgHTML(m, true)).join(''));
+      el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
+    });
+    const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? String(R.chat.length) : '';
+  }
+  // the member's state glyph beside their name: their DOMINANT state across their check-ins (the share signature),
+  // one choice shared with Settings → "Your state glyph on shared images and in live chat" (Justin, 2026-10-27)
+  const _lwSigOn = () => { try{ return localStorage.getItem('snb_share_glyph') !== '0'; }catch(e){ return true; } };
+  const _lwSig = () => { try{ return _lwSigOn() ? _signatureKey() : null; }catch(e){ return null; } };
+  function _lwStateTg(){
+    if(!_lwRoom) return '';
+    const on = _lwSigOn(); let k = null; try{ k = _signatureKey(); }catch(e){}
+    return `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-st>${k ? _lwGlyph(k) : ''}<span><span class="lw-st-t">State glyph in the chat</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
+  }
+  function _lwWireStateTg(scope){
+    if(!scope) return;
+    scope.querySelectorAll('[data-lw-st]').forEach(b => b.onclick = () => {
+      try{ localStorage.setItem('snb_share_glyph', _lwSigOn() ? '0' : '1'); }catch(e){}
+      document.querySelectorAll('[data-lw-st]').forEach(x => { x.outerHTML = _lwStateTg(); });
+      const room = document.getElementById('lw-room'); _lwWireStateTg(room); const shx = document.getElementById('lw-sheet'); if(shx && !(room && room.contains(shx))) _lwWireStateTg(shx);
+    });
+  }
+  // live event settings, from the bottom bar
+  function _lwSettingsSheet(){
+    const tg = (k, label, on) => `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-pref="${k}"><span><span class="lw-st-t">${label}</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
+    const prefs = () => _lwIsHost() ? '' : tg('snb_lw_quiet', 'Quiet screen (no questions on the slides)', _lwQuiet()) + tg('snb_lw_tint', 'Background follows my check-in', _lwTintOn()) + tg('snb_lw_count', 'Count my check-in toward the room’s background (from 5 people)', _lwCount());
+    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}${prefs()}</div>`, { host:document.getElementById('lw-room') });
+    _lwWireStateTg(sh.el);
+    sh.el.querySelectorAll('[data-lw-pref]').forEach(b => b.onclick = () => {
+      const k = b.dataset.lwPref, on = b.getAttribute('aria-checked') !== 'true'; _lwPrefSet(k, on);
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); const sw = b.querySelector('.set-sw'); if(sw) sw.classList.toggle('on', on);
+      const R = _lwRoom; if(!R) return;
+      if(k === 'snb_lw_quiet' && R.slBeat) _lwSlCard(R, on ? null : (R.slBeat.z10 ? (R.slBeat.z10 === 'intensity' ? 'intensity' : 'safety') : R.slBeat.breath ? 'breath' : null));
+      if(k === 'snb_lw_tint' && R.slide) _lwSlScene(R);
+      if(k === 'snb_lw_count') _lwSlCountSave(R, on ? R.lastVals : null);
+    });
+  }
+  // the device list above the mic or camera button
+  async function _lwDevMenu(kind, anchor){
+    const R = _lwRoom; if(!R || !R.co) return;
+    const old = document.getElementById('lw-devmenu'); if(old){ const same = old.dataset.kind === kind; old.remove(); if(same) return; }
+    let devs = [], cur = {};
+    try{ devs = (((await R.co.enumerateDevices()) || {}).devices || []).filter(d => d.kind === kind); }catch(e){}
+    try{ cur = (await R.co.getInputDevices()) || {}; }catch(e){}
+    const sel = kind === 'audioinput' ? (cur.mic && cur.mic.deviceId) : (cur.camera && cur.camera.deviceId);
+    const m = document.createElement('div'); m.id = 'lw-devmenu'; m.className = 'lw-devmenu'; m.dataset.kind = kind; m.setAttribute('role', 'menu');
+    m.innerHTML = `<p class="lw-eyb">${kind === 'audioinput' ? 'Microphone' : 'Camera'}</p>` + (devs.length ? devs.map((d, i) => `<button type="button" role="menuitemradio" aria-checked="${d.deviceId === sel}" data-id="${escapeHtml(d.deviceId)}">${d.deviceId === sel ? LW_ICO.check : '<i></i>'}<span>${escapeHtml(d.label || (kind === 'audioinput' ? 'Microphone ' : 'Camera ') + (i + 1))}</span></button>`).join('') : `<p class="lw-p lw-muted">${kind === 'audioinput' ? 'No microphone found.' : 'No camera found.'}</p>`);
+    (document.getElementById('lw-room') || document.body).appendChild(m);
+    const r = anchor.getBoundingClientRect(), w = Math.min(300, window.innerWidth - 24);
+    m.style.width = w + 'px'; m.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, r.left + r.width / 2 - w / 2)) + 'px'; m.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+    const close = () => { m.remove(); document.removeEventListener('click', out, true); document.removeEventListener('keydown', key); };
+    const out = e => { if(!m.contains(e.target)) close(); };
+    const key = e => { if(e.key === 'Escape') close(); };
+    setTimeout(() => { document.addEventListener('click', out, true); document.addEventListener('keydown', key); }, 0);
+    m.querySelectorAll('[data-id]').forEach(b => b.onclick = () => {
+      try{ R.co.setInputDevicesAsync(kind === 'audioinput' ? { audioDeviceId:b.dataset.id } : { videoDeviceId:b.dataset.id }); }catch(e){ showToast(kind === 'audioinput' ? 'That microphone did not start.' : 'That camera did not start.'); }
+      close();
+    });
+    const first = m.querySelector('[aria-checked="true"]') || m.querySelector('[data-id]'); if(first) try{ first.focus({ preventScroll:true }); }catch(e){}
+  }
+  // ---- recording: starts by itself when Justin joins an event marked recorded; he can pause, resume or stop it
+  function _lwPaintRec(){
+    const R = _lwRoom, el = document.getElementById('lw-rec'); if(!R || !el) return;
+    const host = _lwIsHost(), st = R.rec || 'off';
+    if(!host){ el.innerHTML = st === 'on' ? '<span class="lw-rec-on"><i aria-hidden="true"></i>Recording</span>' : ''; return; }
+    if(!R.s.recorded){ el.innerHTML = ''; return; }
+    el.innerHTML = st === 'on' ? '<span class="lw-rec-on"><i aria-hidden="true"></i>Recording</span><button type="button" class="lw-rec-b" data-rec="pause">Pause</button><button type="button" class="lw-rec-b" data-rec="stop">Stop</button>'
+      : st === 'paused' ? '<span class="lw-rec-off">Paused</span><button type="button" class="lw-rec-b" data-rec="start">Resume</button><button type="button" class="lw-rec-b" data-rec="stop">Stop</button>'
+      : st === 'starting' ? '<span class="lw-rec-off">Starting the recording…</span>'
+      : '<span class="lw-rec-off">Not recording</span><button type="button" class="lw-rec-b" data-rec="start">Record</button>';
+    el.querySelectorAll('[data-rec]').forEach(b => b.onclick = () => _lwRec(b.dataset.rec));
+  }
+  function _lwRec(what){
+    const R = _lwRoom; if(!R || !R.co) return;
+    if(what === 'start'){ R.rec = 'starting'; R.recWant = 'on'; _lwPaintRec(); try{ R.co.startRecording(); }catch(e){ R.rec = 'off'; _lwPaintRec(); showToast('The recording did not start.'); } return; }
+    R.recWant = what === 'pause' ? 'paused' : 'stopped';
+    try{ R.co.stopRecording(); }catch(e){}
+  }
+  // pick the camera and the mic
+  async function _lwDevicesSheet(){
+    const R = _lwRoom; if(!R || !R.co) return;
+    let devs = [], cur = {};
+    try{ devs = ((await R.co.enumerateDevices()) || {}).devices || []; }catch(e){}
+    try{ cur = (await R.co.getInputDevices()) || {}; }catch(e){}
+    const opts = (kind, sel) => devs.filter(d => d.kind === kind).map((d, i) => `<option value="${escapeHtml(d.deviceId)}"${d.deviceId === sel ? ' selected' : ''}>${escapeHtml(d.label || (kind === 'videoinput' ? 'Camera ' : 'Microphone ') + (i + 1))}</option>`).join('');
+    const sh = _lwSheet('Devices', `<div class="lw-dev"><label for="lw-dev-cam">Camera</label><select id="lw-dev-cam">${opts('videoinput', cur.camera && cur.camera.deviceId) || '<option>No camera found</option>'}</select>
+      <label for="lw-dev-mic">Microphone</label><select id="lw-dev-mic">${opts('audioinput', cur.mic && cur.mic.deviceId) || '<option>No microphone found</option>'}</select></div>
+      <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-dev-done">Done</button></div>`, { host:document.getElementById('lw-room') });
+    const c = sh.el.querySelector('#lw-dev-cam'), m = sh.el.querySelector('#lw-dev-mic');
+    c.onchange = () => { try{ R.co.setInputDevicesAsync({ videoDeviceId:c.value }); }catch(e){ showToast('That camera did not start.'); } };
+    m.onchange = () => { try{ R.co.setInputDevicesAsync({ audioDeviceId:m.value }); }catch(e){ showToast('That microphone did not start.'); } };
+    sh.el.querySelector('#lw-dev-done').onclick = sh.close;
+  }
+  // Justin's presence: a beat every 30 s while he is in the room, so the Calendar can say "Live now"
+  function _lwBeatStart(R){
+    const sid = R.s.id, beat = () => { try{ window.sb.rpc('live_host_beat', { sid, here:true }); }catch(e){} };
+    beat(); clearInterval(R.beat); R.beat = setInterval(beat, 30000);
+  }
+  function _lwBeatStop(R){
+    if(!R || !R.beat) return; clearInterval(R.beat); R.beat = null;
+    try{ window.sb.rpc('live_host_beat', { sid:R.s.id, here:false }); }catch(e){}
+  }
+  function _lwChatSheet(){
+    const R = _lwRoom; if(!R) return; R.unread = 0;
+    const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat';
+    const sh = _lwSheet('Chat', `<p class="lw-p lw-muted">Everyone in this call sees the chat. It is gone when the call ends. To write to Justin alone, use Messages.</p>
+      <div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>
+      <form class="lw-chat-form" id="lw-chat-sheet-form"><label class="vh" for="lw-chat-sheet-in">Write to the group</label><input id="lw-chat-sheet-in" type="text" maxlength="500" autocomplete="off" placeholder="Write to the group"><button class="btn" type="submit">Send</button></form>`, { host:document.getElementById('lw-room') });
+    _lwWireStateTg(sh.el); _lwPaintChat();
+    sh.el.querySelector('#lw-chat-sheet-form').onsubmit = e => { e.preventDefault(); const i = sh.el.querySelector('#lw-chat-sheet-in'); _lwSend(i.value); i.value = ''; };
+  }
+  function _lwPaintHead(){
+    const R = _lwRoom; if(!R || !R.co) return;
+    const sub = document.getElementById('lw-call-sub'), here = document.querySelector('#lw-here span');
+    try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; }catch(e){}
+  }
+  // video / audio for every participant. Elements are kept by session id so a repaint never restarts a stream.
+  function _lwTrack(p, kind){ const t = p && p.tracks && p.tracks[kind]; return (t && (t.state === 'playable' || t.state === 'sendable') && t.persistentTrack) ? t.persistentTrack : null; }
+  function _lwVideo(key, track, mirror){
+    let v = document.querySelector('video[data-lw-key="' + key + '"]');
+    if(!v){ v = document.createElement('video'); v.autoplay = true; v.playsInline = true; v.muted = true; v.setAttribute('playsinline',''); v.dataset.lwKey = key; }
+    const cur = v.srcObject && v.srcObject.getVideoTracks()[0];
+    if(cur !== track){ v.srcObject = new MediaStream([track]); try{ v.play().catch(()=>{}); }catch(e){} }
+    v.classList.toggle('lw-mirror', !!mirror);
+    return v;
+  }
+  function _lwPaint(){
+    const R = _lwRoom; if(!R || !R.co || R.phase !== 'call') return;
+    let ps; try{ ps = Object.values(R.co.participants()); }catch(e){ return; }
+    const local = ps.find(p => p.local), others = ps.filter(p => !p.local);
+    const owner = ps.find(p => p.owner && !p.local) || (local && local.owner ? local : null);
+    const screen = ps.find(p => _lwTrack(p, 'screenVideo'));
+    R.screenOn = !!screen;
+    const stage = document.getElementById('lw-stage');
+    if(stage){
+      let main = null, label = '', mirror = false, key = '';
+      if(screen){ main = _lwTrack(screen, 'screenVideo'); label = (screen.local ? 'You are' : (screen.user_name || 'Justin') + ' is') + ' sharing'; key = 'screen-' + screen.session_id; }
+      else if(owner){ main = _lwTrack(owner, 'video'); label = owner.local ? 'You' : (owner.user_name || 'Justin'); mirror = !!owner.local; key = 'cam-' + owner.session_id; }
+      stage.querySelectorAll('video').forEach(v => { if(v.dataset.lwKey !== key) v.remove(); });
+      if(main){ const v = _lwVideo(key, main, mirror); if(v.parentNode !== stage) stage.prepend(v); stage.classList.toggle('lw-stage-screen', !!screen); }
+      const av = stage.querySelector('.lw-stage-av');
+      if(!main && !av) stage.insertAdjacentHTML('afterbegin', `<span class="lw-stage-av">${escapeHtml(((owner && (owner.local ? 'You' : owner.user_name)) || 'Justin').charAt(0))}</span>`);
+      if(main && av) av.remove();
+      let lb = stage.querySelector('.lw-stage-lb'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-stage-lb'; stage.appendChild(lb); }
+      lb.textContent = (screen && R.slide) ? label + '. The slides come back when sharing stops.' : (label || (owner ? '' : 'Waiting for Justin'));
+    }
+    const grid = document.getElementById('lw-grid');
+    if(grid){
+      const tiles = ps.filter(p => p !== owner || screen);   // with a screen on stage, Justin's camera joins the tiles
+      const keep = new Set();
+      tiles.forEach(p => {
+        const k = 'tile-' + p.session_id; keep.add(k);
+        let tile = grid.querySelector('[data-tile="' + k + '"]');
+        if(!tile){ tile = document.createElement('div'); tile.className = 'lw-tile'; tile.dataset.tile = k; grid.appendChild(tile); }
+        const vt = _lwTrack(p, 'video'), name = p.local ? 'You' : (p.user_name || 'Member');
+        tile.classList.toggle('lw-tile-cam', !!vt);
+        tile.querySelectorAll('video').forEach(v => { if(!vt) v.remove(); });
+        if(vt){ const v = _lwVideo('v-' + p.session_id, vt, p.local); if(v.parentNode !== tile) tile.prepend(v); tile.querySelectorAll('.lw-tile-av').forEach(a => a.remove()); }
+        else if(!tile.querySelector('.lw-tile-av')) tile.insertAdjacentHTML('afterbegin', `<span class="lw-tile-av">${escapeHtml(p.local ? 'You' : name.charAt(0))}</span>`);
+        let lb = tile.querySelector('.lw-tile-lb'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-tile-lb'; tile.appendChild(lb); }
+        lb.textContent = name + (p.local && !R.mic ? ', muted' : '');
+      });
+      grid.querySelectorAll('[data-tile]').forEach(t => { if(!keep.has(t.dataset.tile)) t.remove(); });
+    }
+    // remote audio (the call object does not play audio by itself)
+    const box = document.getElementById('lw-audio');
+    if(box){
+      const want = new Set();
+      others.forEach(p => ['audio','screenAudio'].forEach(kind => {
+        const t = _lwTrack(p, kind); if(!t) return; const k = kind + '-' + p.session_id; want.add(k);
+        let a = box.querySelector('audio[data-k="' + k + '"]');
+        if(!a){ a = document.createElement('audio'); a.autoplay = true; a.dataset.k = k; box.appendChild(a); }
+        const cur = a.srcObject && a.srcObject.getAudioTracks()[0];
+        if(cur !== t){ a.srcObject = new MediaStream([t]); const pr = a.play(); if(pr && pr.catch) pr.catch(() => { if(!R.needsTap){ R.needsTap = true; _lwRender(); } }); }
+      }));
+      box.querySelectorAll('audio').forEach(a => { if(!want.has(a.dataset.k)) a.remove(); });
+    }
+    _lwPaintHead();
+  }
+
   // install affordances: a quiet settings row + an optional dismissable today nudge
   function installRowInner(){
     const s = installState();
@@ -2876,7 +4052,7 @@ function app(tab){
         <div class="gs-card">
           <p class="gs-h">Challenge reminder</p>
           <p class="gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
-          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}Paid plan</p>` + sw('nt-chal','Challenge reminder', false, true)}
+          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}Self-Regulator</p>` + sw('nt-chal','Challenge reminder', false, true)}
           <div id="nt-cht" style="${prefs.challenge_time && paidNow()?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-chal', prefs.challenge_time||'09:00', dis, null)}</div>
         </div>
         <div class="gs-card">
@@ -2953,6 +4129,7 @@ function app(tab){
     if(h==='practice') return app('practice');
     if(h==='reader') return app('reflect');
     if(h==='challenge') return _chOpenFromLink();
+    if(h==='live'){ if(_lwRoom) return; _lw.tab = 'live'; return app('community'); }   // a live session reminder (2026-10-26)
   }
   // ── end web push ─────────────────────────────────────────────────────────────────────
   // ── tips: "did you know" cards (2026-09-10) ──────────────────────────────────────────
@@ -3192,19 +4369,23 @@ function app(tab){
       practice:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path fill="none" d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6" fill="currentColor" stroke="none"/></svg>',
       you:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.8" fill="currentColor"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/></svg>',
       learn:'<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V17h5v-1.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z" fill="currentColor"/><path fill="none" d="M9.5 20h5M10.5 22h3"/></svg>',
-      reflect:'<svg viewBox="0 0 24 24"><path d="M11.2 6C9.2 4.6 6.6 4.2 3 4.5c-.3 0-.5.3-.5.6v13.2c0 .3.3.6.6.5 3.3-.3 5.9.1 8.1 1.4zM12.8 6c2-1.4 4.6-1.8 8.2-1.5.3 0 .5.3.5.6v13.2c0 .3-.3.6-.6.5-3.3-.3-5.9.1-8.1 1.4z" fill="currentColor"/></svg>'
+      reflect:'<svg viewBox="0 0 24 24"><path d="M11.2 6C9.2 4.6 6.6 4.2 3 4.5c-.3 0-.5.3-.5.6v13.2c0 .3.3.6.6.5 3.3-.3 5.9.1 8.1 1.4zM12.8 6c2-1.4 4.6-1.8 8.2-1.5.3 0 .5.3.5.6v13.2c0 .3-.3.6-.6.5-3.3-.3-5.9.1-8.1 1.4z" fill="currentColor"/></svg>',
+      community:lwCommunityIco(true)
     }[t]||'');
     return ({
     now:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
     practice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
     you:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>',
     learn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V17h5v-1.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/><path d="M9.5 20h5M10.5 22h3"/></svg>',
-    reflect:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7.2 4.5 3.5 4.8v13.4c3.7-.3 6.5.2 8.5 1.8 2-1.6 4.8-2.1 8.5-1.8V4.8C16.8 4.5 14 5 12 6.5z"/><path d="M12 6.5V20"/></svg>'
+    reflect:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C10 5 7.2 4.5 3.5 4.8v13.4c3.7-.3 6.5.2 8.5 1.8 2-1.6 4.8-2.1 8.5-1.8V4.8C16.8 4.5 14 5 12 6.5z"/><path d="M12 6.5V20"/></svg>',
+    community:lwCommunityIco(false)
   }[t]||''); }
-  function tabBtn(t){ const on=currentTab===t, L=CAP(t), dot = (t==='reflect' && !on && _rdHasNew()); return `<button data-t="${t}" class="${on?'on':''}${dot?' tab-new':''}" aria-label="${L}${dot?', a new reflection is ready':''}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
+  function tabBtn(t){ const on=currentTab===t || (t==='you' && currentTab==='reflect'), L=(t==='community' ? lwTabName() : CAP(t)), dot = (t==='you' && currentTab!=='reflect' && _rdHasNew()); return `<button data-t="${t}" class="${on?'on':''}${dot?' tab-new':''}" aria-label="${L}${dot?', a new reflection is ready':''}"${on?' aria-current="page"':''}><span class="ic" aria-hidden="true">${tabIcon(t,on)}</span><span class="lb">${L}</span></button>`; }
   // the four tabs. Reflect (Justin, 2026-10-01): "Reflect" not "Reflections", because it is an action, like Practice
   // Learn (Justin, 2026-10-01): its own tab, separate from Reflect ("connected but different paths")
-  function TABS(){ return tabBtn('now') + tabBtn('practice') + tabBtn('reflect') + tabBtn('learn') + tabBtn('you'); }
+  // 2026-10-26 (Circle move, Justin approved the menu): Now, Practice, Community, Learn, You. Reflect folds into You:
+  // it opens from the You tab's "Your Reflection" card, and the tab bar lights You (and carries the new-reflection dot) for it.
+  function TABS(){ return tabBtn('now') + tabBtn('practice') + tabBtn('community') + tabBtn('learn') + tabBtn('you'); }
   // a dot on Reflect when the newest released post has not been opened from the hub yet
   function _rdHasNew(){ try{ const ps=_rdPosts(); if(!ps.length) return false; const top=ps.slice().sort((a,b)=>b.release-a.release)[0]; if(Date.now()-top.release > 7*864e5) return false; return localStorage.getItem('snb_rd_seen_key')!==top.key; }catch(e){ return false; } }
   function _rdMarkSeen(){ try{ const ps=_rdPosts(); if(!ps.length) return; const top=ps.slice().sort((a,b)=>b.release-a.release)[0]; localStorage.setItem('snb_rd_seen_key', top.key); }catch(e){} }
@@ -3895,6 +5076,15 @@ function app(tab){
     const sc = root.querySelector('.scroll'); if(!sc) return; let tm = null;
     sc.addEventListener('scroll', ()=>{ clearTimeout(tm); tm = setTimeout(()=>{ try{ const o = JSON.parse(localStorage.getItem(_RD_LOC) || 'null'); if(o){ o.y = Math.round(sc.scrollTop); o.t = Date.now(); localStorage.setItem(_RD_LOC, JSON.stringify(o)); } }catch(e){} }, 250); }, { passive:true });
   }
+  // breadcrumbs on tablet and desktop (Justin, 2026-10-26: the floating Back "looks weird at bigger sizes ... it's a dynamic
+  // button that comes up from the bottom menu"; picked breadcrumbs): ‹ Learn / Topic / This video. The arrow goes back to
+  // where the member came from; each name opens that page. Phones keep the floating Back (CSS shows one or the other).
+  function _rdCrumbHTML(parts){
+    return `<nav class="rd-crumb" aria-label="Breadcrumb"><button class="rd-crumb-back" type="button" data-crumb="back" aria-label="Back">${BACK_SVG}</button>${parts.map((p, i)=>i < parts.length - 1
+      ? `<a href="#" class="rd-crumb-a" data-crumb="${i}">${escapeHtml(p.label)}</a><span class="rd-crumb-sep" aria-hidden="true">/</span>`
+      : `<span class="rd-crumb-here" aria-current="page">${escapeHtml(p.label)}</span>`).join('')}</nav>`;
+  }
+  const _rdCrumbTopic = (k, go) => k && window.Learning.HUBS[k] ? [{ label:_lrnHubName(k), go:()=>screenLearnHub(k, { label:'Learn', go }) }] : [];
   function _rdShell(inner, opts){
     opts = opts || {};
     currentTab = opts.tab || 'reflect';
@@ -3904,11 +5094,11 @@ function app(tab){
     const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
     // Learn search (Justin, 2026-10-02: "I don't want a search bar at the top. Make it a pop-up menu item, just like the back
     // button is ... just the magnifying glass that expands when tapped")
-    const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search articles" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search articles" aria-label="Search articles" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
+    const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
       <header class="appbar read-appbar"></header>
-      <div class="scroll"><div class="view read rd" style="gap:0">${inner}</div></div>
-      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
+      <div class="scroll"><div class="view read rd" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${inner}</div></div>
+      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock${opts.crumb && tabBack && !sFloat && !opts.dock ? ' fl-backonly' : ''}" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     if(opts.onBack) document.body.classList.add('rd-sub');
@@ -3916,6 +5106,8 @@ function app(tab){
     _rdTrackScroll();
     $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const tb = $('#tab-back'); if(tb && opts.onBack) tb.onclick = opts.onBack;
+    if(opts.crumb){ document.body.classList.add('rd-crumbs');
+      root.querySelectorAll('[data-crumb]').forEach(b=>b.onclick=e=>{ e.preventDefault(); const k = b.dataset.crumb; if(k === 'back'){ if(opts.onBack) opts.onBack(); return; } const p = opts.crumb[+k]; if(p && p.go) p.go(); }); }
   }
   // what comes next, said plainly under Today (Justin: "it's not clear what is coming or how it comes")
   function _rdNextLine(){
@@ -3972,16 +5164,24 @@ function app(tab){
     const L = window.Learning; if(!L || !L.HUBS) return '';
     const paid = paidNow();
     const shelf = k => {
-      const all = L.inGroup(k); if(!all.length) return '';
-      const ps = _lrnByRead(all).slice(0, _LRN_SHELF);
-      const cards = ps.map(p=>{ const read = _lrnIsRead(p.id);
+      const all = L.inGroup(k), med = _lmData ? _lmData.items.filter(x=>(x.g || []).indexOf(k) >= 0) : [];
+      if(!all.length && !med.length) return '';
+      // grouped by type, not mixed (Justin, 2026-10-26): articles, then episodes, then videos, two of each when there are
+      // two; a type with fewer leaves its room to the others
+      const arts = _lrnByRead(all), eps = med.filter(x=>x.s === 'p'), vids = med.filter(x=>x.s === 'v');
+      let ne = Math.min(eps.length, 2), nv = Math.min(vids.length, 2), na = Math.min(arts.length, _LRN_SHELF - ne - nv);
+      ne = Math.min(eps.length, _LRN_SHELF - na - nv); nv = Math.min(vids.length, _LRN_SHELF - na - ne);
+      const artCard = p=>{ const read = _lrnIsRead(p.id);
         // the marks live on the row's heading only (Justin, 2026-10-02: on every card too "it's too much"); the card keeps a strip of the state's color
-        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta">${p.paid && !paid ? LOCK_SVG + 'Paid plan · ' : ''}${read?_lrnReadMk() + 'Read · ':''}${escapeHtml((p.minutes||1) + ' min read')}</span></button>`; }).join('');
-      const more = all.length > _LRN_SHELF ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(all.length + ' articles')}</span><span class="wc-go">${CHEV}</span></button>` : '';
-      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(_lrnHubCount(k))}</span><span class="wc-go">${CHEV}</span></button>
+        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta lm-m">${_lmArtMeta(p)}</span></button>`; };
+      const medCard = x=>`<button class="ll-card" type="button" data-media="${escapeHtml(x.i)}" style="--band:${STATE_COLOR(_lmState(x) || k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(x.t)}</b><span class="ll-card-meta lm-m">${_lmMedMeta(x)}</span></button>`;
+      const cards = arts.slice(0, na).map(artCard).concat(eps.slice(0, ne).map(medCard), vids.slice(0, nv).map(medCard)).join('');
+      const total = all.length + med.length, cnt = _lrnHubCount(k);
+      const more = total > na + ne + nv ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>` : '';
+      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>
         <div class="ll-row">${cards}${more}</div></div>`;
     };
-    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
+    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length && !(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0))).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
     const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
     return `<section class="rd-learn rd-learnhubs">${_lrnStateOrder().map(shelf).join('')}
         ${soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : ''}
@@ -4043,40 +5243,603 @@ function app(tab){
     const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
     const forNow = lastK ? _lrnForDaily(lastK) : null;
     _rdShell(`
-          <div class="scr-head read-head"><h1 class="read-h1">Learn</h1></div>
+          <div class="scr-head read-head" id="lm-learn"><h1 class="read-h1">Learn</h1></div>
+          ${_lmActiveHTML()}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
-          ${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
-          ${_rdLearnSection()}
-          </div>`, { tab:'learn', search:true });
+          ${_lmFiltered() ? _lmListHTML() : `${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
+          ${_rdLearnSection()}`}
+          </div>
+          ${_lmSheetHTML()}`, { tab:'learn', search:true, dock:_lmFbtnHTML() });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
     root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
-    _lrnSearchWire(open);
+    root.querySelectorAll('.rd-learnhubs [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    _lmWire();
+    _lrnSearchWire(open, id=>screenMedia(id, here));
+  }
+  // ---- Listen and watch (2026-10-26; mockups "Learn Library Mockups"). Justin: "throw all of the free Learn content in
+  // together and have it be filtered by media and topic." The list is learn/media.json, built from Captivate and YouTube by
+  // media-catalog (snb-business learn-media/catalog.json). s: p podcast · c Stucknaut Collective (paid) · v video · s Short.
+  // Topics are read from titles for now (g); the transcript pass will tag each episode properly.
+  let _lmMedia = 'all', _lmTopic = 'all', _lmData = null, _lmP = null, _lmShown = 40;
+  const _LM_STATES = ['safety', 'fightflight', 'freeze', 'shutdown'];
+  const _LM_TOPICS = [['all', 'All topics'], ['safety', null], ['fightflight', null], ['freeze', null], ['shutdown', null], ['feel', 'Feelings'], ['rel', 'Relationships'], ['family', 'Family and parenting'], ['work', 'Work and stress']];
+  function _lmLoad(){
+    if(_lmData) return Promise.resolve(_lmData);
+    if(!_lmP) _lmP = fetch('learn/media.json?v=1').then(r=>{ if(!r.ok) throw new Error('media'); return r.json(); })
+      .then(d=>{ _lmData = d && d.items ? d : { items:[] }; return _lmData; }).catch(()=>{ _lmP = null; return null; });
+    return _lmP;
+  }
+  const _lmById = id => _lmData ? _lmData.items.find(x=>x.i === id) || null : null;
+  const _LM_IC = { read:'M4 5h7a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-7a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h7z', listen:'M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4zM17 14h3v6h-3z', watch:'M5 5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM10 9l5 3-5 3z' };
+  const _lmIcon = k => `<span class="lm-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${_LM_IC[k]}"/></svg></span>`;
+  const _lmLen = n => { if(!n) return ''; if(n < 60) return 'under a minute'; const m = Math.round(n / 60); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); };
+  const _lmClock = s => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = String(s % 60).padStart(2, '0'); return h ? h + ':' + String(m).padStart(2, '0') + ':' + ss : m + ':' + ss; };
+  const _lmDate = d => { try{ return d ? new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) : ''; }catch(e){ return ''; } };
+  const _lmKind = x => x.s === 'p' ? 'Podcast' : x.s === 'c' ? 'Stucknaut Collective' : x.s === 'v' ? 'Video' : 'Short';
+  const _lmIsListen = x => x.s === 'p' || x.s === 'c';
+  const _lmState = x => (x.g || []).find(g=>_LM_STATES.indexOf(g) >= 0) || null;
+  // ---- round 2 (2026-10-26): Justin's asks. One meta line on every card ([media icon] · length · date), counts in lessons,
+  // every combined list grouped by type, a published-date filter, and a Filter button with a slide-up sheet that holds the
+  // filters (the chip rows moved into it; the page shows only what is on, each with an ×).
+  let _lmWhen = 'any', _lmDur = 'any';
+  // Length (Justin, 2026-10-26: "a run time/read filter"): run time for episodes and videos, reading time for articles
+  const _LM_DURS = [['any', 'Any length'], ['u5', 'Under 5 min'], ['5to15', '5 to 15 min'], ['15to30', '15 to 30 min'], ['o30', 'Over 30 min']];
+  function _lmDurOk(min){
+    if(_lmDur === 'any') return true; if(min == null) return false;
+    return _lmDur === 'u5' ? min < 5 : _lmDur === '5to15' ? min >= 5 && min < 15 : _lmDur === '15to30' ? min >= 15 && min < 30 : min >= 30;
+  }
+  const _LM_TYPES = [['a', 'Articles'], ['p', 'Podcast'], ['c', 'Stucknaut Collective'], ['v', 'Videos'], ['s', 'Shorts']];
+  const _LM_NOUN = { a:'articles', p:'episodes', c:'episodes', v:'videos', s:'Shorts' };
+  const _LM_MEDIA = [['all', 'All'], ['read', 'Read'], ['listen', 'Listen'], ['watch', 'Watch']];
+  const _LM_WHENS = [['any', 'Any time'], ['month', 'Past month'], ['year', 'Past year'], ['older', 'Older than a year']];
+  const _LM_MI = { read:'<path d="M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"/>',
+    listen:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"/>', watch:'<path d="M8 5.5v13l11-6.5z"/>' };
+  const _lmMi = (k, label) => `<svg class="lm-mi" viewBox="0 0 24 24" role="img" aria-label="${escapeHtml(label)}">${_LM_MI[k]}</svg>`;
+  const _LM_SEP = '<span class="lm-sep" aria-hidden="true">·</span>';
+  // cards and rows show the month and year as numbers, "09/26" (Justin, 2026-10-26: the full date "takes up too much space")
+  const _lmMY = d => /^\d{4}-\d{2}/.test(d || '') ? d.slice(5, 7) + '/' + d.slice(2, 4) : '';
+  function _lmMetaHTML(k, label, len, date, lock, read){
+    const parts = [_lmMi(k, label)];
+    if(len) parts.push(escapeHtml(len));
+    if(date) parts.push(escapeHtml(_lmMY(date)));
+    if(lock) parts.push(LOCK_SVG + 'Self-Regulator');
+    if(read) parts.push(_lrnReadMk() + 'Read');
+    return parts.join(_LM_SEP);
+  }
+  // articles have no published date of their own; the ones made from a podcast episode take the episode's date when its
+  // number is unique in the feed (the new season restarted at 1)
+  let _lmEpDate = null;
+  function _lmArtDate(p){
+    if(!p || !p.episode || !_lmData) return '';
+    if(!_lmEpDate){ const n = {}; _lmEpDate = {}; _lmData.items.forEach(x=>{ if(x.s === 'p' && x.e){ n[x.e] = (n[x.e] || 0) + 1; _lmEpDate[x.e] = x.d; } }); Object.keys(n).forEach(e=>{ if(n[e] > 1) delete _lmEpDate[e]; }); }
+    return _lmEpDate[p.episode] || '';
+  }
+  const _lmArtMeta = p => _lmMetaHTML('read', p.paid ? 'Book chapter' : 'Article', (p.minutes || 1) + ' min read', _lmArtDate(p), p.paid && !paidNow(), _lrnIsRead(p.id));
+  const _lmMedMeta = x => _lmMetaHTML(_lmIsListen(x) ? 'listen' : 'watch', _lmKind(x) + (_lmIsListen(x) ? ' episode' : ''), x.s === 's' && !x.n ? 'under a minute' : _lmLen(x.n), x.d, x.s === 'c' && !paidNow(), false);
+  function _lmRowHTML(x){
+    return `<button class="lm-row" type="button" data-media="${escapeHtml(x.i)}"><span class="lm-tx"><b>${escapeHtml(x.t)}</b><span class="lm-m">${_lmMedMeta(x)}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  }
+  function _lmArtRowHTML(p){
+    return `<button class="lm-row${_lrnIsRead(p.id) ? ' is-read' : ''}" type="button" data-piece="${escapeHtml(p.id)}"><span class="lm-tx"><b>${escapeHtml(p.title)}</b><span class="lm-m">${_lmArtMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  }
+  const _lmTopicLabel = t => window.Learning.TOPICS[t] || STATE_LABEL(t);
+  function _lmWhenOk(d){
+    if(_lmWhen === 'any') return true; if(!d) return false;
+    const age = (Date.now() - new Date(d + 'T12:00:00').getTime()) / 864e5;
+    return _lmWhen === 'month' ? age <= 31 : _lmWhen === 'year' ? age <= 366 : age > 366;
+  }
+  // every lesson that matches, grouped by type in the library's order. hub: a hub's own lessons, no date filter
+  function _lmGroups(m, t, hub){
+    const L = window.Learning;
+    const okW = hub ? ()=>true : _lmWhenOk, okD = hub ? ()=>true : _lmDurOk;
+    const arts = (m === 'all' || m === 'read') ? (hub ? L.inGroup(t) : L.PIECES.filter(p=>t === 'all' || p.state === t || (p.groups || []).indexOf(t) >= 0)).filter(p=>okW(_lmArtDate(p)) && okD(p.minutes || 1)) : [];
+    const med = m === 'read' || !_lmData ? [] : _lmData.items.filter(x=>(m === 'all' || (m === 'listen') === _lmIsListen(x)) && (t === 'all' || (x.g || []).indexOf(t) >= 0) && okW(x.d) && okD(x.n ? x.n / 60 : x.s === 's' ? 0.5 : null));
+    const out = [];
+    _LM_TYPES.forEach(([k, label])=>{ const list = k === 'a' ? _lrnByRead(arts) : med.filter(x=>x.s === k); if(list.length) out.push({ k, label, list }); });
+    return out;
+  }
+  const _lmN = gs => gs.reduce((s, g)=>s + g.list.length, 0);
+  const _lmLessons = n => n === 1 ? '1 lesson' : n + ' lessons';
+  // the groups as rows under their own headings, `limit` rows in all (the rest behind Show more)
+  function _lmGroupsHTML(gs, rowA, rowM, limit, cls){
+    let left = limit == null ? Infinity : limit; const out = [];
+    gs.forEach(g=>{ if(left <= 0) return; const rows = g.list.slice(0, left); left -= rows.length;
+      out.push(`<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="${cls}">${rows.map(e=>g.k === 'a' ? rowA(e) : rowM(e)).join('')}</div>`); });
+    return out.join('');
+  }
+  const _lmFiltered = () => !(_lmMedia === 'all' && _lmTopic === 'all' && _lmWhen === 'any' && _lmDur === 'any');
+  // the filtered list: each type under its own heading, the first eight of each, then "Show all" for that type
+  let _lmOpen = {};
+  function _lmListHTML(){
+    const gs = _lmGroups(_lmMedia, _lmTopic), n = _lmN(gs), wait = !_lmData && _lmMedia !== 'read';
+    const sec = g => { const all = !!_lmOpen[g.k] || g.list.length <= 10, rows = all ? g.list : g.list.slice(0, 8);
+      return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="lm-rows">${rows.map(e=>g.k === 'a' ? _lmArtRowHTML(e) : _lmRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall lm-more" type="button" data-lmgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
+    return `<section class="rd-learn lm-list"><p class="ll-res-n">${escapeHtml(n || wait ? _lmLessons(n) : 'No lessons match these filters.')}${wait ? ' <span class="ll-res-wait">Loading episodes and videos…</span>' : ''}</p>
+          ${gs.map(sec).join('')}${!n && !wait ? '<button class="lm-clear" type="button" data-lmx="all">Clear filters</button>' : ''}</section>`;
+  }
+  // what is filtered, under the heading: one pill each, × takes it off
+  function _lmActiveHTML(){
+    if(!_lmFiltered()) return '';
+    const on = [];
+    if(_lmMedia !== 'all') on.push(['lmm', (_LM_MEDIA.find(x=>x[0] === _lmMedia) || [])[1]]);
+    if(_lmTopic !== 'all') on.push(['lmt', _lmTopicLabel(_lmTopic)]);
+    if(_lmWhen !== 'any') on.push(['lmw', (_LM_WHENS.find(x=>x[0] === _lmWhen) || [])[1]]);
+    if(_lmDur !== 'any') on.push(['lmd', (_LM_DURS.find(x=>x[0] === _lmDur) || [])[1]]);
+    return `<div class="lm-active" role="group" aria-label="Filters">${on.map(([g, l])=>`<button class="lm-chip on" type="button" data-lmx="${g}" aria-label="Take off ${escapeHtml(l)}"><span>${escapeHtml(l)}</span><span class="lm-x" aria-hidden="true">×</span></button>`).join('')}${on.length > 1 ? '<button class="lm-clear" type="button" data-lmx="all">Clear all</button>' : ''}</div>`;
+  }
+  const _lmOnCount = () => (_lmMedia !== 'all') + (_lmTopic !== 'all') + (_lmWhen !== 'any') + (_lmDur !== 'any');
+  const _lmFbtnHTML = () => { const n = _lmOnCount(); return `<button class="jr-fbtn lm-fbtn" id="lm-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="lm-fsheet" aria-label="${n ? 'Filter, ' + n + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${n ? `<span class="lm-fn" aria-hidden="true">${n}</span>` : ''}</button>`; };
+  function _lmSheetHTML(){
+    const L = window.Learning;
+    const chip = (grp, id, label, on, mk) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${grp}="${id}" aria-pressed="${on}">${mk || ''}<span>${escapeHtml(label)}</span></button>`;
+    const hasMed = k => !!(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0));
+    const states = L.STATE_HUBS.filter(k=>L.inGroup(k).length || hasMed(k)), topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length || hasMed(k));
+    return `<div class="rd-jr-sheet lm-fsheet" id="lm-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in">
+        <span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="lm-fs-body">
+          <span class="rd-eyeb">Media</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
+          <span class="rd-eyeb">Published</span><div class="lm-chips">${_LM_WHENS.map(([id, l])=>chip('lmw', id, l, _lmWhen === id)).join('')}</div>
+          <p class="lm-fs-note">Most articles have no published date, so they show under Any time.</p>
+          <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lmd', id, l, _lmDur === id)).join('')}</div>
+          <p class="lm-fs-note">Run time for episodes and videos, reading time for articles.</p>
+          <span class="rd-eyeb">Topic</span><div class="lm-chips">${chip('lmt', 'all', 'All topics', _lmTopic === 'all')}${states.map(k=>chip('lmt', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
+        </div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lm-fclear">Clear all</button><button class="lm-fshow" type="button" id="lm-fshow">Show</button></div>
+      </div></div>`;
+  }
+  function _lmWireSheet(){
+    const btn = $('#lm-fbtn'), sh = $('#lm-fsheet'); if(!btn || !sh) return;
+    const box = sh.querySelector('.rd-jr-sheet-in'), show = $('#lm-fshow');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const now = () => [_lmMedia, _lmTopic, _lmWhen, _lmDur].join('|');
+    let before = now(), tmr = null;
+    const paint = () => {
+      sh.querySelectorAll('[data-lmm]').forEach(b=>{ const on = b.dataset.lmm === _lmMedia; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      sh.querySelectorAll('[data-lmt]').forEach(b=>{ const on = b.dataset.lmt === _lmTopic; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      sh.querySelectorAll('[data-lmw]').forEach(b=>{ const on = b.dataset.lmw === _lmWhen; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      sh.querySelectorAll('[data-lmd]').forEach(b=>{ const on = b.dataset.lmd === _lmDur; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+      show.textContent = _lmFiltered() ? 'Show ' + _lmLessons(_lmN(_lmGroups(_lmMedia, _lmTopic))) : 'Show all lessons';
+    };
+    const esc = e => { if(e.key === 'Escape') close(); };
+    const open = () => { clearTimeout(tmr); before = now(); paint(); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc); };
+    const close = () => {
+      document.removeEventListener('keydown', esc);
+      sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); btn.setAttribute('aria-expanded', 'false');
+      tmr = setTimeout(()=>{ sh.hidden = true; if(now() !== before){ _lmOpen = {}; _lmRedraw(true); } else try{ btn.focus({ preventScroll:true }); }catch(e){} }, reduce ? 0 : 320);
+    };
+    btn.onclick = open;
+    sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
+    sh.onclick = e => { if(e.target === sh) close(); };
+    sh.querySelectorAll('[data-lmm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lmm; paint(); });
+    sh.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lmt; paint(); });
+    sh.querySelectorAll('[data-lmw]').forEach(b=>b.onclick=()=>{ _lmWhen = b.dataset.lmw; paint(); });
+    sh.querySelectorAll('[data-lmd]').forEach(b=>b.onclick=()=>{ _lmDur = b.dataset.lmd; paint(); });
+    $('#lm-fclear').onclick = () => { _lmMedia = 'all'; _lmTopic = 'all'; _lmWhen = 'any'; _lmDur = 'any'; paint(); };
+    // down on the top of the sheet closes it, as the Journal sheet does
+    let y0 = 0, dragging = false;
+    box.addEventListener('touchstart', e=>{ y0 = e.touches[0].clientY; dragging = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab'); }, { passive:true });
+    box.addEventListener('touchmove', e=>{ if(!dragging) return; const dy = e.touches[0].clientY - y0; box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, dy)}px)`; }, { passive:true });
+    box.addEventListener('touchend', e=>{ if(!dragging) return; dragging = false; box.style.transition = ''; if(e.changedTouches[0].clientY - y0 > 90) close(); else box.style.transform = ''; });
+  }
+  // redraw Learn where it was: the page's scroll and the topic row's scroll both stay put
+  function _lmRedraw(top){
+    const sc = root.querySelector('.scroll'), tr = root.querySelector('.lm-active');
+    const y = top ? 0 : sc ? sc.scrollTop : 0, x = tr ? tr.scrollLeft : 0;
+    screenLearn(true);
+    const s2 = root.querySelector('.scroll'), t2 = root.querySelector('.lm-active');
+    if(s2) s2.scrollTop = y; if(t2) t2.scrollLeft = x;
+  }
+  function _lmWire(){
+    root.querySelectorAll('[data-lmx]').forEach(b=>b.onclick=()=>{ const g = b.dataset.lmx;
+      if(g === 'lmm' || g === 'all') _lmMedia = 'all'; if(g === 'lmt' || g === 'all') _lmTopic = 'all'; if(g === 'lmw' || g === 'all') _lmWhen = 'any'; if(g === 'lmd' || g === 'all') _lmDur = 'any';
+      _lmOpen = {}; _lmRedraw(true); });
+    _lmWireSheet();
+    // the library list gives the counts and the episode and video cards: once it is here, draw Learn again where it was
+    if(!_lmData) _lmLoad().then(d=>{ if(d && root.querySelector('#lm-learn') && !(document.activeElement && document.activeElement.id === 'll-q') && !document.body.classList.contains('jr-sheet-on')) _lmRedraw(); });
+    const box = root.querySelector('.lm-list'); if(!box) return;
+    box.querySelectorAll('[data-lmgrp]').forEach(b=>b.onclick=()=>{ _lmOpen[b.dataset.lmgrp] = true; _lmRedraw(); });
+    const here = { label:'Learn', go:()=>screenLearn(true) };
+    box.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here); });
+    box.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+  }
+  // the member's own data for what this piece covers (the same idea as the articles' callouts)
+  function _lmCheckinsHTML(x){
+    const st = _lmState(x); if(!st) return '';
+    let cs = []; try{ cs = Store.checkins ? Store.checkins() : []; }catch(e){}
+    const now = Date.now(), win = cs.filter(c=>c && c.t >= now - 28 * 864e5); if(!win.length) return '';
+    const n = win.filter(c=>_cDom(c) === st).length, pct = Math.round(100 * n / win.length);
+    const line = n ? `${pct}% of your check-ins over the last 4 weeks were mostly ${STATE_NAME(st)}.` : `None of your check-ins over the last 4 weeks were mostly ${STATE_NAME(st)}.`;
+    return `<div class="lm-card"><span class="rd-eyeb">From your check-ins</span><h2 class="lm-h">${_rdMk(st)}<span>${escapeHtml(STATE_LABEL(st))}</span></h2><p class="read-p">${escapeHtml(line)}</p></div>`;
+  }
+  // the lead card (layout B, 2026-10-26): the member's own data as a picture, one of the four article callouts that fit the
+  // piece (its state week by week, its state by time of day, every state side by side, before and after practices). Among
+  // those with data, the piece's id picks, so screens vary and each keeps its card. Free: the locked card; under 3 check-ins:
+  // the wait line; nothing to show: no card.
+  function _lmLeadHTML(x){
+    const paid = paidNow(), st = _lmState(x), now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28 * 864e5, now + 1);
+    if(!paid) return `<section class="lm-lead">${_lrnCallHTML({ mk:st || 'safety', label:'Your check-ins' }, false, ctx)}</section>`;
+    const n = gCheckinCount(); if(n < 3) return `<section class="lm-lead">${_lrnWaitHTML(n)}</section>`;
+    const ids = (st ? ['weeks:' + st, 'time:' + st] : []).concat(['states', 'before-after']);
+    const cs = ids.map(id=>{ try{ return _lrnCallout(id, ctx); }catch(e){ return null; } }).filter(Boolean);
+    if(!cs.length) return '';
+    let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    let c = cs[h % cs.length];
+    // week by week on a media page: one row of columns, oldest to newest (Justin, 2026-10-26: eight rows "is too much
+    // vertical ... Just saying 'the past 8 weeks' is enough")
+    if(c.cols){
+      const col = STATE_COLOR(c.mk), k = c.cols.length;
+      const bars = c.cols.map(w=>`<span class="lm-col"><i style="height:${w.n && w.x > 0 ? Math.max(6, Math.round(100 * w.x)) : 0}%;background:${col}"></i></span>`).join('');
+      c = Object.assign({}, c, { card:`<div class="rd-snap rd-snap-in lm-cols" role="img" aria-label="${escapeHtml(c.text)}">${bars}</div><p class="rd-cap">The past ${k === 1 ? 'week' : k + ' weeks'}</p>` });
+      return `<section class="lm-lead">${_lrnCallHTML(c, true, ctx).replace(/<span class="rd-call-per">[^<]*<\/span>/, '')}</section>`;
+    }
+    if(c.mix){
+      const N = c.mix.reduce((a, m)=>a + m.n, 0) || 1, on = c.mix.filter(m=>m.n);
+      const seg = on.map(m=>`<span style="flex:${m.n} 1 0;background:${STATE_COLOR(m.k)}"></span>`).join('');
+      const key = on.map(m=>`<span class="lm-key"><i style="background:${STATE_COLOR(m.k)}"></i>${escapeHtml(m.nm)} ${Math.round(100 * m.n / N)}%</span>`).join('');
+      c = Object.assign({}, c, { card:`<div class="rd-snap rd-snap-in lm-mix"><div class="lm-mixbar" role="img" aria-label="${escapeHtml(on.map(m=>m.nm + ' ' + Math.round(100 * m.n / N) + '%').join(', '))}">${seg}</div><div class="lm-keys">${key}</div></div>` });
+    }
+    return `<section class="lm-lead">${_lrnCallHTML(c, true, ctx)}</section>`;
+  }
+  // DRAFT journal prompts (App Designer, 2026-10-26), for Justin to replace; the transcript pass will give each episode its own
+  const _LM_JQ = { safety:'When you notice a little safety, what do you notice first?', fightflight:'When flight/fight comes up, where do you feel it first?',
+    freeze:'When you notice freeze, what helps the brake ease a little?', shutdown:'When you notice numbness or heaviness, what do you notice first?' };
+  function _lmJournalHTML(x){
+    const st = _lmState(x); if(!st) return '';
+    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
+    const saved = ((_ctxLoad()['mj:' + x.i + ':1']) || [])[0] || '';
+    return `<div class="lm-card lm-card-o"><span class="rd-eyeb">Journal</span><label class="read-p rd-refl-q" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="rd-refl-in" id="lm-j" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><button class="lm-save" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div>`;
+  }
+  function _lmWireCards(x){
+    const st = _lmState(x), js = $('#lm-jsave'), jt = $('#lm-j');
+    if(js && jt && st){
+      jt.oninput = ()=>{ js.textContent = 'Save to my journal'; };
+      js.onclick = ()=>{ const txt = jt.value.trim(), key = 'mj:' + x.i + ':1', q = _LM_JQ[st], val = txt ? [txt, new Date().toISOString().slice(0, 10), q, x.t, st] : [];
+        try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m = _ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
+        js.textContent = txt ? 'Saved' : 'Save to my journal'; haptic && haptic('save'); };
+    }
+    root.querySelectorAll('.rd-jr-locked, .lm-sub, .lm-lead .rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+  }
+  // descriptions (round 2): learn/media-desc.json, {d:{id:text}} from the episode show notes and the video descriptions,
+  // links and hashtags taken out (snb-business learn-media/media-desc.py). Loaded on the first media screen. An episode
+  // without one takes its video's, and the other way round.
+  let _lmDesc = null, _lmDescP = null;
+  function _lmDescLoad(){
+    if(_lmDesc) return Promise.resolve(_lmDesc);
+    if(!_lmDescP) _lmDescP = fetch('learn/media-desc.json?v=3').then(r=>{ if(!r.ok) throw new Error('desc'); return r.json(); })
+      .then(d=>{ _lmDesc = d && d.d ? d.d : {}; return _lmDesc; }).catch(()=>{ _lmDescP = null; return null; });
+    return _lmDescP;
+  }
+  const _lmDescOf = x => _lmDesc ? (_lmDesc[x.i] || (x.y && _lmDesc[x.y]) || (x.p && _lmDesc[x.p]) || '') : '';
+  function _lmDescHTML(x){
+    const ps = _lmDescOf(x).split(/\n{2,}/).map(t=>t.trim()).filter(Boolean); if(!ps.length) return '';
+    const p = t => `<p class="read-p">${escapeHtml(t)}</p>`;
+    // closed until tapped (Justin, 2026-10-26: "make it a drop-down option"), the same drop-down as "In this article"
+    return `<details class="rd-toc lm-about"><summary><span>About this ${x.s === 'p' || x.s === 'c' ? 'episode' : x.s === 's' ? 'Short' : 'video'}</span><span class="rd-toc-n"></span><span class="rd-toc-chev" aria-hidden="true">${CHEV}</span></summary><div class="lm-about-b">${ps.map(p).join('')}</div></details>`;
+  }
+  function _lmWireDesc(scope){
+    const b = scope.querySelector('.lm-desc-btn'), m = scope.querySelector('.lm-desc-more'); if(!b || !m) return;
+    b.onclick = () => { const on = m.hidden; m.hidden = !on; b.textContent = on ? 'Show less' : 'Show more'; b.setAttribute('aria-expanded', on ? 'true' : 'false'); };
+  }
+  function _lmFillDesc(x){
+    const box = $('#lm-desc'); if(!box) return;
+    const fill = () => { const h = _lmDescHTML(x); box.innerHTML = h; box.hidden = !h; _lmWireDesc(box); const m = box.closest('.lm-mod'); if(m && !h) m.remove(); };
+    if(_lmDesc) return fill();
+    _lmDescLoad().then(d=>{ if(d && box.isConnected) fill(); });
+  }
+  // Keep learning on every media screen, as the articles have (Justin, 2026-10-26): something to read, to listen to, to
+  // watch, a practice, and the learning hubs. Picked by the topics the piece shares (from titles until the transcript pass);
+  // among equal picks the piece's own id chooses, so each screen keeps its picks and they vary across screens.
+  function _lmKeepHTML(x){
+    const L = window.Learning, g = x.g || [], st = _lmState(x), paid = paidNow();
+    let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const pick = (list, score) => { let best = 0, top = []; list.forEach(e=>{ const n = score(e); if(n > best){ best = n; top = [e]; } else if(n && n === best) top.push(e); }); return top.length ? top[h % top.length] : null; };
+    const shared = gs => (gs || []).filter(k=>g.indexOf(k) >= 0).length;
+    const rows = [];
+    if(g.length){
+      const sc = p => shared(p.groups) + (st && p.state === st ? 1 : 0);
+      const read = pick(L.PIECES.filter(p=>!_lrnIsRead(p.id)), sc) || pick(L.PIECES, sc);
+      if(read) rows.push(['Read next', _lrnRowHTML(read)]);
+    }
+    const others = _lmData ? _lmData.items.filter(e=>e.i !== x.i && e.i !== x.y && e.i !== x.p && (paid || e.s !== 'c')) : [];
+    const next = kinds => { const list = others.filter(e=>kinds.indexOf(e.s) >= 0); return g.length ? pick(list, e=>shared(e.g)) : list[0] || null; };
+    const lis = next(x.s === 'c' ? ['c', 'p'] : ['p']), wat = next(x.s === 's' ? ['s'] : ['v']);
+    const pair = x.y ? _lmById(x.y) : x.p ? _lmById(x.p) : null;
+    if(pair) rows.unshift([x.y ? 'The same episode on video' : 'The same episode as audio', _lrnMediaRowHTML(pair)]);
+    const ord = _lmIsListen(x) ? [['Listen next', lis], ['Watch next', wat]] : [['Watch next', wat], ['Listen next', lis]];
+    ord.forEach(([l, e])=>{ if(e) rows.push([l, _lrnMediaRowHTML(e)]); });
+    const pt = _lrnPracticeThis({ practice:'custom' });
+    const hubs = g.filter(k=>L.HUBS[k]);
+    return `<section class="rd-learn rd-keep lm-keep"><h3 class="sec-h">Keep learning</h3>
+        ${rows.map(([l, r])=>`<span class="rd-eyeb rd-keep-eyeb">${escapeHtml(l)}</span><div class="rd-list rd-list-flat">${r}</div>`).join('')}
+        <span class="rd-eyeb rd-keep-eyeb">Practice</span><button class="rd-pcard" type="button" data-prac="custom"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button>
+        ${hubs.length ? `<span class="rd-eyeb rd-keep-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubs.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div>` : ''}
+      </section>`;
+  }
+  function _lmWireKeep(scope, here){
+    const L = window.Learning;
+    scope.querySelectorAll('.lm-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here.go, tab:'learn' }); });
+    scope.querySelectorAll('.lm-keep [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    scope.querySelectorAll('.lm-keep [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    scope.querySelectorAll('.lm-keep [data-prac]').forEach(b=>b.onclick=()=>renderPlan(_lrnPracticeReco({ practice:'custom' }), _trueBack(here.go)));
+  }
+  const _LM_PLAY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>';
+  const _LM_PAUSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+  const _lmCrumb = x => { const L = window.Learning, go = ()=>screenLearn(true);
+    return [{ label:'Learn', go }].concat(_rdCrumbTopic((x.g || []).find(k=>L.HUBS[k]), go), [{ label: x.s === 's' ? 'This Short' : _lmIsListen(x) ? 'This episode' : 'This video' }]); };
+  // ---- the cards under the player, in the member's own order (step 4, 2026-10-26; round 2 the same night: each pick its own
+  // card, half or full width on a two-column grid, empty cards not drawn)
+  const _LM_MODS = ['lead', 'journal', 'about', 'same', 'next', 'other', 'read', 'practice', 'hubs'];
+  const _LM_FIXED = { lead:1, journal:1, about:1, hubs:1 };              // always full width
+  const _LM_HALF = { same:1, next:1, other:1, read:1, practice:1 };      // half width unless the member widens it
+  // the saved order: 'id', '-id' hidden, 'id:h' / 'id:f' a size the member chose
+  const _lmParse = k => { const m = /^(-)?([a-z]+)(?::([hf]))?$/.exec(k || ''); return m && _LM_MODS.indexOf(m[2]) >= 0 ? { id:m[2], off:!!m[1], size:m[3] || '' } : null; };
+  function _lmLayout(){
+    let v = null; try{ v = _ctxLoad()['ml:layout']; }catch(e){}
+    const out = (Array.isArray(v) ? v : []).map(_lmParse).filter(Boolean);
+    _LM_MODS.forEach((id, i)=>{ if(!out.some(o=>o.id === id)){ const prev = _LM_MODS.slice(0, i).reverse().find(p=>out.some(o=>o.id === p)); const at = prev ? out.findIndex(o=>o.id === prev) + 1 : 0; out.splice(at, 0, { id, off:false, size:'' }); } });
+    return out;
+  }
+  const _lmEnc = o => (o.off ? '-' : '') + o.id + (o.size ? ':' + o.size : '');
+  function _lmLayoutSave(arr){ try{ if(Store.saveContexts) Store.saveContexts('ml:layout', 'layout', arr); else { const m = _ctxLoad(); m['ml:layout'] = arr; _ctxSave(m); } }catch(e){} }
+  // the picks, one card each (the same choices Keep learning made)
+  function _lmTilesHTML(x){
+    const L = window.Learning, g = x.g || [], st = _lmState(x), paid = paidNow();
+    let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const pick = (list, score) => { let best = 0, top = []; list.forEach(e=>{ const n = score(e); if(n > best){ best = n; top = [e]; } else if(n && n === best) top.push(e); }); return top.length ? top[h % top.length] : null; };
+    const shared = gs => (gs || []).filter(k=>g.indexOf(k) >= 0).length;
+    const tile = (eyeb, attr, title, meta, go) => `<button class="lm-tile" type="button" ${attr}><span class="rd-eyeb">${escapeHtml(eyeb)}</span><b class="lm-tile-t">${escapeHtml(title)}</b>${meta ? `<span class="lm-m">${meta}</span>` : ''}${go ? `<span class="lm-tile-go">${escapeHtml(go)}</span>` : ''}</button>`;
+    const med = (eyeb, e) => e ? tile(eyeb, `data-media="${escapeHtml(e.i)}"`, e.t, _lmMedMeta(e)) : '';
+    const out = {};
+    const pair = x.y ? _lmById(x.y) : x.p ? _lmById(x.p) : null;
+    out.same = med(x.y ? 'The video version' : 'The audio version', pair);
+    const others = _lmData ? _lmData.items.filter(e=>e.i !== x.i && e.i !== x.y && e.i !== x.p && (paid || e.s !== 'c')) : [];
+    const next = kinds => { const list = others.filter(e=>kinds.indexOf(e.s) >= 0); return g.length ? pick(list, e=>shared(e.g)) : list[0] || null; };
+    const lis = next(x.s === 'c' ? ['c', 'p'] : ['p']), wat = next(x.s === 's' ? ['s'] : ['v']);
+    if(_lmIsListen(x)){ out.next = med('Listen next', lis); out.other = med('Watch next', wat); }
+    else { out.next = med('Watch next', wat); out.other = med('Listen next', lis); }
+    if(g.length){
+      const sc = p => shared(p.groups) + (st && p.state === st ? 1 : 0);
+      const rp = pick(L.PIECES.filter(p=>!_lrnIsRead(p.id)), sc) || pick(L.PIECES, sc);
+      out.read = rp ? tile('Read next', `data-piece="${escapeHtml(rp.id)}"`, rp.title, _lmArtMeta(rp)) : '';
+    }
+    const pt = _lrnPracticeThis({ practice:'custom' });
+    out.practice = tile('Practice', 'data-prac="custom"', pt.title, pt.note ? escapeHtml(pt.note) : '', 'Begin');
+    const hubs = g.filter(k=>L.HUBS[k]);
+    out.hubs = hubs.length ? `<section class="lm-hubs"><span class="rd-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubs.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div></section>` : '';
+    return out;
+  }
+  const _LM_MOD_NAME = { lead:'Your data', journal:'Journal', about:'About', same:'The same episode', next:'Next', other:'Next', read:'Read next', practice:'Practice', hubs:'Learning hubs' };
+  function _lmModsHTML(x){
+    const t = _lmTilesHTML(x);
+    const part = Object.assign({ lead:_lmLeadHTML(x), journal:_lmJournalHTML(x), about:'<div class="lm-desc" id="lm-desc" hidden></div>' }, t);
+    // About has no text until the descriptions load; it is dropped then if this piece has none (see _lmFillDesc)
+    const mods = _lmLayout().filter(o=>part[o.id]).map(o=>{
+      const half = !_LM_FIXED[o.id] && (o.size ? o.size === 'h' : !!_LM_HALF[o.id]);
+      const nm = (/<span class="rd-eyeb">([^<]+)<\/span>/.exec(part[o.id]) || [])[1] || _LM_MOD_NAME[o.id];
+      return `<div class="lm-mod${half ? ' lm-half' : ''}" data-mod="${o.id}" data-name="${escapeHtml(nm)}"${o.size ? ` data-sz="${o.size}"` : ''}${o.off ? ' hidden' : ''}><button class="lm-mod-x" type="button" data-mod-hide="${o.id}" aria-label="Hide ${escapeHtml(nm)}">−</button>${_LM_FIXED[o.id] ? '' : `<button class="lm-mod-sz" type="button" aria-label="${half ? 'Make it wider' : 'Make it narrower'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>`}${part[o.id]}</div>`; }).join('');
+    return `<div class="lm-arr-bar" hidden><span class="lm-arr-tip">Drag to move. Tap − to hide.</span><button class="lm-arr-done" type="button">Done</button></div>
+      <div class="lm-mods">${mods}</div>
+      <div class="lm-arr-foot" hidden><div class="lm-arr-add"></div><button class="lm-clear lm-arr-reset" type="button">Reset to the standard layout</button></div>`;
+  }
+  function _lmWireMods(here){
+    const box = root.querySelector('.lm-mods'), bar = root.querySelector('.lm-arr-bar'), foot = root.querySelector('.lm-arr-foot'); if(!box) return;
+    const sc = root.querySelector('.scroll'), L = window.Learning;
+    // the cards' own links
+    if(here){
+      box.querySelectorAll('.lm-tile[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here.go, tab:'learn' }); });
+      box.querySelectorAll('.lm-tile[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+      box.querySelectorAll('.lm-hubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+      box.querySelectorAll('.lm-tile[data-prac]').forEach(b=>b.onclick=()=>renderPlan(_lrnPracticeReco({ practice:'custom' }), _trueBack(here.go)));
+    }
+    const mods = () => [...box.querySelectorAll('.lm-mod')];
+    // a half card with no partner in its row fills the row (2026-10-27). Placeholders count; a card being dragged doesn't.
+    const _lmSolo = () => {
+      let pend = null; const solo = [];
+      [...box.children].forEach(m=>{
+        if(!(m.classList.contains('lm-mod') || m.classList.contains('lm-ph')) || m.hidden || m.classList.contains('lm-drag')) return;
+        if(!m.classList.contains('lm-half')){ if(pend) solo.push(pend); pend = null; return; }
+        pend = pend ? null : m;
+      });
+      if(pend) solo.push(pend);
+      [...box.children].forEach(m=>m.classList.toggle('lm-fill', solo.indexOf(m) >= 0));
+    };
+    _lmSolo();
+    if(window.MutationObserver) new MutationObserver(_lmSolo).observe(box, { childList:true, subtree:true, attributes:true, attributeFilter:['hidden', 'data-sz'] });
+    // save the cards here in their new order; cards this page did not draw keep their place after the card they followed
+    const save = () => {
+      const cur = mods().map(m=>({ id:m.dataset.mod, off:m.hidden, size: m.dataset.sz || '' }));
+      const ids = cur.map(o=>o.id), out = cur.slice();
+      _lmLayout().forEach((o, i, all)=>{ if(ids.indexOf(o.id) >= 0) return; const prev = all.slice(0, i).reverse().find(p=>out.some(q=>q.id === p.id)); const at = prev ? out.findIndex(q=>q.id === prev.id) + 1 : 0; out.splice(at, 0, o); });
+      _lmLayoutSave(out.map(_lmEnc));
+    };
+    const paintAdd = () => { const off = mods().filter(m=>m.hidden);
+      foot.querySelector('.lm-arr-add').innerHTML = off.length ? `<span class="lm-arr-tip">Add a card</span>${off.map(m=>`<button class="lm-chip" type="button" data-mod-show="${m.dataset.mod}"><span>${escapeHtml(m.dataset.name)}</span><span aria-hidden="true">+</span></button>`).join('')}` : '';
+      foot.querySelectorAll('[data-mod-show]').forEach(b=>b.onclick=()=>{ const m = box.querySelector(`[data-mod="${b.dataset.modShow}"]`); if(m){ m.hidden = false; box.appendChild(m); save(); paintAdd(); } }); };
+    const setArr = on => { document.body.classList.toggle('lm-arr', on); bar.hidden = !on; foot.hidden = !on; if(on) paintAdd(); };
+    setArr(false);
+    bar.querySelector('.lm-arr-done').onclick = () => { setArr(false); save(); };
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const flip = (els, fn) => { const r0 = new Map(els.map(el=>{ const r = el.getBoundingClientRect(); return [el, [r.left, r.top]]; })); fn();
+      if(reduce) return; els.forEach(el=>{ const r = el.getBoundingClientRect(), p = r0.get(el), dx = p[0] - r.left, dy = p[1] - r.top; if((dx || dy) && el.animate) el.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:'none' }], { duration:220, easing:'cubic-bezier(.2,.6,.2,1)' }); }); };
+    foot.querySelector('.lm-arr-reset').onclick = () => flip(mods(), ()=>{ _LM_MODS.forEach(k=>{ const m = box.querySelector(`[data-mod="${k}"]`); if(m){ m.hidden = false; delete m.dataset.sz; m.classList.toggle('lm-half', !!_LM_HALF[k]); box.appendChild(m); } }); _lmLayoutSave([]); paintAdd(); });
+    box.querySelectorAll('[data-mod-hide]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const m = b.closest('.lm-mod'); flip(mods().filter(o=>o !== m), ()=>{ m.hidden = true; }); save(); paintAdd(); });
+    box.querySelectorAll('.lm-mod-sz').forEach(b=>b.onclick=e=>{ e.stopPropagation(); const m = b.closest('.lm-mod');
+      flip(mods(), ()=>{ const half = !m.classList.contains('lm-half'); m.classList.toggle('lm-half', half); m.dataset.sz = half ? 'h' : 'f'; b.setAttribute('aria-label', half ? 'Make it wider' : 'Make it narrower'); }); save(); });
+    // hold, then drag. Outside Arrange a hold is half a second; inside it, a short one, so a quick swipe still scrolls.
+    let timer = null, drag = null, eatClick = false;
+    const start = (m, x, y) => {
+      const r = m.getBoundingClientRect(), ph = document.createElement('div');
+      ph.className = 'lm-ph' + (m.classList.contains('lm-half') ? ' lm-half' : ''); ph.style.height = r.height + 'px';
+      if(getComputedStyle(box).flexDirection === 'row') ph.style.width = r.width + 'px';
+      m.parentNode.insertBefore(ph, m);
+      drag = { m, ph, dx: x - r.left, dy: y - r.top };
+      m.classList.add('lm-drag'); m.style.width = r.width + 'px'; m.style.left = r.left + 'px'; m.style.top = r.top + 'px';
+      try{ haptic('save'); }catch(e){}
+    };
+    const move = (x, y) => {
+      const { m, ph } = drag; m.style.left = (x - drag.dx) + 'px'; m.style.top = (y - drag.dy) + 'px';
+      const others = mods().filter(o=>o !== m && !o.hidden);
+      // the card the finger is before: any card lower down, or the same row and to the right of the finger
+      const row = getComputedStyle(box).flexDirection === 'row' && getComputedStyle(box).display === 'flex';
+      const before = others.find(o=>{ const r = o.getBoundingClientRect(); return row ? x < r.left + r.width / 2 : y < r.top || (y <= r.bottom && x < r.left + r.width / 2); });
+      if((before && ph.nextElementSibling !== before) || (!before && ph !== box.lastElementChild)) flip(others, ()=>{ if(before) box.insertBefore(ph, before); else box.appendChild(ph); });
+      if(row){ const r = box.getBoundingClientRect(); if(x < r.left + 50) box.scrollLeft -= 12; else if(x > r.right - 50) box.scrollLeft += 12; }
+      const sp = sc;
+      if(sp){ const r = sp.getBoundingClientRect(); if(y < r.top + 70) sp.scrollTop -= 12; else if(y > Math.min(r.bottom, window.innerHeight - 120) - 70) sp.scrollTop += 12; }
+    };
+    const end = () => { const { m, ph } = drag; drag = null; ph.parentNode.insertBefore(m, ph); ph.remove();
+      m.classList.remove('lm-drag'); m.style.width = m.style.left = m.style.top = ''; save(); eatClick = true; setTimeout(()=>{ eatClick = false; }, 350); };
+    box.addEventListener('pointerdown', e=>{
+      const m = e.target.closest('.lm-mod'); if(!m || (e.button && e.button > 0) || e.target.closest('.lm-mod-x, .lm-mod-sz, textarea, input')) return;
+      const x0 = e.clientX, y0 = e.clientY, id = e.pointerId, arr = document.body.classList.contains('lm-arr');
+      let x = x0, y = y0;
+      const mv = ev => { if(ev.pointerId !== id) return; x = ev.clientX; y = ev.clientY; if(drag){ ev.preventDefault(); move(x, y); return; } if(Math.abs(x - x0) > 8 || Math.abs(y - y0) > 8){ clearTimeout(timer); timer = null; } };
+      const up = ev => { if(ev.pointerId !== id) return; clearTimeout(timer); timer = null; window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); if(drag) end(); };
+      window.addEventListener('pointermove', mv, { passive:false }); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+      clearTimeout(timer);
+      timer = setTimeout(()=>{ timer = null; if(!arr) setArr(true); start(m, x, y); }, arr ? 180 : 500);
+    });
+    // while a card is held, the page does not scroll under the finger; no long-press menu or text selection
+    box.addEventListener('touchmove', e=>{ if(drag) e.preventDefault(); }, { passive:false });
+    box.addEventListener('contextmenu', e=>{ if(timer || drag || document.body.classList.contains('lm-arr')) e.preventDefault(); });
+    box.addEventListener('click', e=>{ if(eatClick || (document.body.classList.contains('lm-arr') && !e.target.closest('.lm-mod-x, .lm-mod-sz, textarea'))){ e.preventDefault(); e.stopPropagation(); } }, true);
+  }
+  // an episode, a video or a Short
+  function screenMedia(id, from){
+    const back = from && from.go ? from.go : ()=>screenLearn(true);
+    const x = _lmById(id);
+    if(!x){
+      _rdShell(`<p class="rd-meta">One moment…</p>`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' } });
+      _lmLoad().then(d=>{ const m = root.querySelector('.rd-meta'); if(!m) return; if(d && _lmById(id)) screenMedia(id, from); else m.textContent = "This didn't load. Check your connection and try again."; });
+      return;
+    }
+    const here = { label:'Back', go:()=>screenMedia(id, from) };
+    const meta = [x.e ? 'Episode ' + x.e : '', _lmLen(x.n), _lmDate(x.d)].filter(Boolean).join(' · ');
+    if(x.s === 's'){
+      const ci = _lmModsHTML(x);
+      _rdShell(`<div class="lm-spage"><div class="lm-short"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0&loop=1&playlist=${encodeURIComponent(x.i)}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+          <span class="rd-eyeb lm-short-e">Short</span><h1 class="lm-short-t">${escapeHtml(x.t)}</h1>
+          ${ci ? `<div class="lm-sheet lm-strip" id="lm-sheet" role="region" aria-label="More with this Short">${ci}</div>` : ''}</div>`,
+        { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x) });
+      document.body.classList.add('lm-dark', 'lm-wide');
+      _lmWireCards(x);
+      _lmFillDesc(x);
+      _lmWireKeep(root, here);
+      _lmWireMods(here);
+      return;
+    }
+    const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();
+    const eyeb = x.s === 'p' ? 'Podcast · Stuck Not Broken' : x.s === 'c' ? 'Stucknaut Collective' : 'Video';
+    const player = !listen
+      ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
+      : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with Self-Regulator.</p><button class="lm-save lm-sub" type="button">See Self-Regulator</button></div>`
+      : `<div class="lm-player" id="lm-player" role="region" aria-label="Player">
+            <div class="lm-bar" id="lm-bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="lm-fill" id="lm-fill"></span></div>
+            <div class="lm-ctl"><span class="lm-t" id="lm-el">0:00</span><button class="lm-skip" type="button" data-skip="-15" aria-label="Back 15 seconds">15</button><button class="lm-play" id="lm-play" type="button" aria-label="Play">${_LM_PLAY}</button><button class="lm-skip" type="button" data-skip="30" aria-label="Forward 30 seconds">30</button><span class="lm-t lm-t-r" id="lm-rem">${x.n ? '-' + _lmClock(x.n) : ''}</span></div>
+            <p class="lm-note" id="lm-note" hidden></p><audio id="lm-audio" preload="none"></audio></div>`;
+    const pair = x.y ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.y)}">${_lmIcon('watch')}<span class="lm-tx"><b>Watch the video</b><span class="lm-meta"><span>The same episode on video</span></span></span><span class="wc-go">${CHEV}</span></button>`
+      : x.p ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.p)}">${_lmIcon('listen')}<span class="lm-tx"><b>Listen to the episode</b><span class="lm-meta"><span>The podcast version</span></span></span><span class="wc-go">${CHEV}</span></button>` : '';
+    _rdShell(`<div class="lm-page"><div class="lm-main"><div class="lm-head"><span class="rd-eyeb">${escapeHtml(eyeb)}</span><h1 class="rd-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="lm-meta-l">${escapeHtml(meta)}</p>` : ''}</div>
+          ${player}</div><div class="lm-side">${_lmModsHTML(x)}</div></div>`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x) });
+    document.body.classList.add('lm-wide');
+    root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    _lmFillDesc(x);
+    _lmWireKeep(root, here);
+    _lmWireCards(x);
+    _lmWireMods(here);
+    if(listen && !locked) _lmWirePlayer(x);
+  }
+  function _lmWirePlayer(x){
+    const a = $('#lm-audio'); if(!a) return;
+    const pb = $('#lm-play'), fill = $('#lm-fill'), bar = $('#lm-bar'), el = $('#lm-el'), rem = $('#lm-rem'), note = $('#lm-note');
+    const key = 'snb_lm_pos_' + x.i;
+    let ready = false, loading = false;
+    const say = t => { note.textContent = t; note.hidden = !t; };
+    const dur = () => isFinite(a.duration) && a.duration > 0 ? a.duration : (x.n || 0);
+    const paint = () => { const d = dur(), t = a.currentTime || 0; fill.style.width = d ? Math.min(100, 100 * t / d) + '%' : '0'; el.textContent = _lmClock(t); rem.textContent = d ? '-' + _lmClock(d - t) : ''; bar.setAttribute('aria-valuenow', d ? Math.round(100 * t / d) : 0); };
+    const setIcon = () => { pb.innerHTML = a.paused ? _LM_PLAY : _LM_PAUSE; pb.setAttribute('aria-label', a.paused ? 'Play' : 'Pause'); };
+    const start = async () => {
+      if(!ready){
+        if(loading) return; loading = true;
+        let src = x.a || null;
+        if(x.s === 'c'){
+          say('One moment…');
+          const r = Store.collectiveAudio ? await Store.collectiveAudio(x.m) : { error:'unavailable', status:0 };
+          loading = false;
+          if(r.upgrade){ say(''); return gateSubscribe('reader'); }
+          if(!r.src) return say(r.status === 503 ? "Collective audio isn't connected yet." : r.status === 401 ? 'Sign in to listen.' : "This episode didn't load. Check your connection and try again.");
+          say(''); src = r.src;
+        }
+        loading = false;
+        if(!src) return say("This episode didn't load. Try again in a moment.");
+        a.src = src; ready = true;
+        let pos = 0; try{ pos = +localStorage.getItem(key) || 0; }catch(e){}
+        if(pos > 5) a.addEventListener('loadedmetadata', ()=>{ if(pos < dur() - 10) a.currentTime = pos; }, { once:true });
+        if('mediaSession' in navigator){ try{
+          navigator.mediaSession.metadata = new MediaMetadata({ title:x.t, artist:x.s === 'c' ? 'Stucknaut Collective' : 'Stuck Not Broken', artwork:[{ src:'icon-512.png', sizes:'512x512', type:'image/png' }] });
+          navigator.mediaSession.setActionHandler('seekbackward', ()=>{ a.currentTime = Math.max(0, a.currentTime - 15); });
+          navigator.mediaSession.setActionHandler('seekforward', ()=>{ a.currentTime = Math.min(dur(), a.currentTime + 30); });
+        }catch(e){} }
+      }
+      a.play().catch(()=>say("This episode didn't play. Try again in a moment."));
+    };
+    pb.onclick = () => { if(a.paused) start(); else a.pause(); };
+    root.querySelectorAll('[data-skip]').forEach(b=>b.onclick=()=>{ if(!ready) return; a.currentTime = Math.max(0, Math.min(dur(), a.currentTime + (+b.dataset.skip))); paint(); });
+    bar.onclick = e => { if(!ready) return; const r = bar.getBoundingClientRect(); a.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * dur(); paint(); };
+    bar.onkeydown = e => { if(!ready) return; if(e.key === 'ArrowRight'){ a.currentTime = Math.min(dur(), a.currentTime + 30); e.preventDefault(); } if(e.key === 'ArrowLeft'){ a.currentTime = Math.max(0, a.currentTime - 15); e.preventDefault(); } paint(); };
+    let saveT = 0;
+    a.ontimeupdate = () => { paint(); if(Date.now() - saveT > 5000){ saveT = Date.now(); try{ localStorage.setItem(key, String(Math.floor(a.currentTime))); }catch(e){} } };
+    a.onplay = a.onpause = setIcon;
+    a.onended = () => { setIcon(); try{ localStorage.removeItem(key); }catch(e){} };
+    a.onerror = () => { if(!a.getAttribute('src')) return; ready = false; say("This episode didn't load. Check your connection and try again."); };
+    paint();
+  }
+  // episodes and videos in search (round 2): their titles, and their descriptions once those are here
+  function _lmSearch(q){
+    if(!_lmData) return [];
+    const terms = _lrnNorm(q).split(/[^a-z0-9'-]+/).map(t=>t.replace(/^['-]+|['-]+$/g, '')).filter(t=>t.length >= 2);
+    if(!terms.length) return [];
+    const out = [];
+    _lmData.items.forEach((x, i)=>{
+      const ti = _lrnNorm(x.t), de = _lmDesc ? _lrnNorm(_lmDesc[x.i] || '') : '';
+      let score = 0;
+      for(const t of terms){ const n = (ti.indexOf(t) >= 0 ? 10 : 0) + (de.indexOf(t) >= 0 ? 2 : 0); if(!n) return; score += n; }
+      out.push({ x, score, i });
+    });
+    return out.sort((a,b)=> b.score - a.score || a.i - b.i).map(o=>o.x);
   }
   // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
-  function _lrnSearchWire(open){
+  function _lrnSearchWire(open, openMedia){
+    openMedia = openMedia || (id=>screenMedia(id, { label:'Learn', go:()=>screenLearn(true) }));
     const dock = $('#fl-dock'), sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
     if(!sf || !qi || !res || !browse) return;
-    let shown = 30, tm = null;
+    let shown = 30, tm = null, openG = {};
     const sc = root.querySelector('.scroll');
     const draw = ()=>{
       const q = _lrnQ.trim();
       if(q.length < 2){ res.innerHTML = ''; browse.hidden = false; return; }
       if(!browse.hidden && sc) sc.scrollTop = 0;
       browse.hidden = true;
-      const hits = _lrnSearch(q), more = hits.length > shown;
-      const loading = !_lrnSIdx;
+      const hits = _lrnSearch(q), mh = _lmSearch(q);
+      const gs = [{ k:'a', label:'Articles', list:hits }].concat(_LM_TYPES.slice(1).map(([k, label])=>({ k, label, list:mh.filter(x=>x.s === k) }))).filter(g=>g.list.length);
+      const n = hits.length + mh.length;
+      const loading = !_lrnSIdx || !_lmData;
+      // each type under its own heading: the first few, then "Show all" for that type
+      const sec = g => { const cap = g.k === 'a' ? 10 : 5, all = !!openG[g.k] || g.list.length <= cap + 2, rows = all ? g.list : g.list.slice(0, cap);
+        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="rd-list rd-list-flat">${rows.map(e=>g.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
       res.innerHTML = `<section class="rd-learn ll-res">
-          <p class="ll-res-n">${hits.length ? escapeHtml(hits.length === 1 ? '1 article' : hits.length + ' articles') : escapeHtml('No articles match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching the article text…</span>' : ''}</p>
-          ${hits.length ? `<div class="rd-list rd-list-flat">${hits.slice(0, shown).map(_lrnRowHTML).join('')}</div>` : ''}
-          ${more ? `<button class="ll-showall ll-res-more" type="button">Show more</button>` : ''}
+          <p class="ll-res-n">${n ? escapeHtml(_lmLessons(n)) : escapeHtml('No lessons match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching…</span>' : ''}</p>
+          ${gs.map(sec).join('')}
         </section>`;
       res.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
-      const mb = res.querySelector('.ll-res-more'); if(mb) mb.onclick = ()=>{ shown += 30; draw(); };
-      if(loading) _lrnSearchIndex().then(d=>{ if(d && res.isConnected && _lrnQ.trim() === q) draw(); });
+      res.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>openMedia(b.dataset.media));
+      res.querySelectorAll('[data-sgrp]').forEach(b=>b.onclick=()=>{ openG[b.dataset.sgrp] = true; draw(); });
+      if(loading) Promise.all([_lrnSearchIndex(), _lmLoad()]).then(([d, m])=>{ if((d || m) && res.isConnected && _lrnQ.trim() === q) draw(); });
     };
     // while typing on a phone only the search field rides up with the keyboard (Justin, 2026-10-02: "the keyboard pushes up
     // the entire bottom menu"): the bottom menu hides, and the field sits on the top edge of the keyboard
@@ -4092,9 +5855,9 @@ function app(tab){
     const setOpen = on => { sf.classList.toggle('open', on); dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
     setOpen(!!_lrnQ);
     sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
-    qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; clearTimeout(tm); tm = setTimeout(draw, 120); };
+    qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; openG = {}; clearTimeout(tm); tm = setTimeout(draw, 120); };
     qi.onkeydown = e=>{ if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
-    qi.onfocus = ()=>{ _lrnSearchIndex(); lift(); };
+    qi.onfocus = ()=>{ _lrnSearchIndex(); _lmLoad(); _lmDescLoad(); lift(); };
     qi.onblur = ()=>{ lift(); setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
     qx.onmousedown = e=>e.preventDefault();
     qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
@@ -4116,6 +5879,9 @@ function app(tab){
       out.push({ piece, rid:mm[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' });
     });
     try{ _chJournalItems().forEach(it=>out.push(it)); }catch(e){}
+    // an episode's or a video's journal (2026-10-26): 'mj:{media id}:{n}' = [answer, day, question, title, state]
+    Object.keys(m).forEach(k=>{ const mj = /^mj:(.+):(\d+)$/.exec(k); if(!mj) return; const v = m[k] || []; if(!v[0]) return;
+      out.push({ media:mj[1], post:{ key:'media:' + mj[1], title:v[3] || 'Listen and watch', teachState:v[4] || null }, rid:mj[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' }); });
     return out.sort((a,b)=> (b.day||'').localeCompare(a.day||''));
   }
   // grouped by article (the You tab's count, and older callers)
@@ -4239,7 +6005,7 @@ function app(tab){
   }
   function _jrWireList(){
     const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : 'you' };
-    const openPost = (key, sec) => { if(/^chal:/.test(key)) return screenChallenges(); const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
+    const openPost = (key, sec) => { if(/^chal:/.test(key)) return screenChallenges(); if(/^media:/.test(key)) return screenMedia(key.slice(6), here); const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
     root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
     root.querySelectorAll('.jr-art[data-post]').forEach(b=>b.onclick=()=>openPost(b.dataset.post));
     root.querySelectorAll('.jr-item, .jr-reco [data-rf]').forEach(b=>b.onclick=()=>{ if(b.dataset.post) return openPost(b.dataset.post, 'rj-' + b.dataset.rf); const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
@@ -4285,7 +6051,7 @@ function app(tab){
     const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
     // Your Journal from Reflect (Justin, 2026-10-02): every journal answer, from the articles and the reflections
     const jn = paidNow() ? _lrnJournalItems().length : 0;
-    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Paid plan'}</span></span><span class="wc-go">${CHEV}</span></button>`;
+    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Self-Regulator'}</span></span><span class="wc-go">${CHEV}</span></button>`;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
           ${coverHTML}
@@ -4344,7 +6110,7 @@ function app(tab){
     const prevA = (paid && post.chipQ && !opts.preview && !blocks.some(x=>x.p && /^Last (week|month|season|year), you named/.test(x.p))) ? _rdPrevAnswer(post) : null;
     const lastWord = { week:'week', month:'month', season:'season', year:'year' }[post.kind] || 'time';
     let learn = null; try{ learn = opts.preview ? null : _lrnForPost(post); }catch(e){ learn = null; }
-    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is on the paid plan.</b><span>The full post, the other snapshots, your journal and your next practice.</span></span></button>`
+    const tail = !paid ? `<button class="rd-lock" type="button" id="rd-lock">${LOCK_SVG}<span><b>The rest of your reflection is part of Self-Regulator.</b><span>The full post, the other snapshots, your journal and your next practice.</span></span></button>`
       : `
         ${(post.journal||[]).length && !opts.preview ? `<section class="rd-journal"><h3 class="sec-h rd-jr-sr" id="sec-journal">Journal</h3>${_rdJournalCard(post)}</section>` : (post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
         ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
@@ -4494,6 +6260,7 @@ function app(tab){
   // 'states' (2026-10-21, data pass 3: every state the app reads side by side, how many check-ins had each).
   // 'part:<morning|afternoon|evening|late>' (2026-10-23, data pass 14: 'states' for the check-ins in one part of the day).
   // 'weeks:<safety|fightflight|shutdown|play|stillness|freeze>' (2026-10-23, data pass 15: one state week by week, up to eight weeks).
+  // 'defense-time' (2026-10-26, data pass 50: for each part of the day, how often its check-ins had more defense than safety).
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -4890,7 +6657,7 @@ function app(tab){
       const mx = Math.max.apply(null, KS.map(k=>cnt[k]||0)) || 1;
       const rows = KS.map((k, i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nm(k)))}</span><span class="help-track"><span class="help-fill" style="width:${cnt[k] ? Math.max(4, Math.round(100 * cnt[k] / mx)) : 0}%;background:${STATE_COLOR(k)}"></span></span><span class="help-pct">${cnt[k] || '–'}</span></div>`).join('');
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar and number: how many check-ins had that state. A dash: none in this period.</p>`;
-      return { mk: ord[0], label: owner + ' check-ins by state', text, card };
+      return { mk: ord[0], mix: KS.map(k=>({ k, n: cnt[k] || 0, nm: CAP(nm(k)) })), label: owner + ' check-ins by state', text, card };
     }
     if(kind === 'part' && st){
       // the states of the check-ins in one part of the day (the article data pass, run 14, 2026-10-23: "Rigid morning
@@ -4962,7 +6729,33 @@ function app(tab){
         return `<div class="help-row" style="--sd:${k*60}ms"><span class="help-lbl">${escapeHtml(w.i === 0 ? 'Last 7 days' : md(w.start))}</span><span class="help-track"><span class="help-fill" style="width:${w.n && x > 0 ? Math.max(4, Math.round(100 * x)) : 0}%;background:${col}"></span></span><span class="help-pct">${w.n || '–'}</span></div>`; }).join('');
       const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Each row is a week, by the day it started. Bar: how much ${escapeHtml(nm)} you had on average that week. Number: how many check-ins. A dash: none that week.</p>`;
       const pc = _lrnPeriodCtx('recent', shown[0].start, now + 1);
-      return { mk:st, label: owner + ' ' + nm + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
+      const cols = shown.map(w=>({ x: w.n ? (w.sum / w.n) / mx : 0, n: w.n }));
+      return { mk:st, cols, label: owner + ' ' + nm + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
+    }
+    if(id === 'defense-time'){
+      // when in the day defense shows up (the article data pass, run 50, 2026-10-26: "Panic at the same time" is about getting
+      // dysregulated at the same time every day, and its journal asks "Is there a time of day when you tend to feel more
+      // dysregulated?"): for each part of the day, how often its check-ins had more defense than safety, all four parts side
+      // by side, in the member's defense color. Needs 3+ check-ins with more defense, 2+ parts of the day with 2+ check-ins
+      // each, and one part that leads (by how often, then by how many). The second line names the other part of the day with
+      // the most safety, so the numbers resolve to hope; with no safety-side check-in in any other part, null.
+      const SEGS = ['morning','afternoon','evening','late'], by = {};
+      rs.forEach(r=>{ const sg = _lrnSegOf(r.t); by[sg] = by[sg] || { n:0, d:0, s:0, k:{} }; by[sg].n++; if(r.safe) by[sg].s++; else { by[sg].d++; by[sg].k[r.key] = (by[sg].k[r.key]||0) + 1; } });
+      const nd = SEGS.reduce((a,sg)=>a + (by[sg] ? by[sg].d : 0), 0); if(nd < 3) return null;
+      const el = SEGS.filter(sg=>by[sg] && by[sg].n >= 2).sort((a,b)=> by[b].d/by[b].n - by[a].d/by[a].n || by[b].d - by[a].d);
+      if(el.length < 2) return null;
+      const A = by[el[0]], B = by[el[1]];
+      if(!A.d || (A.d/A.n === B.d/B.n && A.d === B.d)) return null;
+      const safeSeg = SEGS.filter(sg=>sg !== el[0] && by[sg] && by[sg].s)
+        .sort((a,b)=> (by[b].n >= 2) - (by[a].n >= 2) || by[b].s/by[b].n - by[a].s/by[a].n || by[b].s - by[a].s)[0];
+      if(!safeSeg) return null;
+      const DEF = ['fightflight','freeze','shutdown'], mk = DEF.filter(k=>A.k[k]).sort((a,b)=>A.k[b] - A.k[a])[0] || _domDefense() || 'freeze', col = STATE_COLOR(mk);
+      const text = `More defense than safety showed up most often in your ${_LRN_SEG[el[0]]} ${ctx.noun}. Your ${_LRN_SEG[safeSeg]} had the most safety.`;
+      const mx = Math.max.apply(null, SEGS.map(sg=>by[sg] ? by[sg].d / by[sg].n : 0)) || 1;
+      const rows = SEGS.map((sg, i)=>{ const o = by[sg], x = o ? o.d / o.n / mx : 0;
+        return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(_LRN_SEG[sg]))}</span><span class="help-track"><span class="help-fill" style="width:${x > 0 ? Math.max(4, Math.round(100 * x)) : 0}%;background:${col}"></span></span><span class="help-pct">${o ? o.n : '–'}</span></div>`; }).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar: how often check-ins in that part of the day had more defense than safety. Number: how many check-ins. A dash: none in this period.</p>`;
+      return { mk, label: owner + ' defense by time of day', text, card };
     }
     return null;
   }
@@ -5068,7 +6861,7 @@ function app(tab){
   function _lrnCallHTML(c, paid, ctx){
     const col = STATE_COLOR(c.mk), pc = c.per || ctx, per = _lrnPerLabel(pc);
     const who = `<span class="rd-call-who">${_rdMk(c.mk)}<span class="rd-call-lbl">${escapeHtml(c.label)}</span>${per ? `<span class="rd-call-per">${escapeHtml(per)}</span>` : ''}</span>`;
-    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your own results show here on the paid plan.</span></button></div>`;
+    if(!paid) return `<div class="rd-call rd-call-locked" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Your results show here with Self-Regulator.</span></button></div>`;
     return `<div class="rd-call" style="--cs:${col};--cw:var(--rd-wash-${c.mk})">${who}<p class="read-p rd-call-p">${escapeHtml(c.text).replace(/check-in/g,'check&#8209;in')}</p>${c.card||''}${_lrnMoreStats(c, pc)}</div>`;
   }
   // a block of piece or hub text
@@ -5082,9 +6875,13 @@ function app(tab){
     return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
   }
   const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
-  const _lrnHubCount = key => { const n = window.Learning.inGroup(key).length; return n === 1 ? '1 article' : n + ' articles'; };
+  // a hub's count is every lesson on its topic: articles, episodes and videos (Justin, 2026-10-26: "Safety · 345 lessons");
+  // blank for the moment the library list is still loading
+  const _lrnHubCount = key => { if(!_lmData){ _lmLoad(); return ''; } const n = window.Learning.inGroup(key).length + _lmData.items.filter(x=>(x.g || []).indexOf(key) >= 0).length; return n === 1 ? '1 lesson' : n + ' lessons'; };
   // a row that opens a piece (hubs, keep learning)
-  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}">${p.state ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.state)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${p.paid && !paidNow() ? LOCK_SVG + 'Paid plan · ' : ''}${_lrnIsRead(p.id) ? _lrnReadMk() + 'Read · ' : ''}${escapeHtml((p.minutes||1) + ' min read')}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  const _lrnRowHTML = p => `<button class="rd-row" type="button" data-piece="${escapeHtml(p.id)}">${p.state ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.state)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span class="lm-m">${_lmArtMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`;
+  // a row that opens an episode, a video or a Short (hubs, search, keep learning)
+  const _lrnMediaRowHTML = x => { const st = _lmState(x); return `<button class="rd-row" type="button" data-media="${escapeHtml(x.i)}">${st ? `<span class="rd-thumb rd-thumb-mk">${_rdMk(st)}</span>` : `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>`}<span class="rd-row-t"><b>${escapeHtml(x.t)}</b><span class="lm-m">${_lmMedMeta(x)}</span></span><span class="wc-go">${CHEV}</span></button>`; };
   // a row that opens a hub
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
@@ -5103,6 +6900,8 @@ function app(tab){
     // related hubs: the ones its articles share most, six at most (2026-10-02, the library grew to ~150)
     const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = (related[g]||0) + 1; }));
     const relKeys = Object.keys(related).sort((a,b)=> related[b] - related[a]).slice(0, 6);
+    // every lesson on the hub's topic, grouped by type (Justin, 2026-10-26); episodes and videos come once the library list is here
+    const hubGroups = _lmGroups('all', key, true);
     _rdShell(`
         <div id="ll-results" aria-live="polite"></div>
         <div id="ll-browse">
@@ -5110,18 +6909,20 @@ function app(tab){
         <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
         ${mine}
         ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
-        <section class="rd-learn"><h3 class="sec-h">Articles</h3>
-          ${pieces.length ? `<div class="rd-list rd-list-flat">${_lrnByRead(pieces).map((p, i)=>i < 12 ? _lrnRowHTML(p) : _lrnRowHTML(p).replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"')).join('')}</div>${pieces.length > 12 ? `<button class="ll-showall" type="button">Show all ${pieces.length} articles</button>` : ''}` : `<p class="read-p rd-empty">Articles for this hub are on the way.</p>`}
-        </section>
+        ${hubGroups.length ? hubGroups.map(gr=>{ const n = gr.k === 'a' ? 12 : 6;
+            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3><div class="rd-list rd-list-flat">${gr.list.map((e, i)=>{ const r = gr.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e); return i < n ? r : r.replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"'); }).join('')}</div>${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
+          : `<section class="rd-learn"><p class="read-p rd-empty">${_lmData ? 'Lessons for this hub are on the way.' : 'One moment…'}</p></section>`}
         ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
         </div>`,
-      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true });
+      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true, crumb:[{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }] });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
-    root.querySelectorAll('.ll-showall').forEach(b=>b.onclick=()=>{ root.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
+    root.querySelectorAll('.lm-hubsec .ll-showall').forEach(b=>b.onclick=()=>{ b.parentElement.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
     root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+    root.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, { label:'Back', go:here }));
+    if(!_lmData){ const t = root.querySelector('.rd-hub-title'); _lmLoad().then(d=>{ if(d && t && t.isConnected){ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; } }); }
     root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
     _lrnWireLinks({ label:'Back', go:here, tab:'learn' });
-    _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+    _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); }, id=>screenMedia(id, { label:'Back', go:here }));
   }
   // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
   // "Practice this" (Justin, 2026-10-01): the practice the ARTICLE is about, tuned to what works for this member
@@ -5193,7 +6994,7 @@ function app(tab){
       <p class="rd-cap">This is the same list as on the Unstucking Pathway and in Settings.</p>`;
   }
   function _lrnEmoHTML(paid){
-    if(!paid) return `<div class="rd-call rd-call-locked" id="sec-emo" style="--cs:var(--ink-80);--cw:var(--bone-deep)"><span class="rd-call-who"><span class="rd-call-lbl">Your emotions, easy to hard</span></span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Choose and sort your emotions on the paid plan.</span></button></div>`;
+    if(!paid) return `<div class="rd-call rd-call-locked" id="sec-emo" style="--cs:var(--ink-80);--cw:var(--bone-deep)"><span class="rd-call-who"><span class="rd-call-lbl">Your emotions, easy to hard</span></span><span class="rd-call-bars" aria-hidden="true"><i></i><i></i></span><button class="rd-call-lock" type="button">${LOCK_SVG}<span>Choose and sort your emotions with Self-Regulator.</span></button></div>`;
     return `<div class="rd-call lc-emo-card" id="sec-emo" data-emo-card="1" style="--cs:var(--ink-80);--cw:var(--bone-deep)">${_lrnEmoInner()}</div>`;
   }
   function _lrnEmoWire(back){
@@ -5240,7 +7041,7 @@ function app(tab){
       const n = run.length, count = n === 1 ? '1 question' : n + ' questions';
       if(!paid){
         if(reflSeen > 1) return '';
-        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">On the paid plan</p></div>`;
+        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
       }
       const steps = run.map((b, k)=>`<div class="rd-jr-step"${k ? ' hidden' : ''} data-step="${k}">${reflOne(b)}</div>`).join('');
       const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
@@ -5271,7 +7072,7 @@ function app(tab){
       if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
       parts.push(_lrnBlockHTML(b));
     }
-    const body = parts.join('') + (gated ? `<div class="rd-gate"><button class="rd-lock rd-gate-btn" type="button">${LOCK_SVG}<span><b>The rest of this chapter is on the paid plan</b><span>The whole chapter, its journal questions and the practice that goes with it.</span></span></button></div>` : '');
+    const body = parts.join('') + (gated ? `<div class="rd-gate"><button class="rd-lock rd-gate-btn" type="button">${LOCK_SVG}<span><b>The rest of this chapter is part of Self-Regulator</b><span>The whole chapter, its journal questions and the practice that goes with it.</span></span></button></div>` : '');
     // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
     const nx = L.nextFor ? L.nextFor(piece) : null;
     const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
@@ -5288,7 +7089,8 @@ function app(tab){
         ${gated ? '' : _lrnTocHTML(piece.toc)}
         ${body}
         ${book}${piece.episode ? `<section class="rd-book"><p class="read-p">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p></section>` : ''}
-        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id } });
+        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id },
+          crumb:[{ label:'Learn', go:()=>screenLearn(true) }].concat(_rdCrumbTopic(piece.state || (piece.groups || []).find(g=>L.HUBS[g]), ()=>screenLearn(true)), [{ label: piece.book ? 'This chapter' : 'This article' }]) });
     root.querySelectorAll('.rd-call-lock, .rd-gate-btn').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
     root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
@@ -6956,25 +8758,25 @@ function app(tab){
       <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; on the paid plan</span>
+          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-impacts" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Practice impacts</span>
-          <span class="tb-row-sub">How each practice shifts your states &middot; on the paid plan</span>
+          <span class="tb-row-sub">How each practice shifts your states &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-ideal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Ideal practice</span>
-          <span class="tb-row-sub">Your best time, anchor and setup &middot; on the paid plan</span>
+          <span class="tb-row-sub">Your best time, anchor and setup &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Your Journal</span>
-          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; on the paid plan</span>
+          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; Self-Regulator</span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
@@ -7667,7 +9469,7 @@ function app(tab){
             return `<a class="you-reader you-journal" id="you-journal" href="#">
             <span class="yr-top"><span class="yr-art yr-art-jr" aria-hidden="true">${_JR_PEN}</span><span class="yr-hd"><h3 class="yr-h">Your Journal</h3>
             <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.') : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.'}</p></span></span>
-            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'On the paid plan'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'Part of Self-Regulator'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
           </a>`; })()}
           </div>
 
@@ -7859,6 +9661,7 @@ function app(tab){
     // the voice the person chose (2026-09-29, VOICES) rides on every launch the same way; Justin's is the default and is not sent
     if(!e.has('voice')){ const v=voicePref(); if(v!=='justin') e.set('voice', v); }
     // the member's Mindfulness pieces (2026-10-15) ride on every Mindfulness launch the same way; the default run is not sent
+    if(e.get('practice')==='mindfulness' && !e.has('pieces')){ const pc=mindPieces(); if(pc.join()!==MIND_PIECES_DEFAULT.join()) e.set('pieces', pc.join(',')); }
     if(!paidNow()){ e.set('voices', 'justin'); if(e.has('voice') && !voiceOk(e.get('voice'))) e.delete('voice'); }   // 2026-09-30: AI voices paid only
     // 2026-09-28 (Justin, desktop: the player light inside a dark app): the player takes the theme the APP is showing,
     // never its own guess — the same document class the app painted with
@@ -7936,8 +9739,6 @@ function app(tab){
   function voiceOk(v){ return v==='justin' || paidNow(); }
   function voicePref(){ const v=(Store.prefVoice&&Store.prefVoice())||null; return VOICES.some(x=>x[0]===v) && voiceOk(v) ? v : 'justin'; }
   function voiceName(v){ return (VOICES.find(x=>x[0]===v)||VOICES[0])[1]; }
-  // PROD BUILD (2026-10-19): the Pieces row, the pieces= launch param and the pieces time estimate are taken out here; build-your-own
-  // Mindfulness stays beta-only until its new lines are recorded (Justin, 10-15). The code below is inert on prod.
   // ── BUILD YOUR OWN MINDFULNESS (Justin, 2026-10-15: "yes i want it to mimic the live practice. the user can choose to do as many
   // mindfulness practices as they like with the breath in between, before, and after. so, more customization even on the free tier.
   // they can choose which order to do the mindfulness pieces as well by dragging the order"). His pick of the mockups: A, one list,
@@ -7949,7 +9750,9 @@ function app(tab){
   const MIND_PIECES_DEFAULT = ['sight','sound','touch'];
   const UP_MIND_CTX = 'mind:pieces';
   function _mindClean(a){ const ks = MIND_PIECES.map(x=>x[0]); return (Array.isArray(a)?a:[]).filter((k,i,arr)=>ks.indexOf(k)>=0 && arr.indexOf(k)===i); }
-  function mindPieces(){ let a = null; try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m) a = _mindClean(m[UP_MIND_CTX]); }catch(e){}
+  // prod: the default run only, no Pieces row, until the new lines are recorded (Justin, 2026-10-28: "Hide it on prod")
+  const MIND_PIECES_ON = !(typeof SNB_ENV !== 'undefined' && SNB_ENV && SNB_ENV.name === 'prod');
+  function mindPieces(){ if(!MIND_PIECES_ON) return MIND_PIECES_DEFAULT.slice(); let a = null; try{ const m = typeof _ctxLoad === 'function' ? _ctxLoad() : null; if(m) a = _mindClean(m[UP_MIND_CTX]); }catch(e){}
     return a && a.length ? a : MIND_PIECES_DEFAULT.slice(); }
   function setMindPieces(a){ a = _mindClean(a); if(!a.length) return;
     try{ if(Store.saveContexts) Store.saveContexts(UP_MIND_CTX, 'Mindfulness pieces', a); else if(typeof _ctxLoad === 'function'){ const m = _ctxLoad(); m[UP_MIND_CTX] = a; _ctxSave(m); } }catch(e){} }
@@ -8235,6 +10038,7 @@ function app(tab){
   // Last regenerated 2026-08-04 (DESC chunks split per question; INVITE removed from imagery).
   const PRACTICE_EST = { micro:{4:2,8:2,12:2}, mindfulness:{4:6,8:7,12:8}, anchoring:{4:8,8:10,12:12}, 'self-regulation':{4:10,8:13,12:15} };
   function estMinutes(key, sil){
+    if(key === 'mindfulness') return mindMinutes(sil);   // 2026-10-15: from the member's own pieces
     const t = PRACTICE_EST[key]; if(!t) return null;
     const s = [4,8,12].reduce((b,x)=>Math.abs(x-(sil||8))<Math.abs(b-(sil||8))?x:b, 8);
     return t[s] || null;
@@ -8384,7 +10188,7 @@ function app(tab){
   // One screen for everyone, paid and free, phone and computer: the Recommended card on top, then every practice as a row
   // with a cover square ("Make your own", "Guided practices"). Tapping a practice slides up one sheet with its choices as
   // labeled rows; each row opens the menus the maker already had. Locked things keep full opacity and show the lock and
-  // "Paid plan"; a tap jiggles the lock, then opens the paid plan screen. Safety is the safety yellow everywhere (not the
+  // "Self-Regulator"; a tap jiggles the lock, then opens the paid plan screen. Safety is the safety yellow everywhere (not the
   // brand's phase-two blue: "it creates a dilemma with the other safety heart coloring"); the self-regulation mark follows
   // the person's dominant defensive state, in its color and its marks.
   // the person's leading defense over the last week (flight/fight, shutdown, or freeze when the two are level), or null
@@ -8665,7 +10469,7 @@ function app(tab){
     const emo = _emoList();
     const E = { kind:'emo', key:'list', title:'Your emotions', st: !paid ? 'paid' : emo.length ? 'done' : 'open', emo };
     const byDepth = d => SEQ.filter(k => partsOf(k).depth === d).map(D);
-    const lock = 'On the paid plan.';
+    const lock = 'Part of Self-Regulator.';
     // the course's order (Justin, 2026-10-02: "All the safety ones come first before going into defense")
     const secs = [
       { title:'The present moment', sub:'', items:[P('micro'), P('mindfulness')] },
@@ -8738,7 +10542,233 @@ function app(tab){
   const _upKeyOf = it => (it.kind === 'anchor' || it.kind === 'anchor-auto') ? 'anchor:' + it.key : it.key;
   function _upFind(M, id){ for(const s of M.secs){ const it = s.items.find(x => x.kind + '|' + x.key === id); if(it) return it; } return null; }
 
+    // ── THE UNSTUCKING PATHWAY, WITH LESSONS (Justin, 2026-10-25: "C is the better direction. Move forward with it."). Circle's
+  // course layout in our look: sections in Circle's order, a tile + title row per lesson, the app's practice steps placed after
+  // the lessons that teach them, a Show toggle (Justin: "change their pathway from lessons only to practices only to both"),
+  // and Continue. The practice steps keep every rule of the classic pathway (_upModel); the classic screen stays below as
+  // _screenPathwayClassic for reference. Lesson data: pathway/manifest.json (+ body-N.json), built from the Circle course.
+  const PL_VIEW = 'snb_pathway_view';
+  const PL_CIRCLE = 'https://assets-v2.circle.so/';   // videos play from Circle until they are on Cloudflare Stream
+  const PL_TINT = ['var(--bone-deep)', 'rgba(91,160,112,.16)', 'rgba(88,145,197,.16)', 'rgba(210,154,74,.18)'];
+  const PL_KIND = { video:'Video', activity:'Activity', reflection:'Reflection', self:'On your own', quiz:'Quiz', text:'Reading' };
+  function _plHls(){ try { return /Apple/.test(navigator.vendor || '') && !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl'); } catch(e){ return false; } }   // iPhone / Safari play Stream's adaptive HLS natively
+  let _plData = null; const _plBodies = {};
+  function _plLoad(){
+    if(_plData) return Promise.resolve(_plData);
+    return fetch('pathway/manifest.json?v=3').then(r => r.json()).then(d => { _plData = d; return d; });
+  }
+  function _plBody(row){
+    if(row.c == null) return Promise.resolve('');
+    if(_plBodies[row.c]) return Promise.resolve(_plBodies[row.c][row.id] || '');
+    return fetch('pathway/body-' + row.c + '.json?v=4').then(r => r.ok ? r.json() : {}).then(d => { _plBodies[row.c] = d; return d[row.id] || ''; }).catch(() => '');
+  }
+  function _plIsDone(id){ const v = _ctxLoad()['ls:' + id]; return !!(v && v.length); }
+  function _plMarkDone(id){
+    if(!id || _plIsDone(id)) return;
+    const day = new Date().toISOString().slice(0, 10);
+    try{ if(Store.saveContexts) Store.saveContexts('ls:' + id, 'done', [day]); else { const m = _ctxLoad(); m['ls:' + id] = [day]; _ctxSave(m); } }catch(e){}
+  }
+  function _plView(){ let v = null; try{ v = localStorage.getItem(PL_VIEW); }catch(e){} return v === 'lessons' || v === 'practices' ? v : 'both'; }
+  function _plLen(sec){ if(!sec) return ''; const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
+  // a lesson's skill → the practice step it teaches
+  function _plMatch(sk, it){
+    if(sk === 'anchor') return it.kind === 'anchorpick';
+    if(it.kind === 'open' || !it.key) return false;
+    const k = it.key;
+    if(k === sk) return true;
+    if(sk.indexOf('@') < 0){ const base = k.split(/[@>]/)[0]; return base === sk && (k.indexOf('@') < 0 || /@general$/.test(k)); }
+    return false;
+  }
+  // every row in order: each stage's lessons in Circle's order, each practice step after the last lesson that teaches it,
+  // practice steps keeping the pathway's own order
+  function _plRows(D, M){
+    const out = [[], [], [], []];
+    const L = [[], [], [], []]; D.rows.forEach(r => L[r.s].push(r));
+    const P = [[], [], [], []];
+    if(M){
+      P[2] = [].concat(M.secs[0].items, [{ kind:'anchorpick', key:'anchor', title:'Your safety anchor', st: M.anchorSet ? 'done' : (M.paid ? 'next' : 'paid') }], M.SEC('safety').items);
+      P[3] = [].concat(M.SEC('which').items, M.defItems);
+    }
+    for(let s = 0; s < 4; s++){
+      const pos = []; let prev = 0;
+      P[s].forEach(it => {
+        let last = -1; L[s].forEach((r, i) => { if(r.sk && _plMatch(r.sk, it)) last = i; });
+        prev = Math.max(last, prev); pos.push(prev);
+      });
+      L[s].forEach((r, i) => {
+        out[s].push({ type:'lesson', row:r, done:_plIsDone(r.id) });
+        P[s].forEach((it, j) => { if(pos[j] === i) out[s].push({ type:'practice', it, done: it.st === 'done' }); });
+      });
+    }
+    return out;
+  }
   function screenPathway(){
+    const def = _domDefense();
+    const back = () => app('practice');
+    const M = _upModel();
+    if(!M || !_plData){
+      _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="pl-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+      Promise.all([_plLoad(), Promise.resolve(Store.sequenceReady ? Store.sequenceReady() : false)]).then(() => {
+        const w = document.getElementById('pl-wait'); if(!w) return;
+        if(_upModel() && _plData) screenPathway(); else w.textContent = "The pathway didn't load. Check your connection and try again.";
+      }).catch(() => { const w = document.getElementById('pl-wait'); if(w) w.textContent = "The pathway didn't load. Check your connection and try again."; });
+      return;
+    }
+    const view = _plView(), all = _plRows(_plData, M);
+    const keep = x => view === 'both' || (view === 'lessons' ? x.type === 'lesson' : x.type === 'practice');
+    let total = 0, done = 0, firstOpen = null;
+    all.forEach(sec => sec.filter(keep).forEach(x => { total++; if(x.done) done++; else if(!firstOpen && !(x.type === 'practice' && (x.it.locked || x.it.st === 'paid'))) firstOpen = x; }));
+    const pct = total ? Math.round(done / total * 100) : 0;
+    const CK = '<span class="pl-ck" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+    const PLAY = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>';
+    const rowHtml = (x, s) => {
+      if(x.type === 'lesson'){
+        const r = x.row, locked = !M.paid;
+        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>Self-Regulator</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
+        return `<button class="pl-row" type="button" data-pl="${r.id}" style="--pl-tint:${PL_TINT[s]}">
+          <span class="pl-tile"><b>${escapeHtml(PL_KIND[r.k] || 'Lesson')}</b><span>${r.v ? PLAY + ' ' + _plLen(r.d) : r.q ? r.q.length + ' questions' : ''}</span></span>
+          <span class="pl-t"><b>${escapeHtml(r.t)}</b>${meta ? `<span class="pl-st">${meta}</span>` : ''}</span></button>`;
+      }
+      const it = x.it, id = it.kind + '|' + it.key;
+      const words = it.st === 'paid' ? LOCK_SVG + '<span>Self-Regulator</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
+        : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? LOCK_SVG : '';
+      const mark = it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(it, def);
+      let pick = '';
+      if(it.kind === 'anchorpick' && M.paid && (!M.anchorSet || _upPickOpen)){
+        const opts = [{ v:'auto', t:'Let the app find my best one' }].concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k) })));
+        pick = `<div class="pl-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button type="button" role="radio" aria-checked="${M.anchorMode === o.v ? 'true' : 'false'}" data-pick="${o.v}">${escapeHtml(o.t)}</button>`).join('')}</div>`;
+      }
+      return `<button class="pl-row" type="button" data-k="practice" data-up="${escapeHtml(id)}"${it.locked ? ' data-locked="1"' : ''} style="--pl-tint:${PL_TINT[s]}">
+        <span class="pl-tile"><b>Practice</b><span class="pl-mk">${mark}</span></span>
+        <span class="pl-t"><b>${escapeHtml(it.title)}</b>${words ? `<span class="pl-st">${words}</span>` : ''}</span></button>${pick}`;
+    };
+    const secs = all.map((sec, s) => {
+      const rows = sec.filter(keep);
+      const body = rows.length ? rows.map(x => rowHtml(x, s)).join('') : (sec.length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
+      return body ? `<section class="pl-sec"><h2>${escapeHtml(_plData.stages[s])}</h2>${body}</section>` : '';
+    }).join('');
+    const tabs = [['both','Both'],['lessons','Lessons'],['practices','Practices']].map(([k, l]) => `<button type="button" data-view="${k}" aria-pressed="${view === k ? 'true' : 'false'}">${l}</button>`).join('');
+    _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
+      <p class="pl-lede">Lessons and practices, one small step at a time.</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
+      <div class="pl-prog"><div class="pl-prog-top"><b>Your progress</b><span>${pct}%</span></div><div class="pl-bar"><i style="width:${pct}%"></i></div></div>
+      <div class="pl-showwrap"><span class="rd-eyeb">Show</span><div class="pl-show" role="group" aria-label="Show on the Pathway">${tabs}</div></div>
+      ${secs}
+      ${firstOpen ? '<button class="pl-go" type="button" data-go="1">Continue</button>' : ''}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+    const v = root.querySelector('.pl-view'); if(!v) return;
+    const openPractice = it => {
+      if(it.kind === 'anchorpick'){ if(!M.paid) return gateSubscribe('practice'); _upPickOpen = !_upPickOpen || !M.anchorSet; _upKeep(); return screenPathway(); }
+      if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(Object.assign({}, M.reco, { fromPath:true, pathTitle:it.title }), screenPathway); }
+      if(it.kind === 'emo' && M.paid){ _upKeep(); return screenEmotions(); }
+      _upItemSheet(it, M, def);
+    };
+    v.onclick = e => {
+      const tv = e.target.closest('[data-view]');
+      if(tv){ try{ localStorage.setItem(PL_VIEW, tv.dataset.view); }catch(err){} try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
+      const pk = e.target.closest('[data-pick]');
+      if(pk){ _upPickOpen = false; return _upSetAnchor(pk.dataset.pick === 'auto' ? null : pk.dataset.pick); }
+      if(e.target.closest('[data-go]') && firstOpen){
+        if(firstOpen.type === 'lesson'){ _upKeep(); return screenPathLesson(firstOpen.row.id); }
+        return openPractice(firstOpen.it);
+      }
+      const l = e.target.closest('[data-pl]');
+      if(l){ if(!M.paid) return gateSubscribe('practice'); _upKeep(); return screenPathLesson(+l.dataset.pl); }
+      const b = e.target.closest('[data-up]'); if(!b) return;
+      if(b.dataset.up === 'anchorpick|anchor') return openPractice({ kind:'anchorpick' });
+      const it = _upFind(M, b.dataset.up); if(it) openPractice(it);
+    };
+    const sc = root.querySelector('.scroll');
+    if(sc && _upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
+  }
+  // the order lessons are walked in: the same rows as the list, lessons only
+  function _plNext(id){
+    if(!_plData) return null;
+    const i = _plData.rows.findIndex(r => r.id === id);
+    return i >= 0 && i < _plData.rows.length - 1 ? _plData.rows[i + 1] : null;
+  }
+  function screenPathLesson(id){
+    if(!_plData){ _plLoad().then(() => screenPathLesson(id)); return; }
+    const r = _plData.rows.find(x => x.id === id); if(!r) return screenPathway();
+    if(r.q) return screenPathQuiz(r);
+    const nx = _plNext(id);
+    const mp4 = r.v ? (r.v.indexOf('http') === 0 ? r.v : PL_CIRCLE + r.v) : '';
+    const sid = (mp4.match(/cloudflarestream\.com\/([0-9a-f]{32})\//) || [])[1];
+    const hls = sid && _plHls() ? mp4.replace('/downloads/default.mp4', '/manifest/video.m3u8') : '';   // adaptive stream (quality follows the signal), captions ride inside it
+    const trk = sid ? `<track kind="captions" srclang="en" label="English" src="pathway/captions/${sid}.vtt">` : '';
+    const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${sid ? ` poster="${escapeHtml(mp4.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(hls || mp4)}">${hls ? '' : trk}</video></div><p class="pl-verr" hidden>Couldn't load the video. <button type="button" class="pl-vretry">Try again</button></p>` : '';
+    _rdShell(`<div class="pl-lesson">${video}
+      <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
+      <h1 class="rd-title">${escapeHtml(r.t)}</h1>
+      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div>
+      <div class="pl-foot"><button class="pl-done" type="button" id="pl-done">Done</button>${nx ? `<p>Next: ${escapeHtml(nx.t)}</p>` : ''}</div></div>`,
+      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+    const ve = root.querySelector('.pl-video'), ver = root.querySelector('.pl-verr');
+    if(ve){   // stream fails -> fall back to the plain file (with its caption track); that fails too -> a calm "Try again"
+      ve.addEventListener('error', () => {
+        if(hls && ve.getAttribute('src') === hls){ ve.setAttribute('src', mp4); if(trk) ve.insertAdjacentHTML('beforeend', trk); ve.load(); return; }
+        if(ver) ver.hidden = false;
+      });
+      const rb = root.querySelector('.pl-vretry');
+      if(rb) rb.onclick = () => { if(ver) ver.hidden = true; ve.load(); };
+    }
+    _plBody(r).then(h => {
+      const b = document.getElementById('pl-body'); if(!b) return;
+      b.innerHTML = h || (r.v ? '' : '<p>The written part of this lesson is on its way.</p>');
+      b.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
+      b.onclick = e => { const a = e.target.closest('a[data-ln]'); if(!a) return; e.preventDefault(); const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; screenPathLesson(+a.dataset.ln); };   // in-app links to other Pathway lessons
+    });
+    const d = document.getElementById('pl-done');
+    if(d) d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); };
+  }
+  // a quiz: one question at a time, nothing scored or kept but "done". Justin (2026-10-25): no answer is revealed, a wrong
+  // pick just fades so you can choose again; the right pick gets a small drawn check, no green, no "Yes, that one" line. The
+  // quiz is built once and updated in place, so a tap never moves the screen.
+  const PL_CHECK = '<svg class="pl-ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  function _plQuizQ(r, qi){
+    const Q = r.q[qi], last = qi === r.q.length - 1;
+    const dots = r.q.map((x, i) => `<i${i < qi ? ' data-d="1"' : i === qi ? ' data-d="2"' : ''}></i>`).join('');
+    const opts = Q.o.map((o, i) => `<button class="pl-opt" type="button" data-opt="${i}"><span>${escapeHtml(o)}</span>${PL_CHECK}</button>`).join('');
+    return `<div class="pl-dots" aria-hidden="true">${dots}</div>
+      <span class="rd-eyeb">${escapeHtml(r.t)}</span><h1 class="rd-title">${escapeHtml(Q.q)}</h1>
+      <div class="pl-opts" role="group">${opts}</div>
+      <p class="pl-sr" aria-live="polite"></p>
+      <button class="pl-done" type="button" id="pl-next" disabled>${last ? 'Done' : 'Next question'}</button>`;
+  }
+  function screenPathQuiz(r){
+    let qi = 0, got = false;
+    const nx = _plNext(r.id);
+    _rdShell(`<div class="pl-quiz">${_plQuizQ(r, 0)}</div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+    const v = root.querySelector('.pl-quiz'); if(!v) return;
+    v.onclick = e => {
+      const o = e.target.closest('[data-opt]');
+      if(o){
+        if(got || o.dataset.r) return;
+        const right = +o.dataset.opt === r.q[qi].a, sr = v.querySelector('.pl-sr');
+        if(right){
+          got = true; o.dataset.r = 'yes';
+          v.querySelectorAll('.pl-opt:not([data-r])').forEach(b => { b.dataset.r = 'rest'; });
+          v.querySelector('#pl-next').disabled = false;
+          if(sr) sr.textContent = 'Right.';
+          try{ haptic('save'); }catch(err){}
+        } else {
+          o.dataset.r = 'no'; o.setAttribute('aria-disabled', 'true');
+          if(sr) sr.textContent = 'Not that one. Try another.';
+          try{ haptic('tap'); }catch(err){}
+        }
+        return;
+      }
+      if(e.target.closest('#pl-next') && got){
+        if(qi < r.q.length - 1){
+          qi++; got = false; v.innerHTML = _plQuizQ(r, qi);
+          const sc = root.querySelector('.scroll');   // only bring the new question into view if it sits above the screen
+          if(sc && v.getBoundingClientRect().top < sc.getBoundingClientRect().top) v.scrollIntoView({ behavior:'smooth', block:'start' });
+          return;
+        }
+        _plMarkDone(r.id); try{ haptic('save'); }catch(err){}
+        return nx ? screenPathLesson(nx.id) : screenPathway();
+      }
+    };
+  }
+  function _screenPathwayClassic(){
     const def = _domDefense();
     const back = () => app('practice');
     const M = _upModel();
@@ -8757,7 +10787,7 @@ function app(tab){
       const locked = pc.paid && !M.paid, read = _lrnIsRead(id), c = _upCols(it, def);
       // reading is optional (Justin, 2026-10-02: "The skills need to go in order but the reading lessons are optional")
       // (2026-10-02: "'Optional reading' is overused. Just take it out.")
-      const lead = locked ? LOCK_SVG + 'Paid plan' : read ? _lrnReadMk() + 'Read' : '';
+      const lead = locked ? LOCK_SVG + 'Self-Regulator' : read ? _lrnReadMk() + 'Read' : '';
       const first = it.st === 'now' && !read && !locked;
       return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="--line:${c.line}">
         <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t">${lead ? `<i>${lead}</i>` : ''}<b>${escapeHtml(pc.title)}</b></span></button>`;
@@ -8768,7 +10798,7 @@ function app(tab){
       // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
       // with a small lock.
       // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
-      let words = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
+      let words = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
       if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
       if(it.academy && !words) words = 'Completed in the Academy';
       // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
@@ -8798,7 +10828,7 @@ function app(tab){
       return M.paid && M.anchorSet && !_upPickOpen ? `<div class="up-path" style="--line:var(--s-safety-tx)">${h}${reads}</div>${_UP_DOWN}`
         : h + (reads ? `<div class="up-path up-path-reads">${reads}</div>${_UP_DOWN}` : '');
     };
-    const secHtml = s => s.picker ? `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub${M.paid && !M.anchorSet ? ' up-sub-start' : ''}">${s.sub === 'On the paid plan.' ? LOCK_SVG : ''}${escapeHtml(s.sub)}</p>` : ''}${pickHtml()}`
+    const secHtml = s => s.picker ? `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub${M.paid && !M.anchorSet ? ' up-sub-start' : ''}">${s.sub === 'Part of Self-Regulator.' ? LOCK_SVG : ''}${escapeHtml(s.sub)}</p>` : ''}${pickHtml()}`
       : `<h3 class="p8-sec up-sec">${escapeHtml(s.title)}</h3>${s.sub ? `<p class="up-sub">${escapeHtml(s.sub)}</p>` : ''}
       ${pathHtml(s.items)}`;
     // all left aligned on one line that runs top to bottom (Justin, 2026-10-02: "probabaly better off all left aligned with a
@@ -8815,7 +10845,7 @@ function app(tab){
       return `<div class="up-path"${c ? ` style="--line:${c.line}"` : ''}>${rows.join('')}</div>${_UP_DOWN}`;
     }
     const lede = M.paid ? 'Each skill opens when the one before it is completed within your capacity. Some also wait until your check-ins show enough safety. The reading is optional. To skip ahead, open any step and practice it anyway.'
-      : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is on the paid plan.';
+      : 'Every practice in the app, in order, with chapters you can read along the way. A tiny practice and Simple mindfulness are free. The rest is part of Self-Regulator.';
     _rdShell(`<div class="up-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
       <p class="up-lede">${escapeHtml(lede)}</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
       ${M.secs.map(secHtml).join('')}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
@@ -8901,13 +10931,13 @@ function app(tab){
   const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">Learn more about these skills:</p><div class="p8-list">${list.map(pc => {
       const locked = pc.paid && !paid, read = _lrnIsRead(pc.id);
       return `<button class="rd-row p8-row" type="button" data-up-ch="${escapeHtml(pc.id)}"><span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_BOOK}</span>
-        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Paid plan · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
+        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Self-Regulator · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
     }).join('')}</div></div>` : '';
   const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
-    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Paid plan</button>`;
+    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Self-Regulator</button>`;
   function _upItemSheet(it, M, def){
     const W = _upWhat(it);
-    const st = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
+    const st = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
     // Academy progress (2026-10-03): open, named, and checked off here once a practice shows it
     if(it.academy) body = `<p class="up-sh-st">Completed in the Academy</p><div class="up-sh-blk"><p class="up-sh-p">It is checked off here once a practice shows it.</p></div>`;
@@ -9155,7 +11185,7 @@ function app(tab){
         const stOf = (it, i) => it.st === 'paid' ? 'paid' : (from + i) === at ? 'now' : it.st === 'done' ? 'done' : it.locked ? 'locked' : 'ahead';
         rows = win.map((it, i) => {
           const c = _upCols(it, def), st = stOf(it, i);
-          const word = it.st === 'paid' ? LOCK_SVG + 'Paid plan' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
+          const word = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
             : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
           const solid = st === 'done' && win[i + 1] && stOf(win[i + 1], i + 1) === 'done';
           return `<span class="up-h-row" data-st="${st}"${solid ? ' data-seg="1"' : ''} style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
@@ -9165,7 +11195,7 @@ function app(tab){
     }catch(e){ rows = []; }
     return `<button class="up-hero" type="button" id="up-entry" aria-label="${UP_TITLE}">
         <span class="up-hero-head"><span class="up-hero-ico">${_UP_ICO}</span><b>${UP_TITLE}</b><span class="wc-go">${CHEV}</span></span>
-        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Paid plan · Every practice, in order'}</span>`}
+        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Self-Regulator · Every practice, in order'}</span>`}
       </button>`;
   }
 
@@ -9173,7 +11203,7 @@ function app(tab){
   // ── CHALLENGES (ROADMAP-DETAIL 10; Justin 2026-10-16/17/18) ─────────────────────────────────────────────
   // The copy of record is snb-business Projects/App Designer/CHALLENGES-SCRIPT.md, built into challenges.js
   // (window.SNBChallenges) by build_challenges.py. Nothing member-facing is typed here except what that script
-  // marks for the app. Paid plan only: free members see everything, locked. One challenge at a time; starting
+  // marks for the app. Self-Regulator only: free members see everything, locked. One challenge at a time; starting
   // another pauses it. One prompt a day, the next opens at local midnight, a missed day waits, no streaks.
   // Progress lives in contexts (synced like journal answers):
   //   chs:{id}       [start or resume stamp]  present = started and not finished; the newest stamp is the one in progress
@@ -9244,7 +11274,7 @@ function app(tab){
   function _chEntryHTML(paid){
     const S = _CH(); if(!S) return '';
     const a = paid ? _chActive() : null;
-    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}Paid plan</span>`
+    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}Self-Regulator</span>`
       : a ? `<span class="ch-entry-name">${escapeHtml(a.c.name)}</span>${_chBar(a)}<span class="ch-entry-sub">${escapeHtml(_chNextLine(a))}</span>`
       : `<span class="ch-entry-sub">${escapeHtml(S.T.intro)}</span>`;
     return `<button class="ch-entry" type="button" id="ch-entry"><span class="ch-entry-head"><span class="ch-entry-ico">${_CH_ICO}</span><b>Challenges</b><span class="wc-go">${CHEV}</span></span><span class="ch-entry-body">${body}</span></button>`;
@@ -9260,7 +11290,7 @@ function app(tab){
     const a = paid ? _chActive() : null;
     const paused = paid ? _chAll().filter(s=>s.started && (!a || s.id !== a.id)) : [];
     const sug = _chSuggested().slice(0, 4);
-    const lock = paid ? '' : LOCK_SVG + 'Paid plan · ';
+    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
     const cur = a ? `<button class="ch-cur" type="button" data-ch="${a.id}" data-go="${a.ready ? 'prompt' : 'sheet'}"><span class="ch-cur-top"><b>${escapeHtml(a.c.name)}</b><span>In progress</span></span>${_chBar(a)}<span class="ch-cur-sub">${escapeHtml(_chNextLine(a))}</span></button>` : '';
     const pausedHTML = paused.map(s=>`<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>Paused · day ${s.done + 1} of ${s.c.days}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
     const cards = sug.map((s, i)=> i === 0
@@ -9281,7 +11311,7 @@ function app(tab){
     const S = _CH(), T = S.T, paid = paidNow();
     const all = _chAll(), sug = _chSuggested(), rec = sug[0] ? sug[0].id : null, a = paid ? _chActive() : null, by = {};
     all.forEach(s=>by[s.id] = s);
-    const lock = paid ? '' : LOCK_SVG + 'Paid plan · ';
+    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
     const sub = s => {
       const bits = [_chDaysWord(s.c)];
       if(paid && a && s.id === a.id) bits.push('In progress');
@@ -9320,7 +11350,7 @@ function app(tab){
     if(c.ways) lines.push(`<p class="ch-sh-p">${escapeHtml(c.waysIntro)}</p><ul class="ch-ways">${c.ways.map(w=>`<li><b>${escapeHtml(w.k)}</b> · ${escapeHtml(w.line)}</li>`).join('')}</ul>`);
     if(c.needPse && !(by.pse && by.pse.runs)) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.needPse)}</p>`);
     if(c.bestAfter && c.after && !(by[c.after] || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
-    const len = `${paid ? '' : LOCK_SVG + 'Paid plan · '}${c.days} days · one prompt a day`;
+    const len = `${paid ? '' : LOCK_SVG + 'Self-Regulator · '}${c.days} days · one prompt a day`;
     let foot = '';
     if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(T.freeStart)}</button>`;
     else if(isCur) foot = s.ready ? `<button class="ch-pill" type="button" id="ch-sh-go">Open the prompt</button>` : `<p class="ch-sh-note">You're on day ${s.done + 1} of ${c.days}. ${escapeHtml(T.tomorrow)}</p>`;
@@ -9593,7 +11623,7 @@ function app(tab){
     // with an animated underline. That was plenty"): no eyebrow, no badge, and the card itself no longer slides in
     const _line = `<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`;
     const title = `<span class="p8-name">${nm ? `${escapeHtml(nm)}’s` : 'Your'}${_line}</span> custom practice`;
-    const lockMeta = LOCK_SVG + 'Paid plan';
+    const lockMeta = LOCK_SVG + 'Self-Regulator';
     let card, reco = null;
     if(paid){
       reco = _recommendSafe(true);
@@ -9685,6 +11715,7 @@ function app(tab){
       if(isSession) return [];
       const sk = pState.skill, R = [];
       if(k!=='mindfulness') R.push(['sense','Anchor', CAP(pState.sense)]);
+      if(k==='mindfulness' && MIND_PIECES_ON) R.push(['pieces','Pieces', mindPiecesWords()]);
       if(k==='anchoring') R.push(['safety','Safety practice', CAP(mkSafetyRow(pState.safetySkill)[1])]);
       if(k==='self-regulation'){
         R.push(['skill','Skill', CAP(skillLabel(sk))]);
@@ -9882,11 +11913,22 @@ function app(tab){
   // furthest phase, whether the defense half was reached, rewinds, beats played, and the
   // prefix / depth / sequence key / Interest Impulse answer. Columns added 2026-09-19.
   const ENGINE_REPORT = ['details','timeline','outcome','easedOutFrom','reached','reachedDefense','rewinds','beatsPlayed','prefix','depth','offerKey','interestAnswer','safetyReadings','intensityReadings','handedOffTo','handedOffFrom','offers'];   // + the 0–10 answers, 2026-09-20; + intensity, 2026-09-21; + the four buttons (which was tapped, the number, how long it paused) and the switch into mindfulness, 2026-09-23
+  // Apple Health Mindful Minutes (store app only, opt-in from Settings; Justin, 2026-10-20). The minutes practiced,
+  // ending now. Never check-in results or anything else.
+  const HEALTH_KEY = 'snb_health_mindful';
+  function healthOn(){ try{ return localStorage.getItem(HEALTH_KEY)==='1'; }catch(e){ return false; } }
+  function healthMaybeLog(minutes){
+    const m = +minutes || 0;
+    if(m < 1 || !healthOn() || !(Store.inStoreApp && Store.inStoreApp())) return;
+    const end = new Date(), start = new Date(end.getTime() - Math.round(m * 60000));
+    try{ Store.healthLogMindful(start.toISOString(), end.toISOString()); }catch(e){}
+  }
   function logSession(reco, completed, endedEarly, minutes){
     // Defense in depth: never log a self-regulation ('self-regulation') session for an
     // anonymous guest (the guest UI cannot produce one; refuse it regardless).
     if(reco && reco.practiceKey==='self-regulation' && Store.isAnonymous && Store.isAnonymous()) return;
     if(window._sessionLogged) return; window._sessionLogged=true;
+    healthMaybeLog(minutes);
     // skills exist on the self-regulation track and, since the engine, on the safety track
     // (validate-safety … interest-safety). Gate here at the save boundary so no session can
     // inherit a leftover default skill (e.g. the customizer's default 'imagery'): a safety
@@ -10153,6 +12195,27 @@ function app(tab){
   }
   async function clearOffline(){ try{ await caches.delete('snb-audio-v1'); }catch(e){} }
 
+  // the member's photo (2026-10-27): a square JPEG, 256 px, in the public `avatars` bucket as <user id>.jpg
+  async function _setPhoto(file){
+    const uid = _lwUid(); if(!uid || !window.sb) return;
+    try{
+      if(!file){
+        await window.sb.storage.from('avatars').remove([uid + '.jpg']);
+        await window.sb.auth.updateUser({ data:{ avatar_url:null } });
+        try{ localStorage.removeItem('snb_av_' + uid); }catch(e){}
+        return;
+      }
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+      const n = Math.min(img.naturalWidth, img.naturalHeight), cv = document.createElement('canvas'); cv.width = cv.height = 256;
+      cv.getContext('2d').drawImage(img, (img.naturalWidth - n) / 2, (img.naturalHeight - n) / 2, n, n, 0, 0, 256, 256);
+      const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', .86));
+      const up = await window.sb.storage.from('avatars').upload(uid + '.jpg', blob, { upsert:true, contentType:'image/jpeg', cacheControl:'3600' });
+      if(up && up.error) throw up.error;
+      const url = window.sb.storage.from('avatars').getPublicUrl(uid + '.jpg').data.publicUrl + '?v=' + Date.now();
+      await window.sb.auth.updateUser({ data:{ avatar_url:url } });
+      try{ localStorage.setItem('snb_av_' + uid, url); }catch(e){}
+    }catch(e){ showToast('The photo did not save. Try again in a moment.'); }
+  }
   function screenSettings(){
     clearFigures(); document.body.classList.remove('in-practice');
     currentTab='you';
@@ -10198,6 +12261,7 @@ function app(tab){
 
           <div class="gs-card">
             <div class="gs-row"><span class="gs-k">Name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="add your name"></div>
+            ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="gs-row"><span class="gs-k">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div><p class="gs-note gs-photo-note">Shows next to your messages in live event chat.</p>` : ''}
             <div class="gs-row"><span class="gs-k">Account</span><span class="gs-v">${escapeHtml(u.email||'on this device')}</span></div>
           </div>
 
@@ -10217,7 +12281,7 @@ function app(tab){
 
           <div class="gs-card">
             <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Your emotions</span>
-              <button class="linkbtn" id="set-emotions" type="button">${paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : 'Paid plan'}</button></div>
+              <button class="linkbtn" id="set-emotions" type="button">${paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : 'Self-Regulator'}</button></div>
             <p class="gs-note" style="margin:6px 0 0">The emotions you work with in practice, easy to hard. The same list as on the Unstucking Pathway and in articles.</p>
           </div>
 
@@ -10279,7 +12343,7 @@ function app(tab){
 
           <div class="gs-card">
             <p class="gs-h">Your data</p>
-            ${gsSw('sw-glyph','State glyph on shared images',gl!=='0')}
+            ${gsSw('sw-glyph','Your state glyph on shared images and in live chat',gl!=='0')}
             <p class="ch-cap" id="glyph-cap"></p>
             <div class="gs-actions" style="margin-top:14px">
               <button class="set-quiet" id="export">Export your check-ins and journal</button>
@@ -10291,21 +12355,32 @@ function app(tab){
           ${(function(){ var b=(Store.billing&&Store.billing())||null;
             // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
             // never worded as though the free account is deficient. 🖊 copy draft.
+            var inStore = !!(Store.inStoreApp && Store.inStoreApp());
+            var ent = (Store.entitlement && Store.entitlement()) || {};
+            if(ent.store==='apple')
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator, through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
+            if(b && b.sub_status==='active' && inStore)
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">You’re on Self-Regulator. You subscribed on the website, so you can change or cancel it there.</p></div>`;
             if(b && b.sub_status==='active')
-              return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">Your subscription is active. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
             // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
-            var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.circle)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes the full app. You joined the Unstucking Academy before the app became a separate purchase, so it stays included at no charge.</p></div>`;
+              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes everything in Self-Regulator. You joined the Unstucking Academy before Self-Regulator was a separate purchase, so it stays included at no charge.</p></div>`;
             if(ent.legacy)
               return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
-            return `<div class="gs-card"><p class="gs-h">Subscription</p><p class="gs-note">You're on the free plan. It has no time limit.</p><button class="set-quiet" id="go-sub">Subscribe &middot; monthly or annual</button></div>`; })()}
+            return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Free. It has no time limit.</p><button class="set-quiet" id="go-sub">Get Self-Regulator &middot; monthly or annual</button></div>`; })()}
 
           ${(function(){ const s=_acadStage(); if(s < 2 || !paidNow()) return '';
             const on = _acadOn() > 0;
             return `<div class="gs-card"><p class="gs-h">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}
+
+          ${(Store.inStoreApp && Store.inStoreApp()) ? `<div class="gs-card">
+            <p class="gs-h">Apple Health</p>
+            <p class="gs-note">${healthOn() ? 'The minutes you practice are added to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.' : 'Add the minutes you practice to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.'}</p>
+            <button class="set-quiet" id="health-toggle" type="button">${healthOn() ? 'Stop adding minutes' : 'Add my practice minutes'}</button>
+          </div>` : ''}
 
           <div class="gs-card">
             <p class="gs-h">Your history</p>
@@ -10320,6 +12395,9 @@ function app(tab){
           <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
         </div>
       </div>`;
+    const phBtn = $('#ph-btn'), phFile = $('#ph-file'), phX = $('#ph-x');
+    if(phBtn && phFile){ phBtn.onclick = () => phFile.click(); phFile.onchange = () => { const f = phFile.files && phFile.files[0]; if(f) _setPhoto(f).then(screenSettings); }; }
+    if(phX) phX.onclick = () => _setPhoto(null).then(screenSettings);
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const sem=$('#set-emotions'); if(sem) sem.onclick=()=>{ if(!paidNow()) return gateSubscribe('pathway'); screenEmotions(()=>screenSettings()); };
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
@@ -10361,6 +12439,14 @@ function app(tab){
       const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);
     });
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
+    const hlt=$('#health-toggle'); if(hlt) hlt.onclick=()=>{
+      if(healthOn()){ try{ localStorage.removeItem(HEALTH_KEY); }catch(e){} return screenSettings(); }
+      hlt.disabled = true;
+      Promise.resolve(Store.healthRequest()).then(ok=>{
+        if(ok){ try{ localStorage.setItem(HEALTH_KEY,'1'); }catch(e){} screenSettings(); showToast('Your practice minutes will be added to Apple Health.'); }
+        else { hlt.disabled = false; showToast('Apple Health did not allow it. You can allow it in the Health app, under Sharing, then Apps.'); }
+      });
+    };
     const mgs=$('#manage-sub'); if(mgs) mgs.onclick=()=>{ mgs.disabled=true; const t=mgs.textContent; mgs.textContent='One moment…';
       Promise.resolve(Store.openPortal()).then(res=>{ if(res&&res.error){ mgs.disabled=false; mgs.textContent=t; showToast(res.error);} })
         .catch(e=>{ mgs.disabled=false; mgs.textContent=t; showToast(String((e&&e.message)||e)); }); };
@@ -10405,8 +12491,8 @@ function app(tab){
     bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); });
     // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
-      ? 'Your share cards carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
-      : 'Your share cards go out with no state signature.'; };
+      ? 'Your share cards and your live event chat messages carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
+      : 'Your share cards and chat messages go out with no state signature.'; };
     _glyphCap(gl!=='0');
     bindSw('sw-glyph',  on=>{ localStorage.setItem('snb_share_glyph', on?'1':'0'); _glyphCap(on); });
     // "we're live" invitations: state-mirroring caption, same pattern as the others. 🖊
@@ -10491,6 +12577,7 @@ function app(tab){
         <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
         <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
         <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
+        ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede" style="margin-bottom:14px"><strong>Your Self-Regulator plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
         <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
         ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
         <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep my account</button>
@@ -10603,6 +12690,7 @@ function app(tab){
    the screen that follows a practice (feedback / exit reason) renders from it. */
 function routeSafe(){
   if(document.getElementById('weaver')) return;    // a live practice owns the screen
+  if(document.getElementById('lw-room')) return;   // and so does a live event (2026-10-27: sharing the screen and coming back repainted the Calendar over it)
   /* 2026-08-17, second half of the same bug (Justin, on device): finish a practice while
      the phone is still LOCKED and renderFeedback() draws the after-practice check-in
      while hidden — then the unlock fires the token refresh, route() runs because the
