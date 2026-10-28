@@ -2987,7 +2987,7 @@ function app(tab){
     if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment\u2026'}</p>`; return; }
     // before the Co-Regulator launch, members see Mindful Moment only; Justin sees everything
     const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
-    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>`; return; }
+    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>` + _lwPastLink(); _lwPastWire(el); return; }
     el.innerHTML = `<div class="lw-list">${list.map(s => {
       const K = _lwKind(s), d = new Date(_lwStart(s)), open = _lwDoorOpen(s), live = _lwIsLive(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
       const act = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
@@ -3005,6 +3005,102 @@ function app(tab){
     el.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(_lw.sched.find(s => s.id === b.dataset.lwRsvp)));
     el.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(_lw.sched.find(s => s.id === b.dataset.lwJoin)));
     el.querySelectorAll('[data-lw-info]').forEach(b => b.onclick = () => _lwInfoSheet(_lw.sched.find(s => s.id === b.dataset.lwInfo)));
+    el.insertAdjacentHTML('beforeend', _lwPastLink()); _lwPastWire(el);
+  }
+  // ---- host only: who came to past live events (Justin OK'd the mockup 2026-10-28, https://claude.ai/artifact/UsZeBfSryRZbNzkCvwnChT) ----
+  // One RPC, live_host_attendance(p_session): null = the past events, an id = that event's people. The database only
+  // answers the host (live_is_host()). Chat is never stored, so it is never here.
+  const _lwPastLink = () => _lwIsHost() ? `<button class="lw-past-link" type="button" id="lw-past"><span>Who came to past events</span>${CHEV}</button>` : '';
+  function _lwPastWire(el){ const b = el.querySelector('#lw-past'); if(b) b.onclick = () => screenLiveAttendance(null); }
+  const _lwAtt = { list:null, ev:{}, err:null };
+  async function _lwAttRpc(id){ const r = await window.sb.rpc('live_host_attendance', { p_session:id }); if(r.error) throw r.error; return r.data || {}; }
+  const _lwT = t => new Date(t).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }).replace(' ', ' ').replace('AM','am').replace('PM','pm');
+  const _lwMin = secs => { const m = Math.max(0, Math.round((secs || 0) / 60)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); };
+  const _lwOpenRoom = e => (e.duration_min || 60) >= 1440;   // the always-open test rooms
+  function _lwAttBars(c){
+    if(!c) return '';
+    const h = x => Math.max(4, Math.round(Math.min(1, Math.max(0, +x || 0)) * 100));
+    return `<span class="lw-ci" role="img" aria-label="safety ${Math.round((c.v||0)*10)}, fight or flight ${Math.round((c.sym||0)*10)}, shutdown ${Math.round((c.dor||0)*10)} out of 10"><i style="height:${h(c.v)}%"></i><i style="height:${h(c.sym)}%"></i><i style="height:${h(c.dor)}%"></i></span>`;
+  }
+  // the room's answers on the slides: the last 0 to 10 per slide; per breath slide, each tap in order without repeats
+  function _lwAttAnswers(list){
+    const bySlide = (kind) => { const m = new Map(); (list || []).filter(a => a.kind === kind).forEach(a => { const k = a.slide || '?'; if(!m.has(k)) m.set(k, []); m.get(k).push(String(a.value)); }); return [...m.values()]; };
+    const z = bySlide('safety').map(v => v[v.length - 1]);
+    const br = bySlide('breath').map(v => [...new Set(v.flatMap(x => x.split('-')))].join(', '));
+    return { z, br };
+  }
+  function screenLiveAttendance(id){
+    clearFigures(); document.body.classList.remove('in-practice','rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
+    root.innerHTML = `
+      <header class="appbar read-appbar"></header>
+      <div class="scroll" id="content"><div class="view lw-view lw-att"><div id="lw-att"></div></div></div>
+      <div class="fl-dock" id="fl-dock"><button class="tab-back-float" id="lw-att-back" type="button">${BACK_SVG}<span>Back</span></button></div>
+      <nav class="tabbar" id="tabs">${TABS()}</nav>`;
+    $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => app(b.dataset.t));
+    $('#lw-att-back').onclick = () => { if(id) return screenLiveAttendance(null); document.body.classList.remove('rd-sub'); screenCommunity(); };
+    try{ window.scrollTo(0,0); }catch(e){}
+    const paint = () => { const el = document.getElementById('lw-att'); if(el) el.innerHTML = id ? _lwAttEvent(id) : _lwAttList(); if(el && !id) el.querySelectorAll('[data-att]').forEach(b => b.onclick = () => screenLiveAttendance(b.dataset.att)); };
+    paint();
+    if(!window.sb) return;
+    _lwAttRpc(id).then(d => { if(id) _lwAtt.ev[id] = d; else _lwAtt.list = d.events || []; _lwAtt.err = null; })
+      .catch(() => { _lwAtt.err = 'load'; })
+      .then(() => { if(document.getElementById('lw-att')) paint(); });
+  }
+  function _lwAttList(){
+    const head = `<div class="scr-head"><p class="eyebrow">Only you see this</p><h2 class="scr-h">Who came</h2><p class="scr-lede">Past live events, newest first.</p></div>`;
+    if(!_lwAtt.list) return head + `<p class="lw-quiet">${_lwAtt.err ? 'That did not load. Try again in a moment.' : 'One moment…'}</p>`;
+    if(!_lwAtt.list.length) return head + `<p class="lw-quiet">Nobody has joined a live event yet.</p>`;
+    return head + `<ul class="lw-att-evs">${_lwAtt.list.map(e => {
+      const meta = _lwOpenRoom(e) ? 'Open room, from ' + _lwLongDate(e.starts_at) : _lwLongDate(e.starts_at) + ' · ' + _lwRangeC(e);
+      return `<li><button type="button" data-att="${escapeHtml(e.id)}"><span class="nm">${escapeHtml(e.title || _lwKind(e).name)}</span><span class="meta">${escapeHtml(meta)}</span><span class="ct">${e.came} came</span></button></li>`;
+    }).join('')}</ul>`;
+  }
+  function _lwAttEvent(id){
+    const d = _lwAtt.ev[id];
+    if(!d) return `<p class="lw-quiet">${_lwAtt.err ? 'That did not load. Try again in a moment.' : 'One moment…'}</p>`;
+    if(d.error || !d.event) return `<p class="lw-quiet">That event is not there any more.</p>`;
+    const e = d.event, P = d.people || [], n = P.length, open = _lwOpenRoom(e);
+    // the stay bar spans the event (an open room: the span of the visits)
+    let a0 = new Date(e.starts_at).getTime(), a1 = a0 + (e.duration_min || 60) * 60000;
+    if(open && n){ a0 = Math.min(...P.map(p => +new Date(p.first_in))); a1 = Math.max(...P.map(p => +new Date(p.last_out))); }
+    P.forEach(p => (p.visits || []).forEach(v => { a0 = Math.min(a0, +new Date(v.in)); a1 = Math.max(a1, +new Date(v.out)); }));
+    const span = Math.max(60000, a1 - a0), pct = t => Math.max(0, Math.min(100, (t - a0) / span * 100));
+    const mins = P.map(p => p.secs || 0).sort((x, y) => x - y), med = n ? mins[Math.floor((n - 1) / 2)] : 0;
+    const both = P.filter(p => p.before && p.after).length;
+    const ans = P.filter(p => (p.answers || []).length).length;
+    const when = open ? 'Open room, from ' + _lwLongDate(e.starts_at) : _lwLongDate(e.starts_at) + ' · ' + _lwRangeC(e);
+    const host = d.host && d.host.in ? `You came in at ${_lwT(d.host.in)}${d.host.out ? ' and left at ' + _lwT(d.host.out) : ''}. ` : '';
+    const dash = '<span class="lw-muted">none</span>';
+    const rows = P.map(p => {
+      const visits = p.visits || [], A = _lwAttAnswers(p.answers);
+      const left = p.still_open && !open ? 'to the end' : _lwT(p.last_out);
+      const back = visits.length > 1 ? `<span class="lw-att-sub">${visits.slice(1).map(v => 'back ' + _lwT(v.in)).join(', ')}</span>` : '';
+      const free = p.free_until ? ' · free until ' + new Date(p.free_until).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+      const ci = (p.before || p.after) ? `<span class="lw-ci-pair">${p.before ? _lwAttBars(p.before) : '<span class="lw-muted">no before</span>'}<span class="lw-muted" aria-hidden="true">→</span>${p.after ? _lwAttBars(p.after) : '<span class="lw-muted">left before</span>'}</span>` : dash;
+      return `<tr>
+        <td class="who">${escapeHtml(p.name || 'Member')}<span class="lw-att-sub">${escapeHtml((p.plan || '') + free)}</span></td>
+        <td data-l="Joined">${_lwT(p.first_in)}</td>
+        <td data-l="Left">${left}${back}</td>
+        <td data-l="Stayed" class="wide">${_lwMin(p.secs)}${visits.length > 1 ? ', ' + visits.length + ' visits' : ''}<span class="lw-stay" aria-hidden="true">${visits.map(v => `<i style="left:${pct(+new Date(v.in)).toFixed(1)}%;width:${Math.max(1, pct(+new Date(v.out)) - pct(+new Date(v.in))).toFixed(1)}%"></i>`).join('')}</span></td>
+        <td data-l="Check-in, before → after" class="wide">${ci}</td>
+        <td data-l="0 to 10 safety">${A.z.length ? escapeHtml(A.z.join(' → ')) : dash}</td>
+        <td data-l="Breath check">${A.br.length ? escapeHtml(A.br.join(' · ')) : dash}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="scr-head"><p class="eyebrow">${escapeHtml((e.title || _lwKind(e).name) + ' · ' + when)}</p>
+        <h2 class="scr-h">${n} ${n === 1 ? 'person' : 'people'} came</h2>
+        <p class="scr-lede">${host}Times are yours. Only you see this.</p></div>
+      <div class="lw-att-sum">
+        <div><b>${n}</b><span>came</span></div>
+        <div><b>${_lwMin(med)}</b><span>typical stay</span></div>
+        <div><b>${both} of ${n}</b><span>checked in before and after</span></div>
+        <div><b>${ans} of ${n}</b><span>answered on the slides</span></div>
+      </div>
+      ${n ? `<div class="lw-att-tbl"><table>
+        <thead><tr><th>Person</th><th>Joined</th><th>Left</th><th>Stayed</th><th>Check-in, before → after</th><th>0 to 10 safety</th><th>Breath check</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+        <p class="lw-att-key"><span style="--c:var(--s-safety)">safety</span><span style="--c:var(--s-fight)">fight or flight</span><span style="--c:var(--s-shutdown)">shutdown</span></p>` : '<p class="lw-quiet">Nobody else came.</p>'}
+      <p class="lw-att-foot">Chat isn't saved, so it isn't here. Your own visit isn't listed. The thin bar under "Stayed" is the event; dark is when they were in the room. Names come from Settings, otherwise the first part of their email.</p>`;
   }
   function _lwNeedAccount(){
     return _lwSheet('Use an account', `<p class="lw-p">Live events need a free account, so Justin knows who is in the room. You can make one in Settings.</p>
