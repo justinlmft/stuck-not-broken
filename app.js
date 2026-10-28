@@ -2767,6 +2767,7 @@ function app(tab){
   function lwCalendarIco(on){ return '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"' + (on ? ' fill="currentColor"' : ' fill="none"') + '/><path fill="none" d="M8 3v4M16 3v4"/><path fill="none" d="M3.5 10h17"' + (on ? ' stroke="var(--bone-deep)"' : '') + '/></svg>'; }
   function lwCommunityIco(on){ if(!(LW_COREG_LIVE || LW_FORUM_LIVE)) return lwCalendarIco(on); return on ? '<svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5" fill="currentColor"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0z" fill="currentColor"/><path fill="none" d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>'; }   // a function, so the tab bar can use it before this line runs
   const LW_ICO = {
+    slides:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 9h7M7 12.5h10M12 17v3M8.5 20h7"/></svg>',
     mic:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
     cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>',
     share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M12 13V7M9 10l3-3 3 3"/></svg>',
@@ -3098,29 +3099,76 @@ function app(tab){
   }
 
   // ---- the check-in sheet used inside both live views ----
-  // Same mirror words and buckets as the mockup's CI_MIRROR. Nobody else sees the answers.
+  // The app's own check-in (Justin, 2026-10-27: "behave the same way that they do in the app, with the same settings the
+  // user chose"): the member's input method (sliders, numbers or states), the same question bank and "Change the
+  // questions", the same rails and glyph colours as they move, the same reading. Skip is always there. Nobody else sees it.
   function _lwCheckin(phase, opts){
     opts = opts || {};
     const R = _lwRoom, s = R ? R.s : null, K = s ? _lwKind(s) : { name:'Live' };
     const ctx = (phase === 'before' ? 'Before ' : phase === 'after' ? 'After ' : 'During ') + K.name;
-    const vals = { v:50, b:50, x:50 };
-    const rows = [['v','heart','safety','Make eye contact and mean it?'],['b','bolt','fightflight','Take one slow breath?'],['x','x','shutdown','Stand up and stretch?']];
-    const body = `<div class="lw-ci" id="lw-ci">
-        <p class="lw-eyb">${escapeHtml(ctx)}</p><p class="lw-ci-q">Right now, how easy would it be to…</p>
-        ${rows.map(r => `<div class="lw-ci-row">${lwMark(r[1], STATE_COLOR(r[2]))}<div class="lw-ci-sl"><label for="lw-ci-${r[0]}">${r[3]}</label>
-          <input id="lw-ci-${r[0]}" type="range" min="0" max="100" value="50" data-k="${r[0]}">
-          <div class="lw-ci-ends"><span>Harder</span><span>Easier</span></div></div></div>`).join('')}
+    let method = 'sliders'; try{ method = localStorage.getItem('snb_checkin_method') || 'sliders'; }catch(e){}
+    const stM = method === 'states', numM = method === 'numbers';
+    let v = 50, sy = 50, d = 50; const axTouched = {};
+    const qIdx = { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
+    const sc = numM ? ['0','10'] : ['Harder','Easier'];
+    const AX_PLAIN = { v:'connection', sym:'mobilization', dor:'immobilization' };
+    const input = stM
+      ? `<p class="ci4-states-lede">Tap the state that fits right now.</p>
+        <div class="ci-ovr-chips ci4-states">${['safety','play','fightflight','stillness','freeze','shutdown'].map(k => `<button class="ch-opt ci-ovr-opt" type="button" data-ovr="${k}">${stateMarks(k)}<span>${STATE_LABEL(k)}</span></button>`).join('')}</div>
+        <div class="ci-tune" id="ci-tune" hidden><p class="ci-tune-lede">Fine-tune anything that isn't quite right.</p>
+          <div class="ci4-scale" aria-hidden="true"><span>Less</span><span>More</span></div>
+          <div class="sliders">${ci4SliderHTML('v', AX_PLAIN.v, 'r-v', 50, false, true)}${ci4SliderHTML('sym', AX_PLAIN.sym, 'r-sym', 50, false, true)}${ci4SliderHTML('dor', AX_PLAIN.dor, 'r-dor', 50, false, true)}</div></div>`
+      : `<div class="ci4-scale" aria-hidden="true"><span>${sc[0]}</span><span>${sc[1]}</span></div>
+        <div class="sliders">${ci4SliderHTML('v', CI_BANK.v[qIdx.v], 'r-v', 50, numM)}${ci4SliderHTML('sym', CI_BANK.sym[qIdx.sym], 'r-sym', 50, numM)}${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 50, numM)}</div>
+        <button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>`;
+    const body = `<div class="lw-ci checkin2 ci4${stM ? ' ci-m-states' : (numM ? ' ci-m-numbers' : '')}" id="lw-ci">
+        <p class="lw-eyb">${escapeHtml(ctx)}</p><p class="lw-ci-q">${stM ? 'How are you, right now?' : 'Right now, how easy would it be to&hellip;'}</p>
+        <div class="ci-block">${input}<div class="ci-reading lw-ci-reading"></div></div>
         <p class="lw-muted lw-p">${K.video === false ? 'The livestream keeps playing while you check in.' : 'The call keeps going while you check in.'} Nobody else sees your answers.</p>
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-ci-save">Save check-in</button><button class="btn block quiet" type="button" id="lw-ci-skip">Skip</button></div>
       </div>`;
     const sh = _lwSheet('Check in', body, { sticky:!!opts.sticky, host:document.getElementById('lw-room') || document.body, onClose:opts.onClose });
-    sh.el.querySelectorAll('input[type=range]').forEach(i => i.oninput = () => { vals[i.dataset.k] = +i.value; });
-    sh.el.querySelector('#lw-ci-skip').onclick = sh.close;
-    sh.el.querySelector('#lw-ci-save').onclick = () => {
-      try{ Store.addCheckin({ v:vals.v/100, sym:(100-vals.b)/100, dor:(100-vals.x)/100, source:'live-' + (s ? s.kind.replace(/_/g,'-') : 'session') + '-' + phase }); }catch(e){}
+    const el = sh.el;
+    function refresh(){
+      const colOf = ciAxisColorFn(v, sy, d, axTouched);
+      const tune = el.querySelector('#ci-tune'), tuneOpen = !stM || !!(tune && !tune.hidden);
+      if(stM && tuneOpen){ const dk = window.PVCurrent.dominantOf(v/100, sy/100, d/100).key; el.querySelectorAll('.ci-ovr-opt').forEach(x => x.classList.toggle('on', x.dataset.ovr === dk)); }
+      if(tuneOpen){
+        setIcoLvl('v', v); setIcoLvl('sym', sy); setIcoLvl('dor', d);
+        ciPaintSliders(colOf);
+        if(numM) ['v','sym','dor'].forEach(ax => { const sl = el.querySelector('#sl-' + ax), nb = el.querySelector('#num-' + ax); if(sl && nb) nb.textContent = Math.round((+sl.value) / 10); });
+      }
+      const rd = el.querySelector('.lw-ci-reading');
+      if(rd){ rd.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, sy/100, d/100).label}</span>`; rd.hidden = false; }
+    }
+    const bind = (k, fn) => { const sl = el.querySelector('#sl-' + k); if(sl) sl.addEventListener('input', () => fn(+sl.value)); };
+    bind('v', val => { v = val; axTouched.v = 1; refresh(); });
+    bind('sym', val => { sy = stM ? val : 100 - val; axTouched.sym = 1; refresh(); });
+    bind('dor', val => { d = stM ? val : 100 - val; axTouched.dor = 1; refresh(); });
+    refresh();
+    const shuf = el.querySelector('#ci-shuffle');
+    if(shuf) shuf.onclick = () => { ['v','sym','dor'].forEach(ax => { qIdx[ax] = ciRand(ax, qIdx[ax]);
+      const q = el.querySelector('#q-' + ax); if(q) q.textContent = CI_BANK[ax][qIdx[ax]];
+      const sl = el.querySelector('#sl-' + ax); if(sl) sl.setAttribute('aria-label', 'How easy would it be to ' + CI_BANK[ax][qIdx[ax]]); }); };
+    if(stM){
+      const PRE = { safety:[.85,.15,.15], play:[.75,.75,.15], fightflight:[.15,.85,.15], stillness:[.75,.15,.75], freeze:[.15,.8,.8], shutdown:[.15,.15,.85] };
+      el.querySelectorAll('.ci-ovr-opt').forEach(b => b.onclick = () => {
+        const ax = PRE[b.dataset.ovr]; if(!ax) return;
+        el.querySelectorAll('.ci-ovr-opt').forEach(x => x.classList.toggle('on', x === b));
+        axTouched.v = 1; axTouched.sym = 1; axTouched.dor = 1;
+        v = ax[0] * 100; sy = ax[1] * 100; d = ax[2] * 100;
+        [['v', v], ['sym', sy], ['dor', d]].forEach(p => { const sl = el.querySelector('#sl-' + p[0]); if(sl) sl.value = String(Math.round(p[1])); });
+        const tune = el.querySelector('#ci-tune'); if(tune && tune.hidden){ tune.hidden = false; tune.classList.add('in'); }
+        refresh();
+      });
+    }
+    el.querySelector('#lw-ci-skip').onclick = sh.close;
+    el.querySelector('#lw-ci-save').onclick = () => {
+      const vals = { v:v/100, sym:sy/100, dor:d/100 };
+      try{ Store.addCheckin(Object.assign({ source:'live-' + (s ? s.kind.replace(/_/g,'-') : 'session') + '-' + phase }, vals)); }catch(e){}
       haptic('save');
-      let dom = { key:'neutral', label:'' }; try{ dom = window.PVCurrent.dominantOf(vals.v/100, (100-vals.b)/100, (100-vals.x)/100) || dom; }catch(e){}
-      if(R){ R.lastKey = dom.key; const room = document.getElementById('lw-room'); if(room){ room.querySelectorAll('[data-lw-st]').forEach(b => { b.outerHTML = _lwStateTg(); }); _lwWireStateTg(room); } }
+      let dom = { key:'neutral', label:'' }; try{ dom = window.PVCurrent.dominantOf(vals.v, vals.sym, vals.dor) || dom; }catch(e){}
+      if(R){ R.lastKey = dom.key; R.lastVals = vals; _lwSlCountSave(R, vals); if(R.slide) _lwSlScene(R); const room = document.getElementById('lw-room'); if(room){ room.querySelectorAll('[data-lw-st]').forEach(b => { b.outerHTML = _lwStateTg(); }); _lwWireStateTg(room); } }
       const box = sh.el.querySelector('.lw-sh-body'), h = sh.el.querySelector('#lw-sh-h');
       if(h) h.textContent = 'Saved';
       box.innerHTML = `<div class="lw-ci-res" role="img" aria-label="${escapeHtml(dom.label || '')}">${_lwGlyph(dom.key)}<p class="lw-ci-res-n">${escapeHtml(dom.label || '')}</p></div>
@@ -3131,6 +3179,198 @@ function app(tab){
       if(shareB) shareB.onclick = () => { if(_lwShareCard({ k:dom.key, label:dom.label || '', ev:ctx })){ shareB.disabled = true; shareB.innerHTML = LW_ICO.check + 'Shared in the chat'; haptic('save'); } else showToast('That did not send. Try again in a moment.'); };
     };
     return sh;
+  }
+
+  // ---- Session Builder slides inside the live room (2026-10-28, Justin: "reuse the design elements we already have") ----
+  // The host opens the Session Builder from the room (?room=1) and presses Present there. Every slide it would send to its
+  // student window comes here instead; the host's app passes it to every device over the call's app messages, and each
+  // device draws it with the builder's own student page in a frame over the stage. So the slides, scenes and type are the
+  // builder's, unchanged. What the room adds, per member: the app's own check-in at a check-in slide, the player's 0 to 10
+  // line and breath check under those slides (saved to live_answers; "Quiet screen" hides them), the scene in the member's
+  // own state colour (Settings), and the room's blend once 5 or more people have chosen to count.
+  const LW_SL_ORIGIN = 'https://justinlmft.github.io';
+  const LW_SL_URL = LW_SL_ORIGIN + '/snb-session-builder/';
+  const LW_SL_CHUNK = 2800;       // app messages are small; a slide goes in pieces
+  const _lwPref = (k, dflt) => { try{ const v = localStorage.getItem(k); return v === null ? dflt : v === '1'; }catch(e){ return dflt; } };
+  const _lwPrefSet = (k, on) => { try{ localStorage.setItem(k, on ? '1' : '0'); }catch(e){} };
+  const _lwQuiet = () => _lwPref('snb_lw_quiet', false);
+  const _lwTintOn = () => _lwPref('snb_lw_tint', true);
+  const _lwCount = () => _lwPref('snb_lw_count', false);
+  function _lwHex(h){ const m = String(h || '').trim().replace('#',''); if(!/^[0-9a-f]{6}$/i.test(m)) return null; const n = parseInt(m, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function _lwSlOwner(R, fromId){ try{ const p = R.co.participants()[fromId]; return !!(p && p.owner); }catch(e){ return false; } }
+  function _lwSlSend(R, payload, to){
+    if(!R || !R.co) return;
+    const s = JSON.stringify(payload), n = Math.max(1, Math.ceil(s.length / LW_SL_CHUNK)), id = (R.slSeq = (R.slSeq || 0) + 1);
+    for(let i = 0; i < n; i++){ try{ R.co.sendAppMessage({ t:'sl', id, i, n, d:s.slice(i * LW_SL_CHUNK, (i + 1) * LW_SL_CHUNK) }, to || '*'); }catch(e){} }
+  }
+  function _lwSlReceive(R, d, fromId){
+    if(!_lwSlOwner(R, fromId)) return;           // only the host's app can put a slide up
+    R.slBuf = R.slBuf || {};
+    const k = fromId + ':' + d.id, b = R.slBuf[k] = R.slBuf[k] || { n:d.n, parts:[] };
+    b.parts[d.i] = String(d.d || '');
+    if(b.parts.filter(x => x !== undefined).length < b.n) return;
+    delete R.slBuf[k];
+    let p = null; try{ p = JSON.parse(b.parts.join('')); }catch(e){ return; }
+    _lwSlApply(R, p);
+  }
+  // the host: the builder window posts each slide here
+  window.addEventListener('message', e => {
+    const R = _lwRoom; if(!R || e.origin !== LW_SL_ORIGIN || !R.slWin || e.source !== R.slWin || !_lwIsHost()) return;
+    const d = e.data || {};
+    if(d.snbRoomHello){ showToast('Choose the practice, then press Present.'); return; }
+    if(d.snbRoomEnd){ _lwSlOff(R, true); return; }
+    if(d.snbSlide === undefined) return;
+    const p = { p:String(d.snbPractice || ''), html:String(d.snbSlide), scene:!!d.snbScene, sceneName:String(d.snbSceneName || ''),
+      idx:+d.snbIdx || 0, build:+d.snbBuild || 0, beat:(d.snbBeat && typeof d.snbBeat === 'object') ? d.snbBeat : {} };
+    _lwSlApply(R, p); _lwSlSend(R, p);
+  });
+  function _lwSlOpen(){
+    const R = _lwRoom; if(!R) return;
+    if(R.slWin && !R.slWin.closed){ try{ R.slWin.focus(); }catch(e){} return; }
+    R.slWin = window.open(LW_SL_URL + '?room=1', 'snb_room_slides');
+    if(!R.slWin){ showToast('The builder did not open. Allow pop-ups for this site and try again.'); return; }
+    clearInterval(R.slWatch);
+    R.slWatch = setInterval(() => { if(!R.slWin || R.slWin.closed){ clearInterval(R.slWatch); R.slWin = null; if(_lwRoom === R) _lwSlOff(R, true); } }, 2000);
+    if(R.phase === 'call') _lwRender();
+  }
+  function _lwSlOff(R, tell){
+    if(!R) return;
+    if(tell && _lwIsHost() && R.co){ try{ R.co.sendAppMessage({ t:'sl-off' }, '*'); }catch(e){} }
+    R.slide = null; R.slBeat = null; _lwSlCard(R, null);
+    const L = document.getElementById('lw-slides'); if(L) L.hidden = true;
+    if(_lwRoom === R && R.phase === 'call') _lwRender();
+  }
+  function _lwSlLayer(){
+    let L = document.getElementById('lw-slides');
+    if(L) return L;
+    L = document.createElement('div'); L.id = 'lw-slides'; L.className = 'lw-slides'; L.hidden = true;
+    L.innerHTML = `<iframe title="Slides" src="${LW_SL_URL}?student=1" tabindex="-1"></iframe><video class="lw-sl-pip" id="lw-sl-pip" autoplay playsinline muted hidden></video>`;
+    document.body.appendChild(L);
+    L.querySelector('iframe').addEventListener('load', () => { const R = _lwRoom; if(R && R.slide) _lwSlPost(R, true); });
+    if(!_lwSlLoop){ _lwSlLoop = true; _lwSlTrack(); }
+    return L;
+  }
+  let _lwSlLoop = false;
+  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); }
+  // keep the frame over the stage as the room scrolls, resizes or repaints (the stage is redrawn often; a frame that
+  // moved in the page would reload, so it lives at the page level and follows the stage instead)
+  function _lwSlTrack(){
+    const L = document.getElementById('lw-slides'); if(!L){ _lwSlLoop = false; return; }
+    const R = _lwRoom, st = document.getElementById('lw-stage');
+    const show = !!(R && R.phase === 'call' && R.slide && st && !R.screenOn && !document.body.classList.contains('lw-sl-hide'));
+    if(show){
+      const r = st.getBoundingClientRect(), body = st.closest('.lw-call-body'), c = body ? body.getBoundingClientRect() : r;
+      L.style.left = r.left + 'px'; L.style.top = r.top + 'px'; L.style.width = r.width + 'px'; L.style.height = r.height + 'px';
+      const t = Math.max(0, c.top - r.top), b = Math.max(0, r.bottom - c.bottom);
+      L.style.clipPath = (t || b) ? `inset(${t}px 0 ${b}px 0 round 8px)` : '';
+    }
+    if(L.hidden === show) L.hidden = !show;
+    requestAnimationFrame(_lwSlTrack);
+  }
+  function _lwSlPost(R, full){
+    const L = _lwSlLayer(), f = L.querySelector('iframe'), w = f && f.contentWindow; if(!w || !R.slide) return;
+    const p = R.slide, m = { snbSceneName:p.sceneName, snbScene:p.scene, snbSlide:p.html, snbJoin:{ mode:'off' } };
+    if(full || p.p !== R.slSentP){ m.snbPractice = p.p; R.slSentP = p.p; }
+    try{ w.postMessage(m, LW_SL_ORIGIN); }catch(e){}
+    _lwSlScene(R, true);
+  }
+  // tint + breathe for this device's scene. The room's blend wins once it is on; then the member's own colour.
+  function _lwSlScene(R, force){
+    const L = document.getElementById('lw-slides'), f = L && L.querySelector('iframe'), w = f && f.contentWindow; if(!w) return;
+    const key = (R.roomKey) || (!_lwIsHost() && _lwTintOn() ? R.lastKey : null);
+    const tint = key && key !== 'neutral' ? _lwHex(STATE_COLOR(key)) : null;
+    const br = !!(R.slBeat && R.slBeat.breath);
+    const sig = JSON.stringify([tint, br]);
+    if(!force && sig === R.slSceneSig) return; R.slSceneSig = sig;
+    try{ w.postMessage({ snbTint:tint, snbBreathe:br }, LW_SL_ORIGIN); }catch(e){}
+  }
+  function _lwSlApply(R, p){
+    if(_lwRoom !== R) return;
+    const wasOff = !R.slide;
+    R.slide = p; _lwSlLayer(); _lwSlPost(R, wasOff);
+    // the first slide redraws the room (Justin's camera moves aside) before anything opens on top of it
+    if(wasOff){ _lwSlRoomPoll(R); if(R.phase === 'call') _lwRender(); }
+    const beat = p.beat || {}, key = p.p + ':' + p.idx;
+    if(key !== R.slKey){
+      R.slKey = key; R.slBeat = beat;
+      if(!_lwIsHost()){
+        // a check-in slide raises the app's own check-in, once per slide; Skip is always on it
+        if((beat.ci || beat.kind === 'checkin') && !document.getElementById('lw-ci') && R.slCiDone !== key){
+          R.slCiDone = key;
+          const ph = /:(before|after)$/.exec(String(beat.ci || '')); _lwCheckin(ph ? ph[1] : 'during');
+        }
+        _lwSlCard(R, beat.z10 ? (beat.z10 === 'intensity' ? 'intensity' : 'safety') : beat.breath ? 'breath' : null);
+      }
+      _lwSlScene(R);
+    }
+  }
+  async function _lwSlSave(R, kind, value){
+    const uid = _lwUid(); if(!uid || !R) return;
+    try{ const r = await window.sb.from('live_answers').insert({ user_id:uid, session_id:R.s.id, kind, value:String(value), slide:R.slKey || null });
+      if(r && r.error) showToast('That did not save. Try again in a moment.'); }catch(e){}
+  }
+  // the player's own 0 to 10 line and breath check, under the slide that asks for them
+  function _lwSlCard(R, kind){
+    // the card sits under the stage, in the room itself (a plain element, so the room's repaints can carry it along)
+    if(!R.slCardEl){ R.slCardEl = document.createElement('div'); R.slCardEl.className = 'lw-slq'; R.slCardEl.id = 'lw-slq'; }
+    const box = R.slCardEl; _lwSlCardPlace(R);
+    clearTimeout(R.slFade); box.innerHTML = ''; box.classList.remove('on');
+    if(!kind || _lwQuiet()) return;
+    const skip = '<button class="choicebtn quietly lw-slq-skip" type="button">Skip</button>';
+    if(kind === 'breath'){
+      const pairs = [['chest','chest-belly','belly'],['shallow','shallow-full','full'],['tense','tense-relaxed','relaxed']];
+      const word = o => o.indexOf('-') > 0 ? 'Between' : o.charAt(0).toUpperCase() + o.slice(1);
+      box.innerHTML = `<div class="choicecard">${pairs.map(pr => `<div class="breath-row">${pr.map((o, i) => { const end = i === 0 ? 'lo' : i === 2 ? 'hi' : 'mid';
+          const inner = end === 'mid' ? `<span class="sr">${word(o)}</span><span class="dot"></span>` : end === 'lo' ? `<span class="word">${word(o)}</span><span class="dot"></span>` : `<span class="dot"></span><span class="word">${word(o)}</span>`;
+          return `<button class="choicebtn quietly stop ${end}" type="button" data-o="${o}" aria-pressed="false">${inner}</button>`; }).join('')}</div>`).join('')}${skip}</div>`;
+      box.querySelectorAll('.breath-row .stop').forEach(b => b.onclick = () => {
+        const row = b.parentNode; row.querySelectorAll('.stop').forEach(x => { x.classList.toggle('sel', x === b); x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        haptic('tap'); _lwSlSave(R, 'breath', b.dataset.o);
+      });
+    } else {
+      const INSET = 14, left = v => 'calc(' + INSET + 'px + (100% - ' + (2 * INSET) + 'px) * ' + (v / 10) + ')';
+      let ticks = '', nums = '';
+      for(let n = 0; n <= 10; n++){ ticks += `<span class="reading-tick" style="left:${left(n)}"></span>`; nums += `<span class="reading-num" style="left:${left(n)}">${n}</span>`; }
+      box.innerHTML = `<div class="choicecard"><div class="reading"><div class="reading-bar" tabindex="0" role="slider" aria-label="${kind === 'intensity' ? 'How intense the non-safety is, 0 to 10' : 'Your level of safety, 0 to 10'}" aria-valuemin="0" aria-valuemax="10" aria-valuetext="not answered">${ticks}<span class="reading-dot"></span></div>
+        <div class="reading-nums" aria-hidden="true">${nums}</div><div class="reading-ends" aria-hidden="true"><span>lowest</span><span>highest</span></div></div>${skip}</div>`;
+      const wrap = box.querySelector('.reading'), bar = box.querySelector('.reading-bar'), dot = box.querySelector('.reading-dot'), numEls = box.querySelectorAll('.reading-num');
+      let now = null, slide = null;
+      const mark = v => { dot.style.left = left(v); wrap.classList.add('chosen'); numEls.forEach((s, i) => s.classList.toggle('on', i === v)); };
+      const at = x => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(10, Math.round((x - r.left - INSET) / (r.width - 2 * INSET) * 10))); };
+      // after the last answer: hold three seconds, fade, go (the player's own timing)
+      const linger = () => { clearTimeout(R.slFade); wrap.classList.remove('fading'); R.slFade = setTimeout(() => { wrap.classList.add('fading'); R.slFade = setTimeout(() => { box.innerHTML = ''; box.classList.remove('on'); }, 600); }, 3000); };
+      const choose = v => { now = v; mark(v); bar.setAttribute('aria-valuenow', String(v)); bar.setAttribute('aria-valuetext', String(v)); haptic('tap'); _lwSlSave(R, kind, v); linger(); };
+      bar.addEventListener('pointerdown', ev => { clearTimeout(R.slFade); wrap.classList.remove('fading'); slide = { id:ev.pointerId, v:at(ev.clientX) }; try{ bar.setPointerCapture(ev.pointerId); }catch(e){} wrap.classList.add('sliding'); mark(slide.v); });
+      bar.addEventListener('pointermove', ev => { if(slide && ev.pointerId === slide.id){ const v = at(ev.clientX); if(v !== slide.v){ slide.v = v; mark(v); } } });
+      bar.addEventListener('pointerup', ev => { if(slide && ev.pointerId === slide.id){ const v = slide.v; slide = null; wrap.classList.remove('sliding'); choose(v); } });
+      bar.addEventListener('pointercancel', () => { slide = null; wrap.classList.remove('sliding'); if(now === null){ wrap.classList.remove('chosen'); numEls.forEach(s => s.classList.remove('on')); } else mark(now); });
+      bar.addEventListener('keydown', ev => { if(ev.key === 'ArrowRight' || ev.key === 'ArrowUp'){ ev.preventDefault(); choose(Math.min(10, (now === null ? 4 : now) + 1)); } else if(ev.key === 'ArrowLeft' || ev.key === 'ArrowDown'){ ev.preventDefault(); choose(Math.max(0, (now === null ? 6 : now) - 1)); } });
+    }
+    box.querySelector('.lw-slq-skip').onclick = () => { clearTimeout(R.slFade); box.innerHTML = ''; box.classList.remove('on'); };
+    box.classList.add('on');
+  }
+  function _lwSlCardPlace(R){
+    const st = document.getElementById('lw-stage'), el = R && R.slCardEl; if(!st || !el) return;
+    if(st.nextElementSibling !== el) st.insertAdjacentElement('afterend', el);
+  }
+  // the room's background: on only once 5 or more people have chosen to count (live_room_blend returns nothing below that)
+  function _lwSlRoomPoll(R){
+    clearInterval(R.slRoomT);
+    const run = async () => {
+      if(_lwRoom !== R || !R.slide){ clearInterval(R.slRoomT); return; }
+      let k = null;
+      try{ const r = await window.sb.rpc('live_room_blend', { p_session:R.s.id }); const b = r && r.data;
+        if(b && b.n >= 5 && typeof b.v === 'number'){ const dom = window.PVCurrent.dominantOf(b.v, b.sym, b.dor); k = dom && dom.key !== 'neutral' ? dom.key : null; } }catch(e){}
+      if(k !== R.roomKey){ R.roomKey = k; _lwSlScene(R); }
+    };
+    run(); R.slRoomT = setInterval(run, 20000);
+  }
+  async function _lwSlCountSave(R, vals){
+    const uid = _lwUid(); if(!uid || !R) return;
+    try{
+      if(_lwCount() && vals) await window.sb.from('live_room_share').upsert({ user_id:uid, session_id:R.s.id, v:vals.v, sym:vals.sym, dor:vals.dor, updated_at:new Date().toISOString() }, { onConflict:'session_id,user_id' });
+      else if(!_lwCount()) await window.sb.from('live_room_share').delete().eq('user_id', uid).eq('session_id', R.s.id);
+    }catch(e){}
   }
 
   // ---- the live view: lobby, call, after ----
@@ -3157,6 +3397,8 @@ function app(tab){
     try{ if(R && R.preview) R.preview.getTracks().forEach(t => t.stop()); }catch(e){}
     try{ if(R && R.co){ R.co.leave().catch(()=>{}).then(() => { try{ R.co.destroy(); }catch(e){} }); } }catch(e){}
     clearInterval(R && R.tick); _lwBeatStop(R);
+    if(R){ clearInterval(R.slRoomT); clearInterval(R.slWatch); clearTimeout(R.slFade); }
+    _lwSlRemove();
     document.body.classList.remove('lw-in-room');
     const o = document.getElementById('lw-sheet'); if(o) o.remove();
     _lw.tab = 'live'; app('community');
@@ -3240,6 +3482,7 @@ function app(tab){
     const ctls = [ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
     if(!(mm && member)){ ctls.push(split('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')); ctls.push(split('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')); }
     if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
+    if(host) ctls.push(ctl('lw-c-slides', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', R.slide ? ' on' : ''));
     if(host) ctls.push(ctl('lw-c-ask', LW_ICO.ask, 'Send check-in'));
     if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
     ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
@@ -3275,6 +3518,13 @@ function app(tab){
           await co.startScreenShare({ mediaStream:stream });
         } else await co.startScreenShare();
       }catch(e){ if(!(e && e.name === 'NotAllowedError')) showToast('Screen sharing did not start.'); }
+    };
+    const slB = document.getElementById('lw-c-slides'); if(slB) slB.onclick = () => {
+      if(!R.slide && !(R.slWin && !R.slWin.closed)) return _lwSlOpen();
+      const shs = _lwSheet('Slides', `<p class="lw-p">The slides come from the Session Builder window. Step through them there.</p>
+        <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-sl-go">Go to the builder</button><button class="btn block quiet" type="button" id="lw-sl-off">Take the slides down</button></div>`, { host:document.getElementById('lw-room') });
+      shs.el.querySelector('#lw-sl-go').onclick = () => { shs.close(); _lwSlOpen(); };
+      shs.el.querySelector('#lw-sl-off').onclick = () => { shs.close(); try{ if(R.slWin && !R.slWin.closed) R.slWin.close(); }catch(e){} R.slWin = null; _lwSlOff(R, true); };
     };
     const ask = document.getElementById('lw-c-ask'); if(ask) ask.onclick = () => { try{ co.sendAppMessage({ t:'checkin' }, '*'); }catch(e){} showToast('Check-in sent to everyone'); };
     document.querySelectorAll('#lw-room [data-lw-dev]').forEach(b => b.onclick = e => { e.stopPropagation(); _lwDevMenu(b.dataset.lwDev, b); });
@@ -3320,6 +3570,9 @@ function app(tab){
       const d = ev && ev.data; if(!d) return;
       if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
       if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
+      if(d.t === 'sl' && typeof d.d === 'string' && d.n > 0 && d.n < 60) _lwSlReceive(R, d, ev.fromId);
+      if(d.t === 'sl-off' && _lwSlOwner(R, ev.fromId)) _lwSlOff(R, false);
+      if(d.t === 'sl-req' && _lwIsHost() && R.slide) _lwSlSend(R, R.slide, ev.fromId);
     });
     co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
     co.on('error', () => { if(_lwRoom === R){ R.err = 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
@@ -3328,6 +3581,7 @@ function app(tab){
     }catch(e){ R.err = 'The room did not open. Try again in a moment.'; R.phase = 'joining'; return _lwRender(); }
     if(_lwRoom !== R){ try{ co.leave(); co.destroy(); }catch(e){} return; }
     R.phase = 'call'; R.joinedAt = Date.now();
+    if(R.role !== 'host'){ setTimeout(() => { try{ if(_lwRoom === R && R.co) R.co.sendAppMessage({ t:'sl-req' }, '*'); }catch(e){} }, 1500); }
     if(R.role === 'host') _lwBeatStart(R);
     _lwRender();
     if(R.role === 'host' && R.s.recorded && !R.rec) _lwRec('start');   // Justin will forget: it records the moment he is in
@@ -3336,6 +3590,7 @@ function app(tab){
   function _lwLeaveCall(){
     const R = _lwRoom; if(!R || !R.co) return;
     const co = R.co; R.co = null; R.phase = 'left'; clearInterval(R.tick); _lwBeatStop(R);
+    clearInterval(R.slRoomT); R.slide = null; _lwSlRemove();
     try{ co.leave().catch(()=>{}).then(() => { try{ co.destroy(); }catch(e){} }); }catch(e){}
     _lwRender();
   }
@@ -3393,8 +3648,18 @@ function app(tab){
   }
   // live event settings, from the bottom bar
   function _lwSettingsSheet(){
-    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}</div>`, { host:document.getElementById('lw-room') });
+    const tg = (k, label, on) => `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-pref="${k}"><span><span class="lw-st-t">${label}</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
+    const prefs = () => _lwIsHost() ? '' : tg('snb_lw_quiet', 'Quiet screen (no questions on the slides)', _lwQuiet()) + tg('snb_lw_tint', 'Background follows my check-in', _lwTintOn()) + tg('snb_lw_count', 'Count my check-in toward the room’s background (from 5 people)', _lwCount());
+    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}${prefs()}</div>`, { host:document.getElementById('lw-room') });
     _lwWireStateTg(sh.el);
+    sh.el.querySelectorAll('[data-lw-pref]').forEach(b => b.onclick = () => {
+      const k = b.dataset.lwPref, on = b.getAttribute('aria-checked') !== 'true'; _lwPrefSet(k, on);
+      b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); const sw = b.querySelector('.set-sw'); if(sw) sw.classList.toggle('on', on);
+      const R = _lwRoom; if(!R) return;
+      if(k === 'snb_lw_quiet' && R.slBeat) _lwSlCard(R, on ? null : (R.slBeat.z10 ? (R.slBeat.z10 === 'intensity' ? 'intensity' : 'safety') : R.slBeat.breath ? 'breath' : null));
+      if(k === 'snb_lw_tint' && R.slide) _lwSlScene(R);
+      if(k === 'snb_lw_count') _lwSlCountSave(R, on ? R.lastVals : null);
+    });
   }
   // the device list above the mic or camera button
   async function _lwDevMenu(kind, anchor){
@@ -3493,6 +3758,7 @@ function app(tab){
     const local = ps.find(p => p.local), others = ps.filter(p => !p.local);
     const owner = ps.find(p => p.owner && !p.local) || (local && local.owner ? local : null);
     const screen = ps.find(p => _lwTrack(p, 'screenVideo'));
+    R.screenOn = !!screen;
     const stage = document.getElementById('lw-stage');
     if(stage){
       let main = null, label = '', mirror = false, key = '';
@@ -3504,11 +3770,11 @@ function app(tab){
       if(!main && !av) stage.insertAdjacentHTML('afterbegin', `<span class="lw-stage-av">${escapeHtml(((owner && (owner.local ? 'You' : owner.user_name)) || 'Justin').charAt(0))}</span>`);
       if(main && av) av.remove();
       let lb = stage.querySelector('.lw-stage-lb'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-stage-lb'; stage.appendChild(lb); }
-      lb.textContent = label || (owner ? '' : 'Waiting for Justin');
+      lb.textContent = (screen && R.slide) ? label + '. The slides come back when sharing stops.' : (label || (owner ? '' : 'Waiting for Justin'));
     }
     const grid = document.getElementById('lw-grid');
     if(grid){
-      const tiles = ps.filter(p => p !== owner || screen);   // with a screen on stage, Justin's camera joins the tiles
+      const tiles = ps.filter(p => p !== owner || screen || R.slide);   // with a screen on stage, Justin's camera joins the tiles
       const keep = new Set();
       tiles.forEach(p => {
         const k = 'tile-' + p.session_id; keep.add(k);
@@ -3524,6 +3790,12 @@ function app(tab){
       });
       grid.querySelectorAll('[data-tile]').forEach(t => { if(!keep.has(t.dataset.tile)) t.remove(); });
     }
+    if(R.slCardEl) _lwSlCardPlace(R);
+    // with slides up and no grid (Mindful Moment), Justin's camera sits small in the slide's corner
+    const pip = document.getElementById('lw-sl-pip');
+    if(pip){ const want = R.slide && !screen && !grid && owner ? _lwTrack(owner, 'video') : null; const cur = pip.srcObject && pip.srcObject.getVideoTracks()[0];
+      if(want && cur !== want){ pip.srcObject = new MediaStream([want]); try{ pip.play().catch(()=>{}); }catch(e){} }
+      pip.hidden = !want; pip.classList.toggle('lw-mirror', !!(owner && owner.local)); }
     // remote audio (the call object does not play audio by itself)
     const box = document.getElementById('lw-audio');
     if(box){
