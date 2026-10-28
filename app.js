@@ -2852,8 +2852,9 @@ function app(tab){
   async function _lwToken(){
     try{ const { data:{ session } } = await window.sb.auth.getSession(); return session ? session.access_token : null; }catch(e){ return null; }
   }
+  let _lwTokLast = null;
   async function _lwFn(body){
-    const cfg = window.SNB_CONFIG || {}, tok = await _lwToken();
+    const cfg = window.SNB_CONFIG || {}, tok = await _lwToken(); if(tok) _lwTokLast = tok;
     if(!cfg.SUPABASE_URL || !tok) return { status:0, data:{ error:'not signed in' } };
     try{
       const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/live-room-token', { method:'POST',
@@ -3376,7 +3377,9 @@ function app(tab){
     const f = _lwFolds();
     room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = !!f[k]; c.classList.toggle('lw-folded', on);
       const b = c.querySelector('.lw-fold[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
-    room.classList.toggle('lw-tucked', !!f.head);
+    // each card folds on its own (Justin, 2026-10-28: "someone should be able to keep the chat open while collapsing whatever else");
+    // the title card no longer tucks the whole room away
+    room.classList.remove('lw-tucked');
     room.querySelectorAll('.lw-fold').forEach(b => b.onclick = e => { e.stopPropagation();
       const k = b.dataset.fold;
       _lwFoldMove(() => { const g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
@@ -3512,7 +3515,7 @@ function app(tab){
       const tyA = document.getElementById('lw-ty-rem'); if(tyA) tyA.onclick = () => _lwRemindSheet(nx);
       const tyC = document.getElementById('lw-ty-co'); if(tyC) tyC.onclick = () => _lwUpgradeSheet();
       const tyU = document.getElementById('lw-ty-up'); if(tyU) tyU.onclick = () => { _lwExit(); gateSubscribe('live'); };
-      const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; _lwRender(); _lwJoin(); };
+      const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; R.leftMarked = false; _lwRender(); _lwJoin(); };
       return;
     }
     // in the call
@@ -3529,7 +3532,7 @@ function app(tab){
     ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
     // two controls only (a Mindful Moment member: Leave, Settings) → the small controls card shares a row with the title card
     setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}${ctls.length <= 2 ? ' lw-ctl2' : ''}" id="lw-room">
-      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span>${host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="true" aria-controls="lw-ppl">${LW_ICO.people}<span></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : `<span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span>`}</span>${host ? '<ul class="lw-ppl" id="lw-ppl" aria-label="Who is in the room"></ul>' : ''}<button type="button" class="lw-fold" data-fold="head" aria-label="Tuck the room away" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
+      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span>${host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="false" aria-controls="lw-ppl">${LW_ICO.people}<span></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : `<span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span>`}</span>${host ? '<ul class="lw-ppl" id="lw-ppl" aria-label="Who is in the room" hidden></ul>' : ''}<button type="button" class="lw-fold" data-fold="head" aria-label="Collapse the title" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
       <div class="lw-call-body">
         <div class="lw-stage" id="lw-stage" data-card="cam"><button type="button" class="lw-fold" data-fold="cam" aria-label="Collapse the camera" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
@@ -3636,8 +3639,19 @@ function app(tab){
     if(R.role === 'host' && R.s.recorded && !R.rec) _lwRec('start');   // Justin will forget: it records the moment he is in
     R.tick = setInterval(() => { if(_lwRoom === R && R.phase === 'call') _lwPaintHead(); }, 30000);
   }
+  function _lwLeftMark(R){
+    if(!R || !R.s || R.leftMarked) return; R.leftMarked = true;
+    const cfg = window.SNB_CONFIG || {}; if(!cfg.SUPABASE_URL || !_lwTokLast) return;
+    try{ fetch(cfg.SUPABASE_URL + '/functions/v1/live-room-token', { method:'POST', keepalive:true,
+      headers:{ Authorization:'Bearer ' + _lwTokLast, 'Content-Type':'application/json' }, body:JSON.stringify({ action:'left', session_id:R.s.id }) }).catch(()=>{}); }catch(e){}
+  }
+  // the who-is-here pop-over closes on a tap elsewhere or Escape
+  document.addEventListener('pointerdown', ev => { const R = _lwRoom; if(R && R.pplOpen && !(ev.target.closest && ev.target.closest('#lw-ppl,#lw-here'))){ R.pplOpen = false; _lwPaintHead(); } });
+  document.addEventListener('keydown', ev => { const R = _lwRoom; if(ev.key === 'Escape' && R && R.pplOpen){ R.pplOpen = false; _lwPaintHead(); const b = document.getElementById('lw-here'); if(b) try{ b.focus(); }catch(e){} } });
+  addEventListener('pagehide', () => { const R = _lwRoom; if(R && R.co && R.phase === 'call') _lwLeftMark(R); });
   function _lwLeaveCall(){
     const R = _lwRoom; if(!R || !R.co) return;
+    _lwLeftMark(R);
     const co = R.co; R.co = null; R.phase = 'left'; clearInterval(R.tick); _lwBeatStop(R);
     clearInterval(R.slRoomT); R.slide = null; _lwSlRemove();
     try{ co.leave().catch(()=>{}).then(() => { try{ co.destroy(); }catch(e){} }); }catch(e){}
@@ -3792,8 +3806,8 @@ function app(tab){
     // the host sees who is here (Justin, 2026-10-28): first names as the app shows them, the host first, then in the order they came
     const ul = document.getElementById('lw-ppl'), hb = document.getElementById('lw-here');
     if(ul && hb){
-      const shut = !!_lwFolds().ppl; ul.hidden = shut; hb.setAttribute('aria-expanded', String(!shut));
-      if(!hb.dataset.w){ hb.dataset.w = '1'; hb.onclick = e => { e.stopPropagation(); _lwFoldMove(() => { const g = _lwFolds(); g.ppl = !g.ppl; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwPaintHead(); }); }; }
+      const open = !!R.pplOpen; ul.hidden = !open; hb.setAttribute('aria-expanded', String(open));
+      hb.onclick = e => { e.stopPropagation(); R.pplOpen = !R.pplOpen; _lwPaintHead(); };
       let ps = []; try{ ps = Object.values(R.co.participants()); }catch(e){}
       ps.sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || (a.local ? -1 : 0) || new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
       ul.innerHTML = ps.map(p => { const nm = String(p.user_name || 'Guest').trim() || 'Guest';
