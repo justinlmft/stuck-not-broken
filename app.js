@@ -2919,7 +2919,7 @@ function app(tab){
   }
   async function _lwLoad(){
     if(!window.sb){ _lw.err = 'offline'; return; }
-    _lw.loading = true;
+    _lw.loading = true; _lw.loadAt = Date.now();
     try{
       const since = new Date(Date.now() - 4*3600e3).toISOString();
       const until = new Date(Date.now() + 42*864e5).toISOString();
@@ -2971,10 +2971,11 @@ function app(tab){
     document.querySelectorAll('[data-lw-tab]').forEach(b => b.onclick = () => { _lw.tab = b.dataset.lwTab; screenCommunity(); });
     if(!_lw.sched) _lwCacheLoad();
     _lwBody();
-    if(_lw.tab === 'live' && !_lw.loading){ _lwLoad().then(() => { if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody(); }); }
+    if(_lw.tab === 'live' && (!_lw.loading || Date.now() - (_lw.loadAt || 0) > 30000)){ _lwLoad().then(() => { if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody(); }); }
     clearInterval(_lw.poll);
     _lw.poll = setInterval(() => {
       if(currentTab !== 'community' || !document.getElementById('lw-body')){ clearInterval(_lw.poll); return; }
+      if((_lw.sched || []).some(s => _lwEnd(s) <= Date.now())){ _lwBody(); _lwCacheSave(); }
       if((_lw.sched || []).some(s => Date.now() >= _lwStart(s) - 60*60000 && Date.now() <= _lwEnd(s))) _lwPresence().then(() => { if(currentTab === 'community') _lwBody(); });
     }, 30000);
   }
@@ -2986,6 +2987,7 @@ function app(tab){
     }
     if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment\u2026'}</p>`; return; }
     // before the Co-Regulator launch, members see Mindful Moment only; Justin sees everything
+    _lw.sched = _lw.sched.filter(s => _lwEnd(s) > Date.now());   // an event leaves the Calendar when it ends, even if the app stayed open
     const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
     if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>` + _lwPastLink(); _lwPastWire(el); return; }
     el.innerHTML = `<div class="lw-list">${list.map(s => {
