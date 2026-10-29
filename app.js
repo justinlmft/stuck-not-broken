@@ -9268,7 +9268,7 @@ function app(tab){
       const label = new Date(k).toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
       return `<div class="yb-ci-day"><h3 class="yb-ci-dh">${escapeHtml(label)}</h3>${byDay[k].map(x=>{
         const dom = _cDom(x), mirror = ciMirror(x.v, x.sym, x.dor);
-        return `<div class="yb-ci-row"><button class="yb-ci-hit" type="button" aria-expanded="false" data-ybci><span class="yb-ci-time">${fmtTime(x.t)}</span><span class="yb-ci-st hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">' + escapeHtml(STATE_LABEL(dom)) + '</span>' : ''}</span><span class="yb-ci-pm">${LW_PM(false)}</span></button>${mirror ? `<p class="yb-ci-s" hidden>${escapeHtml(mirror)}</p>` : ''}</div>`;
+        return `<div class="yb-ci-row"><button class="yb-ci-hit" type="button" aria-expanded="false" data-ybci><span class="yb-ci-time">${fmtTime(x.t)}</span><span class="yb-ci-st hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">' + escapeHtml(STATE_LABEL(dom)) + '</span>' : ''}</span><span class="yb-ci-pm">${LW_PM(false)}</span></button><div class="yb-ci-more" hidden>${mirror ? `<p class="yb-ci-s">${escapeHtml(mirror)}</p>` : ''}<div class="yb-ci-acts"><button class="yb-ci-act" type="button" data-ybedit="${x.t}">Change</button><button class="yb-ci-act" type="button" data-ybdel="${x.t}">Remove</button></div></div></div>`;
       }).join('')}</div>`;
     }).join('');
   }
@@ -9281,6 +9281,14 @@ function app(tab){
     scope.querySelectorAll('[data-ybci]').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true', s = b.nextElementSibling;
       b.setAttribute('aria-expanded', o); if(s) s.hidden = !o; const pm = b.querySelector('.yb-ci-pm'); if(pm) pm.innerHTML = LW_PM(o); });
     const all = scope.querySelector('#yb-ci-all'); if(all) all.onclick = screenCheckinsAll;
+    // change or remove a check-in (Justin 2026-10-29), the same as Settings > Change a recent check-in
+    const onAll = !!scope.querySelector('.yb-ci-all');
+    const find = t => Store.checkins().find(c=>c && c.t === t);
+    scope.querySelectorAll('[data-ybedit]').forEach(b=>b.onclick=()=>{ const rec = find(+b.dataset.ybedit); if(rec) screenCheckin(rec); });
+    scope.querySelectorAll('[data-ybdel]').forEach(b=>b.onclick=()=>{
+      const t = +b.dataset.ybdel;
+      if(confirm('Remove this check-in? This cannot be undone.')){ Store.deleteCheckin(t); haptic('save'); FromJustin.refresh(); if(onAll) screenCheckinsAll(); else app('you'); }
+    });
   }
   // every check-in, behind "See all"
   function screenCheckinsAll(){

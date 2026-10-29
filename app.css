@@ -5626,3 +5626,13 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
   .yb-grid > .yb-refl{grid-column:1 / span 7}
   .yb-grid > .yb-jr,.yb-grid > .yb-plans{grid-column:8 / span 5}
 }
+
+/* You round 2: an opened check-in row offers Change and Remove */
+.yb-ci-more{margin:0 0 12px 112px}
+.yb-ci-more[hidden]{display:none}
+.yb-ci-more .yb-ci-s{margin:0 0 10px}
+.yb-ci-acts{display:flex;flex-wrap:wrap;gap:8px}
+.yb-ci-act{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--hairline);background:none;color:var(--ink);font:inherit;font-size:calc(14px * var(--type-scale));font-weight:500;cursor:pointer}
+.yb-ci-act:hover{border-color:var(--ink)}
+.yb-ci-act:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+@media (max-width:719.98px){ .yb-ci-more{margin-left:0} }
