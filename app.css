@@ -5681,3 +5681,9 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
   .yb-bar .yb-icon:hover,.yb-bar .yb-set:hover{color:var(--ink);background:var(--bone-deep)}
   .yb-bar .yb-icon:active,.yb-bar .yb-set:active{transform:scale(.92)}
 }
+
+/* + and - (Justin 2026-10-29): the upright stroke folds away as the row opens */
+svg.pm .pm-v{transform-box:fill-box;transform-origin:center;transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+svg.pm.on .pm-v{transform:scaleY(0)}
+@media (prefers-reduced-motion: reduce){ svg.pm .pm-v{transition:none} }
+body.reduce-motion svg.pm .pm-v{transition:none}

@@ -2993,7 +2993,23 @@ function app(tab){
   const _lwTier = s => LW_TIER[s.access] || 'Self-Regulator';
   const _lwWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
   const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
-  const LW_PM = on => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14${on ? '' : 'M12 5v14'}"/></svg>`;
+  const LW_PM = on => `<svg class="pm${on ? ' on' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path class="pm-v" d="M12 5v14"/></svg>`;
+  // open or close a + / - row's details in place: they grow down and shrink back (Justin 2026-10-29: "no jarring switches")
+  function _pmSlide(b, s, o, done){
+    b.setAttribute('aria-expanded', o);
+    const pm = b.querySelector('svg.pm'); if(pm) pm.classList.toggle('on', o);
+    if(!s) return;
+    if(s._anim){ s._anim.cancel(); s._anim = null; }
+    const calm = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if(calm || !s.animate){ s.hidden = !o; if(done) done(); return; }
+    s.hidden = false;
+    const cs = getComputedStyle(s), full = { height:s.offsetHeight + 'px', marginTop:cs.marginTop, marginBottom:cs.marginBottom, paddingTop:cs.paddingTop, paddingBottom:cs.paddingBottom, opacity:1 },
+          none = { height:'0px', marginTop:'0px', marginBottom:'0px', paddingTop:'0px', paddingBottom:'0px', opacity:0 };
+    s.style.overflow = 'hidden';
+    s._anim = o ? s.animate([none, full], { duration:320, easing:'cubic-bezier(.2,.8,.2,1)' })
+                : s.animate([full, none], { duration:220, easing:'cubic-bezier(.4,0,.6,1)', fill:'forwards' });
+    s._anim.onfinish = ()=>{ if(!o) s.hidden = true; s.style.overflow = ''; if(s._anim){ s._anim.cancel(); s._anim = null; } if(done) done(); };
+  }
   const _lwAcc = s => s.access === 'free' ? '<span class="lw-acc">Free</span>'
     : `<span class="lw-acc">${_lwAllowed(s) ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span>`;
   const _lwRemindBtn = (s, rem) => `<button class="lw-remind${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>`;
@@ -3122,7 +3138,14 @@ function app(tab){
       ? `<div class="lw-sch is-wide"><div class="lw-sch-list">${listHTML}</div><aside class="lw-sch-panel" id="lw-sch-panel" aria-label="Event details" aria-live="polite">${_lwPanel(list.find(s => s.id === _lw.sel))}</aside></div>`
       : `<div class="lw-sch"><div class="lw-sch-list">${listHTML}</div></div>`;
     el.querySelectorAll('[data-lw-pick]').forEach(b => { b.onclick = () => _lwPick(b.dataset.lwPick); b.onfocus = () => _lwPick(b.dataset.lwPick); });
-    el.querySelectorAll('[data-lw-tog]').forEach(b => b.onclick = () => { const id = b.dataset.lwTog; _lw.open[id] = !_lw.open[id]; _lwBody(); });
+    el.querySelectorAll('[data-lw-tog]').forEach(b => b.onclick = () => {
+      const id = b.dataset.lwTog, o = !_lw.open[id], s = document.getElementById('lw-more-' + id), row = b.closest('.lw-ev'), inn = s && s.querySelector('.lw-ev-in');
+      _lw.open[id] = o;
+      if(!s || !inn){ _lwBody(); return; }
+      if(o && !inn.firstChild){ const ev = (_lw.sched || []).find(x => x.id === id); if(!ev){ _lwBody(); return; } inn.innerHTML = _lwDetail(ev, false); _lwWire(inn); }
+      if(o && row) row.classList.add('is-open');
+      _pmSlide(b, s, o, () => { if(!o && row) row.classList.remove('is-open'); });
+    });
     _lwWire(el);
     _lwPastWire(el);
     _lwTermsWire(el);
@@ -9339,8 +9362,7 @@ function app(tab){
     return `<section class="yb-ci" aria-label="Your check-ins"><div class="yb-ci-head"><h2 class="scr-h">Your check-ins.</h2>${cs.length > _YB_CI_N ? `<button class="lb-seeall" type="button" id="yb-ci-all">See all${CHEV}</button>` : ''}</div>${_ybCiHTML(cs.slice(0, _YB_CI_N))}</section>`;
   }
   function _ybCiWire(scope){
-    scope.querySelectorAll('[data-ybci]').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true', s = b.nextElementSibling;
-      b.setAttribute('aria-expanded', o); if(s) s.hidden = !o; const pm = b.querySelector('.yb-ci-pm'); if(pm) pm.innerHTML = LW_PM(o); });
+    scope.querySelectorAll('[data-ybci]').forEach(b=>b.onclick=()=>_pmSlide(b, b.nextElementSibling, b.getAttribute('aria-expanded') !== 'true'));
     const all = scope.querySelector('#yb-ci-all'); if(all) all.onclick = screenCheckinsAll;
     // change or remove a check-in (Justin 2026-10-29), the same as Settings > Change a recent check-in
     const onAll = !!scope.querySelector('.yb-ci-all');
@@ -9399,8 +9421,7 @@ function app(tab){
     return `<div class="yb-disc">${blocks.filter(b=>b[1]).map(([t, body], i)=>`<div class="yb-d"><button class="yb-d-hit" type="button" aria-expanded="false" data-ybd><span>${escapeHtml(t)}</span><span class="yb-ci-pm">${LW_PM(false)}</span></button><div class="deep-block yb-d-body" hidden>${body}</div></div>`).join('')}</div>`;
   }
   function _ybDiscWire(scope){
-    scope.querySelectorAll('[data-ybd]').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true', s = b.nextElementSibling;
-      b.setAttribute('aria-expanded', o); if(s) s.hidden = !o; const pm = b.querySelector('.yb-ci-pm'); if(pm) pm.innerHTML = LW_PM(o); });
+    scope.querySelectorAll('[data-ybd]').forEach(b=>b.onclick=()=>_pmSlide(b, b.nextElementSibling, b.getAttribute('aria-expanded') !== 'true'));
   }
 
   function tabHistoryFree(c, allCs){
