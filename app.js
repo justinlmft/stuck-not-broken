@@ -9248,75 +9248,104 @@ function app(tab){
   // trend, no pattern, no verdict, no score: the app does not read it back to them, it
   // simply keeps it and shows it. That read-back is what the paid plan is.
   // 🖊 copy draft.
+  // ---- You on the Swiss grid, bento (Justin, canon 2026-10-29; BRAND_DESIGN_SYSTEM §4 "You screen (bento)"; mockup
+  // https://claude.ai/artifact/DpJGWf3qEK5cvztXsMgUYW). Kept as they were (Justin: "keep what is working well"): the
+  // daily hand of four cards (youPick), their entrance animations, "See the data", sharing, and the state-range gradient.
+  // What moved: one bar under the title, Reflection and Journal first, the cards 6 + 6, a short check-in list, the numbers
+  // behind two quiet rows.
+  const _YB_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  const _YB_ARW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  function _ybHead(pills){
+    return `<div class="scr-head"><h1 class="scr-h lw-h1">You</h1></div>
+      <div class="yb-bar">${pills || ''}<span class="yb-sp" aria-hidden="true"></span><button class="yb-icon ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in">${_YB_PLUS}</button><button class="yb-set" id="set-btn" type="button">${GEAR_SVG}<span>Settings</span></button></div>`;
+  }
+  // the check-ins, newest first, grouped by day; each row opens its sentence in place
+  function _ybCiHTML(list){
+    const byDay = {}, order = [];
+    list.forEach(x=>{ const k = new Date(x.t).toDateString(); if(!byDay[k]){ byDay[k] = []; order.push(k); } byDay[k].push(x); });
+    return order.map(k=>{
+      // no "today" on screen (Justin, 2026-09-05): the date names the day; sentence case (Justin, 2026-10-29)
+      const label = new Date(k).toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+      return `<div class="yb-ci-day"><h3 class="yb-ci-dh">${escapeHtml(label)}</h3>${byDay[k].map(x=>{
+        const dom = _cDom(x), mirror = ciMirror(x.v, x.sym, x.dor);
+        return `<div class="yb-ci-row"><button class="yb-ci-hit" type="button" aria-expanded="false" data-ybci><span class="yb-ci-time">${fmtTime(x.t)}</span><span class="yb-ci-st hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">' + escapeHtml(STATE_LABEL(dom)) + '</span>' : ''}</span><span class="yb-ci-pm">${LW_PM(false)}</span></button>${mirror ? `<p class="yb-ci-s" hidden>${escapeHtml(mirror)}</p>` : ''}</div>`;
+      }).join('')}</div>`;
+    }).join('');
+  }
+  const _YB_CI_N = 5;   // the latest few; "See all" for the rest (never the full history on this screen)
+  function _ybCiSection(allCs){
+    const cs = allCs.slice().sort((a,b)=>b.t-a.t);
+    return `<section class="yb-ci" aria-label="Your check-ins"><div class="yb-ci-head"><h2 class="scr-h">Your check-ins.</h2>${cs.length > _YB_CI_N ? `<button class="lb-seeall" type="button" id="yb-ci-all">See all${CHEV}</button>` : ''}</div>${_ybCiHTML(cs.slice(0, _YB_CI_N))}</section>`;
+  }
+  function _ybCiWire(scope){
+    scope.querySelectorAll('[data-ybci]').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true', s = b.nextElementSibling;
+      b.setAttribute('aria-expanded', o); if(s) s.hidden = !o; const pm = b.querySelector('.yb-ci-pm'); if(pm) pm.innerHTML = LW_PM(o); });
+    const all = scope.querySelector('#yb-ci-all'); if(all) all.onclick = screenCheckinsAll;
+  }
+  // every check-in, behind "See all"
+  function screenCheckinsAll(){
+    const cs = Store.checkins().slice().sort((a,b)=>b.t-a.t);
+    _rdShell(`<h1 class="rd-title">Your check-ins.</h1><section class="yb-ci yb-ci-all">${_ybCiHTML(cs)}</section>`,
+      { back:'You', onBack:()=>app('you'), tab:'you', loc:{ k:'tab', tab:'you' } });
+    _ybCiWire(root);
+  }
+  // Your Journal as a writing surface: the newest reflection's next unanswered question, answered the way a reflection's
+  // journal is ('rj:{post}:{n}' = [answer, day, question]); without one, the card's usual words
+  function _ybJournalHTML(){
+    let n = 0; try{ n = _lrnJournal().reduce((a,g)=>a + g.items.length, 0); }catch(e){}
+    let post = null, qi = 0, saved = '';
+    try{ post = _rdPosts().filter(p=>(p.journal||[]).length).sort((a,b)=>(b.release||0) - (a.release||0))[0] || null; }catch(e){ post = null; }
+    if(post){ const m = _ctxLoad(); qi = post.journal.findIndex((q,i)=>!((m[_rdJrKey(post, i)] || [])[0])); if(qi < 0) qi = 0; saved = ((m[_rdJrKey(post, qi)] || [])[0]) || ''; }
+    return `<section class="yb-jr" aria-label="Your Journal"><h3 class="yr-h">Your Journal</h3>
+      <p class="yb-lede">${escapeHtml(n ? (n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.' : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.')}</p>
+      ${post ? `<div class="yb-jr-q"><label class="yb-jr-ql" for="yb-jr-in">${escapeHtml(post.journal[qi])}</label><textarea class="rd-refl-in yb-jr-in" id="yb-jr-in" rows="3" data-post="${escapeHtml(post.key)}" data-i="${qi}">${escapeHtml(saved)}</textarea><button class="yb-jr-save" type="button" id="yb-jr-save">${saved ? 'Saved' : 'Save'}</button></div>` : ''}
+      <a class="yb-go" id="you-journal" href="#"><span>Open your journal</span>${_YB_ARW}</a></section>`;
+  }
+  function _ybJournalWire(){
+    const ta = $('#yb-jr-in'), btn = $('#yb-jr-save'); if(!ta || !btn) return;
+    ta.oninput = ()=>{ btn.textContent = 'Save'; };
+    btn.onclick = ()=>{
+      const post = _rdPosts().find(p=>p.key === ta.dataset.post), i = +ta.dataset.i, q = post && (post.journal||[])[i]; if(q == null) return;
+      const txt = ta.value.trim(), key = _rdJrKey(post, i), val = txt ? [txt, new Date().toISOString().slice(0, 10), q] : [];
+      try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m = _ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
+      btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
+    };
+  }
+  // free members: one Self-Regulator card in Journal's place (replaces the four locked rows)
+  function _ybPlansHTML(){
+    const it = [['Your patterns', 'Your times of day, your week, your numbers'], ['Practice impacts', 'How each practice shifts your states'], ['Ideal practice', 'Your best time, anchor and setup'], ['Your Journal', 'Your answers to the journal questions in Learn']];
+    return `<section class="yb-plans" aria-label="Self-Regulator"><h3 class="yr-h">Self-Regulator</h3>${it.map(([t, d])=>`<div class="yb-plans-i"><b>${escapeHtml(t)}</b><span>${escapeHtml(d)}</span></div>`).join('')}
+      <button class="btn yb-plans-go" type="button" id="yb-plans-go">${LOCK_SVG}See paid plans</button></section>`;
+  }
+  // "Your numbers" and "How you practice": two quiet rows that open on tap
+  function _ybDiscHTML(blocks){
+    return `<div class="yb-disc">${blocks.filter(b=>b[1]).map(([t, body], i)=>`<div class="yb-d"><button class="yb-d-hit" type="button" aria-expanded="false" data-ybd><span>${escapeHtml(t)}</span><span class="yb-ci-pm">${LW_PM(false)}</span></button><div class="deep-block yb-d-body" hidden>${body}</div></div>`).join('')}</div>`;
+  }
+  function _ybDiscWire(scope){
+    scope.querySelectorAll('[data-ybd]').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true', s = b.nextElementSibling;
+      b.setAttribute('aria-expanded', o); if(s) s.hidden = !o; const pm = b.querySelector('.yb-ci-pm'); if(pm) pm.innerHTML = LW_PM(o); });
+  }
+
   function tabHistoryFree(c, allCs){
     const cs = allCs.slice().sort((a,b)=>b.t-a.t);   // newest first
-    const byDay = {};
-    cs.forEach(x=>{ const k = new Date(x.t).toDateString(); (byDay[k] = byDay[k] || []).push(x); });
-    const dayHTML = Object.keys(byDay).map(k=>{
-      const d = new Date(k);
-      // no "today" on screen (Justin, 2026-09-05): the date names the day, every day
-      const label = d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }).toLowerCase();
-      const rows = byDay[k].map(x=>{
-        // derives (A4, 2026-08-22) — supersedes the free-history stored-name exception
-        // ("exactly as they recorded them"): its rationale no longer holds after B1
-        // (one naming rule for all history) + Ruling 2 (the stored category is gone).
-        const dom = _cDom(x);
-        const mirror = ciMirror(x.v, x.sym, x.dor);
-        return `<div class="deep-row hx-row">
-          <span class="deep-lbl hx-time">${fmtTime(x.t)}</span>
-          <span class="hx-body">
-            <span class="hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">'+escapeHtml(STATE_LABEL(dom))+'</span>' : ''}</span>
-            ${mirror ? `<span class="hx-mirror">${escapeHtml(mirror)}</span>` : ''}
-          </span>
-        </div>`;
-      }).join('');
-      return `<div class="deep-block"><h3 class="deep-h">${escapeHtml(label)}</h3>${rows}</div>`;
-    }).join('');
-
-    c.innerHTML = `<div class="view play-view">
-      <div class="filter-bar" style="justify-content:flex-end">
-        <button class="set-gear ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
-        <button class="set-gear" id="set-btn" type="button" aria-label="Settings" title="Settings">${GEAR_SVG}</button>
-      </div>
-      <button class="tb-row p-locked" id="hx-patterns">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <button class="tb-row p-locked" id="hx-impacts" style="margin-top:10px">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Practice impacts</span>
-          <span class="tb-row-sub">How each practice shifts your states &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <button class="tb-row p-locked" id="hx-ideal" style="margin-top:10px">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Ideal practice</span>
-          <span class="tb-row-sub">Your best time, anchor and setup &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Your Journal</span>
-          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
+    const _r = (function(){ try{ return FromJustin.daily ? FromJustin.daily() : null; }catch(e){ return null; } })();
+    c.innerHTML = `<div class="view play-view yb">
+      ${_ybHead('')}
+      <div class="yb-grid">
+      <a class="you-reader yb-refl" id="you-reader" href="#">
         <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
-        <p class="yr-lede">${(function(){ try{ const r=FromJustin.daily?FromJustin.daily():null; return (r&&r.text)?escapeHtml(r.text):'Your daily post and your Sunday reflection, from your own check-ins.'; }catch(e){ return 'Your daily post and your Sunday reflection, from your own check-ins.'; } })()}</p></span></span>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
+        <p class="yr-lede">${(_r && _r.text) ? escapeHtml(_r.text) : 'Your daily post and your Sunday reflection, from your own check-ins.'}</p></span></span>
+        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw">${_YB_ARW}</span></span>
       </a>
-      <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">Your check-ins.</h2></div>
-      <div class="deep">${dayHTML}</div>
+      ${_ybPlansHTML()}
+      ${_ybCiSection(allCs)}
+      </div>
     </div>`;
     const ad=$('#add-ci');  if(ad) ad.onclick = screenCheckin;
     const sb1=$('#set-btn'); if(sb1) sb1.onclick = screenSettings;
-    const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
-    const hi=$('#hx-impacts');  if(hi) hi.onclick = ()=>gateSubscribe('impacts');
-    const hd=$('#hx-ideal');    if(hd) hd.onclick = ()=>gateSubscribe('ideal');
-    const hj=$('#hx-journal');  if(hj) hj.onclick = ()=>gateSubscribe('reader');
+    const pg=$('#yb-plans-go'); if(pg) pg.onclick = ()=>gateSubscribe('patterns');
     const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); app('reflect'); };
+    _ybCiWire(c);
   }
 
   // ── You-tab pattern cards, rebuilt on margin (2026-09-07, Justin: "margin number
@@ -9722,7 +9751,7 @@ function app(tab){
         ${shareBtn('practice-'+pk)}<h2 class="panel-title">Practice impacts</h2>
         <p class="panel-sub">${name}</p>
         <div class="help-bars">${bars}</div>
-        <p class="cb-line" style="margin-top:16px">How much each state moves, on average, from just before a ${name.toLowerCase()} practice to just after it.</p>
+        <p class="cb-line" style="margin-top:16px">How much each state moves, on average, from just before ${(n=>/^(a|an) /.test(n) || / practice$/.test(n) ? n : 'a ' + n + ' practice')(name.toLowerCase())} to just after it.</p>
         ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',ps.length]],'Each state is read 0 to 100 at a check-in. After minus before, averaged over these practices. The percentage is that average, in points.')}`,
         ps.length+':'+Math.round((dm||0)*100));
     });
@@ -9955,61 +9984,35 @@ function app(tab){
       const _r=(FromJustin&&(FromJustin.daily?FromJustin.daily():(FromJustin.today?FromJustin.today():null)))||null;
       const _reflText=(_r&&_r.text)?escapeHtml(_r.text):'';
       c.innerHTML=`
-        <div class="view play-view">
-          <div class="filter-bar">
-            ${visPer.length>1?`<div class="play-filter seg">${visPer.map(p=>`<button class="period-pill${activePeriod===p.key?' on':''}" data-period="${p.key}">${p.label}</button>`).join('')}</div>`:''}
-            <button class="set-gear ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
-            <button class="set-gear" id="set-btn" type="button" aria-label="Settings" title="Settings">${GEAR_SVG}</button>
-          </div>
-
-          <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="Your patterns: swipe or use the dots below">${(function(){
-            // the pool is built on margin (youCards) and four are drawn per visit
-            // (youPick). when recent check-ins lean defensive, the cards that say
-            // "dips end" lead and the baseline hero steps back — same honest data,
-            // kinder sequence.
+        <div class="view play-view yb">
+          ${_ybHead(visPer.length>1 ? `<div class="yb-per" role="group" aria-label="Period">${visPer.map(p=>`<button type="button" class="period-pill${activePeriod===p.key?' on':''}" data-period="${p.key}" aria-pressed="${activePeriod===p.key}">${p.label}</button>`).join('')}</div>` : '')}
+          <div class="yb-grid">
+          <a class="you-reader yb-refl" id="you-reader" href="#">
+            <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
+            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p></span></span>
+            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw">${_YB_ARW}</span></span>
+          </a>
+          ${_ybJournalHTML()}
+          <div class="carousel yb-cards" id="carousel" role="region" aria-label="Your patterns">${(function(){
+            // the pool is built on margin (youCards) and four are drawn per visit (youPick), exactly as before
             const _recent = allCs.slice(-6);
             const _defN = _recent.filter(x=>{ const m=_cMargin(x); return m!=null && m<0; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const pk = youPick(youCards(cs, allCs, periodPhrase, activePeriod, days), activePeriod, _tender);
-            // desktop mirrors the phone (Justin, 2026-10-05: "only 4 cards should show at a time at most per time
-            // period, just like mobile"): the same daily hand everywhere; on a wide screen the CSS lays it out as a
-            // grid instead of a swipe carousel. (The 2026-07-19 one-at-a-time ledger that listed ALL cards is gone.)
             const picked = pk.picked;
             window._youSlides = picked.map(s=>s[1]);
-            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
+            return picked.map((s,i)=>`<section class="panel" role="group" aria-label="${CAP(s[1])}">${s[2]}</section>`).join('');
           })()}</div>
-
-          <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
-
-          <div class="you-readers">
-          <a class="you-reader" id="you-reader" href="#">
-            <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
-            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p></span></span>
-            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
-          </a>
-          ${(function(){ let n = 0; try{ n = _lrnJournal().reduce((a,g)=>a + g.items.length, 0); }catch(e){}
-            const paid = paidNow();
-            return `<a class="you-reader you-journal" id="you-journal" href="#">
-            <span class="yr-top"><span class="yr-art yr-art-jr" aria-hidden="true">${_JR_PEN}</span><span class="yr-hd"><h3 class="yr-h">Your Journal</h3>
-            <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.') : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.'}</p></span></span>
-            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'Part of Self-Regulator'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
-          </a>`; })()}
-          </div>
-
-          <div class="deep">
-            <div class="deep-block">
-              <h3 class="deep-h">Your numbers</h3>
-              <div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'\u2014'}</span></div>
+          ${_ybCiSection(allCs)}
+          ${_ybDiscHTML([
+            ['Your numbers', `<div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'—'}</span></div>
               <div class="deep-row"><span class="deep-lbl">Check-ins</span><span class="deep-val">${allCs.length}</span></div>
               ${(function(){const n=Store.sessions().filter(s=>s&&s.completed).length;return n?`<div class="deep-row"><span class="deep-lbl">Practices completed</span><span class="deep-val">${n}</span></div>`:'';})()}
-              ${(function(){const r=_windowRecovery(cs);return r?`<div class="deep-row"><span class="deep-lbl">Comebacks made</span><span class="deep-val">${r.n}</span></div>`:'';})()}
-            </div>
-            <div class="deep-block">
-              <h3 class="deep-h">How you practice</h3>
-              ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">You return to</span><span class="deep-val">${CAP(Store.practiceLabel(L.favPractice))}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">Anchored through</span><span class="deep-val">${CAP(L.favSense)}</span></div>`;return h;})()}
-              ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">Time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
-              ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'Late at night':CAP(segLabel(s))}</span></div>`;})()}
-            </div>
+              ${(function(){const r=_windowRecovery(cs);return r?`<div class="deep-row"><span class="deep-lbl">Comebacks made</span><span class="deep-val">${r.n}</span></div>`:'';})()}`],
+            ['How you practice', (function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">You return to</span><span class="deep-val">${CAP(Store.practiceLabel(L.favPractice))}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">Anchored through</span><span class="deep-val">${CAP(L.favSense)}</span></div>`;return h;})()
+              + (function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">Time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()
+              + (function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'Late at night':CAP(segLabel(s))}</span></div>`;})()]
+          ])}
           </div>
         </div>`;
 
@@ -10021,6 +10024,7 @@ function app(tab){
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
       const yjn=$('#you-journal'); if(yjn) yjn.onclick=(e)=>{ e.preventDefault(); screenJournal('you'); };
+      _ybJournalWire(); _ybCiWire(c); _ybDiscWire(c);
       // SHARE_TXT is GONE, and so is SHARE_VIZ (2026-08-01). Both were parallel decks that
       // had to be kept in step with the cards by hand, and both had drifted: SHARE_VIZ still
       // drew the 'times' card's RETIRED dot strip long after it became a bar chart, and

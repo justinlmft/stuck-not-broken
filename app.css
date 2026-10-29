@@ -5547,3 +5547,82 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 }
 /* results and "See all" pages use the same cards */
 .ll-res .lb-grid,.lm-hubsec .lb-grid{margin:8px 0 16px}
+
+/* ============================================================
+   YOU ON THE SWISS GRID, BENTO (Justin, canon 2026-10-29; BRAND_DESIGN_SYSTEM §4 "You screen (bento)")
+   Title + one bar; Reflection 1-7 (featured) + Journal / Self-Regulator 8-12; the four cards 6 + 6; check-ins; quiet rows.
+   Tablet: Reflection and Journal full width. Phone: everything stacks. The cards themselves are untouched.
+   ============================================================ */
+@media (min-width:720px){ #screen .view.play-view.yb{max-width:var(--page)} }
+/* the title sits where every tab's does: the play view had no top padding of its own on a phone */
+#screen .view.play-view.yb{padding-top:22px}
+@media (min-width:720px){ #screen .view.play-view.yb{padding-top:clamp(30px,6vh,64px)} }
+/* two cards side by side are narrower than the old one-up card: the hero glyphs size to their card, not the window */
+#screen .yb-cards > .panel{container-type:inline-size}
+#screen .yb-cards .cb-glyphs-hero .st-mark{height:clamp(40px, 24cqw, 88px)}
+#screen .yb-cards .cb-glyphs-hero:has(.st-pair) .st-mark{height:clamp(30px, 13cqw, 88px)}
+.yb-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 24px}
+.yb-per{display:flex;flex-wrap:wrap;gap:8px}
+.yb-bar .period-pill{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--hairline);background:none;color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer;box-shadow:none}
+.yb-bar .period-pill.on{background:var(--ink);border-color:var(--ink);color:var(--bone);font-weight:500}
+.yb-sp{flex:1 1 auto}
+.yb-icon,.yb-set{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border-radius:999px;border:1px solid var(--hairline);background:none;color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer;box-shadow:none}
+.yb-icon{width:44px;padding:0}
+.yb-set{padding:0 16px}
+.yb-icon svg,.yb-set svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6}
+.yb-bar button:hover{border-color:var(--ink)}
+.yb-bar button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.yb-grid{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:var(--gap)}
+.yb-grid > *{grid-column:1 / -1;min-width:0}
+.yb-grid > .you-reader{margin:0}
+.yb-refl{display:flex;flex-direction:column;background:var(--bone-deep);padding:28px}
+.yb-refl .yr-lede{font-size:calc(19px * var(--type-scale));line-height:1.5;color:var(--ink);-webkit-line-clamp:7}
+.yb-refl .yr-go{margin-top:auto}
+.yb-jr,.yb-plans{display:flex;flex-direction:column;gap:8px;border:1px solid var(--hairline);border-radius:18px;padding:20px;color:var(--ink)}
+.yb-jr{background:var(--bone-deep)}
+.yb-jr .yr-h,.yb-plans .yr-h{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:0;color:var(--ink)}
+.yb-lede{margin:0;font-size:calc(14.5px * var(--type-scale));line-height:1.5;color:var(--ink-80)}
+.yb-jr-q{display:flex;flex-direction:column;gap:10px;margin-top:6px;padding:16px;border:1px solid var(--hairline);border-radius:12px;background:var(--bone)}
+.yb-jr-ql{font-size:calc(16px * var(--type-scale));line-height:1.45;font-weight:500;color:var(--ink)}
+.yb-jr-q .rd-refl-in{width:100%;box-sizing:border-box;border:0;padding:0;background:none;min-height:84px;resize:vertical}
+.yb-jr-q .rd-refl-in:focus{outline:none}
+.yb-jr-q:focus-within{border-color:var(--ink)}
+.yb-jr-save{align-self:flex-start;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--hairline);background:none;color:var(--ink);font:inherit;font-size:calc(14px * var(--type-scale));font-weight:500;cursor:pointer}
+.yb-jr-save:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.yb-go{margin-top:auto;padding-top:12px;display:inline-flex;align-items:center;gap:8px;min-height:44px;color:var(--ink);font-weight:500;font-size:calc(15px * var(--type-scale));text-decoration:none}
+.yb-go svg{width:18px;height:18px}
+.yb-plans-i{display:flex;flex-direction:column;padding:12px 0;border-top:1px solid var(--hairline)}
+.yb-plans-i b{font-weight:500;font-size:calc(16px * var(--type-scale))}
+.yb-plans-i span{font-size:calc(14px * var(--type-scale));color:var(--muted)}
+.yb-plans-go{align-self:flex-start;margin-top:auto;display:inline-flex;align-items:center;gap:8px}
+.yb-plans-go .rd-lk{width:16px;height:16px;margin:0;color:currentColor}
+/* the four cards: the daily hand, laid out 6 + 6 (stacked on a phone); the cards' own styles and animations are untouched */
+#screen .play-view .carousel.yb-cards{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);overflow:visible;scroll-snap-type:none}
+#screen .play-view .carousel.yb-cards > .panel{flex:none;width:auto;max-width:none;min-width:0;margin:0}
+.yb .dots{display:none}
+/* check-ins */
+.yb-ci-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0 0}
+.yb-ci-head .scr-h{margin:0}
+.yb-ci-dh{margin:20px 0 4px;font-size:calc(14px * var(--type-scale));line-height:20px;font-weight:500;color:var(--muted)}
+.yb-ci-hit{display:flex;align-items:center;gap:16px;width:100%;min-height:48px;margin:0;padding:0;border:0;border-top:1px solid var(--hairline);background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.yb-ci-time{flex:0 0 96px;white-space:nowrap;font-size:calc(15px * var(--type-scale));color:var(--ink-80);font-variant-numeric:tabular-nums}
+.yb-ci-st{flex:1 1 auto;min-width:0}
+.yb-ci-pm{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin-right:-12px;color:var(--link,var(--ink))}
+.yb-ci-pm svg{width:20px;height:20px}
+.yb-ci-hit:focus-visible,.yb-d-hit:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+.yb-ci-s{margin:0 0 12px 112px;font-size:calc(15px * var(--type-scale));line-height:1.5;color:var(--ink-80)}
+.yb-ci-s[hidden],.yb-d-body[hidden]{display:none}
+.yb-ci-all{margin-top:8px}
+/* the numbers: two quiet rows */
+.yb-disc{margin-top:8px}
+.yb-d-hit{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;margin:0;padding:0;border:0;border-top:1px solid var(--hairline);background:none;color:var(--ink-80);font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer}
+.yb-d:last-child .yb-d-hit[aria-expanded="false"]{border-bottom:1px solid var(--hairline)}
+.yb-d-body{padding:0 0 12px}
+@media (max-width:719.98px){ .yb-ci-s{margin-left:0} .yb-set span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)} .yb-set{width:44px;padding:0} }
+@media (min-width:720px){
+  #screen .play-view .carousel.yb-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (min-width:1120px){
+  .yb-grid > .yb-refl{grid-column:1 / span 7}
+  .yb-grid > .yb-jr,.yb-grid > .yb-plans{grid-column:8 / span 5}
+}
