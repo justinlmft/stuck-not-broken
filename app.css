@@ -5364,3 +5364,8 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .lw-rmore summary:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:6px}
 .lw-rmore[open] summary{display:none}
 .lw-rmore .lw-p + .lw-p{margin-top:12px}
+
+/* Calendar round 5: the terms link sits under the list; with the host's link after it, only the first keeps the gap above */
+.lw-sch .lw-past-link + .lw-past-link{margin-top:0}
+/* the icon column is as wide as the widest icon group in that list (two icons only on Mindful Moment) */
+.lw-ic:not(:has(svg + svg)) .lw-ic-g{width:20px}

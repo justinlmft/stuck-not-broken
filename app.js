@@ -3027,17 +3027,17 @@ function app(tab){
   const _lwRich = t => escapeHtml(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   function _lwDescHTML(s){
     let lede = '';
-    const more = [], lists = [];
+    const lists = [];
     _lwDesc(s).split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).forEach(b => {
       const L = b.split('\n').map(x => x.trim()).filter(Boolean);
       if(L.length > 1 && L.slice(1).every(x => x.startsWith('- '))){
         const k = /\bnot:$/i.test(L[0]) ? 'no' : /\b(is|are):$/i.test(L[0]) ? 'yes' : 'dot';
+        if(k !== 'yes') return;   // essentials only (Justin 2026-10-29): what it is; the rest is in the live-event terms
         const mk = k === 'yes' ? LW_ICO.check : k === 'no' ? LW_DASH : '<i aria-hidden="true"></i>';
         lists.push(`<div class="lw-blk lw-lst lw-lst-${k}"><p class="lw-lbl">${_lwRich(L[0].replace(/:$/, ''))}</p><ul class="lw-mk">${L.slice(1).map(x => `<li>${mk}<span>${_lwRich(x.slice(2))}</span></li>`).join('')}</ul></div>`);
       } else if(!lede) lede = `<p class="lw-p lw-lede2">${_lwRich(L.join(' '))}</p>`;
-      else more.push(`<p class="lw-p">${_lwRich(L.join(' '))}</p>`);
     });
-    return lede + (more.length ? `<details class="lw-rmore"><summary>Read more</summary>${more.join('')}</details>` : '') + lists.join('');
+    return lede + lists.join('');
   }
   // the event itself: who it's for (panel) · the icons · the description · the actions, or what it is part of
   function _lwDetail(s, panel){
@@ -3088,6 +3088,11 @@ function app(tab){
     el.querySelectorAll('[data-lw-pick]').forEach(b => { const on = b.dataset.lwPick === id; b.setAttribute('aria-pressed', on); b.closest('.lw-ev').classList.toggle('is-sel', on); });
     const pn = document.getElementById('lw-sch-panel'); if(pn){ pn.innerHTML = _lwPanel(s); _lwWire(pn); }
   }
+  const _lwTermsLink = () => `<button class="lw-past-link" type="button" id="lw-terms"><span>Live event terms</span>${CHEV}</button>`;
+  function _lwTermsWire(el){
+    const b = el.querySelector('#lw-terms'); if(!b) return;
+    b.onclick = () => _lwSheet('Live event terms', `<ul class="lw-rules lw-terms">${LW_TERMS.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>`);
+  }
   let _lwMq = null;
   function _lwBody(){
     const el = document.getElementById('lw-body'); if(!el) return;
@@ -3112,7 +3117,7 @@ function app(tab){
     const groups = [];
     dated.forEach(s => { const m = new Date(_lwStart(s)).toLocaleDateString('en-US', { month:'long' }); let g = groups[groups.length - 1]; if(!g || g.name !== m){ g = { name:m, rows:[] }; groups.push(g); } g.rows.push(s); });
     if(rooms.length) groups.push({ name:'Open any time', rows:rooms });
-    const listHTML = groups.map(g => `<section class="lw-mon"><h3 class="lw-mon-h">${escapeHtml(g.name)}</h3>${g.rows.map(s => _lwRow(s, wide)).join('')}</section>`).join('') + _lwPastLink();
+    const listHTML = groups.map(g => `<section class="lw-mon"><h3 class="lw-mon-h">${escapeHtml(g.name)}</h3>${g.rows.map(s => _lwRow(s, wide)).join('')}</section>`).join('') + _lwTermsLink() + _lwPastLink();
     el.innerHTML = wide
       ? `<div class="lw-sch is-wide"><div class="lw-sch-list">${listHTML}</div><aside class="lw-sch-panel" id="lw-sch-panel" aria-label="Event details" aria-live="polite">${_lwPanel(list.find(s => s.id === _lw.sel))}</aside></div>`
       : `<div class="lw-sch"><div class="lw-sch-list">${listHTML}</div></div>`;
@@ -3120,6 +3125,7 @@ function app(tab){
     el.querySelectorAll('[data-lw-tog]').forEach(b => b.onclick = () => { const id = b.dataset.lwTog; _lw.open[id] = !_lw.open[id]; _lwBody(); });
     _lwWire(el);
     _lwPastWire(el);
+    _lwTermsWire(el);
     if(fk){ const t = el.querySelector((fInPanel ? '#lw-sch-panel ' : '.lw-sch-list ') + '[' + fk + '="' + fv + '"]') || el.querySelector('[' + fk + '="' + fv + '"]'); if(t){ try{ t.focus({ preventScroll:true }); }catch(e){} } }
   }
   // ---- host only: who came to past live events (Justin OK'd the mockup 2026-10-28, https://claude.ai/artifact/UsZeBfSryRZbNzkCvwnChT) ----
