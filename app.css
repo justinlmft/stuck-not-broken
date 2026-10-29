@@ -5558,9 +5558,11 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 #screen .view.play-view.yb{padding-top:22px}
 @media (min-width:720px){ #screen .view.play-view.yb{padding-top:clamp(30px,6vh,64px)} }
 /* two cards side by side are narrower than the old one-up card: the hero glyphs size to their card, not the window */
-#screen .yb-cards > .panel{container-type:inline-size}
-#screen .yb-cards .cb-glyphs-hero .st-mark{height:clamp(40px, 24cqw, 88px)}
-#screen .yb-cards .cb-glyphs-hero:has(.st-pair) .st-mark{height:clamp(30px, 13cqw, 88px)}
+@media (min-width:720px){
+  #screen .yb-cards > .panel{container-type:inline-size}
+  #screen .yb-cards .cb-glyphs-hero .st-mark{height:clamp(40px, 24cqw, 88px)}
+  #screen .yb-cards .cb-glyphs-hero:has(.st-pair) .st-mark{height:clamp(30px, 13cqw, 88px)}
+}
 .yb-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 24px}
 .yb-per{display:flex;flex-wrap:wrap;gap:8px}
 .yb-bar .period-pill{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--hairline);background:none;color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer;box-shadow:none}
@@ -5597,9 +5599,14 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .yb-plans-go{align-self:flex-start;margin-top:auto;display:inline-flex;align-items:center;gap:8px}
 .yb-plans-go .rd-lk{width:16px;height:16px;margin:0;color:currentColor}
 /* the four cards: the daily hand, laid out 6 + 6 (stacked on a phone); the cards' own styles and animations are untouched */
-#screen .play-view .carousel.yb-cards{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);overflow:visible;scroll-snap-type:none}
-#screen .play-view .carousel.yb-cards > .panel{flex:none;width:auto;max-width:none;min-width:0;margin:0}
-.yb .dots{display:none}
+/* a phone: the four cards swipe with their dots, as before (Justin 2026-10-29); from 720 up: 6 + 6 */
+@media (min-width:720px){
+  #screen .play-view .carousel.yb-cards{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);overflow:visible;scroll-snap-type:none}
+  #screen .play-view .carousel.yb-cards > .panel{flex:none;width:auto;max-width:none;min-width:0;margin:0}
+  .yb .dots{display:none}
+}
+/* in the bento grid the dots sit right under the cards, not a grid gap away */
+@media (max-width:719.98px){ .yb-grid > .yb-dots{margin-top:calc(14px - var(--gap))} }
 /* check-ins */
 .yb-ci-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0 0}
 .yb-ci-head .scr-h{margin:0}

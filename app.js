@@ -10001,7 +10001,7 @@ function app(tab){
             <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw">${_YB_ARW}</span></span>
           </a>
           ${_ybJournalHTML()}
-          <div class="carousel yb-cards" id="carousel" role="region" aria-label="Your patterns">${(function(){
+          <div class="carousel yb-cards" id="carousel" role="region" aria-roledescription="carousel" aria-label="Your patterns: swipe or use the dots below">${(function(){
             // the pool is built on margin (youCards) and four are drawn per visit (youPick), exactly as before
             const _recent = allCs.slice(-6);
             const _defN = _recent.filter(x=>{ const m=_cMargin(x); return m!=null && m<0; }).length;
@@ -10009,8 +10009,9 @@ function app(tab){
             const pk = youPick(youCards(cs, allCs, periodPhrase, activePeriod, days), activePeriod, _tender);
             const picked = pk.picked;
             window._youSlides = picked.map(s=>s[1]);
-            return picked.map((s,i)=>`<section class="panel" role="group" aria-label="${CAP(s[1])}">${s[2]}</section>`).join('');
+            return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
+          <div class="dots yb-dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
           ${_ybCiSection(allCs)}
           ${_ybDiscHTML([
             ['Your numbers', `<div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'—'}</span></div>
