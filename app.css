@@ -5247,3 +5247,7 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
   .lw-att-tbl td[data-l]::before{content:attr(data-l);display:block;font-size:calc(12px * var(--type-scale));color:var(--muted)}
   .lw-stay{width:100%}
 }
+
+/* rooms open for days sit after the dated events, no date tile (2026-10-29) */
+.lw-open-h{margin:28px 0 0;padding-top:16px;border-top:1px solid var(--hairline);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.lw-open-h + .lw-row{border-top:0}
