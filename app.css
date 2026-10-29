@@ -5369,3 +5369,71 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .lw-sch .lw-past-link + .lw-past-link{margin-top:0}
 /* the icon column is as wide as the widest icon group in that list (two icons only on Mindful Moment) */
 .lw-ic:not(:has(svg + svg)) .lw-ic-g{width:20px}
+
+/* ============================================================
+   LEARN ON THE SWISS GRID (Justin, option B, 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Library lists (Learn)")
+   The full 12-column frame (4 below 720); title as on Calendar; Filter and Search in a flat row under it; one line per
+   lesson; state sections with "See all" on 11-12 (4 on phone); topics 3 / 2 / 1 across; "for now" on columns 1-8.
+   ============================================================ */
+@media (min-width:720px){ #screen .view.read.ll-wide{max-width:var(--page)} }
+/* the tools row: flat quiet outline buttons, no fill, no shadow, never floating */
+.ll-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 24px}
+.ll-tools .jr-fbtn,.ll-tools .ll-sfloat{box-shadow:none;animation:none;background:transparent;border:1px solid var(--hairline);height:44px;min-height:44px}
+.ll-tools .jr-fbtn{padding:0 16px 0 12px}
+.ll-tools .ll-sfloat{max-width:44px}
+.ll-tools .ll-sfloat.open{flex:1 1 240px;max-width:420px}
+.ll-tools .ll-sf-btn{width:42px;height:42px}
+.ll-tools .ll-sf-q{height:42px}
+.ll-tools .jr-fbtn:hover,.ll-tools .jr-fbtn:focus-visible,.ll-tools .ll-sfloat:hover,.ll-tools .ll-sfloat:focus-within{border-color:var(--ink)}
+.ll-tools .ll-sfloat.open:focus-within{outline:none}
+/* "for now": a grounded band on columns 1-8 */
+@media (min-width:720px){ .ll-wide #ll-browse > .rd-learn-top{max-width:calc((100% - 11 * var(--gap)) * 8 / 12 + 7 * var(--gap))} }
+/* the state sections */
+.ll-sec{margin:0 0 32px}
+.ll-sec-h{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));column-gap:var(--gap);align-items:center;margin:0 0 4px}
+.ll-sec-h h3{grid-column:1 / span 3;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0;font-size:calc(18px * var(--type-scale));line-height:24px;font-weight:500;color:var(--ink)}
+.ll-sec-h h3 .rd-mk{flex:none}
+.ll-n{font-size:calc(15px * var(--type-scale));font-weight:400;color:var(--muted)}
+.ll-seeall2{grid-column:4 / span 1;justify-self:end;min-height:44px;padding:0;border:0;background:none;font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;white-space:nowrap}
+.ll-seeall2:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:6px}
+@media (min-width:720px){
+  .ll-sec-h h3{grid-column:1 / span 9}
+  .ll-seeall2{grid-column:11 / span 2;justify-self:start}
+}
+/* the row: phone = title, then type · length · date · access */
+.ll-rows{display:flex;flex-direction:column}
+.ll-r{display:flex;flex-wrap:wrap;align-items:center;column-gap:6px;row-gap:2px;width:100%;min-height:44px;margin:0;padding:12px 0;border:0;border-top:1px solid var(--hairline);background:none;text-align:left;font:inherit;color:var(--ink-80);font-size:calc(14px * var(--type-scale));line-height:20px;cursor:pointer}
+.ll-rows > .ll-r:first-child{border-top:0}
+.ll-rows > .ll-r[hidden] + .ll-r{border-top:1px solid var(--hairline)}
+.ll-r:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+.ll-r-t{order:-1;flex:1 0 100%;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ll-r-t b{font-size:calc(16px * var(--type-scale));line-height:24px;font-weight:500;color:var(--ink);text-wrap:pretty;overflow-wrap:anywhere}
+.ll-r-read{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:calc(13px * var(--type-scale))}
+.ll-r-read .rd-readmk svg{width:14px;height:14px}
+.ll-r-type,.ll-r-acc{display:inline-flex;align-items:center;gap:4px}
+.ll-r-type .lm-mi{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ll-r-acc .rd-lk{width:14px;height:14px;margin:0;color:currentColor}
+.ll-r-date:empty,.ll-r-len:empty{display:none}
+.ll-r-len::before,.ll-r-date::before,.ll-r-acc::before{content:"\00b7";margin-right:6px;color:var(--muted)}
+.ll-r-acc::before{margin-right:2px}
+@media (min-width:720px){
+  .ll-r{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gap);align-items:start;font-size:calc(15px * var(--type-scale));line-height:24px}
+  .ll-r-type{grid-column:1 / span 2;min-height:24px}
+  .ll-r-t{grid-column:3 / span 5;order:0}
+  .ll-r-len{grid-column:8 / span 2}
+  .ll-r-date{grid-column:10 / span 1;font-variant-numeric:tabular-nums}
+  .ll-r-acc{grid-column:11 / span 2}
+  .ll-r-date:empty,.ll-r-len:empty{display:block}
+  .ll-r-len::before,.ll-r-date::before,.ll-r-acc::before{content:none}
+  .ll-r-t b{font-size:calc(16px * var(--type-scale))}
+}
+/* topics: one-line rows, 1 across, 2 from 720, 3 from 1120 */
+.ll-topics{display:grid;grid-template-columns:1fr;column-gap:var(--gap)}
+.ll-topic{display:flex;align-items:baseline;gap:8px;min-height:44px;margin:0;padding:12px 0;border:0;border-top:1px solid var(--hairline);background:none;text-align:left;font:inherit;cursor:pointer}
+.ll-topic b{font-weight:500;color:var(--ink);font-size:calc(16px * var(--type-scale))}
+.ll-topic span{color:var(--muted);font-size:calc(14px * var(--type-scale))}
+.ll-topic:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+@media (min-width:720px){ .ll-topics{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (min-width:1120px){ .ll-topics{grid-template-columns:repeat(3,minmax(0,1fr))} .ll-r-acc{white-space:nowrap} }
+/* prose on the wide Learn pages (hub intros) keeps its reading measure */
+.view.ll-wide .read-p{max-width:var(--measure)}

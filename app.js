@@ -5399,7 +5399,7 @@ function app(tab){
     const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
       <header class="appbar read-appbar"></header>
-      <div class="scroll"><div class="view read rd" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${inner}</div></div>
+      <div class="scroll"><div class="view read rd${opts.wide ? ' ll-wide' : ''}" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${inner}</div></div>
       ${tabBack || sFloat || opts.dock ? `<div class="fl-dock${opts.crumb && tabBack && !sFloat && !opts.dock ? ' fl-backonly' : ''}" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
@@ -5448,6 +5448,24 @@ function app(tab){
   function _lrnByRead(list){ return list.filter(p=>!_lrnIsRead(p.id)).concat(list.filter(p=>_lrnIsRead(p.id))); }
   const _LRN_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"></path></svg>';
   const _lrnReadMk = () => `<span class="rd-readmk" role="img" aria-label="Read">${_LRN_CHECK}</span>`;
+  // ---- Learn on the Swiss grid (Justin, option B, 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Library lists (Learn)"): one line per
+  // lesson on the 12 columns: type (icon + word) 1-2 · title 3-7 · length 8-9 · date 10 · access 11-12. Every row says Free or
+  // Self-Regulator; the lock shows only when this person is locked out. A read lesson says "Read" under its title. Phone:
+  // the title, then "type · length · date · access". Used on the Learn tab, hub pages, search and filter results.
+  function _llRow(e, isArt){
+    const paidItem = isArt ? !!e.paid : e.s === 'c', locked = paidItem && !paidNow();
+    const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
+    const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
+    const len = isArt ? (e.minutes || 1) + ' min read' : (e.s === 's' && !e.n ? 'under a minute' : _lmLen(e.n));
+    const date = _lmMY(isArt ? _lmArtDate(e) : e.d), read = isArt && _lrnIsRead(e.id);
+    const acc = paidItem ? (locked ? LOCK_SVG : '') + 'Self-Regulator' : 'Free';
+    const data = isArt ? `data-piece="${escapeHtml(e.id)}"` : `data-media="${escapeHtml(e.i)}"`;
+    const ic = `<svg class="lm-mi" viewBox="0 0 24 24" aria-hidden="true">${_LM_MI[k]}</svg>`;
+    return `<button class="ll-r${read ? ' is-read' : ''}" type="button" ${data}><span class="ll-r-type">${ic}<span>${escapeHtml(word)}</span></span><span class="ll-r-t"><b>${escapeHtml(isArt ? e.title : e.t)}</b>${read ? `<span class="ll-r-read"><span class="rd-readmk" aria-hidden="true">${_LRN_CHECK}</span>Read</span>` : ''}</span><span class="ll-r-len">${escapeHtml(len)}</span><span class="ll-r-date">${escapeHtml(date)}</span><span class="ll-r-acc">${acc}</span></button>`;
+  }
+  // Filter and Search: flat outline buttons in a row under the heading, never floating; Search opens its field in the row
+  const _lrnSearchHTML = () => `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>`;
+  const _lrnToolsHTML = filter => `<div class="ll-tools">${filter ? _lmFbtnHTML() : ''}${_lrnSearchHTML()}</div>`;
   // the Learn tab, below the top card (Justin, 2026-10-02, option C): a row of articles for each state that has
   // them, six at most and then a "See all" card that opens the hub; states with none yet in one line; then the
   // topic hubs as a list ("the pills are not helpful")
@@ -5473,21 +5491,15 @@ function app(tab){
       const arts = _lrnByRead(all), eps = med.filter(x=>x.s === 'p'), vids = med.filter(x=>x.s === 'v');
       let ne = Math.min(eps.length, 2), nv = Math.min(vids.length, 2), na = Math.min(arts.length, _LRN_SHELF - ne - nv);
       ne = Math.min(eps.length, _LRN_SHELF - na - nv); nv = Math.min(vids.length, _LRN_SHELF - na - ne);
-      const artCard = p=>{ const read = _lrnIsRead(p.id);
-        // the marks live on the row's heading only (Justin, 2026-10-02: on every card too "it's too much"); the card keeps a strip of the state's color
-        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta lm-m">${_lmArtMeta(p)}</span></button>`; };
-      const medCard = x=>`<button class="ll-card" type="button" data-media="${escapeHtml(x.i)}" style="--band:${STATE_COLOR(_lmState(x) || k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(x.t)}</b><span class="ll-card-meta lm-m">${_lmMedMeta(x)}</span></button>`;
-      const cards = arts.slice(0, na).map(artCard).concat(eps.slice(0, ne).map(medCard), vids.slice(0, nv).map(medCard)).join('');
-      const total = all.length + med.length, cnt = _lrnHubCount(k);
-      const more = total > na + ne + nv ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>` : '';
-      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>
-        <div class="ll-row">${cards}${more}</div></div>`;
+      const rows = arts.slice(0, na).map(p=>_llRow(p, true)).concat(eps.slice(0, ne).map(x=>_llRow(x)), vids.slice(0, nv).map(x=>_llRow(x))).join('');
+      const cnt = _lrnHubCount(k);
+      return `<section class="ll-sec"><div class="ll-sec-h"><h3>${_rdMk(k)}<span>${escapeHtml(STATE_LABEL(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h3><button class="ll-seeall2" type="button" data-hub="${k}">See all</button></div><div class="ll-rows">${rows}</div></section>`;
     };
     const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length && !(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0))).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
     const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
     return `<section class="rd-learn rd-learnhubs">${_lrnStateOrder().map(shelf).join('')}
         ${soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : ''}
-        ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
+        ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="ll-topics">${topics.map(k=>`<button class="ll-topic" type="button" data-hub="${escapeHtml(k)}"><b>${escapeHtml(_lrnHubName(k))}</b><span>${escapeHtml(_lrnHubCount(k))}</span></button>`).join('')}</div>` : ''}
       </section>`;
   }
   // Learn search (Justin, 2026-10-02: "We need a search feature for sure"): titles, descriptions, section headings and the
@@ -5545,14 +5557,15 @@ function app(tab){
     const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
     const forNow = lastK ? _lrnForDaily(lastK) : null;
     _rdShell(`
-          <div class="scr-head read-head" id="lm-learn"><h1 class="read-h1">Learn</h1></div>
+          <div class="scr-head" id="lm-learn"><h1 class="scr-h lw-h1">Learn</h1></div>
+          ${_lrnToolsHTML(true)}
           ${_lmActiveHTML()}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
           ${_lmFiltered() ? _lmListHTML() : `${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
           ${_rdLearnSection()}`}
           </div>
-          ${_lmSheetHTML()}`, { tab:'learn', search:true, dock:_lmFbtnHTML() });
+          ${_lmSheetHTML()}`, { tab:'learn', wide:true });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
@@ -5659,7 +5672,7 @@ function app(tab){
   function _lmListHTML(){
     const gs = _lmGroups(_lmMedia, _lmTopic), n = _lmN(gs), wait = !_lmData && _lmMedia !== 'read';
     const sec = g => { const all = !!_lmOpen[g.k] || g.list.length <= 10, rows = all ? g.list : g.list.slice(0, 8);
-      return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="lm-rows">${rows.map(e=>g.k === 'a' ? _lmArtRowHTML(e) : _lmRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall lm-more" type="button" data-lmgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
+      return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="ll-rows">${rows.map(e=>_llRow(e, g.k === 'a')).join('')}</div>${all ? '' : `<button class="ll-showall lm-more" type="button" data-lmgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
     return `<section class="rd-learn lm-list"><p class="ll-res-n">${escapeHtml(n || wait ? _lmLessons(n) : 'No lessons match these filters.')}${wait ? ' <span class="ll-res-wait">Loading episodes and videos…</span>' : ''}</p>
           ${gs.map(sec).join('')}${!n && !wait ? '<button class="lm-clear" type="button" data-lmx="all">Clear filters</button>' : ''}</section>`;
   }
@@ -6118,7 +6131,7 @@ function app(tab){
   // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
   function _lrnSearchWire(open, openMedia){
     openMedia = openMedia || (id=>screenMedia(id, { label:'Learn', go:()=>screenLearn(true) }));
-    const dock = $('#fl-dock'), sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
+    const sf0 = $('#ll-sf'), dock = sf0 && sf0.closest('#fl-dock') ? $('#fl-dock') : null, sf = sf0, sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
     if(!sf || !qi || !res || !browse) return;
     let shown = 30, tm = null, openG = {};
     const sc = root.querySelector('.scroll');
@@ -6133,7 +6146,7 @@ function app(tab){
       const loading = !_lrnSIdx || !_lmData;
       // each type under its own heading: the first few, then "Show all" for that type
       const sec = g => { const cap = g.k === 'a' ? 10 : 5, all = !!openG[g.k] || g.list.length <= cap + 2, rows = all ? g.list : g.list.slice(0, cap);
-        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="rd-list rd-list-flat">${rows.map(e=>g.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
+        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="ll-rows">${rows.map(e=>_llRow(e, g.k === 'a')).join('')}</div>${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
       res.innerHTML = `<section class="rd-learn ll-res">
           <p class="ll-res-n">${n ? escapeHtml(_lmLessons(n)) : escapeHtml('No lessons match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching…</span>' : ''}</p>
           ${gs.map(sec).join('')}
@@ -6147,6 +6160,7 @@ function app(tab){
     // the entire bottom menu"): the bottom menu hides, and the field sits on the top edge of the keyboard
     const vv = window.visualViewport, coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
     const lift = ()=>{
+      if(!dock){ document.body.classList.remove('ll-sf-typing'); return; }
       if(!dock.isConnected){ if(vv){ vv.removeEventListener('resize', lift); vv.removeEventListener('scroll', lift); } document.body.classList.remove('ll-sf-typing'); return; }
       const typing = coarse && vv && document.activeElement === qi;
       document.body.classList.toggle('ll-sf-typing', !!typing);
@@ -6154,7 +6168,7 @@ function app(tab){
       else { dock.style.position = ''; dock.style.bottom = ''; dock.style.top = ''; }
     };
     if(vv){ vv.addEventListener('resize', lift); vv.addEventListener('scroll', lift); }
-    const setOpen = on => { sf.classList.toggle('open', on); dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
+    const setOpen = on => { sf.classList.toggle('open', on); if(dock) dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock && dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
     setOpen(!!_lrnQ);
     sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
     qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; openG = {}; clearTimeout(tm); tm = setTimeout(draw, 120); };
@@ -7209,14 +7223,15 @@ function app(tab){
         <div id="ll-browse">
         <span class="rd-eyeb">Learning hub</span>
         <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
+        ${_lrnToolsHTML(false)}
         ${mine}
         ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
         ${hubGroups.length ? hubGroups.map(gr=>{ const n = gr.k === 'a' ? 12 : 6;
-            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3><div class="rd-list rd-list-flat">${gr.list.map((e, i)=>{ const r = gr.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e); return i < n ? r : r.replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"'); }).join('')}</div>${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
+            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3><div class="ll-rows">${gr.list.map((e, i)=>{ const r = _llRow(e, gr.k === 'a'); return i < n ? r : r.replace('<button class="ll-r', '<button hidden class="rd-more ll-r'); }).join('')}</div>${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
           : `<section class="rd-learn"><p class="read-p rd-empty">${_lmData ? 'Lessons for this hub are on the way.' : 'One moment…'}</p></section>`}
         ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
         </div>`,
-      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true, crumb:[{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }] });
+      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, wide:true, crumb:[{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }] });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     root.querySelectorAll('.lm-hubsec .ll-showall').forEach(b=>b.onclick=()=>{ b.parentElement.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
     root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
