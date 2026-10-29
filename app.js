@@ -9380,6 +9380,14 @@ function app(tab){
       btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
     };
   }
+  // Your Reflection and Your Journal as pointers (Justin 2026-10-29: "Reflection does not need text. it's a pointer ...
+  // Journal should also be a pointer to the journal screen"): half the width each, under the four cards. Free: the
+  // Reflection tile beside the Self-Regulator card.
+  function _ybPtrsHTML(paid){
+    const refl = `<a class="yb-ptr" id="you-reader" href="#"><span class="yb-ptr-ic" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yb-ptr-t">Your Reflection</span><span class="yb-go"><span>Read your reflections</span>${_YB_ARW}</span></a>`;
+    const jr = `<a class="yb-ptr" id="you-journal" href="#"><span class="yb-ptr-ic" aria-hidden="true">${_JR_PEN}</span><span class="yb-ptr-t">Your Journal</span><span class="yb-go"><span>Open your journal</span>${_YB_ARW}</span></a>`;
+    return `<div class="yb-ptrs${paid ? '' : ' yb-ptrs-free'}">${refl}${paid ? jr : _ybPlansHTML()}</div>`;
+  }
   // free members: one Self-Regulator card in Journal's place (replaces the four locked rows)
   function _ybPlansHTML(){
     const it = [['Your patterns', 'Your times of day, your week, your numbers'], ['Practice impacts', 'How each practice shifts your states'], ['Ideal practice', 'Your best time, anchor and setup'], ['Your Journal', 'Your answers to the journal questions in Learn']];
@@ -9401,12 +9409,7 @@ function app(tab){
     c.innerHTML = `<div class="view play-view yb">
       ${_ybHead('')}
       <div class="yb-grid">
-      <a class="you-reader yb-refl" id="you-reader" href="#">
-        <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
-        <p class="yr-lede">${(_r && _r.text) ? escapeHtml(_r.text) : 'Your daily post and your Sunday reflection, from your own check-ins.'}</p></span></span>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw">${_YB_ARW}</span></span>
-      </a>
-      ${_ybPlansHTML()}
+      ${_ybPtrsHTML(false)}
       ${_ybCiSection(allCs)}
       </div>
     </div>`;
@@ -10056,12 +10059,6 @@ function app(tab){
         <div class="view play-view yb">
           ${_ybHead(visPer.length>1 ? `<div class="yb-per" role="group" aria-label="Period">${visPer.map(p=>`<button type="button" class="period-pill${activePeriod===p.key?' on':''}" data-period="${p.key}" aria-pressed="${activePeriod===p.key}">${p.label}</button>`).join('')}</div>` : '')}
           <div class="yb-grid">
-          <a class="you-reader yb-refl" id="you-reader" href="#">
-            <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
-            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p></span></span>
-            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw">${_YB_ARW}</span></span>
-          </a>
-          ${_ybJournalHTML()}
           <div class="carousel yb-cards" id="carousel" role="region" aria-roledescription="carousel" aria-label="Your patterns: swipe or use the dots below">${(function(){
             // the pool is built on margin (youCards) and four are drawn per visit (youPick), exactly as before
             const _recent = allCs.slice(-6);
@@ -10073,6 +10070,7 @@ function app(tab){
             return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
           <div class="dots yb-dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
+          ${_ybPtrsHTML(true)}
           ${_ybCiSection(allCs)}
           ${_ybDiscHTML([
             ['Your numbers', `<div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'—'}</span></div>

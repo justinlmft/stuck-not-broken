@@ -5647,3 +5647,18 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .lm-lead{transition:opacity .26s cubic-bezier(.32,.72,0,1)}
 .lm-lead.lm-swap{opacity:0}
 @media (prefers-reduced-motion: reduce){.lm-lead{transition:none}}
+
+/* You round 4: the four cards lead; Reflection and Journal are half-width pointers under them (Justin 2026-10-29) */
+.yb-ptrs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap);align-items:stretch}
+.yb-ptr{display:flex;flex-direction:column;gap:10px;min-width:0;padding:18px 20px;border:1px solid var(--hairline);border-radius:18px;background:var(--bone-deep);color:var(--ink);text-decoration:none;cursor:pointer;transition:border-color .2s var(--ease)}
+.yb-ptr:hover{border-color:var(--ink-80)}
+.yb-ptr:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.yb-ptr-ic{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;border:1px solid var(--hairline);background:var(--bone);color:var(--ink)}
+.yb-ptr-ic svg{width:22px;height:22px}
+.yb-ptr-t{font-size:calc(18px * var(--type-scale));line-height:1.25;font-weight:600;letter-spacing:-.01em}
+.yb-ptr .yb-go{padding-top:4px}
+@media (max-width:719.98px){
+  .yb-ptr{padding:16px}
+  .yb-ptr .yb-go{font-size:calc(14px * var(--type-scale))}
+  .yb-ptrs-free{grid-template-columns:minmax(0,1fr)}
+}
