@@ -6675,6 +6675,9 @@ function app(tab){
   // 'weeks:<safety|fightflight|shutdown|play|stillness|freeze>' (2026-10-23, data pass 15: one state week by week, up to eight weeks).
   // 'defense-time' (2026-10-26, data pass 50: for each part of the day, how often its check-ins had more defense than safety).
   // 'dominant' (2026-10-29, dominant-r1: of the check-ins defense led, which defensive state led most often).
+  // 'maturity' (2026-10-29, data-pictures-r2: 'dominant' under 28 days of use, 'before-after' after).
+  // 'weeks-compare:<state>+<state>' (2026-10-29, data-pictures-r2: two states week by week, up to eight weeks).
+  // 'practice-type' (2026-10-29, data-pictures-r2: how often safety rose in each of the four practice types).
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -7049,6 +7052,78 @@ function app(tab){
       const card = _bars(ax.map(a=>[CAP(nm(a.k)), a.x / top, STATE_COLOR(a.k)])) + `<p class="rd-cap">How much of each you had on average, side by side.</p>`;
       const names = ks.map(nm);
       return { mk: ks[0], label: owner + ' ' + (names.length === 2 ? names.join(' and ') : names.slice(0,-1).join(', ') + ' and ' + names[names.length-1]) + ' compared', text, card };
+    }
+    if(id === 'maturity'){
+      // newer members get the simpler card (data-pictures-r2, 2026-10-29; Justin, 2026-10-28: "dominant defensive state
+      // under a month of check-ins and practices, before and after once they have more"). How long the member has been
+      // using the app is read from their first check-in or practice.
+      let first = Infinity;
+      try{ (Store.checkins() || []).forEach(c=>{ const t = +new Date(c.t); if(t < first) first = t; }); }catch(e){}
+      try{ (Store.sessions() || []).forEach(s=>{ const t = +new Date(s && s.t); if(t < first) first = t; }); }catch(e){}
+      const order = Date.now() - first >= 28*864e5 ? ['before-after', 'weeks:safety'] : ['dominant', 'states'];
+      for(const k of order){ const c = _lrnCallout(k, ctx); if(c) return c; }
+      return null;
+    }
+    if(kind === 'weeks-compare' && st){
+      // two states week by week (data-pictures-r2, 2026-10-29; Justin, 2026-10-28: "shutdown and flight or fight compared
+      // over time"). Read like 'weeks': seven-day blocks back from now, up to eight, from the first block with a check-in;
+      // each block a pair of columns (one per state, in its color), a block with none left empty. Needs 2+ blocks with 2+
+      // check-ins. The line says which way each state moved from the earliest such block to the latest. Null when every
+      // state moved the unhopeful way (more defense, less of a safety-side state): another card says more.
+      const n0 = c => +c.v || 0, n1 = c => +c.sym || 0, n2 = c => +c.dor || 0, bl = (a, b) => Math.min(1, Math.min(a, b) * 1.4);
+      const FN = { safety:n0, fightflight:n1, shutdown:n2, play:c=>bl(n0(c), n1(c)), stillness:c=>bl(n0(c), n2(c)), freeze:c=>bl(n1(c), n2(c)) };
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      const UP = { safety:1, play:1, stillness:1 };
+      const ks = st.split('+').filter((k, i, a)=>FN[k] && a.indexOf(k) === i); if(ks.length !== 2) return null;
+      const W = 7*864e5, now = Date.now(), c8 = _lrnPeriodCtx('recent', now - 8*W, now + 1);
+      const xs = ((c8.f && c8.f.rs) || []).filter(r=>r.c && typeof r.c.v === 'number' && r.t > now - 8*W);
+      if(xs.length < 4) return null;
+      const wk = []; for(let i=0;i<8;i++) wk.push({ i, start: now - (i+1)*W, n:0, s:[0, 0] });
+      xs.forEach(r=>{ const i = Math.min(7, Math.floor((now - r.t) / W)); wk[i].n++; ks.forEach((k, j)=>{ wk[i].s[j] += FN[k](r.c); }); });
+      let last = 7; while(last > 0 && !wk[last].n) last--;
+      const shown = wk.slice(0, last + 1).reverse();   // oldest first
+      const ok = shown.filter(w=>w.n >= 2); if(ok.length < 2) return null;
+      const E = ok[0], L = ok[ok.length-1], av = (w, j) => w.s[j] / w.n;
+      const dir = ks.map((k, j)=>{ const d = av(L, j) - av(E, j); return Math.abs(d) < 0.05 ? 0 : d > 0 ? 1 : -1; });
+      const hope = ks.map((k, j)=> dir[j] === 0 ? 0 : (UP[k] ? dir[j] : -dir[j]));
+      if(hope.every(h=>h < 0)) return null;
+      const md = t => new Date(t).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      const wkName = w => w.i === 0 ? 'your last 7 days' : 'the week of ' + md(w.start);
+      const amt = (j) => dir[j] > 0 ? 'more ' + NM[ks[j]] : dir[j] < 0 ? 'less ' + NM[ks[j]] : 'about the same amount of ' + NM[ks[j]];
+      const text = dir[0] === 0 && dir[1] === 0 ? `Your ${NM[ks[0]]} and ${NM[ks[1]]} were about the same from ${wkName(E)} to ${wkName(L)}.`
+        : `You had ${amt(0)} and ${amt(1)} in ${wkName(L)} than in ${wkName(E)}.`;
+      const mx = Math.max.apply(null, shown.filter(w=>w.n).map(w=>Math.max(av(w, 0), av(w, 1)))) || 1;
+      const cols = shown.map(w=>`<span class="lm-col" style="gap:2px">${ks.map((k, j)=>`<i style="width:50%;height:${w.n && av(w, j) > 0 ? Math.max(6, Math.round(100 * av(w, j) / mx)) : 0}%;background:${STATE_COLOR(k)}"></i>`).join('')}</span>`).join('');
+      const keys = ks.map(k=>`<span class="lm-key"><i style="background:${STATE_COLOR(k)}"></i>${escapeHtml(CAP(NM[k]))}</span>`).join('');
+      const card = `<div class="rd-snap rd-snap-in lm-mix"><div class="lm-cols" role="img" aria-label="${escapeHtml(text)}" style="padding:12px 0 0 !important">${cols}</div><div class="lm-keys" style="margin-top:10px">${keys}</div></div><p class="rd-cap">The past ${shown.length === 1 ? 'week' : shown.length + ' weeks'}, oldest to newest. Each pair of columns: how much of each state you had on average that week.</p>`;
+      const pc = _lrnPeriodCtx('recent', shown[0].start, now + 1);
+      return { mk: ks[0], label: owner + ' ' + NM[ks[0]] + ' and ' + NM[ks[1]] + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
+    }
+    if(id === 'practice-type'){
+      // which kind of practice the member's safety rose in most often (data-pictures-r2, 2026-10-29; Justin, 2026-10-28:
+      // "show their ideal SNB practice type"). Of the four practice types, how often the safety rating went up from the
+      // start to the end of the practice. Needs 2+ practices with a safety rating at both ends. The bar is how often it went
+      // up, the number how many rated practices; a dash: that type not practiced in this period. What the member's own
+      // practices showed, never a claim about what works.
+      const TY = [['micro','Tiny','tiny practices'], ['mindfulness','Mindfulness','mindfulness practices'],
+        ['anchoring','Anchoring','safety anchoring practices'], ['self-regulation','Self-regulation','self-regulation practices']];
+      const ps = (f.practices || []).filter(x=>x.rose != null && TY.some(t=>t[0] === x.key)); if(ps.length < 2) return null;
+      const by = {}; ps.forEach(x=>{ const b = by[x.key] = by[x.key] || { n:0, up:0 }; b.n++; if(x.rose) b.up++; });
+      const used = TY.filter(t=>by[t[0]]), rose = used.filter(t=>by[t[0]].up);
+      if(!rose.length) return null;   // nothing hopeful to point to yet: another card says more
+      rose.sort((a,b)=> by[b[0]].up / by[b[0]].n - by[a[0]].up / by[a[0]].n || by[b[0]].n - by[a[0]].n);
+      const top = rose[0], tb = by[top[0]], untried = TY.filter(t=>!by[t[0]]);
+      let text;
+      if(used.length === 1) text = tb.up === tb.n ? `Your safety rating went up in every one of your ${top[2]} ${ctx.noun}.`
+        : `Your safety rating went up in ${_lrnShareWords(tb.up / tb.n).toLowerCase()} of your ${top[2]} ${ctx.noun}.`;
+      else text = `Your safety rating went up most often in your ${top[2]} ${ctx.noun}` + (rose[1] ? `, then your ${rose[1][2]}.` : '.');
+      const orList = a => a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' or ' + a[a.length - 1];
+      if(untried.length) text += ` You haven't done ${orList(untried.map(t=>t[2]))} ${ctx.noun}.`;
+      const col = STATE_COLOR('safety');
+      const rows = TY.map((t, i)=>{ const b = by[t[0]], x = b && b.up ? Math.max(4, Math.round(100 * b.up / b.n)) : 0;
+        return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(t[1])}</span><span class="help-track"><span class="help-fill" style="width:${x}%;background:${col}"></span></span><span class="help-pct">${b ? b.n : '–'}</span></div>`; }).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar: how often your safety rating went up from the start to the end of the practice. Number: how many practices. A dash: none in this period.</p>`;
+      return { mk:'safety', label: owner + ' safety by practice type', text, card };
     }
     if(id === 'dominant'){
       // the member's dominant defensive state (dominant-r1, 2026-10-29; Justin's ask in the data picture pass: "dominant
