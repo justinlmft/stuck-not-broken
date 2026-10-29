@@ -5872,9 +5872,12 @@ function app(tab){
     const n = gCheckinCount(); if(n < 3) return `<section class="lm-lead">${_lrnWaitHTML(n)}</section>`;
     const ids = (st ? ['weeks:' + st, 'time:' + st] : []).concat(['states', 'before-after']);
     const cs = ids.map(id=>{ try{ return _lrnCallout(id, ctx); }catch(e){ return null; } }).filter(Boolean);
-    if(!cs.length) return '';
+    // the piece's own data picture (x.dp in learn/media.json, from learn-media/data-pictures.json; dominant-r1,
+    // 2026-10-29): it shows first whenever the member's data has something to show, else the pick by the piece's id
+    let dp = null; if(x.dp){ try{ dp = _lrnCallout(x.dp, ctx); }catch(e){ dp = null; } }
+    if(!cs.length && !dp) return '';
     let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    let c = cs[h % cs.length];
+    let c = dp || cs[h % cs.length];
     // week by week on a media page: one row of columns, oldest to newest (Justin, 2026-10-26: eight rows "is too much
     // vertical ... Just saying 'the past 8 weeks' is enough")
     if(c.cols){
@@ -6671,6 +6674,7 @@ function app(tab){
   // 'part:<morning|afternoon|evening|late>' (2026-10-23, data pass 14: 'states' for the check-ins in one part of the day).
   // 'weeks:<safety|fightflight|shutdown|play|stillness|freeze>' (2026-10-23, data pass 15: one state week by week, up to eight weeks).
   // 'defense-time' (2026-10-26, data pass 50: for each part of the day, how often its check-ins had more defense than safety).
+  // 'dominant' (2026-10-29, dominant-r1: of the check-ins defense led, which defensive state led most often).
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -7045,6 +7049,39 @@ function app(tab){
       const card = _bars(ax.map(a=>[CAP(nm(a.k)), a.x / top, STATE_COLOR(a.k)])) + `<p class="rd-cap">How much of each you had on average, side by side.</p>`;
       const names = ks.map(nm);
       return { mk: ks[0], label: owner + ' ' + (names.length === 2 ? names.join(' and ') : names.slice(0,-1).join(', ') + ' and ' + names[names.length-1]) + ' compared', text, card };
+    }
+    if(id === 'dominant'){
+      // the member's dominant defensive state (dominant-r1, 2026-10-29; Justin's ask in the data picture pass: "dominant
+      // defensive state"). Of the check-ins defense led in the period, which defensive state led most often. Needs 2+ such
+      // check-ins. A tie at the top is broken by the readings, the same flavour rule as _domDefense (level unless one is
+      // 1.4x the other; level = freeze). One state's mark and color; the other two defenses as quiet bars (their own color, faded) to compare. The
+      // second line names the safety-side state there was the most of, so the numbers resolve to hope; with no safety-side
+      // check-in in the period, null (another card says more), as 'states' does.
+      const DK = ['fightflight','freeze','shutdown'], SK = ['safety','play','stillness'];
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      const cnt = {}; rs.forEach(r=>{ if(NM[r.key]) cnt[r.key] = (cnt[r.key]||0) + 1; });
+      const nd = DK.reduce((a,k)=>a + (cnt[k]||0), 0); if(nd < 2) return null;
+      const N = nd + SK.reduce((a,k)=>a + (cnt[k]||0), 0);
+      const safeTop = SK.filter(k=>cnt[k]).sort((a,b)=>cnt[b] - cnt[a])[0]; if(!safeTop) return null;
+      const ord = DK.filter(k=>cnt[k]).sort((a,b)=>cnt[b] - cnt[a]);
+      const tied = ord.filter(k=>cnt[k] === cnt[ord[0]]);
+      let lead = tied[0];
+      if(tied.length > 1){
+        const dr = rs.filter(r=>DK.indexOf(r.key) >= 0 && r.c && typeof r.c.sym === 'number');
+        const s = dr.reduce((a,r)=>a + (+r.c.sym || 0), 0), d = dr.reduce((a,r)=>a + (+r.c.dor || 0), 0);
+        const fl = s + d <= 0 ? null : Math.max(s, d) < 1.4 * Math.min(s, d) ? 'freeze' : s > d ? 'fightflight' : 'shutdown';
+        if(fl && tied.indexOf(fl) >= 0) lead = fl;
+      }
+      const nm = k => NM[k], rest = ord.filter(k=>k !== lead);
+      let text;
+      if(ord.length === 1) text = `When defense led a check-in ${ctx.noun}, it was ${nm(lead)} every time.`;
+      else if(tied.length > 1) text = `When defense led a check-in ${ctx.noun}, it was as often ${nm(tied[0])} as ${nm(tied[1])}` + (tied[2] ? ` and ${nm(tied[2])}.` : '.');
+      else text = `When defense led a check-in ${ctx.noun}, it was most often ${nm(lead)}, then ${nm(rest[0])}.`;
+      text += ` ${CAP(nm(safeTop))} was the state on ${cnt[safeTop] === 1 ? 'one' : _lrnShareWords(cnt[safeTop] / N).toLowerCase()} of all your check-ins.`;
+      const mx = Math.max.apply(null, DK.map(k=>cnt[k]||0)) || 1;
+      const rows = DK.map((k, i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nm(k)))}</span><span class="help-track"><span class="help-fill" style="width:${cnt[k] ? Math.max(4, Math.round(100 * cnt[k] / mx)) : 0}%;background:${STATE_COLOR(k)}${k === lead ? '' : ';opacity:.4'}"></span></span><span class="help-pct">${cnt[k] || '–'}</span></div>`).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar and number: how many check-ins each defensive state led. A dash: none in this period.</p>`;
+      return { mk: lead, label: owner + ' dominant defensive state', text, card };
     }
     if(id === 'states'){
       // every state the app reads, side by side (the article data pass, run 3, 2026-10-21): how many check-ins had each
