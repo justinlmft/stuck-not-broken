@@ -4912,7 +4912,7 @@ function app(tab){
       const W=cv.clientWidth,H=cv.clientHeight; g.clearRect(0,0,W,H);
       const base0=darkUI?BONE:INK;
       const tinted=!!TC&&TA>.01;
-      const TCx=(tinted&&!darkUI)?TC.map((v,i)=>v*.55+INK[i]*.45):TC;
+      const TCx=tinted?(darkUI?TC.map((v,i)=>v*.6+BONE[i]*.4):TC.map((v,i)=>v*.55+INK[i]*.45)):TC; /* Now: a lighter shade in dark, so the reeds read through the mist */
       const base=tinted?[0,1,2].map(i=>Math.round(TCx[i]*TA*.68+base0[i]*(1-TA*.68))):base0;
       const col=a=>'rgba('+base[0]+','+base[1]+','+base[2]+','+(tinted?Math.min(1,a*(1+.9*TA)):a)+')';
       reeds.forEach(rd=>{let sw=Math.sin(sT*6.283/rd.per+rd.ph)*rd.amp;
@@ -4925,18 +4925,18 @@ function app(tab){
         const c1x=bx+(cx-bx)*t,c1y=by+(cy-by)*t;
         const c2x=cx+(tx-cx)*t,c2y=cy+(ty-cy)*t;
         g.lineCap='round';
-        g.strokeStyle=col(a*0.60);g.lineWidth=rd.w;
+        g.strokeStyle=col(a*0.80);g.lineWidth=rd.w*1.7; /* Now: fuller reeds than the live room's (Justin 2026-10-29) */
         g.beginPath();g.moveTo(bx,by);g.quadraticCurveTo(c1x,c1y,mx,my);g.stroke();
-        g.strokeStyle=col(a*0.34);g.lineWidth=rd.w*0.58;
+        g.strokeStyle=col(a*0.50);g.lineWidth=rd.w*1.7*0.58;
         g.beginPath();g.moveTo(mx,my);g.quadraticCurveTo(c2x,c2y,tx,ty);g.stroke();});
     }
     function tick(t){
       const dt=Math.min(.05,Math.max(0,t-sLast)); sLast=t; if(reduce)return;
       SP+=(SPt-SP)*Math.min(1,dt*.35); AM+=(AMt-AM)*Math.min(1,dt*.35);
       sT+=dt*SP;
-      {const L=x=>{const p=((x%9)+9)%9; return p<4?Math.sin(p/4*Math.PI/2):Math.cos((p-4)/5*Math.PI/2);};
+      {const L=x=>{ if(x<0||x>9) return 0; const p=x; return p<4?Math.sin(p/4*Math.PI/2):Math.cos((p-4)/5*Math.PI/2);};
        const u=t-BT0; LEAN=L(u); LEANZ[2]=LEAN; LEANZ[1]=L(u-.15); LEANZ[0]=L(u-.3);}
-      BA+=((BW?1:0)-BA)*Math.min(1,dt*1.5);
+      BA+=((BW?1:0)-BA)*Math.min(1,dt*(BW?1.5:.3)); /* Now: the reeds settle back to their own sway slowly after One breath */
       if(TT){ if(!TC)TC=TT.slice(); for(let i=0;i<3;i++)TC[i]+=(TT[i]-TC[i])*Math.min(1,dt*.8); }
       TA+=((TT?1:0)-TA)*Math.min(1,dt*.6); if(!TT&&TA<.01)TC=null;
       if(TT){ if(!SKYC)SKYC=TT.slice(); for(let i=0;i<3;i++)SKYC[i]+=(TT[i]-SKYC[i])*Math.min(1,dt*.8); }
@@ -4969,7 +4969,7 @@ function app(tab){
         g.fillStyle=gr; g.fillRect(0,H*.94,W,H*.06);
       }
     }
-    function loop(){ if(!canvases.some(c=>c.isConnected)){ canvases.length=0; running=false; return; }
+    function loop(){ if(!document.querySelector('#screen .view.now.nq')){ running=false; return; }
       requestAnimationFrame(loop); const t=performance.now()/1000; tick(t);
       for(let i=canvases.length-1;i>=0;i--){const cv=canvases[i];
         if(!cv.isConnected){canvases.splice(i,1);continue;} drawOne(cv);
@@ -5040,8 +5040,6 @@ function app(tab){
       challenge: kind==='challenge' && _chNow ? 'Your challenge: ' + _chNow.c.name : '' }[kind] || '';
 
     c.innerHTML = `<div class="view now nq">
-      ${ring ? `<div class="nq-scene nq-scene-ring" aria-hidden="true"><div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div></div>`
-             : `<div class="nq-scene" aria-hidden="true"><canvas class="sky"></canvas><canvas class="ambient"></canvas></div>`}
       <div class="nq-top nq-fade">
         <h1 class="lw-h1 nq-greet">${nowGreet}</h1>
         ${lit ? `<button class="nq-glyph" id="mh-state" type="button" aria-label="${escapeHtml('What ' + STATE_NAME(dom) + ' is (opens the glossary)')}">${triGlyph(dom)}</button>` : ''}
@@ -5056,7 +5054,12 @@ function app(tab){
     document.body.classList.add('on-now');
     _nqLastKind = kind;
 
-    const sc = c.querySelector('.nq-scene');
+    // the scene sits on <body>, behind the whole app, so it fills the window to every edge (Justin's iPhone showed it
+    // ending above the tab bar when it lived inside the scrolling content); it shows only while Now is on screen
+    let sc = document.getElementById('nq-scene');
+    if(!sc){ sc = document.createElement('div'); sc.id = 'nq-scene'; sc.setAttribute('aria-hidden', 'true'); document.body.insertBefore(sc, document.body.firstChild); }
+    if(ring){ sc.className = 'nq-is-ring'; sc.innerHTML = `<div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div>`; }
+    else if(sc.className !== 'nq-is-reeds'){ sc.className = 'nq-is-reeds'; sc.innerHTML = '<canvas class="sky"></canvas><canvas class="ambient"></canvas>'; }
     if(!ring){
       NQ.mode(_nqCalm(), document.documentElement.classList.contains('theme-dark'));
       NQ.attach(sc.querySelector('canvas.ambient'));
@@ -5087,15 +5090,15 @@ function app(tab){
     try{ haptic('start'); }catch(_){}
     const view = c.querySelector('.view.now.nq'), live = c.querySelector('#nq-live');
     document.body.classList.add('nq-idle'); clearTimeout(_nqIdleT);
-    const tr = c.querySelector('.nq-ring #tring');
+    const tr = document.querySelector('#nq-scene #tring');
     if(tr){ const calm = _nqCalm();
       tr.style.transition = calm ? 'opacity 4s' : 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
       if(!calm) tr.style.transform = 'scale(1.28)'; tr.style.opacity = '.85';
       setTimeout(()=>{ tr.style.transition = calm ? 'opacity 5s' : 'transform 5s cubic-bezier(.4,0,.5,1), opacity 5s'; if(!calm) tr.style.transform = 'scale(.82)'; tr.style.opacity = '.5'; }, 4000);
     } else NQ.once();
-    if(view) view.classList.add('nq-breathing', 'nq-in');
+    document.body.classList.add('nq-in');
     if(live) live.textContent = 'Breathe in';
-    setTimeout(()=>{ if(live) live.textContent = 'Breathe out'; if(view) view.classList.remove('nq-in'); }, 4000);
+    setTimeout(()=>{ if(live) live.textContent = 'Breathe out'; document.body.classList.remove('nq-in'); }, 4000);
     setTimeout(()=>{
       _nqBusy = false; if(live) live.textContent = '';
       try{ markBreath(); }catch(_){}
@@ -8377,7 +8380,7 @@ function app(tab){
       }
       // T-2: the FIRST check-in lands back on Today, where the halo has just taken
       // their state color — a visible payoff, not the You tab's "check in twice" nag
-      app(Store.checkins().length >= 2 ? 'you' : 'now');
+      app('now');   // back to Now, where the scene takes the new state (Justin 2026-10-29: "After checking in, send the user back to the Now screen")
       actionSnack('checked in', 'change', ()=>screenCheckin(rec));
     };
   }

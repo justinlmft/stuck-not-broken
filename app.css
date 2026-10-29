@@ -5693,13 +5693,13 @@ body.reduce-motion svg.pm .pm-v{transition:none}
    The live room's scene fills the window behind everything (the second allowed gradient, after the You state range).
    Greeting, glyph and the buttons top left on column 1. Idle: the words, buttons and menu fade; the scene stays.
    ============================================================ */
-body.on-now .shell{background:transparent}
-body.on-now #screen{position:relative;z-index:1}
-.nq-scene{position:fixed;inset:0;z-index:-1;pointer-events:none}
-.nq-scene canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.nq-scene canvas.ambient{opacity:.62;transition:opacity 4s cubic-bezier(.4,0,.5,1)}
-body.reduce-motion .nq-breathing.nq-in .nq-scene canvas.ambient{opacity:.9}
-@media (prefers-reduced-motion: reduce){ .nq-breathing.nq-in .nq-scene canvas.ambient{opacity:.9} }
+#nq-scene{position:fixed;inset:0;z-index:-1;pointer-events:none;display:none}
+body:has(#screen .view.now.nq) #nq-scene{display:block}
+body:has(#screen .view.now.nq) .shell{background:transparent}
+#nq-scene canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#nq-scene canvas.ambient{opacity:.8;transition:opacity 4s cubic-bezier(.4,0,.5,1)}
+body.reduce-motion.nq-in #nq-scene canvas.ambient{opacity:1}
+@media (prefers-reduced-motion: reduce){ body.nq-in #nq-scene canvas.ambient{opacity:1} }
 #screen .view.now.nq{padding:22px var(--pad-x) 24px;max-width:var(--page)}
 @media (min-width:720px){ #screen .view.now.nq{padding:clamp(30px,6vh,64px) var(--pad-x) 40px} }
 .nq-top{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
@@ -5732,5 +5732,5 @@ body.reduce-motion .nq-ring .br-g{animation:none!important}
 body.nq-idle #screen:has(.view.now.nq) .nq-fade,
 body.nq-idle #screen:has(.view.now.nq) > .tabbar,
 body.nq-idle #screen:has(.view.now.nq) .install-nudge{opacity:0;pointer-events:none;transition:opacity 1.8s cubic-bezier(.2,.6,.2,1)}
-body.reduce-motion .nq-fade,body.reduce-motion.on-now #screen > .tabbar,body.reduce-motion .nq-scene canvas.ambient{transition:none!important}
-@media (prefers-reduced-motion: reduce){ .nq-fade,body.on-now #screen > .tabbar,.nq-scene canvas.ambient{transition:none!important} }
+body.reduce-motion .nq-fade,body.reduce-motion.on-now #screen > .tabbar,body.reduce-motion #nq-scene canvas.ambient{transition:none!important}
+@media (prefers-reduced-motion: reduce){ .nq-fade,body.on-now #screen > .tabbar,#nq-scene canvas.ambient{transition:none!important} }
