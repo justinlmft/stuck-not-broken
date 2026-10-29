@@ -2426,16 +2426,16 @@ body.breathing .tabbar{opacity:0;pointer-events:none}
 /* the free/paid line (2026-07-13). Same faded-ink grammar as the guest pick, but these
    are LIVE: a free account can tap them, and tapping asks — it never scolds. No padlock,
    no dashes, no "upgrade" badge. Greyed out does not mean filled in. */
-.p-locked{opacity:.45;cursor:pointer}
+.p-locked{cursor:pointer}
 /* 2026-09-30 (Justin: "i want free users to see what they are missing out on"): every locked thing carries the same small lock —
    in place of the chevron on cards and rows (.p-locked .wc-go), inline after a word elsewhere (.lk) */
 .p-locked .wc-go{visibility:visible}
-.p-locked .wc-go svg{display:none}
+.tb-row.p-locked .wc-go::before{display:none}   /* the lock sits with "Self-Regulator" in the row's words (lock rule, 2026-10-29) */
 .p-locked .wc-go::before,.lk{content:"";display:inline-block;width:15px;height:15px;flex:none;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%275.2%27%20y%3D%2710.8%27%20width%3D%2713.6%27%20height%3D%279.4%27%20rx%3D%272.2%27/%3E%3Cpath%20d%3D%27M8.3%2010.8V8.1a3.7%203.7%200%200%201%207.4%200v2.7%27/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27black%27%20stroke-width%3D%271.9%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Crect%20x%3D%275.2%27%20y%3D%2710.8%27%20width%3D%2713.6%27%20height%3D%279.4%27%20rx%3D%272.2%27/%3E%3Cpath%20d%3D%27M8.3%2010.8V8.1a3.7%203.7%200%200%201%207.4%200v2.7%27/%3E%3C/svg%3E") center/contain no-repeat}
 .lk{width:13px;height:13px;margin-left:6px;vertical-align:-1px;opacity:.8}
 .p7-maker-toggle.p-locked{display:inline-flex;align-items:center}
 .voice-opt.vo-locked{color:var(--muted)}
-@media(hover:hover){.p-locked:hover{opacity:.62;border-color:var(--hairline)}}
+@media(hover:hover){.p-locked:hover{border-color:var(--hairline)}}
 
 /* free You tab: the raw check-in history. Their words and their marks, nothing read
    back at them — no trend, no verdict, no score. */
@@ -5251,3 +5251,86 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 /* rooms open for days sit after the dated events, no date tile (2026-10-29) */
 .lw-open-h{margin:28px 0 0;padding-top:16px;border-top:1px solid var(--hairline);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .lw-open-h + .lw-row{border-top:0}
+
+/* ============================================================
+   CALENDAR ON THE SWISS GRID (Justin 2026-10-29; canvas "SNB Calendar on the Swiss grid", board B + Tablet + Phone;
+   BRAND_DESIGN_SYSTEM §4 "Dated lists and events" / "Locked content"). A schedule is a table: the whole 12-column frame
+   (4 below 720), margin --pad-x, gutter --gap, everything on column 1. Months are section headings.
+   >=1120 (.lw-sch.is-wide): list on columns 1-8 (an 8-column sub-grid on the same lines), panel on 9-12.
+   <1120: each row is one button that opens in place; tablet = date 1-2, title 3-11, +/- 12; phone = date 1, title 2-4.
+   ============================================================ */
+@media (min-width:720px){ #screen .view.lw-view{max-width:var(--page)} }
+.lw-mon-h{margin:32px 0 8px;font-size:calc(18px * var(--type-scale));line-height:24px;font-weight:500;letter-spacing:-.015em;color:var(--ink)}
+.lw-mon:first-child .lw-mon-h{margin-top:8px}
+.lw-ev{border-top:1px solid var(--hairline)}
+.lw-ev-date{display:flex;flex-direction:column;color:var(--ink)}
+.lw-ev-date b{font-size:calc(24px * var(--type-scale));line-height:28px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.lw-ev-date span{font-size:calc(13px * var(--type-scale));line-height:20px;color:var(--muted)}
+.lw-ev-main{display:flex;flex-direction:column;gap:4px;min-width:0}
+.lw-ev-title{font-size:calc(17px * var(--type-scale));line-height:24px;font-weight:500;color:var(--ink);text-wrap:pretty}
+.lw-ev-meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:calc(15px * var(--type-scale));line-height:24px;color:var(--ink-80)}
+.lw-ev-time{display:inline-flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.lw-acc-g{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.lw-ev-live .lw-ev-time{color:var(--ink);font-weight:500}
+.lw-dot{color:var(--muted)}
+.lw-acc{display:inline-flex;align-items:center;gap:4px}
+.lw-acc .rd-lk{width:16px;height:16px;margin:0;color:currentColor}
+.lw-ev-note{margin:0;font-size:calc(15px * var(--type-scale));line-height:24px;color:var(--muted)}
+.lw-blk{display:flex;flex-direction:column;gap:4px;margin:0 0 12px}
+.lw-blk .lw-p{margin:0}
+.lw-lbl{margin:0;font-size:calc(13px * var(--type-scale));line-height:20px;font-weight:500;color:var(--muted)}
+.lw-ev-btns{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-top:4px}
+.btn.lw-act{min-height:44px;padding:0 20px;border-radius:999px;font-size:calc(15px * var(--type-scale))}
+.btn.lw-act svg{width:16px;height:16px}
+.lw-remind{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 4px;margin:0;border:0;background:none;color:var(--ink-80);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer}
+.lw-remind svg{width:18px;height:18px;flex:none}
+.lw-remind.on{color:var(--ink);font-weight:500}
+.lw-remind.on svg path:first-child{fill:currentColor}
+.lw-remind:focus-visible,.lw-ev-title:focus-visible,.lw-ev-hit:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:8px}
+
+/* below 1120: the row is one button; opened, its detail sits under the title, on the same columns */
+.lw-ev-hit{position:relative;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));column-gap:var(--gap);align-items:baseline;
+  width:100%;margin:0;padding:16px 0;border:0;background:none;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
+.lw-ev-hit .lw-ev-date{grid-column:1 / span 1}
+.lw-ev-hit .lw-ev-main{grid-column:2 / -1;padding-right:44px}
+.lw-ev-pm{position:absolute;top:6px;right:-12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--link,var(--ink))}
+.lw-ev-pm svg{width:20px;height:20px}
+.lw-ev-more{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));column-gap:var(--gap);padding:0 0 24px}
+.lw-ev-more[hidden]{display:none}
+.lw-ev-in{grid-column:2 / -1;display:flex;flex-direction:column;gap:12px}
+.lw-ev-in .lw-p,.lw-ev-in .lw-blk{margin:0}
+@media (min-width:720px){
+  .lw-ev-hit .lw-ev-date{grid-column:1 / span 2}
+  .lw-ev-hit .lw-ev-main{grid-column:3 / span 9;padding-right:0}
+  .lw-ev-pm{position:static;grid-column:12 / span 1;justify-self:end;align-self:center;margin-right:-12px}
+  .lw-ev-in{grid-column:3 / span 9}
+  .lw-ev-date b{font-size:calc(28px * var(--type-scale));line-height:32px}
+  .lw-ev-date span{font-size:calc(14px * var(--type-scale))}
+}
+
+/* >=1120: list on 1-8, the selected event in a panel on 9-12 */
+.lw-sch.is-wide{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gap);align-items:start}
+.lw-sch.is-wide .lw-sch-list{grid-column:1 / span 8;min-width:0}
+.lw-sch.is-wide .lw-ev{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));column-gap:var(--gap);align-items:baseline;padding:16px 0;outline-offset:4px}
+.lw-sch.is-wide .lw-ev.is-sel{outline:1px solid var(--ink);border-radius:12px}
+.lw-sch.is-wide .lw-ev-date{grid-column:1 / span 1}
+.lw-sch.is-wide .lw-ev-main{grid-column:2 / span 5}
+.lw-sch.is-wide .lw-ev-acts{grid-column:7 / span 2;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.lw-ev-title[data-lw-pick]{display:block;width:100%;margin:0;padding:0;border:0;background:none;text-align:left;font-family:inherit;cursor:pointer}
+.lw-sch-panel{grid-column:9 / span 4;position:sticky;top:96px;margin-top:8px;padding:24px;border-radius:16px;background:var(--bone-deep);display:flex;flex-direction:column;gap:12px}
+.lw-sch-panel > *{margin:0}
+.lw-sch-panel .lw-p,.lw-ev-in .lw-p{margin:0;font-size:calc(15px * var(--type-scale));line-height:24px;color:var(--ink-80)}
+.lw-sch-panel .lw-blk{margin:0}
+.lw-pn-h{font-size:calc(20px * var(--type-scale));line-height:28px;font-weight:500;letter-spacing:-.015em;color:var(--ink);text-wrap:pretty}
+.lw-pn-when{font-size:calc(15px * var(--type-scale));line-height:24px;color:var(--ink-80)}
+.lw-sch-panel .lw-rules,.lw-ev-in .lw-rules{font-size:calc(15px * var(--type-scale))}
+.lw-sch .lw-past-link{margin-top:24px}
+
+/* the lock rule (Justin 2026-10-29): the lock is always followed by the plan's name */
+.ob-chip .ob-chip-lk{gap:3px;align-items:center;font-size:.85em;color:var(--muted)}
+.vo-tier{display:inline-flex;align-items:center;gap:4px;margin-left:6px;font-size:.85em;color:var(--muted)}
+.vo-tier .lk{margin-left:0}
+.rd-jr-sub{display:inline-flex;align-items:center;gap:4px}
+.rd-jr-sub .rd-lk{width:13px;height:13px;margin:0;color:currentColor}
+.tb-row-sub .lw-acc{display:inline-flex;vertical-align:-2px}
+.tb-row-sub .lw-acc .rd-lk{width:13px;height:13px}

@@ -2095,7 +2095,7 @@
            + obLbl('Background sound')
            + obChips('bed', OB_BEDS)
            + obLbl('Voice')
-           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk" aria-hidden="true">'+LOCK_SVG+'</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
+           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk">'+LOCK_SVG+'Self-Regulator</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
            + '<p class="ob-fine" data-cap="voice"></p>' },
 
       { id:'pathway', tab:'practice', kind:'spot', target:['#up-entry'], pad:6, eb:'Practice',
@@ -2979,40 +2979,116 @@ function app(tab){
       if((_lw.sched || []).some(s => Date.now() >= _lwStart(s) - 60*60000 && Date.now() <= _lwEnd(s))) _lwPresence().then(() => { if(currentTab === 'community') _lwBody(); });
     }, 30000);
   }
+  // ---- the Calendar list on the Swiss grid (Justin 2026-10-29: canvas "SNB Calendar on the Swiss grid", board B, Tablet,
+  // Phone; BRAND_DESIGN_SYSTEM §4 "Dated lists and events" + "Locked content"). A schedule is a table, so it uses the whole
+  // 12-column frame, not the 680 reading column. Months are section headings (no month on each row).
+  //   >=1120: the list on columns 1-8 (each row: day + weekday, col 1 · title, then "time · access", cols 2-6 · RSVP and
+  //           Remind me, cols 7-8) and a panel on 9-12 with the event the member clicked or focused (never hover). It
+  //           opens on the next event. A locked row has no button of its own: the panel explains.
+  //   <1120:  no panel. Each row is one button (aria-expanded) that opens the event in place; + becomes -.
+  // Access label on every row: "Free", or the plan by name, with the lock only when this member is locked out
+  // (_lwAllowed, the live access check). The lock never stands alone and the one action is "See <plan>".
+  // The plan a locked event belongs to: the schedule's access column ('co_regulator' = live_is_co_regulator()).
+  const LW_TIER = { co_regulator:'Co-Regulator' };
+  const _lwTier = s => LW_TIER[s.access] || 'Self-Regulator';
+  const _lwWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
+  const LW_PM = on => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14${on ? '' : 'M12 5v14'}"/></svg>`;
+  const _lwAcc = s => s.access === 'free' ? '<span class="lw-acc">Free</span>'
+    : `<span class="lw-acc">${_lwAllowed(s) ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span>`;
+  const _lwRemindBtn = (s, rem) => `<button class="lw-remind${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>`;
+  // RSVP + Remind me, or Join once the door is open; nothing for a locked event (the panel or the opened row explains)
+  function _lwActs(s, primary){
+    if(!_lwAllowed(s)) return '';
+    if(_lwDoorOpen(s)) return `<button class="btn lw-act" type="button" data-lw-join="${s.id}">Join</button>`;
+    const rsvp = _lwRsvp(s);
+    return `<button class="btn lw-act${primary && !rsvp ? '' : ' quiet'}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP’d' : 'RSVP'}</button>${_lwRemindBtn(s, _lwRemOn(s))}`;
+  }
+  // the event itself: (note) · description · who it's for (panel) · how to join · the actions, or what it is part of
+  function _lwDetail(s, panel){
+    const ok = _lwAllowed(s), room = _lwRoomOpen(s), f = _lwFacts(s), sum = _lwSummary(s);
+    const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
+    const note = !panel && paras && sum ? `<p class="lw-ev-note">${escapeHtml(sum)}</p>` : '';
+    const desc = paras || (sum ? `<p class="lw-p">${escapeHtml(sum)}</p>` : '');
+    const who = panel ? `<div class="lw-blk"><p class="lw-lbl">Who it’s for</p><p class="lw-p">${s.access === 'free' ? 'Free for everyone.' : `<span class="lw-acc">${ok ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span> members.`}</p></div>` : '';
+    const how = ok ? `<div class="lw-blk"><p class="lw-lbl">How to join</p><ul class="lw-rules">${room ? '' : `<li>Join from the ${escapeHtml(lwTabName())} tab. The room opens ${LW_OPEN_EARLY_MIN} minutes before the start.</li>`}<li>${escapeHtml(f[1])}</li><li>${escapeHtml(f[2])}</li></ul></div>` : '';
+    const act = ok ? `<div class="lw-ev-btns">${_lwActs(s, panel)}</div>`
+      : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns"><button class="btn lw-act${panel ? '' : ' quiet'}" type="button" data-lw-see="${s.id}">See ${escapeHtml(_lwTier(s))}</button></div>`;
+    return note + desc + who + how + act;
+  }
+  function _lwPanel(s){
+    if(!s) return '';
+    const room = _lwRoomOpen(s), live = _lwIsLive(s);
+    const when = live ? 'Live now' : room ? 'Open any time' : _lwLongDate(_lwStart(s)) + ' · ' + _lwRangeC(s);
+    return `<h3 class="lw-pn-h">${escapeHtml(room ? (s.title || _lwKind(s).name) : _lwKind(s).name)}</h3><p class="lw-pn-when">${escapeHtml(when)}</p>${_lwDetail(s, true)}`;
+  }
+  function _lwRow(s, wide){
+    const K = _lwKind(s), d = new Date(_lwStart(s)), room = _lwRoomOpen(s), live = _lwIsLive(s);
+    const nm = room ? (s.title || K.name) : K.name;
+    const date = room ? '<span class="lw-ev-date" aria-hidden="true"></span>'
+      : `<span class="lw-ev-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-US', { weekday:'short' })}</span></span>`;
+    const when = live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : room ? 'Open any time' : escapeHtml(_lwRangeC(s));
+    const meta = `<span class="lw-ev-meta"><span class="lw-ev-time">${when}</span><span class="lw-acc-g"><span class="lw-dot" aria-hidden="true">·</span>${_lwAcc(s)}</span></span>`;
+    if(wide){
+      const sel = _lw.sel === s.id;
+      return `<div class="lw-ev${sel ? ' is-sel' : ''}${live ? ' lw-ev-live' : ''}">${date}
+        <div class="lw-ev-main"><button class="lw-ev-title" type="button" data-lw-pick="${s.id}" aria-pressed="${sel}" aria-controls="lw-sch-panel">${escapeHtml(nm)}</button>${meta}</div>
+        <div class="lw-ev-acts">${_lwActs(s, false)}</div></div>`;
+    }
+    const open = !!_lw.open[s.id];
+    return `<div class="lw-ev${open ? ' is-open' : ''}${live ? ' lw-ev-live' : ''}">
+      <button class="lw-ev-hit" type="button" data-lw-tog="${s.id}" aria-expanded="${open}" aria-controls="lw-more-${s.id}">${date}<span class="lw-ev-main"><span class="lw-ev-title">${escapeHtml(nm)}</span>${meta}</span><span class="lw-ev-pm">${LW_PM(open)}</span></button>
+      <div class="lw-ev-more" id="lw-more-${s.id}"${open ? '' : ' hidden'}><div class="lw-ev-in">${open ? _lwDetail(s, false) : ''}</div></div></div>`;
+  }
+  // every action button inside the Calendar (rows, opened rows, the panel)
+  function _lwWire(root){
+    const find = id => (_lw.sched || []).find(s => s.id === id);
+    root.querySelectorAll('[data-lw-see]').forEach(b => b.onclick = () => _lwUpgradeSheet());
+    root.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(find(b.dataset.lwRem)));
+    root.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(find(b.dataset.lwRsvp)));
+    root.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(find(b.dataset.lwJoin)));
+  }
+  // select an event on wide screens: the row gets the ink outline and the panel shows it (no repaint of the list, so focus stays)
+  function _lwPick(id){
+    const el = document.getElementById('lw-body'); if(!el) return;
+    const s = (_lw.sched || []).find(x => x.id === id); if(!s) return;
+    _lw.sel = id;
+    el.querySelectorAll('[data-lw-pick]').forEach(b => { const on = b.dataset.lwPick === id; b.setAttribute('aria-pressed', on); b.closest('.lw-ev').classList.toggle('is-sel', on); });
+    const pn = document.getElementById('lw-sch-panel'); if(pn){ pn.innerHTML = _lwPanel(s); _lwWire(pn); }
+  }
+  let _lwMq = null;
   function _lwBody(){
     const el = document.getElementById('lw-body'); if(!el) return;
     if(_lw.tab === 'feed'){
       el.innerHTML = `<div class="lw-card"><b>Discuss, Ask &amp; Share</b><span>The conversation is moving here from the Academy. Until then, it carries on in the Academy as it does now.</span></div>`;
       return;
     }
-    if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment\u2026'}</p>`; return; }
+    if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment…'}</p>`; return; }
     // before the Co-Regulator launch, members see Mindful Moment only; Justin sees everything
     _lw.sched = _lw.sched.filter(s => _lwEnd(s) > Date.now());   // an event leaves the Calendar when it ends, even if the app stayed open
     const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
     if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>` + _lwPastLink(); _lwPastWire(el); return; }
-    const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
-    const ordered = list.filter(s => !_lwRoomOpen(s)).concat(list.filter(_lwRoomOpen));
-    let _lwOpenHead = false;
-    el.innerHTML = `<div class="lw-list">${ordered.map(s => {
-      const room = _lwRoomOpen(s), head = room && !_lwOpenHead ? (_lwOpenHead = true, '<p class="lw-open-h">Open any time</p>') : '';
-      const K = _lwKind(s), d = new Date(_lwStart(s)), open = _lwDoorOpen(s), live = _lwIsLive(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
-      const act = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
-        : open ? `<button class="lw-pill lw-pill-go" type="button" data-lw-join="${s.id}">Join</button>`
-        : `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>`;
-      const alarm = (ok && !open) ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : '';
-      const nm = room ? (s.title || K.name) : K.name, when = room ? 'Open any time' : _lwWhen(s);
-      return `${head}<div class="lw-row${live ? ' lw-row-live' : ''}${room ? ' lw-row-open' : ''}">
-        <button class="lw-row-hit" type="button" data-lw-info="${s.id}" aria-label="${escapeHtml(nm + ', ' + when + '. Details')}"></button>
-        ${room ? '' : `<span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>`}
-        <span class="lw-row-t"><b>${escapeHtml(nm)}</b><span class="lw-when">${live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : escapeHtml(when)}</span><span class="lw-acts">${act}</span></span>
-        ${alarm}</div>`;
-    }).join('')}</div>`;
-    el.querySelectorAll('[data-lw-up]').forEach(b => b.onclick = () => _lwUpgradeSheet());
-    el.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(_lw.sched.find(s => s.id === b.dataset.lwRem)));
-    el.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(_lw.sched.find(s => s.id === b.dataset.lwRsvp)));
-    el.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(_lw.sched.find(s => s.id === b.dataset.lwJoin)));
-    el.querySelectorAll('[data-lw-info]').forEach(b => b.onclick = () => _lwInfoSheet(_lw.sched.find(s => s.id === b.dataset.lwInfo)));
-    el.insertAdjacentHTML('beforeend', _lwPastLink()); _lwPastWire(el);
+    // the layout follows the rail breakpoint, live: crossing 1120 redraws the list as rows or as list + panel
+    if(!_lwMq){ try{ _lwMq = window.matchMedia('(min-width:1120px)'); _lwMq.addEventListener('change', () => { if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody(); }); }catch(e){} }
+    const wide = _lwWide();
+    _lw.open = _lw.open || {};
+    const dated = list.filter(s => !_lwRoomOpen(s)), rooms = list.filter(_lwRoomOpen);
+    if(!_lw.sel || !list.some(s => s.id === _lw.sel)) _lw.sel = (dated[0] || rooms[0]).id;   // the panel opens on the next event
+    // keep the keyboard where it was across a repaint (RSVP, reminder, opening a row)
+    const fa = document.activeElement, fk = fa && el.contains(fa) ? ['data-lw-pick','data-lw-tog','data-lw-rsvp','data-lw-rem','data-lw-see','data-lw-join'].find(a => fa.hasAttribute(a)) : null;
+    const fv = fk ? fa.getAttribute(fk) : null, fInPanel = !!(fa && fa.closest && fa.closest('#lw-sch-panel'));
+    const groups = [];
+    dated.forEach(s => { const m = new Date(_lwStart(s)).toLocaleDateString('en-US', { month:'long' }); let g = groups[groups.length - 1]; if(!g || g.name !== m){ g = { name:m, rows:[] }; groups.push(g); } g.rows.push(s); });
+    if(rooms.length) groups.push({ name:'Open any time', rows:rooms });
+    const listHTML = groups.map(g => `<section class="lw-mon"><h3 class="lw-mon-h">${escapeHtml(g.name)}</h3>${g.rows.map(s => _lwRow(s, wide)).join('')}</section>`).join('') + _lwPastLink();
+    el.innerHTML = wide
+      ? `<div class="lw-sch is-wide"><div class="lw-sch-list">${listHTML}</div><aside class="lw-sch-panel" id="lw-sch-panel" aria-label="Event details" aria-live="polite">${_lwPanel(list.find(s => s.id === _lw.sel))}</aside></div>`
+      : `<div class="lw-sch"><div class="lw-sch-list">${listHTML}</div></div>`;
+    el.querySelectorAll('[data-lw-pick]').forEach(b => { b.onclick = () => _lwPick(b.dataset.lwPick); b.onfocus = () => _lwPick(b.dataset.lwPick); });
+    el.querySelectorAll('[data-lw-tog]').forEach(b => b.onclick = () => { const id = b.dataset.lwTog; _lw.open[id] = !_lw.open[id]; _lwBody(); });
+    _lwWire(el);
+    _lwPastWire(el);
+    if(fk){ const t = el.querySelector((fInPanel ? '#lw-sch-panel ' : '.lw-sch-list ') + '[' + fk + '="' + fv + '"]') || el.querySelector('[' + fk + '="' + fv + '"]'); if(t){ try{ t.focus({ preventScroll:true }); }catch(e){} } }
   }
   // ---- host only: who came to past live events (Justin OK'd the mockup 2026-10-28, https://claude.ai/artifact/UsZeBfSryRZbNzkCvwnChT) ----
   // One RPC, live_host_attendance(p_session): null = the past events, an id = that event's people. The database only
@@ -3146,7 +3222,7 @@ function app(tab){
     if(!s) return;
     const K = _lwKind(s), open = _lwDoorOpen(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
     const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
-    const act = !ok ? '<button class="btn block" type="button" id="lw-in-up">Upgrade</button>'
+    const act = !ok ? '<button class="btn block" type="button" id="lw-in-up">See ' + escapeHtml(_lwTier(s)) + '</button>'
       : open ? '<button class="btn block" type="button" id="lw-in-join">Join</button>'
       : `<button class="btn block${rsvp ? ' quiet' : ''}" type="button" id="lw-in-rsvp">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>
          <button class="btn block quiet" type="button" id="lw-in-rem">${rem ? LW_ICO.alarmOn + 'Reminder on' : LW_ICO.alarm + 'Set a reminder'}</button>`;
@@ -3181,7 +3257,7 @@ function app(tab){
   function _lwUpgradeSheet(){
     const sh = _lwSheet('Co-Regulator', `<p class="lw-p">Capacity Builder and the monthly Q&amp;A are part of Co-Regulator, along with Discuss, Ask &amp; Share. $39 a month, cancel anytime.</p>
       <p class="lw-p lw-muted">Mindful Moment is free for everyone, Wednesdays at 9 am Pacific.</p>
-      <div class="lw-sh-btns"><a class="btn block" id="lw-up-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Upgrade</a></div>`);
+      <div class="lw-sh-btns"><a class="btn block" id="lw-up-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Join Co-Regulator</a></div>`);
     const go = sh.el.querySelector('#lw-up-go'); if(go) go.addEventListener('click', () => setTimeout(sh.close, 200));
   }
   function _lwIcs(s){
@@ -3651,8 +3727,7 @@ function app(tab){
         const NK = _lwKind(nx), d = new Date(_lwStart(nx)), ok = _lwAllowed(nx), rsvp = _lwRsvp(nx), rem = _lwRemOn(nx);
         nxHTML = `<div class="lw-next"><p class="lw-eyb">Next on the Calendar</p><div class="lw-row lw-row-static">
           <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
-          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}Upgrade</button>`}</span></span>
-          ${ok ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : ''}</div></div>`;
+          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}See ${escapeHtml(_lwTier(nx))}</button>`}${ok ? `<button class="lw-remind${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>` : ''}</span></span></div></div>`;
       }
       const up = (!host && !paidNow()) ? `<div class="lw-up"><p class="lw-eyb">Between live events</p>
           <p class="lw-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
@@ -5679,7 +5754,7 @@ function app(tab){
     freeze:'When you notice freeze, what helps the brake ease a little?', shutdown:'When you notice numbness or heaviness, what do you notice first?' };
   function _lmJournalHTML(x){
     const st = _lmState(x); if(!st) return '';
-    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
+    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${LOCK_SVG}Part of Self-Regulator</p></div>`;
     const saved = ((_ctxLoad()['mj:' + x.i + ':1']) || [])[0] || '';
     return `<div class="lm-card lm-card-o"><span class="rd-eyeb">Journal</span><label class="read-p rd-refl-q" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="rd-refl-in" id="lm-j" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><button class="lm-save" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div>`;
   }
@@ -7230,7 +7305,7 @@ function app(tab){
       const n = run.length, count = n === 1 ? '1 question' : n + ' questions';
       if(!paid){
         if(reflSeen > 1) return '';
-        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
+        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${LOCK_SVG}Part of Self-Regulator</p></div>`;
       }
       const steps = run.map((b, k)=>`<div class="rd-jr-step"${k ? ' hidden' : ''} data-step="${k}">${reflOne(b)}</div>`).join('');
       const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
@@ -8947,25 +9022,25 @@ function app(tab){
       <button class="tb-row p-locked" id="hx-patterns">
         <span class="tb-row-text">
           <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; Self-Regulator</span>
+          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-impacts" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Practice impacts</span>
-          <span class="tb-row-sub">How each practice shifts your states &middot; Self-Regulator</span>
+          <span class="tb-row-sub">How each practice shifts your states &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-ideal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Ideal practice</span>
-          <span class="tb-row-sub">Your best time, anchor and setup &middot; Self-Regulator</span>
+          <span class="tb-row-sub">Your best time, anchor and setup &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
         <span class="tb-row-text">
           <span class="tb-row-title">Your Journal</span>
-          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; Self-Regulator</span>
+          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; <span class="lw-acc">${LOCK_SVG}Self-Regulator</span></span>
         </span><span class="wc-go">${CHEV}</span>
       </button>
       <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
@@ -10820,7 +10895,7 @@ function app(tab){
       }
       const it = x.it, id = it.kind + '|' + it.key;
       const words = it.st === 'paid' ? LOCK_SVG + '<span>Self-Regulator</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
-        : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? LOCK_SVG : '';
+        : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? '<span>' + escapeHtml(it.locked) + '</span>' : '';
       const mark = it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(it, def);
       let pick = '';
       if(it.kind === 'anchorpick' && M.paid && (!M.anchorSet || _upPickOpen)){
@@ -10994,7 +11069,7 @@ function app(tab){
       const lv = M.paid && it.kind === 'def' && _emoLevelable(it.key) ? _upLevels(M.LP[it.key]) : '';
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
       return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="--band:${c.band};--line:${c.line}">
-        <span class="up-n-node">${_upMark(it, def)}${it.locked ? `<span class="up-n-lk">${LOCK_SVG}</span>` : ''}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}${lv}</span></button>`;
+        <span class="up-n-node">${_upMark(it, def)}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}${lv}</span></button>`;
     };
     // the safety anchor step: the choices right here, or (once chosen) what is chosen with a way to change it
     const pickHtml = () => {
@@ -11123,7 +11198,7 @@ function app(tab){
         <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Self-Regulator · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
     }).join('')}</div></div>` : '';
   const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
-    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Self-Regulator</button>`;
+    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}See Self-Regulator</button>`;
   function _upItemSheet(it, M, def){
     const W = _upWhat(it);
     const st = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
@@ -11133,7 +11208,7 @@ function app(tab){
     if(W.q && W.q.length) body += `<div class="up-sh-blk">${W.q.map(t => `<p class="up-sh-p">${escapeHtml(t)}</p>`).join('')}</div>`;
     if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
     if(it.locked){
-      body = `<p class="up-sh-st">${LOCK_SVG}${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
+      body = `<p class="up-sh-st">${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
       return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it anyway'), () => _upPractice(it));
     }
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
@@ -12509,7 +12584,7 @@ function app(tab){
             <button class="rs-disc-btn" id="voice-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Voice</span><span class="rs-disc-val"><span id="voice-val">${escapeHtml(voiceName(pvc))}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
               <div class="scene-grid">
-                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}">${escapeHtml(l)}${voiceOk(k)?'':'<span class="lk" aria-hidden="true"></span>'}</button>`).join('')}
+                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}">${escapeHtml(l)}${voiceOk(k)?'':'<span class="vo-tier"><span class="lk" aria-hidden="true"></span>Self-Regulator</span>'}</button>`).join('')}
               </div>
             </div></div>
           </div>
