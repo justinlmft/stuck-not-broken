@@ -2814,7 +2814,7 @@ function app(tab){
     cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>',
     share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M12 13V7M9 10l3-3 3 3"/></svg>',
     checkin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="1.8" fill="var(--bone)"/><circle cx="15" cy="12" r="1.8" fill="var(--bone)"/><circle cx="11" cy="17" r="1.8" fill="var(--bone)"/></svg>',
-    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4.5h11A2.5 2.5 0 0 1 20 7v6.5a2.5 2.5 0 0 1-2.5 2.5H10.2l-4.4 3.5V15.9A2.5 2.5 0 0 1 4 13.5V7a2.5 2.5 0 0 1 2.5-2.5z"/></svg>',
     leave:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
     people:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>',
     sound:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
@@ -3018,23 +3018,32 @@ function app(tab){
     const K = _lwKind(s);
     const rows = (LW_PART[s.kind] || (K.video ? [[['cam','mic'], 'Camera and mic on or off, your choice']] : [[['camOff','micOff'], 'You are not on camera or mic']])).slice();
     rows.push(s.recorded ? [['rec'], 'Recorded'] : [['recOff'], 'Not recorded, no replay']);
-    if(!_lwRoomOpen(s)) rows.push([['opens'], 'The room opens ' + LW_OPEN_EARLY_MIN + ' minutes early']);
     return `<ul class="lw-ic">${rows.map(([ic, t]) => `<li><span class="lw-ic-g" aria-hidden="true">${ic.map(k => LW_ICO[k] || '').join('')}</span><span>${escapeHtml(t)}</span></li>`).join('')}</ul>`;
   }
-  // the description, as written on Circle (live_series.description): blocks split by a blank line; a block whose later lines
-  // start with "- " is a label and its list ("Capacity Builder is:", "Participation:"); anything else is a paragraph
+  // the description, as written on Circle (live_series.description), made skimmable (Justin 2026-10-29): blocks split by a
+  // blank line; a block whose later lines start with "- " is a heading and its list ("… is:" = checks, "… is not:" = dashes,
+  // anything else = dots); the first paragraph is the lede and the other paragraphs fold under "Read more"; **text** is bold
+  const LW_DASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 12h10"/></svg>';
+  const _lwRich = t => escapeHtml(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   function _lwDescHTML(s){
-    return _lwDesc(s).split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
+    let lede = '';
+    const more = [], lists = [];
+    _lwDesc(s).split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).forEach(b => {
       const L = b.split('\n').map(x => x.trim()).filter(Boolean);
-      if(L.length > 1 && L.slice(1).every(x => x.startsWith('- '))) return `<div class="lw-blk"><p class="lw-lbl">${escapeHtml(L[0])}</p><ul class="lw-rules">${L.slice(1).map(x => `<li>${escapeHtml(x.slice(2))}</li>`).join('')}</ul></div>`;
-      return `<p class="lw-p">${escapeHtml(L.join(' '))}</p>`;
-    }).join('');
+      if(L.length > 1 && L.slice(1).every(x => x.startsWith('- '))){
+        const k = /\bnot:$/i.test(L[0]) ? 'no' : /\b(is|are):$/i.test(L[0]) ? 'yes' : 'dot';
+        const mk = k === 'yes' ? LW_ICO.check : k === 'no' ? LW_DASH : '<i aria-hidden="true"></i>';
+        lists.push(`<div class="lw-blk lw-lst lw-lst-${k}"><p class="lw-lbl">${_lwRich(L[0].replace(/:$/, ''))}</p><ul class="lw-mk">${L.slice(1).map(x => `<li>${mk}<span>${_lwRich(x.slice(2))}</span></li>`).join('')}</ul></div>`);
+      } else if(!lede) lede = `<p class="lw-p lw-lede2">${_lwRich(L.join(' '))}</p>`;
+      else more.push(`<p class="lw-p">${_lwRich(L.join(' '))}</p>`);
+    });
+    return lede + (more.length ? `<details class="lw-rmore"><summary>Read more</summary>${more.join('')}</details>` : '') + lists.join('');
   }
   // the event itself: who it's for (panel) · the icons · the description · the actions, or what it is part of
   function _lwDetail(s, panel){
     const ok = _lwAllowed(s), sum = _lwSummary(s);
     const desc = _lwDescHTML(s) || (sum ? `<p class="lw-p">${escapeHtml(sum)}</p>` : '');
-    const who = panel ? `<div class="lw-blk"><p class="lw-lbl">Who it’s for</p><p class="lw-p">${s.access === 'free' ? 'Free for everyone.' : `<span class="lw-acc">${ok ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span> members.`}</p></div>` : '';
+    const who = panel ? `<div class="lw-blk"><p class="lw-lbl">Who it’s for</p><p class="lw-p"><b>${s.access === 'free' ? 'Free for everyone.' : `<span class="lw-acc">${ok ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span> members.`}</b></p></div>` : '';
     const act = ok ? `<div class="lw-ev-btns">${_lwActs(s, panel)}</div>`
       : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns"><button class="btn lw-act${panel ? '' : ' quiet'}" type="button" data-lw-see="${s.id}">See ${escapeHtml(_lwTier(s))}</button></div>`;
     return who + _lwIcons(s) + desc + act;

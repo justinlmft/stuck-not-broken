@@ -5345,3 +5345,22 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .lw-ic-g svg{width:20px;height:20px}
 .lw-sch-panel{max-height:calc(100dvh - 120px);overflow-y:auto;overscroll-behavior:contain}
 .lw-sch-panel .lw-rules li,.lw-ev-in .lw-rules li{line-height:24px}
+
+/* Calendar round 4: skimmable event text (Justin 2026-10-29) */
+.lw-sch-panel{gap:20px}
+.lw-ev-in{gap:20px}
+.lw-sch-panel .lw-lbl,.lw-ev-in .lw-lbl{font-size:calc(15px * var(--type-scale));line-height:24px;font-weight:500;color:var(--ink)}
+.lw-sch-panel .lw-p b,.lw-ev-in .lw-p b,.lw-mk b{font-weight:600;color:var(--ink)}
+.lw-sch-panel .lw-p.lw-lede2,.lw-ev-in .lw-p.lw-lede2{font-size:calc(17px * var(--type-scale));line-height:28px;font-weight:500;color:var(--ink)}
+.lw-mk{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:calc(15px * var(--type-scale));line-height:24px;color:var(--ink-80)}
+.lw-mk li{display:flex;align-items:flex-start;gap:10px}
+.lw-mk li > svg{width:16px;height:16px;flex:none;margin-top:4px}
+.lw-lst-yes .lw-mk li > svg{color:var(--ink)}
+.lw-lst-no .lw-mk li > svg{color:var(--muted)}
+.lw-mk li > i{width:5px;height:5px;flex:none;margin:10px 5.5px 0;border-radius:50%;background:var(--muted)}
+.lw-rmore{margin:-8px 0 0}
+.lw-rmore summary{display:inline-flex;align-items:center;min-height:44px;cursor:pointer;list-style:none;font-size:calc(15px * var(--type-scale));font-weight:500;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.lw-rmore summary::-webkit-details-marker{display:none}
+.lw-rmore summary:focus-visible{outline:2px solid var(--ink);outline-offset:4px;border-radius:6px}
+.lw-rmore[open] summary{display:none}
+.lw-rmore .lw-p + .lw-p{margin-top:12px}
