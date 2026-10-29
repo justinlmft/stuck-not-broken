@@ -5643,3 +5643,7 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .yb-ci-act:hover{border-color:var(--ink)}
 .yb-ci-act:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media (max-width:719.98px){ .yb-ci-more{margin-left:0} }
+/* cards by moment (data-pictures-r4, 2026-10-29): the lead card fades when the episode reaches a new moment */
+.lm-lead{transition:opacity .26s cubic-bezier(.32,.72,0,1)}
+.lm-lead.lm-swap{opacity:0}
+@media (prefers-reduced-motion: reduce){.lm-lead{transition:none}}

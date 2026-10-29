@@ -5866,7 +5866,28 @@ function app(tab){
   // piece (its state week by week, its state by time of day, every state side by side, before and after practices). Among
   // those with data, the piece's id picks, so screens vary and each keeps its card. Free: the locked card; under 3 check-ins:
   // the wait line; nothing to show: no card.
-  function _lmLeadHTML(x){
+  // the piece's data pictures in order (data-pictures-r4, 2026-10-29): the moment's cards first when playback is inside a
+  // moment (t in seconds), then the piece's own (dp: one id or a list). {def} and {safe} follow the member: the defensive
+  // and the safety-side state that led most of their check-ins in the last 4 weeks; an id that cannot be filled is skipped.
+  function _lmLed(keys){
+    let cs = []; try{ cs = Store.checkins ? Store.checkins() : []; }catch(e){}
+    const now = Date.now(), cnt = {}; cs.filter(c=>c && +new Date(c.t) >= now - 28 * 864e5).forEach(c=>{ const k = _cDom(c); if(keys.indexOf(k) >= 0) cnt[k] = (cnt[k] || 0) + 1; });
+    const ord = keys.filter(k=>cnt[k]).sort((a,b)=>cnt[b] - cnt[a]); if(!ord.length) return null;
+    if(ord[1] && cnt[ord[1]] === cnt[ord[0]] && keys[0] === 'fightflight'){ const d = _domDefense(); if(d && cnt[d] === cnt[ord[0]]) return d; }
+    return ord[0];
+  }
+  function _lmPicks(x, t){
+    const arr = v => v == null ? [] : Array.isArray(v) ? v : [v];
+    let ids = arr(x.dp);
+    if(t != null && Array.isArray(x.dm)){ let m = null; for(const s of x.dm) if(Array.isArray(s) && s[0] <= t) m = s; if(m) ids = arr(m[1]).concat(ids); }
+    let def, safe;
+    const fill = id => { id = String(id);
+      if(id.indexOf('{def}') >= 0){ if(def === undefined) def = _lmLed(['fightflight','freeze','shutdown']); if(!def) return null; id = id.split('{def}').join(def); }
+      if(id.indexOf('{safe}') >= 0){ if(safe === undefined) safe = _lmLed(['safety','play','stillness']); if(!safe) return null; id = id.split('{safe}').join(safe); }
+      return id; };
+    return ids.map(fill).filter((v, i, a)=>v && a.indexOf(v) === i);
+  }
+  function _lmLeadHTML(x, t){
     const paid = paidNow(), st = _lmState(x), now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28 * 864e5, now + 1);
     if(!paid) return `<section class="lm-lead">${_lrnCallHTML({ mk:st || 'safety', label:'Your check-ins' }, false, ctx)}</section>`;
     const n = gCheckinCount(); if(n < 3) return `<section class="lm-lead">${_lrnWaitHTML(n)}</section>`;
@@ -5874,7 +5895,7 @@ function app(tab){
     const cs = ids.map(id=>{ try{ return _lrnCallout(id, ctx); }catch(e){ return null; } }).filter(Boolean);
     // the piece's own data picture (x.dp in learn/media.json, from learn-media/data-pictures.json; dominant-r1,
     // 2026-10-29): it shows first whenever the member's data has something to show, else the pick by the piece's id
-    let dp = null; if(x.dp){ try{ dp = _lrnCallout(x.dp, ctx); }catch(e){ dp = null; } }
+    let dp = null; for(const id of _lmPicks(x, t)){ try{ dp = _lrnCallout(id, ctx); }catch(e){ dp = null; } if(dp) break; }
     if(!cs.length && !dp) return '';
     let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
     let c = dp || cs[h % cs.length];
@@ -6145,7 +6166,7 @@ function app(tab){
     const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();
     const eyeb = x.s === 'p' ? 'Podcast · Stuck Not Broken' : x.s === 'c' ? 'Stucknaut Collective' : 'Video';
     const player = !listen
-      ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
+      ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0${Array.isArray(x.dm) && x.dm.length > 1 ? '&enablejsapi=1&origin=' + encodeURIComponent(location.origin) : ''}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
       : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with Self-Regulator.</p><button class="lm-save lm-sub" type="button">See Self-Regulator</button></div>`
       : `<div class="lm-player" id="lm-player" role="region" aria-label="Player">
             <div class="lm-bar" id="lm-bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="lm-fill" id="lm-fill"></span></div>
@@ -6162,6 +6183,46 @@ function app(tab){
     _lmWireCards(x);
     _lmWireMods(here);
     if(listen && !locked) _lmWirePlayer(x);
+    _lmWireMoments(x);
+  }
+  // cards by moment (data-pictures-r4, 2026-10-29): while the piece plays, the lead card follows x.dm. A new moment has
+  // to hold for 2 seconds (a seek across several moments swaps once), then the card fades out and back in with the
+  // moment's card; with Reduce Motion it swaps without the fade. When the card would be the same, nothing moves.
+  function _lmWireMoments(x){
+    if(!Array.isArray(x.dm) || x.dm.length < 2 || !paidNow() || gCheckinCount() < 3) return;
+    const lead = () => root.querySelector('.lm-lead');
+    const first = lead(); if(!first) return;
+    const at = t => { let k = -1; x.dm.forEach((s, i)=>{ if(Array.isArray(s) && s[0] <= t) k = i; }); return k; };
+    let cur = -1, want = -1, timer = 0;
+    const calm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const swap = t => {
+      const el = lead(); if(!el || !el.isConnected) return;
+      const box = document.createElement('div'); box.innerHTML = _lmLeadHTML(x, t);
+      const nu = box.firstElementChild; if(!nu || nu.innerHTML === el.innerHTML) return;
+      const put = () => { el.innerHTML = nu.innerHTML; el.classList.remove('lm-swap'); _lmWireCards(x); };
+      if(calm) return put();
+      el.classList.add('lm-swap'); setTimeout(put, 260);
+    };
+    const tick = t => {
+      if(!first.isConnected && !lead()) return false;
+      const k = at(t || 0); if(k === want) return true;
+      want = k; clearTimeout(timer);
+      timer = setTimeout(()=>{ if(want !== cur){ cur = want; swap(x.dm[cur] ? x.dm[cur][0] : 0); } }, 2000);
+      return true;
+    };
+    const a = $('#lm-audio');
+    if(a){ const on = ()=>{ if(!a.isConnected) return a.removeEventListener('timeupdate', on); if(!a.paused || a.currentTime) tick(a.currentTime); }; a.addEventListener('timeupdate', on); return; }
+    const f = root.querySelector('.lm-video iframe'); if(!f) return;
+    const O = 'https://www.youtube-nocookie.com';
+    const hello = () => { try{ f.contentWindow.postMessage(JSON.stringify({ event:'listening', id:'lm', channel:'widget' }), O); }catch(e){} };
+    f.addEventListener('load', ()=>{ hello(); setTimeout(hello, 1000); });
+    const onMsg = e => {
+      if(e.origin !== O || e.source !== f.contentWindow) return;
+      if(!f.isConnected){ window.removeEventListener('message', onMsg); return; }
+      let d = null; try{ d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; }catch(err){ return; }
+      const i = d && d.info; if(i && typeof i.currentTime === 'number' && (i.playerState === 1 || i.playerState === undefined || i.currentTime > 0)) tick(i.currentTime);
+    };
+    window.addEventListener('message', onMsg);
   }
   function _lmWirePlayer(x){
     const a = $('#lm-audio'); if(!a) return;
