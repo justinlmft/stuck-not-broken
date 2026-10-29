@@ -5687,3 +5687,50 @@ svg.pm .pm-v{transform-box:fill-box;transform-origin:center;transition:transform
 svg.pm.on .pm-v{transform:scaleY(0)}
 @media (prefers-reduced-motion: reduce){ svg.pm .pm-v{transition:none} }
 body.reduce-motion svg.pm .pm-v{transition:none}
+
+/* ============================================================
+   NOW, TRANQUIL (Justin 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Now screen, tranquil")
+   The live room's scene fills the window behind everything (the second allowed gradient, after the You state range).
+   Greeting, glyph and the buttons top left on column 1. Idle: the words, buttons and menu fade; the scene stays.
+   ============================================================ */
+body.on-now .shell{background:transparent}
+body.on-now #screen{position:relative;z-index:1}
+.nq-scene{position:fixed;inset:0;z-index:-1;pointer-events:none}
+.nq-scene canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.nq-scene canvas.ambient{opacity:.62;transition:opacity 4s cubic-bezier(.4,0,.5,1)}
+body.reduce-motion .nq-breathing.nq-in .nq-scene canvas.ambient{opacity:.9}
+@media (prefers-reduced-motion: reduce){ .nq-breathing.nq-in .nq-scene canvas.ambient{opacity:.9} }
+#screen .view.now.nq{padding:22px var(--pad-x) 24px;max-width:var(--page)}
+@media (min-width:720px){ #screen .view.now.nq{padding:clamp(30px,6vh,64px) var(--pad-x) 40px} }
+.nq-top{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.nq-greet{text-wrap:pretty}
+.nq-glyph{display:inline-flex;padding:6px;margin:-6px;background:none;border:0;border-radius:10px;cursor:pointer;color:var(--ink)}
+.nq-glyph svg{height:26px;width:auto;display:block}
+.nq-glyph:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.nq-acts{display:flex;flex-direction:column;align-items:flex-start;gap:10px;margin-top:2px}
+.nq-btn{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 18px;border:1px solid color-mix(in srgb, var(--ink) 24%, transparent);border-radius:999px;
+  background:color-mix(in srgb, var(--bone) 40%, transparent);color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));text-align:left;cursor:pointer;box-shadow:none;transition:border-color .2s var(--ease)}
+.nq-btn svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.nq-btn:hover{border-color:var(--ink)}
+.nq-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.nq-next{border-color:color-mix(in srgb, var(--ink) 14%, transparent)}
+/* the third button fades in, mirroring the idle fade out */
+@keyframes nqIn{from{opacity:0}to{opacity:1}}
+.nq-next.nq-new{animation:nqIn 1.8s cubic-bezier(.2,.6,.2,1) both}
+body.reduce-motion .nq-next.nq-new{animation:none}
+@media (prefers-reduced-motion: reduce){ .nq-next.nq-new{animation:none} }
+/* the breath circle as the scene (Settings > Now screen): the ring as it was, in the open space */
+.nq-ring{position:absolute;left:50%;top:60%;width:min(64vw,40vh,300px);aspect-ratio:1;transform:translate(-50%,-50%)}
+@media (min-aspect-ratio:1/1){ .nq-ring{left:64%;top:56%;width:min(34vw,48vh,320px)} }
+@media (orientation:landscape) and (max-height:500px){ .nq-ring{left:84%;top:50%;width:min(26vw,46vh)} }
+.nq-ring #tring{display:block;width:100%;height:100%;opacity:.8}
+body.reduce-motion .nq-ring .br-g{animation:none!important}
+/* a phone lying on its side: the buttons sit in a row so everything clears the tab bar */
+@media (orientation:landscape) and (max-height:500px){ .nq-acts{flex-direction:row;flex-wrap:wrap} .nq-top{gap:10px} }
+/* idle: everything but the scene fades; any input brings it back */
+.nq-fade,body.on-now #screen > .tabbar{transition:opacity .45s cubic-bezier(.2,.6,.2,1)}
+body.nq-idle #screen:has(.view.now.nq) .nq-fade,
+body.nq-idle #screen:has(.view.now.nq) > .tabbar,
+body.nq-idle #screen:has(.view.now.nq) .install-nudge{opacity:0;pointer-events:none;transition:opacity 1.8s cubic-bezier(.2,.6,.2,1)}
+body.reduce-motion .nq-fade,body.reduce-motion.on-now #screen > .tabbar,body.reduce-motion .nq-scene canvas.ambient{transition:none!important}
+@media (prefers-reduced-motion: reduce){ .nq-fade,body.on-now #screen > .tabbar,.nq-scene canvas.ambient{transition:none!important} }

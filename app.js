@@ -2747,6 +2747,7 @@ addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try
 
 function app(tab){
     currentTab = tab;
+    document.body.classList.remove('on-now', 'nq-idle');
     if(tab !== 'reflect' && tab !== 'learn') _rdSaveLoc({ k:'tab', tab });
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} } }
     if(tab === 'reflect') return screenReader();
@@ -4828,7 +4829,6 @@ function app(tab){
       `Good to see you, ${name}.`,
       `No rush, ${name}.`,
       `One breath at a time, ${name}.`,
-      `The ring's ready when you are, ${name}.`,
       `Take what you need, ${name}.`,
       `Here we are again, ${name}.`,
       `You showed up, ${name}. That counts.`,
@@ -4844,7 +4844,6 @@ function app(tab){
       `Good to see you.`,
       `No rush.`,
       `One breath at a time.`,
-      `The ring's ready when you are.`,
       `Take what you need.`,
       `Here we are again.`
     ];
@@ -4856,172 +4855,253 @@ function app(tab){
     try{ localStorage.setItem('snb_greet_i', i); }catch(e){}
     return pool[i];
   }
+  /* ===== The live room's scene, from the Session Builder (snb-session-builder index.html, AMB, 2026-10-28):
+     reeds in three depths, the sky behind them (a sunrise for safety-side colours, a mist for the defense side),
+     the tint easing in, and the breath lean (in for 4, out for 5). Kept as written; three additions for Now:
+     a dark-theme ink, a live reduce-motion switch, and once() = a single breath from its start. ===== */
+  const NQ=(function(){
+    const INK=[26,31,42],BONE=[250,249,245];
+    let reduce=false, darkUI=false;
+    let reeds=[],sT=0,sLast=0,seedW=0;
+    let TT=null,TC=null,TA=0,BW=false,BA=0,LEAN=0,LEANZ=[0,0,0],BT0=0;
+    let SKYC=null,SKYM='sun',SUN=0,MIST=0;
+    /* Now (Justin 2026-10-29): the reeds' pace and reach follow the state, the way the breath ring's three rings did:
+       safety an easy full sway (outer ring, 7s), flight/fight quick (middle ring, 3s), shutdown slow and barely moving
+       (inner ring, 9s, tiny). Blends average their two. It eases over a few seconds, the phase never jumps. */
+    let SP=1,AM=1,SPt=1,AMt=1;
+    const PACE={ safety:[1,1.15], fightflight:[2.3,.85], shutdown:[.7,.28] };
+    const MIX={ play:['safety','fightflight'], stillness:['safety','shutdown'], freeze:['fightflight','shutdown'] };
+    const SAFE_C=[[244,213,141],[232,168,113],[159,196,152]],DEF_C=[[232,155,155],[184,154,196],[163,192,221]];
+    const near=(c,L)=>Math.min(...L.map(x=>Math.hypot(x[0]-c[0],x[1]-c[1],x[2]-c[2])));
+    const mixc=(a,b,k)=>a.map((v,i)=>Math.round(v*(1-k)+b[i]*k));
+    const canvases=[];
+    const fieldW=()=>(canvases[0]&&canvases[0].clientWidth)||1280;
+    function seed(){
+      reeds=[];sT=0;
+      const RMAX=reduce?8:Math.round(Math.max(8,Math.min(26,fieldW()/85)));
+      const DEPTH=[
+        {n:reduce?0:Math.round(RMAX*1.1),h:[.08,.2], w:[.6,1],   a:[.12,.2], per:[5,8],  amp:[.025,.045]},
+        {n:reduce?4:Math.round(RMAX*.8), h:[.14,.34],w:[.9,1.5], a:[.2,.32], per:[6.5,11],amp:[.03,.05]},
+        {n:RMAX,                          h:[.22,.62],w:[1.1,2.6],a:[.3,.62], per:[8,16], amp:[.035,.08]}];
+      DEPTH.forEach((D,z)=>{
+        const grown=[]; let rx=.01+Math.random()*.05;
+        while(rx<.97&&grown.length<D.n){
+          const stand=1+Math.floor(Math.random()*(Math.random()<.4?3:1));
+          const fh=D.h[0]+Math.random()*(D.h[1]-D.h[0]);
+          for(let k=0;k<stand&&rx<.97;k++){
+            grown.push({x:rx,z,h:Math.max(D.h[0]*.7,fh+(Math.random()-.5)*(D.h[1]-D.h[0])*.35),
+              per:D.per[0]+Math.random()*(D.per[1]-D.per[0]),ph:Math.random()*6.283,
+              amp:D.amp[0]+Math.random()*(D.amp[1]-D.amp[0]),
+              w:D.w[0]+Math.random()*(D.w[1]-D.w[0]),a:D.a[0]+Math.random()*(D.a[1]-D.a[0])});
+            rx+=.008+Math.random()*.02;
+          }
+          rx+=.03+Math.random()*.14+(Math.random()<.22?.12:0);
+        }
+        const last=grown.length?grown[grown.length-1].x:1; if(last<.9){const k=.95/last; grown.forEach(r=>{r.x*=k;});}
+        reeds.push(...grown);
+      });
+    }
+    function fit(cv){
+      const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+      if(!w||!h)return null;
+      if(Math.round(w*dpr)!==cv.width||Math.round(h*dpr)!==cv.height){cv.width=w*dpr;cv.height=h*dpr;}
+      const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);return g;
+    }
+    function drawOne(cv){
+      const g=fit(cv); if(!g)return;
+      const W=cv.clientWidth,H=cv.clientHeight; g.clearRect(0,0,W,H);
+      const base0=darkUI?BONE:INK;
+      const tinted=!!TC&&TA>.01;
+      const TCx=(tinted&&!darkUI)?TC.map((v,i)=>v*.55+INK[i]*.45):TC;
+      const base=tinted?[0,1,2].map(i=>Math.round(TCx[i]*TA*.68+base0[i]*(1-TA*.68))):base0;
+      const col=a=>'rgba('+base[0]+','+base[1]+','+base[2]+','+(tinted?Math.min(1,a*(1+.9*TA)):a)+')';
+      reeds.forEach(rd=>{let sw=Math.sin(sT*6.283/rd.per+rd.ph)*rd.amp;
+        sw*=AM;
+        if(BA>.01){ const z=rd.z==null?2:rd.z; sw=sw*(1-.65*BA)+LEANZ[z]*.16*BA*(.45+.2*z+.5*rd.h); }
+        const bx=rd.x*W,by=H,hh=rd.h*H,tx=bx+sw*hh,ty=by-hh;
+        const a=(rd.a!=null?rd.a:.5);
+        const cx=bx+sw*hh*.25,cy=by-hh*.55;
+        const t=.55,mx=(1-t)*(1-t)*bx+2*(1-t)*t*cx+t*t*tx,my=(1-t)*(1-t)*by+2*(1-t)*t*cy+t*t*ty;
+        const c1x=bx+(cx-bx)*t,c1y=by+(cy-by)*t;
+        const c2x=cx+(tx-cx)*t,c2y=cy+(ty-cy)*t;
+        g.lineCap='round';
+        g.strokeStyle=col(a*0.60);g.lineWidth=rd.w;
+        g.beginPath();g.moveTo(bx,by);g.quadraticCurveTo(c1x,c1y,mx,my);g.stroke();
+        g.strokeStyle=col(a*0.34);g.lineWidth=rd.w*0.58;
+        g.beginPath();g.moveTo(mx,my);g.quadraticCurveTo(c2x,c2y,tx,ty);g.stroke();});
+    }
+    function tick(t){
+      const dt=Math.min(.05,Math.max(0,t-sLast)); sLast=t; if(reduce)return;
+      SP+=(SPt-SP)*Math.min(1,dt*.35); AM+=(AMt-AM)*Math.min(1,dt*.35);
+      sT+=dt*SP;
+      {const L=x=>{const p=((x%9)+9)%9; return p<4?Math.sin(p/4*Math.PI/2):Math.cos((p-4)/5*Math.PI/2);};
+       const u=t-BT0; LEAN=L(u); LEANZ[2]=LEAN; LEANZ[1]=L(u-.15); LEANZ[0]=L(u-.3);}
+      BA+=((BW?1:0)-BA)*Math.min(1,dt*1.5);
+      if(TT){ if(!TC)TC=TT.slice(); for(let i=0;i<3;i++)TC[i]+=(TT[i]-TC[i])*Math.min(1,dt*.8); }
+      TA+=((TT?1:0)-TA)*Math.min(1,dt*.6); if(!TT&&TA<.01)TC=null;
+      if(TT){ if(!SKYC)SKYC=TT.slice(); for(let i=0;i<3;i++)SKYC[i]+=(TT[i]-SKYC[i])*Math.min(1,dt*.8); }
+      {const ts=TT&&SKYM==='sun'?1:0, tm=TT&&SKYM==='mist'?1:0;
+       SUN+=ts>SUN?Math.min(ts-SUN,dt/7):-Math.min(SUN-ts,dt/6); MIST+=tm>MIST?Math.min(tm-MIST,dt/7):-Math.min(MIST-tm,dt/6);
+       if(!TT&&SUN<.002&&MIST<.002)SKYC=null;}
+    }
+    function drawSky(cv){
+      const g=fit(cv); if(!g)return;
+      const W=cv.clientWidth,H=cv.clientHeight; g.clearRect(0,0,W,H);
+      if(!SKYC||(SUN<.002&&MIST<.002))return;
+      const ez=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2, a1=ez(Math.max(0,Math.min(1,SUN))), a2=ez(Math.max(0,Math.min(1,MIST)));
+      const dark=darkUI, s=.65*(dark?.8:1);
+      const c=SKYC.map(Math.round), warm=mixc(c,[255,236,200],dark?.15:.25);
+      const A=(k,a)=>'rgba('+k[0]+','+k[1]+','+k[2]+','+Math.max(0,Math.min(1,a)).toFixed(3)+')';
+      if(a1>.002){
+        const r=H*(.62+.12*a1);
+        g.save(); g.translate(W*.64,H*(1.04+.22*(1-a1))); g.scale(1.7,1);
+        const gr=g.createRadialGradient(0,0,0,0,0,r);
+        gr.addColorStop(0,A(warm,.62*s*a1)); gr.addColorStop(.35,A(c,.32*s*a1)); gr.addColorStop(.7,A(c,.09*s*a1)); gr.addColorStop(1,A(c,0));
+        g.fillStyle=gr; g.beginPath(); g.arc(0,0,r,0,6.283); g.fill(); g.restore();
+      }
+      if(a2>.002){
+        const top=H*(1-(.52+.2*(1-a2)));
+        let gr=g.createLinearGradient(0,H,0,top);
+        gr.addColorStop(0,A(dark?c:mixc(c,INK,.08),.58*s*a2)); gr.addColorStop(.06,A(warm,.46*s*a2));
+        gr.addColorStop(.35,A(c,.18*s*a2)); gr.addColorStop(1,A(c,0));
+        g.fillStyle=gr; g.fillRect(0,0,W,H);
+        gr=g.createLinearGradient(0,H,0,H*.94); gr.addColorStop(0,A(warm,.35*s*a2)); gr.addColorStop(1,A(warm,0));
+        g.fillStyle=gr; g.fillRect(0,H*.94,W,H*.06);
+      }
+    }
+    function loop(){ if(!canvases.some(c=>c.isConnected)){ canvases.length=0; running=false; return; }
+      requestAnimationFrame(loop); const t=performance.now()/1000; tick(t);
+      for(let i=canvases.length-1;i>=0;i--){const cv=canvases[i];
+        if(!cv.isConnected){canvases.splice(i,1);continue;} drawOne(cv);
+        const sk=cv.parentNode&&cv.parentNode.querySelector(':scope > canvas.sky'); if(sk)drawSky(sk);} }
+    let running=false;
+    return { attach(cv){ if(cv&&canvases.indexOf(cv)<0)canvases.push(cv); if(!reeds.length||Math.abs(fieldW()-seedW)>120){ seed(); seedW=fieldW(); } if(!running){running=true;loop();} },
+             mode(r,d){ const re=reduce!==r; reduce=r; darkUI=d; if(re) seed(); if(reduce) this.tint(TT); },
+             tint(rgb){ TT=(Array.isArray(rgb)&&rgb.length===3)?rgb.map(Number):null; if(reduce){TC=TT;TA=TT?1:0;}
+               if(TT) SKYM=near(TT,SAFE_C)<=near(TT,DEF_C)?'sun':'mist';
+               if(reduce){SKYC=TT;SUN=TT&&SKYM==='sun'?1:0;MIST=TT&&SKYM==='mist'?1:0;} },
+             pace(key){ const ks=MIX[key]||(PACE[key]?[key]:[]);
+               if(!ks.length){ SPt=1; AMt=1; } else { SPt=ks.reduce((a,k)=>a+PACE[k][0],0)/ks.length; AMt=ks.reduce((a,k)=>a+PACE[k][1],0)/ks.length; }
+               if(reduce){ SP=SPt; AM=AMt; } },
+             once(){ BT0=performance.now()/1000; BW=true; setTimeout(()=>{ BW=false; }, 9000); } };
+  })();
+
+
+  // ── Now, tranquil (Justin 2026-10-29) ──
+  let _nqBreathT = 0, _nqIdleT = null, _nqWired = false, _nqBusy = false, _nqLastKind = null;
+  // the Now scene (Justin 2026-10-29): the live room's reeds, or the breath circle as it was. Settings > Now screen.
+  // More scenes (the practice scenes) come later.
+  const _nqScene = ()=>{ try{ return localStorage.getItem('snb_now_scene') === 'ring' ? 'ring' : 'reeds'; }catch(e){ return 'reeds'; } };
+  const _nqCalm = ()=> document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const _nqOn = ()=> !!document.querySelector('#screen .view.now.nq');
+  function _nqWake(){
+    document.body.classList.remove('nq-idle'); clearTimeout(_nqIdleT);
+    if(!_nqOn()) return;
+    _nqIdleT = setTimeout(()=>{ if(_nqOn() && !_nqBusy && !document.querySelector('.sheet, .modal, [role="dialog"], #wn-root, #ob-root')) document.body.classList.add('nq-idle'); }, 7000);
+  }
+  function _nqWire(){
+    if(_nqWired) return; _nqWired = true;
+    ['pointermove','pointerdown','keydown','wheel','touchstart'].forEach(ev=>document.addEventListener(ev, ()=>{ if(!_nqBusy) _nqWake(); }, { passive:true, capture:true }));
+  }
   function tabNow(){
     const c = content();
     const _paid = paidNow();
     const last = Store.lastCheckin();
-    const reco = _recommendSafe(true);
-    const done = winsDone();
     const nm = Store.getName();
     const seg = segOf(Date.now());
     if(nowGreet===null || nowGreetName!==nm){ const _q = !!(last && (last.dom==='shutdown'||last.dom==='freeze')); nowGreet = pickGreeting(segLabel(seg), nm ? escapeHtml(nm) : '', _q); nowGreetName = nm; }
-    const greet = nowGreet;
+    // a check-in colours the scene for this part of the day, as "Check in" always reset each part of the day
+    const checkedIn = !!(last && sameDay(last.t) && segOf(last.t)===seg);
+    const dom = checkedIn ? _cDom(last) : null;
+    const lit = !!(dom && dom !== 'neutral');
+    const reco = _recommendSafe(true);
+    const ring = _nqScene() === 'ring';
 
-    // state readout doubles as the check-in control: outlined full-width when
-    // you've checked in THIS PART OF DAY (shows your state), a filled capsule CTA
-    // when you haven't — it reverts each segment (morning/afternoon/evening/late)
-    // so every new stretch of the day invites a fresh check-in.
-    const checkedIn = !!(last && sameDay(last.t) && segOf(last.t)===segOf(Date.now()));
-    const dom  = checkedIn ? _cDom(last) : null;
-    const halo = checkedIn ? STATE_COLOR(dom) : 'var(--hairline)';
-    const stateHTML = checkedIn
-      ? `<button class="tb-state tb-state-line" id="tb-state"><span class="tb-glyph">${triGlyph(dom)}</span><span class="tb-state-txt">${STATE_LABEL(dom)} · this ${segLabel(segOf(last.t))}</span><span class="tb-chev">${CHEV}</span></button>`
-      : `<button class="tb-state tb-state-cta" id="tb-state"><span class="tb-glyph">${triGlyph('neutral')}</span><span class="tb-state-txt">Check in. How are you?</span><span class="tb-chev">${CHEV}</span></button>`;
-
-    const pracName   = escapeHtml(Store.practiceLabel(reco.practiceKey));
-    const pracReason = reco.reason ? escapeHtml(reco.reason) : '';
-    const r  = (FromJustin.daily ? FromJustin.daily() : FromJustin.today());
-    const reflText = (r && r.text) ? escapeHtml(r.text) : '';
-    const td = (Store.today ? Store.today() : null);
-    const dotsHTML = (td && td.n>=1) ? momentDots(td.moments) : '';
-    const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
-    // first-week accounts keep a faint affordance hint under the settled ring
-    let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
-    // post-breath slot (r7 2026-07-24; revised 2026-07-28 per Justin: (1) "check in again"
-    // should never sit alone once you've checked in, (2) "Do a 2 minute practice" should appear
-    // after a breath even when you haven't checked in yet — it never did, since the second
-    // row didn't exist at all in the not-checked-in markup). RESTING/default content: the
-    // reader doorway when a reflection is waiting; else, once checked in, the "two more
-    // minutes?" invite (never nothing any more); if not yet checked in AND nothing's
-    // unread, the row collapses at rest but the transient post-breath nudge below still
-    // fires and is visible for its ~10s window either way.
-    const readerNew = _readerUnread();
-    /* ✅ THE BEST-TIME CALLOUT (Justin, 2026-09-25: "a notification and a callout during that actual time of day and day of
-     * the week with the ideal practice set up"). When now is the person's best day and time and no practice has been
-     * finished yet, the resting row offers their best setup instead of the tiny practice. */
+    // one suggestion under the two buttons (Justin 2026-10-29)
     const _bsHere = (function(){ try{
-      if(!paidNow()) return null;
+      if(!_paid) return null;
       const bs=bestSetup(); if(!bs || bs.n<8 || bs.dayKey==null || !bs.segKey || !bs.anchor) return null;
       const d=new Date(); if(d.getDay()!==bs.dayKey || segOf(d.getTime())!==bs.segKey) return null;
       if((Store.sessions()||[]).some(s=>s && s.completed && sameDay(s.t))) return null;
       return bs; }catch(e){ return null; } })();
-    const _chNow = _chNowReady();   // a challenge prompt is waiting (Justin, 2026-10-17: "something on the Now screen that populates when the daily challenge is pending")
-    const mhRestKind = _bsHere ? 'best' : _chNow ? 'challenge' : (readerNew ? 'reader' : (checkedIn ? 'micro' : null));   // the best time only lasts a few hours, so it goes first
-    const mhThird = true;
-    /* ✅ THE BEST TIME IS A SPECIAL MOMENT (Justin, 2026-10-03: "That needs more love to it. It's a special moment"; he picked
-     * option C of the mockups): the button becomes a small gold card that names the setup, and one tap starts it. */
-    const _bsCardHTML = ()=>{
-      let what = '';
-      try{ const r = bestSetupReco(_bsHere);
-        const nm = CAP(r.practiceKey==='self-regulation' && r.offerKey ? _upDefTitle(r.offerKey) : Store.practiceLabel(r.practiceKey));
-        const a = r.practiceKey!=='mindfulness' && r.practiceKey!=='micro' && r.sense ? ' with ' + r.sense : '';
-        what = [(nm || '') + a, r.silence ? `${r.silence} seconds of silence` : ''].filter(Boolean).join(', '); }catch(e){}
-      return `<span class="mh-bt-txt"><span class="mh-bt-eb">${ICO_SPARK}Your best time</span><span class="mh-bt-what">${escapeHtml(what || 'Your best setup is ready')}</span></span><span class="mh-bt-go" aria-hidden="true">${ICO_PRAC}</span>`; };
-    const mhThirdHTML = (kind)=> kind==='reader'
-      ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">Your reflection is ready</span>`   // 🖊
-      : kind==='best' ? _bsCardHTML()
-      : kind==='challenge' && _chNow ? _chNowHTML(_chNow)
-      : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Do a 2 minute practice</span>`;          // 🖊
+    const _chNow = _chNowReady();
+    const practised = (Store.sessions()||[]).some(s=>s && s.completed && sameDay(s.t));
+    const breathed = Date.now() - _nqBreathT < 10*60*1000;   // "for that visit": ten minutes
+    const kind = (breathed && !_bsHere) ? 'micro'
+      : !checkedIn ? null
+      : _bsHere ? 'best' : _chNow ? 'challenge' : _readerUnread() ? 'reader' : !practised ? 'practice' : _paid ? 'journal' : null;
+    const bestWhat = ()=>{ try{ const r = bestSetupReco(_bsHere);
+        const n = CAP(r.practiceKey==='self-regulation' && r.offerKey ? _upDefTitle(r.offerKey) : Store.practiceLabel(r.practiceKey));
+        const w = r.practiceKey!=='mindfulness' && r.practiceKey!=='micro' && r.sense ? ' with ' + r.sense : '';
+        return (n || '') + w; }catch(e){ return ''; } };
+    const label = { micro:'Do a 2 minute practice', reader:'Your reflection is ready', journal:'Open your journal',
+      practice: _paid ? 'See your recommended practice' : 'Choose a practice',
+      best: (()=>{ if(kind!=='best') return ''; const w = bestWhat(); return w ? 'Your best time: ' + w : 'Your best time'; })(),
+      challenge: kind==='challenge' && _chNow ? 'Your challenge: ' + _chNow.c.name : '' }[kind] || '';
 
-    // moment-home (2026-07-23): the "now" screen settles to a calm center — the
-    // period icon + your state (or a greeting before you've checked in) over the
-    // breath ring, with ONE outlined invitation at the bottom. No dividers, nothing
-    // dominating the centering screen. The reader/reflection is its own surface now
-    // (the You-tab reader band); the recommended practice is the single capsule.
-    c.innerHTML = `<div class="view now tb mh${settled?' breathed':''}${young?' young':''}">
-      <div class="tb-hero">
-        <div class="mh-top">
-          ${checkedIn
-            ? `${todIco(seg)}<button class="mh-state" id="mh-state" type="button" aria-label="What ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
-            : `${todIco(seg)}<h2 class="tb-greet mh-greet">${greet}</h2>`}
+    c.innerHTML = `<div class="view now nq">
+      ${ring ? `<div class="nq-scene nq-scene-ring" aria-hidden="true"><div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div></div>`
+             : `<div class="nq-scene" aria-hidden="true"><canvas class="sky"></canvas><canvas class="ambient"></canvas></div>`}
+      <div class="nq-top nq-fade">
+        <h1 class="lw-h1 nq-greet">${nowGreet}</h1>
+        ${lit ? `<button class="nq-glyph" id="mh-state" type="button" aria-label="${escapeHtml('What ' + STATE_NAME(dom) + ' is (opens the glossary)')}">${triGlyph(dom)}</button>` : ''}
+        <div class="nq-acts">
+          <button class="nq-btn" id="tb-breath" type="button">One breath</button>
+          <button class="nq-btn" id="mh-cta" type="button">Check in${CHEV}</button>
+          ${kind && label ? `<button class="nq-btn nq-next${kind !== _nqLastKind ? ' nq-new' : ''}" id="nq-next" type="button" data-kind="${kind}">${escapeHtml(label)}${CHEV}</button>` : ''}
         </div>
-        <button class="tb-breath" id="tb-breath" aria-label="Take one intentional breath">
-          <span class="tb-stage">
-            <span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(dom)}</span>
-          </span>
-          <span class="tb-below">
-            <span class="tb-txt"><span class="tb-line">Take a breath</span><span class="tb-hint">Tap the ring to breathe</span></span>
-            <span class="tb-phase" id="tb-phase" aria-live="polite"></span>
-          </span>
-          <span class="tb-esc" aria-hidden="true">Tap anywhere to end early</span>
-        </button>
       </div>
-      <div class="mh-foot">
-        ${checkedIn
-          ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
-               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="Check in again" title="Check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
-               ${mhThird ? `<button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':mhRestKind==='challenge'?' mh-chal':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}"${mhRestKind==='best'?' aria-label="It\'s your best time to practice. Start your best setup."':''}>${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
-             </div>
-             <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
-          : `<p class="mh-noci">No check-in this ${segLabel(seg)} yet</p>
-             <div class="mh-secondrow no-checkin" id="mh-2nd">
-               <button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':mhRestKind==='challenge'?' mh-chal':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
-             </div>
-             <button class="btn quiet block mh-primary" id="mh-cta" type="button">Check in</button>`}
-      </div>
+      <p class="vh" id="nq-live" aria-live="polite"></p>
     </div>`;
+    document.body.classList.add('on-now');
+    _nqLastKind = kind;
 
-    const breathBtn = c.querySelector('#tb-breath');   if(breathBtn) breathBtn.onclick = runBreath;
-    // the state word opens the glossary (what the state is); re-checking-in lives on
-    // the You tab ("change a recent check-in"). The single capsule is the practice.
-    const mhState = c.querySelector('#mh-state'); if(mhState) mhState.onclick = ()=> screenStateDetail(dom);
-    const mhCheck = c.querySelector('#mh-checkin'); if(mhCheck) mhCheck.onclick = screenCheckin;
-    const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'now') : app('practice'); };
-
-    // ---- dynamic post-breath third button (choreographed) ----
-    clearTimeout(_mhMorphTimer); clearTimeout(_mhStepTimer); _mhAfterBreath = null;
-    const _launchMicro = ()=>{ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
-      /* 'micro' lowercase. The player matches this against its own keys, which are all
-         lowercase, so 'Micro' fell through to the default script and the "Two more
-         minutes?" invite launched a seven-minute practice (Michelle, 2026-08-15;
-         reproduced by Justin 2026-08-17 after an earlier fix of mine failed to land).
-         Note practiceKey below is already lowercase — the two disagreeing IS the bug. */
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
-    const third = c.querySelector('#mh-third');
-    if(third){
-      third.onclick = ()=> (third.dataset.kind==='challenge' && _chNow) ? screenChPrompt(_chNow.id) : (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? launchWeaver(bestSetupReco(_bsHere)) : _launchMicro();
-
-      // RESTING state: the reader doorway when a reflection is waiting; else, once
-      // checked in, the "Do a 2 minute practice" invite (2026-07-28: never collapses once
-      // there's a check-in to keep company — the row only collapses to nothing before
-      // any check-in exists, when mhRestKind is genuinely null). On load and ~10s after
-      // a breath.
-      const _rest = (animate)=>{
-        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
-        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
-        const showRest = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
-          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing'); tt.classList.toggle('mh-best', mhRestKind==='best'); tt.classList.toggle('mh-chal', mhRestKind==='challenge');
-          r.classList.add('revealed','third-in'); };
-        if(!mhRestKind){                                 // nothing to rest on → collapse the slot
-          if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
-          else { row.classList.add('mh-noanim'); collapse(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
-          return;
-        }
-        if(!animate){ row.classList.add('mh-noanim'); showRest(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
-        else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showRest, 480); }   // fade micro out, swap to rest content, fade in
-      };
-
-      // TRANSIENT post-breath nudge: show "Do a 2 minute practice" for ~10s, then revert to
-      // the resting state. (1) check-in shortens to the plus, (2) the invite eases in.
-      const _postBreath = ()=>{
-        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
-        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing','mh-best','mh-chal');
-        // reset to the full check-in instantly (footer is dim from the breath, so no blip)
-        row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
-        _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
-          const r = c.querySelector('#mh-2nd'); if(!r) return;
-          r.classList.add('revealed');
-          setTimeout(()=>{ const r2=c.querySelector('#mh-2nd'); if(r2) r2.classList.add('third-in'); }, 470);   // beat 2: invite eases in
-        }, 300);
-        // after ~10s (measured from when the invite finished arriving) fall back to rest
-        _mhMorphTimer = setTimeout(()=> _rest(true), 300 + 470 + 550 + 10000);
-      };
-
-      _mhAfterBreath = ()=> _postBreath();
-      _rest(false);   // load: sit in the resting state (reader default, or collapsed)
+    const sc = c.querySelector('.nq-scene');
+    if(!ring){
+      NQ.mode(_nqCalm(), document.documentElement.classList.contains('theme-dark'));
+      NQ.attach(sc.querySelector('canvas.ambient'));
+      NQ.tint(lit ? _lwHex(STATE_COLOR(dom)) : null);
+      NQ.pace(lit ? dom : null);
     }
+
+    const st = c.querySelector('#mh-state'); if(st) st.onclick = ()=> screenStateDetail(dom);
+    c.querySelector('#mh-cta').onclick = ()=> screenCheckin();
+    c.querySelector('#tb-breath').onclick = ()=> _nqBreath(c);
+    const nx = c.querySelector('#nq-next');
+    if(nx) nx.onclick = ()=>{
+      const k = nx.dataset.kind;
+      if(k==='micro'){ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
+        return practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); }
+      if(k==='best' && _bsHere) return launchWeaver(bestSetupReco(_bsHere));
+      if(k==='challenge' && _chNow) return screenChPrompt(_chNow.id);
+      if(k==='reader') return screenReflectionDeep();
+      if(k==='journal') return screenJournal('now');
+      return _paid ? renderPlan(reco,'now') : app('practice');
+    };
+    _nqWire(); _nqWake();
+  }
+  // One breath (Justin 2026-10-29): the reeds lean in for 4 and out for 5, the words step back while it plays.
+  // A full breath counts as today's breath, as the ring's did; a tap during it brings the words back, the breath goes on.
+  function _nqBreath(c){
+    if(_nqBusy) return; _nqBusy = true;
+    try{ haptic('start'); }catch(_){}
+    const view = c.querySelector('.view.now.nq'), live = c.querySelector('#nq-live');
+    document.body.classList.add('nq-idle'); clearTimeout(_nqIdleT);
+    const tr = c.querySelector('.nq-ring #tring');
+    if(tr){ const calm = _nqCalm();
+      tr.style.transition = calm ? 'opacity 4s' : 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
+      if(!calm) tr.style.transform = 'scale(1.28)'; tr.style.opacity = '.85';
+      setTimeout(()=>{ tr.style.transition = calm ? 'opacity 5s' : 'transform 5s cubic-bezier(.4,0,.5,1), opacity 5s'; if(!calm) tr.style.transform = 'scale(.82)'; tr.style.opacity = '.5'; }, 4000);
+    } else NQ.once();
+    if(view) view.classList.add('nq-breathing', 'nq-in');
+    if(live) live.textContent = 'Breathe in';
+    setTimeout(()=>{ if(live) live.textContent = 'Breathe out'; if(view) view.classList.remove('nq-in'); }, 4000);
+    setTimeout(()=>{
+      _nqBusy = false; if(live) live.textContent = '';
+      try{ markBreath(); }catch(_){}
+      _nqBreathT = Date.now();
+      if(view && view.isConnected){ const y = c.scrollTop; tabNow(); c.scrollTop = y; } else _nqWake();
+    }, 9400);
   }
 
   // Breath engine for the redesigned Today. On tap the ring becomes the whole
@@ -6440,7 +6520,7 @@ function app(tab){
   let _jrFrom = 'you';
   const _JR_FILTER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
   function screenJournal(from){
-    if(from) _jrFrom = from === 'reflect' ? 'reflect' : 'you';
+    if(from) _jrFrom = from === 'reflect' ? 'reflect' : from === 'now' ? 'now' : 'you';
     if(!paidNow()) return gateSubscribe('reader');
     const L = window.Learning, items = _lrnJournalItems();
     const fromR = _jrFrom === 'reflect';
@@ -6449,7 +6529,8 @@ function app(tab){
     const view = _jrView();
     const dock = items.length ? `<div class="jr-fpop" id="jr-fpop"><button class="jr-fbtn" id="jr-fbtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Group by ${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}">${_JR_FILTER_SVG}<span>${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}</span></button>
       <div class="jr-fmenu" id="jr-fmenu" role="menu" aria-label="Group by"><span class="jr-fmenu-h">Group by</span>${VIEWS.map(([k, t])=>`<button class="jr-fopt${k === view ? ' on' : ''}" type="button" role="menuitemradio" aria-checked="${k === view}" data-jrview="${k}">${escapeHtml(t)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg></button>`).join('')}</div></div>` : '';
-    const shell = inner => _rdShell(`<span class="rd-eyeb">${fromR ? 'Reflect' : 'You'}</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:fromR ? 'Reflect' : 'You', onBack:()=>app(fromR ? 'reflect' : 'you'), tab:fromR ? 'reflect' : 'you', loc:{ k:'journal', from:_jrFrom }, dock });
+    const _jrNow = _jrFrom === 'now', _jrBack = fromR ? 'Reflect' : _jrNow ? 'Now' : 'You', _jrTab = fromR ? 'reflect' : _jrNow ? 'now' : 'you';
+    const shell = inner => _rdShell(`<span class="rd-eyeb">${_jrBack}</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:_jrBack, onBack:()=>app(_jrTab), tab:_jrTab, loc:{ k:'journal', from:_jrFrom }, dock });
     const reco = _jrRecoPiece(items);
     // the questions come from the articles themselves (older answers kept only the answer)
     const need = [...new Set(items.filter(it=>it.piece).map(it=>it.piece).concat(reco ? [reco.piece] : []))].filter(p=>!p.blocks);
@@ -6501,7 +6582,7 @@ function app(tab){
     });
   }
   function _jrWireList(){
-    const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : 'you' };
+    const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : _jrFrom === 'now' ? 'now' : 'you' };
     const openPost = (key, sec) => { if(/^chal:/.test(key)) return screenChallenges(); if(/^media:/.test(key)) return screenMedia(key.slice(6), here); const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
     root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
     root.querySelectorAll('.jr-art[data-post]').forEach(b=>b.onclick=()=>openPost(b.dataset.post));
@@ -12946,6 +13027,8 @@ function app(tab){
             </div>
             <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
             <p class="ch-cap" id="motion-cap"></p>
+            <p class="gs-lbl2" style="margin-top:18px">Now screen</p>
+            <div class="scene-grid" role="group" aria-label="Now screen">${[['reeds','Reeds'],['ring','Breath circle']].map(([k,l])=>`<button class="ch-opt nowsc-opt${_nqScene()===k?' on':''}" type="button" data-nowsc="${k}" aria-pressed="${_nqScene()===k}">${l}</button>`).join('')}</div>
             <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
               <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
@@ -13111,6 +13194,8 @@ function app(tab){
     const scCap=$('#scene-cap'); const scVal=$('#scene-val');
     const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'Surprise me':v.charAt(0).toUpperCase()+v.slice(1); };
     _scSet(psc);
+    document.querySelectorAll('.nowsc-opt').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('snb_now_scene', b.dataset.nowsc); }catch(e){}
+      document.querySelectorAll('.nowsc-opt').forEach(x=>{ const on = x===b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); });
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene);
       document.querySelectorAll('.scene-opt').forEach(x=>x.classList.toggle('on', x===b));
