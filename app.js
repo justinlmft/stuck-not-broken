@@ -3004,17 +3004,40 @@ function app(tab){
     const rsvp = _lwRsvp(s);
     return `<button class="btn lw-act${primary && !rsvp ? '' : ' quiet'}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP’d' : 'RSVP'}</button>${_lwRemindBtn(s, _lwRemOn(s))}`;
   }
-  // the event itself: (note) · description · who it's for (panel) · how to join · the actions, or what it is part of
+  // what repeats from event to event, as icons with a few words (Justin 2026-10-29: "for the things that repeat, like mic
+  // and video, use icons to make it easily understandable and less text heavy"). Words from the events' Circle descriptions.
+  LW_ICO.rec = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>';
+  LW_ICO.recOff = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M4 4l16 16"/></svg>';
+  LW_ICO.opens = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+  const LW_PART = {
+    mindful_moment:   [[['camOff','micOff'], 'Cameras and mics are off'], [['chat'], 'Chat is optional']],
+    capacity_builder: [[['cam'], 'Camera on or off, your choice'], [['mic'], 'No need to speak or type']],
+    qa:               [[['cam','mic','chat'], 'Video, audio or text, or just listen']]
+  };
+  function _lwIcons(s){
+    const K = _lwKind(s);
+    const rows = (LW_PART[s.kind] || (K.video ? [[['cam','mic'], 'Camera and mic on or off, your choice']] : [[['camOff','micOff'], 'You are not on camera or mic']])).slice();
+    rows.push(s.recorded ? [['rec'], 'Recorded'] : [['recOff'], 'Not recorded, no replay']);
+    if(!_lwRoomOpen(s)) rows.push([['opens'], 'The room opens ' + LW_OPEN_EARLY_MIN + ' minutes early']);
+    return `<ul class="lw-ic">${rows.map(([ic, t]) => `<li><span class="lw-ic-g" aria-hidden="true">${ic.map(k => LW_ICO[k] || '').join('')}</span><span>${escapeHtml(t)}</span></li>`).join('')}</ul>`;
+  }
+  // the description, as written on Circle (live_series.description): blocks split by a blank line; a block whose later lines
+  // start with "- " is a label and its list ("Capacity Builder is:", "Participation:"); anything else is a paragraph
+  function _lwDescHTML(s){
+    return _lwDesc(s).split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
+      const L = b.split('\n').map(x => x.trim()).filter(Boolean);
+      if(L.length > 1 && L.slice(1).every(x => x.startsWith('- '))) return `<div class="lw-blk"><p class="lw-lbl">${escapeHtml(L[0])}</p><ul class="lw-rules">${L.slice(1).map(x => `<li>${escapeHtml(x.slice(2))}</li>`).join('')}</ul></div>`;
+      return `<p class="lw-p">${escapeHtml(L.join(' '))}</p>`;
+    }).join('');
+  }
+  // the event itself: who it's for (panel) · the icons · the description · the actions, or what it is part of
   function _lwDetail(s, panel){
-    const ok = _lwAllowed(s), room = _lwRoomOpen(s), f = _lwFacts(s), sum = _lwSummary(s);
-    const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
-    const note = !panel && paras && sum ? `<p class="lw-ev-note">${escapeHtml(sum)}</p>` : '';
-    const desc = paras || (sum ? `<p class="lw-p">${escapeHtml(sum)}</p>` : '');
+    const ok = _lwAllowed(s), sum = _lwSummary(s);
+    const desc = _lwDescHTML(s) || (sum ? `<p class="lw-p">${escapeHtml(sum)}</p>` : '');
     const who = panel ? `<div class="lw-blk"><p class="lw-lbl">Who it’s for</p><p class="lw-p">${s.access === 'free' ? 'Free for everyone.' : `<span class="lw-acc">${ok ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span> members.`}</p></div>` : '';
-    const how = ok ? `<div class="lw-blk"><p class="lw-lbl">How to join</p><ul class="lw-rules">${room ? '' : `<li>Join from the ${escapeHtml(lwTabName())} tab. The room opens ${LW_OPEN_EARLY_MIN} minutes before the start.</li>`}<li>${escapeHtml(f[1])}</li><li>${escapeHtml(f[2])}</li></ul></div>` : '';
     const act = ok ? `<div class="lw-ev-btns">${_lwActs(s, panel)}</div>`
       : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns"><button class="btn lw-act${panel ? '' : ' quiet'}" type="button" data-lw-see="${s.id}">See ${escapeHtml(_lwTier(s))}</button></div>`;
-    return note + desc + who + how + act;
+    return who + _lwIcons(s) + desc + act;
   }
   function _lwPanel(s){
     if(!s) return '';

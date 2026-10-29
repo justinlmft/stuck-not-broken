@@ -5337,3 +5337,11 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .rd-jr-sub .rd-lk{width:13px;height:13px;margin:0;color:currentColor}
 .tb-row-sub .lw-acc{display:inline-flex;vertical-align:-2px}
 .tb-row-sub .lw-acc .rd-lk{width:13px;height:13px}
+
+/* Calendar round 3: the icon list (what repeats from event to event) and a panel that scrolls on its own when the description is long */
+.lw-ic{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lw-ic li{display:flex;align-items:center;gap:8px;font-size:calc(15px * var(--type-scale));line-height:24px;color:var(--ink-80)}
+.lw-ic-g{display:inline-flex;gap:4px;flex:none;width:44px;color:var(--ink)}
+.lw-ic-g svg{width:20px;height:20px}
+.lw-sch-panel{max-height:calc(100dvh - 120px);overflow-y:auto;overscroll-behavior:contain}
+.lw-sch-panel .lw-rules li,.lw-ev-in .lw-rules li{line-height:24px}
