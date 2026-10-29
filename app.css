@@ -66,7 +66,8 @@
      formally drop it — but do not resolve it one symptom at a time. See STATUS.
      Live and consumed: --page (2), --col (2), --shell (1). */
   --page:1120px;                          /* focal content cap */
-  --shell:1240px;                         /* shell cap (rail + content), Phase 2 */
+  --rail-w:124px;                         /* the side rail at >=1120: fixed, so the bold tab never nudges column 1 */
+  --shell:calc(var(--rail-w) + var(--page)); /* shell cap = rail + frame (Swiss grid, 2026-10-28) */
   --pad-x:clamp(20px,5vw,40px);           /* staged for Fluid Phase 2 — no consumers yet */
   --gap:clamp(20px,4vw,32px);             /* staged for Fluid Phase 2 — no consumers yet */
   --section:clamp(64px,9vw,112px);        /* staged for Fluid Phase 2 — no consumers yet */
@@ -130,44 +131,24 @@ button{font:inherit;color:inherit}
 }
 #screen{display:flex;flex-direction:column;flex:1;min-height:0}
 
+/* ---------- Fluid Phase 2: one frame on the Swiss grid (2026-10-28, SWISS-GRID-STANDARD v1.3 §2-§3) ----------
+   compact  <720      4 columns, margin --pad-x, bottom tab bar
+   regular  720-1119  12 columns, margin --pad-x, bottom tab bar (the app's rail breakpoint is 1120, §6.1)
+   wide     >=1120    12 columns; the tab bar becomes the left rail; rail + frame cap at --shell and centre
+   Every tab sits in ONE frame: the content area, capped at --page, side margin --pad-x, 12 columns with --gap
+   between them. Column 1 = the frame's left edge + --pad-x, the same line on every tab. A capped column (--col
+   680, the reading/practice column) starts on column 1; nothing centres its column with margin:auto. Only the
+   running practice player and the breath ring centre (§3, §6.3). Breakpoints: 720 and 1120 only (A3). */
+:root{--cols:4}
 @media (min-width:720px){
+  :root{--cols:12}
   .shell{max-width:var(--shell)}
-  /* one interface, recomposed: the same appbar/scroll/tabbar children lay out
-     as [rail | header-over-content] — no markup changes, grid does the work. */
-  #screen{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-  #screen > .tabbar{grid-column:1;grid-row:1 / span 2}
-  #screen > .appbar{grid-column:2;grid-row:1}
-  #screen > :not(.appbar):not(.tabbar){grid-column:2;grid-row:2;min-height:0}
-
-  /* the bottom tab bar becomes a left rail (HIG: a bottom bar is a phone
-     metaphor; pointer contexts get side navigation) */
-  #screen > .tabbar{
-    flex-direction:column;justify-content:flex-start;gap:4px;height:100%;overflow-y:auto;
-    border-top:0;border-radius:0;background:none;margin:0;border-right:1px solid var(--hairline);
-    padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
-    min-width:118px}
-  /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
-     ink, dormant = normal muted; no background. Top-aligned so the first word
-     lines up with the screen's first heading. 44px keeps the click target. */
-  #screen > .tabbar button{flex:none;border-radius:0;flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
-    width:100%;min-height:44px;padding:2px 0;color:var(--muted);font-weight:400}
-  #screen > .tabbar button .lb{font-size:calc(14px * var(--type-user))}
-  #screen > .tabbar button.on{background:none;color:var(--ink);font-weight:500}
-  #screen > .tabbar button:focus-visible{outline-offset:2px}
-
-  /* content and header hold a calm centered column — never stretched wall to wall */
-  #screen > .appbar{width:100%;max-width:var(--col);margin-inline:auto}
-  #screen .view,#screen .now{width:100%;max-width:var(--col);margin-inline:auto}
+  /* the frame: header and every tab view start on column 1 */
+  #screen > .appbar{width:100%;max-width:var(--page);margin-inline:0}
+  #screen .view,#screen .now{width:100%;max-width:calc(var(--col) + 2 * var(--pad-x));margin-inline:0}
 
   /* install nudge is phone-in-browser only (Justin, 2026-07-10) — never on desktop */
   #screen .install-nudge{display:none}
-
-  /* ---- Phase 4 composition (2026-07-19) ---- */
-  /* rail brand anchor: the ink mark, quiet, at the top of the rail */
-  #screen > .tabbar::before{content:'';flex:none;width:100%;height:24px;margin:2px 0 16px;
-    background:var(--ink);opacity:.9;
-    -webkit-mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat;
-    mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat}
 
   /* vertical rhythm: screens open with a settled top band instead of hugging
      the appbar — composed whitespace, not leftover phone layout */
@@ -181,10 +162,41 @@ button{font:inherit;color:inherit}
   #screen .from-justin{margin-top:clamp(28px,6vh,64px)}
 }
 @media (min-width:1120px){
+  /* one interface, recomposed: the same appbar/scroll/tabbar children lay out
+     as [rail | header-over-content] — no markup changes, grid does the work. */
+  #screen{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  #screen > .tabbar{grid-column:1;grid-row:1 / span 2}
+  #screen > .appbar{grid-column:2;grid-row:1}
+  #screen > :not(.appbar):not(.tabbar){grid-column:2;grid-row:2;min-height:0}
+
+  /* the bottom tab bar becomes a left rail (HIG: a bottom bar is a phone
+     metaphor; pointer contexts get side navigation) */
+  #screen > .tabbar{
+    flex-direction:column;justify-content:flex-start;gap:4px;height:100%;overflow-y:auto;
+    border-top:0;border-radius:0;background:none;margin:0;border-right:1px solid var(--hairline);
+    padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
+    min-width:var(--rail-w)}
+  /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
+     ink, dormant = normal muted; no background. Top-aligned so the first word
+     lines up with the screen's first heading. 44px keeps the click target. */
+  #screen > .tabbar button{flex:none;border-radius:0;flex-direction:row;justify-content:flex-start;align-items:flex-start;gap:10px;
+    width:100%;min-height:44px;padding:2px 0;color:var(--muted);font-weight:400}
+  #screen > .tabbar button .lb{font-size:calc(14px * var(--type-user))}
+  #screen > .tabbar button.on{background:none;color:var(--ink);font-weight:500}
+  #screen > .tabbar button:focus-visible{outline-offset:2px}
+
+  /* ---- Phase 4 composition (2026-07-19) ---- */
+  /* rail brand anchor: the ink mark, quiet, at the top of the rail */
+  #screen > .tabbar::before{content:'';flex:none;width:100%;height:24px;margin:2px 0 16px;
+    background:var(--ink);opacity:.9;
+    -webkit-mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat;
+    mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat}
+}
+@media (min-width:1120px){
   /* the you-tab LEDGER (Justin's pick, 2026-07-19): a swipe carousel is a phone
      metaphor — on wide, every pattern card is listed quietly on the left and
      shown ONE at a time on the right, keeping the capacity-aware pacing. */
-  #screen .view.play-view:has(.you-ledger){max-width:980px}
+  #screen .view.play-view:has(.you-ledger){max-width:var(--page)}
   #screen .play-view .dots{display:none}
   .you-ledger{display:grid;grid-template-columns:272px minmax(0,1fr);gap:clamp(24px,3.5vw,52px);align-items:start;margin-top:6px}
   .yl-h{grid-column:1/-1;font-size:calc(22px * var(--type-scale));font-weight:500;line-height:1.24;letter-spacing:-.01em;color:var(--ink);margin:4px 0 2px}
@@ -208,7 +220,7 @@ button{font:inherit;color:inherit}
    (Pre-existing — live prod does the same — folded in here per Justin
    2026-07-24: "anything that is not accounted for in beta needs to be there.") */
 @media (min-width:720px) and (max-width:1119.98px){
-  #screen .carousel{gap:18px}
+  #screen .carousel{gap:var(--gap)}
   #screen .carousel > .panel{flex:0 0 min(92%,520px)}
 }
 /* daypart symbols: quiet ink line icons (morning sunrise / afternoon sun /
@@ -218,7 +230,7 @@ button{font:inherit;color:inherit}
 /* .ax-big/.ax-flav/.ax-note (old mobilized/immobilized combined-card chips)
    retired 2026-07-29 — those 2 cards became 5 solo-state axis cards built on the
    shared rc-chart/rc-val system instead (see .ax-solo-chart below). */
-@media (min-width:720px) and (hover:hover){
+@media (min-width:1120px) and (hover:hover){
   #screen > .tabbar button:hover{color:var(--ink);background:none}
   #screen > .tabbar button.on:hover{background:none}
 }
@@ -238,9 +250,10 @@ button{font:inherit;color:inherit}
 /* +1px: every screen is always minutely scrollable, so iOS rubber-band overscroll
    works even when content fits — the native "screen gives when you pull" feel.
    overscroll-behavior:contain on .scroll keeps the bounce local (shell never moves). */
-.view{min-height:calc(100% + 1px);display:flex;flex-direction:column;padding:22px 22px 26px}
-/* reading screens keep a deliberately generous, book-like side margin */
-.view.read{padding-left:30px;padding-right:30px}
+.view{min-height:calc(100% + 1px);display:flex;flex-direction:column;padding:22px var(--pad-x) 26px}
+/* reading screens share the one screen margin (Swiss grid G1/G2, 2026-10-28: one left edge on every tab;
+   the measure, not a wider margin, keeps the reading line comfortable) */
+.view.read{padding-left:var(--pad-x);padding-right:var(--pad-x)}
 .hidden{display:none !important}
 
 /* type */
@@ -276,7 +289,7 @@ p{margin:0;text-wrap:pretty}
 .scroll .scr-head.read-head{pointer-events:auto}
 /* the sticky strip spans the full screen width (cancels the .view side padding) so
    content slides cleanly under it instead of peeking through the gutters */
-.scroll .scr-head{margin-left:-22px;margin-right:-22px;padding:0 22px 6px}
+.scroll .scr-head{margin-left:calc(-1 * var(--pad-x));margin-right:calc(-1 * var(--pad-x));padding:0 var(--pad-x) 6px}
 /* reader header keeps its own rhythm inside the shared sticky block */
 .read .scr-head{margin-bottom:0}
 .read .scr-head .read-time{margin-bottom:10px}
@@ -372,13 +385,13 @@ p{margin:0;text-wrap:pretty}
 .autherr{font-size:calc(13.5px * var(--type-scale));color:var(--danger);margin:4px 0 0;line-height:1.45}
 
 /* ---------- header ---------- */
-.appbar{display:flex;align-items:center;justify-content:space-between;padding:max(20px,env(safe-area-inset-top)) 20px 8px;flex:none}
+.appbar{display:flex;align-items:center;justify-content:space-between;padding:max(20px,env(safe-area-inset-top)) var(--pad-x) 8px;flex:none}
 .appbar .mark{height:18px}
 /* .appbar .who removed — name used contextually in content */
 
 /* ---------- today: progressive stack of three daily wins ---------- */
 /* ---------- today: one grounded column ---------- */
-.now{height:100%;display:flex;flex-direction:column;gap:11px;padding:22px 22px 18px;overflow-y:auto}
+.now{height:100%;display:flex;flex-direction:column;gap:11px;padding:22px var(--pad-x) 18px;overflow-y:auto}
 .now-greet{display:flex;flex-direction:column;gap:2px}
 .t-greet{font-size:calc(22px * var(--type-scale));font-weight:500;color:var(--ink);margin:0;line-height:1.2}
 .wincard{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:transparent;border:1px solid var(--hairline);border-radius:14px;padding:17px 18px;cursor:pointer;color:inherit;transition:border-color .2s var(--ease),box-shadow .2s var(--ease),opacity .45s var(--ease),padding .45s var(--ease)}
@@ -537,7 +550,7 @@ input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;bac
 .stats{display:flex;gap:22px;margin:16px 0}
 
 /* current ("you") tab — stats playground: swipe carousel + scrollable deep stats */
-.play-view{padding:0 22px 78px;display:flex;flex-direction:column;gap:0}
+.play-view{padding:0 var(--pad-x) 78px;display:flex;flex-direction:column;gap:0}
 .play-filter{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-bottom:16px}
 .pf-lbl{font-size:calc(11px * var(--type-scale));text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-right:4px}
 /* swipe carousel */
@@ -1022,7 +1035,7 @@ body.reduce-motion .cb-glyphs-hero .cb-g,body.reduce-motion .cb-glyphs-hero .cb-
    Shrunk enough to leave real breathing room between adjacent labels. */
 .chart .cx{font-size:calc(8px * var(--type-scale));fill:var(--muted);font-family:inherit}
 /* sticky period filter + settings gear share the top row */
-.filter-bar{position:sticky;top:0;z-index:6;background:var(--bone);margin:0 -22px 16px;padding:14px 22px 12px;display:flex;align-items:center;gap:12px}
+.filter-bar{position:sticky;top:0;z-index:6;background:var(--bone);margin:0 calc(-1 * var(--pad-x)) 16px;padding:14px var(--pad-x) 12px;display:flex;align-items:center;gap:12px}
 .filter-bar .play-filter.seg{flex:1;margin-bottom:0}
 .filter-bar .set-gear{flex:none;margin-left:0}
 .ci-add svg{stroke-width:2}
@@ -1404,7 +1417,7 @@ body.reduce-motion .p7-shape{animation:none}
 .p-surprise:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:999px}
 /* check-in screen layout — figure breathes, controls hug the bottom */
 .checkin-view{justify-content:space-between;padding:22px 0 28px}
-.checkin-bottom{padding:0 22px}
+.checkin-bottom{padding:0 var(--pad-x)}
 .btn[disabled]{opacity:.45;cursor:default;pointer-events:none}
 /* back affordance in practice chooser */
 .p-back{margin-bottom:6px}
@@ -1495,7 +1508,7 @@ body.reduce-motion .p7-shape{animation:none}
 .fb-after{display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:6px}
 
 /* ---- check-in v2 (no animated figure — the live readout is the system's answer; fits one screen) ---- */
-.checkin2{display:flex;flex-direction:column;gap:12px;padding:22px 22px 14px}
+.checkin2{display:flex;flex-direction:column;gap:12px;padding:22px var(--pad-x) 14px}
 .checkin2 .scr-head{margin-bottom:12px}
 .ci-readtext{text-align:left}
 .ci-dot{flex:none;width:11px;height:11px;border-radius:50%}
@@ -1668,7 +1681,7 @@ body.reduce-motion .ci-tune.in{animation:none;opacity:1;transform:none}
    control ran out of its own container. Wrap is allowed once the row can no longer
    hold them, which only happens at the large steps. (2026-07-24) */
 #seg-method{flex-wrap:nowrap}
-@media (max-width:520px){ #seg-method{flex-wrap:wrap} }
+@media (max-width:719.98px){ #seg-method{flex-wrap:wrap} }
 .gs-h{font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);margin:0 0 12px;letter-spacing:-.005em}   /* 2026-09-09 (Justin): card headings must outrank their body */
 .gs-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
 .gs-k{font-size:calc(14.5px * var(--type-scale));color:var(--muted);flex:none}
@@ -1844,7 +1857,7 @@ body.reduce-motion .slider-ico{transition:none}
 .sd-when-label{font-size:calc(16px * var(--type-scale));font-weight:500;color:var(--ink);margin:0 0 10px}
 
 /* you-tab empty state: teach the three-state map before any data exists */
-.map-empty{display:flex;flex-direction:column;padding:30px 22px;flex:1}
+.map-empty{display:flex;flex-direction:column;padding:30px 0;flex:1;max-width:var(--col)}
 .map-lede{font-size:calc(16px * var(--type-scale));line-height:1.5;color:var(--ink-80);margin:0 0 22px;max-width:30ch}
 .map-rows{display:flex;flex-direction:column;margin-bottom:22px}
 .map-row{display:flex;align-items:center;gap:15px;padding:14px 0;border-top:1px solid var(--bone-deep);width:100%;font:inherit;text-align:left;background:none;border-left:none;border-right:none;border-bottom:none;cursor:pointer;color:inherit}
@@ -2270,7 +2283,7 @@ body.reduce-motion .ww-foot .triglyph{animation:none}
    when not), practice + reflections quiet at the foot. After a breath the
    instruction recedes, the ring quiets, and the cards open into the freed space.
    ============================================================================ */
-.now.tb{display:flex;flex-direction:column;gap:0;padding:22px 22px 18px;height:100%;overflow-y:auto}
+.now.tb{display:flex;flex-direction:column;gap:0;padding:22px var(--pad-x) 18px;height:100%;overflow-y:auto}
 .tb-head{margin:2px 0 0;transition:opacity .6s var(--ease)}
 .tb-greet{font-size:calc(17px * var(--type-scale));font-weight:500;color:var(--ink);letter-spacing:-.005em;text-wrap:pretty}
 
@@ -2553,14 +2566,14 @@ body.reduce-motion .lv-breathe{animation:none}
    ============================================================ */
 @media (min-width:720px){
   #screen .now.tb{
-    max-width:1080px;
+    max-width:var(--page);                 /* the frame (Swiss grid, 2026-10-28) */
     margin-inline:0;                       /* left-anchor (cancel the centering cap) */
     display:grid;
     grid-template-columns:repeat(12,minmax(0,1fr));
     align-content:start;                   /* flush to the top */
-    column-gap:clamp(18px,2vw,28px);
+    column-gap:var(--gap);
     row-gap:14px;
-    padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
+    padding:clamp(40px,6vh,72px) var(--pad-x);
   }
   #screen .now.tb .tb-hero{
     grid-column:1 / 7;                      /* breath owns the left columns */
@@ -2610,14 +2623,14 @@ body.reduce-motion .lv-breathe{animation:none}
    ring still centred within it.
    ============================================================ */
 
-/* --- 720-1059: one left-anchored column (the split doesn't fit yet) --- */
-@media (min-width:720px) and (max-width:1059.98px){
+/* --- 720-1119: one left-anchored column (the split doesn't fit yet) --- */
+@media (min-width:720px) and (max-width:1119.98px){
   #screen .now.tb.mh{
     display:flex;
     flex-direction:column;
     justify-content:flex-start;   /* flush top */
     align-items:flex-start;       /* flush left */
-    max-width:560px;
+    max-width:calc(var(--col) + 2 * var(--pad-x));   /* the --col cap, on column 1 */
     margin-inline:0;              /* left-anchored, matching Practice / Check-in */
   }
   #screen .now.tb.mh .tb-hero{
@@ -2631,8 +2644,8 @@ body.reduce-motion .lv-breathe{animation:none}
   #screen .now.tb.mh .mh-foot{width:100%;margin-top:clamp(18px,3vh,32px)}
 }
 
-/* --- >=1060: the two-column composition, flush top + left --- */
-@media (min-width:1060px){
+/* --- >=1120: the two-column composition, flush top + left --- */
+@media (min-width:1120px){
   #screen .now.tb.mh{align-content:start}
   #screen .now.tb.mh .tb-hero{
     grid-column:1 / 7;
@@ -2652,8 +2665,6 @@ body.reduce-motion .lv-breathe{animation:none}
     margin-top:0;                 /* the field is already capped by the 1080 grid */
   }
   #screen .now.tb.mh .mh-foot .btn{min-height:52px}
-  /* the no-check-in-yet line reads as a left-aligned lead-in here, not a caption */
-  #screen .now.tb.mh .mh-noci{text-align:left}
 }
 
 /* CHECK-IN KEEPS ITS WORDS ON DESKTOP (2026-07-24, Justin: "make sure the desktop
@@ -2666,7 +2677,7 @@ body.reduce-motion .lv-breathe{animation:none}
    has to evict the label to do it. 1100 not 1060: at exactly 1060 the field is 418px
    and the two labels want ~437, so that last sliver keeps the plus rather than
    wrapping the reader onto two lines next to a one-line neighbour. */
-@media (min-width:1100px){
+@media (min-width:1120px){
   /* wraps rather than being squeezed below min-content at the large Dynamic Type
      steps (flex-shrink on a nowrap .btn overran it 44px at 200%) */
   #screen .now.tb.mh .mh-secondrow.revealed .mh-checkin{flex:0 1 auto;white-space:normal;text-wrap:balance}
@@ -2675,7 +2686,7 @@ body.reduce-motion .lv-breathe{animation:none}
 }
 /* 1100-1199 both labels fit only just; trimming the side padding (words AND the read
    glyph both stay) keeps them on one line instead of wrapping the reader. */
-@media (min-width:1100px) and (max-width:1199.98px){
+@media (min-width:1120px){
   #screen .now.tb.mh .mh-secondrow .btn{padding-left:14px;padding-right:14px}
 }
 
@@ -2690,17 +2701,19 @@ body.reduce-motion .lv-breathe{animation:none}
    untouched.
    ============================================================ */
 @media (min-width:720px){
-  #screen .p-split-view{max-width:1080px;margin-inline:0}
+  #screen .p-split-view{max-width:var(--page);margin-inline:0}
   /* The list column is a FIXED width in BOTH states so it never reflows when you
      pick a practice — the detail pane just appears to its right. */
   .p-split{
     display:grid;
-    grid-template-columns:440px minmax(0,1fr);
-    column-gap:clamp(28px,4vw,56px);
+    grid-template-columns:repeat(12,minmax(0,1fr));   /* the frame's 12 columns: list 1-6 | detail 7-12 */
+    column-gap:var(--gap);
     align-items:start;
   }
   /* ARRIVAL (nothing picked): detail hidden; the list keeps the SAME 440px width. */
-  .p-split-view:not(.has-detail) .p-split{grid-template-columns:440px}
+  .p-split-view:not(.has-detail) .p-split{grid-template-columns:repeat(12,minmax(0,1fr))}
+  .p-list-col{grid-column:1 / 7}
+  .p-detail-col{grid-column:7 / 13}
   .p-split-view:not(.has-detail) .p-detail-col{display:none}
   .p-list-col{min-width:0}
   .p-list-col #p-opts-list{margin:0}
@@ -2743,10 +2756,10 @@ body.reduce-motion .lv-breathe{animation:none}
      detail) — still flush top + left, still one reading order, nothing clipped.
      Threshold matches moment-home's, so the whole app changes gear at 1060.
      (Found 2026-07-24 in the desktop once-over; pre-existing on prod.) */
-  @media (max-width:1059.98px){
+  @media (max-width:1119.98px){
     .p-split,
     .p-split-view:not(.has-detail) .p-split{grid-template-columns:minmax(0,1fr);row-gap:24px}
-    .p-list-col,.p-detail-col{max-width:560px}
+    .p-list-col,.p-detail-col{grid-column:1 / -1;max-width:var(--col)}
     .p-detail-col{position:static;top:auto}
     /* stacked, the detail column is taller than the window, so a sticky "begin"
        pinned itself over the chips behind it. Let it sit at the end of its own
@@ -2835,20 +2848,20 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
      style="gap:0" (which would zero a grid column-gap) can't collapse it. */
   #screen .view.read:has(.read-aside){
     display:grid;
-    grid-template-columns:minmax(0,660px) clamp(30px,4vw,60px) minmax(150px,200px);
-    justify-content:center;
+    grid-template-columns:repeat(12,minmax(0,1fr));
+    column-gap:var(--gap) !important;   /* beats the reader's inline style="gap:0" */
     align-items:start;
-    max-width:min(var(--page),980px);
+    max-width:var(--page);
     padding-top:8px;
   }
   /* top alignment: back sits in its own strip, left-aligned over the reading
      column; the reader's first heading (Your Reflections) meets the rail's
      first word and the contents-rail heading (in this reflection) on one line. */
-  #screen > .appbar.read-appbar{max-width:min(var(--page),980px);margin-inline:auto;
-    padding-left:30px;padding-right:30px;text-align:left}
+  #screen > .appbar.read-appbar{max-width:var(--page);margin-inline:0;
+    padding-left:var(--pad-x);padding-right:var(--pad-x);text-align:left}
   #screen > .appbar.read-appbar .backbtn{padding-left:0;text-align:left}
-  #screen .view.read:has(.read-aside) > .read-flow{grid-column:1;min-width:0}
-  #screen .view.read:has(.read-aside) > .read-aside{grid-column:3;align-self:stretch}
+  #screen .view.read:has(.read-aside) > .read-flow{grid-column:1 / 9;min-width:0;max-width:var(--col)}
+  #screen .view.read:has(.read-aside) > .read-aside{grid-column:10 / 13;align-self:stretch}
   /* the inline (mobile-position) TOC is redundant once the rail shows */
   #screen .view.read:has(.read-aside) > .read-flow nav[aria-label="contents"]{display:none}
   .read-aside > nav{position:sticky;top:8px;margin:0 !important}
@@ -2890,11 +2903,11 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
    ============================================================ */
 @media (min-width:720px){
   #screen .view.checkin2{
-    max-width:1080px;margin-inline:0;
+    max-width:var(--page);margin-inline:0;
     display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
     align-content:start;
-    column-gap:clamp(20px,2.4vw,36px);row-gap:16px;
-    padding:clamp(40px,6vh,72px) clamp(28px,4vw,52px);
+    column-gap:var(--gap);row-gap:16px;
+    padding:clamp(40px,6vh,72px) var(--pad-x);
   }
   #screen .view.checkin2 .scr-head{grid-column:1 / 6;grid-row:1 / span 5;align-self:start;margin:0;position:sticky;top:clamp(40px,6vh,72px)}
   #screen .view.checkin2 .ci-block:not(.ci-fold){grid-column:6 / 13;grid-row:1;align-self:start;margin:0}
@@ -2924,7 +2937,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 .you-reader .yr-txt{font-size:calc(14.5px * var(--type-scale));color:var(--ink);font-weight:500;flex:1;min-width:0;overflow-wrap:break-word}
 .you-reader .yr-arw{color:var(--muted);flex:none;display:inline-flex}
 .you-reader .yr-arw svg{width:20px;height:20px}
-.you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px -22px 4px;padding:12px 22px}
+.you-filter{position:sticky;top:64px;z-index:5;background:var(--bone);border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);margin:18px calc(-1 * var(--pad-x)) 4px;padding:12px var(--pad-x)}
 .you-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x}
 .you-chips::-webkit-scrollbar{display:none}
 .you-chip{position:relative;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hairline);border-radius:999px;padding:7px 13px;font:inherit;font-size:calc(13px * var(--type-scale));font-weight:500;color:var(--ink);background:transparent;cursor:pointer;flex:none;white-space:nowrap;-webkit-tap-highlight-color:transparent;transition:border-color .2s var(--ease),background .2s var(--ease),color .2s var(--ease)}
@@ -2970,7 +2983,9 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 /* ---- moment-home: the calm centered "now" (2026-07-23) ---------------------
    Period icon + state (or greeting) over the ring, one outlined capsule below. */
 .now.tb.mh .tb-hero{gap:18px}
-.mh-top{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;transition:opacity .9s var(--ease)}
+/* A2 (Swiss grid G5, 2026-10-28): the greeting and its time-of-day mark start on column 1, flush left. The hero
+   still centres its one allowed module, the breath ring (#tb-breath), so .mh-top takes the hero's full width. */
+.mh-top{display:flex;flex-direction:column;align-items:flex-start;align-self:stretch;gap:10px;text-align:left;transition:opacity .9s var(--ease)}
 .mh-peri{color:var(--ink);display:inline-flex}
 .mh-peri svg{width:24px;height:24px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
 /* the un-checked-in greet has nothing beside the period glyph (no state pill, no triglyph)
@@ -3039,7 +3054,7 @@ body.reduce-motion .p-detail-col .p-detail-bar{animation:none;opacity:1;transfor
 @media(hover:hover){.mh-state:hover .mh-chev{color:var(--ink)}}
 .mh-state:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:10px}
 .mh-foot{display:flex;flex-direction:column;align-items:stretch;gap:10px;margin-top:14px;transition:opacity .9s var(--ease)}
-.mh-noci{text-align:center;font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0}
+.mh-noci{text-align:left;font-size:calc(13.5px * var(--type-scale));color:var(--muted);margin:0}
 /* footer second row (choreographed r8 2026-07-24): "check in again" leads full-width;
    after a breath it shortens to a compact plus (~24%), THEN the dynamic third button
    (~76%) eases in — a micro practice ("two more minutes?") that gracefully becomes the
@@ -3568,7 +3583,7 @@ body.rd-on .rd-call .rd-snap-in{margin:0;padding:12px;border-radius:14px}
 @media (prefers-reduced-motion: reduce){ .tab-back-float{animation:none;transition:none} }
 body.in-practice .fl-dock{display:none}
 .view.read.rd{padding-bottom:72px}
-@media (min-width:720px){ .fl-dock{left:150px;right:24px;bottom:24px} }
+@media (min-width:1120px){ .fl-dock{left:150px;right:24px;bottom:24px} }
 /* ---- Learn tab: a row of articles per state (Justin, 2026-10-02, option C) ---- */
 .ll-h{margin-top:10px}
 .ll-shelf{margin:4px 0 18px}
@@ -3577,7 +3592,7 @@ body.in-practice .fl-dock{display:none}
 .ll-shelf-h b{font-weight:600;font-size:calc(15px * var(--type-scale))}
 .ll-shelf-h .ll-n{color:var(--muted);font-size:calc(13px * var(--type-scale));flex:1}
 .ll-shelf-h:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
-.ll-row{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:2px -30px 0;padding:0 30px 4px;scroll-padding-left:30px;scrollbar-width:none}
+.ll-row{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:2px calc(-1 * var(--pad-x)) 0;padding:0 var(--pad-x) 4px;scroll-padding-left:var(--pad-x);scrollbar-width:none}
 .ll-row::-webkit-scrollbar{display:none}
 .ll-card{flex:none;width:58%;max-width:240px;scroll-snap-align:start;display:flex;flex-direction:column;gap:6px;text-align:left;font:inherit;color:var(--ink);background:var(--rd-card);border:1px solid var(--hairline);border-radius:16px;padding:0 0 12px;overflow:hidden;cursor:pointer}
 .ll-card:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
@@ -4073,15 +4088,14 @@ body.reduce-motion .jr-fmenu{transition:none}
    + the mark (2 + 24 + 16) + the rail's 4px gap + the button's 2px top padding + half the label line. Phones are
    untouched (bottom, above the tab bar). */
 .you-readers{display:contents}
-@media (min-width:720px){
+@media (min-width:1120px){
   .fl-dock{left:132px;top:calc(max(26px, env(safe-area-inset-top)) + 34.5px);bottom:auto}
 }
-/* below a full-width shell the content column runs under the dock, so screens with a dock start their content
-   below it; at the full shell width the dock sits in the margin beside the column and nothing moves */
-@media (min-width:720px) and (max-width:1199.98px){
+/* the content starts on column 1, right under the dock, so screens with a dock start their content below it */
+@media (min-width:1120px){
   #screen:has(> .fl-dock:not(.fl-backonly)) > .scroll > .view{padding-top:calc(max(26px, env(safe-area-inset-top)) + 92px)}
 }
-@media (min-width:1200px){
+@media (min-width:1120px){
   /* an opened search field stays in the margin, clear of the column (dock width/2 - 343px = the gap to the column) */
   .fl-dock .ll-sfloat.open{max-width:max(170px, calc(50% - 343px))}
   .fl-dock .ll-sf-x{width:34px}
@@ -4092,16 +4106,18 @@ body.reduce-motion .jr-fmenu{transition:none}
    Your Reflection cards can live side by side at full width."). The same daily hand of up to four cards (youPick)
    is laid out as a grid instead of a swipe carousel: one column on a mid-width window, two at the full width. */
 @media (min-width:720px){
-  #screen .play-view .carousel{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:18px;overflow:visible;scroll-snap-type:none}
+  #screen .play-view .carousel{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);overflow:visible;scroll-snap-type:none}
   #screen .play-view .carousel > .panel{flex:none;width:auto;max-width:none;min-width:0}
   #screen .play-view .dots{display:none}
-  #screen .play-view .you-readers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0 2px;align-items:stretch}
+  #screen .play-view .you-readers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap);margin:18px 0 2px;align-items:stretch}
   #screen .play-view .you-readers > .you-reader{margin:0;display:flex;flex-direction:column}
   #screen .play-view .you-readers > .you-reader .yr-go{margin-top:auto}
   #screen .play-view .you-readers > .you-reader .yr-top{margin-bottom:16px}
 }
 @media (min-width:1120px){
-  #screen .view.play-view{max-width:980px}
+  /* the frame, flush on column 1; two equal columns of six (Swiss grid G3) */
+  #screen .view.play-view{max-width:var(--page)}
+  #screen .play-view .carousel{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 /* ===== READER NOTES 2026-10-05 ===== */
@@ -4300,7 +4316,7 @@ button.mp-grip:focus-visible{outline:2px solid var(--tc-ink);outline-offset:1px}
 .ch-jr .ch-opt-one{margin-top:2px}
 /* the bottom menu steps aside for writing (Justin, 2026-10-19: the Journal sheet's Save sat partly behind it, and it rode on top of
    the phone keyboard: "this menu is not needed during typing"). Phones only; the left rail on bigger screens stays. */
-@media (max-width:719px){ body.jr-sheet-on #screen > .tabbar, body.kb-on #screen > .tabbar{display:none} }
+@media (max-width:1119.98px){ body.jr-sheet-on #screen > .tabbar, body.kb-on #screen > .tabbar{display:none} }
 body.kb-on:not(.ll-sf-typing) .fl-dock{visibility:hidden}
 
 /* What's New as a slide-up sheet, plus the Past Updates log (Justin, 2026-10-19: "the slide-up is a better option"; mockup
@@ -4453,7 +4469,7 @@ body.reduce-motion .lv-card.lv-in,body.reduce-motion .lv-arc1,body.reduce-motion
 @keyframes plNo{0%,100%{transform:translateX(0)}30%{transform:translateX(-5px)}65%{transform:translateX(4px)}}
 @media (prefers-reduced-motion:reduce){.pl-opt,.pl-opt[data-r]{animation:none;transition:none}.pl-opt[data-r="yes"] .pl-ok path{animation:none;stroke-dashoffset:0}}
 body.reduce-motion .pl-opt[data-r]{animation:none}body.reduce-motion .pl-opt[data-r="yes"] .pl-ok path{animation:none;stroke-dashoffset:0}
-@media (max-width:420px){.pl-tile{width:112px;height:66px}.pl-pick{margin-left:0}}
+@media (max-width:719.98px){.pl-tile{width:112px;height:66px}.pl-pick{margin-left:0}}
 
 /* ── Community + live with Justin (2026-10-26, the Circle move; mockups approved 2026-10-26) ───────── */
 .lw-h1{font-size:calc(28px * var(--type-scale));font-weight:500;letter-spacing:-.02em;line-height:1.1;color:var(--ink);margin:0}
@@ -4642,7 +4658,7 @@ body.lw-sl-on .lw-call-head.lw-folded .lw-ppl{display:none}
 .lw-rec-b svg{width:18px;height:18px}
 .lw-rec-b:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.lw-rec-on i{animation:none}}
-@media (max-width:699px){
+@media (max-width:719.98px){
   .lw-call-head{flex-wrap:wrap;row-gap:8px}
   .lw-call-r{width:100%;justify-content:space-between}
   .lw-ctls{gap:2px;padding-left:6px;padding-right:6px}
@@ -4685,16 +4701,16 @@ body.lw-sl-on .lw-call-head.lw-folded .lw-ppl{display:none}
 .lw-chat-form input{caret-color:var(--ink)}
 .lw-chat-form input:focus{outline:2px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
 .vh{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media (min-width:900px){.lw-call .lw-call-body{max-width:1100px;width:100%;margin:0 auto;box-sizing:border-box}.lw-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media (min-width:1120px){.lw-call .lw-call-body{max-width:1100px;width:100%;margin:0 auto;box-sizing:border-box}.lw-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 /* desktop: keep the stage within the window, and put Mindful Moment's chat beside the video (Justin hosts from a computer) */
-@media (min-width:900px){
+@media (min-width:1120px){
   .lw-call .lw-stage{aspect-ratio:auto;height:min(58dvh,620px)}
   .lw-mm .lw-call-body{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
   .lw-mm .lw-stage{height:min(68dvh,720px)}
   .lw-mm .lw-mm-chat{height:min(68dvh,720px);min-height:0}
   .lw-mm .lw-tap{grid-column:1}
 }
-@media (min-width:900px){.lw-ctls{padding-left:max(12px,calc(50% - 440px));padding-right:max(12px,calc(50% - 440px))}}
+@media (min-width:1120px){.lw-ctls{padding-left:max(12px,calc(50% - 440px));padding-right:max(12px,calc(50% - 440px))}}
 /* Swiss grid (2026-10-27, Justin): one gutter, one left edge for the head, the stage, the chat and the controls */
 .lw-call-head{padding-left:22px;padding-right:22px;align-items:flex-end}
 .lw-call-t{gap:4px}
@@ -4704,7 +4720,7 @@ body.lw-sl-on .lw-call-head.lw-folded .lw-ppl{display:none}
 .lw-tile{border-radius:6px}
 .lw-mm-chat-h{border-top:1px solid var(--ink);padding-top:10px}
 .lw-chat-list{border-top:0;padding-top:0}
-@media (min-width:900px){
+@media (min-width:1120px){
   .lw-call-head,.lw-call .lw-call-body{max-width:1200px;width:100%;margin-left:auto;margin-right:auto;box-sizing:border-box;padding-left:32px;padding-right:32px}
   .lw-call .lw-call-body{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:24px;align-items:start}
   .lw-call .lw-call-body > *{grid-column:1 / -1}
@@ -4846,14 +4862,16 @@ body.lm-dark .scroll,body.lm-dark .view.read{background:#14171E;color:var(--bone
 .lm-side > *{order:3}
 .lm-main > .lm-desc{order:4}
 .lm-side > .lm-keep{order:5}
-/* from 1000px: two columns. The player and About lead on the left; the data card, Journal and Keep learning on the right */
-@media (min-width:1000px){
-  body.lm-wide #screen .view{max-width:1120px}
-  .lm-page{display:grid;grid-template-columns:minmax(0, 8fr) minmax(0, 4fr);gap:40px;align-items:start}
+/* from 1120px: two columns, 8 + 4 of the frame's 12. The player and About lead on the left; the data card, Journal and Keep learning on the right */
+@media (min-width:1120px){
+  body.lm-wide #screen .view{max-width:var(--page)}
+  .lm-page{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gap);row-gap:40px;align-items:start}
   .lm-main,.lm-side{display:flex;flex-direction:column;min-width:0}
+  .lm-main{grid-column:1 / 9}
+  .lm-side{grid-column:9 / 13}
   .lm-side > *,.lm-main > .lm-desc,.lm-side > .lm-keep{order:0}
   .lm-side .lm-keep{margin-top:0}
-  .lm-spage{display:grid;grid-template-columns:auto minmax(0, 1fr);grid-template-rows:auto auto 1fr;column-gap:40px;align-items:start}
+  .lm-spage{display:grid;grid-template-columns:auto minmax(0, 1fr);grid-template-rows:auto auto 1fr;column-gap:var(--gap);align-items:start}
   .lm-spage > .lm-short{grid-row:1 / span 3;height:min(calc(100dvh - 160px), 760px);margin:0}
   .lm-spage > .lm-short-e{margin-top:8px}
   body.lm-dark.lm-wide .scroll,body.lm-dark.lm-wide .view.read{background:var(--bone);color:var(--ink)}
@@ -4894,15 +4912,15 @@ body.lm-arr .lm-mod:nth-child(2n){animation-delay:-.16s}
 .lm-sheet .lm-mods{margin-top:16px}
 .lm-sheet .lm-mod > .lm-lead,.lm-sheet .lm-mod > .lm-card-o,.lm-sheet .lm-mod > .lm-desc{margin:0}
 @media (prefers-reduced-motion: reduce){ body.lm-arr .lm-mod{animation:none} }
-@media (min-width:1000px){ body.lm-wide .lm-sheet .lm-arr-bar,body.lm-wide .lm-sheet .lm-mods,body.lm-wide .lm-sheet .lm-arr-foot{margin-left:0;margin-right:0} }
+@media (min-width:1120px){ body.lm-wide .lm-sheet .lm-arr-bar,body.lm-wide .lm-sheet .lm-mods,body.lm-wide .lm-sheet .lm-arr-foot{margin-left:0;margin-right:0} }
 
 /* media page cards, round 2 (2026-10-26): each pick its own card on a two-column grid, half or full */
-.lm-mods{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;align-items:stretch}
+.lm-mods{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px var(--gap);align-items:stretch}
 .lm-mod{grid-column:span 2;min-width:0}
 .lm-mod.lm-half,.lm-ph.lm-half{grid-column:span 1}
 .lm-mod.lm-half.lm-fill,.lm-ph.lm-half.lm-fill{grid-column:span 2}
-/* 2. the Short's breadcrumb on its dark page (720 to 999px; from 1000px the page is light again) */
-@media (max-width:999px){
+/* 2. the Short's breadcrumb on its dark page (720 to 1119px; from 1120px the page is light again) */
+@media (max-width:1119.98px){
   body.lm-dark .rd-crumb,body.lm-dark .rd-crumb-here{color:rgba(250,249,245,.72)}
   body.lm-dark .rd-crumb-a,body.lm-dark .rd-crumb-back{color:#FAF9F5}
   body.lm-dark .rd-crumb-a{text-decoration-color:rgba(250,249,245,.4)}
@@ -4937,12 +4955,12 @@ body.lm-arr .lm-mod-sz{display:flex}
 /* the Short's title on its dark page, in dark mode too (it used the theme's paper color, dark in dark mode) */
 .lm-short-t{color:#ECEAE3}
 #lm-ci svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-@media (min-width:1000px){ .lm-peek{display:none !important} body.lm-wide .lm-spage > .lm-short{height:min(calc(100dvh - 160px), 760px)} }
+@media (min-width:1120px){ .lm-peek{display:none !important} body.lm-wide .lm-spage > .lm-short{height:min(calc(100dvh - 160px), 760px)} }
 
 /* the Short on phones (2026-10-26): its cards in one sideways row under the video; no sheet */
-@media (max-width:999px){
+@media (max-width:1119.98px){
   .lm-sheet.lm-strip{position:static;transform:none;max-height:none;overflow:visible;background:transparent;color:inherit;padding:0;border-radius:0;transition:none}
-  .lm-strip .lm-mods{display:flex;flex-direction:row;align-items:flex-start;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin:14px -30px 0;padding:10px 30px 8px;scroll-padding:0 30px}
+  .lm-strip .lm-mods{display:flex;flex-direction:row;align-items:flex-start;gap:12px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;margin:14px calc(-1 * var(--pad-x)) 0;padding:10px var(--pad-x) 8px;scroll-padding:0 var(--pad-x)}
   .lm-strip .lm-mods::-webkit-scrollbar{display:none}
   .lm-strip .lm-mod{flex:none;width:84%;box-sizing:border-box;padding:18px;border-radius:18px;background:var(--bone);color:var(--ink);scroll-snap-align:start}
   .lm-strip .lm-mod.lm-half,.lm-strip .lm-ph.lm-half{width:46%}
@@ -4968,7 +4986,7 @@ body.lm-arr .lm-mod-sz{display:flex}
 
 /* phones: Back joins the bottom menu (r7 2026-10-26, smooth r8 2026-10-27). The menu slides right and keeps its icons;
    Back is an arrow to its left, the same height. JS (_tbSync) starts each new menu where the last one was. */
-@media (max-width:719px){
+@media (max-width:1119.98px){
   #screen > .tabbar{transition:margin-left .36s cubic-bezier(.32,.72,0,1)}
   #screen > .tabbar button{transition:gap .36s cubic-bezier(.32,.72,0,1)}
   #screen > .tabbar button .lb{max-height:18px;overflow:hidden;transition:opacity .22s ease .1s, max-height .36s cubic-bezier(.32,.72,0,1)}
@@ -4991,7 +5009,7 @@ body.lm-arr .lm-mod-sz{display:flex}
   @keyframes tbIn{from{opacity:0;transform:translateX(-72px)}to{opacity:1;transform:none}}
   @keyframes tbOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(-72px)}}
 }
-@media (max-width:719px) and (prefers-reduced-motion: reduce){
+@media (max-width:1119.98px) and (prefers-reduced-motion: reduce){
   #screen > .tabbar,#screen > .tabbar button,#screen > .tabbar button .lb,#screen > .fl-dock > .tab-back-float{transition:none !important;animation:none !important}
 }
 
@@ -5007,12 +5025,13 @@ body.lw-sl-on .lw-stage-av{width:44px;height:44px;font-size:18px}
    every Session Builder slide, and 12 columns between the margins with the slide's 2% column gap as the one gutter,
    across and down. The room's parts are grid items (the body box steps aside with display:contents), so every card
    starts and ends on a column line and moves across the grid with the screen:
-     wide (1200px+)   the right 3 columns, top line to foot line: clear of the slide's text, which stops at 66%
-     900 to 1199px    the right 4 columns (they start on the slide's own image-well line)
-     under 900px      the bottom of the grid, full width; the slide's words keep the top */
+     wide (1120px+)               the right 3 columns, top line to foot line: clear of the slide's text, which stops at 66%
+     720 to 1119px, on its side   the right 4 columns (they start on the slide's own image-well line); a phone on its side too
+     upright under 1120px         the bottom of the grid, full width; the slide's words keep the top
+   (breakpoints 720 / 1120 only, Swiss grid A3 2026-10-28; orientation, not width, separates an upright tablet) */
 body.lw-sl-on .lw-call-body{display:contents}
-body.lw-sl-on #lw-room{--g:clamp(10px,2vw,32px);display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--g);row-gap:var(--g);
-  align-content:stretch;padding-block:11vh 9.5vh;padding-inline:max(16px,6.25vw);box-sizing:border-box}
+body.lw-sl-on #lw-room{--g:2vw;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--g);row-gap:var(--g);
+  align-content:stretch;padding-block:11vh 9.5vh;padding-inline:6.25vw;box-sizing:border-box}
 body.lw-sl-on #lw-room > *,body.lw-sl-on .lw-call-body > *{min-width:0}
 body.lw-sl-on #lw-audio{display:none}
 body.lw-sl-on .lw-call-head,body.lw-sl-on .lw-mm-chat,body.lw-sl-on .lw-ctls,body.lw-sl-on .lw-stage,body.lw-sl-on .lw-grid{
@@ -5070,7 +5089,7 @@ body.lw-sl-on .lw-tap{position:fixed;z-index:3;left:50%;top:50%;transform:transl
 /* tucked: the title card stays as a pill on its column line; chat and controls go */
 /* (2026-10-28) folding the title card folds only the title card */
 /* wide: the right 3 columns, title on the top line, controls on the foot line */
-@media (min-width:1200px){
+@media (min-width:1120px){
   body.lw-sl-on #lw-room{grid-template-rows:auto auto minmax(0,1fr) auto}
   body.lw-sl-on #lw-room .lw-call-head{grid-column:10 / 13;grid-row:1}
   body.lw-sl-on #lw-room .lw-stage{grid-column:10 / 13;grid-row:2}
@@ -5079,8 +5098,8 @@ body.lw-sl-on .lw-tap{position:fixed;z-index:3;left:50%;top:50%;transform:transl
   body.lw-sl-on #lw-room .lw-grid{grid-column:1 / 10;grid-row:4;grid-template-columns:repeat(6,minmax(0,1fr))}
   body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:12 / 13}
 }
-/* 900 to 1199px, and a phone on its side (2026-10-28): the right 4 columns */
-@media (min-width:900px) and (max-width:1199px), (max-width:899px) and (orientation:landscape) and (max-height:600px){
+/* 720 to 1119px on its side, and a phone on its side (2026-10-28): the right 4 columns */
+@media (min-width:720px) and (max-width:1119.98px) and (orientation:landscape), (max-width:719.98px) and (orientation:landscape) and (max-height:600px){
   body.lw-sl-on #lw-room{grid-template-rows:auto auto minmax(0,1fr) auto}
   body.lw-sl-on #lw-room .lw-call-head{grid-column:9 / 13;grid-row:1}
   body.lw-sl-on #lw-room .lw-stage{grid-column:9 / 13;grid-row:2}
@@ -5089,9 +5108,9 @@ body.lw-sl-on .lw-tap{position:fixed;z-index:3;left:50%;top:50%;transform:transl
   body.lw-sl-on #lw-room .lw-grid{grid-column:1 / 9;grid-row:4;grid-template-columns:repeat(4,minmax(0,1fr))}
   body.lw-sl-on #lw-room .lw-ctls.lw-folded{grid-column:12 / 13}
 }
-/* under 900px: the bottom of the grid; the slide's words keep the top. Title and camera share a row (9 + 3 columns). */
-@media (max-width:899px) and (orientation:portrait), (max-width:899px) and (min-height:601px){
-  body.lw-sl-on #lw-room{--g:max(8px,2vw);grid-template-rows:minmax(0,1fr) auto auto auto;padding-block:11vh calc(env(safe-area-inset-bottom) + max(16px,6.25vw))}
+/* upright under 1120px: the bottom of the grid; the slide's words keep the top. Title and camera share a row (9 + 3 columns). */
+@media (max-width:1119.98px) and (orientation:portrait), (max-width:719.98px) and (min-height:601px){
+  body.lw-sl-on #lw-room{--g:2vw;grid-template-rows:minmax(0,1fr) auto auto auto;padding-block:11vh calc(env(safe-area-inset-bottom) + 6.25vw)}
   body.lw-sl-on #lw-room .lw-call-head{grid-column:1 / 10;grid-row:2;align-self:end}
   body.lw-sl-on #lw-room .lw-stage{grid-column:10 / 13;grid-row:2;align-self:end;aspect-ratio:1/1}
   body.lw-sl-on #lw-room .lw-stage:not(.lw-folded){width:min(100%, 24dvh)}
@@ -5116,21 +5135,21 @@ body.lw-sl-on .lw-ctl2 .lw-ctls.lw-folded > :not(.lw-fold){display:flex}
 body.lw-sl-on .lw-ctl2 .lw-call-t b{white-space:normal;overflow:visible;text-overflow:clip;text-wrap:balance}
 body.lw-sl-on .lw-ctl2 .lw-ctls > .lw-fold{display:none}
 body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
-@media (min-width:1200px){
+@media (min-width:1120px){
   body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:auto minmax(0,1fr) auto}
   body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:10 / 13;grid-row:1}
   body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:10 / 13;grid-row:2}
   body.lw-sl-on .lw-ctl2#lw-room .lw-call-head{grid-column:10 / 12;grid-row:3}
   body.lw-sl-on .lw-ctl2#lw-room .lw-ctls{grid-column:12 / 13;grid-row:3}
 }
-@media (min-width:900px) and (max-width:1199px), (max-width:899px) and (orientation:landscape) and (max-height:600px){
+@media (min-width:720px) and (max-width:1119.98px) and (orientation:landscape), (max-width:719.98px) and (orientation:landscape) and (max-height:600px){
   body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:auto minmax(0,1fr) auto}
   body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:9 / 13;grid-row:1}
   body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:9 / 13;grid-row:2}
   body.lw-sl-on .lw-ctl2#lw-room .lw-call-head{grid-column:9 / 12;grid-row:3}
   body.lw-sl-on .lw-ctl2#lw-room .lw-ctls{grid-column:12 / 13;grid-row:3}
 }
-@media (max-width:899px) and (orientation:portrait), (max-width:899px) and (min-height:601px){
+@media (max-width:1119.98px) and (orientation:portrait), (max-width:719.98px) and (min-height:601px){
   body.lw-sl-on .lw-ctl2#lw-room{grid-template-rows:minmax(0,1fr) auto auto}
   body.lw-sl-on .lw-ctl2#lw-room .lw-mm-chat{grid-column:1 / 10;grid-row:2}
   body.lw-sl-on .lw-ctl2#lw-room .lw-stage{grid-column:10 / 13;grid-row:2;align-self:end}
