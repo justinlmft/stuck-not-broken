@@ -5556,24 +5556,116 @@ function app(tab){
     if(!keepQuery) _lrnQ = '';
     const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
     const forNow = lastK ? _lrnForDaily(lastK) : null;
+    const narrowed = _lmFiltered(), extra = _lmWhen !== 'any' || _lmDur !== 'any' || (_lmTopic !== 'all' && L.STATE_HUBS.indexOf(_lmTopic) < 0);
+    const secs = _lbSections();
+    const hero = !narrowed && forNow;
     _rdShell(`
           <div class="scr-head" id="lm-learn"><h1 class="scr-h lw-h1">Learn</h1></div>
-          ${_lrnToolsHTML(true)}
-          ${_lmActiveHTML()}
+          ${_lbSearchRowHTML()}
+          ${extra ? _lmActiveHTML() : ''}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
-          ${_lmFiltered() ? _lmListHTML() : `${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
-          ${_rdLearnSection()}`}
+          ${hero ? `<div class="lb-top">${_lbFeatHTML(forNow)}<section class="lb-topics-side" aria-label="Topics"><h2 class="lb-h2">Topics</h2>${_lbTopicsHTML(false)}</section></div>` : ''}
+          ${secs.length ? secs.join('') : (narrowed ? `<section class="rd-learn lm-list"><p class="ll-res-n">No lessons match these filters.</p><button class="lm-clear" type="button" data-lmx="all">Clear filters</button></section>` : '')}
+          ${narrowed ? '' : _lbSoonHTML()}
+          ${narrowed ? '' : `<section class="lb-topics-end${hero ? ' lb-has-side' : ''}" aria-label="Topics"><h2 class="lb-h2">Topics</h2>${_lbTopicsHTML(true)}</section>`}
           </div>
           ${_lmSheetHTML()}`, { tab:'learn', wide:true });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
-    root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
-    root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
-    root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
-    root.querySelectorAll('.rd-learnhubs [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    root.querySelectorAll('.lb-feat[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
+    root.querySelectorAll('#ll-browse [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    root.querySelectorAll('#ll-browse .lb-card[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+    root.querySelectorAll('#ll-browse .lb-card[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    root.querySelectorAll('[data-lbm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lbm; _lmOpen = {}; _lmRedraw(true); });
+    root.querySelectorAll('[data-lbk]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lbk; _lmOpen = {}; _lmRedraw(true); });
     _lmWire();
     _lrnSearchWire(open, id=>screenMedia(id, here));
+  }
+  // ---- Learn as a blog, bento (Justin, canon 2026-10-29: "an optimized blog that is easy to scan and filter and search and
+  // choose"; BRAND_DESIGN_SYSTEM §4 "Learn as a blog (bento)"; mockup https://claude.ai/artifact/Q5cuHNsve9nnTcjtKHTGDi).
+  // The search row (a visible field on 1-6, All / Read / Listen / Watch on 7-10, Filter on 11-12), the state pills, "For you
+  // now" on 1-8 with Topics on 9-12, then each state as a bento block. No "Free" labels: only a locked item says
+  // lock + "Self-Regulator". Every card keeps its picture slot so imagery can grow.
+  const _LB_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>';
+  function _lbSearchRowHTML(){
+    const L = window.Learning;
+    const pill = (attr, id, label, on, mk) => `<button class="lb-pill${on ? ' on' : ''}" type="button" data-${attr}="${id}" aria-pressed="${on}">${mk || ''}<span>${escapeHtml(label)}</span></button>`;
+    const hasMed = k => !!(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0));
+    const states = L.STATE_HUBS.filter(k=>L.inGroup(k).length || hasMed(k));
+    return `<div class="lb-search-row">
+        <div class="ll-sfloat open lb-search" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="true" tabindex="-1">${_LB_SEARCH}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-media" role="group" aria-label="Media">${_LM_MEDIA.map(([id, l])=>pill('lbm', id, l, _lmMedia === id)).join('')}</div>
+        <div class="lb-filter">${_lmFbtnHTML()}</div>
+        <div class="lb-chips" role="group" aria-label="States">${pill('lbk', 'all', 'All topics', _lmTopic === 'all')}${states.map(k=>pill('lbk', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}</div>
+      </div>`;
+  }
+  // the picture slot: a video's YouTube thumbnail; a podcast episode with a video, that video's thumbnail; otherwise the
+  // state's mark on bone-deep (articles have no data picture yet: the pass 2 file covers media only)
+  function _lbPic(e, isArt, k){
+    const st = (isArt ? e.state : _lmState(e)) || k || 'safety';
+    const yt = isArt ? null : (e.s === 'v' || e.s === 's') ? e.i : (e.s === 'p' && e.y) ? e.y : null;
+    return `<span class="lb-pic" aria-hidden="true">${_rdMk(st)}${yt ? `<img src="https://i.ytimg.com/vi/${encodeURIComponent(yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
+  }
+  function _lbMeta(e, isArt){
+    const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
+    const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
+    const len = isArt ? (e.minutes || 1) + ' min read' : (e.s === 's' && !e.n ? 'under a minute' : _lmLen(e.n));
+    const locked = (isArt ? !!e.paid : e.s === 'c') && !paidNow(), read = isArt && _lrnIsRead(e.id);
+    const parts = [`<span class="lb-ty"><svg class="lm-mi" viewBox="0 0 24 24" aria-hidden="true">${_LM_MI[k]}</svg>${escapeHtml(word)}</span>`];
+    if(len) parts.push(`<span>${escapeHtml(len)}</span>`);
+    if(locked) parts.push(`<span class="lb-lk">${LOCK_SVG}Self-Regulator</span>`);
+    if(read) parts.push(`<span class="lb-rd"><span class="rd-readmk" aria-hidden="true">${_LRN_CHECK}</span>Read</span>`);
+    return `<span class="lb-meta">${parts.join('<span class="lm-sep" aria-hidden="true">·</span>')}</span>`;
+  }
+  function _lbCard(e, isArt, k, big){
+    const data = isArt ? `data-piece="${escapeHtml(e.id)}"` : `data-media="${escapeHtml(e.i)}"`;
+    const desc = big && isArt ? _lrnDesc(e) : '';
+    return `<button class="lb-card${big ? ' lb-big' : ''}" type="button" ${data}>${_lbPic(e, isArt, k)}<span class="lb-body"><span class="lb-t">${escapeHtml(isArt ? e.title : e.t)}</span>${desc ? `<span class="lb-d">${escapeHtml(desc)}</span>` : ''}${_lbMeta(e, isArt)}</span></button>`;
+  }
+  // a list of lessons as cards (results, "See all" pages): `limit` shown, the rest hidden behind Show all
+  function _lbCardsHTML(list, isArt, k, limit){
+    return `<div class="lb-grid">${list.map((e, i)=>{ const c = _lbCard(e, isArt, k, false); return limit != null && i >= limit ? c.replace('<button class="lb-card', '<button hidden class="rd-more lb-card') : c; }).join('')}</div>`;
+  }
+  // each state's lessons under the page's filters (media, a topic, published, length), articles first
+  function _lbFor(k){
+    const L = window.Learning, tk = _lmTopic, topicOnly = tk !== 'all' && L.STATE_HUBS.indexOf(tk) < 0;
+    const inTopic = gs => !topicOnly || (gs || []).indexOf(tk) >= 0;
+    const arts = (_lmMedia === 'all' || _lmMedia === 'read') ? _lrnByRead(L.inGroup(k).filter(p=>inTopic(p.groups) && _lmWhenOk(_lmArtDate(p)) && _lmDurOk(p.minutes || 1))) : [];
+    const med = _lmMedia === 'read' || !_lmData ? [] : _lmData.items.filter(x=>(x.g || []).indexOf(k) >= 0 && inTopic(x.g) && (_lmMedia === 'all' || (_lmMedia === 'listen') === _lmIsListen(x)) && _lmWhenOk(x.d) && _lmDurOk(x.n ? x.n / 60 : x.s === 's' ? 0.5 : null));
+    return { arts, med };
+  }
+  function _lbSections(){
+    const L = window.Learning; if(!L || !L.HUBS) return [];
+    const states = L.STATE_HUBS.indexOf(_lmTopic) >= 0 ? [_lmTopic] : _lrnStateOrder();
+    return states.map(k=>{
+      const { arts, med } = _lbFor(k), total = arts.length + med.length; if(!total) return '';
+      // one big card (an article, with its description) and four small: the same mix as before, two episodes and two videos at most
+      const eps = med.filter(x=>x.s === 'p' || x.s === 'c'), vids = med.filter(x=>x.s === 'v' || x.s === 's');
+      const big = arts[0] || null, restA = arts.slice(big ? 1 : 0);
+      let ne = Math.min(eps.length, 2), nv = Math.min(vids.length, 2), na = Math.min(restA.length, 4 - ne - nv);
+      ne = Math.min(eps.length, 4 - na - nv); nv = Math.min(vids.length, 4 - na - ne);
+      const small = restA.slice(0, na).map(p=>_lbCard(p, true, k, false)).concat(eps.slice(0, ne).map(x=>_lbCard(x, false, k, false)), vids.slice(0, nv).map(x=>_lbCard(x, false, k, false)));
+      if(!big && small.length < 4){ const more = med.filter(x=>eps.slice(0, ne).indexOf(x) < 0 && vids.slice(0, nv).indexOf(x) < 0).slice(0, 4 - small.length); more.forEach(x=>small.push(_lbCard(x, false, k, false))); }
+      const cnt = _lmFiltered() ? _lmLessons(total) : _lrnHubCount(k);
+      return `<section class="lb-sec" aria-label="${escapeHtml(STATE_LABEL(k))}"><div class="lb-sec-h"><h2>${_rdMk(k)}<span>${escapeHtml(STATE_LABEL(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h2><button class="lb-seeall" type="button" data-hub="${k}">See all${CHEV}</button></div>
+        <div class="lb-grid">${big ? _lbCard(big, true, k, true) : ''}${small.join('')}</div></section>`;
+    });
+  }
+  function _lbFeatHTML(forNow){
+    const p = forNow.piece, st = p.state || null;
+    const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
+    return `<button class="lb-feat" type="button" data-piece="${escapeHtml(p.id)}"><span class="lb-pic lb-feat-pic" aria-hidden="true">${_rdMk(st || 'safety')}</span><span class="lb-feat-b">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="lb-feat-t">${escapeHtml(p.title)}</span><span class="lb-d">${escapeHtml(_lrnDesc(p))}</span><span class="lb-feat-go">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></button>`;
+  }
+  function _lbTopicsHTML(pills){
+    const L = window.Learning, topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
+    return pills ? `<div class="lb-tpills">${topics.map(k=>`<button class="lb-pill" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${escapeHtml(_lrnHubCount(k).replace(/ lessons?$/, ''))}</span></button>`).join('')}</div>`
+      : `<div class="lb-tlist">${topics.map(k=>`<button class="lb-trow" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${escapeHtml(_lrnHubCount(k).replace(/ lessons?$/, ''))}</span></button>`).join('')}</div>`;
+  }
+  function _lbSoonHTML(){
+    const L = window.Learning;
+    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length && !(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0))).map(k=>STATE_NAME(k));
+    return soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : '';
   }
   // ---- Listen and watch (2026-10-26; mockups "Learn Library Mockups"). Justin: "throw all of the free Learn content in
   // together and have it be filtered by media and topic." The list is learn/media.json, built from Captivate and YouTube by
@@ -5697,7 +5789,6 @@ function app(tab){
         <span class="rd-jr-grab" aria-hidden="true"></span>
         <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
         <div class="lm-fs-body">
-          <span class="rd-eyeb">Media</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
           <span class="rd-eyeb">Published</span><div class="lm-chips">${_LM_WHENS.map(([id, l])=>chip('lmw', id, l, _lmWhen === id)).join('')}</div>
           <p class="lm-fs-note">Most articles have no published date, so they show under Any time.</p>
           <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lmd', id, l, _lmDur === id)).join('')}</div>
@@ -6141,12 +6232,13 @@ function app(tab){
       if(!browse.hidden && sc) sc.scrollTop = 0;
       browse.hidden = true;
       const hits = _lrnSearch(q), mh = _lmSearch(q);
-      const gs = [{ k:'a', label:'Articles', list:hits }].concat(_LM_TYPES.slice(1).map(([k, label])=>({ k, label, list:mh.filter(x=>x.s === k) }))).filter(g=>g.list.length);
-      const n = hits.length + mh.length;
+      const mOk = k => _lmMedia === 'all' || (_lmMedia === 'read' ? k === 'a' : _lmMedia === 'listen' ? (k === 'p' || k === 'c') : (k === 'v' || k === 's'));
+      const gs = [{ k:'a', label:'Articles', list:hits }].concat(_LM_TYPES.slice(1).map(([k, label])=>({ k, label, list:mh.filter(x=>x.s === k) }))).filter(g=>g.list.length && mOk(g.k));
+      const n = gs.reduce((s, g)=>s + g.list.length, 0);
       const loading = !_lrnSIdx || !_lmData;
       // each type under its own heading: the first few, then "Show all" for that type
       const sec = g => { const cap = g.k === 'a' ? 10 : 5, all = !!openG[g.k] || g.list.length <= cap + 2, rows = all ? g.list : g.list.slice(0, cap);
-        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="ll-rows">${rows.map(e=>_llRow(e, g.k === 'a')).join('')}</div>${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
+        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3>${_lbCardsHTML(rows, g.k === 'a')}${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
       res.innerHTML = `<section class="rd-learn ll-res">
           <p class="ll-res-n">${n ? escapeHtml(_lmLessons(n)) : escapeHtml('No lessons match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching…</span>' : ''}</p>
           ${gs.map(sec).join('')}
@@ -6168,7 +6260,8 @@ function app(tab){
       else { dock.style.position = ''; dock.style.bottom = ''; dock.style.top = ''; }
     };
     if(vv){ vv.addEventListener('resize', lift); vv.addEventListener('scroll', lift); }
-    const setOpen = on => { sf.classList.toggle('open', on); if(dock) dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock && dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
+    const always = sf.classList.contains('lb-search');
+    const setOpen = on => { on = on || always; sf.classList.toggle('open', on); if(dock) dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock && dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
     setOpen(!!_lrnQ);
     sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
     qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; openG = {}; clearTimeout(tm); tm = setTimeout(draw, 120); };
@@ -6176,7 +6269,8 @@ function app(tab){
     qi.onfocus = ()=>{ _lrnSearchIndex(); _lmLoad(); _lmDescLoad(); lift(); };
     qi.onblur = ()=>{ lift(); setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
     qx.onmousedown = e=>e.preventDefault();
-    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
+    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); if(always){ qi.focus(); return; } qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
+    if(always) sb.onclick = ()=>qi.focus();
     if(_lrnQ) draw();
   }
   // the member's Journal (Justin, 2026-10-02: "people need to see where their journal answers live, like an actual Journal
@@ -7227,7 +7321,7 @@ function app(tab){
         ${mine}
         ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
         ${hubGroups.length ? hubGroups.map(gr=>{ const n = gr.k === 'a' ? 12 : 6;
-            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3><div class="ll-rows">${gr.list.map((e, i)=>{ const r = _llRow(e, gr.k === 'a'); return i < n ? r : r.replace('<button class="ll-r', '<button hidden class="rd-more ll-r'); }).join('')}</div>${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
+            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3>${_lbCardsHTML(gr.list, gr.k === 'a', key, n)}${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
           : `<section class="rd-learn"><p class="read-p rd-empty">${_lmData ? 'Lessons for this hub are on the way.' : 'One moment…'}</p></section>`}
         ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
         </div>`,
