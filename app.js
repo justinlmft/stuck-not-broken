@@ -2990,16 +2990,21 @@ function app(tab){
     _lw.sched = _lw.sched.filter(s => _lwEnd(s) > Date.now());   // an event leaves the Calendar when it ends, even if the app stayed open
     const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
     if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>`; return; }
-    el.innerHTML = `<div class="lw-list">${list.map(s => {
+    const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
+    const ordered = list.filter(s => !_lwRoomOpen(s)).concat(list.filter(_lwRoomOpen));
+    let _lwOpenHead = false;
+    el.innerHTML = `<div class="lw-list">${ordered.map(s => {
+      const room = _lwRoomOpen(s), head = room && !_lwOpenHead ? (_lwOpenHead = true, '<p class="lw-open-h">Open any time</p>') : '';
       const K = _lwKind(s), d = new Date(_lwStart(s)), open = _lwDoorOpen(s), live = _lwIsLive(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
       const act = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
         : open ? `<button class="lw-pill lw-pill-go" type="button" data-lw-join="${s.id}">Join</button>`
         : `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>`;
       const alarm = (ok && !open) ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : '';
-      return `<div class="lw-row${live ? ' lw-row-live' : ''}">
-        <button class="lw-row-hit" type="button" data-lw-info="${s.id}" aria-label="${escapeHtml(K.name + ', ' + _lwWhen(s) + '. Details')}"></button>
-        <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
-        <span class="lw-row-t"><b>${escapeHtml(K.name)}</b><span class="lw-when">${live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : escapeHtml(_lwWhen(s))}</span><span class="lw-acts">${act}</span></span>
+      const nm = room ? (s.title || K.name) : K.name, when = room ? 'Open any time' : _lwWhen(s);
+      return `${head}<div class="lw-row${live ? ' lw-row-live' : ''}${room ? ' lw-row-open' : ''}">
+        <button class="lw-row-hit" type="button" data-lw-info="${s.id}" aria-label="${escapeHtml(nm + ', ' + when + '. Details')}"></button>
+        ${room ? '' : `<span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>`}
+        <span class="lw-row-t"><b>${escapeHtml(nm)}</b><span class="lw-when">${live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : escapeHtml(when)}</span><span class="lw-acts">${act}</span></span>
         ${alarm}</div>`;
     }).join('')}</div>`;
     el.querySelectorAll('[data-lw-up]').forEach(b => b.onclick = () => _lwUpgradeSheet());
