@@ -10106,6 +10106,27 @@ function app(tab){
       // "See the data" opens in place and never stays open: it is a <details> that
       // every re-render closes again. Its toggle is scoped so a swipe still swipes.
       c.querySelectorAll('.see-data').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
+      // the cards grow down when "See the data" opens and shrink back when it closes (Justin 2026-10-29)
+      c.querySelectorAll('.yb-cards .see-data > summary').forEach(sm=>sm.addEventListener('click',e=>{
+        const d = sm.parentElement, body = sm.nextElementSibling;
+        const calm = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+        if(!body || !body.animate || calm) return;
+        e.preventDefault();
+        if(d._anim){ d._anim.cancel(); d._anim = null; }
+        const opening = !d.open || d.classList.contains('yb-closing');
+        const frame = (on, cs)=>on ? { height:body.offsetHeight + 'px', marginTop:cs.marginTop, paddingTop:cs.paddingTop, paddingBottom:cs.paddingBottom, opacity:1 }
+                                   : { height:'0px', marginTop:'0px', paddingTop:'0px', paddingBottom:'0px', opacity:0 };
+        if(opening){
+          d.classList.remove('yb-closing'); d.open = true;
+          const cs = getComputedStyle(body);
+          d._anim = body.animate([frame(false), frame(true, cs)], { duration:320, easing:'cubic-bezier(.2,.8,.2,1)' });
+          d._anim.onfinish = ()=>{ d._anim = null; };
+        } else {
+          const cs = getComputedStyle(body); d.classList.add('yb-closing');
+          d._anim = body.animate([frame(true, cs), frame(false)], { duration:220, easing:'cubic-bezier(.4,0,.6,1)', fill:'forwards' });
+          d._anim.onfinish = ()=>{ d.open = false; d.classList.remove('yb-closing'); if(d._anim){ d._anim.cancel(); d._anim = null; } };
+        }
+      }));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
 
       const carousel=$('#carousel'); const dots=c.querySelectorAll('#dots .dot-i');
