@@ -5311,8 +5311,11 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 /* >=1120: list on 1-8, the selected event in a panel on 9-12 */
 .lw-sch.is-wide{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gap);align-items:start}
 .lw-sch.is-wide .lw-sch-list{grid-column:1 / span 8;min-width:0}
-.lw-sch.is-wide .lw-ev{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));column-gap:var(--gap);align-items:baseline;padding:16px 0;outline-offset:4px}
-.lw-sch.is-wide .lw-ev.is-sel{outline:1px solid var(--ink);border-radius:12px}
+.lw-sch.is-wide .lw-ev{position:relative;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));column-gap:var(--gap);align-items:baseline;padding:16px 0}
+/* the selected row: an ink frame 16px out to each side (the content stays on its columns); the dividers above and below it go */
+.lw-sch.is-wide .lw-ev.is-sel{border-top-color:transparent}
+.lw-sch.is-wide .lw-ev.is-sel + .lw-ev{border-top-color:transparent}
+.lw-sch.is-wide .lw-ev.is-sel::before{content:"";position:absolute;inset:0 -16px;border:1px solid var(--ink);border-radius:12px;pointer-events:none}
 .lw-sch.is-wide .lw-ev-date{grid-column:1 / span 1}
 .lw-sch.is-wide .lw-ev-main{grid-column:2 / span 5}
 .lw-sch.is-wide .lw-ev-acts{grid-column:7 / span 2;display:flex;flex-direction:column;align-items:flex-start;gap:4px}

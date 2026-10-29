@@ -2959,7 +2959,7 @@ function app(tab){
     setHTML(`
       <header class="appbar"></header>
       <div class="scroll" id="content"><div class="view lw-view">
-        <div class="scr-head"><h2 class="scr-h lw-h1">${lwTabName()}</h2>${LW_FORUM_LIVE ? '' : '<p class="lw-p lw-muted lw-lede">Live with Justin. Mindful Moment is free for everyone.</p>'}</div>
+        <div class="scr-head"><h2 class="scr-h lw-h1">${lwTabName()}</h2></div>
         ${LW_FORUM_LIVE ? `<div class="lw-seg" role="group" aria-label="Show">
           <button type="button" data-lw-tab="feed" aria-pressed="${_lw.tab==='feed'}">Feed</button>
           <button type="button" data-lw-tab="live" aria-pressed="${_lw.tab==='live'}">Live</button>
