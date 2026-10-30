@@ -600,6 +600,7 @@
           <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="${plain?('How much '+scenario):('How easy would it be to '+scenario)}">
           ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
         </div>
+        <span class="ci4-he" aria-hidden="true"><span>${plain ? 'Less' : numbered ? '0' : 'Harder'}</span><span>${plain ? 'More' : numbered ? '10' : 'Easier'}</span></span>
       </div>
     </div>`;
   }
@@ -1960,6 +1961,7 @@
   function markWhatsNewSeen(){ try{ localStorage.setItem(_wnKey(), '1'); }catch(e){} }
   function showWhatsNew(){
     if(document.getElementById('wn-scrim')) return;
+    if(document.querySelector('#screen .view.checkin2, .lw-ci')) return;   // never over a check-in in progress
     const wrap = document.createElement('div');
     wrap.className = 'wn-scrim'; wrap.id = 'wn-scrim';
     wrap.innerHTML = `
@@ -2705,6 +2707,7 @@ function whatsNewSheet(){
   try{ if(localStorage.getItem(_WN_ONB_KEY)!=='1') return; }catch(e){ return; }   // Monday's card and the walkthrough go first
   if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
   if(document.body.classList.contains('in-practice') || document.body.classList.contains('jr-sheet-on') || document.getElementById('weaver')) return;
+  if(document.querySelector('#screen .view.checkin2, .lw-ci')) return;   // never over a check-in in progress (Justin 2026-10-29)
   if(!openWhatsNewSheet(u)) return;
   wnMarkLatestSeen();
   _wnShownThisLoad = true;
@@ -8188,8 +8191,7 @@ function app(tab){
         <div class="ci-block">
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <div class="ci-reading" id="ci-reading"></div>
-          ${_yng?'<p class="fineprint" style="margin-top:10px">Check in whenever you like: when you’re off, when you’re good, any part of day. Every check-in teaches the app your system.</p>':''}
+          ${(!editRec && !((Store.checkins && Store.checkins()) || []).length)?'<p class="fineprint" style="margin-top:10px">Check in whenever you like: when you’re off, when you’re good, any part of day. Every check-in teaches the app your system.</p>':''}
         </div>
 
         ${(function(){
@@ -8216,7 +8218,10 @@ function app(tab){
         </div>`;
         })()}
 
-        <div class="actionbar"><button class="btn block" id="save">${editRec?'Save changes':'Save check-in'}</button></div>
+        <aside class="actionbar ci-readcard" aria-label="Your read">
+          <div class="ci-readrow"><span class="ci-read-mk" id="ci-read-mk" aria-hidden="true"></span><div class="ci-reading" id="ci-reading" aria-live="polite"></div></div>
+          <button class="btn block" id="save">${editRec?'Save changes':'Save check-in'}</button>
+        </aside>
       </div>`;
 
     // fresh check-ins start neutral (Justin 2026-07-05): rails and glyphs stay quiet
@@ -8246,9 +8251,13 @@ function app(tab){
       const reading = $('#ci-reading');
       if(reading){
         /* 2026-08-17 — the name IS the reading (Justin). Dead-centre keeps its
-           sentence, the one case with no name to give. */
-        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
+           sentence, the one case with no name to give. 2026-10-29: no em dash; the name large, its band under it. */
+        const _lb = window.PVCurrent.readingOf(v/100, s/100, d/100).label, _di = _lb.indexOf(' \u2014 ');
+        reading.innerHTML = `<span class="ci-reading-name">${_di > 0 ? _lb.slice(0, _di) : _lb}</span>${_di > 0 ? `<span class="ci-reading-band">${CAP(_lb.slice(_di + 3))}.</span>` : ''}`;
         reading.hidden = false;
+        // the state mark beside the read: ink until a slider is set, then the state's colours (colour follows what was set)
+        const _mk = $('#ci-read-mk');
+        if(_mk){ const _any = editRec || axTouched.v || axTouched.sym || axTouched.dor; _mk.innerHTML = triGlyph(_any ? window.PVCurrent.dominantOf(v/100, s/100, d/100).key : 'neutral'); }
       }
     }
     // Bound in every method now: in states mode the same three sliders are the fine-tune.

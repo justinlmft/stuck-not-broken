@@ -5809,3 +5809,35 @@ body.reduce-motion .p8-feat.p8-paid{animation:none;background-position:50% 50%}
   .p8-r-m{display:inline;font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.45}
   .p8-r-m .p8-see{white-space:nowrap}
 }
+
+/* ============================================================
+   CHECK-IN ON THE SWISS GRID (Justin 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Check-in screen")
+   ============================================================ */
+.ci4-he{display:none}
+.checkin2 .ci4-he{display:flex;justify-content:space-between;margin-top:2px;font-size:calc(12.5px * var(--type-scale));color:var(--muted);letter-spacing:.02em}
+.checkin2 .ci4-scale{display:none}
+.checkin2 .slider{align-items:center}
+.checkin2 .sliders{gap:26px}
+/* no divider lines: the context opens in place, no outline */
+.checkin2 #fold-ctx{border:0;border-radius:0;padding:0;margin-top:6px}
+.checkin2 #fold-ctx .ci-fold-btn{justify-content:flex-start;gap:12px;min-height:44px}
+/* your read: the state mark, the name, its band; then Save */
+.ci-readrow{display:flex;align-items:center;gap:12px;min-width:0}
+.ci-read-mk{flex:none;display:inline-flex}
+.ci-read-mk .triglyph{height:24px;width:auto}
+.ci-readcard .ci-reading{margin:0;gap:0;min-width:0}
+.ci-readcard .ci-reading-name{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:0}
+.ci-reading-band{font-size:calc(14.5px * var(--type-scale));color:var(--ink-80);line-height:1.35}
+.checkin2 .ci-readcard{gap:12px;padding:12px 0 6px}
+@media (min-width:720px){
+  #screen .view.checkin2 .scr-head{grid-column:1 / 8;grid-row:1;position:static;padding-left:0;padding-right:0}
+  #screen .view.checkin2 .ci-block:not(.ci-fold){grid-column:1 / 8;grid-row:2}
+  #screen .view.checkin2 #fold-ch{grid-column:1 / 8;grid-row:3}
+  #screen .view.checkin2 #fold-ctx{grid-column:1 / 8;grid-row:4}
+  #screen .view.checkin2 .ci-readcard{grid-column:8 / 13;grid-row:1 / span 4;align-self:start;position:sticky;top:clamp(40px,6vh,72px);bottom:auto;margin:0;
+    background:var(--bone-deep);border:1px solid var(--hairline);border-radius:20px;padding:22px 24px 24px;gap:16px}
+  #screen .view.checkin2 .ci-readrow{flex-direction:column;align-items:flex-start;gap:10px}
+  #screen .view.checkin2 .ci-read-mk .triglyph{height:30px}
+  #screen .view.checkin2 .ci-readcard .ci-reading-name{font-size:calc(34px * var(--type-scale));line-height:1.1;letter-spacing:-.02em}
+  #screen .view.checkin2 .ci-reading-band{font-size:calc(17px * var(--type-scale));margin-top:4px}
+}
