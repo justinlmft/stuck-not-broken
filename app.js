@@ -6804,7 +6804,7 @@ function app(tab){
     const id = (open.length ? open : ids)[dayN % (open.length || ids.length)];
     let from = 'A place to start';
     if(c && st && JR_PROMPTS[st]){ const t = new Date(c.t || c.created_at), same = t.toDateString() === d0.toDateString();
-      from = 'From your last check-in: ' + STATE_LABEL(st) + ', ' + (same ? t.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : t.toLocaleDateString(undefined, { month:'short', day:'numeric' })); }
+      from = 'Recommended based on your last check-in'; }
     return { id, q:list[ids.indexOf(id)], st: k === 'start' ? null : k, from };
   }
   const _jrYmd = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
@@ -6835,7 +6835,7 @@ function app(tab){
     // the blank page for now: a ready-made prompt from the latest check-in
     const d0 = new Date(), jp = _jrPrompt();
     const nowPage = `<section class="jr-page jr-now" id="jr-nowp" aria-label="A page for now"><div class="jr-date"><span class="jr-eb">Now</span><span class="jr-num">${d0.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d0.getDay()] + ', ' + d0.toLocaleDateString(undefined, { month:'long' }))}</span></div>
-        <div class="jr-entries"><span class="jr-from">${jp.st ? _rdMk(jp.st) : ''}Recommended journal · ${escapeHtml(jp.from)}</span>
+        <div class="jr-entries"><span class="jr-from">${jp.st ? _rdMk(jp.st) : ''}${escapeHtml(jp.from)}</span>
           <label class="jr-q" for="jr-now-ta">${escapeHtml(jp.q)}</label>
           <textarea class="jr-write" id="jr-now-ta" rows="4" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="A word or a sentence is plenty"></textarea>
           <div class="jr-now-foot"><button class="jr-save" id="jr-now-save" type="button" disabled>Save</button></div></div></section>`;
