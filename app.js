@@ -5804,6 +5804,7 @@ function app(tab){
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.lb-feat[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('#ll-browse [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    root.querySelectorAll('#ll-browse .lb-tmore-t').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true'; _pmSlide(b, document.getElementById(b.getAttribute('aria-controls')), o); });
     root.querySelectorAll('#ll-browse .lb-card[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
     root.querySelectorAll('#ll-browse .lb-card[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
     root.querySelectorAll('[data-lbm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lbm; _lmOpen = {}; _lmRedraw(true); });
@@ -5886,10 +5887,27 @@ function app(tab){
     const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
     return `<button class="lb-feat" type="button" data-piece="${escapeHtml(p.id)}"><span class="lb-pic lb-feat-pic" aria-hidden="true">${_rdMk(st || 'safety')}</span><span class="lb-feat-b">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="lb-feat-t">${escapeHtml(p.title)}</span><span class="lb-d">${escapeHtml(_lrnDesc(p))}</span><span class="lb-feat-go">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></button>`;
   }
+  // Topics, shortened (Justin 2026-10-30): five, picked from the contexts the member adds to check-ins, then a general starter
+  // list; "More topics" (+ / -) opens the rest in place.
+  const _LB_CTX_TOPIC = { work:'work', family:'family', friends:'rel', partner:'rel', hobbies:'playcre', spiritual:'meaning', nature:'surround', 'body & movement':'body', rest:'rest', practice:'prac' };
+  const _LB_TOP_START = ['build', 'start', 'read', 'feel', 'rel'];
+  function _lbTopicPick(topics){
+    const n = {};
+    try{ const m = _ctxLoad(); Object.keys(m).forEach(k=>(Array.isArray(m[k]) ? m[k] : []).forEach(c=>{ const t = _LB_CTX_TOPIC[c]; if(t) n[t] = (n[t] || 0) + 1; })); }catch(e){}
+    const pick = Object.keys(n).filter(k=>topics.indexOf(k) >= 0).sort((a, b)=>n[b] - n[a]).slice(0, 5);
+    _LB_TOP_START.concat(topics).forEach(k=>{ if(pick.length < 5 && topics.indexOf(k) >= 0 && pick.indexOf(k) < 0) pick.push(k); });
+    return pick;
+  }
   function _lbTopicsHTML(pills){
     const L = window.Learning, topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
-    return pills ? `<div class="lb-tpills">${topics.map(k=>`<button class="lb-pill" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${escapeHtml(_lrnHubCount(k).replace(/ lessons?$/, ''))}</span></button>`).join('')}</div>`
-      : `<div class="lb-tlist">${topics.map(k=>`<button class="lb-trow" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${escapeHtml(_lrnHubCount(k).replace(/ lessons?$/, ''))}</span></button>`).join('')}</div>`;
+    const pick = _lbTopicPick(topics), rest = topics.filter(k=>pick.indexOf(k) < 0);
+    const n = k => escapeHtml(_lrnHubCount(k).replace(/ lessons?$/, ''));
+    const one = k => pills ? `<button class="lb-pill" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${n(k)}</span></button>`
+      : `<button class="lb-trow" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${n(k)}</span></button>`;
+    const box = pills ? 'lb-tpills' : 'lb-tlist', id = 'lb-tmore-' + (pills ? 'e' : 's');
+    return `<div class="${box}">${pick.map(one).join('')}</div>`
+      + (rest.length ? `<div class="lb-tmore" id="${id}" hidden><div class="${box}">${rest.map(one).join('')}</div></div>
+        <button class="lb-tmore-t" type="button" aria-expanded="false" aria-controls="${id}"><span>More topics</span>${LW_PM(false)}</button>` : '');
   }
   function _lbSoonHTML(){
     const L = window.Learning;

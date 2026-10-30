@@ -5980,3 +5980,13 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 .pp-card.is-soon{background:var(--bone-deep);border-style:dashed}
 .pp-card.is-soon .pp-name,.pp-card.is-soon .pp-price,.pp-card.is-soon .pp-price b{color:var(--muted)}
 .pp-soon{align-self:flex-start;margin:0;padding:4px 12px;border:1px solid var(--hairline);border-radius:999px;font-size:calc(14px * var(--type-scale));font-weight:500;line-height:1.4;color:var(--ink-80)}
+
+/* Learn Topics, shortened (Justin 2026-10-30): five + "More topics" opening the rest in place */
+.lb-tmore{overflow:hidden}
+.lb-tmore > .lb-tlist,.lb-tmore > .lb-tpills{padding-top:0}
+.lb-tmore > .lb-tpills{margin-top:8px}
+.lb-tmore-t{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;margin-top:8px;padding:0;border:0;background:none;color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;text-align:left;cursor:pointer}
+.lb-tmore-t svg.pm{width:20px;height:20px;flex:none;color:var(--link)}
+.lb-tmore-t:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
+.lb-topics-end .lb-tmore-t{width:auto;justify-content:flex-start}
+.lb-top{align-items:start}
