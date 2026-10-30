@@ -4093,7 +4093,7 @@ body.reduce-motion .jr-fmenu{transition:none}
 }
 /* the content starts on column 1, right under the dock, so screens with a dock start their content below it */
 @media (min-width:1120px){
-  #screen:has(> .fl-dock:not(.fl-backonly)) > .scroll > .view{padding-top:calc(max(26px, env(safe-area-inset-top)) + 92px)}
+  #screen:has(> .fl-dock:not(.fl-backonly):not(.fl-plain)) > .scroll > .view{padding-top:calc(max(26px, env(safe-area-inset-top)) + 92px)}
 }
 @media (min-width:1120px){
   /* an opened search field stays in the margin, clear of the column (dock width/2 - 343px = the gap to the column) */
@@ -6013,3 +6013,162 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 
 /* Learn: filtered lessons with no state follow the state blocks (Justin 2026-10-30) */
 .lb-other .lb-grid{margin-bottom:16px}
+
+
+/* ============================================================
+   FOUR SCREENS ON THE SWISS GRID + THE BACK RULE (Justin, canon 2026-10-30; BRAND_DESIGN_SYSTEM §4 "Back",
+   "The Unstucking Pathway", "Pathway lesson", "Challenges", "Challenge prompt", Learn "Card style")
+   ============================================================ */
+/* Back: desktop = a plain link at the top of the page that scrolls away with it; tablet and phone = the bottom bar's arrow */
+.pg-back{display:none}
+@media (min-width:1120px){
+  .fl-dock.fl-plain{display:none}
+  .pg-back{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;min-height:44px;margin:0 0 8px -2px;padding:0 4px 0 0;border:0;background:none;color:var(--muted);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer}
+  .pg-back svg{width:16px;height:16px}
+  .pg-back:hover{color:var(--ink)}
+  .pg-back:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+}
+
+/* Learn card style, shared with Challenges: the picture inset 12px inside the card with its own 12px corners */
+.lb-card{padding:12px 12px 16px;gap:10px}
+.lb-card .lb-pic{border-radius:12px}
+.lb-card .lb-body{padding:0 2px}
+
+/* 1 · The Unstucking Pathway */
+.pl-view.pl-grid{gap:0}
+.pl-grid .pl-lede{margin:8px 0 0}
+.pl-grid > .up-note{margin:16px 0 0}
+.pl-top{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:var(--gap);margin-top:24px;align-items:stretch}
+.pl-up,.pl-pg{grid-column:1 / -1;box-sizing:border-box;min-width:0;padding:24px;border:1px solid var(--hairline);border-radius:16px}
+.pl-up{background:var(--bone-deep);display:flex;flex-direction:column;gap:8px}
+.pl-up .rd-eyeb{margin:0}
+.pl-up-t{margin:0;font-size:calc(22px * var(--type-scale));line-height:1.2;font-weight:600;letter-spacing:-.015em;color:var(--ink);text-wrap:pretty}
+.pl-up-m,.pl-m{display:inline-flex;align-items:center;gap:8px;font-size:calc(14px * var(--type-scale));line-height:20px;color:var(--muted)}
+.pl-up-m{font-size:calc(15px * var(--type-scale))}
+.pl-m .pl-mk,.pl-up-m .pl-mk{display:inline-flex}
+.pl-m .pl-mk svg,.pl-up-m .pl-mk svg{width:18px;height:18px}
+.pl-up-go{margin-top:auto;padding-top:8px;display:flex}
+.pl-cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 28px;border:0;border-radius:999px;background:var(--ink);color:var(--bone);font:inherit;font-size:calc(16px * var(--type-scale));font-weight:500;cursor:pointer}
+.pl-cta .rd-lk{width:16px;height:16px}
+.pl-pg-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.pl-pg-top h2{margin:0;font-size:calc(18px * var(--type-scale));line-height:24px;font-weight:600;color:var(--ink)}
+.pl-pg-top > span{font-size:calc(15px * var(--type-scale));color:var(--muted)}
+.pl-pg{display:flex;flex-direction:column;gap:4px}
+.pl-pg-top{margin-bottom:8px}
+.pl-pg-s{display:flex;flex-direction:column;gap:6px;width:100%;min-height:52px;padding:8px 0;border:0;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.pl-pg-n{display:flex;justify-content:space-between;gap:12px;font-size:calc(15px * var(--type-scale));line-height:20px}
+.pl-pg-n span:last-child{flex:none;color:var(--muted)}
+.pl-pg-s.is-here .pl-pg-n span:first-child{font-weight:600}
+.pl-pg-bar,.pl-sc-bar,.ch-cbar{display:block;height:4px;border-radius:999px;background:var(--hairline);overflow:hidden}
+.pl-pg-bar i,.pl-sc-bar i,.ch-cbar i{display:block;height:100%;border-radius:999px;background:var(--ink)}
+.pl-pg-s:focus-visible,.pl-cta:focus-visible,.pl-sc-h:focus-visible,.pl-sc-r:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
+@media (min-width:720px){
+  .pl-up{grid-column:1 / span 7}
+  .pl-pg{grid-column:8 / span 5}
+  .pl-top-solo .pl-pg{grid-column:1 / span 7}
+}
+@media (min-width:1120px){ .pl-up-t{font-size:calc(28px * var(--type-scale))} }
+.pl-stages{display:flex;gap:8px;margin:32px calc(-1 * var(--pad-x)) 0;padding:2px var(--pad-x);overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.pl-stages::-webkit-scrollbar{display:none}
+@media (min-width:720px){ .pl-stages{margin-inline:0;padding-inline:0;flex-wrap:wrap;overflow:visible} }
+.pl-showrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px}
+.pl-showrow .rd-eyeb{margin:0 4px 0 0}
+.pl-grid .pl-sec{gap:0;margin-top:32px}
+.pl-grid .pl-sec h2{margin:0 0 8px;font-size:calc(24px * var(--type-scale));line-height:32px}
+.pl-list{margin:0;padding:0;list-style:none}
+.pl-li{border-bottom:1px solid var(--hairline)}
+.pl-list .pl-row{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:2px 16px;align-items:center;min-height:56px;padding:12px 0}
+.pl-list .pl-t{grid-column:1 / -1;display:block;font-size:calc(16px * var(--type-scale));line-height:22px;font-weight:400;color:var(--ink);text-wrap:pretty}
+.pl-list .pl-row.is-next .pl-t{font-weight:600}
+.pl-list .pl-st{display:inline-flex;align-items:center;gap:6px;font-size:calc(14px * var(--type-scale));line-height:20px;color:var(--muted)}
+.pl-list .pl-st .rd-lk{width:13px;height:13px}
+.pl-list .pl-ck,.pl-sc .pl-ck{width:auto;height:auto;background:none;color:var(--muted)}
+.pl-list .pl-ck svg{width:14px;height:14px}
+.pl-list .pl-nx{width:10px;height:10px;border:0;background:var(--ink)}
+.pl-li .pl-pick{margin:0 0 12px}
+@media (min-width:720px){
+  .pl-list .pl-row{grid-template-columns:minmax(0,1fr) 150px 180px}
+  .pl-list .pl-t{grid-column:auto}
+}
+@media (min-width:1120px){ .pl-grid .pl-list{max-width:calc((100% - 11 * var(--gap)) * 9 / 12 + 8 * var(--gap))} }
+
+/* 2 · Pathway lesson + quiz: Complete under the title, normal width (full on a phone); desktop: lesson 1-8, This stage 9-12 */
+.pl-lesson .pl-foot{padding-top:8px;align-items:stretch}
+.pl-foot p{text-align:left;font-size:calc(14px * var(--type-scale));line-height:20px}
+.pl-lesson .pl-body{margin-top:16px}
+.pl-done{min-height:48px;font-size:calc(16px * var(--type-scale))}
+@media (min-width:720px){
+  .pl-lesson .pl-foot{align-items:flex-start}
+  .pl-done{width:auto;padding:0 32px}
+  .pl-quiz .pl-done{align-self:flex-start}
+}
+.pl-sc{display:none}
+@media (min-width:1120px){
+  .pl-lgrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gap);align-items:start}
+  .pl-lgrid > .pl-lesson,.pl-lgrid > .pl-quiz{grid-column:1 / span 8;min-width:0}
+  .pl-sc{display:block;grid-column:9 / span 4;position:sticky;top:24px;box-sizing:border-box;padding:24px;border:1px solid var(--hairline);border-radius:16px}
+}
+.pl-sc-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.pl-sc-top > span{flex:none;font-size:calc(14px * var(--type-scale));color:var(--muted)}
+.pl-sc-h{padding:0;border:0;background:none;color:var(--ink);font:inherit;font-size:calc(16px * var(--type-scale));line-height:22px;font-weight:600;text-align:left;cursor:pointer;text-decoration:underline;text-decoration-color:var(--hairline);text-underline-offset:3px}
+.pl-sc-h:hover{text-decoration-color:var(--ink)}
+.pl-sc-bar{margin-top:10px}
+.pl-sc-list{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column}
+.pl-sc-r{display:grid;grid-template-columns:16px minmax(0,1fr);column-gap:12px;align-items:start;width:100%;padding:8px 0;border:0;background:none;color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));line-height:20px;text-align:left;cursor:pointer}
+.pl-sc-r.is-done{color:var(--muted)}
+.pl-sc-r.is-here{font-weight:600;cursor:default}
+.pl-sc-i{display:inline-flex;justify-content:center;padding-top:2px;color:var(--muted)}
+.pl-sc-dot{width:10px;height:10px;margin-top:3px;border-radius:999px;background:var(--ink)}
+.pl-sc-t{display:flex;flex-direction:column;min-width:0}
+.pl-sc-t span:last-child{font-size:calc(13px * var(--type-scale));line-height:18px;font-weight:400;color:var(--muted)}
+
+/* 3 · Challenges: one page, Learn's cards, big card 6 x 2, the rest 3; detail in the 9-12 panel on desktop */
+.ch-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ch-home .ch-intro{max-width:60ch}
+.ch-grid{margin-top:16px}
+.ch-card .lb-t{font-size:calc(16px * var(--type-scale));line-height:22px}
+.ch-card.lb-big .lb-t{font-size:calc(20px * var(--type-scale));line-height:1.25}
+.ch-card .lb-d{font-size:calc(16px * var(--type-scale))}
+.ch-card .lb-meta{gap:4px 6px}
+.ch-cst{color:var(--ink);font-weight:500}
+.ch-cfin{display:inline-flex;color:var(--ink)}
+.ch-cfin svg{width:14px;height:14px}
+.ch-card.is-sel{border-color:var(--ink);background:var(--bone-deep)}
+@media (min-width:720px){ .ch-card.lb-big .lb-t{font-size:calc(24px * var(--type-scale))} }
+#ch-sh-go .rd-lk{width:16px;height:16px}
+@media (min-width:1120px){
+  .ch-home.ch-split{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gap);align-items:start}
+  .ch-home.ch-split > .ch-main{grid-column:1 / span 8}
+  .ch-home.ch-split .ch-grid{grid-template-columns:repeat(8,minmax(0,1fr))}
+  .ch-home.ch-split .lb-card{grid-column:span 2}
+  .ch-home.ch-split .lb-big{grid-column:span 4}
+  .ch-home.ch-split .lb-card:not(.lb-big) .lb-t{font-size:calc(15px * var(--type-scale));overflow-wrap:break-word;hyphens:auto}
+  .ch-panel{grid-column:9 / span 4;grid-row:1;align-self:start;position:sticky;top:24px;box-sizing:border-box;max-height:calc(100dvh - 48px);overflow:auto;padding:24px;border:1px solid var(--hairline);border-radius:16px;background:var(--bone);display:flex;flex-direction:column;transition:opacity .22s var(--ease),transform .22s var(--ease)}
+  .ch-panel.ch-pin{opacity:0;transform:translateY(6px)}
+  .ch-panel .ch-sh-head{padding:0;align-items:flex-start}
+  .ch-panel .ch-sh-h{font-size:calc(22px * var(--type-scale));line-height:30px;font-weight:600;letter-spacing:-.015em}
+  .ch-panel .p8-x{margin:-6px -6px 0 0}
+  .ch-panel .ch-sh-body{padding:12px 0 0;overflow:visible}
+  .ch-panel .ch-sh-foot{padding:24px 0 0}
+}
+@media (prefers-reduced-motion:reduce){ .ch-panel{transition:none} }
+
+/* 4 · Challenge prompt: one bordered card (no grey fill), Complete flush left, the journal open on 9-12 on desktop */
+.ch-pmain{display:flex;flex-direction:column;gap:16px;min-width:0}
+.ch-prompt .ch-box{background:none;border:1px solid var(--hairline);border-radius:16px;padding:24px;gap:12px;font-size:calc(17px * var(--type-scale));line-height:1.6}
+.ch-prompt .ch-box p{color:var(--ink-80)}
+.ch-prompt .ch-box p.ch-q{color:var(--ink)}
+.ch-complete{margin-top:16px}
+.ch-complete + .ch-fine{margin-top:-8px;font-size:calc(14px * var(--type-scale));line-height:20px}
+@media (min-width:720px){ .ch-complete{width:auto;align-self:flex-start;padding:0 32px} }
+.ch-jside{box-sizing:border-box;padding:24px;border:1px solid var(--hairline);border-radius:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.ch-jside-h{display:inline-flex;align-items:center;gap:8px;font-size:calc(17px * var(--type-scale));font-weight:600;color:var(--ink)}
+.ch-jside-h svg{width:16px;height:16px}
+.ch-jside-q{font-size:calc(15px * var(--type-scale));line-height:22px;color:var(--ink-80)}
+.ch-jside .rd-refl-in{width:100%;box-sizing:border-box;min-height:168px}
+.ch-jside-where{margin:0;font-size:calc(13px * var(--type-scale));line-height:18px;color:var(--muted)}
+@media (min-width:1120px){
+  .ch-prompt.ch-split{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--gap);align-items:start}
+  .ch-prompt.ch-split > .ch-pmain{grid-column:1 / span 8}
+  .ch-prompt.ch-split > .ch-jside{grid-column:9 / span 4;position:sticky;top:24px}
+}

@@ -5623,13 +5623,16 @@ function app(tab){
     // link is gone (2026-10-02: "can go away. Instead the pop up back button is available"). Back and Search sit together
     // on the left; when Search opens it pushes Back out of the way.
     const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
+    // the Back rule (Justin, canon 2026-10-30): desktop = a plain "Back" link at the top of the page that scrolls with it, never
+    // a floating pill; tablet and phone = the bottom bar's back arrow only (the dock below, hidden on desktop for these screens)
+    const plainBack = opts.onBack && opts.plainBack ? `<button class="pg-back" id="pg-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
     // Learn search (Justin, 2026-10-02: "I don't want a search bar at the top. Make it a pop-up menu item, just like the back
     // button is ... just the magnifying glass that expands when tapped")
     const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
       <header class="appbar read-appbar"></header>
-      <div class="scroll"><div class="view read rd${opts.wide ? ' ll-wide' : ''}" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${inner}</div></div>
-      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock${opts.crumb && tabBack && !sFloat && !opts.dock ? ' fl-backonly' : ''}" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
+      <div class="scroll"><div class="view read rd${opts.wide ? ' ll-wide' : ''}" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${plainBack}${inner}</div></div>
+      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock${opts.crumb && tabBack && !sFloat && !opts.dock ? ' fl-backonly' : ''}${plainBack && !sFloat && !opts.dock ? ' fl-plain' : ''}" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     if(opts.onBack) document.body.classList.add('rd-sub');
@@ -5637,6 +5640,7 @@ function app(tab){
     _rdTrackScroll();
     $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const tb = $('#tab-back'); if(tb && opts.onBack) tb.onclick = opts.onBack;
+    const pb = $('#pg-back'); if(pb && opts.onBack) pb.onclick = opts.onBack;
     if(opts.crumb){ document.body.classList.add('rd-crumbs');
       root.querySelectorAll('[data-crumb]').forEach(b=>b.onclick=e=>{ e.preventDefault(); const k = b.dataset.crumb; if(k === 'back'){ if(opts.onBack) opts.onBack(); return; } const p = opts.crumb[+k]; if(p && p.go) p.go(); }); }
   }
@@ -11476,6 +11480,7 @@ function app(tab){
     const day = new Date().toISOString().slice(0, 10);
     try{ if(Store.saveContexts) Store.saveContexts('ls:' + id, 'done', [day]); else { const m = _ctxLoad(); m['ls:' + id] = [day]; _ctxSave(m); } }catch(e){}
   }
+  let _plStage = null, _plJump = false;   // the stage shown (one at a time); null = the stage the person is in
   function _plView(){ let v = null; try{ v = localStorage.getItem(PL_VIEW); }catch(e){} return v === 'lessons' || v === 'practices' ? v : 'both'; }
   function _plLen(sec){ if(!sec) return ''; const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   // a lesson's skill → the practice step it teaches
@@ -11515,53 +11520,66 @@ function app(tab){
     const back = () => app('practice');
     const M = _upModel();
     if(!M || !_plData){
-      _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="pl-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+      _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="pl-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' }, wide:true, plainBack:true });
       Promise.all([_plLoad(), Promise.resolve(Store.sequenceReady ? Store.sequenceReady() : false)]).then(() => {
         const w = document.getElementById('pl-wait'); if(!w) return;
         if(_upModel() && _plData) screenPathway(); else w.textContent = "The pathway didn't load. Check your connection and try again.";
       }).catch(() => { const w = document.getElementById('pl-wait'); if(w) w.textContent = "The pathway didn't load. Check your connection and try again."; });
       return;
     }
+    // ── on the Swiss grid (Justin, canon 2026-10-30): Up next (1-7) + Your progress (8-12), stage pills (one stage at a time),
+    // Show as flat pills, then the stage's steps as one path in its real order, rows with thin dividers on 1-9; no floating Continue
     const view = _plView(), all = _plRows(_plData, M);
     const keep = x => view === 'both' || (view === 'lessons' ? x.type === 'lesson' : x.type === 'practice');
-    let total = 0, done = 0, firstOpen = null;
-    all.forEach(sec => sec.filter(keep).forEach(x => { total++; if(x.done) done++; else if(!firstOpen && !(x.type === 'practice' && (x.it.locked || x.it.st === 'paid'))) firstOpen = x; }));
-    const pct = total ? Math.round(done / total * 100) : 0;
-    const CK = '<span class="pl-ck" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
-    const PLAY = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>';
-    const rowHtml = (x, s) => {
+    let firstOpen = null, firstStage = -1, tot = 0, dn = 0;
+    const sp = all.map(sec => { let t = 0, d = 0; sec.forEach(x => { t++; if(x.done) d++; }); tot += t; dn += d; return t ? Math.round(d / t * 100) : 0; });
+    all.forEach((sec, s) => sec.filter(keep).forEach(x => { if(!firstOpen && !x.done && !(x.type === 'practice' && (x.it.locked || x.it.st === 'paid'))){ firstOpen = x; firstStage = s; } }));
+    const pct = tot ? Math.round(dn / tot * 100) : 0;
+    const here = firstStage >= 0 ? firstStage : Math.max(0, sp.findIndex(v => v < 100));
+    if(_plStage == null || !all[_plStage] || !all[_plStage].length) _plStage = here;
+    const cur = _plStage;
+    const stName = s => _plData.stages[s] || '', stShort = s => stName(s).split(':')[0];
+    const CK = '<span class="pl-ck" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+    const NX = '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>';
+    const metaOf = x => x.type === 'lesson'
+      ? escapeHtml(PL_KIND[x.row.k] || 'Lesson') + (x.row.v ? ' · ' + _plLen(x.row.d) : x.row.q ? ' · ' + x.row.q.length + ' questions' : '')
+      : `<span class="pl-mk">${x.it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(x.it, def)}</span>Practice`;
+    const rowHtml = x => {
+      let title, st, attrs, isNext = false, pick = '';
       if(x.type === 'lesson'){
         const r = x.row, locked = !M.paid;
-        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>See paid plans</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
-        return `<button class="pl-row" type="button" data-pl="${r.id}" style="--pl-tint:${PL_TINT[s]}">
-          <span class="pl-tile"><b>${escapeHtml(PL_KIND[r.k] || 'Lesson')}</b><span>${r.v ? PLAY + ' ' + _plLen(r.d) : r.q ? r.q.length + ' questions' : ''}</span></span>
-          <span class="pl-t"><b>${escapeHtml(r.t)}</b>${meta ? `<span class="pl-st">${meta}</span>` : ''}</span></button>`;
+        isNext = !x.done && !locked && firstOpen === x;
+        st = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>See paid plans</span>' : isNext ? NX : '';
+        attrs = `data-pl="${r.id}"`; title = r.t;
+      } else {
+        const it = x.it, id = it.kind + '|' + it.key;
+        isNext = !x.done && it.st !== 'paid' && (it.st === 'now' || firstOpen === x);
+        st = it.st === 'paid' ? LOCK_SVG + '<span>See paid plans</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
+          : isNext ? NX : it.locked ? '<span>' + escapeHtml(it.locked) + '</span>' : '';
+        if(it.kind === 'anchorpick' && M.paid && (!M.anchorSet || _upPickOpen)){
+          const opts = [{ v:'auto', t:'Let the app find my best one' }].concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k) })));
+          pick = `<div class="pl-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button type="button" role="radio" aria-checked="${M.anchorMode === o.v ? 'true' : 'false'}" data-pick="${o.v}">${escapeHtml(o.t)}</button>`).join('')}</div>`;
+        }
+        attrs = `data-k="practice" data-up="${escapeHtml(id)}"${it.locked ? ' data-locked="1"' : ''}`; title = it.title;
       }
-      const it = x.it, id = it.kind + '|' + it.key;
-      const words = it.st === 'paid' ? LOCK_SVG + '<span>See paid plans</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
-        : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? '<span>' + escapeHtml(it.locked) + '</span>' : '';
-      const mark = it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(it, def);
-      let pick = '';
-      if(it.kind === 'anchorpick' && M.paid && (!M.anchorSet || _upPickOpen)){
-        const opts = [{ v:'auto', t:'Let the app find my best one' }].concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k) })));
-        pick = `<div class="pl-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button type="button" role="radio" aria-checked="${M.anchorMode === o.v ? 'true' : 'false'}" data-pick="${o.v}">${escapeHtml(o.t)}</button>`).join('')}</div>`;
-      }
-      return `<button class="pl-row" type="button" data-k="practice" data-up="${escapeHtml(id)}"${it.locked ? ' data-locked="1"' : ''} style="--pl-tint:${PL_TINT[s]}">
-        <span class="pl-tile"><b>Practice</b><span class="pl-mk">${mark}</span></span>
-        <span class="pl-t"><b>${escapeHtml(it.title)}</b>${words ? `<span class="pl-st">${words}</span>` : ''}</span></button>${pick}`;
+      return `<li class="pl-li"><button class="pl-row${isNext ? ' is-next' : ''}" type="button" ${attrs}><span class="pl-t">${escapeHtml(title)}</span><span class="pl-m">${metaOf(x)}</span><span class="pl-st">${st}</span></button>${pick}</li>`;
     };
-    const secs = all.map((sec, s) => {
-      const rows = sec.filter(keep);
-      const body = rows.length ? rows.map(x => rowHtml(x, s)).join('') : (sec.length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
-      return body ? `<section class="pl-sec"><h2>${escapeHtml(_plData.stages[s])}</h2>${body}</section>` : '';
-    }).join('');
-    const tabs = [['both','Both'],['lessons','Lessons'],['practices','Practices']].map(([k, l]) => `<button type="button" data-view="${k}" aria-pressed="${view === k ? 'true' : 'false'}">${l}</button>`).join('');
-    _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
+    const rows = all[cur].filter(keep);
+    const body = rows.length ? `<ol class="pl-list" aria-label="${escapeHtml(stName(cur))}">${rows.map(rowHtml).join('')}</ol>` : (all[cur].length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
+    const upLocked = firstOpen && firstOpen.type === 'lesson' && !M.paid;
+    const up = firstOpen ? `<article class="pl-up" aria-label="Up next"><span class="rd-eyeb">Up next · ${escapeHtml(stShort(firstStage))}</span>
+        <h2 class="pl-up-t">${escapeHtml(firstOpen.type === 'lesson' ? firstOpen.row.t : firstOpen.it.title)}</h2><span class="pl-up-m">${metaOf(firstOpen)}</span>
+        <div class="pl-up-go"><button class="pl-cta" type="button" data-go="1">${upLocked ? LOCK_SVG + '<span>See paid plans</span>' : 'Continue'}</button></div></article>` : '';
+    const prog = `<section class="pl-pg" aria-labelledby="pl-pg-h"><div class="pl-pg-top"><h2 id="pl-pg-h">Your progress</h2><span>${pct}%</span></div>
+        ${all.map((sec, s) => sec.length ? `<button class="pl-pg-s${s === here ? ' is-here' : ''}" type="button" data-stage="${s}" data-jump="1"><span class="pl-pg-n"><span>${escapeHtml(stName(s))}</span><span>${sp[s]}%</span></span><span class="pl-pg-bar" aria-hidden="true"><i style="width:${sp[s]}%"></i></span></button>` : '').join('')}</section>`;
+    const pills = all.map((sec, s) => sec.length ? `<button class="lb-pill${s === cur ? ' on' : ''}" type="button" role="tab" aria-selected="${s === cur ? 'true' : 'false'}" data-stage="${s}">${escapeHtml(stShort(s))}</button>` : '').join('');
+    const tabs = [['both','Both'],['lessons','Lessons'],['practices','Practices']].map(([k, l]) => `<button class="lb-pill${view === k ? ' on' : ''}" type="button" data-view="${k}" aria-pressed="${view === k ? 'true' : 'false'}">${l}</button>`).join('');
+    _rdShell(`<div class="pl-view pl-grid"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
       <p class="pl-lede">Lessons and practices, one small step at a time.</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
-      <div class="pl-prog"><div class="pl-prog-top"><b>Your progress</b><span>${pct}%</span></div><div class="pl-bar"><i style="width:${pct}%"></i></div></div>
-      <div class="pl-showwrap"><span class="rd-eyeb">Show</span><div class="pl-show" role="group" aria-label="Show on the Pathway">${tabs}</div></div>
-      ${secs}
-      ${firstOpen ? '<button class="pl-go" type="button" data-go="1">Continue</button>' : ''}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+      <div class="pl-top${up ? '' : ' pl-top-solo'}">${up}${prog}</div>
+      <div class="pl-stages" role="tablist" aria-label="Stages">${pills}</div>
+      <div class="pl-showrow" role="group" aria-label="Show on the Pathway"><span class="rd-eyeb">Show</span>${tabs}</div>
+      <section class="pl-sec"><h2>${escapeHtml(stName(cur))}</h2>${body}</section></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' }, wide:true, plainBack:true });
     const v = root.querySelector('.pl-view'); if(!v) return;
     const openPractice = it => {
       if(it.kind === 'anchorpick'){ if(!M.paid) return gateSubscribe('practice'); _upPickOpen = !_upPickOpen || !M.anchorSet; _upKeep(); return screenPathway(); }
@@ -11572,9 +11590,13 @@ function app(tab){
     v.onclick = e => {
       const tv = e.target.closest('[data-view]');
       if(tv){ try{ localStorage.setItem(PL_VIEW, tv.dataset.view); }catch(err){} try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
+      const sg = e.target.closest('[data-stage]');
+      if(sg){ _plStage = +sg.dataset.stage; _plJump = !!sg.dataset.jump; try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
       const pk = e.target.closest('[data-pick]');
       if(pk){ _upPickOpen = false; return _upSetAnchor(pk.dataset.pick === 'auto' ? null : pk.dataset.pick); }
       if(e.target.closest('[data-go]') && firstOpen){
+        if(upLocked) return gateSubscribe('practice');
+        _plStage = firstStage;
         if(firstOpen.type === 'lesson'){ _upKeep(); return screenPathLesson(firstOpen.row.id); }
         return openPractice(firstOpen.it);
       }
@@ -11586,12 +11608,37 @@ function app(tab){
     };
     const sc = root.querySelector('.scroll');
     if(sc && _upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
+    if(_plJump){ _plJump = false; requestAnimationFrame(() => { const st = root.querySelector('.pl-stages'); if(st && st.getBoundingClientRect().top > innerHeight * .6) st.scrollIntoView({ block:'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }); }
   }
   // the order lessons are walked in: the same rows as the list, lessons only
   function _plNext(id){
     if(!_plData) return null;
     const i = _plData.rows.findIndex(r => r.id === id);
     return i >= 0 && i < _plData.rows.length - 1 ? _plData.rows[i + 1] : null;
+  }
+  // "This stage" (desktop 9-12, Justin canon 2026-10-30): the stage name (back to that stage), its %, a thin bar, and the steps
+  // around this one: done ones checked and muted, this one bold with an ink dot, the next few; each one opens
+  function _plStageCard(s, id){
+    let rows = null; try{ const M = _upModel(); if(M) rows = _plRows(_plData, M)[s]; }catch(e){ rows = null; }
+    if(!rows) rows = _plData.rows.filter(r => r.s === s).map(r => ({ type:'lesson', row:r, done:_plIsDone(r.id) }));
+    const t = rows.length, d = rows.filter(x => x.done).length, pct = t ? Math.round(d / t * 100) : 0;
+    const i = rows.findIndex(x => x.type === 'lesson' && x.row.id === id);
+    const from = Math.max(0, i - 2), to = Math.min(rows.length, Math.max(i, 0) + 5);
+    const CK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    const items = rows.slice(from, to).map((x, j) => {
+      const me = from + j === i, les = x.type === 'lesson';
+      const tt = les ? x.row.t : x.it.title, mm = les ? escapeHtml(PL_KIND[x.row.k] || 'Lesson') + (x.row.v ? ' · ' + _plLen(x.row.d) : x.row.q ? ' · ' + x.row.q.length + ' questions' : '') : 'Practice';
+      return `<li><button class="pl-sc-r${me ? ' is-here' : x.done ? ' is-done' : ''}" type="button" ${les ? `data-sl="${x.row.id}"` : 'data-sp="1"'}${me ? ' aria-current="step"' : ''}><span class="pl-sc-i">${me ? '<span class="pl-sc-dot"></span>' : x.done ? CK : ''}</span><span class="pl-sc-t"><span>${escapeHtml(tt)}</span><span>${mm}</span></span></button></li>`;
+    }).join('');
+    return `<aside class="pl-sc" aria-label="This stage"><div class="pl-sc-top"><button class="pl-sc-h" type="button" data-sg="1">${escapeHtml(_plData.stages[s] || '')}</button><span>${pct}%</span></div><span class="pl-sc-bar" aria-hidden="true"><i style="width:${pct}%"></i></span><ol class="pl-sc-list">${items}</ol></aside>`;
+  }
+  function _plStageWire(s, id){
+    const el = root.querySelector('.pl-sc'); if(!el) return;
+    el.onclick = e => {
+      const b = e.target.closest('button'); if(!b || b.classList.contains('is-here')) return;
+      if(b.dataset.sl){ const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; return screenPathLesson(+b.dataset.sl); }
+      _plStage = s; screenPathway();
+    };
   }
   function screenPathLesson(id){
     if(!_plData){ _plLoad().then(() => screenPathLesson(id)); return; }
@@ -11603,12 +11650,15 @@ function app(tab){
     const hls = sid && _plHls() ? mp4.replace('/downloads/default.mp4', '/manifest/video.m3u8') : '';   // adaptive stream (quality follows the signal), captions ride inside it
     const trk = sid ? `<track kind="captions" srclang="en" label="English" src="pathway/captions/${sid}.vtt">` : '';
     const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${sid ? ` poster="${escapeHtml(mp4.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(hls || mp4)}">${hls ? '' : trk}</video></div><p class="pl-verr" hidden>Couldn't load the video. <button type="button" class="pl-vretry">Try again</button></p>` : '';
-    _rdShell(`<div class="pl-lesson">${video}
+    // Complete sits right under the title, "Next: ..." under it, then the reading (Justin, canon 2026-10-30: "the reading is optional,
+    // so don't make someone scroll"); desktop: the lesson on 1-8, "This stage" on 9-12
+    _rdShell(`<div class="pl-lgrid"><div class="pl-lesson">${video}
       <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
       <h1 class="rd-title">${escapeHtml(r.t)}</h1>
-      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div>
-      <div class="pl-foot"><button class="pl-done" type="button" id="pl-done">Done</button>${nx ? `<p>Next: ${escapeHtml(nx.t)}</p>` : ''}</div></div>`,
-      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+      <div class="pl-foot"><button class="pl-done" type="button" id="pl-done">Complete</button>${nx ? `<p>Next: ${escapeHtml(nx.t)}</p>` : ''}</div>
+      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div></div>${_plStageCard(r.s, r.id)}</div>`,
+      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' }, wide:true, plainBack:true });
+    _plStageWire(r.s, r.id);
     const ve = root.querySelector('.pl-video'), ver = root.querySelector('.pl-verr');
     if(ve){   // stream fails -> fall back to the plain file (with its caption track); that fails too -> a calm "Try again"
       ve.addEventListener('error', () => {
@@ -11639,12 +11689,13 @@ function app(tab){
       <span class="rd-eyeb">${escapeHtml(r.t)}</span><h1 class="rd-title">${escapeHtml(Q.q)}</h1>
       <div class="pl-opts" role="group">${opts}</div>
       <p class="pl-sr" aria-live="polite"></p>
-      <button class="pl-done" type="button" id="pl-next" disabled>${last ? 'Done' : 'Next question'}</button>`;
+      <button class="pl-done" type="button" id="pl-next" disabled>${last ? 'Complete' : 'Next question'}</button>`;
   }
   function screenPathQuiz(r){
     let qi = 0, got = false;
     const nx = _plNext(r.id);
-    _rdShell(`<div class="pl-quiz">${_plQuizQ(r, 0)}</div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+    _rdShell(`<div class="pl-lgrid"><div class="pl-quiz">${_plQuizQ(r, 0)}</div>${_plStageCard(r.s, r.id)}</div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' }, wide:true, plainBack:true });
+    _plStageWire(r.s, r.id);
     const v = root.querySelector('.pl-quiz'); if(!v) return;
     v.onclick = e => {
       const o = e.target.closest('[data-opt]');
@@ -12191,52 +12242,43 @@ function app(tab){
   function _chNowReady(){ try{ if(!paidNow()) return null; const a = _chActive(); return a && a.ready ? a : null; }catch(e){ return null; } }
   function _chNowHTML(a){ const p = a.c.prompts[a.done]; return `<span class="mh-bt-txt"><span class="mh-bt-eb">Your challenge</span><span class="mh-bt-what">${escapeHtml(a.c.name + ': ' + _chTopic(p.topic))}</span></span><span class="mh-bt-go" aria-hidden="true">${CHEV}</span>`; }
 
-  // ---- 1 · Challenges ----
+  // ---- 1 · Challenges: one page for all of them, laid out like Learn (Justin, canon 2026-10-30) ----
+  // One card style (Learn's: picture inset in the card), the challenge in progress (else the recommended one) as the big card
+  // with its description, the rest in the suggested order, finished ones at the end. The All challenges page is folded in.
+  const _chWideMQ = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  function _chStatus(s, x){
+    if(x.paid && x.a && s.id === x.a.id) return { t:'In progress', strong:true };
+    if(x.paid && s.started) return { t:'Paused · day ' + (s.done + 1) + ' of ' + s.c.days };
+    if(s.finished) return { t:'Finished', fin:true };
+    if(s.id === x.rec) return { t:x.T.badge, strong:true };
+    if(s.c.after && x.by[s.c.after] && !x.by[s.c.after].runs) return { t:'Best after ' + x.by[s.c.after].c.name };
+    return null;
+  }
+  function _chCardHTML(s, big, x){
+    const st = _chStatus(s, x), dot = '<span aria-hidden="true">·</span>';
+    const meta = (st && st.fin ? `<span class="ch-cfin">${_CH_CHECK}</span>` : '') + `<span>${escapeHtml(_chDaysWord(s.c))}</span>`
+      + (st ? dot + `<span${st.strong ? ' class="ch-cst"' : ''}>${escapeHtml(st.t)}</span>` : '')
+      + (x.paid ? '' : dot + `<span class="lb-lk">${LOCK_SVG}See paid plans</span>`);
+    const bar = big && x.paid && x.a && s.id === x.a.id ? `<span class="ch-cbar" aria-hidden="true"><i style="width:${Math.round(s.done / s.c.days * 100)}%"></i></span>` : '';
+    return `<button class="lb-card ch-card${big ? ' lb-big' : ''}" type="button" data-ch="${s.id}" aria-pressed="false"><span class="lb-pic" aria-hidden="true"></span><span class="lb-body"><span class="lb-t">${escapeHtml(s.c.name)}</span>${big ? `<span class="lb-d">${escapeHtml(s.c.desc)}</span>` : ''}${bar}<span class="lb-meta">${meta}</span></span></button>`;
+  }
   function screenChallenges(){
     const S = _CH(); if(!S) return app('practice');
     const paid = paidNow(), T = S.T;
-    const a = paid ? _chActive() : null;
-    const paused = paid ? _chAll().filter(s=>s.started && (!a || s.id !== a.id)) : [];
-    const sug = _chSuggested().slice(0, 4);
-    const lock = paid ? '' : LOCK_SVG + 'See paid plans · ';
-    const cur = a ? `<button class="ch-cur" type="button" data-ch="${a.id}" data-go="${a.ready ? 'prompt' : 'sheet'}"><span class="ch-cur-top"><b>${escapeHtml(a.c.name)}</b><span>In progress</span></span>${_chBar(a)}<span class="ch-cur-sub">${escapeHtml(_chNextLine(a))}</span></button>` : '';
-    const pausedHTML = paused.map(s=>`<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>Paused · day ${s.done + 1} of ${s.c.days}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
-    const cards = sug.map((s, i)=> i === 0
-      ? `<button class="ch-rec" type="button" data-ch="${s.id}" aria-label="${escapeHtml(T.badge + ': ' + s.c.name + ', ' + _chDaysWord(s.c))}"><span class="ch-rec-t"><span class="ch-rec-eb">${_CH_STAR}${escapeHtml(T.badge)}</span><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))}</span></span><span class="ch-rec-go" aria-hidden="true">${CHEV}</span></button>`
-      : `<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t ch-row-in"><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
-    _rdShell(`<div class="ch-view">
+    const all = _chAll(), by = {}; all.forEach(s=>by[s.id] = s);
+    const a = paid ? _chActive() : null, sug = _chSuggested(), rec = sug[0] ? sug[0].id : null;
+    const lead = a || (rec && by[rec]) || all.find(s=>!s.finished) || all[0];
+    const rest = all.filter(s=>s !== lead && !s.finished).concat(all.filter(s=>s !== lead && s.finished));
+    const x = { paid, a, rec, by, T };
+    _rdShell(`<div class="ch-view ch-home"><div class="ch-main">
         <h1 class="rd-title ch-h1">Challenges</h1>
         <p class="ch-intro">${escapeHtml(T.intro)}</p>
-        ${cur}${pausedHTML}
-        ${cards ? `<span class="ch-lbl">${escapeHtml(T.more)}</span><div class="ch-list">${cards}</div>` : ''}
-        <button class="ch-pill-o" type="button" id="ch-all">${escapeHtml(T.seeAll)}${CHEV}</button>
-      </div>`, { back:'Practice', onBack:()=>app('practice'), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+        <div class="lb-grid ch-grid">${lead ? [lead].concat(rest).map((s, i)=>_chCardHTML(s, i === 0, x)).join('') : ''}</div>
+      </div></div>`, { back:'Practice', onBack:()=>app('practice'), tab:'practice', loc:{ k:'tab', tab:'practice' }, wide:true, plainBack:true });
     _chWire(screenChallenges);
-    const al = $('#ch-all'); if(al) al.onclick = ()=>screenChallengesAll();
   }
-  // ---- 1a · All challenges: open first in the order, finished at the bottom ----
-  function screenChallengesAll(){
-    const S = _CH(), T = S.T, paid = paidNow();
-    const all = _chAll(), sug = _chSuggested(), rec = sug[0] ? sug[0].id : null, a = paid ? _chActive() : null, by = {};
-    all.forEach(s=>by[s.id] = s);
-    const lock = paid ? '' : LOCK_SVG + 'See paid plans · ';
-    const sub = s => {
-      const bits = [_chDaysWord(s.c)];
-      if(paid && a && s.id === a.id) bits.push('In progress');
-      else if(paid && s.started) bits.push('Paused');
-      else if(s.id === rec) bits.push(T.badge);
-      else if(s.c.after && by[s.c.after] && !by[s.c.after].runs) bits.push('Best after ' + by[s.c.after].c.name);
-      return lock + escapeHtml(bits.join(' · '));
-    };
-    const open = all.filter(s=>!s.finished), fin = all.filter(s=>s.finished);
-    _rdShell(`<div class="ch-view">
-        <h1 class="rd-title ch-h1">All challenges</h1>
-        <p class="ch-intro">In the suggested order. Start any of them, any time.</p>
-        <div class="ch-list">${open.map(s=>`<button class="ch-row ch-row-open" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>${sub(s)}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('')}</div>
-        ${fin.length ? `<span class="ch-lbl">FINISHED</span><div class="ch-list">${fin.map(s=>`<button class="ch-row ch-row-done" type="button" data-ch="${s.id}"><span class="ch-check">${_CH_CHECK}</span><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))} · your notes are in your journal</span></span><span class="ch-chev">${CHEV}</span></button>`).join('')}</div>` : ''}
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
-    _chWire(screenChallengesAll);
-  }
+  // the All challenges page is folded into Challenges (Justin, canon 2026-10-30)
+  function screenChallengesAll(){ return screenChallenges(); }
   function _chWire(back){
     root.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{
       const id = b.dataset.ch;
@@ -12245,7 +12287,8 @@ function app(tab){
     });
   }
 
-  // ---- 1b · the detail sheet ----
+  // ---- 1b · the detail: the 9-12 panel on desktop, the bottom sheet elsewhere ----
+  let _chKey = null, _chSel = null, _chMQ = null;
   function openChSheet(id, back){
     const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
     const paid = paidNow(), c = s.c, a = paid ? _chActive() : null, by = {}; _chAll().forEach(x=>by[x.id] = x);
@@ -12258,9 +12301,9 @@ function app(tab){
     if(c.ways) lines.push(`<p class="ch-sh-p">${escapeHtml(c.waysIntro)}</p><ul class="ch-ways">${c.ways.map(w=>`<li><b>${escapeHtml(w.k)}</b> · ${escapeHtml(w.line)}</li>`).join('')}</ul>`);
     if(c.needPse && !(by.pse && by.pse.runs)) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.needPse)}</p>`);
     if(c.bestAfter && c.after && !(by[c.after] || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
-    const len = `${paid ? '' : LOCK_SVG + 'See paid plans · '}${c.days} days · one prompt a day`;
+    const len = `${c.days} days · one prompt a day`;
     let foot = '';
-    if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(T.freeStart)}</button>`;
+    if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${LOCK_SVG}<span>See paid plans</span></button>`;   // the lock rule (replaces "Start with Self-Regulator")
     else if(isCur) foot = s.ready ? `<button class="ch-pill" type="button" id="ch-sh-go">Open the prompt</button>` : `<p class="ch-sh-note">You're on day ${s.done + 1} of ${c.days}. ${escapeHtml(T.tomorrow)}</p>`;
     else {
       const verb = s.started ? 'Pick up where you left off' : s.finished ? 'Start again' : T.start;
@@ -12268,20 +12311,34 @@ function app(tab){
         + (recFirst ? `<button class="ch-recfirst" type="button" id="ch-sh-rf" aria-label="${escapeHtml(T.recFirst + ': ' + recFirst.c.name)}"><span><span class="ch-lbl">${escapeHtml(T.recFirst.toUpperCase())}</span><b>${escapeHtml(recFirst.c.name)}</b></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : '')
         + `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(verb)}</button>`;
     }
-    const old = document.getElementById('ch-sheet'); if(old) old.remove();
-    const wrap = document.createElement('div'); wrap.id = 'ch-sheet'; wrap.className = 'p7-sheet ch-sheet';
-    wrap.innerHTML = `<div class="p7-sheet-card ch-sheet-card" role="dialog" aria-modal="true" aria-labelledby="ch-sh-h">
-      <div class="p8-grab" aria-hidden="true"></div>
-      <div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
+    const inner = `<div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
       <div class="ch-sh-body"><p class="ch-sh-p">${escapeHtml(c.desc)}</p>${lines.join('')}<p class="ch-sh-len">${len}</p></div>
-      <div class="ch-sh-foot" id="ch-sh-foot">${foot}</div>
-    </div>`;
-    document.body.appendChild(wrap);
-    requestAnimationFrame(()=>wrap.classList.add('on'));
-    const onKey = e=>{ if(e.key === 'Escape') close(); };
-    const close = (then)=>{ wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} if(typeof then === 'function') then(); }, 300); };
-    document.addEventListener('keydown', onKey);
-    wrap.addEventListener('click', e=>{ if(e.target === wrap) close(); });
+      <div class="ch-sh-foot" id="ch-sh-foot">${foot}</div>`;
+    const old = document.getElementById('ch-sheet'); if(old) old.remove();
+    if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; }
+    const home = root.querySelector('.ch-home');
+    let close;
+    if(home && _chWideMQ()){
+      let el = home.querySelector('#ch-panel'); const fresh = !el;
+      if(fresh){ el = document.createElement('aside'); el.id = 'ch-panel'; el.className = 'ch-panel ch-pin'; el.setAttribute('aria-labelledby', 'ch-sh-h'); home.appendChild(el); }
+      el.innerHTML = inner;
+      home.classList.add('ch-split');
+      const mark = on => home.querySelectorAll('.ch-card').forEach(b=>{ const y = on && b.dataset.ch === id; b.classList.toggle('is-sel', y); b.setAttribute('aria-pressed', y ? 'true' : 'false'); });
+      mark(true); _chSel = id;
+      if(fresh) requestAnimationFrame(()=>el.classList.remove('ch-pin'));
+      close = (then)=>{ if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } mark(false); _chSel = null; try{ el.remove(); }catch(e){} home.classList.remove('ch-split'); if(typeof then === 'function') then(); };
+      if(!_chMQ){ try{ _chMQ = window.matchMedia('(min-width:1120px)'); _chMQ.addEventListener('change', ()=>{ const p = document.getElementById('ch-panel'); if(p && !_chMQ.matches && _chSel){ const k = _chSel; p.remove(); const h = root.querySelector('.ch-home'); if(h){ h.classList.remove('ch-split'); h.querySelectorAll('.ch-card.is-sel').forEach(b=>{ b.classList.remove('is-sel'); b.setAttribute('aria-pressed', 'false'); }); } _chSel = null; openChSheet(k, back); } }); }catch(e){} }
+      try{ $('#ch-sh-x').focus({ preventScroll:true }); }catch(e){}
+    } else {
+      const wrap = document.createElement('div'); wrap.id = 'ch-sheet'; wrap.className = 'p7-sheet ch-sheet';
+      wrap.innerHTML = `<div class="p7-sheet-card ch-sheet-card" role="dialog" aria-modal="true" aria-labelledby="ch-sh-h"><div class="p8-grab" aria-hidden="true"></div>${inner}</div>`;
+      document.body.appendChild(wrap);
+      requestAnimationFrame(()=>wrap.classList.add('on'));
+      close = (then)=>{ wrap.classList.remove('on'); if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } setTimeout(()=>{ try{ wrap.remove(); }catch(e){} if(typeof then === 'function') then(); }, 300); };
+      wrap.addEventListener('click', e=>{ if(e.target === wrap) close(); });
+    }
+    _chKey = e=>{ if(e.key === 'Escape') close(); };
+    document.addEventListener('keydown', _chKey);
     $('#ch-sh-x').onclick = ()=>close();
     const rf = $('#ch-sh-rf'); if(rf) rf.onclick = ()=>close(()=>openChSheet(recFirst.id, back));
     const go = $('#ch-sh-go'); if(go) go.onclick = ()=>{
@@ -12319,7 +12376,7 @@ function app(tab){
         <p class="ch-intro">${escapeHtml(T.remBody)}</p>
         ${cant ? `<p class="ch-sh-note">${hint}</p>` : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`}
         <div class="ch-rem-foot" id="ch-rem-foot">${cant ? goBtn : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`}</div>
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
     const go = ()=>screenChPrompt(id);
     const foot = $('#ch-rem-foot');
     const wire = ()=>{ const g = $('#ch-rem-go'); if(g) g.onclick = go; const no = $('#ch-rem-no'); if(no) no.onclick = go; };
@@ -12353,6 +12410,7 @@ function app(tab){
   }
 
   // ---- 2 · one prompt ----
+  let _chPmq = null;
   function screenChPrompt(id){
     const S = _CH(), T = S.T, s = _chState(id);
     if(!s) return screenChallenges();
@@ -12376,22 +12434,32 @@ function app(tab){
     const field = ans === 'micro'
       ? `<textarea class="rd-refl-in" id="ch-ta" aria-label="Finish the sentence" rows="3" autocapitalize="sentences" spellcheck="true">${escapeHtml(stem)}</textarea>${stem2 ? `<textarea class="rd-refl-in" id="ch-ta2" rows="3" autocapitalize="sentences" spellcheck="true" aria-label="The longer sentence">${escapeHtml(stem2)}</textarea>` : ''}`
       : `<textarea class="rd-refl-in" id="ch-ta" rows="3" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(T.jPh)}"></textarea>${opt ? `<button class="ch-opt ch-opt-one" type="button" data-a="${escapeHtml(opt)}" aria-pressed="false">${escapeHtml(opt)}</button>` : ''}`;
-    const ansHTML = two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
+    // desktop (1120 and up): the journal sits open on 9-12, no tap needed; Like / Dislike prompts have no panel (Justin, canon 2026-10-30)
+    const side = !two && _chWideMQ();
+    const sideHTML = side ? `<aside class="ch-jside" aria-labelledby="ch-jside-h"><span class="ch-jside-h" id="ch-jside-h">${_JR_PEN}Journal</span><label class="ch-jside-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<p class="ch-jside-where">What you write is kept in Your Journal, in the You tab.</p></aside>` : '';
+    const ansHTML = side ? '' : two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
       : `<div class="rd-jr rd-jr-c ch-jr" id="ch-jr"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub" id="ch-jr-sub">${escapeHtml(T.jLabel)}</p>
-          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div>
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Close</button></div>
             <div class="rd-jr-track"><div class="rd-jr-step" data-step="0"><div class="rd-refl-one"><label class="read-p rd-refl-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<button class="rd-refl-save" type="button" id="ch-save" disabled>Save</button></div></div></div>
             <p class="rd-refl-where">What you write is kept in Your Journal, in the You tab.</p></div></div></div>`;
     const ways = c.kind === 'digital' ? `<p class="ch-wayq">${escapeHtml(c.wayQ)}</p><div class="ch-ans" role="group" aria-label="${escapeHtml(c.wayQ)}">${c.ways.map(w=>`<button class="ch-opt ch-way" type="button" data-w="${escapeHtml(w.k)}" aria-pressed="false">${escapeHtml(w.k)}</button>`).join('')}</div><div id="ch-dbox"></div>` : '';
-    _rdShell(`<div class="ch-view ch-prompt">
+    _rdShell(`<div class="ch-view ch-prompt${side ? ' ch-split' : ''}" data-ch-id="${escapeHtml(id)}"><div class="ch-pmain">
         <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
         <h1 class="rd-title ch-ph">${escapeHtml(heading)}</h1>
         ${intro ? `<p class="ch-intro">${escapeHtml(intro)}</p>` : ''}
         ${ways}${boxHTML(box)}
         ${closing ? `<p class="ch-fine">${escapeHtml(closing)}</p>` : ''}
         <div id="ch-ansbox"${c.kind === 'digital' ? ' hidden' : ''}>${ansHTML}</div>
-        <button class="ch-pill" type="button" id="ch-done" disabled>Done</button>
+        <button class="ch-pill ch-complete" type="button" id="ch-done" disabled>Complete</button>
         ${last ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+      </div>${sideHTML}</div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, wide:true, plainBack:true });
+    // crossing 1120 redraws the prompt (journal open beside it, or the Journal button + sheet), keeping what was written
+    if(_chPmq){ try{ _chPmq.mq.removeEventListener('change', _chPmq.fn); }catch(e){} _chPmq = null; }
+    if(!two){ try{ const mq = window.matchMedia('(min-width:1120px)'); const fn = ()=>{ try{ mq.removeEventListener('change', fn); }catch(e){} _chPmq = null;
+        if(!root.querySelector('.ch-prompt[data-ch-id="' + id + '"]')) return;
+        const w1 = ta ? ta.value : null, w2 = ta2 ? ta2.value : null; screenChPrompt(id);
+        const n1 = $('#ch-ta'), n2 = $('#ch-ta2'); if(n2 && w2 != null) n2.value = w2; if(n1 && w1 != null){ n1.value = w1; n1.dispatchEvent(new Event('input')); } };
+      mq.addEventListener('change', fn); _chPmq = { mq, fn }; }catch(e){} }
     let pick = '', way = '';
     const done = $('#ch-done'), ta = $('#ch-ta'), ta2 = $('#ch-ta2');
     const _q = c.kind === 'sense' || c.kind === 'digital' ? p.q : c.kind === 'micro' ? (p.stem || heading) : heading;
@@ -12468,7 +12536,7 @@ function app(tab){
         ${pr || art ? `<span class="ch-lbl ch-lbl-gap">${escapeHtml(T.keep)}</span>` : ''}
         ${pr ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-k-pr"><span class="ch-keep-t"><span>A practice</span><b>${escapeHtml(pr.t)}</b><span>${escapeHtml(pr.sub)}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : ''}
         ${art ? `<button class="ch-keep" type="button" id="ch-k-art"><span class="ch-keep-t"><span>Learn more</span><b>${escapeHtml(art.title)}</b><span>An article</span></span><span class="ch-chev">${CHEV}</span></button>` : ''}
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
     const kp = $('#ch-k-pr'); if(kp) kp.onclick = ()=>{ app('practice'); setTimeout(()=>{ try{ openPracticeSheet(k.practice); }catch(e){} }, 30); };
     const ka = $('#ch-k-art'); if(ka) ka.onclick = ()=>screenLearnPiece(art, null, null, { label:'Challenges', go:()=>screenChallenges() });
   }
@@ -12501,11 +12569,9 @@ function app(tab){
         ${all.length ? `<button class="ch-link" type="button" id="ch-jr">${escapeHtml(T.finAll.replace('{n}', String(all.length)))}</button>` : ''}
         <div class="ch-take"><span class="ch-lbl">TAKEAWAY</span><p>${escapeHtml(s.c.takeaway)}</p></div>
         ${next ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-next"><span class="ch-keep-t"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><b>${escapeHtml(next.c.name)}</b><span>${escapeHtml(_chDaysWord(next.c))}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
-        <button class="ch-link ch-link-c" type="button" id="ch-all">${escapeHtml(T.seeAll)}</button>
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
     const jr = $('#ch-jr'); if(jr) jr.onclick = ()=>screenJournal('you');
     const nx = $('#ch-next'); if(nx) nx.onclick = ()=>{ screenChallenges(); setTimeout(()=>openChSheet(next.id, screenChallenges), 30); };
-    const al = $('#ch-all'); if(al) al.onclick = ()=>screenChallengesAll();
   }
   // Your Journal: a challenge note reads as an entry like the others, grouped under Challenges
   function _chJournalItems(){
@@ -12598,7 +12664,7 @@ function app(tab){
       if(k==='surprise') return _p8Surprise();
       openPracticeSheet(k);
     });
-    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>screenPathway();
+    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>{ _plStage = null; screenPathway(); };
     const chE = $('#ch-entry'); if(chE) chE.onclick = ()=>screenChallenges();
     // a caller staged a shape to open straight into (older "change this practice" paths)
     if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
