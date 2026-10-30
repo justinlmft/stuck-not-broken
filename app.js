@@ -6808,26 +6808,33 @@ function app(tab){
     return { id, q:list[ids.indexOf(id)], st: k === 'start' ? null : k, from };
   }
   const _jrYmd = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+  // search + Filter, the same as Learn and the Pathway (Justin 2026-10-30: "Put a filter instead, like on our other pages";
+  // "a search function here, to parse through the user's journal entries")
+  let _jrQ = '', _jrSrc = 'all';
+  const JR_SRC = [['all', 'All'], ['article', 'Articles'], ['reflect', 'Reflections'], ['media', 'Episodes and videos'], ['chal', 'Challenges'], ['prompt', 'Journal prompts']];
+  const _jrKind = it => it.now ? 'prompt' : it.chal ? 'chal' : it.media ? 'media' : it.piece ? 'article' : 'reflect';
   function screenJournal(from){
     if(from) _jrFrom = from === 'reflect' ? 'reflect' : from === 'now' ? 'now' : 'you';
     if(!paidNow()) return gateSubscribe('reader');
-    const L = window.Learning, items = _lrnJournalItems();
+    const L = window.Learning, all = _lrnJournalItems();
     const fromR = _jrFrom === 'reflect';
     const VIEWS = [['date', 'Date'], ['topic', 'Topic'], ['article', 'Article']];
     const view = _jrView();
     const _jrNow = _jrFrom === 'now', _jrBack = fromR ? 'Reflect' : _jrNow ? 'Now' : 'You', _jrTab = fromR ? 'reflect' : _jrNow ? 'now' : 'you';
-    const pills = true ? `<div class="jr-views" role="group" aria-label="Group by">${VIEWS.map(([k, t])=>`<button class="jr-vpill${k === view ? ' on' : ''}" type="button" data-jrview="${k}" aria-pressed="${k === view}">${escapeHtml(t)}</button>`).join('')}</div>` : '';
-    const shell = inner => _rdShell(`<div class="jr-view"><div class="jr-headrow"><h1 class="read-h1">Your Journal</h1>${pills}</div>${inner}</div>`, { back:_jrBack, onBack:()=>app(_jrTab), tab:_jrTab, loc:{ k:'journal', from:_jrFrom }, wide:true, plainBack:true });
+    const shell = inner => _rdShell(`<div class="jr-view"><div class="scr-head read-head"><h1 class="read-h1">Your Journal</h1></div>${inner}</div>`, { back:_jrBack, onBack:()=>app(_jrTab), tab:_jrTab, loc:{ k:'journal', from:_jrFrom }, wide:true, plainBack:true });
     // the questions come from the articles themselves (older answers kept only the answer)
-    const need = [...new Set(items.filter(it=>it.piece).map(it=>it.piece))].filter(p=>!p.blocks);
+    const need = [...new Set(all.filter(it=>it.piece).map(it=>it.piece))].filter(p=>!p.blocks);
     if(need.length){
       shell(`<p class="rd-meta jr-wait">One moment…</p>`);
       Promise.all(need.map(p=>_lrnLoad(p).catch(()=>null))).then(()=>{ if(root.querySelector('.jr-view .jr-wait')) screenJournal(); });
       return;
     }
+    const kinds = new Set(all.map(_jrKind)); if(_jrSrc !== 'all' && !kinds.has(_jrSrc)) _jrSrc = 'all';
+    const srcs = JR_SRC.filter(([k])=>k === 'all' || kinds.has(k));
+    const items = _jrSrc === 'all' ? all : all.filter(it=>_jrKind(it) === _jrSrc);
     // the blank page for now: a ready-made prompt from the latest check-in
     const d0 = new Date(), jp = _jrPrompt();
-    const nowPage = `<section class="jr-page jr-now" aria-label="A page for now"><div class="jr-date"><span class="jr-eb">Now</span><span class="jr-num">${d0.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d0.getDay()] + ', ' + d0.toLocaleDateString(undefined, { month:'long' }))}</span></div>
+    const nowPage = `<section class="jr-page jr-now" id="jr-nowp" aria-label="A page for now"><div class="jr-date"><span class="jr-eb">Now</span><span class="jr-num">${d0.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d0.getDay()] + ', ' + d0.toLocaleDateString(undefined, { month:'long' }))}</span></div>
         <div class="jr-entries"><span class="jr-from">${jp.st ? _rdMk(jp.st) : ''}Recommended journal · ${escapeHtml(jp.from)}</span>
           <label class="jr-q" for="jr-now-ta">${escapeHtml(jp.q)}</label>
           <textarea class="jr-write" id="jr-now-ta" rows="4" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="A word or a sentence is plenty"></textarea>
@@ -6835,23 +6842,46 @@ function app(tab){
     // each day's check-in state: the last check-in that day
     const dayState = {}; try{ (Store.checkins ? Store.checkins() : []).filter(c=>c && c.t).sort((a,b)=>a.t - b.t).forEach(c=>{ const k = _cDom(c); if(k) dayState[_jrYmd(c.t)] = k; }); }catch(e){}
     const src = it => it.piece ? it.piece.title : it.post ? it.post.title : '';
-    const entry = it => `<div class="jr-entry"><span class="jr-eq">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</span><p class="jr-ans">${escapeHtml(it.text).replace(/\n/g, '<br>')}</p>${it.now ? '' : `<button class="jr-src" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}">${escapeHtml(src(it))}${CHEV}</button>`}</div>`;
-    const dayPage = (day, list) => { const d = day ? new Date(day + 'T12:00:00') : null, s = day ? dayState[day] : null;
-      return `<article class="jr-page"><div class="jr-date">${d ? `<span class="jr-num">${d.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d.getDay()])}</span>${s ? `<span class="jr-st">${_rdMk(s)}${escapeHtml(STATE_LABEL(s))}</span>` : ''}` : `<span class="jr-wd">Earlier</span>`}</div><div class="jr-entries">${list.map(entry).join('')}</div></article>`; };
-    const daysOf = list => { const by = {}; list.forEach(it=>{ (by[it.day || ''] = by[it.day || ''] || []).push(it); }); return Object.keys(by).sort().reverse().map(k=>dayPage(k, by[k])).join(''); };
-    let groups = [];
-    if(view === 'date'){
-      const by = {}; items.forEach(it=>{ const m = it.day ? it.day.slice(0, 7) : ''; (by[m] = by[m] || []).push(it); });
-      groups = Object.keys(by).sort().reverse().map(m=>({ head: m ? _jrMonth(m + '-15') : 'Earlier', items:by[m] }));
-    } else if(view === 'article'){
-      groups = _lrnJournal().map(g=>({ head: g.piece ? g.piece.title : g.post.title, items:g.items }));
-    } else {
-      const keys = _lrnStateOrder().concat(L.TOPIC_ORDER), by = {};
-      items.forEach(it=>{ const gs = it.chal ? ['_chal'] : it.piece ? (it.piece.groups||[]) : [it.post.teachState && L.HUBS[it.post.teachState] ? it.post.teachState : '_reflect']; gs.forEach(g=>{ if(L.HUBS[g] || g === '_reflect' || g === '_chal') (by[g] = by[g] || []).push(it); }); });
-      const name = k => k === '_reflect' ? 'Reflect' : k === '_chal' ? 'Challenges' : _lrnHubName(k);
-      groups = ['_reflect', '_chal'].concat(keys).filter(k=>by[k]).map(k=>({ head:name(k), items:by[k] }));
-    }
-    shell(`${nowPage}${groups.map(g=>`<section class="jr-group"><h2 class="jr-month">${escapeHtml(g.head)}</h2>${daysOf(g.items)}</section>`).join('')}`);
+    const head = it => it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q);
+    const mark = (s, q) => { const h = escapeHtml(s); if(!q) return h; const e = escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return h.replace(new RegExp(e, 'gi'), m=>`<mark class="jr-hit">${m}</mark>`); };
+    const entry = (it, q) => `<div class="jr-entry"><span class="jr-eq">${mark(head(it), q)}</span><p class="jr-ans">${mark(it.text, q).replace(/\n/g, '<br>')}</p>${it.now ? '' : `<button class="jr-src" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}">${mark(src(it), q)}${CHEV}</button>`}</div>`;
+    const dayPage = (day, list, q) => { const d = day ? new Date(day + 'T12:00:00') : null, s = day ? dayState[day] : null;
+      return `<article class="jr-page"><div class="jr-date">${d ? `<span class="jr-num">${d.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d.getDay()])}</span>${s ? `<span class="jr-st">${_rdMk(s)}${escapeHtml(STATE_LABEL(s))}</span>` : ''}` : `<span class="jr-wd">Earlier</span>`}</div><div class="jr-entries">${list.map(it=>entry(it, q)).join('')}</div></article>`; };
+    const daysOf = (list, q) => { const by = {}; list.forEach(it=>{ (by[it.day || ''] = by[it.day || ''] || []).push(it); }); return Object.keys(by).sort().reverse().map(k=>dayPage(k, by[k], q)).join(''); };
+    const groupsOf = list => {
+      if(view === 'article'){ const by = {}; list.forEach(it=>{ const id = it.piece ? 'l:' + it.piece.id : 'r:' + it.post.key; (by[id] = by[id] || { head:src(it), items:[], last:'' }).items.push(it); if(it.day > by[id].last) by[id].last = it.day; });
+        return Object.values(by).sort((a,b)=> (b.last||'').localeCompare(a.last||'')); }
+      if(view === 'topic'){ const keys = _lrnStateOrder().concat(L.TOPIC_ORDER), by = {};
+        list.forEach(it=>{ const gs = it.chal ? ['_chal'] : it.piece ? (it.piece.groups||[]) : [it.post.teachState && L.HUBS[it.post.teachState] ? it.post.teachState : '_reflect']; gs.forEach(g=>{ if(L.HUBS[g] || g === '_reflect' || g === '_chal') (by[g] = by[g] || []).push(it); }); });
+        const name = k => k === '_reflect' ? 'Reflect' : k === '_chal' ? 'Challenges' : _lrnHubName(k);
+        return ['_reflect', '_chal'].concat(keys).filter(k=>by[k]).map(k=>({ head:name(k), items:by[k] })); }
+      const by = {}; list.forEach(it=>{ const m = it.day ? it.day.slice(0, 7) : ''; (by[m] = by[m] || []).push(it); });
+      return Object.keys(by).sort().reverse().map(m=>({ head: m ? _jrMonth(m + '-15') : 'Earlier', items:by[m] }));
+    };
+    const noun = n => n === 1 ? '1 entry' : n + ' entries';
+    const listHTML = () => {
+      const q = _jrQ.trim(), ql = q.toLowerCase(), on = q.length >= 2;
+      const list = on ? items.filter(it=>[it.text, head(it), src(it)].some(s=>String(s || '').toLowerCase().includes(ql))) : items;
+      const top = on ? `<p class="ll-res-n jr-res-n">${list.length ? escapeHtml(noun(list.length) + ' with “' + q + '”') : escapeHtml('No entries with “' + q + '”.')}</p>`
+        : !list.length && all.length ? `<p class="ll-res-n jr-res-n">No entries here yet.</p>` : '';
+      return top + groupsOf(list).map(g=>`<section class="jr-group"><h2 class="jr-month">${escapeHtml(g.head)}</h2>${daysOf(g.items, on ? q : '')}</section>`).join('');
+    };
+    const chip = (attr, id, label, on) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${attr}="${id}" aria-pressed="${on}"><span>${escapeHtml(label)}</span></button>`;
+    const offV = view !== 'date', offS = _jrSrc !== 'all', fn = (offV ? 1 : 0) + (offS ? 1 : 0);
+    const lbl = (arr, k) => (arr.find(x=>x[0] === k) || [])[1] || '';
+    const active = fn ? `<div class="lm-active" role="group" aria-label="Filters">${offV ? `<button class="lm-chip on" type="button" data-jrx="view" aria-label="Take off ${escapeHtml('By ' + lbl(VIEWS, view).toLowerCase())}"><span>${escapeHtml('By ' + lbl(VIEWS, view).toLowerCase())}</span><span class="lm-x" aria-hidden="true">×</span></button>` : ''}${offS ? `<button class="lm-chip on" type="button" data-jrx="src" aria-label="Take off ${escapeHtml(lbl(JR_SRC, _jrSrc))}"><span>${escapeHtml(lbl(JR_SRC, _jrSrc))}</span><span class="lm-x" aria-hidden="true">×</span></button>` : ''}</div>` : '';
+    const search = all.length ? `<div class="lb-search-row jr-search-row">
+        <div class="ll-sfloat open lb-search" id="jr-sf" role="search"><span class="ll-sf-btn" aria-hidden="true">${_LB_SEARCH}</span><input class="ll-sf-q" id="jr-q" type="search" placeholder="Search your journal" aria-label="Search your journal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_jrQ)}"><button class="ll-sf-x" id="jr-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="jr-filt" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="jr-fsheet" aria-label="${fn ? 'Filter, ' + fn + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fn ? `<span class="lm-fn" aria-hidden="true">${fn}</span>` : ''}</button></div></div>
+      ${active}
+      <div class="rd-jr-sheet lm-fsheet" id="jr-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="lm-fs-body"><span class="rd-eyeb">Group by</span><div class="lm-chips">${VIEWS.map(([k, l])=>chip('jrv', k, l, view === k)).join('')}</div>
+          ${srcs.length > 2 ? `<span class="rd-eyeb">From</span><div class="lm-chips">${srcs.map(([k, l])=>chip('jrs', k, l, _jrSrc === k)).join('')}</div>` : ''}</div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="jr-fclear">Clear all</button><button class="lm-fshow" type="button" id="jr-fshow">Show</button></div></div></div>` : '';
+    const searching = _jrQ.trim().length >= 2;
+    shell(`${search}${nowPage.replace('<section class="jr-page jr-now"', `<section class="jr-page jr-now"${searching ? ' hidden' : ''}`)}<div id="jr-res">${listHTML()}</div>`);
+    const v = root.querySelector('.jr-view');
     const ta = $('#jr-now-ta'), sv = $('#jr-now-save');
     if(ta && sv){
       ta.oninput = ()=>{ sv.disabled = !ta.value.trim(); };
@@ -6860,7 +6890,55 @@ function app(tab){
         try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m=_ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
         try{ haptic('save'); }catch(e){} screenJournal(); };
     }
-    root.querySelectorAll('[data-jrview]').forEach(b=>b.onclick=()=>{ if(b.dataset.jrview === _jrView()) return; _jrView(b.dataset.jrview); const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; screenJournal(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; });
+    // search: the entries redraw as you type, the field keeps its place; the page for now steps aside while searching
+    const qi = $('#jr-q'), qx = $('#jr-q-x'), res = $('#jr-res'), np = $('#jr-nowp');
+    if(qi && res){ let tm = null; const draw = () => { res.innerHTML = listHTML(); if(np) np.hidden = _jrQ.trim().length >= 2; _jrWireList(); };
+      qi.oninput = () => { _jrQ = qi.value; clearTimeout(tm); tm = setTimeout(draw, 120); };
+      qi.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
+      qx.onmousedown = e => e.preventDefault();
+      qx.onclick = () => { _jrQ = ''; qi.value = ''; draw(); qi.focus(); }; }
+    root.querySelectorAll('[data-jrx]').forEach(b=>b.onclick=()=>{ if(b.dataset.jrx === 'view') _jrView('date'); else _jrSrc = 'all'; screenJournal(); });
+    // Filter: the slide-up below 1120, a panel under the search row that pushes the page down at 1120 and up (as Learn's)
+    const fbtn = $('#jr-filt'), sh = $('#jr-fsheet');
+    if(fbtn && sh && v){
+      let pv = view, ps = _jrSrc, inline = false, tmr = null;
+      const box = sh.querySelector('.rd-jr-sheet-in'), show = $('#jr-fshow');
+      const calm = () => document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const paint = () => {
+        sh.querySelectorAll('[data-jrv]').forEach(b => { const on = b.dataset.jrv === pv; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        sh.querySelectorAll('[data-jrs]').forEach(b => { const on = b.dataset.jrs === ps; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        const n = ps === 'all' ? all.length : all.filter(it=>_jrKind(it) === ps).length;
+        show.textContent = 'Show ' + noun(n);
+      };
+      const apply = () => { if(pv === view && ps === _jrSrc){ try{ fbtn.focus({ preventScroll:true }); }catch(e){} return; } _jrView(pv); _jrSrc = ps; screenJournal(); };
+      const esc = e => { if(e.key === 'Escape') close(); };
+      const open = () => {
+        if(inline) return close();
+        pv = view; ps = _jrSrc; paint();
+        if(matchMedia('(min-width:1120px)').matches){
+          const after = v.querySelector('.lm-active') || v.querySelector('.jr-search-row'); if(after.nextElementSibling !== sh) after.after(sh);
+          inline = true; sh.classList.add('is-inline'); sh.setAttribute('role', 'region'); _pmSlide(fbtn, sh, true); document.addEventListener('keydown', esc);
+          const f = sh.querySelector('.lm-chip.on'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+          return;
+        }
+        clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); fbtn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc);
+      };
+      const close = () => {
+        document.removeEventListener('keydown', esc);
+        if(inline){ inline = false; return _pmSlide(fbtn, sh, false, () => { sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); apply(); }); }
+        sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); fbtn.setAttribute('aria-expanded', 'false');
+        tmr = setTimeout(() => { sh.hidden = true; apply(); }, calm() ? 0 : 320);
+      };
+      fbtn.onclick = open; sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
+      sh.addEventListener('click', e => { if(e.target === sh) close(); });
+      sh.querySelectorAll('[data-jrv]').forEach(b => b.onclick = () => { pv = b.dataset.jrv; paint(); });
+      sh.querySelectorAll('[data-jrs]').forEach(b => b.onclick = () => { ps = b.dataset.jrs; paint(); });
+      $('#jr-fclear').onclick = () => { pv = 'date'; ps = 'all'; paint(); };
+      let y0 = 0, dragging = false;
+      box.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; dragging = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab'); }, { passive:true });
+      box.addEventListener('touchmove', e => { if(!dragging) return; box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, e.touches[0].clientY - y0)}px)`; }, { passive:true });
+      box.addEventListener('touchend', e => { if(!dragging) return; dragging = false; box.style.transition = ''; if(e.changedTouches[0].clientY - y0 > 90) close(); else box.style.transform = ''; });
+    }
     _jrWireList();
   }
   // the Group by menu beside Back: animates in and out (never pops), closes on a pick, a tap outside or Escape

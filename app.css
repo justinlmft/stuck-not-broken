@@ -6433,3 +6433,13 @@ html:not([data-readfont="serif"]) .rd-lq,html:not([data-readfont="serif"]) .rd-l
 .rp-keep{margin-top:72px}
 @media (min-width:720px){ .ar-read .rd-lq p{font-size:calc(17px * var(--type-user, 1))} }
 @media (min-width:1120px){ .rp-grid .rp-main{grid-column:1 / span 8} }
+
+
+/* grid5 round 3 (Justin 2026-10-30): Your Journal's search + Filter, as on Learn and the Pathway */
+.jr-view{display:block;margin:0}
+.jr-search-row{margin:32px 0 8px}
+.jr-view > .lm-active{margin:8px 0 0}
+.jr-view > .jr-now{margin-top:32px}
+.jr-res-n{margin:24px 0 0}
+.jr-now[hidden]{display:none}
+.jr-hit{background:rgba(233,196,106,.38);color:inherit;border-radius:3px;padding:0 1px}
