@@ -5975,3 +5975,8 @@ a.btn{text-decoration:none}
 .pp-mark{outline:1px solid var(--ink);outline-offset:4px;border-radius:12px}
 @media (prefers-reduced-motion: reduce){ .pp-panel.pp-in{animation:none} }
 body.reduce-motion .pp-panel.pp-in{animation:none}
+
+/* Co-Regulator before it launches in the app (Justin 2026-10-30): greyed out with "Coming soon", no button */
+.pp-card.is-soon{background:var(--bone-deep);border-style:dashed}
+.pp-card.is-soon .pp-name,.pp-card.is-soon .pp-price,.pp-card.is-soon .pp-price b{color:var(--muted)}
+.pp-soon{align-self:flex-start;margin:0;padding:4px 12px;border:1px solid var(--hairline);border-radius:999px;font-size:calc(14px * var(--type-scale));font-weight:500;line-height:1.4;color:var(--ink-80)}

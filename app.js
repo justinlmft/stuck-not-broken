@@ -1754,7 +1754,9 @@
   function _ppHTML(c, panel){
     const inStore = !!(Store.inStoreApp && Store.inStoreApp());
     const cur = _ppIsCo() ? 'co' : paidNow() ? 'sr' : 'free';
-    let feat = (c.tier === 'co' || cur !== 'free') ? 'co' : 'sr';
+    // Co-Regulator is not on sale in the app until launch (LW_COREG_LIVE): greyed out, "Coming soon", never featured
+    const coSoon = !LW_COREG_LIVE;
+    let feat = coSoon ? (cur === 'free' ? 'sr' : null) : (c.tier === 'co' || cur !== 'free') ? 'co' : 'sr';
     if(feat === cur) feat = null;
     const annual = _planChoice === 'annual';
     const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
@@ -1762,7 +1764,7 @@
     const mine = `<span class="pp-mine">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'}Your plan</span>`;
     const card = (k, name, plain, body) => {
       const o = !!_pp.open[k];
-      return `<article class="pp-card${feat === k ? ' is-feat' : ''}${cur === k ? ' is-mine' : ''}" aria-labelledby="pp-n-${k}">
+      return `<article class="pp-card${feat === k ? ' is-feat' : ''}${cur === k ? ' is-mine' : ''}${k === 'co' && coSoon && cur !== 'co' ? ' is-soon' : ''}" aria-labelledby="pp-n-${k}">
         <div class="pp-ch"><h3 class="pp-name" id="pp-n-${k}">${name}</h3><p class="pp-plain">${plain}</p></div>
         ${body}
         <div class="pp-inc"><button class="pp-inc-t" type="button" data-pp-inc="${k}" aria-expanded="${o}" aria-controls="pp-inc-${k}"><span>What’s included</span>${LW_PM(o)}</button>
@@ -1780,8 +1782,9 @@
       <p class="pp-sub" id="pp-sr-sub">${srSub(annual)}</p>
       ${c.err ? `<p class="autherr">${escapeHtml(c.err)}</p>` : ''}
       <button class="${btnCls('sr')}" id="pw-go" type="button"${c.busy ? ' disabled' : ''}>${c.busy ? 'One moment…' : 'Subscribe'}</button>`);
-    const co = card('co', 'Co-Regulator', 'Everything, with people', cur === 'co' ? mine :
-      `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-sub">Billed monthly · cancel anytime</p>
+    const co = card('co', 'Co-Regulator', 'Everything, with people', cur === 'co' ? mine : coSoon
+      ? `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-soon">Coming soon</p>`
+      : `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-sub">Billed monthly · cancel anytime</p>
       <a class="${btnCls('co')}" id="pp-co-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Join Co-Regulator</a>`);
     const fine = inStore
       ? `<p class="pp-fine">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
