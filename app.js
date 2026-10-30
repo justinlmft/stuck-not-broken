@@ -1612,7 +1612,19 @@
       const nm = (($('#nm')||{}).value||'').trim();
       guestAccountForm(mode, null, true);
       Promise.resolve(Store.linkIdentity(email, pw)).then(res=>{
-        if(res && res.error) return guestAccountForm(mode, res.error);
+        if(res && res.error){
+          // The email already has an app account (2026-10-30: a guest chose Subscribe, typed the email of an account they
+          // already had, saw a raw error, and went round the guest flow back to the before-and-after screen with no way
+          // to pay). Send them to sign in with the email filled in; a paid choice carries through to Checkout after it.
+          if(/already been registered|already registered|email_exists/i.test(res.error)){
+            if(paid) _paidSignupPending = true;
+            _guestFlow = false; _guestCI = null; _guestCI2 = null; _guestPracticed = false; gsClear();
+            const msg = 'You already have an account with this email. Sign in to '+(paid?'continue to payment':'keep going')+'. If you don’t remember your password, tap "Forgot your password?" below.';
+            const done = ()=>{ authMode='in'; screenSignIn(msg); };
+            return Promise.resolve(Store.user() ? Store.signOut() : null).then(done).catch(done);
+          }
+          return guestAccountForm(mode, res.error);
+        }
         if(nm) Store.setName(nm);
         markKnownDevice();
         _guestFlow = false; _guestCI = null; _guestCI2 = null; _guestPracticed = false; gsClear();
