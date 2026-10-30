@@ -6786,13 +6786,13 @@ function app(tab){
   // entries on 3-9 in book type with a quiet link back; a hairline between days, no boxes
   // the page for now asks a ready-made prompt chosen from the member's latest check-in (Justin 2026-10-30: "use a stock of
   // ready-made journal prompts based on the user's data"); the articles keep their own questions
-  const JR_PROMPTS = {
-    safety: ['Where in your body do you notice safety right now?', 'What helped you get here? Name one thing. Small is fine.', 'Who or what feels like connection right now?', 'What would you like to remember about this feeling of safety?'],
-    play: ['What has your energy wanted to move toward lately?', 'What feels fun or interesting right now, even a little?', 'Where do you notice both energy and ease in your body right now?', 'Who do you feel most playful around?'],
-    stillness: ['What lets you be still right now without needing to do anything?', 'Where do you notice calm in your body right now?', 'Who or what makes it easy to rest?', 'What does this quiet feel like, in a word or two?'],
-    fightflight: ['What has your body been bracing for lately?', 'Where do you feel the push in your body right now: jaw, chest, hands, legs?', 'What is your flight/fight state trying to protect?', 'What would give your body a little more safety right now?'],
-    freeze: ['What feels stuck right now, and what still feels a little movable?', 'Where do you notice both the push and the heaviness in your body?', 'What small movement feels doable right now?', 'What has helped freeze ease up before, even a little?'],
-    shutdown: ['What does your body need most right now: rest, warmth or company?', 'What is one thing you can notice with your senses right now?', 'What has been draining your energy lately?', 'Is there anyone, or anything, that feels a little bit safe right now?'],
+  const JR_PROMPTS = {   // Justin's wording, 2026-10-30
+    safety: ['Where in your body do you notice safety right now?', "What's helping you access more safety right now?", 'Who or what do you have an impulse to connect with right now?', 'What would you like to remember about this feeling of safety?', "There's safety in your system. How can you tell?"],
+    play: ['What do you want to do with your energy right now?', 'What feels fun or interesting right now, even a little?', 'Where do you notice both energy and ease in your body right now?', 'Who do you feel most playful around?', "There's playfulness or motivation in your system. How can you tell?"],
+    stillness: ['What lets you be still right now without needing to do anything?', 'Where do you notice calm in your body right now?', 'Who or what makes it easy to rest?', 'What does this quiet feel like, in a word or two?', "There's a calm stillness in your system. How can you tell?"],
+    fightflight: ['What has your body been preparing for lately?', 'Where do you feel the activation in your body right now: jaw, chest, hands, legs...?', 'What is your flight/fight state trying to protect?', 'What kind of movement would feel the best right now?', "There's flight/fight in your system. How can you tell?"],
+    freeze: ['What feels frozen right now, and what still feels a little movable?', 'Where do you notice both the energy and the heaviness in your body?', 'What small movement feels doable right now? Any?', 'What has helped freeze ease up before, even a little?', 'What would feel better right now: movement or mindfulness?', "There's some freeze in your system. How can you tell?"],
+    shutdown: ['What does your body need most right now: rest, warmth, or company?', 'What is one thing you can notice with your senses right now?', 'What has been draining your energy lately?', 'Is there anyone, or anything, that feels a little bit safe right now?', "There's some shutdown in your system. How can you tell?"],
     start: ['What do you notice in your body right now?', 'What is one small thing that helped you feel safe lately?', 'What is taking up most of your energy right now?'],
   };
   function _jrPrompt(){
