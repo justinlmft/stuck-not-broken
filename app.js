@@ -764,7 +764,27 @@
       root.appendChild(g); setTimeout(()=>g.remove(), 360);
     }
   }
-  if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))) _tbSync(); }).observe(root, { childList:true });
+  // the Back rule, app-wide (Justin 2026-10-30: "The floating desktop Back pills can be changed to the plain black link"): every
+  // screen with a floating Back gets a plain "Back" link at the top of its page (shown at 1120 and up, scrolls with the page);
+  // the pill then hides on desktop. Tablet and phone keep the bottom bar's arrow. Screens whose page fills in later get the
+  // link when it does.
+  function _pgBackSync(){
+    const back = root.querySelector('.fl-dock > .tab-back-float'); if(!back || document.body.classList.contains('rd-crumbs')) return;
+    const sc = root.querySelector('.scroll'); if(!sc) return;
+    const dock = back.parentElement;
+    const put = () => {
+      if(!back.isConnected) return;
+      if(!sc.querySelector('.pg-back')){
+        const host = sc.querySelector('.view') || sc.firstElementChild; if(!host) return;
+        const b = document.createElement('button'); b.className = 'pg-back'; b.type = 'button'; b.innerHTML = BACK_SVG + '<span>Back</span>';
+        b.onclick = () => back.click(); host.prepend(b);
+      }
+      dock.classList.add(dock.children.length === 1 ? 'fl-plain' : 'fl-noback');
+    };
+    put();
+    if(window.MutationObserver && !sc._pgObs){ sc._pgObs = new MutationObserver(put); sc._pgObs.observe(sc, { childList:true }); }
+  }
+  if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))){ _tbSync(); _pgBackSync(); } }).observe(root, { childList:true });
   function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; }
 
   // ---------------------------------------------------------------- routing
@@ -1833,7 +1853,7 @@
     const p = document.getElementById('pp-panel');
     _subFrom = null; _pp.ctx = null;
     if(_pp.key){ document.removeEventListener('keydown', _pp.key); _pp.key = null; }
-    if(p){ p.remove(); root.style.removeProperty('--pp-cw'); _ppUnmark(); const bk = _pp.back; _pp.back = null; if(!quiet && bk && document.contains(bk)){ try{ bk.focus({ preventScroll:true }); }catch(e){} } return; }
+    if(p){ const pv = root.querySelector('.p8-view.pp-split'); _flip(_p8FlipEls(pv), ()=>{ p.remove(); root.style.removeProperty('--pp-cw'); _ppUnmark(); }); const bk = _pp.back; _pp.back = null; if(!quiet && bk && document.contains(bk)){ try{ bk.focus({ preventScroll:true }); }catch(e){} } return; }
     route();
   }
   function _ppOpen(c){
@@ -1852,7 +1872,7 @@
         el = document.createElement('aside'); el.id = 'pp-panel'; el.className = 'pp-panel pp-in'; el.setAttribute('aria-labelledby', 'pp-h');
         const pv = root.querySelector('.p8-view'), cal = root.querySelector('.lw-sch');
         el.dataset.mode = pv ? 'practice' : cal ? 'cal' : 'gen';
-        if(pv) pv.classList.add('pp-split');
+        if(pv) _flip(_p8FlipEls(pv), ()=>pv.classList.add('pp-split'));
         root.appendChild(el);
         // the item they reached for, marked on the page beside the panel
         const t = _pp.tap && (Date.now() - _pp.tap.at < 3000) && document.contains(_pp.tap.el) ? _pp.tap.el : null;
@@ -3135,6 +3155,25 @@ function app(tab){
   const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
   const LW_PM = on => `<svg class="pm${on ? ' on' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path class="pm-v" d="M12 5v14"/></svg>`;
   // open or close a + / - row's details in place: they grow down and shrink back (Justin 2026-10-29: "no jarring switches")
+  // FLIP for the narrowing (Justin 2026-10-30: "they need to animate and not jump"): measure where each card is, change the
+  // layout, then let each card glide from its old place and width to the new one (width animates, so text reflows, never
+  // stretches). A run still in flight is measured where it is on screen, so open-then-close never snaps.
+  function _flip(els, mutate){
+    els = (els || []).filter(Boolean);
+    const calm = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if(calm || !els.length || !els[0].animate){ els.forEach(e=>{ if(e._flip){ e._flip.cancel(); e._flip = null; } }); mutate(); return; }
+    const a = els.map(e=>e.getBoundingClientRect());
+    els.forEach(e=>{ if(e._flip){ e._flip.cancel(); e._flip = null; } });
+    mutate();
+    els.forEach((e, i)=>{
+      if(!e.isConnected) return; const b = e.getBoundingClientRect(), o = a[i]; if(!o.width || !b.width) return;
+      const dx = o.left - b.left, dy = o.top - b.top; if(Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(o.width - b.width) < 1) return;
+      e._flip = e.animate([{ transform:`translate(${dx}px,${dy}px)`, width:o.width + 'px' }, { transform:'none', width:b.width + 'px' }], { duration:380, easing:'cubic-bezier(.2,.8,.2,1)' });
+      e._flip.onfinish = ()=>{ e._flip = null; };
+    });
+  }
+  // the Practice page's cards: the bento's own cards, and every other block on the page (not the side panel)
+  function _p8FlipEls(view){ const out = []; if(!view) return out; [...view.children].forEach(c=>{ if(c.classList.contains('ps-panel')) return; if(c.classList.contains('p8-bento')) out.push(...c.children); else out.push(c); }); return out; }
   function _pmSlide(b, s, o, done){
     b.setAttribute('aria-expanded', o);
     const pm = b.querySelector('svg.pm'); if(pm) pm.classList.toggle('on', o);
@@ -11492,7 +11531,7 @@ function app(tab){
     const day = new Date().toISOString().slice(0, 10);
     try{ if(Store.saveContexts) Store.saveContexts('ls:' + id, 'done', [day]); else { const m = _ctxLoad(); m['ls:' + id] = [day]; _ctxSave(m); } }catch(e){}
   }
-  let _plStage = null, _plJump = false;   // the stage shown (one at a time); null = the stage the person is in
+  let _plStage = null, _plJump = false, _plQ = '';   // the stage shown (one at a time); null = the stage the person is in
   function _plView(){ let v = null; try{ v = localStorage.getItem(PL_VIEW); }catch(e){} return v === 'lessons' || v === 'practices' ? v : 'both'; }
   function _plLen(sec){ if(!sec) return ''; const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   // a lesson's skill → the practice step it teaches
@@ -11576,23 +11615,91 @@ function app(tab){
       }
       return `<li class="pl-li"><button class="pl-row${isNext ? ' is-next' : ''}" type="button" ${attrs}><span class="pl-t">${escapeHtml(title)}</span><span class="pl-m">${metaOf(x)}</span><span class="pl-st">${st}</span></button>${pick}</li>`;
     };
-    const rows = all[cur].filter(keep);
-    const body = rows.length ? `<ol class="pl-list" aria-label="${escapeHtml(stName(cur))}">${rows.map(rowHtml).join('')}</ol>` : (all[cur].length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
+    // the list: the chosen stage, or, while searching, every stage's matching steps (Show still applies)
+    const listHTML = () => {
+      const qq = _plQ.trim().toLowerCase();
+      if(!qq){
+        const rows = all[cur].filter(keep);
+        const body = rows.length ? `<ol class="pl-list" aria-label="${escapeHtml(stName(cur))}">${rows.map(rowHtml).join('')}</ol>` : (all[cur].length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
+        return `<section class="pl-sec"><h2>${escapeHtml(stName(cur))}</h2>${body}</section>`;
+      }
+      const hit = x => (x.type === 'lesson' ? x.row.t : x.it.title).toLowerCase().indexOf(qq) >= 0;
+      let n = 0;
+      const secs = all.map((sec, s) => { const rows = sec.filter(keep).filter(hit); n += rows.length; return rows.length ? `<section class="pl-sec"><h2>${escapeHtml(stName(s))}</h2><ol class="pl-list">${rows.map(rowHtml).join('')}</ol></section>` : ''; }).join('');
+      return `<p class="ll-res-n pl-res-n">${n ? (n === 1 ? '1 step' : n + ' steps') : 'No steps match “' + escapeHtml(_plQ.trim()) + '”.'}</p>${secs}`;
+    };
     const upLocked = firstOpen && firstOpen.type === 'lesson' && !M.paid;
     const up = firstOpen ? `<article class="pl-up" aria-label="Up next"><span class="rd-eyeb">Up next · ${escapeHtml(stShort(firstStage))}</span>
         <h2 class="pl-up-t">${escapeHtml(firstOpen.type === 'lesson' ? firstOpen.row.t : firstOpen.it.title)}</h2><span class="pl-up-m">${metaOf(firstOpen)}</span>
         <div class="pl-up-go"><button class="pl-cta" type="button" data-go="1">${upLocked ? LOCK_SVG + '<span>See paid plans</span>' : 'Continue'}</button></div></article>` : '';
     const prog = `<section class="pl-pg" aria-labelledby="pl-pg-h"><div class="pl-pg-top"><h2 id="pl-pg-h">Your progress</h2><span>${pct}%</span></div>
         ${all.map((sec, s) => sec.length ? `<button class="pl-pg-s${s === here ? ' is-here' : ''}" type="button" data-stage="${s}" data-jump="1"><span class="pl-pg-n"><span>${escapeHtml(stName(s))}</span><span>${sp[s]}%</span></span><span class="pl-pg-bar" aria-hidden="true"><i style="width:${sp[s]}%"></i></span></button>` : '').join('')}</section>`;
-    const pills = all.map((sec, s) => sec.length ? `<button class="lb-pill${s === cur ? ' on' : ''}" type="button" role="tab" aria-selected="${s === cur ? 'true' : 'false'}" data-stage="${s}">${escapeHtml(stShort(s))}</button>` : '').join('');
-    const tabs = [['both','Both'],['lessons','Lessons'],['practices','Practices']].map(([k, l]) => `<button class="lb-pill${view === k ? ' on' : ''}" type="button" data-view="${k}" aria-pressed="${view === k ? 'true' : 'false'}">${l}</button>`).join('');
+    // search + Filter, the same as Learn's (Justin 2026-10-30), kept to the Pathway: Stage (one at a time) and Show
+    const VIEWS = [['both','Both'],['lessons','Lessons'],['practices','Practices']];
+    const chip = (attr, id, label, on) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${attr}="${id}" aria-pressed="${on}"><span>${escapeHtml(label)}</span></button>`;
+    const fon = view !== 'both';
+    const search = `<div class="lb-search-row pl-search-row">
+        <div class="ll-sfloat open lb-search" id="pl-sf" role="search"><span class="ll-sf-btn" aria-hidden="true">${_LB_SEARCH}</span><input class="ll-sf-q" id="pl-q" type="search" placeholder="Search the Pathway" aria-label="Search the Pathway" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_plQ)}"><button class="ll-sf-x" id="pl-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="pl-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="pl-fsheet" aria-label="${fon ? 'Filter, 1 on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fon ? '<span class="lm-fn" aria-hidden="true">1</span>' : ''}</button></div></div>
+      ${fon ? `<div class="lm-active" role="group" aria-label="Filters"><button class="lm-chip on" type="button" data-plx="1" aria-label="Take off ${escapeHtml((VIEWS.find(x => x[0] === view) || [])[1] || '')}"><span>${escapeHtml((VIEWS.find(x => x[0] === view) || [])[1] || '')}</span><span class="lm-x" aria-hidden="true">×</span></button></div>` : ''}
+      <div class="rd-jr-sheet lm-fsheet" id="pl-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="lm-fs-body"><span class="rd-eyeb">Stage</span><div class="lm-chips">${all.map((sec, s) => sec.length ? chip('pls', s, stShort(s), s === cur) : '').join('')}</div>
+          <span class="rd-eyeb">Show</span><div class="lm-chips">${VIEWS.map(([k, l]) => chip('plv', k, l, view === k)).join('')}</div></div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="pl-fclear">Clear all</button><button class="lm-fshow" type="button" id="pl-fshow">Show</button></div></div></div>`;
     _rdShell(`<div class="pl-view pl-grid"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
-      <p class="pl-lede">Lessons and practices, one small step at a time.</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
       <div class="pl-top${up ? '' : ' pl-top-solo'}">${up}${prog}</div>
-      <div class="pl-stages" role="tablist" aria-label="Stages">${pills}</div>
-      <div class="pl-showrow" role="group" aria-label="Show on the Pathway"><span class="rd-eyeb">Show</span>${tabs}</div>
-      <section class="pl-sec"><h2>${escapeHtml(stName(cur))}</h2>${body}</section></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' }, wide:true, plainBack:true });
+      ${search}
+      <div id="pl-res">${listHTML()}</div></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' }, wide:true, plainBack:true });
     const v = root.querySelector('.pl-view'); if(!v) return;
+    // search: the list redraws as you type, the field keeps its place
+    const qi = $('#pl-q'), qx = $('#pl-q-x'), res = $('#pl-res');
+    if(qi && res){ let tm = null; const draw = () => { res.innerHTML = listHTML(); };
+      qi.oninput = () => { _plQ = qi.value; clearTimeout(tm); tm = setTimeout(draw, 120); };
+      qi.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
+      qx.onmousedown = e => e.preventDefault();
+      qx.onclick = () => { _plQ = ''; qi.value = ''; draw(); qi.focus(); }; }
+    // Filter: the slide-up below 1120, a panel under the search row that pushes the page down at 1120 and up (as Learn's)
+    const fbtn = $('#pl-fbtn'), sh = $('#pl-fsheet');
+    if(fbtn && sh){
+      let ps = cur, pv = view, inline = false, tmr = null;
+      const box = sh.querySelector('.rd-jr-sheet-in'), show = $('#pl-fshow');
+      const calm = () => document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const paint = () => {
+        sh.querySelectorAll('[data-pls]').forEach(b => { const on = +b.dataset.pls === ps; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        sh.querySelectorAll('[data-plv]').forEach(b => { const on = b.dataset.plv === pv; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        const n = all[ps].filter(x => pv === 'both' || (pv === 'lessons' ? x.type === 'lesson' : x.type === 'practice')).length;
+        show.textContent = 'Show ' + (n === 1 ? '1 step' : n + ' steps');
+      };
+      const apply = () => { if(ps === cur && pv === view){ try{ fbtn.focus({ preventScroll:true }); }catch(e){} return; } _plStage = ps; _plQ = ''; try{ localStorage.setItem(PL_VIEW, pv); }catch(e){} _upKeep(); screenPathway(); };
+      const esc = e => { if(e.key === 'Escape') close(); };
+      const open = () => {
+        if(inline) return close();
+        ps = cur; pv = view; paint();
+        if(matchMedia('(min-width:1120px)').matches){
+          const after = v.querySelector('.lm-active') || v.querySelector('.pl-search-row'); if(after.nextElementSibling !== sh) after.after(sh);
+          inline = true; sh.classList.add('is-inline'); sh.setAttribute('role', 'region'); _pmSlide(fbtn, sh, true); document.addEventListener('keydown', esc);
+          const f = sh.querySelector('.lm-chip.on'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+          return;
+        }
+        clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); fbtn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc);
+      };
+      const close = () => {
+        document.removeEventListener('keydown', esc);
+        if(inline){ inline = false; return _pmSlide(fbtn, sh, false, () => { sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); apply(); }); }
+        sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); fbtn.setAttribute('aria-expanded', 'false');
+        tmr = setTimeout(() => { sh.hidden = true; apply(); }, calm() ? 0 : 320);
+      };
+      fbtn.onclick = open; sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
+      sh.addEventListener('click', e => { if(e.target === sh) close(); });
+      sh.querySelectorAll('[data-pls]').forEach(b => b.onclick = () => { ps = +b.dataset.pls; paint(); });
+      sh.querySelectorAll('[data-plv]').forEach(b => b.onclick = () => { pv = b.dataset.plv; paint(); });
+      $('#pl-fclear').onclick = () => { ps = here; pv = 'both'; paint(); };
+      let y0 = 0, dragging = false;
+      box.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; dragging = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab'); }, { passive:true });
+      box.addEventListener('touchmove', e => { if(!dragging) return; box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, e.touches[0].clientY - y0)}px)`; }, { passive:true });
+      box.addEventListener('touchend', e => { if(!dragging) return; dragging = false; box.style.transition = ''; if(e.changedTouches[0].clientY - y0 > 90) close(); else box.style.transform = ''; });
+    }
     const openPractice = it => {
       if(it.kind === 'anchorpick'){ if(!M.paid) return gateSubscribe('practice'); _upPickOpen = !_upPickOpen || !M.anchorSet; _upKeep(); return screenPathway(); }
       if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(Object.assign({}, M.reco, { fromPath:true, pathTitle:it.title }), screenPathway); }
@@ -11602,8 +11709,9 @@ function app(tab){
     v.onclick = e => {
       const tv = e.target.closest('[data-view]');
       if(tv){ try{ localStorage.setItem(PL_VIEW, tv.dataset.view); }catch(err){} try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
+      if(e.target.closest('[data-plx]')){ try{ localStorage.setItem(PL_VIEW, 'both'); }catch(err){} _upKeep(); return screenPathway(); }
       const sg = e.target.closest('[data-stage]');
-      if(sg){ _plStage = +sg.dataset.stage; _plJump = !!sg.dataset.jump; try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
+      if(sg){ _plStage = +sg.dataset.stage; _plQ = ''; _plJump = !!sg.dataset.jump; try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
       const pk = e.target.closest('[data-pick]');
       if(pk){ _upPickOpen = false; return _upSetAnchor(pk.dataset.pick === 'auto' ? null : pk.dataset.pick); }
       if(e.target.closest('[data-go]') && firstOpen){
@@ -11620,7 +11728,7 @@ function app(tab){
     };
     const sc = root.querySelector('.scroll');
     if(sc && _upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
-    if(_plJump){ _plJump = false; requestAnimationFrame(() => { const st = root.querySelector('.pl-stages'); if(st && st.getBoundingClientRect().top > innerHeight * .6) st.scrollIntoView({ block:'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }); }
+    if(_plJump){ _plJump = false; requestAnimationFrame(() => { const st = root.querySelector('#pl-res'); if(st && st.getBoundingClientRect().top > innerHeight * .6) st.scrollIntoView({ block:'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }); }
   }
   // the order lessons are walked in: the same rows as the list, lessons only
   function _plNext(id){
@@ -11644,6 +11752,13 @@ function app(tab){
     }).join('');
     return `<aside class="pl-sc" aria-label="This stage"><div class="pl-sc-top"><button class="pl-sc-h" type="button" data-sg="1">${escapeHtml(_plData.stages[s] || '')}</button><span>${pct}%</span></div><span class="pl-sc-bar" aria-hidden="true"><i style="width:${pct}%"></i></span><ol class="pl-sc-list">${items}</ol></aside>`;
   }
+  // back / forward through the lessons, on either side of Complete
+  function _plPrev(id){ if(!_plData) return null; const i = _plData.rows.findIndex(r => r.id === id); return i > 0 ? _plData.rows[i - 1] : null; }
+  function _plArrow(row, dir){
+    const svg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir === 'prev' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'}"/></svg>`;
+    const word = dir === 'prev' ? 'Previous' : 'Next';
+    return row ? `<button class="pl-arr" type="button" data-pln="${row.id}" aria-label="${word}: ${escapeHtml(row.t)}" title="${escapeHtml(row.t)}">${svg}</button>` : `<button class="pl-arr" type="button" disabled aria-label="${word}">${svg}</button>`;
+  }
   function _plStageWire(s, id){
     const el = root.querySelector('.pl-sc'); if(!el) return;
     el.onclick = e => {
@@ -11664,11 +11779,14 @@ function app(tab){
     const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${sid ? ` poster="${escapeHtml(mp4.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(hls || mp4)}">${hls ? '' : trk}</video></div><p class="pl-verr" hidden>Couldn't load the video. <button type="button" class="pl-vretry">Try again</button></p>` : '';
     // Complete sits right under the title, "Next: ..." under it, then the reading (Justin, canon 2026-10-30: "the reading is optional,
     // so don't make someone scroll"); desktop: the lesson on 1-8, "This stage" on 9-12
+    // round 2 (Justin 2026-10-30): the reading sits under the title, unencumbered; Complete with back / forward arrows lives under
+    // This stage on desktop, and is pinned to the bottom below 1120 (the reading scrolls above it). "Next: ..." is in the card.
+    const pv = _plPrev(id);
+    const nav = cls => `<div class="pl-nav ${cls}">${_plArrow(pv, 'prev')}<button class="pl-done" type="button" data-plc="1">Complete</button>${_plArrow(nx, 'next')}</div>`;
     _rdShell(`<div class="pl-lgrid"><div class="pl-lesson">${video}
       <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
       <h1 class="rd-title">${escapeHtml(r.t)}</h1>
-      <div class="pl-foot"><button class="pl-done" type="button" id="pl-done">Complete</button>${nx ? `<p>Next: ${escapeHtml(nx.t)}</p>` : ''}</div>
-      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div></div>${_plStageCard(r.s, r.id)}</div>`,
+      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div>${nav('pl-pin')}</div><div class="pl-side">${_plStageCard(r.s, r.id)}${nav('pl-sidenav')}</div></div>`,
       { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' }, wide:true, plainBack:true });
     _plStageWire(r.s, r.id);
     const ve = root.querySelector('.pl-video'), ver = root.querySelector('.pl-verr');
@@ -11686,8 +11804,8 @@ function app(tab){
       b.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
       b.onclick = e => { const a = e.target.closest('a[data-ln]'); if(!a) return; e.preventDefault(); const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; screenPathLesson(+a.dataset.ln); };   // in-app links to other Pathway lessons
     });
-    const d = document.getElementById('pl-done');
-    if(d) d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); };
+    root.querySelectorAll('[data-plc]').forEach(d => d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); });
+    root.querySelectorAll('[data-pln]').forEach(b => b.onclick = () => { try{ haptic('tap'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; screenPathLesson(+b.dataset.pln); });
   }
   // a quiz: one question at a time, nothing scored or kept but "done". Justin (2026-10-25): no answer is revealed, a wrong
   // pick just fades so you can choose again; the right pick gets a small drawn check, no green, no "Yes, that one" line. The
@@ -11706,7 +11824,7 @@ function app(tab){
   function screenPathQuiz(r){
     let qi = 0, got = false;
     const nx = _plNext(r.id);
-    _rdShell(`<div class="pl-lgrid"><div class="pl-quiz">${_plQuizQ(r, 0)}</div>${_plStageCard(r.s, r.id)}</div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' }, wide:true, plainBack:true });
+    _rdShell(`<div class="pl-lgrid"><div class="pl-quiz">${_plQuizQ(r, 0)}</div><div class="pl-side">${_plStageCard(r.s, r.id)}</div></div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' }, wide:true, plainBack:true });
     _plStageWire(r.s, r.id);
     const v = root.querySelector('.pl-quiz'); if(!v) return;
     v.onclick = e => {
@@ -12334,11 +12452,11 @@ function app(tab){
       let el = home.querySelector('#ch-panel'); const fresh = !el;
       if(fresh){ el = document.createElement('aside'); el.id = 'ch-panel'; el.className = 'ch-panel ch-pin'; el.setAttribute('aria-labelledby', 'ch-sh-h'); home.appendChild(el); }
       el.innerHTML = inner;
-      home.classList.add('ch-split');
+      _flip([...home.querySelectorAll('.ch-card')], ()=>home.classList.add('ch-split'));
       const mark = on => home.querySelectorAll('.ch-card').forEach(b=>{ const y = on && b.dataset.ch === id; b.classList.toggle('is-sel', y); b.setAttribute('aria-pressed', y ? 'true' : 'false'); });
       mark(true); _chSel = id;
       if(fresh) requestAnimationFrame(()=>el.classList.remove('ch-pin'));
-      close = (then)=>{ if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } mark(false); _chSel = null; try{ el.remove(); }catch(e){} home.classList.remove('ch-split'); if(typeof then === 'function') then(); };
+      close = (then)=>{ if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } mark(false); _chSel = null; _flip([...home.querySelectorAll('.ch-card')], ()=>{ try{ el.remove(); }catch(e){} home.classList.remove('ch-split'); }); if(typeof then === 'function') then(); };
       if(!_chMQ){ try{ _chMQ = window.matchMedia('(min-width:1120px)'); _chMQ.addEventListener('change', ()=>{ const p = document.getElementById('ch-panel'); if(p && !_chMQ.matches && _chSel){ const k = _chSel; p.remove(); const h = root.querySelector('.ch-home'); if(h){ h.classList.remove('ch-split'); h.querySelectorAll('.ch-card.is-sel').forEach(b=>{ b.classList.remove('is-sel'); b.setAttribute('aria-pressed', 'false'); }); } _chSel = null; openChSheet(k, back); } }); }catch(e){} }
       try{ $('#ch-sh-x').focus({ preventScroll:true }); }catch(e){}
     } else {
@@ -12448,11 +12566,11 @@ function app(tab){
       : `<textarea class="rd-refl-in" id="ch-ta" rows="3" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(T.jPh)}"></textarea>${opt ? `<button class="ch-opt ch-opt-one" type="button" data-a="${escapeHtml(opt)}" aria-pressed="false">${escapeHtml(opt)}</button>` : ''}`;
     // desktop (1120 and up): the journal sits open on 9-12, no tap needed; Like / Dislike prompts have no panel (Justin, canon 2026-10-30)
     const side = !two && _chWideMQ();
-    const sideHTML = side ? `<aside class="ch-jside" aria-labelledby="ch-jside-h"><span class="ch-jside-h" id="ch-jside-h">${_JR_PEN}Journal</span><label class="ch-jside-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<p class="ch-jside-where">What you write is kept in Your Journal, in the You tab.</p></aside>` : '';
+    const sideHTML = side ? `<aside class="ch-jside" aria-labelledby="ch-jside-h"><span class="ch-jside-h" id="ch-jside-h">${_JR_PEN}Journal</span><label class="ch-jside-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<p class="ch-jside-where">What you write is kept in Your Journal, in the You tab.</p><button class="ch-pill ch-complete" type="button" id="ch-done" disabled>Complete</button>${last ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}</aside>` : '';
     const ansHTML = side ? '' : two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
       : `<div class="rd-jr rd-jr-c ch-jr" id="ch-jr"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub" id="ch-jr-sub">${escapeHtml(T.jLabel)}</p>
           <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Close</button></div>
-            <div class="rd-jr-track"><div class="rd-jr-step" data-step="0"><div class="rd-refl-one"><label class="read-p rd-refl-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<button class="rd-refl-save" type="button" id="ch-save" disabled>Save</button></div></div></div>
+            <div class="rd-jr-track"><div class="rd-jr-step" data-step="0"><div class="rd-refl-one"><label class="read-p rd-refl-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<button class="rd-refl-save" type="button" id="ch-done" disabled>Complete</button></div></div></div>
             <p class="rd-refl-where">What you write is kept in Your Journal, in the You tab.</p></div></div></div>`;
     const ways = c.kind === 'digital' ? `<p class="ch-wayq">${escapeHtml(c.wayQ)}</p><div class="ch-ans" role="group" aria-label="${escapeHtml(c.wayQ)}">${c.ways.map(w=>`<button class="ch-opt ch-way" type="button" data-w="${escapeHtml(w.k)}" aria-pressed="false">${escapeHtml(w.k)}</button>`).join('')}</div><div id="ch-dbox"></div>` : '';
     _rdShell(`<div class="ch-view ch-prompt${side ? ' ch-split' : ''}" data-ch-id="${escapeHtml(id)}"><div class="ch-pmain">
@@ -12462,8 +12580,8 @@ function app(tab){
         ${ways}${boxHTML(box)}
         ${closing ? `<p class="ch-fine">${escapeHtml(closing)}</p>` : ''}
         <div id="ch-ansbox"${c.kind === 'digital' ? ' hidden' : ''}>${ansHTML}</div>
-        <button class="ch-pill ch-complete" type="button" id="ch-done" disabled>Complete</button>
-        ${last ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}
+        ${two ? '<button class="ch-pill ch-complete" type="button" id="ch-done" disabled>Complete</button>' : ''}
+        ${last || side ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}
       </div>${sideHTML}</div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, wide:true, plainBack:true });
     // crossing 1120 redraws the prompt (journal open beside it, or the Journal button + sheet), keeping what was written
     if(_chPmq){ try{ _chPmq.mq.removeEventListener('change', _chPmq.fn); }catch(e){} _chPmq = null; }
@@ -12535,6 +12653,12 @@ function app(tab){
   // ---- 2b · after Done: keep going ----
   function _chPracticeName(k){ const r = P8_ROWS.find(x=>x.k === k); if(r) return { t:r.t, sub:(estMinutes(k, k === 'micro' ? 2 : 8) ? `About ${estMinutes(k, k === 'micro' ? 2 : 8)} min · ` : '') + r.s };
     const m = P_MEDS.find(x=>x.id === k); return m ? { t:m.title, sub:`${m.est.replace('~', 'About ')} · ${m.sub.charAt(0).toLowerCase() + m.sub.slice(1)}` } : { t:k, sub:'' }; }
+  // the challenge's days as a row of circles; the one just done fills in and draws its check (Justin 2026-10-30: "after hitting
+  // complete, the app should do something ... a progress indicator")
+  function _chDaysHTML(c, doneN, justN){
+    let h = ''; for(let i = 1; i <= c.days; i++) h += `<li class="ch-d${i <= doneN ? ' on' : ''}${i === justN ? ' just' : ''}">${i <= doneN ? _CH_CHECK : ''}</li>`;
+    return `<ol class="ch-days" aria-label="Day ${doneN} of ${c.days} complete">${h}</ol>`;
+  }
   function screenChSaved(id, n){
     const S = _CH(), T = S.T, s = _chState(id); if(!s) return screenChallenges();
     const c = s.c, p = c.prompts[n - 1];
@@ -12543,7 +12667,8 @@ function app(tab){
     const art = k.article && window.Learning ? window.Learning.byId(k.article) : null;
     _rdShell(`<div class="ch-view">
         <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
-        <div class="ch-saved"><span class="ch-check ch-check-lg">${_CH_CHECK}</span><h1 class="rd-title ch-ph">${escapeHtml(T.saved)}</h1></div>
+        ${_chDaysHTML(c, n, n)}
+        <h1 class="rd-title ch-ph">${escapeHtml(T.saved)}</h1>
         <p class="ch-intro">${escapeHtml(T.tomorrow)}</p>
         ${pr || art ? `<span class="ch-lbl ch-lbl-gap">${escapeHtml(T.keep)}</span>` : ''}
         ${pr ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-k-pr"><span class="ch-keep-t"><span>A practice</span><b>${escapeHtml(pr.t)}</b><span>${escapeHtml(pr.sub)}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : ''}
@@ -12575,6 +12700,7 @@ function app(tab){
     const next = _chFirstUnfinished(id);
     _rdShell(`<div class="ch-view">
         <span class="ch-lbl">${escapeHtml(s.c.name)}</span>
+        ${_chDaysHTML(s.c, s.c.days, s.c.days)}
         <h1 class="rd-title ch-h1">${escapeHtml(T.finH)}</h1>
         <p class="ch-intro">${escapeHtml(T.finLine.replace('{c}', s.c.name))}</p>
         ${notes.map(x=>`<div class="ch-note"><span class="ch-lbl">${escapeHtml(String(x.topic).toUpperCase())}</span><p>${escapeHtml(x.text).replace(/\n/g, '<br>')}</p></div>`).join('')}
@@ -12676,7 +12802,7 @@ function app(tab){
       if(k==='surprise') return _p8Surprise();
       openPracticeSheet(k);
     });
-    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>{ _plStage = null; screenPathway(); };
+    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>{ _plStage = null; _plQ = ''; screenPathway(); };
     const chE = $('#ch-entry'); if(chE) chE.onclick = ()=>screenChallenges();
     // a caller staged a shape to open straight into (older "change this practice" paths)
     if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
@@ -12736,7 +12862,7 @@ function app(tab){
       el.className = `ps-panel ps-card ${tc}${fresh ? ' ps-in' : ''}`;
       el.setAttribute('aria-labelledby', 'p8-h');
       el.innerHTML = inner;
-      view.classList.add('ps-split');
+      _flip(_p8FlipEls(view), ()=>view.classList.add('ps-split'));
       _psRows(view, k);
     } else {
       wrap = document.createElement('div'); wrap.id='p8-sheet'; wrap.className='p7-sheet p8-sheet ps-sheet';
@@ -12836,7 +12962,7 @@ function app(tab){
     function detach(){ document.removeEventListener('keydown', onKey); clearTimeout(docT); document.removeEventListener('click', onDoc); if(_ps && _ps.el===el) _ps = null; }
     function close(quiet){
       detach();
-      if(panel){ const v = el.parentNode; try{ el.remove(); }catch(e){} if(v){ v.classList.remove('ps-split'); _psRows(v, null); } }
+      if(panel){ const v = el.parentNode; _flip(_p8FlipEls(v), ()=>{ try{ el.remove(); }catch(e){} if(v) v.classList.remove('ps-split'); }); if(v) _psRows(v, null); }
       else { wrap.classList.remove('on'); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 320); }
       if(!quiet && back && document.contains(back)){ try{ back.focus({ preventScroll:true }); }catch(e){} }
     }

@@ -4093,7 +4093,7 @@ body.reduce-motion .jr-fmenu{transition:none}
 }
 /* the content starts on column 1, right under the dock, so screens with a dock start their content below it */
 @media (min-width:1120px){
-  #screen:has(> .fl-dock:not(.fl-backonly):not(.fl-plain)) > .scroll > .view{padding-top:calc(max(26px, env(safe-area-inset-top)) + 92px)}
+  #screen:has(> .fl-dock:not(.fl-backonly):not(.fl-plain):not(.fl-noback)) > .scroll > .view{padding-top:calc(max(26px, env(safe-area-inset-top)) + 92px)}
 }
 @media (min-width:1120px){
   /* an opened search field stays in the margin, clear of the column (dock width/2 - 343px = the gap to the column) */
@@ -6023,7 +6023,8 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 .pg-back{display:none}
 @media (min-width:1120px){
   .fl-dock.fl-plain{display:none}
-  .pg-back{display:inline-flex;align-self:flex-start;align-items:center;gap:6px;min-height:44px;margin:0 0 8px -2px;padding:0 4px 0 0;border:0;background:none;color:var(--muted);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer}
+  .fl-dock.fl-noback > .tab-back-float{display:none}
+  .pg-back{display:flex;width:fit-content;align-self:flex-start;align-items:center;gap:6px;min-height:44px;margin:0 0 8px -2px;padding:0 4px 0 0;border:0;background:none;color:var(--muted);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer}
   .pg-back svg{width:16px;height:16px}
   .pg-back:hover{color:var(--ink)}
   .pg-back:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
@@ -6172,3 +6173,47 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
   .ch-prompt.ch-split > .ch-pmain{grid-column:1 / span 8}
   .ch-prompt.ch-split > .ch-jside{grid-column:9 / span 4;position:sticky;top:24px}
 }
+
+
+/* ============================================================
+   ROUND 2 ON THE FOUR SCREENS (Justin, 2026-10-30 beta check)
+   ============================================================ */
+/* panels sit above cards that are still gliding into place */
+.ps-panel,.ch-panel{z-index:2}
+/* Pathway: Learn's search + Filter under the top row */
+.pl-search-row{margin:32px 0 8px}
+.pl-grid > .lm-active{margin:8px 0 0}
+.pl-grid > .lm-fsheet.is-inline{margin:8px 0 0}
+#pl-res > .pl-sec:first-child,#pl-res > .pl-res-n{margin-top:24px}
+.pl-res-n{margin:0;font-size:calc(15px * var(--type-scale));color:var(--muted)}
+#pl-res > .pl-res-n + .pl-sec{margin-top:16px}
+/* Pathway lesson: Complete between back / forward arrows; under This stage at 1120+, pinned at the bottom below */
+.pl-nav{display:flex;align-items:center;gap:12px}
+.pl-nav .pl-done{flex:1 1 auto;width:auto;min-width:0;margin:0;padding:0 20px}
+.pl-arr{flex:none;width:48px;height:48px;border-radius:999px;border:1px solid var(--hairline);background:var(--bone);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.pl-arr svg{width:20px;height:20px}
+.pl-arr:hover:not(:disabled){border-color:var(--ink)}
+.pl-arr:disabled{opacity:.35;cursor:default}
+.pl-arr:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.pl-pin{position:sticky;bottom:0;z-index:3;margin:24px calc(-1 * var(--pad-x)) -24px;padding:12px var(--pad-x);background:var(--bone);border-top:1px solid var(--hairline)}
+.pl-side{display:none}
+@media (min-width:720px){ .pl-pin{margin-inline:calc(-1 * var(--pad-x));} .pl-pin .pl-done{flex:0 1 320px} .pl-pin{justify-content:flex-start} }
+@media (min-width:1120px){
+  .pl-pin{display:none}
+  .pl-side{display:flex;flex-direction:column;gap:16px;grid-column:9 / span 4;position:sticky;top:24px;min-width:0}
+  .pl-side .pl-sc{position:static;display:block}
+}
+/* Challenge prompt: Complete inside the journal */
+.ch-jside .ch-complete{width:100%;align-self:stretch;margin-top:4px}
+.ch-jside .ch-complete + .ch-fine{margin-top:-4px}
+/* the day just completed fills in */
+.ch-days{list-style:none;margin:4px 0;padding:0;display:flex;flex-wrap:wrap;gap:8px;max-width:352px}
+.ch-d{width:28px;height:28px;box-sizing:border-box;border-radius:999px;border:1.5px solid var(--hairline);display:inline-flex;align-items:center;justify-content:center;color:var(--bone)}
+.ch-d svg{width:16px;height:16px}
+.ch-d.on{background:var(--ink);border-color:var(--ink)}
+.ch-d.just{animation:chDayIn .6s cubic-bezier(.2,.8,.2,1) .2s both}
+.ch-d.just svg path{stroke-dasharray:26;stroke-dashoffset:26;animation:chDraw .36s ease .6s forwards}
+@keyframes chDayIn{0%{background:transparent;border-color:var(--hairline);transform:scale(.72)}60%{background:var(--ink);border-color:var(--ink);transform:scale(1.14)}100%{background:var(--ink);border-color:var(--ink);transform:scale(1)}}
+@keyframes chDraw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){ .ch-d.just{animation:none} .ch-d.just svg path{animation:none;stroke-dashoffset:0} }
+body.reduce-motion .ch-d.just{animation:none} body.reduce-motion .ch-d.just svg path{animation:none;stroke-dashoffset:0}
