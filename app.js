@@ -746,7 +746,7 @@
   // so the new one starts where the last one was and moves to where this screen wants it.
   let _tbWas = false;
   function _tbSync(){
-    const tb = root.querySelector(':scope > .tabbar'), back = root.querySelector(':scope > .fl-dock > .tab-back-float');
+    const tb = root.querySelector(':scope > .tabbar'), back = root.querySelector(':scope > .fl-dock:not(.tb-ghost) > .tab-back-float');
     const want = !!(tb && back), was = _tbWas; _tbWas = want;
     const mm = q => !!(window.matchMedia && matchMedia(q).matches);
     const move = mm('(max-width:719px)') && !mm('(prefers-reduced-motion: reduce)') && want !== was;
@@ -772,7 +772,7 @@
   // the pill then hides on desktop. Tablet and phone keep the bottom bar's arrow. Screens whose page fills in later get the
   // link when it does.
   function _pgBackSync(){
-    const back = root.querySelector('.fl-dock > .tab-back-float'); if(!back || document.body.classList.contains('rd-crumbs')) return;
+    const back = root.querySelector('.fl-dock:not(.tb-ghost) > .tab-back-float'); if(!back || document.body.classList.contains('rd-crumbs')) return;
     const sc = root.querySelector('.scroll'); if(!sc) return;
     const dock = back.parentElement;
     const put = () => {
