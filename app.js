@@ -1685,7 +1685,11 @@
     challenges: 'Challenges',
   };
   let _subFrom = null;
-  function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
+  // every lock + "See paid plans" lands on the one plans view (Justin, canon 2026-10-29). what = a SUB_WHAT key, item = the
+  // thing's own name when we know it ("Self-regulation"), tier 'co' for Co-Regulator things.
+  function gateSubscribe(what, item){ _subFrom = what || null; _ppOpen({ tier:'sr', what:what || null, item:item || null }); }
+  // "X is / are part of …" (2026-10-30: was "The other practices is part of Self-Regulator.")
+  const SUB_PLURAL = { matching:1, practice:1, patterns:1, voice:1, impacts:1, challenges:1 };
 
   // ---- billing interval picker (monthly / annual) ----
   // ONE product, ONE set of entitlements — the only difference is how often the card is
@@ -1727,30 +1731,139 @@
   // 🖊 COPY IS DRAFT — Justin is rewriting the offer copy; this is the honest placeholder,
   // not the final register. The structural rule that carries over from the offer screen:
   // staying free must never be styled as a shameful exit.
-  function screenSubscribe(err, busy){
-    const what = _subFrom && SUB_WHAT[_subFrom];
+  // ---- the plans view (Justin, canon 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Paid plans") ----
+  // Free, Self-Regulator and Co-Regulator side by side. The one the person reached for is featured and holds the one
+  // filled button; their own plan says "Your plan"; Free never has a button. 1120 and up: a panel on columns 9-12 with the
+  // page they came from beside it; below: a full screen with the tab bar. X, "Not now" and Escape close it.
+  const PP_INC = {
+    free: ['Unlimited check-ins', 'Mindfulness practices', 'Mindful Moment, live every week'],
+    sr: ['Everything in Free', 'The full Unstucking Pathway', 'Every article and practice', 'The other voices', 'Challenges', 'The members’ podcast', 'Your personal insights and the reader'],
+    co: ['Everything in Self-Regulator', 'Capacity Builder, live group practice', 'The monthly Q&A', 'Discuss, Ask & Share'],
+  };
+  let _pp = { ctx:null, open:{}, tap:null, back:null, mq:null, key:null };
+  // remember what was tapped, so the page beside the panel can mark it and focus can go back to it
+  document.addEventListener('click', e=>{ const t = e.target && e.target.closest ? e.target.closest('button, a, [role="button"]') : null; if(t && !t.closest('#pp-panel, .pp-view')) _pp.tap = { el:t, at:Date.now() }; }, true);
+  const _ppWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  const _ppIsCo = () => !!(_lw && _lw.access && _lw.access.co_regulator);
+  function _ppHead(c){
+    if(c.item) return `${c.item} is part of ${c.tier === 'co' ? 'Co-Regulator' : 'Self-Regulator'}.`;
+    const w = c.what && SUB_WHAT[c.what];
+    if(w) return `${CAP(w)} ${SUB_PLURAL[c.what] ? 'are' : 'is'} part of Self-Regulator.`;
+    return 'Choose your plan';
+  }
+  function _ppHTML(c, panel){
     const inStore = !!(Store.inStoreApp && Store.inStoreApp());
-    if(inStore && !_storePx && !busy) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; if(document.getElementById('pw-go') && !document.getElementById('pw-go').disabled) screenSubscribe(err); } });
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
-          <p class="eyebrow">Self-Regulator</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is part of Self-Regulator.' : 'Choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">It adds the full Unstucking Pathway, every article and practice, the other voices, challenges, the members’ podcast, and your personal insights: the patterns across your check-ins and the reader. Cancel anytime.</p>
-          ${planPickerHTML()}
-          ${inStore
-            ? `<p class="fineprint" style="margin-bottom:18px">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
-            : `<p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>`}
-          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'One moment…':'Subscribe'}</button>
-          ${inStore ? `<p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-restore" style="font-size:inherit;padding:2px"${busy?' disabled':''}>Restore purchases</button></p>` : ''}
-          <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">Not now</button></p>
-        </div>
-      </div>`);
-    if(busy) return;
-    wirePlanPicker();
-    $('#pw-go').onclick = ()=>{
+    const cur = _ppIsCo() ? 'co' : paidNow() ? 'sr' : 'free';
+    let feat = (c.tier === 'co' || cur !== 'free') ? 'co' : 'sr';
+    if(feat === cur) feat = null;
+    const annual = _planChoice === 'annual';
+    const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
+    const srSub = a => a ? `Billed once a year${_storePx ? '' : ' · that’s $9 a month'}` : 'Billed monthly · cancel anytime';
+    const mine = `<span class="pp-mine">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'}Your plan</span>`;
+    const card = (k, name, plain, body) => {
+      const o = !!_pp.open[k];
+      return `<article class="pp-card${feat === k ? ' is-feat' : ''}${cur === k ? ' is-mine' : ''}" aria-labelledby="pp-n-${k}">
+        <div class="pp-ch"><h3 class="pp-name" id="pp-n-${k}">${name}</h3><p class="pp-plain">${plain}</p></div>
+        ${body}
+        <div class="pp-inc"><button class="pp-inc-t" type="button" data-pp-inc="${k}" aria-expanded="${o}" aria-controls="pp-inc-${k}"><span>What’s included</span>${LW_PM(o)}</button>
+          <div class="pp-inc-b" id="pp-inc-${k}"${o ? '' : ' hidden'}><ul>${PP_INC[k].map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul></div></div>
+      </article>`;
+    };
+    const btnCls = k => 'btn block' + (feat === k ? '' : ' quiet');
+    const free = card('free', 'Free', 'Unlimited check-ins and mindfulness practices',
+      `<p class="pp-price"><b>$0</b></p><p class="pp-sub">No time limit</p>${cur === 'free' ? mine : ''}`);
+    const sr = card('sr', 'Self-Regulator', 'Self-paced learning', cur === 'sr' ? mine : cur === 'co' ? '' :
+      `<div class="pp-pills" role="radiogroup" aria-label="How often you pay">
+        <button type="button" class="pp-pill${annual ? '' : ' on'}" data-plan="monthly" role="radio" aria-checked="${!annual}"><b>${escapeHtml(pxM)}</b><span> / month</span></button>
+        <button type="button" class="pp-pill${annual ? ' on' : ''}" data-plan="annual" role="radio" aria-checked="${annual}"><b>${escapeHtml(pxA)}</b><span> / year</span></button>
+      </div>
+      <p class="pp-sub" id="pp-sr-sub">${srSub(annual)}</p>
+      ${c.err ? `<p class="autherr">${escapeHtml(c.err)}</p>` : ''}
+      <button class="${btnCls('sr')}" id="pw-go" type="button"${c.busy ? ' disabled' : ''}>${c.busy ? 'One moment…' : 'Subscribe'}</button>`);
+    const co = card('co', 'Co-Regulator', 'Everything, with people', cur === 'co' ? mine :
+      `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-sub">Billed monthly · cancel anytime</p>
+      <a class="${btnCls('co')}" id="pp-co-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Join Co-Regulator</a>`);
+    const fine = inStore
+      ? `<p class="pp-fine">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
+      : `<p class="pp-fine">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>`;
+    const H = panel ? 'h2' : 'h1';
+    return `<div class="pp-top"><${H} class="pp-h${panel ? '' : ' read-h1'}" id="pp-h">${escapeHtml(_ppHead(c))}</${H}>
+        <button class="pp-x" id="pp-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <p class="pp-lede">What you use now stays free, with no time limit.</p>
+      <div class="pp-cards">${free}${sr}${co}</div>
+      ${fine}
+      ${inStore ? `<p class="pp-not"><button class="linkbtn" id="pw-restore" type="button"${c.busy ? ' disabled' : ''}>Restore purchases</button></p>` : ''}
+      <p class="pp-not"><button class="linkbtn" id="pw-back" type="button">Not now</button></p>`;
+  }
+  // where the panel sits: columns 9-12 of the frame (the page keeps 1-8)
+  function _ppPlace(){
+    const p = document.getElementById('pp-panel'); if(!p) return;
+    const vw = innerWidth, padX = Math.min(40, Math.max(20, vw * .05)), gap = Math.min(32, Math.max(20, vw * .04));
+    // the frame is the page's scroll area (the rail sits outside it), capped at --page
+    const sc = root.querySelector('.scroll') || root, r = sc.getBoundingClientRect(), fw = Math.min(sc.clientWidth || r.width, 1120);
+    const col = (fw - 2 * padX - 11 * gap) / 12;
+    p.style.left = Math.round(r.left + padX + 8 * (col + gap)) + 'px';
+    p.style.width = Math.round(4 * col + 3 * gap) + 'px';
+    const top = Math.round(Math.max(r.top, 0) + 24);
+    p.style.top = top + 'px'; p.style.maxHeight = Math.max(240, innerHeight - top - 24) + 'px';
+    root.style.setProperty('--pp-cw', Math.round(2 * padX + 8 * col + 7 * gap) + 'px');
+  }
+  function _ppUnmark(){
+    document.querySelectorAll('.pp-mark').forEach(e=>e.classList.remove('pp-mark'));
+    document.querySelectorAll('.p8-view.pp-split').forEach(v=>{ v.classList.remove('pp-split'); v.querySelectorAll('.p8-r.is-sel').forEach(r=>{ if(!document.getElementById('ps-panel')) r.classList.remove('is-sel'); }); });
+  }
+  function _ppClose(quiet){
+    const p = document.getElementById('pp-panel');
+    _subFrom = null; _pp.ctx = null;
+    if(_pp.key){ document.removeEventListener('keydown', _pp.key); _pp.key = null; }
+    if(p){ p.remove(); root.style.removeProperty('--pp-cw'); _ppUnmark(); const bk = _pp.back; _pp.back = null; if(!quiet && bk && document.contains(bk)){ try{ bk.focus({ preventScroll:true }); }catch(e){} } return; }
+    route();
+  }
+  function _ppOpen(c){
+    c = c || {}; _pp.ctx = c;
+    try{ if(_ps) _ps.close(true); }catch(e){}   // the practice panel gives its place to the plans
+    if(!_pp.mq){ try{ _pp.mq = window.matchMedia('(min-width:1120px)'); _pp.mq.addEventListener('change', ()=>{ const p = document.getElementById('pp-panel'); if(p && !_ppWide() && _pp.ctx){ const k = _pp.ctx; _ppClose(true); _ppOpen(k); } else if(p) _ppPlace(); }); window.addEventListener('resize', _ppPlace); }catch(e){} }
+    const inStore = !!(Store.inStoreApp && Store.inStoreApp());
+    if(inStore && !_storePx && !c.busy) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; const g = document.getElementById('pw-go'); if(g && !g.disabled && _pp.ctx) _ppOpen(Object.assign({}, _pp.ctx, { busy:false })); } });
+    const page = root.querySelector('.scroll');
+    let el, panel = false;
+    if(_ppWide() && page && !root.querySelector('.pp-view')){
+      panel = true;
+      el = document.getElementById('pp-panel');
+      const fresh = !el;
+      if(fresh){
+        el = document.createElement('aside'); el.id = 'pp-panel'; el.className = 'pp-panel pp-in'; el.setAttribute('aria-labelledby', 'pp-h');
+        const pv = root.querySelector('.p8-view'), cal = root.querySelector('.lw-sch');
+        el.dataset.mode = pv ? 'practice' : cal ? 'cal' : 'gen';
+        if(pv) pv.classList.add('pp-split');
+        root.appendChild(el);
+        // the item they reached for, marked on the page beside the panel
+        const t = _pp.tap && (Date.now() - _pp.tap.at < 3000) && document.contains(_pp.tap.el) ? _pp.tap.el : null;
+        _pp.back = (document.activeElement && document.activeElement !== document.body && root.contains(document.activeElement)) ? document.activeElement : t;
+        if(t){ const r = t.closest('.p8-r'); if(r){ document.querySelectorAll('.p8-r.is-sel').forEach(x=>x.classList.remove('is-sel')); r.classList.add('is-sel'); } else if(!t.closest('.lw-ev')) (t.closest('.lb-card, .rd-row, .up-step, .ch-row, .p8-feat') || t).classList.add('pp-mark'); }
+      }
+      el.innerHTML = _ppHTML(c, true);
+      _ppPlace();
+    } else {
+      _rdShell(`<div class="pp-view">${_ppHTML(c, false)}</div>`, { tab:(currentTab && currentTab !== 'reflect' ? currentTab : 'now'), wide:true, loc:{ k:'tab', tab:(currentTab || 'now') } });
+      el = root.querySelector('.pp-view');
+    }
+    const q = s => el.querySelector(s);
+    // + / - opens what's included in place
+    el.querySelectorAll('[data-pp-inc]').forEach(b=>b.onclick=()=>{ const k = b.dataset.ppInc, o = !_pp.open[k]; _pp.open[k] = o; _pmSlide(b, document.getElementById('pp-inc-' + k), o); });
+    el.querySelectorAll('.pp-pill').forEach(b=>b.onclick=()=>{
+      _planChoice = b.dataset.plan === 'annual' ? 'annual' : 'monthly';
+      el.querySelectorAll('.pp-pill').forEach(x=>{ const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      const s = q('#pp-sr-sub'); if(s) s.textContent = _planChoice === 'annual' ? `Billed once a year${_storePx ? '' : ' · that’s $9 a month'}` : 'Billed monthly · cancel anytime';
+    });
+    el.querySelectorAll('a[data-policy]').forEach(a=>{ a.onclick = (e)=>{ e.preventDefault(); _ppClose(true); screenPolicy(a.getAttribute('data-policy')); }; });
+    q('#pp-x').onclick = ()=>_ppClose();
+    q('#pw-back').onclick = ()=>_ppClose();
+    const co = q('#pp-co-go'); if(co) co.addEventListener('click', ()=>setTimeout(()=>_ppClose(true), 200));
+    if(!_pp.key){ _pp.key = (e)=>{ if(e.key !== 'Escape') return; if(!document.getElementById('pp-panel') && !root.querySelector('.pp-view')){ document.removeEventListener('keydown', _pp.key); _pp.key = null; return; } if(document.getElementById('p7-sheet') || document.getElementById('p8-sheet')) return; e.preventDefault(); _ppClose(); }; document.addEventListener('keydown', _pp.key); }
+    if(c.busy) return;
+    const go = q('#pw-go');
+    if(go) go.onclick = ()=>{
       const plan = _planChoice;
       screenSubscribe(null, true);
       Promise.resolve(Store.startCheckout('member', plan)).then(res=>{
@@ -1759,17 +1872,22 @@
         if(storeResult(res)) return;                              // the App Store answered (store app only)
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
-    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
-      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
-    });
-    const rs=$('#pw-restore'); if(rs) rs.onclick = ()=>{
+    const rs = q('#pw-restore'); if(rs) rs.onclick = ()=>{
       screenSubscribe(null, true);
       Promise.resolve(Store.restorePurchases()).then(r=>{
-        if(r && r.paid){ _subFrom=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); }
+        if(r && r.paid){ _subFrom=null; _pp.ctx=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); }
         else screenSubscribe('No App Store purchase was found for this account.');
       }).catch(()=>screenSubscribe('No App Store purchase was found for this account.'));
     };
-    const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ _subFrom=null; route(); };
+    if(!q('[data-pp-inc]:focus')){ try{ q('#pp-x').focus({ preventScroll:true }); }catch(e){} }
+  }
+  // the old entry point: an error or "one moment" redraws the open plans view; a bare call opens it from settings
+  function screenSubscribe(err, busy){
+    const isOpen = !!(document.getElementById('pp-panel') || root.querySelector('.pp-view'));
+    const keep = (err || busy || isOpen) && _pp.ctx;
+    const c = keep ? _pp.ctx : { tier:'sr', what:null, item:null };
+    if(!keep) _subFrom = null;
+    _ppOpen(Object.assign({}, c, { err:err || null, busy:!!busy }));
   }
 
   // The App Store's answer to a purchase (store app only). Returns true when it handled the screen.
@@ -3096,7 +3214,7 @@ function app(tab){
   // every action button inside the Calendar (rows, opened rows, the panel)
   function _lwWire(root){
     const find = id => (_lw.sched || []).find(s => s.id === id);
-    root.querySelectorAll('[data-lw-see]').forEach(b => b.onclick = () => _lwUpgradeSheet());
+    root.querySelectorAll('[data-lw-see]').forEach(b => b.onclick = () => _lwUpgradeSheet(find(b.dataset.lwSee)));
     root.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(find(b.dataset.lwRem)));
     root.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(find(b.dataset.lwRsvp)));
     root.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(find(b.dataset.lwJoin)));
@@ -3297,7 +3415,7 @@ function app(tab){
       <ul class="lw-rules lw-facts">${_lwFacts(s).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
       <div class="lw-sh-btns lw-in-btns">${act}</div>`);
     const b = id => sh.el.querySelector(id);
-    if(b('#lw-in-up')) b('#lw-in-up').onclick = () => { sh.close(); _lwUpgradeSheet(); };
+    if(b('#lw-in-up')) b('#lw-in-up').onclick = () => { sh.close(); _lwUpgradeSheet(s); };
     if(b('#lw-in-join')) b('#lw-in-join').onclick = () => { sh.close(); _lwGoJoin(s); };
     if(b('#lw-in-rsvp')) b('#lw-in-rsvp').onclick = () => { sh.close(); _lwRsvpToggle(s); };
     if(b('#lw-in-rem')) b('#lw-in-rem').onclick = () => { sh.close(); setTimeout(() => _lwRemindSheet(s), 340); };
@@ -3320,12 +3438,8 @@ function app(tab){
       _lw.terms = true; sh.close(); screenLiveRoom(s);
     };
   }
-  function _lwUpgradeSheet(){
-    const sh = _lwSheet('Co-Regulator', `<p class="lw-p">Capacity Builder and the monthly Q&amp;A are part of Co-Regulator, along with Discuss, Ask &amp; Share. $39 a month, cancel anytime.</p>
-      <p class="lw-p lw-muted">Mindful Moment is free for everyone, Wednesdays at 9 am Pacific.</p>
-      <div class="lw-sh-btns"><a class="btn block" id="lw-up-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Join Co-Regulator</a></div>`);
-    const go = sh.el.querySelector('#lw-up-go'); if(go) go.addEventListener('click', () => setTimeout(sh.close, 200));
-  }
+  // a Co-Regulator thing: the one plans view, Co-Regulator featured, naming the event when we know it (Justin, canon 2026-10-29)
+  function _lwUpgradeSheet(s){ _ppOpen({ tier:'co', item: s && s.access !== 'free' ? _lwKind(s).name : null }); }
   function _lwIcs(s){
     const K = _lwKind(s), z = t => new Date(t).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
     const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Stuck Not Broken//Live//EN','BEGIN:VEVENT',
@@ -10972,13 +11086,15 @@ function app(tab){
   }
   // a locked thing was tapped: the lock jiggles, then the paid plan screen opens
   function _p8Locked(el, what){
+    const pk = el && el.dataset && el.dataset.p8, pr = pk && pk !== 'surprise' ? (P8_ROWS.find(r=>r.k===pk) || P_MEDS.find(m=>m.id===pk)) : null;
+    const item = pr ? (pr.t || pr.title) : null;
     const lk = el && el.querySelector('.rd-lk');
     const reduce = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-    if(!lk || reduce) return gateSubscribe(what);
+    if(!lk || reduce) return gateSubscribe(what, item);
     if(el._jig) return; el._jig = true;
     lk.classList.remove('p8-jig'); void lk.getBoundingClientRect(); lk.classList.add('p8-jig');
     haptic('start');
-    setTimeout(()=>{ el._jig = false; lk.classList.remove('p8-jig'); gateSubscribe(what); }, 520);
+    setTimeout(()=>{ el._jig = false; lk.classList.remove('p8-jig'); gateSubscribe(what, item); }, 520);
   }
   // pState from a recommendation, for "Customize this practice"
   function _pStateFromReco(reco){
