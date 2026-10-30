@@ -2749,6 +2749,7 @@ function screenUpdates(from){
 addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewFreeEnded(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
 
 function app(tab){
+    try{ if(typeof _ps !== 'undefined' && _ps && tab !== 'practice') _ps.detach(); }catch(e){}
     currentTab = tab;
     document.body.classList.remove('on-now', 'nq-idle');
     if(tab !== 'reflect' && tab !== 'learn') _rdSaveLoc({ k:'tab', tab });
@@ -10896,7 +10897,7 @@ function app(tab){
         const sel = String(o.val)===String(current);
         rows+=`<button class="p7-opt${o.ico?' rich':''}${sel?' sel':''}" type="button" data-val="${escapeHtml(String(o.val))}">
           ${o.ico?`<span class="p7-opt-ico" aria-hidden="true">${o.ico}</span>`:''}
-          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(String(o.menu)))}</span>${o.sub?`<span class="p7-opt-sub">${escapeHtml(CAP(String(o.sub)))}</span>`:''}</span>
+          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(String(o.menu)))}</span>${o.lock?`<span class="p7-opt-sub p7-opt-lk">${LOCK_SVG}See paid plans</span>`:o.sub?`<span class="p7-opt-sub">${escapeHtml(CAP(String(o.sub)))}</span>`:''}</span>
           <svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>
         </button>`;
       });
@@ -12429,9 +12430,28 @@ function app(tab){
     if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
   }
 
-  // ── the practice sheet: one size, slides up, the practice's choices as labeled rows, then a line, the length and Begin ──
+  // ── the practice sheet on the Swiss grid (Justin, canon 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Practice sheet") ──
+  // 1120 and up: a flat panel on columns 9-12 beside the Practice page (the page reflows to 1-8), the practice it shows
+  // marked in its list; choosing another practice swaps the panel. Below 1120: the bottom sheet, sized to its content.
+  // Top: mark (no icon box), title, X; what it's for and "About N min" under it, both live. Choices are bordered tiles that
+  // open the same pickers; Voice and Background sound are their own pair. Begin pinned at the bottom.
+  const _psWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  let _ps = null, _psMq = null;
+  // the present-moment mark for everything that doesn't name a state; a state's own mark where it does
+  function _psMark(k, def){
+    if(k==='anchoring') return _rdMk('safety');
+    if(k==='self-regulation') return _defMk(def);
+    return MK_TYPE_ICO[k==='micro' ? 'micro' : 'mindfulness'];
+  }
+  function _psRows(view, k){
+    if(!view) return;
+    view.querySelectorAll('[data-p8]').forEach(b=>{ const on = !!k && b.dataset.p8===k; b.classList.toggle('is-sel', on); if(on) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current'); });
+  }
   function openPracticeSheet(k){
     if(!pState) tabPractice();
+    // the panel lives beside the Practice page: from anywhere else (a plan's "Change"), land on the page first, choices kept
+    if(_psWide() && !document.querySelector('#screen .p8-view')){ _pendingPState = pState; app('practice'); }
+    if(!_psMq){ try{ _psMq = window.matchMedia('(min-width:1120px)'); _psMq.addEventListener('change', ()=>{ if(_ps){ const pk = _ps.k; _ps.close(true); if(currentTab==='practice') openPracticeSheet(pk); } }); }catch(e){} }
     const def = _domDefense();
     const isSession = mkIsSession(k);
     const med = isSession ? P_MEDS.find(m=>m.id===k) : null;
@@ -12444,16 +12464,38 @@ function app(tab){
     }
     const tc = _p8Tc(k, def);
     const title = med ? med.title : ((P8_ROWS.find(r=>r.k===k)||{}).t || CAP(Store.practiceLabel(k)));
-    const old = document.getElementById('p8-sheet'); if(old) old.remove();
-    const wrap = document.createElement('div'); wrap.id='p8-sheet'; wrap.className='p7-sheet p8-sheet';
-    wrap.innerHTML = `<div class="p7-sheet-card p8-card ${tc}" role="dialog" aria-modal="true" aria-labelledby="p8-h">
+    const view = _psWide() ? document.querySelector('#screen .p8-view') : null;
+    // where focus goes back to: the row (or button) that opened it; a swap keeps the first opener if focus was inside
+    const prev = _ps, ae = document.activeElement;
+    const inPrev = prev && prev.el && ae && prev.el.contains(ae);
+    let back = (ae && ae !== document.body && !inPrev) ? ae : (prev ? prev.back : null);
+    if(prev) prev.detach();
+    const oldSheet = document.getElementById('p8-sheet'); if(oldSheet) oldSheet.remove();
+    const inner = `<div class="ps-head"><span class="ps-mk" aria-hidden="true">${_psMark(k, def)}</span><h2 class="ps-h" id="p8-h">${escapeHtml(title)}</h2>
+        <button class="ps-x" id="p8-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <p class="ps-line" id="p8-sum"></p><p class="ps-len" id="p8-mins"></p>
+      <div class="ps-body" id="p8-body"></div>
+      <div class="ps-foot"><button class="btn block" id="p8-begin" type="button">Begin</button></div>`;
+    let wrap, el;
+    if(view){
+      el = view.querySelector('#ps-panel');
+      const fresh = !el;
+      if(fresh){ el = document.createElement('aside'); el.id = 'ps-panel'; view.appendChild(el); }
+      el.className = `ps-panel ps-card ${tc}${fresh ? ' ps-in' : ''}`;
+      el.setAttribute('aria-labelledby', 'p8-h');
+      el.innerHTML = inner;
+      view.classList.add('ps-split');
+      _psRows(view, k);
+    } else {
+      wrap = document.createElement('div'); wrap.id='p8-sheet'; wrap.className='p7-sheet p8-sheet ps-sheet';
+      wrap.innerHTML = `<div class="p7-sheet-card ps-card ${tc}" role="dialog" aria-modal="true" aria-labelledby="p8-h">
       <div class="p8-grab" aria-hidden="true"></div>
-      <div class="p8-head"><span class="rd-thumb rd-thumb-mk p8-thumb">${_p8Mark(k, def)}</span><h3 class="p8-h" id="p8-h">${escapeHtml(title)}</h3>
-        <button class="p8-x" id="p8-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-      <div class="p8-body" id="p8-body"></div>
-      <div class="p8-foot"><p class="p8-sum" id="p8-sum"></p><p class="p8-mins" id="p8-mins"></p><button class="btn block" id="p8-begin" type="button">Begin</button></div>
+      ${inner}
     </div>`;
-    document.body.appendChild(wrap);
+      document.body.appendChild(wrap);
+      el = wrap.firstElementChild;
+    }
+    const q = s => el.querySelector(s);
     const bedName = ()=>{ const b = bedPref(); if(b.bed==='none') return 'Nothing'; if(b.bed==='surprise') return 'Surprise me'; const s = BED_SOUNDS.find(x=>x[0]===b.bed); return CAP(s ? s[1] : b.bed); };
     const rowsOf = ()=>{
       if(isSession) return [];
@@ -12474,23 +12516,31 @@ function app(tab){
       R.push(['bed','Background sound', bedName()]);
       return R;
     };
-    // the line, then the length under it, small: "~10min" (Justin, 2026-10-02)
+    // what it's for, then its length: "About 10 min" (Justin, canon 2026-10-29; was "~10min")
     const sumText = ()=>{
       if(isSession) return `${med.sub}.`;
       const open = (k==='self-regulation' && !!pState.open);
       return P8_LINE[k] + (open ? ' It keeps going until you choose to stop.' : '');
     };
     const minsText = ()=>{
-      if(isSession){ const n = (med.est.match(/\d+/)||[''])[0]; return n ? `~${n}min` : ''; }
+      if(isSession){ const n = (med.est.match(/\d+/)||[''])[0]; return n ? `About ${n} min` : ''; }
       if(k==='self-regulation' && pState.open) return '';
-      const est = estMinutes(k, k==='micro' ? 2 : pState.silence); return est ? `~${est}min` : '';
+      const est = estMinutes(k, k==='micro' ? 2 : pState.silence); return est ? `About ${est} min` : '';
     };
+    let lastKind = null;
+    const tile = ([kind, l, v]) => `<button class="ps-tile" type="button" data-dial="${kind}"><span class="ps-tile-k">${escapeHtml(l)}</span><span class="ps-tile-v">${escapeHtml(v)}</span></button>`;
     const paint = ()=>{
-      $('#p8-body').innerHTML = rowsOf().map(([kind, l, v])=>`<button class="p8-set" type="button" data-dial="${kind}"><span class="p8-set-k">${escapeHtml(l)}</span><span class="p8-set-v">${escapeHtml(v)}</span><span class="wc-go">${CHEV}</span></button>`).join('');
-      $('#p8-sum').textContent = sumText(); const mn = $('#p8-mins'); mn.textContent = minsText(); mn.hidden = !mn.textContent;
-      wrap.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
+      const R = rowsOf(), snd = R.filter(r=>r[0]==='voice'||r[0]==='bed'), own = R.filter(r=>r[0]!=='voice'&&r[0]!=='bed');
+      const body = q('#p8-body');
+      body.innerHTML = (own.length ? `<div class="ps-tiles">${own.map(tile).join('')}</div>` : '') + (snd.length ? `<div class="ps-tiles ps-snd">${snd.map(tile).join('')}</div>` : '');
+      body.hidden = !R.length;
+      q('#p8-sum').textContent = sumText(); const mn = q('#p8-mins'); mn.textContent = minsText(); mn.hidden = !mn.textContent;
+      el.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
+      // after a picker closes, the keyboard lands back on the tile it came from
+      const ae2 = document.activeElement; if(lastKind && (!ae2 || ae2===document.body || !el.contains(ae2))){ const t = el.querySelector(`[data-dial="${lastKind}"]`); if(t){ try{ t.focus({ preventScroll:true }); }catch(e){} } }
     };
     function openDial(kind){
+      lastKind = kind;
       if(kind==='sense'){
         const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
         openDialSheet('Anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tc, (v)=>{ pState.sense=v; paint(); });
@@ -12515,7 +12565,7 @@ function app(tab){
       } else if(kind==='length'){
         openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(!!pState.open), tc, (v)=>{ pState.open=(v==='true'); paint(); });
       } else if(kind==='voice'){
-        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)) return gateSubscribe('voice'); if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paint(); });
+        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l,lock:!voiceOk(val)}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)){ if(_ps) _ps.close(true); return gateSubscribe('voice'); } if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paint(); });
       } else if(kind==='bed'){
         openBedSheet(tc, ()=>paint());
       } else if(kind==='pieces'){
@@ -12523,14 +12573,28 @@ function app(tab){
       }
     }
     paint();
-    requestAnimationFrame(()=>wrap.classList.add('on'));
-    const close = ()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 320); };
-    const onKey = (e)=>{ if(e.key==='Escape' && !document.getElementById('p7-sheet')) close(); };
+    if(wrap) requestAnimationFrame(()=>wrap.classList.add('on'));
+    const panel = !wrap;
+    const gone = () => !document.contains(el);
+    // a tap outside the panel closes it; a practice row swaps it, the pickers sit above it
+    const onDoc = (e)=>{ if(gone()) return detach(); const t = e.target; if(!t || !t.closest || el.contains(t) || !document.contains(t)) return;
+      if(t.closest('[data-p8], .p7-sheet, #p8-cust, #p8-begin-now')) return; close(); };
+    const onKey = (e)=>{ if(gone()) return detach(); if(e.key==='Escape' && !document.getElementById('p7-sheet')){ e.preventDefault(); close(); } };
+    let docT = 0;
+    function detach(){ document.removeEventListener('keydown', onKey); clearTimeout(docT); document.removeEventListener('click', onDoc); if(_ps && _ps.el===el) _ps = null; }
+    function close(quiet){
+      detach();
+      if(panel){ const v = el.parentNode; try{ el.remove(); }catch(e){} if(v){ v.classList.remove('ps-split'); _psRows(v, null); } }
+      else { wrap.classList.remove('on'); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 320); }
+      if(!quiet && back && document.contains(back)){ try{ back.focus({ preventScroll:true }); }catch(e){} }
+    }
     document.addEventListener('keydown', onKey);
-    wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
-    $('#p8-x').onclick = close;
-    $('#p8-begin').onclick = ()=>{ close(); _p8Launch(k); };
-    try{ $('#p8-x').focus({ preventScroll:true }); }catch(e){}
+    if(panel) docT = setTimeout(()=>document.addEventListener('click', onDoc), 0);
+    else wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
+    q('#p8-x').onclick = ()=>close();
+    q('#p8-begin').onclick = ()=>{ close(true); _p8Launch(k); };
+    _ps = { k, el, back, close, detach };
+    try{ q('#p8-x').focus({ preventScroll:true }); }catch(e){}
   }
 
   // start the practice the sheet shaped (the one launch path for every hand-made practice)
