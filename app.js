@@ -5192,19 +5192,24 @@ function app(tab){
   const _nqWxOn = ()=>{ try{ return localStorage.getItem('snb_nq_wx') === '1'; }catch(e){ return false; } };
   let _nqWx = null, _nqWxBusy = false, _nqLightT = null, _nqRainRaf = 0;
   function _nqWxSet(on){
-    try{ if(on) localStorage.setItem('snb_nq_wx', '1'); else { localStorage.removeItem('snb_nq_wx'); localStorage.removeItem('snb_nq_wxk'); } }catch(e){}
+    try{ if(on) localStorage.setItem('snb_nq_wx', '1'); else { localStorage.removeItem('snb_nq_wx'); localStorage.removeItem('snb_nq_wxk'); localStorage.removeItem('snb_nq_wxloc'); } }catch(e){}
     if(!on) _nqWx = null; _nqLight();
   }
+  // quiet (a refresh): the kept rough location, never the device. Not quiet (the switch was just turned on): ask the device once.
   function _nqWxFetch(quiet){
-    const may = !quiet ? Promise.resolve(true)
-      : (navigator.permissions && navigator.permissions.query ? navigator.permissions.query({ name:'geolocation' }).then(s=>s && s.state === 'granted').catch(()=>false) : Promise.resolve(false));
-    return may.then(ok=>ok ? _nqWxGet() : null);
-  }
-  function _nqWxGet(){
+    let kept = null; try{ kept = JSON.parse(localStorage.getItem('snb_nq_wxloc') || 'null'); }catch(e){}
+    if(quiet) return kept && isFinite(kept.la) && isFinite(kept.lo) ? _nqWxGet(kept.la, kept.lo) : Promise.resolve(null);
     return new Promise(res=>{
       if(!navigator.geolocation) return res(null);
       navigator.geolocation.getCurrentPosition(p=>{
         const la = Math.round(p.coords.latitude * 10) / 10, lo = Math.round(p.coords.longitude * 10) / 10;
+        try{ localStorage.setItem('snb_nq_wxloc', JSON.stringify({ la, lo })); }catch(e){}
+        _nqWxGet(la, lo).then(res);
+      }, ()=>res(null), { enableHighAccuracy:false, maximumAge:3600000, timeout:15000 });
+    });
+  }
+  function _nqWxGet(la, lo){
+    return new Promise(res=>{
         fetch('https://api.open-meteo.com/v1/forecast?latitude=' + la + '&longitude=' + lo + '&current=weather_code,cloud_cover,is_day', { cache:'no-store' })
           .then(r=>r.ok ? r.json() : null).then(j=>{
             const c = j && j.current; if(!c) return res(null);
@@ -5215,7 +5220,6 @@ function app(tab){
             const v = { k, t:Date.now() }; try{ localStorage.setItem('snb_nq_wxk', JSON.stringify(v)); }catch(e){}
             res(v);
           }).catch(()=>res(null));
-      }, ()=>res(null), { enableHighAccuracy:false, maximumAge:3600000, timeout:15000 });
     });
   }
   function _nqWxAsk(){
@@ -13973,7 +13977,7 @@ function app(tab){
     // the Now scene follows the day (Justin 2026-10-30): the device clock, on by default; the weather, off until asked for
     { const dc=$('#nqday-cap'), wc=$('#nqwx-cap');
       const dayCap = on=>{ if(dc) dc.textContent = on ? 'The scene brightens and dims slowly through the day, from your device’s clock.' : 'The scene keeps the same light all day.'; };
-      const wxCap = (on, msg)=>{ if(wc) wc.textContent = msg || (on ? 'Rain, cloud and sun come into the scene. Your rough location is used to look up the weather and is not saved.' : 'Uses your rough location, only if you turn this on.'); };
+      const wxCap = (on, msg)=>{ if(wc) wc.textContent = msg || (on ? 'Rain, cloud and sun come into the scene. Your rough location (about 10 km) stays on this device, only to look up the weather.' : 'Uses your rough location, only if you turn this on.'); };
       dayCap(_nqDayOn()); wxCap(_nqWxOn());
       const sd=$('#sw-nqday'); if(sd) sd.onclick=()=>{ const on=!sd.classList.contains('on'); sd.classList.toggle('on',on); sd.setAttribute('aria-checked',on?'true':'false'); try{ localStorage.setItem('snb_nq_day', on?'1':'0'); }catch(e){} dayCap(on); };
       const sw=$('#sw-nqwx'); if(sw) sw.onclick=()=>{ const on=!sw.classList.contains('on');
