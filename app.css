@@ -5990,3 +5990,11 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 .lb-tmore-t:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
 .lb-topics-end .lb-tmore-t{width:auto;justify-content:flex-start}
 .lb-top{align-items:start}
+
+/* Learn: no exposed pills (Justin 2026-10-30): the search field on 1-10, Filter on 11-12; Type and Topic in the Filter menu */
+@media (min-width:720px){
+  .ll-sfloat.lb-search{grid-column:1 / span 10}
+  .lb-filter{grid-column:11 / span 2;justify-self:end}
+}
+#screen:has(> #pp-panel[data-mode="gen"]) .ll-sfloat.lb-search{grid-column:1 / span 9}
+#screen:has(> #pp-panel[data-mode="gen"]) .lb-filter{grid-column:10 / span 3}

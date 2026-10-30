@@ -2490,9 +2490,12 @@
     try{
       const { data:rows, error } = await sb.from('contexts').select('period_key,labels');
       if(error || !rows) return;
+      // the account's copy wins (Justin 2026-10-30: "contexts should be saved per account, not just device"): a context set
+      // changed on another device replaces this device's copy; sets only on this device stay (migrateContexts lifts them up)
       const m=_ctxAll(); let changed=false;
-      rows.forEach(r=>{ if(r && r.period_key && !(r.period_key in m)){ m[r.period_key]=r.labels||[]; changed=true; } });
-      if(changed) _ctxWrite(m);
+      rows.forEach(r=>{ if(!r || !r.period_key) return; const v=r.labels||[];
+        if(!(r.period_key in m) || JSON.stringify(m[r.period_key]) !== JSON.stringify(v)){ m[r.period_key]=v; changed=true; } });
+      if(changed){ _ctxWrite(m); notify(); }
     }catch(e){}
   }
   // one-time per user: lift any pre-cloud local answers up (never overwrites cloud rows)

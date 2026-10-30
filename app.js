@@ -5825,10 +5825,8 @@ function app(tab){
     const states = L.STATE_HUBS.filter(k=>L.inGroup(k).length || hasMed(k));
     return `<div class="lb-search-row">
         <div class="ll-sfloat open lb-search" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="true" tabindex="-1">${_LB_SEARCH}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Clear search">×</button></div>
-        <div class="lb-media" role="group" aria-label="Media">${_LM_MEDIA.map(([id, l])=>pill('lbm', id, l, _lmMedia === id)).join('')}</div>
         <div class="lb-filter">${_lmFbtnHTML()}</div>
-        <div class="lb-chips" role="group" aria-label="States">${pill('lbk', 'all', 'All topics', _lmTopic === 'all')}${states.map(k=>pill('lbk', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}</div>
-      </div>`;
+      </div>`;   // no exposed pills (Justin 2026-10-30): Type and Topic live in the Filter menu
   }
   // the picture slot: a video's YouTube thumbnail; a podcast episode with a video, that video's thumbnail; otherwise the
   // state's mark on bone-deep (articles have no data picture yet: the pass 2 file covers media only)
@@ -6036,6 +6034,7 @@ function app(tab){
         <span class="rd-jr-grab" aria-hidden="true"></span>
         <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
         <div class="lm-fs-body">
+          <span class="rd-eyeb">Type</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
           <span class="rd-eyeb">Published</span><div class="lm-chips">${_LM_WHENS.map(([id, l])=>chip('lmw', id, l, _lmWhen === id)).join('')}</div>
           <p class="lm-fs-note">Most articles have no published date, so they show under Any time.</p>
           <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lmd', id, l, _lmDur === id)).join('')}</div>
