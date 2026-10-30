@@ -5804,6 +5804,7 @@ function app(tab){
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
     root.querySelectorAll('.lb-feat[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
     root.querySelectorAll('#ll-browse [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    root.querySelectorAll('#ll-browse .lb-other-more').forEach(b=>b.onclick=()=>{ const h = [...b.parentElement.querySelectorAll('.rd-more[hidden]')]; h.slice(0, 20).forEach(r=>r.hidden=false); if(h.length <= 20) b.remove(); });
     root.querySelectorAll('#ll-browse .lb-tmore-t').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true'; _pmSlide(b, document.getElementById(b.getAttribute('aria-controls')), o); });
     root.querySelectorAll('#ll-browse .lb-card[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
     root.querySelectorAll('#ll-browse .lb-card[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
@@ -5878,7 +5879,23 @@ function app(tab){
       const cnt = _lmFiltered() ? _lmLessons(total) : _lrnHubCount(k);
       return `<section class="lb-sec" aria-label="${escapeHtml(STATE_LABEL(k))}"><div class="lb-sec-h"><h2>${_rdMk(k)}<span>${escapeHtml(STATE_LABEL(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h2><button class="lb-seeall" type="button" data-hub="${k}">See all${CHEV}</button></div>
         <div class="lb-grid">${big ? _lbCard(big, true, k, true) : ''}${small.join('')}</div></section>`;
-    });
+    }).concat(_lbOtherHTML());
+  }
+  // filtered lessons with no state tag (Justin 2026-10-30: "it says there are 6, but they do not show"): the state blocks
+  // above only draw lessons tagged with that state, so with a filter on, the rest of the matches follow here
+  function _lbOtherHTML(){
+    const L = window.Learning;
+    if(!_lmFiltered() || L.STATE_HUBS.indexOf(_lmTopic) >= 0) return '';
+    const tk = _lmTopic, inTopic = gs => tk === 'all' || (gs || []).indexOf(tk) >= 0;
+    const inState = new Set(); L.STATE_HUBS.forEach(k=>L.inGroup(k).forEach(p=>inState.add(p.id)));
+    const anyState = gs => (gs || []).some(g=>L.STATE_HUBS.indexOf(g) >= 0);
+    const arts = (_lmMedia === 'all' || _lmMedia === 'read') ? _lrnByRead(L.PIECES.filter(p=>!inState.has(p.id) && inTopic(p.groups) && _lmWhenOk(_lmArtDate(p)) && _lmDurOk(p.minutes || 1))) : [];
+    const med = _lmMedia === 'read' || !_lmData ? [] : _lmData.items.filter(x=>!anyState(x.g) && inTopic(x.g) && (_lmMedia === 'all' || (_lmMedia === 'listen') === _lmIsListen(x)) && _lmWhenOk(x.d) && _lmDurOk(x.n ? x.n / 60 : x.s === 's' ? 0.5 : null));
+    const all = arts.map(p=>_lbCard(p, true, null, false)).concat(med.map(x=>_lbCard(x, false, null, false)));
+    if(!all.length) return '';
+    const cards = all.map((c, i)=>i >= 8 ? c.replace('<button class="lb-card', '<button hidden class="rd-more lb-card') : c).join('');
+    return `<section class="lb-sec lb-other" aria-label="More lessons"><div class="lb-sec-h"><h2><span>More lessons</span><span class="ll-n">${escapeHtml(_lmLessons(all.length))}</span></h2></div>
+      <div class="lb-grid">${cards}</div>${all.length > 8 ? '<button class="ll-showall lb-other-more" type="button">Show more</button>' : ''}</section>`;
   }
   function _lbFeatHTML(forNow){
     const p = forNow.piece, st = p.state || null;

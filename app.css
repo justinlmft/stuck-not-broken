@@ -6010,3 +6010,6 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 .lm-fsheet.is-inline .lm-fs-body > .lm-chips,.lm-fsheet.is-inline .lm-fs-body > .lm-fs-note{grid-column:2}
 .lm-fsheet.is-inline .lm-fs-body > .lm-fs-note{margin-top:-6px}
 .lm-fsheet.is-inline .lm-fs-foot{justify-content:flex-end;gap:24px;border-top:0;padding-top:4px}
+
+/* Learn: filtered lessons with no state follow the state blocks (Justin 2026-10-30) */
+.lb-other .lb-grid{margin-bottom:16px}
