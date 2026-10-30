@@ -6717,6 +6717,9 @@ function app(tab){
     // an episode's or a video's journal (2026-10-26): 'mj:{media id}:{n}' = [answer, day, question, title, state]
     Object.keys(m).forEach(k=>{ const mj = /^mj:(.+):(\d+)$/.exec(k); if(!mj) return; const v = m[k] || []; if(!v[0]) return;
       out.push({ media:mj[1], post:{ key:'media:' + mj[1], title:v[3] || 'Listen and watch', teachState:v[4] || null }, rid:mj[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' }); });
+    // a journal prompt from the page for now (2026-10-30): 'nj:{day}:{prompt id}' = [answer, day, question, state]
+    Object.keys(m).forEach(k=>{ const nj = /^nj:(\d{4}-\d\d-\d\d):([a-z0-9-]+)$/.exec(k); if(!nj) return; const v = m[k] || []; if(!v[0]) return;
+      out.push({ now:true, post:{ key:'now:' + nj[1], title:'Journal prompts', teachState:v[3] || null }, rid:nj[2], text:String(v[0]), day:v[1] || nj[1], q:v[2] || '' }); });
     return out.sort((a,b)=> (b.day||'').localeCompare(a.day||''));
   }
   // grouped by article (the You tab's count, and older callers)
@@ -6781,6 +6784,29 @@ function app(tab){
   // the heading with Date / Topic / Article beside it; a blank page for now (the date, the recommended question, room to
   // write, Save); then the days as pages, newest first, under month headings: the date and that day's check-in on 1-2, the
   // entries on 3-9 in book type with a quiet link back; a hairline between days, no boxes
+  // the page for now asks a ready-made prompt chosen from the member's latest check-in (Justin 2026-10-30: "use a stock of
+  // ready-made journal prompts based on the user's data"); the articles keep their own questions
+  const JR_PROMPTS = {
+    safety: ['Where in your body do you notice safety right now?', 'What helped you get here? Name one thing. Small is fine.', 'Who or what feels like connection right now?', 'What would you like to remember about this feeling of safety?'],
+    play: ['What has your energy wanted to move toward lately?', 'What feels fun or interesting right now, even a little?', 'Where do you notice both energy and ease in your body right now?', 'Who do you feel most playful around?'],
+    stillness: ['What lets you be still right now without needing to do anything?', 'Where do you notice calm in your body right now?', 'Who or what makes it easy to rest?', 'What does this quiet feel like, in a word or two?'],
+    fightflight: ['What has your body been bracing for lately?', 'Where do you feel the push in your body right now: jaw, chest, hands, legs?', 'What is your flight/fight state trying to protect?', 'What would give your body a little more safety right now?'],
+    freeze: ['What feels stuck right now, and what still feels a little movable?', 'Where do you notice both the push and the heaviness in your body?', 'What small movement feels doable right now?', 'What has helped freeze ease up before, even a little?'],
+    shutdown: ['What does your body need most right now: rest, warmth or company?', 'What is one thing you can notice with your senses right now?', 'What has been draining your energy lately?', 'Is there anyone, or anything, that feels a little bit safe right now?'],
+    start: ['What do you notice in your body right now?', 'What is one small thing that helped you feel safe lately?', 'What is taking up most of your energy right now?'],
+  };
+  function _jrPrompt(){
+    let c = null; try{ c = Store.lastCheckin ? Store.lastCheckin() : null; }catch(e){}
+    const st = c ? _cDom(c) : null, k = st && JR_PROMPTS[st] ? st : 'start', list = JR_PROMPTS[k], ans = _ctxLoad();
+    const done = new Set(Object.keys(ans).filter(x=>/^nj:/.test(x) && (ans[x] || [])[0]).map(x=>x.split(':')[2]));
+    const d0 = new Date(), dayN = Math.floor((d0 - new Date(d0.getFullYear(), 0, 0)) / 864e5);
+    const ids = list.map((q, i)=>k + '-' + (i + 1)), open = ids.filter(id=>!done.has(id));
+    const id = (open.length ? open : ids)[dayN % (open.length || ids.length)];
+    let from = 'A place to start';
+    if(c && st && JR_PROMPTS[st]){ const t = new Date(c.t || c.created_at), same = t.toDateString() === d0.toDateString();
+      from = 'From your last check-in: ' + STATE_LABEL(st) + ', ' + (same ? t.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' }) : t.toLocaleDateString(undefined, { month:'short', day:'numeric' })); }
+    return { id, q:list[ids.indexOf(id)], st: k === 'start' ? null : k, from };
+  }
   const _jrYmd = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
   function screenJournal(from){
     if(from) _jrFrom = from === 'reflect' ? 'reflect' : from === 'now' ? 'now' : 'you';
@@ -6790,30 +6816,26 @@ function app(tab){
     const VIEWS = [['date', 'Date'], ['topic', 'Topic'], ['article', 'Article']];
     const view = _jrView();
     const _jrNow = _jrFrom === 'now', _jrBack = fromR ? 'Reflect' : _jrNow ? 'Now' : 'You', _jrTab = fromR ? 'reflect' : _jrNow ? 'now' : 'you';
-    const pills = items.length ? `<div class="jr-views" role="group" aria-label="Group by">${VIEWS.map(([k, t])=>`<button class="jr-vpill${k === view ? ' on' : ''}" type="button" data-jrview="${k}" aria-pressed="${k === view}">${escapeHtml(t)}</button>`).join('')}</div>` : '';
+    const pills = true ? `<div class="jr-views" role="group" aria-label="Group by">${VIEWS.map(([k, t])=>`<button class="jr-vpill${k === view ? ' on' : ''}" type="button" data-jrview="${k}" aria-pressed="${k === view}">${escapeHtml(t)}</button>`).join('')}</div>` : '';
     const shell = inner => _rdShell(`<div class="jr-view"><div class="jr-headrow"><h1 class="read-h1">Your Journal</h1>${pills}</div>${inner}</div>`, { back:_jrBack, onBack:()=>app(_jrTab), tab:_jrTab, loc:{ k:'journal', from:_jrFrom }, wide:true, plainBack:true });
-    const reco = _jrRecoPiece(items);
     // the questions come from the articles themselves (older answers kept only the answer)
-    const need = [...new Set(items.filter(it=>it.piece).map(it=>it.piece).concat(reco ? [reco.piece] : []))].filter(p=>!p.blocks);
+    const need = [...new Set(items.filter(it=>it.piece).map(it=>it.piece))].filter(p=>!p.blocks);
     if(need.length){
       shell(`<p class="rd-meta jr-wait">One moment…</p>`);
       Promise.all(need.map(p=>_lrnLoad(p).catch(()=>null))).then(()=>{ if(root.querySelector('.jr-view .jr-wait')) screenJournal(); });
       return;
     }
-    // the blank page for now
-    const d0 = new Date(), ans = _ctxLoad();
-    const rb = reco ? (reco.piece.blocks||[]).find(x=>x.reflect && !((ans['l:' + reco.piece.id + ':' + x.reflect]||[])[0])) || null : null;
-    const rst = reco ? (reco.piece.state || reco.st || null) : null;
+    // the blank page for now: a ready-made prompt from the latest check-in
+    const d0 = new Date(), jp = _jrPrompt();
     const nowPage = `<section class="jr-page jr-now" aria-label="A page for now"><div class="jr-date"><span class="jr-eb">Now</span><span class="jr-num">${d0.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d0.getDay()] + ', ' + d0.toLocaleDateString(undefined, { month:'long' }))}</span></div>
-        <div class="jr-entries">${rb ? `<span class="jr-from">${rst ? _rdMk(rst) : ''}Recommended journal · From ${escapeHtml(reco.piece.title)}</span>
-          <label class="jr-q" for="jr-now-ta">${escapeHtml(_jrHead(reco.piece, rb.reflect))}</label>
+        <div class="jr-entries"><span class="jr-from">${jp.st ? _rdMk(jp.st) : ''}Recommended journal · ${escapeHtml(jp.from)}</span>
+          <label class="jr-q" for="jr-now-ta">${escapeHtml(jp.q)}</label>
           <textarea class="jr-write" id="jr-now-ta" rows="4" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="A word or a sentence is plenty"></textarea>
-          <div class="jr-now-foot"><button class="jr-save" id="jr-now-save" type="button" disabled>Save</button></div>`
-          : `<p class="jr-empty">When you answer a journal question in a Learn article or a reflection, your answer is kept here.</p><div><button class="jr-src jr-go" type="button">Go to Learn${CHEV}</button></div>`}</div></section>`;
+          <div class="jr-now-foot"><button class="jr-save" id="jr-now-save" type="button" disabled>Save</button></div></div></section>`;
     // each day's check-in state: the last check-in that day
     const dayState = {}; try{ (Store.checkins ? Store.checkins() : []).filter(c=>c && c.t).sort((a,b)=>a.t - b.t).forEach(c=>{ const k = _cDom(c); if(k) dayState[_jrYmd(c.t)] = k; }); }catch(e){}
     const src = it => it.piece ? it.piece.title : it.post ? it.post.title : '';
-    const entry = it => `<div class="jr-entry"><span class="jr-eq">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</span><p class="jr-ans">${escapeHtml(it.text).replace(/\n/g, '<br>')}</p><button class="jr-src" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}">${escapeHtml(src(it))}${CHEV}</button></div>`;
+    const entry = it => `<div class="jr-entry"><span class="jr-eq">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</span><p class="jr-ans">${escapeHtml(it.text).replace(/\n/g, '<br>')}</p>${it.now ? '' : `<button class="jr-src" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}">${escapeHtml(src(it))}${CHEV}</button>`}</div>`;
     const dayPage = (day, list) => { const d = day ? new Date(day + 'T12:00:00') : null, s = day ? dayState[day] : null;
       return `<article class="jr-page"><div class="jr-date">${d ? `<span class="jr-num">${d.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d.getDay()])}</span>${s ? `<span class="jr-st">${_rdMk(s)}${escapeHtml(STATE_LABEL(s))}</span>` : ''}` : `<span class="jr-wd">Earlier</span>`}</div><div class="jr-entries">${list.map(entry).join('')}</div></article>`; };
     const daysOf = list => { const by = {}; list.forEach(it=>{ (by[it.day || ''] = by[it.day || ''] || []).push(it); }); return Object.keys(by).sort().reverse().map(k=>dayPage(k, by[k])).join(''); };
@@ -6831,14 +6853,13 @@ function app(tab){
     }
     shell(`${nowPage}${groups.map(g=>`<section class="jr-group"><h2 class="jr-month">${escapeHtml(g.head)}</h2>${daysOf(g.items)}</section>`).join('')}`);
     const ta = $('#jr-now-ta'), sv = $('#jr-now-save');
-    if(ta && sv && rb){
+    if(ta && sv){
       ta.oninput = ()=>{ sv.disabled = !ta.value.trim(); };
       sv.onclick = ()=>{ const txt = ta.value.trim(); if(!txt) return;
-        const key = 'l:' + reco.piece.id + ':' + rb.reflect, q = _lrnNorm(rb.prompt || '').replace(/^./, c=>c.toUpperCase()), val = [txt, new Date().toISOString().slice(0, 10), q];
+        const day = _jrYmd(Date.now()), key = 'nj:' + day + ':' + jp.id, q = jp.q, val = [txt, day, q, jp.st || ''];
         try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m=_ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
         try{ haptic('save'); }catch(e){} screenJournal(); };
     }
-    const go = root.querySelector('.jr-go'); if(go) go.onclick = ()=>app('learn');
     root.querySelectorAll('[data-jrview]').forEach(b=>b.onclick=()=>{ if(b.dataset.jrview === _jrView()) return; _jrView(b.dataset.jrview); const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; screenJournal(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; });
     _jrWireList();
   }
@@ -6958,14 +6979,17 @@ function app(tab){
         ${prevA ? `<p class="rd-lastnamed">Last ${lastWord} you named ${escapeHtml(_listAnd(prevA.tags))}.</p>` : ''}
         ${reco ? `<section class="rd-next"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>` : ''}
         ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
-    _rdShell(`
+    // the article's reading layout (Justin 2026-10-30: "get this done"): book type, a large title, 62ch, house card for learning
+    const learnCard = learn && learn.piece ? _lbCard(learn.piece, true, learn.piece.state, false).replace('<span class="lb-body">', `<span class="lb-body">${learn.piece.state ? `<span class="ar-eb">${escapeHtml(STATE_LABEL(learn.piece.state))}</span>` : ''}`) : '';
+    _rdShell(`<div class="ar-grid rp-grid"><article class="ar-main rp-main">
         ${opts.preview ? '<p class="rd-eyeb" style="color:var(--s-fight)">Beta preview · this period so far · not saved</p>' : ''}
-        <span class="rd-eyeb rd-eyeb-mk">${_rdMk(post.teachState||'safety')}${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
-        <h1 class="rd-title">${escapeHtml(post.title)}</h1>
-        <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
-        ${body}
-        ${tail}
-        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back: opts.from ? opts.from.label : 'Reflect', onBack: opts.from ? opts.from.go : screenReader, tab: opts.from && opts.from.tab, loc:{ k:'post', id:post.key } });
+        <span class="ar-eb">${_rdMk(post.teachState||'safety')}${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
+        <h1 class="ar-title">${escapeHtml(post.title)}</h1>
+        <p class="ar-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
+        <div class="ar-read rp-read">${body}</div>
+        <div class="rp-tail">${tail}</div>
+      </article></div>
+      ${learnCard ? `<section class="rd-learn ar-keep rp-keep"><h2 class="ar-kh">Recommended learning</h2><div class="ar-kgrid">${learnCard.replace('<button class="lb-card"', '<button class="lb-card ar-kcard"')}</div></section>` : ''}`, { back: opts.from ? opts.from.label : 'Reflect', onBack: opts.from ? opts.from.go : screenReader, tab: opts.from && opts.from.tab, loc:{ k:'post', id:post.key }, wide:true, plainBack:true });
     if(paid && !opts.preview){ _rdJournalWire(post); if(opts.goSec) requestAnimationFrame(()=>_lrnGoTo(opts.goSec)); }
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
     root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));

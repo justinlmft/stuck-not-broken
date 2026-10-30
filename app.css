@@ -6419,3 +6419,17 @@ html[data-readfont="serif"] body,html[data-readfont="serif"] body *{font-family:
   .ep-art{width:200px}
   .ep-cards{display:flex;flex-direction:column}
 }
+
+
+/* ============================================================
+   grid5 round 2 (Justin 2026-10-30): quotes in Inter under Recommended; reflection posts in the reading layout
+   ============================================================ */
+html:not([data-readfont="serif"]) .rd-lq,html:not([data-readfont="serif"]) .rd-lq p,html:not([data-readfont="serif"]) .ar-read .rd-lq p{font-family:'Inter',system-ui,-apple-system,sans-serif;font-style:normal}
+.ar-read .rd-lq p{font-size:calc(16px * var(--type-user, 1));line-height:1.65;color:var(--ink-80)}
+.rp-read .rd-snap{margin:28px 0}
+.rp-read .rd-teach{padding-left:16px}
+.rp-tail{max-width:62ch;margin-top:24px}
+.rp-tail .rd-journal,.rp-tail .rd-next{margin-top:40px}
+.rp-keep{margin-top:72px}
+@media (min-width:720px){ .ar-read .rd-lq p{font-size:calc(17px * var(--type-user, 1))} }
+@media (min-width:1120px){ .rp-grid .rp-main{grid-column:1 / span 8} }
