@@ -2097,7 +2097,7 @@
            + obLbl('Background sound')
            + obChips('bed', OB_BEDS)
            + obLbl('Voice')
-           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk">'+LOCK_SVG+'Self-Regulator</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
+           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk">'+LOCK_SVG+'See paid plans</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
            + '<p class="ob-fine" data-cap="voice"></p>' },
 
       { id:'pathway', tab:'practice', kind:'spot', target:['#up-entry'], pad:6, eb:'Practice',
@@ -3015,7 +3015,7 @@ function app(tab){
     s._anim.onfinish = ()=>{ if(!o) s.hidden = true; s.style.overflow = ''; if(s._anim){ s._anim.cancel(); s._anim = null; } if(done) done(); };
   }
   const _lwAcc = s => s.access === 'free' ? '<span class="lw-acc">Free</span>'
-    : `<span class="lw-acc">${_lwAllowed(s) ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span>`;
+    : `<span class="lw-acc">${_lwAllowed(s) ? escapeHtml(_lwTier(s)) : LOCK_SVG + 'See paid plans'}</span>`;
   const _lwRemindBtn = (s, rem) => `<button class="lw-remind${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>`;
   // RSVP + Remind me, or Join once the door is open; nothing for a locked event (the panel or the opened row explains)
   function _lwActs(s, primary){
@@ -3065,7 +3065,7 @@ function app(tab){
     const desc = _lwDescHTML(s) || (sum ? `<p class="lw-p">${escapeHtml(sum)}</p>` : '');
     const who = panel ? `<div class="lw-blk"><p class="lw-lbl">Who it’s for</p><p class="lw-p"><b>${s.access === 'free' ? 'Free for everyone.' : `<span class="lw-acc">${ok ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span> members.`}</b></p></div>` : '';
     const act = ok ? `<div class="lw-ev-btns">${_lwActs(s, panel)}</div>`
-      : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns"><button class="btn lw-act${panel ? '' : ' quiet'}" type="button" data-lw-see="${s.id}">See ${escapeHtml(_lwTier(s))}</button></div>`;
+      : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns"><button class="btn lw-act lk-btn${panel ? '' : ' quiet'}" type="button" data-lw-see="${s.id}">${LOCK_SVG}See paid plans</button></div>`;
     return who + _lwIcons(s) + desc + act;
   }
   function _lwPanel(s){
@@ -3287,7 +3287,7 @@ function app(tab){
     if(!s) return;
     const K = _lwKind(s), open = _lwDoorOpen(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
     const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
-    const act = !ok ? '<button class="btn block" type="button" id="lw-in-up">See ' + escapeHtml(_lwTier(s)) + '</button>'
+    const act = !ok ? '<button class="btn block lk-btn" type="button" id="lw-in-up">' + LOCK_SVG + 'See paid plans</button>'
       : open ? '<button class="btn block" type="button" id="lw-in-join">Join</button>'
       : `<button class="btn block${rsvp ? ' quiet' : ''}" type="button" id="lw-in-rsvp">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>
          <button class="btn block quiet" type="button" id="lw-in-rem">${rem ? LW_ICO.alarmOn + 'Reminder on' : LW_ICO.alarm + 'Set a reminder'}</button>`;
@@ -3792,12 +3792,12 @@ function app(tab){
         const NK = _lwKind(nx), d = new Date(_lwStart(nx)), ok = _lwAllowed(nx), rsvp = _lwRsvp(nx), rem = _lwRemOn(nx);
         nxHTML = `<div class="lw-next"><p class="lw-eyb">Next on the Calendar</p><div class="lw-row lw-row-static">
           <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
-          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}See ${escapeHtml(_lwTier(nx))}</button>`}${ok ? `<button class="lw-remind${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>` : ''}</span></span></div></div>`;
+          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}See paid plans</button>`}${ok ? `<button class="lw-remind${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>` : ''}</span></span></div></div>`;
       }
       const up = (!host && !paidNow()) ? `<div class="lw-up"><p class="lw-eyb">Between live events</p>
           <p class="lw-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
           <p class="lw-p lw-muted">$12 a month, cancel anytime.</p>
-          <button class="btn block" type="button" id="lw-ty-up">See Self-Regulator</button></div>` : '';
+          <button class="btn block lk-btn" type="button" id="lw-ty-up">${LOCK_SVG}See paid plans</button></div>` : '';
       setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby lw-thanks">
         <p class="lw-eyb">Live event</p>
         <h1 class="lw-h1">Thank you for being here.</h1>
@@ -4381,7 +4381,7 @@ function app(tab){
         <div class="gs-card">
           <p class="gs-h">Challenge reminder</p>
           <p class="gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
-          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}Self-Regulator</p>` + sw('nt-chal','Challenge reminder', false, true)}
+          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}See paid plans</p>` + sw('nt-chal','Challenge reminder', false, true)}
           <div id="nt-cht" style="${prefs.challenge_time && paidNow()?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-chal', prefs.challenge_time||'09:00', dis, null)}</div>
         </div>
         <div class="gs-card">
@@ -5567,7 +5567,7 @@ function app(tab){
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
     const len = isArt ? (e.minutes || 1) + ' min read' : (e.s === 's' && !e.n ? 'under a minute' : _lmLen(e.n));
     const date = _lmMY(isArt ? _lmArtDate(e) : e.d), read = isArt && _lrnIsRead(e.id);
-    const acc = paidItem ? (locked ? LOCK_SVG : '') + 'Self-Regulator' : 'Free';
+    const acc = paidItem ? (locked ? LOCK_SVG + 'See paid plans' : 'Self-Regulator') : 'Free';
     const data = isArt ? `data-piece="${escapeHtml(e.id)}"` : `data-media="${escapeHtml(e.i)}"`;
     const ic = `<svg class="lm-mi" viewBox="0 0 24 24" aria-hidden="true">${_LM_MI[k]}</svg>`;
     return `<button class="ll-r${read ? ' is-read' : ''}" type="button" ${data}><span class="ll-r-type">${ic}<span>${escapeHtml(word)}</span></span><span class="ll-r-t"><b>${escapeHtml(isArt ? e.title : e.t)}</b>${read ? `<span class="ll-r-read"><span class="rd-readmk" aria-hidden="true">${_LRN_CHECK}</span>Read</span>` : ''}</span><span class="ll-r-len">${escapeHtml(len)}</span><span class="ll-r-date">${escapeHtml(date)}</span><span class="ll-r-acc">${acc}</span></button>`;
@@ -5723,7 +5723,7 @@ function app(tab){
     const locked = (isArt ? !!e.paid : e.s === 'c') && !paidNow(), read = isArt && _lrnIsRead(e.id);
     const parts = [`<span class="lb-ty"><svg class="lm-mi" viewBox="0 0 24 24" aria-hidden="true">${_LM_MI[k]}</svg>${escapeHtml(word)}</span>`];
     if(len) parts.push(`<span>${escapeHtml(len)}</span>`);
-    if(locked) parts.push(`<span class="lb-lk">${LOCK_SVG}Self-Regulator</span>`);
+    if(locked) parts.push(`<span class="lb-lk">${LOCK_SVG}See paid plans</span>`);
     if(read) parts.push(`<span class="lb-rd"><span class="rd-readmk" aria-hidden="true">${_LRN_CHECK}</span>Read</span>`);
     return `<span class="lb-meta">${parts.join('<span class="lm-sep" aria-hidden="true">·</span>')}</span>`;
   }
@@ -5822,7 +5822,7 @@ function app(tab){
     const parts = [_lmMi(k, label)];
     if(len) parts.push(escapeHtml(len));
     if(date) parts.push(escapeHtml(_lmMY(date)));
-    if(lock) parts.push(LOCK_SVG + 'Self-Regulator');
+    if(lock) parts.push(LOCK_SVG + 'See paid plans');
     if(read) parts.push(_lrnReadMk() + 'Read');
     return parts.join(_LM_SEP);
   }
@@ -6276,7 +6276,7 @@ function app(tab){
     const eyeb = x.s === 'p' ? 'Podcast · Stuck Not Broken' : x.s === 'c' ? 'Stucknaut Collective' : 'Video';
     const player = !listen
       ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0${Array.isArray(x.dm) && x.dm.length > 1 ? '&enablejsapi=1&origin=' + encodeURIComponent(location.origin) : ''}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
-      : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with Self-Regulator.</p><button class="lm-save lm-sub" type="button">See Self-Regulator</button></div>`
+      : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with Self-Regulator.</p><button class="lm-save lm-sub lk-btn" type="button">${LOCK_SVG}See paid plans</button></div>`
       : `<div class="lm-player" id="lm-player" role="region" aria-label="Player">
             <div class="lm-bar" id="lm-bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="lm-fill" id="lm-fill"></span></div>
             <div class="lm-ctl"><span class="lm-t" id="lm-el">0:00</span><button class="lm-skip" type="button" data-skip="-15" aria-label="Back 15 seconds">15</button><button class="lm-play" id="lm-play" type="button" aria-label="Play">${_LM_PLAY}</button><button class="lm-skip" type="button" data-skip="30" aria-label="Forward 30 seconds">30</button><span class="lm-t lm-t-r" id="lm-rem">${x.n ? '-' + _lmClock(x.n) : ''}</span></div>
@@ -6635,7 +6635,7 @@ function app(tab){
     const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
     // Your Journal from Reflect (Justin, 2026-10-02): every journal answer, from the articles and the reflections
     const jn = paidNow() ? _lrnJournalItems().length : 0;
-    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Self-Regulator'}</span></span><span class="wc-go">${CHEV}</span></button>`;
+    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'See paid plans'}</span></span><span class="wc-go">${CHEV}</span></button>`;
     _rdShell(`
           <div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
           ${coverHTML}
@@ -11357,13 +11357,13 @@ function app(tab){
     const rowHtml = (x, s) => {
       if(x.type === 'lesson'){
         const r = x.row, locked = !M.paid;
-        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>Self-Regulator</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
+        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>See paid plans</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
         return `<button class="pl-row" type="button" data-pl="${r.id}" style="--pl-tint:${PL_TINT[s]}">
           <span class="pl-tile"><b>${escapeHtml(PL_KIND[r.k] || 'Lesson')}</b><span>${r.v ? PLAY + ' ' + _plLen(r.d) : r.q ? r.q.length + ' questions' : ''}</span></span>
           <span class="pl-t"><b>${escapeHtml(r.t)}</b>${meta ? `<span class="pl-st">${meta}</span>` : ''}</span></button>`;
       }
       const it = x.it, id = it.kind + '|' + it.key;
-      const words = it.st === 'paid' ? LOCK_SVG + '<span>Self-Regulator</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
+      const words = it.st === 'paid' ? LOCK_SVG + '<span>See paid plans</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
         : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? '<span>' + escapeHtml(it.locked) + '</span>' : '';
       const mark = it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(it, def);
       let pick = '';
@@ -11520,7 +11520,7 @@ function app(tab){
       const locked = pc.paid && !M.paid, read = _lrnIsRead(id), c = _upCols(it, def);
       // reading is optional (Justin, 2026-10-02: "The skills need to go in order but the reading lessons are optional")
       // (2026-10-02: "'Optional reading' is overused. Just take it out.")
-      const lead = locked ? LOCK_SVG + 'Self-Regulator' : read ? _lrnReadMk() + 'Read' : '';
+      const lead = locked ? LOCK_SVG + 'See paid plans' : read ? _lrnReadMk() + 'Read' : '';
       const first = it.st === 'now' && !read && !locked;
       return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="--line:${c.line}">
         <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t">${lead ? `<i>${lead}</i>` : ''}<b>${escapeHtml(pc.title)}</b></span></button>`;
@@ -11531,7 +11531,7 @@ function app(tab){
       // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
       // with a small lock.
       // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
-      let words = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
+      let words = it.st === 'paid' ? LOCK_SVG + 'See paid plans' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
       if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
       if(it.academy && !words) words = 'Completed in the Academy';
       // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
@@ -11664,13 +11664,13 @@ function app(tab){
   const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">Learn more about these skills:</p><div class="p8-list">${list.map(pc => {
       const locked = pc.paid && !paid, read = _lrnIsRead(pc.id);
       return `<button class="rd-row p8-row" type="button" data-up-ch="${escapeHtml(pc.id)}"><span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_BOOK}</span>
-        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Self-Regulator · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
+        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'See paid plans · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
     }).join('')}</div></div>` : '';
   const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
-    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}See Self-Regulator</button>`;
+    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}See paid plans</button>`;
   function _upItemSheet(it, M, def){
     const W = _upWhat(it);
-    const st = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
+    const st = it.st === 'paid' ? LOCK_SVG + 'See paid plans' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
     // Academy progress (2026-10-03): open, named, and checked off here once a practice shows it
     if(it.academy) body = `<p class="up-sh-st">Completed in the Academy</p><div class="up-sh-blk"><p class="up-sh-p">It is checked off here once a practice shows it.</p></div>`;
@@ -12023,7 +12023,7 @@ function app(tab){
     const a = paid ? _chActive() : null;
     const paused = paid ? _chAll().filter(s=>s.started && (!a || s.id !== a.id)) : [];
     const sug = _chSuggested().slice(0, 4);
-    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
+    const lock = paid ? '' : LOCK_SVG + 'See paid plans · ';
     const cur = a ? `<button class="ch-cur" type="button" data-ch="${a.id}" data-go="${a.ready ? 'prompt' : 'sheet'}"><span class="ch-cur-top"><b>${escapeHtml(a.c.name)}</b><span>In progress</span></span>${_chBar(a)}<span class="ch-cur-sub">${escapeHtml(_chNextLine(a))}</span></button>` : '';
     const pausedHTML = paused.map(s=>`<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>Paused · day ${s.done + 1} of ${s.c.days}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
     const cards = sug.map((s, i)=> i === 0
@@ -12044,7 +12044,7 @@ function app(tab){
     const S = _CH(), T = S.T, paid = paidNow();
     const all = _chAll(), sug = _chSuggested(), rec = sug[0] ? sug[0].id : null, a = paid ? _chActive() : null, by = {};
     all.forEach(s=>by[s.id] = s);
-    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
+    const lock = paid ? '' : LOCK_SVG + 'See paid plans · ';
     const sub = s => {
       const bits = [_chDaysWord(s.c)];
       if(paid && a && s.id === a.id) bits.push('In progress');
@@ -12083,7 +12083,7 @@ function app(tab){
     if(c.ways) lines.push(`<p class="ch-sh-p">${escapeHtml(c.waysIntro)}</p><ul class="ch-ways">${c.ways.map(w=>`<li><b>${escapeHtml(w.k)}</b> · ${escapeHtml(w.line)}</li>`).join('')}</ul>`);
     if(c.needPse && !(by.pse && by.pse.runs)) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.needPse)}</p>`);
     if(c.bestAfter && c.after && !(by[c.after] || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
-    const len = `${paid ? '' : LOCK_SVG + 'Self-Regulator · '}${c.days} days · one prompt a day`;
+    const len = `${paid ? '' : LOCK_SVG + 'See paid plans · '}${c.days} days · one prompt a day`;
     let foot = '';
     if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(T.freeStart)}</button>`;
     else if(isCur) foot = s.ready ? `<button class="ch-pill" type="button" id="ch-sh-go">Open the prompt</button>` : `<p class="ch-sh-note">You're on day ${s.done + 1} of ${c.days}. ${escapeHtml(T.tomorrow)}</p>`;
@@ -12356,7 +12356,6 @@ function app(tab){
     // with an animated underline. That was plenty"): no eyebrow, no badge, and the card itself no longer slides in
     const _line = `<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`;
     const title = `<span class="p8-name">${nm ? `${escapeHtml(nm)}’s` : 'Your'}${_line}</span> custom practice`;
-    const lockMeta = LOCK_SVG + 'Self-Regulator';
     const seePlans = `<span class="p8-see">${LOCK_SVG}See paid plans</span>`;
     let card, reco = null;
     if(paid){
@@ -13067,7 +13066,7 @@ function app(tab){
             <button class="rs-disc-btn" id="voice-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Voice</span><span class="rs-disc-val"><span id="voice-val">${escapeHtml(voiceName(pvc))}</span> ${_svgChev}</span></button>
             <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
               <div class="scene-grid">
-                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}">${escapeHtml(l)}${voiceOk(k)?'':'<span class="vo-tier"><span class="lk" aria-hidden="true"></span>Self-Regulator</span>'}</button>`).join('')}
+                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}">${escapeHtml(l)}${voiceOk(k)?'':'<span class="vo-tier"><span class="lk" aria-hidden="true"></span>See paid plans</span>'}</button>`).join('')}
               </div>
             </div></div>
           </div>

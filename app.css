@@ -5841,3 +5841,7 @@ body.reduce-motion .p8-feat.p8-paid{animation:none;background-position:50% 50%}
   #screen .view.checkin2 .ci-readcard .ci-reading-name{font-size:calc(34px * var(--type-scale));line-height:1.1;letter-spacing:-.02em}
   #screen .view.checkin2 .ci-reading-band{font-size:calc(17px * var(--type-scale));margin-top:4px}
 }
+
+/* the locked action, app-wide (Justin 2026-10-29): lock + "See paid plans" on every button */
+.lk-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.lk-btn .rd-lk{width:16px;height:16px;color:currentColor;flex:none;margin:0}
