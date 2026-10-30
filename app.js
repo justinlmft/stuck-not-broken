@@ -1738,7 +1738,9 @@
   const PP_INC = {
     free: ['Unlimited check-ins', 'Mindfulness practices', 'Mindful Moment, live every week'],
     sr: ['Everything in Free', 'The full Unstucking Pathway', 'Every article and practice', 'The other voices', 'Challenges', 'The members’ podcast', 'Your personal insights and the reader'],
-    co: ['Everything in Self-Regulator', 'Capacity Builder, live group practice', 'The monthly Q&A', 'Discuss, Ask & Share'],
+    co: ['Everything in Self-Regulator', 'Capacity Builders: live, guided self-regulation practice with Justin', 'Monthly live Q&As, recorded, with the full archive',
+         'Cohorts and workshops: small-group deep dives, included', 'A small, private community, capped at 100 members', 'All three Stuck Not Broken books as PDFs',
+         'The Knowledge Bot, trained on the full curriculum and the books', 'Exclusive resources and meditations'],
   };
   let _pp = { ctx:null, open:{}, tap:null, back:null, mq:null, key:null };
   // remember what was tapped, so the page beside the panel can mark it and focus can go back to it
