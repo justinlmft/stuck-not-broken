@@ -6643,3 +6643,27 @@ html:not([data-readfont="serif"]) .rd-lq,html:not([data-readfont="serif"]) .rd-l
 .ps-opt.sel .ps-ck{opacity:1}
 .ps-go{display:inline-flex;flex:none}
 .ps-steps{margin-top:8px}
+
+/* ---- grid6b (Justin 2026-10-30): Settings = a heading over a card, as iOS Settings; no divider rules */
+.st-sec{display:block !important;border-top:0;padding:0;margin:0 0 32px}
+.st-name{position:static !important;margin:0 0 10px !important;font-size:calc(19px * var(--type-scale));line-height:26px;font-weight:600;letter-spacing:-.01em;text-transform:none;color:var(--ink)}
+.st-body{border:1px solid var(--hairline);border-radius:16px;padding:6px 20px}
+@media (min-width:720px){ .st-name,.st-body{grid-column:auto} .st-body{padding:8px 24px} }
+@media (min-width:1120px){ .st-sec{max-width:calc((100% - 11 * var(--gap)) / 12 * 8 + 7 * var(--gap))} }
+.st-view > .scr-head,.scroll .st-view > .scr-head{margin-bottom:24px}
+.st-body > .st-help:last-child{margin-bottom:12px}
+/* "Aa Aa" on one baseline */
+.st-rf .st-aas{align-items:baseline}
+.st-rf .st-aa{line-height:1}
+/* every switch slides */
+.set-sw{transition:background-color .25s var(--ease)}
+.set-sw-knob{left:2px !important;transform:translateX(0);transition:transform .25s var(--ease)}
+.set-sw.on .set-sw-knob{transform:translateX(18px)}
+/* Pieces: the dragged row lifts and follows the finger */
+.mp-row.drag{transition:none;cursor:grabbing}
+.mp-row{will-change:transform}
+/* Volume: the steps start at the left edge, fixed width; the chosen one in ink */
+.p7-seg-steps{justify-content:flex-start;padding-left:22px}
+.p7-seg-steps .p7-step{flex:0 0 40px}
+.ps-steps{padding:8px 0 4px}
+.ps-steps .p7-step.sel{background:var(--ink);border-color:var(--ink)}

@@ -5195,7 +5195,12 @@ function app(tab){
     try{ if(on) localStorage.setItem('snb_nq_wx', '1'); else { localStorage.removeItem('snb_nq_wx'); localStorage.removeItem('snb_nq_wxk'); } }catch(e){}
     if(!on) _nqWx = null; _nqLight();
   }
-  function _nqWxFetch(){
+  function _nqWxFetch(quiet){
+    const may = !quiet ? Promise.resolve(true)
+      : (navigator.permissions && navigator.permissions.query ? navigator.permissions.query({ name:'geolocation' }).then(s=>s && s.state === 'granted').catch(()=>false) : Promise.resolve(false));
+    return may.then(ok=>ok ? _nqWxGet() : null);
+  }
+  function _nqWxGet(){
     return new Promise(res=>{
       if(!navigator.geolocation) return res(null);
       navigator.geolocation.getCurrentPosition(p=>{
@@ -5219,7 +5224,7 @@ function app(tab){
   function _nqWxNow(){
     if(!_nqWxOn()) return null;
     if(!_nqWx){ try{ _nqWx = JSON.parse(localStorage.getItem('snb_nq_wxk') || 'null'); }catch(e){} }
-    if((!_nqWx || Date.now() - _nqWx.t > 30 * 60e3) && !_nqWxBusy){ _nqWxBusy = true; _nqWxFetch().then(v=>{ _nqWxBusy = false; if(v){ _nqWx = v; _nqLight(); } }); }
+    if((!_nqWx || Date.now() - _nqWx.t > 30 * 60e3) && !_nqWxBusy){ _nqWxBusy = true; _nqWxFetch(true).then(v=>{ _nqWxBusy = false; if(v){ _nqWx = v; _nqLight(); } }); }
     return _nqWx && Date.now() - _nqWx.t < 3 * 3600e3 ? _nqWx.k : null;
   }
   // the light of the hour: how much the scene dims, how much it lifts, how warm it is (gentle; text keeps its contrast)
@@ -11085,6 +11090,18 @@ function app(tab){
     </div>`;
     document.body.appendChild(wrap);
     const list = wrap.querySelector('#mp-list');
+    // rows glide to their new place (Justin 2026-10-30: "the drag and re-order needs to animate")
+    const calmMp = ()=> document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const flip = (fn, skip)=>{
+      if(calmMp()) return fn();
+      const first = new Map(); list.querySelectorAll('.mp-row').forEach(r=>{ if(r !== skip) first.set(r.dataset.k, r.getBoundingClientRect().top); });
+      fn();
+      list.querySelectorAll('.mp-row').forEach(r=>{ if(r === skip || r.classList.contains('drag')) return; const f = first.get(r.dataset.k); if(f == null) return;
+        const d = f - r.getBoundingClientRect().top; if(Math.abs(d) < 1) return;
+        r.style.transition = 'none'; r.style.transform = `translateY(${d}px)`; void r.offsetWidth;
+        r.style.transition = 'transform .3s cubic-bezier(.2,.6,.2,1)'; r.style.transform = ''; });
+    };
+    let mpSw = null;   // the switch just tapped is drawn in its old state, then slides to the new one
     const paint = (focusKey)=>{
       order = on.concat(order.filter(k=>on.indexOf(k)<0));
       list.innerHTML = order.map(k=>{ const i = on.indexOf(k), inn = i>=0, d = MIND_PIECES.find(x=>x[0]===k);
@@ -11092,30 +11109,38 @@ function app(tab){
           ${inn?`<button class="mp-grip" type="button" aria-label="Move ${escapeHtml(d[1])}, number ${i+1} of ${on.length}. Use the arrow keys.">${_GRIP}</button>`:'<span class="mp-grip" aria-hidden="true"></span>'}
           <span class="mp-n" aria-hidden="true">${inn?i+1:''}</span>
           <span class="mp-main"><span class="mp-l">${escapeHtml(d[1])}</span><span class="mp-sub">${escapeHtml(d[2])}</span></span>
-          <button class="set-sw${inn?' on':''}" type="button" role="switch" aria-checked="${inn}" aria-label="${escapeHtml(d[1])}"><span class="set-sw-knob"></span></button>
+          <button class="set-sw${(mpSw && mpSw.k === k ? mpSw.was : inn)?' on':''}" type="button" role="switch" aria-checked="${inn}" aria-label="${escapeHtml(d[1])}"><span class="set-sw-knob"></span></button>
         </li>`; }).join('');
       wrap.querySelector('#mp-mins').textContent = `~${mindMinutes(sil, on)}min`;
       list.querySelectorAll('.set-sw').forEach(b=>b.onclick=()=>{ const k=b.closest('.mp-row').dataset.k, i=on.indexOf(k);
         if(i>=0){ if(on.length===1){ const r=b.closest('.mp-row'); r.classList.remove('mp-no'); void r.offsetWidth; r.classList.add('mp-no'); haptic('start'); return; }
           on.splice(i,1); order = [k].concat(order.filter(x=>x!==k)); }   // out: first of the ones not in
         else { on.push(k); }
-        haptic('start'); save(); paint(); const nb = list.querySelector(`[data-k="${k}"] .set-sw`); if(nb) nb.focus({ preventScroll:true }); });
+        haptic('start'); save(); const was = i >= 0; mpSw = calmMp() ? null : { k, was }; flip(()=>paint()); mpSw = null;
+        const nb = list.querySelector(`[data-k="${k}"] .set-sw`);
+        if(nb){ void nb.offsetWidth; nb.classList.toggle('on', !was); nb.focus({ preventScroll:true }); } });
       list.querySelectorAll('button.mp-grip').forEach(g=>{
         const li = g.closest('.mp-row'), k = li.dataset.k;
         // the move and the release are heard on the window while a drag is on, so a finger that leaves the handle keeps dragging
+        // the dragged row rides under the finger; the others slide out of its way
+        let grabY = 0, curT = 0;
+        const follow = y=>{ const nat = li.getBoundingClientRect().top - curT; curT = y - grabY - nat; li.style.transform = `translateY(${curT}px)`; };
         const move = e=>{
           const rows = [...list.querySelectorAll('.mp-row:not(.off)')].filter(r=>r!==li);
           let before = null; for(const r of rows){ const b=r.getBoundingClientRect(); if(e.clientY < b.top + b.height/2){ before = r; break; } }
-          if(before){ if(li.nextSibling !== before) list.insertBefore(li, before); }
-          else { const lastOn = rows[rows.length-1]; if(lastOn && lastOn.nextSibling !== li) list.insertBefore(li, lastOn.nextSibling); } };
+          if(before){ if(li.nextSibling !== before) flip(()=>list.insertBefore(li, before), li); }
+          else { const lastOn = rows[rows.length-1]; if(lastOn && lastOn.nextSibling !== li) flip(()=>list.insertBefore(li, lastOn.nextSibling), li); }
+          follow(e.clientY); };
         const end = ()=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
-          li.classList.remove('drag');
           const now = [...list.querySelectorAll('.mp-row:not(.off)')].map(r=>r.dataset.k);
-          if(now.join() !== on.join()){ on = now; haptic('start'); save(); } paint(k); };
-        g.addEventListener('pointerdown', e=>{ if(e.button > 0) return; e.preventDefault(); li.classList.add('drag');
+          const done = ()=>{ li.classList.remove('drag'); li.style.transition = ''; li.style.transform = ''; curT = 0;
+            if(now.join() !== on.join()){ on = now; haptic('start'); save(); } paint(k); };
+          if(calmMp() || !curT) return done();
+          li.style.transition = 'transform .22s cubic-bezier(.2,.6,.2,1)'; li.style.transform = 'translateY(0)'; curT = 0; setTimeout(done, 230); };
+        g.addEventListener('pointerdown', e=>{ if(e.button > 0) return; e.preventDefault(); li.classList.add('drag'); li.style.transition = 'none'; grabY = e.clientY - li.getBoundingClientRect().top; curT = 0;
           window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end); });
         g.addEventListener('keydown', e=>{ const i = on.indexOf(k), j = e.key==='ArrowUp' ? i-1 : e.key==='ArrowDown' ? i+1 : -1;
-          if(j<0 || j>=on.length) return; e.preventDefault(); on.splice(i,1); on.splice(j,0,k); save(); paint(k); });
+          if(j<0 || j>=on.length) return; e.preventDefault(); on.splice(i,1); on.splice(j,0,k); save(); flip(()=>paint(k)); });
       });
       if(focusKey){ const f = list.querySelector(`[data-k="${focusKey}"] button.mp-grip`); if(f) f.focus({ preventScroll:true }); }
     };
@@ -11177,8 +11202,8 @@ function app(tab){
       const cur = bedPref();
       const rows = [['surprise','Surprise me','A different sound each practice'],['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
         `<button class="ps-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}" aria-pressed="${cur.bed===k}"><span class="ps-opt-main"><span class="ps-opt-l">${escapeHtml(CAP(nm))}</span><span class="ps-opt-sub">${escapeHtml(sub)}</span></span>${_PS_CHECK}</button>`).join('');
-      const lv = cur.bed==='none' ? '' : `<p class="ps-pgroup">How loud</p>
-        <div class="p7-seg p7-seg-steps ps-steps" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
+      const lv = cur.bed==='none' ? '' : `<p class="ps-pgroup">Volume</p>
+        <div class="p7-seg p7-seg-steps ps-steps" role="radiogroup" aria-label="Volume">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
       body.innerHTML = rows + lv;
       body.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
         if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
@@ -11197,8 +11222,8 @@ function app(tab){
       const rows=[['surprise','Surprise me','A different sound each practice'],['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
         `<button class="p7-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}"><span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(nm))}</span><span class="p7-opt-sub">${escapeHtml(sub)}</span></span>${check}</button>`).join('');
       // five steps, no words: each pill a little taller than the last, the chosen one filled (a name for screen readers only)
-      const lv=cur.bed==='none' ? '' : `<div class="p7-sheet-group">How loud</div>
-        <div class="p7-seg p7-seg-steps" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
+      const lv=cur.bed==='none' ? '' : `<div class="p7-sheet-group">Volume</div>
+        <div class="p7-seg p7-seg-steps" role="radiogroup" aria-label="Volume">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
       wrap.querySelector('.p7-sheet-body').innerHTML=`<div class="p7-sheet-group">Sound</div>${rows}${lv}`;
       wrap.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
         if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
@@ -13851,7 +13876,7 @@ function app(tab){
         <div class="scr-head"><h1 class="scr-h lw-h1">Settings</h1></div>
         ${stSec('You', `
           <div class="st-row"><label class="st-lbl" for="nm-val">Name</label><input class="name-input st-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="Add your name"></div>
-          ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="st-row"><span class="st-lbl">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div><p class="st-help">Shows next to your messages in live event chat.</p>` : ''}
+          ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="st-row"><span class="st-lbl">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div>` : ''}
           <div class="st-row"><span class="st-lbl">Account</span><span class="st-val st-val-wrap">${escapeHtml(u.email||'on this device')}</span></div>
           ${(function(){ var b=(Store.billing&&Store.billing())||null;
             // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
