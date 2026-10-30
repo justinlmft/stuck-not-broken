@@ -655,6 +655,8 @@
     localStorage.setItem(CI_QKEY, JSON.stringify(m)); }catch(e){} }
   function ciLoadQ(t){ try{ return JSON.parse(localStorage.getItem(CI_QKEY)||'{}')[t] || null; }catch(e){ return null; } }
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
+  // the Settings row chevron (grid6): drawn, so it does not depend on a parent's stroke rules
+  const _ST_CHEV = '<svg class="st-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   // now-screen post-breath slot (r5 2026-07-24): small, legible icons for the dynamic
   // second row — a plus for "check in again" once it shrinks, a play for the micro
   // practice, an open book for the personal-reader doorway.
@@ -2227,7 +2229,7 @@
       { id:'welcome', tab:'now', kind:'center',
         h:'Welcome',
         body: obP('Thank you for joining. This short walkthrough shows you around the app and gets it set up for you.')
-           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
+           + obSig(),
         actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
 
       { id:'name', tab:'now', kind:'center',
@@ -2297,7 +2299,7 @@
       { id:'done', tab:'now', kind:'center',
         h:'You’re all set',
         body: obP('Check in, practice, then check in again. The app gets more and more yours each time.')
-           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
+           + obSig(),
         fine:'This walkthrough is in Settings whenever you want it again.',
         actions:[{label:'Check in now',kind:'primary',go:'checkin'},{label:'Take me in',kind:'quiet',go:'end'}] },
 
@@ -2307,6 +2309,10 @@
         actions:[{label:'Take me in',kind:'primary',go:'end'}] }
     ];
   }
+  // Justin's mark, small, beside his name: how the walkthrough's first and last cards and the update card are signed (grid6)
+  function obSig(){ return '<div class="ob-sig">' + obMarkSVG() + '<span class="ob-sign">Justin</span></div>'; }
+  // 1120 and up the step card docks on columns 9-12 beside the live screen, no scrim (grid6)
+  const _obDock = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
   function obMarkSVG(){
     // r9, generated from assets/logo/snb-mark.svg so the inline copy cannot drift from
     // the asset. Weight ladder: head/beard 9.5 - ears 6.5 - frame 5.5 - brows 5.2 -
@@ -2388,6 +2394,7 @@
              + '<div class="ob-dim anim" data-side="l"></div><div class="ob-dim anim" data-side="r"></div>';
     if(st.kind==='spot') html += '<div class="ob-hole anim"></div>';
     html += '<div class="ob-card'+(first?' anim':' step')+(st.kind==='spot'?' ob-low':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
+      + (pos >= 0 ? '<div class="ob-bar" aria-hidden="true">'+seq.map((s,i)=>'<i'+(i<=pos?' class="on"':'')+'></i>').join('')+'</div>' : '')
       + '<div class="ob-top">'
       + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
           + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>Back</button>' : '<span></span>')
@@ -2400,10 +2407,10 @@
       + '</div>'
       + '<div class="ob-foot">'
       + '<div class="ob-acts">'+actions.map(a=>'<button class="btn'+(a.kind==='quiet'?' quiet':'')+' block" type="button" data-go="'+a.go+'">'+escapeHtml(a.label)+'</button>').join('')+'</div>'
-      + (showSkip ? '<div class="ob-row"><div class="ob-dots">'+seq.map((s,i)=>'<i class="'+(i===pos?'on':'')+'"></i>').join('')+'</div>'
-          + '<button class="ob-skip" type="button" data-go="skip">I’ll take it from here</button></div>' : '')
+      + (showSkip ? '<div class="ob-row"><button class="ob-skip" type="button" data-go="skip">I’ll take it from here</button></div>' : '')
       + '</div></div>';
     d.innerHTML = html;
+    d.classList.toggle('ob-dock', _obDock());
     obPlace(st);
     obWire(st);
     obFade();
@@ -2437,6 +2444,7 @@
     const dims = [...d.querySelectorAll('.ob-dim')];
     const hole = d.querySelector('.ob-hole');
     obUnlift();
+    d.classList.toggle('ob-dock', _obDock());
     const target = obTarget(st);
     // Missing or zero-sized target => a plain card over one full dim pane. Never a ring in the corner.
     if(!target){
@@ -2452,7 +2460,7 @@
     let r = measure();
     // the sheet is pinned to the bottom, so a target that is still low would sit UNDER it: lift its view by the overlap
     const lift = sc || $('#content');
-    if(lift && card){
+    if(lift && card && !_obDock()){
       const cardTop = card.getBoundingClientRect().top;
       const overlap = (r.y + r.h + 16) - cardTop;
       // a target taller than the room above the sheet keeps its top on screen and runs on under the sheet
@@ -2688,22 +2696,25 @@ function whatsNewOnboard(){
   if(!_obMember() || !_obHydrated() || !oriented()) return;
   if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
   if(document.body.classList.contains('in-practice') || document.getElementById('weaver')) return;
-  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  // only on the Now screen, never over another tab, a practice or a check-in (grid6, Justin canon 2026-10-30)
+  if(currentTab !== 'now' || !document.querySelector('#screen .view.now') || document.getElementById('ci-root') || document.querySelector('.checkin-view, .view.checkin')) return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root wn-onb';
   d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Major app update">'
-    + '<div class="wn-mark-wrap">' + obMarkSVG() + '</div>'
     + '<h2 class="wn-h">Major app update</h2>'
     + '<p class="wn-p">There is so much new in the app that a list wouldn’t do it justice: the Unstucking Pathway, the Learn library, your Journal, a new Practice tab, and more.</p>'
     + '<p class="wn-p">So I made a short walkthrough. It shows you around and helps you get set up. It takes about two minutes.</p>'
-    + '<p class="ob-sign wn-sign">Justin</p>'
-    + '<button class="btn block" id="wn-go" type="button" style="margin-top:22px">Show me around</button>'
-    + '<button class="btn quiet block" id="wn-ok" type="button" style="margin-top:8px">Not now</button>'
+    + obSig()
+    + '<div class="wn-acts"><button class="btn" id="wn-go" type="button">Show me around</button>'
+    + '<button class="wn-later" id="wn-ok" type="button">Not now</button></div>'
     + '<p class="ob-fine wn-fine">You can find it again in Settings.</p></div>';
   document.body.appendChild(d);
   requestAnimationFrame(()=>d.classList.add('on'));
   try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
-  const close=()=>{ document.removeEventListener('keydown', onKey, true); d.remove(); };
+  const close=()=>{ document.removeEventListener('keydown', onKey, true); document.removeEventListener('click', onOut, true); d.remove(); };
   function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(_){} } }
+  function onOut(e){ const c=d.querySelector('.wn-card'); if(!c || c.contains(e.target)) return; if(e.target===d) return; close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{ how:'outside' }); }catch(_){} }
   document.addEventListener('keydown', onKey, true);
+  setTimeout(()=>document.addEventListener('click', onOut, true), 0);
   const ok=d.querySelector('#wn-ok'); if(ok) ok.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(e){} };
   const go=d.querySelector('#wn-go'); if(go){ go.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_go',{}); }catch(e){} try{ app('now'); }catch(e){} setTimeout(()=>startOnboarding('notice'), 80); };
     try{ go.focus({preventScroll:true}); }catch(e){} }
@@ -2904,7 +2915,7 @@ function screenUpdates(from){
 }
 // September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
 // the What's New sheet comes last: it waits for Monday's card and the Academy card, and never shares a load with either
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewFreeEnded(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
+addEventListener('load',()=>{ setTimeout(()=>{ window._wnReady = true; }, 2600); [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewFreeEnded(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
 
 function app(tab){
     try{ if(typeof _ps !== 'undefined' && _ps && tab !== 'practice') _ps.detach(); }catch(e){}
@@ -4353,7 +4364,7 @@ function app(tab){
   function installRowInner(){
     const s = installState();
     if(s==='installed') return '<span class="val" style="font-weight:400">Installed</span>';
-    if(s==='button') return '<button class="set-quiet in-go" type="button">Install this app</button>';
+    if(s==='button') return '<button class="st-row st-go in-go" type="button"><span class="st-lbl">Install this app</span>'+_ST_CHEV+'</button>';
     if(s==='ios-share') return '<span class="ios-hint">To install: tap the share icon, then choose add to Home Screen.</span>';
     if(s==='open-elsewhere') return '<span class="ios-hint">'+openElsewhereMsg()+'</span>';
     return '<span class="ios-hint">To install: open your browser menu and choose install or add to Home Screen.</span>';
@@ -4494,7 +4505,7 @@ function app(tab){
     const s = pushState(); if(s==='unsupported') return '';
     const p = pushPrefsRead();
     const status = s==='install' ? 'Needs the installed app' : s==='blocked' ? 'Off in your device settings' : (s==='on' && pushAnyOn(p)) ? 'On' : 'Off';
-    return `<span class="gs-lbl">Notifications</span><span class="val" style="font-weight:400;margin-left:auto">${status}</span> <button class="set-quiet push-open" type="button" style="margin-left:10px">Choose &rsaquo;</button>`;
+    return `<button class="st-row st-go push-open" type="button"><span class="st-lbl">Notifications</span><span class="st-val">${status}</span>${_ST_CHEV}</button>`;
   }
   function pushBindRow(){ const row=document.getElementById('push-row'); if(!row) return; const b=row.querySelector('.push-open'); if(b) b.onclick=()=>screenNotifications(); }
   async function screenNotifications(){
@@ -5171,6 +5182,97 @@ function app(tab){
   const _nqScene = ()=>{ try{ return localStorage.getItem('snb_now_scene') === 'ring' ? 'ring' : 'reeds'; }catch(e){ return 'reeds'; } };
   const _nqCalm = ()=> document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   const _nqOn = ()=> !!document.querySelector('#screen .view.now.nq');
+  // ── the Now scene follows the day (Justin 2026-10-30, wabi-sabi; BRAND_DESIGN_SYSTEM §4 "Now screen, tranquil", last bullet) ──
+  // "Match the time of day" (on by default, the device clock, no permission): the scene brightens and dims slowly through the day,
+  // soft at dawn, brightest at midday, dim in the evening; never a light / dark switch. "Match the weather" (off by default): asks
+  // for the person's rough location once, when it is turned on; rain falls over the scene, cloud dims it, sun brightens it. The
+  // location is rounded to about 10 km, used for one lookup at Open-Meteo (free, no key) and never saved: only the kind of
+  // weather and the time it was read are kept on this device, for half an hour. No temperatures, no icons.
+  const _nqDayOn = ()=>{ try{ return localStorage.getItem('snb_nq_day') !== '0'; }catch(e){ return true; } };
+  const _nqWxOn = ()=>{ try{ return localStorage.getItem('snb_nq_wx') === '1'; }catch(e){ return false; } };
+  let _nqWx = null, _nqWxBusy = false, _nqLightT = null, _nqRainRaf = 0;
+  function _nqWxSet(on){
+    try{ if(on) localStorage.setItem('snb_nq_wx', '1'); else { localStorage.removeItem('snb_nq_wx'); localStorage.removeItem('snb_nq_wxk'); } }catch(e){}
+    if(!on) _nqWx = null; _nqLight();
+  }
+  function _nqWxFetch(){
+    return new Promise(res=>{
+      if(!navigator.geolocation) return res(null);
+      navigator.geolocation.getCurrentPosition(p=>{
+        const la = Math.round(p.coords.latitude * 10) / 10, lo = Math.round(p.coords.longitude * 10) / 10;
+        fetch('https://api.open-meteo.com/v1/forecast?latitude=' + la + '&longitude=' + lo + '&current=weather_code,cloud_cover,is_day', { cache:'no-store' })
+          .then(r=>r.ok ? r.json() : null).then(j=>{
+            const c = j && j.current; if(!c) return res(null);
+            const w = +c.weather_code, cc = +c.cloud_cover;
+            const k = ((w >= 51 && w <= 67) || (w >= 80 && w <= 82) || w >= 95) ? 'rain'
+              : ((w >= 71 && w <= 77) || w === 85 || w === 86 || w === 45 || w === 48 || w === 3 || cc >= 70) ? 'cloud'
+              : (w <= 1 && cc < 35) ? 'sun' : 'fair';
+            const v = { k, t:Date.now() }; try{ localStorage.setItem('snb_nq_wxk', JSON.stringify(v)); }catch(e){}
+            res(v);
+          }).catch(()=>res(null));
+      }, ()=>res(null), { enableHighAccuracy:false, maximumAge:3600000, timeout:15000 });
+    });
+  }
+  function _nqWxAsk(){
+    return _nqWxFetch().then(v=>{ if(v){ try{ localStorage.setItem('snb_nq_wx', '1'); }catch(e){} _nqWx = v; _nqLight(); return true; } _nqWxSet(false); return false; });
+  }
+  function _nqWxNow(){
+    if(!_nqWxOn()) return null;
+    if(!_nqWx){ try{ _nqWx = JSON.parse(localStorage.getItem('snb_nq_wxk') || 'null'); }catch(e){} }
+    if((!_nqWx || Date.now() - _nqWx.t > 30 * 60e3) && !_nqWxBusy){ _nqWxBusy = true; _nqWxFetch().then(v=>{ _nqWxBusy = false; if(v){ _nqWx = v; _nqLight(); } }); }
+    return _nqWx && Date.now() - _nqWx.t < 3 * 3600e3 ? _nqWx.k : null;
+  }
+  // the light of the hour: how much the scene dims, how much it lifts, how warm it is (gentle; text keeps its contrast)
+  function _nqDayLight(d){
+    const h = d.getHours() + d.getMinutes() / 60;
+    const pts = [[0, .20, 0, 0], [5, .20, 0, 0], [6.5, .12, 0, .10], [8, .05, .02, .05], [11, 0, .06, 0], [15, 0, .06, 0], [17.5, .04, .02, .06], [19.5, .12, 0, .10], [21.5, .20, 0, 0], [24, .20, 0, 0]];
+    for(let i = 1; i < pts.length; i++){ const a = pts[i - 1], b = pts[i]; if(h <= b[0]){ const f = (h - a[0]) / (b[0] - a[0] || 1); return { dim:a[1] + (b[1] - a[1]) * f, lift:a[2] + (b[2] - a[2]) * f, warm:a[3] + (b[3] - a[3]) * f }; } }
+    return { dim:.2, lift:0, warm:0 };
+  }
+  function _nqLight(){
+    const sc = document.getElementById('nq-scene'); if(!sc) return;
+    let ov = sc.querySelector('.nq-light');
+    const first = !ov;
+    if(!ov){ ov = document.createElement('div'); ov.className = 'nq-light'; sc.appendChild(ov); }
+    const dark = document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
+    let L = _nqDayOn() ? _nqDayLight(new Date()) : { dim:0, lift:0, warm:0 };
+    const wx = _nqWxNow();
+    if(wx === 'rain') L = { dim:L.dim + .08, lift:0, warm:L.warm * .4 };
+    else if(wx === 'cloud') L = { dim:L.dim + .06, lift:L.lift * .3, warm:L.warm * .5 };
+    else if(wx === 'sun') L = { dim:Math.max(0, L.dim - .03), lift:L.lift + .04, warm:L.warm };
+    // light mode dims less, so ink on paper keeps its contrast; dark mode can go a little deeper
+    const dim = Math.min(dark ? .26 : .14, L.dim * (dark ? 1.1 : .7));
+    if(first) ov.style.transition = 'none';
+    sc.style.setProperty('--nq-dim', dim.toFixed(3));
+    sc.style.setProperty('--nq-lift', (dark ? L.lift * .5 : L.lift).toFixed(3));
+    sc.style.setProperty('--nq-warm', L.warm.toFixed(3));
+    if(first){ void ov.offsetWidth; ov.style.transition = ''; }
+    _nqRain(wx === 'rain', dark);
+    clearTimeout(_nqLightT); _nqLightT = setTimeout(()=>{ if(_nqOn()) _nqLight(); }, 5 * 60e3);
+  }
+  // rain over the scene: thin slanted strokes, slow; reduced motion draws it once and leaves it still
+  function _nqRain(on, dark){
+    const sc = document.getElementById('nq-scene'); let cv = sc && sc.querySelector('canvas.nq-rain');
+    cancelAnimationFrame(_nqRainRaf); _nqRainRaf = 0;
+    if(!on || !sc){ if(cv) cv.remove(); return; }
+    if(!cv){ cv = document.createElement('canvas'); cv.className = 'nq-rain'; sc.appendChild(cv); }
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth || innerWidth, H = cv.clientHeight || innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'); if(!g) return;
+    const n = Math.min(160, Math.round(W * H / 7000)), drops = [];
+    for(let i = 0; i < n; i++) drops.push({ x:Math.random() * W, y:Math.random() * H, l:10 + Math.random() * 14, s:2.2 + Math.random() * 2.4 });
+    g.strokeStyle = dark ? 'rgba(232,228,218,.20)' : 'rgba(40,48,60,.16)'; g.lineWidth = 1 * dpr; g.lineCap = 'round';
+    const draw = ()=>{ g.clearRect(0, 0, cv.width, cv.height); g.beginPath();
+      drops.forEach(d=>{ g.moveTo(d.x * dpr, d.y * dpr); g.lineTo((d.x - d.l * .16) * dpr, (d.y + d.l) * dpr); }); g.stroke(); };
+    if(_nqCalm()){ draw(); return; }
+    const step = ()=>{
+      if(!cv.isConnected || !_nqOn()){ _nqRainRaf = 0; return; }
+      drops.forEach(d=>{ d.y += d.s; d.x -= d.s * .16; if(d.y > H){ d.y = -d.l; d.x = Math.random() * (W + 40); } });
+      draw(); _nqRainRaf = requestAnimationFrame(step);
+    };
+    _nqRainRaf = requestAnimationFrame(step);
+  }
+
   function _nqWake(){
     document.body.classList.remove('nq-idle'); clearTimeout(_nqIdleT);
     if(!_nqOn()) return;
@@ -5243,6 +5345,7 @@ function app(tab){
       NQ.tint(lit ? _lwHex(STATE_COLOR(dom)) : null);
       NQ.pace(lit ? dom : null);
     }
+    _nqLight();
 
     const st = c.querySelector('#mh-state'); if(st) st.onclick = ()=> screenStateDetail(dom);
     c.querySelector('#mh-cta').onclick = ()=> screenCheckin();
@@ -5259,6 +5362,7 @@ function app(tab){
       return _paid ? renderPlan(reco,'now') : app('practice');
     };
     _nqWire(); _nqWake();
+    if(window._wnReady) setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} }, 1200);
   }
   // One breath (Justin 2026-10-29): the reeds lean in for 4 and out for 5, the words step back while it plays.
   // A full breath counts as today's breath, as the ring's did; a tap during it brings the words back, the breath goes on.
@@ -5849,7 +5953,7 @@ function app(tab){
     _rdShell(`
           <div class="scr-head" id="lm-learn"><h1 class="scr-h lw-h1">Learn</h1></div>
           ${_lbSearchRowHTML()}
-          ${extra ? _lmActiveHTML() : ''}
+          ${_lmActiveHTML()}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
           ${hero ? `<div class="lb-top">${_lbFeatHTML(forNow)}<section class="lb-topics-side" aria-label="Topics"><h2 class="lb-h2">Topics</h2>${_lbTopicsHTML(false)}</section></div>` : ''}
@@ -6012,7 +6116,7 @@ function app(tab){
   // ---- round 2 (2026-10-26): Justin's asks. One meta line on every card ([media icon] · length · date), counts in lessons,
   // every combined list grouped by type, a published-date filter, and a Filter button with a slide-up sheet that holds the
   // filters (the chip rows moved into it; the page shows only what is on, each with an ×).
-  let _lmWhen = 'any', _lmDur = 'any';
+  let _lmWhen = 'any', _lmDur = 'any';   // _lmWhen stays 'any': the Published filter is gone (grid6)
   // Length (Justin, 2026-10-26: "a run time/read filter"): run time for episodes and videos, reading time for articles
   const _LM_DURS = [['any', 'Any length'], ['u5', 'Under 5 min'], ['5to15', '5 to 15 min'], ['15to30', '15 to 30 min'], ['o30', 'Over 30 min']];
   function _lmDurOk(min){
@@ -6022,6 +6126,8 @@ function app(tab){
   const _LM_TYPES = [['a', 'Articles'], ['p', 'Podcast'], ['c', 'Stucknaut Collective'], ['v', 'Videos'], ['s', 'Shorts']];
   const _LM_NOUN = { a:'articles', p:'episodes', c:'episodes', v:'videos', s:'Shorts' };
   const _LM_MEDIA = [['all', 'All'], ['read', 'Read'], ['listen', 'Listen'], ['watch', 'Watch']];
+  // the close X of every Filter sheet (grid6: "Filter" + an X, no Done)
+  const _FS_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   const _LM_WHENS = [['any', 'Any time'], ['month', 'Past month'], ['year', 'Past year'], ['older', 'Older than a year']];
   const _LM_MI = { read:'<path d="M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"/>',
     listen:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"/>', watch:'<path d="M8 5.5v13l11-6.5z"/>' };
@@ -6107,14 +6213,13 @@ function app(tab){
     const states = L.STATE_HUBS.filter(k=>L.inGroup(k).length || hasMed(k)), topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length || hasMed(k));
     return `<div class="rd-jr-sheet lm-fsheet" id="lm-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in">
         <span class="rd-jr-grab" aria-hidden="true"></span>
-        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
         <div class="lm-fs-body">
           <span class="rd-eyeb">Type</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
-          <span class="rd-eyeb">Published</span><div class="lm-chips">${_LM_WHENS.map(([id, l])=>chip('lmw', id, l, _lmWhen === id)).join('')}</div>
-          <p class="lm-fs-note">Most articles have no published date, so they show under Any time.</p>
           <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lmd', id, l, _lmDur === id)).join('')}</div>
           <p class="lm-fs-note">Run time for episodes and videos, reading time for articles.</p>
-          <span class="rd-eyeb">Topic</span><div class="lm-chips">${chip('lmt', 'all', 'All topics', _lmTopic === 'all')}${states.map(k=>chip('lmt', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
+          <span class="rd-eyeb">States</span><div class="lm-chips">${states.map(k=>chip('lmt', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}</div>
+          <span class="rd-eyeb">Topics</span><div class="lm-chips">${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
         </div>
         <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lm-fclear">Clear all</button><button class="lm-fshow" type="button" id="lm-fshow">Show</button></div>
       </div></div>`;
@@ -6162,7 +6267,7 @@ function app(tab){
     sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
     sh.onclick = e => { if(e.target === sh) close(); };
     sh.querySelectorAll('[data-lmm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lmm; paint(); });
-    sh.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lmt; paint(); });
+    sh.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = _lmTopic === b.dataset.lmt ? 'all' : b.dataset.lmt; paint(); });
     sh.querySelectorAll('[data-lmw]').forEach(b=>b.onclick=()=>{ _lmWhen = b.dataset.lmw; paint(); });
     sh.querySelectorAll('[data-lmd]').forEach(b=>b.onclick=()=>{ _lmDur = b.dataset.lmd; paint(); });
     $('#lm-fclear').onclick = () => { _lmMedia = 'all'; _lmTopic = 'all'; _lmWhen = 'any'; _lmDur = 'any'; paint(); };
@@ -6875,7 +6980,7 @@ function app(tab){
         <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="jr-filt" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="jr-fsheet" aria-label="${fn ? 'Filter, ' + fn + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fn ? `<span class="lm-fn" aria-hidden="true">${fn}</span>` : ''}</button></div></div>
       ${active}
       <div class="rd-jr-sheet lm-fsheet" id="jr-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
-        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
         <div class="lm-fs-body"><span class="rd-eyeb">Group by</span><div class="lm-chips">${VIEWS.map(([k, l])=>chip('jrv', k, l, view === k)).join('')}</div>
           ${srcs.length > 2 ? `<span class="rd-eyeb">From</span><div class="lm-chips">${srcs.map(([k, l])=>chip('jrs', k, l, _jrSrc === k)).join('')}</div>` : ''}</div>
         <div class="lm-fs-foot"><button class="lm-clear" type="button" id="jr-fclear">Clear all</button><button class="lm-fshow" type="button" id="jr-fshow">Show</button></div></div></div>` : '';
@@ -7937,45 +8042,153 @@ function app(tab){
   // a row that opens a hub
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
-  // one learning hub: a state or a topic, Justin's intro, the member's own data (states), its articles, related hubs
-  function screenLearnHub(key, back, keepQuery){
+  // one learning hub (Justin, canon 2026-10-30; BRAND_DESIGN_SYSTEM §4 "Learning hubs"; mockup SzYVuEwDJZjZqPUoPBFiDa): breadcrumb on
+  // desktop, "Learning hub", the mark + title, a quiet lesson count, the intro on 1-8, Learn's search + Filter. Articles lead as a
+  // bento: one big card RECOMMENDED from the member's own check-ins (Learn's "For you now" logic, inside this hub) + four small.
+  // Podcast, the Stucknaut Collective and Videos: a row of four each. Shorts: a sideways strip of tall cards in its own box. Each
+  // "See all ›" opens the same page filtered to that type (a removable chip, the full grid, Show more; the breadcrumb grows a step).
+  // Related hubs at the end as quiet rows with counts.
+  let _lhKey = null, _lhMedia = 'all', _lhDur = 'any', _lhShown = 24;
+  const _LH_ONLY = { a:'Read', p:'Podcast', c:'Stucknaut Collective', v:'Videos', s:'Shorts' };
+  function _lhDurOk(min){
+    if(_lhDur === 'any') return true; if(min == null) return false;
+    return _lhDur === 'u5' ? min < 5 : _lhDur === '5to15' ? min >= 5 && min < 15 : _lhDur === '15to30' ? min >= 15 && min < 30 : min >= 30;
+  }
+  const _lhMin = (e, isArt) => isArt ? (e.minutes || 1) : (e.n ? e.n / 60 : e.s === 's' ? 0.5 : null);
+  function _lhRecommend(arts){
+    if(!arts.length) return null;
+    const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
+    // Learn's "For you now": the latest check-in's state, a piece for the day; used here when that piece is in this hub
+    if(lastK){ try{ const f = _lrnForDaily(lastK); if(f && f.piece && arts.indexOf(f.piece) >= 0) return f.piece; }catch(e){} }
+    // otherwise the hub's pieces that touch that state, unread first, a different one each day
+    let pool = lastK ? arts.filter(p=>p.state === lastK || (p.groups || []).indexOf(lastK) >= 0) : [];
+    if(!pool.length) pool = arts;
+    const unread = pool.filter(p=>!_lrnIsRead(p.id)); if(unread.length) pool = unread;
+    const d = new Date(), day = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+    return pool[day % pool.length];
+  }
+  const _lhCard = (e, isArt, k, big) => { const c = _lbCard(e, isArt, k, big); return big ? c.replace('<span class="lb-body">', '<span class="lb-body"><span class="rd-eyeb lh-rec">Recommended learning</span>') : c; };
+  function screenLearnHub(key, back, keepQuery, only){
     if(!keepQuery) _lrnQ = '';
+    if(_lhKey !== key + '|' + (only || '')){ if(!only || (_lhKey || '').split('|')[0] !== key){ _lhMedia = 'all'; _lhDur = 'any'; } _lhShown = 24; _lhKey = key + '|' + (only || ''); }
     const L = window.Learning, hub = L.HUBS[key] || { intro:[] }, isState = L.STATE_HUBS.indexOf(key) >= 0;
     const paid = paidNow(), pieces = L.inGroup(key);
-    const here = ()=>screenLearnHub(key, back, true);
+    const here = ()=>screenLearnHub(key, back, true, only);
+    const hubHere = ()=>screenLearnHub(key, back, true);
     let mine = '';
-    if(isState){
+    if(isState && !only){
       const now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28*864e5, now + 1);
       const sh = _lrnCallout(key === 'safety' ? 'safety-share' : 'share:' + key, ctx), tm = _lrnCallout('time:' + key, ctx);
       if(sh) mine = _lrnCallHTML({ mk:key, label: _rdOwner() + ' ' + STATE_NAME(key), text: sh.text + (tm ? ' ' + tm.text.replace(' in the last four weeks.', '.') : '') }, paid, ctx);
     }
-    // related hubs: the ones its articles share most, six at most (2026-10-02, the library grew to ~150)
     const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = (related[g]||0) + 1; }));
     const relKeys = Object.keys(related).sort((a,b)=> related[b] - related[a]).slice(0, 6);
-    // every lesson on the hub's topic, grouped by type (Justin, 2026-10-26); episodes and videos come once the library list is here
-    const hubGroups = _lmGroups('all', key, true);
+    // every lesson on the hub's topic, by type; the hub's Filter (Type, Length) narrows them
+    const gs = _lmGroups(only ? 'all' : _lhMedia, key, true).filter(g=>!only || g.k === only).map(g=>({ k:g.k, label:g.label, list:g.list.filter(e=>_lhDurOk(_lhMin(e, g.k === 'a'))) })).filter(g=>g.list.length);
+    const n = gs.reduce((s, g)=>s + g.list.length, 0);
+    const fon = (!only && _lhMedia !== 'all') + (_lhDur !== 'any');
+    const seeAll = (g, shown) => g.list.length > shown ? `<button class="lb-seeall" type="button" data-lhonly="${g.k}">See all${CHEV}</button>` : '';
+    const head = (g, shown) => `<div class="lb-sec-h"><h2><span>${escapeHtml(g.label)}</span><span class="ll-n">${escapeHtml(_lmLessons(g.list.length))}</span></h2>${seeAll(g, shown)}</div>`;
+    const sec = g => {
+      if(g.k === 'a'){
+        const big = _lhRecommend(g.list), rest = g.list.filter(p=>p !== big).slice(0, 4);
+        return `<section class="lb-sec lh-sec" aria-label="${escapeHtml(g.label)}">${head(g, 5)}<div class="lb-grid">${big ? _lhCard(big, true, key, true) : ''}${rest.map(p=>_lhCard(p, true, key, false)).join('')}</div></section>`;
+      }
+      if(g.k === 's') return `<section class="lb-sec lh-sec" aria-label="Shorts">${head(g, 12)}<div class="lh-strip" role="list">${g.list.slice(0, 12).map(x=>_lhCard(x, false, key, false).replace('<button class="lb-card', '<button role="listitem" class="lb-card lh-tall')).join('')}</div></section>`;
+      return `<section class="lb-sec lh-sec" aria-label="${escapeHtml(g.label)}">${head(g, 4)}<div class="lb-grid lh-row4">${g.list.slice(0, 4).map(x=>_lhCard(x, false, key, false)).join('')}</div></section>`;
+    };
+    const onlyHTML = () => { const g = gs[0]; if(!g) return '';
+      const cards = g.list.slice(0, _lhShown).map(e=>_lhCard(e, g.k === 'a', key, false)).map(c=>g.k === 's' ? c.replace('<button class="lb-card', '<button class="lb-card lh-tall') : c).join('');
+      return `<section class="lb-sec lh-sec lh-only" aria-label="${escapeHtml(g.label)}"><div class="lb-sec-h"><h2><span>${escapeHtml(g.label)}</span><span class="ll-n">${escapeHtml(_lmLessons(g.list.length))}</span></h2></div><div class="lb-grid${g.k === 's' ? ' lh-tallgrid' : ''}">${cards}</div>${g.list.length > _lhShown ? '<button class="ll-showall lh-more" type="button">Show more</button>' : ''}</section>`; };
+    const chips = [];
+    if(only) chips.push(['only', _LH_ONLY[only]]);
+    if(!only && _lhMedia !== 'all') chips.push(['m', (_LM_MEDIA.find(x=>x[0] === _lhMedia) || [])[1]]);
+    if(_lhDur !== 'any') chips.push(['d', (_LM_DURS.find(x=>x[0] === _lhDur) || [])[1]]);
+    const chip = (grp, id, label, on) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${grp}="${id}" aria-pressed="${on}"><span>${escapeHtml(label)}</span></button>`;
+    const search = `<div class="lb-search-row lh-search-row">
+        <div class="ll-sfloat open lb-search" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="true" tabindex="-1">${_LB_SEARCH}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="lh-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="lh-fsheet" aria-label="${fon ? 'Filter, ' + fon + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fon ? `<span class="lm-fn" aria-hidden="true">${fon}</span>` : ''}</button></div></div>
+      ${chips.length ? `<div class="lm-active" role="group" aria-label="Filters">${chips.map(([g, l])=>`<button class="lm-chip on" type="button" data-lhx="${g}" aria-label="Take off ${escapeHtml(l)}"><span>${escapeHtml(l)}</span><span class="lm-x" aria-hidden="true">×</span></button>`).join('')}</div>` : ''}
+      <div class="rd-jr-sheet lm-fsheet" id="lh-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
+        <div class="lm-fs-body">${only ? '' : `<span class="rd-eyeb">Type</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lhm', id, l, _lhMedia === id)).join('')}</div>`}
+          <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lhd', id, l, _lhDur === id)).join('')}</div></div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lh-fclear">Clear all</button><button class="lm-fshow" type="button" id="lh-fshow">Show</button></div></div></div>`;
+    const crumb = only ? [{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key), go:hubHere }, { label:(_LM_TYPES.find(x=>x[0] === only) || [])[1] || '' }]
+      : [{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }];
     _rdShell(`
         <div id="ll-results" aria-live="polite"></div>
-        <div id="ll-browse">
+        <div id="ll-browse" class="lh-view">
         <span class="rd-eyeb">Learning hub</span>
         <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
-        ${_lrnToolsHTML(false)}
-        ${mine}
-        ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
-        ${hubGroups.length ? hubGroups.map(gr=>{ const n = gr.k === 'a' ? 12 : 6;
-            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3>${_lbCardsHTML(gr.list, gr.k === 'a', key, n)}${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
-          : `<section class="rd-learn"><p class="read-p rd-empty">${_lmData ? 'Lessons for this hub are on the way.' : 'One moment…'}</p></section>`}
-        ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
+        <p class="lh-n">${escapeHtml(_lrnHubCount(key))}</p>
+        ${only ? '' : `<div class="lh-intro">${(hub.intro||[]).map(_lrnBlockHTML).join('')}${mine}</div>`}
+        ${search}
+        ${only ? onlyHTML() : gs.length ? gs.map(sec).join('')
+          : `<section class="rd-learn"><p class="read-p rd-empty">${!_lmData ? 'One moment…' : (fon ? 'No lessons match these filters.' : 'Lessons for this hub are on the way.')}</p></section>`}
+        ${relKeys.length && !only ? `<section class="lh-related"><h2 class="lb-h2">Related hubs</h2><div class="lh-rel">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
         </div>`,
-      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, wide:true, crumb:[{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }] });
+      { back: only ? 'Back' : back ? back.label : 'Learn', onBack: only ? hubHere : back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, wide:true, crumb });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
-    root.querySelectorAll('.lm-hubsec .ll-showall').forEach(b=>b.onclick=()=>{ b.parentElement.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
-    root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
-    root.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, { label:'Back', go:here }));
-    if(!_lmData){ const t = root.querySelector('.rd-hub-title'); _lmLoad().then(d=>{ if(d && t && t.isConnected){ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; } }); }
-    root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
+    root.querySelectorAll('#ll-browse [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+    root.querySelectorAll('#ll-browse [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, { label:'Back', go:here }));
+    root.querySelectorAll('[data-lhonly]').forEach(b=>b.onclick=()=>{ _lrnQ = ''; screenLearnHub(key, back, false, b.dataset.lhonly); const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; });
+    root.querySelectorAll('.lh-more').forEach(b=>b.onclick=()=>{ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; _lhShown += 24; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; });
+    root.querySelectorAll('[data-lhx]').forEach(b=>b.onclick=()=>{ const g = b.dataset.lhx; if(g === 'only') return hubHere(); if(g === 'm') _lhMedia = 'all'; if(g === 'd') _lhDur = 'any'; here(); });
+    if(!_lmData){ const t = root.querySelector('.rd-hub-title'); _lmLoad().then(d=>{ if(d && t && t.isConnected && !document.body.classList.contains('jr-sheet-on')){ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; } }); }
+    root.querySelectorAll('#ll-browse [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
     _lrnWireLinks({ label:'Back', go:here, tab:'learn' });
     _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); }, id=>screenMedia(id, { label:'Back', go:here }));
+    // Filter: Type and Length (the hub is the topic); the slide-up below 1120, the panel under the search row at 1120 and up
+    let pm = _lhMedia, pd = _lhDur;
+    _fsWire($('#lh-fbtn'), $('#lh-fsheet'), {
+      anchor: () => root.querySelector('.lh-view .lm-active') || root.querySelector('.lh-search-row'),
+      start: () => { pm = _lhMedia; pd = _lhDur; },
+      paint: sh => {
+        sh.querySelectorAll('[data-lhm]').forEach(b=>{ const on = b.dataset.lhm === pm; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        sh.querySelectorAll('[data-lhd]').forEach(b=>{ const on = b.dataset.lhd === pd; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        const m = _lmGroups(only ? 'all' : pm, key, true).filter(g=>!only || g.k === only).reduce((s, g)=>s + g.list.filter(e=>{ const sv = _lhDur; _lhDur = pd; const ok = _lhDurOk(_lhMin(e, g.k === 'a')); _lhDur = sv; return ok; }).length, 0);
+        return (pm === 'all' || only) && pd === 'any' ? 'Show all lessons' : 'Show ' + _lmLessons(m);
+      },
+      bind: (sh, paint) => {
+        sh.querySelectorAll('[data-lhm]').forEach(b=>b.onclick=()=>{ pm = b.dataset.lhm; paint(); });
+        sh.querySelectorAll('[data-lhd]').forEach(b=>b.onclick=()=>{ pd = b.dataset.lhd; paint(); });
+        $('#lh-fclear').onclick = () => { pm = 'all'; pd = 'any'; paint(); };
+      },
+      apply: () => { if(pm === _lhMedia && pd === _lhDur) return false; _lhMedia = pm; _lhDur = pd; _lhShown = 24; here(); return true; }
+    });
+  }
+  // one Filter (grid6): the slide-up below 1120, a panel that opens in place under the search row at 1120 and up; Show applies
+  function _fsWire(btn, sh, o){
+    if(!btn || !sh) return;
+    const box = sh.querySelector('.rd-jr-sheet-in'), show = sh.querySelector('.lm-fshow');
+    const calm = () => document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let inline = false, tmr = null;
+    const paint = () => { const t = o.paint(sh); if(show && t) show.textContent = t; };
+    const finish = () => { if(!o.apply()){ try{ btn.focus({ preventScroll:true }); }catch(e){} } };
+    const esc = e => { if(e.key === 'Escape') close(); };
+    const open = () => {
+      if(inline) return close();
+      o.start(); paint();
+      if(matchMedia('(min-width:1120px)').matches){
+        const after = o.anchor(); if(after){ if(after.nextElementSibling !== sh) after.after(sh);
+          inline = true; sh.classList.add('is-inline'); sh.setAttribute('role', 'region'); btn.setAttribute('aria-expanded', 'true'); _pmSlide(btn, sh, true); document.addEventListener('keydown', esc);
+          const f = sh.querySelector('.lm-chip.on') || sh.querySelector('.lm-chip'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+          return; }
+      }
+      clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc);
+    };
+    const close = () => {
+      document.removeEventListener('keydown', esc); btn.setAttribute('aria-expanded', 'false');
+      if(inline){ inline = false; return _pmSlide(btn, sh, false, () => { sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); finish(); }); }
+      sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on');
+      tmr = setTimeout(() => { sh.hidden = true; finish(); }, calm() ? 0 : 320);
+    };
+    btn.onclick = open;
+    const x = sh.querySelector('.rd-jr-done'); if(x) x.onclick = close;
+    if(show) show.onclick = close;
+    sh.addEventListener('click', e => { if(e.target === sh) close(); });
+    o.bind(sh, paint);
   }
   // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
   // "Practice this" (Justin, 2026-10-01): the practice the ARTICLE is about, tuned to what works for this member
@@ -10926,7 +11139,56 @@ function app(tab){
   // Two parts in one sheet that stays open: the sound (Nothing + each sound, one row each, a tap plays a few seconds)
   // and, under it, how loud (Soft · Medium · Louder, three buttons in a row; hidden while Nothing is chosen). Done or a
   // tap outside closes it. Every tap is saved straight away (Store.setPrefBed), so there is nothing to confirm.
+
+  // Customize this practice: the pickers (Justin, canon 2026-10-30; §4 "Customize this practice: the pickers"; mockup
+  // L8pHbaouDaXcB5byLSgoFx). A choice opens INSIDE the practice sheet in place of the tiles (the 9-12 panel at 1120 and up, the one
+  // bottom sheet below): no second card, no sheet on a sheet, no scrim of its own. "← [practice name]" goes back; picking returns to
+  // the tiles with the new value (no Done), except Background sound, which stays open to hear a few. Short choices (Anchor, Silence,
+  // Voice) are outlined choices with a check; the longer ones are rows with their line under the name and a check on the chosen one.
+  let _psHost = null;
+  const _PS_CHECK = '<svg class="ps-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
+  function _psPickOpen(host, title, note){
+    const el = host.el; _psPickEnd(el, true);
+    const pk = document.createElement('div'); pk.className = 'ps-pick'; pk.setAttribute('role', 'group'); pk.setAttribute('aria-label', title);
+    pk.innerHTML = `<button class="ps-pback" type="button">${BACK_SVG}<span>${escapeHtml(host.title)}</span></button><h3 class="ps-ph">${escapeHtml(title)}</h3>${note ? `<p class="ps-pnote">${escapeHtml(note)}</p>` : ''}<div class="ps-pbody"></div>`;
+    el.appendChild(pk); el.classList.add('ps-picking');
+    const sc = el.querySelector('.ps-pick'); if(sc) sc.scrollTop = 0;
+    pk.querySelector('.ps-pback').onclick = () => { _psPickEnd(el); if(host.onBack) host.onBack(); host.back(); };
+    return pk;
+  }
+  function _psPickEnd(el, quiet){ const pk = el && el.querySelector(':scope > .ps-pick'); if(pk) pk.remove(); if(el) el.classList.remove('ps-picking'); }
+  function _psPick(host, title, groups, current, onPick){
+    const pk = _psPickOpen(host, title, ''), body = pk.querySelector('.ps-pbody');
+    let html = '';
+    groups.forEach(g=>{
+      if(g.label) html += `<p class="ps-pgroup">${escapeHtml(g.label)}</p>`;
+      if(host.short) html += `<div class="st-choices ps-chs">${g.opts.map(o=>{ const sel = String(o.val) === String(current);
+          return `<button class="st-ch${sel ? ' on' : ''}" type="button" data-val="${escapeHtml(String(o.val))}" aria-pressed="${sel}">${escapeHtml(CAP(String(o.menu)))}${o.lock ? `<span class="st-lock">${LOCK_SVG}See paid plans</span>` : ''}</button>`; }).join('')}</div>`;
+      else html += g.opts.map(o=>{ const sel = String(o.val) === String(current), go = o.val === '__choose';
+          return `<button class="ps-opt${sel ? ' sel' : ''}" type="button" data-val="${escapeHtml(String(o.val))}" aria-pressed="${sel}"><span class="ps-opt-main"><span class="ps-opt-l">${escapeHtml(CAP(String(o.menu)))}</span>${o.lock ? `<span class="ps-opt-sub st-lock">${LOCK_SVG}See paid plans</span>` : o.sub ? `<span class="ps-opt-sub">${escapeHtml(CAP(String(o.sub)))}</span>` : ''}</span>${go ? `<span class="ps-go">${_ST_CHEV}</span>` : _PS_CHECK}</button>`; }).join('');
+    });
+    body.innerHTML = html;
+    body.querySelectorAll('[data-val]').forEach(b=>b.onclick=()=>{ _psPickEnd(host.el); onPick(b.dataset.val); haptic('start'); });
+    const f = body.querySelector('.on, .sel') || body.querySelector('[data-val]'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+  }
+  function _psBed(host, onChange){
+    const pk = _psPickOpen(Object.assign({}, host, { onBack:()=>bedPreview(null) }), 'Background sound', 'Tap one to hear it.'), body = pk.querySelector('.ps-pbody');
+    const paint = ()=>{
+      const cur = bedPref();
+      const rows = [['surprise','Surprise me','A different sound each practice'],['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
+        `<button class="ps-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}" aria-pressed="${cur.bed===k}"><span class="ps-opt-main"><span class="ps-opt-l">${escapeHtml(CAP(nm))}</span><span class="ps-opt-sub">${escapeHtml(sub)}</span></span>${_PS_CHECK}</button>`).join('');
+      const lv = cur.bed==='none' ? '' : `<p class="ps-pgroup">How loud</p>
+        <div class="p7-seg p7-seg-steps ps-steps" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
+      body.innerHTML = rows + lv;
+      body.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
+        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
+      body.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
+        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('start'); paint(); onChange&&onChange(); });
+    };
+    paint();
+  }
   function openBedSheet(trackCls, onChange){
+    { const host = _psHost; _psHost = null; if(host && document.contains(host.el)) return _psBed(host, onChange); }
     const old=document.getElementById('p7-sheet'); if(old) old.remove();
     const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
     const check='<svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
@@ -11247,6 +11509,7 @@ function app(tab){
   // from the bottom, bone surface, hairline rows, the current choice checked in the
   // track color. groups: [{label, opts:[{val, menu}]}]. onPick(val) fires on choose.
   function openDialSheet(title, groups, current, trackCls, onPick){
+    { const host = _psHost; _psHost = null; if(host && document.contains(host.el)) return _psPick(host, title, groups, current, onPick); }
     const old=document.getElementById('p7-sheet'); if(old) old.remove();
     const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
     let rows='';
@@ -11776,7 +12039,7 @@ function app(tab){
         <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="pl-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="pl-fsheet" aria-label="${fon ? 'Filter, 1 on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fon ? '<span class="lm-fn" aria-hidden="true">1</span>' : ''}</button></div></div>
       ${fon ? `<div class="lm-active" role="group" aria-label="Filters"><button class="lm-chip on" type="button" data-plx="1" aria-label="Take off ${escapeHtml((VIEWS.find(x => x[0] === view) || [])[1] || '')}"><span>${escapeHtml((VIEWS.find(x => x[0] === view) || [])[1] || '')}</span><span class="lm-x" aria-hidden="true">×</span></button></div>` : ''}
       <div class="rd-jr-sheet lm-fsheet" id="pl-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
-        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
         <div class="lm-fs-body"><span class="rd-eyeb">Stage</span><div class="lm-chips">${all.map((sec, s) => sec.length ? chip('pls', s, stShort(s), s === cur) : '').join('')}</div>
           <span class="rd-eyeb">Show</span><div class="lm-chips">${VIEWS.map(([k, l]) => chip('plv', k, l, view === k)).join('')}</div></div>
         <div class="lm-fs-foot"><button class="lm-clear" type="button" id="pl-fclear">Clear all</button><button class="lm-fshow" type="button" id="pl-fshow">Show</button></div></div></div>`;
@@ -13052,6 +13315,7 @@ function app(tab){
     };
     function openDial(kind){
       lastKind = kind;
+      _psHost = kind === 'pieces' ? null : { el, title, short: kind === 'sense' || kind === 'silence' || kind === 'voice', back: ()=>paint() };
       if(kind==='sense'){
         const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
         openDialSheet('Anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tc, (v)=>{ pState.sense=v; paint(); });
@@ -13090,7 +13354,7 @@ function app(tab){
     // a tap outside the panel closes it; a practice row swaps it, the pickers sit above it
     const onDoc = (e)=>{ if(gone()) return detach(); const t = e.target; if(!t || !t.closest || el.contains(t) || !document.contains(t)) return;
       if(t.closest('[data-p8], .p7-sheet, #p8-cust, #p8-begin-now')) return; close(); };
-    const onKey = (e)=>{ if(gone()) return detach(); if(e.key==='Escape' && !document.getElementById('p7-sheet')){ e.preventDefault(); close(); } };
+    const onKey = (e)=>{ if(gone()) return detach(); if(e.key==='Escape' && el.classList.contains('ps-picking')){ e.preventDefault(); const pb = el.querySelector('.ps-pback'); if(pb) pb.click(); return; } if(e.key==='Escape' && !document.getElementById('p7-sheet')){ e.preventDefault(); close(); } };
     let docT = 0;
     function detach(){ document.removeEventListener('keydown', onKey); clearTimeout(docT); document.removeEventListener('click', onDoc); if(_ps && _ps.el===el) _ps = null; }
     function close(quiet){
@@ -13538,13 +13802,15 @@ function app(tab){
   function screenSettings(){
     clearFigures(); document.body.classList.remove('in-practice');
     currentTab='you';
-    root.innerHTML = `
+    setHTML(`
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
+      <div class="fl-dock fl-plain" id="fl-dock"><button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button></div>
       <nav class="tabbar" id="tabs">
         ${TABS()}
-      </nav>`;
+      </nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    { const tb=$('#tab-back'); if(tb) tb.onclick=()=>app('you'); }
     const u=Store.user();
     const ts = (localStorage.getItem('snb_textscale')||'1');
     const rm = reduceMotionOn();   // effective, not just the stored value (D157/D270)
@@ -13571,162 +13837,124 @@ function app(tab){
     const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
     const _svgDark=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>`;
     const TS_SIZES=[['0.92','12px'],['1','15px'],['1.12','18px'],['1.25','21px'],['1.6','26px']];
+    // Settings on the Swiss grid (Justin, canon 2026-10-30; BRAND_DESIGN_SYSTEM §4 "Settings"): no cards, each section under a thin
+    // rule, its name on 1-3 (sticky) and its settings on 4-9 at 1120 and up. One control per job: a switch for on / off, outlined
+    // choices (ink border + check on the chosen one), a row with a chevron for anything that opens a list or a screen.
+    const stSec = (name, body) => `<section class="st-sec"><h2 class="st-name">${name}</h2><div class="st-body">${body}</div></section>`;
+    const stSw = (id, label, on, cap) => `<div class="st-row st-row-sw"><span class="st-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>${cap ? `<p class="st-help" id="${cap}"></p>` : ''}`;
+    const stGo = (id, label, val, cls) => `<button class="st-row st-go${cls ? ' ' + cls : ''}" id="${id}" type="button"><span class="st-lbl">${label}</span>${val ? `<span class="st-val">${val}</span>` : ''}${_ST_CHEV}</button>`;
+    const stCh = (attr, val, label, on, extra) => `<button type="button" class="st-ch${on ? ' on' : ''}" data-${attr}="${val}" aria-pressed="${on}"${extra || ''}>${label}</button>`;
+    const emoVal = paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : '';
     $('#content').innerHTML = `
-      <div class="view settings-view">
-        <div class="scr-head">
-          <p class="eyebrow"></p>
-          <h2 class="scr-h">Settings</h2>
-        </div>
-        <div class="gs">
-
-          <div class="gs-card">
-            <div class="gs-row"><span class="gs-k">Name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="add your name"></div>
-            ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="gs-row"><span class="gs-k">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div><p class="gs-note gs-photo-note">Shows next to your messages in live event chat.</p>` : ''}
-            <div class="gs-row"><span class="gs-k">Account</span><span class="gs-v">${escapeHtml(u.email||'on this device')}</span></div>
-          </div>
-
-          <div class="gs-card">
-            <button class="rs-disc-btn" id="ci-method-btn" type="button" aria-expanded="true"><span class="gs-h" style="margin:0">Your check-in</span><span class="rs-disc-val"><span id="ci-method-val">${METHOD_LABEL[method]||'sliders'}</span> ${_svgChev}</span></button>
-            <div class="rs-disc-body" id="ci-method-body"><div class="disc-inner">
-              <p class="gs-lbl2">How you enter your state</p>
-              <div class="set-seg" id="seg-method">
-                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>Questions</button>
-                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Numbers</button>
-                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State</button>
-              </div>
-              <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
-              <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
-            </div></div>
-          </div>
-
-          <div class="gs-card">
-            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Your emotions</span>
-              <button class="linkbtn" id="set-emotions" type="button">${paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : 'Self-Regulator'}</button></div>
-            <p class="gs-note" style="margin:6px 0 0">The emotions you work with in practice, easy to hard. The same list as on the Unstucking Pathway and in articles.</p>
-          </div>
-
-          <div class="gs-card">
-            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Orientation</span>
-              <button class="linkbtn" id="set-walkthrough" type="button">Walk me through the app</button></div>
-          </div>
-
-          <div class="gs-card">
-            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">What’s New</span>
-              <button class="linkbtn" id="set-updates" type="button">Past updates</button></div>
-          </div>
-
-          <div class="gs-card">
-            <p class="gs-h">Appearance</p>
-            <p class="gs-lbl2">Text size</p>
-            <div class="set-seg ts-seg" id="seg-text">
-              ${TS_SIZES.map(([v,fs])=>`<button type="button" data-ts="${v}"${ts===v?' class="on"':''}><span class="ts-a" style="font-size:${fs}">A</span></button>`).join('')}
-            </div>
-            <p class="gs-lbl2" style="margin-top:18px">Theme</p>
-            <div class="icon-seg" id="seg-theme">
-              <button type="button" data-th=""${th===''?' class="on"':''}>${_svgAuto}<span class="lb">Auto</span></button>
-              <button type="button" data-th="light"${th==='light'?' class="on"':''}>${_svgLight}<span class="lb">Light</span></button>
-              <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">Dark</span></button>
-            </div>
-            <p class="gs-lbl2" style="margin-top:18px">Reading type</p>
-            <div class="set-seg rf-seg" id="seg-read" role="group" aria-label="Reading type">${[['','Recommended'],['serif','Serif'],['sans','Sans']].map(([v,l])=>`<button type="button" data-rf="${v}"${rf===v?' class="on"':''} aria-pressed="${rf===v}">${l}</button>`).join('')}</div>
-            <p class="ch-cap">Recommended sets long reading (articles, lessons, your journal) in a book typeface and the rest of the app in Inter.</p>
-            <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
-            <p class="ch-cap" id="motion-cap"></p>
-            <p class="gs-lbl2" style="margin-top:18px">Now screen</p>
-            <div class="scene-grid" role="group" aria-label="Now screen">${[['reeds','Reeds'],['ring','Breath circle']].map(([k,l])=>`<button class="ch-opt nowsc-opt${_nqScene()===k?' on':''}" type="button" data-nowsc="${k}" aria-pressed="${_nqScene()===k}">${l}</button>`).join('')}</div>
-            <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
-            <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
-              <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
-              <div class="scene-grid" style="margin-top:8px">
-                ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</button>`).join('')}
-              </div>
-              <p class="rs-cap" id="scene-cap"></p>
-            </div></div>
-            <button class="rs-disc-btn" id="voice-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Voice</span><span class="rs-disc-val"><span id="voice-val">${escapeHtml(voiceName(pvc))}</span> ${_svgChev}</span></button>
-            <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
-              <div class="scene-grid">
-                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}">${escapeHtml(l)}${voiceOk(k)?'':'<span class="vo-tier"><span class="lk" aria-hidden="true"></span>See paid plans</span>'}</button>`).join('')}
-              </div>
-            </div></div>
-          </div>
-
-          <div class="gs-card">
-            <p class="gs-h">App</p>
-            ${gsSw('sw-live','Live practice invitations',lv!=='0')}
-            <p class="ch-cap" id="live-cap"></p>
-            ${gsSw('sw-tips','Tips about settings',tipsOn())}
-            <p class="ch-cap" id="tips-cap"></p>
-            ${gsSw('sw-haptics','Haptics',hp)}
-            ${gsSw('sw-offline','Save practices for offline',offOn)}
-            <p class="gs-fine" id="offline-status"></p>
-            <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
-            ${_hapIsIOS()?'<p class="gs-fine">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
-            ${isStandalone()?'':`<div class="set-row-inline" id="install-row" style="margin-top:12px">${installRowInner()}</div>`}
-            ${pushRowInner()?`<div class="set-row-inline" id="push-row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--hairline)">${pushRowInner()}</div>`:''}
-            <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">Join a live practice with a code</button></div>
-          </div>
-
-          <div class="gs-card">
-            <p class="gs-h">Your data</p>
-            ${gsSw('sw-glyph','Your state glyph on shared images and in live chat',gl!=='0')}
-            <p class="ch-cap" id="glyph-cap"></p>
-            <div class="gs-actions" style="margin-top:14px">
-              <button class="set-quiet" id="export">Export your check-ins and journal</button>
-              <button class="set-quiet" id="privacy">How your data is handled</button>
-              <button class="set-quiet" id="signout">Sign out</button>
-            </div>
-          </div>
-
+      <div class="view settings-view st-view">
+        <button class="pg-back" id="pg-back" type="button">${BACK_SVG}<span>Back</span></button>
+        <div class="scr-head"><h1 class="scr-h lw-h1">Settings</h1></div>
+        ${stSec('You', `
+          <div class="st-row"><label class="st-lbl" for="nm-val">Name</label><input class="name-input st-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="Add your name"></div>
+          ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="st-row"><span class="st-lbl">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div><p class="st-help">Shows next to your messages in live event chat.</p>` : ''}
+          <div class="st-row"><span class="st-lbl">Account</span><span class="st-val st-val-wrap">${escapeHtml(u.email||'on this device')}</span></div>
           ${(function(){ var b=(Store.billing&&Store.billing())||null;
             // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
             // never worded as though the free account is deficient. 🖊 copy draft.
             var inStore = !!(Store.inStoreApp && Store.inStoreApp());
             var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.store==='apple')
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator, through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note">You’re on Self-Regulator, through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
             if(b && b.sub_status==='active' && inStore)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">You’re on Self-Regulator. You subscribed on the website, so you can change or cancel it there.</p></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">You’re on Self-Regulator. You subscribed on the website, so you can change or cancel it there.</p></div>`;
             if(b && b.sub_status==='active')
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
             // free Self-Regulator until a date (GMS 2026-10-28, the early move from Circle): say when it ends and what
             // happens after, before the Academy line (an Academy member on dated free time loses the Academy access first)
             if(ent.legacy && ent.until)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Self-Regulator is included free on your account until ${escapeHtml(_planDay(ent.until))}. After that it’s $12 a month, or $108 a year, and everything you’ve done stays with you.</p></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">Self-Regulator is included free on your account until ${escapeHtml(_planDay(ent.until))}. After that it’s $12 a month, or $108 a year, and everything you’ve done stays with you.</p></div>`;
             // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
             if(ent.circle)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes everything in Self-Regulator. You joined the Unstucking Academy before Self-Regulator was a separate purchase, so it stays included at no charge.</p></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">Your account includes everything in Self-Regulator. You joined the Unstucking Academy before Self-Regulator was a separate purchase, so it stays included at no charge.</p></div>`;
             if(ent.legacy)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
-            return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Free. It has no time limit.</p><button class="set-quiet" id="go-sub">Get Self-Regulator &middot; monthly or annual</button></div>`; })()}
-
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
+            return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note">You’re on Free. It has no time limit.</p><button class="set-quiet" id="go-sub">See paid plans</button></div>`; })()}
           ${(function(){ const s=_acadStage(); if(s < 2 || !paidNow()) return '';
             const on = _acadOn() > 0;
-            return `<div class="gs-card"><p class="gs-h">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}
-
-          ${(Store.inStoreApp && Store.inStoreApp()) ? `<div class="gs-card">
-            <p class="gs-h">Apple Health</p>
+            return `<div class="st-item"><p class="st-lbl">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}`)}
+        ${stSec('Check-in', `
+          <div class="st-item" id="ci-method-btn"><p class="st-lbl">How you enter your state</p>
+            <div class="st-choices" id="seg-method" role="group" aria-label="How you enter your state">${stCh('method','sliders','Questions',method==='sliders')}${stCh('method','numbers','Numbers',method==='numbers')}${stCh('method','states','State',method==='states')}</div>
+            <p class="st-help" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
+            <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div></div>
+          ${paidNow() ? stGo('set-emotions', 'Your emotions', emoVal) : `<button class="st-row st-go" id="set-emotions" type="button"><span class="st-lbl">Your emotions</span><span class="st-val st-lock">${LOCK_SVG}See paid plans</span>${_ST_CHEV}</button>`}
+          <p class="st-help">The emotions you work with in practice, easy to hard. The same list as on the Unstucking Pathway and in articles.</p>`)}
+        ${stSec('Reading and display', `
+          <div class="st-item"><p class="st-lbl">Text size</p>
+            <div class="st-choices" id="seg-text" role="group" aria-label="Text size">${TS_SIZES.map(([v,fs])=>stCh('ts', v, `<span class="ts-a" style="font-size:${fs}">A</span>`, ts===v, ` aria-label="Text size ${TS_SIZES.findIndex(x=>x[0]===v)+1} of 5"`)).join('')}</div></div>
+          <div class="st-item"><p class="st-lbl">Theme</p>
+            <div class="st-choices" id="seg-theme" role="group" aria-label="Theme">${stCh('th','',_svgAuto+'<span>Auto</span>',th==='')}${stCh('th','light',_svgLight+'<span>Light</span>',th==='light')}${stCh('th','dark',_svgDark+'<span>Dark</span>',th==='dark')}</div></div>
+          <div class="st-item"><p class="st-lbl">Reading type</p>
+            <div class="st-choices st-rf" id="seg-read" role="group" aria-label="Reading type">${[['','Recommended','<span class="st-aa st-aa-sans">Aa</span><span class="st-aa st-aa-serif">Aa</span>'],['serif','Serif','<span class="st-aa st-aa-serif">Aa</span>'],['sans','Sans','<span class="st-aa st-aa-sans">Aa</span>']].map(([v,l,aa])=>stCh('rf', v, `<span class="st-aas" aria-hidden="true">${aa}</span><span>${l}</span>`, rf===v)).join('')}</div>
+            <p class="st-help">Recommended sets long reading (articles, lessons, your journal) in a book typeface and the rest of the app in Inter.</p></div>
+          ${stSw('sw-motion', 'Animations', !rm, 'motion-cap')}`)}
+        ${stSec('Now screen', `
+          <div class="st-item"><p class="st-lbl">Scene</p>
+            <div class="st-choices" role="group" aria-label="Now screen scene">${[['reeds','Reeds'],['ring','Breath circle']].map(([k,l])=>`<button class="st-ch nowsc-opt${_nqScene()===k?' on':''}" type="button" data-nowsc="${k}" aria-pressed="${_nqScene()===k}">${l}</button>`).join('')}</div></div>
+          ${stSw('sw-nqday', 'Match the time of day', _nqDayOn(), 'nqday-cap')}
+          ${stSw('sw-nqwx', 'Match the weather', _nqWxOn(), 'nqwx-cap')}`)}
+        ${stSec('Practice', `
+          ${stGo('scene-btn', 'Practice scene', `<span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span>`, 'rs-disc-btn').replace('type="button">', 'type="button" aria-expanded="false" aria-controls="scene-body">')}
+          <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
+            <div class="st-choices">${stCh('scene','','Surprise me',psc==='').replace('class="st-ch','class="st-ch scene-opt')}${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>stCh('scene',s,s.charAt(0).toUpperCase()+s.slice(1),psc===s).replace('class="st-ch','class="st-ch scene-opt')).join('')}</div>
+            <p class="st-help" id="scene-cap"></p>
+          </div></div>
+          ${stGo('voice-btn', 'Voice', `<span id="voice-val">${escapeHtml(voiceName(pvc))}</span>`, 'rs-disc-btn').replace('type="button">', 'type="button" aria-expanded="false" aria-controls="voice-body">')}
+          <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
+            <div class="st-choices">${VOICES.map(([k,l])=>`<button class="st-ch voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}" aria-pressed="${pvc===k}">${escapeHtml(l)}${voiceOk(k)?'':`<span class="st-lock">${LOCK_SVG}See paid plans</span>`}</button>`).join('')}</div>
+          </div></div>
+          ${stSw('sw-haptics', 'Haptics', hp)}
+          ${stSw('sw-offline', 'Save practices for offline', offOn)}
+          <p class="st-help" id="offline-status"></p>
+          <p class="st-help">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
+          ${_hapIsIOS()?'<p class="st-help">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
+          ${(Store.inStoreApp && Store.inStoreApp()) ? `<div class="st-item">
+            <p class="st-lbl">Apple Health</p>
             <p class="gs-note">${healthOn() ? 'The minutes you practice are added to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.' : 'Add the minutes you practice to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.'}</p>
             <button class="set-quiet" id="health-toggle" type="button">${healthOn() ? 'Stop adding minutes' : 'Add my practice minutes'}</button>
-          </div>` : ''}
-
-          <div class="gs-card">
-            <p class="gs-h">Your history</p>
-            <div class="gs-actions">
-              <button class="set-quiet" id="set-change-ci" type="button">Change a recent check-in</button>
-              ${Store.sessions().length ? '<button class="set-quiet" id="set-manage-pr" type="button">Manage your practices</button>' : ''}
-              <button class="set-quiet set-quiet-danger" id="reset">Reset my data</button>
-              <button class="set-quiet set-quiet-danger" id="delacct">Delete my account</button>
-            </div>
-          </div>
-
-          <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
-        </div>
+          </div>` : ''}`)}
+        ${stSec('Notifications and live', `
+          ${pushRowInner()?`<div class="st-rowwrap" id="push-row">${pushRowInner()}</div>`:''}
+          ${isStandalone()?'':`<div class="st-rowwrap st-install">${installState()==='button'?'':'<p class="st-lbl st-lbl-top">Install the app</p>'}<div id="install-row">${installRowInner()}</div></div>`}
+          ${stSw('sw-live', 'Live practice invitations', lv!=='0', 'live-cap')}
+          ${stSw('sw-tips', 'Tips about settings', tipsOn(), 'tips-cap')}
+          ${stGo('live-code', 'Join a live practice with a code', '')}`)}
+        ${stSec('Help', `
+          ${stGo('set-walkthrough', 'Walk me through the app', '')}
+          ${stGo('set-updates', 'What’s New', 'Past updates')}`)}
+        ${stSec('Your data', `
+          ${stSw('sw-glyph', 'Your state glyph on shared images and in live chat', gl!=='0', 'glyph-cap')}
+          ${stGo('set-change-ci', 'Change a recent check-in', '')}
+          ${Store.sessions().length ? stGo('set-manage-pr', 'Manage your practices', '') : ''}
+          ${stGo('export', 'Export your check-ins and journal', '')}
+          ${stGo('privacy', 'How your data is handled', '')}`)}
+        ${stSec('Leave or reset', `
+          ${stGo('signout', 'Sign out', '')}
+          ${stGo('reset', 'Reset my data', '', 'st-danger')}
+          ${stGo('delacct', 'Delete my account', '', 'st-danger')}`)}
+        <p class="set-version" id="set-version"></p>
       </div>`;
     const phBtn = $('#ph-btn'), phFile = $('#ph-file'), phX = $('#ph-x');
     if(phBtn && phFile){ phBtn.onclick = () => phFile.click(); phFile.onchange = () => { const f = phFile.files && phFile.files[0]; if(f) _setPhoto(f).then(screenSettings); }; }
     if(phX) phX.onclick = () => _setPhoto(null).then(screenSettings);
+    { const pb=$('#pg-back'); if(pb) pb.onclick=()=>app('you'); }
+    // the Now scene follows the day (Justin 2026-10-30): the device clock, on by default; the weather, off until asked for
+    { const dc=$('#nqday-cap'), wc=$('#nqwx-cap');
+      const dayCap = on=>{ if(dc) dc.textContent = on ? 'The scene brightens and dims slowly through the day, from your device’s clock.' : 'The scene keeps the same light all day.'; };
+      const wxCap = (on, msg)=>{ if(wc) wc.textContent = msg || (on ? 'Rain, cloud and sun come into the scene. Your rough location is used to look up the weather and is not saved.' : 'Uses your rough location, only if you turn this on.'); };
+      dayCap(_nqDayOn()); wxCap(_nqWxOn());
+      const sd=$('#sw-nqday'); if(sd) sd.onclick=()=>{ const on=!sd.classList.contains('on'); sd.classList.toggle('on',on); sd.setAttribute('aria-checked',on?'true':'false'); try{ localStorage.setItem('snb_nq_day', on?'1':'0'); }catch(e){} dayCap(on); };
+      const sw=$('#sw-nqwx'); if(sw) sw.onclick=()=>{ const on=!sw.classList.contains('on');
+        if(!on){ sw.classList.remove('on'); sw.setAttribute('aria-checked','false'); _nqWxSet(false); wxCap(false); return; }
+        sw.classList.add('on'); sw.setAttribute('aria-checked','true'); wxCap(true, 'Asking your device for your rough location…');
+        _nqWxAsk().then(ok=>{ if(!sw.isConnected) return; if(ok){ wxCap(true); } else { sw.classList.remove('on'); sw.setAttribute('aria-checked','false'); wxCap(false, 'Your device did not share a location, so the weather stays off.'); } }); }; }
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const sem=$('#set-emotions'); if(sem) sem.onclick=()=>{ if(!paidNow()) return gateSubscribe('pathway'); screenEmotions(()=>screenSettings()); };
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
@@ -13748,7 +13976,7 @@ function app(tab){
       seg.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
         const m=b.dataset.method;
         localStorage.setItem('snb_checkin_method', m);
-        seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        seg.querySelectorAll('button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed', String(x===b)); });
         if(val) val.textContent = METHOD_LABEL[m]||m;
         if(cap) cap.textContent = METHOD_CAP[m]||'';
         if(prev){ prev.innerHTML = _methodPreview(m); _bindPrev(); }
@@ -13764,7 +13992,7 @@ function app(tab){
     document.querySelectorAll('.voice-opt').forEach(b=>b.onclick=()=>{
       if(!voiceOk(b.dataset.voice)) return gateSubscribe('voice');   // 2026-09-30: the AI voices are on the paid plan
       if(Store.setPrefVoice) Store.setPrefVoice(b.dataset.voice);
-      document.querySelectorAll('.voice-opt').forEach(x=>x.classList.toggle('on', x===b));
+      document.querySelectorAll('.voice-opt').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-pressed', String(x===b)); });
       const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);
     });
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
@@ -13781,7 +14009,7 @@ function app(tab){
         .catch(e=>{ mgs.disabled=false; mgs.textContent=t; showToast(String((e&&e.message)||e)); }); };
     const segText=$('#seg-text'); if(segText) segText.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_textscale', b.dataset.ts); applyPrefs();
-      segText.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      segText.querySelectorAll('button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed', String(x===b)); });
     });
     const segRd=$('#seg-read'); if(segRd) segRd.querySelectorAll('[data-rf]').forEach(b=>b.onclick=()=>{
       try{ if(b.dataset.rf) localStorage.setItem('snb_readfont', b.dataset.rf); else localStorage.removeItem('snb_readfont'); }catch(e){} applyPrefs();
@@ -13789,7 +14017,7 @@ function app(tab){
     });
     const segTh=$('#seg-theme'); if(segTh) segTh.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_theme', b.dataset.th); applyPrefs();
-      segTh.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      segTh.querySelectorAll('button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed', String(x===b)); });
     });
     // practice scene: the caption mirrors the choice, same as the switches. 🖊
     const SCENE_CAP={ '':'A different scene each time. The app chooses.',
@@ -13807,7 +14035,7 @@ function app(tab){
       document.querySelectorAll('.nowsc-opt').forEach(x=>{ const on = x===b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); });
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene);
-      document.querySelectorAll('.scene-opt').forEach(x=>x.classList.toggle('on', x===b));
+      document.querySelectorAll('.scene-opt').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-pressed', String(x===b)); });
       _scSet(b.dataset.scene);
     });
     const bindSw=(id,fn)=>{ const b=$('#'+id); if(b) b.onclick=()=>{
