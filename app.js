@@ -753,7 +753,10 @@
     if(tb && !tb.classList.contains('tb-seen')){
       tb.classList.add('tb-seen');
       if(move){ tb.classList.add('tb-still'); tb.classList.toggle('tb-cond', was); void tb.offsetWidth; tb.classList.remove('tb-still'); }
-      tb.classList.toggle('tb-cond', want);
+      // same Back state as the last screen (lesson to lesson): the new menu starts where the old one was, no transition at all
+      // (Justin 2026-10-30: "the bottom menu re-animates in every time i go back and forth between lessons")
+      if(!move){ tb.classList.add('tb-still'); tb.classList.toggle('tb-cond', want); void tb.offsetWidth; requestAnimationFrame(()=>requestAnimationFrame(()=>tb.classList.remove('tb-still'))); }
+      else tb.classList.toggle('tb-cond', want);
     } else if(tb) tb.classList.toggle('tb-cond', want);
     if(!move) return;
     if(want){ back.classList.add('tb-enter'); back.addEventListener('animationend', ()=>back.classList.remove('tb-enter'), { once:true }); }
@@ -785,7 +788,7 @@
     if(window.MutationObserver && !sc._pgObs){ sc._pgObs = new MutationObserver(put); sc._pgObs.observe(sc, { childList:true }); }
   }
   if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))){ _tbSync(); _pgBackSync(); } }).observe(root, { childList:true });
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; try{ _tbSync(); }catch(e){} }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful

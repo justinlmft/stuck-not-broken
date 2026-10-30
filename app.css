@@ -6217,3 +6217,17 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 @keyframes chDraw{to{stroke-dashoffset:0}}
 @media (prefers-reduced-motion:reduce){ .ch-d.just{animation:none} .ch-d.just svg path{animation:none;stroke-dashoffset:0} }
 body.reduce-motion .ch-d.just{animation:none} body.reduce-motion .ch-d.just svg path{animation:none;stroke-dashoffset:0}
+
+
+/* ============================================================
+   ROUND 3 (Justin 2026-10-30): Learn's "For you now" card gets the inset picture (on the left at 1120+); Topics beside it
+   sit on the grid without a card
+   ============================================================ */
+.lb-feat{padding:12px}
+.lb-feat-pic{border-radius:12px;overflow:hidden}
+.lb-feat-b{padding:16px 2px 12px}
+@media (min-width:1120px){
+  .lb-feat-pic{min-height:296px}
+  .lb-feat-b{padding:20px 20px 20px 0}
+  .lb-topics-side{padding:0;border:0;border-radius:0}
+}
