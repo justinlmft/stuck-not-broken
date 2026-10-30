@@ -6058,8 +6058,27 @@ function app(tab){
       show.textContent = _lmFiltered() ? 'Show ' + _lmLessons(_lmN(_lmGroups(_lmMedia, _lmTopic))) : 'Show all lessons';
     };
     const esc = e => { if(e.key === 'Escape') close(); };
-    const open = () => { clearTimeout(tmr); before = now(); paint(); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc); };
+    // 1120 and up (Justin 2026-10-30): a panel under the search row that pushes the page down, not a slide-up
+    let inline = false;
+    const wideNow = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+    const openInline = () => {
+      const row = root.querySelector('.lb-search-row'); if(!row) return false;
+      if(row.nextElementSibling !== sh) row.after(sh);
+      inline = true; before = now(); paint();
+      sh.classList.add('is-inline'); sh.setAttribute('role', 'region');
+      _pmSlide(btn, sh, true);
+      document.addEventListener('keydown', esc);
+      const f = sh.querySelector('.lm-chip.on') || sh.querySelector('.lm-chip'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+      return true;
+    };
+    const closeInline = () => {
+      document.removeEventListener('keydown', esc); inline = false;
+      const changed = now() !== before;
+      _pmSlide(btn, sh, false, ()=>{ sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); if(changed){ _lmOpen = {}; _lmRedraw(true); } else try{ btn.focus({ preventScroll:true }); }catch(e){} });
+    };
+    const open = () => { if(inline) return closeInline(); if(wideNow() && openInline()) return; clearTimeout(tmr); before = now(); paint(); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc); };
     const close = () => {
+      if(inline) return closeInline();
       document.removeEventListener('keydown', esc);
       sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); btn.setAttribute('aria-expanded', 'false');
       tmr = setTimeout(()=>{ sh.hidden = true; if(now() !== before){ _lmOpen = {}; _lmRedraw(true); } else try{ btn.focus({ preventScroll:true }); }catch(e){} }, reduce ? 0 : 320);

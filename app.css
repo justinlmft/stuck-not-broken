@@ -5998,3 +5998,15 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 }
 #screen:has(> #pp-panel[data-mode="gen"]) .ll-sfloat.lb-search{grid-column:1 / span 9}
 #screen:has(> #pp-panel[data-mode="gen"]) .lb-filter{grid-column:10 / span 3}
+
+/* Learn Filter, inline on desktop (Justin 2026-10-30): under the search row, pushing the page down; no scrim, no slide-up */
+.lm-fsheet.is-inline{position:static;inset:auto;z-index:auto;display:block;background:none;transition:none;margin:4px 0 16px;overflow:hidden}
+.lm-fsheet.is-inline .rd-jr-sheet-in{position:static;transform:none;transition:none;width:auto;max-width:none;height:auto;max-height:none;overflow:visible;
+  border:1px solid var(--hairline);border-radius:16px;padding:20px 24px;background:var(--bone);gap:12px}
+.lm-fsheet.is-inline .rd-jr-grab,.lm-fsheet.is-inline .rd-jr-sheet-top{display:none}
+.lm-fsheet.is-inline .rd-jr-sheet-in{box-shadow:none}
+.lm-fsheet.is-inline .lm-fs-body{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:32px;row-gap:12px;align-items:start;overflow:visible;padding:4px 0}
+.lm-fsheet.is-inline .lm-fs-body > .rd-eyeb{grid-column:1;margin:0;padding-top:12px}
+.lm-fsheet.is-inline .lm-fs-body > .lm-chips,.lm-fsheet.is-inline .lm-fs-body > .lm-fs-note{grid-column:2}
+.lm-fsheet.is-inline .lm-fs-body > .lm-fs-note{margin-top:-6px}
+.lm-fsheet.is-inline .lm-fs-foot{justify-content:flex-end;gap:24px;border-top:0;padding-top:4px}
