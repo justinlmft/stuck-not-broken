@@ -5734,3 +5734,78 @@ body.nq-idle #screen:has(.view.now.nq) > .tabbar,
 body.nq-idle #screen:has(.view.now.nq) .install-nudge{opacity:0;pointer-events:none;transition:opacity 1.8s cubic-bezier(.2,.6,.2,1)}
 body.reduce-motion .nq-fade,body.reduce-motion.on-now #screen > .tabbar,body.reduce-motion #nq-scene canvas.ambient{transition:none!important}
 @media (prefers-reduced-motion: reduce){ .nq-fade,body.on-now #screen > .tabbar,#nq-scene canvas.ambient{transition:none!important} }
+
+/* ============================================================
+   PRACTICE ON THE SWISS GRID, BENTO (Justin 2026-10-29 option A, 2026-10-30 changes; BRAND_DESIGN_SYSTEM §4)
+   ============================================================ */
+.p8-bento{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);margin-top:8px;align-items:stretch}
+.p8-bento > .up-hero,.p8-bento > .ch-entry{margin:0;height:100%;box-sizing:border-box}
+.p8-bento .up-hero-ico,.p8-bento .ch-entry-ico{display:none}
+@media (min-width:720px){
+  .p8-bento{grid-template-columns:repeat(12,minmax(0,1fr))}
+  .p8-bento > .p8-feat{grid-column:1 / 7} .p8-bento > .up-hero{grid-column:7 / 13}
+  .p8-bento > .ch-entry,.p8-bento > .p8-box{grid-column:1 / 13}
+}
+@media (min-width:1120px){
+  .p8-bento > .p8-feat{grid-column:1 / 6} .p8-bento > .up-hero{grid-column:6 / 10} .p8-bento > .ch-entry{grid-column:10 / 13}
+  .p8-bento > .p8-box:nth-of-type(1){grid-column:1 / 7} .p8-bento > .p8-box:nth-of-type(2){grid-column:7 / 13}
+}
+/* the custom practice: the featured card */
+.p8-feat{position:relative;display:flex;flex-direction:column;gap:10px;margin:0;padding:20px 22px 22px;border:1px solid var(--hairline);border-radius:20px;background:var(--bone-deep);color:var(--ink);text-align:left;box-sizing:border-box;min-width:0}
+.p8-fh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.p8-ft{font-size:calc(21px * var(--type-scale));font-weight:600;letter-spacing:-.015em;line-height:1.3}
+.p8-feat .p8-go{flex:none;margin-top:4px}
+.p8-feat .p8-go svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8}
+.p8-feat .p8-meta{font-size:calc(14px * var(--type-scale));color:var(--ink-80);margin-top:2px}
+.p8-why{font-size:calc(16px * var(--type-scale));line-height:1.55;color:var(--ink-80);text-wrap:pretty}
+.p8-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;margin-top:auto;padding-top:6px}
+.p8-begin,.p8-plans{width:auto;min-height:48px;padding:0 24px}
+.p8-plans{display:inline-flex;align-items:center;gap:8px}
+.p8-plans .rd-lk{width:16px;height:16px;color:currentColor}
+/* Self-Regulator: the state and the two beside it on the Current, one smooth blend led by the state, drifting slowly */
+.p8-feat.p8-paid{--t1:color-mix(in oklab, var(--c1) 42%, #FBFAF6);--t2:color-mix(in oklab, var(--c2) 30%, #FBFAF6);--t3:color-mix(in oklab, var(--c3) 30%, #FBFAF6);
+  border-color:color-mix(in oklab, var(--c1) 40%, var(--hairline));color:#1A1F2A;
+  background:linear-gradient(118deg, var(--t2) 0%, var(--t1) 32%, var(--t1) 68%, var(--t3) 100%);background-size:220% 220%;
+  animation:p8Drift 38s ease-in-out infinite alternate}
+.p8-feat.p8-paid .p8-meta,.p8-feat.p8-paid .p8-why{color:#3A3F4A}
+.p8-feat.p8-paid .p8-cust{color:#1A1F2A;text-decoration-color:rgba(26,31,42,.35)}
+.p8-feat.p8-paid .p8-begin{background:#1A1F2A;color:#FAF9F5}
+@keyframes p8Drift{0%{background-position:0% 35%}100%{background-position:100% 65%}}
+:root.theme-dark .p8-feat.p8-paid{--t1:oklch(from var(--c1) 0.33 calc(c * .6) h);--t2:oklch(from var(--c2) 0.30 calc(c * .5) h);--t3:oklch(from var(--c3) 0.30 calc(c * .5) h);
+  border-color:oklch(from var(--c1) 0.38 calc(c * .45) h);color:#ECEAE3}
+:root.theme-dark .p8-feat.p8-paid .p8-meta,:root.theme-dark .p8-feat.p8-paid .p8-why{color:#C5C3BC}
+:root.theme-dark .p8-feat.p8-paid .p8-cust{color:#ECEAE3;text-decoration-color:rgba(236,234,227,.4)}
+:root.theme-dark .p8-feat.p8-paid .p8-begin{background:#ECEAE3;color:#1B1C1E}
+@media (prefers-color-scheme: dark){
+:root:not(.theme-light) .p8-feat.p8-paid{--t1:oklch(from var(--c1) 0.33 calc(c * .6) h);--t2:oklch(from var(--c2) 0.30 calc(c * .5) h);--t3:oklch(from var(--c3) 0.30 calc(c * .5) h);
+  border-color:oklch(from var(--c1) 0.38 calc(c * .45) h);color:#ECEAE3}
+:root:not(.theme-light) .p8-feat.p8-paid .p8-meta,:root:not(.theme-light) .p8-feat.p8-paid .p8-why{color:#C5C3BC}
+:root:not(.theme-light) .p8-feat.p8-paid .p8-cust{color:#ECEAE3;text-decoration-color:rgba(236,234,227,.4)}
+:root:not(.theme-light) .p8-feat.p8-paid .p8-begin{background:#ECEAE3;color:#1B1C1E}
+}
+@media (prefers-reduced-motion: reduce){ .p8-feat.p8-paid{animation:none;background-position:50% 50%} }
+body.reduce-motion .p8-feat.p8-paid{animation:none;background-position:50% 50%}
+/* the practice cards and their rows: no icon boxes, no dividers */
+.p8-box{border:1px solid var(--hairline);border-radius:20px;padding:20px 22px 12px;min-width:0;box-sizing:border-box}
+.p8-box .p8-sec{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:0 0 6px}
+.p8-r{display:grid;grid-template-columns:minmax(0,1fr) max-content max-content;column-gap:20px;align-items:baseline;width:100%;padding:10px 0;min-height:44px;background:none;border:0;font:inherit;color:var(--ink);text-align:left;cursor:pointer}
+.p8-r:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
+.p8-r-n{display:flex;flex-direction:column;gap:2px;min-width:0}
+.p8-r-n b{display:inline-flex;align-items:center;gap:8px;font-size:calc(17px * var(--type-scale));font-weight:500;line-height:1.35}
+.p8-mk{display:inline-flex}
+.p8-mk svg{height:15px;width:auto}
+.p8-r-w{font-size:calc(14px * var(--type-scale));color:var(--muted);text-wrap:pretty}
+.p8-r-l{font-size:calc(15px * var(--type-scale));color:var(--ink-80);font-variant-numeric:tabular-nums;white-space:nowrap}
+.p8-r-a{font-size:calc(14px * var(--type-scale));color:var(--ink-80)}
+.p8-r-m{display:none}
+.p8-see{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--underline-quiet)}
+.p8-see .rd-lk{width:14px;height:14px;margin:0;color:currentColor;flex:none}
+.p8-free{color:var(--ink-80)}
+@media (max-width:719.98px){
+  .p8-feat{padding:18px 18px 20px}
+  .p8-box{padding:18px 18px 10px}
+  .p8-r{display:flex;flex-direction:column;gap:3px;padding:9px 0}
+  .p8-r-w,.p8-r-l,.p8-r-a{display:none}
+  .p8-r-m{display:inline;font-size:calc(14px * var(--type-scale));color:var(--muted);line-height:1.45}
+  .p8-r-m .p8-see{white-space:nowrap}
+}

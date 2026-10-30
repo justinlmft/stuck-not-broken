@@ -5061,7 +5061,7 @@ function app(tab){
     if(ring){ sc.className = 'nq-is-ring'; sc.innerHTML = `<div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div>`; }
     else if(sc.className !== 'nq-is-reeds'){ sc.className = 'nq-is-reeds'; sc.innerHTML = '<canvas class="sky"></canvas><canvas class="ambient"></canvas>'; }
     if(!ring){
-      NQ.mode(_nqCalm(), document.documentElement.classList.contains('theme-dark'));
+      NQ.mode(_nqCalm(), document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)));
       NQ.attach(sc.querySelector('canvas.ambient'));
       NQ.tint(lit ? _lwHex(STATE_COLOR(dom)) : null);
       NQ.pace(lit ? dom : null);
@@ -10932,6 +10932,9 @@ function app(tab){
   }
   const P8_LINE = { micro:'Practice connecting with the present moment.', mindfulness:'Practice connecting with the present moment.',
     anchoring:'Practice connecting with safety.', 'self-regulation':'Practice connecting with defense after anchoring into safety.' };
+  // each state and the two beside it on the Polyvagal Current (Justin 2026-10-30: "safety touches play and stillness; freeze
+  // touches shutdown and flight/fight")
+  const P8_NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['shutdown','safety'] };
   const P8_ROWS = [
     { k:'micro', t:'A tiny practice', s:'the present moment' },
     { k:'mindfulness', t:'Simple mindfulness', s:'the present moment' },
@@ -11906,7 +11909,7 @@ function app(tab){
         const stOf = (it, i) => it.st === 'paid' ? 'paid' : (from + i) === at ? 'now' : it.st === 'done' ? 'done' : it.locked ? 'locked' : 'ahead';
         rows = win.map((it, i) => {
           const c = _upCols(it, def), st = stOf(it, i);
-          const word = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
+          const word = it.st === 'paid' ? LOCK_SVG + 'See paid plans' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
             : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
           const solid = st === 'done' && win[i + 1] && stOf(win[i + 1], i + 1) === 'done';
           return `<span class="up-h-row" data-st="${st}"${solid ? ' data-seg="1"' : ''} style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
@@ -11916,7 +11919,7 @@ function app(tab){
     }catch(e){ rows = []; }
     return `<button class="up-hero" type="button" id="up-entry" aria-label="${UP_TITLE}">
         <span class="up-hero-head"><span class="up-hero-ico">${_UP_ICO}</span><b>${UP_TITLE}</b><span class="wc-go">${CHEV}</span></span>
-        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Self-Regulator · Every practice, in order'}</span>`}
+        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : 'Every practice, in order · ' + LOCK_SVG + 'See paid plans'}</span>`}
       </button>`;
   }
 
@@ -11995,7 +11998,7 @@ function app(tab){
   function _chEntryHTML(paid){
     const S = _CH(); if(!S) return '';
     const a = paid ? _chActive() : null;
-    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}Self-Regulator</span>`
+    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}See paid plans</span>`
       : a ? `<span class="ch-entry-name">${escapeHtml(a.c.name)}</span>${_chBar(a)}<span class="ch-entry-sub">${escapeHtml(_chNextLine(a))}</span>`
       : `<span class="ch-entry-sub">${escapeHtml(S.T.intro)}</span>`;
     return `<button class="ch-entry" type="button" id="ch-entry"><span class="ch-entry-head"><span class="ch-entry-ico">${_CH_ICO}</span><b>Challenges</b><span class="wc-go">${CHEV}</span></span><span class="ch-entry-body">${body}</span></button>`;
@@ -12345,6 +12348,7 @@ function app(tab){
     const _line = `<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`;
     const title = `<span class="p8-name">${nm ? `${escapeHtml(nm)}’s` : 'Your'}${_line}</span> custom practice`;
     const lockMeta = LOCK_SVG + 'Self-Regulator';
+    const seePlans = `<span class="p8-see">${LOCK_SVG}See paid plans</span>`;
     let card, reco = null;
     if(paid){
       reco = _recommendSafe(true);
@@ -12352,45 +12356,56 @@ function app(tab){
       const meta = reco.openEnded ? `Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}`
         : (est ? `About ${est} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}` : escapeHtml(CAP(Store.practiceLabel(reco.practiceKey))));
       const lineCol = reco.practiceKey==='anchoring' ? 'var(--s-safety-tx)' : reco.practiceKey==='self-regulation' ? `var(--s-${({fightflight:'fight',shutdown:'shutdown',freeze:'freeze'})[def||'freeze']}-tx)` : 'var(--ink)';
-      card = `<div class="rd-lcard p8-reco${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)};--line:${lineCol}">
-        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
-        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
-          <span class="p8-reco-foot"><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button></span></span>
+      // the card's colours (Justin 2026-10-30): the practice's state, with the two states beside it on the Current
+      const _last = Store.lastCheckin(), _ld = _last ? _cDom(_last) : null;
+      const cs = reco.practiceKey==='anchoring' ? 'safety' : reco.practiceKey==='self-regulation' ? (def||'freeze') : (_ld && P8_NB[_ld] ? _ld : 'safety');
+      const cv = `--c1:${STATE_COLOR(cs)};--c2:${STATE_COLOR(P8_NB[cs][0])};--c3:${STATE_COLOR(P8_NB[cs][1])};--line:${lineCol}`;
+      card = `<div class="p8-reco p8-feat p8-paid${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" data-state="${cs}" role="button" tabindex="0" style="${cv}">
+        <span class="p8-fh"><span class="p8-ft">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
+        <span class="p8-meta">${meta}</span>
+        <span class="p8-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
+        <span class="p8-acts"><button class="btn p8-begin" id="p8-begin-now" type="button">Begin</button><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button></span>
       </div>`;
     } else {
-      card = `<div class="rd-lcard p8-reco p8-locked" id="foryou-lock" role="button" tabindex="0" style="--band:var(--hairline)">
-        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
-        <span class="rd-lcard-body"><span class="rd-lcard-why">Built from your check-ins, and fitted to what your system can hold now.</span>
-          <span class="p8-reco-foot"><span class="p8-lockline">${lockMeta}</span></span></span>
+      card = `<div class="p8-reco p8-feat p8-locked" id="foryou-lock" role="button" tabindex="0">
+        <span class="p8-fh"><span class="p8-ft">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
+        <span class="p8-why">Built from your check-ins, and fitted to what your system can hold now.</span>
+        <span class="p8-acts"><span class="btn p8-plans">${LOCK_SVG}See paid plans</span></span>
       </div>`;
     }
     const sil = (pState && pState.silence) || 8;
-    const row = (k, t, sub, locked) => `<button class="rd-row p8-row" type="button" data-p8="${escapeHtml(k)}"${locked?' data-p8lock="1"':''}>
-        <span class="rd-thumb rd-thumb-mk p8-thumb">${_p8Mark(k, def)}</span>
-        <span class="rd-row-t"><b>${escapeHtml(t)}</b><span>${locked ? lockMeta + ' · ' : ''}${escapeHtml(sub)}</span></span>
-        <span class="wc-go">${CHEV}</span></button>`;
+    // each practice is a row: name with what it's for, then length, then access (Justin 2026-10-29, the bento; locked items
+    // say "See paid plans", 2026-10-30). No icon boxes; a state mark only where the name is a state (Safety anchoring).
+    const row = (k, t, what, len, locked) => {
+      const acc = locked ? seePlans : paid ? '' : '<span class="p8-free">Free</span>';
+      const mk = k==='anchoring' ? `<span class="p8-mk" aria-hidden="true">${stateMarks('safety')}</span>` : '';
+      return `<button class="p8-r" type="button" data-p8="${escapeHtml(k)}"${locked?' data-p8lock="1"':''}>
+        <span class="p8-r-n"><b>${mk}${escapeHtml(t)}</b><span class="p8-r-w">${escapeHtml(what)}</span></span>
+        <span class="p8-r-l">${len ? escapeHtml(len) : ''}</span><span class="p8-r-a">${acc}</span>
+        <span class="p8-r-m">${[len, what].filter(Boolean).map(escapeHtml).join(' · ')}${acc ? ' · ' + acc : ''}</span></button>`;
+    };
     const mine = P8_ROWS.map(r=>{
       const est = r.k==='surprise' ? null : estMinutes(r.k, r.k==='micro' ? 2 : sil);
-      const sub = est ? `About ${est} min · ${r.s}` : r.s;
-      return row(r.k, r.t, sub, !paid && !practiceFree(r.k));
+      return row(r.k, r.t, r.s, est ? `About ${est} min` : '', !paid && !practiceFree(r.k));
     }).join('');
-    const guided = P_MEDS.map(m=>row(m.id, m.title, `${m.est.replace('~','About ')} · ${m.sub.charAt(0).toLowerCase()+m.sub.slice(1)}`, !paid)).join('');
+    const guided = P_MEDS.map(m=>row(m.id, m.title, m.sub.charAt(0).toLowerCase()+m.sub.slice(1), m.est.replace('~','About '), !paid)).join('');
     // the same page frame as Reflect and Learn (Justin, 2026-10-02: "Use Reflect's spacing across the board")
     _rdShell(`<div class="p8-view">
       <div class="scr-head read-head"><h1 class="read-h1">Practice</h1></div>
-      ${card}
-      ${_upEntry(paid)}
-      ${_chEntryHTML(paid)}
-      <h3 class="p8-sec">Make your own</h3>
-      <div class="p8-list">${mine}</div>
-      <h3 class="p8-sec">Guided practices</h3>
-      <div class="p8-list">${guided}</div>
-    </div>`, { tab:'practice', loc:{ k:'tab', tab:'practice' } });
+      <div class="p8-bento">
+        ${card}
+        ${_upEntry(paid)}
+        ${_chEntryHTML(paid)}
+        <section class="p8-box" aria-labelledby="p8-mine-h"><h2 class="p8-sec" id="p8-mine-h">Make your own</h2><div class="p8-list">${mine}</div></section>
+        <section class="p8-box" aria-labelledby="p8-guided-h"><h2 class="p8-sec" id="p8-guided-h">Guided practices</h2><div class="p8-list">${guided}</div></section>
+      </div>
+    </div>`, { tab:'practice', wide:true, loc:{ k:'tab', tab:'practice' } });
     const fy = $('#foryou');
     if(fy){
-      fy.onclick = (e)=>{ if(e.target.closest('#p8-cust')) return; renderPlan(reco); };
+      fy.onclick = (e)=>{ if(e.target.closest('#p8-cust, #p8-begin-now')) return; renderPlan(reco); };
       fy.onkeydown = (e)=>{ if(e.target===fy && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); renderPlan(reco); } };
       const cu = $('#p8-cust'); if(cu) cu.onclick = (e)=>{ e.stopPropagation(); _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
+      const bn = $('#p8-begin-now'); if(bn) bn.onclick = (e)=>{ e.stopPropagation(); launchWeaver(reco); };
     }
     const fl = $('#foryou-lock');
     if(fl){ fl.onclick = ()=>_p8Locked(fl, 'matching'); fl.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); _p8Locked(fl, 'matching'); } }; }
