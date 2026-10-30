@@ -1961,6 +1961,7 @@ let _motes=[],_reedArr=[],_ripArr=[],_strands=[],_dust=[],_flies=[],_ripNext=0,_
 const DARK_ONLY={sunbeam:1,fireflies:1};   // light phenomena need darkness (Justin 07-06): light mode never shows them
 function pickScene(){
   let pref=''; try{ pref=localStorage.getItem('snb_practice_scene')||''; }catch(e){}
+  if(pref==='ring') pref='circles';   // Breath circle (the Now screen's) plays as the breathing circles (grid7)
   const dk=!!window._SNB_DARK;
   const pool=SCENES.filter(s=>dk||!DARK_ONLY[s]);
   SCENE = (SCENES.indexOf(pref)>=0 && (dk||!DARK_ONLY[pref])) ? pref : pool[Math.floor(Math.random()*pool.length)];

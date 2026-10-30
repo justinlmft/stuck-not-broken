@@ -656,6 +656,7 @@
   function ciLoadQ(t){ try{ return JSON.parse(localStorage.getItem(CI_QKEY)||'{}')[t] || null; }catch(e){ return null; } }
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
   // the Settings row chevron (grid6): drawn, so it does not depend on a parent's stroke rules
+  const _ST_TICK = '<svg class="st-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
   const _ST_CHEV = '<svg class="st-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   // now-screen post-breath slot (r5 2026-07-24): small, legible icons for the dynamic
   // second row — a plus for "check in again" once it shrinks, a play for the micro
@@ -4701,7 +4702,7 @@ function app(tab){
       body:'The moving scene behind a practice can be changed. There are seven of them, or the app can pick a different one each time.',
       cta:'Choose a scene',
       when:()=> _tipLS('snb_practice_scene')===null,
-      act:()=> _tipToSettings('#scene-btn', true) },
+      act:()=> _tipToSettings('#scene-tiles', false) },
     { id:'offline',
       body:'Practices can be saved onto this device, so they play with no connection at all. About 94 MB, best on Wi-Fi.',
       cta:'Save practices for offline',
@@ -5177,9 +5178,116 @@ function app(tab){
 
   // ── Now, tranquil (Justin 2026-10-29) ──
   let _nqBreathT = 0, _nqIdleT = null, _nqWired = false, _nqBusy = false, _nqLastKind = null;
-  // the Now scene (Justin 2026-10-29): the live room's reeds, or the breath circle as it was. Settings > Now screen.
-  // More scenes (the practice scenes) come later.
-  const _nqScene = ()=>{ try{ return localStorage.getItem('snb_now_scene') === 'ring' ? 'ring' : 'reeds'; }catch(e){ return 'reeds'; } };
+  // ── one scene for Now and practices (grid7, Justin canon 2026-10-30) ──
+  // snb_practice_scene: '' = Random, 'ring' = Breath circle, else a scene. snb_now_scene folds in once.
+  const _SC_ALL = ['reeds', 'drift', 'pond', 'breeze', 'circles', 'sunbeam', 'fireflies', 'ring'];
+  const _SC_DARK = { sunbeam:1, fireflies:1 };
+  (function(){ try{
+    if(localStorage.getItem('snb_scene_merged') === '1') return;
+    const pr = localStorage.getItem('snb_practice_scene'), nw = localStorage.getItem('snb_now_scene');
+    if(!pr && (nw === 'ring' || nw === 'reeds')) localStorage.setItem('snb_practice_scene', nw);
+    localStorage.setItem('snb_scene_merged', '1');
+  }catch(e){} })();
+  const _scPref = ()=>{ try{ const v = localStorage.getItem('snb_practice_scene') || ''; return _SC_ALL.indexOf(v) >= 0 ? v : ''; }catch(e){ return ''; } };
+  const _scDark = ()=> document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
+  let _nqRand = null;
+  // the scene on Now: the choice; Random = one per visit to the app; a dark-only scene in light mode shows the reeds
+  const _nqScene = ()=>{
+    let k = _scPref(), dk = _scDark();
+    if(!k){ const pool = _SC_ALL.filter(s=>dk || !_SC_DARK[s]); if(!_nqRand || pool.indexOf(_nqRand) < 0) _nqRand = pool[Math.floor(Math.random() * pool.length)]; k = _nqRand; }
+    return (_SC_DARK[k] && !dk) ? 'reeds' : k;
+  };
+  // the practice scenes, drawn for Now and as the Settings stills (ported from player.html's drawScene, 2026-07)
+  const NQS = (function(){
+    let cv = null, g = null, K = '', raf = 0, S = null, rgb = [26,31,42], calm = false, lift = 0, liftT = 0;
+    const rnd = Math.random;
+    function seed(k, W, low){
+      const s = { k, sT:0, sLast:0, ripNext:0, motes:[], reeds:[], rips:[], strands:[], dust:[], flies:[] };
+      const n = (lo, hi, per) => low ? lo : Math.round(Math.max(lo, Math.min(hi, W / per)));
+      for(let i = 0, N = n(9, 20, 70); i < N; i++) s.motes.push({ x:rnd(), y:rnd(), r:1.5+rnd()*3.5, v:(3.5+rnd()*8)/1000, dx:(rnd()-.5)*.003, a:.18+rnd()*.3 });
+      for(let i = 0, N = n(7, 22, 100); i < N; i++) s.reeds.push({ x:(i/(N-1))*.96+.02+(rnd()-.5)*.028, h:.24+rnd()*.42, per:8+rnd()*8, ph:rnd()*6.283, amp:.035+rnd()*.045, w:1.1+rnd()*1.5, a:.3+rnd()*.32 });
+      for(let i = 0; i < 7; i++) s.strands.push({ y:.15+.7*(i/6)+(rnd()-.5)*.06, len:.2+rnd()*.22, sp:(28+rnd()*46)/1000, x:rnd()*1.4-.2, a:.22+rnd()*.3 });
+      for(let i = 0; i < 8; i++) s.dust.push({ x:.36+rnd()*.24, y:.12+rnd()*.72, r:1+rnd()*1.6, per:9+rnd()*11, ph:rnd()*6.283, ax:4+rnd()*6, ay:8+rnd()*9, a:.35+rnd()*.25 });
+      for(let i = 0, N = n(7, 14, 100); i < N; i++) s.flies.push({ x:.12+.76*(i/(N-1))+(rnd()-.5)*.09, y:.15+rnd()*.62, per:5.5+rnd()*6.5, ph:rnd()*10, wx:8+rnd()*9, wy:6+rnd()*8 });
+      return s;
+    }
+    function draw(gc, s, W, H, dt, moving, col, bg, boost){
+      if(moving) s.sT += dt;
+      const k = s.k, unit = Math.min(Math.min(W, H), 430), b = 1 + (boost || 0);
+      if(k === 'drift') s.motes.forEach(m=>{ if(moving){ m.y -= m.v*dt*3; m.x += m.dx*dt*3; if(m.y < -.05){ m.y = 1.05; m.x = rnd(); } }
+        gc.strokeStyle = col(Math.min(1, m.a*b)); gc.lineWidth = 1.3; gc.beginPath(); gc.arc(m.x*W, m.y*H, m.r*(unit/300+.6), 0, 6.283); gc.stroke(); });
+      else if(k === 'pond'){
+        if(moving && s.sT >= s.ripNext){ s.rips.push({ x:.2+rnd()*.6, y:.25+rnd()*.5, b:s.sT }); s.ripNext = s.sT + 4 + rnd()*5; if(s.rips.length > 4) s.rips.shift(); }
+        s.rips.forEach(rp=>{ const age = s.sT - rp.b, life = 6; if(age > life) return; const p = age/life, R = unit*(.06+.42*p);
+          const aOut = (p < .08 ? p/.08 : Math.max(0, 1-((p-.08)/.57)))*.5, aIn = (p < .08 ? p/.08 : 1-((p-.08)/.92))*.5;
+          gc.lineWidth = 1.5; gc.strokeStyle = col(Math.min(1, aOut*b)); gc.beginPath(); gc.arc(rp.x*W, rp.y*H, R, 0, 6.283); gc.stroke();
+          gc.strokeStyle = col(Math.min(1, aIn*b)); gc.beginPath(); gc.arc(rp.x*W, rp.y*H, R*.62, 0, 6.283); gc.stroke(); }); }
+      else if(k === 'reeds') s.reeds.forEach(rd=>{ const sw = Math.sin(s.sT*6.283/rd.per+rd.ph)*rd.amp, bx = rd.x*W, by = H, hh = rd.h*H;
+        gc.strokeStyle = col(Math.min(1, rd.a*b)); gc.lineWidth = rd.w; gc.lineCap = 'round'; gc.beginPath(); gc.moveTo(bx, by); gc.quadraticCurveTo(bx+sw*hh*.25, by-hh*.55, bx+sw*hh, by-hh); gc.stroke(); });
+      else if(k === 'breeze') s.strands.forEach(st=>{ if(moving){ st.x += st.sp*dt; if(st.x > 1.15){ st.x = -.35; st.y = .15+rnd()*.7; } }
+        gc.strokeStyle = col(Math.min(1, st.a*b)); gc.lineWidth = 1.6; gc.lineCap = 'round'; gc.beginPath(); gc.moveTo(st.x*W, st.y*H); gc.lineTo(st.x*W+st.len*W, st.y*H); gc.stroke(); });
+      else if(k === 'sunbeam'){
+        const AM = a=>'rgba(246,228,180,'+a+')', bw = W*.34, grd = gc.createLinearGradient(0, -H, 0, H);
+        grd.addColorStop(0, AM(.30*b)); grd.addColorStop(1, AM(.04*b));
+        gc.save(); gc.translate(W*.5, H*.5); gc.rotate(.3); gc.fillStyle = grd; gc.fillRect(-bw/2, -H*1.2, bw, H*2.4); gc.restore();
+        s.dust.forEach(d=>{ const px = d.x*W + Math.sin(s.sT*6.283/d.per+d.ph)*d.ax, py = d.y*H + Math.cos(s.sT*6.283/(d.per*1.3)+d.ph)*d.ay;
+          gc.fillStyle = 'rgba('+bg[0]+','+bg[1]+','+bg[2]+','+Math.min(1, .5+d.a)+')'; gc.beginPath(); gc.arc(px, py, d.r, 0, 6.283); gc.fill(); }); }
+      else if(k === 'fireflies'){ const BO = a=>'rgba(250,249,245,'+a+')';
+        s.flies.forEach(f=>{ const p = ((s.sT+f.ph)%f.per)/f.per, tw = Math.sin(p*Math.PI)*Math.min(1.6, b);
+          const px = f.x*W + Math.sin(s.sT*6.283/(f.per*2.1)+f.ph)*f.wx, py = f.y*H + Math.cos(s.sT*6.283/(f.per*1.7)+f.ph)*f.wy;
+          gc.fillStyle = BO(.12*tw); gc.beginPath(); gc.arc(px, py, 7, 0, 6.283); gc.fill();
+          gc.fillStyle = BO(.3*tw); gc.beginPath(); gc.arc(px, py, 4, 0, 6.283); gc.fill();
+          gc.fillStyle = BO(Math.min(1, .85*tw)); gc.beginPath(); gc.arc(px, py, 2.2, 0, 6.283); gc.fill(); }); }
+      else if(k === 'circles' || k === 'ring'){
+        const br = moving ? Math.sin(s.sT*.55)*.5+.5 : .5, u = Math.min(W*.82, unit, H*.48), cx = W/2, cy = H/2, R = u*(.30+.08*br);
+        gc.lineWidth = k === 'ring' ? 2.2 : 1.6; gc.strokeStyle = col(Math.min(1, .55*b)); gc.beginPath(); gc.arc(cx, cy, R, 0, 6.283); gc.stroke();
+        if(k === 'circles'){ gc.strokeStyle = col(Math.min(1, .35*b)); gc.beginPath(); gc.arc(cx, cy, R*(.62+.06*(1-br)), 0, 6.283); gc.stroke(); }
+        else { gc.fillStyle = col(.06*b); gc.beginPath(); gc.arc(cx, cy, R, 0, 6.283); gc.fill(); }
+      }
+    }
+    const hexRgb = h => { const m = String(h || '').trim().match(/^#?([0-9a-f]{6})$/i); if(!m) return null; const n = parseInt(m[1], 16); return [n>>16&255, n>>8&255, n&255]; };
+    const ink = () => hexRgb(getComputedStyle(document.documentElement).getPropertyValue('--ink')) || (_scDark() ? [236,234,227] : [26,31,42]);
+    const bgOf = () => { try{ const m = (getComputedStyle(document.body).backgroundColor || '').match(/\d+/g); if(m && m.length >= 3) return m.slice(0,3).map(Number); }catch(e){} return [250,249,245]; };
+    function loop(){
+      if(!cv || !cv.isConnected || !document.querySelector('#screen .view.now.nq')){ raf = 0; return; }
+      const d = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth || innerWidth, H = cv.clientHeight || innerHeight;
+      if(cv.width !== Math.round(W*d) || cv.height !== Math.round(H*d)){ cv.width = Math.round(W*d); cv.height = Math.round(H*d); }
+      g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
+      const t = performance.now()/1000, dt = Math.min(.05, Math.max(0, t - (S.sLast || t))); S.sLast = t;
+      const e = liftT ? (performance.now() - liftT)/1000 : 99; lift = e < 4 ? e/4*.6 : e < 9 ? (1-(e-4)/5)*.6 : 0;
+      draw(g, S, W, H, dt, !calm, a=>'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+a+')', bgOf(), lift);
+      raf = calm && !(e < 9) ? 0 : requestAnimationFrame(loop);
+    }
+    return {
+      // tint: a hex for the state after a check-in, or null for ink
+      attach(canvas, k, tint){
+        calm = _nqCalm(); rgb = hexRgb(tint) || ink();
+        if(canvas !== cv || K !== k){ cv = canvas; g = cv.getContext('2d'); K = k; S = seed(k, cv.clientWidth || innerWidth, calm);
+          if(k === 'pond'){ S.rips.push({ x:.35, y:.45, b:-2.5 }); S.ripNext = 2; } }
+        if(!raf) raf = requestAnimationFrame(loop);
+      },
+      once(){ liftT = performance.now(); if(!raf) raf = requestAnimationFrame(loop); },
+      // a still frame for the Settings tile, a few seconds in
+      still(canvas, k){
+        const d = Math.min(2, window.devicePixelRatio || 1), W = canvas.clientWidth || 160, H = canvas.clientHeight || 120;
+        canvas.width = Math.round(W*d); canvas.height = Math.round(H*d);
+        const gc = canvas.getContext('2d'); if(!gc) return; gc.setTransform(d, 0, 0, d, 0, 0); gc.clearRect(0, 0, W, H);
+        const dk = _SC_DARK[k], c0 = dk ? [250,249,245] : ink();
+        if(dk){ gc.fillStyle = '#1F2228'; gc.fillRect(0, 0, W, H); }
+        const col = a=>'rgba('+c0[0]+','+c0[1]+','+c0[2]+','+a+')';
+        if(k === ''){ // Random: four scenes, a quarter each
+          [['reeds',0,0],['drift',1,0],['pond',0,1],['breeze',1,1]].forEach(([kk,x,y])=>{ const s = seed(kk, W, true); if(kk === 'pond') s.rips.push({ x:.5, y:.5, b:-2 });
+            gc.save(); gc.beginPath(); gc.rect(x*W/2, y*H/2, W/2, H/2); gc.clip(); gc.translate(x*W/2, y*H/2); for(let i = 0; i < 40; i++) draw(gc, s, W/2, H/2, .05, true, ()=>'rgba(0,0,0,0)', [0,0,0], 0);
+            draw(gc, s, W/2, H/2, 0, false, col, bgOf(), .4); gc.restore(); });
+          gc.strokeStyle = col(.18); gc.lineWidth = 1; gc.beginPath(); gc.moveTo(W/2, 0); gc.lineTo(W/2, H); gc.moveTo(0, H/2); gc.lineTo(W, H/2); gc.stroke();
+          return; }
+        const s = seed(k, W*2.2, true); if(k === 'pond') s.rips.push({ x:.45, y:.5, b:-2.2 }, { x:.7, y:.35, b:-.8 });
+        for(let i = 0; i < 60; i++) draw(gc, s, W, H, .05, true, ()=>'rgba(0,0,0,0)', [0,0,0], 0);
+        gc.clearRect(0, 0, W, H); if(dk){ gc.fillStyle = '#1F2228'; gc.fillRect(0, 0, W, H); }
+        draw(gc, s, W, H, 0, false, col, dk ? [31,34,40] : bgOf(), k === 'reeds' || k === 'breeze' || k === 'drift' ? .5 : .2);
+      }
+    };
+  })();
   const _nqCalm = ()=> document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   const _nqOn = ()=> !!document.querySelector('#screen .view.now.nq');
   // ── the Now scene follows the day (Justin 2026-10-30, wabi-sabi; BRAND_DESIGN_SYSTEM §4 "Now screen, tranquil", last bullet) ──
@@ -5303,7 +5411,7 @@ function app(tab){
     const dom = checkedIn ? _cDom(last) : null;
     const lit = !!(dom && dom !== 'neutral');
     const reco = _recommendSafe(true);
-    const ring = _nqScene() === 'ring';
+    const nqK = _nqScene(), ring = nqK === 'ring';
 
     // one suggestion under the two buttons (Justin 2026-10-29)
     const _bsHere = (function(){ try{
@@ -5347,8 +5455,10 @@ function app(tab){
     let sc = document.getElementById('nq-scene');
     if(!sc){ sc = document.createElement('div'); sc.id = 'nq-scene'; sc.setAttribute('aria-hidden', 'true'); document.body.insertBefore(sc, document.body.firstChild); }
     if(ring){ sc.className = 'nq-is-ring'; sc.innerHTML = `<div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div>`; }
-    else if(sc.className !== 'nq-is-reeds'){ sc.className = 'nq-is-reeds'; sc.innerHTML = '<canvas class="sky"></canvas><canvas class="ambient"></canvas>'; }
-    if(!ring){
+    else if(nqK === 'reeds'){ if(sc.className !== 'nq-is-reeds'){ sc.className = 'nq-is-reeds'; sc.innerHTML = '<canvas class="sky"></canvas><canvas class="ambient"></canvas>'; } }
+    else { if(sc.className !== 'nq-is-' + nqK){ sc.className = 'nq-is-' + nqK + ' nq-is-sc'; sc.innerHTML = '<canvas class="nq-sc"></canvas>'; }
+      NQS.attach(sc.querySelector('canvas.nq-sc'), nqK, lit ? _lwHex(STATE_COLOR(dom)) : null); }
+    if(nqK === 'reeds'){
       NQ.mode(_nqCalm(), document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)));
       NQ.attach(sc.querySelector('canvas.ambient'));
       NQ.tint(lit ? _lwHex(STATE_COLOR(dom)) : null);
@@ -5385,7 +5495,7 @@ function app(tab){
       tr.style.transition = calm ? 'opacity 4s' : 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
       if(!calm) tr.style.transform = 'scale(1.28)'; tr.style.opacity = '.85';
       setTimeout(()=>{ tr.style.transition = calm ? 'opacity 5s' : 'transform 5s cubic-bezier(.4,0,.5,1), opacity 5s'; if(!calm) tr.style.transform = 'scale(.82)'; tr.style.opacity = '.5'; }, 4000);
-    } else NQ.once();
+    } else if(document.querySelector('#nq-scene canvas.nq-sc')) NQS.once(); else NQ.once();
     document.body.classList.add('nq-in');
     if(live) live.textContent = 'Breathe in';
     setTimeout(()=>{ if(live) live.textContent = 'Breathe out'; document.body.classList.remove('nq-in'); }, 4000);
@@ -13849,7 +13959,7 @@ function app(tab){
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
     const lv = (localStorage.getItem('snb_live_nudge')||'1');        // "we're live" invitations — on by default
-    const psc = (localStorage.getItem('snb_practice_scene')||'');    // practice scene — '' = surprise me (random per session)
+    const psc = _scPref();   // the one scene (grid7): '' = Random, 'ring' = Breath circle
     const pvc = voicePref();                                          // the voice (2026-09-29, VOICES) — Justin's by default
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
@@ -13924,17 +14034,12 @@ function app(tab){
             <div class="st-choices st-rf" id="seg-read" role="group" aria-label="Reading type">${[['','Recommended','<span class="st-aa st-aa-sans">Aa</span><span class="st-aa st-aa-serif">Aa</span>'],['serif','Serif','<span class="st-aa st-aa-serif">Aa</span>'],['sans','Sans','<span class="st-aa st-aa-sans">Aa</span>']].map(([v,l,aa])=>stCh('rf', v, `<span class="st-aas" aria-hidden="true">${aa}</span><span>${l}</span>`, rf===v)).join('')}</div>
             <p class="st-help">Recommended sets long reading (articles, lessons, your journal) in a book typeface and the rest of the app in Inter.</p></div>
           ${stSw('sw-motion', 'Animations', !rm, 'motion-cap')}`)}
-        ${stSec('Now screen', `
-          <div class="st-item"><p class="st-lbl">Scene</p>
-            <div class="st-choices" role="group" aria-label="Now screen scene">${[['reeds','Reeds'],['ring','Breath circle']].map(([k,l])=>`<button class="st-ch nowsc-opt${_nqScene()===k?' on':''}" type="button" data-nowsc="${k}" aria-pressed="${_nqScene()===k}">${l}</button>`).join('')}</div></div>
+        ${stSec('Scene', `
+          <div class="st-item"><div class="st-tiles" id="scene-tiles" role="group" aria-label="Scene">${[['','Random'],['reeds','Reeds'],['drift','Drift'],['pond','Pond'],['breeze','Breeze'],['circles','Circles'],['sunbeam','Sunbeam'],['fireflies','Fireflies'],['ring','Breath circle']].map(([k,l])=>`<button class="st-tile scene-opt${psc===k?' on':''}" type="button" data-scene="${k}" aria-pressed="${psc===k}"><canvas class="st-tile-pic" data-still="${k}" aria-hidden="true"></canvas><span class="st-tile-n">${_ST_TICK}<span>${l}</span></span></button>`).join('')}</div>
+            <p class="st-help" id="scene-cap"></p></div>
           ${stSw('sw-nqday', 'Match the time of day', _nqDayOn(), 'nqday-cap')}
           ${stSw('sw-nqwx', 'Match the weather', _nqWxOn(), 'nqwx-cap')}`)}
         ${stSec('Practice', `
-          ${stGo('scene-btn', 'Practice scene', `<span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span>`, 'rs-disc-btn').replace('type="button">', 'type="button" aria-expanded="false" aria-controls="scene-body">')}
-          <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
-            <div class="st-choices">${stCh('scene','','Surprise me',psc==='').replace('class="st-ch','class="st-ch scene-opt')}${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>stCh('scene',s,s.charAt(0).toUpperCase()+s.slice(1),psc===s).replace('class="st-ch','class="st-ch scene-opt')).join('')}</div>
-            <p class="st-help" id="scene-cap"></p>
-          </div></div>
           ${stGo('voice-btn', 'Voice', `<span id="voice-val">${escapeHtml(voiceName(pvc))}</span>`, 'rs-disc-btn').replace('type="button">', 'type="button" aria-expanded="false" aria-controls="voice-body">')}
           <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
             <div class="st-choices">${VOICES.map(([k,l])=>`<button class="st-ch voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}" aria-pressed="${pvc===k}">${escapeHtml(l)}${voiceOk(k)?'':`<span class="st-lock">${LOCK_SVG}See paid plans</span>`}</button>`).join('')}</div>
@@ -14050,7 +14155,7 @@ function app(tab){
     });
     // practice scene: the caption mirrors the choice, same as the switches. 🖊
     const SCENE_CAP={ '':'A different scene each time. The app chooses.',
-      circles:'The slow circles, as now.',
+      circles:'Two slow circles, breathing.', ring:'One circle that breathes slowly.',
       drift:'Soft specks drifting upward, each at its own pace.',
       pond:'Still water, a ripple now and then.',
       reeds:'Reeds swaying in an uneven breeze.',
@@ -14062,8 +14167,9 @@ function app(tab){
     _scSet(psc);
     document.querySelectorAll('.nowsc-opt').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('snb_now_scene', b.dataset.nowsc); }catch(e){}
       document.querySelectorAll('.nowsc-opt').forEach(x=>{ const on = x===b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); });
+    document.querySelectorAll('canvas[data-still]').forEach(c=>{ try{ NQS.still(c, c.dataset.still); }catch(e){} });
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
-      localStorage.setItem('snb_practice_scene', b.dataset.scene);
+      localStorage.setItem('snb_practice_scene', b.dataset.scene); _nqRand = null;
       document.querySelectorAll('.scene-opt').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-pressed', String(x===b)); });
       _scSet(b.dataset.scene);
     });

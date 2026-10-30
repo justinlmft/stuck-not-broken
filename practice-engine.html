@@ -8601,13 +8601,13 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
         paused: session ? session.runtime.paused : false,
         finished: session ? session.runtime.finished : false,
       }),
-      scene: readSetting('snb_practice_scene', ''),
+      scene: (v => v === 'ring' ? 'circles' : v)(readSetting('snb_practice_scene', '')),   // Breath circle plays as the circles (grid7)
       isDark: !!G._SNB_DARK,
       reduceMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
     });
     showScene();
   }
-  function scenePref() { const v = readSetting('snb_practice_scene', ''); return SCENE.SCENES.indexOf(v) >= 0 ? v : ''; }
+  function scenePref() { let v = readSetting('snb_practice_scene', ''); if (v === 'ring') v = 'circles'; return SCENE.SCENES.indexOf(v) >= 0 ? v : ''; }
   function showScene() {
     const U = COPY.UI, pref = scenePref();
     const el0 = $('scenenow'); if (el0) el0.textContent = pref ? (U.sceneNames[pref] || pref) : U.sceneSurprise;

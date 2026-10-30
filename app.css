@@ -6667,3 +6667,17 @@ html:not([data-readfont="serif"]) .rd-lq,html:not([data-readfont="serif"]) .rd-l
 .p7-seg-steps .p7-step{flex:0 0 40px}
 .ps-steps{padding:8px 0 4px}
 .ps-steps .p7-step.sel{background:var(--ink);border-color:var(--ink)}
+
+/* ---- grid7: Scene choice, picture tiles; the chosen tile = ink border, check, bold name, never filled */
+.st-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:4px 0 8px}
+@media (min-width:720px){ .st-tiles{grid-template-columns:repeat(3,minmax(0,1fr))} }
+.st-tile{display:flex;flex-direction:column;min-width:0;margin:0;padding:0;border:1px solid var(--hairline);border-radius:14px;overflow:hidden;background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s var(--ease)}
+.st-tile:hover{border-color:var(--ink-80)}
+.st-tile:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.st-tile.on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.st-tile-pic{display:block;width:100%;aspect-ratio:4 / 3;border-bottom:1px solid var(--hairline)}
+.st-tile-n{display:flex;align-items:center;gap:6px;min-height:40px;padding:8px 12px;font-size:calc(15px * var(--type-scale));line-height:20px}
+.st-tick{width:14px;height:14px;flex:none;display:none}
+.st-tile.on .st-tick{display:block}
+.st-tile.on .st-tile-n{font-weight:600}
+#nq-scene canvas.nq-sc{opacity:.85}
