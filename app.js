@@ -5180,8 +5180,17 @@ function app(tab){
   let _nqBreathT = 0, _nqIdleT = null, _nqWired = false, _nqBusy = false, _nqLastKind = null;
   // ── one scene for Now and practices (grid7, Justin canon 2026-10-30) ──
   // snb_practice_scene: '' = Random, 'ring' = Breath circle, else a scene. snb_now_scene folds in once.
-  const _SC_ALL = ['reeds', 'drift', 'pond', 'breeze', 'circles', 'sunbeam', 'fireflies', 'ring'];
-  const _SC_DARK = { sunbeam:1, fireflies:1 };
+  const _SC_ALL = ['reeds', 'pond', 'circles', 'fireflies'];   // grid8: four scenes (Justin 2026-10-30)
+  const _SC_DARK = {};
+  // grid8: drift / breeze / sunbeam -> Random, the breath circle -> Circles (once)
+  (function(){ try{ if(localStorage.getItem('snb_scene_v2') === '1') return; const v = localStorage.getItem('snb_practice_scene');
+    if(v === 'ring') localStorage.setItem('snb_practice_scene', 'circles'); else if(v && ['reeds','pond','circles','fireflies'].indexOf(v) < 0) localStorage.removeItem('snb_practice_scene');
+    localStorage.setItem('snb_scene_v2', '1'); }catch(e){} })();
+  // the players (same origin) read the latest check-in's state from here, so their scene follows it
+  window.__snbSceneState = ()=>{ try{ const l = Store.lastCheckin && Store.lastCheckin(); const k = l ? _cDom(l) : null; return k && k !== 'neutral' ? k : null; }catch(e){ return null; } };
+  let _nqSS = null;   // the scenes.js scene on Now (Pond, Circles, Fireflies)
+  const _nqTod = ()=> _nqDayOn() && window.SNBScene ? SNBScene.todOf(new Date()) : 'midday';
+  const _nqWxK = ()=>{ const k = _nqWxNow(); return k === 'rain' || k === 'cloud' || k === 'sun' ? k : 'none'; };
   (function(){ try{
     if(localStorage.getItem('snb_scene_merged') === '1') return;
     const pr = localStorage.getItem('snb_practice_scene'), nw = localStorage.getItem('snb_now_scene');
@@ -5348,6 +5357,9 @@ function app(tab){
   }
   function _nqLight(){
     const sc = document.getElementById('nq-scene'); if(!sc) return;
+    if(sc.classList.contains('nq-is-sc')){ const v = sc.querySelector('.nq-light'); if(v) v.remove(); _nqRain(false);
+      if(_nqSS) _nqSS.update({ tod:_nqTod(), weather:_nqWxK(), dark:_scDark() });
+      clearTimeout(_nqLightT); _nqLightT = setTimeout(()=>{ if(_nqOn()) _nqLight(); }, 5 * 60e3); return; }
     let ov = sc.querySelector('.nq-light');
     const first = !ov;
     if(!ov){ ov = document.createElement('div'); ov.className = 'nq-light'; sc.appendChild(ov); }
@@ -5454,10 +5466,11 @@ function app(tab){
     // ending above the tab bar when it lived inside the scrolling content); it shows only while Now is on screen
     let sc = document.getElementById('nq-scene');
     if(!sc){ sc = document.createElement('div'); sc.id = 'nq-scene'; sc.setAttribute('aria-hidden', 'true'); document.body.insertBefore(sc, document.body.firstChild); }
-    if(ring){ sc.className = 'nq-is-ring'; sc.innerHTML = `<div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div>`; }
+    if(ring && false){ sc.className = 'nq-is-ring'; sc.innerHTML = `<div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div>`; }
     else if(nqK === 'reeds'){ if(sc.className !== 'nq-is-reeds'){ sc.className = 'nq-is-reeds'; sc.innerHTML = '<canvas class="sky"></canvas><canvas class="ambient"></canvas>'; } }
-    else { if(sc.className !== 'nq-is-' + nqK){ sc.className = 'nq-is-' + nqK + ' nq-is-sc'; sc.innerHTML = '<canvas class="nq-sc"></canvas>'; }
-      NQS.attach(sc.querySelector('canvas.nq-sc'), nqK, lit ? _lwHex(STATE_COLOR(dom)) : null); }
+    else { const o = { scene:nqK, state: lit ? dom : null, tod:_nqTod(), weather:_nqWxK(), dark:_scDark(), reduce:_nqCalm() };
+      if(sc.className !== 'nq-is-' + nqK + ' nq-is-sc' || !_nqSS || !sc.contains(_nqSS.el)){ if(_nqSS){ try{ _nqSS.stop(); }catch(e){} } sc.className = 'nq-is-' + nqK + ' nq-is-sc'; sc.innerHTML = ''; _nqSS = window.SNBScene ? SNBScene.mount(sc, o) : null; }
+      else _nqSS.update(o); }
     if(nqK === 'reeds'){
       NQ.mode(_nqCalm(), document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)));
       NQ.attach(sc.querySelector('canvas.ambient'));
@@ -5495,7 +5508,7 @@ function app(tab){
       tr.style.transition = calm ? 'opacity 4s' : 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
       if(!calm) tr.style.transform = 'scale(1.28)'; tr.style.opacity = '.85';
       setTimeout(()=>{ tr.style.transition = calm ? 'opacity 5s' : 'transform 5s cubic-bezier(.4,0,.5,1), opacity 5s'; if(!calm) tr.style.transform = 'scale(.82)'; tr.style.opacity = '.5'; }, 4000);
-    } else if(document.querySelector('#nq-scene canvas.nq-sc')) NQS.once(); else NQ.once();
+    } else if(_nqSS && document.querySelector('#nq-scene .snb-scene')) _nqSS.breath(); else NQ.once();
     document.body.classList.add('nq-in');
     if(live) live.textContent = 'Breathe in';
     setTimeout(()=>{ if(live) live.textContent = 'Breathe out'; document.body.classList.remove('nq-in'); }, 4000);
@@ -14035,7 +14048,7 @@ function app(tab){
             <p class="st-help">Recommended sets long reading (articles, lessons, your journal) in a book typeface and the rest of the app in Inter.</p></div>
           ${stSw('sw-motion', 'Animations', !rm, 'motion-cap')}`)}
         ${stSec('Scene', `
-          <div class="st-item"><div class="st-tiles" id="scene-tiles" role="group" aria-label="Scene">${[['','Random'],['reeds','Reeds'],['drift','Drift'],['pond','Pond'],['breeze','Breeze'],['circles','Circles'],['sunbeam','Sunbeam'],['fireflies','Fireflies'],['ring','Breath circle']].map(([k,l])=>`<button class="st-tile scene-opt${psc===k?' on':''}" type="button" data-scene="${k}" aria-pressed="${psc===k}"><canvas class="st-tile-pic" data-still="${k}" aria-hidden="true"></canvas><span class="st-tile-n">${_ST_TICK}<span>${l}</span></span></button>`).join('')}</div>
+          <div class="st-item"><div class="st-tiles" id="scene-tiles" role="group" aria-label="Scene">${[['','Random'],['reeds','Reeds'],['pond','Pond'],['circles','Circles'],['fireflies','Fireflies']].map(([k,l])=>`<button class="st-tile scene-opt${psc===k?' on':''}" type="button" data-scene="${k}" aria-pressed="${psc===k}"><span class="st-tile-pic${k?'':' st-tile-mix'}" data-still="${k}" aria-hidden="true">${k?'':'<span></span><span></span><span></span><span></span>'}</span><span class="st-tile-n">${_ST_TICK}<span>${l}</span></span></button>`).join('')}</div>
             <p class="st-help" id="scene-cap"></p></div>
           ${stSw('sw-nqday', 'Match the time of day', _nqDayOn(), 'nqday-cap')}
           ${stSw('sw-nqwx', 'Match the weather', _nqWxOn(), 'nqwx-cap')}`)}
@@ -14155,19 +14168,22 @@ function app(tab){
     });
     // practice scene: the caption mirrors the choice, same as the switches. 🖊
     const SCENE_CAP={ '':'A different scene each time. The app chooses.',
-      circles:'Two slow circles, breathing.', ring:'One circle that breathes slowly.',
+      circles:'Three rings that breathe at the pace of your state.',
       drift:'Soft specks drifting upward, each at its own pace.',
-      pond:'Still water, a ripple now and then.',
+      pond:'A lily pad on still water, a ripple now and then.',
       reeds:'Reeds swaying in an uneven breeze.',
       breeze:'Strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'A still beam of light, dust hanging in it. Appears in dark mode.',
-      fireflies:'Small lights arriving and leaving on their own time. Appears in dark mode.' };
+      fireflies:'Small lights arriving and leaving on their own time.' };
     const scCap=$('#scene-cap'); const scVal=$('#scene-val');
     const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'Surprise me':v.charAt(0).toUpperCase()+v.slice(1); };
     _scSet(psc);
     document.querySelectorAll('.nowsc-opt').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('snb_now_scene', b.dataset.nowsc); }catch(e){}
       document.querySelectorAll('.nowsc-opt').forEach(x=>{ const on = x===b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); });
-    document.querySelectorAll('canvas[data-still]').forEach(c=>{ try{ NQS.still(c, c.dataset.still); }catch(e){} });
+    // stills: each scene drawn by the engine, still (reduced motion), at midday; Random = the four in quarters
+    if(window.SNBScene) document.querySelectorAll('[data-still]').forEach(c=>{ try{ const o = { tod:'midday', dark:_scDark(), reduce:true };
+      if(c.dataset.still) SNBScene.mount(c, Object.assign({ scene:c.dataset.still }, o));
+      else [...c.children].forEach((q, i)=>SNBScene.mount(q, Object.assign({ scene:['reeds','pond','circles','fireflies'][i] }, o))); }catch(e){} });
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene); _nqRand = null;
       document.querySelectorAll('.scene-opt').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-pressed', String(x===b)); });

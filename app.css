@@ -6681,3 +6681,9 @@ html:not([data-readfont="serif"]) .rd-lq,html:not([data-readfont="serif"]) .rd-l
 .st-tile.on .st-tick{display:block}
 .st-tile.on .st-tile-n{font-weight:600}
 #nq-scene canvas.nq-sc{opacity:.85}
+
+/* ---- grid8: the scene tiles hold a still of the engine itself; Random = the four in quarters */
+.st-tile-pic{position:relative;overflow:hidden}
+.st-tile-mix{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:var(--hairline)}
+.st-tile-mix > span{position:relative;overflow:hidden}
+#nq-scene .snb-scene{z-index:0}

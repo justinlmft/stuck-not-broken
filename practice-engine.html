@@ -528,6 +528,7 @@ try{var qt=q.get('theme');var th=localStorage.getItem('snb_theme')||'';var dk=qt
      copy.js                e0952fc4c807c1dfcc991f10b97d9e4e    15665 bytes
      page.js                71ac54c5f585e05149961877084d7f2b    70785 bytes
 -->
+<script src="scenes.js?v=1"></script>
 </head>
 <body>
 <div class="page">
@@ -7743,8 +7744,8 @@ function stateFor(beat) {
  * `circles` is the original; the rest came out of Beth's second round (2026-07-05) because a
  * regular breathing cycle is something a dysregulated body can start chasing. Light phenomena
  * need darkness, so two of them are dark-mode only: in light mode a sunbeam reads as a smudge. */
-const SCENES = Object.freeze(['circles', 'drift', 'pond', 'reeds', 'breeze', 'sunbeam', 'fireflies']);
-const DARK_ONLY = Object.freeze({ sunbeam: 1, fireflies: 1 });
+const SCENES = Object.freeze(['reeds', 'pond', 'circles', 'fireflies']);   // grid8: four scenes
+const DARK_ONLY = Object.freeze({});
 
 function pickScene(preferred, isDark, rnd) {
   const random = rnd || Math.random;
@@ -8593,6 +8594,18 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
    * each time), so a change here is a change in Settings too. Remounted live when the person picks another (2026-09-27). */
   function mountScene() {
     if (scene) { try { scene.stop(); } catch (e) {} scene = null; }
+    /* grid8 (Justin 2026-10-30): the app's scene engine (scenes.js). It follows the person's latest check-in, not the voice's
+     * moment; the player's blue and amber are gone. Time of day and the weather as on the Now screen. */
+    if (G.SNBScene && $('ring')) {
+      const cv = $('ring'); cv.style.display = 'none';
+      let k = scenePref(); if (!k) k = G.SNBScene.SCENES[Math.floor(Math.random() * G.SNBScene.SCENES.length)];
+      let st = null; try { st = G.parent && G.parent !== G && G.parent.__snbSceneState ? G.parent.__snbSceneState() : null; } catch (e) {}
+      let wx = 'none'; try { if (readSetting('snb_nq_wx', '') === '1') { const c = JSON.parse(readSetting('snb_nq_wxk', 'null')); if (c && Date.now() - c.t < 3 * 3600e3 && ['rain', 'cloud', 'sun'].indexOf(c.k) >= 0) wx = c.k; } } catch (e) {}
+      const tod = readSetting('snb_nq_day', '1') !== '0' ? G.SNBScene.todOf(new Date()) : 'midday';
+      const s = G.SNBScene.mount(cv.parentNode, { scene: k, state: st, tod, weather: wx, dark: !!G._SNB_DARK, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches });
+      scene = { scene: k, stop() { s.stop(); cv.style.display = ''; } };
+      showScene(); return;
+    }
     scene = SCENE.mountScene({
       canvas: $('ring'),
       read: () => ({
