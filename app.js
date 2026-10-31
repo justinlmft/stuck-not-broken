@@ -3986,21 +3986,29 @@ function app(tab){
     const R = _lwRoom; if(!R) return;
     const s = R.s, K = _lwKind(s), host = _lwIsHost();
     const rec = s.recorded ? 'Recorded.' : 'Not recorded.';
+    // desktop: a plain "← Back" link at the top; tablet and phone: the Back pill at the bottom (the back rule, Justin 2026-10-30)
+    const lbBack = `<button class="lw-lb-back" type="button" id="lw-back-top">${BACK_SVG}<span>Back</span></button>`;
+    const lbDock = `<div class="fl-dock lw-dock lw-lb-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div>`;
     if(R.phase === 'lobby'){
-      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby">
-        <h1 class="lw-h1">${escapeHtml(K.name)}</h1>
-        <p class="lw-p lw-muted">${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
-        <div class="lw-preview${R.cam?' on':''}"><video id="lw-prev" autoplay playsinline muted></video>${R.cam ? '' : '<span class="lw-prev-off"><span class="lw-av">You</span><span>Your camera is off</span></span>'}</div>
-        <div class="lw-toggles">
-          <button type="button" class="lw-tg${R.cam?' on':''}" id="lw-tg-cam" aria-pressed="${R.cam}">${R.cam ? LW_ICO.cam : LW_ICO.camOff}${R.cam ? 'Camera on' : 'Camera off'}</button>
-          <button type="button" class="lw-tg${R.mic?' on':''}" id="lw-tg-mic" aria-pressed="${R.mic}">${R.mic ? LW_ICO.mic : LW_ICO.micOff}${R.mic ? 'Mic on' : 'Mic off'}</button>
-        </div>
-        <ul class="lw-rules"><li>Camera on or off is up to you.</li><li>You do not have to speak or type.</li><li>${s.recorded ? 'This one is recorded so others can watch it later.' : 'Not recorded. No replay.'}</li></ul>
-        ${R.err ? `<p class="lw-err" role="alert">${escapeHtml(R.err)}</p>` : ''}
-        <button class="btn block" type="button" id="lw-join">Join now</button>
-        <button class="lw-link" type="button" id="lw-ci-pre">Check in first</button>
-      </div>
-      <div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
+      // a camera preview card on 1-7 with Camera / Mic as outlined pills; on 8-12 the three lines with the Calendar's icons,
+      // "Join now" (the one filled button) and "Check in first" as a link (Justin, canon 2026-10-31)
+      const li = (ic, t) => `<li><span class="lw-lb-ic" aria-hidden="true">${ic}</span><span>${t}</span></li>`;
+      setHTML(`<div class="lw-room lw-r2l" id="lw-room"><div class="lw-lb">${lbBack}
+        <h1 class="lw-lb-h1">${escapeHtml(K.name)}</h1>
+        <p class="lw-lb-when">${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
+        <div class="lw-lb-grid">
+          <section class="lw-rc lw-lb-prev" aria-label="Your camera">
+            <div class="lw-preview2${R.cam ? ' on' : ''}"><video id="lw-prev" autoplay playsinline muted></video>${R.cam ? '' : '<span class="lw-av">You</span><span class="lw-prev-note">Your camera is off</span>'}</div>
+            <div class="lw-pills"><button type="button" class="lw-rp${R.cam ? ' on' : ''}" id="lw-tg-cam" aria-pressed="${R.cam}">${R.cam ? LW_ICO.cam : LW_ICO.camOff}<span>${R.cam ? 'Camera on' : 'Camera off'}</span></button>
+              <button type="button" class="lw-rp${R.mic ? ' on' : ''}" id="lw-tg-mic" aria-pressed="${R.mic}">${R.mic ? LW_ICO.mic : LW_ICO.micOff}<span>${R.mic ? 'Mic on' : 'Mic off'}</span></button></div>
+          </section>
+          <section class="lw-rc lw-lb-side" aria-label="Before you join">
+            <ul class="lw-lb-list">${li(LW_ICO.cam, 'Camera on or off is up to you.')}${li(LW_ICO.chat, 'You do not have to speak or type.')}${li(s.recorded ? LW_ICO.rec : LW_ICO.recOff, s.recorded ? 'This one is recorded so others can watch it later.' : 'Not recorded. No replay.')}</ul>
+            ${R.err ? `<p class="lw-err" role="alert">${escapeHtml(R.err)}</p>` : ''}
+            <div class="lw-lb-acts"><button class="btn block" type="button" id="lw-join">Join now</button><button class="fr-link" type="button" id="lw-ci-pre">Check in first</button></div>
+          </section>
+        </div></div>${lbDock}</div>`);
+      { const bt = document.getElementById('lw-back-top'); if(bt) bt.onclick = _lwExit; }
       const v = document.getElementById('lw-prev'); if(v && R.preview) v.srcObject = R.preview;
       $('#lw-back').onclick = _lwExit;
       $('#lw-join').onclick = () => { R.phase = 'joining'; _lwRender(); _lwJoin(); };
@@ -4026,26 +4034,29 @@ function app(tab){
       // thank you, the next event with a quick RSVP, and Self-Regulator for members without a paid plan (Justin, 2026-10-27)
       if(!_lw.sched && !_lw.loading){ _lwLoad().then(() => { if(_lwRoom === R && R.phase === 'left') _lwRender(); }); }
       const nx = (_lw.sched || []).find(x => x.id !== s.id && _lwStart(x) > Date.now() && (LW_COREG_LIVE || host || x.kind === 'mindful_moment'));
-      let nxHTML = '';
-      if(nx){
-        const NK = _lwKind(nx), d = new Date(_lwStart(nx)), ok = _lwAllowed(nx), rsvp = _lwRsvp(nx), rem = _lwRemOn(nx);
-        nxHTML = `<div class="lw-next"><p class="lw-eyb">Next on the Calendar</p><div class="lw-row lw-row-static">
-          <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
-          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}See paid plans</button>`}${ok ? `<button class="lw-remind${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>` : ''}</span></span></div></div>`;
-      }
-      const up = (!host && !paidNow()) ? `<div class="lw-up"><p class="lw-eyb">Between live events</p>
-          <p class="lw-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
-          <p class="lw-p lw-muted">$12 a month, cancel anytime.</p>
-          <button class="btn block lk-btn" type="button" id="lw-ty-up">${LOCK_SVG}See paid plans</button></div>` : '';
-      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby lw-thanks">
-        <p class="lw-eyb">Live event</p>
-        <h1 class="lw-h1">Thank you for being here.</h1>
-        <p class="lw-p lw-muted">${escapeHtml(K.name)}, ${escapeHtml(_lwLongDate(_lwStart(s)))}.</p>
-        ${nxHTML}${up}
-        ${_lwEnd(s) > Date.now() && !R.ended ? '<button class="btn block quiet" type="button" id="lw-rejoin">Rejoin</button>' : ''}
-      </div><div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
+      // the next event as a Calendar house card (picture, big date, title, time, Free, the RSVP pill and Remind me) on 1-7;
+      // free members: "Between live events" on 8-12 with lock + "See paid plans" (the one filled button). Rejoin beside the title.
+      const nxHTML = nx ? `<div class="lw-ty-next">${_lwCard(nx, true).replace('<span class="eyebrow lw-hc-next">Next</span>', '<span class="eyebrow lw-hc-next">Next on the Calendar</span>').replace(/(<span class="lw-hc-acts">)([\s\S]*?)(<\/span>\s*<\/span><\/article>)$/, (m, a, b, c) => a + b + (_lwAllowed(nx) && !_lwDoorOpen(nx) ? _lwRemindBtn(nx, _lwRemOn(nx)) : '') + c)}</div>` : '';
+      const up = (!host && !paidNow()) ? `<section class="lw-rc lw-ty-up" aria-label="Between live events"><p class="eyebrow">Between live events</p>
+          <p class="lw-ty-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
+          <p class="lw-ty-m">$12 a month, cancel anytime.</p>
+          <div class="lw-ty-acts"><button class="btn lk-btn" type="button" id="lw-ty-up">${LOCK_SVG}See paid plans</button></div></section>` : '';
+      const running = _lwEnd(s) > Date.now() && !R.ended;
+      setHTML(`<div class="lw-room lw-r2l" id="lw-room"><div class="lw-lb lw-ty">${lbBack}
+        <p class="eyebrow">Live event</p>
+        <div class="lw-ty-head"><div><h1 class="lw-lb-h1">Thank you for being here.</h1><p class="lw-lb-when">${escapeHtml(K.name)}, ${escapeHtml(_lwLongDate(_lwStart(s)))}.</p></div>${running ? '<button class="lw-rp" type="button" id="lw-rejoin">Rejoin</button>' : ''}</div>
+        ${(nxHTML || up) ? `<div class="lw-lb-grid${up ? '' : ' lw-ty-solo'}">${nxHTML}${up}</div>` : ''}
+      </div>${lbDock}</div>`);
+      { const bt = document.getElementById('lw-back-top'); if(bt) bt.onclick = _lwExit; }
+      const tyEl = document.getElementById('lw-room');
+      if(nx && tyEl){ _lwStills(tyEl);
+        tyEl.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); }));
+        tyEl.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(nx));
+        tyEl.querySelectorAll('[data-lw-see]').forEach(b => b.onclick = () => _lwUpgradeSheet(nx));
+        tyEl.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(nx));
+        tyEl.querySelectorAll('[data-lw-open]').forEach(b => b.onclick = () => _lwCardSheet(nx)); }
       $('#lw-back').onclick = _lwExit;
-      const tyR = document.getElementById('lw-ty-rsvp'); if(tyR) tyR.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); });
+      const tyR = null; if(tyR) tyR.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); });
       const tyA = document.getElementById('lw-ty-rem'); if(tyA) tyA.onclick = () => _lwRemindSheet(nx);
       const tyC = document.getElementById('lw-ty-co'); if(tyC) tyC.onclick = () => _lwUpgradeSheet();
       const tyU = document.getElementById('lw-ty-up'); if(tyU) tyU.onclick = () => { _lwExit(); gateSubscribe('live'); };

@@ -7047,3 +7047,57 @@ body.lw-sl-leaving #lw-room.lw-r2{background:transparent}
   body.lw-sl-on #lw-room.lw-r2{display:flex;flex-direction:column;justify-content:flex-end;padding-inline:var(--pad-x)}
   body.lw-sl-on #lw-room.lw-r2 .lw-area{flex:0 0 0;height:0}
 }
+
+/* ============================================================
+   THE LIVE ROOM'S LOBBY AND THANK-YOU (Justin, canon 2026-10-31): paper, house cards on the Swiss grid, no dividers
+   ============================================================ */
+body.lw-in-room .shell{max-width:none}
+.lw-r2l .lw-lb{flex:1;overflow-y:auto;box-sizing:border-box;width:100%;max-width:var(--page);padding:max(32px,env(safe-area-inset-top)) var(--pad-x) 120px;display:flex;flex-direction:column;gap:0}
+.lw-lb-back{display:none;align-self:flex-start;align-items:center;gap:6px;min-height:44px;margin:0 0 12px -2px;padding:0 4px 0 0;border:0;background:none;color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));cursor:pointer}
+.lw-lb-back svg{width:16px;height:16px}
+.lw-lb-back:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
+.lw-lb-h1{margin:0;font-size:calc(30px * var(--type-scale));line-height:1.12;font-weight:600;letter-spacing:-.02em;color:var(--ink);text-wrap:pretty}
+.lw-lb-when{margin:8px 0 0;font-size:calc(16px * var(--type-scale));line-height:24px;color:var(--muted)}
+.lw-lb-grid{margin-top:28px;display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap);align-items:stretch}
+.lw-r2l .lw-rc{box-sizing:border-box;border:1px solid var(--hairline);border-radius:16px;background:var(--bone);color:var(--ink)}
+.lw-lb-prev{padding:12px;display:flex;flex-direction:column;gap:12px}
+.lw-preview2{position:relative;width:100%;aspect-ratio:4 / 3;border-radius:12px;overflow:hidden;background:var(--bone-deep);display:flex;align-items:center;justify-content:center}
+.lw-preview2 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:none}
+.lw-preview2.on{background:#2B303B}
+.lw-preview2.on video{display:block}
+.lw-prev-note{position:absolute;left:12px;bottom:10px;font-size:calc(14px * var(--type-scale));color:var(--muted)}
+.lw-lb-prev .lw-pills{padding:0 4px 4px}
+.lw-lb-prev .lw-rp svg{width:18px;height:18px}
+.lw-lb-side{padding:20px;display:flex;flex-direction:column;gap:16px}
+.lw-lb-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px;font-size:calc(16px * var(--type-scale));line-height:23px;color:var(--ink)}
+.lw-lb-list li{display:flex;gap:12px}
+.lw-lb-ic{flex:none;display:inline-flex;gap:2px;margin-top:2px}
+.lw-lb-ic svg{width:20px;height:20px}
+.lw-lb-acts{margin-top:auto;display:flex;flex-direction:column;align-items:stretch;gap:4px}
+.lw-lb-acts .fr-link{align-self:flex-start}
+.lw-ty-head{margin-top:10px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.lw-ty-head .lw-rp{flex:none}
+.lw-ty-next{min-width:0}
+.lw-ty-next .lw-hc{height:100%}
+.lw-ty-up{padding:20px;display:flex;flex-direction:column;gap:10px}
+.lw-ty-up .eyebrow{margin:0}
+.lw-ty-p{margin:0;font-size:calc(17px * var(--type-scale));line-height:26px;color:var(--ink)}
+.lw-ty-m{margin:0;font-size:calc(15px * var(--type-scale));line-height:22px;color:var(--muted)}
+.lw-ty-acts{margin-top:auto;padding-top:8px}
+.lw-r2l .lw-hc-acts .lw-remind{padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+@media (min-width:720px){
+  .lw-lb-h1{font-size:calc(40px * var(--type-scale))}
+  .lw-lb-grid{grid-template-columns:repeat(12,minmax(0,1fr))}
+  .lw-lb-prev,.lw-ty-next{grid-column:1 / 8}
+  .lw-lb-side,.lw-ty-up{grid-column:8 / 13}
+  .lw-ty-solo .lw-ty-next{grid-column:1 / 9}
+  .lw-preview2{aspect-ratio:16 / 9}
+}
+@media (min-width:720px) and (max-width:1119.98px){
+  .lw-lb-prev,.lw-lb-side,.lw-ty-next,.lw-ty-up,.lw-ty-solo .lw-ty-next{grid-column:1 / -1}
+}
+@media (min-width:1120px){
+  .lw-r2l .lw-lb{padding:24px 40px 40px}
+  .lw-lb-back{display:inline-flex}
+  .lw-r2l .lw-lb-dock{display:none}
+}
