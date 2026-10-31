@@ -793,7 +793,15 @@
     if(window.MutationObserver && !sc._pgObs){ sc._pgObs = new MutationObserver(put); sc._pgObs.observe(sc, { childList:true }); }
   }
   if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))){ _tbSync(); _pgBackSync(); } }).observe(root, { childList:true });
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; try{ _tbSync(); }catch(e){} }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; try{ _tbSync(); }catch(e){} try{ _recoTint(); }catch(e){} }
+  // the recommended outline's colours: the latest check-in's state, with the two beside it on the Current
+  function _recoTint(){
+    const NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['shutdown','safety'] };
+    let k = null; try{ k = _cDom(Store.lastCheckin()); }catch(e){}
+    if(!NB[k]) k = 'safety';
+    const s = document.documentElement.style;
+    s.setProperty('--rc1', STATE_COLOR(k)); s.setProperty('--rc2', STATE_COLOR(NB[k][0])); s.setProperty('--rc3', STATE_COLOR(NB[k][1]));
+  }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful

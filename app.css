@@ -7151,7 +7151,7 @@ body.lw-in-room .shell{max-width:none}
 @property --snb-a{syntax:'<angle>';inherits:false;initial-value:0deg}
 .snb-reco{position:relative;border-color:transparent !important}
 .snb-reco::after{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;z-index:3;
-  background:conic-gradient(from var(--snb-a), var(--s-safety), var(--s-play), var(--s-fight), var(--s-freeze), var(--s-shutdown), var(--s-still), var(--s-safety));
+  background:conic-gradient(from var(--snb-a), var(--rc1,var(--s-safety)) 0deg 120deg, var(--rc2,var(--s-play)) 155deg, var(--rc1,var(--s-safety)) 190deg 270deg, var(--rc3,var(--s-still)) 305deg, var(--rc1,var(--s-safety)) 340deg);
   -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);-webkit-mask-composite:xor;
   mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
   animation:snbRecoTurn 9s linear infinite}
