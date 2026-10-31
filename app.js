@@ -972,51 +972,66 @@
   // the quiet "sign in" link moved onto the check-in itself. See guestCheckin().
 
   // ---------------------------------------------------------------- sign in / up
+  // ---- the sign-in frame (Justin, canon 2026-10-31): one sheet of paper split on the Swiss grid, no darker panel, no
+  // dividing line. Columns 1-6: the breath, circles only (the ring with "Take one breath first." inside it, two quiet rings
+  // breathing with it, 4s in / 6s out, "The breath needs no account." under it). Columns 8-12: the words, centred top to
+  // bottom. Phone: a short breath band on top, the words below. Reduced motion: nothing scales.
+  function _siFrame(inner){
+    return `<div class="view si-view">
+        <section class="si-breath" aria-label="One breath">
+          <span class="si-mark" role="img" aria-label="Stuck Not Broken">${triGlyph('neutral')}</span>
+          <span class="si-ring si-ring-a" aria-hidden="true"></span><span class="si-ring si-ring-b" aria-hidden="true"></span>
+          <button class="gate-breath si-bbtn" id="gate-breath" type="button" aria-label="Take one breath first"><span class="gb-ring" id="gb-ring" aria-hidden="true"></span><span class="gb-txt" id="gb-txt" aria-live="polite">Take one breath first.</span></button>
+          <p class="si-note">The breath needs no account.</p>
+        </section>
+        <div class="si-side"><div class="si-body">${inner}</div></div>
+      </div>`;
+  }
+  const _SI_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+  const _siPw = (id, auto, label, extra) => `<div class="si-field"><div class="si-lab"><label for="${id}">${label}</label>${extra||''}</div>
+          <div class="si-pw"><input id="${id}" type="password" autocomplete="${auto}"><button class="si-show" type="button" data-show="${id}" aria-pressed="false" aria-label="Show password">Show</button></div></div>`;
+  function _siWire(){
+    const gb = $('#gate-breath'); if(gb) gb.onclick = gateBreath;
+    root.querySelectorAll('.si-show').forEach(b=>{ b.onclick = ()=>{ const i = document.getElementById(b.dataset.show); if(!i) return;
+      const show = i.type === 'password'; i.type = show ? 'text' : 'password'; b.textContent = show ? 'Hide' : 'Show';
+      b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); }; });
+  }
+
   function screenSignIn(err, busy){
     const up = authMode==='up';
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
-          <button class="gate-breath" id="gate-breath" type="button" aria-label="take one breath first">
-            <span class="gb-ring" id="gb-ring" aria-hidden="true"></span>
-            <span class="gb-txt" id="gb-txt" aria-live="polite">Take one breath first.</span>
-          </button>
-          <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">You\u2019re joining a live practice. Sign in to check in.</div>':''}
-          <h1 style="margin:10px 0 12px">${up?'An app to guide you through emotional regulation.':'Your nervous system, over time.'}</h1>
-          <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices based on what helps you, and watch your patterns become visible over time.</p>
-          ${up&&Store.cloud()?'<p class="fineprint gate-sep">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>':''}
-          <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
-          ${up ? '<div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
-          <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
-          ${err?(/invalid login credentials/i.test(err)&&!up
-            ? `<p class="autherr">That email and password don't match an app account. Your stucknotbroken.com login doesn't carry over to the app, so if you haven't made an app account yet, create one with this email.</p><button class="set-quiet" id="err-up" type="button" style="display:block;margin:8px 0 4px">Create an app account with this email</button>`
-            : `<p class="autherr">${escapeHtml(err)}</p>`):''}
-          <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':(up?'Create account':'Sign in')}</button>
-          ${up&&!Store.cloud()?'<p class="fineprint" style="margin-top:12px;text-align:center">Already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">Log in</button></p>':''}
-          ${up||!Store.cloud()?'':'<button class="btn block quiet" id="go-up" type="button" style="margin-top:10px"'+(busy?' disabled':'')+'>New here? Create an account</button>'}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">Just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a check-in, no account needed</button>'}
-          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
-          <p class="fineprint" style="margin-top:6px">An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>`:''}
-          ${up||!Store.cloud()?`<p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'Sign in':'Create an account'}</button></p>`:''}
-          ${up?'':'<p class="fineprint" style="margin-top:6px">The breath above needs no account. The rest of the app does. It keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">Forgot your password?</button></p>'}
-          ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}
-        </div>
-      </div>`);
+    // one headline for both (Justin 2026-10-31: beta's "An app to guide you through emotional regulation." goes);
+    // Sign in / Create account as two outlined pills switching the form in place; errors right under the email.
+    const errHTML = err ? (/invalid login credentials/i.test(err)&&!up
+      ? `<p class="autherr si-err">That email and password don't match an app account. Your stucknotbroken.com login doesn't carry over to the app, so if you haven't made an app account yet, create one with this email.</p><button class="fr-link" id="err-up" type="button">Create an app account with this email</button>`
+      : `<p class="autherr si-err">${escapeHtml(err)}</p>`) : '';
+    const mode = (k, l) => `<button class="si-mode${(k==='up')===up?' on':''}" type="button" id="mode-${k}" aria-pressed="${(k==='up')===up}"${busy?' disabled':''}>${(k==='up')===up?_SI_TICK:''}${l}</button>`;
+    setHTML(_siFrame(`
+          <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note si-box">You\u2019re joining a live practice. Sign in to check in.</div>':''}
+          <h1 class="si-h1">Your nervous system, over time.</h1>
+          <p class="lede si-lede">Check in about your nervous system, get practices based on what helps you, and watch your patterns become visible over time.</p>
+          <div class="si-modes" role="group" aria-label="Sign in or create an account">${mode('in','Sign in')}${mode('up','Create account')}</div>
+          ${up&&Store.cloud()?'<p class="si-box">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>':''}
+          <div class="si-field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin:2px 0 0" aria-live="polite"></p>${errHTML}</div>
+          ${up ? '<div class="si-field"><label for="nm">Your name <span class="si-opt">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
+          ${_siPw('pw', up?'new-password':'current-password', 'Password', (!up&&Store.cloud())?'<button class="si-forgot" id="forgot" type="button">Forgot your password?</button>':'')}
+          <button class="btn block si-go" id="go"${busy?' disabled':''}>${busy?'One moment…':(up?'Create account':'Sign in')}</button>
+          ${up?`<p class="si-fine">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>. An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>`:''}
+          ${up||!Store.cloud()?'':`<button class="si-try" id="guest-start" type="button"${busy?' disabled':''}><span class="si-try-w"><span class="si-try-q">Just want to try it?</span><span class="si-try-t">Start a check-in, no account needed</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`}
+          ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}`));
     if(busy) return;
+    _siWire();
+    { const mi=$('#mode-in'), mu=$('#mode-up'), keep=()=>{ const e=$('#em'); if(e) lastEmail=e.value.trim(); };
+      if(mi) mi.onclick=()=>{ if(!up) return; keep(); authMode='in'; screenSignIn(); };
+      if(mu) mu.onclick=()=>{ if(up) return; keep(); authMode='up'; screenSignIn(); }; }    if(busy) return;
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
-    const gs=$('#guest-start'); if(gs) gs.onclick = startGuestFlow;
-    { const tg=$('#toggle'); if(tg) tg.onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); }; }
+    const gs=$('#guest-start'); if(gs) gs.onclick = ()=>startGuestFlow();
     // "New here? Create an account" as a full button right under Sign in (Justin, 2026-10-14, option C, after Dan
     // couldn't find the sign-up link: "I can't find a way to scroll down to see if there's a 'sign up' link")
     { const keep=()=>{ const e=$('#em'); if(e) lastEmail=e.value.trim(); };
-      const gu=$('#go-up'), eu=$('#err-up');
-      if(gu) gu.onclick=()=>{ keep(); authMode='up'; screenSignIn(); };
+      const eu=$('#err-up');
       if(eu) eu.onclick=()=>{ keep(); authMode='up'; screenSignIn(); setTimeout(()=>{ const pw=$('#pw'); if(pw) pw.focus(); }, 50); }; }
-    { const _tt=$('#toggle-top'); if(_tt) _tt.onclick=()=>{ authMode='in'; screenSignIn(); }; }
     $('#go').onclick = submit;
-    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
+    root.querySelectorAll('.si-fine a[data-policy]').forEach(a=>{
       a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
     });
     $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; emailHint(); });
@@ -1024,7 +1039,7 @@
     $('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
     const fg=$('#forgot'); if(fg) fg.onclick = ()=>{
       const email=$('#em').value.trim();
-      if(!email){ lastEmail=email; return screenSignIn('enter your email above first, then tap "Forgot your password?"'); }
+      if(!email){ lastEmail=email; return screenSignIn('Enter your email above first, then tap "Forgot your password?"'); }
       lastEmail=email;
       screenSignIn(null, true);
       Promise.resolve(Store.resetPassword(email)).then(res=>{
@@ -1043,7 +1058,7 @@
       const dom = at>0 ? v.slice(at+1).toLowerCase() : '';
       if(fixes[dom]){
         hint.style.display='block';
-        hint.innerHTML='did you mean <button type="button" class="linkbtn" id="em-fix" style="font-size:inherit;padding:0">'+escapeHtml(v.slice(0,at+1)+fixes[dom])+'</button>?';
+        hint.innerHTML='Did you mean <button type="button" class="linkbtn" id="em-fix" style="font-size:inherit;padding:0">'+escapeHtml(v.slice(0,at+1)+fixes[dom])+'</button>?';
         const fx=hint.querySelector('#em-fix');
         if(fx) fx.onclick=()=>{ el.value=v.slice(0,at+1)+fixes[dom]; lastEmail=el.value; hint.style.display='none'; };
       } else hint.style.display='none';
@@ -1086,7 +1101,7 @@
     try{ haptic('start'); }catch(_){}
     const setTxt=(t)=>{ if(txt) txt.textContent=t; };
     const done=()=>{
-      setTxt("that's the heart of it. come on in.");
+      setTxt("That's the heart of it. Come on in.");
       setTimeout(()=>{
         if(ring){ ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation=''; }
         setTxt('Take one breath first.');
@@ -1101,11 +1116,11 @@
       ring.style.opacity='.5';
     }
     setTimeout(()=>{
-      setTxt('in');
+      setTxt('In');
       if(ring){ if(reduce){ ring.style.transition='opacity 4s'; ring.style.opacity='.85'; }
         else{ ring.style.transition='transform 4s cubic-bezier(.4,0,.5,1), opacity 4s'; ring.style.transform='scale(1.22)'; ring.style.opacity='.85'; } }
       setTimeout(()=>{
-        setTxt('out');
+        setTxt('Out');
         if(ring){ if(reduce){ ring.style.transition='opacity 6s'; ring.style.opacity='.45'; }
           else{ ring.style.transition='transform 6s cubic-bezier(.4,0,.5,1), opacity 6s'; ring.style.transform='scale(.82)'; ring.style.opacity='.45'; } }
       }, 4200);
@@ -1613,23 +1628,21 @@
   // if the register is off.
   function guestAccountForm(mode, err, busy){
     const paid = mode==='paid';
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
-          <p class="eyebrow">${paid ? (_planChoice==='annual' ? 'subscribe · $108/yr' : 'subscribe · $12/mo') : 'keep going for free'}</p>
-          <h1 style="margin:10px 0 12px">Create your account.</h1>
-          <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"></div>
-          <div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
-          <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="new-password"></div>
-          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':(paid?'Continue to payment':'Create account')}</button>
-          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
-          <p class="fineprint" style="margin-top:6px">An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>
-          <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-back" style="font-size:inherit;padding:2px">Back</button></p>
-        </div>
-      </div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">${paid ? (_planChoice==='annual' ? 'Subscribe · $108/yr' : 'Subscribe · $12/mo') : 'Keep going for free'}</p>
+          <h1 class="si-h1">Create your account.</h1>
+          <p class="si-box">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>
+          <div class="si-field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}">${err?`<p class="autherr si-err">${escapeHtml(err)}</p>`:''}</div>
+          <div class="si-field"><label for="nm">Your name <span class="si-opt">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
+          ${_siPw('pw', 'new-password', 'Password')}
+          <button class="btn block si-go" id="g-go"${busy?' disabled':''}>${busy?'One moment…':(paid?'Continue to payment':'Create account')}</button>
+          <p class="si-fine">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>. An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>
+          <button class="fr-link" id="g-back" type="button">Back</button>`)); _siWire();
     if(busy) return;
+    root.querySelectorAll('.si-fine a[data-policy]').forEach(a=>{
+      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
+    });
+    $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; });    if(busy) return;
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
       a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
     });
@@ -1951,54 +1964,43 @@
   // An Academy member (or a direct grant) already has the paid plan: create-checkout refuses before any charge and
   // this says so (2026-10-08, after an Academy member was charged for a yearly plan). 🖊 copy is draft.
   function screenIncluded(){
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
+    setHTML(_siFrame(`
           <p class="eyebrow">Already included</p>
-          <h1 style="margin:10px 0 12px">You already have the full app.</h1>
-          <p class="lede" style="margin-bottom:24px">Your account already includes everything in Self-Regulator. There is nothing to pay, and you were not charged.</p>
-          <button class="btn block" id="inc-go">Continue</button>
-        </div>
-      </div>`);
+          <h1 class="si-h1">You already have the full app.</h1>
+          <p class="lede si-p">Your account already includes everything in Self-Regulator. There is nothing to pay, and you were not charged.</p>
+          <div class="si-acts"><button class="btn" id="inc-go">Continue</button></div>`)); _siWire();
     $('#inc-go').onclick = ()=>{ _subFrom = null; currentTab = 'now'; route(); };
   }
 
   function screenConfirm(email){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">Almost there</p>
-        <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a confirmation link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap it, then come back here to sign in.</p>
-        <button class="btn block" id="back2">Back to sign in</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">Almost there</p>
+          <h1 class="si-h1">Check your email.</h1>
+          <p class="lede si-p">We sent a confirmation link to <b class="si-em">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap it, then come back here to sign in.</p>
+          <div class="si-acts"><button class="fr-pill" id="back2" type="button">Back to sign in</button></div>`)); _siWire();
     $('#back2').onclick=()=>{ authMode='in'; screenSignIn(); };
   }
 
   // forgot password: confirmation that the reset email went out
   function screenResetSent(email){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">Reset link sent</p>
-        <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a password reset link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap the link and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
-        <button class="btn block" id="back3">Back to sign in</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">Reset link sent</p>
+          <h1 class="si-h1">Check your email.</h1>
+          <p class="lede si-p">We sent a password reset link to <b class="si-em">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap the link and you'll come back here to choose a new password. It can take a couple of minutes to arrive.</p>
+          <div class="si-acts"><button class="fr-pill" id="back3" type="button">Back to sign in</button></div>`)); _siWire();
     $('#back3').onclick=()=>{ authMode='in'; screenSignIn(); };
   }
 
   // landed here from the reset link in their email: already signed in,
   // one job — choose a new password.
   function screenNewPassword(err, busy){
-    setHTML(`
-      <div class="view gate"><div class="gate-body">
-        <p class="eyebrow">New password</p>
-        <h1 style="margin:12px 0 12px">Choose a new password.</h1>
-        <p class="lede" style="margin-bottom:24px">You're signed in. Pick a new password and you're done.</p>
-        <div class="field"><label for="npw">New password</label><input id="npw" type="password" autocomplete="new-password"></div>
-        ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-        <button class="btn block" id="npw-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':'Save password'}</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">New password</p>
+          <h1 class="si-h1">Choose a new password.</h1>
+          <p class="lede si-p">You're signed in. Pick a new password and you're done.</p>
+          ${_siPw('npw', 'new-password', 'New password')}
+          ${err?`<p class="autherr si-err">${escapeHtml(err)}</p>`:''}
+          <div class="si-acts"><button class="btn" id="npw-go"${busy?' disabled':''}>${busy?'One moment…':'Save password'}</button></div>`)); _siWire();
     if(busy) return;
     const submit=()=>{
       const pw=$('#npw').value;
@@ -2020,13 +2022,11 @@
   }
   // password saved from a browser tab (not the installed app): point them home.
   function screenResetDone(){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">All set</p>
-        <h1 style="margin:12px 0 12px">Password updated.</h1>
-        <p class="lede" style="margin-bottom:24px">You can close this tab. Open the app from your Home Screen and sign in with your new password if it asks.</p>
-        <button class="btn block" id="reset-done-continue">Or keep going here</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">All set</p>
+          <h1 class="si-h1">Password updated.</h1>
+          <p class="lede si-p">You can close this tab. Open the app from your Home Screen and sign in with your new password if it asks.</p>
+          <div class="si-acts"><button class="fr-pill" id="reset-done-continue" type="button">Or keep going here</button></div>`)); _siWire();
     $('#reset-done-continue').onclick=()=>{ currentTab='now'; route(); };
   }
   // In-app reader for the create-account disclaimers. Back returns to the
@@ -14291,18 +14291,17 @@ function app(tab){
   }
 
   function screenDeleteAccount(err, busy){
-    setHTML(`
-      <div class="view gate"><div class="gate-body">
-        <p class="eyebrow">Delete my account</p>
-        <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
-        <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
-        <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
-        ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede" style="margin-bottom:14px"><strong>Your Self-Regulator plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
-        <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
-        ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-        <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep my account</button>
-        <p class="fineprint" style="margin-top:12px;text-align:center"><button class="linkbtn" id="del-go" style="font-size:inherit;padding:2px"${busy?' disabled':''}>${busy?'Deleting…':'Delete my account and all of my data'}</button></p>
-      </div></div>`);
+    // staying is the easy choice: "Keep my account" is the filled button, delete is a plain link
+    setHTML(_siFrame(`
+          <p class="eyebrow">Delete my account</p>
+          <h1 class="si-h1">Before you go, here's exactly what happens.</h1>
+          <p class="lede si-p">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
+          <p class="lede si-p">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
+          ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede si-p"><strong>Your Self-Regulator plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
+          <p class="lede si-p">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
+          ${err?`<p class="autherr si-err">${escapeHtml(err)}</p>`:''}
+          <div class="si-acts"><button class="btn" id="del-keep"${busy?' disabled':''}>Keep my account</button>
+          <button class="fr-link" id="del-go" type="button"${busy?' disabled':''}>${busy?'Deleting…':'Delete my account and all of my data'}</button></div>`)); _siWire();
     $('#del-keep').onclick = ()=>{ if(!busy) screenSettings(); };
     if(busy) return;
     $('#del-go').onclick = ()=>{
@@ -14315,13 +14314,11 @@ function app(tab){
   }
 
   function screenDeleted(){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">Done</p>
-        <h1 style="margin:12px 0 12px">Your account is gone.</h1>
-        <p class="lede" style="margin-bottom:24px">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
-        <button class="btn block" id="del-done">Okay</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">Done</p>
+          <h1 class="si-h1">Your account is gone.</h1>
+          <p class="lede si-p">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
+          <div class="si-acts"><button class="fr-pill" id="del-done" type="button">Okay</button></div>`)); _siWire();
     $('#del-done').onclick = ()=>{ authMode='in'; lastEmail=''; currentTab='now'; route(); };
   }
 
