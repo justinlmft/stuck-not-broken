@@ -3260,15 +3260,60 @@ function app(tab){
     const ok = _lwAllowed(s), sum = _lwSummary(s);
     const desc = _lwDescHTML(s) || (sum ? `<p class="lw-p">${escapeHtml(sum)}</p>` : '');
     const who = panel ? `<div class="lw-blk"><p class="lw-lbl">Who it’s for</p><p class="lw-p"><b>${s.access === 'free' ? 'Free for everyone.' : `<span class="lw-acc">${ok ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span> members.`}</b></p></div>` : '';
-    const act = ok ? `<div class="lw-ev-btns">${_lwActs(s, panel)}</div>`
-      : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns"><button class="btn lw-act lk-btn${panel ? '' : ' quiet'}" type="button" data-lw-see="${s.id}">${LOCK_SVG}See paid plans</button></div>`;
+    const act = ok ? `<div class="lw-ev-btns lw-pn-acts">${_lwPill(s, true)}${_lwDoorOpen(s) ? '' : _lwRemindBtn(s, _lwRemOn(s))}</div>`
+      : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns lw-pn-acts">${_lwPill(s, true)}</div>`;
     return who + _lwIcons(s) + desc + act;
   }
   function _lwPanel(s){
     if(!s) return '';
     const room = _lwRoomOpen(s), live = _lwIsLive(s);
     const when = live ? 'Live now' : room ? 'Open any time' : _lwLongDate(_lwStart(s)) + ' · ' + _lwRangeC(s);
-    return `<h3 class="lw-pn-h">${escapeHtml(room ? (s.title || _lwKind(s).name) : _lwKind(s).name)}</h3><p class="lw-pn-when">${escapeHtml(when)}</p>${_lwDetail(s, true)}`;
+    return `<span class="lw-hc-pic lw-pn-pic" data-lwstill="reeds" aria-hidden="true"></span><div class="lw-pn-in"><h3 class="lw-pn-h">${escapeHtml(room ? (s.title || _lwKind(s).name) : _lwKind(s).name)}</h3><p class="lw-pn-when">${escapeHtml(when)}</p>${_lwDetail(s, true)}</div>`;
+  }
+  // ---- the Calendar in house cards (Justin, canon 2026-10-31): no rows, no divider lines ----
+  // One pill per card so people can RSVP to several in a row without opening anything (Justin): outlined like a Filter
+  // choice, "RSVP" on a hairline, "RSVP’d" with the ink outline and a check (tap again to undo). Locked: lock + "See paid
+  // plans". Once the room opens: "Join". No black buttons.
+  function _lwPill(s, big){
+    const c = 'lw-rp' + (big ? ' lw-rp-big' : '');
+    if(!_lwAllowed(s)) return `<button class="${c}" type="button" data-lw-see="${s.id}">${LOCK_SVG}See paid plans</button>`;
+    if(_lwDoorOpen(s)) return `<button class="${c} on" type="button" data-lw-join="${s.id}">Join</button>`;
+    const on = _lwRsvp(s);
+    return `<button class="${c}${on ? ' on' : ''}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${on}">${on ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>`;
+  }
+  // a card: inset picture (one per series for now: the live room's reeds), the big date with the weekday, title, time,
+  // "Free"; the next event is the big card with a "Next" label and its one-line summary. Tapping the title opens the info.
+  function _lwCard(s, big){
+    const K = _lwKind(s), d = new Date(_lwStart(s)), room = _lwRoomOpen(s), live = _lwIsLive(s), sel = _lwWide() && _lw.sel === s.id;
+    const nm = room ? (s.title || K.name) : K.name, sum = big ? _lwSummary(s) : '';
+    const when = live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : room ? 'Open any time' : escapeHtml(_lwRangeC(s));
+    return `<article class="lw-hc${big ? ' lw-hc-big' : ''}${sel ? ' is-sel' : ''}${live ? ' lw-ev-live' : ''}">
+        <span class="lw-hc-pic" data-lwstill="reeds" aria-hidden="true"></span>
+        <span class="lw-hc-b">
+          ${big ? '<span class="eyebrow lw-hc-next">Next</span>' : ''}
+          <span class="lw-hc-row">${room ? '' : `<span class="lw-hc-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-US', { weekday:'short' })}</span></span>`}
+            <span class="lw-hc-txt"><button class="lw-hc-t" type="button" data-lw-open="${s.id}" aria-pressed="${sel}"${_lwWide() ? ' aria-controls="lw-sch-panel"' : ' aria-haspopup="dialog"'}>${escapeHtml(nm)}</button>
+              <span class="lw-hc-m">${when}</span>${s.access === 'free' ? '<span class="lw-hc-m">Free</span>' : ''}</span></span>
+          ${sum ? `<span class="lw-hc-sum">${escapeHtml(sum)}</span>` : ''}
+          <span class="lw-hc-acts">${_lwPill(s, false)}</span>
+        </span></article>`;
+  }
+  // the pictures: stills from the scene engine (the reeds, as in the live room)
+  let _lwSc = [];
+  function _lwStills(el){
+    if(!window.SNBScene || !el) return;
+    el.querySelectorAll('[data-lwstill]').forEach(c=>{ if(c.firstChild) return; try{ _lwSc.push(SNBScene.mount(c, { scene:c.dataset.lwstill, tod:'midday', dark:_scDark(), reduce:true })); }catch(e){} });
+  }
+  function _lwStillsStop(){ _lwSc = _lwSc.filter(x=>{ if(x.el && x.el.isConnected) return true; try{ x.stop(); }catch(e){} return false; }); }
+  // tablet and phone: the same info as a bottom sheet (light scrim, X to close), with the RSVP pill and Remind me
+  function _lwCardSheet(s){
+    if(!s) return;
+    const sh = _lwSheet(_lwRoomOpen(s) ? (s.title || _lwKind(s).name) : _lwKind(s).name, `<div class="lw-hc-sheet">${_lwPanel(s)}</div>`);
+    const h = sh.el.querySelector('.lw-pn-h'); if(h) h.remove();
+    const body = sh.el.querySelector('.lw-hc-sheet');
+    _lwStills(body);
+    const rewire = () => { _lwWire(body); body.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = async () => { await _lwRsvpToggle((_lw.sched || []).find(x => x.id === b.dataset.lwRsvp)); const ev = (_lw.sched || []).find(x => x.id === s.id); if(ev && body.isConnected){ const acts = body.querySelector('.lw-pn-acts'); if(acts){ const t = document.createElement('div'); t.innerHTML = _lwPanel(ev); const na = t.querySelector('.lw-pn-acts'); if(na){ acts.replaceWith(na); rewire(); } } } }); };
+    rewire();
   }
   function _lwRow(s, wide){
     const K = _lwKind(s), d = new Date(_lwStart(s)), room = _lwRoomOpen(s), live = _lwIsLive(s);
@@ -3301,8 +3346,8 @@ function app(tab){
     const el = document.getElementById('lw-body'); if(!el) return;
     const s = (_lw.sched || []).find(x => x.id === id); if(!s) return;
     _lw.sel = id;
-    el.querySelectorAll('[data-lw-pick]').forEach(b => { const on = b.dataset.lwPick === id; b.setAttribute('aria-pressed', on); b.closest('.lw-ev').classList.toggle('is-sel', on); });
-    const pn = document.getElementById('lw-sch-panel'); if(pn){ pn.innerHTML = _lwPanel(s); _lwWire(pn); }
+    el.querySelectorAll('[data-lw-open]').forEach(b => { const on = b.dataset.lwOpen === id; b.setAttribute('aria-pressed', on); const c = b.closest('.lw-hc'); if(c) c.classList.toggle('is-sel', on); });
+    const pn = document.getElementById('lw-sch-panel'); if(pn){ pn.innerHTML = _lwPanel(s); _lwWire(pn); _lwStillsStop(); _lwStills(pn); }
   }
   const _lwTermsLink = () => `<button class="lw-past-link" type="button" id="lw-terms"><span>Live event terms</span>${CHEV}</button>`;
   function _lwTermsWire(el){
@@ -3328,24 +3373,18 @@ function app(tab){
     const dated = list.filter(s => !_lwRoomOpen(s)), rooms = list.filter(_lwRoomOpen);
     if(!_lw.sel || !list.some(s => s.id === _lw.sel)) _lw.sel = (dated[0] || rooms[0]).id;   // the panel opens on the next event
     // keep the keyboard where it was across a repaint (RSVP, reminder, opening a row)
-    const fa = document.activeElement, fk = fa && el.contains(fa) ? ['data-lw-pick','data-lw-tog','data-lw-rsvp','data-lw-rem','data-lw-see','data-lw-join'].find(a => fa.hasAttribute(a)) : null;
+    const fa = document.activeElement, fk = fa && el.contains(fa) ? ['data-lw-open','data-lw-rsvp','data-lw-rem','data-lw-see','data-lw-join'].find(a => fa.hasAttribute(a)) : null;
     const fv = fk ? fa.getAttribute(fk) : null, fInPanel = !!(fa && fa.closest && fa.closest('#lw-sch-panel'));
     const groups = [];
     dated.forEach(s => { const m = new Date(_lwStart(s)).toLocaleDateString('en-US', { month:'long' }); let g = groups[groups.length - 1]; if(!g || g.name !== m){ g = { name:m, rows:[] }; groups.push(g); } g.rows.push(s); });
     if(rooms.length) groups.push({ name:'Open any time', rows:rooms });
-    const listHTML = groups.map(g => `<section class="lw-mon"><h3 class="lw-mon-h">${escapeHtml(g.name)}</h3>${g.rows.map(s => _lwRow(s, wide)).join('')}</section>`).join('') + _lwTermsLink() + _lwPastLink();
+    const first = (dated[0] || rooms[0] || {}).id;
+    const listHTML = groups.map(g => `<section class="lw-mon"><h3 class="lw-mon-h">${escapeHtml(g.name)}</h3><div class="lw-hc-grid">${g.rows.map(s => _lwCard(s, s.id === first)).join('')}</div></section>`).join('') + _lwTermsLink() + _lwPastLink();
     el.innerHTML = wide
       ? `<div class="lw-sch is-wide"><div class="lw-sch-list">${listHTML}</div><aside class="lw-sch-panel" id="lw-sch-panel" aria-label="Event details" aria-live="polite">${_lwPanel(list.find(s => s.id === _lw.sel))}</aside></div>`
       : `<div class="lw-sch"><div class="lw-sch-list">${listHTML}</div></div>`;
-    el.querySelectorAll('[data-lw-pick]').forEach(b => { b.onclick = () => _lwPick(b.dataset.lwPick); b.onfocus = () => _lwPick(b.dataset.lwPick); });
-    el.querySelectorAll('[data-lw-tog]').forEach(b => b.onclick = () => {
-      const id = b.dataset.lwTog, o = !_lw.open[id], s = document.getElementById('lw-more-' + id), row = b.closest('.lw-ev'), inn = s && s.querySelector('.lw-ev-in');
-      _lw.open[id] = o;
-      if(!s || !inn){ _lwBody(); return; }
-      if(o && !inn.firstChild){ const ev = (_lw.sched || []).find(x => x.id === id); if(!ev){ _lwBody(); return; } inn.innerHTML = _lwDetail(ev, false); _lwWire(inn); }
-      if(o && row) row.classList.add('is-open');
-      _pmSlide(b, s, o, () => { if(!o && row) row.classList.remove('is-open'); });
-    });
+    el.querySelectorAll('[data-lw-open]').forEach(b => { b.onclick = () => { if(_lwWide()) _lwPick(b.dataset.lwOpen); else _lwCardSheet((_lw.sched || []).find(x => x.id === b.dataset.lwOpen)); }; });
+    _lwStillsStop(); _lwStills(el);
     _lwWire(el);
     _lwPastWire(el);
     _lwTermsWire(el);

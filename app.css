@@ -6841,3 +6841,61 @@ button.fr-sm:hover{border-color:var(--ink-80)}
 }
 @media (prefers-reduced-motion:reduce){ .si-ring,.si-bbtn .gb-ring{animation:none} }
 body.reduce-motion .si-ring,body.reduce-motion .si-bbtn .gb-ring{animation:none}
+
+/* ============================================================
+   THE CALENDAR IN HOUSE CARDS (Justin, canon 2026-10-31; BRAND_DESIGN_SYSTEM §4 "Dated lists and events")
+   Months as headings; the next event big (picture inset, "Next", its summary); later events two across. No divider lines.
+   ============================================================ */
+.lw-hc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap)}
+.lw-hc{grid-column:span 2;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;min-width:0;padding:12px 12px 16px;border:1px solid var(--hairline);border-radius:16px;color:var(--ink);transition:border-color .2s var(--ease)}
+.lw-hc-big{grid-column:span 4}
+.lw-hc.is-sel{border-color:var(--ink)}
+.lw-hc-pic{position:relative;display:block;flex:none;width:100%;aspect-ratio:16 / 9;border-radius:12px;overflow:hidden;background:var(--bone-deep)}
+.lw-hc-b{display:flex;flex-direction:column;gap:10px;min-width:0;padding:0 4px;flex:1 1 auto}
+.lw-hc-next{margin:0}
+.lw-hc-row{display:flex;align-items:flex-start;gap:14px;min-width:0}
+.lw-hc-date{flex:none;display:flex;flex-direction:column;min-width:36px}
+.lw-hc-date b{font-size:calc(26px * var(--type-scale));line-height:1;font-weight:500;letter-spacing:-.02em;color:var(--ink)}
+.lw-hc-big .lw-hc-date b{font-size:calc(34px * var(--type-scale))}
+.lw-hc-date span{margin-top:4px;font-size:calc(14px * var(--type-scale));line-height:18px;color:var(--muted)}
+.lw-hc-txt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.lw-hc-t{align-self:flex-start;margin:0;padding:0;border:0;background:none;color:var(--ink);font:inherit;font-size:calc(16px * var(--type-scale));line-height:22px;font-weight:500;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.lw-hc-t:hover{text-decoration:underline;text-underline-offset:3px}
+.lw-hc-t:focus-visible,.lw-rp:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:8px}
+.lw-hc-big .lw-hc-t{font-size:calc(22px * var(--type-scale));line-height:1.25;font-weight:600;letter-spacing:-.015em}
+.lw-hc-m{display:inline-flex;align-items:center;gap:6px;font-size:calc(14px * var(--type-scale));line-height:20px;color:var(--muted)}
+.lw-hc-sum{font-size:calc(16px * var(--type-scale));line-height:24px;color:var(--ink-80)}
+.lw-hc-acts{margin-top:auto;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-top:2px}
+.lw-rp{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 18px;border:1px solid var(--hairline);border-radius:999px;background:none;color:var(--ink);font:inherit;font-size:calc(15px * var(--type-scale));font-weight:500;cursor:pointer;transition:border-color .2s var(--ease)}
+.lw-rp:hover{border-color:var(--ink-80)}
+.lw-rp.on{border:1.5px solid var(--ink);padding:0 17.5px;font-weight:600}
+.lw-rp svg{width:16px;height:16px;flex:none}
+.lw-rp .rd-lk{width:15px;height:15px}
+.lw-rp-big{padding:0 22px}
+.lw-rp-big.on{padding:0 21.5px}
+.lw-sch .lw-mon + .lw-mon{margin-top:24px}
+.lw-sch .lw-mon-h{margin:0 0 16px;font-size:calc(22px * var(--type-scale));line-height:28px;font-weight:600}
+.lw-sch .lw-mon:first-child .lw-mon-h{margin-top:0}
+/* the panel (desktop) and the sheet: a house card */
+.lw-sch-panel{background:none;border:1px solid var(--hairline);padding:12px 12px 20px;gap:14px}
+.lw-pn-in{display:flex;flex-direction:column;gap:14px;padding:0 4px}
+.lw-pn-in > *{margin:0}
+.lw-pn-acts{display:flex;flex-wrap:wrap;align-items:center;gap:20px}
+.lw-pn-acts .lw-remind{padding:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.lw-hc-sheet{display:flex;flex-direction:column;gap:14px}
+.lw-hc-sheet .lw-pn-pic{aspect-ratio:16 / 9}
+.lw-hc-sheet .lw-pn-in{padding:0}
+.lw-hc-sheet .lw-p{margin:0;font-size:calc(15px * var(--type-scale));line-height:24px;color:var(--ink-80)}
+@media (min-width:720px){
+  .lw-hc-grid{grid-template-columns:repeat(12,minmax(0,1fr))}
+  .lw-hc{grid-column:span 6}
+  .lw-hc-big{grid-column:span 12;flex-direction:row;gap:20px}
+  .lw-hc-big .lw-hc-pic{width:48%;aspect-ratio:4 / 3}
+  .lw-hc-big .lw-hc-b{padding:8px 4px 0 0;justify-content:center}
+  .lw-hc-sheet .lw-pn-pic{aspect-ratio:21 / 9}
+}
+@media (min-width:1120px){
+  .lw-sch.is-wide .lw-hc-grid{grid-template-columns:repeat(8,minmax(0,1fr))}
+  .lw-sch.is-wide .lw-hc{grid-column:span 4}
+  .lw-sch.is-wide .lw-hc-big{grid-column:span 8}
+}
