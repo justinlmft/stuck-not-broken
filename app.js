@@ -796,7 +796,7 @@
   function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; try{ _tbSync(); }catch(e){} try{ _recoTint(); }catch(e){} }
   // the recommended outline's colours: the latest check-in's state, with the two beside it on the Current
   function _recoTint(){
-    const NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['shutdown','safety'] };
+    const NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['freeze','safety'] };  // stillness: freeze + safety (Justin 2026-10-31: the Current's ends touch in a circle)
     let k = null; try{ k = _cDom(Store.lastCheckin()); }catch(e){}
     if(!NB[k]) k = 'safety';
     const s = document.documentElement.style;
