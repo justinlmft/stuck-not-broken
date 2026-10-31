@@ -1206,6 +1206,33 @@
     return Promise.resolve(Store.signInAnonymously());
   }
 
+  // ---- first run on the Swiss grid (Justin, canon 2026-10-31; BRAND_DESIGN_SYSTEM §4 "First run (no account yet)") ----
+  // Tabbar-free, on paper. One small top bar on every screen: the mark, Back where the flow allows, and
+  // "Already have an account? Sign in". The words sit on columns 1-7 and the action card on 8-12 (phone: stacked, card last).
+  const _FR_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+  const _FR_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+  let _frSc = [];
+  function _frScStop(){ _frSc.forEach(s=>{ try{ s.stop(); }catch(e){} }); _frSc = []; }
+  function _frTop(back){
+    _frScStop();
+    // on a narrow phone with Back, the question folds away visually (still read aloud) so the bar stays one line
+    return `<header class="appbar fr-top${back ? ' fr-has-back' : ''}"><span class="fr-top-l"><span class="fr-mark" role="img" aria-label="Stuck Not Broken">${triGlyph('neutral')}</span>${back ? `<button class="fr-back" id="fr-back" type="button">${_FR_BACK}Back</button>` : ''}</span>
+      <span class="fr-top-r"><span class="fr-top-q">Already have an account? </span><button class="linkbtn fr-signin" id="fr-signin" type="button">Sign in</button></span></header>`;
+  }
+  // Sign in = the same operation as "Leave without saving" (sign the anonymous session out, land on the sign-in form).
+  // The offer keeps its own event (guest_signin, from:'offer'); the other screens never fired one and still don't.
+  function _frWire(onBack, from){
+    const b = $('#fr-back'); if(b && onBack) b.onclick = onBack;
+    const s = $('#fr-signin'); if(s) s.onclick = ()=>{ if(from==='offer') gtrack('guest_signin', { door:guestDoor(), from:'offer' }); guestLeave(); };
+  }
+  // the practice pictures: stills from the scene engine, in the colour of what the person described
+  function _frStills(){
+    if(!window.SNBScene) return;
+    const ci = _guestCI || gsGet().ci1 || null;
+    const st = ci ? window.PVCurrent.dominantOf(ci.v, ci.sym, ci.dor).key : null;
+    root.querySelectorAll('[data-frstill]').forEach(c=>{ try{ _frSc.push(SNBScene.mount(c, { scene:c.dataset.frstill, tod:'midday', state:st, dark:_scDark(), reduce:true })); }catch(e){} });
+  }
+
   // ---- guest check-in (streamlined, tabbar-free) ----
   // Three sliders + the live mirror + "ask me differently". Intentionally omits the
   // paid-side folds (challenge / "choose your next practice" = recommender
@@ -1230,13 +1257,13 @@
                : { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
     const entry = mode==='before';
     root.innerHTML = `
-      <header class="appbar">${entry && Store.user() ? '<button class="backbtn" id="g-ci-back">Back</button>':''}</header>
+      ${_frTop(entry && Store.user())}
       <div class="scroll" id="content"></div>`;
     // back exists only on a re-visited before-read (reflection -> back). Backing off it
     // = abandon (discard the anonymous session). The entry screen has no back — there is
     // nothing behind it any more; leaving is closing the tab or the quiet sign-in link.
-    const gcb = $('#g-ci-back'); if(gcb) gcb.onclick = ()=>guestLeave();
-    $('#content').innerHTML = `<div class="view checkin2 ci4">
+    _frWire(()=>guestLeave());
+    $('#content').innerHTML = `<div class="view checkin2 ci4 fr-ci">
         <div class="scr-head">
           <p class="eyebrow">${mode==='before' ? 'Before your practice' : 'After your practice'}</p>
           <h2 class="scr-h">Right now, how easy would it be to&hellip;</h2>
@@ -1249,15 +1276,14 @@
             ${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
           ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <div class="ci-reading" id="ci-reading"></div>
-          ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
-        <div class="actionbar">
+        <aside class="ci-readcard fr-card" aria-label="Your read">
+          <div class="ci-readrow"><span class="ci-read-mk" id="ci-read-mk" aria-hidden="true"></span><div class="ci-reading" id="ci-reading" aria-live="polite"></div></div>
+          ${err?`<p class="autherr" style="margin:0">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="g-ci-save">${mode==='after' ? 'See what changed' : 'See what you described'}</button>
-          ${mode==='post' ? '<button class="navlink" id="g-ci-skip" style="align-self:center">Not now</button>' : ''}
-          ${entry ? `<p class="fineprint" style="text-align:center;margin:2px 0 0">Nothing is saved unless you decide to create an account.</p>
-          <p class="fineprint" style="text-align:center;margin:0">Already have an account? <button class="linkbtn" id="g-ci-signin" style="font-size:inherit;padding:2px">Sign in</button></p>` : ''}
-        </div>
+          ${mode==='post' ? '<button class="fr-link" id="g-ci-skip" type="button">Not now</button>' : ''}
+          ${entry ? '<p class="fr-fine">Nothing is saved unless you decide to create an account.</p>' : ''}
+        </aside>
       </div>`;
     const axTouched = {};
     function refresh(){
@@ -1269,8 +1295,12 @@
         /* 2026-08-17 — the name IS the reading (Justin). 2026-08-22 — it always shows:
            untouched sliders are the person's answer, so there is always a state to
            name. Dead-centre keeps its sentence, the one case with no name to give. */
-        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
+        // the members' read (2026-10-29): the name large, its band under it, no em dash; the mark is ink until a slider is set
+        const _lb = window.PVCurrent.readingOf(v/100, s/100, d/100).label, _di = _lb.indexOf(' \u2014 ');
+        reading.innerHTML = `<span class="ci-reading-name">${_di > 0 ? _lb.slice(0, _di) : _lb}</span>${_di > 0 ? `<span class="ci-reading-band">${CAP(_lb.slice(_di + 3))}.</span>` : ''}`;
         reading.hidden = false;
+        const _mk = $('#ci-read-mk');
+        if(_mk) _mk.innerHTML = triGlyph((axTouched.v || axTouched.sym || axTouched.dor) ? window.PVCurrent.dominantOf(v/100, s/100, d/100).key : 'neutral');
       }
     }
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
@@ -1330,22 +1360,22 @@
     const dom = window.PVCurrent.dominantOf(ci.v, ci.sym, ci.dor);
     const name = STATE_NAME(dom.key);
     root.innerHTML = `
-      <header class="appbar">${_guestPracticed ? '' : '<button class="backbtn" id="g-rf-back">Back</button>'}</header>
+      ${_frTop(!_guestPracticed)}
       <div class="scroll" id="content"></div>`;
-    const grb = $('#g-rf-back'); if(grb) grb.onclick = ()=>guestCheckin('before');
-    $('#content').innerHTML = `<div class="view fb-view">
-        <div class="scr-head">
+    _frWire(()=>guestCheckin('before'));
+    $('#content').innerHTML = `<div class="view fr-view">
+        <div class="fr-words">
           <p class="eyebrow">What you described</p>
-          <div class="g-glyph">${triGlyph(dom.key)}</div>
-          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(CAP(name))}</h1>
-          <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
-          ${_guestPracticed ? '' : '<p class="scr-lede">Now that you\'ve checked in, you\'re ready for your practice.</p>'}
+          <div class="g-glyph fr-glyph">${triGlyph(dom.key)}</div>
+          <h1 class="fr-h1">${escapeHtml(CAP(name))}</h1>
+          <p class="scr-lede fr-lede">${escapeHtml(CAP(ciMirror(ci.v, ci.sym, ci.dor)))}</p>
+          ${_guestPracticed ? '' : '<p class="scr-lede fr-lede">Now that you\'ve checked in, you\'re ready for your practice.</p>'}
         </div>
-        <div class="actionbar">
+        <aside class="fr-card" aria-label="Next">
           ${_guestPracticed
             ? '<button class="btn block" id="g-rf-next">Next</button>'
-            : '<button class="btn block" id="g-rf-practice">Try my practice</button><button class="navlink" id="g-rf-save" style="align-self:center">Keep this check-in</button>'}
-        </div>
+            : '<button class="btn block" id="g-rf-practice">Try my practice</button><button class="fr-link" id="g-rf-save" type="button">Keep this check-in</button>'}
+        </aside>
       </div>`;
     // post-practice (the /stuck door's offered check-in): the way on is the offer
     const rfp = $('#g-rf-practice'); if(rfp) rfp.onclick = ()=>guestPracticePick();
@@ -1364,68 +1394,46 @@
     // hard stop: one practice per guest. If they've already had it, the only way on is the offer.
     if(_guestPracticed) return guestOffer();
     clearFigures(); document.body.classList.remove('in-practice');
-    const P_ICO = {
-      micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
-      anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
-      'self-regulation':        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
-      more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    };
     // the two open subs carry the estimate — sourced from PRACTICE_EST at the SAME
     // silence guestLaunch actually passes, so the promised times are the real times.
     const estTiny = estMinutes('micro', 2), estFull = estMinutes('mindfulness', 4);
-    const OPTS = [
-      { key:'micro',       open:true,  title:'A tiny practice',          sub:`about ${estTiny} min · one sense, done` },
-      { key:'mindfulness', open:true,  title:'Simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
-      { key:'anchoring',   open:false, title:'Safety anchoring',        sub:'Connecting with safety through your senses' },
-      { key:'self-regulation',        open:false, title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
-      { key:'more',        open:false, title:'More practices',           sub:'Standalone guided practices' },
+    // Justin 2026-10-31: the two free practices as big house cards; the custom practice and the three paid ones as
+    // smaller cards, the paid ones with lock + "See paid plans", the same as the rest of the app (no greying out).
+    const FREE = [
+      { key:'micro',       still:'circles', title:'A tiny practice',    sub:`About ${estTiny} min · one sense, done` },
+      { key:'mindfulness', still:'pond',    title:'Simple mindfulness', sub:`About ${estFull} min · the gentlest, a calm place to start` },
     ];
-    const card = (o)=> o.open ? `
-      <button class="wincard p-opt g-opt" data-gkey="${o.key}">
-        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
-        <span class="wc-text">
-          <span class="wc-title">${escapeHtml(o.title)}</span>
-          <span class="wc-reason">${escapeHtml(o.sub)}</span>
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </button>` : `
-      <div class="wincard p-opt g-opt g-locked" aria-disabled="true">
-        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
-        <span class="wc-text">
-          <span class="wc-title">${escapeHtml(o.title)}</span>
-          <span class="wc-reason">${escapeHtml(o.sub)}</span>
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </div>`;
-    // the tuned card leads, exactly as in the real app — faded, with the honest reason
-    const tunedCard = `
-      <div class="wincard tuned-card track-mind g-locked" aria-disabled="true" style="margin-bottom:12px">
-        <span class="wc-text">
-          <span class="tuned-kicker">Made for you</span>
-          <span class="wc-title">Your custom practice</span>
-          <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5"/></svg>
-          <span class="wc-reason">Needs a bit more check-in data</span>
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </div>`;
+    const MORE = [
+      { key:'anchoring',       title:'Safety anchoring',         sub:'Connecting with safety through your senses' },
+      { key:'self-regulation', title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
+      { key:'more',            title:'More practices',           sub:'Standalone guided practices' },
+    ];
+    const house = o => `<button class="lb-card lb-big fr-hc" type="button" data-gkey="${o.key}">
+        <span class="lb-pic fr-pic" data-frstill="${o.still}" aria-hidden="true"></span>
+        <span class="lb-body"><span class="lb-t">${escapeHtml(o.title)}</span><span class="lb-d">${escapeHtml(o.sub)}</span></span></button>`;
+    const small = o => `<button class="fr-sm" type="button" data-glock="${o.key}">
+        <span class="fr-sm-t">${escapeHtml(o.title)}</span><span class="fr-sm-d">${escapeHtml(o.sub)}</span>
+        <span class="fr-sm-lk">${LOCK_SVG}See paid plans</span></button>`;
+    const tuned = `<div class="fr-sm fr-sm-quiet"><span class="fr-sm-t">Your custom practice</span><span class="fr-sm-d">Needs a bit more check-in data</span></div>`;
     // Practice-first (the /stuck door): the pick is this person's FIRST screen — there is
     // nothing behind it, so it gets no back button. Check-in-first guests keep
-    // back -> reflection, a real return. ("keep this check-in" was CUT from this screen:
-    // the reflection behind them offers it, and back returns there.)
+    // back -> reflection, a real return.
     root.innerHTML = `
-      <header class="appbar">${_guestCI?'<button class="backbtn" id="g-pp-back">Back</button>':''}</header>
+      ${_frTop(!!_guestCI)}
       <div class="scroll" id="content"></div>`;
-    const gpb = $('#g-pp-back'); if(gpb) gpb.onclick = ()=>guestReflection();
-    $('#content').innerHTML = `<div class="view p-view">
-        <div class="scr-head">
+    _frWire(()=>guestReflection());
+    $('#content').innerHTML = `<div class="view fr-view fr-pick">
+        <div class="fr-head">
           <p class="eyebrow">Your choice</p>
-          <h2 class="scr-h">How long would you like to practice?</h2>
+          <h1 class="fr-h1">How long would you like to practice?</h1>
         </div>
-        ${tunedCard}
-        <div class="p-opts g-opts">${OPTS.map(card).join('')}</div>
+        <div class="fr-house">${FREE.map(house).join('')}</div>
+        <div class="fr-more">${tuned}${MORE.map(small).join('')}</div>
       </div>`;
+    _frStills();
     content().querySelectorAll('[data-gkey]').forEach(b=>b.onclick=()=>guestLaunch(b.dataset.gkey));
+    // lock + "See paid plans": for a guest, the plans are the offer (Back returns here)
+    content().querySelectorAll('[data-glock]').forEach(b=>b.onclick=()=>guestOffer({ from:'pick' }));
   }
 
   // ---- guest practice launch + tabbar-free shell ----
@@ -1451,6 +1459,7 @@
   // Same as practiceShell, but with NO tabbar — a guest must not gain tab access
   // (and its 'self-regulation' path) mid-practice. Back returns to the guest pick screen.
   function guestPracticeShell(src, reco){
+    _frScStop();
     src = _playerSrc(src);          // the same one place that decides where a practice plays
     haptic('start');
     setHTML(`
@@ -1505,27 +1514,23 @@
       body = "Your before and after are about the same. That's common. This particular practice may not have been the best fit for your system at this time.";
     }
     setHTML(`
-      <header class="appbar"></header>
+      ${_frTop(false)}
       <div class="scroll" id="content"></div>`);
-    $('#content').innerHTML = `<div class="view fb-view">
-        <div class="scr-head">
+    _frWire(null);
+    const baCard = (lbl, k) => `<div class="fr-ba-c"><span class="fr-ba-l">${lbl}</span><span class="fr-ba-mk">${triGlyph(k)}</span><span class="fr-ba-s">${escapeHtml(STATE_LABEL(k))}</span></div>`;
+    $('#content').innerHTML = `<div class="view fr-view">
+        <div class="fr-words">
           <p class="eyebrow">Your before and after</p>
+          <div class="fr-ba">${baCard('Before', da.key)}<span class="fr-ba-arrow" aria-hidden="true">→</span>${baCard('After', db.key)}</div>
+          <p class="scr-lede fr-lede">${escapeHtml(body)}</p>
+          <p class="scr-lede fr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular practice.</p>
+          <p class="scr-lede fr-lede">Over time, with more check-ins and practices, you can watch your nervous system change, identify what practices work best, and master self-regulation skills. This system adapts with you and your capacity.</p>
         </div>
-        <div class="ba-body">
-          <div class="ba-pair">
-            <div class="ba-col"><div class="ba-glyph">${triGlyph(da.key)}</div><div class="ba-state">${escapeHtml(STATE_LABEL(da.key))}</div></div>
-            <div class="ba-arrow" aria-hidden="true">→</div>
-            <div class="ba-col"><div class="ba-glyph">${triGlyph(db.key)}</div><div class="ba-state">${escapeHtml(STATE_LABEL(db.key))}</div></div>
-          </div>
-          <p class="scr-lede">${escapeHtml(body)}</p>
-          <p class="scr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular practice.</p>
-          <p class="scr-lede">Over time, with more check-ins and practices, you can watch your nervous system change, identify what practices work best, and master self-regulation skills. This system adapts with you and your capacity.</p>
-          <p class="scr-lede">Sign up for a free account on the next page to keep checking in as much as you want. Or, subscribe for unlimited custom practices and deep insights based on your check-ins.</p>
-        </div>
-        <div class="actionbar">
+        <aside class="fr-card" aria-label="Next">
+          <p class="fr-card-p">Sign up for a free account on the next page to keep checking in as much as you want. Or, subscribe for unlimited custom practices and deep insights based on your check-ins.</p>
           <button class="btn block" id="g-ba-next">Next</button>
-          <button class="navlink" id="g-ba-no" style="align-self:center">No thanks</button>
-        </div>
+          <button class="fr-link" id="g-ba-no" type="button">No thanks</button>
+        </aside>
       </div>`;
     $('#g-ba-next').onclick = ()=>guestOffer();
     $('#g-ba-no').onclick   = ()=>guestLeave();
@@ -1538,58 +1543,59 @@
   // 07-13). No urgency, no countdowns, no discounts. Email + password + consent come
   // on the form AFTER the choice — that's the moment of consent.
   let _offerViewed = false;
-  function guestOffer(){
+  function guestOffer(opt){
+    opt = opt || {};
     clearFigures(); document.body.classList.remove('in-practice');
     if(!_offerViewed){ _offerViewed = true; gtrack('offer_view', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); }
+    // Back only when the person came here from a locked card on the practice pick (they have not practised yet)
+    const fromPick = opt.from==='pick' && !_guestPracticed;
     root.innerHTML = `
-      <header class="appbar"></header>
+      ${_frTop(fromPick)}
       <div class="scroll" id="content"></div>`;
-    $('#content').innerHTML = `<div class="view offer-view">
-        <div class="scr-head">
-          <h1 class="scr-h" style="font-size:calc(26px * var(--type-scale))">Two ways to keep going.</h1>
-        </div>
-        <div class="offer-card offer-paid">
-          <h2>Your personal self-regulation tool</h2>
-          <ul>
-            <li>Practices built from your check-ins, not picked off a list</li>
-            <li>All six practices, including the safety practices</li>
-            <li>What shows up across all your check-ins: when you're most regulated, what keeps repeating, which practices actually help</li>
-            <li>Your personal reader, from the moment to the day to the week and beyond</li>
-          </ul>
-          ${planPickerHTML()}
+    _frWire(fromPick ? ()=>guestPracticePick() : null, 'offer');
+    const annual = _planChoice==='annual';
+    const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
+    const subOf = a => a ? `Billed once a year${_storePx ? '' : ' · that’s $9 a month'}` : 'Billed monthly · cancel anytime';
+    const ticks = a => `<ul class="fr-ticks">${a.map(t=>`<li>${_FR_TICK}<span>${escapeHtml(t)}</span></li>`).join('')}</ul>`;
+    $('#content').innerHTML = `<div class="view fr-view fr-offer">
+        <h1 class="fr-h1 fr-head">Two ways to keep going.</h1>
+        <article class="pp-card is-feat fr-paid" aria-labelledby="fr-paid-h">
+          <h2 class="pp-name fr-card-h" id="fr-paid-h">Your personal self-regulation tool</h2>
+          ${ticks(['Practices built from your check-ins, not picked off a list', 'All six practices, including the safety practices', 'What shows up across all your check-ins: when you’re most regulated, what keeps repeating, which practices actually help', 'Your personal reader, from the moment to the day to the week and beyond'])}
+          <div class="pp-pills" role="radiogroup" aria-label="How often you pay">
+            <button type="button" class="pp-pill${annual ? '' : ' on'}" data-frplan="monthly" role="radio" aria-checked="${!annual}"><b>${escapeHtml(pxM)}</b><span> / month</span></button>
+            <button type="button" class="pp-pill${annual ? ' on' : ''}" data-frplan="annual" role="radio" aria-checked="${annual}"><b>${escapeHtml(pxA)}</b><span> / year</span></button>
+          </div>
+          <p class="pp-sub" id="fr-plan-sub">${subOf(annual)}</p>
           <button class="btn block" id="g-of-sub">Subscribe now</button>
-          <p class="fineprint" style="margin-top:10px">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
-          <details class="offer-more">
-            <summary>What you get when you subscribe ▾</summary>
-            <div class="offer-more-body">
+          <p class="pp-sub fr-renew">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
+          <div class="pp-inc"><button class="pp-inc-t" type="button" id="fr-more-t" aria-expanded="false" aria-controls="fr-more-b"><span>What you get when you subscribe</span>${LW_PM(false)}</button>
+            <div class="pp-inc-b fr-more-b" id="fr-more-b" hidden>
               <p><b>Practices:</b> get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
               <p><b>Analytics:</b> the more you check in, the more you learn about yourself. Identify what time of day, what day of the week, and even what season of the year bring you the most safety or the most challenge. See how practices affect your system and which ones help the most.</p>
               <p><b>Personal reader:</b> your check-ins and analytics create your personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
-            </div>
-          </details>
-        </div>
-        <div class="offer-card offer-free">
-          <h2>Keep going for free.</h2>
-          <ul>
-            <li>Check in as often as you like</li>
-            <li>Both mindfulness practices, the short one and the full one, as often as you want</li>
-            <li>Your check-in history, saved</li>
-          </ul>
-          <button class="btn block quiet" id="g-of-free">Continue free</button>
-        </div>
-        <p class="fineprint" style="text-align:center;margin:14px 0 0">Already have an account? <button class="linkbtn" id="g-of-signin" style="font-size:inherit;padding:2px">Sign in</button></p>
-        <div class="actionbar">
-          <button class="navlink" id="g-of-leave" style="align-self:center">Leave without saving</button>
-        </div>
+            </div></div>
+        </article>
+        <article class="pp-card fr-free" aria-labelledby="fr-free-h">
+          <h2 class="pp-name fr-card-h" id="fr-free-h">Keep going for free.</h2>
+          ${ticks(['Check in as often as you like', 'Both mindfulness practices, the short one and the full one, as often as you want', 'Your check-in history, saved'])}
+          <button class="fr-pill" id="g-of-free" type="button">Continue free</button>
+        </article>
+        <p class="fr-leave"><button class="fr-link" id="g-of-leave" type="button">Leave without saving</button></p>
       </div>`;
-    wirePlanPicker();
+    root.querySelectorAll('[data-frplan]').forEach(el=>{ el.onclick = ()=>{
+      _planChoice = el.dataset.frplan==='annual' ? 'annual' : 'monthly';
+      root.querySelectorAll('[data-frplan]').forEach(p=>{ const on = p===el; p.classList.toggle('on', on); p.setAttribute('aria-checked', String(on)); });
+      const sb = $('#fr-plan-sub'); if(sb) sb.textContent = subOf(_planChoice==='annual');
+    }; });
+    { const t = $('#fr-more-t'), bd = $('#fr-more-b'); if(t && bd) t.onclick = ()=>{ const o = t.getAttribute('aria-expanded')!=='true'; t.setAttribute('aria-expanded', String(o)); bd.hidden = !o; const pm = t.querySelector('svg.pm'); if(pm) pm.classList.toggle('on', o); }; }
     // "Already have an account?" — the offer screen was the one place in the guest flow
     // with no way back to an existing account, so a returning subscriber on a new device
     // or browser hit a wall that only offered to sell them what they already own. Same
     // operation as "leave without saving" (sign the anonymous session out, land on the
     // sign-in form) and the same affordance already on the guest check-in screen; only
     // the label differs, because the two are different questions to the person reading.
-    const gof = $('#g-of-signin'); if(gof) gof.onclick = ()=>{ gtrack('guest_signin', { door:guestDoor(), from:'offer' }); guestLeave(); };
+    // (the link now lives in the top bar; _frWire(…, 'offer') keeps its guest_signin event)
     $('#g-of-sub').onclick   = ()=>{ gtrack('subscribe_click', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits(), plan:_planChoice }); guestAccountForm('paid'); };
     $('#g-of-free').onclick  = ()=>{ gtrack('continue_free',   { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('free'); };
     // "leave without saving" means what it says: sign out, discard. The check-in
