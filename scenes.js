@@ -148,12 +148,15 @@ function compute(P){
     if(!dark) bgs.push('background: linear-gradient(to top, rgba(26,31,42,.24), rgba(26,31,42,.08) 45%, transparent 75%);');
     const SC = { safety:[244,213,141], fight:[232,155,155], shutdown:[163,192,221] }[st];
     const glow = SC || [255,232,180], coreC = SC ? mix(SC, [255,255,255], .55) : [255,244,214];
-    const day = { dawn:.7, morning:.45, midday:.32, evening:1, night:1 }[tod] || 1;
+    // half take the check-in's colour, half keep the warm natural glow (grid8i)
+    const SC2 = SC || { play:[232,168,113], stillness:[159,196,152], freeze:[184,154,196] }[st];
+    const colOf = i => (SC2 && i % 2 === 0) ? [SC2, mix(SC2, [255,255,255], .55)] : [[255,232,180], [255,244,214]];
+    const day = 1;   // grid8i: dark mode only, no time of day
     const bright = day * (wx === 'cloud' ? .7 : 1) * (st === 'shutdown' ? .55 : 1);
     const base = Math.round(cl(W / 55, 12, 28)), N = rm ? 8 : Math.max(4, Math.round(base * ({ safety:1.3, shutdown:.45 }[st] || 1) * (wx === 'rain' ? .35 : 1)));
     const P2 = { safety:{ gl:[8,14], hv:[18,28], dx:120, dy:70, y:[.08,.92] }, fight:{ gl:[4,6], hv:[8,12], dx:46, dy:30, y:[.14,.92] }, shutdown:{ gl:[10,16], hv:[28,36], dx:16, dy:10, y:[.55,.94] } }[st] || { gl:[6,12], hv:[14,24], dx:40, dy:30, y:[.1,.92] };
     // spread over the whole screen: one per column band, left to right, at any height in the band
-    for(let i = 0; i < N; i++){ const x = (.03 + .94 * ((i + .15 + R() * .7) / N)) * W, y = r(P2.y[0], P2.y[1]) * H, per = r(P2.gl[0], P2.gl[1]), hv = r(P2.hv[0], P2.hv[1]);
+    for(let i = 0; i < N; i++){ const [glow, coreC] = colOf(i); const x = (.03 + .94 * ((i + .15 + R() * .7) / N)) * W, y = r(P2.y[0], P2.y[1]) * H, per = r(P2.gl[0], P2.gl[1]), hv = r(P2.hv[0], P2.hv[1]);
       const core = 'rgba(' + coreC.join(',') + ',1)', halo = 'rgba(' + glow.join(',') + ',' + (dark ? .36 : .6) + ')';
       const ringC = dark ? 'transparent' : 'rgba(26,31,42,.28)';
       const z = [1,1,.62,.42][i % 4], dx2 = (R() - .5) * P2.dx * z, dy2 = (R() - .5) * P2.dy * z, gd = -R() * per, hd = -R() * hv, ro = r(.5, 1);
@@ -170,7 +173,7 @@ function compute(P){
     }
     // One breath brings more small, distant ones: they arrive over the in-breath and leave over the out-breath
     if(breath && !rm){ const M = Math.round(N * .6), R3 = rng(977 + W);
-      for(let i = 0; i < M; i++){ const z = .3 + R3() * .16, x = (.03 + .94 * ((i + R3()) / M)) * W, y = (P2.y[0] + R3() * (P2.y[1] - P2.y[0])) * H, hv = 10 + R3() * 8;
+      for(let i = 0; i < M; i++){ const [glow, coreC] = colOf(0); const z = .3 + R3() * .16, x = (.03 + .94 * ((i + R3()) / M)) * W, y = (P2.y[0] + R3() * (P2.y[1] - P2.y[0])) * H, hv = 10 + R3() * 8;
         const core = 'rgba(' + coreC.join(',') + ',1)', halo = 'rgba(' + glow.join(',') + ',' + (dark ? .36 : .6) + ')';
         late.push({ s:'left:' + f(x) + 'px; top:' + f(y) + 'px; width:0; height:0; animation: snbFadeIn ' + f(2 + R3() * 1.6) + 's ease ' + f(R3() * 1.2) + 's both;',
           cs:'left:-10px; top:-10px; width:20px; height:20px; border-radius:50%; transform:scale(' + f(z) + '); background: radial-gradient(circle, ' + core + ' 0 2.2px, ' + halo + ' 3.2px, transparent 10px); box-shadow: 0 0 ' + f(10 * z) + 'px ' + f(3 * z) + 'px ' + halo + '; opacity:' + (P.bph === 'out' ? 0 : f(Math.min(1, Math.max(.6, bright * 1.6)))) + '; transition: opacity ' + (P.bph === 'out' ? '5s' : '1s') + ' ease-in-out; --dx:' + f((R3() - .5) * 30) + 'px; --dy:' + f((R3() - .5) * 20) + 'px; animation: snbHover ' + f(hv) + 's ease-in-out infinite alternate;' }); } }
