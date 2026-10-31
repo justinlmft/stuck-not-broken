@@ -2891,13 +2891,9 @@ function whatsNewSheet(){
 }
 // Past Updates: every entry, newest first; the newest as names only, with "Read this update" opening its sheet
 function screenUpdates(from){
-  const cards = WN_UPDATES.map((u,i) => i===0
-    ? '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + ' · Latest</p><div class="wnh-names">'
-      + u.items.map(it => '<div class="wnh-name">' + wnIcon(it.i,'wnh-ic') + '<span>' + escapeHtml(it.t) + '</span></div>').join('')
-      + '</div><button class="wnh-read" id="wnh-read" type="button">Read this update</button></section>'
-    : '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + '</p><div class="wnh-list">'
-      + u.items.map(it => '<div class="wnh-item">' + wnIcon(it.i,'wnh-ic') + '<div><h3 class="wnh-t">' + escapeHtml(it.t) + '</h3><p class="wnh-b">' + escapeHtml(it.b) + '</p></div></div>').join('')
-      + '</div></section>').join('');
+  // a list, one row per update (the date, the headlines); a row opens the update in the 9-12 panel, or its sheet on phone
+  const cards = '<div class="wnh-rows">' + WN_UPDATES.map((u,i) => '<button class="wnh-row" type="button" data-wnu="' + i + '" aria-pressed="false"><span class="wnh-when">' + escapeHtml(u.when) + (i === 0 ? ' · Latest' : '') + '</span>'
+      + '<span class="wnh-hl">' + u.items.map(it => escapeHtml(it.t)).join('<span aria-hidden="true"> · </span>') + '</span>' + CHEV + '</button>').join('') + '</div>';
   // Back floats at the bottom left, as on every other screen (Justin, 2026-10-19: "cut the back button at the top left. we use
   // the dynamic back button at the bottom left")
   clearFigures(); document.body.classList.remove('in-practice','rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
@@ -2917,7 +2913,13 @@ function screenUpdates(from){
     </nav>`;
   $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
   const back=$('#wnh-back'); if(back) back.onclick=()=>{ document.body.classList.remove('rd-sub'); if(from==='settings') screenSettings(); else app(currentTab||'now'); };
-  const rd=$('#wnh-read'); if(rd) rd.onclick=()=>openWhatsNewSheet(WN_UPDATES[0], { fromHistory:true });
+  const mark = i => root.querySelectorAll('.wnh-row').forEach(b => { const on = b.dataset.wnu === String(i); b.classList.toggle('is-sel', on); b.setAttribute('aria-pressed', String(on)); });
+  root.querySelectorAll('.wnh-row').forEach(b => b.onclick = () => {
+    const i = +b.dataset.wnu, u = WN_UPDATES[i]; if(!u) return;
+    if(!_dpWide()) return openWhatsNewSheet(u, { fromHistory:true });
+    mark(i);
+    _dpOpen(u.when, '<div class="wnh-list dp-wn">' + u.items.map(it => '<div class="wnh-item">' + wnIcon(it.i,'wnh-ic') + '<div><h3 class="wnh-t">' + escapeHtml(it.t) + '</h3><p class="wnh-b">' + escapeHtml(it.b) + '</p></div></div>').join('') + '</div>', { onClose:() => mark(-1) });
+  });
   try{ window.scrollTo(0,0); }catch(e){}
 }
 // September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
@@ -10305,8 +10307,19 @@ function app(tab){
     scope.querySelectorAll('[data-ybedit]').forEach(b=>b.onclick=()=>{ const rec = find(+b.dataset.ybedit); if(rec) screenCheckin(rec); });
     scope.querySelectorAll('[data-ybdel]').forEach(b=>b.onclick=()=>{
       const t = +b.dataset.ybdel;
-      if(confirm('Remove this check-in? This cannot be undone.')){ Store.deleteCheckin(t); haptic('save'); FromJustin.refresh(); if(onAll) screenCheckinsAll(); else app('you'); }
+      if(confirm('Remove this check-in? This cannot be undone.')){ Store.deleteCheckin(t); haptic('save'); FromJustin.refresh(); _dpClose(); try{ const o = document.getElementById('lw-sheet'); if(o) o.remove(); }catch(e){} if(onAll) screenCheckinsAll(); else app('you'); }
     });
+    // the See all page: a check-in opens in the panel (1120+) or as a slide-up, not in place (Justin, canon 2026-10-31)
+    if(onAll && scope === root){
+      const mark = row => scope.querySelectorAll('.yb-ci-all .yb-ci-row').forEach(r => r.classList.toggle('is-sel', r === row));
+      scope.querySelectorAll('.yb-ci-all [data-ybci]').forEach(b => b.onclick = () => {
+        const row = b.closest('.yb-ci-row'), more = b.nextElementSibling, day = (b.closest('.yb-ci-day') || {}).querySelector ? b.closest('.yb-ci-day').querySelector('.yb-ci-dh') : null;
+        const head = b.cloneNode(true); head.querySelectorAll('.yb-ci-pm').forEach(x => x.remove());
+        mark(row);
+        const box = _dpOpen((day ? day.textContent + ', ' : '') + ((b.querySelector('.yb-ci-time') || {}).textContent || ''), `<div class="dp-ci">${head.innerHTML}</div><div class="dp-ci-more">${more ? more.innerHTML : ''}</div>`, { onClose:() => mark(null) });
+        if(box){ box.querySelectorAll('[hidden]').forEach(x => x.hidden = false); _ybCiWire(box); }
+      });
+    }
   }
   // every check-in, behind "See all"
   function screenCheckinsAll(){
@@ -11141,7 +11154,52 @@ function app(tab){
     freeze:      { headline:'freeze',         color:'#B89AC4', about:"Freeze is a mixed state, flight/fight energy held down by shutdown. Gas and brake at once. It isn't a deeper shutdown, it's both pedals down, which is why it can feel panicked and paralyzed at the same time. A braced, protective state, not nothing.", whenDrops:"The smallest movement, plus a cue of safety. Let your eyes go where they want, then wiggle your toes or roll your wrists, slow. Don't force it, that adds gas to a slammed brake. Get smaller and safer.", practice:{practiceKey:'anchoring',sense:'touch',silence:10} },   // spectrum fix 2026-07-03: freeze starts at safety, never pendulation
   };
 
+  // ---- the detail panel (Justin, canon 2026-10-31: "no new page when a panel will do") ----
+  // 1120+: a house card on columns 9-12 of the frame (the page narrows to 1-8, as with Paid plans); below: the app's slide-up.
+  const _dpWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  let _dp = { key:null, onClose:null };
+  function _dpPlace(){
+    const p = document.getElementById('dp-panel'); if(!p) return;
+    const vw = innerWidth, padX = Math.min(40, Math.max(20, vw * .05)), gap = Math.min(32, Math.max(20, vw * .04));
+    const sc = root.querySelector('.scroll') || root, r = sc.getBoundingClientRect(), fw = Math.min(sc.clientWidth || r.width, 1120);
+    const col = (fw - 2 * padX - 11 * gap) / 12;
+    p.style.left = Math.round(r.left + padX + 8 * (col + gap)) + 'px';
+    p.style.width = Math.round(4 * col + 3 * gap) + 'px';
+    const top = Math.round(Math.max(r.top, 0) + 24);
+    p.style.top = top + 'px'; p.style.maxHeight = Math.max(240, innerHeight - top - 24) + 'px';
+    root.style.setProperty('--pp-cw', Math.round(2 * padX + 8 * col + 7 * gap) + 'px');
+  }
+  function _dpClose(){
+    const p = document.getElementById('dp-panel'); if(p) p.remove();
+    root.style.removeProperty('--pp-cw');
+    if(_dp.key){ document.removeEventListener('keydown', _dp.key); _dp.key = null; }
+    const f = _dp.onClose; _dp.onClose = null; if(typeof f === 'function') f();
+  }
+  // title + body; returns the element holding the body so the caller can wire it
+  function _dpOpen(title, body, opts){
+    opts = opts || {};
+    if(_dpWide()){
+      const old = document.getElementById('dp-panel'); const prevClose = _dp.onClose; _dp.onClose = null; if(typeof prevClose === 'function' && prevClose !== opts.onClose) prevClose();
+      let p = old; const fresh = !p;
+      if(fresh){ p = document.createElement('aside'); p.id = 'dp-panel'; p.className = 'pp-panel dp-panel pp-in'; root.appendChild(p); }
+      p.setAttribute('aria-labelledby', 'dp-h');
+      p.innerHTML = `<div class="pp-top"><h2 class="pp-h dp-h" id="dp-h">${escapeHtml(title)}</h2><button class="pp-x" id="dp-x" type="button" aria-label="Close">${_UP_X}</button></div><div class="dp-body">${body}</div>`;
+      _dpPlace(); _dp.onClose = opts.onClose || null;
+      p.querySelector('#dp-x').onclick = _dpClose;
+      if(!_dp.key){ _dp.key = e => { if(e.key === 'Escape') _dpClose(); }; document.addEventListener('keydown', _dp.key); }
+      if(!_dp.rs){ _dp.rs = true; addEventListener('resize', () => { if(!document.getElementById('dp-panel')) return; if(!_dpWide()) _dpClose(); else _dpPlace(); }); }
+      return p.querySelector('.dp-body');
+    }
+    const sh = _lwSheet(title, `<div class="dp-body">${body}</div>`, { onClose:opts.onClose });
+    return sh.el.querySelector('.dp-body');
+  }
+
   function screenStateDetail(key){
+    // no page (Justin 2026-10-31): the state's mark, name and paragraph in the panel, or as a slide-up on phone
+    const dd = STATE_DETAIL[key] || STATE_DETAIL.safety;
+    _dpOpen(CAP(dd.headline), `<span class="sd-marks dp-mk">${triGlyph(key)}</span>${dd.sub ? `<p class="dp-sub">${escapeHtml(dd.sub)}</p>` : ''}<p class="dp-p">${escapeHtml(dd.about)}</p>${dd.whenDrops ? `<p class="dp-lbl">When safety drops</p><p class="dp-p">${escapeHtml(dd.whenDrops)}</p>` : ''}`);
+  }
+  function _screenStateDetailPage(key){
     const d = STATE_DETAIL[key] || STATE_DETAIL.safety;
     clearFigures(); document.body.classList.remove('in-practice');
     root.innerHTML = `
@@ -13094,6 +13152,7 @@ function app(tab){
         <div class="lb-grid ch-grid">${lead ? [lead].concat(rest).map((s, i)=>_chCardHTML(s, i === 0, x)).join('') : ''}</div>
       </div></div>`, { back:'Practice', onBack:()=>app('practice'), tab:'practice', loc:{ k:'tab', tab:'practice' }, wide:true, plainBack:true });
     _chWire(screenChallenges);
+    if(lead && _chWideMQ() && !screenChallenges._noDefault) openChSheet(lead.id, screenChallenges, true);
   }
   // the All challenges page is folded into Challenges (Justin, canon 2026-10-30)
   function screenChallengesAll(){ return screenChallenges(); }
@@ -13107,7 +13166,64 @@ function app(tab){
 
   // ---- 1b · the detail: the 9-12 panel on desktop, the bottom sheet elsewhere ----
   let _chKey = null, _chSel = null, _chMQ = null;
-  function openChSheet(id, back){
+  // the panel (1120+) or the slide-up: shows `inner`, marks the card `id`; returns { close, box }
+  function _chShow(inner, id, back, quiet){
+    const old = document.getElementById('ch-sheet'); if(old) old.remove();
+    if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; }
+    const home = root.querySelector('.ch-home');
+    let close, box;
+    if(home && _chWideMQ()){
+      let el = home.querySelector('#ch-panel'); const fresh = !el;
+      if(fresh){ el = document.createElement('aside'); el.id = 'ch-panel'; el.className = 'ch-panel ch-pin'; el.setAttribute('aria-labelledby', 'ch-sh-h'); home.appendChild(el); }
+      el.innerHTML = inner; box = el;
+      _flip([...home.querySelectorAll('.ch-card')], ()=>home.classList.add('ch-split'));
+      const mark = on => home.querySelectorAll('.ch-card').forEach(b=>{ const y = on && b.dataset.ch === id; b.classList.toggle('is-sel', y); b.setAttribute('aria-pressed', y ? 'true' : 'false'); });
+      mark(true); _chSel = id;
+      if(fresh) requestAnimationFrame(()=>el.classList.remove('ch-pin'));
+      close = (then)=>{ if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } mark(false); _chSel = null; _flip([...home.querySelectorAll('.ch-card')], ()=>{ try{ el.remove(); }catch(e){} home.classList.remove('ch-split'); }); if(typeof then === 'function') then(); };
+      if(!_chMQ){ try{ _chMQ = window.matchMedia('(min-width:1120px)'); _chMQ.addEventListener('change', ()=>{ const p = document.getElementById('ch-panel'); if(p && !_chMQ.matches && _chSel){ const k = _chSel; p.remove(); const h = root.querySelector('.ch-home'); if(h){ h.classList.remove('ch-split'); h.querySelectorAll('.ch-card.is-sel').forEach(b=>{ b.classList.remove('is-sel'); b.setAttribute('aria-pressed', 'false'); }); } _chSel = null; openChSheet(k, back); } }); }catch(e){} }
+      if(!quiet){ try{ el.querySelector('#ch-sh-x').focus({ preventScroll:true }); }catch(e){} }
+    } else {
+      const wrap = document.createElement('div'); wrap.id = 'ch-sheet'; wrap.className = 'p7-sheet ch-sheet';
+      wrap.innerHTML = `<div class="p7-sheet-card ch-sheet-card" role="dialog" aria-modal="true" aria-labelledby="ch-sh-h"><div class="p8-grab" aria-hidden="true"></div>${inner}</div>`;
+      document.body.appendChild(wrap); box = wrap.querySelector('.ch-sheet-card');
+      requestAnimationFrame(()=>wrap.classList.add('on'));
+      close = (then)=>{ wrap.classList.remove('on'); if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } setTimeout(()=>{ try{ wrap.remove(); }catch(e){} if(typeof then === 'function') then(); }, 300); };
+      wrap.addEventListener('click', e=>{ if(e.target === wrap) close(); });
+    }
+    _chKey = e=>{ if(e.key === 'Escape') close(); };
+    document.addEventListener('keydown', _chKey);
+    const x = box.querySelector('#ch-sh-x'); if(x) x.onclick = ()=>close();
+    return { close, box };
+  }
+  // the reminder, the challenge's first step, in the same panel / slide-up (Justin, canon 2026-10-31: no reminder page)
+  function _chRemIn(id, shown){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
+    _chPut('chr:asked', 'challenge reminder asked', ['1']);
+    const st = pushState(), cant = (st === 'install' || st === 'blocked' || st === 'unsupported');
+    const hint = st === 'install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
+      : st === 'blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
+      : 'This browser cannot show notifications from the app.';
+    const box = shown.box, body = box.querySelector('.ch-sh-body'), foot = box.querySelector('#ch-sh-foot'); if(!body || !foot) return;
+    body.innerHTML = `<span class="ch-lbl">${escapeHtml(T.remEb.toUpperCase())}</span><h3 class="ch-sh-h2">${escapeHtml(T.remH)}</h3><p class="ch-sh-p">${escapeHtml(T.remBody)}</p>
+      ${cant ? `<p class="ch-sh-note">${hint}</p>` : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`}`;
+    const goBtn = `<button class="ch-pill" type="button" id="ch-rem-go">${escapeHtml(T.remGo)}</button>`;
+    foot.innerHTML = cant ? goBtn : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`;
+    const go = ()=>shown.close(()=>screenChPrompt(id));
+    const wire = ()=>{ const g = box.querySelector('#ch-rem-go'); if(g) g.onclick = go; const no = box.querySelector('#ch-rem-no'); if(no) no.onclick = go; };
+    wire();
+    const yes = box.querySelector('#ch-rem-yes');
+    if(yes) yes.onclick = async ()=>{
+      yes.disabled = true;
+      const tm = (box.querySelector('#ch-rem-t') || {}).value || '09:00';
+      let ok = pushState() === 'on';
+      if(!ok){ const r = await pushRequest('challenge'); ok = r === 'on'; }
+      if(ok){ await _chRemindSet(tm); return go(); }
+      const row = box.querySelector('#ch-rem-row'); if(row) row.remove();
+      foot.innerHTML = `<p class="ch-sh-note">${escapeHtml(T.remFail)}</p>` + goBtn; wire();
+    };
+  }
+  function openChSheet(id, back, quiet){
     const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
     const paid = paidNow(), c = s.c, a = paid ? _chActive() : null, by = {}; _chAll().forEach(x=>by[x.id] = x);
     const isCur = !!(a && a.id === id);
@@ -13132,39 +13248,15 @@ function app(tab){
     const inner = `<div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
       <div class="ch-sh-body"><p class="ch-sh-p">${escapeHtml(c.desc)}</p>${lines.join('')}<p class="ch-sh-len">${len}</p></div>
       <div class="ch-sh-foot" id="ch-sh-foot">${foot}</div>`;
-    const old = document.getElementById('ch-sheet'); if(old) old.remove();
-    if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; }
-    const home = root.querySelector('.ch-home');
-    let close;
-    if(home && _chWideMQ()){
-      let el = home.querySelector('#ch-panel'); const fresh = !el;
-      if(fresh){ el = document.createElement('aside'); el.id = 'ch-panel'; el.className = 'ch-panel ch-pin'; el.setAttribute('aria-labelledby', 'ch-sh-h'); home.appendChild(el); }
-      el.innerHTML = inner;
-      _flip([...home.querySelectorAll('.ch-card')], ()=>home.classList.add('ch-split'));
-      const mark = on => home.querySelectorAll('.ch-card').forEach(b=>{ const y = on && b.dataset.ch === id; b.classList.toggle('is-sel', y); b.setAttribute('aria-pressed', y ? 'true' : 'false'); });
-      mark(true); _chSel = id;
-      if(fresh) requestAnimationFrame(()=>el.classList.remove('ch-pin'));
-      close = (then)=>{ if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } mark(false); _chSel = null; _flip([...home.querySelectorAll('.ch-card')], ()=>{ try{ el.remove(); }catch(e){} home.classList.remove('ch-split'); }); if(typeof then === 'function') then(); };
-      if(!_chMQ){ try{ _chMQ = window.matchMedia('(min-width:1120px)'); _chMQ.addEventListener('change', ()=>{ const p = document.getElementById('ch-panel'); if(p && !_chMQ.matches && _chSel){ const k = _chSel; p.remove(); const h = root.querySelector('.ch-home'); if(h){ h.classList.remove('ch-split'); h.querySelectorAll('.ch-card.is-sel').forEach(b=>{ b.classList.remove('is-sel'); b.setAttribute('aria-pressed', 'false'); }); } _chSel = null; openChSheet(k, back); } }); }catch(e){} }
-      try{ $('#ch-sh-x').focus({ preventScroll:true }); }catch(e){}
-    } else {
-      const wrap = document.createElement('div'); wrap.id = 'ch-sheet'; wrap.className = 'p7-sheet ch-sheet';
-      wrap.innerHTML = `<div class="p7-sheet-card ch-sheet-card" role="dialog" aria-modal="true" aria-labelledby="ch-sh-h"><div class="p8-grab" aria-hidden="true"></div>${inner}</div>`;
-      document.body.appendChild(wrap);
-      requestAnimationFrame(()=>wrap.classList.add('on'));
-      close = (then)=>{ wrap.classList.remove('on'); if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } setTimeout(()=>{ try{ wrap.remove(); }catch(e){} if(typeof then === 'function') then(); }, 300); };
-      wrap.addEventListener('click', e=>{ if(e.target === wrap) close(); });
-    }
-    _chKey = e=>{ if(e.key === 'Escape') close(); };
-    document.addEventListener('keydown', _chKey);
-    $('#ch-sh-x').onclick = ()=>close();
-    const rf = $('#ch-sh-rf'); if(rf) rf.onclick = ()=>close(()=>openChSheet(recFirst.id, back));
-    const go = $('#ch-sh-go'); if(go) go.onclick = ()=>{
+    const shown = _chShow(inner, id, back, quiet), close = shown.close, box = shown.box;
+
+    const rf = box.querySelector('#ch-sh-rf'); if(rf) rf.onclick = ()=>close(()=>openChSheet(recFirst.id, back));
+    const go = box.querySelector('#ch-sh-go'); if(go) go.onclick = ()=>{
       if(!paid) return close(()=>gateSubscribe('challenges'));
       if(isCur) return close(()=>screenChPrompt(id));
       _chStart(id);
       let asked = false; try{ asked = !!((_ctxLoad()['chr:asked'] || [])[0]); }catch(e){}
-      if(!asked) return close(()=>screenChReminder(id));   // the reminder is the challenge's first step, on its own screen (Justin, 2026-10-18)
+      if(!asked) return _chRemIn(id, shown);   // the reminder is the challenge's first step, now in this panel (Justin, canon 2026-10-31)
       close(()=>screenChPrompt(id));
     };
   }
@@ -13348,6 +13440,27 @@ function app(tab){
     return `<ol class="ch-days" aria-label="Day ${doneN} of ${c.days} complete">${h}</ol>`;
   }
   function screenChSaved(id, n){
+    const S0 = _CH(), s0 = _chState(id); if(!S0 || !s0) return screenChallenges();
+    screenChallenges._noDefault = true; screenChallenges(); screenChallenges._noDefault = false;
+    _chSavedIn(id, n);
+  }
+  function _chSavedIn(id, n){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
+    const c = s.c, p = c.prompts[n - 1];
+    const k = Object.assign({}, c.keep || {}, ((c.keep || {}).byDay || {})[String(n)] || {}, ((c.keep || {}).bySense || {})[p.h] || {});
+    const pr = k.practice ? _chPracticeName(k.practice) : null;
+    const art = k.article && window.Learning ? window.Learning.byId(k.article) : null;
+    const inner = `<div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
+      <div class="ch-sh-body"><span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>${_chDaysHTML(c, n, n)}<h3 class="ch-sh-h2">${escapeHtml(T.saved)}</h3><p class="ch-sh-p">${escapeHtml(T.tomorrow)}</p>
+        ${pr || art ? `<span class="ch-lbl ch-lbl-gap">${escapeHtml(T.keep)}</span>` : ''}
+        ${pr ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-k-pr"><span class="ch-keep-t"><span>A practice</span><b>${escapeHtml(pr.t)}</b><span>${escapeHtml(pr.sub)}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : ''}
+        ${art ? `<button class="ch-keep" type="button" id="ch-k-art"><span class="ch-keep-t"><span>Learn more</span><b>${escapeHtml(art.title)}</b><span>An article</span></span><span class="ch-chev">${CHEV}</span></button>` : ''}</div>
+      <div class="ch-sh-foot" id="ch-sh-foot"></div>`;
+    const shown = _chShow(inner, id, screenChallenges);
+    const kp = shown.box.querySelector('#ch-k-pr'); if(kp) kp.onclick = ()=>shown.close(()=>{ app('practice'); setTimeout(()=>{ try{ openPracticeSheet(k.practice); }catch(e){} }, 30); });
+    const ka = shown.box.querySelector('#ch-k-art'); if(ka) ka.onclick = ()=>shown.close(()=>screenLearnPiece(art, null, null, { label:'Challenges', go:()=>screenChallenges() }));
+  }
+  function _screenChSavedPage(id, n){
     const S = _CH(), T = S.T, s = _chState(id); if(!s) return screenChallenges();
     const c = s.c, p = c.prompts[n - 1];
     const k = Object.assign({}, c.keep || {}, ((c.keep || {}).byDay || {})[String(n)] || {}, ((c.keep || {}).bySense || {})[p.h] || {});
