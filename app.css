@@ -5158,6 +5158,7 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 }
 /* answer sheets fit their content: no scrolling inside a slide-up (Justin, 2026-10-28) */
 .lw-sheet .p8-card{height:auto;max-height:calc(100dvh - 12px)}
+.lw-sheet:not(.lw-sheet-in) .p8-body{flex:0 1 auto;min-height:0}
 .lw-sheet .p8-body{padding-bottom:calc(16px + env(safe-area-inset-bottom))}
 .lw-ci .lw-ci-q{margin:2px 0 10px}
 .lw-ci .sliders{gap:12px}
@@ -5226,9 +5227,9 @@ body.lw-sl-on .lw-ctl2 .lw-call-head{align-self:stretch;align-content:center}
 .lw-att-tbl td{padding:12px 12px 12px 0;border-bottom:1px solid var(--hairline);vertical-align:top;white-space:nowrap;color:var(--ink)}
 .lw-att-tbl td.who{font-weight:500;white-space:normal;min-width:120px}
 .lw-att-sub{display:block;font-weight:400;color:var(--muted);font-size:calc(12.5px * var(--type-scale))}
-.lw-ci{display:inline-grid;grid-template-columns:repeat(3,22px);gap:3px;align-items:end;height:22px;vertical-align:middle}
-.lw-ci i{display:block;border-radius:2px 2px 0 0}
-.lw-ci i:nth-child(1){background:var(--s-safety)} .lw-ci i:nth-child(2){background:var(--s-fight)} .lw-ci i:nth-child(3){background:var(--s-shutdown)}
+span.lw-ci{display:inline-grid;grid-template-columns:repeat(3,22px);gap:3px;align-items:end;height:22px;vertical-align:middle}
+span.lw-ci i{display:block;border-radius:2px 2px 0 0}
+span.lw-ci i:nth-child(1){background:var(--s-safety)} span.lw-ci i:nth-child(2){background:var(--s-fight)} span.lw-ci i:nth-child(3){background:var(--s-shutdown)}
 .lw-ci-pair{display:flex;gap:8px;align-items:center;font-size:calc(12.5px * var(--type-scale))}
 .lw-stay{display:block;position:relative;height:4px;width:120px;margin-top:6px;background:var(--bone-deep);border-radius:2px}
 .lw-stay i{position:absolute;top:0;bottom:0;background:var(--ink);opacity:.7;border-radius:2px}
@@ -6898,4 +6899,151 @@ body.reduce-motion .si-ring,body.reduce-motion .si-bbtn .gb-ring{animation:none}
   .lw-sch.is-wide .lw-hc-grid{grid-template-columns:repeat(8,minmax(0,1fr))}
   .lw-sch.is-wide .lw-hc{grid-column:span 4}
   .lw-sch.is-wide .lw-hc-big{grid-column:span 8}
+}
+
+/* ============================================================
+   THE LIVE ROOM ON THE SWISS GRID (Justin, canon 2026-10-31; BRAND_DESIGN_SYSTEM §4 "The live room with slides on / off",
+   "Justin's host screen"). 1120+: the area on 1-9, one rail of cards on 10-12, 40px top and bottom. Below: the area, then one dock.
+   Slides off = paper. Slides on = the slide behind, the cards frosted glass that follow the scene.
+   ============================================================ */
+body.lw-in-room .shell{max-width:none}
+#lw-room.lw-r2{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;box-sizing:border-box;width:100%;max-width:none;
+  padding:max(16px,env(safe-area-inset-top)) var(--pad-x) calc(16px + env(safe-area-inset-bottom));background:var(--bone);color:var(--ink);overflow:hidden}
+.lw-r2 .lw-area{position:relative;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+.lw-r2 .lw-rail{display:none}
+.lw-r2 .lw-rc{box-sizing:border-box;border:1px solid var(--hairline);border-radius:16px;background:var(--bone);color:var(--ink);transition:background-color .32s var(--ease),border-color .32s var(--ease),color .32s var(--ease)}
+/* the video: a card per person, the shape of their camera; camera off = a warm card with the initial */
+.lw-r2 .lw-bento{--bg:clamp(10px,2.2vw,32px);position:relative;width:100%}
+.lw-tile2{position:absolute;box-sizing:border-box;border-radius:16px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bone-deep);color:var(--ink);
+  transition:left .32s var(--ease),top .32s var(--ease),width .32s var(--ease),height .32s var(--ease),background-color .2s var(--ease)}
+.lw-tile2.lw-tile-cam{background:#2B303B;color:#FAF9F5}
+.lw-tile2 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lw-tile2.lw-speaking{outline:2px solid var(--ink);outline-offset:2px}
+.lw-tile2 .lw-tile-av{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:500;background:var(--bone);border:1px solid var(--hairline);color:var(--ink)}
+.lw-tile2.lw-speaking .lw-tile-av{width:96px;height:96px;font-size:34px}
+.lw-tile2.lw-tile-sm .lw-tile-av{width:36px;height:36px;font-size:14px}
+.lw-tile-lb2{position:absolute;left:10px;bottom:8px;display:inline-flex;align-items:center;gap:5px;max-width:calc(100% - 20px);padding:3px 9px;border-radius:999px;font-size:13px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:rgba(250,249,245,.92);color:#1A1F2A}
+.lw-tile-cam .lw-tile-lb2{background:rgba(20,22,28,.55);color:#FAF9F5}
+.lw-tile-lb2 svg{width:13px;height:13px;flex:none}
+.lw-tile2.lw-in{animation:lwRise .32s var(--ease) both}
+@keyframes lwRise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+body.lw-sl-leaving .lw-r2 .lw-tile2{animation:lwRise .32s var(--ease) both}
+/* Justin's video (Mindful Moment with the slides off: the whole area), the rail camera, the dock camera, the host's own */
+.lw-r2 .lw-vid{position:relative;overflow:hidden;border-radius:12px;background:#2B303B;color:#FAF9F5;display:flex;align-items:center;justify-content:center;aspect-ratio:16 / 9}
+.lw-r2 .lw-vid video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lw-r2 .lw-vid.lw-vid-up video,.lw-r2 .lw-vid.lw-vid-screen video{object-fit:contain}
+.lw-r2 .lw-vid-av{width:48px;height:48px;border-radius:50%;background:#3A404C;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500}
+.lw-r2 .lw-big{position:absolute;inset:0;aspect-ratio:auto;border-radius:16px}
+.lw-r2 .lw-big .lw-vid-av{width:96px;height:96px;font-size:34px}
+.lw-vid-lb{position:absolute;left:12px;bottom:10px;font-size:13px;font-weight:500;color:#FAF9F5;background:rgba(20,22,28,.55);padding:3px 10px;border-radius:999px}
+.lw-r2 .lw-tap{position:absolute;z-index:3;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--bone)}
+/* the cards */
+.lw-r2 .lw-evc{padding:12px 10px 12px 16px;display:flex;flex-direction:column;gap:10px;position:relative}
+.lw-evc-row,.lw-dk-row{display:flex;align-items:center;gap:6px;min-width:0}
+.lw-evc-row{flex-wrap:wrap}
+.lw-evc-row .lw-evc-t{flex:1 1 130px}
+.lw-evc-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+.lw-evc-t b{font-size:calc(17px * var(--type-scale));line-height:22px;font-weight:600;overflow-wrap:break-word}
+.lw-dk-row .lw-evc-t b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lw-r2 .lw-here{font-size:calc(14px * var(--type-scale));line-height:20px;color:var(--muted)}
+.lw-r2 .lw-here-b{align-self:flex-start;margin:0 0 0 -6px;padding:0 6px;min-height:32px;display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.lw-r2 .lw-evc .lw-ppl{position:static;width:auto;max-height:220px;padding:0;margin:0;border:0;background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;animation:lwFade .2s var(--ease) both}
+.lw-r2 .lw-evc .lw-ppl li{min-height:32px;font-size:calc(15px * var(--type-scale))}
+.lw-ib{flex:none;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:12px;background:none;color:inherit;cursor:pointer}
+.lw-ib svg{width:20px;height:20px}
+.lw-ib:hover{background:color-mix(in srgb,currentColor 7%,transparent)}
+.lw-ib:focus-visible,.lw-fd:focus-visible,.lw-db:focus-visible,.lw-dk-pic:focus-visible{outline:2px solid currentColor;outline-offset:1px}
+.lw-r2 .lw-rec:empty{display:none}
+.lw-r2 .lw-rec .lw-rec-on,.lw-r2 .lw-rec .lw-rec-off{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;border:1px solid var(--hairline);border-radius:999px;font-size:13px;color:inherit;background:none}
+.lw-r2 .lw-rec .lw-rec-on i{width:8px;height:8px;border-radius:50%;background:currentColor;animation:none}
+.lw-r2 .lw-rec{display:inline-flex;align-items:center;gap:2px}
+.lw-r2 .lw-rp{min-height:44px;padding:0 14px;color:inherit;border-color:color-mix(in srgb,currentColor 22%,transparent)}
+.lw-r2 .lw-rp.on{border-color:currentColor}
+.lw-r2 .lw-ctl.lw-end{width:44px;height:44px;min-height:0;flex:none;border-radius:12px}
+.lw-pills{display:flex;flex-wrap:wrap;gap:6px}
+.lw-sp{display:inline-flex}
+.lw-sp > .lw-rp:first-child{border-radius:999px 0 0 999px;border-right:0;padding-right:10px}
+.lw-sp .lw-sp-c{border-radius:0 999px 999px 0;padding:0 10px;min-width:34px}
+.lw-sp.on .lw-sp-c{border-color:currentColor}
+.lw-sp-c svg{width:14px;height:14px}
+.lw-r2 .lw-you{padding:10px 10px 12px 12px;display:flex;flex-direction:column;gap:10px}
+.lw-r2 .lw-you-m{flex-direction:row;align-items:center;flex-wrap:wrap;padding:10px 10px 10px 16px}
+.lw-you-t{flex:1 1 auto;font-size:calc(15px * var(--type-scale));font-weight:500}
+.lw-rc-hd{display:flex;align-items:center;gap:8px;min-height:48px}
+.lw-rc-hd b{flex:1 1 auto;font-size:calc(15px * var(--type-scale));font-weight:500}
+.lw-cn{font-size:calc(13px * var(--type-scale));color:var(--muted);display:none}
+.lw-folded .lw-cn:not(:empty){display:inline}
+.lw-fd{flex:none;width:36px;height:36px;margin-right:-2px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;background:none;color:inherit;cursor:pointer}
+.lw-fd svg{width:18px;height:18px;transition:transform .2s var(--ease)}
+.lw-folded > .lw-rc-hd .lw-fd svg{transform:rotate(-90deg)}
+.lw-r2 .lw-rc.lw-folded > .lw-rc-fold{display:none}
+.lw-r2 .lw-camc{padding:0 8px 0 16px}
+.lw-r2 .lw-camc .lw-rc-fold{padding:0 4px 12px 0;margin-left:-4px}
+.lw-r2 .lw-chatc{padding:0 8px 0 16px;display:flex;flex-direction:column;min-height:0}
+.lw-r2 .lw-chatc:not(.lw-folded){flex:1 1 auto}
+.lw-r2 .lw-chatc .lw-rc-fold{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;padding:0 8px 12px 0}
+.lw-r2 .lw-chatc .lw-chat-list{flex:1 1 auto;min-height:0;overflow-y:auto}
+.lw-chatf{display:flex;gap:8px;margin:0}
+.lw-chatf input{flex:1 1 auto;min-width:0;min-height:44px;box-sizing:border-box;padding:0 16px;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 22%,transparent);background:none;color:inherit;font:inherit;font-size:calc(15px * var(--type-scale))}
+.lw-chatf input::placeholder{color:inherit;opacity:.6}
+.lw-chatf .lw-rp{flex:none}
+/* the check-in in the rail, in place of Chat: a solid card; Chat fades out, the check-in rises in */
+.lw-ci-slot:empty{display:none}
+.lw-ci-slot{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+.lw-rail:has(.lw-ci-slot > .lw-sheet) .lw-chatc{display:none}
+.lw-ci-slot .p7-sheet.lw-sheet-in{position:relative;inset:auto;z-index:auto;display:flex;align-items:stretch;flex:1 1 auto;min-height:0;background:none;pointer-events:auto}
+.lw-ci-slot .lw-sheet-in .p7-sheet-card{position:relative;transform:none;width:100%;max-width:none;height:auto;max-height:none;min-height:0;flex:1 1 auto;display:flex;flex-direction:column;border-radius:16px;border:1px solid var(--hairline);background:var(--bone);color:var(--ink);box-shadow:none;animation:lwRiseR .2s var(--ease) both}
+.lw-ci-slot .lw-sheet-in .p8-grab{display:none}
+.lw-ci-slot .lw-sheet-in .p8-body{flex:1 1 auto;min-height:0;overflow-y:auto}
+/* the dock */
+.lw-r2 .lw-dock2{flex:none;padding:8px 8px 8px 12px;display:flex;flex-direction:column;gap:6px}
+.lw-dk-pic{flex:none;width:52px;height:52px;border:0;border-radius:12px;background:#2B303B;color:#FAF9F5;font:inherit;font-size:18px;cursor:pointer}
+.lw-dk-pic[aria-expanded="true"]{box-shadow:inset 0 0 0 2px currentColor}
+.lw-dk-row .lw-evc-t b{font-size:calc(15px * var(--type-scale));line-height:20px}
+.lw-dk-row .lw-here{font-size:calc(13px * var(--type-scale));line-height:18px}
+.lw-dk-btns{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:4px}
+.lw-db{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:52px;padding:2px;border:0;border-radius:12px;background:none;color:inherit;font:inherit;font-size:12px;cursor:pointer}
+.lw-db svg{width:20px;height:20px}
+.lw-db.on{box-shadow:inset 0 0 0 1.5px currentColor;font-weight:600}
+.lw-r2 .lw-dk-cam{position:absolute;z-index:4;right:var(--pad-x);bottom:calc(var(--dock-h,128px) + 24px);width:min(240px,calc(100% - 2 * var(--pad-x)));padding:8px}
+.lw-r2 .lw-dk-cam[hidden]{display:none}
+/* the rise: the rail from 12px to the right, the dock from 12px below, 200ms, 40ms apart; reduced motion = fades only */
+@keyframes lwRiseR{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+@keyframes lwRiseB{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes lwFade{from{opacity:0}to{opacity:1}}
+.lw-r2.lw-enter .lw-rail > *{animation:lwRiseR .2s var(--ease) both}
+.lw-r2.lw-enter .lw-rail > :nth-child(2){animation-delay:40ms}
+.lw-r2.lw-enter .lw-rail > :nth-child(3){animation-delay:80ms}
+.lw-r2.lw-enter .lw-rail > :nth-child(4){animation-delay:120ms}
+.lw-r2.lw-enter .lw-rail > :nth-child(5){animation-delay:160ms}
+.lw-r2.lw-enter .lw-dock2{animation:lwRiseB .2s var(--ease) both}
+.lw-slides.lw-sl-fade{transition:opacity .32s var(--ease);opacity:0}
+@media (prefers-reduced-motion:reduce){
+  .lw-r2.lw-enter .lw-rail > *,.lw-r2.lw-enter .lw-dock2,.lw-tile2.lw-in,body.lw-sl-leaving .lw-r2 .lw-tile2,.lw-ci-slot .lw-sheet-in .p7-sheet-card{animation-name:lwFade}
+  .lw-tile2{transition:opacity .2s}
+}
+/* desktop: the rail on 10-12, the area on 1-9, 40px top and bottom */
+@media (min-width:1120px){
+  #lw-room.lw-r2{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:minmax(0,1fr);column-gap:var(--gap);padding:40px}
+  .lw-r2 .lw-area{grid-column:1 / 10;grid-row:1}
+  .lw-r2 .lw-rail{grid-column:10 / 13;grid-row:1;display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto}
+  .lw-r2 .lw-dock2,.lw-r2 .lw-dk-cam{display:none}
+  .lw-r2 .lw-bento{--bg:var(--gap)}
+}
+/* tablet: the bento on the 12-column lines would be too fine; it keeps 9 columns over the full width */
+/* slides on: the room over the slide, transparent; the cards frosted glass that follow the scene */
+body.lw-sl-on #lw-room.lw-r2{position:fixed;inset:0;z-index:1;background:transparent;row-gap:12px;padding-block:max(16px,env(safe-area-inset-top)) calc(16px + env(safe-area-inset-bottom))}
+body.lw-sl-on #lw-room.lw-r2 .lw-area{visibility:hidden}
+body.lw-sl-on #lw-room.lw-r2 .lw-area .lw-tap{visibility:visible}
+body.lw-sl-on .lw-r2 .lw-rc{background:rgba(250,249,245,.84);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-color:rgba(26,31,42,.12);color:#1A1F2A}
+body.lw-sl-on.lw-sl-dark .lw-r2 .lw-rc{background:rgba(26,31,42,.62);border-color:rgba(250,249,245,.16);color:#FAF9F5}
+body.lw-sl-on.lw-sl-dark .lw-r2 .lw-here,body.lw-sl-on.lw-sl-dark .lw-r2 .lw-cn{color:rgba(250,249,245,.72)}
+body.lw-sl-on .lw-r2 .lw-here,body.lw-sl-on .lw-r2 .lw-cn{color:rgba(26,31,42,.66)}
+body.lw-sl-leaving #lw-room.lw-r2{background:transparent}
+@media (min-width:1120px){
+  body.lw-sl-on #lw-room.lw-r2{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:minmax(0,1fr);column-gap:var(--gap);padding:40px}
+}
+@media (max-width:1119.98px){
+  body.lw-sl-on #lw-room.lw-r2{display:flex;flex-direction:column;justify-content:flex-end;padding-inline:var(--pad-x)}
+  body.lw-sl-on #lw-room.lw-r2 .lw-area{flex:0 0 0;height:0}
 }

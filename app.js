@@ -3503,7 +3503,7 @@ function app(tab){
   function _lwSheet(title, body, opts){
     opts = opts || {};
     const old = document.getElementById('lw-sheet'); if(old) old.remove();
-    const wrap = document.createElement('div'); wrap.id = 'lw-sheet'; wrap.className = 'p7-sheet p8-sheet lw-sheet';
+    const wrap = document.createElement('div'); wrap.id = 'lw-sheet'; wrap.className = 'p7-sheet p8-sheet lw-sheet' + (opts.inline ? ' lw-sheet-in' : '');
     wrap.innerHTML = `<div class="p7-sheet-card p8-card lw-sheet-card" role="dialog" aria-modal="true" aria-labelledby="lw-sh-h">
       <div class="p8-grab" aria-hidden="true"></div>
       <div class="p8-head"><h3 class="p8-h" id="lw-sh-h">${escapeHtml(title)}</h3>${opts.sticky ? '' : `<button class="p8-x" id="lw-sh-x" type="button" aria-label="Close">${_UP_X}</button>`}</div>
@@ -3645,7 +3645,8 @@ function app(tab){
         <p class="lw-muted lw-p">${K.video === false ? 'The livestream keeps playing while you check in.' : 'The call keeps going while you check in.'} Nobody else sees your answers.</p>
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-ci-save">Save check-in</button><button class="btn block quiet" type="button" id="lw-ci-skip">Skip</button></div>
       </div>`;
-    const sh = _lwSheet('Check in', body, { sticky:!!opts.sticky, host:document.getElementById('lw-room') || document.body, onClose:opts.onClose });
+    const slot = (_lwWide() && R && R.phase === 'call') ? document.getElementById('lw-ci-slot') : null;
+    const sh = _lwSheet('Check in', body, { sticky:!!opts.sticky, host:slot || document.getElementById('lw-room') || document.body, onClose:opts.onClose, inline:!!slot });
     const el = sh.el;
     function refresh(){
       const colOf = ciAxisColorFn(v, sy, d, axTouched);
@@ -3755,7 +3756,10 @@ function app(tab){
     if(!R) return;
     if(tell && _lwIsHost() && R.co){ try{ R.co.sendAppMessage({ t:'sl-off' }, '*'); }catch(e){} }
     R.slide = null; R.slBeat = null; _lwSlCard(R, null);
-    const L = document.getElementById('lw-slides'); if(L) L.hidden = true;
+    document.body.classList.remove('lw-sl-dark');
+    // slides off: the slide cross-fades out while the video cards rise in; the rail stays still
+    const L = document.getElementById('lw-slides');
+    if(L && !L.hidden){ document.body.classList.add('lw-sl-leaving'); L.classList.add('lw-sl-fade'); setTimeout(() => { L.hidden = true; L.classList.remove('lw-sl-fade'); document.body.classList.remove('lw-sl-leaving'); }, 340); }
     if(_lwRoom === R && R.phase === 'call') _lwRender();
   }
   function _lwSlLayer(){
@@ -3769,7 +3773,7 @@ function app(tab){
     return L;
   }
   let _lwSlLoop = false;
-  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); document.body.classList.remove('lw-sl-on'); }
+  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); document.body.classList.remove('lw-sl-on', 'lw-sl-dark', 'lw-sl-leaving'); }
   // the slide is the room's whole background (Justin, 2026-10-28: "the entire screen to be the practice slide background ...
   // the various ui elements would be cards on top"). The frame lives at the page level, under the room, and follows the
   // room's size; body.lw-sl-on turns the room's parts into cards. On a phone the slide starts under the title card.
@@ -3784,7 +3788,7 @@ function app(tab){
       L.style.left = r.left + 'px'; L.style.top = top + 'px'; L.style.width = r.width + 'px'; L.style.height = Math.max(0, r.bottom - top) + 'px';
       _lwSlSafe(R, room, r);
     }
-    if(L.hidden === show) L.hidden = !show;
+    if(L.hidden === show && !(document.body.classList.contains('lw-sl-leaving') && !show)) L.hidden = !show;
     requestAnimationFrame(_lwSlTrack);
   }
   // the free area the cards leave, in px of the slide frame (2026-10-28, "optimize the slides for various screen sizes"):
@@ -3795,7 +3799,7 @@ function app(tab){
     const g = parseFloat(cs.columnGap) || 16, l = parseFloat(cs.paddingLeft) || 0, t = parseFloat(cs.paddingTop) || 0;
     let r = W - (parseFloat(cs.paddingRight) || 0), b = H - (parseFloat(cs.paddingBottom) || 0);
     // side layout = a card on the right half that starts near the top line; otherwise the cards sit along the bottom
-    const cards = [...room.querySelectorAll('.lw-call-head, .lw-mm-chat, .lw-ctls, .lw-stage, .lw-grid')].map(el => el.getBoundingClientRect())
+    const cards = [...room.querySelectorAll(room.classList.contains('lw-r2') ? '.lw-rail, .lw-dock2, .lw-dk-cam:not([hidden])' : '.lw-call-head, .lw-mm-chat, .lw-ctls, .lw-stage, .lw-grid')].map(el => el.getBoundingClientRect())
       .filter(q => q.width >= 2 && q.height >= 2).map(q => ({ x:q.left - rr.left, y:q.top - rr.top }));
     const side = cards.some(c => c.x >= W * .5 && c.y < H * .35);
     cards.forEach(c => { if(side && c.x >= W * .5) r = Math.min(r, c.x - g); else if(c.y >= H * .35) b = Math.min(b, c.y - g); });
@@ -3827,6 +3831,9 @@ function app(tab){
     if(_lwRoom !== R) return;
     const wasOff = !R.slide;
     R.slide = p; _lwSlLayer(); _lwSlPost(R, wasOff);
+    // the cards follow the scene: frosted dark glass with bone text on the builder's dark scenes (its SCENE_DARK)
+    document.body.classList.toggle('lw-sl-dark', !!(p.scene && /^(sunbeam|fireflies)$/.test(p.sceneName)));
+    if(wasOff) R.riseNext = true;
     // the first slide redraws the room (Justin's camera moves aside) before anything opens on top of it
     if(wasOff){ _lwSlRoomPoll(R); if(R.phase === 'call') _lwRender(); }
     const beat = p.beat || {}, key = p.p + ':' + p.idx;
@@ -3902,14 +3909,15 @@ function app(tab){
   function _lwFoldWire(){
     const room = document.getElementById('lw-room'); if(!room) return;
     const f = _lwFolds();
-    room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = !!f[k]; c.classList.toggle('lw-folded', on);
-      const b = c.querySelector('.lw-fold[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
+    const R0 = _lwRoom;
+    room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = (k === 'chat' && !(k in f) && room.classList.contains('lw-r2')) ? !((R0 && R0.chat) || []).length : !!f[k]; c.classList.toggle('lw-folded', on);
+      const b = c.querySelector('.lw-fold[data-fold="' + k + '"], .lw-fd[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
     // each card folds on its own (Justin, 2026-10-28: "someone should be able to keep the chat open while collapsing whatever else");
     // the title card no longer tucks the whole room away
     room.classList.remove('lw-tucked');
-    room.querySelectorAll('.lw-fold').forEach(b => b.onclick = e => { e.stopPropagation();
-      const k = b.dataset.fold;
-      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
+    room.querySelectorAll('.lw-fold, .lw-fd').forEach(b => b.onclick = e => { e.stopPropagation();
+      const k = b.dataset.fold, cd = b.closest('[data-card]'), was = !!(cd && cd.classList.contains('lw-folded'));
+      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !was; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
   }
   // folding and unfolding glide instead of jumping (Justin, 2026-10-28: "smooth and gentle is the standard"). Each card gets a
   // name only for the length of the move, so the browser can carry it from its old size and place to the new one; the slide
@@ -3918,7 +3926,7 @@ function app(tab){
     const room = document.getElementById('lw-room');
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!room || reduce || !document.startViewTransition){ apply(); return; }
-    const named = [...room.querySelectorAll('[data-card], .lw-grid')];
+    const named = [...room.querySelectorAll('[data-card], .lw-grid, .lw-bento')];
     named.forEach((c, i) => { c.style.viewTransitionName = 'lw-card-' + (c.dataset.card || 'grid' + i); });
     document.documentElement.classList.add('lw-vt');
     const done = () => { named.forEach(c => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('lw-vt'); };
@@ -4044,30 +4052,53 @@ function app(tab){
       const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; R.leftMarked = false; _lwRender(); _lwJoin(); };
       return;
     }
-    // in the call
-    const mm = !K.video, member = !host;
-    const ctl = (id, ico, label, extra) => `<button type="button" class="lw-ctl${extra||''}" id="${id}">${ico}<span>${label}</span></button>`;
-    // mic and camera: the button toggles, the up arrow beside it picks the device (Justin, 2026-10-27)
-    const split = (id, ico, label, on, kind) => `<div class="lw-split${on ? ' on' : ''}"><button type="button" class="lw-ctl${on ? ' on' : ''}" id="${id}">${ico}<span>${label}</span></button><button type="button" class="lw-caret" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></div>`;
-    // the host hangs up with a small red square, icon only (Justin, 2026-10-28); it asks: end for everyone, or leave and keep the room open
-    const ctls = [host ? `<button type="button" class="lw-ctl lw-end" id="lw-c-leave" aria-label="End or leave the event" title="End or leave">${LW_ICO.hangup}</button>` : ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
-    if(!(mm && member)){ ctls.push(split('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')); ctls.push(split('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')); }
-    if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
-    if(host) ctls.push(ctl('lw-c-slides', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', R.slide ? ' on' : ''));
-    if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
-    ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
-    // two controls only (a Mindful Moment member: Leave, Settings) → the small controls card shares a row with the title card
-    setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}${ctls.length <= 2 ? ' lw-ctl2' : ''}" id="lw-room">
-      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span>${host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="false" aria-controls="lw-ppl">${LW_ICO.people}<span></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : `<span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span>`}</span>${host ? '<ul class="lw-ppl" id="lw-ppl" aria-label="Who is in the room" hidden></ul>' : ''}<button type="button" class="lw-fold" data-fold="head" aria-label="Collapse the title" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
-      <div class="lw-call-body">
-        <div class="lw-stage" id="lw-stage" data-card="cam"><button type="button" class="lw-fold" data-fold="cam" aria-label="Collapse the camera" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
-        ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
-        ${mm ? `<div class="lw-mm-chat" data-card="chat"><div class="lw-mm-chat-h"><b>Chat</b><span class="lw-fold-n" id="lw-chat-n"></span><button type="button" class="lw-fold" data-fold="chat" aria-label="Collapse the chat" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="lw-chat-list" id="lw-chat-list"></div>
-          <form class="lw-chat-form" id="lw-chat-form"><label class="vh" for="lw-chat-in">Share a present moment reflection</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="Share a present moment reflection"><button class="btn" type="submit">Send</button></form></div>`
-          : `<div class="lw-grid" id="lw-grid"></div>`}
-      </div>
-      <div class="lw-ctls" data-card="ctls" style="--n:${ctls.length}">${ctls.join('')}<button type="button" class="lw-fold" data-fold="ctls" aria-label="Collapse the controls" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
+    // in the call (Justin, canon 2026-10-31): the area on 1-9 (the slide's free area with slides on; the video with slides off),
+    // one rail of cards on 10-12, and below 1120 one dock along the bottom instead of the rail.
+    const mm = !K.video, member = !host, slides = !!R.slide;
+    const CHV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    const fd = (k, what) => `<button type="button" class="lw-fd" data-fold="${k}" aria-label="Fold ${what}" aria-expanded="true">${CHV}</button>`;
+    const pill = (id, label, on, extra) => `<button type="button" class="lw-rp${on ? ' on' : ''}" id="${id}"${extra || ''}>${on && /lw-c-slides/.test(id) ? LW_ICO.check : ''}<span>${label}</span></button>`;
+    const sp = (id, label, on, kind) => `<span class="lw-sp${on ? ' on' : ''}">${pill(id, label, on, ` aria-pressed="${on}"`)}<button type="button" class="lw-rp lw-sp-c" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></span>`;
+    const leave = host ? `<button type="button" class="lw-ctl lw-end" id="lw-c-leave" aria-label="End or leave the event" title="End or leave">${LW_ICO.hangup}</button>`
+      : `<button type="button" class="lw-rp" id="lw-c-leave">Leave</button>`;
+    const here = host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="false" aria-controls="lw-ppl">${LW_ICO.people}<span class="lw-here-n"></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`
+      : `<span class="lw-here" id="lw-here"><span class="lw-here-n"></span></span>`;
+    const evCard = `<section class="lw-rc lw-evc" data-card="head" aria-label="The event"><div class="lw-evc-row"><div class="lw-evc-t"><b>${escapeHtml(K.name)}</b>${here}</div>
+        <span class="lw-rec" id="lw-rec"></span><button type="button" class="lw-ib" id="lw-c-set" aria-label="Settings" title="Settings">${LW_ICO.gear}</button>${leave}</div>
+        ${host ? '<ul class="lw-ppl" id="lw-ppl" aria-label="Who is here" hidden></ul>' : ''}</section>`;
+    // You: the host's camera while the slides are up, his Mic / Camera with their pickers, Share screen and Slides; a member at a
+    // video event: Mic and Camera as outlined pills. A Mindful Moment member has neither (livestream only).
+    const youCard = host ? `<section class="lw-rc lw-you" data-card="you" aria-label="You">${slides ? '<div class="lw-vid lw-you-vid" id="lw-you-vid" data-lw-spot="self"></div>' : ''}
+        <div class="lw-pills">${sp('lw-c-mic', R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')}${sp('lw-c-cam', R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')}
+        ${_lwCanShare() ? pill('lw-c-share', R.sharing ? 'Stop sharing' : 'Share screen', R.sharing) : ''}${pill('lw-c-slides', R.slide ? 'Slides on' : 'Slides', !!R.slide, ` aria-pressed="${!!R.slide}"`)}</div></section>`
+      : mm ? '' : `<section class="lw-rc lw-you lw-you-m" data-card="you" aria-label="You"><span class="lw-you-t">You</span><div class="lw-pills">${pill('lw-c-mic', R.mic ? 'Mic on' : 'Mic off', R.mic, ` aria-pressed="${R.mic}"`)}${pill('lw-c-cam', R.cam ? 'Camera on' : 'Camera off', R.cam, ` aria-pressed="${R.cam}"`)}</div></section>`;
+    // Justin's camera in the rail while the slides are up (members): it folds to one line, the arrow on its header line
+    const camCard = (member && slides) ? `<section class="lw-rc lw-camc" data-card="cam" aria-label="Justin’s camera"><div class="lw-rc-hd"><b>Justin</b>${fd('cam', 'the camera')}</div>
+        <div class="lw-rc-fold"><div class="lw-vid lw-cam-vid" id="lw-stage-rail" data-lw-spot="owner"></div></div></section>` : '';
+    const ph = mm ? 'Share a present moment reflection' : 'Write to the group';
+    const chatCard = `<section class="lw-rc lw-chatc" data-card="chat" aria-label="Chat"><div class="lw-rc-hd"><b>Chat</b><span class="lw-cn" id="lw-chat-n"></span>${fd('chat', 'the chat')}</div>
+        <div class="lw-rc-fold"><div class="lw-chat-list" id="lw-chat-list"></div>
+        <form class="lw-chat-form lw-chatf" id="lw-chat-form"><label class="vh" for="lw-chat-in">${ph}</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="${ph}"><button class="lw-rp on" type="submit">Send</button></form></div></section>`;
+    // the dock (tablet and phone): Justin's picture (members, slides up), the name and the count, then the controls
+    const dB = (id, ico, label, on, proxy) => `<button type="button" class="lw-db${on ? ' on' : ''}"${id ? ` id="${id}"` : ''}${proxy ? ` data-proxy="${proxy}"` : ''}>${ico}<span>${label}</span></button>`;
+    const dRow = [];
+    if(!(mm && member)){ dRow.push(dB('', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'lw-c-mic')); dRow.push(dB('', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'lw-c-cam')); }
+    if(host) dRow.push(dB('', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', !!R.slide, 'lw-c-slides'));
+    dRow.push(dB('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : ''), false));
+    dRow.push(dB('', LW_ICO.gear, 'Settings', false, 'lw-c-set'));
+    const dock = `<nav class="lw-rc lw-dock2" aria-label="Live event controls"><div class="lw-dk-row">${(member && slides) ? `<button type="button" class="lw-dk-pic" id="lw-dk-pic" aria-expanded="${!!R.dockCam}" aria-label="${R.dockCam ? 'Hide Justin’s camera' : 'Show Justin’s camera'}">J</button>` : ''}
+        <div class="lw-evc-t"><b>${escapeHtml(K.name)}</b><span class="lw-here"><span class="lw-here-n"></span></span></div>
+        ${host ? `<button type="button" class="lw-ctl lw-end" data-proxy="lw-c-leave" aria-label="End or leave the event">${LW_ICO.hangup}</button>` : '<button type="button" class="lw-rp" data-proxy="lw-c-leave">Leave</button>'}</div>
+        <div class="lw-dk-btns" style="--n:${dRow.length}">${dRow.join('')}</div></nav>`;
+    const enter = !R.entered || R.riseNext; R.entered = true; R.riseNext = false;
+    setHTML(`<div class="lw-room lw-r2${mm ? ' lw-r2-mm' : ''}${host ? ' lw-r2-host' : ''}${enter ? ' lw-enter' : ''}" id="lw-room">
+      <div class="lw-area" id="lw-area">${mm ? '<div class="lw-vid lw-big" id="lw-stage" data-lw-spot="owner"></div>' : '<div class="lw-bento" id="lw-grid"></div>'}
+        ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}</div>
+      <aside class="lw-rail" id="lw-rail" aria-label="The live event">${evCard}${youCard}${camCard}<div class="lw-ci-slot" id="lw-ci-slot"></div>${chatCard}</aside>
+      ${(member && slides) ? `<div class="lw-rc lw-dk-cam" id="lw-dk-cam"${R.dockCam ? '' : ' hidden'}><div class="lw-vid" id="lw-dk-vid" data-lw-spot="owner"></div></div>` : ''}
+      ${dock}
       <div id="lw-audio" hidden></div></div>`);
+    if(enter) setTimeout(() => { const r = document.getElementById('lw-room'); if(r) r.classList.remove('lw-enter'); }, 700);
     _lwPaint();
     const co = R.co;
     if(host) $('#lw-c-leave').onclick = () => { const sh = _lwSheet('End the event?', `<p class="lw-p">End it for everyone, or leave and keep the room open for the others.</p>
@@ -4106,6 +4137,9 @@ function app(tab){
     document.querySelectorAll('#lw-room [data-lw-dev]').forEach(b => b.onclick = e => { e.stopPropagation(); _lwDevMenu(b.dataset.lwDev, b); });
     _lwFoldWire();
     _lwPaintRec();
+    document.querySelectorAll('#lw-room [data-proxy]').forEach(b => b.onclick = () => { const t = document.getElementById(b.dataset.proxy); if(t) t.click(); });
+    { const pic = document.getElementById('lw-dk-pic'); if(pic) pic.onclick = () => { R.dockCam = !R.dockCam; const c = document.getElementById('lw-dk-cam'); if(c) c.hidden = !R.dockCam;
+        pic.setAttribute('aria-expanded', String(R.dockCam)); pic.setAttribute('aria-label', R.dockCam ? 'Hide Justin’s camera' : 'Show Justin’s camera'); _lwPaint(); }; }
     const setB = document.getElementById('lw-c-set'); if(setB) setB.onclick = _lwSettingsSheet;
     _lwWireStateTg(document.getElementById('lw-room'));
     const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
@@ -4217,7 +4251,7 @@ function app(tab){
       else if(n < R.chat.length) el.insertAdjacentHTML('beforeend', R.chat.slice(n).map(m => _lwMsgHTML(m, true)).join(''));
       el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
     });
-    const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? String(R.chat.length) : '';
+    const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? R.chat.length + (R.chat.length === 1 ? ' message' : ' messages') : '';
   }
   // the member's state glyph beside their name: their DOMINANT state across their check-ins (the share signature),
   // one choice shared with Settings → "Your state glyph on shared images and in live chat" (Justin, 2026-10-27)
@@ -4330,7 +4364,7 @@ function app(tab){
   function _lwPaintHead(){
     const R = _lwRoom; if(!R || !R.co) return;
     const sub = document.getElementById('lw-call-sub'), here = document.querySelector('#lw-here span');
-    try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; }catch(e){}
+    try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; document.querySelectorAll('.lw-here-n').forEach(e => { e.textContent = n + ' here'; }); }catch(e){}
     // the host sees who is here (Justin, 2026-10-28): first names as the app shows them, the host first, then in the order they came
     const ul = document.getElementById('lw-ppl'), hb = document.getElementById('lw-here');
     if(ul && hb){
@@ -4359,38 +4393,50 @@ function app(tab){
     const owner = ps.find(p => p.owner && !p.local) || (local && local.owner ? local : null);
     const screen = ps.find(p => _lwTrack(p, 'screenVideo'));
     R.screenOn = !!screen;
-    const stage = document.getElementById('lw-stage');
-    if(stage){
-      let main = null, label = '', mirror = false, key = '';
-      if(screen){ main = _lwTrack(screen, 'screenVideo'); label = (screen.local ? 'You are' : (screen.user_name || 'Justin') + ' is') + ' sharing'; key = 'screen-' + screen.session_id; }
-      else if(owner){ main = _lwTrack(owner, 'video'); label = owner.local ? 'You' : (owner.user_name || 'Justin'); mirror = !!owner.local; key = 'cam-' + owner.session_id; }
-      stage.querySelectorAll('video').forEach(v => { if(v.dataset.lwKey !== key) v.remove(); });
-      if(main){ const v = _lwVideo(key, main, mirror); if(v.parentNode !== stage) stage.prepend(v); stage.classList.toggle('lw-stage-screen', !!screen); }
-      const av = stage.querySelector('.lw-stage-av');
-      if(!main && !av) stage.insertAdjacentHTML('afterbegin', `<span class="lw-stage-av">${escapeHtml(((owner && (owner.local ? 'You' : owner.user_name)) || 'Justin').charAt(0))}</span>`);
-      if(main && av) av.remove();
-      let lb = stage.querySelector('.lw-stage-lb'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-stage-lb'; stage.appendChild(lb); }
-      lb.textContent = (screen && R.slide) ? label + '. The slides come back when sharing stops.' : (label || (owner ? '' : 'Waiting for Justin'));
-    }
+    // the video spots: owner = Justin's camera (or a shared screen), self = this device's camera (the host's You card)
+    document.querySelectorAll('#lw-room [data-lw-spot]').forEach(el => {
+      const self = el.dataset.lwSpot === 'self', who = self ? local : (screen || owner);
+      const tr = who ? (self || !screen ? _lwTrack(who, 'video') : _lwTrack(screen, 'screenVideo')) : null;
+      const key = (self ? 'self-' : screen ? 'screen-' : 'cam-') + (who ? who.session_id : 'none') + '@' + el.id;
+      el.querySelectorAll('video').forEach(v => { if(v.dataset.lwKey !== key || !tr) v.remove(); });
+      if(tr){ const v = _lwVideo(key, tr, !!(who && who.local) && !screen); if(v.parentNode !== el) el.prepend(v); el.classList.toggle('lw-vid-screen', !!screen && !self);
+        const up = v.videoHeight > v.videoWidth * 1.05; el.classList.toggle('lw-vid-up', up); if(!v._lwRs){ v._lwRs = true; v.addEventListener('resize', () => _lwPaint()); } }
+      el.classList.toggle('lw-vid-on', !!tr);
+      let av = el.querySelector('.lw-vid-av'); if(!tr && !av){ el.insertAdjacentHTML('afterbegin', `<span class="lw-vid-av">${escapeHtml(self ? 'You' : ((who && !who.local && who.user_name) || 'Justin').charAt(0))}</span>`); }
+      if(tr && av) av.remove();
+      let lb = el.querySelector('.lw-vid-lb'); if(el.classList.contains('lw-big')){ if(!lb){ lb = document.createElement('span'); lb.className = 'lw-vid-lb'; el.appendChild(lb); }
+        lb.textContent = screen ? ((screen.local ? 'You are' : (screen.user_name || 'Justin') + ' is') + ' sharing') : owner ? (owner.local ? 'You' : (owner.user_name || 'Justin')) : 'Waiting for Justin'; }
+    });
+    // the bento (Capacity Builder, Q&A with the slides off): everyone in the same style, the speaker biggest
     const grid = document.getElementById('lw-grid');
     if(grid){
-      const tiles = ps.filter(p => p !== owner || screen);   // with a screen on stage, Justin's camera joins the tiles
-      const keep = new Set();
-      tiles.forEach(p => {
-        const k = 'tile-' + p.session_id; keep.add(k);
+      let sp = null; try{ const a = R.co.getActiveSpeaker && R.co.getActiveSpeaker(); sp = a && a.peerId ? ps.find(p => p.session_id === a.peerId) : null; }catch(e){}
+      const lead = screen || sp || owner || ps[0];
+      const order = lead ? [lead].concat(ps.filter(p => p !== lead)) : ps;
+      const keep = new Set(), items = [];
+      order.forEach((p, i) => {
+        const isScreen = p === screen && i === 0 && !!_lwTrack(p, 'screenVideo');
+        const k = (isScreen ? 'scr-' : 'tile-') + p.session_id; keep.add(k);
         let tile = grid.querySelector('[data-tile="' + k + '"]');
-        if(!tile){ tile = document.createElement('div'); tile.className = 'lw-tile'; tile.dataset.tile = k; grid.appendChild(tile); }
-        const vt = _lwTrack(p, 'video'), name = p.local ? 'You' : (p.user_name || 'Member');
+        if(!tile){ tile = document.createElement('div'); tile.className = 'lw-tile2 lw-in'; tile.dataset.tile = k; grid.appendChild(tile); setTimeout(() => tile.classList.remove('lw-in'), 400); }
+        const vt = isScreen ? _lwTrack(p, 'screenVideo') : _lwTrack(p, 'video'), name = p.local ? 'You' : (p.user_name || 'Member');
         tile.classList.toggle('lw-tile-cam', !!vt);
         tile.querySelectorAll('video').forEach(v => { if(!vt) v.remove(); });
-        if(vt){ const v = _lwVideo('v-' + p.session_id, vt, p.local); if(v.parentNode !== tile) tile.prepend(v); tile.querySelectorAll('.lw-tile-av').forEach(a => a.remove()); }
-        else if(!tile.querySelector('.lw-tile-av')) tile.insertAdjacentHTML('afterbegin', `<span class="lw-tile-av">${escapeHtml(p.local ? 'You' : name.charAt(0))}</span>`);
-        let lb = tile.querySelector('.lw-tile-lb'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-tile-lb'; tile.appendChild(lb); }
-        lb.textContent = name + (p.local && !R.mic ? ', muted' : '');
+        let up = false;
+        if(vt){ const v = _lwVideo('v-' + k, vt, p.local && !isScreen); if(v.parentNode !== tile) tile.prepend(v); tile.querySelectorAll('.lw-tile-av').forEach(a => a.remove());
+          const s0 = (vt.getSettings && vt.getSettings()) || {}, vw = v.videoWidth || s0.width || 16, vh = v.videoHeight || s0.height || 9; up = vh > vw * 1.05;
+          if(!v._lwRs){ v._lwRs = true; v.addEventListener('resize', () => _lwPaint()); } }
+        else if(!tile.querySelector('.lw-tile-av')) tile.insertAdjacentHTML('afterbegin', `<span class="lw-tile-av">${escapeHtml(p.local ? 'You' : name.charAt(0).toUpperCase())}</span>`);
+        const micOff = !isScreen && !(p.local ? R.mic : _lwTrack(p, 'audio'));
+        let lb = tile.querySelector('.lw-tile-lb2'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-tile-lb2'; tile.appendChild(lb); }
+        lb.innerHTML = (micOff ? LW_ICO.micOff : '') + escapeHtml(isScreen ? name + (p.local ? ' are sharing' : ' is sharing') : name);
+        tile.classList.toggle('lw-speaking', i === 0 && !isScreen && ps.length > 1);
+        items.push({ el:tile, up });
       });
       grid.querySelectorAll('[data-tile]').forEach(t => { if(!keep.has(t.dataset.tile)) t.remove(); });
+      _lwBento(grid, items);
     }
-    // remote audio (the call object does not play audio by itself)
+        // remote audio (the call object does not play audio by itself)
     const box = document.getElementById('lw-audio');
     if(box){
       const want = new Set();
@@ -4405,6 +4451,64 @@ function app(tab){
     }
     _lwPaintHead();
   }
+
+  // ---- the bento of video cards (Justin, canon 2026-10-31): columns 1-9 (phone 4), 12 row units, no empty space. The speaker is
+  // first and biggest: wide by default (1-6), an upright phone a tall card (1-4) with the others an even block on 5-9; an upright
+  // member gets a tall card beside the speaker. Outer edges land on the grid's columns and row lines. Everything glides (CSS 320ms).
+  function _lwBentoRects(items, W, H, phone, G){
+    const N = items.length; if(!N || !W) return [];
+    const BC = phone ? 4 : 9, RG = phone ? 10 : 16;
+    const rowU = Math.max(phone ? 30 : 24, (H - RG * 11) / 12), bcW = (W - G * (BC - 1)) / BC;
+    const rect = (c, cs, r, rs) => ({ x:(c - 1) * (bcW + G), y:(r - 1) * (rowU + RG), w:cs * bcW + (cs - 1) * G, h:rs * rowU + (rs - 1) * RG });
+    const split = (b, n, c) => { const out = [], rr = Math.ceil(n / c), ch = (b.h - RG * (rr - 1)) / rr;
+      for(let i = 0; i < n; i++){ const row = Math.floor(i / c), inRow = row === rr - 1 ? n - row * c : c, col = i - row * c, cw = (b.w - G * (inRow - 1)) / inRow;
+        out.push({ x:b.x + col * (cw + G), y:b.y + row * (ch + RG), w:cw, h:ch }); } return out; };
+    const k = N - 1, sUp = items[0].up, upI = items.findIndex((it, i) => i > 0 && it.up);
+    let R;
+    if(!phone){
+      if(!k) R = [rect(1, 9, 1, 12)];
+      else if(sUp) R = [rect(1, 4, 1, 12)].concat(split(rect(5, 5, 1, 12), k, k <= 3 ? 1 : k <= 8 ? 2 : 3));
+      else if(upI > 0 && k <= 6){
+        const rest = k - 1;
+        R = k <= 3 ? [rect(1, 6, 1, 12), rest ? rect(7, 3, 1, 8) : rect(7, 3, 1, 12)].concat(rest ? split(rect(7, 3, 9, 4), rest, rest) : [])
+                   : [rect(1, 6, 1, 8), rect(7, 3, 1, 8)].concat(split(rect(1, 9, 9, 4), rest, rest));
+      } else if(k <= 3) R = [rect(1, 6, 1, 12)].concat(split(rect(7, 3, 1, 12), k, 1));
+      else if(k <= 6) R = [rect(1, 6, 1, 9)].concat(split(rect(7, 3, 1, 9), 3, 1), split(rect(1, 9, 10, 3), k - 3, k - 3));
+      else if(k <= 11) R = [rect(1, 6, 1, 6)].concat(split(rect(7, 3, 1, 6), 2, 1), split(rect(1, 9, 7, 6), k - 2, 3));
+      else { R = [rect(1, 6, 1, 6)].concat(split(rect(7, 3, 1, 6), 2, 1)); const rest = k - 2, rows = Math.ceil(rest / 3);
+        for(let i = 0; i < rest; i++){ const row = Math.floor(i / 3), inRow = row === rows - 1 ? rest - row * 3 : 3, col = i - row * 3, cs = 9 / inRow;
+          const b = rect(1, 9, 7 + row * 2, 2), cw = (b.w - G * (inRow - 1)) / inRow; R.push({ x:col * (cw + G), y:b.y, w:cw, h:b.h }); } }
+    } else {
+      const J = sUp ? rect(1, 4, 1, 9) : rect(1, 4, 1, k ? 6 : 12), y0 = J.y + J.h + RG, cellH = sUp ? 2 : (k > 6 ? 3 : 2);
+      R = [J]; const up = upI > 0;
+      if(up) R.push(Object.assign(rect(1, 2, 1, 6), { y:y0 }));
+      const rest = k - (up ? 1 : 0), slots = [];
+      for(let i = 0; slots.length < rest && i < 400; i++){
+        const col = i % 2, row = Math.floor(i / 2), b = rect(1 + col * 2, 2, 1, cellH); b.y = y0 + row * (b.h + RG);
+        if(up && col === 0 && b.y < y0 + R[1].h) continue;
+        slots.push(b);
+      }
+      if(rest % 2 === 1 && slots.length && slots[slots.length - 1].x === 0) slots[slots.length - 1].w = rect(1, 4, 1, 1).w;
+      R = R.concat(slots);
+    }
+    // the upright member is laid out second; give the rects back in the items' order
+    if(!phone && !sUp && upI > 0 && k <= 6){ const out = R.slice(), r1 = out[1]; out.splice(1, 1); out.splice(upI, 0, r1); return out; }
+    if(phone && upI > 0){ const out = R.slice(), r1 = out[1]; out.splice(1, 1); out.splice(upI, 0, r1); return out; }
+    return R;
+  }
+  function _lwBento(grid, items){
+    const area = grid.parentElement; if(!area) return;
+    const phone = !(window.matchMedia && matchMedia('(min-width:720px)').matches);
+    const cs = getComputedStyle(grid), G = parseFloat(cs.getPropertyValue('--bg')) || (phone ? 10 : 24);
+    const W = grid.clientWidth, H = area.clientHeight;
+    const R = _lwBentoRects(items, W, H, phone, G);
+    let bottom = 0;
+    items.forEach((it, i) => { const r = R[i]; if(!r) return; const s = it.el.style;
+      s.left = Math.round(r.x) + 'px'; s.top = Math.round(r.y) + 'px'; s.width = Math.round(r.w) + 'px'; s.height = Math.round(r.h) + 'px';
+      it.el.classList.toggle('lw-tile-sm', Math.min(r.w, r.h) < 120); bottom = Math.max(bottom, r.y + r.h); });
+    grid.style.height = Math.round(bottom) + 'px';
+  }
+  try{ let _lwBT = null; addEventListener('resize', () => { clearTimeout(_lwBT); _lwBT = setTimeout(() => { if(_lwRoom && _lwRoom.phase === 'call') _lwPaint(); }, 120); }); }catch(e){}
 
   // install affordances: a quiet settings row + an optional dismissable today nudge
   function installRowInner(){
