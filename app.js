@@ -4689,27 +4689,21 @@ function app(tab){
     const timeIn2 = (id, val, dis, lim) => `<input type="time" id="${id}" value="${val||''}" ${lim?`min="${lim[0]}" max="${lim[1]}"`:''} ${dis?'disabled':''} style="font:inherit;font-size:calc(15px * var(--type-scale));background:transparent;border:0;border-bottom:1px solid var(--hairline);color:var(--ink);padding:6px 0;min-height:44px">`;
     setHTML(`
       <header class="appbar"><button class="backbtn" id="nt-back" type="button">Settings</button></header>
-      <div class="scroll"><div class="view settings-view">
+      <div class="scroll"><div class="view settings-view st-view nt-view">
         <div class="scr-head">
           <p class="eyebrow"></p>
           <h2 class="scr-h">Notifications</h2>
           <p class="scr-lede" id="nt-hint">${hint}</p>
         </div>
         <div class="gs">
-        <div class="gs-card">
-          <p class="gs-h">After practice reminder</p>
-          <p class="gs-note">You'll receive a reminder to check-in within a few hours of a practice if you have not already. This helps track how effective the practices are. (No reminders are sent between 9pm and 8am.)</p>
+        <section class="st-sec nt-sec"><h2 class="st-name">After practice reminder</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder to check-in within a few hours of a practice if you have not already. This helps track how effective the practices are. (No reminders are sent between 9pm and 8am.)</p>
           ${sw('nt-followup','After practice reminder', !!prefs.followup, dis)}
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">Check-in reminders</p>
-          <p class="gs-note">You'll receive a reminder to check-in for each time period that you select. More check-ins provide more clarity about how your system shows up throughout the day and helps the app to recommend practices best suited for you.</p>
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">Check-in reminders</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder to check-in for each time period that you select. More check-ins provide more clarity about how your system shows up throughout the day and helps the app to recommend practices best suited for you.</p>
           ${PUSH_DAYPARTS.map(d=>{ const on = !!(prefs.checkin_times||{})[d[0]]; return sw('nt-ci-'+d[0], d[1], on, dis) + `<div id="nt-cit-${d[0]}" style="${on?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-'+d[0], (prefs.checkin_times||{})[d[0]]||d[2], dis, LIM[d[0]])}</div>`; }).join('')}
           <p class="gs-fine">You'll receive one reminder for each time period you choose.</p>
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">Practice reminder</p>
-          <p class="gs-note">You'll receive a reminder to practice at your best time, or on the days and the time of your choosing.</p>
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">Practice reminder</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder to practice at your best time, or on the days and the time of your choosing.</p>
           ${sw('nt-practice','Practice reminder', !!prefs.practice_time, dis)}
           <div id="nt-prt" style="${prefs.practice_time?'':'display:none'}">
             <div class="p-chips" id="nt-pmode" style="margin:2px 0 12px;flex-wrap:nowrap">
@@ -4723,25 +4717,22 @@ function app(tab){
             <div class="p-chips" style="margin-top:12px">${PUSH_DAYS.map((d,i)=>`<button class="p-chip nt-day${days.indexOf(i)>=0?' on':''}" type="button" data-day="${i}" aria-pressed="${days.indexOf(i)>=0}" aria-label="${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][i]}" style="padding:9px 13px">${d}</button>`).join('')}</div>
             </div>
           </div>
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">Challenge reminder</p>
-          <p class="gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
-          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}See paid plans</p>` + sw('nt-chal','Challenge reminder', false, true)}
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">Challenge reminder</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
+          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<div class="gs-sw"><span class="gs-lbl">Challenge reminder</span><button class="lw-rp nt-see" id="nt-chal-see" type="button">${LOCK_SVG}<span>See paid plans</span></button></div>`}
           <div id="nt-cht" style="${prefs.challenge_time && paidNow()?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-chal', prefs.challenge_time||'09:00', dis, null)}</div>
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">New reflections</p>
-          <p class="gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">New reflections</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
           ${sw('nt-r-week','Weekly reflection', prefs.reflect_week!==false, dis)}<p class="gs-fine" style="margin-top:-4px">Sunday morning, 6 am</p>
           ${sw('nt-r-month','Monthly reflection', prefs.reflect_month!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each month</p>
           ${sw('nt-r-season','Season reflection', prefs.reflect_season!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each season</p>
           ${sw('nt-r-year','Year reflection', prefs.reflect_year!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of December 31</p>
-        </div>
+        </div></section>
         ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-card"><p class="gs-h">Beta</p><div class="gs-actions"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div></div>' : ''}
         </div>
       </div></div>`);
     const back=$('#nt-back'); if(back) back.onclick=()=>screenSettings();
+    { const see=$('#nt-chal-see'); if(see) see.onclick=()=>gateSubscribe('challenges'); }
     // permission is asked the first time anything is switched on; a refusal reverts the switch
     let cur = prefs;
     const ensure = async ()=>{ if(pushState()==='on') return true; const r = await pushRequest('settings'); if(r==='on') return true; const h=$('#nt-hint'); if(h) h.innerHTML = r==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.' : 'Notifications were not turned on. You can try again any time.'; return false; };
@@ -9327,21 +9318,6 @@ function app(tab){
       </div>`);
     $('#lv-out').onclick = ()=>{ _liveClear(); app('now'); };
   }
-  function screenLiveCode(){
-    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">Join with a Code</h2><p class="scr-lede">Enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">Join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">Back</button></div></div>');
-    var inp=$('#lc-in'); if(inp) inp.focus();
-    var go=function(){
-      var v=((inp&&inp.value)||'').trim().toUpperCase();
-      if(!/^[A-Z0-9]{4,10}$/.test(v)){ var m=$('#lc-msg'); if(m) m.textContent='That doesn\u2019t look like a code. It\u2019s a few letters and numbers.'; return; }
-      try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:v, joined:'self', t:Date.now() })); }catch(e){}
-      if(!Store.user() && Store.cloud()){ authMode = knownDevice() ? 'in' : 'up'; return screenSignIn(); }
-      screenLive();
-    };
-    if($('#lc-go')) $('#lc-go').onclick=go;
-    if(inp) inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); go(); }});
-    if($('#lc-back')) $('#lc-back').onclick=function(){ app('settings'); };
-  }
-
   async function screenLive(){
     const join = _liveJoin(); if(!join) return app(currentTab);
     _liveShell(`<div class="view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">One moment&hellip;</h2></div></div>`);
@@ -12922,17 +12898,20 @@ function app(tab){
         <button class="em-b" type="button" data-mv="up" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} up"${i === 0 && e.t === 1 ? ' disabled' : ''}>${_UP_UP}</button>
         <button class="em-b" type="button" data-mv="dn" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} down"${i === L.length - 1 && e.t === 3 ? ' disabled' : ''}>${_UP_DN}</button>
         <button class="em-b em-x" type="button" data-rm="${i}" aria-label="Take out ${escapeHtml(e.w)}">${_UP_X}</button></div>`;
-      const tier = t => `<div class="em-tier" data-t="${t}"><p class="em-tier-h">${UP_TIER[t]}</p>${L.map((e, i) => e.t === t ? row(e, i) : '').join('') || '<p class="em-none">None yet</p>'}</div>`;
+      const tier = t => `<section class="em-tier em-hc" data-t="${t}" aria-label="${UP_TIER[t]}"><span class="em-hc-band" aria-hidden="true"></span><h4 class="em-tier-h">${UP_TIER[t]}</h4>${L.map((e, i) => e.t === t ? row(e, i) : '').join('') || '<p class="em-none">None yet</p>'}</section>`;
       // loose, in alphabetical order (Justin, 2026-10-02: "the unpicked emotions should not be grouped. just leave them loose. but
       // when they are selected, they can go into the three tiers"); each still goes to its suggested level when picked
-      const left = UP_EMO_ALL.filter(x => !has.has(x[0].toLowerCase())).sort((a, b) => a[0].localeCompare(b[0]));
-      const chips = left.length ? `<div class="em-chips">${left.map(x => `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${x[1]}"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`).join('')}</div>` : '';
+      // every emotion stays in the list as an outlined pill; the chosen ones carry the ink outline and a check, and a tap takes them out
+      const left = UP_EMO_ALL.slice().sort((a, b) => a[0].localeCompare(b[0]));
+      const chips = left.length ? `<div class="em-chips">${left.map(x => { const on = has.has(x[0].toLowerCase());
+        return on ? `<button class="em-chip on" type="button" data-rmw="${escapeHtml(x[0])}" aria-pressed="true">${_UP_CHECK}${escapeHtml(x[0])}</button>`
+          : `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${x[1]}" aria-pressed="false"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`; }).join('')}</div>` : '';
       _rdShell(`<div class="up-view em-view" style="--line:${c.line};--band:${c.band}"><div class="scr-head read-head"><h1 class="read-h1">Which defense?</h1></div>
         <p class="up-lede">${escapeHtml(UP_Q.which[0])}</p>
         <p class="em-how">Choose up to nine emotions to work with. They start sorted from easy to hard, and you can move any of them. Choosing one before a practice is optional.</p>
         <h3 class="p8-sec up-sec">Your emotions <span class="em-n">${L.length} of ${UP_EMO_MAX}</span></h3>
         <div class="em-list">${tier(1)}${tier(2)}${tier(3)}</div>
-        <h3 class="p8-sec up-sec">Add an emotion</h3>
+        <h3 class="p8-sec up-sec">Choose your emotions</h3>
         ${full ? '<p class="em-how">You have nine. Take one out to add another.</p>' : ''}
         ${chips}
         <form class="em-own" id="em-own" autocomplete="off"><label class="em-add-h" for="em-own-in">In your own words</label>
@@ -12947,6 +12926,7 @@ function app(tab){
           else { if(i < L.length - 1 && L[i+1].t === x.t){ L[i] = L[i+1]; L[i+1] = x; } else if(x.t < 3) x.t++; }
           msg = ''; save(); return keep(paint); }
         const rm = e.target.closest('[data-rm]'); if(rm){ L.splice(+rm.dataset.rm, 1); msg = ''; save(); return keep(paint); }
+        const rw = e.target.closest('[data-rmw]'); if(rw){ const w = rw.dataset.rmw.toLowerCase(), j = L.findIndex(x => x.w.toLowerCase() === w); if(j >= 0) L.splice(j, 1); msg = ''; save(); return keep(paint); }
         const ad = e.target.closest('[data-add]'); if(ad && L.length < UP_EMO_MAX){ L.push({ w:ad.dataset.add, t:+ad.dataset.t }); msg = ''; save(); return keep(paint); }
         if(e.target.closest('#em-done')) return done();
       };
@@ -13414,7 +13394,7 @@ function app(tab){
         ${notes.map(x=>`<div class="ch-note"><span class="ch-lbl">${escapeHtml(String(x.topic).toUpperCase())}</span><p>${escapeHtml(x.text).replace(/\n/g, '<br>')}</p></div>`).join('')}
         ${all.length ? `<button class="ch-link" type="button" id="ch-jr">${escapeHtml(T.finAll.replace('{n}', String(all.length)))}</button>` : ''}
         <div class="ch-take"><span class="ch-lbl">TAKEAWAY</span><p>${escapeHtml(s.c.takeaway)}</p></div>
-        ${next ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-next"><span class="ch-keep-t"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><b>${escapeHtml(next.c.name)}</b><span>${escapeHtml(_chDaysWord(next.c))}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
+        ${next ? `<button class="lb-card lb-big ch-card ch-nexthc" type="button" id="ch-next"><span class="lb-pic" aria-hidden="true"></span><span class="lb-body"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><span class="lb-t">${escapeHtml(next.c.name)}</span><span class="lb-meta">${escapeHtml(_chDaysWord(next.c))}</span></span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
       </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
     const jr = $('#ch-jr'); if(jr) jr.onclick = ()=>screenJournal('you');
     const nx = $('#ch-next'); if(nx) nx.onclick = ()=>{ screenChallenges(); setTimeout(()=>openChSheet(next.id, screenChallenges), 30); };
@@ -14230,8 +14210,7 @@ function app(tab){
           ${pushRowInner()?`<div class="st-rowwrap" id="push-row">${pushRowInner()}</div>`:''}
           ${isStandalone()?'':`<div class="st-rowwrap st-install">${installState()==='button'?'':'<p class="st-lbl st-lbl-top">Install the app</p>'}<div id="install-row">${installRowInner()}</div></div>`}
           ${stSw('sw-live', 'Live practice invitations', lv!=='0', 'live-cap')}
-          ${stSw('sw-tips', 'Tips about settings', tipsOn(), 'tips-cap')}
-          ${stGo('live-code', 'Join a live practice with a code', '')}`)}
+          ${stSw('sw-tips', 'Tips about settings', tipsOn(), 'tips-cap')}`)}
         ${stSec('Help', `
           ${stGo('set-walkthrough', 'Walk me through the app', '')}
           ${stGo('set-updates', 'What’s New', 'Past updates')}`)}
@@ -14382,7 +14361,6 @@ function app(tab){
       : 'The app never offers these.'; };
     _tipsCap(tipsOn());
     bindSw('sw-tips',   on=>{ try{ localStorage.setItem(TIPS_ON_KEY, on?'1':'0'); }catch(e){} _tipsCap(on); });
-    { const _lc=$('#live-code'); if(_lc) _lc.onclick=()=>screenLiveCode(); }
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
     pushBindRow();
     // offline: bulk download / clear, with an honest iOS-eviction check on render
