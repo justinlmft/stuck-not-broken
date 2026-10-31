@@ -28,7 +28,55 @@
       setTimeout(()=>{ try{ label.remove(); }catch(e){} }, 200);
     }catch(e){}
   }
+
+  // Sounds (Justin 2026-10-31: "we need pleasing sounds, like Minecraft"; sounds1). Soft notes made in the app with Web
+  // Audio, no files. Every note comes from one major pentatonic scale, so nothing clashes, and taps and saves land on a
+  // slightly different note each time. Rides on haptic(kind). Quiet during a practice (except the chime once it has
+  // finished), a breath, the live room and a background-sound preview. On by default; Settings > Sounds writes '0'.
+  let _sndCtx = null;
+  const _SND_SCALE = [523.25, 587.33, 659.25, 783.99, 880.00];   // C5 D5 E5 G5 A5
+  function _sndOk(kind){
+    try{
+      if(localStorage.getItem('snb_sounds') === '0') return false;
+      if(kind === 'begin' || kind === 'bed') return false;
+      const c = document.body && document.body.classList;
+      if(c && (c.contains('breathing') || c.contains('lw-in-room'))) return false;
+      if(c && kind !== 'complete' && c.contains('in-practice')) return false;
+      return true;
+    }catch(e){ return false; }
+  }
+  function _sndNote(ctx, f, t, dur, vol, bright){   // a soft bell-like note: a sine plus a quiet octave partial
+    const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), g2 = ctx.createGain(), lp = ctx.createBiquadFilter();
+    o.type = 'sine'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = f * 2; g2.gain.value = bright;
+    lp.type = 'lowpass'; lp.frequency.value = 3200;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(ctx.destination);
+    o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+  }
+  function _sndTick(ctx, t, vol){   // a soft wooden tick: a short burst of filtered noise and a low knock
+    const len = Math.floor(ctx.sampleRate * 0.03), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+    for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+    n.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = 1500 + Math.random() * 300; bp.Q.value = 2.5; g.gain.value = vol;
+    n.connect(bp); bp.connect(g); g.connect(ctx.destination); n.start(t);
+    _sndNote(ctx, 330 + Math.random() * 40, t, 0.07, vol * 0.6, 0);
+  }
+  function sound(kind){
+    if(!_sndOk(kind)) return;
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      if(!_sndCtx) _sndCtx = new AC();
+      const ctx = _sndCtx; if(ctx.state === 'suspended') ctx.resume();
+      const t = ctx.currentTime + 0.01, S = _SND_SCALE;
+      if(kind === 'tap') _sndTick(ctx, t, 0.05);
+      else if(kind === 'save'){ const i = Math.floor(Math.random() * 3); _sndNote(ctx, S[i], t, 0.35, 0.06, 0.25); _sndNote(ctx, S[i + 2], t + 0.075, 0.5, 0.055, 0.25); }
+      else if(kind === 'complete' || kind === 'done'){ [S[0], S[2], S[3], S[0] * 2].forEach((f, i) => _sndNote(ctx, f, t + i * 0.13, 1.4, 0.05, 0.3)); }
+      else _sndNote(ctx, S[Math.floor(Math.random() * S.length)] / 2, t, 0.28, 0.07, 0.15);   // a pick: one soft pluck, an octave down
+    }catch(e){}
+  }
+  window.__snbSound = sound;
   function haptic(kind){
+    try{ sound(kind); }catch(e){}
     try{
       if(localStorage.getItem('snb_haptics') === '0') return;       // on by default; '0' mutes
       if(_hapIsIOS()){
@@ -1108,7 +1156,7 @@
     if(_gbRunning) return; _gbRunning = true;
     const ring=$('#gb-ring'), txt=$('#gb-txt');
     const reduce = document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion:reduce)').matches;
-    try{ haptic('start'); }catch(_){}
+    try{ haptic('begin'); }catch(_){}
     const setTxt=(t)=>{ if(txt) txt.textContent=t; };
     const done=()=>{
       setTxt("That's the heart of it. Come on in.");
@@ -1486,7 +1534,7 @@
   function guestPracticeShell(src, reco){
     _frScStop();
     src = _playerSrc(src);          // the same one place that decides where a practice plays
-    haptic('start');
+    haptic('begin');
     setHTML(`
       <div class="weaver-wrap">
         <div class="weaver-loading" id="weaver-loading" aria-live="polite"><span class="wl-ring" aria-hidden="true"></span><span class="wl-txt">Preparing your practice</span></div>
@@ -5663,7 +5711,7 @@ function app(tab){
   // A full breath counts as today's breath, as the ring's did; a tap during it brings the words back, the breath goes on.
   function _nqBreath(c){
     if(_nqBusy) return; _nqBusy = true;
-    try{ haptic('start'); }catch(_){}
+    try{ haptic('begin'); }catch(_){}
     const view = c.querySelector('.view.now.nq'), live = c.querySelector('#nq-live');
     document.body.classList.add('nq-idle'); clearTimeout(_nqIdleT);
     const tr = document.querySelector('#nq-scene #tring');
@@ -5696,7 +5744,7 @@ function app(tab){
     const ring  = document.getElementById('tring');
     const phase = document.getElementById('tb-phase');
     if(!view || !ring) return;
-    try{ haptic('start'); }catch(_){}
+    try{ haptic('begin'); }catch(_){}
     breathing = true;
     view.classList.remove('breathed');
     view.classList.add('breathing');
@@ -11310,7 +11358,7 @@ function app(tab){
   }
   function practiceShell(src, reco){
     src = _playerSrc(src);
-    haptic('start');               // soft tap as the practice begins (Begin tap = user gesture)
+    haptic('begin');               // soft tap as the practice begins (Begin tap = user gesture); no sound, the voice starts
     currentTab = 'practice';
     setHTML(`
       <div class="weaver-wrap">
@@ -11537,9 +11585,9 @@ function app(tab){
         <div class="p7-seg p7-seg-steps ps-steps" role="radiogroup" aria-label="Volume">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
       body.innerHTML = rows + lv;
       body.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
-        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
+        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('bed'); paint(); onChange&&onChange(); });
       body.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
-        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('start'); paint(); onChange&&onChange(); });
+        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('bed'); paint(); onChange&&onChange(); });
     };
     paint();
   }
@@ -11557,9 +11605,9 @@ function app(tab){
         <div class="p7-seg p7-seg-steps" role="radiogroup" aria-label="Volume">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
       wrap.querySelector('.p7-sheet-body').innerHTML=`<div class="p7-sheet-group">Sound</div>${rows}${lv}`;
       wrap.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
-        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
+        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('bed'); paint(); onChange&&onChange(); });
       wrap.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
-        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('start'); paint(); onChange&&onChange(); });
+        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('bed'); paint(); onChange&&onChange(); });
     };
     wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true">
       <div class="p7-sheet-title">Background sound</div>
@@ -14232,6 +14280,7 @@ function app(tab){
     const th = (localStorage.getItem('snb_theme')||'');
     const rf = (localStorage.getItem('snb_readfont')||'');
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
+    const sdn = (localStorage.getItem('snb_sounds')!=='0');    // soft sounds (sounds1) — on by default
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
     const lv = (localStorage.getItem('snb_live_nudge')||'1');        // "we're live" invitations — on by default
@@ -14319,6 +14368,7 @@ function app(tab){
           <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
             <div class="st-choices">${VOICES.map(([k,l])=>`<button class="st-ch voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}" aria-pressed="${pvc===k}">${escapeHtml(l)}${voiceOk(k)?'':`<span class="st-lock">${LOCK_SVG}See paid plans</span>`}</button>`).join('')}</div>
           </div></div>
+          ${stSw('sw-sounds', 'Sounds', sdn)}
           ${stSw('sw-haptics', 'Haptics', hp)}
           ${stSw('sw-offline', 'Save practices for offline', offOn)}
           <p class="st-help" id="offline-status"></p>
@@ -14465,6 +14515,7 @@ function app(tab){
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
     // no caption on haptics (Justin 2026-09-09: the switch says it); the buzz on switch-on stays
     bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); });
+    bindSw('sw-sounds', on=>{ localStorage.setItem('snb_sounds', on?'1':'0'); if(on) sound('save'); });
     // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
       ? 'Your share cards and your live event chat messages carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
