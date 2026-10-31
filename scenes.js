@@ -95,7 +95,9 @@ function compute(P){
     const hov = '--dx:' + f(mv[0]) + 'px; --dy:' + f(mv[0] * .15) + 'px; ';
     const hovA = 'snbHover ' + f(mv[1]) + 's ease-in-out -9s infinite alternate';
     const drift = rm ? '' : hov + 'animation: ' + hovA + ', snbSpin ' + spin + 's linear -40s infinite;';
-    const box = 'left:' + f(cx - d / 2) + 'px; top:' + f(cy - d / 2) + 'px; width:' + f(d) + 'px; height:' + f(d) + 'px; border-radius:50%; transform-origin:50% 50%; box-sizing:border-box; z-index:2; ';
+    // One breath (grid8c): the pad rises on the in-breath and settles on the out-breath, like a swell passing under it
+    const bph = P.bph || '', lift = rm ? '' : bph === 'in' ? 'transform: translateY(-' + f(H * .08) + 'px) scale(1.06); transition: transform 4s cubic-bezier(.4,0,.5,1); ' : 'transition: transform 5s cubic-bezier(.4,0,.5,1); ';
+    const box = lift + 'left:' + f(cx - d / 2) + 'px; top:' + f(cy - d / 2) + 'px; width:' + f(d) + 'px; height:' + f(d) + 'px; border-radius:50%; transform-origin:50% 50%; box-sizing:border-box; z-index:2; ';
     const rp = { safety:{ n:1, per:15, sz:2.3, a:.55 }, fight:{ n:2, per:9, sz:1.6, a:.5 }, shutdown:{ n:1, per:24, sz:1.3, a:.28 } }[st] || { n:1, per:14, sz:1.9, a:.42 };
     const ring = (list, R2, a, extra) => list.push({ s:'left:' + f(cx - R2) + 'px; top:' + f(cy - R2) + 'px; width:' + f(R2 * 2) + 'px; height:' + f(R2 * 2) + 'px; border-radius:50%; border:1.3px solid ' + rc(a) + '; box-sizing:border-box; transform-origin:50% 50%; z-index:1; ' + extra, cs:'' });
     for(let k = 0; k < rp.n; k++){ const R2 = d * rp.sz / 2, dl = -k * rp.per / rp.n;
@@ -104,8 +106,9 @@ function compute(P){
         ring(items, R2 * 1.3, 1, 'opacity:0; --o:' + f(rp.a * .6) + '; --s0:' + f(1 / (rp.sz * 1.3)) + '; ' + hov + 'animation: snbRipO ' + f(rp.per) + 's cubic-bezier(.2,.6,.2,1) ' + f(dl + 1.6) + 's infinite, ' + hovA + ';');
       } else { ring(items, R2 * .7, rp.a * .8, ''); ring(items, R2 * .95, rp.a * .45, ''); } }
     if(breath && !rm){ const R2 = d * 1.25;
-      ring(late, R2, 1, '--s0:.4; ' + hov + 'animation: snbRipO2 9s cubic-bezier(.3,.5,.3,1) 1 both, ' + hovA + ';');
-      ring(late, R2 * 1.3, .6, '--s0:.3; opacity:0; ' + hov + 'animation: snbRipO2 9s cubic-bezier(.3,.5,.3,1) 1.4s 1 both, ' + hovA + ';'); }
+      // the ripple belongs to the out-breath: it opens as the pad comes back down
+      ring(late, R2, 1, '--s0:.4; opacity:0; ' + hov + 'animation: snbRipO2 5.5s cubic-bezier(.3,.5,.3,1) 4s 1 both, ' + hovA + ';');
+      ring(late, R2 * 1.3, .6, '--s0:.3; opacity:0; ' + hov + 'animation: snbRipO2 5.5s cubic-bezier(.3,.5,.3,1) 4.8s 1 both, ' + hovA + ';'); }
     const notch = 'conic-gradient(from 18deg, #000 0deg 334deg, transparent 334deg 360deg)';
     const padFill = dark ? 'rgba(236,232,222,.045)' : 'rgba(247,244,236,.96)';
     add(box + 'border:1.5px solid ' + ink(.6) + '; background:' + padFill + '; -webkit-mask:' + notch + '; mask:' + notch + '; ' + drift);
@@ -188,11 +191,11 @@ function mount(host, opts){
   lean.setAttribute('style', 'position:absolute; inset:0; transform-origin:50% 100%');
   root.appendChild(bgL); root.appendChild(lean); root.appendChild(rainL);
   host.appendChild(root);
-  let O = Object.assign({}, opts), breathOn = false, bT = null, last = '';
+  let O = Object.assign({}, opts), breathOn = false, bph = '', bT = null, bT2 = null, last = '';
   function paint(){
     const W = host.clientWidth || innerWidth, H = host.clientHeight || innerHeight;
-    const key = JSON.stringify([O.scene, O.tod, O.weather, O.state, O.dark, O.reduce, breathOn, W, H, O.paperless]); if(key === last) return; last = key;
-    const v = compute(Object.assign({}, O, { W, H, breath:breathOn }));
+    const key = JSON.stringify([O.scene, O.tod, O.weather, O.state, O.dark, O.reduce, breathOn, bph, W, H, O.paperless]); if(key === last) return; last = key;
+    const v = compute(Object.assign({}, O, { W, H, breath:breathOn, bph }));
     setStyle(root, 'position:absolute; inset:0; overflow:hidden; pointer-events:none; transition: background 2s;' + (O.paperless ? '' : ' background:' + v.paper + ';'));
     root.__paper = v.paper;
     sync(bgL, v.bgs, () => document.createElement('div'), (el, s) => setStyle(el, 'position:absolute; inset:0; pointer-events:none; ' + s));
@@ -211,8 +214,11 @@ function mount(host, opts){
     el: root,
     get paper(){ return root.__paper; },
     update(o){ Object.assign(O, o || {}); paint(); },
-    breath(){ clearTimeout(bT); breathOn = true; last = ''; paint(); bT = setTimeout(() => { breathOn = false; paint(); }, 9000); },
-    stop(){ clearTimeout(bT); removeEventListener('resize', onR); root.remove(); }
+    // in for 4, out for 5 (the pond's ripple runs a little past the out-breath, so it ends on its own)
+    breath(){ clearTimeout(bT); clearTimeout(bT2); breathOn = true; bph = 'in'; last = ''; paint();
+      bT2 = setTimeout(() => { bph = 'out'; paint(); }, 4000);
+      bT = setTimeout(() => { breathOn = false; bph = ''; paint(); }, O.scene === 'pond' ? 10500 : 9000); },
+    stop(){ clearTimeout(bT); clearTimeout(bT2); removeEventListener('resize', onR); root.remove(); }
   };
 }
 window.SNBScene = { SCENES, mount, compute, todOf };
