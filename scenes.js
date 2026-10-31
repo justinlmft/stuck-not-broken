@@ -152,13 +152,14 @@ function compute(P){
       const ringC = dark ? 'transparent' : 'rgba(26,31,42,.28)';
       const z = [1,1,.62,.42][i % 4], dx2 = (R() - .5) * P2.dx * z, dy2 = (R() - .5) * P2.dy * z, gd = -R() * per, hd = -R() * hv, ro = r(.5, 1);
       const gA = (dark ? .22 : .34) * Math.max(.6, bright) * (z < 1 ? .7 : 1);
-      const halo2 = breath ? '0 0 ' + f(8 * z) + 'px ' + f(4 * z) + 'px rgba(' + coreC.join(',') + ',' + f(dark ? .85 : .95) + '), 0 0 ' + f(40 * z) + 'px ' + f(16 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * 1.4) + '), 0 0 ' + f(130 * z) + 'px ' + f(60 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * .6) + ')'
+      const glowOn = breath && P.bph !== 'out';   // grid8d: the glow is the in-breath; the out-breath lets it go
+      const halo2 = glowOn ? '0 0 ' + f(8 * z) + 'px ' + f(4 * z) + 'px rgba(' + coreC.join(',') + ',' + f(dark ? .85 : .95) + '), 0 0 ' + f(40 * z) + 'px ' + f(16 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * 1.4) + '), 0 0 ' + f(130 * z) + 'px ' + f(60 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * .6) + ')'
                            : '0 0 0 0 rgba(' + coreC.join(',') + ',0), 0 0 0 0 rgba(' + glow.join(',') + ',0), 0 0 0 0 rgba(' + glow.join(',') + ',0)';
-      const holder = 'left:' + f(x) + 'px; top:' + f(y) + 'px; width:0; height:0; border-radius:50%; box-shadow:' + halo2 + '; transition: box-shadow ' + (breath ? '4s' : '5s') + ' ease-in-out; ';
+      const holder = 'left:' + f(x) + 'px; top:' + f(y) + 'px; width:0; height:0; border-radius:50%; box-shadow:' + halo2 + '; transition: box-shadow ' + (glowOn ? '4s' : '5s') + ' ease-in-out; ';
       const dot = 'left:-10px; top:-10px; width:20px; height:20px; border-radius:50%; transform:scale(' + z + '); background: radial-gradient(circle, ' + core + ' 0 2.2px, ' + ringC + ' 2.4px 3px, ' + halo + ' 3.2px, transparent 10px); ';
-      if(rm) add(holder, dot + 'opacity:' + f(ro * bright) + ';' + (breath ? ' filter: brightness(1.4); transition: filter 4s;' : ' transition: filter 5s;'));
+      if(rm) add(holder, dot + 'opacity:' + f(ro * bright) + ';' + (glowOn ? ' filter: brightness(1.4); transition: filter 4s;' : ' transition: filter 5s;'));
       else add(holder + '--dx:' + f(dx2) + 'px; --dy:' + f(dy2) + 'px; animation: snbHover ' + f(hv) + 's ease-in-out ' + f(hd) + 's infinite alternate; animation-play-state:' + (breath ? 'paused' : 'running') + ';',
-               dot + 'opacity:0; --o:' + f(bright) + '; animation: snbGlow ' + f(per) + 's ease-in-out ' + f(gd) + 's infinite; animation-play-state:' + (breath ? 'paused' : 'running') + ';' + (breath ? ' filter: brightness(1.4);' : ''));
+               dot + 'opacity:0; --o:' + f(bright) + '; animation: snbGlow ' + f(per) + 's ease-in-out ' + f(gd) + 's infinite; animation-play-state:' + (breath ? 'paused' : 'running') + ';' + (glowOn ? ' filter: brightness(1.4); transition: filter 4s;' : ' transition: filter 5s;'));
     }
   }
   late.forEach(x => items.push(x));
