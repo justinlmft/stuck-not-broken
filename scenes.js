@@ -24,6 +24,7 @@ const KF = `@keyframes snbSw{from{transform:rotate(calc(var(--a) * -1))}to{trans
 @keyframes snbBr{0%{transform:scale(1)}44%{transform:scale(var(--s))}100%{transform:scale(1)}}
 @keyframes snbBright{0%{opacity:1}44%{opacity:.62}100%{opacity:1}}
 @keyframes snbNone{0%{opacity:1}100%{opacity:1}}
+@keyframes snbCirc{0%{transform:scale(1);opacity:1}3.5%{transform:scale(.86);opacity:.62}42.5%{transform:scale(1.28);opacity:1}88%{transform:scale(.78);opacity:.5}100%{transform:scale(1);opacity:1}}
 @keyframes snbBobT{0%,100%{transform:translateY(0)}50%{transform:translateY(var(--b))}}`;
 function css(){ if(document.getElementById('snb-scene-kf')) return; const s = document.createElement('style'); s.id = 'snb-scene-kf'; s.textContent = KF; document.head.appendChild(s); }
 function rng(seed){ return function(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -131,13 +132,13 @@ function compute(P){
       for(let k = 0; k < 4; k++){ const a = R() * 6.283, q = r(.12, .32) * d; add('left:' + f(cx + Math.cos(a) * q - 2.5) + 'px; top:' + f(cy + Math.sin(a) * q - 2.5) + 'px; width:5px; height:5px; border-radius:50%; border:1px solid ' + ink(.45) + '; box-sizing:border-box; z-index:3; transform-origin:' + f(-Math.cos(a) * q + 2.5) + 'px ' + f(-Math.sin(a) * q + 2.5) + 'px; ' + drift); } }
   }
   if(scene === 'circles'){
-    const u = Math.min(W * .8, 420, H * .62), cx = wide ? W * .64 : W * .5, cy = wide ? H * .5 : H * .52;
+    const D = W >= 1120 ? 213 : W >= 720 ? 205 : 190, u = Math.min(D / .86, W * .8, H * .62), cx = wide ? W * .64 : W * .5, cy = wide ? H * .5 : H * .52;   // prod's size (grid8h)
     const CFG = { safety:[1,0,0,'244,213,141'], fight:[0,1,0,'232,155,155'], shutdown:[0,0,1,'163,192,221'], play:[1,1,0,'232,168,113'], stillness:[1,0,1,'159,196,152'], freeze:[0,1,1,'184,154,196'] }[st];
     const RG = [{ r:.43, per:7, act:[.955,1.055], qui:[.985,1.02], br:1.16 }, { r:.35, per:3, act:[.985,1.04], qui:[.992,1.016], br:1.09 }, { r:.27, per:9, act:[.975,1.006], qui:[.987,1.001], br:1.035 }];
     RG.forEach((g, i) => { const on = !!(CFG && CFG[i]), rad = u * g.r, sc = on ? g.act : g.qui;
       const stroke = on ? 'rgba(' + CFG[3] + ',' + f(inkK) + ')' : ink(.16), bw = on ? 2.4 : 2;
       let an = '';
-      if(!rm) an = breath ? '--s:' + f(on ? g.br : CFG ? 1.03 : [1.12,1.08,1.05][i]) + '; animation: snbBr 9s cubic-bezier(.4,0,.5,1) 1 both;'
+      if(!rm) an = breath ? ''   // One breath moves the whole circle (below); the rings' own pulse rests
                           : '--s0:' + sc[0] + '; --s1:' + sc[1] + '; animation: snbRing ' + g.per + 's cubic-bezier(.45,0,.55,1) ' + f(-i * 1.3) + 's infinite;';
       add('left:' + f(cx - rad) + 'px; top:' + f(cy - rad) + 'px; width:' + f(rad * 2) + 'px; height:' + f(rad * 2) + 'px; border-radius:50%; border:' + bw + 'px solid ' + stroke + '; box-sizing:border-box; transform-origin:50% 50%; transition:border-color .9s; ' + an);
     });
@@ -185,7 +186,8 @@ function compute(P){
     } }
   // One breath for the whole picture: reeds lean (4 in / 5 out); reduced motion = a gentle brightening only
   let breathS = '';
-  if(breath){ if(rm) breathS = 'animation: snbBright 9s ease-in-out 1;'; else if(scene === 'reeds') breathS = 'animation: snbLean 9s ease-in-out 1;'; }
+  if(breath){ if(rm) breathS = 'animation: snbBright 9s ease-in-out 1;'; else if(scene === 'reeds') breathS = 'animation: snbLean 9s ease-in-out 1;';
+    else if(scene === 'circles'){ const wd = W >= 700; breathS = 'transform-origin:' + f(wd ? W * .64 : W * .5) + 'px ' + f(wd ? H * .5 : H * .52) + 'px; animation: snbCirc 11s cubic-bezier(.4,0,.5,1) 1 both;'; } }
   return { W, H, paper, bgs, items, rain, breathS };
 }
 
@@ -230,7 +232,7 @@ function mount(host, opts){
     // in for 4, out for 5 (the pond's ripple runs a little past the out-breath, so it ends on its own)
     breath(){ clearTimeout(bT); clearTimeout(bT2); breathOn = true; bph = 'in'; last = ''; paint();
       bT2 = setTimeout(() => { bph = 'out'; paint(); }, 4000);
-      bT = setTimeout(() => { breathOn = false; bph = ''; paint(); }, O.scene === 'pond' ? 10500 : 9000); },
+      bT = setTimeout(() => { breathOn = false; bph = ''; paint(); }, O.scene === 'pond' ? 10500 : O.scene === 'circles' ? 11000 : 9000); },
     stop(){ clearTimeout(bT); clearTimeout(bT2); removeEventListener('resize', onR); root.remove(); }
   };
 }
