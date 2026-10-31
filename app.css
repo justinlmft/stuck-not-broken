@@ -173,8 +173,8 @@ button{font:inherit;color:inherit}
      metaphor; pointer contexts get side navigation) */
   #screen > .tabbar{
     flex-direction:column;justify-content:flex-start;gap:4px;height:100%;overflow-y:auto;
-    border-top:0;border-radius:0;background:none;margin:0;border-right:1px solid var(--hairline);
-    padding:max(26px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
+    border-top:0;border-radius:0;background:none;margin:0;border-right:0;
+    padding:max(34px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
     min-width:var(--rail-w)}
   /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
      ink, dormant = normal muted; no background. Top-aligned so the first word
@@ -5763,29 +5763,7 @@ body.reduce-motion .nq-fade,body.reduce-motion.on-now #screen > .tabbar,body.red
 .p8-begin,.p8-plans{width:auto;min-height:48px;padding:0 24px}
 .p8-plans{display:inline-flex;align-items:center;gap:8px}
 .p8-plans .rd-lk{width:16px;height:16px;color:currentColor}
-/* Self-Regulator: the state and the two beside it on the Current, one smooth blend led by the state, drifting slowly */
-.p8-feat.p8-paid{--t1:color-mix(in oklab, var(--c1) 42%, #FBFAF6);--t2:color-mix(in oklab, var(--c2) 30%, #FBFAF6);--t3:color-mix(in oklab, var(--c3) 30%, #FBFAF6);
-  border-color:color-mix(in oklab, var(--c1) 40%, var(--hairline));color:#1A1F2A;
-  background:linear-gradient(118deg, var(--t2) 0%, var(--t1) 32%, var(--t1) 68%, var(--t3) 100%);background-size:220% 220%;
-  animation:p8Drift 38s ease-in-out infinite alternate}
-.p8-feat.p8-paid .p8-meta,.p8-feat.p8-paid .p8-why{color:#3A3F4A}
-.p8-feat.p8-paid .p8-cust{color:#1A1F2A;text-decoration-color:rgba(26,31,42,.35)}
-.p8-feat.p8-paid .p8-begin{background:#1A1F2A;color:#FAF9F5}
-@keyframes p8Drift{0%{background-position:0% 35%}100%{background-position:100% 65%}}
-:root.theme-dark .p8-feat.p8-paid{--t1:oklch(from var(--c1) 0.33 calc(c * .6) h);--t2:oklch(from var(--c2) 0.30 calc(c * .5) h);--t3:oklch(from var(--c3) 0.30 calc(c * .5) h);
-  border-color:oklch(from var(--c1) 0.38 calc(c * .45) h);color:#ECEAE3}
-:root.theme-dark .p8-feat.p8-paid .p8-meta,:root.theme-dark .p8-feat.p8-paid .p8-why{color:#C5C3BC}
-:root.theme-dark .p8-feat.p8-paid .p8-cust{color:#ECEAE3;text-decoration-color:rgba(236,234,227,.4)}
-:root.theme-dark .p8-feat.p8-paid .p8-begin{background:#ECEAE3;color:#1B1C1E}
-@media (prefers-color-scheme: dark){
-:root:not(.theme-light) .p8-feat.p8-paid{--t1:oklch(from var(--c1) 0.33 calc(c * .6) h);--t2:oklch(from var(--c2) 0.30 calc(c * .5) h);--t3:oklch(from var(--c3) 0.30 calc(c * .5) h);
-  border-color:oklch(from var(--c1) 0.38 calc(c * .45) h);color:#ECEAE3}
-:root:not(.theme-light) .p8-feat.p8-paid .p8-meta,:root:not(.theme-light) .p8-feat.p8-paid .p8-why{color:#C5C3BC}
-:root:not(.theme-light) .p8-feat.p8-paid .p8-cust{color:#ECEAE3;text-decoration-color:rgba(236,234,227,.4)}
-:root:not(.theme-light) .p8-feat.p8-paid .p8-begin{background:#ECEAE3;color:#1B1C1E}
-}
-@media (prefers-reduced-motion: reduce){ .p8-feat.p8-paid{animation:none;background-position:50% 50%} }
-body.reduce-motion .p8-feat.p8-paid{animation:none;background-position:50% 50%}
+/* the custom practice card is a plain house card now; the moving outline (.snb-reco) says it is recommended (2026-10-31) */
 /* the practice cards and their rows: no icon boxes, no dividers */
 .p8-box{border:1px solid var(--hairline);border-radius:20px;padding:20px 22px 12px;min-width:0;box-sizing:border-box}
 .p8-box .p8-sec{font-size:calc(19px * var(--type-scale));font-weight:600;letter-spacing:-.01em;margin:0 0 6px}
@@ -7167,3 +7145,17 @@ body.lw-in-room .shell{max-width:none}
 .ch-sh-body .ch-time{margin-top:4px}
 .ch-sh-body .ch-keep{width:100%;margin-top:8px}
 .ch-sh-foot:empty{display:none}
+
+/* ---- Recommended (Justin, App Notes 2026-10-31: "a singular way to indicate they are special ... a gradient outline that
+   moves around the shape"). One look everywhere: a 1.5px ring in the state colours, turning slowly. Still with reduced motion. */
+@property --snb-a{syntax:'<angle>';inherits:false;initial-value:0deg}
+.snb-reco{position:relative;border-color:transparent !important}
+.snb-reco::after{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;z-index:3;
+  background:conic-gradient(from var(--snb-a), var(--s-safety), var(--s-play), var(--s-fight), var(--s-freeze), var(--s-shutdown), var(--s-still), var(--s-safety));
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+  mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation:snbRecoTurn 9s linear infinite}
+@keyframes snbRecoTurn{to{--snb-a:360deg}}
+@media (prefers-reduced-motion: reduce){ .snb-reco::after{animation:none;--snb-a:200deg} }
+body.reduce-motion .snb-reco::after{animation:none;--snb-a:200deg}
+.jr-reco.snb-reco{border-radius:16px}

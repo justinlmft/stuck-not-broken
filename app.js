@@ -217,6 +217,8 @@
   // STATE_NAME/segLabel are read mid-sentence in a dozen places.
   const CAP = (s) => { s = String(s == null ? '' : s); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
   const STATE_LABEL = (key) => CAP(STATE_NAME(key));
+  // Learn's name for a state (Justin 2026-10-31: "Learn topic should be 'Stillness/Intimacy'"); the rest of the app keeps STATE_LABEL
+  const _LRN_ST = (key) => key === 'stillness' ? 'Stillness/Intimacy' : STATE_LABEL(key);
   // mute(): blends a color toward the card background (--bone) so a de-emphasized
   // chart bar reads as a genuinely softer version of ITS OWN hue, not a differently-
   // hued pale tint. Used by the You-tab bar charts to make the winning bar/segment
@@ -6169,7 +6171,7 @@ function app(tab){
       ne = Math.min(eps.length, _LRN_SHELF - na - nv); nv = Math.min(vids.length, _LRN_SHELF - na - ne);
       const rows = arts.slice(0, na).map(p=>_llRow(p, true)).concat(eps.slice(0, ne).map(x=>_llRow(x)), vids.slice(0, nv).map(x=>_llRow(x))).join('');
       const cnt = _lrnHubCount(k);
-      return `<section class="ll-sec"><div class="ll-sec-h"><h3>${_rdMk(k)}<span>${escapeHtml(STATE_LABEL(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h3><button class="ll-seeall2" type="button" data-hub="${k}">See all</button></div><div class="ll-rows">${rows}</div></section>`;
+      return `<section class="ll-sec"><div class="ll-sec-h"><h3>${_rdMk(k)}<span>${escapeHtml(_LRN_ST(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h3><button class="ll-seeall2" type="button" data-hub="${k}">See all</button></div><div class="ll-rows">${rows}</div></section>`;
     };
     const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length && !(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0))).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
     const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
@@ -6324,7 +6326,7 @@ function app(tab){
       const small = restA.slice(0, na).map(p=>_lbCard(p, true, k, false)).concat(eps.slice(0, ne).map(x=>_lbCard(x, false, k, false)), vids.slice(0, nv).map(x=>_lbCard(x, false, k, false)));
       if(!big && small.length < 4){ const more = med.filter(x=>eps.slice(0, ne).indexOf(x) < 0 && vids.slice(0, nv).indexOf(x) < 0).slice(0, 4 - small.length); more.forEach(x=>small.push(_lbCard(x, false, k, false))); }
       const cnt = _lmFiltered() ? _lmLessons(total) : _lrnHubCount(k);
-      return `<section class="lb-sec" aria-label="${escapeHtml(STATE_LABEL(k))}"><div class="lb-sec-h"><h2>${_rdMk(k)}<span>${escapeHtml(STATE_LABEL(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h2><button class="lb-seeall" type="button" data-hub="${k}">See all${CHEV}</button></div>
+      return `<section class="lb-sec" aria-label="${escapeHtml(_LRN_ST(k))}"><div class="lb-sec-h"><h2>${_rdMk(k)}<span>${escapeHtml(_LRN_ST(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h2><button class="lb-seeall" type="button" data-hub="${k}">See all${CHEV}</button></div>
         <div class="lb-grid">${big ? _lbCard(big, true, k, true) : ''}${small.join('')}</div></section>`;
     }).concat(_lbOtherHTML());
   }
@@ -6347,7 +6349,7 @@ function app(tab){
   function _lbFeatHTML(forNow){
     const p = forNow.piece, st = p.state || null;
     const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
-    return `<button class="lb-feat" type="button" data-piece="${escapeHtml(p.id)}"><span class="lb-pic lb-feat-pic" aria-hidden="true">${_rdMk(st || 'safety')}</span><span class="lb-feat-b">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="lb-feat-t">${escapeHtml(p.title)}</span><span class="lb-d">${escapeHtml(_lrnDesc(p))}</span><span class="lb-feat-go">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></button>`;
+    return `<button class="lb-feat snb-reco" type="button" data-piece="${escapeHtml(p.id)}"><span class="lb-pic lb-feat-pic" aria-hidden="true">${_rdMk(st || 'safety')}</span><span class="lb-feat-b">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(_LRN_ST(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="lb-feat-t">${escapeHtml(p.title)}</span><span class="lb-d">${escapeHtml(_lrnDesc(p))}</span><span class="lb-feat-go">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></button>`;
   }
   // Topics, shortened (Justin 2026-10-30): five, picked from the contexts the member adds to check-ins, then a general starter
   // list; "More topics" (+ / -) opens the rest in place.
@@ -6444,7 +6446,7 @@ function app(tab){
   function _lmArtRowHTML(p){
     return `<button class="lm-row${_lrnIsRead(p.id) ? ' is-read' : ''}" type="button" data-piece="${escapeHtml(p.id)}"><span class="lm-tx"><b>${escapeHtml(p.title)}</b><span class="lm-m">${_lmArtMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`;
   }
-  const _lmTopicLabel = t => window.Learning.TOPICS[t] || STATE_LABEL(t);
+  const _lmTopicLabel = t => window.Learning.TOPICS[t] || _LRN_ST(t);
   function _lmWhenOk(d){
     if(_lmWhen === 'any') return true; if(!d) return false;
     const age = (Date.now() - new Date(d + 'T12:00:00').getTime()) / 864e5;
@@ -6503,7 +6505,7 @@ function app(tab){
           <span class="rd-eyeb">Type</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
           <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lmd', id, l, _lmDur === id)).join('')}</div>
           <p class="lm-fs-note">Run time for episodes and videos, reading time for articles.</p>
-          <span class="rd-eyeb">States</span><div class="lm-chips">${states.map(k=>chip('lmt', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}</div>
+          <span class="rd-eyeb">States</span><div class="lm-chips">${states.map(k=>chip('lmt', k, _LRN_ST(k), _lmTopic === k, _rdMk(k))).join('')}</div>
           <span class="rd-eyeb">Topics</span><div class="lm-chips">${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
         </div>
         <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lm-fclear">Clear all</button><button class="lm-fshow" type="button" id="lm-fshow">Show</button></div>
@@ -7160,7 +7162,7 @@ function app(tab){
     const b = (p.blocks||[]).find(x=>x.reflect && !((ans['l:' + p.id + ':' + x.reflect]||[])[0])); if(!b) return '';
     const st = p.state || r.st || null;
     const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
-    return `<section class="rd-learn rd-learn-top jr-reco"><span class="rd-eyeb">Recommended journal</span>
+    return `<section class="rd-learn rd-learn-top jr-reco snb-reco"><span class="rd-eyeb">Recommended journal</span>
       <button class="rd-lcard" type="button" data-piece="${escapeHtml(p.id)}" data-rf="${escapeHtml(b.reflect)}" style="--band:${st ? STATE_COLOR(st) : 'var(--hairline)'}">
         <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Journal')}</span>`}</span><span class="rd-lcard-title">${escapeHtml(_jrHead(p, b.reflect))}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml('From ' + p.title)}</span><span class="rd-read">Write${CHEV}</span></span>
@@ -7445,7 +7447,7 @@ function app(tab){
         ${(post.journal||[]).length && !opts.preview ? `<section class="rd-journal"><h3 class="sec-h rd-jr-sr" id="sec-journal">Journal</h3>${_rdJournalCard(post)}</section>` : (post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
         ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
         ${prevA ? `<p class="rd-lastnamed">Last ${lastWord} you named ${escapeHtml(_listAnd(prevA.tags))}.</p>` : ''}
-        ${reco ? `<section class="rd-next"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>` : ''}
+        ${reco ? `<section class="rd-next"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard snb-reco" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>` : ''}
         ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
     // the article's reading layout (Justin 2026-10-30: "get this done"): book type, a large title, 62ch, house card for learning
     const learnCard = learn && learn.piece ? _lbCard(learn.piece, true, learn.piece.state, false).replace('<span class="lb-body">', `<span class="lb-body">${learn.piece.state ? `<span class="ar-eb">${escapeHtml(STATE_LABEL(learn.piece.state))}</span>` : ''}`) : '';
@@ -7457,7 +7459,7 @@ function app(tab){
         <div class="ar-read rp-read">${body}</div>
         <div class="rp-tail">${tail}</div>
       </article></div>
-      ${learnCard ? `<section class="rd-learn ar-keep rp-keep"><h2 class="ar-kh">Recommended learning</h2><div class="ar-kgrid">${learnCard.replace('<button class="lb-card"', '<button class="lb-card ar-kcard"')}</div></section>` : ''}`, { back: opts.from ? opts.from.label : 'Reflect', onBack: opts.from ? opts.from.go : screenReader, tab: opts.from && opts.from.tab, loc:{ k:'post', id:post.key }, wide:true, plainBack:true });
+      ${learnCard ? `<section class="rd-learn ar-keep rp-keep"><h2 class="ar-kh">Recommended learning</h2><div class="ar-kgrid">${learnCard.replace('<button class="lb-card"', '<button class="lb-card ar-kcard snb-reco"')}</div></section>` : ''}`, { back: opts.from ? opts.from.label : 'Reflect', onBack: opts.from ? opts.from.go : screenReader, tab: opts.from && opts.from.tab, loc:{ k:'post', id:post.key }, wide:true, plainBack:true });
     if(paid && !opts.preview){ _rdJournalWire(post); if(opts.goSec) requestAnimationFrame(()=>_lrnGoTo(opts.goSec)); }
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
     root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));
@@ -8316,7 +8318,7 @@ function app(tab){
     if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
     return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
   }
-  const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
+  const _lrnHubName = key => window.Learning.TOPICS[key] || _LRN_ST(key);
   // a hub's count is every lesson on its topic: articles, episodes and videos (Justin, 2026-10-26: "Safety · 345 lessons");
   // blank for the moment the library list is still loading
   const _lrnHubCount = key => { if(!_lmData){ _lmLoad(); return ''; } const n = window.Learning.inGroup(key).length + _lmData.items.filter(x=>(x.g || []).indexOf(key) >= 0).length; return n === 1 ? '1 lesson' : n + ' lessons'; };
@@ -8352,7 +8354,7 @@ function app(tab){
     const d = new Date(), day = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
     return pool[day % pool.length];
   }
-  const _lhCard = (e, isArt, k, big) => { const c = _lbCard(e, isArt, k, big); return big ? c.replace('<span class="lb-body">', '<span class="lb-body"><span class="rd-eyeb lh-rec">Recommended learning</span>') : c; };
+  const _lhCard = (e, isArt, k, big) => { const c = _lbCard(e, isArt, k, big); return big ? c.replace('<span class="lb-body">', '<span class="lb-body"><span class="rd-eyeb lh-rec">Recommended learning</span>').replace('<button class="lb-card', '<button class="snb-reco lb-card') : c; };
   function screenLearnHub(key, back, keepQuery, only){
     if(!keepQuery) _lrnQ = '';
     if(_lhKey !== key + '|' + (only || '')){ if(!only || (_lhKey || '').split('|')[0] !== key){ _lhMedia = 'all'; _lhDur = 'any'; } _lhShown = 24; _lhKey = key + '|' + (only || ''); }
@@ -8627,7 +8629,7 @@ function app(tab){
     const keep = `<section class="rd-learn rd-keep ar-keep">${readCard || pracCard || hubs ? `<h2 class="ar-kh">Keep learning</h2><div class="ar-kgrid">${readCard}${pracCard}${hubs}</div>` : ''}</section>`;
     const book = piece.book ? `<section class="rd-book ar-src"><p>From <i>${escapeHtml(piece.book)}</i>.</p><div class="rd-book-links">${piece.book_url ? `<a class="rd-book-a" href="${escapeHtml(piece.book_url)}" target="_blank" rel="noopener">Buy the PDFs</a>` : ''}${piece.book_amazon ? `<a class="rd-book-a" href="${escapeHtml(piece.book_amazon)}" target="_blank" rel="noopener">Buy on Amazon</a>` : ''}</div></section>` : '';
     _rdShell(`<div class="ar-grid"><article class="ar-main">
-        ${st ? `<span class="ar-eb">${_rdMk(st)}Recommended learning · ${escapeHtml(STATE_NAME(st))}</span>` : `<span class="ar-eb">Recommended learning</span>`}
+        ${st ? `<span class="ar-eb">${_rdMk(st)}Recommended learning · ${escapeHtml(_LRN_ST(st))}</span>` : `<span class="ar-eb">Recommended learning</span>`}
         <h1 class="ar-title">${escapeHtml(piece.title)}</h1>
         <p class="ar-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
         ${_lrnTocHTML(toc)}
@@ -13136,7 +13138,7 @@ function app(tab){
       + (st ? dot + `<span${st.strong ? ' class="ch-cst"' : ''}>${escapeHtml(st.t)}</span>` : '')
       + (x.paid ? '' : dot + `<span class="lb-lk">${LOCK_SVG}See paid plans</span>`);
     const bar = big && x.paid && x.a && s.id === x.a.id ? `<span class="ch-cbar" aria-hidden="true"><i style="width:${Math.round(s.done / s.c.days * 100)}%"></i></span>` : '';
-    return `<button class="lb-card ch-card${big ? ' lb-big' : ''}" type="button" data-ch="${s.id}" aria-pressed="false"><span class="lb-pic" aria-hidden="true"></span><span class="lb-body"><span class="lb-t">${escapeHtml(s.c.name)}</span>${big ? `<span class="lb-d">${escapeHtml(s.c.desc)}</span>` : ''}${bar}<span class="lb-meta">${meta}</span></span></button>`;
+    return `<button class="lb-card ch-card${big ? ' lb-big' : ''}${s.id === x.rec && !s.finished && !(x.paid && x.a) ? ' snb-reco' : ''}" type="button" data-ch="${s.id}" aria-pressed="false"><span class="lb-pic" aria-hidden="true"></span><span class="lb-body"><span class="lb-t">${escapeHtml(s.c.name)}</span>${big ? `<span class="lb-d">${escapeHtml(s.c.desc)}</span>` : ''}${bar}<span class="lb-meta">${meta}</span></span></button>`;
   }
   function screenChallenges(){
     const S = _CH(); if(!S) return app('practice');
@@ -13548,7 +13550,7 @@ function app(tab){
       const _last = Store.lastCheckin(), _ld = _last ? _cDom(_last) : null;
       const cs = reco.practiceKey==='anchoring' ? 'safety' : reco.practiceKey==='self-regulation' ? (def||'freeze') : (_ld && P8_NB[_ld] ? _ld : 'safety');
       const cv = `--c1:${STATE_COLOR(cs)};--c2:${STATE_COLOR(P8_NB[cs][0])};--c3:${STATE_COLOR(P8_NB[cs][1])};--line:${lineCol}`;
-      card = `<div class="p8-reco p8-feat p8-paid${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" data-state="${cs}" role="button" tabindex="0" style="${cv}">
+      card = `<div class="p8-reco p8-feat p8-paid snb-reco${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" data-state="${cs}" role="button" tabindex="0" style="${cv}">
         <span class="p8-fh"><span class="p8-ft">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
         <span class="p8-meta">${meta}</span>
         <span class="p8-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
