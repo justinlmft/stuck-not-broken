@@ -5181,7 +5181,7 @@ function app(tab){
   // ── one scene for Now and practices (grid7, Justin canon 2026-10-30) ──
   // snb_practice_scene: '' = Random, 'ring' = Breath circle, else a scene. snb_now_scene folds in once.
   const _SC_ALL = ['reeds', 'pond', 'circles', 'fireflies'];   // grid8: four scenes (Justin 2026-10-30)
-  const _SC_DARK = {};
+  const _SC_DARK = { fireflies:1 };   // Fireflies: dark mode only (Justin 2026-10-30)
   // grid8: drift / breeze / sunbeam -> Random, the breath circle -> Circles (once)
   (function(){ try{ if(localStorage.getItem('snb_scene_v2') === '1') return; const v = localStorage.getItem('snb_practice_scene');
     if(v === 'ring') localStorage.setItem('snb_practice_scene', 'circles'); else if(v && ['reeds','pond','circles','fireflies'].indexOf(v) < 0) localStorage.removeItem('snb_practice_scene');
@@ -5305,7 +5305,7 @@ function app(tab){
   // for the person's rough location once, when it is turned on; rain falls over the scene, cloud dims it, sun brightens it. The
   // location is rounded to about 10 km, used for one lookup at Open-Meteo (free, no key) and never saved: only the kind of
   // weather and the time it was read are kept on this device, for half an hour. No temperatures, no icons.
-  const _nqDayOn = ()=>{ try{ return localStorage.getItem('snb_nq_day') !== '0'; }catch(e){ return true; } };
+  const _nqDayOn = ()=> false;   // time of day scrapped (Justin 2026-10-30): just light and dark
   const _nqWxOn = ()=>{ try{ return localStorage.getItem('snb_nq_wx') === '1'; }catch(e){ return false; } };
   let _nqWx = null, _nqWxBusy = false, _nqLightT = null, _nqRainRaf = 0;
   function _nqWxSet(on){
@@ -14048,9 +14048,8 @@ function app(tab){
             <p class="st-help">Recommended sets long reading (articles, lessons, your journal) in a book typeface and the rest of the app in Inter.</p></div>
           ${stSw('sw-motion', 'Animations', !rm, 'motion-cap')}`)}
         ${stSec('Scene', `
-          <div class="st-item"><div class="st-tiles" id="scene-tiles" role="group" aria-label="Scene">${[['','Random'],['reeds','Reeds'],['pond','Pond'],['circles','Circles'],['fireflies','Fireflies']].map(([k,l])=>`<button class="st-tile scene-opt${psc===k?' on':''}" type="button" data-scene="${k}" aria-pressed="${psc===k}"><span class="st-tile-pic${k?'':' st-tile-mix'}" data-still="${k}" aria-hidden="true">${k?'':'<span></span><span></span><span></span><span></span>'}</span><span class="st-tile-n">${_ST_TICK}<span>${l}</span></span></button>`).join('')}</div>
+          <div class="st-item"><div class="st-tiles" id="scene-tiles" role="group" aria-label="Scene">${[['','Random'],['reeds','Reeds'],['pond','Pond'],['circles','Circles'],['fireflies','Fireflies']].map(([k,l])=>`<button class="st-tile scene-opt${psc===k?' on':''}" type="button" data-scene="${k}" aria-pressed="${psc===k}"><span class="st-tile-pic${k?'':' st-tile-mix'}" data-still="${k}" aria-hidden="true">${k?'':'<span></span><span></span><span></span><span></span>'}</span><span class="st-tile-n">${_ST_TICK}<span>${l}</span>${_SC_DARK[k] ? '<span class="st-tile-note">Dark mode</span>' : ''}</span></button>`).join('')}</div>
             <p class="st-help" id="scene-cap"></p></div>
-          ${stSw('sw-nqday', 'Match the time of day', _nqDayOn(), 'nqday-cap')}
           ${stSw('sw-nqwx', 'Match the weather', _nqWxOn(), 'nqwx-cap')}`)}
         ${stSec('Practice', `
           ${stGo('voice-btn', 'Voice', `<span id="voice-val">${escapeHtml(voiceName(pvc))}</span>`, 'rs-disc-btn').replace('type="button">', 'type="button" aria-expanded="false" aria-controls="voice-body">')}
@@ -14174,7 +14173,7 @@ function app(tab){
       reeds:'Reeds swaying in an uneven breeze.',
       breeze:'Strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'A still beam of light, dust hanging in it. Appears in dark mode.',
-      fireflies:'Small lights arriving and leaving on their own time.' };
+      fireflies:'Small lights arriving and leaving on their own time. Dark mode only: in light mode you’ll see the reeds.' };
     const scCap=$('#scene-cap'); const scVal=$('#scene-val');
     const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'Surprise me':v.charAt(0).toUpperCase()+v.slice(1); };
     _scSet(psc);
@@ -14182,8 +14181,9 @@ function app(tab){
       document.querySelectorAll('.nowsc-opt').forEach(x=>{ const on = x===b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); });
     // stills: each scene drawn by the engine, still (reduced motion), at midday; Random = the four in quarters
     if(window.SNBScene) document.querySelectorAll('[data-still]').forEach(c=>{ try{ const o = { tod:'midday', dark:_scDark(), reduce:true };
-      if(c.dataset.still) SNBScene.mount(c, Object.assign({ scene:c.dataset.still }, o));
-      else [...c.children].forEach((q, i)=>SNBScene.mount(q, Object.assign({ scene:['reeds','pond','circles','fireflies'][i] }, o))); }catch(e){} });
+      const k1 = c.dataset.still, sc1 = k => Object.assign({}, o, { scene:k, dark: _SC_DARK[k] ? true : o.dark });
+      if(k1) SNBScene.mount(c, sc1(k1));
+      else [...c.children].forEach((q, i)=>SNBScene.mount(q, sc1(['reeds','pond','circles','fireflies'][i]))); }catch(e){} });
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_practice_scene', b.dataset.scene); _nqRand = null;
       document.querySelectorAll('.scene-opt').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-pressed', String(x===b)); });

@@ -6687,3 +6687,5 @@ html:not([data-readfont="serif"]) .rd-lq,html:not([data-readfont="serif"]) .rd-l
 .st-tile-mix{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:var(--hairline)}
 .st-tile-mix > span{position:relative;overflow:hidden}
 #nq-scene .snb-scene{z-index:0}
+/* grid8b: Fireflies says it is a dark mode scene */
+.st-tile-note{margin-left:auto;font-size:calc(12px * var(--type-scale));font-weight:400;color:var(--muted)}

@@ -7745,7 +7745,7 @@ function stateFor(beat) {
  * regular breathing cycle is something a dysregulated body can start chasing. Light phenomena
  * need darkness, so two of them are dark-mode only: in light mode a sunbeam reads as a smudge. */
 const SCENES = Object.freeze(['reeds', 'pond', 'circles', 'fireflies']);   // grid8: four scenes
-const DARK_ONLY = Object.freeze({});
+const DARK_ONLY = Object.freeze({ fireflies: 1 });   // grid8b: dark mode only
 
 function pickScene(preferred, isDark, rnd) {
   const random = rnd || Math.random;
@@ -8598,10 +8598,11 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
      * moment; the player's blue and amber are gone. Time of day and the weather as on the Now screen. */
     if (G.SNBScene && $('ring')) {
       const cv = $('ring'); cv.style.display = 'none';
-      let k = scenePref(); if (!k) k = G.SNBScene.SCENES[Math.floor(Math.random() * G.SNBScene.SCENES.length)];
+      const dk = !!G._SNB_DARK, pool = G.SNBScene.SCENES.filter(s => dk || s !== 'fireflies');
+      let k = scenePref(); if (!k) k = pool[Math.floor(Math.random() * pool.length)]; if (k === 'fireflies' && !dk) k = 'reeds';
       let st = null; try { st = G.parent && G.parent !== G && G.parent.__snbSceneState ? G.parent.__snbSceneState() : null; } catch (e) {}
       let wx = 'none'; try { if (readSetting('snb_nq_wx', '') === '1') { const c = JSON.parse(readSetting('snb_nq_wxk', 'null')); if (c && Date.now() - c.t < 3 * 3600e3 && ['rain', 'cloud', 'sun'].indexOf(c.k) >= 0) wx = c.k; } } catch (e) {}
-      const tod = readSetting('snb_nq_day', '1') !== '0' ? G.SNBScene.todOf(new Date()) : 'midday';
+      const tod = 'midday';   // time of day scrapped (grid8b)
       const s = G.SNBScene.mount(cv.parentNode, { scene: k, state: st, tod, weather: wx, dark: !!G._SNB_DARK, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches });
       scene = { scene: k, stop() { s.stop(); cv.style.display = ''; } };
       showScene(); return;
