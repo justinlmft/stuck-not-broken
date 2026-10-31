@@ -149,15 +149,17 @@ function compute(P){
     const glow = SC || [255,232,180], coreC = SC ? mix(SC, [255,255,255], .55) : [255,244,214];
     const day = { dawn:.7, morning:.45, midday:.32, evening:1, night:1 }[tod] || 1;
     const bright = day * (wx === 'cloud' ? .7 : 1) * (st === 'shutdown' ? .55 : 1);
-    const base = Math.round(cl(W / 110, 6, 13)), N = rm ? 6 : Math.max(3, Math.round(base * ({ safety:1.3, shutdown:.45 }[st] || 1) * (wx === 'rain' ? .35 : 1)));
-    const P2 = { safety:{ gl:[8,14], hv:[18,28], dx:120, dy:70, y:[.3,.86] }, fight:{ gl:[4,6], hv:[8,12], dx:46, dy:30, y:[.36,.86] }, shutdown:{ gl:[10,16], hv:[28,36], dx:16, dy:10, y:[.62,.9] } }[st] || { gl:[6,12], hv:[14,24], dx:40, dy:30, y:[.36,.86] };
-    for(let i = 0; i < N; i++){ const x = (.1 + .8 * (N > 1 ? i / (N - 1) : .5) + (R() - .5) * .08) * W, y = r(P2.y[0], P2.y[1]) * H, per = r(P2.gl[0], P2.gl[1]), hv = r(P2.hv[0], P2.hv[1]);
+    const base = Math.round(cl(W / 55, 12, 28)), N = rm ? 8 : Math.max(4, Math.round(base * ({ safety:1.3, shutdown:.45 }[st] || 1) * (wx === 'rain' ? .35 : 1)));
+    const P2 = { safety:{ gl:[8,14], hv:[18,28], dx:120, dy:70, y:[.08,.92] }, fight:{ gl:[4,6], hv:[8,12], dx:46, dy:30, y:[.14,.92] }, shutdown:{ gl:[10,16], hv:[28,36], dx:16, dy:10, y:[.55,.94] } }[st] || { gl:[6,12], hv:[14,24], dx:40, dy:30, y:[.1,.92] };
+    // spread over the whole screen: one per column band, left to right, at any height in the band
+    for(let i = 0; i < N; i++){ const x = (.03 + .94 * ((i + .15 + R() * .7) / N)) * W, y = r(P2.y[0], P2.y[1]) * H, per = r(P2.gl[0], P2.gl[1]), hv = r(P2.hv[0], P2.hv[1]);
       const core = 'rgba(' + coreC.join(',') + ',1)', halo = 'rgba(' + glow.join(',') + ',' + (dark ? .36 : .6) + ')';
       const ringC = dark ? 'transparent' : 'rgba(26,31,42,.28)';
       const z = [1,1,.62,.42][i % 4], dx2 = (R() - .5) * P2.dx * z, dy2 = (R() - .5) * P2.dy * z, gd = -R() * per, hd = -R() * hv, ro = r(.5, 1);
       const gA = (dark ? .22 : .34) * Math.max(.6, bright) * (z < 1 ? .7 : 1);
       const glowOn = breath && P.bph !== 'out';   // grid8d: the glow is the in-breath; the out-breath lets it go
-      const halo2 = glowOn ? '0 0 ' + f(8 * z) + 'px ' + f(4 * z) + 'px rgba(' + coreC.join(',') + ',' + f(dark ? .85 : .95) + '), 0 0 ' + f(40 * z) + 'px ' + f(16 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * 1.4) + '), 0 0 ' + f(130 * z) + 'px ' + f(60 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * .6) + ')'
+      const halo2 = glowOn && z < 1 ? '0 0 ' + f(6 * z) + 'px ' + f(2 * z) + 'px rgba(' + coreC.join(',') + ',' + f(dark ? .7 : .8) + '), 0 0 0 0 rgba(' + glow.join(',') + ',0), 0 0 0 0 rgba(' + glow.join(',') + ',0)'   // the distant ones stay small
+                  : glowOn ? '0 0 ' + f(8 * z) + 'px ' + f(4 * z) + 'px rgba(' + coreC.join(',') + ',' + f(dark ? .85 : .95) + '), 0 0 ' + f(40 * z) + 'px ' + f(16 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * 1.4) + '), 0 0 ' + f(130 * z) + 'px ' + f(60 * z) + 'px rgba(' + glow.join(',') + ',' + f(gA * .6) + ')'
                            : '0 0 0 0 rgba(' + coreC.join(',') + ',0), 0 0 0 0 rgba(' + glow.join(',') + ',0), 0 0 0 0 rgba(' + glow.join(',') + ',0)';
       const holder = 'left:' + f(x) + 'px; top:' + f(y) + 'px; width:0; height:0; border-radius:50%; box-shadow:' + halo2 + '; transition: box-shadow ' + (glowOn ? '4s' : '5s') + ' ease-in-out; ';
       const dot = 'left:-10px; top:-10px; width:20px; height:20px; border-radius:50%; transform:scale(' + z + '); background: radial-gradient(circle, ' + core + ' 0 2.2px, ' + ringC + ' 2.4px 3px, ' + halo + ' 3.2px, transparent 10px); ';
@@ -165,6 +167,12 @@ function compute(P){
       else add(holder + '--dx:' + f(dx2) + 'px; --dy:' + f(dy2) + 'px; animation: snbHover ' + f(hv) + 's ease-in-out ' + f(hd) + 's infinite alternate; animation-play-state:' + (breath ? 'paused' : 'running') + ';',
                dot + 'opacity:0; --o:' + f(bright) + '; animation: snbGlow ' + f(per) + 's ease-in-out ' + f(gd) + 's infinite; animation-play-state:' + (breath ? 'paused' : 'running') + ';' + (glowOn ? ' filter: brightness(1.4); transition: filter 4s;' : ' transition: filter 5s;'));
     }
+    // One breath brings more small, distant ones: they arrive over the in-breath and leave over the out-breath
+    if(breath && !rm){ const M = Math.round(N * .6), R3 = rng(977 + W);
+      for(let i = 0; i < M; i++){ const z = .3 + R3() * .16, x = (.03 + .94 * ((i + R3()) / M)) * W, y = (P2.y[0] + R3() * (P2.y[1] - P2.y[0])) * H, hv = 10 + R3() * 8;
+        const core = 'rgba(' + coreC.join(',') + ',1)', halo = 'rgba(' + glow.join(',') + ',' + (dark ? .36 : .6) + ')';
+        late.push({ s:'left:' + f(x) + 'px; top:' + f(y) + 'px; width:0; height:0; animation: snbFadeIn ' + f(2 + R3() * 1.6) + 's ease ' + f(R3() * 1.2) + 's both;',
+          cs:'left:-10px; top:-10px; width:20px; height:20px; border-radius:50%; transform:scale(' + f(z) + '); background: radial-gradient(circle, ' + core + ' 0 2.2px, ' + halo + ' 3.2px, transparent 10px); box-shadow: 0 0 ' + f(10 * z) + 'px ' + f(3 * z) + 'px ' + halo + '; opacity:' + (P.bph === 'out' ? 0 : f(Math.min(1, Math.max(.6, bright * 1.6)))) + '; transition: opacity ' + (P.bph === 'out' ? '5s' : '1s') + ' ease-in-out; --dx:' + f((R3() - .5) * 30) + 'px; --dy:' + f((R3() - .5) * 20) + 'px; animation: snbHover ' + f(hv) + 's ease-in-out infinite alternate;' }); } }
   }
   late.forEach(x => items.push(x));
   // weather: rain falls slowly over Reeds and Fireflies (the pond has its own rings); reduced motion shows still streaks
