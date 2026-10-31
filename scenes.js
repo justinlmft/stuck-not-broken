@@ -96,21 +96,23 @@ function compute(P){
     const hovA = 'snbHover ' + f(mv[1]) + 's ease-in-out -9s infinite alternate';
     const drift = rm ? '' : hov + 'animation: ' + hovA + ', snbSpin ' + spin + 's linear -40s infinite;';
     // One breath (grid8c): the pad rises on the in-breath and settles on the out-breath, like a swell passing under it
-    const bph = P.bph || '', lift = rm ? '' : bph === 'in' ? 'transform: translateY(-' + f(H * .08) + 'px) scale(1.06); transition: transform 4s cubic-bezier(.4,0,.5,1); ' : 'transition: transform 5s cubic-bezier(.4,0,.5,1); ';
-    const box = lift + 'left:' + f(cx - d / 2) + 'px; top:' + f(cy - d / 2) + 'px; width:' + f(d) + 'px; height:' + f(d) + 'px; border-radius:50%; transform-origin:50% 50%; box-sizing:border-box; z-index:2; ';
+    const bph = P.bph || '', up = !rm && bph === 'in', dd = up ? d * 1.06 : d, cyy = up ? cy - H * .08 : cy;
+    const tr = rm ? '' : 'transition: top ' + (up ? '4s' : '5s') + ' cubic-bezier(.4,0,.5,1), left ' + (up ? '4s' : '5s') + ' cubic-bezier(.4,0,.5,1), width ' + (up ? '4s' : '5s') + ' cubic-bezier(.4,0,.5,1), height ' + (up ? '4s' : '5s') + ' cubic-bezier(.4,0,.5,1); ';
+    const box = tr + 'left:' + f(cx - dd / 2) + 'px; top:' + f(cyy - dd / 2) + 'px; width:' + f(dd) + 'px; height:' + f(dd) + 'px; border-radius:50%; transform-origin:50% 50%; box-sizing:border-box; z-index:2; ';
     const rp = { safety:{ n:1, per:15, sz:2.3, a:.55 }, fight:{ n:2, per:9, sz:1.6, a:.5 }, shutdown:{ n:1, per:24, sz:1.3, a:.28 } }[st] || { n:1, per:14, sz:1.9, a:.42 };
     const ring = (list, R2, a, extra) => list.push({ s:'left:' + f(cx - R2) + 'px; top:' + f(cy - R2) + 'px; width:' + f(R2 * 2) + 'px; height:' + f(R2 * 2) + 'px; border-radius:50%; border:1.3px solid ' + rc(a) + '; box-sizing:border-box; transform-origin:50% 50%; z-index:1; ' + extra, cs:'' });
     for(let k = 0; k < rp.n; k++){ const R2 = d * rp.sz / 2, dl = -k * rp.per / rp.n;
       if(!rm){
-        ring(items, R2, 1, 'opacity:0; --o:' + f(rp.a) + '; --s0:' + f(1 / rp.sz) + '; ' + hov + 'animation: snbRipO ' + f(rp.per) + 's cubic-bezier(.2,.6,.2,1) ' + f(dl) + 's infinite, ' + hovA + ';');
-        ring(items, R2 * 1.3, 1, 'opacity:0; --o:' + f(rp.a * .6) + '; --s0:' + f(1 / (rp.sz * 1.3)) + '; ' + hov + 'animation: snbRipO ' + f(rp.per) + 's cubic-bezier(.2,.6,.2,1) ' + f(dl + 1.6) + 's infinite, ' + hovA + ';');
+        const hush = breath ? 'display:none; ' : '';   // the running ripples stop for One breath
+        ring(items, R2, 1, hush + 'opacity:0; --o:' + f(rp.a) + '; --s0:' + f(1 / rp.sz) + '; ' + hov + 'animation: snbRipO ' + f(rp.per) + 's cubic-bezier(.2,.6,.2,1) ' + f(dl) + 's infinite, ' + hovA + ';');
+        ring(items, R2 * 1.3, 1, hush + 'opacity:0; --o:' + f(rp.a * .6) + '; --s0:' + f(1 / (rp.sz * 1.3)) + '; ' + hov + 'animation: snbRipO ' + f(rp.per) + 's cubic-bezier(.2,.6,.2,1) ' + f(dl + 1.6) + 's infinite, ' + hovA + ';');
       } else { ring(items, R2 * .7, rp.a * .8, ''); ring(items, R2 * .95, rp.a * .45, ''); } }
     if(breath && !rm){ const R2 = d * 1.25;
       // the ripple belongs to the out-breath: it opens as the pad comes back down
       ring(late, R2, 1, '--s0:.4; opacity:0; ' + hov + 'animation: snbRipO2 5.5s cubic-bezier(.3,.5,.3,1) 4s 1 both, ' + hovA + ';');
       ring(late, R2 * 1.3, .6, '--s0:.3; opacity:0; ' + hov + 'animation: snbRipO2 5.5s cubic-bezier(.3,.5,.3,1) 4.8s 1 both, ' + hovA + ';'); }
     const notch = 'conic-gradient(from 18deg, #000 0deg 334deg, transparent 334deg 360deg)';
-    const padFill = dark ? 'rgba(236,232,222,.045)' : 'rgba(247,244,236,.96)';
+    const padFill = 'rgb(' + mix(paperRGB, dark ? INK : [255,255,255], dark ? .05 : .4).join(',') + ')';   // solid: the water lines pass behind
     add(box + 'border:1.5px solid ' + ink(.6) + '; background:' + padFill + '; -webkit-mask:' + notch + '; mask:' + notch + '; ' + drift);
     const vein = ink(.16), edge = ink(.55);
     add(box + 'background: conic-gradient(from 18deg, ' + edge + ' 0deg .5deg, transparent .5deg 58deg, ' + vein + ' 58deg 58.5deg, transparent 58.5deg 116deg, ' + vein + ' 116deg 116.5deg, transparent 116.5deg 174deg, ' + vein + ' 174deg 174.5deg, transparent 174.5deg 232deg, ' + vein + ' 232deg 232.5deg, transparent 232.5deg 290deg, ' + vein + ' 290deg 290.5deg, transparent 290.5deg 333.5deg, ' + edge + ' 333.5deg 334deg, transparent 334deg); -webkit-mask: radial-gradient(closest-side, #000 96%, transparent 97%); mask: radial-gradient(closest-side, #000 96%, transparent 97%); ' + drift);
