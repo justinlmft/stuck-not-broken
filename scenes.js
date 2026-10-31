@@ -23,7 +23,8 @@ const KF = `@keyframes snbSw{from{transform:rotate(calc(var(--a) * -1))}to{trans
 @keyframes snbRing{0%,100%{transform:scale(var(--s0))}50%{transform:scale(var(--s1))}}
 @keyframes snbBr{0%{transform:scale(1)}44%{transform:scale(var(--s))}100%{transform:scale(1)}}
 @keyframes snbBright{0%{opacity:1}44%{opacity:.62}100%{opacity:1}}
-@keyframes snbNone{0%{opacity:1}100%{opacity:1}}`;
+@keyframes snbNone{0%{opacity:1}100%{opacity:1}}
+@keyframes snbBobT{0%,100%{transform:translateY(0)}50%{transform:translateY(var(--b))}}`;
 function css(){ if(document.getElementById('snb-scene-kf')) return; const s = document.createElement('style'); s.id = 'snb-scene-kf'; s.textContent = KF; document.head.appendChild(s); }
 function rng(seed){ return function(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const STATE = { safety:'safety', fightflight:'fight', fight:'fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
@@ -107,10 +108,11 @@ function compute(P){
         ring(items, R2, 1, hush + 'opacity:0; --o:' + f(rp.a) + '; --s0:' + f(1 / rp.sz) + '; ' + hov + 'animation: snbRipO ' + f(rp.per) + 's cubic-bezier(.2,.6,.2,1) ' + f(dl) + 's infinite, ' + hovA + ';');
         ring(items, R2 * 1.3, 1, hush + 'opacity:0; --o:' + f(rp.a * .6) + '; --s0:' + f(1 / (rp.sz * 1.3)) + '; ' + hov + 'animation: snbRipO ' + f(rp.per) + 's cubic-bezier(.2,.6,.2,1) ' + f(dl + 1.6) + 's infinite, ' + hovA + ';');
       } else { ring(items, R2 * .7, rp.a * .8, ''); ring(items, R2 * .95, rp.a * .45, ''); } }
-    if(breath && !rm){ const R2 = d * 1.25;
-      // the ripple belongs to the out-breath: it opens as the pad comes back down
-      ring(late, R2, 1, '--s0:.4; opacity:0; ' + hov + 'animation: snbRipO2 5.5s cubic-bezier(.3,.5,.3,1) 4s 1 both, ' + hovA + ';');
-      ring(late, R2 * 1.3, .6, '--s0:.3; opacity:0; ' + hov + 'animation: snbRipO2 5.5s cubic-bezier(.3,.5,.3,1) 4.8s 1 both, ' + hovA + ';'); }
+    if(breath && !rm){
+      // the water moving at the pad's edge (grid8f): three shallow arcs just under its rim, behind it, riding up and down with the pad
+      // and bobbing a little on their own; strongest on the in-breath, settling with the out-breath
+      for(let k = 0; k < 3; k++){ const lw = dd * (1.08 + k * .16), lh = lw * .2, ly = cyy + dd * .38 + k * Math.max(8, H * .012);
+        late.push({ s:tr.replace(/top /, 'opacity ' + (up ? '1.2s' : '5s') + ' ease, top ') + 'left:' + f(cx - lw / 2) + 'px; top:' + f(ly - lh) + 'px; width:' + f(lw) + 'px; height:' + f(lh) + 'px; border-radius:50%; border:0; border-bottom:1.3px solid ' + rc(1) + '; box-sizing:border-box; z-index:1; opacity:' + f(up ? (.55 - k * .14) : .12) + '; --b:' + f(4 + k * 2) + 'px; ' + hov + 'animation: ' + hovA + ', snbBobT ' + f(2.4 + k * .5) + 's ease-in-out ' + f(-k * .7) + 's infinite;', cs:'' }); } }
     const notch = 'conic-gradient(from 18deg, #000 0deg 334deg, transparent 334deg 360deg)';
     const padFill = 'rgb(' + mix(paperRGB, dark ? INK : [255,255,255], dark ? .05 : .4).join(',') + ')';   // solid: the water lines pass behind
     add(box + 'border:1.5px solid ' + ink(.6) + '; background:' + padFill + '; -webkit-mask:' + notch + '; mask:' + notch + '; ' + drift);
@@ -135,7 +137,7 @@ function compute(P){
     RG.forEach((g, i) => { const on = !!(CFG && CFG[i]), rad = u * g.r, sc = on ? g.act : g.qui;
       const stroke = on ? 'rgba(' + CFG[3] + ',' + f(inkK) + ')' : ink(.16), bw = on ? 2.4 : 2;
       let an = '';
-      if(!rm) an = breath ? '--s:' + f(on ? g.br : 1.03) + '; animation: snbBr 9s cubic-bezier(.4,0,.5,1) 1 both;'
+      if(!rm) an = breath ? '--s:' + f(on ? g.br : CFG ? 1.03 : [1.12,1.08,1.05][i]) + '; animation: snbBr 9s cubic-bezier(.4,0,.5,1) 1 both;'
                           : '--s0:' + sc[0] + '; --s1:' + sc[1] + '; animation: snbRing ' + g.per + 's cubic-bezier(.45,0,.55,1) ' + f(-i * 1.3) + 's infinite;';
       add('left:' + f(cx - rad) + 'px; top:' + f(cy - rad) + 'px; width:' + f(rad * 2) + 'px; height:' + f(rad * 2) + 'px; border-radius:50%; border:' + bw + 'px solid ' + stroke + '; box-sizing:border-box; transform-origin:50% 50%; transition:border-color .9s; ' + an);
     });
