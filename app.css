@@ -165,7 +165,7 @@ button{font:inherit;color:inherit}
   /* one interface, recomposed: the same appbar/scroll/tabbar children lay out
      as [rail | header-over-content] — no markup changes, grid does the work. */
   #screen{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
-  #screen > .tabbar{grid-column:1;grid-row:1 / span 2}
+  #screen > .tabbar{grid-column:1;grid-row:2}   /* column 0 (grid17, Justin 2026-10-31): the rail lives in the content row, beside column 1, not above it */
   #screen > .appbar{grid-column:2;grid-row:1}
   #screen > :not(.appbar):not(.tabbar){grid-column:2;grid-row:2;min-height:0}
 
@@ -174,7 +174,7 @@ button{font:inherit;color:inherit}
   #screen > .tabbar{
     flex-direction:column;justify-content:flex-start;gap:4px;height:100%;overflow-y:auto;
     border-top:0;border-radius:0;background:none;margin:0;border-right:0;
-    padding:max(34px,env(safe-area-inset-top)) 12px 26px max(12px,env(safe-area-inset-left));
+    padding:clamp(30px,6vh,64px) 12px 26px max(12px,env(safe-area-inset-left));   /* the same top band as #screen .view, so the rail starts on the page's top line */
     min-width:var(--rail-w)}
   /* the rail reads as plain words, not pills (Justin 2026-07-20): active = bold
      ink, dormant = normal muted; no background. Top-aligned so the first word
@@ -187,10 +187,10 @@ button{font:inherit;color:inherit}
 
   /* ---- Phase 4 composition (2026-07-19) ---- */
   /* rail brand anchor: the ink mark, quiet, at the top of the rail */
-  #screen > .tabbar::before{content:'';flex:none;width:100%;height:24px;margin:2px 0 16px;
+  #screen > .tabbar::before{content:'';flex:none;width:100%;height:24px;margin:0 0 16px;
     background:var(--ink);opacity:.9;
-    -webkit-mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat;
-    mask:url('assets/logo/snb-mark-ink.svg') center / auto 20px no-repeat}
+    -webkit-mask:url('assets/logo/snb-mark-ink.svg') left center / auto 20px no-repeat;
+    mask:url('assets/logo/snb-mark-ink.svg') left center / auto 20px no-repeat}   /* flush left on the rail's line (grid17) */
 }
 @media (min-width:1120px){
   /* the you-tab LEDGER (Justin's pick, 2026-07-19): a swipe carousel is a phone
