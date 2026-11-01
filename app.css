@@ -5656,6 +5656,9 @@ span.lw-ci i:nth-child(1){background:var(--s-safety)} span.lw-ci i:nth-child(2){
 .yb-ptr:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .yb-ptr-ic{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;border:1px solid var(--hairline);background:var(--bone);color:var(--ink)}
 .yb-ptr-ic svg{width:22px;height:22px}
+/* tweak-a: the new-reflection dot, the same as the You tab's, on the card it points to */
+.yb-ptr.yb-new .yb-ptr-ic{position:relative}
+.yb-ptr.yb-new .yb-ptr-ic::after{content:'';position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--s-safety);box-shadow:0 0 0 2px var(--bone-deep)}
 .yb-ptr-t{font-size:calc(18px * var(--type-scale));line-height:1.25;font-weight:600;letter-spacing:-.01em}
 .yb-ptr .yb-go{padding-top:4px}
 @media (max-width:719.98px){

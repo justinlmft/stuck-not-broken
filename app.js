@@ -10699,7 +10699,8 @@ function app(tab){
   // Journal should also be a pointer to the journal screen"): half the width each, under the four cards. Free: the
   // Reflection tile beside the Self-Regulator card.
   function _ybPtrsHTML(paid){
-    const refl = `<a class="yb-ptr" id="you-reader" href="#"><span class="yb-ptr-ic" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yb-ptr-t">Your Reflection</span><span class="yb-go"><span>Read your reflections</span>${_YB_ARW}</span></a>`;
+    const nw = _rdHasNew();   // the tab's dot points here (tweak-a, 2026-11-01)
+    const refl = `<a class="yb-ptr${nw ? ' yb-new' : ''}" id="you-reader" href="#"${nw ? ' aria-label="Your Reflection: a new reflection is ready"' : ''}><span class="yb-ptr-ic" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yb-ptr-t">Your Reflection</span><span class="yb-go"><span>${nw ? 'Read your new reflection' : 'Read your reflections'}</span>${_YB_ARW}</span></a>`;
     const jr = `<a class="yb-ptr" id="you-journal" href="#"><span class="yb-ptr-ic" aria-hidden="true">${_JR_PEN}</span><span class="yb-ptr-t">Your Journal</span><span class="yb-go"><span>Open your journal</span>${_YB_ARW}</span></a>`;
     return `<div class="yb-ptrs${paid ? '' : ' yb-ptrs-free'}">${refl}${paid ? jr : _ybPlansHTML()}</div>`;
   }
