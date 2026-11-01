@@ -6412,7 +6412,7 @@ function app(tab){
   function _lbFeatHTML(forNow){
     const p = forNow.piece, st = p.state || null;
     const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
-    return `<button class="lb-feat snb-reco" type="button" data-piece="${escapeHtml(p.id)}"><span class="lb-pic lb-feat-pic" aria-hidden="true">${_rdMk(st || 'safety')}</span><span class="lb-feat-b">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(_LRN_ST(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="lb-feat-t">${escapeHtml(p.title)}</span><span class="lb-d">${escapeHtml(_lrnDesc(p))}</span><span class="lb-feat-go">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></button>`;
+    return `<button class="lb-feat snb-reco" type="button" data-piece="${escapeHtml(p.id)}">${_lbPic(p, true, st || 'safety').replace('class="lb-pic"', 'class="lb-pic lb-feat-pic"')}<span class="lb-feat-b">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(_LRN_ST(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="lb-feat-t">${escapeHtml(p.title)}</span><span class="lb-d">${escapeHtml(_lrnDesc(p))}</span><span class="lb-feat-go">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></button>`;
   }
   // Topics, shortened (Justin 2026-10-30): five, picked from the contexts the member adds to check-ins, then a general starter
   // list; "More topics" (+ / -) opens the rest in place.
