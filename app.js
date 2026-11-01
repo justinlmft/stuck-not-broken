@@ -6415,7 +6415,20 @@ function app(tab){
     'master-panic-attacks', 'flight-fight-posture-submit', 'snb214-repair-or-move-on', '0aa323b4-b656-4e37-abb6-d9bbf6b897ab',
     'dealing-with-anger', '90729f92-756a-4ce3-94a8-2420c31a11bb', 'personal-boundaries', 'is-it-possible-to-come-out-of-polyvagal-shutdown',
     'snb213-co-regulation-in-trauma-recovery', '1c2f1969-72de-4f96-9fcc-08838337df67', 'doityourself', '52ecec10-5cbc-43ee-9ad2-df52f61968fa',
-    'polyvagal-freeze-vs-shutdown-video-quiz', 'numb-after-trauma', 'snb212-panic-at-the-same-time', '6c62c9ed-4b49-40fc-9b1e-96542fa0553a']);
+    'polyvagal-freeze-vs-shutdown-video-quiz', 'numb-after-trauma', 'snb212-panic-at-the-same-time', '6c62c9ed-4b49-40fc-9b1e-96542fa0553a',
+    // img-mj-20261101-0715b
+    'snb174-after-learning-polyvagal-theory', 'snb163-polyvagal-theory-for-total-beginners', 'snb101-polyvagal-101-foundations', '7aa32723-cd71-42fa-8605-b9a6bd1027f9',
+    '2fb520f8-5cd8-4380-84b7-cd4f097be5cc', '3f097583-a197-40a2-83e9-499807d9f856', 'snb211-safety-state-spectrum', 'snb197-three-stages-of-trauma-healing',
+    'how-to-start-getting-unstuck', 'snb180-the-state-behind-your-thoughts', 'dysregulation-can-come-with-polyvagal-safety', 'b494bb1b-4d5f-4315-b34b-8e5345560afb',
+    'stuck-in-survival-mode', 'snb171-relax-or-release', 'yes-unstucking-can-be-scary', 'snb191-trusting-your-power-to-self-regulate',
+    'd0580378-ef04-4c1d-972d-bf2af1eee1bf', 'snb133-behavior-not-toxicity', 'snb196-personal-growth-no-permission-needed', 'snb206-magic-pill-and-the-journey',
+    'the-difference-between-coping-and-anchoring-for-trauma-recovery', 'flight-fight-1-page-lesson', '2aa95d50-e9f2-45f4-9ca3-0d1fc902a7ab', 'snb177-new-narrative-for-shame-and-blame',
+    'heavymetalmusic', 'unsticking-through-creativity', 'ca093953-a162-432e-82ca-de13f442d9c7', '3c7549f0-a616-4801-864e-3c6b13e4c145',
+    'snb135-safety-cue-dependency', 'passive-safety-cues', 'shutdown-1-page-lesson', 'snb200-time-the-uncomfortable-truth',
+    'b7544b00-cbe4-4b44-b7a3-c918658b021c', '57b3f72a-6100-4941-a8eb-929303eeb404', '436c641f-6c9b-48f4-90e5-53e62c335e14', 'e6b4f243-5280-453b-9a1b-a55e05d05bc6',
+    'd46b4636-b18f-4467-8fdd-680becc7247d', 'parental_self-control', 'building-safety-in-trauma-recovery', 'trauma-recovery-without-prescribed-exercises-a-polyvagal-approach-to-healing',
+    '96cdcb6a-704d-4599-96e0-f49de316ff73', 'snb131-isolation-keeps-you-stuck', 'snb130-your-stories-keep-you-stuck', 'snb188-meditation-for-busy-people',
+    '6ff89647-e249-46ba-a9ea-04b7c03cf4ae', 'why-the-polyvagal-safety-state-is-so-important', 'safety-and-social-engagement-1-page-lesson']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
