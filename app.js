@@ -6428,7 +6428,19 @@ function app(tab){
     'b7544b00-cbe4-4b44-b7a3-c918658b021c', '57b3f72a-6100-4941-a8eb-929303eeb404', '436c641f-6c9b-48f4-90e5-53e62c335e14', 'e6b4f243-5280-453b-9a1b-a55e05d05bc6',
     'd46b4636-b18f-4467-8fdd-680becc7247d', 'parental_self-control', 'building-safety-in-trauma-recovery', 'trauma-recovery-without-prescribed-exercises-a-polyvagal-approach-to-healing',
     '96cdcb6a-704d-4599-96e0-f49de316ff73', 'snb131-isolation-keeps-you-stuck', 'snb130-your-stories-keep-you-stuck', 'snb188-meditation-for-busy-people',
-    '6ff89647-e249-46ba-a9ea-04b7c03cf4ae', 'why-the-polyvagal-safety-state-is-so-important', 'safety-and-social-engagement-1-page-lesson']);
+    '6ff89647-e249-46ba-a9ea-04b7c03cf4ae', 'why-the-polyvagal-safety-state-is-so-important', 'safety-and-social-engagement-1-page-lesson',
+    // img-mj-20261101-0807
+    'snb207-polyvagal-algorithm', '38b98cdc-cb9f-43ee-a267-ceae00b6e711', 'fidgets', 'snb206-vagal-efficiency-and-the-vagal-brake',
+    'f143180b-64ab-48e6-8770-4085836a0dc3', 'i-was-desperate-agreed-to-spend-9k', 'snb199-silence-and-mindfulness', '87828c4f-2846-4c78-8c6e-111018aa0695',
+    'my-self-regulation-through-anchoring-example', 'snb197-feeling-stuck-touching-defense-lightly', '5d821b90-6e1d-4855-8851-874a979b8031', 'tendandbefriend',
+    'snb194-polyvagal-therapist', '70ab78ef-efdf-40e7-ab46-8e1e3b1ce32a', 'snb187-feel-your-feelings', '1699b511-07a3-462a-96a7-8b7b025e77e5',
+    'snb186-permission-to-feel', 'e3606723-b143-432e-8677-ce53dda6815e', 'snb184-what-validation-is', '5b7226c6-87fe-497e-bac7-9bc2de31cea5',
+    'anchored-awareness-witnessing-experiencing', 'received-self-regulation', 'snb145-calm-shame-time-outs', 'unstucking-methods',
+    'somatic-self-regulation', 'balancing-and-pendulating', 'snb142-pulled-in-different-directions', 'why-humans-stay-stuck',
+    'starting-and-stopping', 'holding-and-watching', 'snb165-self-regulating-through-triggering-events', 'polyvagal-resistance',
+    'making-change', 'build-a-new-narrative', '8457db72-b0e8-4225-ac25-0ea6e56443ae', 'snb198-friendship-boundaries-rings-of-friendship',
+    'validating-and-normalizing', 'snb274-sockless-mindfulness', 'snb152-its-just-you-4-you-are-enough', 'snb149-its-just-you-1-no-ego-no-shadow-no-parts',
+    '3-signs-it-s-time-to-stop-trauma-work', 'second-nature-and-alignment', 'snb185-emotional-normalization', 'regulation']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
