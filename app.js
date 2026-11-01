@@ -1922,7 +1922,7 @@
     const mine = `<span class="pp-mine">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'}Your plan</span>`;
     const card = (k, name, plain, body) => {
       const o = !!_pp.open[k];
-      return `<article class="pp-card${feat === k ? ' is-feat' : ''}${cur === k ? ' is-mine' : ''}${k === 'co' && coSoon && cur !== 'co' ? ' is-soon' : ''}" aria-labelledby="pp-n-${k}">
+      return `<article class="pp-card${k === 'free' ? ' is-compact' : ''}${feat === k ? ' is-feat' : ''}${cur === k ? ' is-mine' : ''}${k === 'co' && coSoon && cur !== 'co' ? ' is-soon' : ''}" aria-labelledby="pp-n-${k}">
         <div class="pp-ch"><h3 class="pp-name" id="pp-n-${k}">${name}</h3><p class="pp-plain">${plain}</p></div>
         ${body}
         <div class="pp-inc"><button class="pp-inc-t" type="button" data-pp-inc="${k}" aria-expanded="${o}" aria-controls="pp-inc-${k}"><span>What’s included</span>${LW_PM(o)}</button>
@@ -1931,7 +1931,7 @@
     };
     const btnCls = k => 'btn block' + (feat === k ? '' : ' quiet');
     const free = card('free', 'Free', 'Unlimited check-ins and mindfulness practices',
-      `<p class="pp-price"><b>$0</b></p><p class="pp-sub">No time limit</p>${cur === 'free' ? mine : ''}`);
+      `${cur === 'free' ? mine : ''}`);
     const sr = card('sr', 'Self-Regulator', 'Self-paced learning', cur === 'sr' ? mine : cur === 'co' ? '' :
       `<div class="pp-pills" role="radiogroup" aria-label="How often you pay">
         <button type="button" class="pp-pill${annual ? '' : ' on'}" data-plan="monthly" role="radio" aria-checked="${!annual}"><b>${escapeHtml(pxM)}</b><span> / month</span></button>

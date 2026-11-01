@@ -5960,6 +5960,7 @@ body.reduce-motion .pp-panel.pp-in{animation:none}
 .pp-card.is-soon .pp-name,.pp-card.is-soon .pp-price,.pp-card.is-soon .pp-price b{color:var(--muted)}
 .pp-soon{align-self:flex-start;margin:0;font-size:calc(15px * var(--type-scale));font-weight:400;line-height:1.45;color:var(--ink-80)}
 .pp-card.is-soon .pp-price{opacity:.6}
+.pp-card.is-compact{padding:14px 20px;gap:6px}
 
 /* Learn Topics, shortened (Justin 2026-10-30): five + "More topics" opening the rest in place */
 .lb-tmore{overflow:hidden}
