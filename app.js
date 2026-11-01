@@ -6492,7 +6492,25 @@ function app(tab){
     'be-patient-getting-untuck-takes-time', 'therapy-retraumatization', 'ssiec', 'validation',
     'pets-co-regulation', 'imagery-and-invitation', 'spidey-sense', 'trauma-recovery-the-normal-non-linear-process-of-change',
     'the-mind-body-connection-and-trauma', '5-things-humans-do-to-keep-each-other-stuck', 'feel-your-feelings', 'stages-of-trauma-healing',
-    'description', 'learning-is-just-the-first-step-ep72-1-notes', 'things-can-literally-get-better', 'how-to-reduce-your-shame-blame-judgment']);
+    'description', 'learning-is-just-the-first-step-ep72-1-notes', 'things-can-literally-get-better', 'how-to-reduce-your-shame-blame-judgment',
+    // img-mj-20261101-0956
+    'why-your-vagal-brake-strength-is-important', 'self-help-habits-that-keep-you-stuck', 'autonomic-nervous-system', 'neuroception-and-stories',
+    'stuck-not-broken', 'obstacles', 'snb283-polyvagal-bandwagon', 'snb151-its-just-you-3-rebuttals',
+    'snb143-addicted-to-one-thing-vs-another', 'snb141-acting-out-vs-acting-in', '17-nervous-system-regulation-tips', '5-tips-for-journaling',
+    'autonomic-responses-vs-behavioral-adaptations', 'autonomic-state-1-page-lesson', 'can-stories-be-true', 'didtheirbest',
+    'disgust', 'emotional-regulation-wrong', 'growth-mindset-problem', 'holiday-reframe',
+    'how-to-know-if-you-are-ready-for-direct-trauma-work', 'im-a-therapist-and-i-was-wrong-about-trauma-recovery', 'impact-of-trauma', 'move-past-learning',
+    'my-parent-is-stuck-in-a-defensive-state', 'neuroception-1-page-lesson', 'normalization', 'personal-growth',
+    'polyvagal-theory-for-total-beginners', 'shakes-trembling-and-crying', 'story-follows-state-1-page-lesson', 'stucknotbroken',
+    'the-autonomic-nervous-system-1-page-lesson', 'the-polyvagal-ladder', 'the-polyvagal-theory-1-page-lesson', 'the-polyvagal-theory-understanding-the-3-neural-circuits-that-shape-our-behavior',
+    'trauma-emotional-development', 'traumapvt1', 'traumatized-without-a-traumatizing-event', 'unstuck-understanding-trauma-the-autonomic-nervous-system',
+    'what-everyone-gets-wrong-about-the-polyvagal-theory', 'what-normalization-is', 'what-validation-is', 'when-therapy-clients-say-i-m-good',
+    '8f3274a0-3e9f-477a-96c6-6a75713fc4a2', 'f3663a11-da76-4707-9f7f-9c55877bc07a', 'aa935229-bcb6-4c86-9be1-4fee424b9d8c', 'c00e9ad3-484e-4055-8b51-2659787eccd7',
+    'd0408146-a8f9-44fe-bea0-3d3451857e3c', '54d1f6b8-10c8-44ca-8efa-6443857a730d', 'fe0c10e0-5a5c-46b9-99e7-5c88c5ea1236', '27c698f2-f592-4420-9ea0-eff77dcfb2f0',
+    'c936ef88-1567-40e6-a172-ded35af21d35', 'd76ad6f2-2e88-499e-a93f-8943f75ca95a', '475806e6-cd0f-48fe-9ae4-7ba91d76760a', 'b74088fe-4601-4a89-986b-d241305a5d0d',
+    'ca24de6a-8954-42e0-90db-8d0ad965e6c2', 'a7166a68-02c8-4962-a75a-9c3ee6b7aa7a', '2f3e4bfb-1174-4628-9b64-7cdeda2c8062', '2038f388-f83c-48dc-a48e-b6f4042331df',
+    'ed1fda09-361f-44ef-93c7-65652f5df722', '2064953d-042b-496d-b2b4-0a9929cf6c5e', '30701b98-2658-4fbb-be83-75629f390685', '461d90c8-645c-4b52-aff4-a4bc591709cd',
+    '3eb3dc7b-03ff-4bce-884f-a9864ce22427']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
