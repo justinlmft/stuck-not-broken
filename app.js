@@ -4663,7 +4663,38 @@ function app(tab){
   // push_sent server-side, push_opened on tap, whatsnew_push_seen for the announcement.
   const PUSH_KEY = 'snb_push';                       // {state, asks, at, routed}
   const PUSH_REASK_DAYS = 3;                         // one later re-ask, not before this
-  const pushSupported = () => { try{ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }catch(e){ return false; } };
+  // Inside the iPhone store app there is no web push: the app asks Apple instead (2026-11-01), through
+  // @capacitor/push-notifications, and saves the device token as a push_subscriptions row with endpoint
+  // "apns:prod:<token>" (store builds are signed for Apple's production push service). snb-push sends those rows through
+  // Apple. Same switches, same reminders, same timing; outside the store app none of this runs.
+  const _napp = () => { try{ const C = window.Capacitor; return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.PushNotifications) || null; }catch(e){ return null; } };
+  let _nPerm = null, _nToken = null;
+  async function pushSaveNative(token){
+    const u = Store.user(); if(!u || !window.sb || !token || (Store.isAnonymous && Store.isAnonymous())) return false;
+    const row = { user_id:u.id, endpoint:'apns:prod:'+token, p256dh:'', auth:'', platform:'ios-app', pwa:true, tz:pushTz(), ua:(navigator.userAgent||'').slice(0,200),
+                  last_seen_at:new Date().toISOString(), revoked_at:null, revoke_reason:null, fail_count:0 };
+    try{ const r = await window.sb.from('push_subscriptions').upsert(row, { onConflict:'endpoint' }); return !r.error; }catch(e){ return false; }
+  }
+  function pushRegisterNative(){
+    const P = _napp();
+    return new Promise((res, rej)=>{
+      let done = false; const fin = (ok, err)=>{ if(done) return; done = true; clearTimeout(t); ok ? res(true) : rej(err || new Error('register failed')); };
+      const t = setTimeout(()=>fin(false, new Error('no token')), 15000);
+      try{
+        P.addListener('registration', async tk=>{ _nToken = tk && tk.value; fin(_nToken ? await pushSaveNative(_nToken) : false, new Error('save failed')); });
+        P.addListener('registrationError', e=>fin(false, new Error((e && e.error) || 'register failed')));
+        Promise.resolve(P.register()).catch(e=>fin(false, e));
+      }catch(e){ fin(false, e); }
+    });
+  }
+  (function(){ const P = _napp(); if(!P) return;
+    try{
+      Promise.resolve(P.checkPermissions()).then(r=>{ _nPerm = r && r.receive; }).catch(()=>{});
+      // a tapped notification opens where it points (./?push=<delivery>#checkin and so on)
+      P.addListener('pushNotificationActionPerformed', a=>{ try{ const u = a && a.notification && a.notification.data && a.notification.data.url; if(u) location.href = new URL(u, location.href).href; }catch(e){} });
+    }catch(e){}
+  })();
+  const pushSupported = () => { if(_napp()) return true; try{ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }catch(e){ return false; } };
   function pushRead(){ try{ return JSON.parse(localStorage.getItem(PUSH_KEY)||'{}')||{}; }catch(e){ return {}; } }
   function pushWrite(patch){ const p=Object.assign(pushRead(), patch||{}, { at:Date.now() }); try{ localStorage.setItem(PUSH_KEY, JSON.stringify(p)); }catch(e){} return p; }
   const pushTrack = (name, meta) => { try{ if(Store.trackEvent) Store.trackEvent(name, Object.assign({ perm:(window.Notification&&Notification.permission)||'n/a' }, meta||{})); }catch(e){} };
@@ -4702,6 +4733,7 @@ function app(tab){
   }
   // where this device stands, in one word: on | off | blocked | install | unsupported
   function pushState(){
+    if(_napp()){ if(_nPerm==='denied') return 'blocked'; const pn = pushRead(); return (pn.state==='granted' && _nPerm==='granted') ? 'on' : 'off'; }
     if(!pushSupported()) return (isiOS() && !isStandalone()) ? 'install' : 'unsupported';
     if(isiOS() && !isStandalone()) return 'install';
     try{ if(Notification.permission==='denied') return 'blocked'; }catch(e){}
@@ -4728,6 +4760,16 @@ function app(tab){
   // The gesture path. MUST run inside a user tap (iOS refuses otherwise). Returns the
   // resulting state word and records the outcome — this is the one place permission is asked.
   async function pushRequest(origin){
+    if(_napp()){
+      let r = null; try{ r = await _napp().requestPermissions(); }catch(e){}
+      const np = r && r.receive; if(np) _nPerm = np;
+      if(np==='granted'){
+        try{ await pushRegisterNative(); pushWrite({ state:'granted' }); pushTrack('push_granted', { origin, native:1 }); return 'on'; }
+        catch(e){ pushWrite({ state:'error' }); pushTrack('push_error', { origin, native:1, reason:String(e&&e.message||e).slice(0,80) }); return 'off'; }
+      }
+      if(np==='denied'){ pushWrite({ state:'denied' }); pushTrack('push_denied', { origin, native:1 }); return 'blocked'; }
+      const pn=pushRead(); pushWrite({ state:'dismissed', asks:(pn.asks||0)+1 }); pushTrack('push_dismissed', { origin, native:1 }); return 'off';
+    }
     let perm='default';
     try{ perm = await Notification.requestPermission(); }catch(e){ try{ perm = Notification.permission; }catch(e2){} }
     if(perm==='granted'){
@@ -4739,6 +4781,10 @@ function app(tab){
     const p=pushRead(); pushWrite({ state:'dismissed', asks:(p.asks||0)+1 }); pushTrack('push_dismissed', { origin, system:true }); return 'off';
   }
   async function pushTurnOff(){
+    if(_napp()){
+      try{ if(_nToken && window.sb && Store.user()) await window.sb.from('push_subscriptions').update({ revoked_at:new Date().toISOString(), revoke_reason:'user' }).eq('endpoint', 'apns:prod:'+_nToken); }catch(e){}
+      pushWrite({ state:'off' }); pushTrack('push_off', { native:1 }); return;
+    }
     try{ const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription();
       if(sub){ try{ if(window.sb && Store.user()) await window.sb.from('push_subscriptions').update({ revoked_at:new Date().toISOString(), revoke_reason:'user' }).eq('endpoint', sub.endpoint); }catch(e){} try{ await sub.unsubscribe(); }catch(e){} }
     }catch(e){}
@@ -4746,6 +4792,12 @@ function app(tab){
   }
   // keep the stored row fresh (endpoints rotate; tz changes) — silent, on every signed-in load
   function pushSyncExisting(){
+    const P = _napp();
+    if(P){
+      try{ Promise.resolve(P.checkPermissions()).then(r=>{ _nPerm = r && r.receive;
+        if(_nPerm==='granted' && pushIsMember() && pushRead().state==='granted'){ P.addListener('registration', tk=>{ _nToken = tk && tk.value; if(_nToken) pushSaveNative(_nToken); }); P.register(); } }).catch(()=>{}); }catch(e){}
+      return;
+    }
     try{
       if(!pushSupported() || !pushIsMember() || Notification.permission!=='granted') return;
       navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).then(sub=>{ if(sub) pushSaveSub(sub); }).catch(()=>{});
