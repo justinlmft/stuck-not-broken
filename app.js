@@ -1941,7 +1941,7 @@
       ${c.err ? `<p class="autherr">${escapeHtml(c.err)}</p>` : ''}
       <button class="${btnCls('sr')}" id="pw-go" type="button"${c.busy ? ' disabled' : ''}>${c.busy ? 'One moment…' : 'Subscribe'}</button>`);
     const co = card('co', 'Co-Regulator', 'Everything, with people', cur === 'co' ? mine : coSoon
-      ? `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-soon">Coming soon</p>`
+      ? `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-soon">Coming soon. You can upgrade whenever you like.</p>`
       : `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-sub">Billed monthly · cancel anytime</p>
       <a class="${btnCls('co')}" id="pp-co-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Join Co-Regulator</a>`);
     const fine = inStore
