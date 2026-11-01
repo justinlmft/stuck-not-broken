@@ -6386,7 +6386,20 @@ function app(tab){
     'snb227-how-long-shutdown-lasts', '345e74c5-e0f4-4869-a906-73e902ef132a', 'snb266-emotions-and-body-state', '079cdadc-aed1-463d-a409-a10eaee33843',
     'snb183-managing-anxiety-daily', '05d3e9b7-0153-4889-9fa8-f7368de4d744', 'snb204-fawn-appeasement-mixed-states-or-adaptations', 'snb226-real-shutdown-experiences',
     '2349a3c4-cadb-4775-8481-b1cbb204e7b1', 'snb263-let-your-body-breathe', 'a55f97e1-cdd9-4a54-a0ec-4da46b7ce4a6', 'snb178-desperate-decision',
-    'f9c6c1f6-0875-428f-ba52-0861835aaf31', 'snb192-panic-coping-vs-safety-grounding', 'snb220-sadness-and-self-compassion']);
+    'f9c6c1f6-0875-428f-ba52-0861835aaf31', 'snb192-panic-coping-vs-safety-grounding', 'snb220-sadness-and-self-compassion',
+    // img-auto-20261101-0004
+    'snb262-three-ways-through-overwhelm', 'cd509f7e-edfa-4c07-8c73-3a5b62c3fa69', 'snb172-relieving-a-stuck-fight-state', '9d65f9a9-10c1-44b0-b3ed-330855d72c52',
+    'snb179-reduce-fear-during-trauma-work', 'snb209-still-stuck-in-shutdown', '3c3893ba-8c20-487e-99b9-0bfd87086c28', 'snb252-noticing-neuroception',
+    '048bd3bb-f0f1-4c7c-971f-9aba34d0733e', 'snb169-freeze-release-crying-and-self-harm', 'f359ea5e-a72c-4d34-83b5-870ff3a7ac56', 'snb175-wrong-about-trauma-recovery',
+    'snb203-fawn-comply-to-survive', '1a68b06f-95b2-4738-908c-1e23b727add8', 'snb250-passive-safety-cues', '54e2b09f-3e1b-4ccb-9d9e-45f8928098e5',
+    'snb166-dealing-with-anger', 'f6f6b73e-273b-453a-8d61-388968c63ce1', 'snb168-impulses-and-trauma-releasing', 'snb202-appeasement-connect-to-survive',
+    '063cba34-3727-492c-8fa7-18cf0c5a4bd1', 'snb242-four-wellness-pathways', '6f721a2d-54df-4c2d-9e1f-a280d497e039', 'snb159-coming-out-of-flight-fight',
+    '2edce760-9232-40b5-bd45-9c28898d95c2', 'snb167-grief-and-polyvagal-theory', 'snb193-understanding-dorsal-vagal-shutdown', 'd7ed7a24-6414-41a8-90ef-9b63c6c83c18',
+    'snb241-beneath-your-emotions', 'bf7a944f-fc1f-496f-a0c0-37829739d51b', 'snb138-thinking-not-feeling', 'b409e6ea-fa25-4bf5-9073-1479876e77b7',
+    'snb162-possible-to-come-out-of-shutdown', 'snb170-resistance-to-ladder-climbing', '259593fc-f73f-4316-9765-f18d8d86b4d6', 'snb234-safety-when-always-in-defense',
+    'd71ab332-15e6-40cd-b2fb-8bed9d0948a2', 'snb136-high-stress-jobs-vagal-brake', 'db62f9db-c97e-4848-9127-7ceef5fc06f6', 'snb156-trauma-and-polyvagal-theory',
+    'snb160-gently-allowing-emotion-and-sensation', 'e5d9ff99-5ec7-4bd0-96dd-c47790f3ffb4', 'snb231-can-anyone-self-regulate', 'dc5df942-b441-43e5-8a2b-c7c64860c790',
+    'snb130-parenting-without-models', '7a6b8aef-cd28-4ada-bd7c-0e3244d5c62c', '3-tips-to-reduce-fear-of-your-trauma']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
