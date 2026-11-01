@@ -6409,7 +6409,13 @@ function app(tab){
     'dc2c2a8c-edbe-4a03-86a2-b2e4751db8c3', 'snb219-safety-when-you-struggle-to-feel-it', '6af9c263-1b64-4e54-b0db-0483b7171f8d', 'anger-irritation-symptoms-of-the-fight-state',
     '8cd286f9-b269-49f2-976b-7ef76eac781c', 'freezeenergytimeline', 'appeasement-polyvagal-theory', 'a935d7ec-2038-45a1-abf1-930539590579',
     'snb217-growth-mindset', '10eb4c92-0e84-4290-b30a-a9d2cb72fbe1', 'anger', '1f6770cc-779b-4bb7-8672-8f1de5b2071c',
-    'i-m-shocked-this-polyvagal-concept-is-still-mistaught', 'expressing-love-to-a-child-in-shut-down', 'snb216-crying-in-trauma-recovery', '893b9047-0307-4159-a98c-c9fb4f291cc3']);
+    'i-m-shocked-this-polyvagal-concept-is-still-mistaught', 'expressing-love-to-a-child-in-shut-down', 'snb216-crying-in-trauma-recovery', '893b9047-0307-4159-a98c-c9fb4f291cc3',
+    // img-mj-20261101-0715
+    'snb215-deb-dana-contributions', 'c292f2da-171f-434a-b0c7-d7278e9d3e3d', 'anxiety-management-skills', 'ebdc71ec-7100-493a-a8fd-bf787f42b86d',
+    'master-panic-attacks', 'flight-fight-posture-submit', 'snb214-repair-or-move-on', '0aa323b4-b656-4e37-abb6-d9bbf6b897ab',
+    'dealing-with-anger', '90729f92-756a-4ce3-94a8-2420c31a11bb', 'personal-boundaries', 'is-it-possible-to-come-out-of-polyvagal-shutdown',
+    'snb213-co-regulation-in-trauma-recovery', '1c2f1969-72de-4f96-9fcc-08838337df67', 'doityourself', '52ecec10-5cbc-43ee-9ad2-df52f61968fa',
+    'polyvagal-freeze-vs-shutdown-video-quiz', 'numb-after-trauma', 'snb212-panic-at-the-same-time', '6c62c9ed-4b49-40fc-9b1e-96542fa0553a']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
