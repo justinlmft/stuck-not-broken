@@ -69,7 +69,7 @@
       .observe(document.body, { attributes:true, attributeFilter:['class'] }); }catch(e){} };
     if(document.body) _asWatch(); else document.addEventListener('DOMContentLoaded', _asWatch);
   }
-  let _sndCtx = null, _sndSleepT = null;
+  let _sndCtx = null;
   function _sndOk(kind){
     try{
       if(localStorage.getItem('snb_sounds') === '0') return false;
@@ -109,7 +109,6 @@
       const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
       if(!_sndCtx) _sndCtx = new AC();
       const ctx = _sndCtx; if(ctx.state === 'suspended') ctx.resume();
-      clearTimeout(_sndSleepT); _sndSleepT = setTimeout(() => { try{ if(_sndCtx && _sndCtx.state === 'running') _sndCtx.suspend(); }catch(e){} }, 2000);
       const t = ctx.currentTime + 0.01;
       const N = (d, o) => _sndN(ctx, t + d, o), H = (d, o) => _sndThud(ctx, t + d, o);
       if(kind === 'tap'){ N(0, {f:450, Q:4, dur:0.045, vol:0.22}); N(0, {f:1300, Q:4, dur:0.025, vol:0.06, off:0.3}); }   // T5 soft knock
@@ -120,6 +119,17 @@
     }catch(e){}
   }
   window.__snbSound = sound;
+  // wake the engine as the finger lands, so the sound is ready when the tap completes (sounds1e); sleep only in the background
+  function _sndWake(){
+    try{
+      if(!_sndOk('tap')) return;
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      if(!_sndCtx) _sndCtx = new AC();
+      if(_sndCtx.state !== 'running') _sndCtx.resume();
+    }catch(e){}
+  }
+  document.addEventListener('pointerdown', _sndWake, true);
+  document.addEventListener('visibilitychange', () => { try{ if(document.hidden && _sndCtx && _sndCtx.state === 'running') _sndCtx.suspend(); }catch(e){} });
   function haptic(kind){
     try{ sound(kind); }catch(e){}
     try{
