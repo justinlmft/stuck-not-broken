@@ -8696,7 +8696,7 @@ function app(tab){
         <h1 class="ar-title">${escapeHtml(piece.title)}</h1>
         <p class="ar-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
         ${_lrnTocHTML(toc)}
-        <div class="ar-pic" aria-hidden="true">${_rdMk(st || 'safety')}</div>
+        <div class="ar-pic" aria-hidden="true">${_rdMk(st || 'safety')}${_LB_IMG.has(piece.id) ? `<img src="img/learn/${piece.id}-1280.jpg" srcset="img/learn/${piece.id}-640.jpg 640w, img/learn/${piece.id}-1280.jpg 1280w" sizes="(min-width:720px) 900px, 100vw" alt="" decoding="async" onerror="this.remove()">` : ''}</div>
         <div class="ar-read">${body}</div>
         ${book}${piece.episode ? `<p class="ar-src">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p>` : ''}
         ${journal}
