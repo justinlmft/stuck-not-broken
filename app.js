@@ -29,10 +29,12 @@
     }catch(e){}
   }
 
-  // Sounds (Justin 2026-10-31: "we need pleasing sounds, like Minecraft"; sounds1). Soft notes made in the app with Web
-  // Audio, no files. Every note comes from one major pentatonic scale, so nothing clashes, and taps and saves land on a
-  // slightly different note each time. Rides on haptic(kind). Quiet during a practice (except the chime once it has
-  // finished), a breath, the live room and a background-sound preview. On by default; Settings > Sounds writes '0'.
+  // Sounds (Justin 2026-10-31: "we need pleasing sounds, like Minecraft"; sounds1, remade in sounds1b 2026-11-01: "too
+  // musically and not natural enough ... the pops of picking up floating items ... a paper theme"). Made in the app with
+  // Web Audio, no files. One sound per action, the same every time. A dry paper tap, and a small round pop. Rides on
+  // haptic(kind). Quiet during a practice (except once it has finished), a breath, the live room and a background-sound
+  // preview. On by default; Settings > Sounds writes '0'.
+
   // How the app shares the phone's audio (sounds1a, Justin 2026-11-01: "Music stops when I simply go to the app").
   // iOS 17+ lets a page say what kind of audio it makes. "ambient" mixes with the member's music and follows the silent
   // switch, like any app's interface sounds; "playback" is for audio someone is listening to. We stay ambient, and
@@ -68,7 +70,6 @@
     if(document.body) _asWatch(); else document.addEventListener('DOMContentLoaded', _asWatch);
   }
   let _sndCtx = null, _sndSleepT = null;
-  const _SND_SCALE = [523.25, 587.33, 659.25, 783.99, 880.00];   // C5 D5 E5 G5 A5
   function _sndOk(kind){
     try{
       if(localStorage.getItem('snb_sounds') === '0') return false;
@@ -80,21 +81,24 @@
       return true;
     }catch(e){ return false; }
   }
-  function _sndNote(ctx, f, t, dur, vol, bright){   // a soft bell-like note: a sine plus a quiet octave partial
-    const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), g2 = ctx.createGain(), lp = ctx.createBiquadFilter();
-    o.type = 'sine'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = f * 2; g2.gain.value = bright;
-    lp.type = 'lowpass'; lp.frequency.value = 3200;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(ctx.destination);
-    o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+  let _sndNoise = null;
+  function _sndPaper(ctx, t, vol, dur, f0, f1){   // paper: a short flick of soft noise swept through a band-pass, no note
+    if(!_sndNoise || _sndNoise.sampleRate !== ctx.sampleRate){   // one fixed noise sample, so the same action sounds the same
+      const n = Math.floor(ctx.sampleRate * 0.5); _sndNoise = ctx.createBuffer(1, n, ctx.sampleRate); const d = _sndNoise.getChannelData(0);
+      let s = 7; for(let i = 0; i < n; i++){ s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
+    }
+    const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = _sndNoise; bp.type = 'bandpass'; bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.006, dur / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t, 0); src.stop(t + dur + 0.02);
   }
-  function _sndTick(ctx, t, vol){   // a soft wooden tick: a short burst of filtered noise and a low knock
-    const len = Math.floor(ctx.sampleRate * 0.03), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-    for(let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
-    const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
-    n.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = 1500 + Math.random() * 300; bp.Q.value = 2.5; g.gain.value = vol;
-    n.connect(bp); bp.connect(g); g.connect(ctx.destination); n.start(t);
-    _sndNote(ctx, 330 + Math.random() * 40, t, 0.07, vol * 0.6, 0);
+  function _sndPop(ctx, t, f, vol, dur){   // a small round pop: one sine that bends quickly upward and is gone
+    const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.9, t + dur * 0.55);
+    lp.type = 'lowpass'; lp.frequency.value = 2400;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(lp); lp.connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
   }
   function sound(kind){
     if(!_sndOk(kind)) return;
@@ -103,11 +107,12 @@
       if(!_sndCtx) _sndCtx = new AC();
       const ctx = _sndCtx; if(ctx.state === 'suspended') ctx.resume();
       clearTimeout(_sndSleepT); _sndSleepT = setTimeout(() => { try{ if(_sndCtx && _sndCtx.state === 'running') _sndCtx.suspend(); }catch(e){} }, 2000);
-      const t = ctx.currentTime + 0.01, S = _SND_SCALE;
-      if(kind === 'tap') _sndTick(ctx, t, 0.05);
-      else if(kind === 'save'){ const i = Math.floor(Math.random() * 3); _sndNote(ctx, S[i], t, 0.35, 0.06, 0.25); _sndNote(ctx, S[i + 2], t + 0.075, 0.5, 0.055, 0.25); }
-      else if(kind === 'complete' || kind === 'done'){ [S[0], S[2], S[3], S[0] * 2].forEach((f, i) => _sndNote(ctx, f, t + i * 0.13, 1.4, 0.05, 0.3)); }
-      else _sndNote(ctx, S[Math.floor(Math.random() * S.length)] / 2, t, 0.28, 0.07, 0.15);   // a pick: one soft pluck, an octave down
+      const t = ctx.currentTime + 0.01;
+      if(kind === 'tap') _sndPaper(ctx, t, 0.10, 0.03, 3200, 1800);                                   // a paper tap
+      else if(kind === 'save'){ _sndPaper(ctx, t, 0.06, 0.02, 3600, 2400); _sndPop(ctx, t + 0.004, 540, 0.11, 0.085); }   // kept: a brighter pop
+      else if(kind === 'done'){ _sndPop(ctx, t, 400, 0.12, 0.11); _sndPaper(ctx, t + 0.07, 0.05, 0.12, 1200, 2600); }   // finished: a rounder pop, paper settling
+      else if(kind === 'complete'){ _sndPop(ctx, t, 300, 0.11, 0.16); _sndPaper(ctx, t + 0.09, 0.045, 0.28, 900, 2400); }   // a practice finished
+      else _sndPop(ctx, t, 460, 0.09, 0.07);                                                            // a pick: a small pop
     }catch(e){}
   }
   window.__snbSound = sound;
