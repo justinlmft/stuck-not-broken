@@ -124,7 +124,7 @@
   // that must render SOME practice pass needShape=true and get the same 'anchoring'
   // default the maker already falls back to defensively.
   function _recommendSafe(needShape){
-    try{ const r = Store.recommend && Store.recommend(); if(r) return r; }
+    try{ const r = Store.recommend && Store.recommend(); if(r){ r.launchedFrom = 'recommended'; return r; } }
     catch(e){ try{ console.error('Store.recommend() failed — rendering without it:', e); }catch(_){} }
     return needShape ? { practiceKey:'anchoring', silence:8, reason:null } : null;
   }
@@ -1521,7 +1521,7 @@
     const sense = 'touch', silence = key==='micro' ? 2 : 4;
     const ps = { embed:'1', autostart:'1', practice:key, sense, silence:String(silence) };
     const src = 'player.html?'+new URLSearchParams(ps).toString();
-    const reco = { practiceKey:key, sense, silence };
+    const reco = { practiceKey:key, sense, silence, launchedFrom:'guest' };
     // the /stuck door reaches here with no session yet (its first write is the session
     // log at practice end) — mint now so that write has somewhere to land.
     ensureGuestSession().then(res=>{
@@ -5697,7 +5697,7 @@ function app(tab){
     if(nx) nx.onclick = ()=>{
       const k = nx.dataset.kind;
       if(k==='micro'){ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
-        return practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); }
+        return practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2,launchedFrom:'now_tiny'}); }
       if(k==='best' && _bsHere) return launchWeaver(bestSetupReco(_bsHere));
       if(k==='challenge' && _chNow) return screenChPrompt(_chNow.id);
       if(k==='reader') return screenReflectionDeep();
@@ -8636,7 +8636,8 @@ function app(tab){
     return { title, note, over, reco: b.practice === 'custom' ? base : { practiceKey:key, sense, silence, reason: (b.why || '') + (over ? ' ' + note : '') || null } };
   }
   function _lrnPracticeReco(b){
-    return _lrnPracticeThis(b).reco;
+    const r = _lrnPracticeThis(b).reco;
+    return r ? Object.assign({}, r, { launchedFrom:'article' }) : r;
   }
   // pieces past the first few keep their text in learn/<id>.json, loaded when opened (2026-10-02: ~150 podcast articles)
   const _lrnBodies = {};
@@ -10717,6 +10718,7 @@ function app(tab){
     if(bs.anchor && r.practiceKey!=='mindfulness') r.sense=bs.anchor;
     if(bs.silence) r.silence=bs.silence;
     r.reason='your ideal practice: what has worked best for you, in one practice.';
+    r.launchedFrom='best_time';
     return r;
   }
 
@@ -11378,8 +11380,19 @@ function app(tab){
   // check-in that drove it can be stamped as that practice's 'before' read. The 'after'
   // and the ~3h 'followup' reads are then tagged automatically in Store.addCheckin.
   // Both shells (tabbar + guest) funnel through here — it is the one place a practice begins.
+  // Where a practice was started (Justin 2026-11-01: "track the efficacy of practices that are recommended
+  // vs the ones that people pick themselves"). Saved on the session as details.launched_from.
+  // _sheetFrom is set just before the practice sheet opens from somewhere other than a plain row tap.
+  let _sheetFrom = null;
+  function _launchOrigin(r){
+    if(!r) return 'other';
+    if(r.fromPath) return 'pathway';
+    if(r.surprise) return 'surprise';
+    return r.launchedFrom || 'other';
+  }
   function beginPractice(reco){
     const r = reco || _recommendSafe();
+    try{ if(r) r.launchedFrom = _launchOrigin(r); }catch(e){}
     try{
       if(r && Store.newSessionId){
         r.sessionId = Store.newSessionId();
@@ -11990,7 +12003,7 @@ function app(tab){
     _emoPlanWire(reco, from);
     root.querySelectorAll('.plan-book').forEach(a=>a.onclick=e=>{ e.preventDefault(); const pc = window.Learning && Learning.byId(a.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:()=>renderPlan(reco, from), tab:'practice' }); });
     // the same sheet as the Practice tab, filled in with this practice (Justin, 2026-10-02: "Customize this practice")
-    $('#plan-change').onclick = ()=>{ _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
+    $('#plan-change').onclick = ()=>{ _pStateFromReco(reco); _sheetFrom = _launchOrigin(reco) + '_changed'; openPracticeSheet(pState.key || 'anchoring'); };
   }
 
   // caret shown on every dial — an obvious "opens a menu" chevron (replaces the old
@@ -13603,7 +13616,7 @@ function app(tab){
         ${art ? `<button class="ch-keep" type="button" id="ch-k-art"><span class="ch-keep-t"><span>Learn more</span><b>${escapeHtml(art.title)}</b><span>An article</span></span><span class="ch-chev">${CHEV}</span></button>` : ''}</div>
       <div class="ch-sh-foot" id="ch-sh-foot"></div>`;
     const shown = _chShow(inner, id, screenChallenges);
-    const kp = shown.box.querySelector('#ch-k-pr'); if(kp) kp.onclick = ()=>shown.close(()=>{ app('practice'); setTimeout(()=>{ try{ openPracticeSheet(k.practice); }catch(e){} }, 30); });
+    const kp = shown.box.querySelector('#ch-k-pr'); if(kp) kp.onclick = ()=>shown.close(()=>{ app('practice'); setTimeout(()=>{ try{ _sheetFrom = 'challenge'; openPracticeSheet(k.practice); }catch(e){} }, 30); });
     const ka = shown.box.querySelector('#ch-k-art'); if(ka) ka.onclick = ()=>shown.close(()=>screenLearnPiece(art, null, null, { label:'Challenges', go:()=>screenChallenges() }));
   }
   function _screenChSavedPage(id, n){
@@ -13621,7 +13634,7 @@ function app(tab){
         ${pr ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-k-pr"><span class="ch-keep-t"><span>A practice</span><b>${escapeHtml(pr.t)}</b><span>${escapeHtml(pr.sub)}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : ''}
         ${art ? `<button class="ch-keep" type="button" id="ch-k-art"><span class="ch-keep-t"><span>Learn more</span><b>${escapeHtml(art.title)}</b><span>An article</span></span><span class="ch-chev">${CHEV}</span></button>` : ''}
       </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
-    const kp = $('#ch-k-pr'); if(kp) kp.onclick = ()=>{ app('practice'); setTimeout(()=>{ try{ openPracticeSheet(k.practice); }catch(e){} }, 30); };
+    const kp = $('#ch-k-pr'); if(kp) kp.onclick = ()=>{ app('practice'); setTimeout(()=>{ try{ _sheetFrom = 'challenge'; openPracticeSheet(k.practice); }catch(e){} }, 30); };
     const ka = $('#ch-k-art'); if(ka) ka.onclick = ()=>screenLearnPiece(art, null, null, { label:'Challenges', go:()=>screenChallenges() });
   }
   // ---- 3 · finished ----
@@ -13738,7 +13751,7 @@ function app(tab){
     if(fy){
       fy.onclick = (e)=>{ if(e.target.closest('#p8-cust, #p8-begin-now')) return; renderPlan(reco); };
       fy.onkeydown = (e)=>{ if(e.target===fy && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); renderPlan(reco); } };
-      const cu = $('#p8-cust'); if(cu) cu.onclick = (e)=>{ e.stopPropagation(); _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
+      const cu = $('#p8-cust'); if(cu) cu.onclick = (e)=>{ e.stopPropagation(); _pStateFromReco(reco); _sheetFrom = _launchOrigin(reco) + '_changed'; openPracticeSheet(pState.key || 'anchoring'); };
       const bn = $('#p8-begin-now'); if(bn) bn.onclick = (e)=>{ e.stopPropagation(); launchWeaver(reco); };
     }
     const fl = $('#foryou-lock');
@@ -13747,6 +13760,7 @@ function app(tab){
       const k = b.dataset.p8;
       if(b.dataset.p8lock) return _p8Locked(b, 'practice');
       if(k==='surprise') return _p8Surprise();
+      _sheetFrom = null;
       openPracticeSheet(k);
     });
     const upE = $('#up-entry'); if(upE) upE.onclick = ()=>{ _plStage = null; _plQ = ''; screenPathway(); };
@@ -13925,9 +13939,10 @@ function app(tab){
 
   // start the practice the sheet shaped (the one launch path for every hand-made practice)
   function _p8Launch(k){
+    const _from = _sheetFrom || (mkIsSession(k) ? 'guided' : 'own'); _sheetFrom = null;
     if(mkIsSession(k)){
       if(!paidNow()) return gateSubscribe('practice');
-      return practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k});
+      return practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k,launchedFrom:_from});
     }
     if(!practiceFree(k) && !paidNow()) return gateSubscribe('practice');
     mkNormalize();
@@ -13945,7 +13960,7 @@ function app(tab){
       if(pState.open) ps.open='1';
       if(pState.emotion) ps.emotion=_emoWord(pState.emotion);   // the emotion they chose, named back in the practice (2026-10-04)
     }
-    practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:(launchSkill||pState.skill),prefix:(k==='self-regulation'?L.prefix:null),depth:(k==='self-regulation'?L.depth:null),silence:sil,descDefense:deep,holdWatch:hold,holdWatchTargetSeconds:(hold?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
+    practiceShell('player.html?'+new URLSearchParams(ps).toString(),{launchedFrom:_from,practiceKey:k,sense:pState.sense,skill:(launchSkill||pState.skill),prefix:(k==='self-regulation'?L.prefix:null),depth:(k==='self-regulation'?L.depth:null),silence:sil,descDefense:deep,holdWatch:hold,holdWatchTargetSeconds:(hold?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
   }
 
   // Today's "a practice for now" row → one-tap autostart of the recommended practice,
@@ -14096,7 +14111,7 @@ function app(tab){
       intensityReadings:(Array.isArray(reco.intensityReadings) ? reco.intensityReadings : null),
       handedOffTo:(reco.handedOffTo||null), handedOffFrom:(reco.handedOffFrom||null),
       offers:(Array.isArray(reco.offers) ? reco.offers : null),
-      details:(reco.details && typeof reco.details==='object' ? reco.details : null),   // every detail (2026-09-25)
+      details:Object.assign({}, (reco.details && typeof reco.details==='object' ? reco.details : {}), { launched_from:(reco.launchedFrom || 'other') }),   // every detail (2026-09-25) + where it was started (2026-11-01)
       timeline:(Array.isArray(reco.timeline) ? reco.timeline : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
