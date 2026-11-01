@@ -6525,7 +6525,17 @@ function app(tab){
     '3657dd0a-02a3-470d-9d0e-9a04e4a64ce0', '3fdee620-bc2b-4bb0-b918-93c59a268501', 'ff7083c5-1def-4387-9e37-0f609612ca83', '3369f83c-dc80-494b-961c-31d226fcd087',
     '4e77ec75-630f-41c1-9cce-aea44efa931f', '325df84d-082a-433f-aa97-2845fccd997e', '918a7aaf-3da9-4ef6-bbe5-0558f9003bee', '40760bfd-1c4b-4592-b00e-34abde443581',
     '564ea68f-40f6-42f2-8668-7c909ce31103', '53181e74-7c8e-49a4-af15-db7bf61a0cb9', '9b2705b7-67d6-4bd8-890d-8e438a71e440', '3489cbf7-6b8d-49a0-9a79-3990c73ea158',
-    '32841700-6886-4c7b-8a5c-f70374a6a040', '1d8e9262-f75e-461e-a0ca-5ad6d3e14226']);
+    '32841700-6886-4c7b-8a5c-f70374a6a040', '1d8e9262-f75e-461e-a0ca-5ad6d3e14226',
+    // img-mj-20261101-1256
+    'f0bfcbd0-43e4-4ae2-97bb-ba5993c1187e', '5bba1ea1-19dc-40d2-afaa-0a0e9a73bc73', '94298322-82a5-4f7e-a654-08f15f471e2f', '410c34a2-4961-485e-b997-e002f1bd57d1',
+    '8f2c96a1-9c00-436a-8bf1-5c40f970edbf', '918e439c-0061-450b-afab-47ab422fc20f', 'd02492c0-0f31-4b5a-8618-ee63f6abd870', 'fd348e48-c2f5-440a-8043-480df039e987',
+    'a016cadd-0485-49e8-98bf-47e9f414d8f1', '4d61d638-bb4d-4820-bcd0-7b79607d057b', '04c6dcce-abfb-4e81-b8a2-d3521d6b48ea', 'fb20c60f-3490-4b04-890c-dc490c1b8755',
+    'e8844bf4-5bf2-48ab-b975-c0793db27a62', '15383b2d-aa4a-4c8f-b868-de3ed7b8df9f', 'ac040a44-299f-4a2b-b40a-a848284ef8f5', '8edb7cce-206e-4e89-abf3-6ae51a2f2c81',
+    '2f3d0493-517d-4d67-87d2-46501491da03', 'cea03d0e-2efd-48a7-9480-162f35aa589e', '0594c40a-1d08-429e-89b3-d22cdf2752de', '07f94b33-87cc-4973-ae62-27d4b03db0b3',
+    '631d6fc6-ab9a-4818-a80c-67612e0b8234', 'ee8083ec-621f-4513-ab37-cb4a5a7d92e5', 'db98b6ef-4728-41ec-acef-2b8a0af15e60', 'ce4fc41e-5d53-408f-9c23-694cd16caa00',
+    '8d45bf52-190c-42c5-8776-ad15b09bdea7', '41cfec5c-cb81-4fdd-916d-29b590fb13e5', '56c6b0f9-2270-4022-a2ea-a1ea233b0498', '7c799b41-0f7c-448d-8946-f340f3df36db',
+    'eaafb43c-3193-48a8-a655-640a9bbc349c', '951585f1-4161-4722-8cd5-2ff74cdb45c3', 'e157c834-74a1-454a-a9ee-cd86d3e2d87b', '748311d2-2a25-4972-9c0f-7ab7ec89988e',
+    'bcf79011-9e41-48fc-b942-b54642711fe6', '6f51a593-13f7-41b3-a802-c53aac4232bf', 'a45dd758-fdbe-442a-8cb7-7ad7b8ebe31a', 'fb8f0544-d881-4b3e-8c69-85009114162d']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
