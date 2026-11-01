@@ -6132,8 +6132,9 @@ function app(tab){
     return `<span class="rd-mk${cls?' '+cls:''}" aria-hidden="true">${_lkSvg(ax.map(([icn])=>[icn, col]))}</span>`;
   }
   // a change from one state to another: the first state's marks, a gradient arrow, the next state's marks
+  // (tweak-b, 2026-11-01: the same picture as the You tab's "Your state most often shifts" card)
   function _rdFlow(a, b){
-    return `<div class="rd-flow" aria-hidden="true">${_rdMk(a)}<span class="rd-flow-path" style="background:linear-gradient(90deg,${STATE_COLOR(a)},${STATE_COLOR(b)})"></span>${CB_ARROW.replace('class="cb-arrow"', `class="rd-flow-arw" style="color:${STATE_COLOR(b)}"`)}${_rdMk(b)}</div>`;
+    return `<div class="cb-journey rd-journey">${cbGlyphViz(a, b, null, 'hero')}</div>`;
   }
   const RD_ORDER = ['safety','play','stillness','fightflight','freeze','shutdown'];
   // "getting back to safety": from the defensive state, the steps it took, to the heart

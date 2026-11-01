@@ -3473,6 +3473,8 @@ body.rd-on .rd-lock{background:var(--rd-card)}
 .rd-legend span{display:inline-flex;align-items:center;gap:5px}
 .rd-legend i{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
 .rd-flow{display:flex;align-items:center;gap:8px}
+/* tweak-b: the You tab's shift picture inside an article card; the card's own spacing replaces the panel's */
+.rd-call .cb-journey.rd-journey{margin:14px 0 10px}
 .rd-flow .rd-mk{--mk:24px}
 .rd-flow-path{flex:1;height:3px;border-radius:2px;min-width:24px}
 .rd-flow-arw{width:14px;height:14px;flex:none}
