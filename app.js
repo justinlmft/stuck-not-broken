@@ -6360,7 +6360,20 @@ function app(tab){
     'b16e92c8-05bf-46f4-bab5-b9ab0906b916', 'f37c17c8-0c9d-42d9-aa57-586ee8f1e047', '40d61dcf-46ca-4dfb-8823-b79c14ba72d8', 'abe96607-0f0d-45a1-806b-c9c6f4c22fd8',
     '65817022-163d-41f1-adb9-a4744c683b91', '70edb11a-6f2f-4974-a540-961b9dab4fbe', '6e220cde-0cd2-4073-a6e6-533697649162', '6616a3ee-c041-48fe-a90e-3ef5b9bc052e',
     'd42a7d55-e0fd-4e1b-a73d-2ebf81d03d77', '6e188082-b736-4796-8a8c-1b3b312a9453', '84f1625e-0d7e-4a38-9ca1-8b1751dbdac2', '045bc24a-34fe-4fc7-9375-44330073d9cf',
-    '16326ebe-70f9-4a81-8895-3a5ef8d9f99e', '14032db0-023c-4fbc-ad69-6e0e6e4301d5', 'bb5e54cd-140a-4b9e-b0fb-4c9381e70751']);
+    '16326ebe-70f9-4a81-8895-3a5ef8d9f99e', '14032db0-023c-4fbc-ad69-6e0e6e4301d5', 'bb5e54cd-140a-4b9e-b0fb-4c9381e70751',
+    // img4 (2026-10-31)
+    'anchor-environment', 'sensory-anchors', 'anchor-music', 'anchor-cognitions',
+    'anchor-memories', 'safety-stacking-awe', '20b541da-11ef-4b2e-b911-42b6ceba2bd1', '897ba8cc-5524-456e-a601-28611bf3a60a',
+    'snb236-validating-shutdown', 'snb232-allowing-shutdown', 'snb198-sleep-stress-and-insomnia', 'snb205-intimacy-and-mixed-states',
+    '5-ways-to-improve-your-mindfulness-practice', 'can-you-identify-your-polyvagal-safety-state', 'snb261-boundaries-safety-and-fight', 'snb259-stop-trying-to-change-your-state',
+    'snb246-anxiety-and-the-cause', 'snb243-crying-release-panic-rage', 'snb233-thawing-freeze-gently', 'snb218-courtneys-journey',
+    '2377d012-89db-47e9-9000-f69c454e65a4', '4dc98785-b9ba-4ccf-8a3c-bbe527c5d902', 'snb287-functional-freeze', 'snb280-polyvagal-theory-not-dead',
+    'snb277-meditation-and-freeze', 'snb260-fawn-and-appease', 'snb257-rebuilding-after-a-breakup', 'snb247-shutdown-to-freeze',
+    'db795858-71f4-4b21-8ba7-489f1b55083d', '9b5cfcda-9b2f-4b6f-810a-9330374cdc41', 'appease-fawn-dissociation', 'snb282-partner-in-shutdown',
+    'snb276-rethinking-diagnosis', 'snb273-still-affects-you', 'snb251-validate-and-normalize-yourself', 'snb248-loved-one-in-shutdown',
+    '2eccf9b7-023d-49b9-b2f2-b83060a0b76c', '304947be-cbd6-4de0-90f1-db27215aea45', 'never-done-building-safety', 'recovery-after-practice',
+    'cue-to-anchor', 'snb281-emdr-beyond-eye-movements', 'snb278-capacity-before-the-past', '4801326b-7ad6-4692-8250-bce18a04c526',
+    '81edac31-0b62-4eab-b6f0-16f8e9aa4aa3', '84a45876-f962-476f-a6bb-8c3dbc1faf1e', '97521ddb-b8c3-4eb7-a728-ab4c1fd22aeb']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
