@@ -1,0 +1,1 @@
+The Poppy voice (a Descript AI voice). Same file names as clips/, one take per file, so the engine's tables are shared. Sliced 2026-09-29 from Justin's full-script dub. Never overwrite a file here: a new cut gets a new name.

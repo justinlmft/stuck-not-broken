@@ -1,0 +1,2550 @@
+/* ============================================================================
+   Store — accounts, cross-device sync, and the simulated-AI recommender.
+
+   Two modes, same API:
+   • Cloud (keys in config.js): real Supabase email/password accounts. Check-ins
+     and sessions live in Postgres under the signed-in user (row-level security),
+     mirrored to an on-device cache for instant render + offline. An outbox holds
+     anything written while offline and flushes on next load.
+   • Local (no keys): a profile + data kept in localStorage on this device only.
+     Lets the prototype run, and shows the exact sign-in UX, before keys exist.
+
+   Reads are synchronous over an in-memory copy (so the UI render stays simple);
+   writes are write-through (memory + cache now, cloud in the background).
+   ========================================================================== */
+(function (global) {
+  // ----------------------------------------------------------------------------
+  // WebKit / iOS hardening for the Supabase auth client.
+  // config.js builds window.sb with createClient(url, key) and ALL-DEFAULT auth
+  // options. On iOS WebKit those defaults bite us:
+  //   • the default cross-tab lock (navigator.locks) can wedge per-request token
+  //     resolution, so authenticated calls silently go out WITHOUT a JWT — RLS
+  //     then rejects the write (insert -> 42501) while a cached read masks it.
+  //     This is why even a fresh iOS sign-in fails to persist.
+  //   • a single localStorage access that throws (private mode / storage
+  //     partitioning) can knock out session persistence entirely.
+  // We rebuild the client here — same project, default storageKey, so any
+  // session already on the device is reused — with a serial in-memory lock and a
+  // never-throw storage shim. config.js is left untouched. If anything goes
+  // wrong we fall back to the original client, so desktop behaviour is unchanged.
+  // ----------------------------------------------------------------------------
+  function buildClient(){
+    const orig = global.sb;
+    const cfg = global.SNB_CONFIG || {};
+    if(!orig || !global.supabase || !cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return orig;
+    try{
+      // serial, deadlock-proof lock (the auth-js processLock shape): each call
+      // waits for the previous to settle, so token refreshes never overlap and
+      // we never depend on navigator.locks (which misbehaves under iOS WebKit).
+      let chain = Promise.resolve();
+      const serialLock = (_name, _acquireTimeout, fn) => {
+        const run = chain.then(() => fn());
+        chain = run.then(() => {}, () => {});      // advance on settle, swallow errors
+        return run;
+      };
+      // storage that can never throw: real localStorage when reachable, else a
+      // memory map, so one WebKit access error can't kill the whole session.
+      const mem = {};
+      const safeStorage = {
+        getItem(k){ try{ return global.localStorage.getItem(k); }catch(e){ return (k in mem) ? mem[k] : null; } },
+        setItem(k, v){ try{ global.localStorage.setItem(k, v); }catch(e){ mem[k] = String(v); } },
+        removeItem(k){ try{ global.localStorage.removeItem(k); }catch(e){ delete mem[k]; } },
+      };
+      const client = global.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: safeStorage,
+          lock: serialLock,
+          // storageKey defaults to sb-<ref>-auth-token — identical to the
+          // config.js client, so the device's existing session is picked up.
+        },
+      });
+      try{ orig.auth.stopAutoRefresh(); }catch(e){}   // retire config.js's refresher (avoid two)
+      global.sb = client;                              // keep console/diagnostic `sb` on the live client
+      return client;
+    }catch(e){ console.warn('[store] hardened client build failed, using default', e); return orig; }
+  }
+
+  const sb = buildClient();             // supabase client or null
+  const CLOUD = !!sb;
+  const PROFILE_KEY = 'snb_profile';    // local-mode current profile pointer
+
+  // ---- door attribution: ?src= (GMS build item 1, 2026-07-13) ----
+  // A label on the DOOR, not on the person. No identity, no email, no Circle member id,
+  // nothing crossing between Circle and the app — just a string saying where the click
+  // came from. Read once on load, validated against a fixed allowlist (anything else is
+  // ignored, so a stray or spoofed param can never create a junk bucket), held for the
+  // tab in sessionStorage — it has to survive the check-in and the practice, because the
+  // events that matter fire later. Missing/invalid = 'direct'.
+  // Stamped on checkins.source and on every events.meta.src for the session.
+  const SRC_ALLOW = ['stuck','app-page','app-page-free','app-page-paid','youtube','podcast','podcast-pre','podcast-mid','podcast-post','newsletter','circle','cohort','blog','mindful-moment','direct'];   // app-page-free / app-page-paid: the /app page's pricing cards (Web Designer's ask, 2026-09-26)   // podcast-pre / -mid / -post: which podcast ad slot a show-notes click came from (Get More Sales, 2026-10-06)
+  const SRC_KEY = 'snb_src';
+  let _src = 'direct';
+  try{
+    const q = new URLSearchParams(global.location.search);
+    const raw = (q.get('src')||'').trim().toLowerCase();
+    if(raw && SRC_ALLOW.indexOf(raw) !== -1){
+      _src = raw;
+      sessionStorage.setItem(SRC_KEY, _src);
+      // strip it so a plain reload doesn't re-read it (the session copy is the record)
+      q.delete('src');
+      history.replaceState(null,'',global.location.pathname+(q.toString()?'?'+q.toString():'')+global.location.hash);
+    } else {
+      _src = sessionStorage.getItem(SRC_KEY) || '';
+      // 2026-09-25 (SEO ask): no ?src= and nothing held for this tab -> a visit that
+      // came from a blog post page counts as 'blog', tagged link or not. Only a full
+      // referrer on stucknotbroken.com/c/blog/ counts; if the browser sends just the
+      // site origin (no path), it stays 'direct' rather than guessing.
+      if(!_src){
+        _src = 'direct';
+        const ref = new URL(document.referrer || 'about:blank');
+        if(/^(www\.)?stucknotbroken\.com$/i.test(ref.hostname) && /^\/c\/blog(\/|$)/i.test(ref.pathname)){
+          _src = 'blog';
+          sessionStorage.setItem(SRC_KEY, _src);
+        }
+      }
+    }
+  }catch(e){ _src = 'direct'; }
+  function src(){ return _src; }
+
+  /* 2026-08-17 — coarse platform on every event, so "how many Android users do we have"
+     is a query instead of a guess. Buckets only — ios / android / desktop / other — plus
+     whether the app is running installed rather than in a browser tab. The user-agent
+     string itself is never stored and nothing here narrows toward a person; it is the
+     same shape of label as `src`: about the device class, not the human. Added because
+     the whole audio path in player.html is built against iOS quirks and we had no idea
+     whether that mattered to 2% of people or 30%. iPadOS reports itself as a Mac, so the
+     touch-point check catches it. */
+  const _plat = (function(){
+    try{
+      const ua = navigator.userAgent || '';
+      if(/android/i.test(ua)) return 'android';
+      if(/iphone|ipod/i.test(ua)) return 'ios';
+      if(/ipad/i.test(ua)) return 'ipados';
+      if(/macintosh|mac os x/i.test(ua) && (navigator.maxTouchPoints||0) > 1) return 'ipados';
+      if(/macintosh|windows|linux|cros/i.test(ua)) return 'desktop';
+      return 'other';
+    }catch(e){ return 'other'; }
+  })();
+  const _installed = (function(){
+    try{
+      if(navigator.standalone === true) return true;                       // iOS home-screen
+      return !!(global.matchMedia && global.matchMedia('(display-mode: standalone)').matches);
+    }catch(e){ return false; }
+  })();
+
+  let auth = { user: null };            // {id, email}
+  let data = { checkins: [], sessions: [] };
+  let outbox = { checkins: [], sessions: [] };
+  let onChange = null;                  // app re-render hook (set in init)
+  let sync = { state: 'idle', pending: 0, error: null };  // 'idle' | 'syncing' | 'error'
+
+  const cacheKey = () => 'snb_cache_' + (auth.user ? auth.user.id : 'anon');
+  // demo/review seeding (C-strategy, 2026-08-22): replace the in-memory data with a
+  // synthetic dataset so every derived read runs the REAL engine — drift between demo
+  // and product math becomes structurally impossible. Never persisted: while seeded,
+  // saveCache and flush are no-ops, so nothing reaches localStorage or the cloud.
+  let _demoSeeded = false;
+  function seedDemo(rows, sess){
+    _demoSeeded = true;
+    data = { checkins: (rows||[]).slice().sort((a,b)=>a.t-b.t), sessions: (sess||[]).slice().sort((a,b)=>a.t-b.t) };
+    outbox = { checkins: [], sessions: [] };
+  }
+  function saveCache(){ if(_demoSeeded) return; try { localStorage.setItem(cacheKey(), JSON.stringify({ data, outbox, links })); } catch(e){} }
+  function loadCache(){ try { const o = JSON.parse(localStorage.getItem(cacheKey())); if(o){ data = o.data||{checkins:[],sessions:[]}; outbox = o.outbox||{checkins:[],sessions:[]}; links = Array.isArray(o.links)?o.links:[]; _upgradeSaved(data.sessions); _upgradeSaved(outbox.sessions); } else { data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } } catch(e){ data={checkins:[],sessions:[]}; outbox={checkins:[],sessions:[]}; links=[]; } _reconcile(); }
+
+  // ---- sync plumbing (merge, live-session gating, loud failure) ----
+  function notify(){ try{ onChange && onChange(); }catch(e){} }
+  function setSync(state, error){
+    sync.state = state;
+    sync.error = error || null;   // diagnostic only — nothing reads it yet (syncStatus exposes state+pending; the toast keys off state)
+    sync.pending = outbox.checkins.length + outbox.sessions.length;
+    renderSyncToast();
+  }
+
+  // union check-in / session lists by timestamp. Later args win on shared fields
+  // (cloud is authoritative for v/sym/dor/dom/...), while any field the cloud row
+  // doesn't carry survives the merge. This is what keeps an un-synced check-in
+  // visible instead of being wiped by a cloud read. (`challenge` was once the
+  // local-only example here — it has had a cloud column since 2026-07.)
+  function unionByT(...lists){
+    const m = new Map();
+    for(const list of lists){ if(!list) continue; for(const r of list){ if(r && r.t!=null){ m.set(r.t, Object.assign({}, m.get(r.t), r)); } } }
+    return Array.from(m.values()).sort((a,b)=>a.t-b.t);
+  }
+
+  // a "your token isn't valid" failure (vs a transient network blip)?
+  function isAuthError(err){
+    if(!err) return false;
+    const code = String(err.code||'');
+    const status = err.status || err.statusCode;
+    const msg = String(err.message||'').toLowerCase();
+    return code==='42501' || code==='PGRST301' || status===401 || status===403 ||
+           msg.includes('jwt') || msg.includes('row-level security') || msg.includes('not authorized');
+  }
+
+  // Return a live, non-expired session, refreshing if it is about to lapse;
+  // null if there is no usable session. Authenticated reads/writes gate on this
+  // so we never silently act on a stale or missing token (the iOS failure mode).
+  async function ensureSession(){
+    if(!CLOUD) return null;
+    try{
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return null;
+      const now = Math.floor(Date.now()/1000);
+      if(session.expires_at && session.expires_at - now < 60){
+        const { data:r, error } = await sb.auth.refreshSession();
+        if(error) return session;                    // refresh failed — hand back what we have
+        return (r && r.session) || session;
+      }
+      return session;
+    }catch(e){ return null; }
+  }
+
+  // ---- loud failure: a small, self-contained "couldn't sync" toast.
+  // Lives entirely in store.js (no app.css / app.js dependency) so the whole fix
+  // ships as one identical file to both repos.
+  function renderSyncToast(){
+    try{
+      if(typeof document==='undefined' || !document.body) return;
+      const id='snb-sync-toast';
+      const existing=document.getElementById(id);
+      if(sync.state!=='error'){ if(existing) existing.remove(); return; }
+      if(existing) return;
+      const el=document.createElement('div');
+      el.id=id; el.setAttribute('role','status');
+      el.style.cssText='position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:99999;max-width:88%;display:flex;gap:10px;align-items:center;padding:10px 14px;border-radius:14px;background:#3a2a2a;color:#fff;font:500 13px/1.35 -apple-system,system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.28)';
+      el.appendChild(document.createTextNode('your last check-in hasn’t synced yet.'));
+      const b=document.createElement('button');
+      b.type='button'; b.textContent='retry';
+      b.style.cssText='appearance:none;border:0;background:rgba(255,255,255,.18);color:#fff;font:600 13px/1 inherit;padding:7px 12px;border-radius:9px;cursor:pointer';
+      b.onclick=()=>{ setSync('syncing'); hydrate(); };
+      el.appendChild(b);
+      document.body.appendChild(el);
+    }catch(e){}
+  }
+
+  // ---- practice pairing (2026-08-07) ------------------------------------------------
+  // A check-in only answers "did this practice do anything" if we know WHICH practice it
+  // belongs to and WHEN in the arc it was taken. Live sessions have had that since 07-17
+  // (live_session_id + phase); ordinary in-app practices had neither, so pairs were
+  // reconstructed by timestamp guesswork downstream. Now the app states it:
+  //   before   — the read that drove the recommendation, stamped at launch
+  //   after    — the read taken right after the practice
+  //   followup — the ~3h read. NOT the same measurement: the immediate lift in safety
+  //              fades, the drop in sympathetic does not. Two effects, two rows.
+  const AFTER_MS  = 45*6e4;               // 'after' window: 0–45 min past the practice
+  const FOLLOW_LO = 90*6e4;               // 'followup' window: 90 min …
+  const FOLLOW_HI = 6*36e5;               //                    … 6 h (the ~3h read, generously bracketed)
+  const BEFORE_MS = 90*6e4;               // how stale the driving check-in may be at launch
+
+  function _uuid(){
+    try{ if(global.crypto && global.crypto.randomUUID) return global.crypto.randomUUID(); }catch(e){}
+    try{
+      const b = new Uint8Array(16); global.crypto.getRandomValues(b);
+      b[6]=(b[6]&0x0f)|0x40; b[8]=(b[8]&0x3f)|0x80;
+      const h=[...b].map(x=>x.toString(16).padStart(2,'0')).join('');
+      return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+    }catch(e){}
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch=>{
+      const r=Math.random()*16|0; return (ch==='x'?r:(r&0x3|0x8)).toString(16); });
+  }
+  function newSessionId(){ return _uuid(); }
+  // a data-clear name for what was practiced. Mirrors the live flow's practice_ref.
+  function practiceRefOf(s){
+    if(!s || !s.practiceKey) return null;
+    return (s.practiceKey==='self-regulation' && s.skill) ? ('self-regulation:'+s.skill) : s.practiceKey;
+  }
+  // ---- challenge appetite: shared levels + label (used by check-in + advisor + you) ----
+  // The ONE source of the challenge_level vocabulary (cloud column included). The
+  // practice-rung map below derives from it, so a wording change here cannot fork the
+  // column's vocabulary between the appetite path and the practice-rung fallback.
+  // (practiceLabelFor / PRACTICE_LABEL are a DIFFERENT vocabulary — practice display
+  // names, not challenge levels — do not merge them into this.)
+  const CHALLENGE_LEVELS = [
+    { v:0.12, key:'settle',  label:'simple mindfulness' },
+    { v:0.40, key:'gentle',  label:'safety-focused' },
+    { v:0.65, key:'meet',    label:'beginner defense' },
+    { v:0.90, key:'stretch', label:'advanced defense' },
+  ];
+  function challengeLabel(v){
+    if(v==null||isNaN(v)) return null;
+    let b=CHALLENGE_LEVELS[0];
+    for(const l of CHALLENGE_LEVELS){ if(Math.abs(l.v-v)<Math.abs(b.v-v)) b=l; }
+    return b.label;
+  }
+  const _CHL = {}; CHALLENGE_LEVELS.forEach(l => _CHL[l.key] = l.label);
+  // The rung a practice IS, for when no challenge appetite was recorded. 221 of 288
+  // sessions had a null challenge_level because it was derived only from the check-in's
+  // appetite slider, which is usually left alone. The practice itself always knows.
+  // 'more' = the standalone guided meditations, which sit off the rung ladder entirely.
+  // It gets its own honest label rather than being forced onto a rung it isn't on.
+  const _PRACTICE_RUNG = { micro:_CHL.settle, mindfulness:_CHL.settle, anchoring:_CHL.gentle, more:'guided meditation' };
+  function rungForPractice(s){
+    if(!s || !s.practiceKey) return null;
+    if(s.practiceKey==='self-regulation') return (s.skill==='balancing'||s.skill==='pendulating') ? _CHL.stretch : _CHL.meet;
+    return _PRACTICE_RUNG[s.practiceKey] || null;
+  }
+  // Which phase does a check-in taken at `t` belong to? Looks only at the most recent
+  // session that has an id, and only fills a phase that session doesn't already have —
+  // so a second read inside the same window never overwrites the first.
+  function _phaseFor(t){
+    let s = null;
+    for(const x of data.sessions){ if(x && x.id && typeof x.t==='number' && x.t<=t && (!s || x.t>s.t)) s=x; }
+    if(!s) return null;
+    const d = t - s.t;
+    let phase = null;
+    if(d >= 0 && d <= AFTER_MS) phase = 'after';
+    else if(d >= FOLLOW_LO && d <= FOLLOW_HI) phase = 'followup';
+    if(!phase) return null;
+    if(data.checkins.some(c => c && c.session_id===s.id && c.phase===phase)) return null;   // already have that reading
+    return { session_id:s.id, phase, practice_ref:practiceRefOf(s) };
+  }
+  // Stamp the check-in that drove this practice as its 'before'. Called at launch, when
+  // the session row does not exist yet — the cloud write is deferred (see _flushLinks).
+  function markPracticeBefore(sessionId, practiceRef){
+    if(!sessionId) return null;
+    const now = Date.now();
+    /* 2026-08-16 — WALK BACK instead of giving up on the newest reading.
+       This used to take the single most recent check-in, then bail if it was stale or
+       already tagged. Measured on prod: of 45 sessions since 2026-08-07 with no 'before'
+       read, 27 had a check-in inside the window (median gap 13 minutes), and 14 of those
+       failed for exactly one reason — the NEWEST reading was already spoken for, usually
+       as the PREVIOUS practice's 'after'. An earlier, unclaimed reading was sitting right
+       there in the same window and we never looked at it.
+       This is the biggest limiter on practice-effect: a pair needs a before, and only 40%
+       of sessions had one. Same window, same rule about never stealing a reading that
+       already belongs to another session. We just stop giving up at the first candidate. */
+    const c = data.checkins
+      .filter(x => x && typeof x.t === 'number' && x.t <= now && (now - x.t) <= BEFORE_MS)
+      .sort((a, b) => b.t - a.t)
+      .find(x => !x.session_id && !x.phase && !x.live_session_id);
+    if(!c) return null;
+    _linkCheckin(c.t, { session_id:sessionId, phase:'before', practice_ref:(practiceRef||null) });
+    return c.t;
+  }
+  // Deferred check-in links. session_id is a real FK, so an UPDATE that names a session
+  // the cloud has not seen yet fails. Links therefore wait, on disk, until their session
+  // row has actually synced — then they go up. Nothing is lost across a reload.
+  let links = [];
+  function _linkCheckin(t, fields){
+    const i = data.checkins.findIndex(x=>x && x.t===t); if(i<0) return;
+    Object.assign(data.checkins[i], fields);
+    const oi = outbox.checkins.findIndex(x=>x && x.t===t);
+    if(oi>=0){ Object.assign(outbox.checkins[oi], fields); saveCache(); return; }   // rides the pending INSERT
+    links.push({ t, fields });
+    saveCache();
+    if(CLOUD) flush();
+  }
+  function _sessionSynced(id){
+    if(!id) return false;
+    if(outbox.sessions.some(s=>s && s.id===id)) return false;      // still queued — its row isn't there yet
+    return data.sessions.some(s=>s && s.id===id);
+  }
+  async function _flushLinks(){
+    if(!links.length || !auth.user) return true;
+    let ok = true;
+    for(const l of links.slice()){
+      if(!_sessionSynced(l.fields && l.fields.session_id)) continue;   // wait for the session row
+      const { error } = await sb.from('checkins').update(l.fields).eq('user_id', auth.user.id).eq('t', l.t);
+      if(error){ console.warn('[store] link failed', error); ok = false; continue; }
+      const i = links.indexOf(l); if(i>=0) links.splice(i,1);
+    }
+    saveCache();
+    return ok;
+  }
+
+  // ---- row mappers (cloud columns are snake_case) ----
+  const rowToCheckin = r => { const c = { t:r.t, v:r.v, sym:r.sym, dor:r.dor, note:r.note, dom:r.dom,
+    challenge:(typeof r.challenge==='number'?r.challenge:null), source:(r.source||null) };
+    if(typeof r.tz_offset_min==='number') c.tz_offset_min = r.tz_offset_min;
+    // live check-in tags (2026-07-17, Live-Checkin-Plan Phase 1) — carried both ways so
+    // the live flow's "which readings are done" survives a device switch.
+    if(r.live_session_id){ c.live_session_id=r.live_session_id; c.joined=r.joined||null; }
+    // in-app practice link (2026-08-07): session_id + phase + practice_ref make every
+    // ordinary practice produce the same clean pairing the live flow already produced.
+    if(r.session_id) c.session_id=r.session_id;
+    if(r.phase) c.phase=r.phase;
+    if(r.practice_ref) c.practice_ref=r.practice_ref;
+    return c; };
+  const checkinToRow = c => { const r = { user_id:auth.user.id, t:c.t, v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:c.dom,
+    challenge:(typeof c.challenge==='number'?c.challenge:null), source:(c.source||null) };
+    // The pairing columns are ALWAYS emitted, null when unset. PostgREST rejects a bulk
+    // insert whose objects don't share a key set ("All object keys must match"), so a
+    // batch holding one tagged and one untagged check-in used to fail as a whole and the
+    // outbox would stick forever. (Latent since the live columns went in — an offline
+    // queue mixing a live and an ordinary check-in hit the same wall.)
+    // session_id is a FK, so it only ever goes up once the session row itself is in the
+    // cloud — see _flushLinks + the sessions-first flush order.
+    r.live_session_id = c.live_session_id || null;
+    r.joined          = c.live_session_id ? (c.joined||null) : null;
+    r.session_id      = c.session_id || null;
+    r.phase           = c.phase || null;
+    r.practice_ref    = c.practice_ref || null;
+    // the device's UTC offset in minutes when the check-in was made (2026-10-08, CA: lets the
+    // baseline measure count a person's own local days). Always emitted, null for older readings.
+    r.tz_offset_min   = (typeof c.tz_offset_min==='number') ? c.tz_offset_min : null;
+    return r; };
+  // practice_label = a data-clear name for the practice track. The internal keys 'most'
+  // and 'more' are opaque, so they are stored as 'self-regulation' and 'guided meditation'
+  // (matching _PRACTICE_RUNG and PRACTICE_LABEL — one vocabulary, three maps, see the
+  // cross-references at each); the other keys are self-explanatory and pass through.
+  const practiceLabelFor = k => (k==='self-regulation' ? 'self-regulation' : k==='more' ? 'guided meditation' : (k||null));
+  // ---- the session vocabulary (2026-09-18, app migration step 3) ----
+  // The app now speaks the stored names directly: practice key 'self-regulation', skills
+  // 'normalize-defense' and 'pendulating'. Cloud rows are already in them (migrated 2026-09-18)
+  // and the database maps any old name on the way in (trg_sessions_vocab_guard), so nothing is
+  // translated between the app and the cloud. The one thing still read in the old names is this
+  // device's own saved copy, written by an older build: it is upgraded once, as it loads.
+  const _LEGACY_PK    = { most:'self-regulation' };
+  const _LEGACY_SKILL = { validate:'normalize-defense', pendulation:'pendulating' };
+  const _own = (map, v) => (v != null && Object.prototype.hasOwnProperty.call(map, v)) ? map[v] : v;
+  function _upgradeSaved(list){
+    (list||[]).forEach(s => { if(!s) return; s.practiceKey = _own(_LEGACY_PK, s.practiceKey); s.skill = _own(_LEGACY_SKILL, s.skill); });
+    return list;
+  }
+  const rowToSession = r => ({ id:(r.id||null), t:r.t, practiceKey:r.practice_key, skill:r.skill, sense:r.sense, silence:r.silence, completed:r.completed, endedEarly:r.ended_early, minutes:r.minutes, domBefore:r.dom_before, feedback:(r.feedback||null), challenge:(typeof r.challenge==='number'?r.challenge:null), challengeLevel:(r.challenge_level||null), practiceLabel:(r.practice_label||null), descDefense:(r.desc_defense==null?null:!!r.desc_defense), meditationId:(r.meditation_id||null), selfRegLevel:(r.self_reg_level||null), afterFeeling:(r.after_feeling||null), exitReason:(r.exit_reason||null), openEnded:(r.open_ended==null?null:!!r.open_ended), loops:(typeof r.loops==='number'?r.loops:null), holdWatch:(r.hold_watch==null?null:!!r.hold_watch), holdWatchSeconds:(typeof r.hold_watch_seconds==='number'?r.hold_watch_seconds:null), holdWatchTargetSeconds:(typeof r.hold_watch_target_seconds==='number'?r.hold_watch_target_seconds:null), emotionIntent:(r.emotion_intent||null), emotionSurfaced:(r.emotion_surfaced||null), outcome:(r.outcome||null), easedOutFrom:(r.eased_out_from||null), reached:(r.reached||null), reachedDefense:(r.reached_defense==null?null:!!r.reached_defense), rewinds:(typeof r.rewinds==='number'?r.rewinds:null), beatsPlayed:(typeof r.beats_played==='number'?r.beats_played:null), prefix:(r.prefix||null), depth:(r.depth||null), offerKey:(r.offer_key||null), interestAnswer:(r.interest_answer||null), safetyReadings:(Array.isArray(r.safety_readings)?r.safety_readings:null), intensityReadings:(Array.isArray(r.intensity_readings)?r.intensity_readings:null), handedOffTo:(r.handed_off_to||null), handedOffFrom:(r.handed_off_from||null), offers:(Array.isArray(r.offers)?r.offers:null), details:(r.details&&typeof r.details==='object'?r.details:null) });
+  // id is minted on the CLIENT (newSessionId) so a check-in can be tagged with the
+  // session it belongs to before the session row has ever reached the cloud. Sending it
+  // explicitly just overrides the table's gen_random_uuid() default.
+  const sessionToRow = s => ({ id:s.id, user_id:auth.user.id, t:s.t, practice_key:s.practiceKey, skill:s.skill, sense:s.sense, silence:s.silence, completed:!!s.completed, ended_early:!!s.endedEarly, minutes:s.minutes, dom_before:s.domBefore, feedback:(s.feedback||null), challenge:(typeof s.challenge==='number'?s.challenge:null), challenge_level:(s.challengeLevel||null), practice_label:practiceLabelFor(s.practiceKey), desc_defense:(s.descDefense==null?null:!!s.descDefense), meditation_id:(s.meditationId||null), self_reg_level:(s.selfRegLevel||null), after_feeling:(s.afterFeeling||null), exit_reason:(s.exitReason||null), open_ended:(s.openEnded==null?null:!!s.openEnded), loops:(typeof s.loops==='number'?s.loops:null), hold_watch:(s.holdWatch==null?null:!!s.holdWatch), hold_watch_seconds:(typeof s.holdWatchSeconds==='number'?s.holdWatchSeconds:null), hold_watch_target_seconds:(typeof s.holdWatchTargetSeconds==='number'?s.holdWatchTargetSeconds:null), emotion_intent:(s.emotionIntent||null), emotion_surfaced:(s.emotionSurfaced||null), outcome:(s.outcome||null), eased_out_from:(s.easedOutFrom||null), reached:(s.reached||null), reached_defense:(s.reachedDefense==null?null:!!s.reachedDefense), rewinds:(typeof s.rewinds==='number'?s.rewinds:null), beats_played:(typeof s.beatsPlayed==='number'?s.beatsPlayed:null), prefix:(s.prefix||null), depth:(s.depth||null), offer_key:(s.offerKey||null), interest_answer:(s.interestAnswer||null), safety_readings:(Array.isArray(s.safetyReadings)?s.safetyReadings:null), intensity_readings:(Array.isArray(s.intensityReadings)?s.intensityReadings:null), handed_off_to:(s.handedOffTo||null), handed_off_from:(s.handedOffFrom||null), offers:(Array.isArray(s.offers)?s.offers:null), details:(s.details&&typeof s.details==='object'?s.details:null) });
+
+  // ---- lifecycle ----
+  async function init(cb){
+    onChange = cb || null;
+    if(CLOUD){
+      try{
+        // React to background token refreshes / sign-in elsewhere: keep auth.user
+        // current and re-sync + re-render when a valid session (re)appears. This
+        // is what recovers the UI on iOS once the session plumbing settles.
+        sb.auth.onAuthStateChange((event, session)=>{
+          if(event==='INITIAL_SESSION') return;          // handled by the explicit load below
+          if(event==='PASSWORD_RECOVERY'){               // arrived via a reset-password email link
+            if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email }; loadCache(); }
+            recoveryPending = true;
+            if(typeof onRecovery==='function') onRecovery();
+            return;
+          }
+          if(session && session.user){
+            const was = auth.user && auth.user.id;
+            auth.user = { id:session.user.id, email:session.user.email, anon:!!session.user.is_anonymous };
+            if(was !== auth.user.id) loadCache();
+            if(event==='SIGNED_IN' || event==='TOKEN_REFRESHED' || was !== auth.user.id) hydrate();
+            if(event==='SIGNED_IN'){ checkMembership(); fetchBilling(); }
+          } else if(event==='SIGNED_OUT'){
+            auth.user = null;
+          }
+        });
+        const session = await ensureSession();           // live, refreshed-if-needed session — not a cached pointer
+        if(session && session.user){ auth.user = { id:session.user.id, email:session.user.email, anon:!!session.user.is_anonymous }; loadCache(); flushEvents(); await hydrate(); checkMembership(); fetchBilling(); }
+      }catch(e){ console.warn('session check failed', e); }
+    } else {
+      const p = readProfile();
+      if(p){ auth.user = p; loadCache(); }
+    }
+    cb && cb();
+  }
+  // ---- circle membership stamp ----
+  // fire-and-forget, at most once a day: asks the circle-membership edge
+  // function to check whether this account's email is an unstucking-academy
+  // co-regulation member, and stamp the entitlements table. Nothing in the
+  // app is gated on it yet; it keeps membership status current for when a
+  // paid tier exists.
+  function checkMembership(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      const cfg = global.SNB_CONFIG || {};
+      if(!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return;
+      const k='snb_ent_checked_'+auth.user.id, last=+(localStorage.getItem(k)||0);   // per-user: two accounts on one device check independently
+      if(Date.now()-last < 864e5) return;
+      sb.auth.getSession().then(({ data:{ session } })=>{
+        if(!session) return;
+        fetch(cfg.SUPABASE_URL + '/functions/v1/circle-membership', {
+          method:'POST',
+          headers:{ Authorization:'Bearer ' + session.access_token, apikey: cfg.SUPABASE_ANON_KEY }
+        }).then(r=>{ if(r.ok){ try{ localStorage.setItem(k, String(Date.now())); }catch(e){} } }).catch(()=>{});
+      }).catch(()=>{});
+    }catch(e){}
+  }
+  // ---- billing / subscription status ----
+  // Nobody is gated out of the app any more (free is unconditional, 2026-07-13). This
+  // now only answers "is there an active subscription", for the settings card and for
+  // the paid FEATURE line once that is built. Cached locally so a returning subscriber
+  // isn't misread as free before the network answers.
+  const BILLING_LS = 'snb_billing';
+  function _billingKey(){ return BILLING_LS + '_' + ((auth.user && auth.user.id) || 'anon'); }
+  function _readBillingCache(){ try{ return JSON.parse(localStorage.getItem(_billingKey())) || null; }catch(e){ return null; } }
+  function _writeBillingCache(o){ try{ localStorage.setItem(_billingKey(), JSON.stringify(o)); }catch(e){} }
+  async function fetchBilling(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      // (the is_trial_cohort RPC still exists server-side; the client stopped calling
+      // it 2026-08-22 — nothing ever consumed the answer. Same date: the cached
+      // trialEnd/cohort fields went with it — there is no trial any more.)
+      const [rowRes, entRes] = await Promise.all([
+        sb.from('billing').select('*').eq('user_id', auth.user.id).maybeSingle(),
+        sb.from('entitlements').select('circle_member,legacy').eq('user_id', auth.user.id).maybeSingle(),
+      ]);
+      auth.billing = (rowRes && rowRes.data) || null;
+      const ent = (entRes && entRes.data) || null;
+      auth.ent = { circle: !!(ent && ent.circle_member), legacy: !!(ent && ent.legacy) };
+      // the paid plan bought in the App Store / Google Play (2026-10-21). Its own read, so a database without the
+      // table yet (prod, until the store apps launch) never breaks the reads above.
+      try{ const sr = await sb.from('store_subscriptions').select('store,status,expires_at').eq('user_id', auth.user.id);
+        auth.store = (sr && !sr.error) ? _storeLive(sr.data) : null; }catch(e){ auth.store = null; }
+      // the Unstucking Academy Stage this member completed (0–3), stamped from their Circle Stage tags by
+      // circle-membership / membership-sweep (2026-10-03). Its own read, so a database without the column yet
+      // never breaks the entitlement read above.
+      try{ const ar = await sb.from('entitlements').select('academy_stage').eq('user_id', auth.user.id).maybeSingle();
+        if(ar && !ar.error) auth.ent.academy = (ar.data && +ar.data.academy_stage) || 0; }catch(e){}
+      if(auth.ent.academy == null){ const c0 = _readBillingCache(); auth.ent.academy = (c0 && +c0.academy) || 0; }
+      // free access that ends on a date (GMS 2026-10-28: Circle Self-Regulator members moved early get free months,
+      // then pay $12/mo). The server switches `legacy` off the morning after; the app stops counting it at the minute.
+      // Its own read, so a database without the column never breaks the reads above.
+      try{ const xr = await sb.from('entitlements').select('legacy_expires_at').eq('user_id', auth.user.id).maybeSingle();
+        if(xr && !xr.error) auth.ent.until = (xr.data && xr.data.legacy_expires_at) || null; }catch(e){}
+      if(auth.ent.until && new Date(auth.ent.until).getTime() <= Date.now()) auth.ent.legacy = false;
+      _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy, until: auth.ent.until || null,
+                           store: auth.store || null, at: Date.now() });
+      _storeSyncOnce();
+      if(typeof notify === 'function') notify();
+    }catch(e){ /* keep last-known cache */ }
+  }
+  function billing(){
+    if(auth.billing) return auth.billing;
+    const c = _readBillingCache();
+    return c ? { sub_status:c.status } : null;
+  }
+  function _billingActive(){ const b = billing(); return !!(b && (b.sub_status==='trialing' || b.sub_status==='active')); }
+  // a live store subscription: 'active' or in Apple's/Google's grace period, not past its end
+  function _storeLive(rows){
+    const now = Date.now();
+    const r = (rows||[]).find(x => x && (x.status==='active' || x.status==='grace') && (!x.expires_at || new Date(x.expires_at).getTime() > now));
+    return r ? r.store : null;
+  }
+  function _storeActive(){
+    if(auth.store !== undefined) return auth.store || null;
+    const c = _readBillingCache(); return (c && c.store) || null;
+  }
+
+  // ---- the free/paid FEATURE line (2026-07-13) ----
+  // FREE IS UNCONDITIONAL (2026-07-13): nobody is ever blocked out of the app by a
+  // paywall — free has no time limit and no card. (The old whole-app hasAccess()
+  // gate was removed 2026-08-22; it had returned a bare `true` since 07-13.)
+  // What free is, forever: unlimited check-ins, the immediate state read, the two
+  // mindfulness practices, their own saved check-in history. Nothing a guest ever
+  // touched is taken away — that is a hard rule, not a preference.
+  // What the base plan adds: the MATCHING (practices built from your check-ins), the
+  // other practices (safety anchoring, self-regulation, the meditation library), your
+  // patterns across all their check-ins (the pattern cards), and the reader (which runs
+  // the moment, the day, the week and beyond — it is NOT a weekly).
+  //
+  // Paid = an active subscription, OR an Academy co-regulator (the entitlements table
+  // has stamped Circle membership since day one and was never wired to anything — this
+  // is what it was built for), OR a grandfathered pre-existing account (`legacy`, a
+  // one-time server-side stamp over the accounts that existed on 2026-07-13; it is NOT
+  // date-derived, because a cutoff date would silently grandfather every guest who mints
+  // an anonymous session today and then signs up).
+  //
+  // Fail CLOSED for an anonymous guest (they are pre-account by definition), and OPEN
+  // for on-device mode (never gated). Between those, an unknown answer falls back to the
+  // local cache so a paying subscriber never flickers into the free tier on a slow
+  // network — the honest failure here is to over-serve, never to lock someone out.
+  function isPaid(){
+    if(!CLOUD) return true;                    // on-device mode is never gated
+    if(isAnonymous()) return false;            // a guest has no account yet
+    if(_billingActive()) return true;          // paying
+    if(_storeActive()) return true;            // paying through the App Store / Google Play
+    if(typeof auth.ent === 'object' && auth.ent) return !!(auth.ent.circle || auth.ent.legacy);
+    const c = _readBillingCache();             // network hasn't answered yet
+    return !!(c && (c.circle || (c.legacy && !(c.until && new Date(c.until).getTime() <= Date.now()))));
+  }
+  // WHY this account has the base plan — display only (settings names the reason
+  // instead of calling a grandfathered/Academy account "the free plan", 2026-07-14).
+  // the Academy Stage this member completed (0 = none), for the Unstucking Pathway (2026-10-03)
+  function academyStage(){
+    const e = (typeof auth.ent === 'object' && auth.ent && auth.ent.academy != null) ? auth.ent : (_readBillingCache() || {});
+    const n = +e.academy || 0; return n >= 1 && n <= 3 ? n : 0;
+  }
+  function entitlement(){
+    const e = (typeof auth.ent === 'object' && auth.ent) ? auth.ent : (_readBillingCache() || {});
+    const until = e.until || null, t = until ? new Date(until).getTime() : 0, live = !!e.legacy && !(t && t <= Date.now());
+    // ended = dated free access that ran out in the last 60 days (older dated testers never see the prompt)
+    return { sub: _billingActive(), store: _storeActive(), circle: !!e.circle, legacy: live,
+             until: (live && t) ? until : null, ended: (t && t <= Date.now() && Date.now() - t < 60*864e5) ? until : null };
+  }
+  async function _postFn(name, body){
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { error:'not signed in' };
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/' + name, {
+        method:'POST',
+        // no apikey header on purpose: these fns run verify_jwt=off + auth via the
+        // Bearer token internally. Sending apikey would add it to the CORS preflight,
+        // which the function's allow-headers must echo — simpler to just not send it.
+        headers:{ Authorization:'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      let b={}; try{ b = await r.json(); }catch(e){}
+      if(!r.ok || !b.url) return { error:(b && b.error) || 'something went wrong. please try again in a moment.' };
+      return { url:b.url };
+    }catch(e){ return { error:String((e&&e.message)||e) }; }
+  }
+  // ---- subscribe ----
+  // No trial (2026-07-13): first charge today. Two intervals share ONE product / ONE set of
+  // entitlements (annual added 2026-07-15): monthly $12/mo, annual $108/yr. `plan` names the
+  // interval; the edge function is the authority — it bills annual ONLY on an exact match and
+  // falls back to monthly on anything else, so a bad `plan` can never mischarge. `origin` and
+  // `src` are REPORTING labels only; they buy no different terms. Both doors call the same
+  // function; startGuestCheckout just tags the row so the pulse can read guest and cohort as
+  // two lines and never blend them.
+  // ---- live sessions (2026-07-17, Live-Checkin-Plan Phase 1) ----
+  // Both go through the get-live-session edge function (verify_jwt: the anon key is a
+  // valid JWT, so no user session is required — the join code is on the shared screen,
+  // the check-ins themselves are what's account-bound).
+  async function _liveGet(qs){
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/get-live-session' + (qs||''), {
+        headers:{ Authorization:'Bearer ' + cfg.SUPABASE_ANON_KEY, apikey: cfg.SUPABASE_ANON_KEY },
+      });
+      let b={}; try{ b = await r.json(); }catch(e){}
+      if(!r.ok) return { error:(b && b.error) || ('status ' + r.status) };
+      return b;
+    }catch(e){ return { error:String((e&&e.message)||e) }; }
+  }
+  // full session (id, code, type, recipe, practices, started_at, expires_at, live) or {error}
+  function liveFetch(code){ return _liveGet('?code=' + encodeURIComponent(String(code||''))); }
+  // {live:[{code,type,started_at,expires_at}...]} — powers the "we're live" nudge poll
+  function livePoll(){ return _liveGet(''); }
+
+  async function startCheckout(origin, plan){
+    if(!CLOUD) return { error:'unavailable' };
+    if(inStoreApp()) return _storePurchase(origin, plan);
+    const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
+    const res = await _postFn('create-checkout', { origin: origin || 'member', src: _src, plan: p });
+    if(res && res.error === 'already_included'){
+      // the server found an Academy membership (or a direct grant) that already includes the paid plan, and refused
+      // before any charge (2026-10-08). Re-read the entitlement so the app opens up, and tell the screen.
+      try{ await fetchBilling(); }catch(e){}
+      trackEvent('checkout_error', { origin: origin||'member', plan: p, reason: 'already_included' });
+      return { included: true };
+    }
+    if(res && res.error === 'already_subscribed') return { error: 'You already have Self-Regulator. You can manage it from Settings.' };
+    if(res.url){
+      // funnel: record the handoff to Stripe so the gap between subscribe_click and payment
+      // stops being a black box (paired with checkout_cancel on the return). Await the write
+      // before navigating away, but cap it so a slow insert can never delay the redirect.
+      try{ await Promise.race([ _trackEventNow('checkout_redirect', { origin: origin||'member', plan: p }), _sleep(600) ]); }catch(e){}
+      location.href = res.url;
+    } else {
+      // no url = the function refused or errored; a silent client-side dead end is now visible.
+      // reason is a coarse code, never the raw message (no PII into the funnel).
+      trackEvent('checkout_error', { origin: origin||'member', plan: p, reason: (res && res.error) ? 'server_error' : 'no_url' });
+    }
+    return res;
+  }
+  async function startGuestCheckout(plan){ return startCheckout('guest', plan); }
+  // ---- funnel events (on-ramp instrumentation, GMS 2026-07-13) ----
+  // Fire-and-forget, write-only (RLS: insert-own only; nothing reads it client-side).
+  // offer_view / subscribe_click / continue_free ride through here so conversion
+  // timing becomes evidence. Failure is silent by design — never block a screen on it.
+  //
+  // guest_land fires BEFORE any session exists (the anonymous session mints at first
+  // write, by design — that's what makes the check-in's trust line true). So an event
+  // with no user is not dropped: it is parked in localStorage with its real timestamp
+  // and flushed the moment a session exists. Without this, guest_land — the denominator
+  // for the whole funnel — would never be recorded.
+  const EV_PENDING = 'snb_events_pending';
+  function _evRead(){ try{ return JSON.parse(localStorage.getItem(EV_PENDING)||'[]'); }catch(e){ return []; } }
+  function _evWrite(a){ try{ localStorage.setItem(EV_PENDING, JSON.stringify(a.slice(-200))); }catch(e){} }
+  function trackEvent(name, meta){
+    if(!CLOUD || !name) return;
+    const row = { name:String(name), meta: Object.assign({}, meta||{}, { src:_src, plat:_plat, pwa:_installed }), t:new Date().toISOString() };
+    if(!auth.user){ const q=_evRead(); q.push(row); _evWrite(q); return; }
+    try{ sb.from('events').insert(Object.assign({ user_id: auth.user.id }, row)).then(()=>{}, ()=>{}); }catch(e){}
+  }
+  // Drain anything parked pre-session. Fire-and-forget; on failure the rows stay parked
+  // and the next flush retries. Never blocks a screen.
+  function flushEvents(){
+    if(!CLOUD || !auth.user) return;
+    const q = _evRead(); if(!q.length) return;
+    _evWrite([]);
+    try{
+      sb.from('events').insert(q.map(r=>Object.assign({ user_id: auth.user.id }, r)))
+        .then(()=>{}, ()=>{ const cur=_evRead(); _evWrite(q.concat(cur)); });
+    }catch(e){ const cur=_evRead(); _evWrite(q.concat(cur)); }
+  }
+  const _sleep = ms => new Promise(r=>setTimeout(r, ms));
+  // Like trackEvent but returns the insert promise, so a caller about to navigate away
+  // (the checkout redirect) can await the write. Falls back to the parked path if there is
+  // somehow no session yet (it flushes on next load, keeping the real timestamp).
+  function _trackEventNow(name, meta){
+    if(!CLOUD || !name) return Promise.resolve();
+    if(!auth.user){ trackEvent(name, meta); return Promise.resolve(); }
+    const row = { user_id: auth.user.id, name:String(name), meta: Object.assign({}, meta||{}, { src:_src, plat:_plat, pwa:_installed }), t:new Date().toISOString() };
+    try{ return sb.from('events').insert(row).then(()=>{}, ()=>{}); }catch(e){ return Promise.resolve(); }
+  }
+  async function openPortal(){
+    if(!CLOUD) return { error:'unavailable' };
+    const st = _storeActive();
+    if(inStoreApp()){
+      if(st === 'apple'){ try{ await _native().manageSubscriptions(); return {}; }catch(e){ return { error: STORE_MANAGE_HINT }; } }
+      // Bought on the website: the store app does not open Stripe (store rules). Say where it lives, no link.
+      return { error: 'You subscribed on the website. You can change or cancel it there.' };
+    }
+    if(st === 'apple') return { error: STORE_MANAGE_HINT };
+    if(st === 'google') return { error: 'You’re on Self-Regulator through Google Play. You can change or cancel it in the Play Store app.' };
+    const res = await _postFn('customer-portal'); if(res.url) location.href = res.url; return res;
+  }
+
+  // ---- the store apps (2026-10-21) ----
+  // Inside the iPhone store app (Capacitor, SNBNative bridge: store-apps/ios/App/App/SNBNativePlugin.swift) the paid plan
+  // is bought from Apple, same plans, same prices as the website (Justin, 2026-10-20). The app never decides "paid" by
+  // itself: every signed Apple transaction goes to the apple-store edge function, which checks Apple's signature and
+  // writes store_subscriptions; isPaid() then reads that like any other source. Outside the store app none of this runs.
+  const STORE_PRODUCTS = { monthly:'com.stucknotbroken.app.paid.monthly', annual:'com.stucknotbroken.app.paid.annual' };
+  const STORE_MANAGE_HINT = "You’re on Self-Regulator through the App Store. You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.";
+  function _native(){
+    try{ const C = global.Capacitor; return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SNBNative) || null; }
+    catch(e){ return null; }
+  }
+  function inStoreApp(){ return !!_native(); }
+  async function _sendStoreTransactions(jws){
+    const list = (jws||[]).filter(Boolean); if(!list.length || !auth.user || isAnonymous()) return { paid: isPaid() };
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { paid: isPaid() };
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/apple-store/verify', {
+        method:'POST', headers:{ Authorization:'Bearer ' + session.access_token, 'Content-Type':'application/json' },
+        body: JSON.stringify({ jws: list }),
+      });
+      let b = {}; try{ b = await r.json(); }catch(e){}
+      await fetchBilling();
+      return { paid: !!(b && b.paid) || isPaid() };
+    }catch(e){ return { paid: isPaid(), error: 'offline' }; }
+  }
+  // Once per launch, after the first billing read: hand Apple's current entitlements to the server, so a purchase
+  // whose confirmation never reached us (closed app, lost signal) still unlocks the plan.
+  let _storeSynced = '';   // the account already synced this launch
+  function _storeSyncOnce(){
+    const N = _native(); if(!N || !auth.user || isAnonymous() || _storeSynced === auth.user.id) return;
+    _storeSynced = auth.user.id;
+    Promise.resolve(N.currentEntitlements()).then(r => { if(r && r.transactions && r.transactions.length) _sendStoreTransactions(r.transactions); }).catch(()=>{});
+  }
+  (function(){ const N = _native(); if(N && N.addListener) try{
+    N.addListener('transaction', ev => { if(ev && ev.jws) _sendStoreTransactions([ev.jws]); });
+  }catch(e){} })();
+  let _storePrices = null;
+  async function storePrices(){
+    const N = _native(); if(!N) return null;
+    if(_storePrices) return _storePrices;
+    try{
+      const r = await N.getProducts({ ids: [STORE_PRODUCTS.monthly, STORE_PRODUCTS.annual] });
+      const by = {}; ((r && r.products) || []).forEach(p => { if(p.id === STORE_PRODUCTS.monthly) by.monthly = p.displayPrice; if(p.id === STORE_PRODUCTS.annual) by.annual = p.displayPrice; });
+      if(by.monthly || by.annual) _storePrices = by;
+    }catch(e){}
+    return _storePrices;
+  }
+  async function _storePurchase(origin, plan){
+    const N = _native();
+    if(!auth.user || isAnonymous()) return { error: 'Create your account first, then choose Self-Regulator.' };
+    try{ await fetchBilling(); }catch(e){}
+    if(isPaid()) return { included: true };    // Stripe, the Academy, a grant, or the store already: never sell it twice
+    const p = String(plan||'').toLowerCase()==='annual' ? 'annual' : 'monthly';
+    trackEvent('store_purchase_start', { origin: origin || 'member', plan: p, store: 'apple' });
+    let r;
+    try{ r = await N.purchase({ productId: STORE_PRODUCTS[p], accountToken: auth.user.id }); }
+    catch(e){ trackEvent('checkout_error', { origin: origin||'member', plan: p, reason: 'store_failed' }); return { error: "The App Store couldn't complete that. Nothing was charged. Please try again in a moment." }; }
+    if(r && r.status === 'purchased'){
+      const v = await _sendStoreTransactions([r.jws]);
+      trackEvent('store_purchase_done', { origin: origin||'member', plan: p, store: 'apple', unlocked: !!v.paid });
+      return v.paid ? { purchased: true } : { error: "Your purchase went through. The app is still confirming it, and Self-Regulator will open shortly." };
+    }
+    if(r && r.status === 'pending') return { pending: true };
+    trackEvent('checkout_cancel', { origin: origin||'member', plan: p, store: 'apple' });
+    return { cancelled: true };
+  }
+  async function restorePurchases(){
+    const N = _native(); if(!N) return { paid: isPaid() };
+    try{ const r = await N.restore(); return await _sendStoreTransactions((r && r.transactions) || []); }
+    catch(e){ return { paid: isPaid() }; }
+  }
+  // Apple Health Mindful Minutes (opt-in; Justin, 2026-10-20). Minutes practiced only, never check-in results.
+  async function healthStatus(){ const N = _native(); if(!N) return 'unavailable'; try{ const r = await N.healthAvailable(); return (r && r.status) || 'unavailable'; }catch(e){ return 'unavailable'; } }
+  async function healthRequest(){ const N = _native(); if(!N) return false; try{ const r = await N.healthRequest(); return !!(r && r.granted); }catch(e){ return false; } }
+  async function healthLogMindful(startISO, endISO){ const N = _native(); if(!N) return false; try{ const r = await N.healthLogMindful({ start:startISO, end:endISO }); return !!(r && r.saved); }catch(e){ return false; } }
+
+  function readProfile(){ try { return JSON.parse(localStorage.getItem(PROFILE_KEY)); } catch(e){ return null; } }
+  function writeProfile(p){ try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch(e){} }
+  function clearProfile(){ try { localStorage.removeItem(PROFILE_KEY); } catch(e){} }
+
+  // Orientation asks "has this person been here before?" and answers it from check-in
+  // history. But hydrate() is async — two network reads deep — while isPaid() resolves
+  // from the billing cache the moment auth lands. That leaves a window where paid is
+  // true and data.checkins is still empty, and a returning member on a fresh install
+  // gets walked through orientation again. This flag closes the window: it means the
+  // cloud read has FINISHED, whatever it returned. Set on every terminal path, including
+  // failure — a network error must not gate a genuinely new member out of orientation.
+  // (Justin, 2026-08-17: re-added beta to his phone, got orientation despite 128 check-ins.)
+  // Tracks WHICH user's cloud read has completed, not merely 'a read happened'. The first
+  // version of this was a plain boolean set on every terminal path — including the
+  // !auth.user early return, which on a fresh install runs at first paint, BEFORE sign-in.
+  // That set the flag true before any read had occurred, so the gate was a no-op and
+  // orientation still replayed. Keyed to the user id, a signed-out first paint can no
+  // longer satisfy it. (Justin, 2026-08-17: deleted and re-added, welcome popped again.)
+  let _hydratedFor = null;
+  function hydrated(){
+    try{
+      if(!CLOUD) return true;                      // on-device mode has nothing to wait for
+      const u = auth.user; if(!u) return false;    // signed out — no history to have loaded
+      return _hydratedFor === u.id;
+    }catch(e){ return false; }
+  }
+
+  async function hydrate(){
+    if(!CLOUD || !auth.user) return;
+    setSync('syncing');
+    await flush();                                   // push anything queued offline first
+    try{
+      const session = await ensureSession();         // a real GET, not the local cache, must be authenticated
+      if(!session){ setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', 'no session'); _hydratedFor = auth.user && auth.user.id; return; }
+      const [cs, ss] = await Promise.all([
+        sb.from('checkins').select('*').order('t', { ascending:true }),
+        sb.from('sessions').select('*').order('t', { ascending:true }),
+      ]);
+      let fetched = false;   // a cloud read succeeded — no diffing, so notify() runs after every good hydrate
+      // MERGE (union by t), never overwrite: local + still-queued outbox + cloud.
+      // An un-synced check-in stays visible and is never lost to a cloud read.
+      if(!cs.error){ data.checkins = unionByT(data.checkins, outbox.checkins, (cs.data||[]).map(rowToCheckin)); fetched = true; }
+      if(!ss.error){ data.sessions = unionByT(data.sessions, outbox.sessions, (ss.data||[]).map(rowToSession)); fetched = true; }
+      _reconcile();                                    // re-apply deletions + edits over whatever the cloud just merged back
+      saveCache();
+      setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', (cs.error||ss.error)||null);
+      _hydratedFor = auth.user && auth.user.id;      // cloud read done for THIS user — orientation may now decide
+      if(fetched) notify();                          // re-render once fresh data lands (post-init / post-refresh)
+      migrateContexts(); pullContexts();             // context chips: lift local up once, then merge cloud in
+      pullPrefs();                                     // the background sound chosen on another device (2026-09-26)
+
+    }catch(e){ _hydratedFor = auth.user && auth.user.id; console.warn('hydrate failed (using cache)', e); setSync((outbox.checkins.length||outbox.sessions.length) ? 'error' : 'idle', e); }
+  }
+
+  let flushing = false;
+  // the full practice records waiting to go up (see addSession). Kept apart from the cache; at most 12 held here, the
+  // oldest dropped first, so a long offline stretch can never fill this device's storage.
+  const _tlKey = () => 'snb_timelines_' + (auth.user ? auth.user.id : 'anon');
+  function _tlRead(){ try{ const a=JSON.parse(localStorage.getItem(_tlKey())); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function _tlWrite(a){ try{ localStorage.setItem(_tlKey(), JSON.stringify(a.slice(-12))); }catch(e){} }
+  function _tlQueue(item){ const a=_tlRead(); a.push(item); _tlWrite(a); }
+  async function _flushTimelines(){
+    const q=_tlRead(); if(!q.length) return true;
+    try{
+      const res = await sb.from('session_timelines').upsert(q.map(x=>Object.assign({ user_id:auth.user.id }, x)), { onConflict:'user_id,session_t' });
+      if(res && res.error){ return true; }   // never blocks the rest of the sync; tried again next time
+      _tlWrite([]); return true;
+    }catch(e){ return true; }
+  }
+  async function flush(){
+    if(_demoSeeded) return;
+    if(!CLOUD || !auth.user) return;
+    if(flushing) return;                 // a flush is already in flight; it will drain the outbox
+    flushing = true;
+    let ok = true;
+    try{
+      // SESSIONS FIRST, always: checkins.session_id is a foreign key, so a check-in that
+      // names a session the cloud hasn't got yet is rejected and the whole batch sticks.
+      // (This order was the other way round before the practice-pairing work.)
+      outbox.sessions.forEach(s=>{ if(s && !s.id) s.id = _uuid(); });   // legacy queued rows predate client-minted ids
+      if(outbox.sessions.length) ok = await flushTable('sessions', outbox.sessions, sessionToRow);
+      if(ok) ok = await _flushLinks();
+      if(ok && outbox.checkins.length) ok = await flushTable('checkins', outbox.checkins, checkinToRow);
+      if(ok) await _flushTimelines();   // after its session row exists
+    } finally {
+      flushing = false;
+    }
+    // drained cleanly but more arrived mid-flush? keep going. otherwise surface state.
+    if(ok && (outbox.checkins.length || outbox.sessions.length)){ setSync('syncing'); return flush(); }
+    setSync(ok ? 'idle' : 'error');
+  }
+  // Push one table's outbox. On an auth failure (no/expired JWT — the iOS case),
+  // refresh the session once and retry before giving up. Returns true if the
+  // queue drained, false if it is stuck (items stay queued; nothing is dropped).
+  async function flushTable(table, queue, toRow){
+    if(!queue.length) return true;
+    const batch = queue.slice();
+    let { error } = await sb.from(table).insert(batch.map(toRow));
+    if(error && isAuthError(error)){
+      try{ await sb.auth.refreshSession(); }catch(e){}
+      const live = await ensureSession();
+      if(live){ ({ error } = await sb.from(table).insert(batch.map(toRow))); }
+    }
+    // 2026-09-16 · a lost response. The insert landed in the cloud but the phone never heard
+    // back, so the row stayed queued; every retry since hit the primary key (23505) and the
+    // whole batch stuck behind it — "hasn't synced yet" forever. Session ids are minted on the
+    // client, so a duplicate id IS the same row: skip what the cloud already has, send the rest.
+    if(error && table==='sessions' && String(error.code||'')==='23505'){
+      ({ error } = await sb.from(table).upsert(batch.map(toRow), { onConflict:'id', ignoreDuplicates:true }));
+    }
+    if(!error){ queue.splice(0, batch.length); saveCache(); return true; }
+    console.warn('[store] sync failed for', table, error);
+    return false;
+  }
+
+  // ---- auth ----
+  async function signUp(email, password){
+    if(CLOUD){
+      const { data:res, error } = await sb.auth.signUp({ email, password });
+      if(error) return { error: error.message };
+      if(res.user && !res.session) return { needsConfirm: true };     // email confirmation on
+      if(res.user){ auth.user = { id:res.user.id, email:res.user.email, anon:false }; loadCache(); await hydrate(); }
+      return {};
+    }
+    return localEnter(email);
+  }
+  async function signIn(email, password){
+    if(CLOUD){
+      const { data:res, error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) return { error: error.message };
+      auth.user = { id:res.user.id, email:res.user.email, anon:false }; loadCache(); await hydrate();
+      return {};
+    }
+    return localEnter(email);
+  }
+  // ---- anonymous (guest) sign-in ----
+  // The pre-signup guest flow: a visitor can do a real check-in, get a real
+  // reflection, and try one practice before creating an account. Supabase
+  // anonymous auth mints a real auth.uid() (is_anonymous=true), which satisfies
+  // the RLS `auth.uid() = user_id` on checkins/sessions/contexts/preferences —
+  // no schema change. linkIdentity() later attaches an email/password to the
+  // SAME user, so everything the guest did carries over with zero migration.
+  async function signInAnonymously(){
+    if(CLOUD){
+      const { data:res, error } = await sb.auth.signInAnonymously();
+      if(error) return { error: error.message };
+      if(res && res.user){ auth.user = { id:res.user.id, email:res.user.email||'', anon:true }; loadCache(); flushEvents(); }
+      return {};
+    }
+    return localEnter('');   // on-device mode: just a local session
+  }
+  // true while the person is a guest (anonymous auth, no email yet). Used to keep
+  // the guest UI tabbar-free and to hard-refuse the self-regulation track before signup.
+  function isAnonymous(){
+    if(!CLOUD) return false;
+    if(auth.user && typeof auth.user.anon==='boolean') return auth.user.anon;
+    return !!(auth.user && !auth.user.email);   // fallback: an anon user has no email
+  }
+  // Convert an anonymous guest into a permanent account WITHOUT changing user_id:
+  // attaching an email + password upgrades the same auth user in place, so the
+  // guest's check-in/session/context rows stay theirs. Mirrors signUp's return shape.
+  async function linkIdentity(email, password){
+    if(CLOUD){
+      const { data:res, error } = await sb.auth.updateUser({ email, password });
+      if(error) return { error: error.message };
+      if(res && res.user){ auth.user = { id:res.user.id, email:res.user.email||email, anon:false }; }
+      // some projects require confirming the newly-attached email; surface that like signUp does
+      if(res && res.user && res.user.new_email && !res.user.email_confirmed_at){ /* email set, confirmation may follow */ }
+      loadCache(); await hydrate();
+      return {};
+    }
+    return localEnter(email);
+  }
+  // ---- password reset (forgot password) ----
+  // resetPassword sends Supabase's recovery email; the link signs the person in
+  // and returns them to the app, where PASSWORD_RECOVERY fires and the app shows
+  // a set-new-password screen (which calls updatePassword).
+  let onRecovery = null, recoveryPending = false;
+  function onPasswordRecovery(fn){ onRecovery = fn; if(recoveryPending && typeof fn==='function') fn(); }
+  async function resetPassword(email){
+    if(!CLOUD) return {};
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + '/' });
+    return error ? { error: error.message } : {};
+  }
+  async function updatePassword(password){
+    if(!CLOUD) return {};
+    const { error } = await sb.auth.updateUser({ password });
+    if(!error) recoveryPending = false;
+    return error ? { error: error.message } : {};
+  }
+  function localEnter(email){
+    auth.user = { id:'local:'+(email||'me'), email:email||'' };
+    writeProfile(auth.user); loadCache(); return {};
+  }
+  // full self-serve account deletion: the delete-account edge function removes
+  // the caller's rows + auth user server-side, then we clear everything local.
+  async function deleteAccount(){
+    if(!auth.user) return { error:'not signed in' };
+    try{
+      if(CLOUD){
+        const cfg = global.SNB_CONFIG || {};
+        const { data:{ session } } = await sb.auth.getSession();
+        if(!session) return { error:'not signed in' };
+        const call = (tok) => fetch(cfg.SUPABASE_URL + '/functions/v1/delete-account', {
+          method:'POST',
+          headers:{ Authorization:'Bearer ' + tok, apikey: cfg.SUPABASE_ANON_KEY }
+        });
+        let r = await call(session.access_token);
+        if(r.status === 401){
+          // A long-lived PWA session can hold a token the server no longer accepts
+          // (2026-07-14: exactly this staleness made delete fail on a real device with
+          // a dead-end error). Refresh the session once and retry; if the server still
+          // says no, the honest ask is a fresh sign-in, never "try again in a moment".
+          try{
+            const { data:rd } = await sb.auth.refreshSession();
+            if(rd && rd.session) r = await call(rd.session.access_token);
+          }catch(e){}
+          if(r.status === 401) return { error:'please sign out and sign back in, then try again.' };   // 🖊 approved 2026-07-14
+        }
+        if(!r.ok){
+          let m='could not delete the account right now. please try again in a moment.';
+          try{ const b=await r.json(); if(b && b.error && b.error!=='not signed in') m=b.error; }catch(e){}
+          return { error:m };
+        }
+      }
+      await signOut();   // clears in-memory data; server session is already gone
+      // both prefixes: current keys are snb_ (underscore); pre-2026-08-22 context keys were snb- (dash)
+      try{ Object.keys(localStorage).filter(k=>k.indexOf('snb_')===0 || k.indexOf('snb-')===0).forEach(k=>localStorage.removeItem(k)); }catch(e){}
+      return {};
+    }catch(e){ return { error:String((e&&e.message)||e) }; }
+  }
+  async function signOut(){
+    if(CLOUD){ try{ await sb.auth.signOut(); }catch(e){} } else { clearProfile(); }
+    auth.user = null; data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] }; links = [];
+    setSync('idle');
+  }
+  function user(){ return auth.user; }
+  function cloud(){ return CLOUD; }
+  function syncStatus(){ return { state: sync.state, pending: sync.pending }; }   // {state:'idle'|'syncing'|'error', pending}
+
+  // ---- check-ins ----
+  function addCheckin(c){
+    // The state name ALWAYS derives from the circuit values — one rule for all
+    // history, no caller-supplied key accepted (Ruling 2, 2026-08-22: untouched
+    // sliders are the person's answer; the engine names what they left). Since
+    // Ruling 2b removed the QUIET guard, every board names a real state.
+    const dom = PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    // challenge = the level of challenge the person wants today (0..1). Tracked over
+    // time and fed to the recommender. Synced to the cloud `challenge` column via checkinToRow.
+    const rec = { t:Date.now(), v:c.v, sym:c.sym, dor:c.dor, note:c.note||'', dom:dom.key,
+                  challenge:(typeof c.challenge==='number'?c.challenge:null),
+                  source:(c.source||null) };   // e.g. 'post-practice' — lets practiceEffect use clean before/after pairs
+    // UTC offset in minutes, east positive (Pacific daylight = -420). Analytics only; never shown.
+    try { const off = -new Date(rec.t).getTimezoneOffset(); if(Number.isFinite(off) && Math.abs(off) <= 840) rec.tz_offset_min = off; } catch(e){}
+    // live check-in tags ride along only when the check-in happened inside a live session
+    if(c.live_session_id){ rec.live_session_id=c.live_session_id; rec.practice_ref=c.practice_ref||null; rec.phase=c.phase||null; rec.joined=c.joined||null; }
+    else {
+      // in-app practice: the app states which practice this reading belongs to and where
+      // in the arc it sits, instead of leaving it to be guessed from timestamps later.
+      // An explicit caller-supplied link always wins over the inferred one.
+      const link = (c.session_id ? { session_id:c.session_id, phase:(c.phase||null), practice_ref:(c.practice_ref||null) } : _phaseFor(rec.t));
+      if(link && link.session_id){ rec.session_id=link.session_id; rec.phase=link.phase||null; rec.practice_ref=link.practice_ref||null; }
+    }
+    data.checkins.push(rec);
+    if(CLOUD && auth.user){ outbox.checkins.push(rec); setSync('syncing'); }
+    saveCache(); if(CLOUD) flush();
+    return rec;
+  }
+  // edit an existing check-in in place (by timestamp): local + cloud, challenge included.
+  function updateCheckin(t, c){
+    const i = data.checkins.findIndex(x=>x.t===t);
+    if(i<0) return null;
+    const old = data.checkins[i];
+    // Same rule as addCheckin: derive always (Ruling 2, 2026-08-22 — supersedes the
+    // 'neutral'-preserving edit guard that shipped earlier the same day; the sliders
+    // as they sit ARE the report, whether or not this edit moved them).
+    const dom = PVCurrent.dominantOf(c.v, c.sym, c.dor);
+    const rec = Object.assign({}, old, { v:c.v, sym:c.sym, dor:c.dor, dom:dom.key,
+                challenge:(typeof c.challenge==='number'?c.challenge:old.challenge) });
+    data.checkins[i] = rec;
+    const oi = outbox.checkins.findIndex(x=>x.t===t);
+    if(oi>=0) outbox.checkins[oi] = rec;                          // still un-synced: the outbox INSERT carries the edit
+    saveCache();
+    if(CLOUD && auth.user && oi<0){                                // already synced: UPDATE the cloud row, keep a pending overlay
+      _setEdit(t, { v:rec.v, sym:rec.sym, dor:rec.dor, dom:rec.dom, challenge:rec.challenge });
+      try{
+        // .then() is required or the request never sends; on success drop the overlay.
+        sb.from('checkins').update({ v:rec.v, sym:rec.sym, dor:rec.dor, dom:rec.dom, challenge:rec.challenge }).eq('user_id', auth.user.id).eq('t', t)
+          .then(function(res){ if(res && !res.error) _clearEdit(t); }, function(){});
+      }catch(e){}
+    }
+    return rec;
+  }
+  function checkins(){ return data.checkins.slice(); }
+  // Most recent check-in, IGNORING any dated in the future. A device with a
+  // skewed clock can leave a future-stamped row in the cloud; because reads sort
+  // by t, that row would otherwise hijack "today" forever — lastCheckin() would
+  // never be sameDay(now), so the for-you reader, done-states, and the practice
+  // recommendation all silently fall back to their neutral/stale forms. Tolerance
+  // of 60s absorbs minor clock differences on a just-made check-in.
+  function lastCheckin(){
+    const cutoff = Date.now() + 60000;
+    let best = null;
+    for(const c of data.checkins){ if(c && typeof c.t==='number' && c.t <= cutoff && (!best || c.t > best.t)) best = c; }
+    return best || (data.checkins.length ? data.checkins[data.checkins.length-1] : null);
+  }
+
+  // ---- sessions ----
+  function addSession(s){
+    const rec = Object.assign({ t:Date.now() }, s);
+    // every session carries an id from the moment it exists, so the check-ins around it
+    // can name it. launchWeaver mints it early (to tag the 'before' read); anything that
+    // logs a session without one gets it here.
+    if(!rec.id) rec.id = _uuid();
+    // stamp practice depth = the challenge appetite for this session. Prefer the value the
+    // recommender/customizer carried; fall back to the driving check-in's appetite. Store a
+    // human-readable level label too, so any reader (person or model) sees the depth without
+    // decoding the 0–0.9 number. Skill × challengeLevel = the skill-by-depth signal.
+    if(typeof rec.challenge !== 'number'){ const lc = lastCheckin(); rec.challenge = (lc && typeof lc.challenge==='number') ? lc.challenge : null; }
+    // never null: the appetite slider is usually left alone, so fall back to the rung the
+    // practice itself IS. A session with no level can't be used on the challenge axis at all.
+    rec.challengeLevel = (typeof rec.challenge==='number') ? challengeLabel(rec.challenge) : rungForPractice(rec);
+    rec.practiceLabel = practiceLabelFor(rec.practiceKey);
+    // 2026-09-25 (Justin: "remember every detail of a practice ... EVERYTHING"): the practice's full record, every event
+    // with its second, travels apart from the session row — its own table, cloud only — so the row and this device's
+    // cache stay light. The row keeps `details`, the record's summary, which the recommender reads.
+    const tl = Array.isArray(rec.timeline) ? rec.timeline : null;
+    delete rec.timeline;
+    data.sessions.push(rec);
+    if(CLOUD && auth.user){ outbox.sessions.push(rec); setSync('syncing'); if(tl && tl.length) _tlQueue({ session_t:rec.t, session_id:rec.id, timeline:tl }); }
+    saveCache(); if(CLOUD) flush();
+  }
+  function sessions(){ return data.sessions.slice(); }
+  // tombstones: timestamps the user deleted, per kind ('sessions' | 'checkins'). A deletion
+  // must survive the cloud re-merge on the next hydrate even before (or if) the cloud DELETE
+  // lands, so we record deleted t's locally and purge them after every load/hydrate.
+  function _tombKey(kind){ return 'snb_deleted_' + kind + '_' + (auth.user ? auth.user.id : 'anon'); }
+  function _tombs(kind){ try{ const a=JSON.parse(localStorage.getItem(_tombKey(kind))); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+  function _addTomb(kind, t){ try{ const a=_tombs(kind); if(a.indexOf(t)<0){ a.push(t); localStorage.setItem(_tombKey(kind), JSON.stringify(a.slice(-500))); } }catch(e){} }
+  function _tombSet(kind){ const a=_tombs(kind); if(!a.length) return null; const set=Object.create(null); a.forEach(t=>set[t]=1); return set; }
+  function _purgeTombs(){
+    const ss=_tombSet('sessions'); if(ss) data.sessions = data.sessions.filter(s=> !(s && ss[s.t]));
+    const cc=_tombSet('checkins'); if(cc) data.checkins = data.checkins.filter(c=> !(c && cc[c.t]));
+  }
+  // pending check-in edits: unionByT puts the cloud row LAST, so a stale cloud read would
+  // overwrite a fresh local edit on the next hydrate. We overlay the edited fields back on
+  // after every load/hydrate until the cloud UPDATE confirms (then the edit is cleared).
+  function _editKey(){ return 'snb_pending_checkin_edits_' + (auth.user ? auth.user.id : 'anon'); }
+  function _edits(){ try{ const o=JSON.parse(localStorage.getItem(_editKey())); return (o && typeof o==='object') ? o : {}; }catch(e){ return {}; } }
+  function _saveEdits(o){ try{ localStorage.setItem(_editKey(), JSON.stringify(o)); }catch(e){} }
+  function _setEdit(t, fields){ const o=_edits(); o[t]=fields; _saveEdits(o); }
+  function _clearEdit(t){ const o=_edits(); if(o[String(t)]!=null){ delete o[String(t)]; _saveEdits(o); } }
+  function _applyEdits(){ const o=_edits(); const ks=Object.keys(o); if(!ks.length) return; ks.forEach(k=>{ const t=+k; const i=data.checkins.findIndex(x=>x && x.t===t); if(i>=0) data.checkins[i]=Object.assign({}, data.checkins[i], o[k]); }); }
+  // re-apply local intent (deletions + edits) over whatever a load/hydrate just produced.
+  function _reconcile(){ _purgeTombs(); _applyEdits(); }
+  // delete a logged practice session by timestamp (e.g. a test run). Local + cloud + tombstone.
+  function deleteSession(t){
+    _addTomb('sessions', t);                                  // record the deletion so it sticks across sync
+    const i = data.sessions.findIndex(x => x.t===t);
+    if(i >= 0) data.sessions.splice(i, 1);
+    const oi = outbox.sessions.findIndex(x => x.t===t);
+    if(oi >= 0) outbox.sessions.splice(oi, 1);
+    saveCache();
+    if(CLOUD && auth.user){
+      // .then() is required: a supabase-js builder only sends the request when awaited/thened.
+      try{ sb.from('sessions').delete().eq('user_id', auth.user.id).eq('t', t).then(function(){}, function(){}); }catch(e){}
+      // 2026-09-28 (Justin: "If a user deletes … their practice from settings, it should also delete the practice in supabase"):
+      // the full record of that practice goes with it. The database does the same on its own (trg_sessions_timeline_gone),
+      // so a delete that never reaches this line still leaves nothing behind.
+      try{ sb.from('session_timelines').delete().eq('user_id', auth.user.id).eq('session_t', t).then(function(){}, function(){}); }catch(e){}
+    }
+    return true;
+  }
+  // delete a check-in by timestamp. Same tombstone + fire-the-cloud-delete pattern.
+  function deleteCheckin(t){
+    _addTomb('checkins', t);
+    const i = data.checkins.findIndex(x => x.t===t);
+    if(i >= 0) data.checkins.splice(i, 1);
+    const oi = outbox.checkins.findIndex(x => x.t===t);
+    if(oi >= 0) outbox.checkins.splice(oi, 1);
+    saveCache();
+    if(CLOUD && auth.user){
+      try{ sb.from('checkins').delete().eq('user_id', auth.user.id).eq('t', t).then(function(){}, function(){}); }catch(e){}
+    }
+    return true;
+  }
+
+  // ---- what worked (Justin, 2026-09-25) --------------------------------------------------------------------------
+  // "a practice that works is one where safety at least held. an even better practice is one where safety goes up. and
+  // the best type of practices is one where safety goes up and defense drops." Read from the practice's own 0–10s:
+  // first safety answer vs last; first non-safety answer vs last. 1 = held · 2 = rose · 3 = rose and non-safety dropped ·
+  // 0 = safety came down. A practice with fewer than two safety answers falls back to how the person said it went
+  // afterwards (more connected = 2, about the same = 1, less / struggled / a too-hard exit = 0). Never shown to anyone
+  // as a number: it only steers which choices the recommendation leans toward.
+  function practiceGrade(s){
+    if(!s) return null;
+    const nums = a => (Array.isArray(a) ? a : []).filter(v => typeof v === 'number');
+    const sa = nums(s.safetyReadings), ia = nums(s.intensityReadings);
+    if(sa.length >= 2){
+      const first = sa[0], lastV = sa[sa.length-1];
+      if(lastV < first) return 0;
+      if(lastV === first) return 1;
+      return (ia.length >= 2 && ia[ia.length-1] < ia[0]) ? 3 : 2;
+    }
+    const af = s.afterFeeling || null, ex = _exitOf(s);
+    if(ex==='exit-hard' || af==='less' || af==='struggle') return 0;
+    if(af==='more') return 2;
+    if(af==='same') return 1;
+    return null;
+  }
+  // which choices went with this person's best practices: for each value of a dial (sense, silence, anchor picked
+  // mid-practice), the average grade over the practices that used it. A value needs 3 graded practices before it counts,
+  // and it must beat the value they use most by a clear margin (0.5) — so a lucky run or two never moves anything.
+  function whatWorked(){
+    const graded = data.sessions.map(s => ({ s, g: practiceGrade(s) })).filter(x => x.g != null);
+    const by = pick => { const m = {}; graded.forEach(x => { const v = pick(x.s); if(v == null) return; (m[v] = m[v] || []).push(x.g); }); return m; };
+    const best = (m, usual) => {
+      const avg = a => a.reduce((p,c)=>p+c,0) / a.length;
+      const ok = Object.keys(m).filter(k => m[k].length >= 3);
+      if(!ok.length) return null;
+      const top = ok.sort((a,b) => avg(m[b]) - avg(m[a]))[0];
+      const usualAvg = (usual != null && m[usual] && m[usual].length >= 3) ? avg(m[usual]) : null;
+      if(usual != null && String(top) !== String(usual) && usualAvg != null && avg(m[top]) - usualAvg < 0.5) return null;
+      return { value: top, n: m[top].length, avg: Math.round(avg(m[top]) * 10) / 10 };
+    };
+    const count = (arr,key)=>{const m={};arr.forEach(x=>{const k=x.s[key];if(k!=null)m[k]=(m[k]||0)+1;});return m;};
+    const most = m => Object.keys(m).sort((a,b)=>m[b]-m[a])[0] || null;
+    const anchorPicked = s => (s.details && Array.isArray(s.details.anchorsChosen) && s.details.anchorsChosen.length) ? s.details.anchorsChosen[s.details.anchorsChosen.length-1].anchor : null;
+    return {
+      graded: graded.length,
+      sense: best(by(s => s.sense || null), most(count(graded,'sense'))),
+      silence: best(by(s => (s.details && typeof s.details.silenceEnd === 'number') ? s.details.silenceEnd : (typeof s.silence === 'number' ? s.silence : null)), most(count(graded,'silence'))),
+      anchorPicked: best(by(anchorPicked), null),
+    };
+  }
+
+  // ---- the anchor to use (Justin, 2026-09-25) -------------------------------------------------------------------
+  // "the recommended should also offer the user the various anchoring pathways, one practice after another. there may be an
+  // obvious winner from those. i think it should cycle through all anchoring pathways until the user has had the three
+  // best outcomes with one." A BEST outcome = safety rose, and non-safety dropped when the practice measured it (a
+  // practice that asks no non-safety 0–10 can only show the first half). Counted over the practices that anchor —
+  // Connect (anchoring) and self-regulation — by the anchor actually used (a mid-practice pick counts over the launch
+  // sense). Until one anchor has three: the least-tried anchor next, starting from the sense they named at sign-up,
+  // then in order after the last one used. Once one has three: that one ("winner"), most best outcomes if several.
+  const ANCHOR_ORDER = ['sound','sight','touch','imagination','movement'];
+  function _anchorOf(s){
+    const d = s && s.details;
+    if(d && Array.isArray(d.anchorsChosen) && d.anchorsChosen.length) return d.anchorsChosen[d.anchorsChosen.length-1].anchor;
+    return s ? (s.sense || null) : null;
+  }
+  function isBestOutcome(s){
+    const g = practiceGrade(s);
+    const ia = (Array.isArray(s && s.intensityReadings) ? s.intensityReadings : []).filter(v => typeof v === 'number');
+    return ia.length >= 2 ? g === 3 : g >= 2;
+  }
+  function anchorPick(){
+    const anchoring = data.sessions.filter(s => (s.practiceKey==='anchoring' || s.practiceKey==='self-regulation') && ANCHOR_ORDER.indexOf(_anchorOf(s)) >= 0);
+    const best = {}, tried = {};
+    ANCHOR_ORDER.forEach(a => { best[a] = 0; tried[a] = 0; });
+    anchoring.forEach(s => { const a = _anchorOf(s); tried[a]++; if(isBestOutcome(s)) best[a]++; });
+    // the member chose their own safety anchor on the Unstucking Pathway (Justin, 2026-10-02: "just let them pick their safety
+    // anchor. Or give them a 'figure out my safety anchor' option"): that one, every time. Otherwise the app figures it out below.
+    try{ const p = prefSense(); if(localStorage.getItem('snb_anchor_mode') === 'chosen' && ANCHOR_ORDER.indexOf(p) >= 0) return { sense:p, why:'chosen', best, tried }; }catch(e){}
+    const winners = ANCHOR_ORDER.filter(a => best[a] >= 3).sort((a,b) => best[b] - best[a]);
+    if(winners.length) return { sense: winners[0], why: 'winner', best, tried };
+    const fewest = Math.min.apply(null, ANCHOR_ORDER.map(a => tried[a]));
+    const ties = ANCHOR_ORDER.filter(a => tried[a] === fewest);
+    const pref = prefSense();
+    let pick;
+    if(pref && ties.indexOf(pref) >= 0) pick = pref;
+    else {
+      const last = anchoring.length ? _anchorOf(anchoring[anchoring.length-1]) : null;
+      const start = last ? ANCHOR_ORDER.indexOf(last) + 1 : 0;
+      for(let k = 0; k < ANCHOR_ORDER.length; k++){ const a = ANCHOR_ORDER[(start + k) % ANCHOR_ORDER.length]; if(ties.indexOf(a) >= 0){ pick = a; break; } }
+    }
+    return { sense: pick, why: 'cycle', best, tried };
+  }
+
+  // ---- learned preferences ----
+  function learned(){
+    const done = data.sessions.filter(s=>s.completed);
+    const count = (arr,key)=>{const m={};arr.forEach(s=>{const k=s[key];if(k)m[k]=(m[k]||0)+1;});return m;};
+    const top = (m)=>Object.keys(m).sort((a,b)=>m[b]-m[a])[0]||null;
+    const earlyRate = data.sessions.length ? data.sessions.filter(s=>s.endedEarly).length/data.sessions.length : 0;
+    // if the MOST RECENT session ended early with a stated reason (exit-hard /
+    // exit-easy / exit-distracted / exit-enough), surface it — the advisor nudges
+    // the very next practice off it, then it naturally expires with the next session.
+    // exitReason is the clean column (2026-07-06 split); legacy rows fall back to
+    // the old overloaded feedback value.
+    const lastS = data.sessions[data.sessions.length-1] || null;
+    const lastExit = (lastS && lastS.endedEarly)
+      ? (lastS.exitReason || ((/^exit-/.test(lastS.feedback||'')) ? lastS.feedback : null))
+      : null;
+    const W = whatWorked();
+    return { favSense: top(count(done,'sense')), favSkill: top(count(done,'skill')), favPractice: top(count(done,'practiceKey')),
+             sessionsDone: done.length, endsEarlyOften: earlyRate >= 0.4 && data.sessions.length >= 3,
+             lastExit,
+             // what has gone best for them (2026-09-25) — null until there is enough history to say
+             bestSense: W.sense ? W.sense.value : null, bestSilence: W.silence ? +W.silence.value : null, worked: W };
+  }
+
+  // ---- trend ----
+  // Still measures v (connection) while the rest of the progress story runs on the
+  // margin (2026-08-16 rework) — migrating trend()/dayArc() onto margin changes what
+  // the app tells people about their own progress, so it is DEFERRED to its own pass
+  // with Justin's eyes on the copy.
+  function trend(){
+    const cs = data.checkins.slice(-5);
+    if(!cs.length) return null;
+    const avg = k => cs.reduce((n,c)=>n+c[k],0)/cs.length;
+    const v=avg('v'), sym=avg('sym'), dor=avg('dor');
+    // classify the classifications (Justin 2026-07-06): the trend state is the
+    // MODAL dom of the window, ties broken by recency — never a classification
+    // of averaged axes (fight↔shutdown oscillation could average into a
+    // "freeze" the person never once reported). Each row's dom is DERIVED per
+    // read (_dm — B1, 2026-08-22): one naming rule covers all history.
+    const cnt={}; cs.forEach(c=>{ const k=_dm(c); if(k) cnt[k]=(cnt[k]||0)+1; });
+    let dk=null;
+    for(let i=cs.length-1;i>=0;i--){ const k=_dm(cs[i]); if(!k) continue; if(dk==null||cnt[k]>cnt[dk]) dk=k; }
+    const dom = dk
+      ? { key:dk, name:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].name)||dk, color:(PVCurrent.STATES[dk]&&PVCurrent.STATES[dk].color)||null }
+      : PVCurrent.dominantOf(v,sym,dor);
+    let dir='steady';
+    // ±0.12 is a v-scale band (connection, 0..1). baselineDelta's ±0.05 is a
+    // margin-scale band — a different scale. The four movement thresholds in this
+    // file (0.12 here, 0.08/0.04 in dayArc, 0.05 in baselineDelta) are NOT a set
+    // and must not be "harmonized".
+    if(cs.length>=2){ const d=cs[cs.length-1].v - cs[0].v; dir = d>0.12?'rising':d<-0.12?'falling':'steady'; }
+    return { v, sym, dor, dom, dir, n:cs.length };
+  }
+
+  // ---- transitions: the state-change the person tends to make most ----
+  // Returns the most common ordered pair of consecutive, DIFFERENT dominant states
+  // across their check-in history, or null until there's enough of a pattern to claim.
+  // States are derived per row (_dm — B1, 2026-08-22), never read from the stored name.
+  function transitions(){
+    const cs = data.checkins;
+    if(cs.length < 6) return null;                              // not enough history to claim a shape
+    const pairs = {}; let total = 0;
+    for(let i=1;i<cs.length;i++){
+      const a=_dm(cs[i-1]), b=_dm(cs[i]);
+      if(!a||!b||a===b) continue;                              // only real state changes count
+      const k=a+'>'+b; pairs[k]=(pairs[k]||0)+1; total++;
+    }
+    if(total < 3) return null;
+    let bestK=null, bestN=0;
+    for(const k in pairs){ if(pairs[k]>bestN){ bestN=pairs[k]; bestK=k; } }
+    if(!bestK || bestN < 2) return null;                        // the top pattern has to repeat
+    const i=bestK.indexOf('>');
+    return { a:bestK.slice(0,i), b:bestK.slice(i+1), count:bestN, total };
+  }
+
+  // ---- dayparts ----
+  // _segOf buckets by four dayparts so a check-in and a practice session land in the
+  // same "evening" etc. (practiceInsights slices by it; the old timeOfDay() reader was
+  // removed 2026-08-22 — no caller anywhere, only the demo engine's stub remembered it).
+  function _segOf(t){ const h=new Date(t).getHours(); return h<5?'late':h<12?'morning':h<17?'afternoon':h<22?'evening':'late'; }
+
+  // ---- tenure: how long they've been here + how much data exists, as an honest "stage" ----
+  // Drives the for-you blog's time-framing and depth (and the daily card + practice rec) so
+  // nothing claims more than the data shows. Pure stage table is split out for testing.
+  function _stageFor(m){
+    const count=m.count, days=m.days, windowCount=m.windowCount;
+    if(count <= 1)                                  return 'start';      // just arrived: no pattern to claim
+    if(count <= 4 && days <= 3)                      return 'early';      // first few check-ins: "so far"
+    if(days >= 21 && count >= 16 && windowCount >= 4) return 'established'; // long-running + still active
+    if(days >= 7 && windowCount >= 4 && count >= 7)  return 'week';        // a real week: 7+ days AND a week's worth of check-ins (not a sparse old account)
+    return 'building';                                                    // some history, but not a full honest week
+  }
+  function tenure(){
+    const cs = data.checkins, count = cs.length;
+    if(!count) return { count:0, days:0, windowCount:0, returning:false, stage:'start' };
+    const now = Date.now(), DAY = 86400000;
+    const sd = t => { const d=new Date(t); d.setHours(0,0,0,0); return d.getTime(); };
+    const days = Math.round((sd(now) - sd(cs[0].t)) / DAY);          // calendar days since the first check-in
+    const windowCount = cs.filter(c => now - c.t <= 7*DAY).length;   // check-ins inside the last 7 days
+    const sinceLast = Math.floor((now - cs[count-1].t) / DAY);       // whole days since the most recent check-in
+    const returning = count >= 5 && sinceLast >= 4 && windowCount <= 2; // has history but just back from a gap
+    return { count, days, windowCount, returning, stage: _stageFor({count, days, windowCount}) };
+  }
+
+  // ---- richer for-you signals (read by the blog; all self-gating on min data) ----
+  /* ── the margin read (Justin, 2026-08-16) ──────────────────────────────────
+     Progress is measured on quantities, not on state names. A check-in's name is
+     DERIVED from its own v/sym/dor, so one rule covers all history.
+     margin = 0.7*v - 0.3*(sym + dor + tax); >= 0 means capacity covers load in
+     that same reading. Never surfaced as a number — margins stay internal.
+     Every row with numbers is a read (Ruling 2b: the QUIET guard is gone — 'it's
+     not a state'). Names never come from storage — _dm derives every row; the
+     stored dom is legacy data the engine no longer consults. */
+  function _mgn(c){
+    if(!c || typeof c.v !== 'number') return null;
+    try{ return PVCurrent.marginOf(c.v, c.sym, c.dor).margin; }catch(e){ return null; }
+  }
+  function _dm(c){
+    if(!c || typeof c.v !== 'number') return c && c.dom || null;
+    try{ return PVCurrent.dominantOf(c.v, c.sym, c.dor).key; }catch(e){ return c.dom || null; }
+  }
+  function _isReg(c){ const m = _mgn(c); return m != null && m >= 0; }
+  // the louder defense axis — the single-scalar defense the tier ceilings read (§7.5).
+  // NOT the naming engine's margin (which weighs both axes + the co-activation tax).
+  const _defOf = c => Math.max(c.sym||0, c.dor||0);
+
+  const _DYS = { fightflight:1, shutdown:1, freeze:1 };     // dysregulated / defensive dominants
+  // (retired 2026-08-16) the _RANK "steadier" ladder scored shutdown and freeze both 0
+  // and play and stillness both 2, so real movement between them registered as none.
+  // Replaced by the margin delta, which is continuous and signed.
+
+  // weekMix: the window's state distribution — the 2nd-most-common state and the
+  // regulated:dysregulated balance. Powers section 1's secondary-state + balance lines.
+  // Computed the same way the reader picks its window-dominant, so `second` never equals it.
+  function weekMix(){
+    const cut = Date.now() - 7*86400000;   // fixed trailing week — no caller ever passed a window
+    const cs = data.checkins.filter(c => c.t >= cut && !!_dm(c));
+    const n = cs.length;
+    if(n < 6) return null;                                  // too few in-window to claim a mix
+    const cnt = {}; cs.forEach(c => { const k=_dm(c); cnt[k] = (cnt[k]||0) + 1; });
+    const order = Object.keys(cnt).sort((a,b) => cnt[b]-cnt[a]);
+    const dom = order[0], second = order[1] || null;
+    // only readable rows vote: a null margin (no v) is no reading at all, never a
+    // defense-side count (2026-08-22). regShare is over readable rows for the same reason.
+    let reg=0, dys=0; cs.forEach(c => { const m=_mgn(c); if(m==null) return; if(m>=0) reg++; else dys++; });
+    const lean = reg>dys ? 'regulated' : dys>reg ? 'dysregulated' : 'even';
+    return { n, dom, domShare:Math.round(cnt[dom]/n*100), second,
+             secondShare: second ? Math.round(cnt[second]/n*100) : 0,
+             reg, dys, regShare:Math.round(reg/Math.max(1,reg+dys)*100), lean, distinct:order.length,
+             defenseStates: order.filter(d => _DYS[d]) };       // actual non-safety states present, by frequency
+  }
+
+  // recovery: after a dip out of a regulated state, how many check-ins until a regulated
+  // one returns. The hope signal — only trustworthy with real history + several round-trips.
+  function recovery(){
+    const cs = data.checkins.filter(c => !!_dm(c));
+    if(cs.length < 12) return null;
+    const gaps = [], depths = []; let i = 0;
+    while(i < cs.length){
+      const mi = _mgn(cs[i]);
+      if(mi == null){ i++; continue; }                       // unreadable row: no reading, never a dip (2026-08-22)
+      if(mi < 0){                                           // margin went under: load exceeds capacity
+        let j = i, steps = 0, found = false, low = 0;
+        while(j < cs.length){
+          const m = _mgn(cs[j]);
+          if(m == null){ j++; continue; }                    // unreadable rows neither extend nor end the dip
+          if(m < low) low = m;
+          if(m >= 0){ found = true; break; }
+          j++; steps++;
+        }
+        if(found){ gaps.push(steps); depths.push(low); }     // check-ins under the line, and how far under
+        i = j;
+      } else i++;
+    }
+    if(gaps.length < 3) return null;                         // need several completed recoveries
+    // depth is the part the old name-walk could not see: "how far under" as well as "how long"
+    return { avg: gaps.reduce((a,b)=>a+b,0)/gaps.length, n: gaps.length,
+             deepest: Math.min.apply(null, depths),
+             avgDepth: depths.reduce((a,b)=>a+b,0)/depths.length };
+  }
+
+  // practiceEffect: of the check-ins that follow a practice session, how often the next one
+  // reads steadier than the state they went in with. Closes the read->practice->steadier loop.
+  // Pairs by session_id + phase — the binding this file already does — rather than
+  // by "next check-in after". domBefore is not consulted: it is a bare name with no
+  // circuit values, so it cannot be re-derived; the bound 'before' check-in can.
+  // 'after' and 'followup' stay separate measurements and are never merged.
+  function _pePairs(){
+    const bySess = {};
+    data.checkins.forEach(c => {
+      if(!c || !c.session_id || !c.phase) return;
+      const b = bySess[c.session_id] || (bySess[c.session_id] = {});
+      if(!b[c.phase]) b[c.phase] = c;
+    });
+    const out = [];
+    data.sessions.forEach(s => {
+      const b = s && s.id ? bySess[s.id] : null;
+      if(!b || !b.before) return;
+      const mB = _mgn(b.before); if(mB == null) return;
+      const mA = b.after ? _mgn(b.after) : null;
+      const mF = b.followup ? _mgn(b.followup) : null;
+      if(mA == null && mF == null) return;
+      out.push({ session:s, practiceKey:s.practiceKey||null, t:s.t, beforeCheckin:b.before,
+                 before:mB, after:mA, followup:mF,
+                 dAfter: mA==null?null:mA-mB, dFollowup: mF==null?null:mF-mB });
+    });
+    return out;
+  }
+  function practiceEffect(){
+    const pairs = _pePairs().filter(p => p.dAfter != null);
+    const total = pairs.length;
+    if(total < 6) return null;
+    let moved=0, sum=0;
+    pairs.forEach(p => { sum += p.dAfter; if(p.dAfter > 0) moved++; });
+    // rate is what every current caller reads; mean (the average margin delta) is
+    // STAGED for the reader — computed and returned, no consumer yet (2026-08-22)
+    return { moved, total, rate: moved/total, mean: sum/total };
+  }
+
+  // momentDeltas: the live-session before/after spine (§7.1 "moment self-regulation", §7.4 step 6).
+  // Pairs the two check-ins tagged inside one live practice — same live_session_id + practice_ref,
+  // phase 'before' vs 'after' — into a per-practice moment delta. This is the small, real, temporary
+  // signal (a dip that recovers around a single practice), distinct from the cross-month baseline.
+  // READ-ONLY and self-contained: nothing consumes it yet, and it deliberately does NOT touch the
+  // recommender (which must never read churn/movement — §7.6). Direction classification (§7.6, out
+  // of shutdown/freeze/flight-fight) is Stage 4 and lives in the reader; this only records the raw
+  // move so that layer has something honest to read.
+  //
+  // Per pair: dConn (v_after − v_before), defBefore/defAfter = the larger of the two defense axes
+  // (mobilization, immobilization) at each end, dDef (negative = defense eased), the two dominant
+  // keys, and marginDelta (continuous, signed). No framing, no "good/bad" — the caller decides.
+  function momentDeltas(){
+    const cs = data.checkins.filter(c => c.live_session_id && c.practice_ref && c.phase &&
+                                          typeof c.v==='number' && typeof c.sym==='number' && typeof c.dor==='number');
+    if(!cs.length) return { pairs:[], n:0, meanConnDelta:null, meanDefDelta:null };
+    // group by session + practice, keeping the earliest 'before' and the earliest 'after' after it
+    const groups = {};
+    cs.forEach(c => { const k = c.live_session_id + '\u0000' + c.practice_ref; (groups[k] || (groups[k] = [])).push(c); });
+    const pairs = [];
+    Object.keys(groups).forEach(k => {
+      const g = groups[k].slice().sort((a,b) => a.t - b.t);
+      const before = g.find(c => c.phase === 'before');
+      if(!before) return;
+      const after = g.find(c => c.phase === 'after' && c.t >= before.t);
+      if(!after) return;
+      const rb = _mgn(before), ra = _mgn(after);   // margins, not ladder positions
+      pairs.push({
+        sessionId: before.live_session_id, practiceRef: before.practice_ref,
+        tBefore: before.t, tAfter: after.t,
+        vBefore: before.v, vAfter: after.v, dConn: after.v - before.v,
+        defBefore: _defOf(before), defAfter: _defOf(after), dDef: _defOf(after) - _defOf(before),
+        domBefore: _dm(before), domAfter: _dm(after),
+        marginBefore: rb, marginAfter: ra,
+        marginDelta: (rb != null && ra != null) ? ra - rb : null,
+      });
+    });
+    pairs.sort((a,b) => a.tAfter - b.tAfter);
+    const n = pairs.length;
+    const mean = sel => n ? pairs.reduce((s,p)=>s+sel(p),0)/n : null;
+    return { pairs, n, meanConnDelta: mean(p=>p.dConn), meanDefDelta: mean(p=>p.dDef) };
+  }
+
+  // practiceInsights: the same read->practice->steadier loop as practiceEffect(), sliced finer
+  // so the reader can name a specific practice for a specific state and time of day instead of
+  // just an overall rate. Self-gated per slice (min sample size) so it never claims more than a
+  // handful of paired observations can support. Trend data, not a diagnosis or a promise.
+  const _INSIGHT_MIN_N = 4;
+  function practiceInsights(){
+    const groups = {};
+    _pePairs().forEach(p => {
+      if(!p.practiceKey || p.dAfter == null) return;
+      const dom = _dm(p.beforeCheckin); if(!dom) return;
+      const key = p.practiceKey + '|' + dom + '|' + _segOf(p.t);
+      const g = groups[key] || (groups[key] = { practiceKey:p.practiceKey, dom:dom, seg:_segOf(p.t), moved:0, total:0, sum:0 });
+      g.total++; g.sum += p.dAfter;
+      if(p.dAfter > 0) g.moved++;
+    });
+    return Object.keys(groups).map(k => groups[k])
+      .filter(g => g.total >= _INSIGHT_MIN_N)
+      .map(g => Object.assign(g, { rate: g.moved / g.total, mean: g.sum / g.total }))
+      .sort((a,b) => b.total - a.total || b.mean - a.mean);
+  }
+
+  // ---- outcome ledger (recommender v2, Justin's rulings 2026-07-06) -----------
+  // Polarity: 'more' = good; 'same' = neutral (but nudges one step easier next
+  // time); 'less' / 'struggle' / 'unsure' = bad. exit-hard = bad; exit-enough /
+  // exit-distracted = neutral; exit-easy = its own turn-up signal (handled in
+  // recommend). A next check-in that reads steadier also counts as good — so
+  // pre-07-06 history (no after_feeling column) still earns credit.
+  function _exitOf(s){ return s ? (s.exitReason || ((/^exit-/.test(s.feedback||'')) ? s.feedback : null)) : null; }
+  // "moved up" is now a real quantity: did margin improve across this session's own
+  // bound before/after pair. The old version compared a stored name against the next
+  // check-in at any distance, on a ladder that scored shutdown and freeze equal.
+  function _movedUp(s){
+    if(!s || !s.id) return false;
+    const p = _pePairs().find(x => x.session && x.session.id === s.id);
+    return !!p && p.dAfter != null && p.dAfter > 0;
+  }
+  // one session -> 'good' | 'bad' | 'neutral' | null (no readable outcome)
+  function _outcomeOf(s){
+    if(!s) return null;
+    const af = s.afterFeeling || null, ex = _exitOf(s);
+    if(ex==='exit-hard' || af==='struggle' || af==='less' || af==='unsure') return 'bad';
+    if(af==='more' || _movedUp(s) || (practiceGrade(s)||0) >= 1) return 'good';   // safety held or better (2026-09-25)
+    if(af==='same' || ex==='exit-enough' || ex==='exit-distracted' || ex==='exit-easy') return 'neutral';
+    return null;
+  }
+  // ---- the skill sequence (2026-09-20) ------------------------------------------------------
+  // The ORDER the self-regulation practices are offered in belongs to the engine: host.js
+  // SEQUENCE.defense, which plan.js derives from Justin's 2026-09-05 rulings (Validating first;
+  // Pendulating opens depth by depth alongside Balancing; Obstacles comes back after each skill at
+  // each depth). It is read out of practice-engine.html at runtime, never restated here — a table
+  // that mirrors another file drifts. Keys carry the prefix and the depth:
+  //   'validate-defense' · 'imagery' · 'obstacles>imagery' · 'balancing@specific' ·
+  //   'obstacles>pendulating@description'
+  // Justin approved the recommender following this order on 2026-09-20.
+  //
+  // What is kept is the engine's own output (its list, and its nextAfter() for every entry), so a
+  // device that has loaded the engine once can recommend before the engine loads again.
+  let SKILL_SEQUENCE = null;        // host.js SEQUENCE.defense
+  let SAFETY_SEQUENCE = null;       // host.js SEQUENCE.safety
+  let _SEQ_NEXT = null;             // key -> host.js nextAfter(key)
+  const SEQ_CACHE = 'snb_engine_sequence_v1';
+  function _adoptSequence(o){
+    if(!o || !Array.isArray(o.defense) || !o.defense.length || !o.next) return false;
+    SKILL_SEQUENCE = o.defense.slice(); SAFETY_SEQUENCE = (o.safety||[]).slice(); _SEQ_NEXT = o.next;
+    return true;
+  }
+  try{ _adoptSequence(JSON.parse(localStorage.getItem(SEQ_CACHE))); }catch(e){}
+  // The engine's modules run in a sandbox object: each publishes itself onto `window` when there
+  // is no `module`, so handing them a plain object as `window` collects the four APIs without
+  // touching this page's globals. clip-table.js and data.js are needed because plan.js reads them.
+  const _ENGINE_MODULES = ['clip-table.js','data.js','plan.js','host.js'];
+  function loadSequence(){
+    if(typeof fetch !== 'function') return Promise.resolve(false);
+    return fetch('practice-engine.html').then(r => r.ok ? r.text() : Promise.reject(r.status)).then(html => {
+      const box = {};
+      _ENGINE_MODULES.forEach(name => {
+        const open = '/* @module ' + name + ' md5:', close = '/* @endmodule ' + name + ' */';
+        const i = html.indexOf(open), j = html.indexOf(close);
+        if(i < 0 || j < i) throw new Error('practice-engine.html has no ' + name);
+        const body = html.slice(html.indexOf('*/', i) + 2, j);
+        (new Function('window', 'globalThis', 'module', 'require', body))(box, box, undefined, undefined);
+      });
+      const H = box.SNB_ENGINE_HOST;
+      if(!H || !H.SEQUENCE || typeof H.nextAfter !== 'function') throw new Error('engine host missing');
+      const next = {};
+      H.SEQUENCE.defense.concat(H.SEQUENCE.safety).forEach(k => { next[k] = H.nextAfter(k); });
+      const o = { defense: H.SEQUENCE.defense.slice(), safety: H.SEQUENCE.safety.slice(), next };
+      const changed = JSON.stringify(o) !== JSON.stringify({ defense:SKILL_SEQUENCE, safety:SAFETY_SEQUENCE, next:_SEQ_NEXT });
+      _adoptSequence(o);
+      try{ localStorage.setItem(SEQ_CACHE, JSON.stringify(o)); }catch(e){}
+      if(changed && typeof notify === 'function') notify();
+      return true;
+    }).catch(e => { console.warn('[store] could not read the practice sequence from the engine', e); return false; });
+  }
+  const _sequenceReady = loadSequence();
+  // A logged self-regulation session's place in the sequence. The engine reports it (offer_key);
+  // rows from before that are read from what was logged, and count exactly as they always did:
+  // the app's 'obstacles' skill was always Obstacles into Imagery, and a Balancing or Pendulating
+  // was the overall depth unless describing the defense was on.
+  function sequenceKeyOf(s){
+    if(!s || s.practiceKey!=='self-regulation' || !s.skill) return null;
+    if(s.offerKey) return s.offerKey;
+    if(s.skill==='obstacles') return 'obstacles>imagery';
+    if(s.skill==='balancing' || s.skill==='pendulating')
+      return (s.prefix ? s.prefix + '>' : '') + s.skill + '@' + (s.depth || (s.descDefense ? 'description' : 'general'));
+    return s.skill;
+  }
+  // a key taken apart: the practice the engine plays, the Obstacles prefix, the depth. `skill` is
+  // the app's own name for it — Obstacles into Imagery has always been the app's 'obstacles'.
+  function sequenceParts(key){
+    if(!key) return null;
+    const gt = key.indexOf('>'), at = key.indexOf('@');
+    const prefix = gt >= 0 ? key.slice(0, gt) : null;
+    const practice = key.slice(gt + 1, at >= 0 ? at : key.length);
+    const depth = at >= 0 ? key.slice(at + 1) : null;
+    const skill = (prefix === 'obstacles' && practice === 'imagery') ? 'obstacles' : practice;
+    return { key, practice, skill, prefix: (skill === 'obstacles' ? null : prefix), depth };
+  }
+  // per-key tallies over self-regulation sessions.
+  function skillOutcomes(){
+    const out = {};
+    (SKILL_SEQUENCE||[]).forEach(k => out[k] = { good:0, bad:0, n:0, last:[] });
+    data.sessions.forEach(s => {
+      const k = sequenceKeyOf(s);
+      if(!k || !out[k]) return;
+      // the engine reports whether any of the defense half was played. Someone who answered
+      // the curiosity gate no practised the safety half and stopped: that is not an attempt at
+      // the skill, good or bad. Null = logged before the engine reported it — counted as before.
+      if(s.reachedDefense === false) return;
+      const o = _outcomeOf(s), b = out[k];
+      b.n++;
+      if(o==='good') b.good++; else if(o==='bad') b.bad++;
+      b.last.push(o); if(b.last.length>2) b.last.shift();     // the two most recent attempts
+    });
+    return out;
+  }
+  // skillProgress(): which steps are cleared, the next one to work on, and the strongest.
+  // Cleared = >=2 good outcomes AND no bad in the last 2 attempts (a bad PAUSES the clear until a
+  // good attempt lands — scenario B). next = the engine's nextAfter() from the highest cleared
+  // step, skipping any already cleared (history is grandfathered: someone strong deep in the
+  // sequence is never sent back to the start). Nothing cleared: the first step.
+  function skillProgress(){
+    const SEQ = SKILL_SEQUENCE || [];
+    const so = skillOutcomes();
+    const cleared = {};
+    let hi = -1;
+    SEQ.forEach((k,i) => {
+      const p = so[k];
+      cleared[k] = p.good >= 2 && p.last.indexOf('bad') < 0;
+      if(cleared[k]) hi = i;
+    });
+    let next = null;
+    if(hi < 0) next = SEQ[0] || null;
+    else { next = _SEQ_NEXT[SEQ[hi]] || null; let guard = 0; while(next && cleared[next] && guard++ < SEQ.length) next = _SEQ_NEXT[next] || null; }
+    // strongest cleared step by good rate; on a tie, the later one in the sequence
+    let strongest = null, bestRate = -1;
+    SEQ.forEach(k => {
+      if(!cleared[k]) return;
+      const p = so[k], r = p.n ? p.good/p.n : 0;
+      if(r >= bestRate){ bestRate = r; strongest = k; }
+    });
+    return { cleared, next, hi, strongest, so };
+  }
+  // the closing sequence (2026-10-02, Justin: "a level check can also occur if the user made it through the practice but quit
+  // after the outgoing sequence of the intentional breath onward, but only if their safety level held or increased, and/or if
+  // their breath was full and relaxed (chest or belly is fine)"): reached 'closing', then safety held or rose across the
+  // practice's 0-10 safety answers, or the last breath check was full and relaxed.
+  function _closingSigns(s){
+    const out = { rose:false, held:false, easy:false };
+    if(!s || s.reached !== 'closing') return out;
+    const sa = (Array.isArray(s.safetyReadings) ? s.safetyReadings : []).map(Number).filter(x => !isNaN(x));
+    if(sa.length >= 2){ out.rose = sa[sa.length - 1] > sa[0]; out.held = sa[sa.length - 1] >= sa[0]; }
+    const br = (s.details && Array.isArray(s.details.breath)) ? s.details.breath.map(x => x && x.value).filter(Boolean) : [];
+    let i = -1; br.forEach((v, j) => { if(v === 'chest' || v === 'belly') i = j; });
+    const last = i >= 0 ? br.slice(i) : br;
+    out.easy = last.indexOf('full') >= 0 && last.indexOf('relaxed') >= 0;
+    return out;
+  }
+  // stepResults() (2026-10-02, the Unstucking Pathway: "Practiced with [result]' based on the user's input and/or checking post
+  // practice"): each step's latest practice, keyed like the pathway (a defense sequence key, a safety practice, or the practice
+  // itself): the member's own after-practice answer, and whether the check-in after showed more safety.
+  function stepResults(){
+    const out = {}, SEQ = SAFETY_SEQUENCE || [];
+    data.sessions.forEach(s => {
+      if(!s || !s.practiceKey) return;
+      const k = s.practiceKey === 'self-regulation' ? sequenceKeyOf(s)
+              : s.practiceKey === 'anchoring' ? ((s.skill && SEQ.indexOf(s.skill) >= 0) ? s.skill : 'anchoring')
+              : s.practiceKey;
+      if(!k) return;
+      const af = s.afterFeeling || null, up = !!_movedUp(s), c = _closingSigns(s);
+      if(!af && !up && !c.held && !c.easy && out[k]) return;   // a practice with nothing to say keeps the last one that did
+      out[k] = { af, up, rose: c.rose, held: c.held, easy: c.easy, outcome: _outcomeOf(s) };
+    });
+    return out;
+  }
+  // levelProgress() (2026-10-02, the Unstucking Pathway): each defense step at each level of emotion (1 easy, 2 medium, 3 hard).
+  // A session's emotionIntent is "word|level" when the member chose one of their emotions (bare family keys from before
+  // carry no level). A level is done once a practice at it has a successful result, or reached the closing sequence with
+  // safety held or a full, relaxed breath (_closingSigns) (Justin, 2026-10-02: "a 'done' mark for the
+  // level should only come if it's a successful result"); `last` is that level's latest practice, for "Practiced with ...".
+  // { [sequence key]: { [level]: { done, n, words:[...] } } }. Justin: "i want to let them choose which level".
+  function levelProgress(){
+    const acc = {};
+    data.sessions.forEach(s => {
+      if(!s || s.practiceKey !== 'self-regulation' || !s.emotionIntent) return;
+      const m = /^(.+)\|([123])$/.exec(String(s.emotionIntent)); if(!m) return;
+      const k = sequenceKeyOf(s); if(!k) return;
+      const t = +m[2], o = _outcomeOf(s);
+      const byK = acc[k] = acc[k] || {}, b = byK[t] = byK[t] || { good:0, n:0, last:[], words:{} };
+      // a successful result, or the closing sequence reached with safety held or a full, relaxed breath (and no answer saying otherwise)
+      const c = _closingSigns(s), ok = o === 'good' || (o !== 'bad' && (c.held || c.easy));
+      b.n++; if(ok) b.good++;
+      b.last.push(o); if(b.last.length > 2) b.last.shift();
+      b.words[m[1]] = 1;
+      b.lastS = { af: s.afterFeeling || null, up: !!_movedUp(s), rose: c.rose, held: c.held, easy: c.easy, w: m[1] };
+    });
+    const out = {};
+    Object.keys(acc).forEach(k => { out[k] = {}; Object.keys(acc[k]).forEach(t => { const b = acc[k][t];
+      out[k][t] = { done: b.good >= 1, n: b.n, words: Object.keys(b.words), last: b.lastS || null }; }); });
+    return out;
+  }
+  // safetyProgress() (2026-10-02, the Unstucking Pathway): the same "completed within capacity" rule as skillProgress()
+  // (>=2 good outcomes and no bad in the last 2), over the anchoring practices, in the engine's safety order
+  // (SEQUENCE.safety). A plain anchoring practice (no safety skill, or the maker's leftover skill) counts as the first one,
+  // connect with safety. next = the first safety practice after the furthest completed one that is not completed yet.
+  function safetyProgress(){
+    const SEQ = SAFETY_SEQUENCE || [];
+    const so = {};
+    SEQ.forEach(k => so[k] = { good:0, bad:0, n:0, last:[] });
+    if(!SEQ.length) return { seq:[], cleared:{}, next:null, so };
+    data.sessions.forEach(s => {
+      if(!s || s.practiceKey !== 'anchoring') return;
+      const k = (s.skill && so[s.skill]) ? s.skill : SEQ[0];
+      const o = _outcomeOf(s), b = so[k];
+      b.n++;
+      if(o==='good') b.good++; else if(o==='bad') b.bad++;
+      b.last.push(o); if(b.last.length>2) b.last.shift();
+    });
+    const cleared = {};
+    SEQ.forEach(k => { const p = so[k]; cleared[k] = p.good >= 2 && p.last.indexOf('bad') < 0; });
+    let hi = -1; SEQ.forEach((k,i) => { if(cleared[k]) hi = i; });
+    let next = null; for(let i = hi + 1; i < SEQ.length; i++){ if(!cleared[SEQ[i]]){ next = SEQ[i]; break; } }
+    return { seq:SEQ.slice(), cleared, next, so };
+  }
+  // one-sentence descriptions of each skill + dial, so the reader can name the skill AND teach
+  // what it is (a path to the fuller practice-tab breakdown sits in the reader copy). Straw
+  // wording — Justin owns final. Keyed by the app's skill names (sequenceParts().skill).
+  const SKILL_DESC = {
+    'normalize-defense': "letting what's here be here, meeting the emotion without arguing with it",
+    imagery:     'using a mental image to invite some safety',
+    obstacles:   'noticing what blocks safety and working with it directly',
+    balancing:   'holding some safety and some defense at the same time',
+    pendulating: 'moving toward the defense and back to safety, in small swings',
+    descDefense: 'naming the defense out loud as you feel it',
+    holdWatch:   'staying with what surfaces and watching it move, without steering it',
+  };
+  function skillDesc(k){ return SKILL_DESC[k] || null; }
+  const _skillOfKey = k => { const p = sequenceParts(k); return p ? p.skill : null; };
+  // What a step does, said literally, for a step the skill's name alone does not describe: one
+  // that starts from Obstacles, or goes past the overall depth. Justin, 2026-09-20: "This practice
+  // gives you four Obstacle statements and leads you through Balancing whatever emotion surfaces
+  // in response, finding where it lives in the body." No metaphor. The three depths are named for
+  // what they are: overall, where it lives, and Description (describing it). `title` capitalizes the practice names, as in the letter.
+  const _STEP_NAME = { balancing:'balancing', pendulating:'pendulating' };
+  const _STEP_DEPTH = { general:'noticing it in the body overall', specific:'finding where it lives in the body',
+                        description:'describing it' };
+  function stepPhrase(key, title){
+    const p = sequenceParts(key);
+    if(!p || !_STEP_NAME[p.skill] || !(p.prefix || (p.depth && p.depth !== 'general'))) return null;
+    const cap = w => title ? w.charAt(0).toUpperCase() + w.slice(1) : w;
+    let s = p.prefix === 'obstacles'
+      ? 'gives you four ' + cap('obstacle') + ' statements and leads you through ' + cap(_STEP_NAME[p.skill]) + ' whatever emotion surfaces in response'
+      : 'leads you through ' + cap(_STEP_NAME[p.skill]) + ' whatever emotion surfaces';
+    if(p.depth && _STEP_DEPTH[p.depth]) s += ', ' + _STEP_DEPTH[p.depth];
+    return s;
+  }
+  // the name of a step inside a sentence: the skill's word, or the literal description above
+  function _stepWords(key, skill){ const ph = key ? stepPhrase(key) : null; return ph ? 'the practice that ' + ph : _skillWord(skill); }
+  // skillStory(): the reader-facing shape of skillProgress() — which skills are cleared, the next one to
+  // work on, and whether there's any self-regulation history to speak of. Null until there is.
+  // The letters name SKILLS (their words are Justin's, in from-justin.js), so the steps are
+  // reported by their skill; the sequence keys ride alongside. Not scored; capacity, not rank.
+  function skillStory(){
+    const hasHistory = data.sessions.some(s => s && s.practiceKey==='self-regulation');
+    if(!hasHistory) return null;
+    const sp = skillProgress();
+    const clearedKeys = (SKILL_SEQUENCE||[]).filter(k => sp.cleared[k]);
+    const cleared = clearedKeys.map(_skillOfKey).filter((k,i,a) => a.indexOf(k)===i);
+    // reason = the good signal that most recently fired on the strongest step, so the reader can
+    // name WHY it was recommended: the after-feeling came back 'more', or the next check-in read
+    // steadier (else just 'going well'). Reported, never scored.
+    let reason = 'going-well';
+    if(sp.strongest){
+      const ms = data.sessions.filter(s => sequenceKeyOf(s)===sp.strongest).sort((a,b)=>a.t-b.t);
+      for(let i=ms.length-1;i>=0;i--){ if(_outcomeOf(ms[i])==='good'){ reason = ms[i].afterFeeling==='more' ? 'more' : (_movedUp(ms[i]) ? 'steadier' : 'going-well'); break; } }
+    }
+    const next = _skillOfKey(sp.next), strongest = _skillOfKey(sp.strongest);
+    return { cleared, next, strongest, reason, clearedKeys, nextKey: sp.next, strongestKey: sp.strongest,
+             curDesc: strongest ? skillDesc(strongest) : null,
+             nextDesc: next ? skillDesc(next) : null, hasHistory:true };
+  }
+  // hold & watch duration from demonstrated tolerance: how much of the chosen
+  // target they've actually been holding. >=90% of target -> same or one step up;
+  // <50% -> one step down; no history -> the smallest dose (30s).
+  const HOLD_STEPS = [30,60,90,120];
+  function holdTarget(){
+    const hs = data.sessions.filter(s => s.holdWatch && typeof s.holdWatchTargetSeconds==='number').slice(-3);
+    if(!hs.length) return 30;
+    const last = hs[hs.length-1];
+    const withActual = hs.filter(s => typeof s.holdWatchSeconds==='number');
+    if(!withActual.length) return last.holdWatchTargetSeconds || 30;
+    const ratio = withActual.reduce((a,s)=>a + Math.min(1, s.holdWatchSeconds/Math.max(1,s.holdWatchTargetSeconds)), 0) / withActual.length;
+    const cur = last.holdWatchTargetSeconds || 30;
+    const i = HOLD_STEPS.indexOf(cur) >= 0 ? HOLD_STEPS.indexOf(cur) : 0;
+    if(ratio >= 0.9) return HOLD_STEPS[Math.min(i+1, HOLD_STEPS.length-1)];
+    if(ratio < 0.5) return HOLD_STEPS[Math.max(i-1, 0)];
+    return cur;
+  }
+
+  // dayArc: any one calendar day's moments as an arc — the atom of the reflections
+  // system. Returns that day's check-ins in order, within-day direction (by
+  // safety/ventral), that day's sessions, and any practice deltas (a session
+  // sitting between two reads). From moment one. `today()` is dayArc of today.
+  // Like trend(), still measures v while the progress story runs on margin —
+  // migration deferred (see the trend() note).
+  function dayArc(t0){
+    const tEnd = t0 + 864e5;
+    const moments = data.checkins
+      .filter(c => c && typeof c.t==='number' && c.t>=t0 && c.t<tEnd && !!_dm(c))
+      .sort((a,b)=>a.t-b.t);
+    const sess = data.sessions
+      .filter(s => s && typeof s.t==='number' && s.t>=t0 && s.t<tEnd)
+      .sort((a,b)=>a.t-b.t);
+    const n = moments.length;
+    let dir = null;
+    // ±0.08 (dir) and +0.04 (rose, below) are v-scale bands — not a set with
+    // baselineDelta's margin-scale ±0.05 (see the trend() note).
+    if(n>=2){ const d = moments[n-1].v - moments[0].v; dir = d>0.08?'up' : d<-0.08?'down' : 'steady'; }
+    // practice deltas: the read just before a session vs the first read after it
+    const deltas = [];
+    sess.forEach(s => {
+      const after = moments.find(m => m.t > s.t);
+      if(!after) return;
+      let before = null;
+      for(const m of moments){ if(m.t <= s.t) before = m; else break; }
+      const bv = before ? before.v : null;
+      deltas.push({ t:s.t, beforeV:bv, afterV:after.v, rose: (bv!=null) ? (after.v > bv+0.04) : null });
+    });
+    return { moments, sessions:sess, n, dir, deltas, first: n?moments[0]:null, last: n?moments[n-1]:null };
+  }
+  function today(){ const d=new Date(); d.setHours(0,0,0,0); return dayArc(d.getTime()); }
+  // earliest check-in timestamp — the anchor for per-user quarterly anniversaries.
+  function firstCheckinT(){ let m=Infinity; data.checkins.forEach(c=>{ if(c && typeof c.t==='number' && c.t<m) m=c.t; }); return isFinite(m)?m:null; }
+
+  // periodStats: aggregate signals over an arbitrary window [startMs, endMs). Powers the
+  // monthly + quarterly reflections (the long-range altitudes). All deterministic, on-device.
+  function periodStats(startMs, endMs){
+    const cs = data.checkins
+      .filter(c => c && typeof c.t==='number' && c.t>=startMs && c.t<endMs && !!_dm(c))
+      .sort((a,b)=>a.t-b.t);
+    const n = cs.length;
+    if(!n) return null;
+    const cnt={}; cs.forEach(c=>{ const k=_dm(c); cnt[k]=(cnt[k]||0)+1; });
+    const order = Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
+    const dist={}; order.forEach(k=>dist[k]=Math.round(cnt[k]/n*100));
+    const dom = order[0], second = order[1] || null;
+    // margin >= 0, not a name bucket — and only readable rows vote: a null margin
+    // (no v) is no reading at all, never a defense-side count (2026-08-22).
+    let reg=0, dysN=0; cs.forEach(c=>{ const m=_mgn(c); if(m==null) return; if(m>=0) reg++; else dysN++; });
+    const nRead = reg+dysN;
+    const regShare = nRead ? reg/nRead : 0, lean = regShare>=0.6?'regulated' : regShare<=0.4?'dysregulated' : 'even';
+    const avgV = cs.reduce((s,c)=>s+c.v,0)/n;
+    // Baseline inputs. avgDef = the louder defense axis, averaged (the §7.5 tier
+    // ceilings read avgV and avgDef as two independent ABSOLUTE numbers). meanMargin =
+    // the naming engine's margin, averaged — the progress axis. sdV = connection-number
+    // fluctuation (§7.6: SD of v) — STAGED for the own-range axis, no reader yet.
+    // (§7.2's avgSafetyLead — avgV minus avgDef, unweighted — was removed 2026-08-22:
+    // no reader anywhere. It is NOT the engine's margin; recompute it from avgV/avgDef
+    // if §7.2's spoken baseline ever ships.)
+    const avgDef = cs.reduce((s,c)=>s+_defOf(c),0)/n;
+    const meanMargin = cs.reduce((s2,c)=>{ const m=_mgn(c); return s2 + (m==null?0:m); },0)/n;
+    const sdV = Math.sqrt(cs.reduce((s,c)=>{ const d=c.v-avgV; return s+d*d; },0)/n);
+    const third = Math.max(1, Math.floor(n/3));   // first/last third — the then-vs-now windows
+    const days = new Set(cs.map(c=>new Date(c.t).toDateString())).size;
+    // day-of-week rhythm: the weekday whose check-ins average the most safety (>=3 samples)
+    const dow={}; cs.forEach(c=>{ const d=new Date(c.t).getDay(); (dow[d]=dow[d]||[]).push(c.v); });
+    let bestDow=null, bestDowAvg=-1;
+    Object.keys(dow).forEach(d=>{ const a=dow[d]; if(a.length>=3){ const m=a.reduce((s,v)=>s+v,0)/a.length; if(m>bestDowAvg){ bestDowAvg=m; bestDow=+d; } } });
+    // then-vs-now dominant state (first vs last third), for the identity arc
+    const domOf = arr => { const c2={}; arr.forEach(x=>{ const k=_dm(x); c2[k]=(c2[k]||0)+1; }); return Object.keys(c2).sort((a,b)=>c2[b]-c2[a])[0]||null; };
+    return {
+      n, days, dom, domShare:dist[dom], second, secondShare: second?dist[second]:0, dist, order,
+      reg, dys:dysN, regShare, lean, avgV, avgDef, meanMargin, sdV,
+      firstDom: domOf(cs.slice(0,third)), lastDom: domOf(cs.slice(-third)),
+      bestDow, defenseStates: order.filter(d=>_DYS[d])
+    };
+  }
+  /* baselineDelta: change between two windows (this period vs the one before).
+     2026-08-17 — moved from avgV onto meanMargin, Justin's call. (Correction
+     2026-08-22: this was NOT the last v-based surface — trend() and dayArc() still
+     measure v; their migration is deferred, see the notes there.) The copy it
+     feeds is purely directional (up / down / flat, no numbers), so it survives the swap
+     unchanged: margin up IS safety sitting further ahead of defense. The 0.05 dir
+     threshold is unchanged and is a MARGIN-scale band: margin spans roughly -0.9..+0.7
+     where avgV spanned 0..1, so the same number is now a slightly smaller move and
+     'flat' narrows. */
+  function baselineDelta(startMs, endMs){
+    const span = endMs - startMs;
+    const cur = periodStats(startMs, endMs), prev = periodStats(startMs-span, startMs);
+    if(!cur) return null;
+    if(!prev) return { dir:'new' };
+    const d = cur.meanMargin - prev.meanMargin;
+    /* The +/-0.05 dead-band is UNCHANGED, deliberately, now that d is a margin delta
+       rather than an average-connection delta. Margin's theoretical span is ~1.6, which
+       makes 0.05 look like a smaller slice than it was — but that span needs v=0 with
+       both defenses maxed, a board nobody reports. Across the twelve verified §6 boards
+       margin runs -0.502..+0.585, a practical span of 1.087, so 0.05 is 4.6% of it
+       against 5.0% for avgV over 0..1. The band transfers essentially untouched, so
+       there is nothing to re-tune and no new constant to invent.
+       Known asymmetry, recorded not fixed: margin is asymmetric about zero (0.3 per
+       full defense, 0.7 per full ventral), so 0.05 is a sixth of a full defense
+       downward but a fourteenth of full ventral upward — a symmetric band therefore
+       trips more readily toward 'down'. Setting that properly needs observed
+       period-over-period variance, which is the same data gate as λ and the ½ cost
+       fraction. Guessing an asymmetric band now would be fitting to nothing. */
+    return { dir: d>0.05?'up' : d<-0.05?'down' : 'flat' };
+  }
+
+  // ---- mint store: dated, immutable reflections (the archive / keepsake moat) ----
+  // A reflection lives while its span is open and MINTS (snapshots, frozen) at the
+  // span's close. Frozen because the copy arrays cycle randomly — recomputing would
+  // change the words. Per device for now (localStorage); cloud sync is a later add.
+  function _mintKey(){ return 'snb_mint_' + (auth.user ? auth.user.id : 'anon'); }
+  function _mintsRaw(){ try{ const a = JSON.parse(localStorage.getItem(_mintKey())); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+  function mints(tier){ let a = _mintsRaw(); if(tier) a = a.filter(m => m.tier===tier); return a.sort((x,y)=> y.dateMs - x.dateMs); }
+  function hasMint(tier, date){ return _mintsRaw().some(m => m.tier===tier && m.date===date); }
+  function saveMint(entry){
+    if(!entry || !entry.tier || !entry.date || !entry.text) return false;
+    if(hasMint(entry.tier, entry.date)) return false;               // immutable: never overwrite
+    const a = _mintsRaw();
+    a.push({ id: entry.tier+':'+entry.date, tier: entry.tier, date: entry.date, dateMs: entry.dateMs, text: entry.text, data: entry.data || null, ts: Date.now() });
+    try{ localStorage.setItem(_mintKey(), JSON.stringify(a)); }catch(e){}
+    return true;
+  }
+
+
+  // ---- §7.4–7.5 tier model (connection-vs-defense, absolute levels) ----------
+  // GUARDRAIL (Justin 2026-07-27): the tier gates read safety (avgV) and defense
+  // (avgDef) as two INDEPENDENT ABSOLUTE numbers, never any margin/lead quantity.
+  // A positive margin on low absolute safety must not unlock a tier.
+  function _byDay(cs){ const m={}; cs.forEach(c=>{ const k=new Date(c.t).toDateString(); (m[k]=m[k]||[]).push(c); }); return m; }
+  // Consistency (§7.5, window resolved §7.6): a stable FLOOR that holds through
+  // variance — NOT low variance. Parameterized by the floor level being tested.
+  // All must hold across the rolling trailing-7: first AND last check-in at/above
+  // the floor (stops a strong-but-decaying week qualifying); most DAYS reach the
+  // floor; any dip >25pts below it recovers the SAME day.
+  function consistentAt(cs, floor){
+    if(!cs || cs.length < 4) return false;
+    const s = cs.slice().sort((a,b)=>a.t-b.t);
+    if(s[0].v < floor || s[s.length-1].v < floor) return false;      // endpoints rule
+    const days = _byDay(s), keys = Object.keys(days);
+    let reach = 0; keys.forEach(k => { if(Math.max.apply(null, days[k].map(c=>c.v)) >= floor) reach++; });
+    if(reach <= keys.length/2) return false;                          // "most days" = strictly over half
+    for(const k of keys){                                             // dips >25pts must recover same day
+      const dc = days[k];
+      if(dc.some(c => c.v < floor - 0.25) && !dc.some(c => c.v >= floor)) return false;
+    }
+    return true;
+  }
+  // The week baseline (§7.5): trailing 7 days, needs >=4 check-ins or it's the
+  // honest low-data path. safety = avgV, defense = avgDef (both absolute).
+  function baselineWeek(){
+    const now = Date.now();
+    const cs = data.checkins.filter(c => c.t >= now - 7*864e5 && c.t <= now && !!_dm(c)).sort((a,b)=>a.t-b.t);
+    if(cs.length < 4) return { lowData:true, n:cs.length };
+    // periodStats uses a strict `< endMs`; pass now+1 so a check-in stamped at exactly `now`
+    // (e.g. the one that just triggered this) is counted here too. Guard the null just in case.
+    const st = periodStats(now - 7*864e5, now + 1);
+    if(!st) return { lowData:true, n:cs.length };
+    return { lowData:false, n:cs.length, safety:st.avgV, defense:st.avgDef, consistent50: st.avgV >= 0.50 && consistentAt(cs, 0.50) };
+  }
+  // The moment gate (§7.4 step 5, §7.5): reads TODAY's check-in. Grounding only —
+  // no self-reg skill today — if either defense axis is very hot, or the freeze
+  // quadrant (both axes up). Targets the quadrant, not a sum.
+  function momentGate(last){
+    if(!last) return { open:false };
+    const s = last.sym, d = last.dor;
+    const closed = s >= 0.75 || d >= 0.75 || (s >= 0.40 && d >= 0.40);
+    return { open:!closed };
+  }
+  // The ceiling tier the WEEK earns (§7.5). Week gates the ceiling; the moment gate
+  // (above) gates whether any of it is offered TODAY. `cleared` is skillProgress().cleared.
+  // 0 = grounding only · 1 = validating/imagery · 2 = obstacles · 3 = balancing/pendulation.
+  function skillCeiling(bw, cleared){
+    if(!bw || bw.lowData) return 0;
+    const s = bw.safety, d = bw.defense;
+    if(s >= 0.50 && bw.consistent50 && d <= 0.55 && cleared && cleared['obstacles>imagery']) return 3;
+    if(s >= 0.45 && d <= 0.60 && cleared && cleared['normalize-defense'] && cleared.imagery) return 2;
+    if(s >= 0.40) return 1;
+    return 0;
+  }
+
+  // ---- recommender (Safety Spectrum model, 2026-07-03) ------------------------
+  // The working Spectrum point sets the ceiling; appetite chooses within it, never
+  // above it. Pendulation gate: Point 3+, advanced-defense appetite, and a few
+  // completed self-regulation sessions.
+  function recommend(){
+    const last = lastCheckin();
+    const L = learned();
+    const tr = trend();
+    // §7.4–7.5 model (2026-07-27): the 0.55 challenge constant, the want/level fork and the
+    // regShare Spectrum are retired. Reading order is now: low-data → moment gate → the tier
+    // the WEEK earns (connection-vs-defense, absolute) → the skill sequence within that tier.
+    const bw = baselineWeek();          // trailing-7 avgV/avgDef, or the low-data path
+    const gate = momentGate(last);      // today's check-in opens/closes the moment
+    let ceiling = 0;                    // the tier the week earns (set once we have a check-in)
+    if(!last){
+      return cfg('mindfulness', null, prefSense()||L.favSense||'touch', 8,
+        'a simple place to start. after checking in, you will get a practice based on what helps you most.', 'simplest place to begin');
+    }
+    // derived, not the stored name (B1, 2026-08-22): a pre-rework row keeps its old
+    // label in the cloud but is READ by today's rule — matters for someone returning
+    // after a gap whose most recent check-in predates the rework.
+    const dom = _dm(last);
+    const dys = _DYS[dom];
+    // the anchor: cycle through every one until one earns three best outcomes (see anchorPick)
+    const AP = anchorPick();
+    const sense = AP.sense;
+    const sil = L.endsEarlyOften ? 12 : 8;
+    const falling = !!(tr && tr.dir==='falling');
+
+    // step 1 — fewer than 4 check-ins this week: the honest low-data path. A common state,
+    // written as carefully as the full one (§7.4): an invite plus a short why, not an error.
+    if(bw.lowData){
+      return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10,
+        "there isn't a full week of check-ins yet, so we'll keep it simple through a little time with the present moment. the more you check in, the more this practice adapts to your capacity.",
+        'building your picture');
+    }
+    // step 5 — hot defense today closes the moment gate: grounding only, whatever the week has
+    // earned (mobilization or immobilization very high, or the freeze quadrant — both up).
+    if(!gate.open){
+      let reason = dom==='shutdown' ? "you are pulling toward shutdown. nothing to push against. we'll keep it simple and just notice the present moment, gently."
+                 : dom==='freeze' ? "a lot is frozen within. we'll keep this practice small and stay with the present moment."
+                 : "there's a lot of defense active right now. we'll stay with the present moment and let some of it ease.";
+      if(falling) reason = "safety has been slipping in the last few check-ins, so connecting with it may be hard right now. this one keeps it simple and stays with the present moment.";
+      // 2026-09-25 (Justin): mindfulness is about the present moment, not safety. it is the practice for someone
+      // who is struggling to even connect with safety; safety is the anchoring practice. none of these reasons may
+      // promise safety work.
+      return cfg('mindfulness', null, sense, L.endsEarlyOften?12:10, reason, 'meet you where you are');
+    }
+    // steps 2-4 — the ceiling the WEEK earns (avgV/avgDef ABSOLUTE, never margin — Justin's
+    // guardrail), capped by whichever steps of the skill sequence are cleared.
+    const sp = skillProgress();
+    ceiling = skillCeiling(bw, sp.cleared);
+
+    // ceiling 0 (safety below the 40% week floor), or a falling trend: anchor into safety and
+    // let that be enough today (Scheme A band 2 — rebuild before reaching further).
+    if(ceiling === 0 || falling){
+      const reason = falling ? "safety has been slipping in the last few check-ins. let's spend this one just on rebuilding it."
+                   : dys ? "your history shows real safety to draw on, even in a harder moment. we'll anchor into it and let that be enough for now."
+                   : "you're finding safety, and it's still building week to week. we'll anchor into it and let that be enough for now.";
+      return cfg('anchoring', null, sense, sil, reason, dys ? 'meet you where you are' : 'safety anchoring');
+    }
+    // no sequence yet (a device that has never loaded the engine, before its first read lands):
+    // connect with safety, and the screen re-renders once the sequence arrives.
+    const SEQ = SKILL_SEQUENCE;
+    if(!SEQ || !SEQ.length){
+      return cfg('anchoring', null, sense, sil, "we'll start by connecting with safety.", 'safety anchoring');
+    }
+    // the Unstucking Pathway's order (Justin, 2026-10-02: "the recommender should follow the pathway, though it will revert
+    // back based on the user's checkins. the pathway does not."): every safety practice comes before defense, in the
+    // engine's safety order (safetyProgress()). The check-in rules above (low data, the moment gate, the week's floor, a
+    // falling trend) still come first and ease it back to the present moment or plain anchoring.
+    const SAFE = safetyProgress();
+    if(SAFE.next){
+      const sk = SAFE.next === 'anchoring' ? null : SAFE.next;
+      const SW = { 'validate-safety':'validating safety', 'normalize-safety':'normalizing safety', 'general-safety':'noticing safety in the body overall',
+        'specific-safety':'finding where safety lives in the body', 'describe-safety':'describing safety', 'interest-safety':'noticing the interest impulse' };
+      const reason = sk ? "you have safety here. the pathway builds safety one practice at a time before working with defense. this one is " + SW[sk] + "."
+                        : "you have safety here. the pathway starts by anchoring into safety before working with defense.";
+      return cfg('anchoring', sk, sense, sil, reason, 'safety first');
+    }
+    // ceiling >=1 — safety first, then a step of the sequence capped to the tier the week
+    // earned (t1: up to imagery · t2: up to obstacles into imagery · t3: all of it, every
+    // depth of balancing and pendulating). Scheme A band 3; the sequence fills the skill slot.
+    const TIER_TOP = { 1:'imagery', 2:'obstacles>imagery', 3:null };
+    const capIdx = TIER_TOP[ceiling] ? SEQ.indexOf(TIER_TOP[ceiling]) : SEQ.length - 1;
+    // ---- what happened last time on this track (graded step-down) ----
+    // hard signals (struggle / less / too-hard exit): first one turns the dials
+    // down on the SAME step; a second in a row steps down one. soft signals
+    // ('same' / 'unsure'): one step easier right away, as a one-session nudge.
+    const mosts = data.sessions.filter(s => s.practiceKey==='self-regulation');
+    const lastMost = mosts[mosts.length-1] || null;
+    const prevMost = mosts[mosts.length-2] || null;
+    const lastAf = lastMost ? (lastMost.afterFeeling || null) : null;
+    const hardLast = !!lastMost && (lastAf==='struggle' || lastAf==='less' || _exitOf(lastMost)==='exit-hard');
+    const softLast = !!lastMost && !hardLast && (lastAf==='same' || lastAf==='unsure');
+    // one step easier = the step before it in the sequence
+    const below = k => { const i = SEQ.indexOf(k); return i > 0 ? SEQ[i-1] : null; };
+    const lastKey = lastMost ? sequenceKeyOf(lastMost) : null;
+    const lastKnown = (lastKey && SEQ.indexOf(lastKey) >= 0) ? lastKey : null;
+    // default step: the next uncleared one, else their strongest. Then CAP to the tier the week
+    // earned — the sequence can propose a step the week hasn't unlocked; the ceiling holds it
+    // back (a step above the tier drops to the tier's top step).
+    let key = sp.next || sp.strongest || (SEQ.indexOf(L.favSkill) >= 0 ? L.favSkill : SEQ[0]);
+    if(SEQ.indexOf(key) > capIdx) key = SEQ[capIdx];
+    // the level of emotion to suggest (Justin, 2026-10-02): easy until the whole sequence is completed, then back through it at
+    // medium, then at hard. Only a suggestion: the member chooses the level before practicing. Obstacles practices have none.
+    let emoTier = 1;
+    if(!sp.next){
+      const LP = levelProgress(), lv = k => { const p = sequenceParts(k) || {}; return p.skill !== 'obstacles' && p.prefix !== 'obstacles'; };
+      emoTier = 3;
+      for(const t of [2, 3]){
+        const k2 = SEQ.find((k, i) => i <= capIdx && lv(k) && !(LP[k] && LP[k][t] && LP[k][t].done));
+        if(k2){ key = k2; emoTier = t; break; }
+      }
+    }
+    let dialDown = false, droppedStep = false, leftTrack = false;
+    if(hardLast){
+      if(prevMost && _outcomeOf(prevMost)==='bad'){                       // two heavy ones in a row
+        const dn = below(lastKnown || key);
+        if(dn){ key = dn; droppedStep = true; } else leftTrack = true;    // below the first step -> anchoring
+      } else { key = lastKnown || key; dialDown = true; }                 // first one: same step, smaller dose
+    } else if(softLast){
+      const dn = below(lastKnown || key);
+      if(dn){ key = dn; droppedStep = true; } else leftTrack = true;
+    }
+    if(leftTrack){
+      const reason = "last one didn't land well, so we're stepping out of defense work for a practice and connecting with safety instead. your self-regulation practice will pick up where you left off.";
+      return cfg('anchoring', null, sense, 12, reason, 'a gentler practice');
+    }
+    // the step, taken apart: the skill the app launches, the Obstacles prefix, the depth.
+    // Describing the defense is no longer a dial on top — it is the deepest depth, a step of its own.
+    const part = sequenceParts(key);
+    const skill = part.skill;
+    const desc = part.depth === 'description';
+    const descIntro = desc && !data.sessions.some(s => { const k = sequenceKeyOf(s); return !!k && /@description$/.test(k); });
+    // hold & watch: the top tier (ceiling 3 = safety 50%+ consistent, defense ≤55%), and only
+    // on a session that is describing the defense — the deepest depth, the only one where the
+    // engine plays it (Justin, 2026-09-19: "Hold and watch at the deepest level is fine.").
+    let hold = false, holdSecs = null;
+    if(ceiling===3 && desc && !dialDown && !droppedStep && (skill==='balancing' || skill==='pendulating')){
+      hold = true; holdSecs = holdTarget();
+    }
+    // ---- why this practice (evidence named, in order: baseline/moment -> last
+    // session -> sequence step -> daypart). drafts for Justin's copy pass.
+    let reason;
+    if(dialDown){
+      reason = stepPhrase(key)
+        ? "last one was a lot, so we'll stay with the same practice and keep it gentler: a bit shorter, with more quiet space between the guidance."
+        : "last one was a lot, so we'll stay with " + _skillWord(skill) + " but keep it gentler: a bit shorter, with more quiet space between the guidance.";
+      if(lastMost && lastMost.emotionIntent) reason += " if you work with " + String(lastMost.emotionIntent).replace(/\|[123]$/, '') + " again, maybe at a gentler intensity this time.";
+    } else if(droppedStep && hardLast){
+      reason = "the last couple were a lot, so we'll ease back to " + _stepWords(key, skill) + " for now. that's just where your system is right now, and it's completely normal. the practices after this one will still be here when you're ready.";
+    } else if(droppedStep){
+      reason = "last one didn't land clearly, so we're going with a gentler practice this time: " + _stepWords(key, skill) + ".";
+    } else if(hold){
+      reason = "strong safety has become your norm, and you're anchored right now. " + (stepPhrase(key) ? "this practice " + stepPhrase(key) + ", then holds safety and defense together so you can watch what unfolds."
+                                     : "we'll practice " + _skillWord(skill) + " at its deepest, and hold safety and defense together to watch what unfolds.");
+    } else if(descIntro){
+      reason = "you've done well with balancing and pendulation on their own. this one adds describing the defense out loud, one step deeper, on the skill you're strongest in.";
+    } else if(dys){
+      reason = "your history shows real safety to draw on. we'll anchor first, and only then touch what's underneath, in a small dose.";
+    } else if(sp.hi < 0){
+      reason = "you have safety here, and this is a good place to start meeting defense gently: " + _skillWord(skill) + " what's here. one practice at a time, and you can always go back to an easier one.";
+    } else if(sp.next){
+      reason = stepPhrase(key)
+        ? "you have safety here, and your practice history has earned the next practice. it " + stepPhrase(key) + ". one practice at a time, and you can always go back to an easier one."
+        : "you have safety here, and your practice history has earned the next practice: " + _skillWord(skill) + ". one practice at a time, and you can always go back to an easier one.";
+    } else if(ceiling>=3){
+      reason = "you've got reliable safety and plenty of practice behind you. we'll work with a little defense, then come back to safety.";
+    } else if(L.sessionsDone>=3 && L.favPractice==='self-regulation'){
+      reason = "you have safety, and self-regulation is where you keep going back. let's pick that thread up again.";
+    } else {
+      reason = "there is real safety here right now. if you're willing, this is a chance to gently meet defense, knowing you can come back.";
+    }
+    // silence: the 0.55-appetite 4s default is re-sourced to the deepest tier (ceiling 3).
+    const sil3 = dialDown ? 12 : (ceiling>=3 ? 4 : (L.endsEarlyOften ? 8 : 6));
+    return cfg('self-regulation', skill, sense, sil3, reason, dialDown ? 'same step, smaller dose' : droppedStep ? 'one step easier' : 'room to go deeper',
+               { descDefense: desc, holdWatch: hold, holdWatchTargetSeconds: holdSecs, dialDown, droppedStep,
+                 prefix: part.prefix, depth: part.depth, offerKey: key,
+                 emotionTier: (part.skill === 'obstacles' || part.prefix === 'obstacles') ? null : emoTier });
+
+    function cfg(practiceKey, skill, sense, silence, reason, tag, extras){
+      const pSil = prefSilence();
+      let sil2 = (pSil!=null?pSil:silence);
+      // what has worked for them (2026-09-25): the silence their best practices ran on, unless they set one themselves
+      // or this practice is deliberately gentler than usual. Said plainly in the reason, never as a number or a score.
+      const learnedSil = (pSil==null && L.bestSilence!=null && !(extras && (extras.dialDown || extras.droppedStep)) && L.lastExit!=='exit-distracted') ? L.bestSilence : null;
+      const silLearned = (learnedSil!=null && learnedSil!==sil2);
+      if(silLearned) sil2 = learnedSil;
+      const anchored = (practiceKey==='anchoring' || practiceKey==='self-regulation');
+      if(anchored && AP.why==='winner') reason += " we'll use " + AP.sense + ", the anchor that has worked best for you" + (silLearned ? ", with the amount of silence your best practices had." : ".");
+      else if(anchored && AP.why==='cycle') reason += " we're trying each anchor in turn to find the one that works best for you. this time: " + AP.sense + "." + (silLearned ? " the silence is set to what your best practices had." : "");
+      else if(silLearned) reason += " the silence is set to what your best practices had.";
+      if(L.lastExit==='exit-distracted'){ sil2 = Math.min(sil2, 4); reason += " shorter silences this time, so it's easier to stay with."; }
+      else if(L.lastExit==='exit-hard' && !(extras && (extras.dialDown || extras.droppedStep))){ reason += " last one was a lot, so we're keeping this one easier."; }
+      else if(L.lastExit==='exit-easy'){ reason += " last one felt easy, so we've turned it up a touch."; }
+      return Object.assign({ practiceKey, skill, sense, silence: sil2, reason, tag,
+               adapted: (L.sessionsDone>0), domBefore: last?_dm(last):null, challenge: null,
+               descDefense: false, holdWatch: false, holdWatchTargetSeconds: null,
+               tier: { ceiling, safety: bw.lowData?null:bw.safety, defense: bw.lowData?null:bw.defense,
+                       consistent: !!bw.consistent50, gateOpen: !!gate.open } }, extras || {});
+    }
+  }
+  // plain word for a skill inside advisor copy (lowercase register)
+  const _SKILL_WORD = { 'validate-defense':'validating', 'normalize-defense':'validating & normalizing', imagery:'imagery & invitation', obstacles:'obstacles', balancing:'balancing', pendulating:'pendulation' };
+  function _skillWord(k){ return _SKILL_WORD[k] || k; }
+
+  // (CHALLENGE_LEVELS + challengeLabel moved up beside _PRACTICE_RUNG, 2026-08-22 —
+  // one vocabulary, one source, see the comment there.)
+  // post-practice: stamp how the body felt afterward onto the last session
+  // Stamp fields onto an already-logged session and get them to the cloud. Mirrors
+  // updateCheckin's outbox-aware pattern: if the INSERT is still queued, edit it in place
+  // (the pending INSERT carries the fields); otherwise UPDATE the existing cloud row.
+  // (Previously noteFeedback only mutated locally, so post-practice feedback never synced.)
+  function _stampSession(t, local, row){
+    const i=data.sessions.findIndex(x=>x && x.t===t); if(i<0) return;
+    Object.assign(data.sessions[i], local);
+    const oi=outbox.sessions.findIndex(x=>x && x.t===t);
+    if(oi>=0){ Object.assign(outbox.sessions[oi], local); saveCache(); if(CLOUD) flush(); return; }
+    saveCache();
+    if(CLOUD && auth.user){
+      try{ sb.from('sessions').update(row).eq('user_id', auth.user.id).eq('t', t).then(function(){}, function(){}); }catch(e){}
+    }
+  }
+  // post-practice: how the body landed, stamped onto the last session (feeds the advisor).
+  function noteFeedback(val){ const s=data.sessions[data.sessions.length-1]; if(!s) return;
+    _stampSession(s.t, { feedback:val, afterFeeling:val }, { feedback:val, after_feeling:val }); }
+  // early-exit reason, stamped onto the last session — kept separate from after-feeling.
+  function noteExit(val){ const s=data.sessions[data.sessions.length-1]; if(!s) return;
+    _stampSession(s.t, { feedback:val, exitReason:val }, { feedback:val, exit_reason:val }); }
+
+  // ---- emotions + intensity (recommender v2, Justin 2026-07-06) ---------------
+  // Curated plain-emotion words — never an open list, never free text (keeps the
+  // analytics mirror clean). DELIBERATELY not state-named (Justin: "rage is
+  // frozen fight, but one might choose fight instead") — the chip mirrors what
+  // the person FELT; which state it belongs to stays with their check-ins and
+  // the reader, never inferred here. Intensity (1 mild / 2 moderate / 3 strong)
+  // 'connected' appears only in the post-practice "did anything surface?"
+  // question — regulation made visible. (No intensity rating — Justin 07-06:
+  // the pick stays one tap; "gentler intensity" lives in coaching copy only.)
+  // Clinical rule: emotion SHIFTS (sad in -> angry out) are REPORTED, never
+  // scored — the only thing the math ever scores is more safety.
+  const EMOTION_FAMILIES = [
+    { key:'anxious', label:'anxious', hint:'like nervous, worried, uneasy' },
+    { key:'angry',   label:'angry',   hint:'like annoyed, irritable, all the way up to rage' },
+    { key:'sad',     label:'sad',     hint:'like lonely, hopeless, disconnected' },
+    { key:'fear',    label:'fear',    hint:'like dread, panic, overwhelm' },
+  ];
+  const EMOTION_SURFACED = EMOTION_FAMILIES.concat([
+    { key:'connected', label:'connected', hint:'like calm, present, at ease' },
+  ]);
+  // optional post-practice: which families showed up while they practiced.
+  // MULTI-select (Justin 2026-07-06): a session can surface several — stored as a
+  // comma-joined string of family keys in canonical order (text column; simple to
+  // split anywhere, mirror-safe).
+  function noteSurfaced(val){ const s=data.sessions[data.sessions.length-1]; if(!s) return;
+    const v = Array.isArray(val)
+      ? EMOTION_SURFACED.map(f=>f.key).filter(k=>val.indexOf(k)>=0).join(',') || null
+      : (val || null);
+    _stampSession(s.t, { emotionSurfaced:v }, { emotion_surfaced:v }); }
+
+  // ---- reader bridge + signals (recommender-v2 data -> the reader) ------------
+  // (the exported emotion→state bridge map was removed 2026-08-22 — no callers;
+  // from-justin.js carries its own copy of that grouping for reader copy.)
+  // emotionShift(session): per-session beat for the daily reader. Reports the family
+  // they set out to work with (intent) and the families they named afterward
+  // (surfaced) — both facts THEY gave. diverged = intent set and not among surfaced.
+  // Defaults to the most recent session. Reported, never ordered, never scored.
+  function emotionShift(s){
+    s = s || (data.sessions[data.sessions.length-1] || null);
+    if(!s) return null;
+    const intent = s.emotionIntent ? String(s.emotionIntent).replace(/\|[123]$/, '') : null;   // "word|level" (2026-10-02) reads as the word
+    const surfaced = s.emotionSurfaced ? String(s.emotionSurfaced).split(',').map(x=>x.trim()).filter(Boolean) : [];
+    if(!intent && !surfaced.length) return null;
+    return { intent, surfaced, connected: surfaced.indexOf('connected')>=0,
+             diverged: !!(intent && surfaced.length && surfaced.indexOf(intent)<0),
+             domBefore: s.domBefore || null };
+  }
+  // emotionPatterns(startMs, endMs): aggregate over sessions in a window that NAMED a
+  // feeling. TWO args = explicit window (used by minted period reflections, so a closed
+  // month/quarter/year computes over THAT span and can freeze). <=1 arg = rolling last-N-
+  // days (default 28) for the live weekly/monthly reader. families = share of naming-
+  // sessions each group surfaced in (percentages, never X-of-N). connectedPct = share
+  // where connected surfaced. topFamily
+  // = most-surfaced group (ties broken by EMOTION_SURFACED order, deterministic). When
+  // n>=6, `shift` compares the window's first third vs last third (for the "what surfaces
+  // changed over the span" period beat). Gated at >=4 naming-sessions. Reported, NEVER
+  // scored; more-safety stays the only scored axis.
+  function emotionPatterns(startMs, endMs){
+    let a, b;
+    if(endMs==null){ const days = (typeof startMs==='number' && startMs>0) ? startMs : 28; b = Date.now(); a = b - days*864e5; }
+    else { a = startMs; b = endMs; }
+    const ss = data.sessions
+      .filter(s => s && typeof s.t==='number' && s.t>=a && s.t<b && s.emotionSurfaced)
+      .sort((x,y)=>x.t-y.t);
+    const n = ss.length;
+    if(n < 4) return null;
+    const setsOf = s => String(s.emotionSurfaced).split(',').map(x=>x.trim()).filter(Boolean);
+    const tally = list => { const fam={}; EMOTION_SURFACED.forEach(f=>fam[f.key]=0); let conn=0;
+      list.forEach(s => { const set=setsOf(s); EMOTION_SURFACED.forEach(f=>{ if(set.indexOf(f.key)>=0) fam[f.key]++; }); if(set.indexOf('connected')>=0) conn++; });
+      return { fam, conn }; };
+    const topOf = list => { const t=tally(list).fam; let k=null,m=-1; EMOTION_SURFACED.forEach(f=>{ if(t[f.key]>m){ m=t[f.key]; k=f.key; } }); return m>0?k:null; };
+    const { fam, conn } = tally(ss);
+    const families = {}; Object.keys(fam).forEach(k => { if(fam[k]) families[k] = Math.round(fam[k]/n*100); });
+    const topFamily = topOf(ss);
+    let shift = null;
+    if(n >= 6){
+      const third = Math.max(1, Math.floor(n/3));
+      const first = ss.slice(0, third), last = ss.slice(-third);
+      shift = { firstTop: topOf(first), lastTop: topOf(last),
+                connectedFirstPct: Math.round(tally(first).conn/first.length*100),
+                connectedLastPct: Math.round(tally(last).conn/last.length*100) };
+    }
+    return { n, families, topFamily, connectedPct: Math.round(conn/n*100), shift };
+  }
+  // skillMovement(startMs, endMs): the self-regulation skill practiced at the window's
+  // start vs its end (from 'self-regulation' sessions with a skill inside the window). Powers the
+  // period "3 months ago you were practicing X, now Y" arc. Null until two such practices
+  // exist in the window. `advanced` is available (ladder index) but the copy stays neutral
+  // — forward-then-back is normal (Justin), and the ladder is a sequence, not a score.
+  function skillMovement(startMs, endMs){
+    const ms = data.sessions
+      .filter(s => s && s.practiceKey==='self-regulation' && s.skill && typeof s.t==='number' && s.t>=startMs && s.t<endMs)
+      .sort((a,b)=>a.t-b.t);
+    if(ms.length < 2) return null;
+    const fromKey = sequenceKeyOf(ms[0]), toKey = sequenceKeyOf(ms[ms.length-1]);
+    const from = _skillOfKey(fromKey), to = _skillOfKey(toKey);
+    const SEQ = SKILL_SEQUENCE || [];
+    const fi = SEQ.indexOf(fromKey), ti = SEQ.indexOf(toKey);
+    return { from, to, fromKey, toKey, fromDesc: skillDesc(from), toDesc: skillDesc(to),
+             moved: fromKey!==toKey, advanced: (fi>=0 && ti>=0) ? ti>fi : null, n: ms.length };
+  }
+
+  // 'more' matches practiceLabelFor + _PRACTICE_RUNG ('guided meditation') — before
+  // 2026-08-22 it was missing here, so the first completed meditation would have
+  // rendered the literal key "more" in practice history and the "You return to" line.
+  const PRACTICE_LABEL = { micro:'a tiny practice', mindfulness:'simple mindfulness', anchoring:'safety anchoring', 'self-regulation':'self-regulation', more:'guided meditation' };
+  function practiceLabel(k){ return PRACTICE_LABEL[k]||k; }
+
+  // ---- name ----
+  function getName(){ try{ return localStorage.getItem('snb_name_'+(auth.user?auth.user.id:'anon'))||''; }catch(e){ return ''; } }
+  function setName(n){ try{ localStorage.setItem('snb_name_'+(auth.user?auth.user.id:'anon'), String(n||'').trim()); }catch(e){} }
+
+  // ---- user-chosen practice preferences (auto-fill the customizer; null = let the app decide) ----
+  function prefSense(){ try{ return localStorage.getItem('snb_pref_sense')||null; }catch(e){ return null; } }
+  function setPrefSense(s){ try{ if(s) localStorage.setItem('snb_pref_sense', s); else localStorage.removeItem('snb_pref_sense'); }catch(e){} _syncPrefs(); }
+  function prefSilence(){ try{ const v=localStorage.getItem('snb_pref_silence'); return v?+v:null; }catch(e){ return null; } }
+  function setPrefSilence(n){ try{ if(n!=null&&n!=='') localStorage.setItem('snb_pref_silence', String(n)); else localStorage.removeItem('snb_pref_silence'); }catch(e){} _syncPrefs(); }
+  // the background sound (2026-09-26): { bed: 'creek'|'none', level: 'soft'|'medium'|'louder', at: ms }, or null = never chosen
+  // (the player then plays Nothing, the default). Saved here AND in the cloud row (public.preferences.pref_bed / pref_bed_level,
+  // 2026-09-26 late: Justin "do this now"), so a choice made on one phone is there on the next; `at` is when THIS device chose, so a
+  // cloud row written later by another device wins on the next hydrate (pullPrefs), and never the other way round.
+  function prefBed(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_bed')||'null'); return (v && typeof v.bed==='string') ? v : null; }catch(e){ return null; } }
+  function setPrefBed(bed, level){ try{ if(bed) localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(bed), level:(level||null), at:Date.now() })); else localStorage.removeItem('snb_pref_bed'); }catch(e){} _syncPrefs(); }
+  // the voice (2026-09-29, VOICES): { voice: 'justin'|'poppy'|…, at: ms }, or null = never chosen (Justin's, the default). Synced the
+  // same way as the sound (public.preferences.pref_voice), with the same rule: the later choice wins.
+  function _voiceRaw(){ try{ const v=JSON.parse(localStorage.getItem('snb_pref_voice')||'null'); return (v && typeof v.voice==='string') ? v : null; }catch(e){ return null; } }
+  function prefVoice(){ const v=_voiceRaw(); return v ? v.voice : null; }
+  function setPrefVoice(voice){ try{ if(voice) localStorage.setItem('snb_pref_voice', JSON.stringify({ voice:String(voice), at:Date.now() })); else localStorage.removeItem('snb_pref_voice'); }catch(e){} _syncPrefs(); }
+  // default sense/silence and the background sound also live in the cloud (public.preferences) so they aren't
+  // device-only and can inform analysis. Fire-and-forget upsert of the current values.
+  function _syncPrefs(){ if(!CLOUD || !auth.user) return; try{
+    const b=prefBed();
+    sb.from('preferences').upsert({ user_id:auth.user.id, pref_sense:prefSense(), pref_silence:prefSilence(), pref_bed:(b?b.bed:null), pref_bed_level:(b?(b.level||null):null), pref_voice:prefVoice(), updated_at:new Date().toISOString() }, { onConflict:'user_id' }).then(function(){}, function(){});
+  }catch(e){} }
+  // the cloud's background sound, once per hydrate: taken when this device has never chosen, or when the cloud row was written
+  // after this device's choice (another phone chose later). A device that has chosen but never reached the cloud pushes up instead.
+  async function pullPrefs(){ if(!CLOUD || !auth.user) return; try{
+    const r = await sb.from('preferences').select('pref_bed,pref_bed_level,pref_voice,updated_at').eq('user_id', auth.user.id).maybeSingle();
+    if(r.error || !r.data) { if(prefBed() || _voiceRaw()) _syncPrefs(); return; }
+    const row=r.data, local=prefBed(), lv=_voiceRaw(), cloudAt=row.updated_at ? Date.parse(row.updated_at) : 0;
+    let changed=false, push=false;
+    if(row.pref_bed){
+      if(!local || (cloudAt && (!local.at || cloudAt > local.at))){
+        try{ localStorage.setItem('snb_pref_bed', JSON.stringify({ bed:String(row.pref_bed), level:(row.pref_bed_level||null), at:(cloudAt||Date.now()) })); }catch(e){}
+        changed=true;
+      }
+    } else if(local){ push=true; }
+    if(row.pref_voice){   // 2026-09-29: the voice, by the same rule
+      if(!lv || (cloudAt && (!lv.at || cloudAt > lv.at))){
+        try{ localStorage.setItem('snb_pref_voice', JSON.stringify({ voice:String(row.pref_voice), at:(cloudAt||Date.now()) })); }catch(e){}
+        changed=true;
+      }
+    } else if(lv){ push=true; }
+    if(changed) notify();
+    if(push) _syncPrefs();
+  }catch(e){} }
+
+  async function reset(){
+    if(CLOUD && auth.user){
+      try{ await sb.from('checkins').delete().eq('user_id', auth.user.id); await sb.from('sessions').delete().eq('user_id', auth.user.id); await sb.from('session_timelines').delete().eq('user_id', auth.user.id); await sb.from('contexts').delete().eq('user_id', auth.user.id); }catch(e){}
+    }
+    data = { checkins:[], sessions:[] }; outbox = { checkins:[], sessions:[] }; links = []; saveCache();
+  }
+
+  // ---- contexts (answerable prompt chips, 2026-07-04) ------------------------
+  // The localStorage cache app.js renders from; rows upsert to public.contexts keyed
+  // (user_id, period_key) so the data follows the account and feeds the analytics
+  // mirror. Fire-and-forget, like membership.
+  // PER-USER since 2026-08-22: the old shared 'snb-contexts' blob was the one store
+  // cache not namespaced by user id, and its dash prefix escaped the deleteAccount
+  // purge — on a shared device migrateContexts() could lift one person's answers into
+  // the next person's cloud rows. Now keyed like every other cache (snb_ctx_<uid>).
+  // The legacy shared blob is adopted into the signed-in user's key on first read —
+  // unless the legacy migration flag names a DIFFERENT uid: then it is that person's
+  // data and is left alone (their own deleteAccount purge now removes it).
+  const CTX_LEGACY = 'snb-contexts', CTX_FLAG_LEGACY = 'snb-ctx-migrated';
+  // Adopt the unowned legacy blob only when the device shows no sign of a DIFFERENT
+  // person: any user-scoped store key for another uid (their cache, mints, name…)
+  // means the blob may be theirs — leave it. Guest traces ('anon') never block:
+  // guest-then-sign-up is exactly the path adoption exists for. A previous user who
+  // deleted their account leaves no trace — and no blob either (the purge removes
+  // both prefixes), so that case is clean without this check.
+  function _ctxOtherUserTrace(uid){
+    try{
+      const pres = ['snb_cache_','snb_mint_','snb_name_','snb_ent_checked_','snb_billing_',
+                    'snb_deleted_sessions_','snb_deleted_checkins_','snb_pending_checkin_edits_',
+                    'snb_ctx_migrated_','snb_ctx_','snb_oriented_'];
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i)||'';
+        for(const p of pres){
+          if(k.indexOf(p)===0){ const id=k.slice(p.length); if(id && id!=='anon' && id!==uid) return true; break; }
+        }
+      }
+    }catch(e){}
+    return false;
+  }
+  function _ctxKey(){ return 'snb_ctx_' + (auth.user ? auth.user.id : 'anon'); }
+  function _ctxFlagKey(){ return 'snb_ctx_migrated_' + (auth.user ? auth.user.id : 'anon'); }
+  function _ctxAdoptLegacy(cur){
+    try{
+      const legacy = JSON.parse(localStorage.getItem(CTX_LEGACY) || 'null');
+      if(!legacy || typeof legacy !== 'object') return cur;
+      const owner = localStorage.getItem(CTX_FLAG_LEGACY);          // uid that lifted the legacy blob, if any
+      if(!auth.user) return Object.assign({}, legacy, cur);         // signed out: read-through only, adopt nothing
+      if(owner && owner !== auth.user.id) return cur;               // someone else's data — leave it be
+      if(!owner && _ctxOtherUserTrace(auth.user.id)) return cur;    // unowned blob + another person's traces — leave it
+      Object.keys(legacy).forEach(k => { if(!(k in cur)) cur[k] = legacy[k]; });
+      localStorage.setItem(_ctxKey(), JSON.stringify(cur));
+      if(owner === auth.user.id) localStorage.setItem(_ctxFlagKey(), '1');   // carry the already-migrated marker over
+      localStorage.removeItem(CTX_LEGACY);
+      localStorage.removeItem(CTX_FLAG_LEGACY);
+      return cur;
+    }catch(e){ return cur; }
+  }
+  function _ctxAll(){ try{ return _ctxAdoptLegacy(JSON.parse(localStorage.getItem(_ctxKey()))||{}); }catch(e){ return {}; } }
+  function _ctxWrite(m){ try{ localStorage.setItem(_ctxKey(), JSON.stringify(m)); }catch(e){} }
+  function saveContexts(periodKey, question, labels){
+    labels = (labels||[]).slice();
+    const m=_ctxAll(); m[periodKey]=labels; _ctxWrite(m);
+    if(!CLOUD || !auth.user) return;
+    try{
+      sb.from('contexts').upsert(
+        { user_id:auth.user.id, period_key:periodKey, question:question||null, labels:labels, updated_at:new Date().toISOString() },
+        { onConflict:'user_id,period_key' }
+      ).then(function(){}, function(){});
+    }catch(e){}
+  }
+  // remove one context set entirely (local + cloud row); the analytics mirror follows via trg_unmirror_context
+  function clearContexts(periodKey){
+    const m=_ctxAll(); if(periodKey in m){ delete m[periodKey]; _ctxWrite(m); }
+    if(!CLOUD || !auth.user) return;
+    try{ sb.from('contexts').delete().eq('user_id', auth.user.id).eq('period_key', periodKey).then(function(){}, function(){}); }catch(e){}
+  }
+  async function pullContexts(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      const { data:rows, error } = await sb.from('contexts').select('period_key,labels');
+      if(error || !rows) return;
+      // the account's copy wins (Justin 2026-10-30: "contexts should be saved per account, not just device"): a context set
+      // changed on another device replaces this device's copy; sets only on this device stay (migrateContexts lifts them up)
+      const m=_ctxAll(); let changed=false;
+      rows.forEach(r=>{ if(!r || !r.period_key) return; const v=r.labels||[];
+        if(!(r.period_key in m) || JSON.stringify(m[r.period_key]) !== JSON.stringify(v)){ m[r.period_key]=v; changed=true; } });
+      if(changed){ _ctxWrite(m); notify(); }
+    }catch(e){}
+  }
+  // one-time per user: lift any pre-cloud local answers up (never overwrites cloud rows)
+  function migrateContexts(){
+    if(!CLOUD || !auth.user) return;
+    try{
+      const flag=_ctxFlagKey();
+      if(localStorage.getItem(flag)) return;
+      const m=_ctxAll(), keys=Object.keys(m);
+      if(!keys.length){ localStorage.setItem(flag, '1'); return; }
+      const rows=keys.map(k=>({ user_id:auth.user.id, period_key:k, labels:m[k]||[] }));
+      sb.from('contexts').upsert(rows, { onConflict:'user_id,period_key', ignoreDuplicates:true })
+        .then(function(){ try{ localStorage.setItem(flag, '1'); }catch(e){} }, function(){});
+    }catch(e){}
+  }
+
+  // Stucknaut Collective audio (2026-10-26): a short-lived streaming address from collective-audio, paid members only.
+  // The private show's own audio addresses never reach the phone.
+  async function collectiveAudio(mediaId){
+    const cfg = global.SNB_CONFIG || {};
+    try{
+      if(!sb) return { error:'not signed in', status:401 };
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session) return { error:'not signed in', status:401 };
+      const r = await fetch(cfg.SUPABASE_URL + '/functions/v1/collective-audio', { method:'POST',
+        headers:{ Authorization:'Bearer ' + session.access_token, 'Content-Type':'application/json' }, body: JSON.stringify({ media_id: mediaId }) });
+      let b = {}; try{ b = await r.json(); }catch(e){}
+      if(!r.ok || !b.src) return { error:(b && b.error) || 'something went wrong', status:r.status, upgrade:!!(b && b.upgrade) };
+      return { src:b.src };
+    }catch(e){ return { error:String((e && e.message) || e), status:0 }; }
+  }
+  global.Store = {
+    collectiveAudio,
+    init, signUp, signIn, signInAnonymously, isAnonymous, linkIdentity, signOut, user, cloud, syncStatus,
+    resetPassword, updatePassword, onPasswordRecovery, deleteAccount,
+    addCheckin, updateCheckin, deleteCheckin, checkins, lastCheckin, addSession, sessions, deleteSession, today, dayArc, seedDemo,
+    periodStats, baselineDelta, firstCheckinT,
+    mints, hasMint, saveMint,
+    learned, trend, transitions, tenure, _stageFor, weekMix, recovery, practiceEffect, practiceInsights, momentDeltas, baselineWeek, momentGate, skillCeiling, consistentAt, recommend, practiceLabel, reset, getName, setName,
+    challengeLabel, noteFeedback, noteExit, noteSurfaced, CHALLENGE_LEVELS,
+    newSessionId, markPracticeBefore, practiceRefOf, rungForPractice,
+    skillProgress, safetyProgress, levelProgress, stepResults, skillStory, skillMovement, skillDesc, stepPhrase, skillOutcomes, loadSequence, sequenceKeyOf, sequenceParts,
+    skillSequence: () => (SKILL_SEQUENCE ? SKILL_SEQUENCE.slice() : null), sequenceReady: () => _sequenceReady, EMOTION_FAMILIES, EMOTION_SURFACED,
+    emotionShift, emotionPatterns,
+    prefSense, setPrefSense, prefSilence, setPrefSilence, prefBed, setPrefBed, prefVoice, setPrefVoice, pullPrefs,
+    saveContexts, clearContexts,
+    isPaid, hydrated, entitlement, academyStage, billing, startCheckout, startGuestCheckout, openPortal, refreshBilling: fetchBilling,
+    inStoreApp, storePrices, restorePurchases, healthStatus, healthRequest, healthLogMindful,
+    trackEvent, flushEvents, src, SRC_ALLOW, practiceGrade, whatWorked, anchorPick, isBestOutcome,
+    liveFetch, livePoll,
+  };
+})(window);
