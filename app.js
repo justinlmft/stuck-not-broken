@@ -6347,7 +6347,20 @@ function app(tab){
   const _LB_IMG = new Set(['polyvagal-safety','e1881810-4851-4ec0-b566-3ccc55eca7ce','53d0c75b-a102-427f-98e9-228d7336100c',
     'play-state','impulses','snb272-hit-it-back','snb249-identify-your-autonomic-state','snb173-happiness-and-safety',
     'nervous-system-meditation','flight-fight-state','5bead355-7ba9-4465-8199-176c3e80d30e','704ec984-ba46-458c-bc34-bb55747416ec',
-    'functional-freeze','619cd9d7-f384-42dd-b867-d54ed3099e28','dorsal-vagal-shutdown','1711ecce-4752-4dc5-ba04-537f01f8700f']);
+    'functional-freeze','619cd9d7-f384-42dd-b867-d54ed3099e28','dorsal-vagal-shutdown','1711ecce-4752-4dc5-ba04-537f01f8700f',
+    // img3 (2026-10-31): the next 47
+    'safety-state', 'vagal-brake', 'safety-cues-and-anchors', 'recognize-polyvagal-safety',
+    'capacity-for-safety', 'safety-vs-coping', 'snb164-polyvagal-safety-and-how-to-build-it', 'snb132-intimacy-after-childhood-sexual-abuse',
+    'identify-your-polyvagal-state', 'play-1-page-lesson', 'play-for-adults', 'reconnect-after-trauma',
+    'stillness-and-intimacy', 'mindfulness-and-meditation', 'snb245-states-and-productivity', 'snb240-macys-dance',
+    'snb239-frustration-coming-out-of-shutdown', 'spouse-is-stuck-in-shutdown', 'anchor-movement-body-breath', 'snb279-five-self-help-habits',
+    'snb271-shutdown-and-fight-cycle', 'snb265-shame-anger-pendulation', 'snb264-safety-first-trauma-exercises', 'impulses-vs-behavioral-adaptations',
+    'fawn-response', 'freeze-vs-shutdown', 'uncontrollable-shaking-when-crying', 'freeze-state',
+    'what-is-trauma', 'depression-polyvagal-theory', 'shutdown-state', 'f81b9ba3-43b7-4911-86cb-4e2805d5ca0d',
+    'b16e92c8-05bf-46f4-bab5-b9ab0906b916', 'f37c17c8-0c9d-42d9-aa57-586ee8f1e047', '40d61dcf-46ca-4dfb-8823-b79c14ba72d8', 'abe96607-0f0d-45a1-806b-c9c6f4c22fd8',
+    '65817022-163d-41f1-adb9-a4744c683b91', '70edb11a-6f2f-4974-a540-961b9dab4fbe', '6e220cde-0cd2-4073-a6e6-533697649162', '6616a3ee-c041-48fe-a90e-3ef5b9bc052e',
+    'd42a7d55-e0fd-4e1b-a73d-2ebf81d03d77', '6e188082-b736-4796-8a8c-1b3b312a9453', '84f1625e-0d7e-4a38-9ca1-8b1751dbdac2', '045bc24a-34fe-4fc7-9375-44330073d9cf',
+    '16326ebe-70f9-4a81-8895-3a5ef8d9f99e', '14032db0-023c-4fbc-ad69-6e0e6e4301d5', 'bb5e54cd-140a-4b9e-b0fb-4c9381e70751']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
