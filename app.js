@@ -6339,8 +6339,15 @@ function app(tab){
   function _lbPic(e, isArt, k){
     const st = (isArt ? e.state : _lmState(e)) || k || 'safety';
     const yt = isArt ? null : (e.s === 'v' || e.s === 's') ? e.i : (e.s === 'p' && e.y) ? e.y : null;
-    return `<span class="lb-pic" aria-hidden="true">${_rdMk(st)}${yt ? `<img src="https://i.ytimg.com/vi/${encodeURIComponent(yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
+    const ph = !yt && _LB_IMG.has(isArt ? e.id : e.i) ? (isArt ? e.id : e.i) : null;   // img1: our own photo when there is no video frame
+    return `<span class="lb-pic" aria-hidden="true">${_rdMk(st)}${yt ? `<img src="https://i.ytimg.com/vi/${encodeURIComponent(yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}${ph ? `<img src="img/learn/${ph}-640.jpg" srcset="img/learn/${ph}-640.jpg 640w, img/learn/${ph}-1280.jpg 1280w" sizes="(min-width:1120px) 640px, 100vw" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
   }
+  /* Learn photos (img1, Justin 2026-10-31): the brand's picture style for people and moments (BRAND_IMAGERY_STYLE.md, "real
+     moments"). One photo per piece, keyed by article id or media id; files in img/learn/. The set grows in batches. */
+  const _LB_IMG = new Set(['polyvagal-safety','e1881810-4851-4ec0-b566-3ccc55eca7ce','53d0c75b-a102-427f-98e9-228d7336100c',
+    'play-state','impulses','snb272-hit-it-back','snb249-identify-your-autonomic-state','snb173-happiness-and-safety',
+    'nervous-system-meditation','flight-fight-state','5bead355-7ba9-4465-8199-176c3e80d30e','704ec984-ba46-458c-bc34-bb55747416ec',
+    'functional-freeze','619cd9d7-f384-42dd-b867-d54ed3099e28','dorsal-vagal-shutdown','1711ecce-4752-4dc5-ba04-537f01f8700f']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
