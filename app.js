@@ -81,24 +81,27 @@
       return true;
     }catch(e){ return false; }
   }
+  // The five sounds Justin chose in the sound audition (sounds1d, 2026-11-01). All paper, felt and wood; no notes.
   let _sndNoise = null;
-  function _sndPaper(ctx, t, vol, dur, f0, f1){   // paper: a short flick of soft noise swept through a band-pass, no note
-    if(!_sndNoise || _sndNoise.sampleRate !== ctx.sampleRate){   // one fixed noise sample, so the same action sounds the same
-      const n = Math.floor(ctx.sampleRate * 0.5); _sndNoise = ctx.createBuffer(1, n, ctx.sampleRate); const d = _sndNoise.getChannelData(0);
+  function _sndN(ctx, t, o){   // filtered noise with an attack and a fall; the filter may sweep from f to f2
+    if(!_sndNoise || _sndNoise.sampleRate !== ctx.sampleRate){   // one fixed noise sample, so an action sounds the same every time
+      const n = Math.floor(ctx.sampleRate * 1.2); _sndNoise = ctx.createBuffer(1, n, ctx.sampleRate); const d = _sndNoise.getChannelData(0);
       let s = 7; for(let i = 0; i < n; i++){ s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
     }
-    const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
-    src.buffer = _sndNoise; bp.type = 'bandpass'; bp.Q.value = 1.2;
-    bp.frequency.setValueAtTime(f0, t); bp.frequency.exponentialRampToValueAtTime(f1, t + dur);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.006, dur / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(bp); bp.connect(g); g.connect(ctx.destination); src.start(t, 0); src.stop(t + dur + 0.02);
+    const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = _sndNoise; fl.type = o.type || 'bandpass'; fl.Q.value = o.Q == null ? 1 : o.Q;
+    fl.frequency.setValueAtTime(o.f, t); if(o.f2) fl.frequency.exponentialRampToValueAtTime(o.f2, t + o.dur);
+    const at = o.attack || 0.002;
+    g.gain.setValueAtTime(0.0001, t);
+    if(o.swell) g.gain.linearRampToValueAtTime(o.vol, t + at); else g.gain.exponentialRampToValueAtTime(o.vol, t + at);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+    src.connect(fl); fl.connect(g); g.connect(ctx.destination); src.start(t, (o.off || 0) % 1); src.stop(t + o.dur + 0.05);
   }
-  function _sndPop(ctx, t, f, vol, dur){   // a small round pop: one sine that bends quickly upward and is gone
-    const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
-    o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.9, t + dur * 0.55);
-    lp.type = 'lowpass'; lp.frequency.value = 2400;
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(lp); lp.connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+  function _sndThud(ctx, t, o){   // a low body thud: a short low sine falling in pitch (a stack of paper on a desk)
+    const os = ctx.createOscillator(), g = ctx.createGain();
+    os.type = 'sine'; os.frequency.setValueAtTime(o.f, t); os.frequency.exponentialRampToValueAtTime(o.f2, t + o.dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+    os.connect(g); g.connect(ctx.destination); os.start(t); os.stop(t + o.dur + 0.05);
   }
   function sound(kind){
     if(!_sndOk(kind)) return;
@@ -108,11 +111,12 @@
       const ctx = _sndCtx; if(ctx.state === 'suspended') ctx.resume();
       clearTimeout(_sndSleepT); _sndSleepT = setTimeout(() => { try{ if(_sndCtx && _sndCtx.state === 'running') _sndCtx.suspend(); }catch(e){} }, 2000);
       const t = ctx.currentTime + 0.01;
-      if(kind === 'tap') _sndPaper(ctx, t, 0.10, 0.03, 3200, 1800);                                   // a paper tap
-      else if(kind === 'save'){ _sndPaper(ctx, t, 0.06, 0.02, 3600, 2400); _sndPop(ctx, t + 0.004, 540, 0.11, 0.085); }   // kept: a brighter pop
-      else if(kind === 'done'){ _sndPop(ctx, t, 400, 0.12, 0.11); _sndPaper(ctx, t + 0.07, 0.05, 0.12, 1200, 2600); }   // finished: a rounder pop, paper settling
-      else if(kind === 'complete'){ _sndPop(ctx, t, 300, 0.11, 0.16); _sndPaper(ctx, t + 0.09, 0.045, 0.28, 900, 2400); }   // a practice finished
-      else _sndPop(ctx, t, 460, 0.09, 0.07);                                                            // a pick: a small pop
+      const N = (d, o) => _sndN(ctx, t + d, o), H = (d, o) => _sndThud(ctx, t + d, o);
+      if(kind === 'tap'){ N(0, {f:450, Q:4, dur:0.045, vol:0.22}); N(0, {f:1300, Q:4, dur:0.025, vol:0.06, off:0.3}); }   // T5 soft knock
+      else if(kind === 'save'){ N(0, {f:4000, Q:2, dur:0.008, vol:0.12}); N(0.02, {f:3000, f2:4500, Q:1.5, dur:0.06, vol:0.05, attack:0.01, swell:1, off:0.6}); }   // S5 pencil check
+      else if(kind === 'done'){ N(0, {type:'highpass', f:2000, Q:0.7, dur:0.08, vol:0.05, attack:0.04, swell:1}); N(0.08, {type:'lowpass', f:700, dur:0.04, vol:0.14, off:0.9}); H(0.08, {f:140, f2:80, dur:0.04, vol:0.07}); }   // D5 envelope sealed
+      else if(kind === 'complete'){ [0, 0.07, 0.14].forEach((d, i) => { N(d, {type:'lowpass', f:1000, Q:0.7, dur:0.03, vol:0.16 - i * 0.04, off:i * 0.25}); H(d, {f:130, f2:80, dur:0.03, vol:0.07 - i * 0.02}); }); }   // C3 stack settled
+      else { N(0, {type:'highpass', f:1200, Q:0.7, dur:0.009, vol:0.22}); N(0.002, {f:2500, Q:1, dur:0.02, vol:0.05, off:0.2}); }   // K1 bubble-wrap pop (a pick)
     }catch(e){}
   }
   window.__snbSound = sound;
