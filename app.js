@@ -6373,7 +6373,20 @@ function app(tab){
     'snb276-rethinking-diagnosis', 'snb273-still-affects-you', 'snb251-validate-and-normalize-yourself', 'snb248-loved-one-in-shutdown',
     '2eccf9b7-023d-49b9-b2f2-b83060a0b76c', '304947be-cbd6-4de0-90f1-db27215aea45', 'never-done-building-safety', 'recovery-after-practice',
     'cue-to-anchor', 'snb281-emdr-beyond-eye-movements', 'snb278-capacity-before-the-past', '4801326b-7ad6-4692-8250-bce18a04c526',
-    '81edac31-0b62-4eab-b6f0-16f8e9aa4aa3', '84a45876-f962-476f-a6bb-8c3dbc1faf1e', '97521ddb-b8c3-4eb7-a728-ab4c1fd22aeb']);
+    '81edac31-0b62-4eab-b6f0-16f8e9aa4aa3', '84a45876-f962-476f-a6bb-8c3dbc1faf1e', '97521ddb-b8c3-4eb7-a728-ab4c1fd22aeb',
+    // img5
+    'snb275-steadying-the-waters', '4bd0096d-4e20-4420-a393-e415a5c03348', 'meditation-tips-for-busy-people', 'snb208-coming-out-of-shutdown',
+    '575a67d2-2a8b-4d82-90b5-99c298adf366', 'snb237-validating-maria', 'ccc89e22-8498-4322-b840-63750e99446e', 'snb244-words-for-shutdown',
+    'a6ccd8f0-17c1-4063-884d-3ad71dff654d', 'snb270-ai-therapists', '49403686-85a6-4eea-94d5-7fe92068eab7', 'silence-essential-mindfulness',
+    'snb199-banging-on-the-window-neuroception', '8f5afa9e-7fbd-4feb-8376-9213ef8b4b70', 'snb224-freeze-cognitions-and-release', '103ca792-607c-47bc-91f1-553eafea9748',
+    'snb238-shutdown-support-survey', 'b44ef550-4dbe-4f89-9118-1a32ee797957', 'snb268-pendulation-naturally', '01b40d03-9c3f-4db9-9843-d6f787e8fd2b',
+    'stillness-1-page-lesson', 'snb190-emotional-impacts-of-trauma', '914ba6ee-3bba-4355-8aca-01ef48cdcb31', 'snb222-stage-fright',
+    'snb229-shutdown-in-daily-life', 'e35bbee4-6cf3-4a07-b6a0-f3b3bc7f64cc', 'snb267-drained-after-therapy', '07014ed4-9e07-4dcf-a29c-06f171db0724',
+    'stress-and-insomnia', 'snb189-easy-anxiety-management-skills', 'b8f9845f-10b5-44b3-be91-8f561a24c004', 'snb216-binge-eating-behavioral-adaptation',
+    'snb227-how-long-shutdown-lasts', '345e74c5-e0f4-4869-a906-73e902ef132a', 'snb266-emotions-and-body-state', '079cdadc-aed1-463d-a409-a10eaee33843',
+    'snb183-managing-anxiety-daily', '05d3e9b7-0153-4889-9fa8-f7368de4d744', 'snb204-fawn-appeasement-mixed-states-or-adaptations', 'snb226-real-shutdown-experiences',
+    '2349a3c4-cadb-4775-8481-b1cbb204e7b1', 'snb263-let-your-body-breathe', 'a55f97e1-cdd9-4a54-a0ec-4da46b7ce4a6', 'snb178-desperate-decision',
+    'f9c6c1f6-0875-428f-ba52-0861835aaf31', 'snb192-panic-coping-vs-safety-grounding', 'snb220-sadness-and-self-compassion']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
