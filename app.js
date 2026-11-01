@@ -3708,7 +3708,7 @@ function app(tab){
       const btns = sh.el.querySelector('.lw-sh-btns');
       if(!btns) return sh.close();
       btns.innerHTML = `<p class="lw-p">${escapeHtml(pushNote + (on.has('email') ? ' The email reminder is on.' : ''))}</p><button class="btn block" type="button" id="lw-rem-done">Done</button>`;
-      btns.querySelector('#lw-rem-done').onclick = () => sh.close();
+      btns.querySelector('#lw-rem-done').onclick = () => { try{ haptic('done'); }catch(e){} sh.close(); };
     };
     const off = sh.el.querySelector('#lw-rem-off');
     if(off) off.onclick = async () => {
@@ -4453,7 +4453,7 @@ function app(tab){
     const c = sh.el.querySelector('#lw-dev-cam'), m = sh.el.querySelector('#lw-dev-mic');
     c.onchange = () => { try{ R.co.setInputDevicesAsync({ videoDeviceId:c.value }); }catch(e){ showToast('That camera did not start.'); } };
     m.onchange = () => { try{ R.co.setInputDevicesAsync({ audioDeviceId:m.value }); }catch(e){ showToast('That microphone did not start.'); } };
-    sh.el.querySelector('#lw-dev-done').onclick = sh.close;
+    sh.el.querySelector('#lw-dev-done').onclick = () => { try{ haptic('done'); }catch(e){} sh.close(); };
   }
   // Justin's presence: a beat every 30 s while he is in the room, so the Calendar can say "Live now"
   function _lwBeatStart(R){
@@ -7021,7 +7021,7 @@ function app(tab){
       foot.querySelectorAll('[data-mod-show]').forEach(b=>b.onclick=()=>{ const m = box.querySelector(`[data-mod="${b.dataset.modShow}"]`); if(m){ m.hidden = false; box.appendChild(m); save(); paintAdd(); } }); };
     const setArr = on => { document.body.classList.toggle('lm-arr', on); bar.hidden = !on; foot.hidden = !on; if(on) paintAdd(); };
     setArr(false);
-    bar.querySelector('.lm-arr-done').onclick = () => { setArr(false); save(); };
+    bar.querySelector('.lm-arr-done').onclick = () => { try{ haptic('done'); }catch(e){} setArr(false); save(); };
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     const flip = (els, fn) => { const r0 = new Map(els.map(el=>{ const r = el.getBoundingClientRect(); return [el, [r.left, r.top]]; })); fn();
       if(reduce) return; els.forEach(el=>{ const r = el.getBoundingClientRect(), p = r0.get(el), dx = p[0] - r.left, dy = p[1] - r.top; if((dx || dy) && el.animate) el.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:'none' }], { duration:220, easing:'cubic-bezier(.2,.6,.2,1)' }); }); };
@@ -9619,7 +9619,7 @@ function app(tab){
       </div>`);
     const sh=$('#lv-share'); if(sh) sh.onclick=()=>openShare(
       s.type==='capacity-builder' ? 'I practiced capacity building today.' : 'I practiced mindfulness today.');   // 🖊 CB variant
-    $('#lv-done').onclick = ()=>{ _liveClear(); app('now'); showToast('saved with your check-ins'); };
+    $('#lv-done').onclick = ()=>{ try{ haptic('done'); }catch(e){} _liveClear(); app('now'); showToast('saved with your check-ins'); };
   }
   // "live now" card on the Now screen (option B, Justin 2026-10-21): replaces the
   // pop-up. Shown to everyone while a practice is live; the tag says who it is for.
@@ -11683,7 +11683,7 @@ function app(tab){
     const onKey=(e)=>{ if(e.key==='Escape') close(); };
     document.addEventListener('keydown',onKey);
     wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
-    wrap.querySelector('.p7-sheet-done').onclick=close;
+    wrap.querySelector('.p7-sheet-done').onclick=()=>{ try{ haptic('done'); }catch(e){} close(); };
   }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
@@ -11775,7 +11775,7 @@ function app(tab){
     const onKey=(e)=>{ if(e.key==='Escape') close(); };
     document.addEventListener('keydown',onKey);
     wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
-    wrap.querySelector('.p7-sheet-done').onclick=close;
+    wrap.querySelector('.p7-sheet-done').onclick=()=>{ try{ haptic('done'); }catch(e){} close(); };
   }
   const P_MEDS=[
     {id:'uye',                 title:'Use your ears',       est:'~10 min', sub:'Grounding through sound'},
@@ -13198,7 +13198,7 @@ function app(tab){
         const rm = e.target.closest('[data-rm]'); if(rm){ L.splice(+rm.dataset.rm, 1); msg = ''; save(); return keep(paint); }
         const rw = e.target.closest('[data-rmw]'); if(rw){ const w = rw.dataset.rmw.toLowerCase(), j = L.findIndex(x => x.w.toLowerCase() === w); if(j >= 0) L.splice(j, 1); msg = ''; save(); return keep(paint); }
         const ad = e.target.closest('[data-add]'); if(ad && L.length < UP_EMO_MAX){ L.push({ w:ad.dataset.add, t:+ad.dataset.t }); msg = ''; save(); return keep(paint); }
-        if(e.target.closest('#em-done')) return done();
+        if(e.target.closest('#em-done')){ try{ haptic('done'); }catch(err){} return done(); }
       };
       const f = view.querySelector('#em-own');
       if(f) f.onsubmit = ev => { ev.preventDefault(); const inp = view.querySelector('#em-own-in'); let w = (inp && inp.value || '').replace(/\s+/g, ' ').replace(/[|]/g, '').trim();
