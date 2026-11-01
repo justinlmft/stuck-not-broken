@@ -6481,7 +6481,18 @@ function app(tab){
     'starting-and-stopping', 'holding-and-watching', 'snb165-self-regulating-through-triggering-events', 'polyvagal-resistance',
     'making-change', 'build-a-new-narrative', '8457db72-b0e8-4225-ac25-0ea6e56443ae', 'snb198-friendship-boundaries-rings-of-friendship',
     'validating-and-normalizing', 'snb274-sockless-mindfulness', 'snb152-its-just-you-4-you-are-enough', 'snb149-its-just-you-1-no-ego-no-shadow-no-parts',
-    '3-signs-it-s-time-to-stop-trauma-work', 'second-nature-and-alignment', 'snb185-emotional-normalization', 'regulation']);
+    '3-signs-it-s-time-to-stop-trauma-work', 'second-nature-and-alignment', 'snb185-emotional-normalization', 'regulation',
+    // img-mj-20261101-0857
+    'snb182-affirmations-and-story-follows-state', 'eef21c62-9adf-4594-b89e-61b9be969fa0', 'snb176-safety-versus-coping', 'bd1a8a39-6978-4f96-b3b0-82901a8fca1e',
+    'snb161-pendulation-grief-imagination', 'snb158-current-therapist-not-as-good', 'snb154-ssiec-state-sensation-impulse-emotion-cognition', 'snb150-its-just-you-2-supportive-responses',
+    'snb148-active-passive-cues-and-context', 'snb147-safety-cues-and-swiss-design', 'snb144-compromised-vagal-brake', 'snb137-doubt-is-normal-in-change',
+    'snb134-why-therapy-ignored-the-body', 'snb127-defensive-state-or-autism', 'allow-emotional-regulation', 'breathwork-for-self-regulation',
+    'feel-your-feelings-2', 'what-to-do-after-learning-the-polyvagal-theory', 'what-you-re-getting-wrong-in-trauma-recovery', 'why-traumatized-people-have-difficulty-with-safety',
+    'treat-yourself-like-a-new-friend-ep74', 'trauma-recovery-trust', 'don-t-wait-for-this-before-self-regulating', 'onestepbetterparenting',
+    'be-patient-getting-untuck-takes-time', 'therapy-retraumatization', 'ssiec', 'validation',
+    'pets-co-regulation', 'imagery-and-invitation', 'spidey-sense', 'trauma-recovery-the-normal-non-linear-process-of-change',
+    'the-mind-body-connection-and-trauma', '5-things-humans-do-to-keep-each-other-stuck', 'feel-your-feelings', 'stages-of-trauma-healing',
+    'description', 'learning-is-just-the-first-step-ep72-1-notes', 'things-can-literally-get-better', 'how-to-reduce-your-shame-blame-judgment']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
