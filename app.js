@@ -6399,7 +6399,17 @@ function app(tab){
     'snb162-possible-to-come-out-of-shutdown', 'snb170-resistance-to-ladder-climbing', '259593fc-f73f-4316-9765-f18d8d86b4d6', 'snb234-safety-when-always-in-defense',
     'd71ab332-15e6-40cd-b2fb-8bed9d0948a2', 'snb136-high-stress-jobs-vagal-brake', 'db62f9db-c97e-4848-9127-7ceef5fc06f6', 'snb156-trauma-and-polyvagal-theory',
     'snb160-gently-allowing-emotion-and-sensation', 'e5d9ff99-5ec7-4bd0-96dd-c47790f3ffb4', 'snb231-can-anyone-self-regulate', 'dc5df942-b441-43e5-8a2b-c7c64860c790',
-    'snb130-parenting-without-models', '7a6b8aef-cd28-4ada-bd7c-0e3244d5c62c', '3-tips-to-reduce-fear-of-your-trauma']);
+    'snb130-parenting-without-models', '7a6b8aef-cd28-4ada-bd7c-0e3244d5c62c', '3-tips-to-reduce-fear-of-your-trauma',
+    // img-auto-20261101-0100
+    'snb228-safety-as-connection', 'faf585e8-a993-47fe-a4d5-a01664efc1d4', 'snb126-co-regulate-with-someone-who-hurt-you', '914b2000-c32f-424a-a117-635490254458',
+    'camouflage', 'snb155-fawning-and-distress-tolerance', 'ed607c38-ce99-4f18-9928-16936f87ed11', 'snb223-slowly-stop-negative-coping',
+    '8991c176-726e-4503-9bb1-5496638cf4e2', '5-practical-tips-for-managing-anxiety-in-your-daily-life', '58d31e15-47e4-4a2e-8372-e7f6eed00d77', 'freeze-1-page-lesson',
+    'snb140-tried-everything-still-numb', '2035d8f3-46b8-4e8a-a036-f664b6110394', 'snb221-safety-cues-and-loved-ones', '60367396-5817-43f2-843d-93a326cd43a3',
+    'adhd-and-polyvagaltheory', '45ac4314-f828-49a9-a3fb-95ca4c1d5f4d', 'freeze-state-recovery-story', '5-things-humans-do-to-stay-stuck',
+    'dc2c2a8c-edbe-4a03-86a2-b2e4751db8c3', 'snb219-safety-when-you-struggle-to-feel-it', '6af9c263-1b64-4e54-b0db-0483b7171f8d', 'anger-irritation-symptoms-of-the-fight-state',
+    '8cd286f9-b269-49f2-976b-7ef76eac781c', 'freezeenergytimeline', 'appeasement-polyvagal-theory', 'a935d7ec-2038-45a1-abf1-930539590579',
+    'snb217-growth-mindset', '10eb4c92-0e84-4290-b30a-a9d2cb72fbe1', 'anger', '1f6770cc-779b-4bb7-8672-8f1de5b2071c',
+    'i-m-shocked-this-polyvagal-concept-is-still-mistaught', 'expressing-love-to-a-child-in-shut-down', 'snb216-crying-in-trauma-recovery', '893b9047-0307-4159-a98c-c9fb4f291cc3']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
