@@ -47,7 +47,11 @@ const SNB_ENV = snbPickEnv(location.hostname);
    Bounce it to the gated domain. This is a client-side guard, so treat it as a
    speed bump, not a security boundary — it is acceptable only because staging holds
    no real user data and has no Stripe. Never rely on this to protect anything real. */
-if (/\.pages\.dev$/i.test(location.hostname)) {
+/* Not inside the iPhone store app (2026-11-01): its TestFlight builds load snb-beta.pages.dev on purpose, because the
+   Access sign-in on beta.stucknotbroken.com bounced the app out to Safari. Capacitor injects window.Capacitor before
+   any page script runs, so a browser still gets bounced exactly as before. */
+if (/\.pages\.dev$/i.test(location.hostname) &&
+    !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) {
   location.replace('https://beta.stucknotbroken.com' + location.pathname + location.search + location.hash);
 }
 
