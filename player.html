@@ -460,6 +460,7 @@ body.embed .btn.primary{font-size:calc(16px * var(--type-scale));padding:16px 30
 body.embed .welcome{font-size:calc(15px * var(--type-scale))}
 body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 </style>
+<script>/* the practice is listened to: own the audio while it plays (sounds1a) */try{if(navigator.audioSession&&'type' in navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}</script>
 <script>/* sync embed detection — set class on <html> before first paint */(function(){var q=new URLSearchParams(location.search);if(q.get('embed')==='1')document.documentElement.classList.add('embed');if(q.get('autostart')==='1')document.documentElement.classList.add('autostart');
 /* text-size setting follows the user into the player (same-origin localStorage) */
 try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-user',String(ts));}catch(e){}

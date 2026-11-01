@@ -33,11 +33,46 @@
   // Audio, no files. Every note comes from one major pentatonic scale, so nothing clashes, and taps and saves land on a
   // slightly different note each time. Rides on haptic(kind). Quiet during a practice (except the chime once it has
   // finished), a breath, the live room and a background-sound preview. On by default; Settings > Sounds writes '0'.
-  let _sndCtx = null;
+  // How the app shares the phone's audio (sounds1a, Justin 2026-11-01: "Music stops when I simply go to the app").
+  // iOS 17+ lets a page say what kind of audio it makes. "ambient" mixes with the member's music and follows the silent
+  // switch, like any app's interface sounds; "playback" is for audio someone is listening to. We stay ambient, and
+  // switch to playback only while a practice, the live room or one of our own audio files is playing.
+  const _asOk = (function(){ try{ return !!(navigator.audioSession && 'type' in navigator.audioSession); }catch(e){ return false; } })();
+  const _asLive = new Set();
+  function _asType(t){ try{ if(_asOk && navigator.audioSession.type !== t) navigator.audioSession.type = t; }catch(e){} }
+  function _asIdle(){
+    const c = document.body && document.body.classList;
+    if(c && (c.contains('in-practice') || c.contains('lw-in-room'))) return;
+    if(_asLive.size) return;
+    _asType('ambient');
+  }
+  if(_asOk){
+    _asType('ambient');
+    try{
+      const P = HTMLMediaElement.prototype, _play = P.play;
+      P.play = function(){
+        try{
+          const src = String(this.currentSrc || this.src || '');
+          if(this.srcObject || (src && src.indexOf('data:') !== 0)){   // the silent autoplay unlock stays ambient
+            _asType('playback'); _asLive.add(this);
+            if(!this.__snbAs){ this.__snbAs = 1; const off = () => { _asLive.delete(this); setTimeout(_asIdle, 400); };
+              this.addEventListener('pause', off); this.addEventListener('ended', off); this.addEventListener('emptied', off); }
+          }
+        }catch(e){}
+        return _play.apply(this, arguments);
+      };
+    }catch(e){}
+    const _asWatch = () => { try{ new MutationObserver(() => { const c = document.body.classList;
+      if(c.contains('in-practice') || c.contains('lw-in-room')) _asType('playback'); else _asIdle(); })
+      .observe(document.body, { attributes:true, attributeFilter:['class'] }); }catch(e){} };
+    if(document.body) _asWatch(); else document.addEventListener('DOMContentLoaded', _asWatch);
+  }
+  let _sndCtx = null, _sndSleepT = null;
   const _SND_SCALE = [523.25, 587.33, 659.25, 783.99, 880.00];   // C5 D5 E5 G5 A5
   function _sndOk(kind){
     try{
       if(localStorage.getItem('snb_sounds') === '0') return false;
+      if(!_asOk && _hapIsIOS()) return false;   // older iOS would stop the member's music (sounds1a)
       if(kind === 'begin' || kind === 'bed') return false;
       const c = document.body && document.body.classList;
       if(c && (c.contains('breathing') || c.contains('lw-in-room'))) return false;
@@ -67,6 +102,7 @@
       const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
       if(!_sndCtx) _sndCtx = new AC();
       const ctx = _sndCtx; if(ctx.state === 'suspended') ctx.resume();
+      clearTimeout(_sndSleepT); _sndSleepT = setTimeout(() => { try{ if(_sndCtx && _sndCtx.state === 'running') _sndCtx.suspend(); }catch(e){} }, 2000);
       const t = ctx.currentTime + 0.01, S = _SND_SCALE;
       if(kind === 'tap') _sndTick(ctx, t, 0.05);
       else if(kind === 'save'){ const i = Math.floor(Math.random() * 3); _sndNote(ctx, S[i], t, 0.35, 0.06, 0.25); _sndNote(ctx, S[i + 2], t + 0.075, 0.5, 0.055, 0.25); }
