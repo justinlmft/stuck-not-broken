@@ -141,7 +141,11 @@
   // (haptics1, Justin 2026-11-02: "Haptics are not working yet"; SNBNativePlugin.haptic, from the next TestFlight build).
   const _hapNative = () => { try{ const C = window.Capacitor, N = C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SNBNative;
     return N && C.isPluginAvailable && C.isPluginAvailable('SNBNative') && typeof N.haptic === 'function' ? N : null; }catch(e){ return null; } };
+  // one action, one sound: a second call for the same kind inside 90 ms is the same tap heard twice (sounds3, Justin
+  // 2026-11-02: picking Poppy vs Justin sounded subtly different, it was two overlapping pops)
+  let _hapLast = { k:'', t:0 };
   function haptic(kind){
+    try{ const n = Date.now(); if(_hapLast.k === kind && n - _hapLast.t < 90) return; _hapLast = { k:kind, t:n }; }catch(e){}
     try{ sound(kind); }catch(e){}
     try{
       if(localStorage.getItem('snb_haptics') === '0') return;       // on by default; '0' mutes
@@ -158,6 +162,9 @@
   // the tab bar gets the soft knock too (sounds2, Justin 2026-11-02: "Tabs and un-RSVP"). One listener for every screen's
   // tab bar, since each screen wires its own buttons.
   document.addEventListener('click', e => { try{ if(e.target && e.target.closest && e.target.closest('#tabs button[data-t]')) haptic('tap'); }catch(err){} }, true);
+  // every switch in the app, on or off, gets the pencil check (sounds3, Justin 2026-11-02: "make sure all toggles get a sound").
+  // Heard as the click bubbles up, after the switch's own handler, so the Sounds and Haptics switches use their new setting.
+  document.addEventListener('click', e => { try{ const b = e.target && e.target.closest && e.target.closest('[role="switch"], .set-sw'); if(b && !b.disabled) haptic('save'); }catch(err){} });
   const MARK = './assets/logo/snb-mark-ink.svg';
 
   /* ── the margin read, applied to stored check-ins ──────────────────────────
@@ -2843,7 +2850,7 @@
       const save = patch => { pushPrefsSave(patch).then(p=>{ cur=p; }); try{ pushTrack('push_prefs', { origin:'onboarding' }); }catch(e){} };
       const bindSw = (id, fn) => { const b=d.querySelector('#'+id); if(!b) return; b.onclick=async()=>{ if(b.disabled) return;
         const on=!b.classList.contains('on'); b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false');
-        if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); haptic('save'); }; };
+        if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); }; };
       bindSw('ob-n-refl', on => save({ reflect_week:on, reflect_month:on, reflect_season:on, reflect_year:on }));
       bindSw('ob-n-follow', on => save({ followup:on }));
       const ct0 = cur.checkin_times || {};
@@ -12048,10 +12055,10 @@ function app(tab){
         </li>`; }).join('');
       wrap.querySelector('#mp-mins').textContent = `~${mindMinutes(sil, on)}min`;
       list.querySelectorAll('.set-sw').forEach(b=>b.onclick=()=>{ const k=b.closest('.mp-row').dataset.k, i=on.indexOf(k);
-        if(i>=0){ if(on.length===1){ const r=b.closest('.mp-row'); r.classList.remove('mp-no'); void r.offsetWidth; r.classList.add('mp-no'); haptic('start'); return; }
+        if(i>=0){ if(on.length===1){ const r=b.closest('.mp-row'); r.classList.remove('mp-no'); void r.offsetWidth; r.classList.add('mp-no'); return; }
           on.splice(i,1); order = [k].concat(order.filter(x=>x!==k)); }   // out: first of the ones not in
         else { on.push(k); }
-        haptic('start'); save(); const was = i >= 0; mpSw = calmMp() ? null : { k, was }; flip(()=>paint()); mpSw = null;
+        save(); const was = i >= 0; mpSw = calmMp() ? null : { k, was }; flip(()=>paint()); mpSw = null;
         const nb = list.querySelector(`[data-k="${k}"] .set-sw`);
         if(nb){ void nb.offsetWidth; nb.classList.toggle('on', !was); nb.focus({ preventScroll:true }); } });
       list.querySelectorAll('button.mp-grip').forEach(g=>{
@@ -14364,7 +14371,7 @@ function app(tab){
       } else if(kind==='length'){
         openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(!!pState.open), tc, (v)=>{ pState.open=(v==='true'); paint(); });
       } else if(kind==='voice'){
-        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l,lock:!voiceOk(val)}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)){ if(_ps) _ps.close(true); return gateSubscribe('voice'); } if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paint(); });
+        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l,lock:!voiceOk(val)}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)){ if(_ps) _ps.close(true); return gateSubscribe('voice'); } if(Store.setPrefVoice) Store.setPrefVoice(v); paint(); });
       } else if(kind==='bed'){
         openBedSheet(tc, ()=>paint());
       } else if(kind==='pieces'){
@@ -15076,8 +15083,8 @@ function app(tab){
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
     // no caption on haptics (Justin 2026-09-09: the switch says it); the buzz on switch-on stays
-    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); });
-    bindSw('sw-sounds', on=>{ localStorage.setItem('snb_sounds', on?'1':'0'); if(on) sound('save'); });
+    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); });
+    bindSw('sw-sounds', on=>{ localStorage.setItem('snb_sounds', on?'1':'0'); });
     // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
       ? 'Your share cards and your live event chat messages carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
@@ -15119,7 +15126,7 @@ function app(tab){
       const want = !segOff.classList.contains('on');
       segOff.classList.toggle('on', want); segOff.setAttribute('aria-checked', want?'true':'false');
       if(want){
-        offBusy = true; haptic('save'); setOff('preparing…');
+        offBusy = true; setOff('preparing…');
         const urls = await offlineManifest();
         if(!urls.length){ setOff("couldn't read the practice list. try again."); offBusy=false; return; }
         try{
