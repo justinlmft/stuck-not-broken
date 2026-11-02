@@ -13553,13 +13553,16 @@ function app(tab){
     if(s.c.after && x.by[s.c.after] && !x.by[s.c.after].runs) return { t:'Best after ' + x.by[s.c.after].c.name };
     return null;
   }
+  // ch1 (Justin 2026-11-01): one real-moments photo per challenge in img/challenges/<id>-640/-1280.jpg; empty slot if missing.
+  const _CH_IMG = new Set(['sensory', 'sensory-out', 'micro', 'micro-long', 'digital', 'alarm', 'alarm-in', 'pse', 'connection', 'coreg', 'giving', 'steps', 'senses', 'music', 'states']);
+  const _chPic = (id, big) => _CH_IMG.has(id) ? `<img src="img/challenges/${id}-${big ? 1280 : 640}.jpg" alt="" loading="lazy" decoding="async">` : '';
   function _chCardHTML(s, big, x){
     const st = _chStatus(s, x), dot = '<span aria-hidden="true">·</span>';
     const meta = (st && st.fin ? `<span class="ch-cfin">${_CH_CHECK}</span>` : '') + `<span>${escapeHtml(_chDaysWord(s.c))}</span>`
       + (st ? dot + `<span${st.strong ? ' class="ch-cst"' : ''}>${escapeHtml(st.t)}</span>` : '')
       + (x.paid ? '' : dot + `<span class="lb-lk">${LOCK_SVG}See paid plans</span>`);
     const bar = big && x.paid && x.a && s.id === x.a.id ? `<span class="ch-cbar" aria-hidden="true"><i style="width:${Math.round(s.done / s.c.days * 100)}%"></i></span>` : '';
-    return `<button class="lb-card ch-card${big ? ' lb-big' : ''}${s.id === x.rec && !s.finished && !(x.paid && x.a) ? ' snb-reco' : ''}" type="button" data-ch="${s.id}" aria-pressed="false"><span class="lb-pic" aria-hidden="true"></span><span class="lb-body"><span class="lb-t">${escapeHtml(s.c.name)}</span>${big ? `<span class="lb-d">${escapeHtml(s.c.desc)}</span>` : ''}${bar}<span class="lb-meta">${meta}</span></span></button>`;
+    return `<button class="lb-card ch-card${big ? ' lb-big' : ''}${s.id === x.rec && !s.finished && !(x.paid && x.a) ? ' snb-reco' : ''}" type="button" data-ch="${s.id}" aria-pressed="false"><span class="lb-pic" aria-hidden="true">${_chPic(s.id, big)}</span><span class="lb-body"><span class="lb-t">${escapeHtml(s.c.name)}</span>${big ? `<span class="lb-d">${escapeHtml(s.c.desc)}</span>` : ''}${bar}<span class="lb-meta">${meta}</span></span></button>`;
   }
   function screenChallenges(){
     const S = _CH(); if(!S) return app('practice');
@@ -13930,7 +13933,7 @@ function app(tab){
         ${notes.map(x=>`<div class="ch-note"><span class="ch-lbl">${escapeHtml(String(x.topic).toUpperCase())}</span><p>${escapeHtml(x.text).replace(/\n/g, '<br>')}</p></div>`).join('')}
         ${all.length ? `<button class="ch-link" type="button" id="ch-jr">${escapeHtml(T.finAll.replace('{n}', String(all.length)))}</button>` : ''}
         <div class="ch-take"><span class="ch-lbl">TAKEAWAY</span><p>${escapeHtml(s.c.takeaway)}</p></div>
-        ${next ? `<button class="lb-card lb-big ch-card ch-nexthc" type="button" id="ch-next"><span class="lb-pic" aria-hidden="true"></span><span class="lb-body"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><span class="lb-t">${escapeHtml(next.c.name)}</span><span class="lb-meta">${escapeHtml(_chDaysWord(next.c))}</span></span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
+        ${next ? `<button class="lb-card lb-big ch-card ch-nexthc" type="button" id="ch-next"><span class="lb-pic" aria-hidden="true">${_chPic(next.id, true)}</span><span class="lb-body"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><span class="lb-t">${escapeHtml(next.c.name)}</span><span class="lb-meta">${escapeHtml(_chDaysWord(next.c))}</span></span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
       </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
     const jr = $('#ch-jr'); if(jr) jr.onclick = ()=>screenJournal('you');
     const nx = $('#ch-next'); if(nx) nx.onclick = ()=>{ screenChallenges(); setTimeout(()=>openChSheet(next.id, screenChallenges), 30); };
