@@ -15144,7 +15144,12 @@ function app(tab){
     };
     const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
     // version line: read the ?v= off the live script tag so it never drifts from a deploy
-    try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version'); if(ve) ve.textContent='Stuck Not Broken · app v'+(vm?vm[1]:'dev'); }catch(e){}
+    // which copy this is, at a glance (ver1, Justin 2026-11-02: "prod, beta, and testflight are confusing"): "Version 560" on the
+    // live app, "Beta · version 560" everywhere else (config.js: only app.stucknotbroken.com is live), plus "iPhone app" inside the store app
+    try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version');
+      const live = window.SNB_ENV === 'prod';
+      const ios = (()=>{ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(e){ return false; } })();
+      if(ve) ve.textContent = (live ? 'Version ' : 'Beta · version ') + (vm ? vm[1] : 'dev') + (ios ? ' · iPhone app' : ''); }catch(e){}
     // the member's own data, one file (Justin, 2026-10-15: "agreed to add journal answers"): every check-in, and every journal
     // answer with the article or reflection it was written under, the question, and the day
     $('#export').onclick = ()=>{
