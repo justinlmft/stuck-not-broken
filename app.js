@@ -13760,6 +13760,7 @@ function app(tab){
     root.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{
       const id = b.dataset.ch;
       if(b.dataset.go === 'prompt') return screenChPrompt(id);
+      const r = _chNowReady(); if(r && r.id === id) return screenChPrompt(id);   // ch2: the one you're in, prompt waiting: straight to it
       openChSheet(id, back);
     });
   }
@@ -14205,7 +14206,7 @@ function app(tab){
       openPracticeSheet(k);
     });
     const upE = $('#up-entry'); if(upE) upE.onclick = ()=>{ _plStage = null; _plQ = ''; screenPathway(); };
-    const chE = $('#ch-entry'); if(chE) chE.onclick = ()=>screenChallenges();
+    const chE = $('#ch-entry'); if(chE) chE.onclick = ()=>{ const r = _chNowReady(); return r ? screenChPrompt(r.id) : screenChallenges(); };   // ch2: in a challenge with a prompt waiting: straight to it
     // a caller staged a shape to open straight into (older "change this practice" paths)
     if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
   }
