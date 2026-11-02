@@ -2150,22 +2150,146 @@
   function screenPolicy(which, from){
     const isPriv = which==='privacy';
     const eyebrow = isPriv ? 'privacy policy' : 'terms of use';
-    const title = isPriv ? 'What we keep, and what we don’t.' : 'How to get the most out of this app.';
-    const lede = isPriv
-      ? 'Written in plain language.'
-      : 'Transparency before you begin.';
+    // Final copy, approved by Justin 2026-11-01. Same words as stucknotbroken.com/app-privacy and
+    // /app-terms (Web Designer, Projects/Web Designer/SNB-Web-App-{Privacy,Terms}-embed.html): change both together.
+    const title = isPriv ? 'App privacy policy' : 'App terms of use';
+    const lede = isPriv ? "This policy explains what the Stuck Not Broken app keeps, why it keeps it, and how you can delete it." : "These terms explain what the Stuck Not Broken app is, how subscriptions work, and what is expected at live events.";
+    const updated = isPriv ? "Last updated: November 1, 2026" : "Last updated: November 1, 2026";
+    const webUrl = isPriv ? 'https://www.stucknotbroken.com/app-privacy' : 'https://www.stucknotbroken.com/app-terms';
     const sections = isPriv ? [
-      ['what we keep','This app keeps track of your email, in-app preferences and check-ins.'],
-      ['why','So your account works, your history is here on every device you sign in from, to track progress, and make custom recommendations.'],
-      ['what stays anonymous','An anonymous copy of check-ins and practice data also exists, with no name, no email, and none of your written notes. It cannot be traced back to you, even by us.'],
-      ['what the anonymous copy is for','Two things, and only these: learning whether this app actually helps people, and sharing de-identified examples of what progress can look like (for instance, "one member\'s reported safety rose from 20% to 60% over six months"). Never advertising, never sold.'],
-      ['who sees it',"Your identified data: only you. It isn't sold or given away, and no advertisers see it. Justin works with the anonymous copy to study whether the app helps and to improve it."],
-      ['your control','You can delete your data, or your whole account, any time from settings (your data > delete my account). Deleting removes everything that identifies you, permanently. The anonymous copy stays, unlinked, forever.']
+          [
+                "in short",
+                "<p>The app keeps what it needs to work for you. Nothing is sold, and no advertisers see it. You can delete all of it at any time.</p>"
+          ],
+          [
+                "who runs the app",
+                "<p>The Stuck Not Broken app is run by Justin Sunseri, a Licensed Marriage and Family Therapist in California, as a sole proprietor at 924 N Yosemite Ave, Stockton, CA 95203. You can reach him about privacy at justin@stucknotbroken.com.</p>"
+          ],
+          [
+                "what the app keeps",
+                "<p>While you have an account, the app keeps your email address. It also keeps your first name and a profile photo if you choose to add them. It keeps your check-ins, which are the three sliders and any notes you write with them. It keeps the practices you do and how they went, and your answers to lessons and journal prompts. It keeps your settings and reminders. It keeps whether you have a paid plan, which plan it is, and its dates. If you turn on notifications, it keeps the address your phone gives it for sending them. It also keeps a record of which parts of the app you use. All of this is linked to your account, and it is kept only while your account exists. When you delete your account, it is deleted too.</p>"
+          ],
+          [
+                "what the app does not collect",
+                "<p>The app does not collect your location. If you turn on live weather, your phone sends a rough location, accurate to about 7 miles, to Open-Meteo, a weather service, so it can show you the weather. That location stays on your phone and is never sent to Stuck Not Broken. The app does not collect your contacts or your browsing history. It never sees your card number, because Apple or Stripe handles payment. There is no tracking across other apps or websites, no advertising, and no data sold to data brokers.</p>"
+          ],
+          [
+                "how it is collected",
+                "<p>Everything above comes from what you enter in the app, or from the app noting what you use. Nothing is gathered from other sources.</p>"
+          ],
+          [
+                "why it is kept",
+                "<p>Your information is kept so your account works on every device you sign in from, your history is there when you come back, the app can reflect your own patterns back to you and suggest practices, reminders reach you, and the app knows whether you have a paid plan.</p>"
+          ],
+          [
+                "the anonymous copy",
+                "<p>The app also keeps an anonymous copy of check-in and practice data. It never includes your name, your email or anything you write. It is used for two things only: learning whether the app helps people, and sharing de-identified examples of what change can look like, such as \"one member's reported safety rose from 20% to 60% over six months.\" It is never used for advertising and never sold. While you have an account, deleting a check-in or practice also deletes it from the anonymous copy. When you delete your account, the link between you and the anonymous copy is destroyed. After that, the copy can never be connected to you again, even by Justin, and it is kept.</p>"
+          ],
+          [
+                "apple health",
+                "<p>If you turn it on, the app saves your practice time to Apple Health as Mindful Minutes. The app only writes to Apple Health. It never reads your Health data, and nothing from Apple Health is used for anything else.</p>"
+          ],
+          [
+                "ai voice",
+                "<p>Some audio in the app uses an AI voice made with Descript, and it is clearly labeled. Descript does not receive any of your information.</p>"
+          ],
+          [
+                "who sees your information",
+                "<p>Only you see your information, plus Justin when he needs to in order to run the app or answer a message you send him. It is not sold or shared for advertising. The following services run parts of the app and handle your information only to do that job, under their own security and privacy commitments:</p><ul class=\"pol-ul\"><li>Supabase stores the app's data and handles sign-in.</li><li>Circle checks your email when you sign in, to see whether you are an Unstucking Academy member.</li><li>Cloudflare hosts the app.</li><li>Apple handles App Store payments, notifications and Apple Health.</li><li>Stripe handles website payments.</li><li>Resend sends account and reminder emails.</li><li>Daily runs the video for live events. Live chat is not saved after an event. Some live events are recorded so attendees can watch the replay, and those events are marked as recorded ahead of time. If you turn on your camera or mic during a recorded event, the recording may include you. Recordings are only for attendees and are never shared publicly.</li></ul>"
+          ],
+          [
+                "your profile photo",
+                "<p>If you add a profile photo, it appears next to your messages in live event chat. If your plan includes the community spaces, it also appears there. You can remove it at any time in Settings.</p>"
+          ],
+          [
+                "how long it is kept",
+                "<p>Your information is kept until you delete it or delete your account. Payment records are kept as long as tax law requires. The anonymous copy is kept after your account is deleted, as described above.</p>"
+          ],
+          [
+                "your choices",
+                "<p>You can see your information in the app, under You and Settings. You can download your check-ins and journal in Settings, under Your data. You can delete a single check-in, or all of your data, at any time. You can turn off emails and notifications in Settings. To delete your account, go to Settings, then Leave or reset, then Delete my account. That permanently removes everything that identifies you.</p>"
+          ],
+          [
+                "security",
+                "<p>Your data is stored with access rules so that only your account can read it. No system is perfect. If something happens that affects your information, you will be told.</p>"
+          ],
+          [
+                "children",
+                "<p>The app is for people 18 and older. If Justin learns that a child has an account, it is deleted.</p>"
+          ],
+          [
+                "your rights",
+                "<p>Depending on where you live, such as California or the European Union, you may have the right to access, correct, delete or move your information. Write to justin@stucknotbroken.com, and you will get an answer within 30 days.</p>"
+          ],
+          [
+                "changes",
+                "<p>When this policy changes in a way that matters, you will hear about it in the app or by email before the change applies.</p>"
+          ]
     ] : [
-      ['what this is',"A tool for noticing your daily experiences through the lens of the nervous system and practicing your way back to safety. It isn't medical care, diagnosis, or therapy, nor should it replace any of those or other professional services."],
-      ['in a crisis','If you’re in danger or thinking about harming yourself, contact the 988 Suicide &amp; Crisis Lifeline or your local emergency services. This app can’t help in an emergency.'],
-      ['be gentle',"Everyone is different. There's no failing here, and no streak to keep. Use the app as you want and when you want. Practice at your cadence."],
-      ['changes',"Justin may (and will) update the app and these terms over time. Updates keep the app working, and you'll hear about changes in the app or by email."]
+          [
+                "who runs the app",
+                "<p>The Stuck Not Broken app is run by Justin Sunseri, a Licensed Marriage and Family Therapist in California, as a sole proprietor at 924 N Yosemite Ave, Stockton, CA 95203. You can reach him at justin@stucknotbroken.com.</p>"
+          ],
+          [
+                "what this is",
+                "<p>Stuck Not Broken is a tool for noticing your experience through the lens of the nervous system and practicing your way back to safety. It is for education and self-practice. It is not therapy, medical care or diagnosis, and it does not replace any of them. Using the app, joining a live event or writing to Justin does not make him your therapist or create any client relationship.</p>"
+          ],
+          [
+                "in a crisis",
+                "<p>If you are in danger or thinking about harming yourself, call or text 988 in the US to reach the Suicide &amp; Crisis Lifeline, or call your local emergency number. The app and its live events cannot respond to an emergency.</p>"
+          ],
+          [
+                "use it your way",
+                "<p>Everyone is different. There is no failing here and no streak to keep. You can use the app when you want and practice at your own pace.</p>"
+          ],
+          [
+                "who can use it",
+                "<p>You need to be 18 or older to make an account. You are responsible for keeping your sign-in to yourself and for what happens under your account.</p>"
+          ],
+          [
+                "subscriptions",
+                "<p>The price and length of each plan are shown before you subscribe. Paid plans renew automatically until you cancel.</p><p>If you subscribe in the iPhone app, payment is charged to your Apple ID when you confirm the purchase. Your subscription renews automatically unless you cancel it at least 24 hours before the end of the current period, and your Apple ID is charged for the renewal within the 24 hours before the period ends. You can manage or cancel your subscription in iPhone Settings by tapping your name and then Subscriptions.</p><p>If you subscribe on the website, Stripe handles payment, and you can cancel in the app under Settings, then Your plan, then Manage, change, or cancel subscription.</p><p>When you cancel, you keep access until the end of the period you already paid for. Then your account moves to the free plan, and your check-ins, journal and history stay.</p><p>If a price changes, you will hear about it before your next renewal, and you can cancel before the new price applies.</p>"
+          ],
+          [
+                "refunds",
+                "<p>Subscriptions are not refunded, except where the law requires it. Apple decides refunds for purchases made in the iPhone app, and you can request one at reportaproblem.apple.com.</p>"
+          ],
+          [
+                "apple's license",
+                "<p>If you got the app from the App Store, Apple's standard license agreement for App Store apps also applies.</p>"
+          ],
+          [
+                "content",
+                "<p>The practices, recordings, articles, videos and sheets in the app are Justin's work. You can use them for your own practice. You cannot copy, resell, publish or share paid content outside your account.</p>"
+          ],
+          [
+                "what you write",
+                "<p>Your check-ins, notes and journal entries belong to you. They are stored so the app can show them back to you, as the app privacy policy explains.</p>"
+          ],
+          [
+                "live events and community spaces",
+                "<p>Justin hosts live events where he teaches and guides practice. Live events can change or be canceled. Events that are recorded for replay are marked ahead of time, and your camera, mic and chat are always optional.</p><p>Everyone at a live event or in the community spaces is asked to follow these guidelines:</p><ul class=\"pol-ul\"><li>Be kind. You can disagree, but do not bully, target or attack anyone.</li><li>Respect each other's privacy. What others share stays with the group, so do not record, screenshot or pass on other members' names, faces or words.</li><li>Do not share the details of traumatic experiences, your own or anyone else's. They can be hard for others to hear. This is not a therapeutic setting, and those details are better brought to your own therapist.</li><li>Do not sell, spam or message members about your own services or products.</li><li>Be careful recommending outside programs or methods, and do not endorse medicines, diets or other physical wellness options.</li><li>Do not promote political, religious or other groups. Sharing your own experience is welcome.</li></ul>"
+          ],
+          [
+                "if the guidelines are not followed",
+                "<p>Justin or a moderator decides when a guideline has been broken. Depending on what happened, they may remove a message, warn you publicly or privately, or remove you from a live event. For serious or repeated problems, they may remove your access to live events and the community spaces, or close your account. Removal does not come with a refund, including any unused part of a paid period.</p>"
+          ],
+          [
+                "when justin shares something from the community",
+                "<p>Justin may use things shared in the community or at live events in his podcast, videos or writing. He puts members' privacy first. He anonymizes what he shares, and he asks your permission before using your words, voice or image.</p>"
+          ],
+          [
+                "no guarantee",
+                "<p>Justin works to keep the app running and its content accurate, but he cannot promise it will always be available, free of errors, or that it will change how you feel. To the extent the law allows, his liability is limited to what you paid in the 12 months before a claim, or $100, whichever is more.</p>"
+          ],
+          [
+                "governing law",
+                "<p>These terms are governed by the laws of the State of California. Any dispute goes to the state or federal courts in San Joaquin County, California, except that either side can use small claims court.</p>"
+          ],
+          [
+                "changes",
+                "<p>Justin will update the app and these terms over time. When the terms change in a way that matters, you will hear about it in the app or by email at least 30 days before the change applies.</p>"
+          ]
     ];
     const PP=(t)=>`<p style="font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${t}</p>`;
     setHTML(`
@@ -2179,9 +2303,9 @@
           </div>
           ${sections.map(([h,b])=>`<div style="display:flex;flex-direction:column;gap:8px">
             <p class="eyebrow" style="margin:0">${h}</p>
-            ${PP(b)}
+            <div class="pol-body" style="font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;display:flex;flex-direction:column;gap:10px">${b}</div>
           </div>`).join('')}
-          <p class="fineprint" style="margin-top:4px">Plain-language draft for this design. The final ${isPriv?'privacy policy':'terms'} will replace this before launch.</p>
+          <p class="fineprint" style="margin-top:4px">${updated}. Also on the web at <a href="${webUrl}" target="_blank" rel="noopener">${webUrl.replace('https://www.','')}</a>.</p>
         </div>
       </div>`);
     $('#policy-back').onclick = ()=>{ if(from==='settings'){ screenSettings(); } else { authMode='up'; screenSignIn(); } };

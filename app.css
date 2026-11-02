@@ -7170,3 +7170,7 @@ body.lw-in-room .shell{max-width:none}
 @media (prefers-reduced-motion: reduce){ .snb-reco::after{animation:none;--snb-a:200deg} }
 body.reduce-motion .snb-reco::after{animation:none;--snb-a:200deg}
 .jr-reco.snb-reco{border-radius:16px}
+
+/* in-app privacy policy and terms (final copy, 2026-11-02) */
+.pol-body p{margin:0}
+.pol-ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
