@@ -6682,7 +6682,7 @@ html:not([data-readfont="serif"]) .rd-lq,html:not([data-readfont="serif"]) .rd-l
    FIRST RUN ON THE SWISS GRID (Justin, canon 2026-10-31; BRAND_DESIGN_SYSTEM §4 "First run (no account yet)")
    Tabbar-free, on paper; a small top bar; words on 1-7, the action card on 8-12; phone: stacked, the card last.
    ============================================================ */
-#screen > .fr-top{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;box-sizing:border-box;width:100%;max-width:var(--page);margin-inline:0;min-height:60px;padding:8px var(--pad-x) 0}
+#screen > .fr-top{display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;box-sizing:border-box;width:100%;max-width:var(--page);margin-inline:0;min-height:60px;padding:max(8px,env(safe-area-inset-top)) var(--pad-x) 0}
 .fr-top-l{display:flex;align-items:center;gap:12px;min-width:0}
 .fr-mark{display:inline-flex;align-items:center}
 .fr-mark .triglyph{height:22px}
