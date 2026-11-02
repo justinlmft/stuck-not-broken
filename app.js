@@ -6678,7 +6678,10 @@ function app(tab){
     '4f8a87ba-3b58-4f01-848e-a884ad101240', '56d3d095-37f5-4558-a2b6-c78e468ba636', '516dac6a-1f54-4b6d-b8b3-906c9dd98785', '161d5c18-d051-477f-b07b-bd7fb88306d6',
     '436d7214-a893-43a9-a894-e0b8ccd87c60', '01bf7036-2fe3-4559-8839-a239413396e7', 'beafa390-b29f-4911-9527-a0af5c13fe46', '5484a9b4-96c8-4eea-be90-8067a308d310',
     '7545f3a8-9e45-4b87-b266-bce1294efe32', '5695ee89-cfc2-41ac-87f9-ad7dd008c81e', 'a3c6a54a-11a7-4f2f-9d74-db287c774d08', 'f8b9643c-28f8-4185-9525-8b4e6301516c',
-    'c2ae2e0b-cd7b-42fa-b7d0-1362352d47e8', 'ecfe5758-4ada-4258-ada9-64f1d878c195', '0d8bdbee-8765-4fbe-9cc3-dd9f42376cf1']);
+    'c2ae2e0b-cd7b-42fa-b7d0-1362352d47e8', 'ecfe5758-4ada-4258-ada9-64f1d878c195', '0d8bdbee-8765-4fbe-9cc3-dd9f42376cf1',
+    // img-mj-20261101-1852
+    'f06a4aea-d1eb-462e-8afa-64e1c3b6c92a', 'ccee239c-fd0b-4b4b-91dd-941cbcb8360b', 'bc91ef0a-d0a9-4041-8729-1f9544b4c795', '34e0efe3-65bc-441a-b570-f15a0ba4f1a6',
+    '39f8c110-f25d-45d7-9260-257e2263b056']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
