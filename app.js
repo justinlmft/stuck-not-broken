@@ -919,7 +919,25 @@
     if(window.MutationObserver && !sc._pgObs){ sc._pgObs = new MutationObserver(put); sc._pgObs.observe(sc, { childList:true }); }
   }
   if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))){ _tbSync(); _pgBackSync(); } }).observe(root, { childList:true });
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; try{ _tbSync(); }catch(e){} try{ _recoTint(); }catch(e){} }
+  // pictures already shown are kept and reused when a screen is drawn again, so going back to Learn (or any tab) doesn't
+  // blank every photo while it decodes again (imgpool1, Justin 2026-11-02: "an image flicker specifically going from
+  // calendar to Learn. repeatedly."). Only fully loaded pictures, the most recent 120.
+  const _imgPool = new Map();
+  function _imgKeep(){
+    try{ root.querySelectorAll('img').forEach(i=>{ const k = i.src; if(!k || !i.complete || !i.naturalWidth || k.indexOf('data:') === 0) return;
+      const a = _imgPool.get(k) || []; _imgPool.delete(k); if(a.length < 4) a.push(i); _imgPool.set(k, a); });
+      let n = 0; _imgPool.forEach(a=>n += a.length);
+      for(const k of _imgPool.keys()){ if(n <= 120) break; n -= _imgPool.get(k).length; _imgPool.delete(k); } }catch(e){}
+  }
+  function _imgReuse(){
+    try{ if(!_imgPool.size) return; root.querySelectorAll('img').forEach(f=>{ const a = _imgPool.get(f.src); if(!a || !a.length) return;
+      const o = a.pop(); if(!a.length) _imgPool.delete(f.src);
+      // an attribute that already matches is left alone (setting src or srcset again, even to the same value, starts a fresh load)
+      [...o.attributes].forEach(x=>{ if(!f.hasAttribute(x.name)) o.removeAttribute(x.name); });
+      [...f.attributes].forEach(x=>{ if(x.name !== 'loading' && o.getAttribute(x.name) !== x.value) o.setAttribute(x.name, x.value); });
+      f.replaceWith(o); }); }catch(e){}
+  }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); _imgKeep(); root.innerHTML = html; _imgReuse(); try{ _tbSync(); }catch(e){} try{ _recoTint(); }catch(e){} }
   // the recommended outline's colours: the latest check-in's state, with the two beside it on the Current
   function _recoTint(){
     const NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['freeze','safety'] };  // stillness: freeze + safety (Justin 2026-10-31: the Current's ends touch in a circle)
