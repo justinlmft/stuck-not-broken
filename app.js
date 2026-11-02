@@ -919,7 +919,25 @@
     if(window.MutationObserver && !sc._pgObs){ sc._pgObs = new MutationObserver(put); sc._pgObs.observe(sc, { childList:true }); }
   }
   if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))){ _tbSync(); _pgBackSync(); } }).observe(root, { childList:true });
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; try{ _tbSync(); }catch(e){} try{ _recoTint(); }catch(e){} }
+  // pictures already shown are kept and reused when a screen is drawn again, so going back to Learn (or any tab) doesn't
+  // blank every photo while it decodes again (imgpool1, Justin 2026-11-02: "an image flicker specifically going from
+  // calendar to Learn. repeatedly."). Only fully loaded pictures, the most recent 120.
+  const _imgPool = new Map();
+  function _imgKeep(){
+    try{ root.querySelectorAll('img').forEach(i=>{ const k = i.src; if(!k || !i.complete || !i.naturalWidth || k.indexOf('data:') === 0) return;
+      const a = _imgPool.get(k) || []; _imgPool.delete(k); if(a.length < 4) a.push(i); _imgPool.set(k, a); });
+      let n = 0; _imgPool.forEach(a=>n += a.length);
+      for(const k of _imgPool.keys()){ if(n <= 120) break; n -= _imgPool.get(k).length; _imgPool.delete(k); } }catch(e){}
+  }
+  function _imgReuse(){
+    try{ if(!_imgPool.size) return; root.querySelectorAll('img').forEach(f=>{ const a = _imgPool.get(f.src); if(!a || !a.length) return;
+      const o = a.pop(); if(!a.length) _imgPool.delete(f.src);
+      // an attribute that already matches is left alone (setting src or srcset again, even to the same value, starts a fresh load)
+      [...o.attributes].forEach(x=>{ if(!f.hasAttribute(x.name)) o.removeAttribute(x.name); });
+      [...f.attributes].forEach(x=>{ if(x.name !== 'loading' && o.getAttribute(x.name) !== x.value) o.setAttribute(x.name, x.value); });
+      f.replaceWith(o); }); }catch(e){}
+  }
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); _imgKeep(); root.innerHTML = html; _imgReuse(); try{ _tbSync(); }catch(e){} try{ _recoTint(); }catch(e){} }
   // the recommended outline's colours: the latest check-in's state, with the two beside it on the Current
   function _recoTint(){
     const NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['freeze','safety'] };  // stillness: freeze + safety (Justin 2026-10-31: the Current's ends touch in a circle)
@@ -2534,22 +2552,27 @@
            + '<div class="ob-chips" data-group="anchor">'+[['auto','Let the app find my best one']].concat(UP_ANCHORS.map(k=>[k,CAP(k)])).map(o=>obChip('anchor',o[0],escapeHtml(o[1]), paid?'':' aria-disabled="true"')).join('')+'</div>'
            + (paid ? '' : lockLine('Choosing your safety anchor is part of Self-Regulator.')) },
 
-      { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'Reflect',
-        h:'Reflect',
-        body: obP('Reflections on your check-ins and practices. Aside from daily, you’ll find weekly, monthly, seasonal, and annual Reflections.') },
+      // the Calendar, then Learn, then Reflect and the Journal under You: the tab order (wt2, Justin approved 2026-11-02)
+      { id:'calendar', tab:'community', kind:'spot', target:['.lw-hc','#lw-body'], pad:6, eb:lwTabName(),
+        h:'Live events',
+        body: obP('Practice live with Justin and others. Mindful Moment is free every Wednesday. RSVP to get a reminder.') },
 
       { id:'learn', tab:'learn', kind:'spot', target:['.rd-learn-top','.rd-learnhubs > *:first-child'], pad:6, eb:'Learn',
         h:'Learn',
-        body: obP('Hundreds of articles and book chapters about your nervous system and how to work with it.') },
+        body: obP('Hundreds of articles, podcast episodes and videos about your nervous system and how to work with it, with your check-ins woven in.') },
 
-      { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'Reflect',
+      { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'You',
+        h:'Reflect',
+        body: obP('Reflections on your check-ins and practices. Aside from daily, you’ll find weekly, monthly, seasonal, and annual Reflections. Find them on the You tab.') },
+
+      { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'You',
         h:'Your Journal',
-        body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal.')
+        body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal. Find it on the You tab.')
            + (paid ? '' : lockLine('Your Journal is part of Self-Regulator.')) },
 
       { id:'you', tab:'you', kind:'spot', target:['#carousel','.map-rows','.you-view .card','#set-btn'], pad:6, eb:'You',
         h:'You',
-        body: obP('Your patterns over time: when you feel the most safety, which practices help, and your ideal practice. Settings is the gear at the top.') },
+        body: obP('Your patterns over time: when you feel the most safety, which practices help, and your ideal practice. Settings is the gear at the top. That’s also where you turn sounds and haptics on or off.') },
 
       // Justin's words (2026-10-03), on the Settings screen
       { id:'notif', screen:'settings', kind:'spot', target:['#push-row'], pad:6, eb:'Settings',
@@ -3068,10 +3091,19 @@ const WN_ICONS = {
   chart:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 15v-3"/><path d="M12 15V9"/><path d="M16 15v-5"/>',
   lines:'<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h6"/>',
   phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>',
-  cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>'
+  cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>',
+  image:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/>',
+  hand:'<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11.5V4a1.5 1.5 0 0 1 3 0v7.5"/><path d="M14 11V5.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5a6 6 0 0 1-4.6-2.2L3.6 15a1.5 1.5 0 0 1 2.3-1.9L8 15"/>'
 };
 function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
 const WN_UPDATES = [
+  { id:'2026-11-new-feel', when:'November 2026', title:'A new feel', cta:{ label:'See the Calendar', go:'calendar' }, items:[
+    /* Justin's copy, 2026-11-02. Ships to prod with the App Store release (the redesign, photos, sounds and haptics). */
+    { i:'cal',   t:'Live event every Wednesday', b:'Join me and others in a Mindful Moment every week for free!' },
+    { i:'lines', t:'A new look', b:'Cleaner layouts everywhere.' },
+    { i:'image', t:'Images', b:'Pretty much everywhere.' },
+    { i:'music', t:'Sounds', b:'Turn them off in Settings anytime.' },
+    { i:'hand',  t:'Haptics', b:'Turn them off in Settings anytime.' } ] },
   { id:'2026-11-self-regulator', when:'November 2026', title:'Another Major Update', sub:'(still only $12/mo)',
     cta:{ label:'See the Calendar', go:'calendar' }, items:[
     /* Justin's copy, 2026-10-28 ("checkins" → "check-ins", "compliment" → "complement"). Ships to prod with the Self-Regulator launch. */

@@ -372,6 +372,29 @@ body.playing .brand{display:none}
 .pinbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:8px}
 .skipslot .choicebtn{width:100%}
 #player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before,#player.voicing .pfoot::before{opacity:1}
+/* sheet1 (Justin 2026-11-02: "the pop up menu on the audio player should instead be a slide-up ... make this menu mirror the rest
+   of the app, including the customize sub menu"; then "the pop-up dynamic questions should slide up also"): the menu, the questions
+   (0 to 10 lines, breath scales, choices), Customize and its lists sit on the app's slide-up sheet (app.css
+   .p7-sheet / .p8-card): bone card, 20px top corners, the grab bar, a soft shadow, the scene dimmed behind it, and it slides up
+   from the bottom instead of fading in. The folds inside still open and close as before. */
+.pfoot::before{top:14px;bottom:0;background:var(--bone);border-radius:20px 20px 0 0;opacity:1;
+  /* the bone below the panel, down past the screen's edge, is a shadow copy of the card (a box past the edge would make the page scroll) */
+  transform:translateY(calc(100% + 120px));box-shadow:0 100px 0 var(--bone),0 -10px 40px rgba(26,31,42,0),0 0 0 100vmax rgba(40,38,32,0);
+  transition:transform .32s var(--ease),box-shadow .28s var(--ease)}
+.pfoot::after{content:'';position:absolute;top:24px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--hairline);
+  opacity:0;transform:translateY(24px);transition:opacity .25s var(--ease),transform .32s var(--ease);pointer-events:none}
+#player.show-controls .pfoot::before,#player.choosing .pfoot::before,#player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before,#player.voicing .pfoot::before{
+  opacity:1;transform:none;box-shadow:0 100px 0 var(--bone),0 -10px 40px rgba(26,31,42,.18),0 0 0 100vmax rgba(40,38,32,.34)}
+#player.show-controls .pfoot::after,#player.choosing .pfoot::after,#player.picking .pfoot::after,#player.customizing .pfoot::after,#player.scening .pfoot::after,#player.voicing .pfoot::after{opacity:1;transform:none}
+:root.theme-dark #player.show-controls .pfoot::before,:root.theme-dark #player.choosing .pfoot::before,:root.theme-dark #player.picking .pfoot::before,:root.theme-dark #player.customizing .pfoot::before,:root.theme-dark #player.scening .pfoot::before,:root.theme-dark #player.voicing .pfoot::before{
+  box-shadow:0 100px 0 var(--bone),0 -10px 40px rgba(0,0,0,.4),0 0 0 100vmax rgba(0,0,0,.45)}
+/* the connection line keeps its room at the top of the panel; the card starts below it, and takes it in when it has something to say */
+/* the sheet is dragged by its top strip; the page under the player never scrolls, so the finger belongs to the drag */
+.pfoot{touch-action:none}
+#player.conn-trouble .pfoot::before{top:-26px}#player.conn-trouble .pfoot::after{top:-16px}
+/* wider screens: a card around the menu's column, like the app's 520px sheet, not the full width */
+@media (min-width:700px){.pfoot::before{left:-28px;right:-28px}}
+@media (prefers-reduced-motion:reduce){.pfoot::before,.pfoot::after{transition:opacity .2s,box-shadow .2s}}
 .choice-mini{display:flex;justify-content:center;gap:28px}
 #player.choosing .choice-mini{animation:riseIn .45s var(--ease)}
 .mini-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 6px;background:none;border:0;font:inherit;font-size:calc(13px * var(--type-scale));letter-spacing:.06em;color:var(--muted);cursor:pointer}
@@ -9245,7 +9268,9 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     b.title = pinned ? COPY.UI.unpinMenu : COPY.UI.pinMenu;
   }
 
+  let grabQuiet = 0;   // sheet2: just after the sheet is dragged closed, a pointer passing over where it was doesn't reopen it
   function revealControls() {
+    if (Date.now() < grabQuiet) return;
     const p = $('player');
     p.classList.add('show-controls');
     clearTimeout(ctrlTimer);
@@ -9366,6 +9391,47 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     apply();
   }
 
+  /* ✅ THE GRAB BAR DRAGS (sheet2, Justin 2026-11-02: "the slide-ups look like the user can tap/hold on the little bar at the top,
+   * but it's not responding"). A finger on the top of the sheet (the grab bar's strip) moves the sheet with it; let go past 70px
+   * and the sheet closes (the menu, Customize and its lists all at once), otherwise it settles back. A question goes the same way
+   * (Justin: "the drag-to-close can be a natural way to dismiss a question ... they are optional"): unanswered, and a practice
+   * held for it carries on, as its Continue would. */
+  function watchGrab() {
+    const foot = document.querySelector('#player .pfoot'), player = $('player');
+    if (!foot || !player) return;
+    let y0 = null, dy = 0, id = null;
+    const open = () => ['show-controls', 'picking', 'customizing', 'scening', 'voicing', 'choosing'].some(c => player.classList.contains(c));
+    foot.addEventListener('pointerdown', ev => {
+      if (!open()) return;
+      const r = foot.getBoundingClientRect(), top = r.top + (player.classList.contains('conn-trouble') ? -30 : 10);
+      if (ev.clientY < top || ev.clientY > top + 44) return;
+      if (ev.target !== foot && !ev.target.closest('.conn')) return;
+      ev.stopPropagation(); y0 = ev.clientY; dy = 0; id = ev.pointerId; clearTimeout(ctrlTimer);
+      try { foot.setPointerCapture(id); } catch (e) {}
+      foot.style.transition = 'none';
+    });
+    foot.addEventListener('pointermove', ev => {
+      if (y0 === null || ev.pointerId !== id) return;
+      dy = Math.max(0, ev.clientY - y0);
+      foot.style.transform = dy ? 'translateY(' + dy + 'px)' : '';
+    });
+    const end = ev => {
+      if (y0 === null || (ev && ev.pointerId !== id)) return;
+      y0 = null; foot.style.transition = 'transform .28s var(--ease)';
+      if (dy > 70) {
+        foot.style.transform = 'translateY(100%)';
+        setTimeout(() => {
+          if (player.classList.contains('choosing')) { const wasHeld = player.classList.contains('held'); closeChoice(); closeOffer(); player.classList.remove('choosing'); if (wasHeld) $('pause').click(); }
+          if (voicing()) closeVoicePicker(false); else if (scening()) closeScenePicker(false); else if (picking()) closeBedPicker(false); else if (customizing()) closeCustomizer();
+          grabQuiet = Date.now() + 700; clearTimeout(ctrlTimer); player.classList.remove('show-controls');
+          foot.style.transition = 'none'; foot.style.transform = ''; void foot.offsetWidth; foot.style.transition = '';
+        }, 240);
+      } else { foot.style.transform = ''; setTimeout(() => { foot.style.transition = ''; if (!pinned && player.classList.contains('show-controls')) revealControls(); }, 300); }
+      dy = 0;
+    };
+    foot.addEventListener('pointerup', end); foot.addEventListener('pointercancel', end);
+  }
+
   /* E4.24 — the stepper walks the SAME list the setup chips render, so the two vocabularies
    * that used to disagree are now one list in one file. */
   function stepSilence(delta) {
@@ -9443,7 +9509,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
       if (session && (session.runtime.playing || session.runtime.finished)) revealControls();
     });
     const controls = document.querySelector('.controls');
-    controls.addEventListener('pointerenter', () => { clearTimeout(ctrlTimer); $('player').classList.add('show-controls'); });
+    controls.addEventListener('pointerenter', () => { if (Date.now() < grabQuiet) return; clearTimeout(ctrlTimer); $('player').classList.add('show-controls'); });
     controls.addEventListener('pointerleave', () => revealControls());
 
     /* while the practice is held for an answer, play IS "Continue" — with its transition line */
@@ -9480,6 +9546,7 @@ else (typeof window !== 'undefined' ? window : globalThis).SNB_ENGINE_COPY = API
     $('paneldone').addEventListener('pointerdown', ev => ev.stopPropagation());
     $('paneldone').onclick = () => { if (voicing()) closeVoicePicker(true); else if (scening()) closeScenePicker(true); else if (picking()) closeBedPicker(true); else closeCustomizer(); };
     watchFoot();
+    watchGrab();
 
     $('captoggle').onclick = () => {
       capsOn = !capsOn;
