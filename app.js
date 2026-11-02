@@ -3382,11 +3382,21 @@ function app(tab){
       : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns lw-pn-acts">${_lwPill(s, true)}</div>`;
     return who + _lwIcons(s) + desc + act;
   }
+  // Mindful Moment pictures (Justin 2026-11-01: "close ups on aspects of the present moment like a sunrise and a creek
+  // and a blanket on a couch"): three photos, one per week in turn so neighbouring cards differ. Other events keep the reeds.
+  const LW_MM_IMG = ['sunrise', 'creek', 'blanket'];
+  function _lwPicHTML(s, extra, wide){
+    if(s && s.kind === 'mindful_moment'){
+      const n = LW_MM_IMG[((Math.floor(_lwStart(s) / 6048e5) % 3) + 3) % 3];
+      return `<span class="lw-hc-pic${extra}" aria-hidden="true"><img src="img/live/mm-${n}-${wide ? 1280 : 640}.jpg" alt="" loading="lazy" decoding="async"></span>`;
+    }
+    return `<span class="lw-hc-pic${extra}" data-lwstill="reeds" aria-hidden="true"></span>`;
+  }
   function _lwPanel(s){
     if(!s) return '';
     const room = _lwRoomOpen(s), live = _lwIsLive(s);
     const when = live ? 'Live now' : room ? 'Open any time' : _lwLongDate(_lwStart(s)) + ' · ' + _lwRangeC(s);
-    return `<span class="lw-hc-pic lw-pn-pic" data-lwstill="reeds" aria-hidden="true"></span><div class="lw-pn-in"><h3 class="lw-pn-h">${escapeHtml(room ? (s.title || _lwKind(s).name) : _lwKind(s).name)}</h3><p class="lw-pn-when">${escapeHtml(when)}</p>${_lwDetail(s, true)}</div>`;
+    return `${_lwPicHTML(s, ' lw-pn-pic', true)}<div class="lw-pn-in"><h3 class="lw-pn-h">${escapeHtml(room ? (s.title || _lwKind(s).name) : _lwKind(s).name)}</h3><p class="lw-pn-when">${escapeHtml(when)}</p>${_lwDetail(s, true)}</div>`;
   }
   // ---- the Calendar in house cards (Justin, canon 2026-10-31): no rows, no divider lines ----
   // One pill per card so people can RSVP to several in a row without opening anything (Justin): outlined like a Filter
@@ -3406,7 +3416,7 @@ function app(tab){
     const nm = room ? (s.title || K.name) : K.name, sum = big ? _lwSummary(s) : '';
     const when = live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : room ? 'Open any time' : escapeHtml(_lwRangeC(s));
     return `<article class="lw-hc${big ? ' lw-hc-big' : ''}${sel ? ' is-sel' : ''}${live ? ' lw-ev-live' : ''}">
-        <span class="lw-hc-pic" data-lwstill="reeds" aria-hidden="true"></span>
+        ${_lwPicHTML(s, '', big)}
         <span class="lw-hc-b">
           ${big ? '<span class="eyebrow lw-hc-next">Next</span>' : ''}
           <span class="lw-hc-row">${room ? '' : `<span class="lw-hc-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-US', { weekday:'short' })}</span></span>`}
