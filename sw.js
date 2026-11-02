@@ -5,16 +5,17 @@
    (best-effort — quota never breaks playback), and serve real 206 range slices from it (iOS
    media playback requires 206). The "save all practices for offline" toggle posts PRECACHE_AUDIO
    to bulk-fill the same cache with progress + quota reporting. */
-const SHELL_VERSION = 'snb-app-shell-v678';
+const SHELL_VERSION = 'snb-app-shell-v791';
 const AUDIO_CACHE = 'snb-audio-v1';
 
 const SHELL = [
-  './', './index.html', './app.css?v=313', './app.js?v=458', './icons.js?v=2', './challenges.js?v=5', './current.js?v=19',
-  './config.js?v=9', './store.js?v=121', './from-justin.js?v=26', './reader.js?v=8', './learning.js?v=21', './player.html', './practice-engine.html',
+  './', './index.html', './app.css?v=367', './app.js?v=548', './scenes.js?v=8', './icons.js?v=2', './challenges.js?v=5', './current.js?v=19',
+  './config.js?v=9', './store.js?v=122', './from-justin.js?v=26', './reader.js?v=8', './learning.js?v=21', './player.html', './practice-engine.html',
   './clips/silence-30s.wav', './manifest.webmanifest', './offline-manifest.json', './assets/logo/snb-mark-ink.svg'
 ];
 
 const SCOPE_PATH = new URL(self.registration.scope).pathname;
+const PHOTO_CACHE = 'snb-photos-v1';   // imgsteady: card photos, kept across app updates
 /* 2026-08-30 — captions.json is NOT audio, and treating it as audio was a real trap.
    Anything matching isAudio() is served cache-first out of AUDIO_CACHE, which is deliberately
    never versioned and never evicted. That is correct for clips: an mp3 name never changes
@@ -96,7 +97,7 @@ async function purgeRecutTakes() {
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== SHELL_VERSION && k !== AUDIO_CACHE).map((k) => caches.delete(k)));
+    await Promise.all(keys.filter((k) => k !== SHELL_VERSION && k !== AUDIO_CACHE && k !== PHOTO_CACHE).map((k) => caches.delete(k)));
     await purgeOldClipTakes();
     await purgeRecutTakes();
     await self.clients.claim();
@@ -169,6 +170,18 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== location.origin) return;
   if (isAudio(url)) { e.respondWith(audioResponse(req, url)); return; }
   if (!url.pathname.startsWith(SCOPE_PATH)) return;
+  // imgsteady (2026-11-02): the app's photos keep their name for life, so they come from a cache that outlives updates
+  if (/\/img\/(learn|live|challenges)\/[^/]+\.jpg$/.test(url.pathname)) {
+    e.respondWith((async () => {
+      const c = await caches.open(PHOTO_CACHE);
+      const hit = await c.match(req, { ignoreSearch: true });
+      if (hit) return hit;
+      const fresh = await fetch(req);
+      if (fresh && fresh.ok) { try { await c.put(req, fresh.clone()); } catch (err) {} }
+      return fresh;
+    })());
+    return;
+  }
   e.respondWith((async () => {
     try {
       const fresh = await fetch(req);

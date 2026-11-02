@@ -460,6 +460,7 @@ body.embed .btn.primary{font-size:calc(16px * var(--type-scale));padding:16px 30
 body.embed .welcome{font-size:calc(15px * var(--type-scale))}
 body.embed .foot{padding-top:clamp(10px,2vh,18px)}
 </style>
+<script>/* the practice is listened to: own the audio while it plays (sounds1a) */try{if(navigator.audioSession&&'type' in navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}</script>
 <script>/* sync embed detection — set class on <html> before first paint */(function(){var q=new URLSearchParams(location.search);if(q.get('embed')==='1')document.documentElement.classList.add('embed');if(q.get('autostart')==='1')document.documentElement.classList.add('autostart');
 /* text-size setting follows the user into the player (same-origin localStorage) */
 try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.documentElement.style.setProperty('--type-user',String(ts));}catch(e){}
@@ -468,6 +469,7 @@ try{var ts=parseFloat(localStorage.getItem('snb_textscale')||'1')||1;document.do
    permanently light — a bright screen for a night practice, and the reason
    light-source scenes (sunbeam/fireflies) could never read as light. */
 try{var th=localStorage.getItem('snb_theme')||'';var dk=th==='dark'||(th!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(dk)document.documentElement.classList.add('theme-dark');window._SNB_DARK=!!dk;}catch(e){window._SNB_DARK=false;}})();</script>
+<script src="scenes.js?v=8"></script>
 </head>
 <body>
 <div class="page">
@@ -1955,12 +1957,13 @@ function fitRing(){const dpr=devicePixelRatio||1;const w=cv.clientWidth,h=cv.cli
    state colour, the shrink-for-controls easing (_msz), pause/reduced-motion
    stillness, and the settle-into-the-dot ending. captions + controls sit in
    their own elements — CC space and the popup menu are unaffected. */
-const SCENES=['circles','drift','pond','reeds','breeze','sunbeam','fireflies'];
+const SCENES=['reeds','pond','circles','fireflies'];   // grid8: four scenes
 let SCENE='circles';
 let _motes=[],_reedArr=[],_ripArr=[],_strands=[],_dust=[],_flies=[],_ripNext=0,_sT=0,_sLast=0,_bgRGB=[250,249,245];
 const DARK_ONLY={sunbeam:1,fireflies:1};   // light phenomena need darkness (Justin 07-06): light mode never shows them
 function pickScene(){
   let pref=''; try{ pref=localStorage.getItem('snb_practice_scene')||''; }catch(e){}
+  if(pref==='ring') pref='circles';   // Breath circle (the Now screen's) plays as the breathing circles (grid7)
   const dk=!!window._SNB_DARK;
   const pool=SCENES.filter(s=>dk||!DARK_ONLY[s]);
   SCENE = (SCENES.indexOf(pref)>=0 && (dk||!DARK_ONLY[pref])) ? pref : pool[Math.floor(Math.random()*pool.length)];
@@ -2226,5 +2229,18 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+<script>
+/* grid8: the app's scene engine behind the guided packs too; it follows the latest check-in (no blue / amber) */
+(function(){ try{
+  if(!window.SNBScene) return; const cv = document.getElementById('ring'); if(!cv) return;
+  let k = ''; try{ k = localStorage.getItem('snb_practice_scene') || ''; }catch(e){} if(k === 'ring') k = 'circles';
+  const dk = !!window._SNB_DARK, pool = SNBScene.SCENES.filter(s => dk || s !== 'fireflies');
+  if(SNBScene.SCENES.indexOf(k) < 0) k = pool[Math.floor(Math.random() * pool.length)]; if(k === 'fireflies' && !dk) k = 'reeds';
+  let st = null; try{ st = parent && parent !== window && parent.__snbSceneState ? parent.__snbSceneState() : null; }catch(e){}
+  let wx = 'none'; try{ if(localStorage.getItem('snb_nq_wx') === '1'){ const c = JSON.parse(localStorage.getItem('snb_nq_wxk') || 'null'); if(c && Date.now() - c.t < 3 * 3600e3 && ['rain','cloud','sun'].indexOf(c.k) >= 0) wx = c.k; } }catch(e){}
+  const day = false;   // time of day scrapped (grid8b)
+  cv.style.visibility = 'hidden';
+  SNBScene.mount(cv.parentNode, { scene:k, state:st, tod: day ? SNBScene.todOf(new Date()) : 'midday', weather:wx, dark:!!window._SNB_DARK, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches });
+}catch(e){} })();
+</script>
 </body>
-</html>

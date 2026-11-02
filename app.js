@@ -3,6 +3,13 @@
    Screens: auth -> paywall -> [today | current | practice | you] + check-in.
    ========================================================================== */
 (function () {
+  // imgsteady (2026-11-02): a photo that has loaded once comes back with the redraw in the same frame (no flicker)
+  (function(){
+    const seen = new Set();
+    document.addEventListener('load', e => { const t = e.target; if(t && t.tagName === 'IMG'){ const s = t.getAttribute('src'); if(s) seen.add(s); } }, true);
+    const fix = img => { const s = img.getAttribute('src'); if(s && seen.has(s)){ if(img.loading !== 'eager') img.loading = 'eager'; img.decoding = 'sync'; } };
+    try{ new MutationObserver(ms => { for(const m of ms) for(const n of m.addedNodes){ if(n.nodeType !== 1) continue; if(n.tagName === 'IMG') fix(n); else if(n.getElementsByTagName){ const L = n.getElementsByTagName('img'); for(let i = 0; i < L.length; i++) fix(L[i]); } } }).observe(document.documentElement, { childList:true, subtree:true }); }catch(e){}
+  })();
   const $ = (s, r) => (r || document).querySelector(s);
   const root = $('#screen');
   let _toastT=null;
@@ -28,9 +35,122 @@
       setTimeout(()=>{ try{ label.remove(); }catch(e){} }, 200);
     }catch(e){}
   }
+
+  // Sounds (Justin 2026-10-31: "we need pleasing sounds, like Minecraft"; sounds1, remade in sounds1b 2026-11-01: "too
+  // musically and not natural enough ... the pops of picking up floating items ... a paper theme"). Made in the app with
+  // Web Audio, no files. One sound per action, the same every time. A dry paper tap, and a small round pop. Rides on
+  // haptic(kind). Quiet during a practice (except once it has finished), a breath, the live room and a background-sound
+  // preview. On by default; Settings > Sounds writes '0'.
+
+  // How the app shares the phone's audio (sounds1a, Justin 2026-11-01: "Music stops when I simply go to the app").
+  // iOS 17+ lets a page say what kind of audio it makes. "ambient" mixes with the member's music and follows the silent
+  // switch, like any app's interface sounds; "playback" is for audio someone is listening to. We stay ambient, and
+  // switch to playback only while a practice, the live room or one of our own audio files is playing.
+  const _asOk = (function(){ try{ return !!(navigator.audioSession && 'type' in navigator.audioSession); }catch(e){ return false; } })();
+  const _asLive = new Set();
+  function _asType(t){ try{ if(_asOk && navigator.audioSession.type !== t) navigator.audioSession.type = t; }catch(e){} }
+  function _asIdle(){
+    const c = document.body && document.body.classList;
+    if(c && (c.contains('in-practice') || c.contains('lw-in-room'))) return;
+    if(_asLive.size) return;
+    _asType('ambient');
+  }
+  if(_asOk){
+    _asType('ambient');
+    try{
+      const P = HTMLMediaElement.prototype, _play = P.play;
+      P.play = function(){
+        try{
+          const src = String(this.currentSrc || this.src || '');
+          if(this.srcObject || (src && src.indexOf('data:') !== 0)){   // the silent autoplay unlock stays ambient
+            _asType('playback'); _asLive.add(this);
+            if(!this.__snbAs){ this.__snbAs = 1; const off = () => { _asLive.delete(this); setTimeout(_asIdle, 400); };
+              this.addEventListener('pause', off); this.addEventListener('ended', off); this.addEventListener('emptied', off); }
+          }
+        }catch(e){}
+        return _play.apply(this, arguments);
+      };
+    }catch(e){}
+    const _asWatch = () => { try{ new MutationObserver(() => { const c = document.body.classList;
+      if(c.contains('in-practice') || c.contains('lw-in-room')) _asType('playback'); else _asIdle(); })
+      .observe(document.body, { attributes:true, attributeFilter:['class'] }); }catch(e){} };
+    if(document.body) _asWatch(); else document.addEventListener('DOMContentLoaded', _asWatch);
+  }
+  let _sndCtx = null;
+  function _sndOk(kind){
+    try{
+      if(localStorage.getItem('snb_sounds') === '0') return false;
+      if(!_asOk && _hapIsIOS()) return false;   // older iOS would stop the member's music (sounds1a)
+      if(kind === 'begin' || kind === 'bed') return false;
+      const c = document.body && document.body.classList;
+      if(c && (c.contains('breathing') || c.contains('lw-in-room'))) return false;
+      if(c && kind !== 'complete' && c.contains('in-practice')) return false;
+      return true;
+    }catch(e){ return false; }
+  }
+  // The five sounds Justin chose in the sound audition (sounds1d, 2026-11-01). All paper, felt and wood; no notes.
+  let _sndNoise = null;
+  function _sndN(ctx, t, o){   // filtered noise with an attack and a fall; the filter may sweep from f to f2
+    if(!_sndNoise || _sndNoise.sampleRate !== ctx.sampleRate){   // one fixed noise sample, so an action sounds the same every time
+      const n = Math.floor(ctx.sampleRate * 1.2); _sndNoise = ctx.createBuffer(1, n, ctx.sampleRate); const d = _sndNoise.getChannelData(0);
+      let s = 7; for(let i = 0; i < n; i++){ s = (s * 16807) % 2147483647; d[i] = s / 1073741823.5 - 1; }
+    }
+    const src = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = _sndNoise; fl.type = o.type || 'bandpass'; fl.Q.value = o.Q == null ? 1 : o.Q;
+    fl.frequency.setValueAtTime(o.f, t); if(o.f2) fl.frequency.exponentialRampToValueAtTime(o.f2, t + o.dur);
+    const at = o.attack || 0.002;
+    g.gain.setValueAtTime(0.0001, t);
+    if(o.swell) g.gain.linearRampToValueAtTime(o.vol, t + at); else g.gain.exponentialRampToValueAtTime(o.vol, t + at);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+    src.connect(fl); fl.connect(g); g.connect(ctx.destination); src.start(t, (o.off || 0) % 1); src.stop(t + o.dur + 0.05);
+  }
+  function _sndThud(ctx, t, o){   // a low body thud: a short low sine falling in pitch (a stack of paper on a desk)
+    const os = ctx.createOscillator(), g = ctx.createGain();
+    os.type = 'sine'; os.frequency.setValueAtTime(o.f, t); os.frequency.exponentialRampToValueAtTime(o.f2, t + o.dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+    os.connect(g); g.connect(ctx.destination); os.start(t); os.stop(t + o.dur + 0.05);
+  }
+  function sound(kind){
+    if(!_sndOk(kind)) return;
+    try{
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      if(!_sndCtx) _sndCtx = new AC();
+      const ctx = _sndCtx; if(ctx.state === 'suspended') ctx.resume();
+      const t = ctx.currentTime + 0.01;
+      const N = (d, o) => _sndN(ctx, t + d, o), H = (d, o) => _sndThud(ctx, t + d, o);
+      if(kind === 'tap'){ N(0, {f:450, Q:4, dur:0.045, vol:0.22}); N(0, {f:1300, Q:4, dur:0.025, vol:0.06, off:0.3}); }   // T5 soft knock
+      else if(kind === 'save'){ N(0, {f:4000, Q:2, dur:0.008, vol:0.12}); N(0.02, {f:3000, f2:4500, Q:1.5, dur:0.06, vol:0.05, attack:0.01, swell:1, off:0.6}); }   // S5 pencil check
+      else if(kind === 'done'){ N(0, {type:'highpass', f:2000, Q:0.7, dur:0.08, vol:0.05, attack:0.04, swell:1}); N(0.08, {type:'lowpass', f:700, dur:0.04, vol:0.14, off:0.9}); H(0.08, {f:140, f2:80, dur:0.04, vol:0.07}); }   // D5 envelope sealed
+      else if(kind === 'complete'){ [0, 0.07, 0.14].forEach((d, i) => { N(d, {type:'lowpass', f:1000, Q:0.7, dur:0.03, vol:0.16 - i * 0.04, off:i * 0.25}); H(d, {f:130, f2:80, dur:0.03, vol:0.07 - i * 0.02}); }); }   // C3 stack settled
+      else { N(0, {type:'highpass', f:1200, Q:0.7, dur:0.009, vol:0.22}); N(0.002, {f:2500, Q:1, dur:0.02, vol:0.05, off:0.2}); }   // K1 bubble-wrap pop (a pick)
+    }catch(e){}
+  }
+  window.__snbSound = sound;
+  // wake the engine as the finger lands, so the sound is ready when the tap completes (sounds1e); sleep only in the background
+  function _sndWake(){
+    try{
+      if(!_sndOk('tap')) return;
+      const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      if(!_sndCtx) _sndCtx = new AC();
+      if(_sndCtx.state !== 'running') _sndCtx.resume();
+    }catch(e){}
+  }
+  document.addEventListener('pointerdown', _sndWake, true);
+  document.addEventListener('visibilitychange', () => { try{ if(document.hidden && _sndCtx && _sndCtx.state === 'running') _sndCtx.suspend(); }catch(e){} });
+  // Inside the iPhone store app the web tricks below don't reach the Taptic Engine, so the shell does it natively
+  // (haptics1, Justin 2026-11-02: "Haptics are not working yet"; SNBNativePlugin.haptic, from the next TestFlight build).
+  const _hapNative = () => { try{ const C = window.Capacitor, N = C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SNBNative;
+    return N && C.isPluginAvailable && C.isPluginAvailable('SNBNative') && typeof N.haptic === 'function' ? N : null; }catch(e){ return null; } };
+  // one action, one sound: a second call for the same kind inside 90 ms is the same tap heard twice (sounds3, Justin
+  // 2026-11-02: picking Poppy vs Justin sounded subtly different, it was two overlapping pops)
+  let _hapLast = { k:'', t:0 };
   function haptic(kind){
+    try{ const n = Date.now(); if(_hapLast.k === kind && n - _hapLast.t < 90) return; _hapLast = { k:kind, t:n }; }catch(e){}
+    try{ sound(kind); }catch(e){}
     try{
       if(localStorage.getItem('snb_haptics') === '0') return;       // on by default; '0' mutes
+      const N = _hapNative();
+      if(N){ try{ const r = N.haptic({ kind: String(kind || 'tap') }); if(r && r.catch) r.catch(()=>{}); return; }catch(e){} }
       if(_hapIsIOS()){
         try{ if(navigator.vibrate) navigator.vibrate(12); }catch(e){}   // some iOS builds expose it
         _hapTap();                                                       // the <input switch> path
@@ -39,6 +159,12 @@
       if(navigator.vibrate) navigator.vibrate(kind === 'complete' ? [16,80,16] : 12);   // Android / Chrome
     }catch(e){}
   }
+  // the tab bar gets the soft knock too (sounds2, Justin 2026-11-02: "Tabs and un-RSVP"). One listener for every screen's
+  // tab bar, since each screen wires its own buttons.
+  document.addEventListener('click', e => { try{ if(e.target && e.target.closest && e.target.closest('#tabs button[data-t]')) haptic('tap'); }catch(err){} }, true);
+  // every switch in the app, on or off, gets the pencil check (sounds3, Justin 2026-11-02: "make sure all toggles get a sound").
+  // Heard as the click bubbles up, after the switch's own handler, so the Sounds and Haptics switches use their new setting.
+  document.addEventListener('click', e => { try{ const b = e.target && e.target.closest && e.target.closest('[role="switch"], .set-sw'); if(b && !b.disabled) haptic('save'); }catch(err){} });
   const MARK = './assets/logo/snb-mark-ink.svg';
 
   /* ── the margin read, applied to stored check-ins ──────────────────────────
@@ -76,7 +202,7 @@
   // that must render SOME practice pass needShape=true and get the same 'anchoring'
   // default the maker already falls back to defensively.
   function _recommendSafe(needShape){
-    try{ const r = Store.recommend && Store.recommend(); if(r) return r; }
+    try{ const r = Store.recommend && Store.recommend(); if(r){ r.launchedFrom = 'recommended'; return r; } }
     catch(e){ try{ console.error('Store.recommend() failed — rendering without it:', e); }catch(_){} }
     return needShape ? { practiceKey:'anchoring', silence:8, reason:null } : null;
   }
@@ -148,7 +274,7 @@
   let _deferredInstall = null;
   const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true
     || !!(Store.inStoreApp && Store.inStoreApp());   // the App Store app is already installed (2026-10-21)
-  const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+  const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // acct1: iPadOS Safari reports a Mac
   // in-app browsers (instagram/facebook/gmail/etc.) and non-Safari iOS browsers
   // can't "add to home screen" — the #1 install snag for new members (Claudia hit
   // it). detect them so we say "open in your real browser first" instead of
@@ -217,6 +343,8 @@
   // STATE_NAME/segLabel are read mid-sentence in a dozen places.
   const CAP = (s) => { s = String(s == null ? '' : s); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
   const STATE_LABEL = (key) => CAP(STATE_NAME(key));
+  // Learn's name for a state (Justin 2026-10-31: "Learn topic should be 'Stillness/Intimacy'"); the rest of the app keeps STATE_LABEL
+  const _LRN_ST = (key) => key === 'stillness' ? 'Stillness/Intimacy' : STATE_LABEL(key);
   // mute(): blends a color toward the card background (--bone) so a de-emphasized
   // chart bar reads as a genuinely softer version of ITS OWN hue, not a differently-
   // hued pale tint. Used by the You-tab bar charts to make the winning bar/segment
@@ -600,6 +728,7 @@
           <input type="range" class="${cls}" id="sl-${key}" min="0" max="100" value="${val}" aria-label="${plain?('How much '+scenario):('How easy would it be to '+scenario)}">
           ${numbered?`<span class="slider-num" id="num-${key}" aria-hidden="true">${Math.round(val/10)}</span>`:''}
         </div>
+        <span class="ci4-he" aria-hidden="true"><span>${plain ? 'Less' : numbered ? '0' : 'Harder'}</span><span>${plain ? 'More' : numbered ? '10' : 'Easier'}</span></span>
       </div>
     </div>`;
   }
@@ -654,6 +783,9 @@
     localStorage.setItem(CI_QKEY, JSON.stringify(m)); }catch(e){} }
   function ciLoadQ(t){ try{ return JSON.parse(localStorage.getItem(CI_QKEY)||'{}')[t] || null; }catch(e){ return null; } }
   const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>';
+  // the Settings row chevron (grid6): drawn, so it does not depend on a parent's stroke rules
+  const _ST_TICK = '<svg class="st-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
+  const _ST_CHEV = '<svg class="st-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   // now-screen post-breath slot (r5 2026-07-24): small, legible icons for the dynamic
   // second row — a plus for "check in again" once it shrinks, a play for the micro
   // practice, an open book for the personal-reader doorway.
@@ -745,14 +877,17 @@
   // so the new one starts where the last one was and moves to where this screen wants it.
   let _tbWas = false;
   function _tbSync(){
-    const tb = root.querySelector(':scope > .tabbar'), back = root.querySelector(':scope > .fl-dock > .tab-back-float');
+    const tb = root.querySelector(':scope > .tabbar'), back = root.querySelector(':scope > .fl-dock:not(.tb-ghost) > .tab-back-float');
     const want = !!(tb && back), was = _tbWas; _tbWas = want;
     const mm = q => !!(window.matchMedia && matchMedia(q).matches);
     const move = mm('(max-width:719px)') && !mm('(prefers-reduced-motion: reduce)') && want !== was;
     if(tb && !tb.classList.contains('tb-seen')){
       tb.classList.add('tb-seen');
       if(move){ tb.classList.add('tb-still'); tb.classList.toggle('tb-cond', was); void tb.offsetWidth; tb.classList.remove('tb-still'); }
-      tb.classList.toggle('tb-cond', want);
+      // same Back state as the last screen (lesson to lesson): the new menu starts where the old one was, no transition at all
+      // (Justin 2026-10-30: "the bottom menu re-animates in every time i go back and forth between lessons")
+      if(!move){ tb.classList.add('tb-still'); tb.classList.toggle('tb-cond', want); void tb.offsetWidth; requestAnimationFrame(()=>requestAnimationFrame(()=>tb.classList.remove('tb-still'))); }
+      else tb.classList.toggle('tb-cond', want);
     } else if(tb) tb.classList.toggle('tb-cond', want);
     if(!move) return;
     if(want){ back.classList.add('tb-enter'); back.addEventListener('animationend', ()=>back.classList.remove('tb-enter'), { once:true }); }
@@ -763,8 +898,36 @@
       root.appendChild(g); setTimeout(()=>g.remove(), 360);
     }
   }
-  if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))) _tbSync(); }).observe(root, { childList:true });
-  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; }
+  // the Back rule, app-wide (Justin 2026-10-30: "The floating desktop Back pills can be changed to the plain black link"): every
+  // screen with a floating Back gets a plain "Back" link at the top of its page (shown at 1120 and up, scrolls with the page);
+  // the pill then hides on desktop. Tablet and phone keep the bottom bar's arrow. Screens whose page fills in later get the
+  // link when it does.
+  function _pgBackSync(){
+    const back = root.querySelector('.fl-dock:not(.tb-ghost) > .tab-back-float'); if(!back || document.body.classList.contains('rd-crumbs')) return;
+    const sc = root.querySelector('.scroll'); if(!sc) return;
+    const dock = back.parentElement;
+    const put = () => {
+      if(!back.isConnected) return;
+      if(!sc.querySelector('.pg-back')){
+        const host = sc.querySelector('.view') || sc.firstElementChild; if(!host) return;
+        const b = document.createElement('button'); b.className = 'pg-back'; b.type = 'button'; b.innerHTML = BACK_SVG + '<span>Back</span>';
+        b.onclick = () => back.click(); host.prepend(b);
+      }
+      dock.classList.add(dock.children.length === 1 ? 'fl-plain' : 'fl-noback');
+    };
+    put();
+    if(window.MutationObserver && !sc._pgObs){ sc._pgObs = new MutationObserver(put); sc._pgObs.observe(sc, { childList:true }); }
+  }
+  if(window.MutationObserver) new MutationObserver(ms=>{ if(ms.some(m=>[...m.addedNodes].some(n=>n.nodeType === 1 && !n.classList.contains('tb-ghost')))){ _tbSync(); _pgBackSync(); } }).observe(root, { childList:true });
+  function setHTML(html){ clearFigures(); document.body.classList.remove('in-practice','rd-on','rd-sub','jr-sheet-on','ll-sf-typing','lm-dark','lm-player-on','rd-crumbs','lm-wide','lm-arr'); root.innerHTML = html; try{ _tbSync(); }catch(e){} try{ _recoTint(); }catch(e){} }
+  // the recommended outline's colours: the latest check-in's state, with the two beside it on the Current
+  function _recoTint(){
+    const NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['freeze','safety'] };  // stillness: freeze + safety (Justin 2026-10-31: the Current's ends touch in a circle)
+    let k = null; try{ k = _cDom(Store.lastCheckin()); }catch(e){}
+    if(!NB[k]) k = 'safety';
+    const s = document.documentElement.style;
+    s.setProperty('--rc1', STATE_COLOR(k)); s.setProperty('--rc2', STATE_COLOR(NB[k][0])); s.setProperty('--rc3', STATE_COLOR(NB[k][1]));
+  }
 
   // ---------------------------------------------------------------- routing
   // Has an account ever been signed in on this device? Set on every successful
@@ -945,51 +1108,61 @@
   // the quiet "sign in" link moved onto the check-in itself. See guestCheckin().
 
   // ---------------------------------------------------------------- sign in / up
+  // ---- the sign-in frame (Justin, canon 2026-10-31): one sheet of paper split on the Swiss grid, no darker panel, no
+  // dividing line. Columns 1-6: the breath, circles only (the ring with "Take one breath first." inside it, two quiet rings
+  // breathing with it, 4s in / 6s out, "The breath needs no account." under it). Columns 8-12: the words, centred top to
+  // bottom. Phone: a short breath band on top, the words below. Reduced motion: nothing scales.
+  function _siFrame(inner){
+    // si2 (Justin 2026-11-02): the breath ring is gone ("it's clutter"); the mark, then the words, on the grid
+    return `<div class="view si-view si-nobreath">
+        <div class="si-side"><span class="si-mark" role="img" aria-label="Stuck Not Broken">${triGlyph('neutral')}</span><div class="si-body">${inner}</div></div>
+      </div>`;
+  }
+  const _SI_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+  const _siPw = (id, auto, label, extra) => `<div class="si-field"><div class="si-lab"><label for="${id}">${label}</label>${extra||''}</div>
+          <div class="si-pw"><input id="${id}" type="password" autocomplete="${auto}"><button class="si-show" type="button" data-show="${id}" aria-pressed="false" aria-label="Show password">Show</button></div></div>`;
+  function _siWire(){
+    const gb = $('#gate-breath'); if(gb) gb.onclick = gateBreath;
+    root.querySelectorAll('.si-show').forEach(b=>{ b.onclick = ()=>{ const i = document.getElementById(b.dataset.show); if(!i) return;
+      const show = i.type === 'password'; i.type = show ? 'text' : 'password'; b.textContent = show ? 'Hide' : 'Show';
+      b.setAttribute('aria-pressed', String(show)); b.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); }; });
+  }
+
   function screenSignIn(err, busy){
     const up = authMode==='up';
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
-          <button class="gate-breath" id="gate-breath" type="button" aria-label="take one breath first">
-            <span class="gb-ring" id="gb-ring" aria-hidden="true"></span>
-            <span class="gb-txt" id="gb-txt" aria-live="polite">Take one breath first.</span>
-          </button>
-          <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note" style="margin:14px 0 2px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px;line-height:1.5">You\u2019re joining a live practice. Sign in to check in.</div>':''}
-          <h1 style="margin:10px 0 12px">${up?'An app to guide you through emotional regulation.':'Your nervous system, over time.'}</h1>
-          <p class="lede" style="margin-bottom:24px">Check in about your nervous system, get practices based on what helps you, and watch your patterns become visible over time.</p>
-          ${up&&Store.cloud()?'<p class="fineprint gate-sep">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>':''}
-          <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin-top:6px" aria-live="polite"></p></div>
-          ${up ? '<div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
-          <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="${up?'new-password':'current-password'}"></div>
-          ${err?(/invalid login credentials/i.test(err)&&!up
-            ? `<p class="autherr">That email and password don't match an app account. Your stucknotbroken.com login doesn't carry over to the app, so if you haven't made an app account yet, create one with this email.</p><button class="set-quiet" id="err-up" type="button" style="display:block;margin:8px 0 4px">Create an app account with this email</button>`
-            : `<p class="autherr">${escapeHtml(err)}</p>`):''}
-          <button class="btn block" id="go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':(up?'Create account':'Sign in')}</button>
-          ${up&&!Store.cloud()?'<p class="fineprint" style="margin-top:12px;text-align:center">Already have an account? <button class="linkbtn" id="toggle-top" type="button" style="font-size:inherit;padding:2px">Log in</button></p>':''}
-          ${up||!Store.cloud()?'':'<button class="btn block quiet" id="go-up" type="button" style="margin-top:10px"'+(busy?' disabled':'')+'>New here? Create an account</button>'}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:14px;text-align:center">Just want to try it?</p><button class="set-quiet" id="guest-start" type="button" style="display:block;margin:6px auto 0"'+(busy?' disabled':'')+'>Start a check-in, no account needed</button>'}
-          ${up?`<p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
-          <p class="fineprint" style="margin-top:6px">An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>`:''}
-          ${up||!Store.cloud()?`<p class="fineprint">${up?'Already have an account?':'New here?'} <button class="linkbtn" id="toggle" style="font-size:inherit;padding:2px">${up?'Sign in':'Create an account'}</button></p>`:''}
-          ${up?'':'<p class="fineprint" style="margin-top:6px">The breath above needs no account. The rest of the app does. It keeps your check-ins and patterns safe, on any device you sign in from.</p>'}
-          ${up||!Store.cloud()?'':'<p class="fineprint" style="margin-top:4px"><button class="linkbtn" id="forgot" style="font-size:inherit;padding:2px">Forgot your password?</button></p>'}
-          ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}
-        </div>
-      </div>`);
+    // one headline for both (Justin 2026-10-31: beta's "An app to guide you through emotional regulation." goes);
+    // Sign in / Create account as two outlined pills switching the form in place; errors right under the email.
+    const errHTML = err ? (/invalid login credentials/i.test(err)&&!up
+      ? `<p class="autherr si-err">That email and password don't match an app account. Your stucknotbroken.com login doesn't carry over to the app, so if you haven't made an app account yet, create one with this email.</p><button class="fr-link" id="err-up" type="button">Create an app account with this email</button>`
+      : `<p class="autherr si-err">${escapeHtml(err)}</p>`) : '';
+    const mode = (k, l) => `<button class="si-mode${(k==='up')===up?' on':''}" type="button" id="mode-${k}" aria-pressed="${(k==='up')===up}"${busy?' disabled':''}>${(k==='up')===up?_SI_TICK:''}${l}</button>`;
+    setHTML(_siFrame(`
+          <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note si-box">You\u2019re joining a live practice. Sign in to check in.</div>':''}
+          <h1 class="si-h1">Build emotional regulation through guided practices.</h1>
+          <p class="lede si-lede">Short practices built just for you based on your check-ins and what your system can handle. Watch your capacity grow over time.</p>
+          <div class="si-modes" role="group" aria-label="Sign in or create an account">${mode('in','Sign in')}${mode('up','Create account')}</div>
+          ${up&&Store.cloud()?'<p class="si-box">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>':''}
+          <div class="si-field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin:2px 0 0" aria-live="polite"></p>${errHTML}</div>
+          ${up ? '<div class="si-field"><label for="nm">Your name <span class="si-opt">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>' : ''}
+          ${_siPw('pw', up?'new-password':'current-password', 'Password', (!up&&Store.cloud())?'<button class="si-forgot" id="forgot" type="button">Forgot your password?</button>':'')}
+          <button class="btn block si-go" id="go"${busy?' disabled':''}>${busy?'One moment…':(up?'Create account':'Sign in')}</button>
+          ${up?`<p class="si-fine">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>. An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>`:''}
+          ${up||!Store.cloud()?'':`<button class="si-try" id="guest-start" type="button"${busy?' disabled':''}><span class="si-try-w"><span class="si-try-q">Just want to try it?</span><span class="si-try-t">Start a check-in, no account needed</span></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>`}
+          ${Store.cloud()?'':'<p class="fineprint" style="margin-top:8px">On-device mode: your data stays on this device for now.</p>'}`));
     if(busy) return;
+    _siWire();
+    { const mi=$('#mode-in'), mu=$('#mode-up'), keep=()=>{ const e=$('#em'); if(e) lastEmail=e.value.trim(); };
+      if(mi) mi.onclick=()=>{ if(!up) return; keep(); authMode='in'; screenSignIn(); };
+      if(mu) mu.onclick=()=>{ if(up) return; keep(); authMode='up'; screenSignIn(); }; }    if(busy) return;
     const gb=$('#gate-breath'); if(gb) gb.onclick = gateBreath;
-    const gs=$('#guest-start'); if(gs) gs.onclick = startGuestFlow;
-    { const tg=$('#toggle'); if(tg) tg.onclick = ()=>{ authMode = up?'in':'up'; screenSignIn(); }; }
+    const gs=$('#guest-start'); if(gs) gs.onclick = ()=>startGuestFlow();
     // "New here? Create an account" as a full button right under Sign in (Justin, 2026-10-14, option C, after Dan
     // couldn't find the sign-up link: "I can't find a way to scroll down to see if there's a 'sign up' link")
     { const keep=()=>{ const e=$('#em'); if(e) lastEmail=e.value.trim(); };
-      const gu=$('#go-up'), eu=$('#err-up');
-      if(gu) gu.onclick=()=>{ keep(); authMode='up'; screenSignIn(); };
+      const eu=$('#err-up');
       if(eu) eu.onclick=()=>{ keep(); authMode='up'; screenSignIn(); setTimeout(()=>{ const pw=$('#pw'); if(pw) pw.focus(); }, 50); }; }
-    { const _tt=$('#toggle-top'); if(_tt) _tt.onclick=()=>{ authMode='in'; screenSignIn(); }; }
     $('#go').onclick = submit;
-    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
+    root.querySelectorAll('.si-fine a[data-policy]').forEach(a=>{
       a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
     });
     $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; emailHint(); });
@@ -997,7 +1170,7 @@
     $('#pw').addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
     const fg=$('#forgot'); if(fg) fg.onclick = ()=>{
       const email=$('#em').value.trim();
-      if(!email){ lastEmail=email; return screenSignIn('enter your email above first, then tap "Forgot your password?"'); }
+      if(!email){ lastEmail=email; return screenSignIn('Enter your email above first, then tap "Forgot your password?"'); }
       lastEmail=email;
       screenSignIn(null, true);
       Promise.resolve(Store.resetPassword(email)).then(res=>{
@@ -1016,7 +1189,7 @@
       const dom = at>0 ? v.slice(at+1).toLowerCase() : '';
       if(fixes[dom]){
         hint.style.display='block';
-        hint.innerHTML='did you mean <button type="button" class="linkbtn" id="em-fix" style="font-size:inherit;padding:0">'+escapeHtml(v.slice(0,at+1)+fixes[dom])+'</button>?';
+        hint.innerHTML='Did you mean <button type="button" class="linkbtn" id="em-fix" style="font-size:inherit;padding:0">'+escapeHtml(v.slice(0,at+1)+fixes[dom])+'</button>?';
         const fx=hint.querySelector('#em-fix');
         if(fx) fx.onclick=()=>{ el.value=v.slice(0,at+1)+fixes[dom]; lastEmail=el.value; hint.style.display='none'; };
       } else hint.style.display='none';
@@ -1028,6 +1201,8 @@
       const nm = up ? (($('#nm')||{}).value||'').trim() : '';
       screenSignIn(null, true);
       Promise.resolve(up ? Store.signUp(email,pw) : Store.signIn(email,pw)).then(res=>{
+        // acct1: the email already has an app account: go to Sign in with it filled in, not a raw error
+        if(res && res.error && up && /already been registered|already registered|email_exists/i.test(res.error)){ authMode='in'; return screenSignIn('You already have an app account with this email. Sign in below. If you don\u2019t remember your password, tap "Forgot your password?"'); }
         if(res && res.error) return screenSignIn(res.error);
         if(res && res.needsConfirm){ markKnownDevice(); return screenConfirm(email); }
         if(nm) Store.setName(nm);
@@ -1056,10 +1231,10 @@
     if(_gbRunning) return; _gbRunning = true;
     const ring=$('#gb-ring'), txt=$('#gb-txt');
     const reduce = document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion:reduce)').matches;
-    try{ haptic('start'); }catch(_){}
+    try{ haptic('begin'); }catch(_){}
     const setTxt=(t)=>{ if(txt) txt.textContent=t; };
     const done=()=>{
-      setTxt("that's the heart of it. come on in.");
+      setTxt("That's the heart of it. Come on in.");
       setTimeout(()=>{
         if(ring){ ring.style.transition=''; ring.style.transform=''; ring.style.opacity=''; ring.style.animation=''; }
         setTxt('Take one breath first.');
@@ -1074,11 +1249,11 @@
       ring.style.opacity='.5';
     }
     setTimeout(()=>{
-      setTxt('in');
+      setTxt('In');
       if(ring){ if(reduce){ ring.style.transition='opacity 4s'; ring.style.opacity='.85'; }
         else{ ring.style.transition='transform 4s cubic-bezier(.4,0,.5,1), opacity 4s'; ring.style.transform='scale(1.22)'; ring.style.opacity='.85'; } }
       setTimeout(()=>{
-        setTxt('out');
+        setTxt('Out');
         if(ring){ if(reduce){ ring.style.transition='opacity 6s'; ring.style.opacity='.45'; }
           else{ ring.style.transition='transform 6s cubic-bezier(.4,0,.5,1), opacity 6s'; ring.style.transform='scale(.82)'; ring.style.opacity='.45'; } }
       }, 4200);
@@ -1179,6 +1354,33 @@
     return Promise.resolve(Store.signInAnonymously());
   }
 
+  // ---- first run on the Swiss grid (Justin, canon 2026-10-31; BRAND_DESIGN_SYSTEM §4 "First run (no account yet)") ----
+  // Tabbar-free, on paper. One small top bar on every screen: the mark, Back where the flow allows, and
+  // "Already have an account? Sign in". The words sit on columns 1-7 and the action card on 8-12 (phone: stacked, card last).
+  const _FR_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+  const _FR_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+  let _frSc = [];
+  function _frScStop(){ _frSc.forEach(s=>{ try{ s.stop(); }catch(e){} }); _frSc = []; }
+  function _frTop(back){
+    _frScStop();
+    // on a narrow phone with Back, the question folds away visually (still read aloud) so the bar stays one line
+    return `<header class="appbar fr-top${back ? ' fr-has-back' : ''}"><span class="fr-top-l"><span class="fr-mark" role="img" aria-label="Stuck Not Broken">${triGlyph('neutral')}</span>${back ? `<button class="fr-back" id="fr-back" type="button">${_FR_BACK}Back</button>` : ''}</span>
+      <span class="fr-top-r"><span class="fr-top-q">Already have an account? </span><button class="linkbtn fr-signin" id="fr-signin" type="button">Sign in</button></span></header>`;
+  }
+  // Sign in = the same operation as "Leave without saving" (sign the anonymous session out, land on the sign-in form).
+  // The offer keeps its own event (guest_signin, from:'offer'); the other screens never fired one and still don't.
+  function _frWire(onBack, from){
+    const b = $('#fr-back'); if(b && onBack) b.onclick = onBack;
+    const s = $('#fr-signin'); if(s) s.onclick = ()=>{ if(from==='offer') gtrack('guest_signin', { door:guestDoor(), from:'offer' }); guestLeave(); };
+  }
+  // the practice pictures: stills from the scene engine, in the colour of what the person described
+  function _frStills(){
+    if(!window.SNBScene) return;
+    const ci = _guestCI || gsGet().ci1 || null;
+    const st = ci ? window.PVCurrent.dominantOf(ci.v, ci.sym, ci.dor).key : null;
+    root.querySelectorAll('[data-frstill]').forEach(c=>{ try{ _frSc.push(SNBScene.mount(c, { scene:c.dataset.frstill, tod:'midday', state:st, dark:_scDark(), reduce:true })); }catch(e){} });
+  }
+
   // ---- guest check-in (streamlined, tabbar-free) ----
   // Three sliders + the live mirror + "ask me differently". Intentionally omits the
   // paid-side folds (challenge / "choose your next practice" = recommender
@@ -1203,13 +1405,13 @@
                : { v:ciRand('v',-1), sym:ciRand('sym',-1), dor:ciRand('dor',-1) };
     const entry = mode==='before';
     root.innerHTML = `
-      <header class="appbar">${entry && Store.user() ? '<button class="backbtn" id="g-ci-back">Back</button>':''}</header>
+      ${_frTop(entry && Store.user())}
       <div class="scroll" id="content"></div>`;
     // back exists only on a re-visited before-read (reflection -> back). Backing off it
     // = abandon (discard the anonymous session). The entry screen has no back — there is
     // nothing behind it any more; leaving is closing the tab or the quiet sign-in link.
-    const gcb = $('#g-ci-back'); if(gcb) gcb.onclick = ()=>guestLeave();
-    $('#content').innerHTML = `<div class="view checkin2 ci4">
+    _frWire(()=>guestLeave());
+    $('#content').innerHTML = `<div class="view checkin2 ci4 fr-ci">
         <div class="scr-head">
           <p class="eyebrow">${mode==='before' ? 'Before your practice' : 'After your practice'}</p>
           <h2 class="scr-h">Right now, how easy would it be to&hellip;</h2>
@@ -1222,15 +1424,14 @@
             ${ci4SliderHTML('dor', CI_BANK.dor[qIdx.dor], 'r-dor', 100-d)}
           </div>
           ${mode==='after' ? '' : '<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <div class="ci-reading" id="ci-reading"></div>
-          ${err?`<p class="autherr" style="margin-top:10px">${escapeHtml(err)}</p>`:''}
         </div>
-        <div class="actionbar">
+        <aside class="ci-readcard fr-card" aria-label="Your read">
+          <div class="ci-readrow"><span class="ci-read-mk" id="ci-read-mk" aria-hidden="true"></span><div class="ci-reading" id="ci-reading" aria-live="polite"></div></div>
+          ${err?`<p class="autherr" style="margin:0">${escapeHtml(err)}</p>`:''}
           <button class="btn block" id="g-ci-save">${mode==='after' ? 'See what changed' : 'See what you described'}</button>
-          ${mode==='post' ? '<button class="navlink" id="g-ci-skip" style="align-self:center">Not now</button>' : ''}
-          ${entry ? `<p class="fineprint" style="text-align:center;margin:2px 0 0">Nothing is saved unless you decide to create an account.</p>
-          <p class="fineprint" style="text-align:center;margin:0">Already have an account? <button class="linkbtn" id="g-ci-signin" style="font-size:inherit;padding:2px">Sign in</button></p>` : ''}
-        </div>
+          ${mode==='post' ? '<button class="fr-link" id="g-ci-skip" type="button">Not now</button>' : ''}
+          ${entry ? '<p class="fr-fine">Nothing is saved unless you decide to create an account.</p>' : ''}
+        </aside>
       </div>`;
     const axTouched = {};
     function refresh(){
@@ -1242,8 +1443,12 @@
         /* 2026-08-17 — the name IS the reading (Justin). 2026-08-22 — it always shows:
            untouched sliders are the person's answer, so there is always a state to
            name. Dead-centre keeps its sentence, the one case with no name to give. */
-        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
+        // the members' read (2026-10-29): the name large, its band under it, no em dash; the mark is ink until a slider is set
+        const _lb = window.PVCurrent.readingOf(v/100, s/100, d/100).label, _di = _lb.indexOf(' \u2014 ');
+        reading.innerHTML = `<span class="ci-reading-name">${_di > 0 ? _lb.slice(0, _di) : _lb}</span>${_di > 0 ? `<span class="ci-reading-band">${CAP(_lb.slice(_di + 3))}.</span>` : ''}`;
         reading.hidden = false;
+        const _mk = $('#ci-read-mk');
+        if(_mk) _mk.innerHTML = triGlyph((axTouched.v || axTouched.sym || axTouched.dor) ? window.PVCurrent.dominantOf(v/100, s/100, d/100).key : 'neutral');
       }
     }
     bindSlider('v', val=>{v=val;axTouched.v=1;refresh();});
@@ -1303,22 +1508,22 @@
     const dom = window.PVCurrent.dominantOf(ci.v, ci.sym, ci.dor);
     const name = STATE_NAME(dom.key);
     root.innerHTML = `
-      <header class="appbar">${_guestPracticed ? '' : '<button class="backbtn" id="g-rf-back">Back</button>'}</header>
+      ${_frTop(!_guestPracticed)}
       <div class="scroll" id="content"></div>`;
-    const grb = $('#g-rf-back'); if(grb) grb.onclick = ()=>guestCheckin('before');
-    $('#content').innerHTML = `<div class="view fb-view">
-        <div class="scr-head">
+    _frWire(()=>guestCheckin('before'));
+    $('#content').innerHTML = `<div class="view fr-view">
+        <div class="fr-words">
           <p class="eyebrow">What you described</p>
-          <div class="g-glyph">${triGlyph(dom.key)}</div>
-          <h1 class="scr-h" style="margin-top:14px">${escapeHtml(CAP(name))}</h1>
-          <p class="scr-lede">${escapeHtml(ciMirror(ci.v, ci.sym, ci.dor))}</p>
-          ${_guestPracticed ? '' : '<p class="scr-lede">Now that you\'ve checked in, you\'re ready for your practice.</p>'}
+          <div class="g-glyph fr-glyph">${triGlyph(dom.key)}</div>
+          <h1 class="fr-h1">${escapeHtml(CAP(name))}</h1>
+          <p class="scr-lede fr-lede">${escapeHtml(CAP(ciMirror(ci.v, ci.sym, ci.dor)))}</p>
+          ${_guestPracticed ? '' : '<p class="scr-lede fr-lede">Now that you\'ve checked in, you\'re ready for your practice.</p>'}
         </div>
-        <div class="actionbar">
+        <aside class="fr-card" aria-label="Next">
           ${_guestPracticed
             ? '<button class="btn block" id="g-rf-next">Next</button>'
-            : '<button class="btn block" id="g-rf-practice">Try my practice</button><button class="navlink" id="g-rf-save" style="align-self:center">Keep this check-in</button>'}
-        </div>
+            : '<button class="btn block" id="g-rf-practice">Try my practice</button><button class="fr-link" id="g-rf-save" type="button">Keep this check-in</button>'}
+        </aside>
       </div>`;
     // post-practice (the /stuck door's offered check-in): the way on is the offer
     const rfp = $('#g-rf-practice'); if(rfp) rfp.onclick = ()=>guestPracticePick();
@@ -1337,68 +1542,46 @@
     // hard stop: one practice per guest. If they've already had it, the only way on is the offer.
     if(_guestPracticed) return guestOffer();
     clearFigures(); document.body.classList.remove('in-practice');
-    const P_ICO = {
-      micro:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>',
-      mindfulness: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/></svg>',
-      anchoring:   ico('heart',{color:'var(--track-safety-ink)'}),
-      'self-regulation':        `<span class="p-ico-pair">${ico('bolt',{color:'var(--track-self-ink)'})}${ico('x',{color:'var(--track-self-ink)'})}</span>`,
-      more:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.2" height="7" rx="1.6"/><rect x="17.3" y="13" width="4.2" height="7" rx="1.6"/></svg>',
-    };
     // the two open subs carry the estimate — sourced from PRACTICE_EST at the SAME
     // silence guestLaunch actually passes, so the promised times are the real times.
     const estTiny = estMinutes('micro', 2), estFull = estMinutes('mindfulness', 4);
-    const OPTS = [
-      { key:'micro',       open:true,  title:'A tiny practice',          sub:`about ${estTiny} min · one sense, done` },
-      { key:'mindfulness', open:true,  title:'Simple mindfulness',       sub:`about ${estFull} min · the gentlest, a calm place to start` },
-      { key:'anchoring',   open:false, title:'Safety anchoring',        sub:'Connecting with safety through your senses' },
-      { key:'self-regulation',        open:false, title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
-      { key:'more',        open:false, title:'More practices',           sub:'Standalone guided practices' },
+    // Justin 2026-10-31: the two free practices as big house cards; the custom practice and the three paid ones as
+    // smaller cards, the paid ones with lock + "See paid plans", the same as the rest of the app (no greying out).
+    const FREE = [
+      { key:'micro',       still:'circles', title:'A tiny practice',    sub:`About ${estTiny} min · one sense, done` },
+      { key:'mindfulness', still:'pond',    title:'Simple mindfulness', sub:`About ${estFull} min · the gentlest, a calm place to start` },
     ];
-    const card = (o)=> o.open ? `
-      <button class="wincard p-opt g-opt" data-gkey="${o.key}">
-        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
-        <span class="wc-text">
-          <span class="wc-title">${escapeHtml(o.title)}</span>
-          <span class="wc-reason">${escapeHtml(o.sub)}</span>
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </button>` : `
-      <div class="wincard p-opt g-opt g-locked" aria-disabled="true">
-        <span class="p-opt-ico" aria-hidden="true">${P_ICO[o.key]||''}</span>
-        <span class="wc-text">
-          <span class="wc-title">${escapeHtml(o.title)}</span>
-          <span class="wc-reason">${escapeHtml(o.sub)}</span>
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </div>`;
-    // the tuned card leads, exactly as in the real app — faded, with the honest reason
-    const tunedCard = `
-      <div class="wincard tuned-card track-mind g-locked" aria-disabled="true" style="margin-bottom:12px">
-        <span class="wc-text">
-          <span class="tuned-kicker">Made for you</span>
-          <span class="wc-title">Your custom practice</span>
-          <svg class="tuned-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5"/></svg>
-          <span class="wc-reason">Needs a bit more check-in data</span>
-        </span>
-        <span class="wc-go">${CHEV}</span>
-      </div>`;
+    const MORE = [
+      { key:'anchoring',       title:'Safety anchoring',         sub:'Connecting with safety through your senses' },
+      { key:'self-regulation', title:'Practice self-regulation', sub:'The deepest, meeting what is hard' },
+      { key:'more',            title:'More practices',           sub:'Standalone guided practices' },
+    ];
+    const house = o => `<button class="lb-card lb-big fr-hc" type="button" data-gkey="${o.key}">
+        <span class="lb-pic fr-pic" data-frstill="${o.still}" aria-hidden="true"></span>
+        <span class="lb-body"><span class="lb-t">${escapeHtml(o.title)}</span><span class="lb-d">${escapeHtml(o.sub)}</span></span></button>`;
+    const small = o => `<button class="fr-sm" type="button" data-glock="${o.key}">
+        <span class="fr-sm-t">${escapeHtml(o.title)}</span><span class="fr-sm-d">${escapeHtml(o.sub)}</span>
+        <span class="fr-sm-lk">${LOCK_SVG}See paid plans</span></button>`;
+    const tuned = `<div class="fr-sm fr-sm-quiet"><span class="fr-sm-t">Your custom practice</span><span class="fr-sm-d">Needs a bit more check-in data</span></div>`;
     // Practice-first (the /stuck door): the pick is this person's FIRST screen — there is
     // nothing behind it, so it gets no back button. Check-in-first guests keep
-    // back -> reflection, a real return. ("keep this check-in" was CUT from this screen:
-    // the reflection behind them offers it, and back returns there.)
+    // back -> reflection, a real return.
     root.innerHTML = `
-      <header class="appbar">${_guestCI?'<button class="backbtn" id="g-pp-back">Back</button>':''}</header>
+      ${_frTop(!!_guestCI)}
       <div class="scroll" id="content"></div>`;
-    const gpb = $('#g-pp-back'); if(gpb) gpb.onclick = ()=>guestReflection();
-    $('#content').innerHTML = `<div class="view p-view">
-        <div class="scr-head">
+    _frWire(()=>guestReflection());
+    $('#content').innerHTML = `<div class="view fr-view fr-pick">
+        <div class="fr-head">
           <p class="eyebrow">Your choice</p>
-          <h2 class="scr-h">How long would you like to practice?</h2>
+          <h1 class="fr-h1">How long would you like to practice?</h1>
         </div>
-        ${tunedCard}
-        <div class="p-opts g-opts">${OPTS.map(card).join('')}</div>
+        <div class="fr-house">${FREE.map(house).join('')}</div>
+        <div class="fr-more">${tuned}${MORE.map(small).join('')}</div>
       </div>`;
+    _frStills();
     content().querySelectorAll('[data-gkey]').forEach(b=>b.onclick=()=>guestLaunch(b.dataset.gkey));
+    // lock + "See paid plans": for a guest, the plans are the offer (Back returns here)
+    content().querySelectorAll('[data-glock]').forEach(b=>b.onclick=()=>guestOffer({ from:'pick' }));
   }
 
   // ---- guest practice launch + tabbar-free shell ----
@@ -1413,7 +1596,7 @@
     const sense = 'touch', silence = key==='micro' ? 2 : 4;
     const ps = { embed:'1', autostart:'1', practice:key, sense, silence:String(silence) };
     const src = 'player.html?'+new URLSearchParams(ps).toString();
-    const reco = { practiceKey:key, sense, silence };
+    const reco = { practiceKey:key, sense, silence, launchedFrom:'guest' };
     // the /stuck door reaches here with no session yet (its first write is the session
     // log at practice end) — mint now so that write has somewhere to land.
     ensureGuestSession().then(res=>{
@@ -1424,8 +1607,9 @@
   // Same as practiceShell, but with NO tabbar — a guest must not gain tab access
   // (and its 'self-regulation' path) mid-practice. Back returns to the guest pick screen.
   function guestPracticeShell(src, reco){
+    _frScStop();
     src = _playerSrc(src);          // the same one place that decides where a practice plays
-    haptic('start');
+    haptic('begin');
     setHTML(`
       <div class="weaver-wrap">
         <div class="weaver-loading" id="weaver-loading" aria-live="polite"><span class="wl-ring" aria-hidden="true"></span><span class="wl-txt">Preparing your practice</span></div>
@@ -1478,27 +1662,23 @@
       body = "Your before and after are about the same. That's common. This particular practice may not have been the best fit for your system at this time.";
     }
     setHTML(`
-      <header class="appbar"></header>
+      ${_frTop(false)}
       <div class="scroll" id="content"></div>`);
-    $('#content').innerHTML = `<div class="view fb-view">
-        <div class="scr-head">
+    _frWire(null);
+    const baCard = (lbl, k) => `<div class="fr-ba-c"><span class="fr-ba-l">${lbl}</span><span class="fr-ba-mk">${triGlyph(k)}</span><span class="fr-ba-s">${escapeHtml(STATE_LABEL(k))}</span></div>`;
+    $('#content').innerHTML = `<div class="view fr-view">
+        <div class="fr-words">
           <p class="eyebrow">Your before and after</p>
+          <div class="fr-ba">${baCard('Before', da.key)}<span class="fr-ba-arrow" aria-hidden="true">→</span>${baCard('After', db.key)}</div>
+          <p class="scr-lede fr-lede">${escapeHtml(body)}</p>
+          <p class="scr-lede fr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular practice.</p>
+          <p class="scr-lede fr-lede">Over time, with more check-ins and practices, you can watch your nervous system change, identify what practices work best, and master self-regulation skills. This system adapts with you and your capacity.</p>
         </div>
-        <div class="ba-body">
-          <div class="ba-pair">
-            <div class="ba-col"><div class="ba-glyph">${triGlyph(da.key)}</div><div class="ba-state">${escapeHtml(STATE_LABEL(da.key))}</div></div>
-            <div class="ba-arrow" aria-hidden="true">→</div>
-            <div class="ba-col"><div class="ba-glyph">${triGlyph(db.key)}</div><div class="ba-state">${escapeHtml(STATE_LABEL(db.key))}</div></div>
-          </div>
-          <p class="scr-lede">${escapeHtml(body)}</p>
-          <p class="scr-lede">That was your first practice and check-ins! This already tells you something about your state and how your system responds… at least, to this particular practice.</p>
-          <p class="scr-lede">Over time, with more check-ins and practices, you can watch your nervous system change, identify what practices work best, and master self-regulation skills. This system adapts with you and your capacity.</p>
-          <p class="scr-lede">Sign up for a free account on the next page to keep checking in as much as you want. Or, subscribe for unlimited custom practices and deep insights based on your check-ins.</p>
-        </div>
-        <div class="actionbar">
+        <aside class="fr-card" aria-label="Next">
+          <p class="fr-card-p">Sign up for a free account on the next page to keep checking in as much as you want. Or, subscribe for unlimited custom practices and deep insights based on your check-ins.</p>
           <button class="btn block" id="g-ba-next">Next</button>
-          <button class="navlink" id="g-ba-no" style="align-self:center">No thanks</button>
-        </div>
+          <button class="fr-link" id="g-ba-no" type="button">No thanks</button>
+        </aside>
       </div>`;
     $('#g-ba-next').onclick = ()=>guestOffer();
     $('#g-ba-no').onclick   = ()=>guestLeave();
@@ -1511,64 +1691,68 @@
   // 07-13). No urgency, no countdowns, no discounts. Email + password + consent come
   // on the form AFTER the choice — that's the moment of consent.
   let _offerViewed = false;
-  function guestOffer(){
+  function guestOffer(opt){
+    opt = opt || {};
     clearFigures(); document.body.classList.remove('in-practice');
     if(!_offerViewed){ _offerViewed = true; gtrack('offer_view', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); }
+    // Back only when the person came here from a locked card on the practice pick (they have not practised yet)
+    const fromPick = opt.from==='pick' && !_guestPracticed;
     root.innerHTML = `
-      <header class="appbar"></header>
+      ${_frTop(fromPick)}
       <div class="scroll" id="content"></div>`;
-    $('#content').innerHTML = `<div class="view offer-view">
-        <div class="scr-head">
-          <h1 class="scr-h" style="font-size:calc(26px * var(--type-scale))">Two ways to keep going.</h1>
-        </div>
-        <div class="offer-card offer-paid">
-          <h2>Your personal self-regulation tool</h2>
-          <ul>
-            <li>Practices built from your check-ins, not picked off a list</li>
-            <li>All six practices, including the safety practices</li>
-            <li>What shows up across all your check-ins: when you're most regulated, what keeps repeating, which practices actually help</li>
-            <li>Your personal reader, from the moment to the day to the week and beyond</li>
-          </ul>
-          ${planPickerHTML()}
+    _frWire(fromPick ? ()=>guestPracticePick() : null, 'offer');
+    const inStore = !!(Store.inStoreApp && Store.inStoreApp());
+    if(inStore && !_storePx && !opt._px) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; if(document.getElementById('g-of-sub')) guestOffer(Object.assign({}, opt, { _px:true })); } }).catch(()=>{});
+    const annual = _planChoice==='annual';
+    const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
+    const subOf = a => a ? `Billed once a year${_storePx ? '' : ' · that’s $9 a month'}` : 'Billed monthly · cancel anytime';
+    const ticks = a => `<ul class="fr-ticks">${a.map(t=>`<li>${_FR_TICK}<span>${escapeHtml(t)}</span></li>`).join('')}</ul>`;
+    $('#content').innerHTML = `<div class="view fr-view fr-offer">
+        <h1 class="fr-h1 fr-head">Two ways to keep going.</h1>
+        <article class="pp-card is-feat fr-paid" aria-labelledby="fr-paid-h">
+          <h2 class="pp-name fr-card-h" id="fr-paid-h">Your personal self-regulation tool</h2>
+          ${ticks(['Practices built from your check-ins, not picked off a list', 'All six practices, including the safety practices', 'What shows up across all your check-ins: when you’re most regulated, what keeps repeating, which practices actually help', 'Your personal reader, from the moment to the day to the week and beyond'])}
+          <div class="pp-pills" role="radiogroup" aria-label="How often you pay">
+            <button type="button" class="pp-pill${annual ? '' : ' on'}" data-frplan="monthly" role="radio" aria-checked="${!annual}"><b>${escapeHtml(pxM)}</b><span> / month</span></button>
+            <button type="button" class="pp-pill${annual ? ' on' : ''}" data-frplan="annual" role="radio" aria-checked="${annual}"><b>${escapeHtml(pxA)}</b><span> / year</span></button>
+          </div>
+          <p class="pp-sub" id="fr-plan-sub">${subOf(annual)}</p>
           <button class="btn block" id="g-of-sub">Subscribe now</button>
-          <p class="fineprint" style="margin-top:10px">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
-          <details class="offer-more">
-            <summary>What you get when you subscribe ▾</summary>
-            <div class="offer-more-body">
+          ${inStore ? `<p class="pp-sub fr-renew">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>` : '<p class="pp-sub fr-renew">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>'}
+          <div class="pp-inc"><button class="pp-inc-t" type="button" id="fr-more-t" aria-expanded="false" aria-controls="fr-more-b"><span>What you get when you subscribe</span>${LW_PM(false)}</button>
+            <div class="pp-inc-b fr-more-b" id="fr-more-b" hidden>
               <p><b>Practices:</b> get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
               <p><b>Analytics:</b> the more you check in, the more you learn about yourself. Identify what time of day, what day of the week, and even what season of the year bring you the most safety or the most challenge. See how practices affect your system and which ones help the most.</p>
               <p><b>Personal reader:</b> your check-ins and analytics create your personal reader. It's like a blog just for you that dynamically changes based on your check-ins and practices.</p>
-            </div>
-          </details>
-        </div>
-        <div class="offer-card offer-free">
-          <h2>Keep going for free.</h2>
-          <ul>
-            <li>Check in as often as you like</li>
-            <li>Both mindfulness practices, the short one and the full one, as often as you want</li>
-            <li>Your check-in history, saved</li>
-          </ul>
-          <button class="btn block quiet" id="g-of-free">Continue free</button>
-        </div>
-        <p class="fineprint" style="text-align:center;margin:14px 0 0">Already have an account? <button class="linkbtn" id="g-of-signin" style="font-size:inherit;padding:2px">Sign in</button></p>
-        <div class="actionbar">
-          <button class="navlink" id="g-of-leave" style="align-self:center">Leave without saving</button>
-        </div>
+            </div></div>
+        </article>
+        <article class="pp-card fr-free" aria-labelledby="fr-free-h">
+          <h2 class="pp-name fr-card-h" id="fr-free-h">Keep going for free.</h2>
+          ${ticks(['Check in as often as you like', 'Both mindfulness practices, the short one and the full one, as often as you want', 'Your check-in history, saved'])}
+          <button class="fr-pill" id="g-of-free" type="button">Continue free</button>
+        </article>
+        <p class="fr-leave"><button class="fr-link" id="g-of-leave" type="button">Leave without saving</button></p>
       </div>`;
-    wirePlanPicker();
+    root.querySelectorAll('[data-frplan]').forEach(el=>{ el.onclick = ()=>{
+      _planChoice = el.dataset.frplan==='annual' ? 'annual' : 'monthly';
+      root.querySelectorAll('[data-frplan]').forEach(p=>{ const on = p===el; p.classList.toggle('on', on); p.setAttribute('aria-checked', String(on)); });
+      const sb = $('#fr-plan-sub'); if(sb) sb.textContent = subOf(_planChoice==='annual');
+    }; });
+    { const t = $('#fr-more-t'), bd = $('#fr-more-b'); if(t && bd) t.onclick = ()=>{ const o = t.getAttribute('aria-expanded')!=='true'; t.setAttribute('aria-expanded', String(o)); bd.hidden = !o; const pm = t.querySelector('svg.pm'); if(pm) pm.classList.toggle('on', o); }; }
     // "Already have an account?" — the offer screen was the one place in the guest flow
     // with no way back to an existing account, so a returning subscriber on a new device
     // or browser hit a wall that only offered to sell them what they already own. Same
     // operation as "leave without saving" (sign the anonymous session out, land on the
     // sign-in form) and the same affordance already on the guest check-in screen; only
     // the label differs, because the two are different questions to the person reading.
-    const gof = $('#g-of-signin'); if(gof) gof.onclick = ()=>{ gtrack('guest_signin', { door:guestDoor(), from:'offer' }); guestLeave(); };
+    // (the link now lives in the top bar; _frWire(…, 'offer') keeps its guest_signin event)
     $('#g-of-sub').onclick   = ()=>{ gtrack('subscribe_click', { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits(), plan:_planChoice }); guestAccountForm('paid'); };
     $('#g-of-free').onclick  = ()=>{ gtrack('continue_free',   { door:guestDoor(), checkins:gCheckinCount(), visits:gVisits() }); guestAccountForm('free'); };
     // "leave without saving" means what it says: sign out, discard. The check-in
     // promised nothing is saved unless they decide to create an account; a quiet
     // bounce back into the flow would make that a lie.
     $('#g-of-leave').onclick = ()=>guestLeave();
+    root.querySelectorAll('.fr-renew a[data-policy]').forEach(a=>{ a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); }; });
   }
 
   // ---- the account form, after the choice ----
@@ -1580,23 +1764,21 @@
   // if the register is off.
   function guestAccountForm(mode, err, busy){
     const paid = mode==='paid';
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
-          <p class="eyebrow">${paid ? (_planChoice==='annual' ? 'subscribe · $108/yr' : 'subscribe · $12/mo') : 'keep going for free'}</p>
-          <h1 style="margin:10px 0 12px">Create your account.</h1>
-          <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"></div>
-          <div class="field"><label for="nm">Your name <span style="color:var(--muted);font-weight:400">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
-          <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="new-password"></div>
-          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="g-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':(paid?'Continue to payment':'Create account')}</button>
-          <p class="fineprint" style="margin-top:10px">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>
-          <p class="fineprint" style="margin-top:6px">An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>
-          <p class="fineprint" style="margin-top:8px"><button class="linkbtn" id="g-back" style="font-size:inherit;padding:2px">Back</button></p>
-        </div>
-      </div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">${paid ? (_planChoice==='annual' ? 'Subscribe · '+((_storePx && _storePx.annual) || '$108')+'/yr' : 'Subscribe · '+((_storePx && _storePx.monthly) || '$12')+'/mo') : 'Keep going for free'}</p>
+          <h1 class="si-h1">Create your account.</h1>
+          <p class="si-box">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>
+          <div class="si-field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}">${err?`<p class="autherr si-err">${escapeHtml(err)}</p>`:''}</div>
+          <div class="si-field"><label for="nm">Your name <span class="si-opt">(optional)</span></label><input id="nm" type="text" autocomplete="name"></div>
+          ${_siPw('pw', 'new-password', 'Password')}
+          <button class="btn block si-go" id="g-go"${busy?' disabled':''}>${busy?'One moment…':(paid?'Continue to payment':'Create account')}</button>
+          <p class="si-fine">By creating an account, you agree to the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>. An anonymous copy of check-ins and practice data (no name, no email, no notes) helps us learn whether this app helps people and share examples of progress. It can never be traced back to you.</p>
+          <button class="fr-link" id="g-back" type="button">Back</button>`)); _siWire();
     if(busy) return;
+    root.querySelectorAll('.si-fine a[data-policy]').forEach(a=>{
+      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
+    });
+    $('#em').addEventListener('input', e=>{ lastEmail=e.target.value; });    if(busy) return;
     root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
       a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
     });
@@ -1611,7 +1793,19 @@
       const nm = (($('#nm')||{}).value||'').trim();
       guestAccountForm(mode, null, true);
       Promise.resolve(Store.linkIdentity(email, pw)).then(res=>{
-        if(res && res.error) return guestAccountForm(mode, res.error);
+        if(res && res.error){
+          // The email already has an app account (2026-10-30: a guest chose Subscribe, typed the email of an account they
+          // already had, saw a raw error, and went round the guest flow back to the before-and-after screen with no way
+          // to pay). Send them to sign in with the email filled in; a paid choice carries through to Checkout after it.
+          if(/already been registered|already registered|email_exists/i.test(res.error)){
+            if(paid) _paidSignupPending = true;
+            _guestFlow = false; _guestCI = null; _guestCI2 = null; _guestPracticed = false; gsClear();
+            const msg = 'You already have an account with this email. Sign in to '+(paid?'continue to payment':'keep going')+'. If you don’t remember your password, tap "Forgot your password?" below.';
+            const done = ()=>{ authMode='in'; screenSignIn(msg); };
+            return Promise.resolve(Store.user() ? Store.signOut() : null).then(done).catch(done);
+          }
+          return guestAccountForm(mode, res.error);
+        }
         if(nm) Store.setName(nm);
         markKnownDevice();
         _guestFlow = false; _guestCI = null; _guestCI2 = null; _guestPracticed = false; gsClear();
@@ -1684,7 +1878,11 @@
     challenges: 'Challenges',
   };
   let _subFrom = null;
-  function gateSubscribe(what){ _subFrom = what || null; screenSubscribe(); }
+  // every lock + "See paid plans" lands on the one plans view (Justin, canon 2026-10-29). what = a SUB_WHAT key, item = the
+  // thing's own name when we know it ("Self-regulation"), tier 'co' for Co-Regulator things.
+  function gateSubscribe(what, item){ _subFrom = what || null; _ppOpen({ tier:'sr', what:what || null, item:item || null }); }
+  // "X is / are part of …" (2026-10-30: was "The other practices is part of Self-Regulator.")
+  const SUB_PLURAL = { matching:1, practice:1, patterns:1, voice:1, impacts:1, challenges:1 };
 
   // ---- billing interval picker (monthly / annual) ----
   // ONE product, ONE set of entitlements — the only difference is how often the card is
@@ -1726,30 +1924,144 @@
   // 🖊 COPY IS DRAFT — Justin is rewriting the offer copy; this is the honest placeholder,
   // not the final register. The structural rule that carries over from the offer screen:
   // staying free must never be styled as a shameful exit.
-  function screenSubscribe(err, busy){
-    const what = _subFrom && SUB_WHAT[_subFrom];
+  // ---- the plans view (Justin, canon 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Paid plans") ----
+  // Free, Self-Regulator and Co-Regulator side by side. The one the person reached for is featured and holds the one
+  // filled button; their own plan says "Your plan"; Free never has a button. 1120 and up: a panel on columns 9-12 with the
+  // page they came from beside it; below: a full screen with the tab bar. X, "Not now" and Escape close it.
+  const PP_INC = {
+    free: ['Unlimited check-ins', 'Mindfulness practices', 'Mindful Moment, live every week'],
+    sr: ['Everything in Free', 'The full Unstucking Pathway', 'Every article and practice', 'The other voices', 'Challenges', 'The members’ podcast', 'Your personal insights and the reader'],
+    co: ['Everything in Self-Regulator', 'Capacity Builders: live, guided self-regulation practice with Justin', 'Monthly live Q&As, recorded, with the full archive',
+         'Cohorts and workshops: small-group deep dives, included', 'A small, private community, capped at 100 members', 'All three Stuck Not Broken books as PDFs',
+         'The Knowledge Bot, trained on the full curriculum and the books', 'Exclusive resources and meditations'],
+  };
+  let _pp = { ctx:null, open:{}, tap:null, back:null, mq:null, key:null };
+  // remember what was tapped, so the page beside the panel can mark it and focus can go back to it
+  document.addEventListener('click', e=>{ const t = e.target && e.target.closest ? e.target.closest('button, a, [role="button"]') : null; if(t && !t.closest('#pp-panel, .pp-view')) _pp.tap = { el:t, at:Date.now() }; }, true);
+  const _ppWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  const _ppIsCo = () => !!(_lw && _lw.access && _lw.access.co_regulator);
+  function _ppHead(c){
+    if(c.item) return `${c.item} is part of ${c.tier === 'co' ? 'Co-Regulator' : 'Self-Regulator'}.`;
+    const w = c.what && SUB_WHAT[c.what];
+    if(w) return `${CAP(w)} ${SUB_PLURAL[c.what] ? 'are' : 'is'} part of Self-Regulator.`;
+    return 'Choose your plan';
+  }
+  function _ppHTML(c, panel){
     const inStore = !!(Store.inStoreApp && Store.inStoreApp());
-    if(inStore && !_storePx && !busy) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; if(document.getElementById('pw-go') && !document.getElementById('pw-go').disabled) screenSubscribe(err); } });
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
-          <p class="eyebrow">Self-Regulator</p>
-          <h1 style="margin:10px 0 12px">${what ? escapeHtml(CAP(what))+' is part of Self-Regulator.' : 'Choose your plan'}</h1>
-          <p class="lede" style="margin-bottom:6px">It adds the full Unstucking Pathway, every article and practice, the other voices, challenges, the members’ podcast, and your personal insights: the patterns across your check-ins and the reader. Cancel anytime.</p>
-          ${planPickerHTML()}
-          ${inStore
-            ? `<p class="fineprint" style="margin-bottom:18px">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
-            : `<p class="fineprint" style="margin-bottom:18px">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses. What you use now stays free either way, with no time limit.</p>`}
-          ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-          <button class="btn block" id="pw-go"${busy?' disabled':''}>${busy?'One moment…':'Subscribe'}</button>
-          ${inStore ? `<p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-restore" style="font-size:inherit;padding:2px"${busy?' disabled':''}>Restore purchases</button></p>` : ''}
-          <p class="fineprint" style="margin-top:14px"><button class="linkbtn" id="pw-back" style="font-size:inherit;padding:2px">Not now</button></p>
-        </div>
-      </div>`);
-    if(busy) return;
-    wirePlanPicker();
-    $('#pw-go').onclick = ()=>{
+    const cur = _ppIsCo() ? 'co' : paidNow() ? 'sr' : 'free';
+    // Co-Regulator is not on sale in the app until launch (LW_COREG_LIVE): greyed out, "Coming soon", never featured
+    const coSoon = !LW_COREG_LIVE;
+    let feat = coSoon ? (cur === 'free' ? 'sr' : null) : (c.tier === 'co' || cur !== 'free') ? 'co' : 'sr';
+    if(feat === cur) feat = null;
+    const annual = _planChoice === 'annual';
+    const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
+    const srSub = a => a ? `Billed once a year${_storePx ? '' : ' · that’s $9 a month'}` : 'Billed monthly · cancel anytime';
+    const mine = `<span class="pp-mine">${'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'}Your plan</span>`;
+    const card = (k, name, plain, body) => {
+      const o = !!_pp.open[k];
+      return `<article class="pp-card${k === 'free' ? ' is-compact' : ''}${feat === k ? ' is-feat' : ''}${cur === k ? ' is-mine' : ''}${k === 'co' && coSoon && cur !== 'co' ? ' is-soon' : ''}" aria-labelledby="pp-n-${k}">
+        <div class="pp-ch"><h3 class="pp-name" id="pp-n-${k}">${name}</h3><p class="pp-plain">${plain}</p></div>
+        ${body}
+        <div class="pp-inc"><button class="pp-inc-t" type="button" data-pp-inc="${k}" aria-expanded="${o}" aria-controls="pp-inc-${k}"><span>What’s included</span>${LW_PM(o)}</button>
+          <div class="pp-inc-b" id="pp-inc-${k}"${o ? '' : ' hidden'}><ul>${PP_INC[k].map(t=>`<li>${escapeHtml(t)}</li>`).join('')}</ul></div></div>
+      </article>`;
+    };
+    const btnCls = k => 'btn block' + (feat === k ? '' : ' quiet');
+    const free = card('free', 'Free', 'Unlimited check-ins and mindfulness practices',
+      `${cur === 'free' ? mine : ''}`);
+    const sr = card('sr', 'Self-Regulator', 'Self-paced learning', cur === 'sr' ? mine : cur === 'co' ? '' :
+      `<div class="pp-pills" role="radiogroup" aria-label="How often you pay">
+        <button type="button" class="pp-pill${annual ? '' : ' on'}" data-plan="monthly" role="radio" aria-checked="${!annual}"><b>${escapeHtml(pxM)}</b><span> / month</span></button>
+        <button type="button" class="pp-pill${annual ? ' on' : ''}" data-plan="annual" role="radio" aria-checked="${annual}"><b>${escapeHtml(pxA)}</b><span> / year</span></button>
+      </div>
+      <p class="pp-sub" id="pp-sr-sub">${srSub(annual)}</p>
+      ${c.err ? `<p class="autherr">${escapeHtml(c.err)}</p>` : ''}
+      <button class="${btnCls('sr')}" id="pw-go" type="button"${c.busy ? ' disabled' : ''}>${c.busy ? 'One moment…' : 'Subscribe'}</button>`);
+    const co = card('co', 'Co-Regulator', 'Everything, with people', cur === 'co' ? mine : coSoon
+      ? `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-soon">Coming soon. You can upgrade whenever you like.</p>`
+      : `<p class="pp-price"><b>$39</b><span> / month</span></p><p class="pp-sub">Billed monthly · cancel anytime</p>
+      <a class="${btnCls('co')}" id="pp-co-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Join Co-Regulator</a>`);
+    const fine = inStore
+      ? `<p class="pp-fine">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. What you use now stays free either way, with no time limit. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>`
+      : `<p class="pp-fine">Your card is charged today. It renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>`;
+    const H = panel ? 'h2' : 'h1';
+    return `<div class="pp-top"><${H} class="pp-h${panel ? '' : ' read-h1'}" id="pp-h">${escapeHtml(_ppHead(c))}</${H}>
+        <button class="pp-x" id="pp-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <p class="pp-lede">What you use now stays free, with no time limit.</p>
+      <div class="pp-cards">${free}${sr}${co}</div>
+      ${fine}
+      ${inStore ? `<p class="pp-not"><button class="linkbtn" id="pw-restore" type="button"${c.busy ? ' disabled' : ''}>Restore purchases</button></p>` : ''}
+      <p class="pp-not"><button class="linkbtn" id="pw-back" type="button">Not now</button></p>`;
+  }
+  // where the panel sits: columns 9-12 of the frame (the page keeps 1-8)
+  function _ppPlace(){
+    const p = document.getElementById('pp-panel'); if(!p) return;
+    const vw = innerWidth, padX = Math.min(40, Math.max(20, vw * .05)), gap = Math.min(32, Math.max(20, vw * .04));
+    // the frame is the page's scroll area (the rail sits outside it), capped at --page
+    const sc = root.querySelector('.scroll') || root, r = sc.getBoundingClientRect(), fw = Math.min(sc.clientWidth || r.width, 1120);
+    const col = (fw - 2 * padX - 11 * gap) / 12;
+    p.style.left = Math.round(r.left + padX + 8 * (col + gap)) + 'px';
+    p.style.width = Math.round(4 * col + 3 * gap) + 'px';
+    const top = Math.round(Math.max(r.top, 0) + 24);
+    p.style.top = top + 'px'; p.style.maxHeight = Math.max(240, innerHeight - top - 24) + 'px';
+    root.style.setProperty('--pp-cw', Math.round(2 * padX + 8 * col + 7 * gap) + 'px');
+  }
+  function _ppUnmark(){
+    document.querySelectorAll('.pp-mark').forEach(e=>e.classList.remove('pp-mark'));
+    document.querySelectorAll('.p8-view.pp-split').forEach(v=>{ v.classList.remove('pp-split'); v.querySelectorAll('.p8-r.is-sel').forEach(r=>{ if(!document.getElementById('ps-panel')) r.classList.remove('is-sel'); }); });
+  }
+  function _ppClose(quiet){
+    const p = document.getElementById('pp-panel');
+    _subFrom = null; _pp.ctx = null;
+    if(_pp.key){ document.removeEventListener('keydown', _pp.key); _pp.key = null; }
+    if(p){ const pv = root.querySelector('.p8-view.pp-split'); _flip(_p8FlipEls(pv), ()=>{ p.remove(); root.style.removeProperty('--pp-cw'); _ppUnmark(); }); const bk = _pp.back; _pp.back = null; if(!quiet && bk && document.contains(bk)){ try{ bk.focus({ preventScroll:true }); }catch(e){} } return; }
+    route();
+  }
+  function _ppOpen(c){
+    c = c || {}; _pp.ctx = c;
+    try{ if(_ps) _ps.close(true); }catch(e){}   // the practice panel gives its place to the plans
+    if(!_pp.mq){ try{ _pp.mq = window.matchMedia('(min-width:1120px)'); _pp.mq.addEventListener('change', ()=>{ const p = document.getElementById('pp-panel'); if(p && !_ppWide() && _pp.ctx){ const k = _pp.ctx; _ppClose(true); _ppOpen(k); } else if(p) _ppPlace(); }); window.addEventListener('resize', _ppPlace); }catch(e){} }
+    const inStore = !!(Store.inStoreApp && Store.inStoreApp());
+    if(inStore && !_storePx && !c.busy) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; const g = document.getElementById('pw-go'); if(g && !g.disabled && _pp.ctx) _ppOpen(Object.assign({}, _pp.ctx, { busy:false })); } });
+    const page = root.querySelector('.scroll');
+    let el, panel = false;
+    if(_ppWide() && page && !root.querySelector('.pp-view')){
+      panel = true;
+      el = document.getElementById('pp-panel');
+      const fresh = !el;
+      if(fresh){
+        el = document.createElement('aside'); el.id = 'pp-panel'; el.className = 'pp-panel pp-in'; el.setAttribute('aria-labelledby', 'pp-h');
+        const pv = root.querySelector('.p8-view'), cal = root.querySelector('.lw-sch');
+        el.dataset.mode = pv ? 'practice' : cal ? 'cal' : 'gen';
+        if(pv) _flip(_p8FlipEls(pv), ()=>pv.classList.add('pp-split'));
+        root.appendChild(el);
+        // the item they reached for, marked on the page beside the panel
+        const t = _pp.tap && (Date.now() - _pp.tap.at < 3000) && document.contains(_pp.tap.el) ? _pp.tap.el : null;
+        _pp.back = (document.activeElement && document.activeElement !== document.body && root.contains(document.activeElement)) ? document.activeElement : t;
+        if(t){ const r = t.closest('.p8-r'); if(r){ document.querySelectorAll('.p8-r.is-sel').forEach(x=>x.classList.remove('is-sel')); r.classList.add('is-sel'); } else if(!t.closest('.lw-ev')) (t.closest('.lb-card, .rd-row, .up-step, .ch-row, .p8-feat') || t).classList.add('pp-mark'); }
+      }
+      el.innerHTML = _ppHTML(c, true);
+      _ppPlace();
+    } else {
+      _rdShell(`<div class="pp-view">${_ppHTML(c, false)}</div>`, { tab:(currentTab && currentTab !== 'reflect' ? currentTab : 'now'), wide:true, loc:{ k:'tab', tab:(currentTab || 'now') } });
+      el = root.querySelector('.pp-view');
+    }
+    const q = s => el.querySelector(s);
+    // + / - opens what's included in place
+    el.querySelectorAll('[data-pp-inc]').forEach(b=>b.onclick=()=>{ const k = b.dataset.ppInc, o = !_pp.open[k]; _pp.open[k] = o; _pmSlide(b, document.getElementById('pp-inc-' + k), o); });
+    el.querySelectorAll('.pp-pill').forEach(b=>b.onclick=()=>{
+      _planChoice = b.dataset.plan === 'annual' ? 'annual' : 'monthly';
+      el.querySelectorAll('.pp-pill').forEach(x=>{ const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', on ? 'true' : 'false'); });
+      const s = q('#pp-sr-sub'); if(s) s.textContent = _planChoice === 'annual' ? `Billed once a year${_storePx ? '' : ' · that’s $9 a month'}` : 'Billed monthly · cancel anytime';
+    });
+    el.querySelectorAll('a[data-policy]').forEach(a=>{ a.onclick = (e)=>{ e.preventDefault(); _ppClose(true); screenPolicy(a.getAttribute('data-policy')); }; });
+    q('#pp-x').onclick = ()=>_ppClose();
+    q('#pw-back').onclick = ()=>_ppClose();
+    const co = q('#pp-co-go'); if(co) co.addEventListener('click', ()=>setTimeout(()=>_ppClose(true), 200));
+    if(!_pp.key){ _pp.key = (e)=>{ if(e.key !== 'Escape') return; if(!document.getElementById('pp-panel') && !root.querySelector('.pp-view')){ document.removeEventListener('keydown', _pp.key); _pp.key = null; return; } if(document.getElementById('p7-sheet') || document.getElementById('p8-sheet')) return; e.preventDefault(); _ppClose(); }; document.addEventListener('keydown', _pp.key); }
+    if(c.busy) return;
+    const go = q('#pw-go');
+    if(go) go.onclick = ()=>{
       const plan = _planChoice;
       screenSubscribe(null, true);
       Promise.resolve(Store.startCheckout('member', plan)).then(res=>{
@@ -1758,17 +2070,22 @@
         if(storeResult(res)) return;                              // the App Store answered (store app only)
       }).catch(e=>screenSubscribe(String((e&&e.message)||e)));
     };
-    root.querySelectorAll('.fineprint a[data-policy]').forEach(a=>{
-      a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); };
-    });
-    const rs=$('#pw-restore'); if(rs) rs.onclick = ()=>{
+    const rs = q('#pw-restore'); if(rs) rs.onclick = ()=>{
       screenSubscribe(null, true);
       Promise.resolve(Store.restorePurchases()).then(r=>{
-        if(r && r.paid){ _subFrom=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); }
+        if(r && r.paid){ _subFrom=null; _pp.ctx=null; currentTab='now'; route(); showToast('Self-Regulator is active.'); }
         else screenSubscribe('No App Store purchase was found for this account.');
       }).catch(()=>screenSubscribe('No App Store purchase was found for this account.'));
     };
-    const bk=$('#pw-back'); if(bk) bk.onclick = ()=>{ _subFrom=null; route(); };
+    if(!q('[data-pp-inc]:focus')){ try{ q('#pp-x').focus({ preventScroll:true }); }catch(e){} }
+  }
+  // the old entry point: an error or "one moment" redraws the open plans view; a bare call opens it from settings
+  function screenSubscribe(err, busy){
+    const isOpen = !!(document.getElementById('pp-panel') || root.querySelector('.pp-view'));
+    const keep = (err || busy || isOpen) && _pp.ctx;
+    const c = keep ? _pp.ctx : { tier:'sr', what:null, item:null };
+    if(!keep) _subFrom = null;
+    _ppOpen(Object.assign({}, c, { err:err || null, busy:!!busy }));
   }
 
   // The App Store's answer to a purchase (store app only). Returns true when it handled the screen.
@@ -1783,54 +2100,43 @@
   // An Academy member (or a direct grant) already has the paid plan: create-checkout refuses before any charge and
   // this says so (2026-10-08, after an Academy member was charged for a yearly plan). 🖊 copy is draft.
   function screenIncluded(){
-    setHTML(`
-      <div class="view gate">
-        <img class="mark" src="${MARK}" alt="Stuck Not Broken">
-        <div class="gate-body">
+    setHTML(_siFrame(`
           <p class="eyebrow">Already included</p>
-          <h1 style="margin:10px 0 12px">You already have the full app.</h1>
-          <p class="lede" style="margin-bottom:24px">Your account already includes everything in Self-Regulator. There is nothing to pay, and you were not charged.</p>
-          <button class="btn block" id="inc-go">Continue</button>
-        </div>
-      </div>`);
+          <h1 class="si-h1">You already have the full app.</h1>
+          <p class="lede si-p">Your account already includes everything in Self-Regulator. There is nothing to pay, and you were not charged.</p>
+          <div class="si-acts"><button class="btn" id="inc-go">Continue</button></div>`)); _siWire();
     $('#inc-go').onclick = ()=>{ _subFrom = null; currentTab = 'now'; route(); };
   }
 
   function screenConfirm(email){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">Almost there</p>
-        <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a confirmation link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap it, then come back here to sign in.</p>
-        <button class="btn block" id="back2">Back to sign in</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">Almost there</p>
+          <h1 class="si-h1">Check your email.</h1>
+          <p class="lede si-p">We sent a confirmation link to <b class="si-em">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap it, then come back here to sign in.</p>
+          <div class="si-acts"><button class="fr-pill" id="back2" type="button">Back to sign in</button></div>`)); _siWire();
     $('#back2').onclick=()=>{ authMode='in'; screenSignIn(); };
   }
 
   // forgot password: confirmation that the reset email went out
   function screenResetSent(email){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">Reset link sent</p>
-        <h1 style="margin:12px 0 12px">Check your email.</h1>
-        <p class="lede" style="margin-bottom:24px">We sent a password reset link to <b style="font-weight:500;overflow-wrap:break-word">${escapeHtml(email)}</b>. it will come from "Supabase Auth", the service that keeps your account secure. tap the link and you'll come back here to choose a new password. it can take a couple of minutes to arrive.</p>
-        <button class="btn block" id="back3">Back to sign in</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">Reset link sent</p>
+          <h1 class="si-h1">Check your email.</h1>
+          <p class="lede si-p">We sent a password reset link to <b class="si-em">${escapeHtml(email)}</b>. It will come from "Supabase Auth", the service that keeps your account secure. Tap the link and you'll come back here to choose a new password. It can take a couple of minutes to arrive.</p>
+          <div class="si-acts"><button class="fr-pill" id="back3" type="button">Back to sign in</button></div>`)); _siWire();
     $('#back3').onclick=()=>{ authMode='in'; screenSignIn(); };
   }
 
   // landed here from the reset link in their email: already signed in,
   // one job — choose a new password.
   function screenNewPassword(err, busy){
-    setHTML(`
-      <div class="view gate"><div class="gate-body">
-        <p class="eyebrow">New password</p>
-        <h1 style="margin:12px 0 12px">Choose a new password.</h1>
-        <p class="lede" style="margin-bottom:24px">You're signed in. Pick a new password and you're done.</p>
-        <div class="field"><label for="npw">New password</label><input id="npw" type="password" autocomplete="new-password"></div>
-        ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-        <button class="btn block" id="npw-go" style="margin-top:8px"${busy?' disabled':''}>${busy?'One moment…':'Save password'}</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">New password</p>
+          <h1 class="si-h1">Choose a new password.</h1>
+          <p class="lede si-p">You're signed in. Pick a new password and you're done.</p>
+          ${_siPw('npw', 'new-password', 'New password')}
+          ${err?`<p class="autherr si-err">${escapeHtml(err)}</p>`:''}
+          <div class="si-acts"><button class="btn" id="npw-go"${busy?' disabled':''}>${busy?'One moment…':'Save password'}</button></div>`)); _siWire();
     if(busy) return;
     const submit=()=>{
       const pw=$('#npw').value;
@@ -1852,13 +2158,11 @@
   }
   // password saved from a browser tab (not the installed app): point them home.
   function screenResetDone(){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">All set</p>
-        <h1 style="margin:12px 0 12px">Password updated.</h1>
-        <p class="lede" style="margin-bottom:24px">You can close this tab. Open the app from your Home Screen and sign in with your new password if it asks.</p>
-        <button class="btn block" id="reset-done-continue">Or keep going here</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">All set</p>
+          <h1 class="si-h1">Password updated.</h1>
+          <p class="lede si-p">You can close this tab. Open the app from your Home Screen and sign in with your new password if it asks.</p>
+          <div class="si-acts"><button class="fr-pill" id="reset-done-continue" type="button">Or keep going here</button></div>`)); _siWire();
     $('#reset-done-continue').onclick=()=>{ currentTab='now'; route(); };
   }
   // In-app reader for the create-account disclaimers. Back returns to the
@@ -1866,22 +2170,146 @@
   function screenPolicy(which, from){
     const isPriv = which==='privacy';
     const eyebrow = isPriv ? 'privacy policy' : 'terms of use';
-    const title = isPriv ? 'What we keep, and what we don’t.' : 'How to get the most out of this app.';
-    const lede = isPriv
-      ? 'Written in plain language.'
-      : 'Transparency before you begin.';
+    // Final copy, approved by Justin 2026-11-01. Same words as stucknotbroken.com/app-privacy and
+    // /app-terms (Web Designer, Projects/Web Designer/SNB-Web-App-{Privacy,Terms}-embed.html): change both together.
+    const title = isPriv ? 'App privacy policy' : 'App terms of use';
+    const lede = isPriv ? "This policy explains what the Stuck Not Broken app keeps, why it keeps it, and how you can delete it." : "These terms explain what the Stuck Not Broken app is, how subscriptions work, and what is expected at live events.";
+    const updated = isPriv ? "Last updated: November 1, 2026" : "Last updated: November 1, 2026";
+    const webUrl = isPriv ? 'https://www.stucknotbroken.com/app-privacy' : 'https://www.stucknotbroken.com/app-terms';
     const sections = isPriv ? [
-      ['what we keep','This app keeps track of your email, in-app preferences and check-ins.'],
-      ['why','So your account works, your history is here on every device you sign in from, to track progress, and make custom recommendations.'],
-      ['what stays anonymous','An anonymous copy of check-ins and practice data also exists, with no name, no email, and none of your written notes. It cannot be traced back to you, even by us.'],
-      ['what the anonymous copy is for','Two things, and only these: learning whether this app actually helps people, and sharing de-identified examples of what progress can look like (for instance, "one member\'s reported safety rose from 20% to 60% over six months"). Never advertising, never sold.'],
-      ['who sees it',"Your identified data: only you. It isn't sold or given away, and no advertisers see it. Justin works with the anonymous copy to study whether the app helps and to improve it."],
-      ['your control','You can delete your data, or your whole account, any time from settings (your data > delete my account). Deleting removes everything that identifies you, permanently. The anonymous copy stays, unlinked, forever.']
+          [
+                "in short",
+                "<p>The app keeps what it needs to work for you. Nothing is sold, and no advertisers see it. You can delete all of it at any time.</p>"
+          ],
+          [
+                "who runs the app",
+                "<p>The Stuck Not Broken app is run by Justin Sunseri, a Licensed Marriage and Family Therapist in California, as a sole proprietor at 924 N Yosemite Ave, Stockton, CA 95203. You can reach him about privacy at justin@stucknotbroken.com.</p>"
+          ],
+          [
+                "what the app keeps",
+                "<p>While you have an account, the app keeps your email address. It also keeps your first name and a profile photo if you choose to add them. It keeps your check-ins, which are the three sliders and any notes you write with them. It keeps the practices you do and how they went, and your answers to lessons and journal prompts. It keeps your settings and reminders. It keeps whether you have a paid plan, which plan it is, and its dates. If you turn on notifications, it keeps the address your phone gives it for sending them. It also keeps a record of which parts of the app you use. All of this is linked to your account, and it is kept only while your account exists. When you delete your account, it is deleted too.</p>"
+          ],
+          [
+                "what the app does not collect",
+                "<p>The app does not collect your location. If you turn on live weather, your phone sends a rough location, accurate to about 7 miles, to Open-Meteo, a weather service, so it can show you the weather. That location stays on your phone and is never sent to Stuck Not Broken. The app does not collect your contacts or your browsing history. It never sees your card number, because Apple or Stripe handles payment. There is no tracking across other apps or websites, no advertising, and no data sold to data brokers.</p>"
+          ],
+          [
+                "how it is collected",
+                "<p>Everything above comes from what you enter in the app, or from the app noting what you use. Nothing is gathered from other sources.</p>"
+          ],
+          [
+                "why it is kept",
+                "<p>Your information is kept so your account works on every device you sign in from, your history is there when you come back, the app can reflect your own patterns back to you and suggest practices, reminders reach you, and the app knows whether you have a paid plan.</p>"
+          ],
+          [
+                "the anonymous copy",
+                "<p>The app also keeps an anonymous copy of check-in and practice data. It never includes your name, your email or anything you write. It is used for two things only: learning whether the app helps people, and sharing de-identified examples of what change can look like, such as \"one member's reported safety rose from 20% to 60% over six months.\" It is never used for advertising and never sold. While you have an account, deleting a check-in or practice also deletes it from the anonymous copy. When you delete your account, the link between you and the anonymous copy is destroyed. After that, the copy can never be connected to you again, even by Justin, and it is kept.</p>"
+          ],
+          [
+                "apple health",
+                "<p>If you turn it on, the app saves your practice time to Apple Health as Mindful Minutes. The app only writes to Apple Health. It never reads your Health data, and nothing from Apple Health is used for anything else.</p>"
+          ],
+          [
+                "ai voice",
+                "<p>Some audio in the app uses an AI voice made with Descript, and it is clearly labeled. Descript does not receive any of your information.</p>"
+          ],
+          [
+                "who sees your information",
+                "<p>Only you see your information, plus Justin when he needs to in order to run the app or answer a message you send him. It is not sold or shared for advertising. The following services run parts of the app and handle your information only to do that job, under their own security and privacy commitments:</p><ul class=\"pol-ul\"><li>Supabase stores the app's data and handles sign-in.</li><li>Circle checks your email when you sign in, to see whether you are an Unstucking Academy member.</li><li>Cloudflare hosts the app.</li><li>Apple handles App Store payments, notifications and Apple Health.</li><li>Stripe handles website payments.</li><li>Resend sends account and reminder emails.</li><li>Daily runs the video for live events. Live chat is not saved after an event. Some live events are recorded so attendees can watch the replay, and those events are marked as recorded ahead of time. If you turn on your camera or mic during a recorded event, the recording may include you. Recordings are only for attendees and are never shared publicly.</li></ul>"
+          ],
+          [
+                "your profile photo",
+                "<p>If you add a profile photo, it appears next to your messages in live event chat. If your plan includes the community spaces, it also appears there. You can remove it at any time in Settings.</p>"
+          ],
+          [
+                "how long it is kept",
+                "<p>Your information is kept until you delete it or delete your account. Payment records are kept as long as tax law requires. The anonymous copy is kept after your account is deleted, as described above.</p>"
+          ],
+          [
+                "your choices",
+                "<p>You can see your information in the app, under You and Settings. You can download your check-ins and journal in Settings, under Your data. You can delete a single check-in, or all of your data, at any time. You can turn off emails and notifications in Settings. To delete your account, go to Settings, then Leave or reset, then Delete my account. That permanently removes everything that identifies you.</p>"
+          ],
+          [
+                "security",
+                "<p>Your data is stored with access rules so that only your account can read it. No system is perfect. If something happens that affects your information, you will be told.</p>"
+          ],
+          [
+                "children",
+                "<p>The app is for people 18 and older. If Justin learns that a child has an account, it is deleted.</p>"
+          ],
+          [
+                "your rights",
+                "<p>Depending on where you live, such as California or the European Union, you may have the right to access, correct, delete or move your information. Write to justin@stucknotbroken.com, and you will get an answer within 30 days.</p>"
+          ],
+          [
+                "changes",
+                "<p>When this policy changes in a way that matters, you will hear about it in the app or by email before the change applies.</p>"
+          ]
     ] : [
-      ['what this is',"A tool for noticing your daily experiences through the lens of the nervous system and practicing your way back to safety. It isn't medical care, diagnosis, or therapy, nor should it replace any of those or other professional services."],
-      ['in a crisis','If you’re in danger or thinking about harming yourself, contact the 988 Suicide &amp; Crisis Lifeline or your local emergency services. This app can’t help in an emergency.'],
-      ['be gentle',"Everyone is different. There's no failing here, and no streak to keep. Use the app as you want and when you want. Practice at your cadence."],
-      ['changes',"Justin may (and will) update the app and these terms over time. Updates keep the app working, and you'll hear about changes in the app or by email."]
+          [
+                "who runs the app",
+                "<p>The Stuck Not Broken app is run by Justin Sunseri, a Licensed Marriage and Family Therapist in California, as a sole proprietor at 924 N Yosemite Ave, Stockton, CA 95203. You can reach him at justin@stucknotbroken.com.</p>"
+          ],
+          [
+                "what this is",
+                "<p>Stuck Not Broken is a tool for noticing your experience through the lens of the nervous system and practicing your way back to safety. It is for education and self-practice. It is not therapy, medical care or diagnosis, and it does not replace any of them. Using the app, joining a live event or writing to Justin does not make him your therapist or create any client relationship.</p>"
+          ],
+          [
+                "in a crisis",
+                "<p>If you are in danger or thinking about harming yourself, call or text 988 in the US to reach the Suicide &amp; Crisis Lifeline, or call your local emergency number. The app and its live events cannot respond to an emergency.</p>"
+          ],
+          [
+                "use it your way",
+                "<p>Everyone is different. There is no failing here and no streak to keep. You can use the app when you want and practice at your own pace.</p>"
+          ],
+          [
+                "who can use it",
+                "<p>You need to be 18 or older to make an account. You are responsible for keeping your sign-in to yourself and for what happens under your account.</p>"
+          ],
+          [
+                "subscriptions",
+                "<p>The price and length of each plan are shown before you subscribe. Paid plans renew automatically until you cancel.</p><p>If you subscribe in the iPhone app, payment is charged to your Apple ID when you confirm the purchase. Your subscription renews automatically unless you cancel it at least 24 hours before the end of the current period, and your Apple ID is charged for the renewal within the 24 hours before the period ends. You can manage or cancel your subscription in iPhone Settings by tapping your name and then Subscriptions.</p><p>If you subscribe on the website, Stripe handles payment, and you can cancel in the app under Settings, then Your plan, then Manage, change, or cancel subscription.</p><p>When you cancel, you keep access until the end of the period you already paid for. Then your account moves to the free plan, and your check-ins, journal and history stay.</p><p>If a price changes, you will hear about it before your next renewal, and you can cancel before the new price applies.</p>"
+          ],
+          [
+                "refunds",
+                "<p>Subscriptions are not refunded, except where the law requires it. Apple decides refunds for purchases made in the iPhone app, and you can request one at reportaproblem.apple.com.</p>"
+          ],
+          [
+                "apple's license",
+                "<p>If you got the app from the App Store, Apple's standard license agreement for App Store apps also applies.</p>"
+          ],
+          [
+                "content",
+                "<p>The practices, recordings, articles, videos and sheets in the app are Justin's work. You can use them for your own practice. You cannot copy, resell, publish or share paid content outside your account.</p>"
+          ],
+          [
+                "what you write",
+                "<p>Your check-ins, notes and journal entries belong to you. They are stored so the app can show them back to you, as the app privacy policy explains.</p>"
+          ],
+          [
+                "live events and community spaces",
+                "<p>Justin hosts live events where he teaches and guides practice. Live events can change or be canceled. Events that are recorded for replay are marked ahead of time, and your camera, mic and chat are always optional.</p><p>Everyone at a live event or in the community spaces is asked to follow these guidelines:</p><ul class=\"pol-ul\"><li>Be kind. You can disagree, but do not bully, target or attack anyone.</li><li>Respect each other's privacy. What others share stays with the group, so do not record, screenshot or pass on other members' names, faces or words.</li><li>Do not share the details of traumatic experiences, your own or anyone else's. They can be hard for others to hear. This is not a therapeutic setting, and those details are better brought to your own therapist.</li><li>Do not sell, spam or message members about your own services or products.</li><li>Be careful recommending outside programs or methods, and do not endorse medicines, diets or other physical wellness options.</li><li>Do not promote political, religious or other groups. Sharing your own experience is welcome.</li></ul>"
+          ],
+          [
+                "if the guidelines are not followed",
+                "<p>Justin or a moderator decides when a guideline has been broken. Depending on what happened, they may remove a message, warn you publicly or privately, or remove you from a live event. For serious or repeated problems, they may remove your access to live events and the community spaces, or close your account. Removal does not come with a refund, including any unused part of a paid period.</p>"
+          ],
+          [
+                "when justin shares something from the community",
+                "<p>Justin may use things shared in the community or at live events in his podcast, videos or writing. He puts members' privacy first. He anonymizes what he shares, and he asks your permission before using your words, voice or image.</p>"
+          ],
+          [
+                "no guarantee",
+                "<p>Justin works to keep the app running and its content accurate, but he cannot promise it will always be available, free of errors, or that it will change how you feel. To the extent the law allows, his liability is limited to what you paid in the 12 months before a claim, or $100, whichever is more.</p>"
+          ],
+          [
+                "governing law",
+                "<p>These terms are governed by the laws of the State of California. Any dispute goes to the state or federal courts in San Joaquin County, California, except that either side can use small claims court.</p>"
+          ],
+          [
+                "changes",
+                "<p>Justin will update the app and these terms over time. When the terms change in a way that matters, you will hear about it in the app or by email at least 30 days before the change applies.</p>"
+          ]
     ];
     const PP=(t)=>`<p style="font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;margin:0">${t}</p>`;
     setHTML(`
@@ -1895,9 +2323,9 @@
           </div>
           ${sections.map(([h,b])=>`<div style="display:flex;flex-direction:column;gap:8px">
             <p class="eyebrow" style="margin:0">${h}</p>
-            ${PP(b)}
+            <div class="pol-body" style="font-size:calc(15px * var(--type-scale));line-height:1.7;color:var(--ink-80);text-wrap:pretty;display:flex;flex-direction:column;gap:10px">${b}</div>
           </div>`).join('')}
-          <p class="fineprint" style="margin-top:4px">Plain-language draft for this design. The final ${isPriv?'privacy policy':'terms'} will replace this before launch.</p>
+          <p class="fineprint" style="margin-top:4px">${updated}. Also on the web at <a href="${webUrl}" target="_blank" rel="noopener">${webUrl.replace('https://www.','')}</a>.</p>
         </div>
       </div>`);
     $('#policy-back').onclick = ()=>{ if(from==='settings'){ screenSettings(); } else { authMode='up'; screenSignIn(); } };
@@ -1960,6 +2388,7 @@
   function markWhatsNewSeen(){ try{ localStorage.setItem(_wnKey(), '1'); }catch(e){} }
   function showWhatsNew(){
     if(document.getElementById('wn-scrim')) return;
+    if(document.querySelector('#screen .view.checkin2, .lw-ci')) return;   // never over a check-in in progress
     const wrap = document.createElement('div');
     wrap.className = 'wn-scrim'; wrap.id = 'wn-scrim';
     wrap.innerHTML = `
@@ -2067,7 +2496,7 @@
       { id:'welcome', tab:'now', kind:'center',
         h:'Welcome',
         body: obP('Thank you for joining. This short walkthrough shows you around the app and gets it set up for you.')
-           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
+           + obSig(),
         actions:[{label:'Walk me through it',kind:'primary',go:1},{label:'Look around myself',kind:'quiet',go:'decline'}] },
 
       { id:'name', tab:'now', kind:'center',
@@ -2095,7 +2524,7 @@
            + obLbl('Background sound')
            + obChips('bed', OB_BEDS)
            + obLbl('Voice')
-           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk" aria-hidden="true">'+LOCK_SVG+'</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
+           + '<div class="ob-chips" data-group="voice">'+VOICES.map(v=>obChip('voice', v[0], escapeHtml(v[1])+(voiceOk(v[0])?'':'<span class="ob-chip-lk">'+LOCK_SVG+'See paid plans</span>'), voiceOk(v[0])?'':' data-locked="1"')).join('')+'</div>'
            + '<p class="ob-fine" data-cap="voice"></p>' },
 
       { id:'pathway', tab:'practice', kind:'spot', target:['#up-entry'], pad:6, eb:'Practice',
@@ -2137,7 +2566,7 @@
       { id:'done', tab:'now', kind:'center',
         h:'You’re all set',
         body: obP('Check in, practice, then check in again. The app gets more and more yours each time.')
-           + '<p class="ob-sign">Justin</p>' + obMarkSVG(),
+           + obSig(),
         fine:'This walkthrough is in Settings whenever you want it again.',
         actions:[{label:'Check in now',kind:'primary',go:'checkin'},{label:'Take me in',kind:'quiet',go:'end'}] },
 
@@ -2147,6 +2576,10 @@
         actions:[{label:'Take me in',kind:'primary',go:'end'}] }
     ];
   }
+  // Justin's mark, small, beside his name: how the walkthrough's first and last cards and the update card are signed (grid6)
+  function obSig(){ return '<div class="ob-sig">' + obMarkSVG() + '<span class="ob-sign">Justin</span></div>'; }
+  // 1120 and up the step card docks on columns 9-12 beside the live screen, no scrim (grid6)
+  const _obDock = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
   function obMarkSVG(){
     // r9, generated from assets/logo/snb-mark.svg so the inline copy cannot drift from
     // the asset. Weight ladder: head/beard 9.5 - ears 6.5 - frame 5.5 - brows 5.2 -
@@ -2228,6 +2661,7 @@
              + '<div class="ob-dim anim" data-side="l"></div><div class="ob-dim anim" data-side="r"></div>';
     if(st.kind==='spot') html += '<div class="ob-hole anim"></div>';
     html += '<div class="ob-card'+(first?' anim':' step')+(st.kind==='spot'?' ob-low':'')+'" role="dialog" aria-modal="true" aria-label="'+escapeHtml(st.h)+'">'
+      + (pos >= 0 ? '<div class="ob-bar" aria-hidden="true">'+seq.map((s,i)=>'<i'+(i<=pos?' class="on"':'')+'></i>').join('')+'</div>' : '')
       + '<div class="ob-top">'
       + (obCanBack() ? '<button class="ob-back" type="button" data-go="back">'
           + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>Back</button>' : '<span></span>')
@@ -2240,10 +2674,10 @@
       + '</div>'
       + '<div class="ob-foot">'
       + '<div class="ob-acts">'+actions.map(a=>'<button class="btn'+(a.kind==='quiet'?' quiet':'')+' block" type="button" data-go="'+a.go+'">'+escapeHtml(a.label)+'</button>').join('')+'</div>'
-      + (showSkip ? '<div class="ob-row"><div class="ob-dots">'+seq.map((s,i)=>'<i class="'+(i===pos?'on':'')+'"></i>').join('')+'</div>'
-          + '<button class="ob-skip" type="button" data-go="skip">I’ll take it from here</button></div>' : '')
+      + (showSkip ? '<div class="ob-row"><button class="ob-skip" type="button" data-go="skip">I’ll take it from here</button></div>' : '')
       + '</div></div>';
     d.innerHTML = html;
+    d.classList.toggle('ob-dock', _obDock());
     obPlace(st);
     obWire(st);
     obFade();
@@ -2277,6 +2711,7 @@
     const dims = [...d.querySelectorAll('.ob-dim')];
     const hole = d.querySelector('.ob-hole');
     obUnlift();
+    d.classList.toggle('ob-dock', _obDock());
     const target = obTarget(st);
     // Missing or zero-sized target => a plain card over one full dim pane. Never a ring in the corner.
     if(!target){
@@ -2292,7 +2727,7 @@
     let r = measure();
     // the sheet is pinned to the bottom, so a target that is still low would sit UNDER it: lift its view by the overlap
     const lift = sc || $('#content');
-    if(lift && card){
+    if(lift && card && !_obDock()){
       const cardTop = card.getBoundingClientRect().top;
       const overlap = (r.y + r.h + 16) - cardTop;
       // a target taller than the room above the sheet keeps its top on screen and runs on under the sheet
@@ -2415,7 +2850,7 @@
       const save = patch => { pushPrefsSave(patch).then(p=>{ cur=p; }); try{ pushTrack('push_prefs', { origin:'onboarding' }); }catch(e){} };
       const bindSw = (id, fn) => { const b=d.querySelector('#'+id); if(!b) return; b.onclick=async()=>{ if(b.disabled) return;
         const on=!b.classList.contains('on'); b.classList.toggle('on',on); b.setAttribute('aria-checked',on?'true':'false');
-        if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); haptic('save'); }; };
+        if(on && !(await ensure())){ b.classList.remove('on'); b.setAttribute('aria-checked','false'); return; } fn(on); }; };
       bindSw('ob-n-refl', on => save({ reflect_week:on, reflect_month:on, reflect_season:on, reflect_year:on }));
       bindSw('ob-n-follow', on => save({ followup:on }));
       const ct0 = cur.checkin_times || {};
@@ -2528,22 +2963,25 @@ function whatsNewOnboard(){
   if(!_obMember() || !_obHydrated() || !oriented()) return;
   if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
   if(document.body.classList.contains('in-practice') || document.getElementById('weaver')) return;
-  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root';
+  // only on the Now screen, never over another tab, a practice or a check-in (grid6, Justin canon 2026-10-30)
+  if(currentTab !== 'now' || !document.querySelector('#screen .view.now') || document.getElementById('ci-root') || document.querySelector('.checkin-view, .view.checkin')) return;
+  const d=document.createElement('div'); d.id='wn-root'; d.className='wn-root wn-onb';
   d.innerHTML = '<div class="wn-card" role="dialog" aria-modal="true" aria-label="Major app update">'
-    + '<div class="wn-mark-wrap">' + obMarkSVG() + '</div>'
     + '<h2 class="wn-h">Major app update</h2>'
     + '<p class="wn-p">There is so much new in the app that a list wouldn’t do it justice: the Unstucking Pathway, the Learn library, your Journal, a new Practice tab, and more.</p>'
     + '<p class="wn-p">So I made a short walkthrough. It shows you around and helps you get set up. It takes about two minutes.</p>'
-    + '<p class="ob-sign wn-sign">Justin</p>'
-    + '<button class="btn block" id="wn-go" type="button" style="margin-top:22px">Show me around</button>'
-    + '<button class="btn quiet block" id="wn-ok" type="button" style="margin-top:8px">Not now</button>'
+    + obSig()
+    + '<div class="wn-acts"><button class="btn" id="wn-go" type="button">Show me around</button>'
+    + '<button class="wn-later" id="wn-ok" type="button">Not now</button></div>'
     + '<p class="ob-fine wn-fine">You can find it again in Settings.</p></div>';
   document.body.appendChild(d);
   requestAnimationFrame(()=>d.classList.add('on'));
   try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
-  const close=()=>{ document.removeEventListener('keydown', onKey, true); d.remove(); };
+  const close=()=>{ document.removeEventListener('keydown', onKey, true); document.removeEventListener('click', onOut, true); d.remove(); };
   function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(_){} } }
+  function onOut(e){ const c=d.querySelector('.wn-card'); if(!c || c.contains(e.target)) return; if(e.target===d) return; close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{ how:'outside' }); }catch(_){} }
   document.addEventListener('keydown', onKey, true);
+  setTimeout(()=>document.addEventListener('click', onOut, true), 0);
   const ok=d.querySelector('#wn-ok'); if(ok) ok.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_later',{}); }catch(e){} };
   const go=d.querySelector('#wn-go'); if(go){ go.onclick=()=>{ close(); try{ if(Store.trackEvent) Store.trackEvent('whatsnew_onboard_go',{}); }catch(e){} try{ app('now'); }catch(e){} setTimeout(()=>startOnboarding('notice'), 80); };
     try{ go.focus({preventScroll:true}); }catch(e){} }
@@ -2705,6 +3143,7 @@ function whatsNewSheet(){
   try{ if(localStorage.getItem(_WN_ONB_KEY)!=='1') return; }catch(e){ return; }   // Monday's card and the walkthrough go first
   if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
   if(document.body.classList.contains('in-practice') || document.body.classList.contains('jr-sheet-on') || document.getElementById('weaver')) return;
+  if(document.querySelector('#screen .view.checkin2, .lw-ci')) return;   // never over a check-in in progress (Justin 2026-10-29)
   if(!openWhatsNewSheet(u)) return;
   wnMarkLatestSeen();
   _wnShownThisLoad = true;
@@ -2712,13 +3151,9 @@ function whatsNewSheet(){
 }
 // Past Updates: every entry, newest first; the newest as names only, with "Read this update" opening its sheet
 function screenUpdates(from){
-  const cards = WN_UPDATES.map((u,i) => i===0
-    ? '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + ' · Latest</p><div class="wnh-names">'
-      + u.items.map(it => '<div class="wnh-name">' + wnIcon(it.i,'wnh-ic') + '<span>' + escapeHtml(it.t) + '</span></div>').join('')
-      + '</div><button class="wnh-read" id="wnh-read" type="button">Read this update</button></section>'
-    : '<section class="wnh-card"><p class="wnh-when">' + escapeHtml(u.when) + '</p><div class="wnh-list">'
-      + u.items.map(it => '<div class="wnh-item">' + wnIcon(it.i,'wnh-ic') + '<div><h3 class="wnh-t">' + escapeHtml(it.t) + '</h3><p class="wnh-b">' + escapeHtml(it.b) + '</p></div></div>').join('')
-      + '</div></section>').join('');
+  // a list, one row per update (the date, the headlines); a row opens the update in the 9-12 panel, or its sheet on phone
+  const cards = '<div class="wnh-rows">' + WN_UPDATES.map((u,i) => '<button class="wnh-row" type="button" data-wnu="' + i + '" aria-pressed="false"><span class="wnh-when">' + escapeHtml(u.when) + (i === 0 ? ' · Latest' : '') + '</span>'
+      + '<span class="wnh-hl">' + u.items.map(it => escapeHtml(it.t)).join('<span aria-hidden="true"> · </span>') + '</span>' + CHEV + '</button>').join('') + '</div>';
   // Back floats at the bottom left, as on every other screen (Justin, 2026-10-19: "cut the back button at the top left. we use
   // the dynamic back button at the bottom left")
   clearFigures(); document.body.classList.remove('in-practice','rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
@@ -2738,15 +3173,23 @@ function screenUpdates(from){
     </nav>`;
   $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
   const back=$('#wnh-back'); if(back) back.onclick=()=>{ document.body.classList.remove('rd-sub'); if(from==='settings') screenSettings(); else app(currentTab||'now'); };
-  const rd=$('#wnh-read'); if(rd) rd.onclick=()=>openWhatsNewSheet(WN_UPDATES[0], { fromHistory:true });
+  const mark = i => root.querySelectorAll('.wnh-row').forEach(b => { const on = b.dataset.wnu === String(i); b.classList.toggle('is-sel', on); b.setAttribute('aria-pressed', String(on)); });
+  root.querySelectorAll('.wnh-row').forEach(b => b.onclick = () => {
+    const i = +b.dataset.wnu, u = WN_UPDATES[i]; if(!u) return;
+    if(!_dpWide()) return openWhatsNewSheet(u, { fromHistory:true });
+    mark(i);
+    _dpOpen(u.when, '<div class="wnh-list dp-wn">' + u.items.map(it => '<div class="wnh-item">' + wnIcon(it.i,'wnh-ic') + '<div><h3 class="wnh-t">' + escapeHtml(it.t) + '</h3><p class="wnh-b">' + escapeHtml(it.b) + '</p></div></div>').join('') + '</div>', { onClose:() => mark(-1) });
+  });
   try{ window.scrollTo(0,0); }catch(e){}
 }
 // September's launch and notifications cards are retired by the card above (2026-10-03); auth lands async and the card is idempotent
 // the What's New sheet comes last: it waits for Monday's card and the Academy card, and never shares a load with either
-addEventListener('load',()=>{ [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewFreeEnded(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
+addEventListener('load',()=>{ setTimeout(()=>{ window._wnReady = true; }, 2600); [2600,7000,15000].forEach(ms=>setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} try{ whatsNewAcademy(); }catch(e){} try{ whatsNewFreeEnded(); }catch(e){} try{ whatsNewSheet(); }catch(e){} }, ms)); });
 
 function app(tab){
+    try{ if(typeof _ps !== 'undefined' && _ps && tab !== 'practice') _ps.detach(); }catch(e){}
     currentTab = tab;
+    document.body.classList.remove('on-now', 'nq-idle');
     if(tab !== 'reflect' && tab !== 'learn') _rdSaveLoc({ k:'tab', tab });
     if(!_mintedThisSession){ _mintedThisSession = true; mintPastDays(); try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} } }
     if(tab === 'reflect') return screenReader();
@@ -2814,7 +3257,7 @@ function app(tab){
     cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg>',
     share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4M12 13V7M9 10l3-3 3 3"/></svg>',
     checkin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/><circle cx="9" cy="7" r="1.8" fill="var(--bone)"/><circle cx="15" cy="12" r="1.8" fill="var(--bone)"/><circle cx="11" cy="17" r="1.8" fill="var(--bone)"/></svg>',
-    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+    chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4.5h11A2.5 2.5 0 0 1 20 7v6.5a2.5 2.5 0 0 1-2.5 2.5H10.2l-4.4 3.5V15.9A2.5 2.5 0 0 1 4 13.5V7a2.5 2.5 0 0 1 2.5-2.5z"/></svg>',
     leave:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
     people:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>',
     sound:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10v4h4l5 4V6L8 10z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11"/></svg>',
@@ -2959,7 +3402,7 @@ function app(tab){
     setHTML(`
       <header class="appbar"></header>
       <div class="scroll" id="content"><div class="view lw-view">
-        <div class="scr-head"><h2 class="scr-h lw-h1">${lwTabName()}</h2>${LW_FORUM_LIVE ? '' : '<p class="lw-p lw-muted lw-lede">Live with Justin. Mindful Moment is free for everyone.</p>'}</div>
+        <div class="scr-head"><h2 class="scr-h lw-h1">${lwTabName()}</h2></div>
         ${LW_FORUM_LIVE ? `<div class="lw-seg" role="group" aria-label="Show">
           <button type="button" data-lw-tab="feed" aria-pressed="${_lw.tab==='feed'}">Feed</button>
           <button type="button" data-lw-tab="live" aria-pressed="${_lw.tab==='live'}">Live</button>
@@ -2979,39 +3422,344 @@ function app(tab){
       if((_lw.sched || []).some(s => Date.now() >= _lwStart(s) - 60*60000 && Date.now() <= _lwEnd(s))) _lwPresence().then(() => { if(currentTab === 'community') _lwBody(); });
     }, 30000);
   }
+  // ---- the Calendar list on the Swiss grid (Justin 2026-10-29: canvas "SNB Calendar on the Swiss grid", board B, Tablet,
+  // Phone; BRAND_DESIGN_SYSTEM §4 "Dated lists and events" + "Locked content"). A schedule is a table, so it uses the whole
+  // 12-column frame, not the 680 reading column. Months are section headings (no month on each row).
+  //   >=1120: the list on columns 1-8 (each row: day + weekday, col 1 · title, then "time · access", cols 2-6 · RSVP and
+  //           Remind me, cols 7-8) and a panel on 9-12 with the event the member clicked or focused (never hover). It
+  //           opens on the next event. A locked row has no button of its own: the panel explains.
+  //   <1120:  no panel. Each row is one button (aria-expanded) that opens the event in place; + becomes -.
+  // Access label on every row: "Free", or the plan by name, with the lock only when this member is locked out
+  // (_lwAllowed, the live access check). The lock never stands alone and the one action is "See <plan>".
+  // The plan a locked event belongs to: the schedule's access column ('co_regulator' = live_is_co_regulator()).
+  const LW_TIER = { co_regulator:'Co-Regulator' };
+  const _lwTier = s => LW_TIER[s.access] || 'Self-Regulator';
+  const _lwWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
+  const LW_PM = on => `<svg class="pm${on ? ' on' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path class="pm-v" d="M12 5v14"/></svg>`;
+  // open or close a + / - row's details in place: they grow down and shrink back (Justin 2026-10-29: "no jarring switches")
+  // FLIP for the narrowing (Justin 2026-10-30: "they need to animate and not jump"): measure where each card is, change the
+  // layout, then let each card glide from its old place and width to the new one (width animates, so text reflows, never
+  // stretches). A run still in flight is measured where it is on screen, so open-then-close never snaps.
+  function _flip(els, mutate){
+    els = (els || []).filter(Boolean);
+    const calm = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if(calm || !els.length || !els[0].animate){ els.forEach(e=>{ if(e._flip){ e._flip.cancel(); e._flip = null; } }); mutate(); return; }
+    const a = els.map(e=>e.getBoundingClientRect());
+    els.forEach(e=>{ if(e._flip){ e._flip.cancel(); e._flip = null; } });
+    mutate();
+    els.forEach((e, i)=>{
+      if(!e.isConnected) return; const b = e.getBoundingClientRect(), o = a[i]; if(!o.width || !b.width) return;
+      const dx = o.left - b.left, dy = o.top - b.top; if(Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(o.width - b.width) < 1) return;
+      e._flip = e.animate([{ transform:`translate(${dx}px,${dy}px)`, width:o.width + 'px' }, { transform:'none', width:b.width + 'px' }], { duration:380, easing:'cubic-bezier(.2,.8,.2,1)' });
+      e._flip.onfinish = ()=>{ e._flip = null; };
+    });
+  }
+  // the Practice page's cards: the bento's own cards, and every other block on the page (not the side panel)
+  function _p8FlipEls(view){ const out = []; if(!view) return out; [...view.children].forEach(c=>{ if(c.classList.contains('ps-panel')) return; if(c.classList.contains('p8-bento')) out.push(...c.children); else out.push(c); }); return out; }
+  function _pmSlide(b, s, o, done){
+    b.setAttribute('aria-expanded', o);
+    const pm = b.querySelector('svg.pm'); if(pm) pm.classList.toggle('on', o);
+    if(!s) return;
+    if(s._anim){ s._anim.cancel(); s._anim = null; }
+    const calm = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if(calm || !s.animate){ s.hidden = !o; if(done) done(); return; }
+    s.hidden = false;
+    const cs = getComputedStyle(s), full = { height:s.offsetHeight + 'px', marginTop:cs.marginTop, marginBottom:cs.marginBottom, paddingTop:cs.paddingTop, paddingBottom:cs.paddingBottom, opacity:1 },
+          none = { height:'0px', marginTop:'0px', marginBottom:'0px', paddingTop:'0px', paddingBottom:'0px', opacity:0 };
+    s.style.overflow = 'hidden';
+    s._anim = o ? s.animate([none, full], { duration:320, easing:'cubic-bezier(.2,.8,.2,1)' })
+                : s.animate([full, none], { duration:220, easing:'cubic-bezier(.4,0,.6,1)', fill:'forwards' });
+    s._anim.onfinish = ()=>{ if(!o) s.hidden = true; s.style.overflow = ''; if(s._anim){ s._anim.cancel(); s._anim = null; } if(done) done(); };
+  }
+  const _lwAcc = s => s.access === 'free' ? '<span class="lw-acc">Free</span>'
+    : `<span class="lw-acc">${_lwAllowed(s) ? escapeHtml(_lwTier(s)) : LOCK_SVG + 'See paid plans'}</span>`;
+  const _lwRemindBtn = (s, rem) => `<button class="lw-remind${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}">${LW_ICO.bell}<span>${rem ? 'Reminder on' : 'Remind me'}</span></button>`;
+  // RSVP + Remind me, or Join once the door is open; nothing for a locked event (the panel or the opened row explains)
+  function _lwActs(s, primary){
+    if(!_lwAllowed(s)) return '';
+    if(_lwDoorOpen(s)) return `<button class="btn lw-act" type="button" data-lw-join="${s.id}">Join</button>`;
+    const rsvp = _lwRsvp(s);
+    return `<button class="btn lw-act${primary && !rsvp ? '' : ' quiet'}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP’d' : 'RSVP'}</button>${_lwRemindBtn(s, _lwRemOn(s))}`;
+  }
+  // what repeats from event to event, as icons with a few words (Justin 2026-10-29: "for the things that repeat, like mic
+  // and video, use icons to make it easily understandable and less text heavy"). Words from the events' Circle descriptions.
+  LW_ICO.rec = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>';
+  LW_ICO.recOff = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/><path d="M4 4l16 16"/></svg>';
+  LW_ICO.opens = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+  const LW_PART = {
+    mindful_moment:   [[['camOff','micOff'], 'Cameras and mics are off'], [['chat'], 'Chat is optional']],
+    capacity_builder: [[['cam'], 'Camera on or off, your choice'], [['mic'], 'No need to speak or type']],
+    qa:               [[['cam','mic','chat'], 'Video, audio or text, or just listen']]
+  };
+  function _lwIcons(s){
+    const K = _lwKind(s);
+    const rows = (LW_PART[s.kind] || (K.video ? [[['cam','mic'], 'Camera and mic on or off, your choice']] : [[['camOff','micOff'], 'You are not on camera or mic']])).slice();
+    rows.push(s.recorded ? [['rec'], 'Recorded'] : [['recOff'], 'Not recorded, no replay']);
+    return `<ul class="lw-ic">${rows.map(([ic, t]) => `<li><span class="lw-ic-g" aria-hidden="true">${ic.map(k => LW_ICO[k] || '').join('')}</span><span>${escapeHtml(t)}</span></li>`).join('')}</ul>`;
+  }
+  // the description, as written on Circle (live_series.description), made skimmable (Justin 2026-10-29): blocks split by a
+  // blank line; a block whose later lines start with "- " is a heading and its list ("… is:" = checks, "… is not:" = dashes,
+  // anything else = dots); the first paragraph is the lede and the other paragraphs fold under "Read more"; **text** is bold
+  const LW_DASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 12h10"/></svg>';
+  const _lwRich = t => escapeHtml(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  function _lwDescHTML(s){
+    let lede = '';
+    const lists = [];
+    _lwDesc(s).split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).forEach(b => {
+      const L = b.split('\n').map(x => x.trim()).filter(Boolean);
+      if(L.length > 1 && L.slice(1).every(x => x.startsWith('- '))){
+        const k = /\bnot:$/i.test(L[0]) ? 'no' : /\b(is|are):$/i.test(L[0]) ? 'yes' : 'dot';
+        if(k !== 'yes') return;   // essentials only (Justin 2026-10-29): what it is; the rest is in the live-event terms
+        const mk = k === 'yes' ? LW_ICO.check : k === 'no' ? LW_DASH : '<i aria-hidden="true"></i>';
+        lists.push(`<div class="lw-blk lw-lst lw-lst-${k}"><p class="lw-lbl">${_lwRich(L[0].replace(/:$/, ''))}</p><ul class="lw-mk">${L.slice(1).map(x => `<li>${mk}<span>${_lwRich(x.slice(2))}</span></li>`).join('')}</ul></div>`);
+      } else if(!lede) lede = `<p class="lw-p lw-lede2">${_lwRich(L.join(' '))}</p>`;
+    });
+    return lede + lists.join('');
+  }
+  // the event itself: who it's for (panel) · the icons · the description · the actions, or what it is part of
+  function _lwDetail(s, panel){
+    const ok = _lwAllowed(s), sum = _lwSummary(s);
+    const desc = _lwDescHTML(s) || (sum ? `<p class="lw-p">${escapeHtml(sum)}</p>` : '');
+    const who = panel ? `<div class="lw-blk"><p class="lw-lbl">Who it’s for</p><p class="lw-p"><b>${s.access === 'free' ? 'Free for everyone.' : `<span class="lw-acc">${ok ? '' : LOCK_SVG}${escapeHtml(_lwTier(s))}</span> members.`}</b></p></div>` : '';
+    const act = ok ? `<div class="lw-ev-btns lw-pn-acts">${_lwPill(s, true)}${_lwDoorOpen(s) ? '' : _lwRemindBtn(s, _lwRemOn(s))}</div>`
+      : `<p class="lw-p">This event is part of ${escapeHtml(_lwTier(s))}.</p><div class="lw-ev-btns lw-pn-acts">${_lwPill(s, true)}</div>`;
+    return who + _lwIcons(s) + desc + act;
+  }
+  // Mindful Moment pictures (Justin 2026-11-01: "close ups on aspects of the present moment like a sunrise and a creek
+  // and a blanket on a couch"): twelve photos (all four Midjourney results of each), one per week in turn so neighbouring cards differ. Other events keep the reeds.
+  const LW_MM_IMG = ['sunrise', 'creek', 'blanket', 'sunrise-b', 'creek-b', 'blanket-b', 'sunrise-c', 'creek-c', 'blanket-c', 'sunrise-d', 'creek-d', 'blanket-d'];
+  function _lwPicHTML(s, extra, wide){
+    if(s && s.kind === 'mindful_moment'){
+      const N = LW_MM_IMG.length, n = LW_MM_IMG[((Math.floor(_lwStart(s) / 6048e5) % N) + N) % N];
+      return `<span class="lw-hc-pic${extra}" data-lwpic="${n}-${wide ? 1280 : 640}" aria-hidden="true"><img src="img/live/mm-${n}-${wide ? 1280 : 640}.jpg" alt="" loading="lazy" decoding="async"></span>`;
+    }
+    return `<span class="lw-hc-pic${extra}" data-lwstill="reeds" data-lwpic="reeds" aria-hidden="true"></span>`;
+  }
+  function _lwPanel(s){
+    if(!s) return '';
+    const room = _lwRoomOpen(s), live = _lwIsLive(s);
+    const when = live ? 'Live now' : room ? 'Open any time' : _lwLongDate(_lwStart(s)) + ' · ' + _lwRangeC(s);
+    return `${_lwPicHTML(s, ' lw-pn-pic', true)}<div class="lw-pn-in"><h3 class="lw-pn-h">${escapeHtml(room ? (s.title || _lwKind(s).name) : _lwKind(s).name)}</h3><p class="lw-pn-when">${escapeHtml(when)}</p>${_lwDetail(s, true)}</div>`;
+  }
+  // ---- the Calendar in house cards (Justin, canon 2026-10-31): no rows, no divider lines ----
+  // One pill per card so people can RSVP to several in a row without opening anything (Justin): outlined like a Filter
+  // choice, "RSVP" on a hairline, "RSVP’d" with the ink outline and a check (tap again to undo). Locked: lock + "See paid
+  // plans". Once the room opens: "Join". No black buttons.
+  function _lwPill(s, big){
+    const c = 'lw-rp' + (big ? ' lw-rp-big' : '');
+    if(!_lwAllowed(s)) return `<button class="${c}" type="button" data-lw-see="${s.id}">${LOCK_SVG}See paid plans</button>`;
+    if(_lwDoorOpen(s)) return `<button class="${c} on" type="button" data-lw-join="${s.id}">Join</button>`;
+    const on = _lwRsvp(s);
+    return `<button class="${c}${on ? ' on' : ''}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${on}">${on ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>`;
+  }
+  // a card: inset picture (one per series for now: the live room's reeds), the big date with the weekday, title, time,
+  // "Free"; the next event is the big card with a "Next" label and its one-line summary. Tapping the title opens the info.
+  function _lwCard(s, big){
+    const K = _lwKind(s), d = new Date(_lwStart(s)), room = _lwRoomOpen(s), live = _lwIsLive(s), sel = _lwWide() && _lw.sel === s.id;
+    const nm = room ? (s.title || K.name) : K.name, sum = big ? _lwSummary(s) : '';
+    const when = live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : room ? 'Open any time' : escapeHtml(_lwRangeC(s));
+    return `<article class="lw-hc${big ? ' lw-hc-big' : ''}${sel ? ' is-sel' : ''}${live ? ' lw-ev-live' : ''}">
+        ${_lwPicHTML(s, '', big)}
+        <span class="lw-hc-b">
+          ${big ? '<span class="eyebrow lw-hc-next">Next</span>' : ''}
+          <span class="lw-hc-row">${room ? '' : `<span class="lw-hc-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-US', { weekday:'short' })}</span></span>`}
+            <span class="lw-hc-txt"><button class="lw-hc-t" type="button" data-lw-open="${s.id}" aria-pressed="${sel}"${_lwWide() ? ' aria-controls="lw-sch-panel"' : ' aria-haspopup="dialog"'}>${escapeHtml(nm)}</button>
+              <span class="lw-hc-m">${when}</span>${s.access === 'free' ? '<span class="lw-hc-m">Free</span>' : ''}</span></span>
+          ${sum ? `<span class="lw-hc-sum">${escapeHtml(sum)}</span>` : ''}
+          <span class="lw-hc-acts">${_lwPill(s, false)}</span>
+        </span></article>`;
+  }
+  // the pictures: stills from the scene engine (the reeds, as in the live room)
+  let _lwSc = [];
+  function _lwStills(el){
+    if(!window.SNBScene || !el) return;
+    el.querySelectorAll('[data-lwstill]').forEach(c=>{ if(c.firstChild) return; try{ _lwSc.push(SNBScene.mount(c, { scene:c.dataset.lwstill, tod:'midday', dark:_scDark(), reduce:true })); }catch(e){} });
+  }
+  function _lwStillsStop(){ _lwSc = _lwSc.filter(x=>{ if(x.el && x.el.isConnected) return true; try{ x.stop(); }catch(e){} return false; }); }
+  // tablet and phone: the same info as a bottom sheet (light scrim, X to close), with the RSVP pill and Remind me
+  function _lwCardSheet(s){
+    if(!s) return;
+    const sh = _lwSheet(_lwRoomOpen(s) ? (s.title || _lwKind(s).name) : _lwKind(s).name, `<div class="lw-hc-sheet">${_lwPanel(s)}</div>`);
+    const h = sh.el.querySelector('.lw-pn-h'); if(h) h.remove();
+    const body = sh.el.querySelector('.lw-hc-sheet');
+    _lwStills(body);
+    const rewire = () => { _lwWire(body); body.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = async () => { await _lwRsvpToggle((_lw.sched || []).find(x => x.id === b.dataset.lwRsvp)); const ev = (_lw.sched || []).find(x => x.id === s.id); if(ev && body.isConnected){ const acts = body.querySelector('.lw-pn-acts'); if(acts){ const t = document.createElement('div'); t.innerHTML = _lwPanel(ev); const na = t.querySelector('.lw-pn-acts'); if(na){ acts.replaceWith(na); rewire(); } } } }); };
+    rewire();
+  }
+  function _lwRow(s, wide){
+    const K = _lwKind(s), d = new Date(_lwStart(s)), room = _lwRoomOpen(s), live = _lwIsLive(s);
+    const nm = room ? (s.title || K.name) : K.name;
+    const date = room ? '<span class="lw-ev-date" aria-hidden="true"></span>'
+      : `<span class="lw-ev-date"><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-US', { weekday:'short' })}</span></span>`;
+    const when = live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : room ? 'Open any time' : escapeHtml(_lwRangeC(s));
+    const meta = `<span class="lw-ev-meta"><span class="lw-ev-time">${when}</span><span class="lw-acc-g"><span class="lw-dot" aria-hidden="true">·</span>${_lwAcc(s)}</span></span>`;
+    if(wide){
+      const sel = _lw.sel === s.id;
+      return `<div class="lw-ev${sel ? ' is-sel' : ''}${live ? ' lw-ev-live' : ''}">${date}
+        <div class="lw-ev-main"><button class="lw-ev-title" type="button" data-lw-pick="${s.id}" aria-pressed="${sel}" aria-controls="lw-sch-panel">${escapeHtml(nm)}</button>${meta}</div>
+        <div class="lw-ev-acts">${_lwActs(s, false)}</div></div>`;
+    }
+    const open = !!_lw.open[s.id];
+    return `<div class="lw-ev${open ? ' is-open' : ''}${live ? ' lw-ev-live' : ''}">
+      <button class="lw-ev-hit" type="button" data-lw-tog="${s.id}" aria-expanded="${open}" aria-controls="lw-more-${s.id}">${date}<span class="lw-ev-main"><span class="lw-ev-title">${escapeHtml(nm)}</span>${meta}</span><span class="lw-ev-pm">${LW_PM(open)}</span></button>
+      <div class="lw-ev-more" id="lw-more-${s.id}"${open ? '' : ' hidden'}><div class="lw-ev-in">${open ? _lwDetail(s, false) : ''}</div></div></div>`;
+  }
+  // every action button inside the Calendar (rows, opened rows, the panel)
+  function _lwWire(root){
+    const find = id => (_lw.sched || []).find(s => s.id === id);
+    root.querySelectorAll('[data-lw-see]').forEach(b => b.onclick = () => _lwUpgradeSheet(find(b.dataset.lwSee)));
+    root.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(find(b.dataset.lwRem)));
+    root.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(find(b.dataset.lwRsvp)));
+    root.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(find(b.dataset.lwJoin)));
+  }
+  // select an event on wide screens: the row gets the ink outline and the panel shows it (no repaint of the list, so focus stays)
+  function _lwPick(id){
+    const el = document.getElementById('lw-body'); if(!el) return;
+    const s = (_lw.sched || []).find(x => x.id === id); if(!s) return;
+    _lw.sel = id;
+    el.querySelectorAll('[data-lw-open]').forEach(b => { const on = b.dataset.lwOpen === id; b.setAttribute('aria-pressed', on); const c = b.closest('.lw-hc'); if(c) c.classList.toggle('is-sel', on); });
+    const pn = document.getElementById('lw-sch-panel'); if(pn){ pn.innerHTML = _lwPanel(s); _lwWire(pn); _lwStillsStop(); _lwStills(pn); }
+  }
+  const _lwTermsLink = () => `<button class="lw-past-link" type="button" id="lw-terms"><span>Live event terms</span>${CHEV}</button>`;
+  function _lwTermsWire(el){
+    const b = el.querySelector('#lw-terms'); if(!b) return;
+    b.onclick = () => _lwSheet('Live event terms', `<ul class="lw-rules lw-terms">${LW_TERMS.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>`);
+  }
+  let _lwMq = null;
   function _lwBody(){
     const el = document.getElementById('lw-body'); if(!el) return;
     if(_lw.tab === 'feed'){
       el.innerHTML = `<div class="lw-card"><b>Discuss, Ask &amp; Share</b><span>The conversation is moving here from the Academy. Until then, it carries on in the Academy as it does now.</span></div>`;
       return;
     }
-    if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment\u2026'}</p>`; return; }
+    if(!_lw.sched){ el.innerHTML = `<p class="lw-quiet">${_lw.err ? 'The Calendar did not load. Try again in a moment.' : 'One moment…'}</p>`; return; }
     // before the Co-Regulator launch, members see Mindful Moment only; Justin sees everything
     _lw.sched = _lw.sched.filter(s => _lwEnd(s) > Date.now());   // an event leaves the Calendar when it ends, even if the app stayed open
     const list = (LW_COREG_LIVE || _lwIsHost()) ? _lw.sched : _lw.sched.filter(s => s.kind === 'mindful_moment');
-    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>`; return; }
-    const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
-    const ordered = list.filter(s => !_lwRoomOpen(s)).concat(list.filter(_lwRoomOpen));
-    let _lwOpenHead = false;
-    el.innerHTML = `<div class="lw-list">${ordered.map(s => {
-      const room = _lwRoomOpen(s), head = room && !_lwOpenHead ? (_lwOpenHead = true, '<p class="lw-open-h">Open any time</p>') : '';
-      const K = _lwKind(s), d = new Date(_lwStart(s)), open = _lwDoorOpen(s), live = _lwIsLive(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
-      const act = !ok ? `<button class="lw-pill" type="button" data-lw-up="${s.id}">${LOCK_SVG}Upgrade</button>`
-        : open ? `<button class="lw-pill lw-pill-go" type="button" data-lw-join="${s.id}">Join</button>`
-        : `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" data-lw-rsvp="${s.id}" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>`;
-      const alarm = (ok && !open) ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" data-lw-rem="${s.id}" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : '';
-      const nm = room ? (s.title || K.name) : K.name, when = room ? 'Open any time' : _lwWhen(s);
-      return `${head}<div class="lw-row${live ? ' lw-row-live' : ''}${room ? ' lw-row-open' : ''}">
-        <button class="lw-row-hit" type="button" data-lw-info="${s.id}" aria-label="${escapeHtml(nm + ', ' + when + '. Details')}"></button>
-        ${room ? '' : `<span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>`}
-        <span class="lw-row-t"><b>${escapeHtml(nm)}</b><span class="lw-when">${live ? '<i class="lw-live-dot" aria-hidden="true"></i>Live now' : escapeHtml(when)}</span><span class="lw-acts">${act}</span></span>
-        ${alarm}</div>`;
-    }).join('')}</div>`;
-    el.querySelectorAll('[data-lw-up]').forEach(b => b.onclick = () => _lwUpgradeSheet());
-    el.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(_lw.sched.find(s => s.id === b.dataset.lwRem)));
-    el.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(_lw.sched.find(s => s.id === b.dataset.lwRsvp)));
-    el.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(_lw.sched.find(s => s.id === b.dataset.lwJoin)));
-    el.querySelectorAll('[data-lw-info]').forEach(b => b.onclick = () => _lwInfoSheet(_lw.sched.find(s => s.id === b.dataset.lwInfo)));
+    if(!list.length){ el.innerHTML = `<p class="lw-quiet">No live events are scheduled yet.</p>` + _lwPastLink(); _lwPastWire(el); return; }
+    // the layout follows the rail breakpoint, live: crossing 1120 redraws the list as rows or as list + panel
+    if(!_lwMq){ try{ _lwMq = window.matchMedia('(min-width:1120px)'); _lwMq.addEventListener('change', () => { if(currentTab === 'community' && document.getElementById('lw-body')) _lwBody(); }); }catch(e){} }
+    const wide = _lwWide();
+    _lw.open = _lw.open || {};
+    const dated = list.filter(s => !_lwRoomOpen(s)), rooms = list.filter(_lwRoomOpen);
+    if(!_lw.sel || !list.some(s => s.id === _lw.sel)) _lw.sel = (dated[0] || rooms[0]).id;   // the panel opens on the next event
+    // keep the keyboard where it was across a repaint (RSVP, reminder, opening a row)
+    const fa = document.activeElement, fk = fa && el.contains(fa) ? ['data-lw-open','data-lw-rsvp','data-lw-rem','data-lw-see','data-lw-join'].find(a => fa.hasAttribute(a)) : null;
+    const fv = fk ? fa.getAttribute(fk) : null, fInPanel = !!(fa && fa.closest && fa.closest('#lw-sch-panel'));
+    const groups = [];
+    dated.forEach(s => { const m = new Date(_lwStart(s)).toLocaleDateString('en-US', { month:'long' }); let g = groups[groups.length - 1]; if(!g || g.name !== m){ g = { name:m, rows:[] }; groups.push(g); } g.rows.push(s); });
+    if(rooms.length) groups.push({ name:'Open any time', rows:rooms });
+    const first = (dated[0] || rooms[0] || {}).id;
+    // a repaint (RSVP, reminder) keeps the pictures already on screen, so they don't blank and reload (lwpic1, Justin 2026-11-02:
+    // "the thumbnails for events flicker after I press RSVP")
+    const keepPic = {}; el.querySelectorAll('.lw-hc-pic[data-lwpic]').forEach(p => { if(p.firstChild) (keepPic[p.dataset.lwpic] = keepPic[p.dataset.lwpic] || []).push(p); });
+    const listHTML = groups.map(g => `<section class="lw-mon"><h3 class="lw-mon-h">${escapeHtml(g.name)}</h3><div class="lw-hc-grid">${g.rows.map(s => _lwCard(s, s.id === first)).join('')}</div></section>`).join('') + _lwTermsLink() + _lwPastLink();
+    el.innerHTML = wide
+      ? `<div class="lw-sch is-wide"><div class="lw-sch-list">${listHTML}</div><aside class="lw-sch-panel" id="lw-sch-panel" aria-label="Event details" aria-live="polite">${_lwPanel(list.find(s => s.id === _lw.sel))}</aside></div>`
+      : `<div class="lw-sch"><div class="lw-sch-list">${listHTML}</div></div>`;
+    el.querySelectorAll('.lw-hc-pic[data-lwpic]').forEach(p => { const o = (keepPic[p.dataset.lwpic] || []).shift(); if(o){ o.className = p.className; p.replaceWith(o); } });
+    el.querySelectorAll('[data-lw-open]').forEach(b => { b.onclick = () => { if(_lwWide()) _lwPick(b.dataset.lwOpen); else _lwCardSheet((_lw.sched || []).find(x => x.id === b.dataset.lwOpen)); }; });
+    _lwStillsStop(); _lwStills(el);
+    _lwWire(el);
+    _lwPastWire(el);
+    _lwTermsWire(el);
+    if(fk){ const t = el.querySelector((fInPanel ? '#lw-sch-panel ' : '.lw-sch-list ') + '[' + fk + '="' + fv + '"]') || el.querySelector('[' + fk + '="' + fv + '"]'); if(t){ try{ t.focus({ preventScroll:true }); }catch(e){} } }
+  }
+  // ---- host only: who came to past live events (Justin OK'd the mockup 2026-10-28, https://claude.ai/artifact/UsZeBfSryRZbNzkCvwnChT) ----
+  // One RPC, live_host_attendance(p_session): null = the past events, an id = that event's people. The database only
+  // answers the host (live_is_host()). Chat is never stored, so it is never here.
+  const _lwPastLink = () => _lwIsHost() ? `<button class="lw-past-link" type="button" id="lw-past"><span>Who came to past events</span>${CHEV}</button>` : '';
+  function _lwPastWire(el){ const b = el.querySelector('#lw-past'); if(b) b.onclick = () => screenLiveAttendance(null); }
+  const _lwAtt = { list:null, ev:{}, err:null };
+  async function _lwAttRpc(id){ const r = await window.sb.rpc('live_host_attendance', { p_session:id }); if(r.error) throw r.error; return r.data || {}; }
+  const _lwT = t => new Date(t).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }).replace(' ', ' ').replace('AM','am').replace('PM','pm');
+  const _lwMin = secs => { const m = Math.max(0, Math.round((secs || 0) / 60)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); };
+  const _lwOpenRoom = e => (e.duration_min || 60) >= 1440;   // the always-open test rooms
+  function _lwAttBars(c){
+    if(!c) return '';
+    const h = x => Math.max(4, Math.round(Math.min(1, Math.max(0, +x || 0)) * 100));
+    return `<span class="lw-ci" role="img" aria-label="safety ${Math.round((c.v||0)*10)}, fight or flight ${Math.round((c.sym||0)*10)}, shutdown ${Math.round((c.dor||0)*10)} out of 10"><i style="height:${h(c.v)}%"></i><i style="height:${h(c.sym)}%"></i><i style="height:${h(c.dor)}%"></i></span>`;
+  }
+  // the room's answers on the slides: the last 0 to 10 per slide; per breath slide, each tap in order without repeats
+  function _lwAttAnswers(list){
+    const bySlide = (kind) => { const m = new Map(); (list || []).filter(a => a.kind === kind).forEach(a => { const k = a.slide || '?'; if(!m.has(k)) m.set(k, []); m.get(k).push(String(a.value)); }); return [...m.values()]; };
+    const z = bySlide('safety').map(v => v[v.length - 1]);
+    const br = bySlide('breath').map(v => [...new Set(v.flatMap(x => x.split('-')))].join(', '));
+    return { z, br };
+  }
+  function screenLiveAttendance(id){
+    clearFigures(); document.body.classList.remove('in-practice','rd-on','jr-sheet-on','ll-sf-typing'); document.body.classList.add('rd-sub');
+    root.innerHTML = `
+      <header class="appbar read-appbar"></header>
+      <div class="scroll" id="content"><div class="view lw-view lw-att"><div id="lw-att"></div></div></div>
+      <div class="fl-dock" id="fl-dock"><button class="tab-back-float" id="lw-att-back" type="button">${BACK_SVG}<span>Back</span></button></div>
+      <nav class="tabbar" id="tabs">${TABS()}</nav>`;
+    $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => app(b.dataset.t));
+    $('#lw-att-back').onclick = () => { if(id) return screenLiveAttendance(null); document.body.classList.remove('rd-sub'); screenCommunity(); };
+    try{ window.scrollTo(0,0); }catch(e){}
+    const paint = () => { const el = document.getElementById('lw-att'); if(el) el.innerHTML = id ? _lwAttEvent(id) : _lwAttList(); if(el && !id) el.querySelectorAll('[data-att]').forEach(b => b.onclick = () => screenLiveAttendance(b.dataset.att)); };
+    paint();
+    if(!window.sb) return;
+    _lwAttRpc(id).then(d => { if(id) _lwAtt.ev[id] = d; else _lwAtt.list = d.events || []; _lwAtt.err = null; })
+      .catch(() => { _lwAtt.err = 'load'; })
+      .then(() => { if(document.getElementById('lw-att')) paint(); });
+  }
+  function _lwAttList(){
+    const head = `<div class="scr-head"><p class="eyebrow">Only you see this</p><h2 class="scr-h">Who came</h2><p class="scr-lede">Past live events, newest first.</p></div>`;
+    if(!_lwAtt.list) return head + `<p class="lw-quiet">${_lwAtt.err ? 'That did not load. Try again in a moment.' : 'One moment…'}</p>`;
+    if(!_lwAtt.list.length) return head + `<p class="lw-quiet">Nobody has joined a live event yet.</p>`;
+    return head + `<ul class="lw-att-evs">${_lwAtt.list.map(e => {
+      const meta = _lwOpenRoom(e) ? 'Open room, from ' + _lwLongDate(e.starts_at) : _lwLongDate(e.starts_at) + ' · ' + _lwRangeC(e);
+      return `<li><button type="button" data-att="${escapeHtml(e.id)}"><span class="nm">${escapeHtml(e.title || _lwKind(e).name)}</span><span class="meta">${escapeHtml(meta)}</span><span class="ct">${e.came} came</span></button></li>`;
+    }).join('')}</ul>`;
+  }
+  function _lwAttEvent(id){
+    const d = _lwAtt.ev[id];
+    if(!d) return `<p class="lw-quiet">${_lwAtt.err ? 'That did not load. Try again in a moment.' : 'One moment…'}</p>`;
+    if(d.error || !d.event) return `<p class="lw-quiet">That event is not there any more.</p>`;
+    const e = d.event, P = d.people || [], n = P.length, open = _lwOpenRoom(e);
+    // the stay bar spans the event (an open room: the span of the visits)
+    let a0 = new Date(e.starts_at).getTime(), a1 = a0 + (e.duration_min || 60) * 60000;
+    if(open && n){ a0 = Math.min(...P.map(p => +new Date(p.first_in))); a1 = Math.max(...P.map(p => +new Date(p.last_out))); }
+    P.forEach(p => (p.visits || []).forEach(v => { a0 = Math.min(a0, +new Date(v.in)); a1 = Math.max(a1, +new Date(v.out)); }));
+    const span = Math.max(60000, a1 - a0), pct = t => Math.max(0, Math.min(100, (t - a0) / span * 100));
+    const mins = P.map(p => p.secs || 0).sort((x, y) => x - y), med = n ? mins[Math.floor((n - 1) / 2)] : 0;
+    const both = P.filter(p => p.before && p.after).length;
+    const ans = P.filter(p => (p.answers || []).length).length;
+    const when = open ? 'Open room, from ' + _lwLongDate(e.starts_at) : _lwLongDate(e.starts_at) + ' · ' + _lwRangeC(e);
+    const host = d.host && d.host.in ? `You came in at ${_lwT(d.host.in)}${d.host.out ? ' and left at ' + _lwT(d.host.out) : ''}. ` : '';
+    const dash = '<span class="lw-muted">none</span>';
+    const rows = P.map(p => {
+      const visits = p.visits || [], A = _lwAttAnswers(p.answers);
+      const left = p.still_open && !open ? 'to the end' : _lwT(p.last_out);
+      const back = visits.length > 1 ? `<span class="lw-att-sub">${visits.slice(1).map(v => 'back ' + _lwT(v.in)).join(', ')}</span>` : '';
+      const free = p.free_until ? ' · free until ' + new Date(p.free_until).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+      const ci = (p.before || p.after) ? `<span class="lw-ci-pair">${p.before ? _lwAttBars(p.before) : '<span class="lw-muted">no before</span>'}<span class="lw-muted" aria-hidden="true">→</span>${p.after ? _lwAttBars(p.after) : '<span class="lw-muted">left before</span>'}</span>` : dash;
+      return `<tr>
+        <td class="who">${escapeHtml(p.name || 'Member')}<span class="lw-att-sub">${escapeHtml((p.plan || '') + free)}</span></td>
+        <td data-l="Joined">${_lwT(p.first_in)}</td>
+        <td data-l="Left">${left}${back}</td>
+        <td data-l="Stayed" class="wide">${_lwMin(p.secs)}${visits.length > 1 ? ', ' + visits.length + ' visits' : ''}<span class="lw-stay" aria-hidden="true">${visits.map(v => `<i style="left:${pct(+new Date(v.in)).toFixed(1)}%;width:${Math.max(1, pct(+new Date(v.out)) - pct(+new Date(v.in))).toFixed(1)}%"></i>`).join('')}</span></td>
+        <td data-l="Check-in, before → after" class="wide">${ci}</td>
+        <td data-l="0 to 10 safety">${A.z.length ? escapeHtml(A.z.join(' → ')) : dash}</td>
+        <td data-l="Breath check">${A.br.length ? escapeHtml(A.br.join(' · ')) : dash}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="scr-head"><p class="eyebrow">${escapeHtml((e.title || _lwKind(e).name) + ' · ' + when)}</p>
+        <h2 class="scr-h">${n} ${n === 1 ? 'person' : 'people'} came</h2>
+        <p class="scr-lede">${host}Times are yours. Only you see this.</p></div>
+      <div class="lw-att-sum">
+        <div><b>${n}</b><span>came</span></div>
+        <div><b>${_lwMin(med)}</b><span>typical stay</span></div>
+        <div><b>${both} of ${n}</b><span>checked in before and after</span></div>
+        <div><b>${ans} of ${n}</b><span>answered on the slides</span></div>
+      </div>
+      ${n ? `<div class="lw-att-tbl"><table>
+        <thead><tr><th>Person</th><th>Joined</th><th>Left</th><th>Stayed</th><th>Check-in, before → after</th><th>0 to 10 safety</th><th>Breath check</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+        <p class="lw-att-key"><span style="--c:var(--s-safety)">safety</span><span style="--c:var(--s-fight)">fight or flight</span><span style="--c:var(--s-shutdown)">shutdown</span></p>` : '<p class="lw-quiet">Nobody else came.</p>'}
+      <p class="lw-att-foot">Chat isn't saved, so it isn't here. Your own visit isn't listed. The thin bar under "Stayed" is the event; dark is when they were in the room. Names come from Settings, otherwise the first part of their email.</p>`;
   }
   function _lwNeedAccount(){
     return _lwSheet('Use an account', `<p class="lw-p">Live events need a free account, so Justin knows who is in the room. You can make one in Settings.</p>
@@ -3020,7 +3768,7 @@ function app(tab){
   async function _lwRsvpToggle(s){
     if(!s) return; const uid = _lwUid(); if(!uid) return _lwNeedAccount();
     const was = _lw.rem[s.id];
-    if(was){ delete _lw.rem[s.id]; _lwBody(); const r = await window.sb.from('live_reminders').delete().eq('user_id', uid).eq('session_id', s.id); if(r && r.error){ _lw.rem[s.id] = was; showToast('That did not save. Try again in a moment.'); } }
+    if(was){ delete _lw.rem[s.id]; haptic('tap'); _lwBody(); const r = await window.sb.from('live_reminders').delete().eq('user_id', uid).eq('session_id', s.id); if(r && r.error){ _lw.rem[s.id] = was; showToast('That did not save. Try again in a moment.'); } }
     else { _lw.rem[s.id] = []; haptic('save'); _lwBody(); let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
       const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels:[], sent_at:null, tz }, { onConflict:'user_id,session_id' });
       if(r && r.error){ delete _lw.rem[s.id]; showToast('That did not save. Try again in a moment.'); } }
@@ -3031,7 +3779,7 @@ function app(tab){
   function _lwSheet(title, body, opts){
     opts = opts || {};
     const old = document.getElementById('lw-sheet'); if(old) old.remove();
-    const wrap = document.createElement('div'); wrap.id = 'lw-sheet'; wrap.className = 'p7-sheet p8-sheet lw-sheet';
+    const wrap = document.createElement('div'); wrap.id = 'lw-sheet'; wrap.className = 'p7-sheet p8-sheet lw-sheet' + (opts.inline ? ' lw-sheet-in' : '');
     wrap.innerHTML = `<div class="p7-sheet-card p8-card lw-sheet-card" role="dialog" aria-modal="true" aria-labelledby="lw-sh-h">
       <div class="p8-grab" aria-hidden="true"></div>
       <div class="p8-head"><h3 class="p8-h" id="lw-sh-h">${escapeHtml(title)}</h3>${opts.sticky ? '' : `<button class="p8-x" id="lw-sh-x" type="button" aria-label="Close">${_UP_X}</button>`}</div>
@@ -3050,7 +3798,7 @@ function app(tab){
     if(!s) return;
     const K = _lwKind(s), open = _lwDoorOpen(s), ok = _lwAllowed(s), rsvp = _lwRsvp(s), rem = _lwRemOn(s);
     const paras = _lwDesc(s).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean).map(p => `<p class="lw-p">${escapeHtml(p)}</p>`).join('');
-    const act = !ok ? '<button class="btn block" type="button" id="lw-in-up">Upgrade</button>'
+    const act = !ok ? '<button class="btn block lk-btn" type="button" id="lw-in-up">' + LOCK_SVG + 'See paid plans</button>'
       : open ? '<button class="btn block" type="button" id="lw-in-join">Join</button>'
       : `<button class="btn block${rsvp ? ' quiet' : ''}" type="button" id="lw-in-rsvp">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>
          <button class="btn block quiet" type="button" id="lw-in-rem">${rem ? LW_ICO.alarmOn + 'Reminder on' : LW_ICO.alarm + 'Set a reminder'}</button>`;
@@ -3059,7 +3807,7 @@ function app(tab){
       <ul class="lw-rules lw-facts">${_lwFacts(s).map(f => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
       <div class="lw-sh-btns lw-in-btns">${act}</div>`);
     const b = id => sh.el.querySelector(id);
-    if(b('#lw-in-up')) b('#lw-in-up').onclick = () => { sh.close(); _lwUpgradeSheet(); };
+    if(b('#lw-in-up')) b('#lw-in-up').onclick = () => { sh.close(); _lwUpgradeSheet(s); };
     if(b('#lw-in-join')) b('#lw-in-join').onclick = () => { sh.close(); _lwGoJoin(s); };
     if(b('#lw-in-rsvp')) b('#lw-in-rsvp').onclick = () => { sh.close(); _lwRsvpToggle(s); };
     if(b('#lw-in-rem')) b('#lw-in-rem').onclick = () => { sh.close(); setTimeout(() => _lwRemindSheet(s), 340); };
@@ -3082,12 +3830,8 @@ function app(tab){
       _lw.terms = true; sh.close(); screenLiveRoom(s);
     };
   }
-  function _lwUpgradeSheet(){
-    const sh = _lwSheet('Co-Regulator', `<p class="lw-p">Capacity Builder and the monthly Q&amp;A are part of Co-Regulator, along with Discuss, Ask &amp; Share. $39 a month, cancel anytime.</p>
-      <p class="lw-p lw-muted">Mindful Moment is free for everyone, Wednesdays at 9 am Pacific.</p>
-      <div class="lw-sh-btns"><a class="btn block" id="lw-up-go" href="${LW_UPGRADE_URL}" target="_blank" rel="noopener">Upgrade</a></div>`);
-    const go = sh.el.querySelector('#lw-up-go'); if(go) go.addEventListener('click', () => setTimeout(sh.close, 200));
-  }
+  // a Co-Regulator thing: the one plans view, Co-Regulator featured, naming the event when we know it (Justin, canon 2026-10-29)
+  function _lwUpgradeSheet(s){ _ppOpen({ tier:'co', item: s && s.access !== 'free' ? _lwKind(s).name : null }); }
   function _lwIcs(s){
     const K = _lwKind(s), z = t => new Date(t).toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
     const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Stuck Not Broken//Live//EN','BEGIN:VEVENT',
@@ -3139,7 +3883,7 @@ function app(tab){
       const btns = sh.el.querySelector('.lw-sh-btns');
       if(!btns) return sh.close();
       btns.innerHTML = `<p class="lw-p">${escapeHtml(pushNote + (on.has('email') ? ' The email reminder is on.' : ''))}</p><button class="btn block" type="button" id="lw-rem-done">Done</button>`;
-      btns.querySelector('#lw-rem-done').onclick = () => sh.close();
+      btns.querySelector('#lw-rem-done').onclick = () => { try{ haptic('done'); }catch(e){} sh.close(); };
     };
     const off = sh.el.querySelector('#lw-rem-off');
     if(off) off.onclick = async () => {
@@ -3177,7 +3921,8 @@ function app(tab){
         <p class="lw-muted lw-p">${K.video === false ? 'The livestream keeps playing while you check in.' : 'The call keeps going while you check in.'} Nobody else sees your answers.</p>
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-ci-save">Save check-in</button><button class="btn block quiet" type="button" id="lw-ci-skip">Skip</button></div>
       </div>`;
-    const sh = _lwSheet('Check in', body, { sticky:!!opts.sticky, host:document.getElementById('lw-room') || document.body, onClose:opts.onClose });
+    const slot = (_lwWide() && R && R.phase === 'call') ? document.getElementById('lw-ci-slot') : null;
+    const sh = _lwSheet('Check in', body, { sticky:!!opts.sticky, host:slot || document.getElementById('lw-room') || document.body, onClose:opts.onClose, inline:!!slot });
     const el = sh.el;
     function refresh(){
       const colOf = ciAxisColorFn(v, sy, d, axTouched);
@@ -3287,7 +4032,10 @@ function app(tab){
     if(!R) return;
     if(tell && _lwIsHost() && R.co){ try{ R.co.sendAppMessage({ t:'sl-off' }, '*'); }catch(e){} }
     R.slide = null; R.slBeat = null; _lwSlCard(R, null);
-    const L = document.getElementById('lw-slides'); if(L) L.hidden = true;
+    document.body.classList.remove('lw-sl-dark');
+    // slides off: the slide cross-fades out while the video cards rise in; the rail stays still
+    const L = document.getElementById('lw-slides');
+    if(L && !L.hidden){ document.body.classList.add('lw-sl-leaving'); L.classList.add('lw-sl-fade'); setTimeout(() => { L.hidden = true; L.classList.remove('lw-sl-fade'); document.body.classList.remove('lw-sl-leaving'); }, 340); }
     if(_lwRoom === R && R.phase === 'call') _lwRender();
   }
   function _lwSlLayer(){
@@ -3301,7 +4049,7 @@ function app(tab){
     return L;
   }
   let _lwSlLoop = false;
-  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); document.body.classList.remove('lw-sl-on'); }
+  function _lwSlRemove(){ const L = document.getElementById('lw-slides'); if(L) L.remove(); document.body.classList.remove('lw-sl-on', 'lw-sl-dark', 'lw-sl-leaving'); }
   // the slide is the room's whole background (Justin, 2026-10-28: "the entire screen to be the practice slide background ...
   // the various ui elements would be cards on top"). The frame lives at the page level, under the room, and follows the
   // room's size; body.lw-sl-on turns the room's parts into cards. On a phone the slide starts under the title card.
@@ -3316,7 +4064,7 @@ function app(tab){
       L.style.left = r.left + 'px'; L.style.top = top + 'px'; L.style.width = r.width + 'px'; L.style.height = Math.max(0, r.bottom - top) + 'px';
       _lwSlSafe(R, room, r);
     }
-    if(L.hidden === show) L.hidden = !show;
+    if(L.hidden === show && !(document.body.classList.contains('lw-sl-leaving') && !show)) L.hidden = !show;
     requestAnimationFrame(_lwSlTrack);
   }
   // the free area the cards leave, in px of the slide frame (2026-10-28, "optimize the slides for various screen sizes"):
@@ -3327,7 +4075,7 @@ function app(tab){
     const g = parseFloat(cs.columnGap) || 16, l = parseFloat(cs.paddingLeft) || 0, t = parseFloat(cs.paddingTop) || 0;
     let r = W - (parseFloat(cs.paddingRight) || 0), b = H - (parseFloat(cs.paddingBottom) || 0);
     // side layout = a card on the right half that starts near the top line; otherwise the cards sit along the bottom
-    const cards = [...room.querySelectorAll('.lw-call-head, .lw-mm-chat, .lw-ctls, .lw-stage, .lw-grid')].map(el => el.getBoundingClientRect())
+    const cards = [...room.querySelectorAll(room.classList.contains('lw-r2') ? '.lw-rail, .lw-dock2, .lw-dk-cam:not([hidden])' : '.lw-call-head, .lw-mm-chat, .lw-ctls, .lw-stage, .lw-grid')].map(el => el.getBoundingClientRect())
       .filter(q => q.width >= 2 && q.height >= 2).map(q => ({ x:q.left - rr.left, y:q.top - rr.top }));
     const side = cards.some(c => c.x >= W * .5 && c.y < H * .35);
     cards.forEach(c => { if(side && c.x >= W * .5) r = Math.min(r, c.x - g); else if(c.y >= H * .35) b = Math.min(b, c.y - g); });
@@ -3359,6 +4107,9 @@ function app(tab){
     if(_lwRoom !== R) return;
     const wasOff = !R.slide;
     R.slide = p; _lwSlLayer(); _lwSlPost(R, wasOff);
+    // the cards follow the scene: frosted dark glass with bone text on the builder's dark scenes (its SCENE_DARK)
+    document.body.classList.toggle('lw-sl-dark', !!(p.scene && /^(sunbeam|fireflies)$/.test(p.sceneName)));
+    if(wasOff) R.riseNext = true;
     // the first slide redraws the room (Justin's camera moves aside) before anything opens on top of it
     if(wasOff){ _lwSlRoomPoll(R); if(R.phase === 'call') _lwRender(); }
     const beat = p.beat || {}, key = p.p + ':' + p.idx;
@@ -3434,14 +4185,15 @@ function app(tab){
   function _lwFoldWire(){
     const room = document.getElementById('lw-room'); if(!room) return;
     const f = _lwFolds();
-    room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = !!f[k]; c.classList.toggle('lw-folded', on);
-      const b = c.querySelector('.lw-fold[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
+    const R0 = _lwRoom;
+    room.querySelectorAll('[data-card]').forEach(c => { const k = c.dataset.card, on = (k === 'chat' && !(k in f) && room.classList.contains('lw-r2')) ? !((R0 && R0.chat) || []).length : !!f[k]; c.classList.toggle('lw-folded', on);
+      const b = c.querySelector('.lw-fold[data-fold="' + k + '"], .lw-fd[data-fold="' + k + '"]'); if(b) b.setAttribute('aria-expanded', String(!on)); });
     // each card folds on its own (Justin, 2026-10-28: "someone should be able to keep the chat open while collapsing whatever else");
     // the title card no longer tucks the whole room away
     room.classList.remove('lw-tucked');
-    room.querySelectorAll('.lw-fold').forEach(b => b.onclick = e => { e.stopPropagation();
-      const k = b.dataset.fold;
-      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !g[k]; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
+    room.querySelectorAll('.lw-fold, .lw-fd').forEach(b => b.onclick = e => { e.stopPropagation();
+      const k = b.dataset.fold, cd = b.closest('[data-card]'), was = !!(cd && cd.classList.contains('lw-folded'));
+      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !was; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
   }
   // folding and unfolding glide instead of jumping (Justin, 2026-10-28: "smooth and gentle is the standard"). Each card gets a
   // name only for the length of the move, so the browser can carry it from its old size and place to the new one; the slide
@@ -3450,7 +4202,7 @@ function app(tab){
     const room = document.getElementById('lw-room');
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if(!room || reduce || !document.startViewTransition){ apply(); return; }
-    const named = [...room.querySelectorAll('[data-card], .lw-grid')];
+    const named = [...room.querySelectorAll('[data-card], .lw-grid, .lw-bento')];
     named.forEach((c, i) => { c.style.viewTransitionName = 'lw-card-' + (c.dataset.card || 'grid' + i); });
     document.documentElement.classList.add('lw-vt');
     const done = () => { named.forEach(c => { c.style.viewTransitionName = ''; }); document.documentElement.classList.remove('lw-vt'); };
@@ -3510,21 +4262,29 @@ function app(tab){
     const R = _lwRoom; if(!R) return;
     const s = R.s, K = _lwKind(s), host = _lwIsHost();
     const rec = s.recorded ? 'Recorded.' : 'Not recorded.';
+    // desktop: a plain "← Back" link at the top; tablet and phone: the Back pill at the bottom (the back rule, Justin 2026-10-30)
+    const lbBack = `<button class="lw-lb-back" type="button" id="lw-back-top">${BACK_SVG}<span>Back</span></button>`;
+    const lbDock = `<div class="fl-dock lw-dock lw-lb-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div>`;
     if(R.phase === 'lobby'){
-      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby">
-        <h1 class="lw-h1">${escapeHtml(K.name)}</h1>
-        <p class="lw-p lw-muted">${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
-        <div class="lw-preview${R.cam?' on':''}"><video id="lw-prev" autoplay playsinline muted></video>${R.cam ? '' : '<span class="lw-prev-off"><span class="lw-av">You</span><span>Your camera is off</span></span>'}</div>
-        <div class="lw-toggles">
-          <button type="button" class="lw-tg${R.cam?' on':''}" id="lw-tg-cam" aria-pressed="${R.cam}">${R.cam ? LW_ICO.cam : LW_ICO.camOff}${R.cam ? 'Camera on' : 'Camera off'}</button>
-          <button type="button" class="lw-tg${R.mic?' on':''}" id="lw-tg-mic" aria-pressed="${R.mic}">${R.mic ? LW_ICO.mic : LW_ICO.micOff}${R.mic ? 'Mic on' : 'Mic off'}</button>
-        </div>
-        <ul class="lw-rules"><li>Camera on or off is up to you.</li><li>You do not have to speak or type.</li><li>${s.recorded ? 'This one is recorded so others can watch it later.' : 'Not recorded. No replay.'}</li></ul>
-        ${R.err ? `<p class="lw-err" role="alert">${escapeHtml(R.err)}</p>` : ''}
-        <button class="btn block" type="button" id="lw-join">Join now</button>
-        <button class="lw-link" type="button" id="lw-ci-pre">Check in first</button>
-      </div>
-      <div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
+      // a camera preview card on 1-7 with Camera / Mic as outlined pills; on 8-12 the three lines with the Calendar's icons,
+      // "Join now" (the one filled button) and "Check in first" as a link (Justin, canon 2026-10-31)
+      const li = (ic, t) => `<li><span class="lw-lb-ic" aria-hidden="true">${ic}</span><span>${t}</span></li>`;
+      setHTML(`<div class="lw-room lw-r2l" id="lw-room"><div class="lw-lb">${lbBack}
+        <h1 class="lw-lb-h1">${escapeHtml(K.name)}</h1>
+        <p class="lw-lb-when">${escapeHtml(_lwLongDate(_lwStart(s)))}, ${_lwRange(s)}.</p>
+        <div class="lw-lb-grid">
+          <section class="lw-rc lw-lb-prev" aria-label="Your camera">
+            <div class="lw-preview2${R.cam ? ' on' : ''}"><video id="lw-prev" autoplay playsinline muted></video>${R.cam ? '' : '<span class="lw-av">You</span><span class="lw-prev-note">Your camera is off</span>'}</div>
+            <div class="lw-pills"><button type="button" class="lw-rp${R.cam ? ' on' : ''}" id="lw-tg-cam" aria-pressed="${R.cam}">${R.cam ? LW_ICO.cam : LW_ICO.camOff}<span>${R.cam ? 'Camera on' : 'Camera off'}</span></button>
+              <button type="button" class="lw-rp${R.mic ? ' on' : ''}" id="lw-tg-mic" aria-pressed="${R.mic}">${R.mic ? LW_ICO.mic : LW_ICO.micOff}<span>${R.mic ? 'Mic on' : 'Mic off'}</span></button></div>
+          </section>
+          <section class="lw-rc lw-lb-side" aria-label="Before you join">
+            <ul class="lw-lb-list">${li(LW_ICO.cam, 'Camera on or off is up to you.')}${li(LW_ICO.chat, 'You do not have to speak or type.')}${li(s.recorded ? LW_ICO.rec : LW_ICO.recOff, s.recorded ? 'This one is recorded so others can watch it later.' : 'Not recorded. No replay.')}</ul>
+            ${R.err ? `<p class="lw-err" role="alert">${escapeHtml(R.err)}</p>` : ''}
+            <div class="lw-lb-acts"><button class="btn block" type="button" id="lw-join">Join now</button><button class="fr-link" type="button" id="lw-ci-pre">Check in first</button></div>
+          </section>
+        </div></div>${lbDock}</div>`);
+      { const bt = document.getElementById('lw-back-top'); if(bt) bt.onclick = _lwExit; }
       const v = document.getElementById('lw-prev'); if(v && R.preview) v.srcObject = R.preview;
       $('#lw-back').onclick = _lwExit;
       $('#lw-join').onclick = () => { R.phase = 'joining'; _lwRender(); _lwJoin(); };
@@ -3550,57 +4310,82 @@ function app(tab){
       // thank you, the next event with a quick RSVP, and Self-Regulator for members without a paid plan (Justin, 2026-10-27)
       if(!_lw.sched && !_lw.loading){ _lwLoad().then(() => { if(_lwRoom === R && R.phase === 'left') _lwRender(); }); }
       const nx = (_lw.sched || []).find(x => x.id !== s.id && _lwStart(x) > Date.now() && (LW_COREG_LIVE || host || x.kind === 'mindful_moment'));
-      let nxHTML = '';
-      if(nx){
-        const NK = _lwKind(nx), d = new Date(_lwStart(nx)), ok = _lwAllowed(nx), rsvp = _lwRsvp(nx), rem = _lwRemOn(nx);
-        nxHTML = `<div class="lw-next"><p class="lw-eyb">Next on the Calendar</p><div class="lw-row lw-row-static">
-          <span class="lw-date" aria-hidden="true"><span>${d.toLocaleDateString('en-US',{ month:'short' })}</span><b>${d.getDate()}</b></span>
-          <span class="lw-row-t"><b>${escapeHtml(NK.name)}</b><span class="lw-when">${escapeHtml(_lwWhen(nx))}</span><span class="lw-acts">${ok ? `<button class="lw-pill${rsvp ? ' lw-pill-on' : ''}" type="button" id="lw-ty-rsvp" aria-pressed="${rsvp}">${rsvp ? LW_ICO.check + 'RSVP\u2019d' : 'RSVP'}</button>` : `<button class="lw-pill" type="button" id="lw-ty-co">${LOCK_SVG}Upgrade</button>`}</span></span>
-          ${ok ? `<button class="lw-alarm${rem ? ' on' : ''}" type="button" id="lw-ty-rem" aria-pressed="${rem}" aria-label="${rem ? 'Reminder on. Change it' : 'Set a reminder'}">${rem ? LW_ICO.alarmOn : LW_ICO.alarm}</button>` : ''}</div></div>`;
-      }
-      const up = (!host && !paidNow()) ? `<div class="lw-up"><p class="lw-eyb">Between live events</p>
-          <p class="lw-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
-          <p class="lw-p lw-muted">$12 a month, cancel anytime.</p>
-          <button class="btn block" type="button" id="lw-ty-up">See Self-Regulator</button></div>` : '';
-      setHTML(`<div class="lw-room" id="lw-room"><div class="lw-lobby lw-thanks">
-        <p class="lw-eyb">Live event</p>
-        <h1 class="lw-h1">Thank you for being here.</h1>
-        <p class="lw-p lw-muted">${escapeHtml(K.name)}, ${escapeHtml(_lwLongDate(_lwStart(s)))}.</p>
-        ${nxHTML}${up}
-        ${_lwEnd(s) > Date.now() && !R.ended ? '<button class="btn block quiet" type="button" id="lw-rejoin">Rejoin</button>' : ''}
-      </div><div class="fl-dock lw-dock"><button class="tab-back-float" id="lw-back" type="button">${BACK_SVG}<span>Back</span></button></div></div>`);
+      // the next event as a Calendar house card (picture, big date, title, time, Free, the RSVP pill and Remind me) on 1-7;
+      // free members: "Between live events" on 8-12 with lock + "See paid plans" (the one filled button). Rejoin beside the title.
+      const nxHTML = nx ? `<div class="lw-ty-next">${_lwCard(nx, true).replace('<span class="eyebrow lw-hc-next">Next</span>', '<span class="eyebrow lw-hc-next">Next on the Calendar</span>').replace(/(<span class="lw-hc-acts">)([\s\S]*?)(<\/span>\s*<\/span><\/article>)$/, (m, a, b, c) => a + b + (_lwAllowed(nx) && !_lwDoorOpen(nx) ? _lwRemindBtn(nx, _lwRemOn(nx)) : '') + c)}</div>` : '';
+      const up = (!host && !paidNow()) ? `<section class="lw-rc lw-ty-up" aria-label="Between live events"><p class="eyebrow">Between live events</p>
+          <p class="lw-ty-p">Self-Regulator gives you the full Unstucking Pathway, every practice and article, and the patterns across your check-ins, so you can keep practicing on your own.</p>
+          <p class="lw-ty-m">$12 a month, cancel anytime.</p>
+          <div class="lw-ty-acts"><button class="btn lk-btn" type="button" id="lw-ty-up">${LOCK_SVG}See paid plans</button></div></section>` : '';
+      const running = _lwEnd(s) > Date.now() && !R.ended;
+      setHTML(`<div class="lw-room lw-r2l" id="lw-room"><div class="lw-lb lw-ty">${lbBack}
+        <p class="eyebrow">Live event</p>
+        <div class="lw-ty-head"><div><h1 class="lw-lb-h1">Thank you for being here.</h1><p class="lw-lb-when">${escapeHtml(K.name)}, ${escapeHtml(_lwLongDate(_lwStart(s)))}.</p></div>${running ? '<button class="lw-rp" type="button" id="lw-rejoin">Rejoin</button>' : ''}</div>
+        ${(nxHTML || up) ? `<div class="lw-lb-grid${up ? '' : ' lw-ty-solo'}">${nxHTML}${up}</div>` : ''}
+      </div>${lbDock}</div>`);
+      { const bt = document.getElementById('lw-back-top'); if(bt) bt.onclick = _lwExit; }
+      const tyEl = document.getElementById('lw-room');
+      if(nx && tyEl){ _lwStills(tyEl);
+        tyEl.querySelectorAll('[data-lw-rsvp]').forEach(b => b.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); }));
+        tyEl.querySelectorAll('[data-lw-rem]').forEach(b => b.onclick = () => _lwRemindSheet(nx));
+        tyEl.querySelectorAll('[data-lw-see]').forEach(b => b.onclick = () => _lwUpgradeSheet(nx));
+        tyEl.querySelectorAll('[data-lw-join]').forEach(b => b.onclick = () => _lwGoJoin(nx));
+        tyEl.querySelectorAll('[data-lw-open]').forEach(b => b.onclick = () => _lwCardSheet(nx)); }
       $('#lw-back').onclick = _lwExit;
-      const tyR = document.getElementById('lw-ty-rsvp'); if(tyR) tyR.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); });
+      const tyR = null; if(tyR) tyR.onclick = () => _lwRsvpToggle(nx).then(() => { if(_lwRoom === R) _lwRender(); });
       const tyA = document.getElementById('lw-ty-rem'); if(tyA) tyA.onclick = () => _lwRemindSheet(nx);
       const tyC = document.getElementById('lw-ty-co'); if(tyC) tyC.onclick = () => _lwUpgradeSheet();
       const tyU = document.getElementById('lw-ty-up'); if(tyU) tyU.onclick = () => { _lwExit(); gateSubscribe('live'); };
       const rj = document.getElementById('lw-rejoin'); if(rj) rj.onclick = () => { R.phase = 'joining'; R.co = null; R.leftMarked = false; _lwRender(); _lwJoin(); };
       return;
     }
-    // in the call
-    const mm = !K.video, member = !host;
-    const ctl = (id, ico, label, extra) => `<button type="button" class="lw-ctl${extra||''}" id="${id}">${ico}<span>${label}</span></button>`;
-    // mic and camera: the button toggles, the up arrow beside it picks the device (Justin, 2026-10-27)
-    const split = (id, ico, label, on, kind) => `<div class="lw-split${on ? ' on' : ''}"><button type="button" class="lw-ctl${on ? ' on' : ''}" id="${id}">${ico}<span>${label}</span></button><button type="button" class="lw-caret" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></div>`;
-    // the host hangs up with a small red square, icon only (Justin, 2026-10-28); it asks: end for everyone, or leave and keep the room open
-    const ctls = [host ? `<button type="button" class="lw-ctl lw-end" id="lw-c-leave" aria-label="End or leave the event" title="End or leave">${LW_ICO.hangup}</button>` : ctl('lw-c-leave', LW_ICO.leave, 'Leave')];
-    if(!(mm && member)){ ctls.push(split('lw-c-mic', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')); ctls.push(split('lw-c-cam', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')); }
-    if(host && _lwCanShare()) ctls.push(ctl('lw-c-share', LW_ICO.share, R.sharing ? 'Stop sharing' : 'Share screen', R.sharing ? ' on' : ''));
-    if(host) ctls.push(ctl('lw-c-slides', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', R.slide ? ' on' : ''));
-    if(!mm) ctls.push(ctl('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : '')));
-    ctls.push(ctl('lw-c-set', LW_ICO.gear, 'Settings'));
-    // two controls only (a Mindful Moment member: Leave, Settings) → the small controls card shares a row with the title card
-    setHTML(`<div class="lw-room lw-call${mm?' lw-mm':''}${ctls.length <= 2 ? ' lw-ctl2' : ''}" id="lw-room">
-      <div class="lw-call-head" data-card="head"><span class="lw-call-t"><b>${escapeHtml(K.name)}</b></span><span class="lw-call-r"><span class="lw-rec" id="lw-rec"></span>${host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="false" aria-controls="lw-ppl">${LW_ICO.people}<span></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>` : `<span class="lw-here" id="lw-here">${LW_ICO.people}<span></span></span>`}</span>${host ? '<ul class="lw-ppl" id="lw-ppl" aria-label="Who is in the room" hidden></ul>' : ''}<button type="button" class="lw-fold" data-fold="head" aria-label="Collapse the title" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
-      <div class="lw-call-body">
-        <div class="lw-stage" id="lw-stage" data-card="cam"><button type="button" class="lw-fold" data-fold="cam" aria-label="Collapse the camera" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
-        ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}
-        ${mm ? `<div class="lw-mm-chat" data-card="chat"><div class="lw-mm-chat-h"><b>Chat</b><span class="lw-fold-n" id="lw-chat-n"></span><button type="button" class="lw-fold" data-fold="chat" aria-label="Collapse the chat" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div><div class="lw-chat-list" id="lw-chat-list"></div>
-          <form class="lw-chat-form" id="lw-chat-form"><label class="vh" for="lw-chat-in">Share a present moment reflection</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="Share a present moment reflection"><button class="btn" type="submit">Send</button></form></div>`
-          : `<div class="lw-grid" id="lw-grid"></div>`}
-      </div>
-      <div class="lw-ctls" data-card="ctls" style="--n:${ctls.length}">${ctls.join('')}<button type="button" class="lw-fold" data-fold="ctls" aria-label="Collapse the controls" aria-expanded="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
+    // in the call (Justin, canon 2026-10-31): the area on 1-9 (the slide's free area with slides on; the video with slides off),
+    // one rail of cards on 10-12, and below 1120 one dock along the bottom instead of the rail.
+    const mm = !K.video, member = !host, slides = !!R.slide;
+    const CHV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+    const fd = (k, what) => `<button type="button" class="lw-fd" data-fold="${k}" aria-label="Fold ${what}" aria-expanded="true">${CHV}</button>`;
+    const pill = (id, label, on, extra) => `<button type="button" class="lw-rp${on ? ' on' : ''}" id="${id}"${extra || ''}>${on && /lw-c-slides/.test(id) ? LW_ICO.check : ''}<span>${label}</span></button>`;
+    const sp = (id, label, on, kind) => `<span class="lw-sp${on ? ' on' : ''}">${pill(id, label, on, ` aria-pressed="${on}"`)}<button type="button" class="lw-rp lw-sp-c" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></span>`;
+    const leave = host ? `<button type="button" class="lw-ctl lw-end" id="lw-c-leave" aria-label="End or leave the event" title="End or leave">${LW_ICO.hangup}</button>`
+      : `<button type="button" class="lw-rp" id="lw-c-leave">Leave</button>`;
+    const here = host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="false" aria-controls="lw-ppl">${LW_ICO.people}<span class="lw-here-n"></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`
+      : `<span class="lw-here" id="lw-here"><span class="lw-here-n"></span></span>`;
+    const evCard = `<section class="lw-rc lw-evc" data-card="head" aria-label="The event"><div class="lw-evc-row"><div class="lw-evc-t"><b>${escapeHtml(K.name)}</b>${here}</div>
+        <span class="lw-rec" id="lw-rec"></span><button type="button" class="lw-ib" id="lw-c-set" aria-label="Settings" title="Settings">${LW_ICO.gear}</button>${leave}</div>
+        ${host ? '<ul class="lw-ppl" id="lw-ppl" aria-label="Who is here" hidden></ul>' : ''}</section>`;
+    // You: the host's camera while the slides are up, his Mic / Camera with their pickers, Share screen and Slides; a member at a
+    // video event: Mic and Camera as outlined pills. A Mindful Moment member has neither (livestream only).
+    const youCard = host ? `<section class="lw-rc lw-you" data-card="you" aria-label="You">${slides ? '<div class="lw-vid lw-you-vid" id="lw-you-vid" data-lw-spot="self"></div>' : ''}
+        <div class="lw-pills">${sp('lw-c-mic', R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')}${sp('lw-c-cam', R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')}
+        ${_lwCanShare() ? pill('lw-c-share', R.sharing ? 'Stop sharing' : 'Share screen', R.sharing) : ''}${pill('lw-c-slides', R.slide ? 'Slides on' : 'Slides', !!R.slide, ` aria-pressed="${!!R.slide}"`)}</div></section>`
+      : mm ? '' : `<section class="lw-rc lw-you lw-you-m" data-card="you" aria-label="You"><span class="lw-you-t">You</span><div class="lw-pills">${pill('lw-c-mic', R.mic ? 'Mic on' : 'Mic off', R.mic, ` aria-pressed="${R.mic}"`)}${pill('lw-c-cam', R.cam ? 'Camera on' : 'Camera off', R.cam, ` aria-pressed="${R.cam}"`)}</div></section>`;
+    // Justin's camera in the rail while the slides are up (members): it folds to one line, the arrow on its header line
+    const camCard = (member && slides) ? `<section class="lw-rc lw-camc" data-card="cam" aria-label="Justin’s camera"><div class="lw-rc-hd"><b>Justin</b>${fd('cam', 'the camera')}</div>
+        <div class="lw-rc-fold"><div class="lw-vid lw-cam-vid" id="lw-stage-rail" data-lw-spot="owner"></div></div></section>` : '';
+    const ph = mm ? 'Share a present moment reflection' : 'Write to the group';
+    const chatCard = `<section class="lw-rc lw-chatc" data-card="chat" aria-label="Chat"><div class="lw-rc-hd"><b>Chat</b><span class="lw-cn" id="lw-chat-n"></span>${fd('chat', 'the chat')}</div>
+        <div class="lw-rc-fold"><div class="lw-chat-list" id="lw-chat-list"></div>
+        <form class="lw-chat-form lw-chatf" id="lw-chat-form"><label class="vh" for="lw-chat-in">${ph}</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="${ph}"><button class="lw-rp on" type="submit">Send</button></form></div></section>`;
+    // the dock (tablet and phone): Justin's picture (members, slides up), the name and the count, then the controls
+    const dB = (id, ico, label, on, proxy) => `<button type="button" class="lw-db${on ? ' on' : ''}"${id ? ` id="${id}"` : ''}${proxy ? ` data-proxy="${proxy}"` : ''}>${ico}<span>${label}</span></button>`;
+    const dRow = [];
+    if(!(mm && member)){ dRow.push(dB('', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'lw-c-mic')); dRow.push(dB('', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'lw-c-cam')); }
+    if(host) dRow.push(dB('', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', !!R.slide, 'lw-c-slides'));
+    dRow.push(dB('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : ''), false));
+    dRow.push(dB('', LW_ICO.gear, 'Settings', false, 'lw-c-set'));
+    const dock = `<nav class="lw-rc lw-dock2" aria-label="Live event controls"><div class="lw-dk-row">${(member && slides) ? `<button type="button" class="lw-dk-pic" id="lw-dk-pic" aria-expanded="${!!R.dockCam}" aria-label="${R.dockCam ? 'Hide Justin’s camera' : 'Show Justin’s camera'}">J</button>` : ''}
+        <div class="lw-evc-t"><b>${escapeHtml(K.name)}</b><span class="lw-here"><span class="lw-here-n"></span></span></div>
+        ${host ? `<button type="button" class="lw-ctl lw-end" data-proxy="lw-c-leave" aria-label="End or leave the event">${LW_ICO.hangup}</button>` : '<button type="button" class="lw-rp" data-proxy="lw-c-leave">Leave</button>'}</div>
+        <div class="lw-dk-btns" style="--n:${dRow.length}">${dRow.join('')}</div></nav>`;
+    const enter = !R.entered || R.riseNext; R.entered = true; R.riseNext = false;
+    setHTML(`<div class="lw-room lw-r2${mm ? ' lw-r2-mm' : ''}${host ? ' lw-r2-host' : ''}${enter ? ' lw-enter' : ''}" id="lw-room">
+      <div class="lw-area" id="lw-area">${mm ? '<div class="lw-vid lw-big" id="lw-stage" data-lw-spot="owner"></div>' : '<div class="lw-bento" id="lw-grid"></div>'}
+        ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}</div>
+      <aside class="lw-rail" id="lw-rail" aria-label="The live event">${evCard}${youCard}${camCard}<div class="lw-ci-slot" id="lw-ci-slot"></div>${chatCard}</aside>
+      ${(member && slides) ? `<div class="lw-rc lw-dk-cam" id="lw-dk-cam"${R.dockCam ? '' : ' hidden'}><div class="lw-vid" id="lw-dk-vid" data-lw-spot="owner"></div></div>` : ''}
+      ${dock}
       <div id="lw-audio" hidden></div></div>`);
+    if(enter) setTimeout(() => { const r = document.getElementById('lw-room'); if(r) r.classList.remove('lw-enter'); }, 700);
     _lwPaint();
     const co = R.co;
     if(host) $('#lw-c-leave').onclick = () => { const sh = _lwSheet('End the event?', `<p class="lw-p">End it for everyone, or leave and keep the room open for the others.</p>
@@ -3639,6 +4424,9 @@ function app(tab){
     document.querySelectorAll('#lw-room [data-lw-dev]').forEach(b => b.onclick = e => { e.stopPropagation(); _lwDevMenu(b.dataset.lwDev, b); });
     _lwFoldWire();
     _lwPaintRec();
+    document.querySelectorAll('#lw-room [data-proxy]').forEach(b => b.onclick = () => { const t = document.getElementById(b.dataset.proxy); if(t) t.click(); });
+    { const pic = document.getElementById('lw-dk-pic'); if(pic) pic.onclick = () => { R.dockCam = !R.dockCam; const c = document.getElementById('lw-dk-cam'); if(c) c.hidden = !R.dockCam;
+        pic.setAttribute('aria-expanded', String(R.dockCam)); pic.setAttribute('aria-label', R.dockCam ? 'Hide Justin’s camera' : 'Show Justin’s camera'); _lwPaint(); }; }
     const setB = document.getElementById('lw-c-set'); if(setB) setB.onclick = _lwSettingsSheet;
     _lwWireStateTg(document.getElementById('lw-room'));
     const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
@@ -3656,6 +4444,7 @@ function app(tab){
         : r.status === 425 ? 'The room opens ' + LW_OPEN_EARLY_MIN + ' minutes before the start.'
         : r.status === 410 ? 'This live event has ended.'
         : r.status === 401 ? 'Sign in to join.'
+        : e.error === 'removed' ? 'The host removed you from this live event.'
         : 'The room did not open. Try again in a moment.';
       R.phase = 'joining'; return _lwRender();
     }
@@ -3678,7 +4467,7 @@ function app(tab){
     co.on('recording-error', () => { R.rec = 'off'; _lwPaintRec(); if(_lwIsHost()) showToast('The recording stopped. Tap Record to start it again.'); });
     co.on('app-message', ev => {
       const d = ev && ev.data; if(!d) return;
-      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
+      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ uid:_lwUidOf(R, ev.fromId), sid:ev.fromId, who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:_lwSlOwner(R, ev.fromId), av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
       if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
       if(d.t === 'sl' && typeof d.d === 'string' && d.n > 0 && d.n < 60) _lwSlReceive(R, d, ev.fromId);
       if(d.t === 'sl-off' && _lwSlOwner(R, ev.fromId)) _lwSlOff(R, false);
@@ -3686,7 +4475,8 @@ function app(tab){
       if(d.t === 'sl-req' && _lwIsHost() && R.slide) _lwSlSend(R, R.slide, ev.fromId);
     });
     co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
-    co.on('error', () => { if(_lwRoom === R){ R.err = 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
+    co.on('error', ev => { if(_lwRoom === R){ const ej = ev && ((ev.error && ev.error.type === 'ejected') || /eject/i.test(String(ev.errorMsg || '')));
+      R.err = ej ? 'The host removed you from this live event.' : 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
     try{
       await co.join({ url:r.data.room_url, token:r.data.token, startVideoOff:!R.cam, startAudioOff:!R.mic });
     }catch(e){ R.err = 'The room did not open. Try again in a moment.'; R.phase = 'joining'; return _lwRender(); }
@@ -3735,22 +4525,65 @@ function app(tab){
     try{ R.co.sendAppMessage({ t:'chat', who, text:'', host:_lwIsHost(), av, st, card }, '*'); }catch(e){ return false; }
     R.chat.push({ who:'You', text:'', host:_lwIsHost(), av, st, card }); _lwPaintChat(); return true;
   }
-  function _lwMsgHTML(m, anim){
+  // ---- report, hide and remove (Apple guideline 1.2, 2026-11-02): members chat with each other, so each can report a
+  // message (it emails Justin), hide one person's messages for themselves, and the host can remove someone from the event.
+  const LW_ICO_MORE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>';
+  function _lwUidOf(R, sid){ try{ const p = R.co.participants()[sid]; return (p && p.user_id) || null; }catch(e){ return null; } }
+  function _lwHidden(){ try{ return new Set(JSON.parse(localStorage.getItem('snb_lw_hidden') || '[]')); }catch(e){ return new Set(); } }
+  function _lwHiddenSet(set){ try{ localStorage.setItem('snb_lw_hidden', JSON.stringify([...set].slice(-200))); }catch(e){} }
+  function _lwChatRedraw(){ ['lw-chat-list','lw-chat-sheet-list'].forEach(id => { const el = document.getElementById(id); if(el) el.dataset.n = -1; }); _lwPaintChat(); }
+  function _lwMsgSheet(m){
+    const R = _lwRoom; if(!R || !m) return;
+    const who = escapeHtml(m.who || 'this member');
+    const sh = _lwSheet('This message', `<div class="lw-sh-btns">
+        <button class="btn block quiet" type="button" id="lw-m-rep">Report this message</button>
+        ${m.uid ? `<button class="btn block quiet" type="button" id="lw-m-hide">Hide messages from ${who}</button>` : ''}
+        ${_lwIsHost() && m.uid ? `<button class="btn block quiet lw-danger" type="button" id="lw-m-rm">Remove ${who} from this event</button>` : ''}
+      </div><p class="lw-p lw-muted" style="margin-top:10px">A report goes to Justin with the message and who sent it. Hiding only changes what you see.</p>`, { host:document.getElementById('lw-room') });
+    sh.el.querySelector('#lw-m-rep').onclick = async () => {
+      sh.close();
+      const r = await _lwFn({ action:'report', session_id:R.s.id, reported_user:m.uid, reported_name:m.who, message:m.text || '' });
+      showToast(r.status === 200 ? 'Thanks. Justin got your report and will look at it.' : 'The report did not send. Check your connection and try again.');
+    };
+    const hb = sh.el.querySelector('#lw-m-hide'); if(hb) hb.onclick = () => { sh.close(); const h = _lwHidden(); h.add(m.uid); _lwHiddenSet(h); _lwChatRedraw();
+      showToast('You won’t see their messages. Live settings can show them again.'); };
+    const rb = sh.el.querySelector('#lw-m-rm'); if(rb) rb.onclick = () => { sh.close(); _lwRemoveAsk(m.uid, m.sid, m.who); };
+  }
+  function _lwRemoveAsk(uid, sid, name){
+    const R = _lwRoom; if(!R || !uid || !_lwIsHost()) return;
+    const who = escapeHtml(name || 'this member');
+    const sh = _lwSheet('Remove ' + (name || 'this member') + '?', `<p class="lw-p">They leave this live event now and can’t rejoin it.</p>
+      <div class="lw-sh-btns"><button class="btn block lw-danger" type="button" id="lw-rm-go">Remove ${who}</button><button class="btn block quiet" type="button" id="lw-rm-no">Cancel</button></div>`, { host:document.getElementById('lw-room') });
+    sh.el.querySelector('#lw-rm-no').onclick = sh.close;
+    sh.el.querySelector('#lw-rm-go').onclick = async () => {
+      sh.close();
+      try{ if(sid && R.co) R.co.updateParticipant(sid, { eject:true }); }catch(e){}
+      const r = await _lwFn({ action:'remove', session_id:R.s.id, user_id:uid });
+      showToast(r.status === 200 ? (name || 'They') + ' was removed from this event.' : 'That did not go through. Try again.');
+    };
+  }
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest && ev.target.closest('[data-lw-msg]'); if(!b || !_lwRoom) return;
+    ev.preventDefault(); _lwMsgSheet(_lwRoom.chat[+b.dataset.lwMsg]);
+  });
+  function _lwMsgHTML(m, anim, i){
+    const more = (m.sid && m.who !== 'You') ? `<button class="lw-msg-more" type="button" data-lw-msg="${i}" aria-label="Report or hide this message">${LW_ICO_MORE}</button>` : '';
     const av = m.av ? `<img src="${escapeHtml(m.av)}" alt="" loading="lazy">` : escapeHtml((m.who || '?').charAt(0));
-    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}</div></div>`;
+    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}</div>${more}</div>`;
   }
   // a list already on screen only gets the new messages (they animate in); a fresh list is drawn whole
   function _lwPaintChat(){
     const R = _lwRoom; if(!R) return;
     ['lw-chat-list','lw-chat-sheet-list'].forEach(id => {
       const el = document.getElementById(id); if(!el) return;
-      const n = +(el.dataset.n || -1);
-      if(!R.chat.length){ el.innerHTML = ''; el.dataset.n = 0; return; }
-      if(n <= 0 || n > R.chat.length) el.innerHTML = R.chat.map(m => _lwMsgHTML(m, n === 0)).join('');
-      else if(n < R.chat.length) el.insertAdjacentHTML('beforeend', R.chat.slice(n).map(m => _lwMsgHTML(m, true)).join(''));
-      el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
+      const n = +(el.dataset.n || -1), hid = _lwHidden();
+      const vis = R.chat.map((m, i) => [m, i]).filter(([m]) => !(m.uid && hid.has(m.uid)));
+      if(!vis.length){ el.innerHTML = ''; el.dataset.n = 0; return; }
+      if(n <= 0 || n > vis.length) el.innerHTML = vis.map(([m, i]) => _lwMsgHTML(m, n === 0, i)).join('');
+      else if(n < vis.length) el.insertAdjacentHTML('beforeend', vis.slice(n).map(([m, i]) => _lwMsgHTML(m, true, i)).join(''));
+      el.dataset.n = vis.length; el.scrollTop = el.scrollHeight;
     });
-    const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? String(R.chat.length) : '';
+    const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? R.chat.length + (R.chat.length === 1 ? ' message' : ' messages') : '';
   }
   // the member's state glyph beside their name: their DOMINANT state across their check-ins (the share signature),
   // one choice shared with Settings → "Your state glyph on shared images and in live chat" (Justin, 2026-10-27)
@@ -3773,8 +4606,11 @@ function app(tab){
   function _lwSettingsSheet(){
     const tg = (k, label, on) => `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-pref="${k}"><span><span class="lw-st-t">${label}</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
     const prefs = () => _lwIsHost() ? '' : tg('snb_lw_quiet', 'Quiet screen (no questions on the slides)', _lwQuiet()) + tg('snb_lw_tint', 'Background follows my check-in', _lwTintOn()) + tg('snb_lw_count', 'Count my check-in toward the room’s background (from 5 people)', _lwCount());
-    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}${prefs()}</div>`, { host:document.getElementById('lw-room') });
+    const nHid = _lwHidden().size;
+    const unhide = nHid ? `<button class="btn block quiet" type="button" id="lw-unhide" style="margin-top:12px">Show messages from ${nHid === 1 ? 'the person' : 'the ' + nHid + ' people'} you hid</button>` : '';
+    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}${prefs()}</div>${unhide}`, { host:document.getElementById('lw-room') });
     _lwWireStateTg(sh.el);
+    { const ub = sh.el.querySelector('#lw-unhide'); if(ub) ub.onclick = () => { _lwHiddenSet(new Set()); ub.remove(); _lwChatRedraw(); showToast('Hidden messages show again.'); }; }
     sh.el.querySelectorAll('[data-lw-pref]').forEach(b => b.onclick = () => {
       const k = b.dataset.lwPref, on = b.getAttribute('aria-checked') !== 'true'; _lwPrefSet(k, on);
       b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); const sw = b.querySelector('.set-sw'); if(sw) sw.classList.toggle('on', on);
@@ -3840,7 +4676,7 @@ function app(tab){
     const c = sh.el.querySelector('#lw-dev-cam'), m = sh.el.querySelector('#lw-dev-mic');
     c.onchange = () => { try{ R.co.setInputDevicesAsync({ videoDeviceId:c.value }); }catch(e){ showToast('That camera did not start.'); } };
     m.onchange = () => { try{ R.co.setInputDevicesAsync({ audioDeviceId:m.value }); }catch(e){ showToast('That microphone did not start.'); } };
-    sh.el.querySelector('#lw-dev-done').onclick = sh.close;
+    sh.el.querySelector('#lw-dev-done').onclick = () => { try{ haptic('done'); }catch(e){} sh.close(); };
   }
   // Justin's presence: a beat every 30 s while he is in the room, so the Calendar can say "Live now"
   function _lwBeatStart(R){
@@ -3863,7 +4699,7 @@ function app(tab){
   function _lwPaintHead(){
     const R = _lwRoom; if(!R || !R.co) return;
     const sub = document.getElementById('lw-call-sub'), here = document.querySelector('#lw-here span');
-    try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; }catch(e){}
+    try{ const n = Object.keys(R.co.participants()).length; if(here) here.textContent = n + ' here'; document.querySelectorAll('.lw-here-n').forEach(e => { e.textContent = n + ' here'; }); }catch(e){}
     // the host sees who is here (Justin, 2026-10-28): first names as the app shows them, the host first, then in the order they came
     const ul = document.getElementById('lw-ppl'), hb = document.getElementById('lw-here');
     if(ul && hb){
@@ -3872,7 +4708,9 @@ function app(tab){
       let ps = []; try{ ps = Object.values(R.co.participants()); }catch(e){}
       ps.sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || (a.local ? -1 : 0) || new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
       ul.innerHTML = ps.map(p => { const nm = String(p.user_name || 'Guest').trim() || 'Guest';
-        return `<li><span class="lw-ppl-av" aria-hidden="true">${escapeHtml(nm.charAt(0).toUpperCase())}</span><span class="lw-ppl-nm">${escapeHtml(nm)}${p.local ? ' (you)' : ''}</span>${p.owner ? '<span class="lw-ppl-tag">host</span>' : ''}</li>`; }).join('');
+        return `<li><span class="lw-ppl-av" aria-hidden="true">${escapeHtml(nm.charAt(0).toUpperCase())}</span><span class="lw-ppl-nm">${escapeHtml(nm)}${p.local ? ' (you)' : ''}</span>${p.owner ? '<span class="lw-ppl-tag">host</span>' : ''}${(!p.local && !p.owner && p.user_id) ? `<button class="lw-ppl-rm" type="button" data-lw-rm="${escapeHtml(p.session_id)}">Remove</button>` : ''}</li>`; }).join('');
+      ul.onclick = e => { const b = e.target.closest && e.target.closest('[data-lw-rm]'); if(!b) return; e.stopPropagation();
+        let p = null; try{ p = R.co.participants()[b.dataset.lwRm]; }catch(x){} if(p){ R.pplOpen = false; _lwPaintHead(); _lwRemoveAsk(p.user_id, p.session_id, p.user_name); } };
     }
   }
   // video / audio for every participant. Elements are kept by session id so a repaint never restarts a stream.
@@ -3892,38 +4730,50 @@ function app(tab){
     const owner = ps.find(p => p.owner && !p.local) || (local && local.owner ? local : null);
     const screen = ps.find(p => _lwTrack(p, 'screenVideo'));
     R.screenOn = !!screen;
-    const stage = document.getElementById('lw-stage');
-    if(stage){
-      let main = null, label = '', mirror = false, key = '';
-      if(screen){ main = _lwTrack(screen, 'screenVideo'); label = (screen.local ? 'You are' : (screen.user_name || 'Justin') + ' is') + ' sharing'; key = 'screen-' + screen.session_id; }
-      else if(owner){ main = _lwTrack(owner, 'video'); label = owner.local ? 'You' : (owner.user_name || 'Justin'); mirror = !!owner.local; key = 'cam-' + owner.session_id; }
-      stage.querySelectorAll('video').forEach(v => { if(v.dataset.lwKey !== key) v.remove(); });
-      if(main){ const v = _lwVideo(key, main, mirror); if(v.parentNode !== stage) stage.prepend(v); stage.classList.toggle('lw-stage-screen', !!screen); }
-      const av = stage.querySelector('.lw-stage-av');
-      if(!main && !av) stage.insertAdjacentHTML('afterbegin', `<span class="lw-stage-av">${escapeHtml(((owner && (owner.local ? 'You' : owner.user_name)) || 'Justin').charAt(0))}</span>`);
-      if(main && av) av.remove();
-      let lb = stage.querySelector('.lw-stage-lb'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-stage-lb'; stage.appendChild(lb); }
-      lb.textContent = (screen && R.slide) ? label + '. The slides come back when sharing stops.' : (label || (owner ? '' : 'Waiting for Justin'));
-    }
+    // the video spots: owner = Justin's camera (or a shared screen), self = this device's camera (the host's You card)
+    document.querySelectorAll('#lw-room [data-lw-spot]').forEach(el => {
+      const self = el.dataset.lwSpot === 'self', who = self ? local : (screen || owner);
+      const tr = who ? (self || !screen ? _lwTrack(who, 'video') : _lwTrack(screen, 'screenVideo')) : null;
+      const key = (self ? 'self-' : screen ? 'screen-' : 'cam-') + (who ? who.session_id : 'none') + '@' + el.id;
+      el.querySelectorAll('video').forEach(v => { if(v.dataset.lwKey !== key || !tr) v.remove(); });
+      if(tr){ const v = _lwVideo(key, tr, !!(who && who.local) && !screen); if(v.parentNode !== el) el.prepend(v); el.classList.toggle('lw-vid-screen', !!screen && !self);
+        const up = v.videoHeight > v.videoWidth * 1.05; el.classList.toggle('lw-vid-up', up); if(!v._lwRs){ v._lwRs = true; v.addEventListener('resize', () => _lwPaint()); } }
+      el.classList.toggle('lw-vid-on', !!tr);
+      let av = el.querySelector('.lw-vid-av'); if(!tr && !av){ el.insertAdjacentHTML('afterbegin', `<span class="lw-vid-av">${escapeHtml(self ? 'You' : ((who && !who.local && who.user_name) || 'Justin').charAt(0))}</span>`); }
+      if(tr && av) av.remove();
+      let lb = el.querySelector('.lw-vid-lb'); if(el.classList.contains('lw-big')){ if(!lb){ lb = document.createElement('span'); lb.className = 'lw-vid-lb'; el.appendChild(lb); }
+        lb.textContent = screen ? ((screen.local ? 'You are' : (screen.user_name || 'Justin') + ' is') + ' sharing') : owner ? (owner.local ? 'You' : (owner.user_name || 'Justin')) : 'Waiting for Justin'; }
+    });
+    // the bento (Capacity Builder, Q&A with the slides off): everyone in the same style, the speaker biggest
     const grid = document.getElementById('lw-grid');
     if(grid){
-      const tiles = ps.filter(p => p !== owner || screen);   // with a screen on stage, Justin's camera joins the tiles
-      const keep = new Set();
-      tiles.forEach(p => {
-        const k = 'tile-' + p.session_id; keep.add(k);
+      let sp = null; try{ const a = R.co.getActiveSpeaker && R.co.getActiveSpeaker(); sp = a && a.peerId ? ps.find(p => p.session_id === a.peerId) : null; }catch(e){}
+      const lead = screen || sp || owner || ps[0];
+      const order = lead ? [lead].concat(ps.filter(p => p !== lead)) : ps;
+      const keep = new Set(), items = [];
+      order.forEach((p, i) => {
+        const isScreen = p === screen && i === 0 && !!_lwTrack(p, 'screenVideo');
+        const k = (isScreen ? 'scr-' : 'tile-') + p.session_id; keep.add(k);
         let tile = grid.querySelector('[data-tile="' + k + '"]');
-        if(!tile){ tile = document.createElement('div'); tile.className = 'lw-tile'; tile.dataset.tile = k; grid.appendChild(tile); }
-        const vt = _lwTrack(p, 'video'), name = p.local ? 'You' : (p.user_name || 'Member');
+        if(!tile){ tile = document.createElement('div'); tile.className = 'lw-tile2 lw-in'; tile.dataset.tile = k; grid.appendChild(tile); setTimeout(() => tile.classList.remove('lw-in'), 400); }
+        const vt = isScreen ? _lwTrack(p, 'screenVideo') : _lwTrack(p, 'video'), name = p.local ? 'You' : (p.user_name || 'Member');
         tile.classList.toggle('lw-tile-cam', !!vt);
         tile.querySelectorAll('video').forEach(v => { if(!vt) v.remove(); });
-        if(vt){ const v = _lwVideo('v-' + p.session_id, vt, p.local); if(v.parentNode !== tile) tile.prepend(v); tile.querySelectorAll('.lw-tile-av').forEach(a => a.remove()); }
-        else if(!tile.querySelector('.lw-tile-av')) tile.insertAdjacentHTML('afterbegin', `<span class="lw-tile-av">${escapeHtml(p.local ? 'You' : name.charAt(0))}</span>`);
-        let lb = tile.querySelector('.lw-tile-lb'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-tile-lb'; tile.appendChild(lb); }
-        lb.textContent = name + (p.local && !R.mic ? ', muted' : '');
+        let up = false;
+        if(vt){ const v = _lwVideo('v-' + k, vt, p.local && !isScreen); if(v.parentNode !== tile) tile.prepend(v); tile.querySelectorAll('.lw-tile-av').forEach(a => a.remove());
+          const s0 = (vt.getSettings && vt.getSettings()) || {}, vw = v.videoWidth || s0.width || 16, vh = v.videoHeight || s0.height || 9; up = vh > vw * 1.05;
+          if(!v._lwRs){ v._lwRs = true; v.addEventListener('resize', () => _lwPaint()); } }
+        else if(!tile.querySelector('.lw-tile-av')) tile.insertAdjacentHTML('afterbegin', `<span class="lw-tile-av">${escapeHtml(p.local ? 'You' : name.charAt(0).toUpperCase())}</span>`);
+        const micOff = !isScreen && !(p.local ? R.mic : _lwTrack(p, 'audio'));
+        let lb = tile.querySelector('.lw-tile-lb2'); if(!lb){ lb = document.createElement('span'); lb.className = 'lw-tile-lb2'; tile.appendChild(lb); }
+        lb.innerHTML = (micOff ? LW_ICO.micOff : '') + escapeHtml(isScreen ? name + (p.local ? ' are sharing' : ' is sharing') : name);
+        tile.classList.toggle('lw-speaking', i === 0 && !isScreen && ps.length > 1);
+        items.push({ el:tile, up });
       });
       grid.querySelectorAll('[data-tile]').forEach(t => { if(!keep.has(t.dataset.tile)) t.remove(); });
+      _lwBento(grid, items);
     }
-    // remote audio (the call object does not play audio by itself)
+        // remote audio (the call object does not play audio by itself)
     const box = document.getElementById('lw-audio');
     if(box){
       const want = new Set();
@@ -3939,11 +4789,69 @@ function app(tab){
     _lwPaintHead();
   }
 
+  // ---- the bento of video cards (Justin, canon 2026-10-31): columns 1-9 (phone 4), 12 row units, no empty space. The speaker is
+  // first and biggest: wide by default (1-6), an upright phone a tall card (1-4) with the others an even block on 5-9; an upright
+  // member gets a tall card beside the speaker. Outer edges land on the grid's columns and row lines. Everything glides (CSS 320ms).
+  function _lwBentoRects(items, W, H, phone, G){
+    const N = items.length; if(!N || !W) return [];
+    const BC = phone ? 4 : 9, RG = phone ? 10 : 16;
+    const rowU = Math.max(phone ? 30 : 24, (H - RG * 11) / 12), bcW = (W - G * (BC - 1)) / BC;
+    const rect = (c, cs, r, rs) => ({ x:(c - 1) * (bcW + G), y:(r - 1) * (rowU + RG), w:cs * bcW + (cs - 1) * G, h:rs * rowU + (rs - 1) * RG });
+    const split = (b, n, c) => { const out = [], rr = Math.ceil(n / c), ch = (b.h - RG * (rr - 1)) / rr;
+      for(let i = 0; i < n; i++){ const row = Math.floor(i / c), inRow = row === rr - 1 ? n - row * c : c, col = i - row * c, cw = (b.w - G * (inRow - 1)) / inRow;
+        out.push({ x:b.x + col * (cw + G), y:b.y + row * (ch + RG), w:cw, h:ch }); } return out; };
+    const k = N - 1, sUp = items[0].up, upI = items.findIndex((it, i) => i > 0 && it.up);
+    let R;
+    if(!phone){
+      if(!k) R = [rect(1, 9, 1, 12)];
+      else if(sUp) R = [rect(1, 4, 1, 12)].concat(split(rect(5, 5, 1, 12), k, k <= 3 ? 1 : k <= 8 ? 2 : 3));
+      else if(upI > 0 && k <= 6){
+        const rest = k - 1;
+        R = k <= 3 ? [rect(1, 6, 1, 12), rest ? rect(7, 3, 1, 8) : rect(7, 3, 1, 12)].concat(rest ? split(rect(7, 3, 9, 4), rest, rest) : [])
+                   : [rect(1, 6, 1, 8), rect(7, 3, 1, 8)].concat(split(rect(1, 9, 9, 4), rest, rest));
+      } else if(k <= 3) R = [rect(1, 6, 1, 12)].concat(split(rect(7, 3, 1, 12), k, 1));
+      else if(k <= 6) R = [rect(1, 6, 1, 9)].concat(split(rect(7, 3, 1, 9), 3, 1), split(rect(1, 9, 10, 3), k - 3, k - 3));
+      else if(k <= 11) R = [rect(1, 6, 1, 6)].concat(split(rect(7, 3, 1, 6), 2, 1), split(rect(1, 9, 7, 6), k - 2, 3));
+      else { R = [rect(1, 6, 1, 6)].concat(split(rect(7, 3, 1, 6), 2, 1)); const rest = k - 2, rows = Math.ceil(rest / 3);
+        for(let i = 0; i < rest; i++){ const row = Math.floor(i / 3), inRow = row === rows - 1 ? rest - row * 3 : 3, col = i - row * 3, cs = 9 / inRow;
+          const b = rect(1, 9, 7 + row * 2, 2), cw = (b.w - G * (inRow - 1)) / inRow; R.push({ x:col * (cw + G), y:b.y, w:cw, h:b.h }); } }
+    } else {
+      const J = sUp ? rect(1, 4, 1, 9) : rect(1, 4, 1, k ? 6 : 12), y0 = J.y + J.h + RG, cellH = sUp ? 2 : (k > 6 ? 3 : 2);
+      R = [J]; const up = upI > 0;
+      if(up) R.push(Object.assign(rect(1, 2, 1, 6), { y:y0 }));
+      const rest = k - (up ? 1 : 0), slots = [];
+      for(let i = 0; slots.length < rest && i < 400; i++){
+        const col = i % 2, row = Math.floor(i / 2), b = rect(1 + col * 2, 2, 1, cellH); b.y = y0 + row * (b.h + RG);
+        if(up && col === 0 && b.y < y0 + R[1].h) continue;
+        slots.push(b);
+      }
+      if(rest % 2 === 1 && slots.length && slots[slots.length - 1].x === 0) slots[slots.length - 1].w = rect(1, 4, 1, 1).w;
+      R = R.concat(slots);
+    }
+    // the upright member is laid out second; give the rects back in the items' order
+    if(!phone && !sUp && upI > 0 && k <= 6){ const out = R.slice(), r1 = out[1]; out.splice(1, 1); out.splice(upI, 0, r1); return out; }
+    if(phone && upI > 0){ const out = R.slice(), r1 = out[1]; out.splice(1, 1); out.splice(upI, 0, r1); return out; }
+    return R;
+  }
+  function _lwBento(grid, items){
+    const area = grid.parentElement; if(!area) return;
+    const phone = !(window.matchMedia && matchMedia('(min-width:720px)').matches);
+    const cs = getComputedStyle(grid), G = parseFloat(cs.getPropertyValue('--bg')) || (phone ? 10 : 24);
+    const W = grid.clientWidth, H = area.clientHeight;
+    const R = _lwBentoRects(items, W, H, phone, G);
+    let bottom = 0;
+    items.forEach((it, i) => { const r = R[i]; if(!r) return; const s = it.el.style;
+      s.left = Math.round(r.x) + 'px'; s.top = Math.round(r.y) + 'px'; s.width = Math.round(r.w) + 'px'; s.height = Math.round(r.h) + 'px';
+      it.el.classList.toggle('lw-tile-sm', Math.min(r.w, r.h) < 120); bottom = Math.max(bottom, r.y + r.h); });
+    grid.style.height = Math.round(bottom) + 'px';
+  }
+  try{ let _lwBT = null; addEventListener('resize', () => { clearTimeout(_lwBT); _lwBT = setTimeout(() => { if(_lwRoom && _lwRoom.phase === 'call') _lwPaint(); }, 120); }); }catch(e){}
+
   // install affordances: a quiet settings row + an optional dismissable today nudge
   function installRowInner(){
     const s = installState();
     if(s==='installed') return '<span class="val" style="font-weight:400">Installed</span>';
-    if(s==='button') return '<button class="set-quiet in-go" type="button">Install this app</button>';
+    if(s==='button') return '<button class="st-row st-go in-go" type="button"><span class="st-lbl">Install this app</span>'+_ST_CHEV+'</button>';
     if(s==='ios-share') return '<span class="ios-hint">To install: tap the share icon, then choose add to Home Screen.</span>';
     if(s==='open-elsewhere') return '<span class="ios-hint">'+openElsewhereMsg()+'</span>';
     return '<span class="ios-hint">To install: open your browser menu and choose install or add to Home Screen.</span>';
@@ -3980,7 +4888,38 @@ function app(tab){
   // push_sent server-side, push_opened on tap, whatsnew_push_seen for the announcement.
   const PUSH_KEY = 'snb_push';                       // {state, asks, at, routed}
   const PUSH_REASK_DAYS = 3;                         // one later re-ask, not before this
-  const pushSupported = () => { try{ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }catch(e){ return false; } };
+  // Inside the iPhone store app there is no web push: the app asks Apple instead (2026-11-01), through
+  // @capacitor/push-notifications, and saves the device token as a push_subscriptions row with endpoint
+  // "apns:prod:<token>" (store builds are signed for Apple's production push service). snb-push sends those rows through
+  // Apple. Same switches, same reminders, same timing; outside the store app none of this runs.
+  const _napp = () => { try{ const C = window.Capacitor; return (C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.PushNotifications) || null; }catch(e){ return null; } };
+  let _nPerm = null, _nToken = null;
+  async function pushSaveNative(token){
+    const u = Store.user(); if(!u || !window.sb || !token || (Store.isAnonymous && Store.isAnonymous())) return false;
+    const row = { user_id:u.id, endpoint:'apns:prod:'+token, p256dh:'', auth:'', platform:'ios-app', pwa:true, tz:pushTz(), ua:(navigator.userAgent||'').slice(0,200),
+                  last_seen_at:new Date().toISOString(), revoked_at:null, revoke_reason:null, fail_count:0 };
+    try{ const r = await window.sb.from('push_subscriptions').upsert(row, { onConflict:'endpoint' }); return !r.error; }catch(e){ return false; }
+  }
+  function pushRegisterNative(){
+    const P = _napp();
+    return new Promise((res, rej)=>{
+      let done = false; const fin = (ok, err)=>{ if(done) return; done = true; clearTimeout(t); ok ? res(true) : rej(err || new Error('register failed')); };
+      const t = setTimeout(()=>fin(false, new Error('no token')), 15000);
+      try{
+        P.addListener('registration', async tk=>{ _nToken = tk && tk.value; fin(_nToken ? await pushSaveNative(_nToken) : false, new Error('save failed')); });
+        P.addListener('registrationError', e=>fin(false, new Error((e && e.error) || 'register failed')));
+        Promise.resolve(P.register()).catch(e=>fin(false, e));
+      }catch(e){ fin(false, e); }
+    });
+  }
+  (function(){ const P = _napp(); if(!P) return;
+    try{
+      Promise.resolve(P.checkPermissions()).then(r=>{ _nPerm = r && r.receive; }).catch(()=>{});
+      // a tapped notification opens where it points (./?push=<delivery>#checkin and so on)
+      P.addListener('pushNotificationActionPerformed', a=>{ try{ const u = a && a.notification && a.notification.data && a.notification.data.url; if(u) location.href = new URL(u, location.href).href; }catch(e){} });
+    }catch(e){}
+  })();
+  const pushSupported = () => { if(_napp()) return true; try{ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }catch(e){ return false; } };
   function pushRead(){ try{ return JSON.parse(localStorage.getItem(PUSH_KEY)||'{}')||{}; }catch(e){ return {}; } }
   function pushWrite(patch){ const p=Object.assign(pushRead(), patch||{}, { at:Date.now() }); try{ localStorage.setItem(PUSH_KEY, JSON.stringify(p)); }catch(e){} return p; }
   const pushTrack = (name, meta) => { try{ if(Store.trackEvent) Store.trackEvent(name, Object.assign({ perm:(window.Notification&&Notification.permission)||'n/a' }, meta||{})); }catch(e){} };
@@ -4019,6 +4958,7 @@ function app(tab){
   }
   // where this device stands, in one word: on | off | blocked | install | unsupported
   function pushState(){
+    if(_napp()){ if(_nPerm==='denied') return 'blocked'; const pn = pushRead(); return (pn.state==='granted' && _nPerm==='granted') ? 'on' : 'off'; }
     if(!pushSupported()) return (isiOS() && !isStandalone()) ? 'install' : 'unsupported';
     if(isiOS() && !isStandalone()) return 'install';
     try{ if(Notification.permission==='denied') return 'blocked'; }catch(e){}
@@ -4045,6 +4985,16 @@ function app(tab){
   // The gesture path. MUST run inside a user tap (iOS refuses otherwise). Returns the
   // resulting state word and records the outcome — this is the one place permission is asked.
   async function pushRequest(origin){
+    if(_napp()){
+      let r = null; try{ r = await _napp().requestPermissions(); }catch(e){}
+      const np = r && r.receive; if(np) _nPerm = np;
+      if(np==='granted'){
+        try{ await pushRegisterNative(); pushWrite({ state:'granted' }); pushTrack('push_granted', { origin, native:1 }); return 'on'; }
+        catch(e){ pushWrite({ state:'error' }); pushTrack('push_error', { origin, native:1, reason:String(e&&e.message||e).slice(0,80) }); return 'off'; }
+      }
+      if(np==='denied'){ pushWrite({ state:'denied' }); pushTrack('push_denied', { origin, native:1 }); return 'blocked'; }
+      const pn=pushRead(); pushWrite({ state:'dismissed', asks:(pn.asks||0)+1 }); pushTrack('push_dismissed', { origin, native:1 }); return 'off';
+    }
     let perm='default';
     try{ perm = await Notification.requestPermission(); }catch(e){ try{ perm = Notification.permission; }catch(e2){} }
     if(perm==='granted'){
@@ -4056,6 +5006,10 @@ function app(tab){
     const p=pushRead(); pushWrite({ state:'dismissed', asks:(p.asks||0)+1 }); pushTrack('push_dismissed', { origin, system:true }); return 'off';
   }
   async function pushTurnOff(){
+    if(_napp()){
+      try{ if(_nToken && window.sb && Store.user()) await window.sb.from('push_subscriptions').update({ revoked_at:new Date().toISOString(), revoke_reason:'user' }).eq('endpoint', 'apns:prod:'+_nToken); }catch(e){}
+      pushWrite({ state:'off' }); pushTrack('push_off', { native:1 }); return;
+    }
     try{ const reg = await navigator.serviceWorker.ready; const sub = await reg.pushManager.getSubscription();
       if(sub){ try{ if(window.sb && Store.user()) await window.sb.from('push_subscriptions').update({ revoked_at:new Date().toISOString(), revoke_reason:'user' }).eq('endpoint', sub.endpoint); }catch(e){} try{ await sub.unsubscribe(); }catch(e){} }
     }catch(e){}
@@ -4063,6 +5017,12 @@ function app(tab){
   }
   // keep the stored row fresh (endpoints rotate; tz changes) — silent, on every signed-in load
   function pushSyncExisting(){
+    const P = _napp();
+    if(P){
+      try{ Promise.resolve(P.checkPermissions()).then(r=>{ _nPerm = r && r.receive;
+        if(_nPerm==='granted' && pushIsMember() && pushRead().state==='granted'){ P.addListener('registration', tk=>{ _nToken = tk && tk.value; if(_nToken) pushSaveNative(_nToken); }); P.register(); } }).catch(()=>{}); }catch(e){}
+      return;
+    }
     try{
       if(!pushSupported() || !pushIsMember() || Notification.permission!=='granted') return;
       navigator.serviceWorker.ready.then(reg=>reg.pushManager.getSubscription()).then(sub=>{ if(sub) pushSaveSub(sub); }).catch(()=>{});
@@ -4084,7 +5044,7 @@ function app(tab){
     const s = pushState(); if(s==='unsupported') return '';
     const p = pushPrefsRead();
     const status = s==='install' ? 'Needs the installed app' : s==='blocked' ? 'Off in your device settings' : (s==='on' && pushAnyOn(p)) ? 'On' : 'Off';
-    return `<span class="gs-lbl">Notifications</span><span class="val" style="font-weight:400;margin-left:auto">${status}</span> <button class="set-quiet push-open" type="button" style="margin-left:10px">Choose &rsaquo;</button>`;
+    return `<button class="st-row st-go push-open" type="button"><span class="st-lbl">Notifications</span><span class="st-val">${status}</span>${_ST_CHEV}</button>`;
   }
   function pushBindRow(){ const row=document.getElementById('push-row'); if(!row) return; const b=row.querySelector('.push-open'); if(b) b.onclick=()=>screenNotifications(); }
   async function screenNotifications(){
@@ -4107,27 +5067,21 @@ function app(tab){
     const timeIn2 = (id, val, dis, lim) => `<input type="time" id="${id}" value="${val||''}" ${lim?`min="${lim[0]}" max="${lim[1]}"`:''} ${dis?'disabled':''} style="font:inherit;font-size:calc(15px * var(--type-scale));background:transparent;border:0;border-bottom:1px solid var(--hairline);color:var(--ink);padding:6px 0;min-height:44px">`;
     setHTML(`
       <header class="appbar"><button class="backbtn" id="nt-back" type="button">Settings</button></header>
-      <div class="scroll"><div class="view settings-view">
+      <div class="scroll"><div class="view settings-view st-view nt-view">
         <div class="scr-head">
           <p class="eyebrow"></p>
           <h2 class="scr-h">Notifications</h2>
           <p class="scr-lede" id="nt-hint">${hint}</p>
         </div>
         <div class="gs">
-        <div class="gs-card">
-          <p class="gs-h">After practice reminder</p>
-          <p class="gs-note">You'll receive a reminder to check-in within a few hours of a practice if you have not already. This helps track how effective the practices are. (No reminders are sent between 9pm and 8am.)</p>
+        <section class="st-sec nt-sec"><h2 class="st-name">After practice reminder</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder to check-in within a few hours of a practice if you have not already. This helps track how effective the practices are. (No reminders are sent between 9pm and 8am.)</p>
           ${sw('nt-followup','After practice reminder', !!prefs.followup, dis)}
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">Check-in reminders</p>
-          <p class="gs-note">You'll receive a reminder to check-in for each time period that you select. More check-ins provide more clarity about how your system shows up throughout the day and helps the app to recommend practices best suited for you.</p>
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">Check-in reminders</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder to check-in for each time period that you select. More check-ins provide more clarity about how your system shows up throughout the day and helps the app to recommend practices best suited for you.</p>
           ${PUSH_DAYPARTS.map(d=>{ const on = !!(prefs.checkin_times||{})[d[0]]; return sw('nt-ci-'+d[0], d[1], on, dis) + `<div id="nt-cit-${d[0]}" style="${on?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-'+d[0], (prefs.checkin_times||{})[d[0]]||d[2], dis, LIM[d[0]])}</div>`; }).join('')}
           <p class="gs-fine">You'll receive one reminder for each time period you choose.</p>
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">Practice reminder</p>
-          <p class="gs-note">You'll receive a reminder to practice at your best time, or on the days and the time of your choosing.</p>
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">Practice reminder</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder to practice at your best time, or on the days and the time of your choosing.</p>
           ${sw('nt-practice','Practice reminder', !!prefs.practice_time, dis)}
           <div id="nt-prt" style="${prefs.practice_time?'':'display:none'}">
             <div class="p-chips" id="nt-pmode" style="margin:2px 0 12px;flex-wrap:nowrap">
@@ -4141,25 +5095,22 @@ function app(tab){
             <div class="p-chips" style="margin-top:12px">${PUSH_DAYS.map((d,i)=>`<button class="p-chip nt-day${days.indexOf(i)>=0?' on':''}" type="button" data-day="${i}" aria-pressed="${days.indexOf(i)>=0}" aria-label="${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][i]}" style="padding:9px 13px">${d}</button>`).join('')}</div>
             </div>
           </div>
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">Challenge reminder</p>
-          <p class="gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
-          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<p class="gs-fine" style="display:flex;align-items:center;gap:4px">${LOCK_SVG}Self-Regulator</p>` + sw('nt-chal','Challenge reminder', false, true)}
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">Challenge reminder</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">You'll receive a reminder on days your next challenge prompt is ready, at the time you choose. If you've already done it, no reminder is sent.</p>
+          ${paidNow() ? sw('nt-chal','Challenge reminder', !!prefs.challenge_time, dis) : `<div class="gs-sw"><span class="gs-lbl">Challenge reminder</span><button class="lw-rp nt-see" id="nt-chal-see" type="button">${LOCK_SVG}<span>See paid plans</span></button></div>`}
           <div id="nt-cht" style="${prefs.challenge_time && paidNow()?'':'display:none'};padding:0 0 10px">${timeIn2('nt-time-chal', prefs.challenge_time||'09:00', dis, null)}</div>
-        </div>
-        <div class="gs-card">
-          <p class="gs-h">New reflections</p>
-          <p class="gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
+        </div></section>
+        <section class="st-sec nt-sec"><h2 class="st-name">New reflections</h2><div class="st-body gs-card nt-card"><p class="st-help gs-note">Get a notification when a new reflection is ready. It only says that it's ready. It never shows what's in it.</p>
           ${sw('nt-r-week','Weekly reflection', prefs.reflect_week!==false, dis)}<p class="gs-fine" style="margin-top:-4px">Sunday morning, 6 am</p>
           ${sw('nt-r-month','Monthly reflection', prefs.reflect_month!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each month</p>
           ${sw('nt-r-season','Season reflection', prefs.reflect_season!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of the last day of each season</p>
           ${sw('nt-r-year','Year reflection', prefs.reflect_year!==false, dis)}<p class="gs-fine" style="margin-top:-4px">The evening of December 31</p>
-        </div>
+        </div></section>
         ${s==='on' && window.SNB_IS_STAGING ? '<div class="gs-card"><p class="gs-h">Beta</p><div class="gs-actions"><button class="set-quiet" id="nt-test" type="button">Send a test notification</button></div></div>' : ''}
         </div>
       </div></div>`);
     const back=$('#nt-back'); if(back) back.onclick=()=>screenSettings();
+    { const see=$('#nt-chal-see'); if(see) see.onclick=()=>gateSubscribe('challenges'); }
     // permission is asked the first time anything is switched on; a refusal reverts the switch
     let cur = prefs;
     const ensure = async ()=>{ if(pushState()==='on') return true; const r = await pushRequest('settings'); if(r==='on') return true; const h=$('#nt-hint'); if(h) h.innerHTML = r==='blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.' : 'Notifications were not turned on. You can try again any time.'; return false; };
@@ -4280,7 +5231,7 @@ function app(tab){
       body:'The moving scene behind a practice can be changed. There are seven of them, or the app can pick a different one each time.',
       cta:'Choose a scene',
       when:()=> _tipLS('snb_practice_scene')===null,
-      act:()=> _tipToSettings('#scene-btn', true) },
+      act:()=> _tipToSettings('#scene-tiles', false) },
     { id:'offline',
       body:'Practices can be saved onto this device, so they play with no connection at all. About 94 MB, best on Wi-Fi.',
       cta:'Save practices for offline',
@@ -4596,7 +5547,6 @@ function app(tab){
       `Good to see you, ${name}.`,
       `No rush, ${name}.`,
       `One breath at a time, ${name}.`,
-      `The ring's ready when you are, ${name}.`,
       `Take what you need, ${name}.`,
       `Here we are again, ${name}.`,
       `You showed up, ${name}. That counts.`,
@@ -4612,7 +5562,6 @@ function app(tab){
       `Good to see you.`,
       `No rush.`,
       `One breath at a time.`,
-      `The ring's ready when you are.`,
       `Take what you need.`,
       `Here we are again.`
     ];
@@ -4624,172 +5573,480 @@ function app(tab){
     try{ localStorage.setItem('snb_greet_i', i); }catch(e){}
     return pool[i];
   }
+  /* ===== The live room's scene, from the Session Builder (snb-session-builder index.html, AMB, 2026-10-28):
+     reeds in three depths, the sky behind them (a sunrise for safety-side colours, a mist for the defense side),
+     the tint easing in, and the breath lean (in for 4, out for 5). Kept as written; three additions for Now:
+     a dark-theme ink, a live reduce-motion switch, and once() = a single breath from its start. ===== */
+  const NQ=(function(){
+    const INK=[26,31,42],BONE=[250,249,245];
+    let reduce=false, darkUI=false;
+    let reeds=[],sT=0,sLast=0,seedW=0;
+    let TT=null,TC=null,TA=0,BW=false,BA=0,LEAN=0,LEANZ=[0,0,0],BT0=0;
+    let SKYC=null,SKYM='sun',SUN=0,MIST=0;
+    /* Now (Justin 2026-10-29): the reeds' pace and reach follow the state, the way the breath ring's three rings did:
+       safety an easy full sway (outer ring, 7s), flight/fight quick (middle ring, 3s), shutdown slow and barely moving
+       (inner ring, 9s, tiny). Blends average their two. It eases over a few seconds, the phase never jumps. */
+    let SP=1,AM=1,SPt=1,AMt=1;
+    const PACE={ safety:[1,1.15], fightflight:[2.3,.85], shutdown:[.7,.28] };
+    const MIX={ play:['safety','fightflight'], stillness:['safety','shutdown'], freeze:['fightflight','shutdown'] };
+    const SAFE_C=[[244,213,141],[232,168,113],[159,196,152]],DEF_C=[[232,155,155],[184,154,196],[163,192,221]];
+    const near=(c,L)=>Math.min(...L.map(x=>Math.hypot(x[0]-c[0],x[1]-c[1],x[2]-c[2])));
+    const mixc=(a,b,k)=>a.map((v,i)=>Math.round(v*(1-k)+b[i]*k));
+    const canvases=[];
+    const fieldW=()=>(canvases[0]&&canvases[0].clientWidth)||1280;
+    function seed(){
+      reeds=[];sT=0;
+      const RMAX=reduce?8:Math.round(Math.max(8,Math.min(26,fieldW()/85)));
+      const DEPTH=[
+        {n:reduce?0:Math.round(RMAX*1.1),h:[.08,.2], w:[.6,1],   a:[.12,.2], per:[5,8],  amp:[.025,.045]},
+        {n:reduce?4:Math.round(RMAX*.8), h:[.14,.34],w:[.9,1.5], a:[.2,.32], per:[6.5,11],amp:[.03,.05]},
+        {n:RMAX,                          h:[.22,.62],w:[1.1,2.6],a:[.3,.62], per:[8,16], amp:[.035,.08]}];
+      DEPTH.forEach((D,z)=>{
+        const grown=[]; let rx=.01+Math.random()*.05;
+        while(rx<.97&&grown.length<D.n){
+          const stand=1+Math.floor(Math.random()*(Math.random()<.4?3:1));
+          const fh=D.h[0]+Math.random()*(D.h[1]-D.h[0]);
+          for(let k=0;k<stand&&rx<.97;k++){
+            grown.push({x:rx,z,h:Math.max(D.h[0]*.7,fh+(Math.random()-.5)*(D.h[1]-D.h[0])*.35),
+              per:D.per[0]+Math.random()*(D.per[1]-D.per[0]),ph:Math.random()*6.283,
+              amp:D.amp[0]+Math.random()*(D.amp[1]-D.amp[0]),
+              w:D.w[0]+Math.random()*(D.w[1]-D.w[0]),a:D.a[0]+Math.random()*(D.a[1]-D.a[0])});
+            rx+=.008+Math.random()*.02;
+          }
+          rx+=.03+Math.random()*.14+(Math.random()<.22?.12:0);
+        }
+        const last=grown.length?grown[grown.length-1].x:1; if(last<.9){const k=.95/last; grown.forEach(r=>{r.x*=k;});}
+        reeds.push(...grown);
+      });
+    }
+    function fit(cv){
+      const dpr=devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;
+      if(!w||!h)return null;
+      if(Math.round(w*dpr)!==cv.width||Math.round(h*dpr)!==cv.height){cv.width=w*dpr;cv.height=h*dpr;}
+      const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);return g;
+    }
+    function drawOne(cv){
+      const g=fit(cv); if(!g)return;
+      const W=cv.clientWidth,H=cv.clientHeight; g.clearRect(0,0,W,H);
+      const base0=darkUI?BONE:INK;
+      const tinted=!!TC&&TA>.01;
+      const TCx=tinted?(darkUI?TC.map((v,i)=>v*.6+BONE[i]*.4):TC.map((v,i)=>v*.55+INK[i]*.45)):TC; /* Now: a lighter shade in dark, so the reeds read through the mist */
+      const base=tinted?[0,1,2].map(i=>Math.round(TCx[i]*TA*.68+base0[i]*(1-TA*.68))):base0;
+      const col=a=>'rgba('+base[0]+','+base[1]+','+base[2]+','+(tinted?Math.min(1,a*(1+.9*TA)):a)+')';
+      reeds.forEach(rd=>{let sw=Math.sin(sT*6.283/rd.per+rd.ph)*rd.amp;
+        sw*=AM;
+        if(BA>.01){ const z=rd.z==null?2:rd.z; sw=sw*(1-.65*BA)+LEANZ[z]*.16*BA*(.45+.2*z+.5*rd.h); }
+        const bx=rd.x*W,by=H,hh=rd.h*H,tx=bx+sw*hh,ty=by-hh;
+        const a=(rd.a!=null?rd.a:.5);
+        const cx=bx+sw*hh*.25,cy=by-hh*.55;
+        const t=.55,mx=(1-t)*(1-t)*bx+2*(1-t)*t*cx+t*t*tx,my=(1-t)*(1-t)*by+2*(1-t)*t*cy+t*t*ty;
+        const c1x=bx+(cx-bx)*t,c1y=by+(cy-by)*t;
+        const c2x=cx+(tx-cx)*t,c2y=cy+(ty-cy)*t;
+        g.lineCap='round';
+        g.strokeStyle=col(a*0.80);g.lineWidth=rd.w*1.7; /* Now: fuller reeds than the live room's (Justin 2026-10-29) */
+        g.beginPath();g.moveTo(bx,by);g.quadraticCurveTo(c1x,c1y,mx,my);g.stroke();
+        g.strokeStyle=col(a*0.50);g.lineWidth=rd.w*1.7*0.58;
+        g.beginPath();g.moveTo(mx,my);g.quadraticCurveTo(c2x,c2y,tx,ty);g.stroke();});
+    }
+    function tick(t){
+      const dt=Math.min(.05,Math.max(0,t-sLast)); sLast=t; if(reduce)return;
+      SP+=(SPt-SP)*Math.min(1,dt*.35); AM+=(AMt-AM)*Math.min(1,dt*.35);
+      sT+=dt*SP;
+      {const L=x=>{ if(x<0||x>9) return 0; const p=x; return p<4?Math.sin(p/4*Math.PI/2):Math.cos((p-4)/5*Math.PI/2);};
+       const u=t-BT0; LEAN=L(u); LEANZ[2]=LEAN; LEANZ[1]=L(u-.15); LEANZ[0]=L(u-.3);}
+      BA+=((BW?1:0)-BA)*Math.min(1,dt*(BW?1.5:.3)); /* Now: the reeds settle back to their own sway slowly after One breath */
+      if(TT){ if(!TC)TC=TT.slice(); for(let i=0;i<3;i++)TC[i]+=(TT[i]-TC[i])*Math.min(1,dt*.8); }
+      TA+=((TT?1:0)-TA)*Math.min(1,dt*.6); if(!TT&&TA<.01)TC=null;
+      if(TT){ if(!SKYC)SKYC=TT.slice(); for(let i=0;i<3;i++)SKYC[i]+=(TT[i]-SKYC[i])*Math.min(1,dt*.8); }
+      {const ts=TT&&SKYM==='sun'?1:0, tm=TT&&SKYM==='mist'?1:0;
+       SUN+=ts>SUN?Math.min(ts-SUN,dt/7):-Math.min(SUN-ts,dt/6); MIST+=tm>MIST?Math.min(tm-MIST,dt/7):-Math.min(MIST-tm,dt/6);
+       if(!TT&&SUN<.002&&MIST<.002)SKYC=null;}
+    }
+    function drawSky(cv){
+      const g=fit(cv); if(!g)return;
+      const W=cv.clientWidth,H=cv.clientHeight; g.clearRect(0,0,W,H);
+      if(!SKYC||(SUN<.002&&MIST<.002))return;
+      const ez=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2, a1=ez(Math.max(0,Math.min(1,SUN))), a2=ez(Math.max(0,Math.min(1,MIST)));
+      const dark=darkUI, s=.65*(dark?.8:1);
+      const c=SKYC.map(Math.round), warm=mixc(c,[255,236,200],dark?.15:.25);
+      const A=(k,a)=>'rgba('+k[0]+','+k[1]+','+k[2]+','+Math.max(0,Math.min(1,a)).toFixed(3)+')';
+      if(a1>.002){
+        const r=H*(.62+.12*a1);
+        g.save(); g.translate(W*.64,H*(1.04+.22*(1-a1))); g.scale(1.7,1);
+        const gr=g.createRadialGradient(0,0,0,0,0,r);
+        gr.addColorStop(0,A(warm,.62*s*a1)); gr.addColorStop(.35,A(c,.32*s*a1)); gr.addColorStop(.7,A(c,.09*s*a1)); gr.addColorStop(1,A(c,0));
+        g.fillStyle=gr; g.beginPath(); g.arc(0,0,r,0,6.283); g.fill(); g.restore();
+      }
+      if(a2>.002){
+        const top=H*(1-(.52+.2*(1-a2)));
+        let gr=g.createLinearGradient(0,H,0,top);
+        gr.addColorStop(0,A(dark?c:mixc(c,INK,.08),.58*s*a2)); gr.addColorStop(.06,A(warm,.46*s*a2));
+        gr.addColorStop(.35,A(c,.18*s*a2)); gr.addColorStop(1,A(c,0));
+        g.fillStyle=gr; g.fillRect(0,0,W,H);
+        gr=g.createLinearGradient(0,H,0,H*.94); gr.addColorStop(0,A(warm,.35*s*a2)); gr.addColorStop(1,A(warm,0));
+        g.fillStyle=gr; g.fillRect(0,H*.94,W,H*.06);
+      }
+    }
+    function loop(){ if(!document.querySelector('#screen .view.now.nq')){ running=false; return; }
+      requestAnimationFrame(loop); const t=performance.now()/1000; tick(t);
+      for(let i=canvases.length-1;i>=0;i--){const cv=canvases[i];
+        if(!cv.isConnected){canvases.splice(i,1);continue;} drawOne(cv);
+        const sk=cv.parentNode&&cv.parentNode.querySelector(':scope > canvas.sky'); if(sk)drawSky(sk);} }
+    let running=false;
+    return { attach(cv){ if(cv&&canvases.indexOf(cv)<0)canvases.push(cv); if(!reeds.length||Math.abs(fieldW()-seedW)>120){ seed(); seedW=fieldW(); } if(!running){running=true;loop();} },
+             mode(r,d){ const re=reduce!==r; reduce=r; darkUI=d; if(re) seed(); if(reduce) this.tint(TT); },
+             tint(rgb){ TT=(Array.isArray(rgb)&&rgb.length===3)?rgb.map(Number):null; if(reduce){TC=TT;TA=TT?1:0;}
+               if(TT) SKYM=near(TT,SAFE_C)<=near(TT,DEF_C)?'sun':'mist';
+               if(reduce){SKYC=TT;SUN=TT&&SKYM==='sun'?1:0;MIST=TT&&SKYM==='mist'?1:0;} },
+             pace(key){ const ks=MIX[key]||(PACE[key]?[key]:[]);
+               if(!ks.length){ SPt=1; AMt=1; } else { SPt=ks.reduce((a,k)=>a+PACE[k][0],0)/ks.length; AMt=ks.reduce((a,k)=>a+PACE[k][1],0)/ks.length; }
+               if(reduce){ SP=SPt; AM=AMt; } },
+             once(){ BT0=performance.now()/1000; BW=true; setTimeout(()=>{ BW=false; }, 9000); } };
+  })();
+
+
+  // ── Now, tranquil (Justin 2026-10-29) ──
+  let _nqBreathT = 0, _nqIdleT = null, _nqWired = false, _nqBusy = false, _nqLastKind = null;
+  // ── one scene for Now and practices (grid7, Justin canon 2026-10-30) ──
+  // snb_practice_scene: '' = Random, 'ring' = Breath circle, else a scene. snb_now_scene folds in once.
+  const _SC_ALL = ['reeds', 'pond', 'circles', 'fireflies'];   // grid8: four scenes (Justin 2026-10-30)
+  const _SC_DARK = { fireflies:1 };   // Fireflies: dark mode only (Justin 2026-10-30)
+  // grid8: drift / breeze / sunbeam -> Random, the breath circle -> Circles (once)
+  (function(){ try{ if(localStorage.getItem('snb_scene_v2') === '1') return; const v = localStorage.getItem('snb_practice_scene');
+    if(v === 'ring') localStorage.setItem('snb_practice_scene', 'circles'); else if(v && ['reeds','pond','circles','fireflies'].indexOf(v) < 0) localStorage.removeItem('snb_practice_scene');
+    localStorage.setItem('snb_scene_v2', '1'); }catch(e){} })();
+  // the players (same origin) read the latest check-in's state from here, so their scene follows it
+  window.__snbSceneState = ()=>{ try{ const l = Store.lastCheckin && Store.lastCheckin(); const k = l ? _cDom(l) : null; return k && k !== 'neutral' ? k : null; }catch(e){ return null; } };
+  let _nqSS = null;   // the scenes.js scene on Now (Pond, Circles, Fireflies)
+  const _nqTod = ()=> _nqDayOn() && window.SNBScene ? SNBScene.todOf(new Date()) : 'midday';
+  const _nqWxK = ()=>{ const k = _nqWxNow(); return k === 'rain' || k === 'cloud' || k === 'sun' ? k : 'none'; };
+  (function(){ try{
+    if(localStorage.getItem('snb_scene_merged') === '1') return;
+    const pr = localStorage.getItem('snb_practice_scene'), nw = localStorage.getItem('snb_now_scene');
+    if(!pr && (nw === 'ring' || nw === 'reeds')) localStorage.setItem('snb_practice_scene', nw);
+    localStorage.setItem('snb_scene_merged', '1');
+  }catch(e){} })();
+  const _scPref = ()=>{ try{ const v = localStorage.getItem('snb_practice_scene') || ''; return _SC_ALL.indexOf(v) >= 0 ? v : ''; }catch(e){ return ''; } };
+  const _scDark = ()=> document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
+  let _nqRand = null;
+  // the scene on Now: the choice; Random = one per visit to the app; a dark-only scene in light mode shows the reeds
+  const _nqScene = ()=>{
+    let k = _scPref(), dk = _scDark();
+    if(!k){ const pool = _SC_ALL.filter(s=>dk || !_SC_DARK[s]); if(!_nqRand || pool.indexOf(_nqRand) < 0) _nqRand = pool[Math.floor(Math.random() * pool.length)]; k = _nqRand; }
+    return (_SC_DARK[k] && !dk) ? 'reeds' : k;
+  };
+  // the practice scenes, drawn for Now and as the Settings stills (ported from player.html's drawScene, 2026-07)
+  const NQS = (function(){
+    let cv = null, g = null, K = '', raf = 0, S = null, rgb = [26,31,42], calm = false, lift = 0, liftT = 0;
+    const rnd = Math.random;
+    function seed(k, W, low){
+      const s = { k, sT:0, sLast:0, ripNext:0, motes:[], reeds:[], rips:[], strands:[], dust:[], flies:[] };
+      const n = (lo, hi, per) => low ? lo : Math.round(Math.max(lo, Math.min(hi, W / per)));
+      for(let i = 0, N = n(9, 20, 70); i < N; i++) s.motes.push({ x:rnd(), y:rnd(), r:1.5+rnd()*3.5, v:(3.5+rnd()*8)/1000, dx:(rnd()-.5)*.003, a:.18+rnd()*.3 });
+      for(let i = 0, N = n(7, 22, 100); i < N; i++) s.reeds.push({ x:(i/(N-1))*.96+.02+(rnd()-.5)*.028, h:.24+rnd()*.42, per:8+rnd()*8, ph:rnd()*6.283, amp:.035+rnd()*.045, w:1.1+rnd()*1.5, a:.3+rnd()*.32 });
+      for(let i = 0; i < 7; i++) s.strands.push({ y:.15+.7*(i/6)+(rnd()-.5)*.06, len:.2+rnd()*.22, sp:(28+rnd()*46)/1000, x:rnd()*1.4-.2, a:.22+rnd()*.3 });
+      for(let i = 0; i < 8; i++) s.dust.push({ x:.36+rnd()*.24, y:.12+rnd()*.72, r:1+rnd()*1.6, per:9+rnd()*11, ph:rnd()*6.283, ax:4+rnd()*6, ay:8+rnd()*9, a:.35+rnd()*.25 });
+      for(let i = 0, N = n(7, 14, 100); i < N; i++) s.flies.push({ x:.12+.76*(i/(N-1))+(rnd()-.5)*.09, y:.15+rnd()*.62, per:5.5+rnd()*6.5, ph:rnd()*10, wx:8+rnd()*9, wy:6+rnd()*8 });
+      return s;
+    }
+    function draw(gc, s, W, H, dt, moving, col, bg, boost){
+      if(moving) s.sT += dt;
+      const k = s.k, unit = Math.min(Math.min(W, H), 430), b = 1 + (boost || 0);
+      if(k === 'drift') s.motes.forEach(m=>{ if(moving){ m.y -= m.v*dt*3; m.x += m.dx*dt*3; if(m.y < -.05){ m.y = 1.05; m.x = rnd(); } }
+        gc.strokeStyle = col(Math.min(1, m.a*b)); gc.lineWidth = 1.3; gc.beginPath(); gc.arc(m.x*W, m.y*H, m.r*(unit/300+.6), 0, 6.283); gc.stroke(); });
+      else if(k === 'pond'){
+        if(moving && s.sT >= s.ripNext){ s.rips.push({ x:.2+rnd()*.6, y:.25+rnd()*.5, b:s.sT }); s.ripNext = s.sT + 4 + rnd()*5; if(s.rips.length > 4) s.rips.shift(); }
+        s.rips.forEach(rp=>{ const age = s.sT - rp.b, life = 6; if(age > life) return; const p = age/life, R = unit*(.06+.42*p);
+          const aOut = (p < .08 ? p/.08 : Math.max(0, 1-((p-.08)/.57)))*.5, aIn = (p < .08 ? p/.08 : 1-((p-.08)/.92))*.5;
+          gc.lineWidth = 1.5; gc.strokeStyle = col(Math.min(1, aOut*b)); gc.beginPath(); gc.arc(rp.x*W, rp.y*H, R, 0, 6.283); gc.stroke();
+          gc.strokeStyle = col(Math.min(1, aIn*b)); gc.beginPath(); gc.arc(rp.x*W, rp.y*H, R*.62, 0, 6.283); gc.stroke(); }); }
+      else if(k === 'reeds') s.reeds.forEach(rd=>{ const sw = Math.sin(s.sT*6.283/rd.per+rd.ph)*rd.amp, bx = rd.x*W, by = H, hh = rd.h*H;
+        gc.strokeStyle = col(Math.min(1, rd.a*b)); gc.lineWidth = rd.w; gc.lineCap = 'round'; gc.beginPath(); gc.moveTo(bx, by); gc.quadraticCurveTo(bx+sw*hh*.25, by-hh*.55, bx+sw*hh, by-hh); gc.stroke(); });
+      else if(k === 'breeze') s.strands.forEach(st=>{ if(moving){ st.x += st.sp*dt; if(st.x > 1.15){ st.x = -.35; st.y = .15+rnd()*.7; } }
+        gc.strokeStyle = col(Math.min(1, st.a*b)); gc.lineWidth = 1.6; gc.lineCap = 'round'; gc.beginPath(); gc.moveTo(st.x*W, st.y*H); gc.lineTo(st.x*W+st.len*W, st.y*H); gc.stroke(); });
+      else if(k === 'sunbeam'){
+        const AM = a=>'rgba(246,228,180,'+a+')', bw = W*.34, grd = gc.createLinearGradient(0, -H, 0, H);
+        grd.addColorStop(0, AM(.30*b)); grd.addColorStop(1, AM(.04*b));
+        gc.save(); gc.translate(W*.5, H*.5); gc.rotate(.3); gc.fillStyle = grd; gc.fillRect(-bw/2, -H*1.2, bw, H*2.4); gc.restore();
+        s.dust.forEach(d=>{ const px = d.x*W + Math.sin(s.sT*6.283/d.per+d.ph)*d.ax, py = d.y*H + Math.cos(s.sT*6.283/(d.per*1.3)+d.ph)*d.ay;
+          gc.fillStyle = 'rgba('+bg[0]+','+bg[1]+','+bg[2]+','+Math.min(1, .5+d.a)+')'; gc.beginPath(); gc.arc(px, py, d.r, 0, 6.283); gc.fill(); }); }
+      else if(k === 'fireflies'){ const BO = a=>'rgba(250,249,245,'+a+')';
+        s.flies.forEach(f=>{ const p = ((s.sT+f.ph)%f.per)/f.per, tw = Math.sin(p*Math.PI)*Math.min(1.6, b);
+          const px = f.x*W + Math.sin(s.sT*6.283/(f.per*2.1)+f.ph)*f.wx, py = f.y*H + Math.cos(s.sT*6.283/(f.per*1.7)+f.ph)*f.wy;
+          gc.fillStyle = BO(.12*tw); gc.beginPath(); gc.arc(px, py, 7, 0, 6.283); gc.fill();
+          gc.fillStyle = BO(.3*tw); gc.beginPath(); gc.arc(px, py, 4, 0, 6.283); gc.fill();
+          gc.fillStyle = BO(Math.min(1, .85*tw)); gc.beginPath(); gc.arc(px, py, 2.2, 0, 6.283); gc.fill(); }); }
+      else if(k === 'circles' || k === 'ring'){
+        const br = moving ? Math.sin(s.sT*.55)*.5+.5 : .5, u = Math.min(W*.82, unit, H*.48), cx = W/2, cy = H/2, R = u*(.30+.08*br);
+        gc.lineWidth = k === 'ring' ? 2.2 : 1.6; gc.strokeStyle = col(Math.min(1, .55*b)); gc.beginPath(); gc.arc(cx, cy, R, 0, 6.283); gc.stroke();
+        if(k === 'circles'){ gc.strokeStyle = col(Math.min(1, .35*b)); gc.beginPath(); gc.arc(cx, cy, R*(.62+.06*(1-br)), 0, 6.283); gc.stroke(); }
+        else { gc.fillStyle = col(.06*b); gc.beginPath(); gc.arc(cx, cy, R, 0, 6.283); gc.fill(); }
+      }
+    }
+    const hexRgb = h => { const m = String(h || '').trim().match(/^#?([0-9a-f]{6})$/i); if(!m) return null; const n = parseInt(m[1], 16); return [n>>16&255, n>>8&255, n&255]; };
+    const ink = () => hexRgb(getComputedStyle(document.documentElement).getPropertyValue('--ink')) || (_scDark() ? [236,234,227] : [26,31,42]);
+    const bgOf = () => { try{ const m = (getComputedStyle(document.body).backgroundColor || '').match(/\d+/g); if(m && m.length >= 3) return m.slice(0,3).map(Number); }catch(e){} return [250,249,245]; };
+    function loop(){
+      if(!cv || !cv.isConnected || !document.querySelector('#screen .view.now.nq')){ raf = 0; return; }
+      const d = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth || innerWidth, H = cv.clientHeight || innerHeight;
+      if(cv.width !== Math.round(W*d) || cv.height !== Math.round(H*d)){ cv.width = Math.round(W*d); cv.height = Math.round(H*d); }
+      g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, W, H);
+      const t = performance.now()/1000, dt = Math.min(.05, Math.max(0, t - (S.sLast || t))); S.sLast = t;
+      const e = liftT ? (performance.now() - liftT)/1000 : 99; lift = e < 4 ? e/4*.6 : e < 9 ? (1-(e-4)/5)*.6 : 0;
+      draw(g, S, W, H, dt, !calm, a=>'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+a+')', bgOf(), lift);
+      raf = calm && !(e < 9) ? 0 : requestAnimationFrame(loop);
+    }
+    return {
+      // tint: a hex for the state after a check-in, or null for ink
+      attach(canvas, k, tint){
+        calm = _nqCalm(); rgb = hexRgb(tint) || ink();
+        if(canvas !== cv || K !== k){ cv = canvas; g = cv.getContext('2d'); K = k; S = seed(k, cv.clientWidth || innerWidth, calm);
+          if(k === 'pond'){ S.rips.push({ x:.35, y:.45, b:-2.5 }); S.ripNext = 2; } }
+        if(!raf) raf = requestAnimationFrame(loop);
+      },
+      once(){ liftT = performance.now(); if(!raf) raf = requestAnimationFrame(loop); },
+      // a still frame for the Settings tile, a few seconds in
+      still(canvas, k){
+        const d = Math.min(2, window.devicePixelRatio || 1), W = canvas.clientWidth || 160, H = canvas.clientHeight || 120;
+        canvas.width = Math.round(W*d); canvas.height = Math.round(H*d);
+        const gc = canvas.getContext('2d'); if(!gc) return; gc.setTransform(d, 0, 0, d, 0, 0); gc.clearRect(0, 0, W, H);
+        const dk = _SC_DARK[k], c0 = dk ? [250,249,245] : ink();
+        if(dk){ gc.fillStyle = '#1F2228'; gc.fillRect(0, 0, W, H); }
+        const col = a=>'rgba('+c0[0]+','+c0[1]+','+c0[2]+','+a+')';
+        if(k === ''){ // Random: four scenes, a quarter each
+          [['reeds',0,0],['drift',1,0],['pond',0,1],['breeze',1,1]].forEach(([kk,x,y])=>{ const s = seed(kk, W, true); if(kk === 'pond') s.rips.push({ x:.5, y:.5, b:-2 });
+            gc.save(); gc.beginPath(); gc.rect(x*W/2, y*H/2, W/2, H/2); gc.clip(); gc.translate(x*W/2, y*H/2); for(let i = 0; i < 40; i++) draw(gc, s, W/2, H/2, .05, true, ()=>'rgba(0,0,0,0)', [0,0,0], 0);
+            draw(gc, s, W/2, H/2, 0, false, col, bgOf(), .4); gc.restore(); });
+          gc.strokeStyle = col(.18); gc.lineWidth = 1; gc.beginPath(); gc.moveTo(W/2, 0); gc.lineTo(W/2, H); gc.moveTo(0, H/2); gc.lineTo(W, H/2); gc.stroke();
+          return; }
+        const s = seed(k, W*2.2, true); if(k === 'pond') s.rips.push({ x:.45, y:.5, b:-2.2 }, { x:.7, y:.35, b:-.8 });
+        for(let i = 0; i < 60; i++) draw(gc, s, W, H, .05, true, ()=>'rgba(0,0,0,0)', [0,0,0], 0);
+        gc.clearRect(0, 0, W, H); if(dk){ gc.fillStyle = '#1F2228'; gc.fillRect(0, 0, W, H); }
+        draw(gc, s, W, H, 0, false, col, dk ? [31,34,40] : bgOf(), k === 'reeds' || k === 'breeze' || k === 'drift' ? .5 : .2);
+      }
+    };
+  })();
+  const _nqCalm = ()=> document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const _nqOn = ()=> !!document.querySelector('#screen .view.now.nq');
+  // ── the Now scene follows the day (Justin 2026-10-30, wabi-sabi; BRAND_DESIGN_SYSTEM §4 "Now screen, tranquil", last bullet) ──
+  // "Match the time of day" (on by default, the device clock, no permission): the scene brightens and dims slowly through the day,
+  // soft at dawn, brightest at midday, dim in the evening; never a light / dark switch. "Match the weather" (off by default): asks
+  // for the person's rough location once, when it is turned on; rain falls over the scene, cloud dims it, sun brightens it. The
+  // location is rounded to about 10 km, used for one lookup at Open-Meteo (free, no key) and never saved: only the kind of
+  // weather and the time it was read are kept on this device, for half an hour. No temperatures, no icons.
+  const _nqDayOn = ()=> false;   // time of day scrapped (Justin 2026-10-30): just light and dark
+  const _nqWxOn = ()=>{ try{ return localStorage.getItem('snb_nq_wx') === '1'; }catch(e){ return false; } };
+  let _nqWx = null, _nqWxBusy = false, _nqLightT = null, _nqRainRaf = 0;
+  function _nqWxSet(on){
+    try{ if(on) localStorage.setItem('snb_nq_wx', '1'); else { localStorage.removeItem('snb_nq_wx'); localStorage.removeItem('snb_nq_wxk'); localStorage.removeItem('snb_nq_wxloc'); } }catch(e){}
+    if(!on) _nqWx = null; _nqLight();
+  }
+  // quiet (a refresh): the kept rough location, never the device. Not quiet (the switch was just turned on): ask the device once.
+  function _nqWxFetch(quiet){
+    let kept = null; try{ kept = JSON.parse(localStorage.getItem('snb_nq_wxloc') || 'null'); }catch(e){}
+    if(quiet) return kept && isFinite(kept.la) && isFinite(kept.lo) ? _nqWxGet(kept.la, kept.lo) : Promise.resolve(null);
+    return new Promise(res=>{
+      if(!navigator.geolocation) return res(null);
+      navigator.geolocation.getCurrentPosition(p=>{
+        const la = Math.round(p.coords.latitude * 10) / 10, lo = Math.round(p.coords.longitude * 10) / 10;
+        try{ localStorage.setItem('snb_nq_wxloc', JSON.stringify({ la, lo })); }catch(e){}
+        _nqWxGet(la, lo).then(res);
+      }, ()=>res(null), { enableHighAccuracy:false, maximumAge:3600000, timeout:15000 });
+    });
+  }
+  function _nqWxGet(la, lo){
+    return new Promise(res=>{
+        fetch('https://api.open-meteo.com/v1/forecast?latitude=' + la + '&longitude=' + lo + '&current=weather_code,cloud_cover,is_day', { cache:'no-store' })
+          .then(r=>r.ok ? r.json() : null).then(j=>{
+            const c = j && j.current; if(!c) return res(null);
+            const w = +c.weather_code, cc = +c.cloud_cover;
+            const k = ((w >= 51 && w <= 67) || (w >= 80 && w <= 82) || w >= 95) ? 'rain'
+              : ((w >= 71 && w <= 77) || w === 85 || w === 86 || w === 45 || w === 48 || w === 3 || cc >= 70) ? 'cloud'
+              : (w <= 1 && cc < 35) ? 'sun' : 'fair';
+            const v = { k, t:Date.now() }; try{ localStorage.setItem('snb_nq_wxk', JSON.stringify(v)); }catch(e){}
+            res(v);
+          }).catch(()=>res(null));
+    });
+  }
+  function _nqWxAsk(){
+    return _nqWxFetch().then(v=>{ if(v){ try{ localStorage.setItem('snb_nq_wx', '1'); }catch(e){} _nqWx = v; _nqLight(); return true; } _nqWxSet(false); return false; });
+  }
+  function _nqWxNow(){
+    if(!_nqWxOn()) return null;
+    if(!_nqWx){ try{ _nqWx = JSON.parse(localStorage.getItem('snb_nq_wxk') || 'null'); }catch(e){} }
+    if((!_nqWx || Date.now() - _nqWx.t > 30 * 60e3) && !_nqWxBusy){ _nqWxBusy = true; _nqWxFetch(true).then(v=>{ _nqWxBusy = false; if(v){ _nqWx = v; _nqLight(); } }); }
+    return _nqWx && Date.now() - _nqWx.t < 3 * 3600e3 ? _nqWx.k : null;
+  }
+  // the light of the hour: how much the scene dims, how much it lifts, how warm it is (gentle; text keeps its contrast)
+  function _nqDayLight(d){
+    const h = d.getHours() + d.getMinutes() / 60;
+    const pts = [[0, .20, 0, 0], [5, .20, 0, 0], [6.5, .12, 0, .10], [8, .05, .02, .05], [11, 0, .06, 0], [15, 0, .06, 0], [17.5, .04, .02, .06], [19.5, .12, 0, .10], [21.5, .20, 0, 0], [24, .20, 0, 0]];
+    for(let i = 1; i < pts.length; i++){ const a = pts[i - 1], b = pts[i]; if(h <= b[0]){ const f = (h - a[0]) / (b[0] - a[0] || 1); return { dim:a[1] + (b[1] - a[1]) * f, lift:a[2] + (b[2] - a[2]) * f, warm:a[3] + (b[3] - a[3]) * f }; } }
+    return { dim:.2, lift:0, warm:0 };
+  }
+  function _nqLight(){
+    const sc = document.getElementById('nq-scene'); if(!sc) return;
+    if(sc.classList.contains('nq-is-sc')){ const v = sc.querySelector('.nq-light'); if(v) v.remove(); _nqRain(false);
+      if(_nqSS) _nqSS.update({ tod:_nqTod(), weather:_nqWxK(), dark:_scDark() });
+      clearTimeout(_nqLightT); _nqLightT = setTimeout(()=>{ if(_nqOn()) _nqLight(); }, 5 * 60e3); return; }
+    let ov = sc.querySelector('.nq-light');
+    const first = !ov;
+    if(!ov){ ov = document.createElement('div'); ov.className = 'nq-light'; sc.appendChild(ov); }
+    const dark = document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
+    let L = _nqDayOn() ? _nqDayLight(new Date()) : { dim:0, lift:0, warm:0 };
+    const wx = _nqWxNow();
+    if(wx === 'rain') L = { dim:L.dim + .08, lift:0, warm:L.warm * .4 };
+    else if(wx === 'cloud') L = { dim:L.dim + .06, lift:L.lift * .3, warm:L.warm * .5 };
+    else if(wx === 'sun') L = { dim:Math.max(0, L.dim - .03), lift:L.lift + .04, warm:L.warm };
+    // light mode dims less, so ink on paper keeps its contrast; dark mode can go a little deeper
+    const dim = Math.min(dark ? .26 : .14, L.dim * (dark ? 1.1 : .7));
+    if(first) ov.style.transition = 'none';
+    sc.style.setProperty('--nq-dim', dim.toFixed(3));
+    sc.style.setProperty('--nq-lift', (dark ? L.lift * .5 : L.lift).toFixed(3));
+    sc.style.setProperty('--nq-warm', L.warm.toFixed(3));
+    if(first){ void ov.offsetWidth; ov.style.transition = ''; }
+    _nqRain(wx === 'rain', dark);
+    clearTimeout(_nqLightT); _nqLightT = setTimeout(()=>{ if(_nqOn()) _nqLight(); }, 5 * 60e3);
+  }
+  // rain over the scene: thin slanted strokes, slow; reduced motion draws it once and leaves it still
+  function _nqRain(on, dark){
+    const sc = document.getElementById('nq-scene'); let cv = sc && sc.querySelector('canvas.nq-rain');
+    cancelAnimationFrame(_nqRainRaf); _nqRainRaf = 0;
+    if(!on || !sc){ if(cv) cv.remove(); return; }
+    if(!cv){ cv = document.createElement('canvas'); cv.className = 'nq-rain'; sc.appendChild(cv); }
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth || innerWidth, H = cv.clientHeight || innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'); if(!g) return;
+    const n = Math.min(160, Math.round(W * H / 7000)), drops = [];
+    for(let i = 0; i < n; i++) drops.push({ x:Math.random() * W, y:Math.random() * H, l:10 + Math.random() * 14, s:2.2 + Math.random() * 2.4 });
+    g.strokeStyle = dark ? 'rgba(232,228,218,.20)' : 'rgba(40,48,60,.16)'; g.lineWidth = 1 * dpr; g.lineCap = 'round';
+    const draw = ()=>{ g.clearRect(0, 0, cv.width, cv.height); g.beginPath();
+      drops.forEach(d=>{ g.moveTo(d.x * dpr, d.y * dpr); g.lineTo((d.x - d.l * .16) * dpr, (d.y + d.l) * dpr); }); g.stroke(); };
+    if(_nqCalm()){ draw(); return; }
+    const step = ()=>{
+      if(!cv.isConnected || !_nqOn()){ _nqRainRaf = 0; return; }
+      drops.forEach(d=>{ d.y += d.s; d.x -= d.s * .16; if(d.y > H){ d.y = -d.l; d.x = Math.random() * (W + 40); } });
+      draw(); _nqRainRaf = requestAnimationFrame(step);
+    };
+    _nqRainRaf = requestAnimationFrame(step);
+  }
+
+  function _nqWake(){
+    document.body.classList.remove('nq-idle'); clearTimeout(_nqIdleT);
+    if(!_nqOn()) return;
+    _nqIdleT = setTimeout(()=>{ if(_nqOn() && !_nqBusy && !document.querySelector('.sheet, .modal, [role="dialog"], #wn-root, #ob-root')) document.body.classList.add('nq-idle'); }, 7000);
+  }
+  function _nqWire(){
+    if(_nqWired) return; _nqWired = true;
+    ['pointermove','pointerdown','keydown','wheel','touchstart'].forEach(ev=>document.addEventListener(ev, ()=>{ if(!_nqBusy) _nqWake(); }, { passive:true, capture:true }));
+  }
   function tabNow(){
     const c = content();
     const _paid = paidNow();
     const last = Store.lastCheckin();
-    const reco = _recommendSafe(true);
-    const done = winsDone();
     const nm = Store.getName();
     const seg = segOf(Date.now());
     if(nowGreet===null || nowGreetName!==nm){ const _q = !!(last && (last.dom==='shutdown'||last.dom==='freeze')); nowGreet = pickGreeting(segLabel(seg), nm ? escapeHtml(nm) : '', _q); nowGreetName = nm; }
-    const greet = nowGreet;
+    // a check-in colours the scene for this part of the day, as "Check in" always reset each part of the day
+    const checkedIn = !!(last && sameDay(last.t) && segOf(last.t)===seg);
+    const dom = checkedIn ? _cDom(last) : null;
+    const lit = !!(dom && dom !== 'neutral');
+    const reco = _recommendSafe(true);
+    const nqK = _nqScene(), ring = nqK === 'ring';
 
-    // state readout doubles as the check-in control: outlined full-width when
-    // you've checked in THIS PART OF DAY (shows your state), a filled capsule CTA
-    // when you haven't — it reverts each segment (morning/afternoon/evening/late)
-    // so every new stretch of the day invites a fresh check-in.
-    const checkedIn = !!(last && sameDay(last.t) && segOf(last.t)===segOf(Date.now()));
-    const dom  = checkedIn ? _cDom(last) : null;
-    const halo = checkedIn ? STATE_COLOR(dom) : 'var(--hairline)';
-    const stateHTML = checkedIn
-      ? `<button class="tb-state tb-state-line" id="tb-state"><span class="tb-glyph">${triGlyph(dom)}</span><span class="tb-state-txt">${STATE_LABEL(dom)} · this ${segLabel(segOf(last.t))}</span><span class="tb-chev">${CHEV}</span></button>`
-      : `<button class="tb-state tb-state-cta" id="tb-state"><span class="tb-glyph">${triGlyph('neutral')}</span><span class="tb-state-txt">Check in. How are you?</span><span class="tb-chev">${CHEV}</span></button>`;
-
-    const pracName   = escapeHtml(Store.practiceLabel(reco.practiceKey));
-    const pracReason = reco.reason ? escapeHtml(reco.reason) : '';
-    const r  = (FromJustin.daily ? FromJustin.daily() : FromJustin.today());
-    const reflText = (r && r.text) ? escapeHtml(r.text) : '';
-    const td = (Store.today ? Store.today() : null);
-    const dotsHTML = (td && td.n>=1) ? momentDots(td.moments) : '';
-    const settled = done.breath;   // once you've breathed today, land in the calm collapsed state
-    // first-week accounts keep a faint affordance hint under the settled ring
-    let young=false; try{ const tn=Store.tenure(); young = !tn || (tn.days||0) <= 7; }catch(e){}
-    // post-breath slot (r7 2026-07-24; revised 2026-07-28 per Justin: (1) "check in again"
-    // should never sit alone once you've checked in, (2) "Do a 2 minute practice" should appear
-    // after a breath even when you haven't checked in yet — it never did, since the second
-    // row didn't exist at all in the not-checked-in markup). RESTING/default content: the
-    // reader doorway when a reflection is waiting; else, once checked in, the "two more
-    // minutes?" invite (never nothing any more); if not yet checked in AND nothing's
-    // unread, the row collapses at rest but the transient post-breath nudge below still
-    // fires and is visible for its ~10s window either way.
-    const readerNew = _readerUnread();
-    /* ✅ THE BEST-TIME CALLOUT (Justin, 2026-09-25: "a notification and a callout during that actual time of day and day of
-     * the week with the ideal practice set up"). When now is the person's best day and time and no practice has been
-     * finished yet, the resting row offers their best setup instead of the tiny practice. */
+    // one suggestion under the two buttons (Justin 2026-10-29)
     const _bsHere = (function(){ try{
-      if(!paidNow()) return null;
+      if(!_paid) return null;
       const bs=bestSetup(); if(!bs || bs.n<8 || bs.dayKey==null || !bs.segKey || !bs.anchor) return null;
       const d=new Date(); if(d.getDay()!==bs.dayKey || segOf(d.getTime())!==bs.segKey) return null;
       if((Store.sessions()||[]).some(s=>s && s.completed && sameDay(s.t))) return null;
       return bs; }catch(e){ return null; } })();
-    const _chNow = _chNowReady();   // a challenge prompt is waiting (Justin, 2026-10-17: "something on the Now screen that populates when the daily challenge is pending")
-    const mhRestKind = _bsHere ? 'best' : _chNow ? 'challenge' : (readerNew ? 'reader' : (checkedIn ? 'micro' : null));   // the best time only lasts a few hours, so it goes first
-    const mhThird = true;
-    /* ✅ THE BEST TIME IS A SPECIAL MOMENT (Justin, 2026-10-03: "That needs more love to it. It's a special moment"; he picked
-     * option C of the mockups): the button becomes a small gold card that names the setup, and one tap starts it. */
-    const _bsCardHTML = ()=>{
-      let what = '';
-      try{ const r = bestSetupReco(_bsHere);
-        const nm = CAP(r.practiceKey==='self-regulation' && r.offerKey ? _upDefTitle(r.offerKey) : Store.practiceLabel(r.practiceKey));
-        const a = r.practiceKey!=='mindfulness' && r.practiceKey!=='micro' && r.sense ? ' with ' + r.sense : '';
-        what = [(nm || '') + a, r.silence ? `${r.silence} seconds of silence` : ''].filter(Boolean).join(', '); }catch(e){}
-      return `<span class="mh-bt-txt"><span class="mh-bt-eb">${ICO_SPARK}Your best time</span><span class="mh-bt-what">${escapeHtml(what || 'Your best setup is ready')}</span></span><span class="mh-bt-go" aria-hidden="true">${ICO_PRAC}</span>`; };
-    const mhThirdHTML = (kind)=> kind==='reader'
-      ? `<span class="mh-th-ic">${ICO_READ}</span><span class="mh-th-t">Your reflection is ready</span>`   // 🖊
-      : kind==='best' ? _bsCardHTML()
-      : kind==='challenge' && _chNow ? _chNowHTML(_chNow)
-      : `<span class="mh-th-ic">${ICO_PRAC}</span><span class="mh-th-t">Do a 2 minute practice</span>`;          // 🖊
+    const _chNow = _chNowReady();
+    const practised = (Store.sessions()||[]).some(s=>s && s.completed && sameDay(s.t));
+    const breathed = Date.now() - _nqBreathT < 10*60*1000;   // "for that visit": ten minutes
+    const kind = (breathed && !_bsHere) ? 'micro'
+      : !checkedIn ? null
+      : _bsHere ? 'best' : _chNow ? 'challenge' : _readerUnread() ? 'reader' : !practised ? 'practice' : _paid ? 'journal' : null;
+    const bestWhat = ()=>{ try{ const r = bestSetupReco(_bsHere);
+        const n = CAP(r.practiceKey==='self-regulation' && r.offerKey ? _upDefTitle(r.offerKey) : Store.practiceLabel(r.practiceKey));
+        const w = r.practiceKey!=='mindfulness' && r.practiceKey!=='micro' && r.sense ? ' with ' + r.sense : '';
+        return (n || '') + w; }catch(e){ return ''; } };
+    const label = { micro:'Do a 2 minute practice', reader:'Your reflection is ready', journal:'Open your journal',
+      practice: _paid ? 'See your recommended practice' : 'Choose a practice',
+      best: (()=>{ if(kind!=='best') return ''; const w = bestWhat(); return w ? 'Your best time: ' + w : 'Your best time'; })(),
+      challenge: kind==='challenge' && _chNow ? 'Your challenge: ' + _chNow.c.name : '' }[kind] || '';
 
-    // moment-home (2026-07-23): the "now" screen settles to a calm center — the
-    // period icon + your state (or a greeting before you've checked in) over the
-    // breath ring, with ONE outlined invitation at the bottom. No dividers, nothing
-    // dominating the centering screen. The reader/reflection is its own surface now
-    // (the You-tab reader band); the recommended practice is the single capsule.
-    c.innerHTML = `<div class="view now tb mh${settled?' breathed':''}${young?' young':''}">
-      <div class="tb-hero">
-        <div class="mh-top">
-          ${checkedIn
-            ? `${todIco(seg)}<button class="mh-state" id="mh-state" type="button" aria-label="What ${STATE_NAME(dom)} is (opens the glossary)"><span class="mh-glyph">${triGlyph(dom)}</span><span class="mh-chev">${CHEV}</span></button>`
-            : `${todIco(seg)}<h2 class="tb-greet mh-greet">${greet}</h2>`}
+    c.innerHTML = `<div class="view now nq">
+      <div class="nq-top nq-fade">
+        <h1 class="lw-h1 nq-greet">${nowGreet}</h1>
+        ${lit ? `<button class="nq-glyph" id="mh-state" type="button" aria-label="${escapeHtml('What ' + STATE_NAME(dom) + ' is (opens the glossary)')}">${triGlyph(dom)}</button>` : ''}
+        <div class="nq-acts">
+          <button class="nq-btn" id="tb-breath" type="button">One breath</button>
+          <button class="nq-btn" id="mh-cta" type="button">Check in${CHEV}</button>
+          ${kind && label ? `<button class="nq-btn nq-next${kind !== _nqLastKind ? ' nq-new' : ''}" id="nq-next" type="button" data-kind="${kind}">${escapeHtml(label)}${CHEV}</button>` : ''}
         </div>
-        <button class="tb-breath" id="tb-breath" aria-label="Take one intentional breath">
-          <span class="tb-stage">
-            <span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(dom)}</span>
-          </span>
-          <span class="tb-below">
-            <span class="tb-txt"><span class="tb-line">Take a breath</span><span class="tb-hint">Tap the ring to breathe</span></span>
-            <span class="tb-phase" id="tb-phase" aria-live="polite"></span>
-          </span>
-          <span class="tb-esc" aria-hidden="true">Tap anywhere to end early</span>
-        </button>
       </div>
-      <div class="mh-foot">
-        ${checkedIn
-          ? `<div class="mh-secondrow${mhThird?' has-third':''}" id="mh-2nd">
-               <button class="btn quiet mh-checkin" id="mh-checkin" type="button" aria-label="Check in again" title="Check in again"><span class="mh-ci-full">Check in again</span><span class="mh-ci-plus" aria-hidden="true">${ICO_PLUS}</span></button>
-               ${mhThird ? `<button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':mhRestKind==='challenge'?' mh-chal':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}"${mhRestKind==='best'?' aria-label="It\'s your best time to practice. Start your best setup."':''}>${mhThirdHTML(mhRestKind||'micro')}</button>` : ''}
-             </div>
-             <button class="btn quiet block mh-primary" id="mh-cta" type="button">${_paid ? 'See your recommended practice' : 'Choose a practice'}</button>`
-          : `<p class="mh-noci">No check-in this ${segLabel(seg)} yet</p>
-             <div class="mh-secondrow no-checkin" id="mh-2nd">
-               <button class="btn quiet mh-third${mhRestKind==='best'?' mh-best':mhRestKind==='challenge'?' mh-chal':''}" id="mh-third" type="button" data-kind="${mhRestKind||'micro'}">${mhThirdHTML(mhRestKind||'micro')}</button>
-             </div>
-             <button class="btn quiet block mh-primary" id="mh-cta" type="button">Check in</button>`}
-      </div>
+      <p class="vh" id="nq-live" aria-live="polite"></p>
     </div>`;
+    document.body.classList.add('on-now');
+    _nqLastKind = kind;
 
-    const breathBtn = c.querySelector('#tb-breath');   if(breathBtn) breathBtn.onclick = runBreath;
-    // the state word opens the glossary (what the state is); re-checking-in lives on
-    // the You tab ("change a recent check-in"). The single capsule is the practice.
-    const mhState = c.querySelector('#mh-state'); if(mhState) mhState.onclick = ()=> screenStateDetail(dom);
-    const mhCheck = c.querySelector('#mh-checkin'); if(mhCheck) mhCheck.onclick = screenCheckin;
-    const mhCta   = c.querySelector('#mh-cta');   if(mhCta)   mhCta.onclick   = ()=> { if(!checkedIn) return screenCheckin(); return _paid ? renderPlan(reco,'now') : app('practice'); };
-
-    // ---- dynamic post-breath third button (choreographed) ----
-    clearTimeout(_mhMorphTimer); clearTimeout(_mhStepTimer); _mhAfterBreath = null;
-    const _launchMicro = ()=>{ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
-      /* 'micro' lowercase. The player matches this against its own keys, which are all
-         lowercase, so 'Micro' fell through to the default script and the "Two more
-         minutes?" invite launched a seven-minute practice (Michelle, 2026-08-15;
-         reproduced by Justin 2026-08-17 after an earlier fix of mine failed to land).
-         Note practiceKey below is already lowercase — the two disagreeing IS the bug. */
-      practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2}); };
-    const third = c.querySelector('#mh-third');
-    if(third){
-      third.onclick = ()=> (third.dataset.kind==='challenge' && _chNow) ? screenChPrompt(_chNow.id) : (third.dataset.kind==='reader') ? screenReflectionDeep() : (third.dataset.kind==='best' && _bsHere) ? launchWeaver(bestSetupReco(_bsHere)) : _launchMicro();
-
-      // RESTING state: the reader doorway when a reflection is waiting; else, once
-      // checked in, the "Do a 2 minute practice" invite (2026-07-28: never collapses once
-      // there's a check-in to keep company — the row only collapses to nothing before
-      // any check-in exists, when mhRestKind is genuinely null). On load and ~10s after
-      // a breath.
-      const _rest = (animate)=>{
-        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
-        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        const collapse = ()=>{ const r=c.querySelector('#mh-2nd'); if(r) r.classList.remove('revealed','third-in'); };
-        const showRest = ()=>{ const r=c.querySelector('#mh-2nd'), tt=c.querySelector('#mh-third'); if(!r||!tt) return;
-          tt.dataset.kind=mhRestKind; tt.innerHTML=mhThirdHTML(mhRestKind); tt.classList.remove('mh-morphing'); tt.classList.toggle('mh-best', mhRestKind==='best'); tt.classList.toggle('mh-chal', mhRestKind==='challenge');
-          r.classList.add('revealed','third-in'); };
-        if(!mhRestKind){                                 // nothing to rest on → collapse the slot
-          if(animate){ t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(collapse, 300); }
-          else { row.classList.add('mh-noanim'); collapse(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
-          return;
-        }
-        if(!animate){ row.classList.add('mh-noanim'); showRest(); void row.offsetWidth; row.classList.remove('mh-noanim'); }
-        else { t.classList.add('mh-morphing'); _mhMorphTimer=setTimeout(showRest, 480); }   // fade micro out, swap to rest content, fade in
-      };
-
-      // TRANSIENT post-breath nudge: show "Do a 2 minute practice" for ~10s, then revert to
-      // the resting state. (1) check-in shortens to the plus, (2) the invite eases in.
-      const _postBreath = ()=>{
-        const row = c.querySelector('#mh-2nd'), t = c.querySelector('#mh-third'); if(!row || !t) return;
-        clearTimeout(_mhStepTimer); clearTimeout(_mhMorphTimer);
-        t.dataset.kind='micro'; t.innerHTML = mhThirdHTML('micro'); t.classList.remove('mh-morphing','mh-best','mh-chal');
-        // reset to the full check-in instantly (footer is dim from the breath, so no blip)
-        row.classList.add('mh-noanim'); row.classList.remove('revealed','third-in'); void row.offsetWidth; row.classList.remove('mh-noanim');
-        _mhStepTimer = setTimeout(()=>{                 // beat 1: shorten to the plus
-          const r = c.querySelector('#mh-2nd'); if(!r) return;
-          r.classList.add('revealed');
-          setTimeout(()=>{ const r2=c.querySelector('#mh-2nd'); if(r2) r2.classList.add('third-in'); }, 470);   // beat 2: invite eases in
-        }, 300);
-        // after ~10s (measured from when the invite finished arriving) fall back to rest
-        _mhMorphTimer = setTimeout(()=> _rest(true), 300 + 470 + 550 + 10000);
-      };
-
-      _mhAfterBreath = ()=> _postBreath();
-      _rest(false);   // load: sit in the resting state (reader default, or collapsed)
+    // the scene sits on <body>, behind the whole app, so it fills the window to every edge (Justin's iPhone showed it
+    // ending above the tab bar when it lived inside the scrolling content); it shows only while Now is on screen
+    let sc = document.getElementById('nq-scene');
+    if(!sc){ sc = document.createElement('div'); sc.id = 'nq-scene'; sc.setAttribute('aria-hidden', 'true'); document.body.insertBefore(sc, document.body.firstChild); }
+    if(ring && false){ sc.className = 'nq-is-ring'; sc.innerHTML = `<div class="nq-ring"><span class="tb-ring br-stage" id="tring" data-state="${dom||'neutral'}">${tbRingSVG(lit ? dom : null)}</span></div>`; }
+    else if(nqK === 'reeds'){ if(sc.className !== 'nq-is-reeds'){ sc.className = 'nq-is-reeds'; sc.innerHTML = '<canvas class="sky"></canvas><canvas class="ambient"></canvas>'; } }
+    else { const o = { scene:nqK, state: lit ? dom : null, tod:_nqTod(), weather:_nqWxK(), dark:_scDark(), reduce:_nqCalm() };
+      if(sc.className !== 'nq-is-' + nqK + ' nq-is-sc' || !_nqSS || !sc.contains(_nqSS.el)){ if(_nqSS){ try{ _nqSS.stop(); }catch(e){} } sc.className = 'nq-is-' + nqK + ' nq-is-sc'; sc.innerHTML = ''; _nqSS = window.SNBScene ? SNBScene.mount(sc, o) : null; }
+      else _nqSS.update(o); }
+    if(nqK === 'reeds'){
+      NQ.mode(_nqCalm(), document.documentElement.classList.contains('theme-dark') || (!document.documentElement.classList.contains('theme-light') && !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)));
+      NQ.attach(sc.querySelector('canvas.ambient'));
+      NQ.tint(lit ? _lwHex(STATE_COLOR(dom)) : null);
+      NQ.pace(lit ? dom : null);
     }
+    _nqLight();
+
+    const st = c.querySelector('#mh-state'); if(st) st.onclick = ()=> screenStateDetail(dom);
+    c.querySelector('#mh-cta').onclick = ()=> screenCheckin();
+    c.querySelector('#tb-breath').onclick = ()=> _nqBreath(c);
+    const nx = c.querySelector('#nq-next');
+    if(nx) nx.onclick = ()=>{
+      const k = nx.dataset.kind;
+      if(k==='micro'){ let sn='touch'; try{ const p=Store.prefSense(); if(['touch','sound','sight'].includes(p)) sn=p; }catch(e){}
+        return practiceShell('player.html?'+new URLSearchParams({embed:'1',autostart:'1',practice:'micro',sense:sn,silence:'2'}).toString(), {practiceKey:'micro',sense:sn,silence:2,launchedFrom:'now_tiny'}); }
+      if(k==='best' && _bsHere) return launchWeaver(bestSetupReco(_bsHere));
+      if(k==='challenge' && _chNow) return screenChPrompt(_chNow.id);
+      if(k==='reader') return screenReflectionDeep();
+      if(k==='journal') return screenJournal('now');
+      return _paid ? renderPlan(reco,'now') : app('practice');
+    };
+    _nqWire(); _nqWake();
+    if(window._wnReady) setTimeout(()=>{ try{ whatsNewOnboard(); }catch(e){} }, 1200);
+  }
+  // One breath (Justin 2026-10-29): the reeds lean in for 4 and out for 5, the words step back while it plays.
+  // A full breath counts as today's breath, as the ring's did; a tap during it brings the words back, the breath goes on.
+  function _nqBreath(c){
+    if(_nqBusy) return; _nqBusy = true;
+    try{ haptic('begin'); }catch(_){}
+    const view = c.querySelector('.view.now.nq'), live = c.querySelector('#nq-live');
+    document.body.classList.add('nq-idle'); clearTimeout(_nqIdleT);
+    const tr = document.querySelector('#nq-scene #tring');
+    if(tr){ const calm = _nqCalm();
+      tr.style.transition = calm ? 'opacity 4s' : 'transform 4s cubic-bezier(.4,0,.5,1), opacity 4s';
+      if(!calm) tr.style.transform = 'scale(1.28)'; tr.style.opacity = '.85';
+      setTimeout(()=>{ tr.style.transition = calm ? 'opacity 5s' : 'transform 5s cubic-bezier(.4,0,.5,1), opacity 5s'; if(!calm) tr.style.transform = 'scale(.82)'; tr.style.opacity = '.5'; }, 4000);
+    } else if(_nqSS && document.querySelector('#nq-scene .snb-scene')) _nqSS.breath(); else NQ.once();
+    document.body.classList.add('nq-in');
+    if(live) live.textContent = 'Breathe in';
+    setTimeout(()=>{ if(live) live.textContent = 'Breathe out'; document.body.classList.remove('nq-in'); }, 4000);
+    setTimeout(()=>{
+      _nqBusy = false; if(live) live.textContent = '';
+      try{ markBreath(); }catch(_){}
+      _nqBreathT = Date.now();
+      if(view && view.isConnected){ const y = c.scrollTop; tabNow(); c.scrollTop = y; } else _nqWake();
+    }, 9400);
   }
 
   // Breath engine for the redesigned Today. On tap the ring becomes the whole
@@ -4805,7 +6062,7 @@ function app(tab){
     const ring  = document.getElementById('tring');
     const phase = document.getElementById('tb-phase');
     if(!view || !ring) return;
-    try{ haptic('start'); }catch(_){}
+    try{ haptic('begin'); }catch(_){}
     breathing = true;
     view.classList.remove('breathed');
     view.classList.add('breathing');
@@ -5086,8 +6343,9 @@ function app(tab){
     return `<span class="rd-mk${cls?' '+cls:''}" aria-hidden="true">${_lkSvg(ax.map(([icn])=>[icn, col]))}</span>`;
   }
   // a change from one state to another: the first state's marks, a gradient arrow, the next state's marks
+  // (tweak-b, 2026-11-01: the same picture as the You tab's "Your state most often shifts" card)
   function _rdFlow(a, b){
-    return `<div class="rd-flow" aria-hidden="true">${_rdMk(a)}<span class="rd-flow-path" style="background:linear-gradient(90deg,${STATE_COLOR(a)},${STATE_COLOR(b)})"></span>${CB_ARROW.replace('class="cb-arrow"', `class="rd-flow-arw" style="color:${STATE_COLOR(b)}"`)}${_rdMk(b)}</div>`;
+    return `<div class="cb-journey rd-journey">${cbGlyphViz(a, b, null, 'hero')}</div>`;
   }
   const RD_ORDER = ['safety','play','stillness','fightflight','freeze','shutdown'];
   // "getting back to safety": from the defensive state, the steps it took, to the heart
@@ -5185,13 +6443,16 @@ function app(tab){
     // link is gone (2026-10-02: "can go away. Instead the pop up back button is available"). Back and Search sit together
     // on the left; when Search opens it pushes Back out of the way.
     const tabBack = opts.onBack ? `<button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
+    // the Back rule (Justin, canon 2026-10-30): desktop = a plain "Back" link at the top of the page that scrolls with it, never
+    // a floating pill; tablet and phone = the bottom bar's back arrow only (the dock below, hidden on desktop for these screens)
+    const plainBack = opts.onBack && opts.plainBack ? `<button class="pg-back" id="pg-back" type="button">${BACK_SVG}<span>Back</span></button>` : '';
     // Learn search (Justin, 2026-10-02: "I don't want a search bar at the top. Make it a pop-up menu item, just like the back
     // button is ... just the magnifying glass that expands when tapped")
     const sFloat = opts.search ? `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>` : '';
     setHTML(`
       <header class="appbar read-appbar"></header>
-      <div class="scroll"><div class="view read rd" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${inner}</div></div>
-      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock${opts.crumb && tabBack && !sFloat && !opts.dock ? ' fl-backonly' : ''}" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
+      <div class="scroll"><div class="view read rd${opts.wide ? ' ll-wide' : ''}" style="gap:0">${opts.crumb ? _rdCrumbHTML(opts.crumb) : ''}${plainBack}${inner}</div></div>
+      ${tabBack || sFloat || opts.dock ? `<div class="fl-dock${opts.crumb && tabBack && !sFloat && !opts.dock ? ' fl-backonly' : ''}${plainBack && !sFloat && !opts.dock ? ' fl-plain' : ''}" id="fl-dock">${tabBack}${opts.dock || ''}${sFloat}</div>` : ''}
       <nav class="tabbar" id="tabs">${TABS()}</nav>`);
     document.body.classList.add('rd-on');
     if(opts.onBack) document.body.classList.add('rd-sub');
@@ -5199,6 +6460,7 @@ function app(tab){
     _rdTrackScroll();
     $('#tabs').querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>app(b.dataset.t));
     const tb = $('#tab-back'); if(tb && opts.onBack) tb.onclick = opts.onBack;
+    const pb = $('#pg-back'); if(pb && opts.onBack) pb.onclick = opts.onBack;
     if(opts.crumb){ document.body.classList.add('rd-crumbs');
       root.querySelectorAll('[data-crumb]').forEach(b=>b.onclick=e=>{ e.preventDefault(); const k = b.dataset.crumb; if(k === 'back'){ if(opts.onBack) opts.onBack(); return; } const p = opts.crumb[+k]; if(p && p.go) p.go(); }); }
   }
@@ -5239,6 +6501,24 @@ function app(tab){
   function _lrnByRead(list){ return list.filter(p=>!_lrnIsRead(p.id)).concat(list.filter(p=>_lrnIsRead(p.id))); }
   const _LRN_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 12.5l3.5 3.5 7.5-8"></path></svg>';
   const _lrnReadMk = () => `<span class="rd-readmk" role="img" aria-label="Read">${_LRN_CHECK}</span>`;
+  // ---- Learn on the Swiss grid (Justin, option B, 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Library lists (Learn)"): one line per
+  // lesson on the 12 columns: type (icon + word) 1-2 · title 3-7 · length 8-9 · date 10 · access 11-12. Every row says Free or
+  // Self-Regulator; the lock shows only when this person is locked out. A read lesson says "Read" under its title. Phone:
+  // the title, then "type · length · date · access". Used on the Learn tab, hub pages, search and filter results.
+  function _llRow(e, isArt){
+    const paidItem = isArt ? !!e.paid : e.s === 'c', locked = paidItem && !paidNow();
+    const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
+    const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
+    const len = isArt ? (e.minutes || 1) + ' min read' : (e.s === 's' && !e.n ? 'under a minute' : _lmLen(e.n));
+    const date = _lmMY(isArt ? _lmArtDate(e) : e.d), read = isArt && _lrnIsRead(e.id);
+    const acc = paidItem ? (locked ? LOCK_SVG + 'See paid plans' : 'Self-Regulator') : 'Free';
+    const data = isArt ? `data-piece="${escapeHtml(e.id)}"` : `data-media="${escapeHtml(e.i)}"`;
+    const ic = `<svg class="lm-mi" viewBox="0 0 24 24" aria-hidden="true">${_LM_MI[k]}</svg>`;
+    return `<button class="ll-r${read ? ' is-read' : ''}" type="button" ${data}><span class="ll-r-type">${ic}<span>${escapeHtml(word)}</span></span><span class="ll-r-t"><b>${escapeHtml(isArt ? e.title : e.t)}</b>${read ? `<span class="ll-r-read"><span class="rd-readmk" aria-hidden="true">${_LRN_CHECK}</span>Read</span>` : ''}</span><span class="ll-r-len">${escapeHtml(len)}</span><span class="ll-r-date">${escapeHtml(date)}</span><span class="ll-r-acc">${acc}</span></button>`;
+  }
+  // Filter and Search: flat outline buttons in a row under the heading, never floating; Search opens its field in the row
+  const _lrnSearchHTML = () => `<div class="ll-sfloat${_lrnQ ? ' open' : ''}" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="${_lrnQ ? 'true' : 'false'}">${_LRN_SEARCH_SVG}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" tabindex="${_lrnQ ? '0' : '-1'}" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Close search">×</button></div>`;
+  const _lrnToolsHTML = filter => `<div class="ll-tools">${filter ? _lmFbtnHTML() : ''}${_lrnSearchHTML()}</div>`;
   // the Learn tab, below the top card (Justin, 2026-10-02, option C): a row of articles for each state that has
   // them, six at most and then a "See all" card that opens the hub; states with none yet in one line; then the
   // topic hubs as a list ("the pills are not helpful")
@@ -5264,21 +6544,15 @@ function app(tab){
       const arts = _lrnByRead(all), eps = med.filter(x=>x.s === 'p'), vids = med.filter(x=>x.s === 'v');
       let ne = Math.min(eps.length, 2), nv = Math.min(vids.length, 2), na = Math.min(arts.length, _LRN_SHELF - ne - nv);
       ne = Math.min(eps.length, _LRN_SHELF - na - nv); nv = Math.min(vids.length, _LRN_SHELF - na - ne);
-      const artCard = p=>{ const read = _lrnIsRead(p.id);
-        // the marks live on the row's heading only (Justin, 2026-10-02: on every card too "it's too much"); the card keeps a strip of the state's color
-        return `<button class="ll-card${read?' is-read':''}" type="button" data-piece="${escapeHtml(p.id)}" style="--band:${STATE_COLOR(p.state||k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(p.title)}</b><span class="ll-card-meta lm-m">${_lmArtMeta(p)}</span></button>`; };
-      const medCard = x=>`<button class="ll-card" type="button" data-media="${escapeHtml(x.i)}" style="--band:${STATE_COLOR(_lmState(x) || k)}"><span class="ll-card-band" aria-hidden="true"></span><b>${escapeHtml(x.t)}</b><span class="ll-card-meta lm-m">${_lmMedMeta(x)}</span></button>`;
-      const cards = arts.slice(0, na).map(artCard).concat(eps.slice(0, ne).map(medCard), vids.slice(0, nv).map(medCard)).join('');
-      const total = all.length + med.length, cnt = _lrnHubCount(k);
-      const more = total > na + ne + nv ? `<button class="ll-card ll-seeall" type="button" data-hub="${k}"><b>See all</b><span class="ll-card-meta">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>` : '';
-      return `<div class="ll-shelf"><button class="ll-shelf-h" type="button" data-hub="${k}">${_rdMk(k)}<b>${escapeHtml(STATE_LABEL(k))}</b><span class="ll-n">${escapeHtml(cnt)}</span><span class="wc-go">${CHEV}</span></button>
-        <div class="ll-row">${cards}${more}</div></div>`;
+      const rows = arts.slice(0, na).map(p=>_llRow(p, true)).concat(eps.slice(0, ne).map(x=>_llRow(x)), vids.slice(0, nv).map(x=>_llRow(x))).join('');
+      const cnt = _lrnHubCount(k);
+      return `<section class="ll-sec"><div class="ll-sec-h"><h3>${_rdMk(k)}<span>${escapeHtml(_LRN_ST(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h3><button class="ll-seeall2" type="button" data-hub="${k}">See all</button></div><div class="ll-rows">${rows}</div></section>`;
     };
     const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length && !(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0))).map(k=>STATE_NAME(k));   // state names are common nouns mid-sentence
     const topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
     return `<section class="rd-learn rd-learnhubs">${_lrnStateOrder().map(shelf).join('')}
         ${soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : ''}
-        ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="rd-list rd-list-flat">${topics.map(k=>_lrnHubRowHTML(k)).join('')}</div>` : ''}
+        ${topics.length ? `<h3 class="sec-h ll-h">Topics</h3><div class="ll-topics">${topics.map(k=>`<button class="ll-topic" type="button" data-hub="${escapeHtml(k)}"><b>${escapeHtml(_lrnHubName(k))}</b><span>${escapeHtml(_lrnHubCount(k))}</span></button>`).join('')}</div>` : ''}
       </section>`;
   }
   // Learn search (Justin, 2026-10-02: "We need a search feature for sure"): titles, descriptions, section headings and the
@@ -5335,23 +6609,379 @@ function app(tab){
     if(!keepQuery) _lrnQ = '';
     const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
     const forNow = lastK ? _lrnForDaily(lastK) : null;
+    const narrowed = _lmFiltered(), extra = _lmWhen !== 'any' || _lmDur !== 'any' || (_lmTopic !== 'all' && L.STATE_HUBS.indexOf(_lmTopic) < 0);
+    const secs = _lbSections();
+    const hero = !narrowed && forNow;
     _rdShell(`
-          <div class="scr-head read-head" id="lm-learn"><h1 class="read-h1">Learn</h1></div>
+          <div class="scr-head" id="lm-learn"><h1 class="scr-h lw-h1">Learn</h1></div>
+          ${_lbSearchRowHTML()}
           ${_lmActiveHTML()}
           <div id="ll-results" aria-live="polite"></div>
           <div id="ll-browse">
-          ${_lmFiltered() ? _lmListHTML() : `${forNow ? `<section class="rd-learn rd-learn-top">${_lrnCardHTML(forNow)}</section>` : ''}
-          ${_rdLearnSection()}`}
+          ${hero ? `<div class="lb-top">${_lbFeatHTML(forNow)}<section class="lb-topics-side" aria-label="Topics"><h2 class="lb-h2">Topics</h2>${_lbTopicsHTML(false)}</section></div>` : ''}
+          ${secs.length ? secs.join('') : (narrowed ? `<section class="rd-learn lm-list"><p class="ll-res-n">No lessons match these filters.</p><button class="lm-clear" type="button" data-lmx="all">Clear filters</button></section>` : '')}
+          ${narrowed ? '' : _lbSoonHTML()}
+          ${narrowed ? '' : `<section class="lb-topics-end${hero ? ' lb-has-side' : ''}" aria-label="Topics"><h2 class="lb-h2">Topics</h2>${_lbTopicsHTML(true)}</section>`}
           </div>
-          ${_lmSheetHTML()}`, { tab:'learn', search:true, dock:_lmFbtnHTML() });
+          ${_lmSheetHTML()}`, { tab:'learn', wide:true });
     const here = { label:'Learn', go:()=>screenLearn(true) };
     const open = id => { const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, here); };
-    root.querySelectorAll('.rd-learn-top [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
-    root.querySelectorAll('.rd-learnhubs [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
-    root.querySelectorAll('.rd-learnhubs [data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
-    root.querySelectorAll('.rd-learnhubs [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    root.querySelectorAll('.lb-feat[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, forNow.ctx, null, here); });
+    root.querySelectorAll('#ll-browse [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+    root.querySelectorAll('#ll-browse .lb-other-more').forEach(b=>b.onclick=()=>{ const h = [...b.parentElement.querySelectorAll('.rd-more[hidden]')]; h.slice(0, 20).forEach(r=>r.hidden=false); if(h.length <= 20) b.remove(); });
+    root.querySelectorAll('#ll-browse .lb-tmore-t').forEach(b=>b.onclick=()=>{ const o = b.getAttribute('aria-expanded') !== 'true'; _pmSlide(b, document.getElementById(b.getAttribute('aria-controls')), o); });
+    root.querySelectorAll('#ll-browse .lb-card[data-piece]').forEach(b=>b.onclick=()=>open(b.dataset.piece));
+    root.querySelectorAll('#ll-browse .lb-card[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+    root.querySelectorAll('[data-lbm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lbm; _lmOpen = {}; _lmRedraw(true); });
+    root.querySelectorAll('[data-lbk]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lbk; _lmOpen = {}; _lmRedraw(true); });
     _lmWire();
     _lrnSearchWire(open, id=>screenMedia(id, here));
+  }
+  // ---- Learn as a blog, bento (Justin, canon 2026-10-29: "an optimized blog that is easy to scan and filter and search and
+  // choose"; BRAND_DESIGN_SYSTEM §4 "Learn as a blog (bento)"; mockup https://claude.ai/artifact/Q5cuHNsve9nnTcjtKHTGDi).
+  // The search row (a visible field on 1-6, All / Read / Listen / Watch on 7-10, Filter on 11-12), the state pills, "For you
+  // now" on 1-8 with Topics on 9-12, then each state as a bento block. No "Free" labels: only a locked item says
+  // lock + "Self-Regulator". Every card keeps its picture slot so imagery can grow.
+  const _LB_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></svg>';
+  function _lbSearchRowHTML(){
+    const L = window.Learning;
+    const pill = (attr, id, label, on, mk) => `<button class="lb-pill${on ? ' on' : ''}" type="button" data-${attr}="${id}" aria-pressed="${on}">${mk || ''}<span>${escapeHtml(label)}</span></button>`;
+    const hasMed = k => !!(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0));
+    const states = L.STATE_HUBS.filter(k=>L.inGroup(k).length || hasMed(k));
+    return `<div class="lb-search-row">
+        <div class="ll-sfloat open lb-search" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="true" tabindex="-1">${_LB_SEARCH}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-filter">${_lmFbtnHTML()}</div>
+      </div>`;   // no exposed pills (Justin 2026-10-30): Type and Topic live in the Filter menu
+  }
+  // the picture slot: a video's YouTube thumbnail; a podcast episode with a video, that video's thumbnail; otherwise the
+  // state's mark on bone-deep (articles have no data picture yet: the pass 2 file covers media only)
+  function _lbPic(e, isArt, k){
+    const st = (isArt ? e.state : _lmState(e)) || k || 'safety';
+    const yt = isArt ? null : (e.s === 'v' || e.s === 's') ? e.i : (e.s === 'p' && e.y) ? e.y : null;
+    const ph = !yt && _LB_IMG.has(isArt ? e.id : e.i) ? (isArt ? e.id : e.i) : null;   // img1: our own photo when there is no video frame
+    return `<span class="lb-pic" aria-hidden="true">${_rdMk(st)}${yt ? `<img src="https://i.ytimg.com/vi/${encodeURIComponent(yt)}/hqdefault.jpg" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}${ph ? `<img src="img/learn/${ph}-640.jpg" srcset="img/learn/${ph}-640.jpg 640w, img/learn/${ph}-1280.jpg 1280w" sizes="(min-width:1120px) 640px, 100vw" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ''}</span>`;
+  }
+  /* Learn photos (img1, Justin 2026-10-31): the brand's picture style for people and moments (BRAND_IMAGERY_STYLE.md, "real
+     moments"). One photo per piece, keyed by article id or media id; files in img/learn/. The set grows in batches. */
+  const _LB_IMG = new Set(['polyvagal-safety','e1881810-4851-4ec0-b566-3ccc55eca7ce','53d0c75b-a102-427f-98e9-228d7336100c',
+    'play-state','impulses','snb272-hit-it-back','snb249-identify-your-autonomic-state','snb173-happiness-and-safety',
+    'nervous-system-meditation','flight-fight-state','5bead355-7ba9-4465-8199-176c3e80d30e','704ec984-ba46-458c-bc34-bb55747416ec',
+    'functional-freeze','619cd9d7-f384-42dd-b867-d54ed3099e28','dorsal-vagal-shutdown','1711ecce-4752-4dc5-ba04-537f01f8700f',
+    // img3 (2026-10-31): the next 47
+    'safety-state', 'vagal-brake', 'safety-cues-and-anchors', 'recognize-polyvagal-safety',
+    'capacity-for-safety', 'safety-vs-coping', 'snb164-polyvagal-safety-and-how-to-build-it', 'snb132-intimacy-after-childhood-sexual-abuse',
+    'identify-your-polyvagal-state', 'play-1-page-lesson', 'play-for-adults', 'reconnect-after-trauma',
+    'stillness-and-intimacy', 'mindfulness-and-meditation', 'snb245-states-and-productivity', 'snb240-macys-dance',
+    'snb239-frustration-coming-out-of-shutdown', 'spouse-is-stuck-in-shutdown', 'anchor-movement-body-breath', 'snb279-five-self-help-habits',
+    'snb271-shutdown-and-fight-cycle', 'snb265-shame-anger-pendulation', 'snb264-safety-first-trauma-exercises', 'impulses-vs-behavioral-adaptations',
+    'fawn-response', 'freeze-vs-shutdown', 'uncontrollable-shaking-when-crying', 'freeze-state',
+    'what-is-trauma', 'depression-polyvagal-theory', 'shutdown-state', 'f81b9ba3-43b7-4911-86cb-4e2805d5ca0d',
+    'b16e92c8-05bf-46f4-bab5-b9ab0906b916', 'f37c17c8-0c9d-42d9-aa57-586ee8f1e047', '40d61dcf-46ca-4dfb-8823-b79c14ba72d8', 'abe96607-0f0d-45a1-806b-c9c6f4c22fd8',
+    '65817022-163d-41f1-adb9-a4744c683b91', '70edb11a-6f2f-4974-a540-961b9dab4fbe', '6e220cde-0cd2-4073-a6e6-533697649162', '6616a3ee-c041-48fe-a90e-3ef5b9bc052e',
+    'd42a7d55-e0fd-4e1b-a73d-2ebf81d03d77', '6e188082-b736-4796-8a8c-1b3b312a9453', '84f1625e-0d7e-4a38-9ca1-8b1751dbdac2', '045bc24a-34fe-4fc7-9375-44330073d9cf',
+    '16326ebe-70f9-4a81-8895-3a5ef8d9f99e', '14032db0-023c-4fbc-ad69-6e0e6e4301d5', 'bb5e54cd-140a-4b9e-b0fb-4c9381e70751',
+    // img4 (2026-10-31)
+    'anchor-environment', 'sensory-anchors', 'anchor-music', 'anchor-cognitions',
+    'anchor-memories', 'safety-stacking-awe', '20b541da-11ef-4b2e-b911-42b6ceba2bd1', '897ba8cc-5524-456e-a601-28611bf3a60a',
+    'snb236-validating-shutdown', 'snb232-allowing-shutdown', 'snb198-sleep-stress-and-insomnia', 'snb205-intimacy-and-mixed-states',
+    '5-ways-to-improve-your-mindfulness-practice', 'can-you-identify-your-polyvagal-safety-state', 'snb261-boundaries-safety-and-fight', 'snb259-stop-trying-to-change-your-state',
+    'snb246-anxiety-and-the-cause', 'snb243-crying-release-panic-rage', 'snb233-thawing-freeze-gently', 'snb218-courtneys-journey',
+    '2377d012-89db-47e9-9000-f69c454e65a4', '4dc98785-b9ba-4ccf-8a3c-bbe527c5d902', 'snb287-functional-freeze', 'snb280-polyvagal-theory-not-dead',
+    'snb277-meditation-and-freeze', 'snb260-fawn-and-appease', 'snb257-rebuilding-after-a-breakup', 'snb247-shutdown-to-freeze',
+    'db795858-71f4-4b21-8ba7-489f1b55083d', '9b5cfcda-9b2f-4b6f-810a-9330374cdc41', 'appease-fawn-dissociation', 'snb282-partner-in-shutdown',
+    'snb276-rethinking-diagnosis', 'snb273-still-affects-you', 'snb251-validate-and-normalize-yourself', 'snb248-loved-one-in-shutdown',
+    '2eccf9b7-023d-49b9-b2f2-b83060a0b76c', '304947be-cbd6-4de0-90f1-db27215aea45', 'never-done-building-safety', 'recovery-after-practice',
+    'cue-to-anchor', 'snb281-emdr-beyond-eye-movements', 'snb278-capacity-before-the-past', '4801326b-7ad6-4692-8250-bce18a04c526',
+    '81edac31-0b62-4eab-b6f0-16f8e9aa4aa3', '84a45876-f962-476f-a6bb-8c3dbc1faf1e', '97521ddb-b8c3-4eb7-a728-ab4c1fd22aeb',
+    // img5
+    'snb275-steadying-the-waters', '4bd0096d-4e20-4420-a393-e415a5c03348', 'meditation-tips-for-busy-people', 'snb208-coming-out-of-shutdown',
+    '575a67d2-2a8b-4d82-90b5-99c298adf366', 'snb237-validating-maria', 'ccc89e22-8498-4322-b840-63750e99446e', 'snb244-words-for-shutdown',
+    'a6ccd8f0-17c1-4063-884d-3ad71dff654d', 'snb270-ai-therapists', '49403686-85a6-4eea-94d5-7fe92068eab7', 'silence-essential-mindfulness',
+    'snb199-banging-on-the-window-neuroception', '8f5afa9e-7fbd-4feb-8376-9213ef8b4b70', 'snb224-freeze-cognitions-and-release', '103ca792-607c-47bc-91f1-553eafea9748',
+    'snb238-shutdown-support-survey', 'b44ef550-4dbe-4f89-9118-1a32ee797957', 'snb268-pendulation-naturally', '01b40d03-9c3f-4db9-9843-d6f787e8fd2b',
+    'stillness-1-page-lesson', 'snb190-emotional-impacts-of-trauma', '914ba6ee-3bba-4355-8aca-01ef48cdcb31', 'snb222-stage-fright',
+    'snb229-shutdown-in-daily-life', 'e35bbee4-6cf3-4a07-b6a0-f3b3bc7f64cc', 'snb267-drained-after-therapy', '07014ed4-9e07-4dcf-a29c-06f171db0724',
+    'stress-and-insomnia', 'snb189-easy-anxiety-management-skills', 'b8f9845f-10b5-44b3-be91-8f561a24c004', 'snb216-binge-eating-behavioral-adaptation',
+    'snb227-how-long-shutdown-lasts', '345e74c5-e0f4-4869-a906-73e902ef132a', 'snb266-emotions-and-body-state', '079cdadc-aed1-463d-a409-a10eaee33843',
+    'snb183-managing-anxiety-daily', '05d3e9b7-0153-4889-9fa8-f7368de4d744', 'snb204-fawn-appeasement-mixed-states-or-adaptations', 'snb226-real-shutdown-experiences',
+    '2349a3c4-cadb-4775-8481-b1cbb204e7b1', 'snb263-let-your-body-breathe', 'a55f97e1-cdd9-4a54-a0ec-4da46b7ce4a6', 'snb178-desperate-decision',
+    'f9c6c1f6-0875-428f-ba52-0861835aaf31', 'snb192-panic-coping-vs-safety-grounding', 'snb220-sadness-and-self-compassion',
+    // img-auto-20261101-0004
+    'snb262-three-ways-through-overwhelm', 'cd509f7e-edfa-4c07-8c73-3a5b62c3fa69', 'snb172-relieving-a-stuck-fight-state', '9d65f9a9-10c1-44b0-b3ed-330855d72c52',
+    'snb179-reduce-fear-during-trauma-work', 'snb209-still-stuck-in-shutdown', '3c3893ba-8c20-487e-99b9-0bfd87086c28', 'snb252-noticing-neuroception',
+    '048bd3bb-f0f1-4c7c-971f-9aba34d0733e', 'snb169-freeze-release-crying-and-self-harm', 'f359ea5e-a72c-4d34-83b5-870ff3a7ac56', 'snb175-wrong-about-trauma-recovery',
+    'snb203-fawn-comply-to-survive', '1a68b06f-95b2-4738-908c-1e23b727add8', 'snb250-passive-safety-cues', '54e2b09f-3e1b-4ccb-9d9e-45f8928098e5',
+    'snb166-dealing-with-anger', 'f6f6b73e-273b-453a-8d61-388968c63ce1', 'snb168-impulses-and-trauma-releasing', 'snb202-appeasement-connect-to-survive',
+    '063cba34-3727-492c-8fa7-18cf0c5a4bd1', 'snb242-four-wellness-pathways', '6f721a2d-54df-4c2d-9e1f-a280d497e039', 'snb159-coming-out-of-flight-fight',
+    '2edce760-9232-40b5-bd45-9c28898d95c2', 'snb167-grief-and-polyvagal-theory', 'snb193-understanding-dorsal-vagal-shutdown', 'd7ed7a24-6414-41a8-90ef-9b63c6c83c18',
+    'snb241-beneath-your-emotions', 'bf7a944f-fc1f-496f-a0c0-37829739d51b', 'snb138-thinking-not-feeling', 'b409e6ea-fa25-4bf5-9073-1479876e77b7',
+    'snb162-possible-to-come-out-of-shutdown', 'snb170-resistance-to-ladder-climbing', '259593fc-f73f-4316-9765-f18d8d86b4d6', 'snb234-safety-when-always-in-defense',
+    'd71ab332-15e6-40cd-b2fb-8bed9d0948a2', 'snb136-high-stress-jobs-vagal-brake', 'db62f9db-c97e-4848-9127-7ceef5fc06f6', 'snb156-trauma-and-polyvagal-theory',
+    'snb160-gently-allowing-emotion-and-sensation', 'e5d9ff99-5ec7-4bd0-96dd-c47790f3ffb4', 'snb231-can-anyone-self-regulate', 'dc5df942-b441-43e5-8a2b-c7c64860c790',
+    'snb130-parenting-without-models', '7a6b8aef-cd28-4ada-bd7c-0e3244d5c62c', '3-tips-to-reduce-fear-of-your-trauma',
+    // img-auto-20261101-0100
+    'snb228-safety-as-connection', 'faf585e8-a993-47fe-a4d5-a01664efc1d4', 'snb126-co-regulate-with-someone-who-hurt-you', '914b2000-c32f-424a-a117-635490254458',
+    'camouflage', 'snb155-fawning-and-distress-tolerance', 'ed607c38-ce99-4f18-9928-16936f87ed11', 'snb223-slowly-stop-negative-coping',
+    '8991c176-726e-4503-9bb1-5496638cf4e2', '5-practical-tips-for-managing-anxiety-in-your-daily-life', '58d31e15-47e4-4a2e-8372-e7f6eed00d77', 'freeze-1-page-lesson',
+    'snb140-tried-everything-still-numb', '2035d8f3-46b8-4e8a-a036-f664b6110394', 'snb221-safety-cues-and-loved-ones', '60367396-5817-43f2-843d-93a326cd43a3',
+    'adhd-and-polyvagaltheory', '45ac4314-f828-49a9-a3fb-95ca4c1d5f4d', 'freeze-state-recovery-story', '5-things-humans-do-to-stay-stuck',
+    'dc2c2a8c-edbe-4a03-86a2-b2e4751db8c3', 'snb219-safety-when-you-struggle-to-feel-it', '6af9c263-1b64-4e54-b0db-0483b7171f8d', 'anger-irritation-symptoms-of-the-fight-state',
+    '8cd286f9-b269-49f2-976b-7ef76eac781c', 'freezeenergytimeline', 'appeasement-polyvagal-theory', 'a935d7ec-2038-45a1-abf1-930539590579',
+    'snb217-growth-mindset', '10eb4c92-0e84-4290-b30a-a9d2cb72fbe1', 'anger', '1f6770cc-779b-4bb7-8672-8f1de5b2071c',
+    'i-m-shocked-this-polyvagal-concept-is-still-mistaught', 'expressing-love-to-a-child-in-shut-down', 'snb216-crying-in-trauma-recovery', '893b9047-0307-4159-a98c-c9fb4f291cc3',
+    // img-mj-20261101-0715
+    'snb215-deb-dana-contributions', 'c292f2da-171f-434a-b0c7-d7278e9d3e3d', 'anxiety-management-skills', 'ebdc71ec-7100-493a-a8fd-bf787f42b86d',
+    'master-panic-attacks', 'flight-fight-posture-submit', 'snb214-repair-or-move-on', '0aa323b4-b656-4e37-abb6-d9bbf6b897ab',
+    'dealing-with-anger', '90729f92-756a-4ce3-94a8-2420c31a11bb', 'personal-boundaries', 'is-it-possible-to-come-out-of-polyvagal-shutdown',
+    'snb213-co-regulation-in-trauma-recovery', '1c2f1969-72de-4f96-9fcc-08838337df67', 'doityourself', '52ecec10-5cbc-43ee-9ad2-df52f61968fa',
+    'polyvagal-freeze-vs-shutdown-video-quiz', 'numb-after-trauma', 'snb212-panic-at-the-same-time', '6c62c9ed-4b49-40fc-9b1e-96542fa0553a',
+    // img-mj-20261101-0715b
+    'snb174-after-learning-polyvagal-theory', 'snb163-polyvagal-theory-for-total-beginners', 'snb101-polyvagal-101-foundations', '7aa32723-cd71-42fa-8605-b9a6bd1027f9',
+    '2fb520f8-5cd8-4380-84b7-cd4f097be5cc', '3f097583-a197-40a2-83e9-499807d9f856', 'snb211-safety-state-spectrum', 'snb197-three-stages-of-trauma-healing',
+    'how-to-start-getting-unstuck', 'snb180-the-state-behind-your-thoughts', 'dysregulation-can-come-with-polyvagal-safety', 'b494bb1b-4d5f-4315-b34b-8e5345560afb',
+    'stuck-in-survival-mode', 'snb171-relax-or-release', 'yes-unstucking-can-be-scary', 'snb191-trusting-your-power-to-self-regulate',
+    'd0580378-ef04-4c1d-972d-bf2af1eee1bf', 'snb133-behavior-not-toxicity', 'snb196-personal-growth-no-permission-needed', 'snb206-magic-pill-and-the-journey',
+    'the-difference-between-coping-and-anchoring-for-trauma-recovery', 'flight-fight-1-page-lesson', '2aa95d50-e9f2-45f4-9ca3-0d1fc902a7ab', 'snb177-new-narrative-for-shame-and-blame',
+    'heavymetalmusic', 'unsticking-through-creativity', 'ca093953-a162-432e-82ca-de13f442d9c7', '3c7549f0-a616-4801-864e-3c6b13e4c145',
+    'snb135-safety-cue-dependency', 'passive-safety-cues', 'shutdown-1-page-lesson', 'snb200-time-the-uncomfortable-truth',
+    'b7544b00-cbe4-4b44-b7a3-c918658b021c', '57b3f72a-6100-4941-a8eb-929303eeb404', '436c641f-6c9b-48f4-90e5-53e62c335e14', 'e6b4f243-5280-453b-9a1b-a55e05d05bc6',
+    'd46b4636-b18f-4467-8fdd-680becc7247d', 'parental_self-control', 'building-safety-in-trauma-recovery', 'trauma-recovery-without-prescribed-exercises-a-polyvagal-approach-to-healing',
+    '96cdcb6a-704d-4599-96e0-f49de316ff73', 'snb131-isolation-keeps-you-stuck', 'snb130-your-stories-keep-you-stuck', 'snb188-meditation-for-busy-people',
+    '6ff89647-e249-46ba-a9ea-04b7c03cf4ae', 'why-the-polyvagal-safety-state-is-so-important', 'safety-and-social-engagement-1-page-lesson',
+    // img-mj-20261101-0807
+    'snb207-polyvagal-algorithm', '38b98cdc-cb9f-43ee-a267-ceae00b6e711', 'fidgets', 'snb206-vagal-efficiency-and-the-vagal-brake',
+    'f143180b-64ab-48e6-8770-4085836a0dc3', 'i-was-desperate-agreed-to-spend-9k', 'snb199-silence-and-mindfulness', '87828c4f-2846-4c78-8c6e-111018aa0695',
+    'my-self-regulation-through-anchoring-example', 'snb197-feeling-stuck-touching-defense-lightly', '5d821b90-6e1d-4855-8851-874a979b8031', 'tendandbefriend',
+    'snb194-polyvagal-therapist', '70ab78ef-efdf-40e7-ab46-8e1e3b1ce32a', 'snb187-feel-your-feelings', '1699b511-07a3-462a-96a7-8b7b025e77e5',
+    'snb186-permission-to-feel', 'e3606723-b143-432e-8677-ce53dda6815e', 'snb184-what-validation-is', '5b7226c6-87fe-497e-bac7-9bc2de31cea5',
+    'anchored-awareness-witnessing-experiencing', 'received-self-regulation', 'snb145-calm-shame-time-outs', 'unstucking-methods',
+    'somatic-self-regulation', 'balancing-and-pendulating', 'snb142-pulled-in-different-directions', 'why-humans-stay-stuck',
+    'starting-and-stopping', 'holding-and-watching', 'snb165-self-regulating-through-triggering-events', 'polyvagal-resistance',
+    'making-change', 'build-a-new-narrative', '8457db72-b0e8-4225-ac25-0ea6e56443ae', 'snb198-friendship-boundaries-rings-of-friendship',
+    'validating-and-normalizing', 'snb274-sockless-mindfulness', 'snb152-its-just-you-4-you-are-enough', 'snb149-its-just-you-1-no-ego-no-shadow-no-parts',
+    '3-signs-it-s-time-to-stop-trauma-work', 'second-nature-and-alignment', 'snb185-emotional-normalization', 'regulation',
+    // img-mj-20261101-0857
+    'snb182-affirmations-and-story-follows-state', 'eef21c62-9adf-4594-b89e-61b9be969fa0', 'snb176-safety-versus-coping', 'bd1a8a39-6978-4f96-b3b0-82901a8fca1e',
+    'snb161-pendulation-grief-imagination', 'snb158-current-therapist-not-as-good', 'snb154-ssiec-state-sensation-impulse-emotion-cognition', 'snb150-its-just-you-2-supportive-responses',
+    'snb148-active-passive-cues-and-context', 'snb147-safety-cues-and-swiss-design', 'snb144-compromised-vagal-brake', 'snb137-doubt-is-normal-in-change',
+    'snb134-why-therapy-ignored-the-body', 'snb127-defensive-state-or-autism', 'allow-emotional-regulation', 'breathwork-for-self-regulation',
+    'feel-your-feelings-2', 'what-to-do-after-learning-the-polyvagal-theory', 'what-you-re-getting-wrong-in-trauma-recovery', 'why-traumatized-people-have-difficulty-with-safety',
+    'treat-yourself-like-a-new-friend-ep74', 'trauma-recovery-trust', 'don-t-wait-for-this-before-self-regulating', 'onestepbetterparenting',
+    'be-patient-getting-untuck-takes-time', 'therapy-retraumatization', 'ssiec', 'validation',
+    'pets-co-regulation', 'imagery-and-invitation', 'spidey-sense', 'trauma-recovery-the-normal-non-linear-process-of-change',
+    'the-mind-body-connection-and-trauma', '5-things-humans-do-to-keep-each-other-stuck', 'feel-your-feelings', 'stages-of-trauma-healing',
+    'description', 'learning-is-just-the-first-step-ep72-1-notes', 'things-can-literally-get-better', 'how-to-reduce-your-shame-blame-judgment',
+    // img-mj-20261101-0956
+    'why-your-vagal-brake-strength-is-important', 'self-help-habits-that-keep-you-stuck', 'autonomic-nervous-system', 'neuroception-and-stories',
+    'stuck-not-broken', 'obstacles', 'snb283-polyvagal-bandwagon', 'snb151-its-just-you-3-rebuttals',
+    'snb143-addicted-to-one-thing-vs-another', 'snb141-acting-out-vs-acting-in', '17-nervous-system-regulation-tips', '5-tips-for-journaling',
+    'autonomic-responses-vs-behavioral-adaptations', 'autonomic-state-1-page-lesson', 'can-stories-be-true', 'didtheirbest',
+    'disgust', 'emotional-regulation-wrong', 'growth-mindset-problem', 'holiday-reframe',
+    'how-to-know-if-you-are-ready-for-direct-trauma-work', 'im-a-therapist-and-i-was-wrong-about-trauma-recovery', 'impact-of-trauma', 'move-past-learning',
+    'my-parent-is-stuck-in-a-defensive-state', 'neuroception-1-page-lesson', 'normalization', 'personal-growth',
+    'polyvagal-theory-for-total-beginners', 'shakes-trembling-and-crying', 'story-follows-state-1-page-lesson', 'stucknotbroken',
+    'the-autonomic-nervous-system-1-page-lesson', 'the-polyvagal-ladder', 'the-polyvagal-theory-1-page-lesson', 'the-polyvagal-theory-understanding-the-3-neural-circuits-that-shape-our-behavior',
+    'trauma-emotional-development', 'traumapvt1', 'traumatized-without-a-traumatizing-event', 'unstuck-understanding-trauma-the-autonomic-nervous-system',
+    'what-everyone-gets-wrong-about-the-polyvagal-theory', 'what-normalization-is', 'what-validation-is', 'when-therapy-clients-say-i-m-good',
+    '8f3274a0-3e9f-477a-96c6-6a75713fc4a2', 'f3663a11-da76-4707-9f7f-9c55877bc07a', 'aa935229-bcb6-4c86-9be1-4fee424b9d8c', 'c00e9ad3-484e-4055-8b51-2659787eccd7',
+    'd0408146-a8f9-44fe-bea0-3d3451857e3c', '54d1f6b8-10c8-44ca-8efa-6443857a730d', 'fe0c10e0-5a5c-46b9-99e7-5c88c5ea1236', '27c698f2-f592-4420-9ea0-eff77dcfb2f0',
+    'c936ef88-1567-40e6-a172-ded35af21d35', 'd76ad6f2-2e88-499e-a93f-8943f75ca95a', '475806e6-cd0f-48fe-9ae4-7ba91d76760a', 'b74088fe-4601-4a89-986b-d241305a5d0d',
+    'ca24de6a-8954-42e0-90db-8d0ad965e6c2', 'a7166a68-02c8-4962-a75a-9c3ee6b7aa7a', '2f3e4bfb-1174-4628-9b64-7cdeda2c8062', '2038f388-f83c-48dc-a48e-b6f4042331df',
+    'ed1fda09-361f-44ef-93c7-65652f5df722', '2064953d-042b-496d-b2b4-0a9929cf6c5e', '30701b98-2658-4fbb-be83-75629f390685', '461d90c8-645c-4b52-aff4-a4bc591709cd',
+    '3eb3dc7b-03ff-4bce-884f-a9864ce22427',
+    // img-mj-20261101-1158
+    'e9b1bdbb-94c8-4f5a-80ca-75ed67def5ce', '32389e6c-d0ef-4aa0-a50c-6748bb463bd0', '368978f3-48dc-4267-a919-f849c19cc463', '2724b70e-e128-4f4c-ab55-c4b20a242042',
+    '95033095-71a4-4fe4-a464-399a40c9a8f8', '068c4b86-650c-42d6-88d3-7e0081ba8b9b', '1bc2a049-63ba-4eab-88f3-df4debd8f0a2', '8a960501-d556-44fe-a930-e96a6c2bf785',
+    'a72b9f20-7591-4fd9-b8aa-cbd8269a2228', '54081ec5-5c1e-406c-9159-d3ec355798c7', 'cc209e15-1ffd-4639-8cc5-56a3fb6925b8', '7b590174-1a71-4a64-8836-80e832161703',
+    'c4cb4b7e-fd42-4e58-b191-547e7f54067e', 'bbfdb34b-f0a9-4264-ab40-8479732d6e5d', '16966d5e-2ecc-4d3d-aa0e-587ca125e252', 'dfe5a513-fa47-4d0b-9d67-e5e57eb3315e',
+    '04979c94-6f42-453d-9e59-0ccae22ffde0', '5a884756-cd20-4b4a-b785-227b915a0bb2', 'c7f41cff-6a84-48a2-9f06-84973ff8a20c', '62c4945a-1fb2-41f1-a9b1-00d2a73df40f',
+    '5aef98aa-2f40-4933-8bc3-b04a24245e7e', '76b431bf-6bbd-4c7b-a936-76ea0d78ee3d', 'ea593799-c1ab-4fdb-ba6e-5e655b35d3cc', '125d7b88-4eb9-4223-b148-97dccca67bd2',
+    '60b22fe9-548d-4c1e-85e5-8dabe9af1641', '495389e6-27f5-40c9-bfa0-3612fa3b22d2', '183d8e67-22cb-4a35-8ebd-1dac8e8db656', '45a50f14-0a12-4ea7-8b0a-2a7d034b40ff',
+    '582a6146-da4e-4c71-b627-e1c5c20b1033', 'f96caada-6b2c-4ae5-926e-5ea45f4eb50f', '3802c0d5-ad6b-41d5-ab0f-d73f32121fc3', '42e11bdf-40b7-48ba-abde-b3071d5f0b59',
+    '7c6693e8-5a58-495e-9b35-778b15e3a3dd', '6a83a35d-33b9-475b-a310-05bd5dde59ba', '5d4885d6-834b-455d-ad85-1f1cb2d61cc4', '9b02a56d-83f5-478c-89b2-9dfde6fa325c',
+    'e688a401-23ae-4233-9cfe-e56fc9753704', '888c562f-5e6b-47e5-8ab3-2cfcf5b46586', '0e3fa093-bd65-4a98-b7a6-e24b38bdf57c', '2cbdbe65-f084-4438-9d21-a7ecc05cd35a',
+    '3657dd0a-02a3-470d-9d0e-9a04e4a64ce0', '3fdee620-bc2b-4bb0-b918-93c59a268501', 'ff7083c5-1def-4387-9e37-0f609612ca83', '3369f83c-dc80-494b-961c-31d226fcd087',
+    '4e77ec75-630f-41c1-9cce-aea44efa931f', '325df84d-082a-433f-aa97-2845fccd997e', '918a7aaf-3da9-4ef6-bbe5-0558f9003bee', '40760bfd-1c4b-4592-b00e-34abde443581',
+    '564ea68f-40f6-42f2-8668-7c909ce31103', '53181e74-7c8e-49a4-af15-db7bf61a0cb9', '9b2705b7-67d6-4bd8-890d-8e438a71e440', '3489cbf7-6b8d-49a0-9a79-3990c73ea158',
+    '32841700-6886-4c7b-8a5c-f70374a6a040', '1d8e9262-f75e-461e-a0ca-5ad6d3e14226',
+    // img-mj-20261101-1256
+    'f0bfcbd0-43e4-4ae2-97bb-ba5993c1187e', '5bba1ea1-19dc-40d2-afaa-0a0e9a73bc73', '94298322-82a5-4f7e-a654-08f15f471e2f', '410c34a2-4961-485e-b997-e002f1bd57d1',
+    '8f2c96a1-9c00-436a-8bf1-5c40f970edbf', '918e439c-0061-450b-afab-47ab422fc20f', 'd02492c0-0f31-4b5a-8618-ee63f6abd870', 'fd348e48-c2f5-440a-8043-480df039e987',
+    'a016cadd-0485-49e8-98bf-47e9f414d8f1', '4d61d638-bb4d-4820-bcd0-7b79607d057b', '04c6dcce-abfb-4e81-b8a2-d3521d6b48ea', 'fb20c60f-3490-4b04-890c-dc490c1b8755',
+    'e8844bf4-5bf2-48ab-b975-c0793db27a62', '15383b2d-aa4a-4c8f-b868-de3ed7b8df9f', 'ac040a44-299f-4a2b-b40a-a848284ef8f5', '8edb7cce-206e-4e89-abf3-6ae51a2f2c81',
+    '2f3d0493-517d-4d67-87d2-46501491da03', 'cea03d0e-2efd-48a7-9480-162f35aa589e', '0594c40a-1d08-429e-89b3-d22cdf2752de', '07f94b33-87cc-4973-ae62-27d4b03db0b3',
+    '631d6fc6-ab9a-4818-a80c-67612e0b8234', 'ee8083ec-621f-4513-ab37-cb4a5a7d92e5', 'db98b6ef-4728-41ec-acef-2b8a0af15e60', 'ce4fc41e-5d53-408f-9c23-694cd16caa00',
+    '8d45bf52-190c-42c5-8776-ad15b09bdea7', '41cfec5c-cb81-4fdd-916d-29b590fb13e5', '56c6b0f9-2270-4022-a2ea-a1ea233b0498', '7c799b41-0f7c-448d-8946-f340f3df36db',
+    'eaafb43c-3193-48a8-a655-640a9bbc349c', '951585f1-4161-4722-8cd5-2ff74cdb45c3', 'e157c834-74a1-454a-a9ee-cd86d3e2d87b', '748311d2-2a25-4972-9c0f-7ab7ec89988e',
+    'bcf79011-9e41-48fc-b942-b54642711fe6', '6f51a593-13f7-41b3-a802-c53aac4232bf', 'a45dd758-fdbe-442a-8cb7-7ad7b8ebe31a', 'fb8f0544-d881-4b3e-8c69-85009114162d',
+    // img-mj-20261101-1357
+    '1664ea2a-6aef-432e-85a7-399b99c1ee7d', '2bb93988-e3f0-4ed3-8035-4e96a6fd6ff5', '33fe96de-e873-45ce-aea6-e8324b57f181', '3a3a726b-ecf6-42f2-800d-c864a588e436',
+    '505f82fb-d3ea-447a-bc5b-55693e17f54b', '550bd79e-84d0-4230-9dbe-a09722f500f7', '60ed477d-8b5f-467b-b0b3-5c917364c59a', '6fddf0d3-f03c-4a4e-81b7-da14779bb8fb',
+    '7efcc430-e3c0-4935-bd7c-09593a4465c8', '89530229-32e9-42da-88e7-f7a6615781ce', '89e2e733-c219-4b6e-b5b3-909a03d101f3', '8b2005f5-2668-4334-be0c-10e57816267e',
+    '90a07f06-cba7-42c5-8229-37564da4f690', '9931a8cc-f9fc-4864-9581-f63794006e33', '99bba849-70a3-4df4-a347-1ca9a2f4df7b', '9b779adc-e7bd-4b57-a339-8e8750d48f60',
+    '9b94067a-df98-4e1e-8925-db77d831f1fb', '9db20a7c-0dbe-43e6-bc5d-ec43a6d9348c', 'a99195a8-9d23-4c87-bd40-5d364a2c5979', 'b9a47422-aa58-490e-a7b9-a3f335c519c5',
+    '08813e98-ba07-4cfc-9410-498081661512', 'b7833507-b689-4e62-bc44-0af3fb9529fa', '4bc52b92-7cee-4413-9f09-bc8be7a3d700', '856a4744-9752-4dec-ac9d-571edf41417b',
+    '83f177a9-8ccf-4301-9bf6-5e718b20be3a', 'f51df973-0abf-4892-a4ef-f95048e804a9', 'fb61bfe8-f367-4c87-a79b-956169e3eddf', 'e19fbcd2-9917-4c18-bb92-64a6a4e00756',
+    'fe6e310a-0932-4865-b75e-a3ca19c9e6d4', 'c7790d42-0f85-43e2-b84b-40f15f3dbed2', '4c2fea3c-6a17-4dda-9334-21c9e9b82e1f', 'e3112374-4772-4a14-8285-6f568a7443b6',
+    'fec81cd5-8c9d-427e-b47d-35b0853790d9', '186bcaac-e0b9-4fc4-9f0b-40dff9b9c339', '11c2e2e8-b904-408f-8e8f-ecc5d4df748f', '371d48cb-47c1-4c48-8bd0-eac15774068c',
+    'd265488a-f20a-4533-8d62-869217646df0', 'f0f25677-58b9-41c4-851e-8e230afe95dc', '531586e8-3c6f-4587-8225-61badbc4fc3c',
+    // img-mj-20261101-1457
+    'd203107a-1d99-4fb6-8396-afaa97356af8', 'd2088572-1de0-4196-9fc0-1776f36f713f', 'd8db0597-f858-4f3a-9b13-76e36e6e7fc3', 'e5554427-baa6-4f4e-8317-9e41a7445f1c',
+    'e6d7fff3-3609-431c-bef5-a443e8bedb05', 'ea6239a0-3ec4-4325-baf5-c66d1437a0e7', 'f2b35043-9db9-44a6-a6ec-ac97f5258a7f', '27112dd8-92be-4cfe-9839-1879096177ab',
+    '284fa498-46bc-4419-a9ae-e8d5bf35694e', '34fa6726-5be9-4e41-9303-2f52a91973bf', '45f69d5a-3e10-403d-9582-d7cc603f6fc7', '5f738aa2-cbb5-415a-a006-f8083926bd6b',
+    'bb799d75-3c03-48da-bb5d-89850b1fd0a4', 'eaea54df-e334-4ab0-958b-6736b8e60f35', 'f5e4d824-9671-4e94-8031-d95cfc10a865', 'faf54cd9-7c1d-4a1f-bdc6-e388dfdd55c5',
+    '843348bd-1537-4647-a326-c7e599d37fb6', '675d2b78-65b6-41a7-b2b3-71b1f426b09d', 'a9422dea-3e80-4ab7-811d-d8a42210d149', 'af0095a6-f4c7-40fd-b170-d0d63bedc6a3',
+    '7d96133a-8094-4c87-8e4b-8d78fd0666c0', 'da1aec97-ec5b-439b-8e75-76fd1b07778c', 'f2a62cae-3d24-4213-abf4-244f9649ebfb', 'c0f687b4-c0ef-42a1-a927-7f94b11d1375',
+    '421bdfdf-9f2b-42fa-acb5-97330bb22f05', '868e86c5-a82b-4d6f-8891-f52fac1cfba3', 'e41a2fac-20fd-4da8-8fca-eeec05f6154d', '5f2e8a3c-ac72-47e3-abc3-9f3f5633efed',
+    '963434f2-e114-4076-9e43-4529cca14f77', 'a85a5e52-d355-4174-846e-e852ad54d1c5', '90e2de5f-7e22-4bf0-b40d-3becdddb2c9c', 'e236489d-c1ed-4009-b89c-31cd2dd8a236',
+    '55bcc014-075a-4a8e-8856-1a1c8cb6dbe2', '46dc342b-f5f5-4a55-9a54-ee39aa4d2e64', '560bd6d8-5a06-405c-9537-f402229d90eb', '3929782c-d397-446b-9293-f2ee5384f6cc',
+    '84e04a3b-1cb6-417c-9360-0301e42ae262', 'c9315b4b-6b60-4fb6-85a5-7d1f3ac601df', 'b8f4f60d-a3b2-4f86-b0e5-4c7c1e4f81d1', '883b85d9-e4d2-4af3-9a2e-d4c61d2b5b8e',
+    'cc58646a-e3bf-4b94-9289-4859f45baf4e', '654ae53c-19fb-4f82-a27b-12acbb43effd', '0985ccbb-2c36-4347-ab56-3c58823a59ad', '8e8b4a4c-cdaa-46c6-a263-b285e7fe7b2f',
+    'f40b17ec-57ec-45a0-9aaa-02b6030cf5b6', '282fa7f2-f808-4993-b192-4cdc17d5db7a', 'a26f08b7-2601-4193-b6e1-4353e55d96ec', 'adc67a0e-a771-4f4e-a0ff-60b2e2e3d618',
+    'd3560fc7-f602-4fdf-95b4-27d751967587', '38ffec67-a81f-499a-a538-095c67a7d3ad', '5d686647-85bb-4f9c-bde5-ec67f7d2f687', 'c9e2fce3-5e85-4313-b22d-c45b2deae7da',
+    // img-mj-20261101-1557
+    '5535699b-6720-4b40-872f-2975d37ce3b0', 'fea17fb8-b5a1-4530-9081-b30636126264', '27cd884d-05e6-427e-9599-96b2c7706397', 'b50bf1a4-6d81-4fe4-a8e8-2e64ac2c4e85',
+    'fa1f7372-157e-433c-b144-6f4b4a6d950c', '391d6985-2a76-407d-86a3-06ad92d7fea9', '40bb5e03-c9d2-4b78-9315-eda2a44f771e', '4150ab09-96b1-4e2f-9f6b-986f6b8044c1',
+    '43b7827b-2dc1-44b8-a24f-af8edfc6d811', '74edfc3c-03f8-4c93-a8ca-7243fc7bd0d3', '75c6d2f1-60a5-41a4-b44f-d42195e36be3', '839c9f50-7450-47b6-a3dd-b8d4bf568fca',
+    '8ad390c1-a874-41f8-88a3-f8d5486d7d39', '8b413cc0-4f4c-478b-a1ff-d4bac917e2f0', 'c5d1cd22-e58e-483f-b60d-855f85725ea9', 'cf4867aa-f8a0-4677-9b4f-369b710e70d9',
+    'd59308dd-66de-4052-b240-f883934f064b', 'f179f078-346d-4ba8-9629-32b0fc68913d', 'ea742e80-421c-4101-9681-1f3eb946142b', 'f3ffefeb-20af-4df4-8123-fdd7fb58d1e7',
+    'ff73d47a-838a-4dc1-8608-59a06126f2ae', '3c146f87-0185-413f-bdd9-b29a5914910c', '6a1a0b28-8297-441b-bb98-4f37d98d1a33', 'e3c4a2d6-06f6-4893-8ff1-2cd3e3f55df3',
+    'd3899a24-941f-46af-8ba4-41d29f8bec1d', '4e9c5199-4e02-4c5a-aa02-78ed3f21171d', '1df25f15-9f33-4969-acf5-85f0d23bbfba', '2188158b-385c-4c69-9eb2-bc6868874b2f',
+    '2c4d1995-83c8-4634-bf6e-98461774d305', '17c5703c-d832-4310-bcf3-28d225b3034e', 'b01fb01a-d4d0-4e03-996c-0636daa263d8', 'bfeab9be-b404-4de9-873f-4b6dfd0afd12',
+    '8941ad62-97a9-40bf-8396-76c4cb4b5236', 'd3d8c43a-43e6-4593-9192-3e3f666854b6', 'fd0abf20-e09c-48b4-9e17-8d5fdd29f4c6', '5422c349-bb63-4b57-ba70-aef0937c8e4b',
+    '5bf2443c-92c6-41a5-a6ea-cf7fcf435ebe', '511499c3-aefb-42d5-ae6e-b5f4e47f15b8', '2e92b10a-cc3f-4077-ae35-46e3a1f2b04d', 'e1168be8-e9d5-434c-bf98-3ed2eb2feb04',
+    '0a479e26-46ac-4b9a-adbb-9d65a4c0ee3e', 'ec0b597d-7570-4b9f-957e-1f27df91c4a3', '1ca7e080-882b-4eaf-b534-585254b6e49f', '4525b924-0b4d-4e54-b1be-294e7da81369',
+    'cdbfabc2-7678-4946-8e68-ced545bb92c6', '71587a62-bd66-4111-9d25-a9819220071c', '045af81a-c657-42c6-8b04-bf87a3ed56fb', '0b7b426a-aac0-42c7-83e5-a9cc068f4351',
+    '7f04a5c5-0ec3-4d6e-8f07-0b85028eb87a', 'f91fc1fe-9705-4248-8e29-f7eeba264f9a', '775e97c0-6fe8-452a-9888-d17fa7c5d730',
+    // img-mj-20261101-1658
+    '811e9e5e-e6e7-414c-ab91-7b97f216afc9', 'b599ae77-87a2-4b56-b0f7-a2e165c2b6f5', '3faddc45-5a87-47d4-b44c-665d7a40e32f', '921aadb1-9f02-49a4-ba79-29b8abd658af',
+    '79bc0afb-c8be-4d1c-b38c-cc304f8359c1', '386f1f80-3c27-4c00-895e-36bb189eae1f', '86f0457b-4f37-4c8d-8277-c91891c373c1', '6d6eb63b-3451-40fc-b8dc-eaf7f2a646ec',
+    '3c83dd01-688b-4c34-ac1f-2e9cdc908649', 'eaf15ed1-4269-4261-b795-e3ccacd91e69', '39dcc981-b6f6-470b-aa41-fe2726868147', '6ffbdbf4-7980-4c69-a805-3455c6191523',
+    'd35bba6c-6109-47f6-adc6-f2bdde3e6a7b', 'b415ab79-0899-43cd-8e8f-e0b951094bbf', '3bbc3b4e-8364-4c5f-b746-c5aab24c9955', 'cca4c62d-8623-4675-99a4-6b343159e505',
+    '5604e123-0e60-4ca1-a455-0b65708c67fd', 'b64356e1-4d0d-4ece-8269-2daf33968747', '073bd7ad-2e1b-4cfd-b899-89164071cef8', 'ae90a952-836b-486c-872f-5d4c6cc886d3',
+    'dd3ea631-f0ae-4854-a7aa-ffbef9e101fb', '0afc0ea0-e11e-4da5-834d-21f31b98d4e4', 'ebe5bd4a-9e65-42c4-9ad8-dbfd011bb770', '493da16f-2662-4f7c-af2d-2d9e413e8cbc',
+    'ba62b68a-d45e-4603-9427-0f99a6a10926', 'c7fdc7cd-d129-4ce9-8ec2-404eb509ca49', '65d2dbb2-710d-4684-8db3-e3f3e6ccb415', '24f0446b-de9a-4726-b392-e8a7246bb711',
+    'dbfbcd07-5abf-4a8f-8bec-01f017c109f4', '3fba42ed-f411-4853-a8ad-561618b9d0e0', 'f63b1e0c-349d-460f-a964-2ba64c0a0df1', '4d39f943-3b5f-4fb2-bc1e-5ce56934e208',
+    '8b312ad6-aa6a-4cc7-9fe3-518d194c14b3', '7590babc-5c78-44b2-a055-fd309a70a975', 'c7e8e3fa-a89d-43db-ad8c-9ba965facbe2', '80840f1f-3c7b-43f4-b67c-05084bdfa59f',
+    '1ae41d5c-2f2e-44c6-a0bb-def630f4b646', 'b68aae6d-0d28-41ad-84c0-e6e349ce7286', '94decb02-d1cd-4d7b-a8aa-e1f93f57d98e', '6efc6cd5-67ba-49d2-9f99-0117794af83f',
+    'c21c5858-1bd1-4cd5-8d00-0f1b2e781b93', '4609eb66-03da-4864-b182-00dcc47ba7f2', 'bd42961c-21c2-413c-a546-93ff35494609', 'fb318e3e-57c6-433b-9896-828dcd4337a5',
+    '856ddb36-5f91-4b27-98b8-79fa51e8ef76', '89b6e3bb-2966-4bab-9841-9d1c40a346a4', '94b6ef17-5871-45fe-8654-f31bfa8fd161', 'af8b60f4-dfa8-474c-a250-f7b1fa4ac935',
+    'de9688b3-cf12-4e6d-b9df-7ffae6edf11f', '9f48a202-2bf3-4398-a281-68d1a5a962c3', '43d06b61-2e5a-45a7-b593-8cacb0ff000d', '5a907239-521b-46bb-9fd4-bb3103a337c0',
+    '78b8dd98-583d-4a63-81f1-f5be43883adf', '3bd45e02-81e7-47be-aece-3d379c7030a3', 'af410a03-f97a-4e0c-9f78-eb089af6f0ae', '48fcfcc3-4693-47c0-8166-455d4ea2c460',
+    '138d422d-3c98-479f-bbb5-13369d743987', '7f541bfb-b80e-4291-9b89-1811fc4fd01a', 'f955cfa8-7001-4a7d-947d-e01ed1853ccb', '4f030f27-b00f-4203-bd65-4226ae9c0ab7',
+    // img-mj-20261101-1757
+    'af148cbd-5959-4bb3-a390-503579148efd', 'ba564956-6761-4a8c-ad92-242f2afab272', '405b8ed8-b1ab-4de5-b07e-7c8bd6533a9b', 'dad523f4-5c1b-4515-ba33-dcf8d0b363e5',
+    '89cfb8fc-f3cf-4ba9-aaa9-a3fc78fd463f', '7f23aeb2-f0f7-47e0-b49c-9891dd4a30c2', '04c93964-136d-43ce-a1c2-3679b1fd790a', '9a890a3a-099f-4666-8848-1d569661ccc2',
+    '5bbf6285-764c-4655-8c1a-a974f6a98b51', 'd9b4b47a-9b8c-4b91-836a-7b1da153f5bc', '424e4b0b-627c-4ab6-afea-4195a0b4bfab', 'f2b91f3e-c0e2-4037-9294-2436a024b465',
+    '714f72fb-c148-44ae-8ae8-a6e5e137bdf3', 'e975ac0f-25fa-413e-afde-33d6d420b603', '7b20dcda-d577-4669-bb3b-5162270f3586', '0493f9e6-db7e-4863-af06-05b6458a7eef',
+    '12b3dcfe-5d47-40b7-9b20-e02287a83905', '854efdd0-e981-48dc-9cb0-c692caf89e75', '9724bf41-aaee-4aee-b172-9db1fa7cd56d', '73c2b002-f345-4675-a76e-21747d8e429b',
+    'b6c4819e-2a28-4db7-b40d-b83052c8acca', '4ca78888-73cd-4390-a529-00a2c7295ae8', '1d26abb9-ff1a-4f24-9925-9f66686bc32e', '783f5113-490a-4b18-bd86-bdac9fd3fe58',
+    '932d5ce1-42c0-4c14-b534-e714402c524e', 'bf6fa8fb-c421-4720-b074-887dcc49f523', '9238f856-a419-4d56-87bf-281e010f684c', '46fa6b44-56cd-4f14-b1d8-0512d29cca52',
+    '9a9263c5-f7bd-4b4a-bead-9a41e0072dc1', '291cfcf8-e821-44a6-9183-51c83ed82f88', '2b50dcfa-b73c-4aff-aa1f-4571698f017a', 'cc9b09e4-381d-4d72-8839-ff9e1561a045',
+    '993735c7-6c3d-431c-bdd1-d2e53382cf3d', '56e45ab5-d50d-4749-a7eb-49785fc7117a', '8eaf9b1a-7eb1-411b-a946-8f40a36a9c39', 'a1fb728f-1b25-423b-ab8b-571f0d2caf0d',
+    'c76fd472-76fa-4925-b7ff-758f10fe5879', 'f3fadd2d-177e-4cb3-adfb-d22e6dc0106d', 'fb4e4657-6b48-4a0d-b48a-2daf939becc0', 'be14a29b-86cd-495f-bf22-8d01455657ce',
+    'ab57e05c-5e5d-4e63-9f5d-f81b132fec15', '3f754ea5-d9e5-4d2b-84ab-e38cc15161cc', 'ff1688a7-85dc-4c23-8052-eb470c6baf91', 'b11e90b4-48a8-400d-817c-2dcef3cb40d5',
+    '23675bc4-44bd-4537-ad1d-2894b6006316', 'cb5ecb11-d31c-44e1-94c0-7a66c39998da', '5bd1fc3e-68d3-4af8-a859-e076b4d37c19', '2d4775ec-6d79-4b96-8803-0adcd6e779c2',
+    'a4ae8ee2-e0a9-4b5d-8871-de2609a0cf3d', 'e07935b8-3667-46eb-9e2c-28691956e36c', 'f5ab03e5-040f-48f6-a08c-4293777a432e', '11d30393-f23a-49f5-a267-e2add100f566',
+    '4f8a87ba-3b58-4f01-848e-a884ad101240', '56d3d095-37f5-4558-a2b6-c78e468ba636', '516dac6a-1f54-4b6d-b8b3-906c9dd98785', '161d5c18-d051-477f-b07b-bd7fb88306d6',
+    '436d7214-a893-43a9-a894-e0b8ccd87c60', '01bf7036-2fe3-4559-8839-a239413396e7', 'beafa390-b29f-4911-9527-a0af5c13fe46', '5484a9b4-96c8-4eea-be90-8067a308d310',
+    '7545f3a8-9e45-4b87-b266-bce1294efe32', '5695ee89-cfc2-41ac-87f9-ad7dd008c81e', 'a3c6a54a-11a7-4f2f-9d74-db287c774d08', 'f8b9643c-28f8-4185-9525-8b4e6301516c',
+    'c2ae2e0b-cd7b-42fa-b7d0-1362352d47e8', 'ecfe5758-4ada-4258-ada9-64f1d878c195', '0d8bdbee-8765-4fbe-9cc3-dd9f42376cf1',
+    // img-mj-20261101-1852
+    'f06a4aea-d1eb-462e-8afa-64e1c3b6c92a', 'ccee239c-fd0b-4b4b-91dd-941cbcb8360b', 'bc91ef0a-d0a9-4041-8729-1f9544b4c795', '34e0efe3-65bc-441a-b570-f15a0ba4f1a6',
+    '39f8c110-f25d-45d7-9260-257e2263b056']);
+  function _lbMeta(e, isArt){
+    const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
+    const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
+    const len = isArt ? (e.minutes || 1) + ' min read' : (e.s === 's' && !e.n ? 'under a minute' : _lmLen(e.n));
+    const locked = (isArt ? !!e.paid : e.s === 'c') && !paidNow(), read = isArt && _lrnIsRead(e.id);
+    const parts = [`<span class="lb-ty"><svg class="lm-mi" viewBox="0 0 24 24" aria-hidden="true">${_LM_MI[k]}</svg>${escapeHtml(word)}</span>`];
+    if(len) parts.push(`<span>${escapeHtml(len)}</span>`);
+    if(locked) parts.push(`<span class="lb-lk">${LOCK_SVG}See paid plans</span>`);
+    if(read) parts.push(`<span class="lb-rd"><span class="rd-readmk" aria-hidden="true">${_LRN_CHECK}</span>Read</span>`);
+    return `<span class="lb-meta">${parts.join('<span class="lm-sep" aria-hidden="true">·</span>')}</span>`;
+  }
+  function _lbCard(e, isArt, k, big){
+    const data = isArt ? `data-piece="${escapeHtml(e.id)}"` : `data-media="${escapeHtml(e.i)}"`;
+    const desc = big && isArt ? _lrnDesc(e) : '';
+    return `<button class="lb-card${big ? ' lb-big' : ''}" type="button" ${data}>${_lbPic(e, isArt, k)}<span class="lb-body"><span class="lb-t">${escapeHtml(isArt ? e.title : e.t)}</span>${desc ? `<span class="lb-d">${escapeHtml(desc)}</span>` : ''}${_lbMeta(e, isArt)}</span></button>`;
+  }
+  // a list of lessons as cards (results, "See all" pages): `limit` shown, the rest hidden behind Show all
+  function _lbCardsHTML(list, isArt, k, limit){
+    return `<div class="lb-grid">${list.map((e, i)=>{ const c = _lbCard(e, isArt, k, false); return limit != null && i >= limit ? c.replace('<button class="lb-card', '<button hidden class="rd-more lb-card') : c; }).join('')}</div>`;
+  }
+  // each state's lessons under the page's filters (media, a topic, published, length), articles first
+  function _lbFor(k){
+    const L = window.Learning, tk = _lmTopic, topicOnly = tk !== 'all' && L.STATE_HUBS.indexOf(tk) < 0;
+    const inTopic = gs => !topicOnly || (gs || []).indexOf(tk) >= 0;
+    const arts = (_lmMedia === 'all' || _lmMedia === 'read') ? _lrnByRead(L.inGroup(k).filter(p=>inTopic(p.groups) && _lmWhenOk(_lmArtDate(p)) && _lmDurOk(p.minutes || 1))) : [];
+    const med = _lmMedia === 'read' || !_lmData ? [] : _lmData.items.filter(x=>(x.g || []).indexOf(k) >= 0 && inTopic(x.g) && (_lmMedia === 'all' || (_lmMedia === 'listen') === _lmIsListen(x)) && _lmWhenOk(x.d) && _lmDurOk(x.n ? x.n / 60 : x.s === 's' ? 0.5 : null));
+    return { arts, med };
+  }
+  function _lbSections(){
+    const L = window.Learning; if(!L || !L.HUBS) return [];
+    const states = L.STATE_HUBS.indexOf(_lmTopic) >= 0 ? [_lmTopic] : _lrnStateOrder();
+    return states.map(k=>{
+      const { arts, med } = _lbFor(k), total = arts.length + med.length; if(!total) return '';
+      // one big card (an article, with its description) and four small: the same mix as before, two episodes and two videos at most
+      const eps = med.filter(x=>x.s === 'p' || x.s === 'c'), vids = med.filter(x=>x.s === 'v' || x.s === 's');
+      const big = arts[0] || null, restA = arts.slice(big ? 1 : 0);
+      let ne = Math.min(eps.length, 2), nv = Math.min(vids.length, 2), na = Math.min(restA.length, 4 - ne - nv);
+      ne = Math.min(eps.length, 4 - na - nv); nv = Math.min(vids.length, 4 - na - ne);
+      const small = restA.slice(0, na).map(p=>_lbCard(p, true, k, false)).concat(eps.slice(0, ne).map(x=>_lbCard(x, false, k, false)), vids.slice(0, nv).map(x=>_lbCard(x, false, k, false)));
+      if(!big && small.length < 4){ const more = med.filter(x=>eps.slice(0, ne).indexOf(x) < 0 && vids.slice(0, nv).indexOf(x) < 0).slice(0, 4 - small.length); more.forEach(x=>small.push(_lbCard(x, false, k, false))); }
+      const cnt = _lmFiltered() ? _lmLessons(total) : _lrnHubCount(k);
+      return `<section class="lb-sec" aria-label="${escapeHtml(_LRN_ST(k))}"><div class="lb-sec-h"><h2>${_rdMk(k)}<span>${escapeHtml(_LRN_ST(k))}</span><span class="ll-n">${escapeHtml(cnt)}</span></h2><button class="lb-seeall" type="button" data-hub="${k}">See all${CHEV}</button></div>
+        <div class="lb-grid">${big ? _lbCard(big, true, k, true) : ''}${small.join('')}</div></section>`;
+    }).concat(_lbOtherHTML());
+  }
+  // filtered lessons with no state tag (Justin 2026-10-30: "it says there are 6, but they do not show"): the state blocks
+  // above only draw lessons tagged with that state, so with a filter on, the rest of the matches follow here
+  function _lbOtherHTML(){
+    const L = window.Learning;
+    if(!_lmFiltered() || L.STATE_HUBS.indexOf(_lmTopic) >= 0) return '';
+    const tk = _lmTopic, inTopic = gs => tk === 'all' || (gs || []).indexOf(tk) >= 0;
+    const inState = new Set(); L.STATE_HUBS.forEach(k=>L.inGroup(k).forEach(p=>inState.add(p.id)));
+    const anyState = gs => (gs || []).some(g=>L.STATE_HUBS.indexOf(g) >= 0);
+    const arts = (_lmMedia === 'all' || _lmMedia === 'read') ? _lrnByRead(L.PIECES.filter(p=>!inState.has(p.id) && inTopic(p.groups) && _lmWhenOk(_lmArtDate(p)) && _lmDurOk(p.minutes || 1))) : [];
+    const med = _lmMedia === 'read' || !_lmData ? [] : _lmData.items.filter(x=>!anyState(x.g) && inTopic(x.g) && (_lmMedia === 'all' || (_lmMedia === 'listen') === _lmIsListen(x)) && _lmWhenOk(x.d) && _lmDurOk(x.n ? x.n / 60 : x.s === 's' ? 0.5 : null));
+    const all = arts.map(p=>_lbCard(p, true, null, false)).concat(med.map(x=>_lbCard(x, false, null, false)));
+    if(!all.length) return '';
+    const cards = all.map((c, i)=>i >= 8 ? c.replace('<button class="lb-card', '<button hidden class="rd-more lb-card') : c).join('');
+    return `<section class="lb-sec lb-other" aria-label="More lessons"><div class="lb-sec-h"><h2><span>More lessons</span><span class="ll-n">${escapeHtml(_lmLessons(all.length))}</span></h2></div>
+      <div class="lb-grid">${cards}</div>${all.length > 8 ? '<button class="ll-showall lb-other-more" type="button">Show more</button>' : ''}</section>`;
+  }
+  function _lbFeatHTML(forNow){
+    const p = forNow.piece, st = p.state || null;
+    const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
+    return `<button class="lb-feat snb-reco" type="button" data-piece="${escapeHtml(p.id)}">${_lbPic(p, true, st || 'safety').replace('class="lb-pic"', 'class="lb-pic lb-feat-pic"')}<span class="lb-feat-b">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(_LRN_ST(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Learning')}</span>`}<span class="lb-feat-t">${escapeHtml(p.title)}</span><span class="lb-d">${escapeHtml(_lrnDesc(p))}</span><span class="lb-feat-go">Read · ${escapeHtml(String(p.minutes||1))} min${CHEV}</span></span></button>`;
+  }
+  // Topics, shortened (Justin 2026-10-30): five, picked from the contexts the member adds to check-ins, then a general starter
+  // list; "More topics" (+ / -) opens the rest in place.
+  const _LB_CTX_TOPIC = { work:'work', family:'family', friends:'rel', partner:'rel', hobbies:'playcre', spiritual:'meaning', nature:'surround', 'body & movement':'body', rest:'rest', practice:'prac' };
+  const _LB_TOP_START = ['build', 'start', 'read', 'feel', 'rel'];
+  function _lbTopicPick(topics){
+    const n = {};
+    try{ const m = _ctxLoad(); Object.keys(m).forEach(k=>(Array.isArray(m[k]) ? m[k] : []).forEach(c=>{ const t = _LB_CTX_TOPIC[c]; if(t) n[t] = (n[t] || 0) + 1; })); }catch(e){}
+    const pick = Object.keys(n).filter(k=>topics.indexOf(k) >= 0).sort((a, b)=>n[b] - n[a]).slice(0, 5);
+    _LB_TOP_START.concat(topics).forEach(k=>{ if(pick.length < 5 && topics.indexOf(k) >= 0 && pick.indexOf(k) < 0) pick.push(k); });
+    return pick;
+  }
+  function _lbTopicsHTML(pills){
+    const L = window.Learning, topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length);
+    const pick = _lbTopicPick(topics), rest = topics.filter(k=>pick.indexOf(k) < 0);
+    const n = k => escapeHtml(_lrnHubCount(k).replace(/ lessons?$/, ''));
+    const one = k => pills ? `<button class="lb-pill" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${n(k)}</span></button>`
+      : `<button class="lb-trow" type="button" data-hub="${escapeHtml(k)}"><span>${escapeHtml(_lrnHubName(k))}</span><span class="ll-n">${n(k)}</span></button>`;
+    const box = pills ? 'lb-tpills' : 'lb-tlist', id = 'lb-tmore-' + (pills ? 'e' : 's');
+    return `<div class="${box}">${pick.map(one).join('')}</div>`
+      + (rest.length ? `<div class="lb-tmore" id="${id}" hidden><div class="${box}">${rest.map(one).join('')}</div></div>
+        <button class="lb-tmore-t" type="button" aria-expanded="false" aria-controls="${id}"><span>More topics</span>${LW_PM(false)}</button>` : '');
+  }
+  function _lbSoonHTML(){
+    const L = window.Learning;
+    const soon = L.STATE_HUBS.filter(k=>!L.inGroup(k).length && !(_lmData && _lmData.items.some(x=>(x.g || []).indexOf(k) >= 0))).map(k=>STATE_NAME(k));
+    return soon.length ? `<p class="read-p ll-soonline">Coming soon: ${escapeHtml(_listAnd(soon))}.</p>` : '';
   }
   // ---- Listen and watch (2026-10-26; mockups "Learn Library Mockups"). Justin: "throw all of the free Learn content in
   // together and have it be filtered by media and topic." The list is learn/media.json, built from Captivate and YouTube by
@@ -5378,7 +7008,7 @@ function app(tab){
   // ---- round 2 (2026-10-26): Justin's asks. One meta line on every card ([media icon] · length · date), counts in lessons,
   // every combined list grouped by type, a published-date filter, and a Filter button with a slide-up sheet that holds the
   // filters (the chip rows moved into it; the page shows only what is on, each with an ×).
-  let _lmWhen = 'any', _lmDur = 'any';
+  let _lmWhen = 'any', _lmDur = 'any';   // _lmWhen stays 'any': the Published filter is gone (grid6)
   // Length (Justin, 2026-10-26: "a run time/read filter"): run time for episodes and videos, reading time for articles
   const _LM_DURS = [['any', 'Any length'], ['u5', 'Under 5 min'], ['5to15', '5 to 15 min'], ['15to30', '15 to 30 min'], ['o30', 'Over 30 min']];
   function _lmDurOk(min){
@@ -5388,6 +7018,8 @@ function app(tab){
   const _LM_TYPES = [['a', 'Articles'], ['p', 'Podcast'], ['c', 'Stucknaut Collective'], ['v', 'Videos'], ['s', 'Shorts']];
   const _LM_NOUN = { a:'articles', p:'episodes', c:'episodes', v:'videos', s:'Shorts' };
   const _LM_MEDIA = [['all', 'All'], ['read', 'Read'], ['listen', 'Listen'], ['watch', 'Watch']];
+  // the close X of every Filter sheet (grid6: "Filter" + an X, no Done)
+  const _FS_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   const _LM_WHENS = [['any', 'Any time'], ['month', 'Past month'], ['year', 'Past year'], ['older', 'Older than a year']];
   const _LM_MI = { read:'<path d="M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"/>',
     listen:'<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15h3v5H5a1 1 0 0 1-1-1zM20 15h-3v5h2a1 1 0 0 0 1-1z"/>', watch:'<path d="M8 5.5v13l11-6.5z"/>' };
@@ -5399,7 +7031,7 @@ function app(tab){
     const parts = [_lmMi(k, label)];
     if(len) parts.push(escapeHtml(len));
     if(date) parts.push(escapeHtml(_lmMY(date)));
-    if(lock) parts.push(LOCK_SVG + 'Self-Regulator');
+    if(lock) parts.push(LOCK_SVG + 'See paid plans');
     if(read) parts.push(_lrnReadMk() + 'Read');
     return parts.join(_LM_SEP);
   }
@@ -5419,7 +7051,7 @@ function app(tab){
   function _lmArtRowHTML(p){
     return `<button class="lm-row${_lrnIsRead(p.id) ? ' is-read' : ''}" type="button" data-piece="${escapeHtml(p.id)}"><span class="lm-tx"><b>${escapeHtml(p.title)}</b><span class="lm-m">${_lmArtMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`;
   }
-  const _lmTopicLabel = t => window.Learning.TOPICS[t] || STATE_LABEL(t);
+  const _lmTopicLabel = t => window.Learning.TOPICS[t] || _LRN_ST(t);
   function _lmWhenOk(d){
     if(_lmWhen === 'any') return true; if(!d) return false;
     const age = (Date.now() - new Date(d + 'T12:00:00').getTime()) / 864e5;
@@ -5450,7 +7082,7 @@ function app(tab){
   function _lmListHTML(){
     const gs = _lmGroups(_lmMedia, _lmTopic), n = _lmN(gs), wait = !_lmData && _lmMedia !== 'read';
     const sec = g => { const all = !!_lmOpen[g.k] || g.list.length <= 10, rows = all ? g.list : g.list.slice(0, 8);
-      return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="lm-rows">${rows.map(e=>g.k === 'a' ? _lmArtRowHTML(e) : _lmRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall lm-more" type="button" data-lmgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
+      return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="ll-rows">${rows.map(e=>_llRow(e, g.k === 'a')).join('')}</div>${all ? '' : `<button class="ll-showall lm-more" type="button" data-lmgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
     return `<section class="rd-learn lm-list"><p class="ll-res-n">${escapeHtml(n || wait ? _lmLessons(n) : 'No lessons match these filters.')}${wait ? ' <span class="ll-res-wait">Loading episodes and videos…</span>' : ''}</p>
           ${gs.map(sec).join('')}${!n && !wait ? '<button class="lm-clear" type="button" data-lmx="all">Clear filters</button>' : ''}</section>`;
   }
@@ -5473,14 +7105,13 @@ function app(tab){
     const states = L.STATE_HUBS.filter(k=>L.inGroup(k).length || hasMed(k)), topics = L.TOPIC_ORDER.filter(k=>L.inGroup(k).length || hasMed(k));
     return `<div class="rd-jr-sheet lm-fsheet" id="lm-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in">
         <span class="rd-jr-grab" aria-hidden="true"></span>
-        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_FILTER_SVG}Filter</b><button class="rd-jr-done" type="button">Done</button></div>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
         <div class="lm-fs-body">
-          <span class="rd-eyeb">Media</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
-          <span class="rd-eyeb">Published</span><div class="lm-chips">${_LM_WHENS.map(([id, l])=>chip('lmw', id, l, _lmWhen === id)).join('')}</div>
-          <p class="lm-fs-note">Most articles have no published date, so they show under Any time.</p>
+          <span class="rd-eyeb">Type</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lmm', id, l, _lmMedia === id)).join('')}</div>
           <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lmd', id, l, _lmDur === id)).join('')}</div>
           <p class="lm-fs-note">Run time for episodes and videos, reading time for articles.</p>
-          <span class="rd-eyeb">Topic</span><div class="lm-chips">${chip('lmt', 'all', 'All topics', _lmTopic === 'all')}${states.map(k=>chip('lmt', k, STATE_LABEL(k), _lmTopic === k, _rdMk(k))).join('')}${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
+          <span class="rd-eyeb">States</span><div class="lm-chips">${states.map(k=>chip('lmt', k, _LRN_ST(k), _lmTopic === k, _rdMk(k))).join('')}</div>
+          <span class="rd-eyeb">Topics</span><div class="lm-chips">${topics.map(k=>chip('lmt', k, L.TOPICS[k], _lmTopic === k)).join('')}</div>
         </div>
         <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lm-fclear">Clear all</button><button class="lm-fshow" type="button" id="lm-fshow">Show</button></div>
       </div></div>`;
@@ -5499,8 +7130,27 @@ function app(tab){
       show.textContent = _lmFiltered() ? 'Show ' + _lmLessons(_lmN(_lmGroups(_lmMedia, _lmTopic))) : 'Show all lessons';
     };
     const esc = e => { if(e.key === 'Escape') close(); };
-    const open = () => { clearTimeout(tmr); before = now(); paint(); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc); };
+    // 1120 and up (Justin 2026-10-30): a panel under the search row that pushes the page down, not a slide-up
+    let inline = false;
+    const wideNow = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+    const openInline = () => {
+      const row = root.querySelector('.lb-search-row'); if(!row) return false;
+      if(row.nextElementSibling !== sh) row.after(sh);
+      inline = true; before = now(); paint();
+      sh.classList.add('is-inline'); sh.setAttribute('role', 'region');
+      _pmSlide(btn, sh, true);
+      document.addEventListener('keydown', esc);
+      const f = sh.querySelector('.lm-chip.on') || sh.querySelector('.lm-chip'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+      return true;
+    };
+    const closeInline = () => {
+      document.removeEventListener('keydown', esc); inline = false;
+      const changed = now() !== before;
+      _pmSlide(btn, sh, false, ()=>{ sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); if(changed){ _lmOpen = {}; _lmRedraw(true); } else try{ btn.focus({ preventScroll:true }); }catch(e){} });
+    };
+    const open = () => { if(inline) return closeInline(); if(wideNow() && openInline()) return; clearTimeout(tmr); before = now(); paint(); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc); };
     const close = () => {
+      if(inline) return closeInline();
       document.removeEventListener('keydown', esc);
       sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); btn.setAttribute('aria-expanded', 'false');
       tmr = setTimeout(()=>{ sh.hidden = true; if(now() !== before){ _lmOpen = {}; _lmRedraw(true); } else try{ btn.focus({ preventScroll:true }); }catch(e){} }, reduce ? 0 : 320);
@@ -5509,7 +7159,7 @@ function app(tab){
     sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
     sh.onclick = e => { if(e.target === sh) close(); };
     sh.querySelectorAll('[data-lmm]').forEach(b=>b.onclick=()=>{ _lmMedia = b.dataset.lmm; paint(); });
-    sh.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = b.dataset.lmt; paint(); });
+    sh.querySelectorAll('[data-lmt]').forEach(b=>b.onclick=()=>{ _lmTopic = _lmTopic === b.dataset.lmt ? 'all' : b.dataset.lmt; paint(); });
     sh.querySelectorAll('[data-lmw]').forEach(b=>b.onclick=()=>{ _lmWhen = b.dataset.lmw; paint(); });
     sh.querySelectorAll('[data-lmd]').forEach(b=>b.onclick=()=>{ _lmDur = b.dataset.lmd; paint(); });
     $('#lm-fclear').onclick = () => { _lmMedia = 'all'; _lmTopic = 'all'; _lmWhen = 'any'; _lmDur = 'any'; paint(); };
@@ -5553,15 +7203,39 @@ function app(tab){
   // piece (its state week by week, its state by time of day, every state side by side, before and after practices). Among
   // those with data, the piece's id picks, so screens vary and each keeps its card. Free: the locked card; under 3 check-ins:
   // the wait line; nothing to show: no card.
-  function _lmLeadHTML(x){
+  // the piece's data pictures in order (data-pictures-r4, 2026-10-29): the moment's cards first when playback is inside a
+  // moment (t in seconds), then the piece's own (dp: one id or a list). {def} and {safe} follow the member: the defensive
+  // and the safety-side state that led most of their check-ins in the last 4 weeks; an id that cannot be filled is skipped.
+  function _lmLed(keys){
+    let cs = []; try{ cs = Store.checkins ? Store.checkins() : []; }catch(e){}
+    const now = Date.now(), cnt = {}; cs.filter(c=>c && +new Date(c.t) >= now - 28 * 864e5).forEach(c=>{ const k = _cDom(c); if(keys.indexOf(k) >= 0) cnt[k] = (cnt[k] || 0) + 1; });
+    const ord = keys.filter(k=>cnt[k]).sort((a,b)=>cnt[b] - cnt[a]); if(!ord.length) return null;
+    if(ord[1] && cnt[ord[1]] === cnt[ord[0]] && keys[0] === 'fightflight'){ const d = _domDefense(); if(d && cnt[d] === cnt[ord[0]]) return d; }
+    return ord[0];
+  }
+  function _lmPicks(x, t){
+    const arr = v => v == null ? [] : Array.isArray(v) ? v : [v];
+    let ids = arr(x.dp);
+    if(t != null && Array.isArray(x.dm)){ let m = null; for(const s of x.dm) if(Array.isArray(s) && s[0] <= t) m = s; if(m) ids = arr(m[1]).concat(ids); }
+    let def, safe;
+    const fill = id => { id = String(id);
+      if(id.indexOf('{def}') >= 0){ if(def === undefined) def = _lmLed(['fightflight','freeze','shutdown']); if(!def) return null; id = id.split('{def}').join(def); }
+      if(id.indexOf('{safe}') >= 0){ if(safe === undefined) safe = _lmLed(['safety','play','stillness']); if(!safe) return null; id = id.split('{safe}').join(safe); }
+      return id; };
+    return ids.map(fill).filter((v, i, a)=>v && a.indexOf(v) === i);
+  }
+  function _lmLeadHTML(x, t){
     const paid = paidNow(), st = _lmState(x), now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28 * 864e5, now + 1);
     if(!paid) return `<section class="lm-lead">${_lrnCallHTML({ mk:st || 'safety', label:'Your check-ins' }, false, ctx)}</section>`;
     const n = gCheckinCount(); if(n < 3) return `<section class="lm-lead">${_lrnWaitHTML(n)}</section>`;
     const ids = (st ? ['weeks:' + st, 'time:' + st] : []).concat(['states', 'before-after']);
     const cs = ids.map(id=>{ try{ return _lrnCallout(id, ctx); }catch(e){ return null; } }).filter(Boolean);
-    if(!cs.length) return '';
+    // the piece's own data picture (x.dp in learn/media.json, from learn-media/data-pictures.json; dominant-r1,
+    // 2026-10-29): it shows first whenever the member's data has something to show, else the pick by the piece's id
+    let dp = null; for(const id of _lmPicks(x, t)){ try{ dp = _lrnCallout(id, ctx); }catch(e){ dp = null; } if(dp) break; }
+    if(!cs.length && !dp) return '';
     let h = 0; for(const c of x.i) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    let c = cs[h % cs.length];
+    let c = dp || cs[h % cs.length];
     // week by week on a media page: one row of columns, oldest to newest (Justin, 2026-10-26: eight rows "is too much
     // vertical ... Just saying 'the past 8 weeks' is enough")
     if(c.cols){
@@ -5583,7 +7257,7 @@ function app(tab){
     freeze:'When you notice freeze, what helps the brake ease a little?', shutdown:'When you notice numbness or heaviness, what do you notice first?' };
   function _lmJournalHTML(x){
     const st = _lmState(x); if(!st) return '';
-    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
+    if(!paidNow()) return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${LOCK_SVG}Part of Self-Regulator</p></div>`;
     const saved = ((_ctxLoad()['mj:' + x.i + ':1']) || [])[0] || '';
     return `<div class="lm-card lm-card-o"><span class="rd-eyeb">Journal</span><label class="read-p rd-refl-q" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="rd-refl-in" id="lm-j" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><button class="lm-save" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div>`;
   }
@@ -5755,7 +7429,7 @@ function app(tab){
       foot.querySelectorAll('[data-mod-show]').forEach(b=>b.onclick=()=>{ const m = box.querySelector(`[data-mod="${b.dataset.modShow}"]`); if(m){ m.hidden = false; box.appendChild(m); save(); paintAdd(); } }); };
     const setArr = on => { document.body.classList.toggle('lm-arr', on); bar.hidden = !on; foot.hidden = !on; if(on) paintAdd(); };
     setArr(false);
-    bar.querySelector('.lm-arr-done').onclick = () => { setArr(false); save(); };
+    bar.querySelector('.lm-arr-done').onclick = () => { try{ haptic('done'); }catch(e){} setArr(false); save(); };
     const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     const flip = (els, fn) => { const r0 = new Map(els.map(el=>{ const r = el.getBoundingClientRect(); return [el, [r.left, r.top]]; })); fn();
       if(reduce) return; els.forEach(el=>{ const r = el.getBoundingClientRect(), p = r0.get(el), dx = p[0] - r.left, dy = p[1] - r.top; if((dx || dy) && el.animate) el.animate([{ transform:`translate(${dx}px, ${dy}px)` }, { transform:'none' }], { duration:220, easing:'cubic-bezier(.2,.6,.2,1)' }); }); };
@@ -5826,26 +7500,87 @@ function app(tab){
       _lmWireMods(here);
       return;
     }
-    const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow();
+    // on the Swiss grid (Justin, canon 2026-10-30): one bordered player card (the art inset beside the bar, times and
+    // 15 / Play / 30; Play the only filled control), About as open reading, Your results, the journal as a writing page;
+    // Listen next / Watch next / Read next / Practice as house cards on 9-12 with the hubs under them
+    const listen = _lmIsListen(x), locked = x.s === 'c' && !paidNow(), st = _lmState(x);
     const eyeb = x.s === 'p' ? 'Podcast · Stuck Not Broken' : x.s === 'c' ? 'Stucknaut Collective' : 'Video';
+    const art = _lbPic(x, false).replace('class="lb-pic"', 'class="lb-pic ep-art"');
     const player = !listen
-      ? `<div class="lm-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
-      : locked ? `<div class="lm-card"><p class="read-p">Stucknaut Collective episodes come with Self-Regulator.</p><button class="lm-save lm-sub" type="button">See Self-Regulator</button></div>`
-      : `<div class="lm-player" id="lm-player" role="region" aria-label="Player">
+      ? `<div class="lm-video ep-video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(x.i)}?playsinline=1&rel=0${Array.isArray(x.dm) && x.dm.length > 1 ? '&enablejsapi=1&origin=' + encodeURIComponent(location.origin) : ''}" title="${escapeHtml(x.t)}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
+      : locked ? `<div class="ep-card">${art}<div class="ep-lock"><p>Stucknaut Collective episodes come with Self-Regulator.</p><button class="ar-quiet lm-sub" type="button">${LOCK_SVG}<span>See paid plans</span></button></div></div>`
+      : `<div class="ep-card">${art}<div class="lm-player ep-player" id="lm-player" role="region" aria-label="Player">
             <div class="lm-bar" id="lm-bar" role="slider" tabindex="0" aria-label="Position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span class="lm-fill" id="lm-fill"></span></div>
             <div class="lm-ctl"><span class="lm-t" id="lm-el">0:00</span><button class="lm-skip" type="button" data-skip="-15" aria-label="Back 15 seconds">15</button><button class="lm-play" id="lm-play" type="button" aria-label="Play">${_LM_PLAY}</button><button class="lm-skip" type="button" data-skip="30" aria-label="Forward 30 seconds">30</button><span class="lm-t lm-t-r" id="lm-rem">${x.n ? '-' + _lmClock(x.n) : ''}</span></div>
-            <p class="lm-note" id="lm-note" hidden></p><audio id="lm-audio" preload="none"></audio></div>`;
-    const pair = x.y ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.y)}">${_lmIcon('watch')}<span class="lm-tx"><b>Watch the video</b><span class="lm-meta"><span>The same episode on video</span></span></span><span class="wc-go">${CHEV}</span></button>`
-      : x.p ? `<button class="lm-link" type="button" data-media="${escapeHtml(x.p)}">${_lmIcon('listen')}<span class="lm-tx"><b>Listen to the episode</b><span class="lm-meta"><span>The podcast version</span></span></span><span class="wc-go">${CHEV}</span></button>` : '';
-    _rdShell(`<div class="lm-page"><div class="lm-main"><div class="lm-head"><span class="rd-eyeb">${escapeHtml(eyeb)}</span><h1 class="rd-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="lm-meta-l">${escapeHtml(meta)}</p>` : ''}</div>
-          ${player}</div><div class="lm-side">${_lmModsHTML(x)}</div></div>`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x) });
-    document.body.classList.add('lm-wide');
-    root.querySelectorAll('.lm-link[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
-    _lmFillDesc(x);
-    _lmWireKeep(root, here);
+            <p class="lm-note" id="lm-note" hidden></p><audio id="lm-audio" preload="none"></audio></div></div>`;
+    const kind = x.s === 'p' || x.s === 'c' ? 'episode' : 'video';
+    const about = `<section class="ep-about" id="ep-about" hidden><h2 class="ep-h">About this ${kind}</h2><div class="ar-read ep-desc" id="ep-desc"></div></section>`;
+    const lead = _lmLeadHTML(x);
+    const results = lead ? `<section class="ep-results"><span class="ar-res-eb">Your results</span>${lead}</section>` : '';
+    let journal = '';
+    if(st){
+      if(!paidNow()) journal = `<section class="ar-jr" aria-label="Journal"><span class="ar-eb">${_JR_PEN}Journal</span><div><button class="ar-quiet rd-jr-locked" type="button">${LOCK_SVG}<span>See paid plans</span></button></div></section>`;
+      else { const saved = ((_ctxLoad()['mj:' + x.i + ':1']) || [])[0] || '';
+        journal = `<section class="ar-jr" aria-label="Journal"><span class="ar-eb">${_JR_PEN}Journal</span><label class="ar-jq" for="lm-j">${escapeHtml(_LM_JQ[st])}</label><textarea class="ar-jin" id="lm-j" rows="4" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="Write as much or as little as you like">${escapeHtml(saved)}</textarea><div class="ar-jfoot"><button class="ar-quiet" type="button" id="lm-jsave">${saved ? 'Saved' : 'Save to my journal'}</button></div><p class="ar-jwhere">What you write is kept in Your Journal, in the You tab.</p></section>`; }
+    }
+    const t = _lmTilesHTML(x);
+    const card = h => h ? h.replace(/^<button class="lm-tile" type="button"([^>]*)>/, (m, a)=>`<button class="lb-card ep-kcard" type="button"${a}><span class="lb-pic" aria-hidden="true">${_rdMk(st || 'safety')}</span><span class="lb-body">`).replace(/<\/button>$/, '</span></button>') : '';
+    const cards = [t.same, t.next, t.other, t.read, t.practice].map(card).join('');
+    const side = `<aside class="ep-side" aria-label="Keep learning">${cards ? `<div class="ep-cards">${cards}</div>` : ''}${t.hubs || ''}</aside>`;
+    _rdShell(`<div class="ep-grid"><div class="ep-main"><div class="ep-head"><span class="ar-eb">${st ? _rdMk(st) : ''}${escapeHtml(eyeb)}</span><h1 class="ar-title">${escapeHtml(x.t)}</h1>${meta ? `<p class="ar-meta">${escapeHtml(meta)}</p>` : ''}</div>
+          ${player}${about}${results}${journal}</div>${side}</div>`, { onBack:back, tab:'learn', loc:{ k:'tab', tab:'learn' }, crumb:_lmCrumb(x), wide:true });
+    // About: open reading text, never a fold
+    const fillAbout = () => { const sec = $('#ep-about'), box = $('#ep-desc'); if(!sec || !box) return; const ps = String(_lmDescOf(x) || '').split(/\n{2,}/).map(s=>s.trim()).filter(Boolean); if(!ps.length) return; box.innerHTML = ps.map(s=>`<p class="read-p">${escapeHtml(s)}</p>`).join(''); sec.hidden = false; };
+    _lmDescLoad().then(fillAbout).catch(()=>{});
     _lmWireCards(x);
-    _lmWireMods(here);
+    const L = window.Learning, sd = root.querySelector('.ep-side');
+    if(sd){
+      sd.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here.go, tab:'learn' }); });
+      sd.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, here));
+      sd.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, here));
+      sd.querySelectorAll('[data-prac]').forEach(b=>b.onclick=()=>renderPlan(_lrnPracticeReco({ practice:'custom' }), _trueBack(here.go)));
+    }
     if(listen && !locked) _lmWirePlayer(x);
+    _lmWireMoments(x);
+  }
+  // cards by moment (data-pictures-r4, 2026-10-29): while the piece plays, the lead card follows x.dm. A new moment has
+  // to hold for 2 seconds (a seek across several moments swaps once), then the card fades out and back in with the
+  // moment's card; with Reduce Motion it swaps without the fade. When the card would be the same, nothing moves.
+  function _lmWireMoments(x){
+    if(!Array.isArray(x.dm) || x.dm.length < 2 || !paidNow() || gCheckinCount() < 3) return;
+    const lead = () => root.querySelector('.lm-lead');
+    const first = lead(); if(!first) return;
+    const at = t => { let k = -1; x.dm.forEach((s, i)=>{ if(Array.isArray(s) && s[0] <= t) k = i; }); return k; };
+    let cur = -1, want = -1, timer = 0;
+    const calm = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const swap = t => {
+      const el = lead(); if(!el || !el.isConnected) return;
+      const box = document.createElement('div'); box.innerHTML = _lmLeadHTML(x, t);
+      const nu = box.firstElementChild; if(!nu || nu.innerHTML === el.innerHTML) return;
+      const put = () => { el.innerHTML = nu.innerHTML; el.classList.remove('lm-swap'); _lmWireCards(x); };
+      if(calm) return put();
+      el.classList.add('lm-swap'); setTimeout(put, 260);
+    };
+    const tick = t => {
+      if(!first.isConnected && !lead()) return false;
+      const k = at(t || 0); if(k === want) return true;
+      want = k; clearTimeout(timer);
+      timer = setTimeout(()=>{ if(want !== cur){ cur = want; swap(x.dm[cur] ? x.dm[cur][0] : 0); } }, 2000);
+      return true;
+    };
+    const a = $('#lm-audio');
+    if(a){ const on = ()=>{ if(!a.isConnected) return a.removeEventListener('timeupdate', on); if(!a.paused || a.currentTime) tick(a.currentTime); }; a.addEventListener('timeupdate', on); return; }
+    const f = root.querySelector('.lm-video iframe'); if(!f) return;
+    const O = 'https://www.youtube-nocookie.com';
+    const hello = () => { try{ f.contentWindow.postMessage(JSON.stringify({ event:'listening', id:'lm', channel:'widget' }), O); }catch(e){} };
+    f.addEventListener('load', ()=>{ hello(); setTimeout(hello, 1000); });
+    const onMsg = e => {
+      if(e.origin !== O || e.source !== f.contentWindow) return;
+      if(!f.isConnected){ window.removeEventListener('message', onMsg); return; }
+      let d = null; try{ d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; }catch(err){ return; }
+      const i = d && d.info; if(i && typeof i.currentTime === 'number' && (i.playerState === 1 || i.playerState === undefined || i.currentTime > 0)) tick(i.currentTime);
+    };
+    window.addEventListener('message', onMsg);
   }
   function _lmWirePlayer(x){
     const a = $('#lm-audio'); if(!a) return;
@@ -5909,7 +7644,7 @@ function app(tab){
   // the search float: tap the magnifying glass and it opens into a field; results replace the page under it until it closes
   function _lrnSearchWire(open, openMedia){
     openMedia = openMedia || (id=>screenMedia(id, { label:'Learn', go:()=>screenLearn(true) }));
-    const dock = $('#fl-dock'), sf = $('#ll-sf'), sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
+    const sf0 = $('#ll-sf'), dock = sf0 && sf0.closest('#fl-dock') ? $('#fl-dock') : null, sf = sf0, sb = $('#ll-sf-btn'), qi = $('#ll-q'), qx = $('#ll-q-x'), res = $('#ll-results'), browse = $('#ll-browse');
     if(!sf || !qi || !res || !browse) return;
     let shown = 30, tm = null, openG = {};
     const sc = root.querySelector('.scroll');
@@ -5919,12 +7654,13 @@ function app(tab){
       if(!browse.hidden && sc) sc.scrollTop = 0;
       browse.hidden = true;
       const hits = _lrnSearch(q), mh = _lmSearch(q);
-      const gs = [{ k:'a', label:'Articles', list:hits }].concat(_LM_TYPES.slice(1).map(([k, label])=>({ k, label, list:mh.filter(x=>x.s === k) }))).filter(g=>g.list.length);
-      const n = hits.length + mh.length;
+      const mOk = k => _lmMedia === 'all' || (_lmMedia === 'read' ? k === 'a' : _lmMedia === 'listen' ? (k === 'p' || k === 'c') : (k === 'v' || k === 's'));
+      const gs = [{ k:'a', label:'Articles', list:hits }].concat(_LM_TYPES.slice(1).map(([k, label])=>({ k, label, list:mh.filter(x=>x.s === k) }))).filter(g=>g.list.length && mOk(g.k));
+      const n = gs.reduce((s, g)=>s + g.list.length, 0);
       const loading = !_lrnSIdx || !_lmData;
       // each type under its own heading: the first few, then "Show all" for that type
       const sec = g => { const cap = g.k === 'a' ? 10 : 5, all = !!openG[g.k] || g.list.length <= cap + 2, rows = all ? g.list : g.list.slice(0, cap);
-        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3><div class="rd-list rd-list-flat">${rows.map(e=>g.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e)).join('')}</div>${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
+        return `<h3 class="lm-gh">${escapeHtml(g.label)}<span class="lm-gn">${g.list.length}</span></h3>${_lbCardsHTML(rows, g.k === 'a')}${all ? '' : `<button class="ll-showall ll-res-more" type="button" data-sgrp="${g.k}">Show all ${g.list.length} ${_LM_NOUN[g.k]}</button>`}`; };
       res.innerHTML = `<section class="rd-learn ll-res">
           <p class="ll-res-n">${n ? escapeHtml(_lmLessons(n)) : escapeHtml('No lessons match “' + q + '”' + (loading ? ' yet.' : '.'))}${loading ? ' <span class="ll-res-wait">Searching…</span>' : ''}</p>
           ${gs.map(sec).join('')}
@@ -5938,6 +7674,7 @@ function app(tab){
     // the entire bottom menu"): the bottom menu hides, and the field sits on the top edge of the keyboard
     const vv = window.visualViewport, coarse = window.matchMedia && matchMedia('(pointer:coarse)').matches;
     const lift = ()=>{
+      if(!dock){ document.body.classList.remove('ll-sf-typing'); return; }
       if(!dock.isConnected){ if(vv){ vv.removeEventListener('resize', lift); vv.removeEventListener('scroll', lift); } document.body.classList.remove('ll-sf-typing'); return; }
       const typing = coarse && vv && document.activeElement === qi;
       document.body.classList.toggle('ll-sf-typing', !!typing);
@@ -5945,7 +7682,8 @@ function app(tab){
       else { dock.style.position = ''; dock.style.bottom = ''; dock.style.top = ''; }
     };
     if(vv){ vv.addEventListener('resize', lift); vv.addEventListener('scroll', lift); }
-    const setOpen = on => { sf.classList.toggle('open', on); dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
+    const always = sf.classList.contains('lb-search');
+    const setOpen = on => { on = on || always; sf.classList.toggle('open', on); if(dock) dock.classList.toggle('sf-open', on); sb.setAttribute('aria-expanded', on ? 'true' : 'false'); qi.tabIndex = on ? 0 : -1; const tb = dock && dock.querySelector('.tab-back-float'); if(tb) tb.tabIndex = on ? -1 : 0; };
     setOpen(!!_lrnQ);
     sb.onclick = ()=>{ if(sf.classList.contains('open')){ qi.focus(); return; } setOpen(true); qi.focus(); _lrnSearchIndex(); };
     qi.oninput = ()=>{ _lrnQ = qi.value; shown = 30; openG = {}; clearTimeout(tm); tm = setTimeout(draw, 120); };
@@ -5953,7 +7691,8 @@ function app(tab){
     qi.onfocus = ()=>{ _lrnSearchIndex(); _lmLoad(); _lmDescLoad(); lift(); };
     qi.onblur = ()=>{ lift(); setTimeout(()=>{ if(sf.isConnected && !_lrnQ.trim() && document.activeElement !== qi) setOpen(false); lift(); }, 150); };
     qx.onmousedown = e=>e.preventDefault();
-    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
+    qx.onclick = ()=>{ _lrnQ = ''; qi.value = ''; draw(); if(always){ qi.focus(); return; } qi.blur(); setOpen(false); sb.focus({ preventScroll:true }); };
+    if(always) sb.onclick = ()=>qi.focus();
     if(_lrnQ) draw();
   }
   // the member's Journal (Justin, 2026-10-02: "people need to see where their journal answers live, like an actual Journal
@@ -5975,6 +7714,9 @@ function app(tab){
     // an episode's or a video's journal (2026-10-26): 'mj:{media id}:{n}' = [answer, day, question, title, state]
     Object.keys(m).forEach(k=>{ const mj = /^mj:(.+):(\d+)$/.exec(k); if(!mj) return; const v = m[k] || []; if(!v[0]) return;
       out.push({ media:mj[1], post:{ key:'media:' + mj[1], title:v[3] || 'Listen and watch', teachState:v[4] || null }, rid:mj[2], text:String(v[0]), day:v[1] || '', q:v[2] || '' }); });
+    // a journal prompt from the page for now (2026-10-30): 'nj:{day}:{prompt id}' = [answer, day, question, state]
+    Object.keys(m).forEach(k=>{ const nj = /^nj:(\d{4}-\d\d-\d\d):([a-z0-9-]+)$/.exec(k); if(!nj) return; const v = m[k] || []; if(!v[0]) return;
+      out.push({ now:true, post:{ key:'now:' + nj[1], title:'Journal prompts', teachState:v[3] || null }, rid:nj[2], text:String(v[0]), day:v[1] || nj[1], q:v[2] || '' }); });
     return out.sort((a,b)=> (b.day||'').localeCompare(a.day||''));
   }
   // grouped by article (the You tab's count, and older callers)
@@ -5998,7 +7740,7 @@ function app(tab){
   }
   // the Journal's view (Justin: "grouped by topic, just like the learning hubs ... Make this the standard view. But also make
   // a filter so that the user can group them by date or by article"); remembered on this device
-  function _jrView(v){ try{ if(v) localStorage.setItem('snb_journal_view', v); return localStorage.getItem('snb_journal_view') || 'topic'; }catch(e){ return v || 'topic'; } }
+  function _jrView(v){ try{ if(v) localStorage.setItem('snb_journal_view', v); return localStorage.getItem('snb_journal_view') || 'date'; }catch(e){ return v || 'date'; } }
   // Recommended journal (Justin: "based on something relevant in their data"): a question they haven't answered yet, from an
   // article about the state of their latest check-in, one they've read, or the topics they already write about
   function _jrRecoPiece(items){
@@ -6025,7 +7767,7 @@ function app(tab){
     const b = (p.blocks||[]).find(x=>x.reflect && !((ans['l:' + p.id + ':' + x.reflect]||[])[0])); if(!b) return '';
     const st = p.state || r.st || null;
     const topic = !st && (p.groups||[]).map(g=>window.Learning.TOPICS[g]).find(Boolean);
-    return `<section class="rd-learn rd-learn-top jr-reco"><span class="rd-eyeb">Recommended journal</span>
+    return `<section class="rd-learn rd-learn-top jr-reco snb-reco"><span class="rd-eyeb">Recommended journal</span>
       <button class="rd-lcard" type="button" data-piece="${escapeHtml(p.id)}" data-rf="${escapeHtml(b.reflect)}" style="--band:${st ? STATE_COLOR(st) : 'var(--hairline)'}">
         <span class="rd-lcard-band"><span class="rd-lcard-top">${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}${escapeHtml(STATE_LABEL(st))}</span>` : `<span class="rd-eyeb">${escapeHtml(topic || 'Journal')}</span>`}</span><span class="rd-lcard-title">${escapeHtml(_jrHead(p, b.reflect))}</span></span>
         <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml('From ' + p.title)}</span><span class="rd-read">Write${CHEV}</span></span>
@@ -6035,51 +7777,165 @@ function app(tab){
   // from Reflect"); Back returns where it came from
   let _jrFrom = 'you';
   const _JR_FILTER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
+  // Your Journal as a diary (Justin, canon 2026-10-30: "a personal, sacred time to reflect. Like a diary. Dates. Meaning."):
+  // the heading with Date / Topic / Article beside it; a blank page for now (the date, the recommended question, room to
+  // write, Save); then the days as pages, newest first, under month headings: the date and that day's check-in on 1-2, the
+  // entries on 3-9 in book type with a quiet link back; a hairline between days, no boxes
+  // the page for now asks a ready-made prompt chosen from the member's latest check-in (Justin 2026-10-30: "use a stock of
+  // ready-made journal prompts based on the user's data"); the articles keep their own questions
+  const JR_PROMPTS = {   // Justin's wording, 2026-10-30
+    safety: ['Where in your body do you notice safety right now?', "What's helping you access more safety right now?", 'Who or what do you have an impulse to connect with right now?', 'What would you like to remember about this feeling of safety?', "There's safety in your system. How can you tell?"],
+    play: ['What do you want to do with your energy right now?', 'What feels fun or interesting right now, even a little?', 'Where do you notice both energy and ease in your body right now?', 'Who do you feel most playful around?', "There's playfulness or motivation in your system. How can you tell?"],
+    stillness: ['What lets you be still right now without needing to do anything?', 'Where do you notice calm in your body right now?', 'Who or what makes it easy to rest?', 'What does this quiet feel like, in a word or two?', "There's a calm stillness in your system. How can you tell?"],
+    fightflight: ['What has your body been preparing for lately?', 'Where do you feel the activation in your body right now: jaw, chest, hands, legs...?', 'What is your flight/fight state trying to protect?', 'What kind of movement would feel the best right now?', "There's flight/fight in your system. How can you tell?"],
+    freeze: ['What feels frozen right now, and what still feels a little movable?', 'Where do you notice both the energy and the heaviness in your body?', 'What small movement feels doable right now? Any?', 'What has helped freeze ease up before, even a little?', 'What would feel better right now: movement or mindfulness?', "There's some freeze in your system. How can you tell?"],
+    shutdown: ['What does your body need most right now: rest, warmth, or company?', 'What is one thing you can notice with your senses right now?', 'What has been draining your energy lately?', 'Is there anyone, or anything, that feels a little bit safe right now?', "There's some shutdown in your system. How can you tell?"],
+    start: ['What do you notice in your body right now?', 'What is one small thing that helped you feel safe lately?', 'What is taking up most of your energy right now?'],
+  };
+  function _jrPrompt(){
+    let c = null; try{ c = Store.lastCheckin ? Store.lastCheckin() : null; }catch(e){}
+    const st = c ? _cDom(c) : null, k = st && JR_PROMPTS[st] ? st : 'start', list = JR_PROMPTS[k], ans = _ctxLoad();
+    const done = new Set(Object.keys(ans).filter(x=>/^nj:/.test(x) && (ans[x] || [])[0]).map(x=>x.split(':')[2]));
+    const d0 = new Date(), dayN = Math.floor((d0 - new Date(d0.getFullYear(), 0, 0)) / 864e5);
+    const ids = list.map((q, i)=>k + '-' + (i + 1)), open = ids.filter(id=>!done.has(id));
+    const id = (open.length ? open : ids)[dayN % (open.length || ids.length)];
+    let from = 'A place to start';
+    if(c && st && JR_PROMPTS[st]){ const t = new Date(c.t || c.created_at), same = t.toDateString() === d0.toDateString();
+      from = 'Recommended based on your last check-in'; }
+    return { id, q:list[ids.indexOf(id)], st: k === 'start' ? null : k, from };
+  }
+  const _jrYmd = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+  // search + Filter, the same as Learn and the Pathway (Justin 2026-10-30: "Put a filter instead, like on our other pages";
+  // "a search function here, to parse through the user's journal entries")
+  let _jrQ = '', _jrSrc = 'all';
+  const JR_SRC = [['all', 'All'], ['article', 'Articles'], ['reflect', 'Reflections'], ['media', 'Episodes and videos'], ['chal', 'Challenges'], ['prompt', 'Journal prompts']];
+  const _jrKind = it => it.now ? 'prompt' : it.chal ? 'chal' : it.media ? 'media' : it.piece ? 'article' : 'reflect';
   function screenJournal(from){
-    if(from) _jrFrom = from === 'reflect' ? 'reflect' : 'you';
+    if(from) _jrFrom = from === 'reflect' ? 'reflect' : from === 'now' ? 'now' : 'you';
     if(!paidNow()) return gateSubscribe('reader');
-    const L = window.Learning, items = _lrnJournalItems();
+    const L = window.Learning, all = _lrnJournalItems();
     const fromR = _jrFrom === 'reflect';
-    // the Group by choice is a small menu beside Back (Justin, 2026-10-02: "a popup next to the back button, not taking up space at the top")
-    const VIEWS = [['topic', 'Topic'], ['date', 'Date'], ['article', 'Article']];
+    const VIEWS = [['date', 'Date'], ['topic', 'Topic'], ['article', 'Article']];
     const view = _jrView();
-    const dock = items.length ? `<div class="jr-fpop" id="jr-fpop"><button class="jr-fbtn" id="jr-fbtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Group by ${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}">${_JR_FILTER_SVG}<span>${escapeHtml((VIEWS.find(v=>v[0]===view)||VIEWS[0])[1])}</span></button>
-      <div class="jr-fmenu" id="jr-fmenu" role="menu" aria-label="Group by"><span class="jr-fmenu-h">Group by</span>${VIEWS.map(([k, t])=>`<button class="jr-fopt${k === view ? ' on' : ''}" type="button" role="menuitemradio" aria-checked="${k === view}" data-jrview="${k}">${escapeHtml(t)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg></button>`).join('')}</div></div>` : '';
-    const shell = inner => _rdShell(`<span class="rd-eyeb">${fromR ? 'Reflect' : 'You'}</span><h1 class="rd-title">Your Journal</h1>${inner}`, { back:fromR ? 'Reflect' : 'You', onBack:()=>app(fromR ? 'reflect' : 'you'), tab:fromR ? 'reflect' : 'you', loc:{ k:'journal', from:_jrFrom }, dock });
-    const reco = _jrRecoPiece(items);
+    const _jrNow = _jrFrom === 'now', _jrBack = fromR ? 'Reflect' : _jrNow ? 'Now' : 'You', _jrTab = fromR ? 'reflect' : _jrNow ? 'now' : 'you';
+    const shell = inner => _rdShell(`<div class="jr-view"><div class="scr-head read-head"><h1 class="read-h1">Your Journal</h1></div>${inner}</div>`, { back:_jrBack, onBack:()=>app(_jrTab), tab:_jrTab, loc:{ k:'journal', from:_jrFrom }, wide:true, plainBack:true });
     // the questions come from the articles themselves (older answers kept only the answer)
-    const need = [...new Set(items.filter(it=>it.piece).map(it=>it.piece).concat(reco ? [reco.piece] : []))].filter(p=>!p.blocks);
+    const need = [...new Set(all.filter(it=>it.piece).map(it=>it.piece))].filter(p=>!p.blocks);
     if(need.length){
-      shell(`<p class="rd-meta">One moment…</p>`);
-      Promise.all(need.map(p=>_lrnLoad(p).catch(()=>null))).then(()=>{ if(root.querySelector('.rd-title') && /Your Journal/.test(root.querySelector('.rd-title').textContent) && root.querySelector('.rd-meta')) screenJournal(); });
+      shell(`<p class="rd-meta jr-wait">One moment…</p>`);
+      Promise.all(need.map(p=>_lrnLoad(p).catch(()=>null))).then(()=>{ if(root.querySelector('.jr-view .jr-wait')) screenJournal(); });
       return;
     }
-    const recoHTML = reco ? _jrRecoHTML(reco) : '';
-    if(!items.length){
-      shell(`${recoHTML}<p class="read-p">Nothing here yet. When you answer a journal question in a Learn article or a reflection, your answer is kept here.</p><button class="rd-checkin jr-go" type="button">Go to Learn</button>`);
-      const g = root.querySelector('.jr-go'); if(g) g.onclick = ()=>app('learn');
-      _jrWireList();
-      return;
+    const kinds = new Set(all.map(_jrKind)); if(_jrSrc !== 'all' && !kinds.has(_jrSrc)) _jrSrc = 'all';
+    const srcs = JR_SRC.filter(([k])=>k === 'all' || kinds.has(k));
+    const items = _jrSrc === 'all' ? all : all.filter(it=>_jrKind(it) === _jrSrc);
+    // the blank page for now: a ready-made prompt from the latest check-in
+    const d0 = new Date(), jp = _jrPrompt();
+    const nowPage = `<section class="jr-page jr-now" id="jr-nowp" aria-label="A page for now"><div class="jr-date"><span class="jr-eb">Now</span><span class="jr-num">${d0.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d0.getDay()] + ', ' + d0.toLocaleDateString(undefined, { month:'long' }))}</span></div>
+        <div class="jr-entries"><span class="jr-from">${jp.st ? _rdMk(jp.st) : ''}${escapeHtml(jp.from)}</span>
+          <label class="jr-q" for="jr-now-ta">${escapeHtml(jp.q)}</label>
+          <textarea class="jr-write" id="jr-now-ta" rows="4" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="A word or a sentence is plenty"></textarea>
+          <div class="jr-now-foot"><button class="jr-save" id="jr-now-save" type="button" disabled>Save</button></div></div></section>`;
+    // each day's check-in state: the last check-in that day
+    const dayState = {}; try{ (Store.checkins ? Store.checkins() : []).filter(c=>c && c.t).sort((a,b)=>a.t - b.t).forEach(c=>{ const k = _cDom(c); if(k) dayState[_jrYmd(c.t)] = k; }); }catch(e){}
+    const src = it => it.piece ? it.piece.title : it.post ? it.post.title : '';
+    const head = it => it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q);
+    const mark = (s, q) => { const h = escapeHtml(s); if(!q) return h; const e = escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return h.replace(new RegExp(e, 'gi'), m=>`<mark class="jr-hit">${m}</mark>`); };
+    const entry = (it, q) => `<div class="jr-entry"><span class="jr-eq">${mark(head(it), q)}</span><p class="jr-ans">${mark(it.text, q).replace(/\n/g, '<br>')}</p>${it.now ? '' : `<button class="jr-src" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}">${mark(src(it), q)}${CHEV}</button>`}</div>`;
+    const dayPage = (day, list, q) => { const d = day ? new Date(day + 'T12:00:00') : null, s = day ? dayState[day] : null;
+      return `<article class="jr-page"><div class="jr-date">${d ? `<span class="jr-num">${d.getDate()}</span><span class="jr-wd">${escapeHtml(DAYS_LONG[d.getDay()])}</span>${s ? `<span class="jr-st">${_rdMk(s)}${escapeHtml(STATE_LABEL(s))}</span>` : ''}` : `<span class="jr-wd">Earlier</span>`}</div><div class="jr-entries">${list.map(it=>entry(it, q)).join('')}</div></article>`; };
+    const daysOf = (list, q) => { const by = {}; list.forEach(it=>{ (by[it.day || ''] = by[it.day || ''] || []).push(it); }); return Object.keys(by).sort().reverse().map(k=>dayPage(k, by[k], q)).join(''); };
+    const groupsOf = list => {
+      if(view === 'article'){ const by = {}; list.forEach(it=>{ const id = it.piece ? 'l:' + it.piece.id : 'r:' + it.post.key; (by[id] = by[id] || { head:src(it), items:[], last:'' }).items.push(it); if(it.day > by[id].last) by[id].last = it.day; });
+        return Object.values(by).sort((a,b)=> (b.last||'').localeCompare(a.last||'')); }
+      if(view === 'topic'){ const keys = _lrnStateOrder().concat(L.TOPIC_ORDER), by = {};
+        list.forEach(it=>{ const gs = it.chal ? ['_chal'] : it.piece ? (it.piece.groups||[]) : [it.post.teachState && L.HUBS[it.post.teachState] ? it.post.teachState : '_reflect']; gs.forEach(g=>{ if(L.HUBS[g] || g === '_reflect' || g === '_chal') (by[g] = by[g] || []).push(it); }); });
+        const name = k => k === '_reflect' ? 'Reflect' : k === '_chal' ? 'Challenges' : _lrnHubName(k);
+        return ['_reflect', '_chal'].concat(keys).filter(k=>by[k]).map(k=>({ head:name(k), items:by[k] })); }
+      const by = {}; list.forEach(it=>{ const m = it.day ? it.day.slice(0, 7) : ''; (by[m] = by[m] || []).push(it); });
+      return Object.keys(by).sort().reverse().map(m=>({ head: m ? _jrMonth(m + '-15') : 'Earlier', items:by[m] }));
+    };
+    const noun = n => n === 1 ? '1 entry' : n + ' entries';
+    const listHTML = () => {
+      const q = _jrQ.trim(), ql = q.toLowerCase(), on = q.length >= 2;
+      const list = on ? items.filter(it=>[it.text, head(it), src(it)].some(s=>String(s || '').toLowerCase().includes(ql))) : items;
+      const top = on ? `<p class="ll-res-n jr-res-n">${list.length ? escapeHtml(noun(list.length) + ' with “' + q + '”') : escapeHtml('No entries with “' + q + '”.')}</p>`
+        : !list.length && all.length ? `<p class="ll-res-n jr-res-n">No entries here yet.</p>` : '';
+      return top + groupsOf(list).map(g=>`<section class="jr-group"><h2 class="jr-month">${escapeHtml(g.head)}</h2>${daysOf(g.items, on ? q : '')}</section>`).join('');
+    };
+    const chip = (attr, id, label, on) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${attr}="${id}" aria-pressed="${on}"><span>${escapeHtml(label)}</span></button>`;
+    const offV = view !== 'date', offS = _jrSrc !== 'all', fn = (offV ? 1 : 0) + (offS ? 1 : 0);
+    const lbl = (arr, k) => (arr.find(x=>x[0] === k) || [])[1] || '';
+    const active = fn ? `<div class="lm-active" role="group" aria-label="Filters">${offV ? `<button class="lm-chip on" type="button" data-jrx="view" aria-label="Take off ${escapeHtml('By ' + lbl(VIEWS, view).toLowerCase())}"><span>${escapeHtml('By ' + lbl(VIEWS, view).toLowerCase())}</span><span class="lm-x" aria-hidden="true">×</span></button>` : ''}${offS ? `<button class="lm-chip on" type="button" data-jrx="src" aria-label="Take off ${escapeHtml(lbl(JR_SRC, _jrSrc))}"><span>${escapeHtml(lbl(JR_SRC, _jrSrc))}</span><span class="lm-x" aria-hidden="true">×</span></button>` : ''}</div>` : '';
+    const search = all.length ? `<div class="lb-search-row jr-search-row">
+        <div class="ll-sfloat open lb-search" id="jr-sf" role="search"><span class="ll-sf-btn" aria-hidden="true">${_LB_SEARCH}</span><input class="ll-sf-q" id="jr-q" type="search" placeholder="Search your journal" aria-label="Search your journal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_jrQ)}"><button class="ll-sf-x" id="jr-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="jr-filt" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="jr-fsheet" aria-label="${fn ? 'Filter, ' + fn + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fn ? `<span class="lm-fn" aria-hidden="true">${fn}</span>` : ''}</button></div></div>
+      ${active}
+      <div class="rd-jr-sheet lm-fsheet" id="jr-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
+        <div class="lm-fs-body"><span class="rd-eyeb">Group by</span><div class="lm-chips">${VIEWS.map(([k, l])=>chip('jrv', k, l, view === k)).join('')}</div>
+          ${srcs.length > 2 ? `<span class="rd-eyeb">From</span><div class="lm-chips">${srcs.map(([k, l])=>chip('jrs', k, l, _jrSrc === k)).join('')}</div>` : ''}</div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="jr-fclear">Clear all</button><button class="lm-fshow" type="button" id="jr-fshow">Show</button></div></div></div>` : '';
+    const searching = _jrQ.trim().length >= 2;
+    shell(`${search}${nowPage.replace('<section class="jr-page jr-now"', `<section class="jr-page jr-now"${searching ? ' hidden' : ''}`)}<div id="jr-res">${listHTML()}</div>`);
+    const v = root.querySelector('.jr-view');
+    const ta = $('#jr-now-ta'), sv = $('#jr-now-save');
+    if(ta && sv){
+      ta.oninput = ()=>{ sv.disabled = !ta.value.trim(); };
+      sv.onclick = ()=>{ const txt = ta.value.trim(); if(!txt) return;
+        const day = _jrYmd(Date.now()), key = 'nj:' + day + ':' + jp.id, q = jp.q, val = [txt, day, q, jp.st || ''];
+        try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m=_ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
+        try{ haptic('save'); }catch(e){} screenJournal(); };
     }
-    const card = it => `<button class="jr-item" type="button" ${it.piece ? `data-piece="${escapeHtml(it.piece.id)}"` : `data-post="${escapeHtml(it.post.key)}"`} data-rf="${escapeHtml(it.rid)}"><b class="jr-h">${escapeHtml(it.piece ? _jrHead(it.piece, it.rid, it.q) : _jrHead({}, '', it.q))}</b><span class="jr-a">${escapeHtml(it.text).replace(/\n/g, '<br>')}</span><span class="jr-foot">${it.day ? `<span class="jr-d">${escapeHtml(_jrDay(it.day))}</span>` : '<span></span>'}<span class="jr-src">${it.piece ? 'Back to this lesson' : it.chal ? 'Back to this challenge' : 'Back to this reflection'}${CHEV}</span></span></button>`;
-    const order = (p, rid) => p ? (p.blocks||[]).findIndex(x=>x.reflect === rid) : +rid;
-    let groups = [];
-    if(view === 'date'){
-      const by = {}; items.forEach(it=>{ const m = it.day ? it.day.slice(0, 7) : ''; (by[m] = by[m] || []).push(it); });
-      groups = Object.keys(by).sort().reverse().map(m=>({ head:`<b>${escapeHtml(m ? _jrMonth(m + '-15') : 'Earlier')}</b>`, items:by[m] }));
-    } else if(view === 'article'){
-      groups = _lrnJournal().map(g=>({ head:`<b>${escapeHtml(g.piece ? g.piece.title : g.post.title)}</b>`, art:g.piece ? g.piece.id : null, postKey:g.post ? g.post.key : null, items:g.items.slice().sort((a,b)=> order(a.piece, a.rid) - order(b.piece, b.rid)) }));
-    } else {
-      // every topic the article belongs to, in the Learn tab's order: one answer can sit under more than one
-      const keys = _lrnStateOrder().concat(L.TOPIC_ORDER), by = {};
-      // a reflection's answers sit under the state the reflection is about, or under Reflect
-      items.forEach(it=>{ const gs = it.chal ? ['_chal'] : it.piece ? (it.piece.groups||[]) : [it.post.teachState && L.HUBS[it.post.teachState] ? it.post.teachState : '_reflect']; gs.forEach(g=>{ if(L.HUBS[g] || g === '_reflect' || g === '_chal') (by[g] = by[g] || []).push(it); }); });
-      const name = k => k === '_reflect' ? 'Reflect' : k === '_chal' ? 'Challenges' : _lrnHubName(k);
-      groups = ['_reflect', '_chal'].concat(keys).filter(k=>by[k]).map(k=>({ head:`${k === '_reflect' || k === '_chal' ? '' : _rdMk(k)}<b>${escapeHtml(name(k))}</b><span class="ll-n">${escapeHtml(by[k].length === 1 ? '1 entry' : by[k].length + ' entries')}</span>`, items:by[k] }));
+    // search: the entries redraw as you type, the field keeps its place; the page for now steps aside while searching
+    const qi = $('#jr-q'), qx = $('#jr-q-x'), res = $('#jr-res'), np = $('#jr-nowp');
+    if(qi && res){ let tm = null; const draw = () => { res.innerHTML = listHTML(); if(np) np.hidden = _jrQ.trim().length >= 2; _jrWireList(); };
+      qi.oninput = () => { _jrQ = qi.value; clearTimeout(tm); tm = setTimeout(draw, 120); };
+      qi.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
+      qx.onmousedown = e => e.preventDefault();
+      qx.onclick = () => { _jrQ = ''; qi.value = ''; draw(); qi.focus(); }; }
+    root.querySelectorAll('[data-jrx]').forEach(b=>b.onclick=()=>{ if(b.dataset.jrx === 'view') _jrView('date'); else _jrSrc = 'all'; screenJournal(); });
+    // Filter: the slide-up below 1120, a panel under the search row that pushes the page down at 1120 and up (as Learn's)
+    const fbtn = $('#jr-filt'), sh = $('#jr-fsheet');
+    if(fbtn && sh && v){
+      let pv = view, ps = _jrSrc, inline = false, tmr = null;
+      const box = sh.querySelector('.rd-jr-sheet-in'), show = $('#jr-fshow');
+      const calm = () => document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const paint = () => {
+        sh.querySelectorAll('[data-jrv]').forEach(b => { const on = b.dataset.jrv === pv; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        sh.querySelectorAll('[data-jrs]').forEach(b => { const on = b.dataset.jrs === ps; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        const n = ps === 'all' ? all.length : all.filter(it=>_jrKind(it) === ps).length;
+        show.textContent = 'Show ' + noun(n);
+      };
+      const apply = () => { if(pv === view && ps === _jrSrc){ try{ fbtn.focus({ preventScroll:true }); }catch(e){} return; } _jrView(pv); _jrSrc = ps; screenJournal(); };
+      const esc = e => { if(e.key === 'Escape') close(); };
+      const open = () => {
+        if(inline) return close();
+        pv = view; ps = _jrSrc; paint();
+        if(matchMedia('(min-width:1120px)').matches){
+          const after = v.querySelector('.lm-active') || v.querySelector('.jr-search-row'); if(after.nextElementSibling !== sh) after.after(sh);
+          inline = true; sh.classList.add('is-inline'); sh.setAttribute('role', 'region'); _pmSlide(fbtn, sh, true); document.addEventListener('keydown', esc);
+          const f = sh.querySelector('.lm-chip.on'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+          return;
+        }
+        clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); fbtn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc);
+      };
+      const close = () => {
+        document.removeEventListener('keydown', esc);
+        if(inline){ inline = false; return _pmSlide(fbtn, sh, false, () => { sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); apply(); }); }
+        sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); fbtn.setAttribute('aria-expanded', 'false');
+        tmr = setTimeout(() => { sh.hidden = true; apply(); }, calm() ? 0 : 320);
+      };
+      fbtn.onclick = open; sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
+      sh.addEventListener('click', e => { if(e.target === sh) close(); });
+      sh.querySelectorAll('[data-jrv]').forEach(b => b.onclick = () => { pv = b.dataset.jrv; paint(); });
+      sh.querySelectorAll('[data-jrs]').forEach(b => b.onclick = () => { ps = b.dataset.jrs; paint(); });
+      $('#jr-fclear').onclick = () => { pv = 'date'; ps = 'all'; paint(); };
+      let y0 = 0, dragging = false;
+      box.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; dragging = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab'); }, { passive:true });
+      box.addEventListener('touchmove', e => { if(!dragging) return; box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, e.touches[0].clientY - y0)}px)`; }, { passive:true });
+      box.addEventListener('touchend', e => { if(!dragging) return; dragging = false; box.style.transition = ''; if(e.changedTouches[0].clientY - y0 > 90) close(); else box.style.transform = ''; });
     }
-    const html = groups.map(g=>`<section class="jr-group">${g.art || g.postKey ? `<button class="jr-gh jr-art" type="button" ${g.art ? `data-art="${escapeHtml(g.art)}"` : `data-post="${escapeHtml(g.postKey)}"`}>${g.head}<span class="wc-go">${CHEV}</span></button>` : `<h3 class="jr-gh">${g.head}</h3>`}${g.items.map(card).join('')}</section>`).join('');
-    shell(`${recoHTML}${html}`);
-    _jrWireFilter();
     _jrWireList();
   }
   // the Group by menu beside Back: animates in and out (never pops), closes on a pick, a tap outside or Escape
@@ -6097,12 +7953,15 @@ function app(tab){
     });
   }
   function _jrWireList(){
-    const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : 'you' };
+    const here = { label:'Your Journal', go:()=>screenJournal(), tab:_jrFrom === 'reflect' ? 'reflect' : _jrFrom === 'now' ? 'now' : 'you' };
     const openPost = (key, sec) => { if(/^chal:/.test(key)) return screenChallenges(); if(/^media:/.test(key)) return screenMedia(key.slice(6), here); const pt = _rdPosts().find(x=>x.key === key); if(pt) screenReaderPost(pt, { from:here, goSec:sec }); };
     root.querySelectorAll('.jr-art[data-art]').forEach(b=>b.onclick=()=>{ const pc = window.Learning.byId(b.dataset.art); if(pc) screenLearnPiece(pc, null, null, here); });
     root.querySelectorAll('.jr-art[data-post]').forEach(b=>b.onclick=()=>openPost(b.dataset.post));
-    root.querySelectorAll('.jr-item, .jr-reco [data-rf]').forEach(b=>b.onclick=()=>{ if(b.dataset.post) return openPost(b.dataset.post, 'rj-' + b.dataset.rf); const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
+    root.querySelectorAll('.jr-item, .jr-src[data-rf], .jr-reco [data-rf]').forEach(b=>b.onclick=()=>{ if(b.dataset.post) return openPost(b.dataset.post, 'rj-' + b.dataset.rf); const pc = window.Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, here, 'rf-' + b.dataset.rf); });
   }
+  // Reflect on the Swiss grid (Justin, canon 2026-10-30): one bento of house cards. The new weekly reflection is the big card
+  // (1-8) with its chart as the picture; the Now card beside it (9-12, two rows); the recommended article and Your Journal under
+  // the big card (4 + 4); past reflections as cards with their own charts (3 each). No filled Read buttons.
   function screenReader(){
     _markReaderSeen();
     try{ _rdMint(); }catch(e){ try{ console.error('reader mint failed', e); }catch(_){} }
@@ -6112,52 +7971,37 @@ function app(tab){
     const cover = posts[0] || null;
     const fresh = cover && (now - cover.release) < 7*DAY;
     const coverEyeb = !cover ? '' : (cover.kind==='week' ? (fresh ? (new Date().getDay()===0 ? 'New this Sunday' : 'New this week') : 'This week') : (fresh ? 'New · ' : '') + RD_KIND_LABEL[cover.kind]);
-    const fs = cover ? _rdFirstSnap(cover) : null;
-    const coverHTML = cover ? `<button class="rd-cover" type="button" data-post="${escapeHtml(cover.key)}" style="--band:${STATE_COLOR(cover.teachState||'safety')}">
-        <span class="rd-cover-band${fs && fs.snap === 'monthgrid' ? ' rd-band-plain' : ''}"><span class="rd-cover-bandtop"><span class="rd-eyeb rd-eyeb-acc">${escapeHtml(coverEyeb)}</span>${_rdMk(cover.teachState||'safety','rd-mk-lg')}</span>${fs ? `<span class="rd-cover-viz">${_rdSnapInner(fs, cover)}</span>` : ''}</span>
-        <span class="rd-cover-body">
-          <span class="rd-cover-title">${escapeHtml(cover.title)}</span>
-          <span class="rd-cover-foot"><span class="rd-cover-meta">${escapeHtml(cover.label||'')}</span><span class="rd-read">Read · ${escapeHtml(String(cover.minutes||1))} min${CHEV}</span></span>
-        </span>
-      </button>` : '';
-    // Today, live (Justin, 2026-10-01: the eyebrow is "Today"; an explicit exception to the no-"today" copy rule)
+    const pic = p => { const fs = _rdFirstSnap(p); return fs ? `<span class="lb-pic rf-pic" aria-hidden="true"><span class="rf-viz">${_rdSnapInner(fs, p)}</span></span>` : `<span class="lb-pic" aria-hidden="true">${_rdMk(p.teachState||'safety')}</span>`; };
+    const big = cover ? `<button class="lb-card rf-big" type="button" data-post="${escapeHtml(cover.key)}">${pic(cover)}<span class="lb-body"><span class="rf-eb">${_rdMk(cover.teachState||'safety')}${escapeHtml(coverEyeb)}</span><span class="lb-t rf-big-t">${escapeHtml(cover.title)}</span><span class="lb-meta">${escapeHtml((cover.label || RD_KIND_LABEL[cover.kind] || '') + ' · Read · ' + (cover.minutes||1) + ' min')}</span></span></button>`
+      : `<div class="rf-big rf-empty"><p class="read-p">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p></div>`;
+    // Now (replaces "Today", Justin canon 2026-10-30: never "today"): the short daily reflection, when the next weekly one
+    // arrives, and a quiet Check in
     const td = Store.today ? Store.today() : null;
     const dn = (td && td.n>=1 && FromJustin.daily) ? FromJustin.daily(td) : null;
-    const todayBody = (td && td.n>=1)
-      ? `${dn ? `<p class="read-p rd-today-p">${boldHtml(dn.text)}</p>` : ''}${momentTimeline(td.moments, td.sessions)}`
-      : `<p class="read-p rd-today-p">No check-ins yet. Your note for the day starts with your first one.</p>`;
     const lastC = (td && td.n>=1 && Store.lastCheckin) ? Store.lastCheckin() : null;
     const lastK = lastC ? _cDom(lastC) : null;
-    const dailyLearn = (td && td.n>=1 && lastK) ? _lrnForDaily(lastK) : null;
-    const todayHTML = `<section class="rd-today">
-        <div class="rd-today-top"><span class="rd-eyeb">Today</span>${lastK ? _rdMk(lastK) : ''}</div>
-        ${todayBody}
-        ${dailyLearn ? _lrnCardHTML(dailyLearn, 'rd-lcard-sm') : ''}
-        <div class="rd-today-foot"><p>${escapeHtml(_rdNextLine())}</p><button class="rd-checkin" id="rd-checkin" type="button">Check in</button></div>
-      </section>`;
-    // the posts, as a list (past days are cut: Justin, 2026-10-01)
-    const thumb = p => `<span class="rd-thumb rd-thumb-mk">${_rdMk(p.teachState||'safety')}</span>`;
-    const rows = posts.slice(1).map(p=>`<button class="rd-row" type="button" data-post="${escapeHtml(p.key)}">${thumb(p)}<span class="rd-row-t"><b>${escapeHtml(p.title)}</b><span>${_rdMeta(p)}</span></span><span class="wc-go">${CHEV}</span></button>`).join('');
+    let anyC = false; try{ anyC = !!(Store.checkins && Store.checkins().length); }catch(e){}
+    const nowP = (td && td.n>=1) ? (dn ? `<p class="rf-now-p">${boldHtml(dn.text)}</p>` : '') : anyC ? `<p class="rf-now-p">A fresh note starts with your next check-in.</p>` : `<p class="rf-now-p">No check-ins yet. Your note starts with your first one.</p>`;
+    const nowHTML = `<section class="rf-now" aria-labelledby="rf-now-h"><span class="rf-eb" id="rf-now-h">${lastK ? _rdMk(lastK) : ''}Now</span>${nowP}<p class="rf-next">${escapeHtml(_rdNextLine())}</p><div><button class="rf-ci" id="rd-checkin" type="button">Check in</button></div></section>`;
+    // the recommended article: the one for the latest check-in, else the one for the new reflection
+    let reco = (td && td.n>=1 && lastK) ? _lrnForDaily(lastK) : null;
+    if(!reco && cover){ try{ reco = _lrnForPost(cover); }catch(e){ reco = null; } }
+    const art = reco && reco.piece ? _lbCard(reco.piece, true, reco.piece.state, false).replace('<button class="lb-card"', '<button class="lb-card rf-art"').replace('<span class="lb-body">', `<span class="lb-body">${reco.piece.state ? `<span class="rf-eb">${escapeHtml(STATE_LABEL(reco.piece.state))}</span>` : ''}`) : '';
+    const jn = paidNow() ? _lrnJournalItems().length : 0;
+    const jr = `<button class="lb-card rf-jr" type="button" id="rd-journal"><span class="lb-pic rf-jr-pic" aria-hidden="true">${_JR_PEN}</span><span class="lb-body"><span class="lb-t">Your Journal</span><span class="lb-meta">${paidNow() ? escapeHtml(jn ? (jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : `<span class="lb-lk">${LOCK_SVG}See paid plans</span>`}</span></span></button>`;
+    const past = posts.slice(1).map(p=>`<button class="lb-card rf-past" type="button" data-post="${escapeHtml(p.key)}">${pic(p)}<span class="lb-body"><span class="lb-t">${escapeHtml(p.title)}</span><span class="lb-meta">${_rdMeta(p)}</span></span></button>`).join('');
     const legacy = (Store.mints ? Store.mints() : []).filter(m=>/^(weekly|monthly|quarterly)$/.test(m.tier) && m.dateMs >= now - 92*DAY);
     const legacyRows = legacy.map(m=>_archRow(m)).join('');
-    const list = (rows || legacyRows) ? `<section class="rd-list" aria-label="Your posts">${rows}${legacyRows}</section>` : '';
-    const empty = (!cover && !rows) ? `<p class="read-p rd-empty">Your first weekly reflection arrives on Sunday morning. Months arrive on the last evening of each month, and seasons on the last evening of each season.</p>` : '';
-    // Your Journal from Reflect (Justin, 2026-10-02): every journal answer, from the articles and the reflections
-    const jn = paidNow() ? _lrnJournalItems().length : 0;
-    const journalHTML = `<button class="rd-row rd-jrow" type="button" id="rd-journal"><span class="rd-thumb rd-thumb-mk rd-thumb-jr" aria-hidden="true">${_JR_PEN}</span><span class="rd-row-t"><b>Your Journal</b><span>${paidNow() ? (jn ? escapeHtml(jn === 1 ? '1 entry' : jn + ' entries') : 'Your answers to the journal questions') : LOCK_SVG + 'Self-Regulator'}</span></span><span class="wc-go">${CHEV}</span></button>`;
-    _rdShell(`
-          <div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
-          ${coverHTML}
-          ${todayHTML}
-          ${journalHTML}
-          ${empty}
-          ${list}`);
+    _rdShell(`<div class="rf-view"><div class="scr-head read-head"><h1 class="read-h1">Reflect</h1></div>
+        <div class="rf-bento">${big}${nowHTML}${art}${jr}${past}</div>
+        ${legacyRows ? `<section class="rd-list rf-legacy" aria-label="Earlier reflections">${legacyRows}</section>` : ''}</div>`,
+      { onBack:()=>app('you'), wide:true, plainBack:true });
     const byKey = {}; posts.forEach(p=>byKey[p.key]=p);
     root.querySelectorAll('[data-post]').forEach(b=>b.onclick=()=>{ const p=byKey[b.dataset.post]; if(p) screenReaderPost(p); });
-    root.querySelectorAll('.rd-list .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
+    root.querySelectorAll('.rf-legacy .arch-row').forEach(b=>b.onclick=()=>screenMintedEntry(b.dataset.id));
     const ci = $('#rd-checkin'); if(ci) ci.onclick = ()=>screenCheckin();
     const rj = $('#rd-journal'); if(rj) rj.onclick = ()=>{ if(!paidNow()) return _p8Locked(rj, 'reader'); screenJournal('reflect'); };
-    root.querySelectorAll('.rd-today [data-piece]').forEach(b=>b.onclick=()=>{ const pc = window.Learning && Learning.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, dailyLearn.ctx, null); });
+    root.querySelectorAll('.rf-art[data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(reco.piece, reco.ctx, null));
   }
   const DAYS_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -6208,16 +8052,19 @@ function app(tab){
         ${(post.journal||[]).length && !opts.preview ? `<section class="rd-journal"><h3 class="sec-h rd-jr-sr" id="sec-journal">Journal</h3>${_rdJournalCard(post)}</section>` : (post.journal||[]).length ? `<section class="rd-journal"><h3 class="sec-h">Journal</h3><ul class="wr-list">${post.journal.map(q=>`<li>${escapeHtml(q)}</li>`).join('')}</ul></section>` : ''}
         ${post.chipQ && !opts.preview ? _ctxChipsHTML(post.chipQ, 'r'+post.key) : ''}
         ${prevA ? `<p class="rd-lastnamed">Last ${lastWord} you named ${escapeHtml(_listAnd(prevA.tags))}.</p>` : ''}
-        ${reco ? `<section class="rd-next"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>` : ''}
+        ${reco ? `<section class="rd-next"><h3 class="sec-h">Recommended practice</h3><button class="rd-pcard snb-reco" id="rd-begin" type="button"><span class="rd-pcard-t"><b>${escapeHtml(CAP(Store.practiceLabel(reco.practiceKey)))}</b></span><span class="rd-read rd-begin-pill">Begin</span></button></section>` : ''}
         ${post.teach && window.Reader.ESSAY[post.teach.state] ? `<button class="linkbtn rd-more" id="rd-more" type="button">${escapeHtml(window.Reader.ESSAY[post.teach.state].title)} →</button>` : ''}`;
-    _rdShell(`
+    // the article's reading layout (Justin 2026-10-30: "get this done"): book type, a large title, 62ch, house card for learning
+    const learnCard = learn && learn.piece ? _lbCard(learn.piece, true, learn.piece.state, false).replace('<span class="lb-body">', `<span class="lb-body">${learn.piece.state ? `<span class="ar-eb">${escapeHtml(STATE_LABEL(learn.piece.state))}</span>` : ''}`) : '';
+    _rdShell(`<div class="ar-grid rp-grid"><article class="ar-main rp-main">
         ${opts.preview ? '<p class="rd-eyeb" style="color:var(--s-fight)">Beta preview · this period so far · not saved</p>' : ''}
-        <span class="rd-eyeb rd-eyeb-mk">${_rdMk(post.teachState||'safety')}${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
-        <h1 class="rd-title">${escapeHtml(post.title)}</h1>
-        <p class="rd-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
-        ${body}
-        ${tail}
-        ${learn ? `<section class="rd-learn"><h3 class="sec-h">Recommended learning</h3>${_lrnCardHTML(learn)}</section>` : ''}`, { back: opts.from ? opts.from.label : 'Reflect', onBack: opts.from ? opts.from.go : screenReader, tab: opts.from && opts.from.tab, loc:{ k:'post', id:post.key } });
+        <span class="ar-eb">${_rdMk(post.teachState||'safety')}${escapeHtml(post.kind==='season' ? post.label + ' · ' + (post.sub||'') : post.kind==='week' ? post.label : RD_KIND_LABEL[post.kind] + ' · ' + post.label)}</span>
+        <h1 class="ar-title">${escapeHtml(post.title)}</h1>
+        <p class="ar-meta">${escapeHtml((post.minutes||1) + ' min read')}</p>
+        <div class="ar-read rp-read">${body}</div>
+        <div class="rp-tail">${tail}</div>
+      </article></div>
+      ${learnCard ? `<section class="rd-learn ar-keep rp-keep"><h2 class="ar-kh">Recommended learning</h2><div class="ar-kgrid">${learnCard.replace('<button class="lb-card"', '<button class="lb-card ar-kcard snb-reco"')}</div></section>` : ''}`, { back: opts.from ? opts.from.label : 'Reflect', onBack: opts.from ? opts.from.go : screenReader, tab: opts.from && opts.from.tab, loc:{ k:'post', id:post.key }, wide:true, plainBack:true });
     if(paid && !opts.preview){ _rdJournalWire(post); if(opts.goSec) requestAnimationFrame(()=>_lrnGoTo(opts.goSec)); }
     const lk = $('#rd-lock'); if(lk) lk.onclick = ()=>gateSubscribe('reader');
     root.querySelectorAll('.rd-learn [data-piece]').forEach(b=>b.onclick=()=>screenLearnPiece(learn.piece, learn.ctx, post));
@@ -6354,6 +8201,10 @@ function app(tab){
   // 'part:<morning|afternoon|evening|late>' (2026-10-23, data pass 14: 'states' for the check-ins in one part of the day).
   // 'weeks:<safety|fightflight|shutdown|play|stillness|freeze>' (2026-10-23, data pass 15: one state week by week, up to eight weeks).
   // 'defense-time' (2026-10-26, data pass 50: for each part of the day, how often its check-ins had more defense than safety).
+  // 'dominant' (2026-10-29, dominant-r1: of the check-ins defense led, which defensive state led most often).
+  // 'maturity' (2026-10-29, data-pictures-r2: 'dominant' under 28 days of use, 'before-after' after).
+  // 'weeks-compare:<state>+<state>' (2026-10-29, data-pictures-r2: two states week by week, up to eight weeks).
+  // 'practice-type' (2026-10-29, data-pictures-r2: how often safety rose in each of the four practice types).
   // Old ids 'freeze-share' and 'freeze-eased' still work.
   const _LRN_SEG = { morning:'mornings', afternoon:'afternoons', evening:'evenings', late:'late nights' };
   // when a check-in happened, in words: "on Monday night" inside the last week of the set, else "on Oct 3"
@@ -6729,6 +8580,111 @@ function app(tab){
       const names = ks.map(nm);
       return { mk: ks[0], label: owner + ' ' + (names.length === 2 ? names.join(' and ') : names.slice(0,-1).join(', ') + ' and ' + names[names.length-1]) + ' compared', text, card };
     }
+    if(id === 'maturity'){
+      // newer members get the simpler card (data-pictures-r2, 2026-10-29; Justin, 2026-10-28: "dominant defensive state
+      // under a month of check-ins and practices, before and after once they have more"). How long the member has been
+      // using the app is read from their first check-in or practice.
+      let first = Infinity;
+      try{ (Store.checkins() || []).forEach(c=>{ const t = +new Date(c.t); if(t < first) first = t; }); }catch(e){}
+      try{ (Store.sessions() || []).forEach(s=>{ const t = +new Date(s && s.t); if(t < first) first = t; }); }catch(e){}
+      const order = Date.now() - first >= 28*864e5 ? ['before-after', 'weeks:safety'] : ['dominant', 'states'];
+      for(const k of order){ const c = _lrnCallout(k, ctx); if(c) return c; }
+      return null;
+    }
+    if(kind === 'weeks-compare' && st){
+      // two states week by week (data-pictures-r2, 2026-10-29; Justin, 2026-10-28: "shutdown and flight or fight compared
+      // over time"). Read like 'weeks': seven-day blocks back from now, up to eight, from the first block with a check-in;
+      // each block a pair of columns (one per state, in its color), a block with none left empty. Needs 2+ blocks with 2+
+      // check-ins. The line says which way each state moved from the earliest such block to the latest. Null when every
+      // state moved the unhopeful way (more defense, less of a safety-side state): another card says more.
+      const n0 = c => +c.v || 0, n1 = c => +c.sym || 0, n2 = c => +c.dor || 0, bl = (a, b) => Math.min(1, Math.min(a, b) * 1.4);
+      const FN = { safety:n0, fightflight:n1, shutdown:n2, play:c=>bl(n0(c), n1(c)), stillness:c=>bl(n0(c), n2(c)), freeze:c=>bl(n1(c), n2(c)) };
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      const UP = { safety:1, play:1, stillness:1 };
+      const ks = st.split('+').filter((k, i, a)=>FN[k] && a.indexOf(k) === i); if(ks.length !== 2) return null;
+      const W = 7*864e5, now = Date.now(), c8 = _lrnPeriodCtx('recent', now - 8*W, now + 1);
+      const xs = ((c8.f && c8.f.rs) || []).filter(r=>r.c && typeof r.c.v === 'number' && r.t > now - 8*W);
+      if(xs.length < 4) return null;
+      const wk = []; for(let i=0;i<8;i++) wk.push({ i, start: now - (i+1)*W, n:0, s:[0, 0] });
+      xs.forEach(r=>{ const i = Math.min(7, Math.floor((now - r.t) / W)); wk[i].n++; ks.forEach((k, j)=>{ wk[i].s[j] += FN[k](r.c); }); });
+      let last = 7; while(last > 0 && !wk[last].n) last--;
+      const shown = wk.slice(0, last + 1).reverse();   // oldest first
+      const ok = shown.filter(w=>w.n >= 2); if(ok.length < 2) return null;
+      const E = ok[0], L = ok[ok.length-1], av = (w, j) => w.s[j] / w.n;
+      const dir = ks.map((k, j)=>{ const d = av(L, j) - av(E, j); return Math.abs(d) < 0.05 ? 0 : d > 0 ? 1 : -1; });
+      const hope = ks.map((k, j)=> dir[j] === 0 ? 0 : (UP[k] ? dir[j] : -dir[j]));
+      if(hope.every(h=>h < 0)) return null;
+      const md = t => new Date(t).toLocaleDateString('en-US', { month:'short', day:'numeric' });
+      const wkName = w => w.i === 0 ? 'your last 7 days' : 'the week of ' + md(w.start);
+      const amt = (j) => dir[j] > 0 ? 'more ' + NM[ks[j]] : dir[j] < 0 ? 'less ' + NM[ks[j]] : 'about the same amount of ' + NM[ks[j]];
+      const text = dir[0] === 0 && dir[1] === 0 ? `Your ${NM[ks[0]]} and ${NM[ks[1]]} were about the same from ${wkName(E)} to ${wkName(L)}.`
+        : `You had ${amt(0)} and ${amt(1)} in ${wkName(L)} than in ${wkName(E)}.`;
+      const mx = Math.max.apply(null, shown.filter(w=>w.n).map(w=>Math.max(av(w, 0), av(w, 1)))) || 1;
+      const cols = shown.map(w=>`<span class="lm-col" style="gap:2px">${ks.map((k, j)=>`<i style="width:50%;height:${w.n && av(w, j) > 0 ? Math.max(6, Math.round(100 * av(w, j) / mx)) : 0}%;background:${STATE_COLOR(k)}"></i>`).join('')}</span>`).join('');
+      const keys = ks.map(k=>`<span class="lm-key"><i style="background:${STATE_COLOR(k)}"></i>${escapeHtml(CAP(NM[k]))}</span>`).join('');
+      const card = `<div class="rd-snap rd-snap-in lm-mix"><div class="lm-cols" role="img" aria-label="${escapeHtml(text)}" style="padding:12px 0 0 !important">${cols}</div><div class="lm-keys" style="margin-top:10px">${keys}</div></div><p class="rd-cap">The past ${shown.length === 1 ? 'week' : shown.length + ' weeks'}, oldest to newest. Each pair of columns: how much of each state you had on average that week.</p>`;
+      const pc = _lrnPeriodCtx('recent', shown[0].start, now + 1);
+      return { mk: ks[0], label: owner + ' ' + NM[ks[0]] + ' and ' + NM[ks[1]] + ' by week', text, card, per: Object.assign({}, pc, { kind: shown.length === 8 ? 'w8' : 'wk' }) };
+    }
+    if(id === 'practice-type'){
+      // which kind of practice the member's safety rose in most often (data-pictures-r2, 2026-10-29; Justin, 2026-10-28:
+      // "show their ideal SNB practice type"). Of the four practice types, how often the safety rating went up from the
+      // start to the end of the practice. Needs 2+ practices with a safety rating at both ends. The bar is how often it went
+      // up, the number how many rated practices; a dash: that type not practiced in this period. What the member's own
+      // practices showed, never a claim about what works.
+      const TY = [['micro','Tiny','tiny practices'], ['mindfulness','Mindfulness','mindfulness practices'],
+        ['anchoring','Anchoring','safety anchoring practices'], ['self-regulation','Self-regulation','self-regulation practices']];
+      const ps = (f.practices || []).filter(x=>x.rose != null && TY.some(t=>t[0] === x.key)); if(ps.length < 2) return null;
+      const by = {}; ps.forEach(x=>{ const b = by[x.key] = by[x.key] || { n:0, up:0 }; b.n++; if(x.rose) b.up++; });
+      const used = TY.filter(t=>by[t[0]]), rose = used.filter(t=>by[t[0]].up);
+      if(!rose.length) return null;   // nothing hopeful to point to yet: another card says more
+      rose.sort((a,b)=> by[b[0]].up / by[b[0]].n - by[a[0]].up / by[a[0]].n || by[b[0]].n - by[a[0]].n);
+      const top = rose[0], tb = by[top[0]], untried = TY.filter(t=>!by[t[0]]);
+      let text;
+      if(used.length === 1) text = tb.up === tb.n ? `Your safety rating went up in every one of your ${top[2]} ${ctx.noun}.`
+        : `Your safety rating went up in ${_lrnShareWords(tb.up / tb.n).toLowerCase()} of your ${top[2]} ${ctx.noun}.`;
+      else text = `Your safety rating went up most often in your ${top[2]} ${ctx.noun}` + (rose[1] ? `, then your ${rose[1][2]}.` : '.');
+      const orList = a => a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' or ' + a[a.length - 1];
+      if(untried.length) text += ` You haven't done ${orList(untried.map(t=>t[2]))} ${ctx.noun}.`;
+      const col = STATE_COLOR('safety');
+      const rows = TY.map((t, i)=>{ const b = by[t[0]], x = b && b.up ? Math.max(4, Math.round(100 * b.up / b.n)) : 0;
+        return `<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(t[1])}</span><span class="help-track"><span class="help-fill" style="width:${x}%;background:${col}"></span></span><span class="help-pct">${b ? b.n : '–'}</span></div>`; }).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar: how often your safety rating went up from the start to the end of the practice. Number: how many practices. A dash: none in this period.</p>`;
+      return { mk:'safety', label: owner + ' safety by practice type', text, card };
+    }
+    if(id === 'dominant'){
+      // the member's dominant defensive state (dominant-r1, 2026-10-29; Justin's ask in the data picture pass: "dominant
+      // defensive state"). Of the check-ins defense led in the period, which defensive state led most often. Needs 2+ such
+      // check-ins. A tie at the top is broken by the readings, the same flavour rule as _domDefense (level unless one is
+      // 1.4x the other; level = freeze). One state's mark and color; the other two defenses as quiet bars (their own color, faded) to compare. The
+      // second line names the safety-side state there was the most of, so the numbers resolve to hope; with no safety-side
+      // check-in in the period, null (another card says more), as 'states' does.
+      const DK = ['fightflight','freeze','shutdown'], SK = ['safety','play','stillness'];
+      const NM = { safety:'safety', fightflight:'flight/fight', shutdown:'shutdown', play:'play', stillness:'stillness', freeze:'freeze' };
+      const cnt = {}; rs.forEach(r=>{ if(NM[r.key]) cnt[r.key] = (cnt[r.key]||0) + 1; });
+      const nd = DK.reduce((a,k)=>a + (cnt[k]||0), 0); if(nd < 2) return null;
+      const N = nd + SK.reduce((a,k)=>a + (cnt[k]||0), 0);
+      const safeTop = SK.filter(k=>cnt[k]).sort((a,b)=>cnt[b] - cnt[a])[0]; if(!safeTop) return null;
+      const ord = DK.filter(k=>cnt[k]).sort((a,b)=>cnt[b] - cnt[a]);
+      const tied = ord.filter(k=>cnt[k] === cnt[ord[0]]);
+      let lead = tied[0];
+      if(tied.length > 1){
+        const dr = rs.filter(r=>DK.indexOf(r.key) >= 0 && r.c && typeof r.c.sym === 'number');
+        const s = dr.reduce((a,r)=>a + (+r.c.sym || 0), 0), d = dr.reduce((a,r)=>a + (+r.c.dor || 0), 0);
+        const fl = s + d <= 0 ? null : Math.max(s, d) < 1.4 * Math.min(s, d) ? 'freeze' : s > d ? 'fightflight' : 'shutdown';
+        if(fl && tied.indexOf(fl) >= 0) lead = fl;
+      }
+      const nm = k => NM[k], rest = ord.filter(k=>k !== lead);
+      let text;
+      if(ord.length === 1) text = `When defense led a check-in ${ctx.noun}, it was ${nm(lead)} every time.`;
+      else if(tied.length > 1) text = `When defense led a check-in ${ctx.noun}, it was as often ${nm(tied[0])} as ${nm(tied[1])}` + (tied[2] ? ` and ${nm(tied[2])}.` : '.');
+      else text = `When defense led a check-in ${ctx.noun}, it was most often ${nm(lead)}, then ${nm(rest[0])}.`;
+      text += ` ${CAP(nm(safeTop))} was the state on ${cnt[safeTop] === 1 ? 'one' : _lrnShareWords(cnt[safeTop] / N).toLowerCase()} of all your check-ins.`;
+      const mx = Math.max.apply(null, DK.map(k=>cnt[k]||0)) || 1;
+      const rows = DK.map((k, i)=>`<div class="help-row" style="--sd:${i*60}ms"><span class="help-lbl">${escapeHtml(CAP(nm(k)))}</span><span class="help-track"><span class="help-fill" style="width:${cnt[k] ? Math.max(4, Math.round(100 * cnt[k] / mx)) : 0}%;background:${STATE_COLOR(k)}${k === lead ? '' : ';opacity:.4'}"></span></span><span class="help-pct">${cnt[k] || '–'}</span></div>`).join('');
+      const card = `<div class="rd-snap rd-snap-in"><div class="help-bars">${rows}</div></div><p class="rd-cap">Bar and number: how many check-ins each defensive state led. A dash: none in this period.</p>`;
+      return { mk: lead, label: owner + ' dominant defensive state', text, card };
+    }
     if(id === 'states'){
       // every state the app reads, side by side (the article data pass, run 3, 2026-10-21): how many check-ins had each
       // state, so a section that asks which state the member is in most shows their own. All six rows always show, with a
@@ -6967,7 +8923,7 @@ function app(tab){
     if(b.ol) return `<ol class="rd-llist">${b.ol.map(t=>`<li>${_lrnInline(t)}</li>`).join('')}</ol>`;
     return `<p class="read-p">${_lrnInline(b.p||'')}</p>`;
   }
-  const _lrnHubName = key => window.Learning.TOPICS[key] || STATE_LABEL(key);
+  const _lrnHubName = key => window.Learning.TOPICS[key] || _LRN_ST(key);
   // a hub's count is every lesson on its topic: articles, episodes and videos (Justin, 2026-10-26: "Safety · 345 lessons");
   // blank for the moment the library list is still loading
   const _lrnHubCount = key => { if(!_lmData){ _lmLoad(); return ''; } const n = window.Learning.inGroup(key).length + _lmData.items.filter(x=>(x.g || []).indexOf(key) >= 0).length; return n === 1 ? '1 lesson' : n + ' lessons'; };
@@ -6978,44 +8934,153 @@ function app(tab){
   // a row that opens a hub
   const _lrnHubRowHTML = (key, lead) => `<button class="rd-row rd-hubrow" type="button" data-hub="${escapeHtml(key)}">${window.Learning.TOPICS[key] ? `<span class="rd-thumb rd-thumb-hub" aria-hidden="true"></span>` : `<span class="rd-thumb rd-thumb-mk">${_rdMk(key)}</span>`}<span class="rd-row-t"><b>${escapeHtml(lead ? lead + ' ' + (window.Learning.TOPICS[key] ? _lrnHubName(key).toLowerCase() : STATE_NAME(key)) : _lrnHubName(key))}</b><span>${escapeHtml(_lrnHubCount(key))}</span></span><span class="wc-go">${CHEV}</span></button>`;
 
-  // one learning hub: a state or a topic, Justin's intro, the member's own data (states), its articles, related hubs
-  function screenLearnHub(key, back, keepQuery){
+  // one learning hub (Justin, canon 2026-10-30; BRAND_DESIGN_SYSTEM §4 "Learning hubs"; mockup SzYVuEwDJZjZqPUoPBFiDa): breadcrumb on
+  // desktop, "Learning hub", the mark + title, a quiet lesson count, the intro on 1-8, Learn's search + Filter. Articles lead as a
+  // bento: one big card RECOMMENDED from the member's own check-ins (Learn's "For you now" logic, inside this hub) + four small.
+  // Podcast, the Stucknaut Collective and Videos: a row of four each. Shorts: a sideways strip of tall cards in its own box. Each
+  // "See all ›" opens the same page filtered to that type (a removable chip, the full grid, Show more; the breadcrumb grows a step).
+  // Related hubs at the end as quiet rows with counts.
+  let _lhKey = null, _lhMedia = 'all', _lhDur = 'any', _lhShown = 24;
+  const _LH_ONLY = { a:'Read', p:'Podcast', c:'Stucknaut Collective', v:'Videos', s:'Shorts' };
+  function _lhDurOk(min){
+    if(_lhDur === 'any') return true; if(min == null) return false;
+    return _lhDur === 'u5' ? min < 5 : _lhDur === '5to15' ? min >= 5 && min < 15 : _lhDur === '15to30' ? min >= 15 && min < 30 : min >= 30;
+  }
+  const _lhMin = (e, isArt) => isArt ? (e.minutes || 1) : (e.n ? e.n / 60 : e.s === 's' ? 0.5 : null);
+  function _lhRecommend(arts){
+    if(!arts.length) return null;
+    const lastC = Store.lastCheckin ? Store.lastCheckin() : null, lastK = lastC ? _cDom(lastC) : null;
+    // Learn's "For you now": the latest check-in's state, a piece for the day; used here when that piece is in this hub
+    if(lastK){ try{ const f = _lrnForDaily(lastK); if(f && f.piece && arts.indexOf(f.piece) >= 0) return f.piece; }catch(e){} }
+    // otherwise the hub's pieces that touch that state, unread first, a different one each day
+    let pool = lastK ? arts.filter(p=>p.state === lastK || (p.groups || []).indexOf(lastK) >= 0) : [];
+    if(!pool.length) pool = arts;
+    const unread = pool.filter(p=>!_lrnIsRead(p.id)); if(unread.length) pool = unread;
+    const d = new Date(), day = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+    return pool[day % pool.length];
+  }
+  const _lhCard = (e, isArt, k, big) => { const c = _lbCard(e, isArt, k, big); return big ? c.replace('<span class="lb-body">', '<span class="lb-body"><span class="rd-eyeb lh-rec">Recommended learning</span>').replace('<button class="lb-card', '<button class="snb-reco lb-card') : c; };
+  function screenLearnHub(key, back, keepQuery, only){
     if(!keepQuery) _lrnQ = '';
+    if(_lhKey !== key + '|' + (only || '')){ if(!only || (_lhKey || '').split('|')[0] !== key){ _lhMedia = 'all'; _lhDur = 'any'; } _lhShown = 24; _lhKey = key + '|' + (only || ''); }
     const L = window.Learning, hub = L.HUBS[key] || { intro:[] }, isState = L.STATE_HUBS.indexOf(key) >= 0;
     const paid = paidNow(), pieces = L.inGroup(key);
-    const here = ()=>screenLearnHub(key, back, true);
+    const here = ()=>screenLearnHub(key, back, true, only);
+    const hubHere = ()=>screenLearnHub(key, back, true);
     let mine = '';
-    if(isState){
+    if(isState && !only){
       const now = Date.now(), ctx = _lrnPeriodCtx('recent', now - 28*864e5, now + 1);
       const sh = _lrnCallout(key === 'safety' ? 'safety-share' : 'share:' + key, ctx), tm = _lrnCallout('time:' + key, ctx);
       if(sh) mine = _lrnCallHTML({ mk:key, label: _rdOwner() + ' ' + STATE_NAME(key), text: sh.text + (tm ? ' ' + tm.text.replace(' in the last four weeks.', '.') : '') }, paid, ctx);
     }
-    // related hubs: the ones its articles share most, six at most (2026-10-02, the library grew to ~150)
     const related = {}; pieces.forEach(p=>p.groups.forEach(g=>{ if(g !== key && L.HUBS[g]) related[g] = (related[g]||0) + 1; }));
     const relKeys = Object.keys(related).sort((a,b)=> related[b] - related[a]).slice(0, 6);
-    // every lesson on the hub's topic, grouped by type (Justin, 2026-10-26); episodes and videos come once the library list is here
-    const hubGroups = _lmGroups('all', key, true);
+    // every lesson on the hub's topic, by type; the hub's Filter (Type, Length) narrows them
+    const gs = _lmGroups(only ? 'all' : _lhMedia, key, true).filter(g=>!only || g.k === only).map(g=>({ k:g.k, label:g.label, list:g.list.filter(e=>_lhDurOk(_lhMin(e, g.k === 'a'))) })).filter(g=>g.list.length);
+    const n = gs.reduce((s, g)=>s + g.list.length, 0);
+    const fon = (!only && _lhMedia !== 'all') + (_lhDur !== 'any');
+    const seeAll = (g, shown) => g.list.length > shown ? `<button class="lb-seeall" type="button" data-lhonly="${g.k}">See all${CHEV}</button>` : '';
+    const head = (g, shown) => `<div class="lb-sec-h"><h2><span>${escapeHtml(g.label)}</span><span class="ll-n">${escapeHtml(_lmLessons(g.list.length))}</span></h2>${seeAll(g, shown)}</div>`;
+    const sec = g => {
+      if(g.k === 'a'){
+        const big = _lhRecommend(g.list), rest = g.list.filter(p=>p !== big).slice(0, 4);
+        return `<section class="lb-sec lh-sec" aria-label="${escapeHtml(g.label)}">${head(g, 5)}<div class="lb-grid">${big ? _lhCard(big, true, key, true) : ''}${rest.map(p=>_lhCard(p, true, key, false)).join('')}</div></section>`;
+      }
+      if(g.k === 's') return `<section class="lb-sec lh-sec" aria-label="Shorts">${head(g, 12)}<div class="lh-strip" role="list">${g.list.slice(0, 12).map(x=>_lhCard(x, false, key, false).replace('<button class="lb-card', '<button role="listitem" class="lb-card lh-tall')).join('')}</div></section>`;
+      return `<section class="lb-sec lh-sec" aria-label="${escapeHtml(g.label)}">${head(g, 4)}<div class="lb-grid lh-row4">${g.list.slice(0, 4).map(x=>_lhCard(x, false, key, false)).join('')}</div></section>`;
+    };
+    const onlyHTML = () => { const g = gs[0]; if(!g) return '';
+      const cards = g.list.slice(0, _lhShown).map(e=>_lhCard(e, g.k === 'a', key, false)).map(c=>g.k === 's' ? c.replace('<button class="lb-card', '<button class="lb-card lh-tall') : c).join('');
+      return `<section class="lb-sec lh-sec lh-only" aria-label="${escapeHtml(g.label)}"><div class="lb-sec-h"><h2><span>${escapeHtml(g.label)}</span><span class="ll-n">${escapeHtml(_lmLessons(g.list.length))}</span></h2></div><div class="lb-grid${g.k === 's' ? ' lh-tallgrid' : ''}">${cards}</div>${g.list.length > _lhShown ? '<button class="ll-showall lh-more" type="button">Show more</button>' : ''}</section>`; };
+    const chips = [];
+    if(only) chips.push(['only', _LH_ONLY[only]]);
+    if(!only && _lhMedia !== 'all') chips.push(['m', (_LM_MEDIA.find(x=>x[0] === _lhMedia) || [])[1]]);
+    if(_lhDur !== 'any') chips.push(['d', (_LM_DURS.find(x=>x[0] === _lhDur) || [])[1]]);
+    const chip = (grp, id, label, on) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${grp}="${id}" aria-pressed="${on}"><span>${escapeHtml(label)}</span></button>`;
+    const search = `<div class="lb-search-row lh-search-row">
+        <div class="ll-sfloat open lb-search" id="ll-sf" role="search"><button class="ll-sf-btn" id="ll-sf-btn" type="button" aria-label="Search lessons" aria-expanded="true" tabindex="-1">${_LB_SEARCH}</button><input class="ll-sf-q" id="ll-q" type="search" placeholder="Search lessons" aria-label="Search lessons" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_lrnQ)}"><button class="ll-sf-x" id="ll-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="lh-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="lh-fsheet" aria-label="${fon ? 'Filter, ' + fon + ' on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fon ? `<span class="lm-fn" aria-hidden="true">${fon}</span>` : ''}</button></div></div>
+      ${chips.length ? `<div class="lm-active" role="group" aria-label="Filters">${chips.map(([g, l])=>`<button class="lm-chip on" type="button" data-lhx="${g}" aria-label="Take off ${escapeHtml(l)}"><span>${escapeHtml(l)}</span><span class="lm-x" aria-hidden="true">×</span></button>`).join('')}</div>` : ''}
+      <div class="rd-jr-sheet lm-fsheet" id="lh-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
+        <div class="lm-fs-body">${only ? '' : `<span class="rd-eyeb">Type</span><div class="lm-chips">${_LM_MEDIA.map(([id, l])=>chip('lhm', id, l, _lhMedia === id)).join('')}</div>`}
+          <span class="rd-eyeb">Length</span><div class="lm-chips">${_LM_DURS.map(([id, l])=>chip('lhd', id, l, _lhDur === id)).join('')}</div></div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="lh-fclear">Clear all</button><button class="lm-fshow" type="button" id="lh-fshow">Show</button></div></div></div>`;
+    const crumb = only ? [{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key), go:hubHere }, { label:(_LM_TYPES.find(x=>x[0] === only) || [])[1] || '' }]
+      : [{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }];
     _rdShell(`
         <div id="ll-results" aria-live="polite"></div>
-        <div id="ll-browse">
+        <div id="ll-browse" class="lh-view">
         <span class="rd-eyeb">Learning hub</span>
         <h1 class="rd-title rd-hub-title">${isState ? _rdMk(key, 'rd-mk-lg') : ''}${escapeHtml(_lrnHubName(key))}</h1>
-        ${mine}
-        ${(hub.intro||[]).map(_lrnBlockHTML).join('')}
-        ${hubGroups.length ? hubGroups.map(gr=>{ const n = gr.k === 'a' ? 12 : 6;
-            return `<section class="rd-learn lm-hubsec"><h3 class="sec-h">${escapeHtml(gr.label)}</h3><div class="rd-list rd-list-flat">${gr.list.map((e, i)=>{ const r = gr.k === 'a' ? _lrnRowHTML(e) : _lrnMediaRowHTML(e); return i < n ? r : r.replace('<button class="rd-row"', '<button hidden class="rd-row rd-more"'); }).join('')}</div>${gr.list.length > n ? `<button class="ll-showall" type="button">Show all ${gr.list.length} ${_LM_NOUN[gr.k]}</button>` : ''}</section>`; }).join('')
-          : `<section class="rd-learn"><p class="read-p rd-empty">${_lmData ? 'Lessons for this hub are on the way.' : 'One moment…'}</p></section>`}
-        ${relKeys.length ? `<section class="rd-learn"><h3 class="sec-h">Related hubs</h3><div class="rd-list rd-list-flat">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
+        <p class="lh-n">${escapeHtml(_lrnHubCount(key))}</p>
+        ${only ? '' : `<div class="lh-intro">${(hub.intro||[]).map(_lrnBlockHTML).join('')}${mine}</div>`}
+        ${search}
+        ${only ? onlyHTML() : gs.length ? gs.map(sec).join('')
+          : `<section class="rd-learn"><p class="read-p rd-empty">${!_lmData ? 'One moment…' : (fon ? 'No lessons match these filters.' : 'Lessons for this hub are on the way.')}</p></section>`}
+        ${relKeys.length && !only ? `<section class="lh-related"><h2 class="lb-h2">Related hubs</h2><div class="lh-rel">${relKeys.map(k=>_lrnHubRowHTML(k)).join('')}</div></section>` : ''}
         </div>`,
-      { back: back ? back.label : 'Learn', onBack: back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, search:true, crumb:[{ label:'Learn', go:()=>screenLearn(true) }, { label:_lrnHubName(key) }] });
+      { back: only ? 'Back' : back ? back.label : 'Learn', onBack: only ? hubHere : back ? back.go : screenLearn, tab:'learn', loc:{ k:'hub', id:key }, wide:true, crumb });
     root.querySelectorAll('.rd-call-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
-    root.querySelectorAll('.lm-hubsec .ll-showall').forEach(b=>b.onclick=()=>{ b.parentElement.querySelectorAll('.rd-more').forEach(r=>r.hidden=false); b.remove(); });
-    root.querySelectorAll('[data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
-    root.querySelectorAll('[data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, { label:'Back', go:here }));
-    if(!_lmData){ const t = root.querySelector('.rd-hub-title'); _lmLoad().then(d=>{ if(d && t && t.isConnected){ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; } }); }
-    root.querySelectorAll('[data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
+    root.querySelectorAll('#ll-browse [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); });
+    root.querySelectorAll('#ll-browse [data-media]').forEach(b=>b.onclick=()=>screenMedia(b.dataset.media, { label:'Back', go:here }));
+    root.querySelectorAll('[data-lhonly]').forEach(b=>b.onclick=()=>{ _lrnQ = ''; screenLearnHub(key, back, false, b.dataset.lhonly); const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; });
+    root.querySelectorAll('.lh-more').forEach(b=>b.onclick=()=>{ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; _lhShown += 24; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; });
+    root.querySelectorAll('[data-lhx]').forEach(b=>b.onclick=()=>{ const g = b.dataset.lhx; if(g === 'only') return hubHere(); if(g === 'm') _lhMedia = 'all'; if(g === 'd') _lhDur = 'any'; here(); });
+    if(!_lmData){ const t = root.querySelector('.rd-hub-title'); _lmLoad().then(d=>{ if(d && t && t.isConnected && !document.body.classList.contains('jr-sheet-on')){ const sc = root.querySelector('.scroll'), y = sc ? sc.scrollTop : 0; here(); const s2 = root.querySelector('.scroll'); if(s2) s2.scrollTop = y; } }); }
+    root.querySelectorAll('#ll-browse [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
     _lrnWireLinks({ label:'Back', go:here, tab:'learn' });
     _lrnSearchWire(id=>{ const pc = L.byId(id); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:'learn' }); }, id=>screenMedia(id, { label:'Back', go:here }));
+    // Filter: Type and Length (the hub is the topic); the slide-up below 1120, the panel under the search row at 1120 and up
+    let pm = _lhMedia, pd = _lhDur;
+    _fsWire($('#lh-fbtn'), $('#lh-fsheet'), {
+      anchor: () => root.querySelector('.lh-view .lm-active') || root.querySelector('.lh-search-row'),
+      start: () => { pm = _lhMedia; pd = _lhDur; },
+      paint: sh => {
+        sh.querySelectorAll('[data-lhm]').forEach(b=>{ const on = b.dataset.lhm === pm; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        sh.querySelectorAll('[data-lhd]').forEach(b=>{ const on = b.dataset.lhd === pd; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        const m = _lmGroups(only ? 'all' : pm, key, true).filter(g=>!only || g.k === only).reduce((s, g)=>s + g.list.filter(e=>{ const sv = _lhDur; _lhDur = pd; const ok = _lhDurOk(_lhMin(e, g.k === 'a')); _lhDur = sv; return ok; }).length, 0);
+        return (pm === 'all' || only) && pd === 'any' ? 'Show all lessons' : 'Show ' + _lmLessons(m);
+      },
+      bind: (sh, paint) => {
+        sh.querySelectorAll('[data-lhm]').forEach(b=>b.onclick=()=>{ pm = b.dataset.lhm; paint(); });
+        sh.querySelectorAll('[data-lhd]').forEach(b=>b.onclick=()=>{ pd = b.dataset.lhd; paint(); });
+        $('#lh-fclear').onclick = () => { pm = 'all'; pd = 'any'; paint(); };
+      },
+      apply: () => { if(pm === _lhMedia && pd === _lhDur) return false; _lhMedia = pm; _lhDur = pd; _lhShown = 24; here(); return true; }
+    });
+  }
+  // one Filter (grid6): the slide-up below 1120, a panel that opens in place under the search row at 1120 and up; Show applies
+  function _fsWire(btn, sh, o){
+    if(!btn || !sh) return;
+    const box = sh.querySelector('.rd-jr-sheet-in'), show = sh.querySelector('.lm-fshow');
+    const calm = () => document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let inline = false, tmr = null;
+    const paint = () => { const t = o.paint(sh); if(show && t) show.textContent = t; };
+    const finish = () => { if(!o.apply()){ try{ btn.focus({ preventScroll:true }); }catch(e){} } };
+    const esc = e => { if(e.key === 'Escape') close(); };
+    const open = () => {
+      if(inline) return close();
+      o.start(); paint();
+      if(matchMedia('(min-width:1120px)').matches){
+        const after = o.anchor(); if(after){ if(after.nextElementSibling !== sh) after.after(sh);
+          inline = true; sh.classList.add('is-inline'); sh.setAttribute('role', 'region'); btn.setAttribute('aria-expanded', 'true'); _pmSlide(btn, sh, true); document.addEventListener('keydown', esc);
+          const f = sh.querySelector('.lm-chip.on') || sh.querySelector('.lm-chip'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+          return; }
+      }
+      clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc);
+    };
+    const close = () => {
+      document.removeEventListener('keydown', esc); btn.setAttribute('aria-expanded', 'false');
+      if(inline){ inline = false; return _pmSlide(btn, sh, false, () => { sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); finish(); }); }
+      sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on');
+      tmr = setTimeout(() => { sh.hidden = true; finish(); }, calm() ? 0 : 320);
+    };
+    btn.onclick = open;
+    const x = sh.querySelector('.rd-jr-done'); if(x) x.onclick = close;
+    if(show) show.onclick = close;
+    sh.addEventListener('click', e => { if(e.target === sh) close(); });
+    o.bind(sh, paint);
   }
   // a practice offered inside a piece: safety anchoring, mindfulness, or the member's custom practice
   // "Practice this" (Justin, 2026-10-01): the practice the ARTICLE is about, tuned to what works for this member
@@ -7032,7 +9097,8 @@ function app(tab){
     return { title, note, over, reco: b.practice === 'custom' ? base : { practiceKey:key, sense, silence, reason: (b.why || '') + (over ? ' ' + note : '') || null } };
   }
   function _lrnPracticeReco(b){
-    return _lrnPracticeThis(b).reco;
+    const r = _lrnPracticeThis(b).reco;
+    return r ? Object.assign({}, r, { launchedFrom:'article' }) : r;
   }
   // pieces past the first few keep their text in learn/<id>.json, loaded when opened (2026-10-02: ~150 podcast articles)
   const _lrnBodies = {};
@@ -7106,91 +9172,85 @@ function app(tab){
       };
     });
   }
+  // the article on the Swiss grid (Justin, canon 2026-10-30: "an afternoon on the couch with a blanket and tea, not a blog"):
+  // book type for the reading, a large title, the article picture, "In this article" in view on 10-12 (a fold below 1120),
+  // Your results as soft panels where the author put them, the journal at the end as a writing page, and Keep learning as
+  // house cards (Read next, Practice this) with the hubs beside them
+  const _ARRES = h => String(h || '').replace(/<div class="rd-call([^"]*)"([^>]*)>/, '<div class="rd-call$1 ar-res"$2><span class="ar-res-eb">Your results</span>');
   function screenLearnPiece(piece, ctx, fromPost, from, goSec){
     if(!piece.blocks){
       const backTo = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenLearn;
-      _rdShell(`<span class="rd-eyeb">Recommended learning</span><h1 class="rd-title">${escapeHtml(piece.title)}</h1><p class="rd-meta">One moment…</p>`,
-        { back: from ? from.label : 'Learn', onBack: backTo, tab:'learn', loc:{ k:'piece', id:piece.id } });
+      _rdShell(`<span class="rd-eyeb">Recommended learning</span><h1 class="ar-title">${escapeHtml(piece.title)}</h1><p class="rd-meta">One moment…</p>`,
+        { back: from ? from.label : 'Learn', onBack: backTo, tab:'learn', loc:{ k:'piece', id:piece.id }, wide:true });
       _lrnLoad(piece).then(()=>{ if(root.querySelector('.rd-meta') && /One moment/.test(root.querySelector('.rd-meta').textContent)) screenLearnPiece(piece, ctx, fromPost, from, goSec); })
         .catch(()=>{ const m = root.querySelector('.rd-meta'); if(m) m.textContent = "This article didn't load. Check your connection and try again."; });
       return;
     }
     const paid = paidNow(), st = piece.state || null, L = window.Learning;
-    // opened from a hub or a link: no post period, so the callouts take a random time period (see _lrnRandCtx)
     if(!ctx) ctx = _lrnRandCtx(piece.id);
     const back = from ? from.go : fromPost ? ()=>screenReaderPost(fromPost) : screenReader;
     const here = ()=>screenLearnPiece(piece, ctx, fromPost, from);
-    // reflections (Justin, 2026-10-02: "great but they are a lot. Overwhelming" and "behind the paywall"): a run of questions
-    // is one card with the first question open and the rest folded under "N more questions"; free members see one locked card
-    // per article and no other questions
-    let reflSeen = 0;
-    const reflOne = b => { const saved = ((_ctxLoad()['l:' + piece.id + ':' + b.reflect]) || [])[0] || '';
-      return `<div class="rd-refl-one" id="sec-rf-${escapeHtml(b.reflect)}"><label class="read-p rd-refl-q" for="rf-${escapeHtml(b.reflect)}">${_lrnInline(b.prompt||'')}</label><textarea class="rd-refl-in" id="rf-${escapeHtml(b.reflect)}" data-refl="${escapeHtml(b.reflect)}" rows="3" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><button class="rd-refl-save" type="button" data-refl-save="${escapeHtml(b.reflect)}">${saved ? 'Saved' : 'Save'}</button></div>`; };
-    // the Journal (Justin, 2026-10-02: "all questions need to be hidden behind a closed 'Journal'. When it's tapped, it opens and
-    // the first question is shown"; free members see no questions). He picked look C: a small Journal button that slides a sheet
-    // up over the article, one question at a time; swipe between questions (the Next button is for bigger screens only).
-    const reflCard = (run, titled) => {
-      reflSeen++;
-      const n = run.length, count = n === 1 ? '1 question' : n + ' questions';
-      if(!paid){
-        if(reflSeen > 1) return '';
-        return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill rd-jr-locked" type="button">${_JR_PEN}<span>Journal</span>${LOCK_SVG}</button><p class="rd-jr-sub">Part of Self-Regulator</p></div>`;
-      }
-      const steps = run.map((b, k)=>`<div class="rd-jr-step"${k ? ' hidden' : ''} data-step="${k}">${reflOne(b)}</div>`).join('');
-      const nav = n > 1 ? `<div class="rd-jr-nav"><button class="rd-jr-prev" type="button" hidden>Previous</button><span class="rd-jr-dots" aria-hidden="true">${run.map((b,k)=>`<i${k ? '' : ' class="on"'}></i>`).join('')}</span><button class="rd-jr-next" type="button">Next</button></div>` : '';
-      const where = `<p class="rd-refl-where">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p>`;
-      return `<div class="rd-jr rd-jr-c"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub">${escapeHtml(count)}</p>
-          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div><div class="rd-jr-track">${steps}</div>${nav}${where}</div></div></div>`;
-    };
     // a chapter on the paid plan: free members read the opening, then a lock (Justin, 2026-10-02)
     const gated = !!piece.paid && !paid;
     let blocks = piece.blocks || [];
     if(gated){ const keep = []; let words = 0;
       for(const b of blocks){ if(keep.length && (b.h || b.h3 || b.reflect || b.practice || b.callout)) break; if(b.p || b.q || b.ul || b.ol){ keep.push(b); words += JSON.stringify(b).split(/\s+/).length; if(keep.length >= 3 || words > 160) break; } else if(!keep.length && !b.h && !b.h3) continue; else keep.push(b); }
       blocks = keep; }
-    const parts = [], nCi = gCheckinCount();
-    let waitShown = false;
+    const parts = [], refl = [], prac = [], nCi = gCheckinCount();
+    let waitShown = false, jrId = null; const heads = [];
     for(let i = 0; i < blocks.length; i++){
       const b = blocks[i];
-      if(b.reflect){ const run = [b]; while(i + 1 < blocks.length && blocks[i + 1].reflect) run.push(blocks[++i]); parts.push(reflCard(run, !!(i - run.length >= 0 && (blocks[i - run.length].h || blocks[i - run.length].h3)))); continue; }
-      if(b.practice){ const pt = _lrnPracticeThis(b);
-        parts.push(`<section class="rd-next rd-lprac"><h3 class="sec-h">Practice this</h3><button class="rd-pcard" type="button" data-prac="${escapeHtml(b.practice)}"><span class="rd-pcard-t"><b>${escapeHtml(pt.title)}</b>${pt.note ? `<span class="rd-prac-note">${escapeHtml(pt.note)}</span>` : ''}</span><span class="rd-read rd-begin-pill">Begin</span></button></section>`); continue; }
+      if(b.reflect){ refl.push(b); continue; }                 // the questions gather at the end, as the journal
+      if(b.practice){ prac.push(b); continue; }                // Practice this joins Keep learning
       if(b.callout){
-        // under 3 check-ins in all, no card can show yet: one plain line in place of the first card, nothing for the rest
-        // (Justin, 2026-10-21: "Your results show here after 3 check-ins. You have [1 or 2] check-ins so far.")
-        if(paid && nCi < 3){ if(!waitShown){ waitShown = true; parts.push(_lrnWaitHTML(nCi)); } continue; }
-        const c = _lrnCallout(b.callout, ctx); parts.push(c ? _lrnCallHTML(c, paid, ctx) : ''); continue; }
+        if(paid && nCi < 3){ if(!waitShown){ waitShown = true; parts.push(`<div class="rd-call ar-res ar-res-wait"><span class="ar-res-eb">Your results</span><p class="read-p rd-call-p">Your results show here after 3 check&#8209;ins.</p></div>`); } continue; }
+        const c = _lrnCallout(b.callout, ctx); parts.push(c ? _ARRES(_lrnCallHTML(c, paid, ctx)) : ''); continue; }
       if(b.emotions){ parts.push(_lrnEmoHTML(paid)); continue; }
-      // a "Journal" or "Reflect" heading right above the questions: the Journal card says it, so the heading stays only for the table of contents
-      if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ parts.push(_lrnBlockHTML(b).replace('class="rd-lh"', 'class="rd-lh rd-jr-sr"')); continue; }
+      // a "Journal" or "Reflect" heading right above the questions: the journal at the end takes its place (and its anchor)
+      if(b.h && blocks[i + 1] && blocks[i + 1].reflect && /^(journal|reflect)$/i.test(String(b.h).trim())){ if(!jrId && b.id) jrId = b.id; continue; }
+      // each section heading is a stop in "In this article"
+      if(b.h){ const hid = b.id || ('ar-h' + i); heads.push({ id:hid, title:String(b.h).replace(/\*+/g, '') }); parts.push(_lrnBlockHTML(b.id ? b : Object.assign({}, b, { id:hid }))); continue; }
       parts.push(_lrnBlockHTML(b));
     }
     const body = parts.join('') + (gated ? `<div class="rd-gate"><button class="rd-lock rd-gate-btn" type="button">${LOCK_SVG}<span><b>The rest of this chapter is part of Self-Regulator</b><span>The whole chapter, its journal questions and the practice that goes with it.</span></span></button></div>` : '');
-    // keep learning (Justin, 2026-10-01): the next relevant piece, then this piece's hubs
+    // the journal at the end: a writing page, one question at a time; free members see lock + See paid plans
+    const JR = `<span class="ar-eb">${_JR_PEN}Journal${paid && refl.length > 1 ? ' · ' + refl.length + ' questions' : ''}</span>`, jid = ` id="sec-${escapeHtml(jrId || 'ar-journal')}"`;
+    let journal = '';
+    if(!paid && (piece.blocks || []).some(x=>x.reflect)) journal = `<section class="ar-jr"${jid} aria-label="Journal">${JR}<div><button class="ar-quiet rd-jr-locked" type="button">${LOCK_SVG}<span>See paid plans</span></button></div></section>`;
+    else if(paid && refl.length){
+      const ans = _ctxLoad(), n = refl.length;
+      journal = `<section class="ar-jr"${jid} aria-label="Journal">${JR}${refl.map((b, k)=>{ const id = escapeHtml(b.reflect), saved = (ans['l:' + piece.id + ':' + b.reflect] || [])[0] || '';
+        return `<div class="ar-jstep" data-step="${k}"${k ? ' hidden' : ''} id="sec-rf-${id}"><label class="ar-jq" for="rf-${id}">${_lrnInline(b.prompt||'')}</label><textarea class="ar-jin" id="rf-${id}" data-refl="${id}" rows="4" autocorrect="on" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(b.fill || 'Write here')}">${escapeHtml(saved)}</textarea><div class="ar-jfoot"><button class="ar-quiet" type="button" data-refl-save="${id}">${saved ? 'Saved' : 'Save'}</button>${n > 1 ? `<span class="ar-jnav"><button class="ar-jlink" type="button" data-jstep="${k - 1}"${k ? '' : ' hidden'}>Previous</button><span>${k + 1} of ${n}</span><button class="ar-jlink" type="button" data-jstep="${k + 1}"${k < n - 1 ? '' : ' hidden'}>Next question</button></span>` : ''}</div></div>`; }).join('')}<p class="ar-jwhere">Answer one, or none. What you write is kept in Your Journal, in the You tab.</p></section>`;
+    }
+    // "In this article": in view on 10-12 at 1120 and up; the fold line below it
+    const tocAll = (piece.toc && piece.toc.length >= 2) ? piece.toc : heads.concat(journal ? [{ id:jrId || 'ar-journal', title:'Journal' }] : []), toc = !gated && tocAll.length >= 2 ? tocAll : null;
+    const aside = toc ? `<aside class="ar-toc" aria-label="In this article"><span class="ar-eb">In this article</span>${toc.map(t=>`<a href="#" class="ar-toc-a" data-lnk="anchor:${escapeHtml(t.id)}" data-tid="${escapeHtml(t.id)}">${escapeHtml(t.title)}</a>`).join('')}</aside>` : '';
+    // keep learning: house cards (Read next, Practice this), the hubs beside them
     const nx = L.nextFor ? L.nextFor(piece) : null;
     const hubKeys = (piece.groups||[]).filter(g=>L.HUBS[g]);
-    // book chapters: where it comes from, and where to get the book (Curriculum Advisor's LINKS.md, Justin 10-01)
-    const book = piece.book ? `<section class="rd-book"><p class="read-p">From <i>${escapeHtml(piece.book)}</i>.</p><div class="rd-book-links">${piece.book_url ? `<a class="rd-book-a" href="${escapeHtml(piece.book_url)}" target="_blank" rel="noopener">Buy the PDFs</a>` : ''}${piece.book_amazon ? `<a class="rd-book-a" href="${escapeHtml(piece.book_amazon)}" target="_blank" rel="noopener">Buy on Amazon</a>` : ''}</div></section>` : '';
-    const keep = `<section class="rd-learn rd-keep"><h3 class="sec-h">Keep learning</h3>
-        ${nx ? `<span class="rd-eyeb rd-keep-eyeb">Read next</span><div class="rd-list rd-list-flat">${_lrnRowHTML(nx)}</div>` : ''}
-        ${hubKeys.length ? `<span class="rd-eyeb rd-keep-eyeb">Learning hubs</span><div class="rd-list rd-list-flat">${hubKeys.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div>` : ''}
-      </section>`;
-    _rdShell(`
-        ${st ? `<span class="rd-eyeb rd-eyeb-mk">${_rdMk(st)}Recommended learning · ${escapeHtml(STATE_NAME(st))}</span>` : `<span class="rd-eyeb">Recommended learning</span>`}
-        <h1 class="rd-title">${escapeHtml(piece.title)}</h1>
-        <p class="rd-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
-        ${gated ? '' : _lrnTocHTML(piece.toc)}
-        ${body}
-        ${book}${piece.episode ? `<section class="rd-book"><p class="read-p">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p></section>` : ''}
-        ${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id },
+    const readCard = nx ? _lbCard(nx, true, nx.state, false).replace('<button class="lb-card"', '<button class="lb-card ar-kcard"').replace('<span class="lb-body">', '<span class="lb-body"><span class="ar-eb">Read next</span>') : '';
+    const pt = prac.length ? _lrnPracticeThis(prac[0]) : null;
+    const pracCard = pt ? `<button class="lb-card ar-kcard" type="button" data-prac="${escapeHtml(prac[0].practice)}"><span class="lb-pic" aria-hidden="true">${_rdMk(st || 'safety')}</span><span class="lb-body"><span class="ar-eb">Practice this</span><span class="lb-t">${escapeHtml(pt.title)}</span>${pt.note ? `<span class="lb-meta">${escapeHtml(pt.note)}</span>` : ''}</span></button>` : '';
+    const hubs = hubKeys.length ? `<div class="ar-hubs"><span class="ar-eb">Learning hubs</span><div class="rd-list rd-list-flat">${hubKeys.map(k=>_lrnHubRowHTML(k, 'More about')).join('')}</div></div>` : '';
+    const keep = `<section class="rd-learn rd-keep ar-keep">${readCard || pracCard || hubs ? `<h2 class="ar-kh">Keep learning</h2><div class="ar-kgrid">${readCard}${pracCard}${hubs}</div>` : ''}</section>`;
+    const book = piece.book ? `<section class="rd-book ar-src"><p>From <i>${escapeHtml(piece.book)}</i>.</p><div class="rd-book-links">${piece.book_url ? `<a class="rd-book-a" href="${escapeHtml(piece.book_url)}" target="_blank" rel="noopener">Buy the PDFs</a>` : ''}${piece.book_amazon ? `<a class="rd-book-a" href="${escapeHtml(piece.book_amazon)}" target="_blank" rel="noopener">Buy on Amazon</a>` : ''}</div></section>` : '';
+    _rdShell(`<div class="ar-grid"><article class="ar-main">
+        ${st ? `<span class="ar-eb">${_rdMk(st)}Recommended learning · ${escapeHtml(_LRN_ST(st))}</span>` : `<span class="ar-eb">Recommended learning</span>`}
+        <h1 class="ar-title">${escapeHtml(piece.title)}</h1>
+        <p class="ar-meta">${escapeHtml('By Justin · ' + (piece.minutes||1) + ' min read')}</p>
+        ${_lrnTocHTML(toc)}
+        <div class="ar-pic" aria-hidden="true">${_rdMk(st || 'safety')}${_LB_IMG.has(piece.id) ? `<img src="img/learn/${piece.id}-1280.jpg" srcset="img/learn/${piece.id}-640.jpg 640w, img/learn/${piece.id}-1280.jpg 1280w" sizes="(min-width:720px) 900px, 100vw" alt="" decoding="async" onerror="this.remove()">` : ''}</div>
+        <div class="ar-read">${body}</div>
+        ${book}${piece.episode ? `<p class="ar-src">From episode ${escapeHtml(String(piece.episode))} of the <i>Stuck Not Broken</i> podcast.</p>` : ''}
+        ${journal}
+      </article>${aside}</div>${keep}`, { back: from ? from.label : fromPost ? 'Back' : 'Reflect', onBack: back, tab:'learn', loc:{ k:'piece', id:piece.id }, wide:true,
           crumb:[{ label:'Learn', go:()=>screenLearn(true) }].concat(_rdCrumbTopic(piece.state || (piece.groups || []).find(g=>L.HUBS[g]), ()=>screenLearn(true)), [{ label: piece.book ? 'This chapter' : 'This article' }]) });
     root.querySelectorAll('.rd-call-lock, .rd-gate-btn').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
     const tabNow = 'learn';   // every article lives in Learn, wherever it was opened from (Justin, 2026-10-01)
     root.querySelectorAll('.rd-keep [data-piece]').forEach(b=>b.onclick=()=>{ const pc = L.byId(b.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:here, tab:tabNow }); });
     root.querySelectorAll('.rd-keep [data-hub]').forEach(b=>b.onclick=()=>screenLearnHub(b.dataset.hub, { label:'Back', go:here }));
     _lrnWireLinks({ label:'Back', go:here, tab:tabNow });
-    // in-article reflections (paid): saved to the member's own data, keyed to the piece
-    root.querySelectorAll('.rd-refl-lock').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
+    // the journal (paid): saved to the member's own data, keyed to the piece
     root.querySelectorAll('[data-refl-save]').forEach(btn=>btn.onclick=()=>{
       const id = btn.dataset.reflSave, ta = root.querySelector(`[data-refl="${id}"]`), b = (piece.blocks||[]).find(x=>x.reflect===id);
       if(!ta || !b) return; const txt = ta.value.trim(), key = 'l:' + piece.id + ':' + id;
@@ -7199,17 +9259,25 @@ function app(tab){
       btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
     });
     root.querySelectorAll('[data-refl]').forEach(ta=>ta.oninput=()=>{ const s = root.querySelector(`[data-refl-save="${ta.dataset.refl}"]`); if(s) s.textContent = 'Save'; });
-    // the Journal: locked for free; the sheet slides up, one question at a time, swipe or Next/Previous between them
+    const showStep = k => root.querySelectorAll('.ar-jstep').forEach(s=>{ s.hidden = +s.dataset.step !== k; });
+    root.querySelectorAll('[data-jstep]').forEach(b=>b.onclick=()=>{ showStep(+b.dataset.jstep); const t = root.querySelector(`.ar-jstep[data-step="${b.dataset.jstep}"] textarea`); if(t){ try{ t.focus({ preventScroll:true }); }catch(e){} } });
+    if(goSec && /^rf-/.test(goSec)){ const s = root.querySelector('#sec-' + CSS.escape(goSec)); if(s && s.dataset.step) showStep(+s.dataset.step); }
     root.querySelectorAll('.rd-jr-locked').forEach(b=>b.onclick=()=>gateSubscribe('reader'));
-    root.querySelectorAll('.rd-jr').forEach(_jrWire);
     _lrnEmoWire(()=>screenLearnPiece(piece, ctx, fromPost, from, 'emo'));
     root.querySelectorAll('[data-prac]').forEach(el=>el.onclick=()=>{ const b = (piece.blocks||[]).find(x=>x.practice===el.dataset.prac); if(b) renderPlan(_lrnPracticeReco(b), _trueBack(()=>screenLearnPiece(piece, ctx, fromPost, from))); });
     if(goSec) requestAnimationFrame(()=>_lrnGoTo(goSec));
+    // "In this article": the section you're in is ink, the rest muted
+    const tas = [...root.querySelectorAll('.ar-toc-a')], sc = root.querySelector('.scroll');
+    if(tas.length && sc){
+      const els = tas.map(a=>root.querySelector('#sec-' + CSS.escape(a.dataset.tid)));
+      const paint = () => { const lim = sc.getBoundingClientRect().top + 160; let k = 0; els.forEach((el, i)=>{ if(el && el.getBoundingClientRect().top <= lim) k = i; }); tas.forEach((a, i)=>{ if(i === k) a.setAttribute('aria-current', 'location'); else a.removeAttribute('aria-current'); }); };
+      let raf = 0; sc.addEventListener('scroll', ()=>{ if(!raf) raf = requestAnimationFrame(()=>{ raf = 0; paint(); }); }, { passive:true }); paint();
+    }
     // read = reached the end (Keep learning in view), not just opened
     const endEl = root.querySelector('.rd-keep');
     if(endEl && !gated && !_lrnIsRead(piece.id)){
       if('IntersectionObserver' in window){ const io = new IntersectionObserver(es=>{ if(es.some(e=>e.isIntersecting)){ _lrnMarkRead(piece.id); io.disconnect(); } }, { threshold:0.01 }); io.observe(endEl); }
-      else { const sc = root.querySelector('.scroll'); if(sc) sc.addEventListener('scroll', function f(){ if(sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 40){ _lrnMarkRead(piece.id); sc.removeEventListener('scroll', f); } }); }
+      else if(sc){ sc.addEventListener('scroll', function f(){ if(sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 40){ _lrnMarkRead(piece.id); sc.removeEventListener('scroll', f); } }); }
     }
   }
 
@@ -7590,8 +9658,7 @@ function app(tab){
         <div class="ci-block">
           ${_ciInput}
           ${_ciStates?'':'<button class="ci-shuffle" id="ci-shuffle" type="button">Change the questions</button>'}
-          <div class="ci-reading" id="ci-reading"></div>
-          ${_yng?'<p class="fineprint" style="margin-top:10px">Check in whenever you like: when you’re off, when you’re good, any part of day. Every check-in teaches the app your system.</p>':''}
+          ${(!editRec && !((Store.checkins && Store.checkins()) || []).length)?'<p class="fineprint" style="margin-top:10px">Check in whenever you like: when you’re off, when you’re good, any part of day. Every check-in teaches the app your system.</p>':''}
         </div>
 
         ${(function(){
@@ -7618,7 +9685,10 @@ function app(tab){
         </div>`;
         })()}
 
-        <div class="actionbar"><button class="btn block" id="save">${editRec?'Save changes':'Save check-in'}</button></div>
+        <aside class="actionbar ci-readcard" aria-label="Your read">
+          <div class="ci-readrow"><span class="ci-read-mk" id="ci-read-mk" aria-hidden="true"></span><div class="ci-reading" id="ci-reading" aria-live="polite"></div></div>
+          <button class="btn block" id="save">${editRec?'Save changes':'Save check-in'}</button>
+        </aside>
       </div>`;
 
     // fresh check-ins start neutral (Justin 2026-07-05): rails and glyphs stay quiet
@@ -7648,9 +9718,13 @@ function app(tab){
       const reading = $('#ci-reading');
       if(reading){
         /* 2026-08-17 — the name IS the reading (Justin). Dead-centre keeps its
-           sentence, the one case with no name to give. */
-        reading.innerHTML = `<span class="ci-reading-name">${window.PVCurrent.readingOf(v/100, s/100, d/100).label}</span>`;
+           sentence, the one case with no name to give. 2026-10-29: no em dash; the name large, its band under it. */
+        const _lb = window.PVCurrent.readingOf(v/100, s/100, d/100).label, _di = _lb.indexOf(' \u2014 ');
+        reading.innerHTML = `<span class="ci-reading-name">${_di > 0 ? _lb.slice(0, _di) : _lb}</span>${_di > 0 ? `<span class="ci-reading-band">${CAP(_lb.slice(_di + 3))}.</span>` : ''}`;
         reading.hidden = false;
+        // the state mark beside the read: ink until a slider is set, then the state's colours (colour follows what was set)
+        const _mk = $('#ci-read-mk');
+        if(_mk){ const _any = editRec || axTouched.v || axTouched.sym || axTouched.dor; _mk.innerHTML = triGlyph(_any ? window.PVCurrent.dominantOf(v/100, s/100, d/100).key : 'neutral'); }
       }
     }
     // Bound in every method now: in states mode the same three sliders are the fine-tune.
@@ -7782,7 +9856,7 @@ function app(tab){
       }
       // T-2: the FIRST check-in lands back on Today, where the halo has just taken
       // their state color — a visible payoff, not the You tab's "check in twice" nag
-      app(Store.checkins().length >= 2 ? 'you' : 'now');
+      app('now');   // back to Now, where the scene takes the new state (Justin 2026-10-29: "After checking in, send the user back to the Now screen")
       actionSnack('checked in', 'change', ()=>screenCheckin(rec));
     };
   }
@@ -7854,21 +9928,6 @@ function app(tab){
       </div>`);
     $('#lv-out').onclick = ()=>{ _liveClear(); app('now'); };
   }
-  function screenLiveCode(){
-    _liveShell('<div class="view fb-view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">Join with a Code</h2><p class="scr-lede">Enter the code shown on the practice screen.</p></div><input id="lc-in" type="text" inputmode="latin" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="10" placeholder="e.g. 76QMY4" aria-label="live practice code" style="display:block;width:100%;max-width:280px;margin:20px auto 0;padding:14px 16px;font-size:22px;letter-spacing:.22em;text-align:center;text-transform:uppercase;border:1px solid var(--hairline);border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit"><p class="scr-lede" id="lc-msg" style="min-height:1.2em;margin-top:10px"></p><div class="actionbar"><button class="btn block" id="lc-go" type="button">Join</button><button class="set-quiet" id="lc-back" type="button" style="margin-top:8px">Back</button></div></div>');
-    var inp=$('#lc-in'); if(inp) inp.focus();
-    var go=function(){
-      var v=((inp&&inp.value)||'').trim().toUpperCase();
-      if(!/^[A-Z0-9]{4,10}$/.test(v)){ var m=$('#lc-msg'); if(m) m.textContent='That doesn\u2019t look like a code. It\u2019s a few letters and numbers.'; return; }
-      try{ localStorage.setItem('snb_live_join', JSON.stringify({ code:v, joined:'self', t:Date.now() })); }catch(e){}
-      if(!Store.user() && Store.cloud()){ authMode = knownDevice() ? 'in' : 'up'; return screenSignIn(); }
-      screenLive();
-    };
-    if($('#lc-go')) $('#lc-go').onclick=go;
-    if(inp) inp.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); go(); }});
-    if($('#lc-back')) $('#lc-back').onclick=function(){ app('settings'); };
-  }
-
   async function screenLive(){
     const join = _liveJoin(); if(!join) return app(currentTab);
     _liveShell(`<div class="view"><div class="scr-head"><p class="eyebrow">Live practice</p><h2 class="scr-h">One moment&hellip;</h2></div></div>`);
@@ -7968,7 +10027,7 @@ function app(tab){
       </div>`);
     const sh=$('#lv-share'); if(sh) sh.onclick=()=>openShare(
       s.type==='capacity-builder' ? 'I practiced capacity building today.' : 'I practiced mindfulness today.');   // 🖊 CB variant
-    $('#lv-done').onclick = ()=>{ _liveClear(); app('now'); showToast('saved with your check-ins'); };
+    $('#lv-done').onclick = ()=>{ try{ haptic('done'); }catch(e){} _liveClear(); app('now'); showToast('saved with your check-ins'); };
   }
   // "live now" card on the Now screen (option B, Justin 2026-10-21): replaces the
   // pop-up. Shown to everyone while a practice is live; the tag says who it is for.
@@ -8818,75 +10877,125 @@ function app(tab){
   // trend, no pattern, no verdict, no score: the app does not read it back to them, it
   // simply keeps it and shows it. That read-back is what the paid plan is.
   // 🖊 copy draft.
+  // ---- You on the Swiss grid, bento (Justin, canon 2026-10-29; BRAND_DESIGN_SYSTEM §4 "You screen (bento)"; mockup
+  // https://claude.ai/artifact/DpJGWf3qEK5cvztXsMgUYW). Kept as they were (Justin: "keep what is working well"): the
+  // daily hand of four cards (youPick), their entrance animations, "See the data", sharing, and the state-range gradient.
+  // What moved: one bar under the title, Reflection and Journal first, the cards 6 + 6, a short check-in list, the numbers
+  // behind two quiet rows.
+  const _YB_PLUS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+  const _YB_ARW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+  function _ybHead(pills){
+    return `<div class="scr-head"><h1 class="scr-h lw-h1">You</h1></div>
+      <div class="yb-bar">${pills || ''}<span class="yb-sp" aria-hidden="true"></span><button class="yb-icon ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in">${_YB_PLUS}</button><button class="yb-set" id="set-btn" type="button">${GEAR_SVG}<span>Settings</span></button></div>`;
+  }
+  // the check-ins, newest first, grouped by day; each row opens its sentence in place
+  function _ybCiHTML(list){
+    const byDay = {}, order = [];
+    list.forEach(x=>{ const k = new Date(x.t).toDateString(); if(!byDay[k]){ byDay[k] = []; order.push(k); } byDay[k].push(x); });
+    return order.map(k=>{
+      // no "today" on screen (Justin, 2026-09-05): the date names the day; sentence case (Justin, 2026-10-29)
+      const label = new Date(k).toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+      return `<div class="yb-ci-day"><h3 class="yb-ci-dh">${escapeHtml(label)}</h3>${byDay[k].map(x=>{
+        const dom = _cDom(x), mirror = ciMirror(x.v, x.sym, x.dor);
+        return `<div class="yb-ci-row"><button class="yb-ci-hit" type="button" aria-expanded="false" data-ybci><span class="yb-ci-time">${fmtTime(x.t)}</span><span class="yb-ci-st hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">' + escapeHtml(STATE_LABEL(dom)) + '</span>' : ''}</span><span class="yb-ci-pm">${LW_PM(false)}</span></button><div class="yb-ci-more" hidden>${mirror ? `<p class="yb-ci-s">${escapeHtml(mirror)}</p>` : ''}<div class="yb-ci-acts"><button class="yb-ci-act" type="button" data-ybedit="${x.t}">Change</button><button class="yb-ci-act" type="button" data-ybdel="${x.t}">Remove</button></div></div></div>`;
+      }).join('')}</div>`;
+    }).join('');
+  }
+  const _YB_CI_N = 5;   // the latest few; "See all" for the rest (never the full history on this screen)
+  function _ybCiSection(allCs){
+    const cs = allCs.slice().sort((a,b)=>b.t-a.t);
+    return `<section class="yb-ci" aria-label="Your check-ins"><div class="yb-ci-head"><h2 class="scr-h">Your check-ins.</h2>${cs.length > _YB_CI_N ? `<button class="lb-seeall" type="button" id="yb-ci-all">See all${CHEV}</button>` : ''}</div>${_ybCiHTML(cs.slice(0, _YB_CI_N))}</section>`;
+  }
+  function _ybCiWire(scope){
+    scope.querySelectorAll('[data-ybci]').forEach(b=>b.onclick=()=>_pmSlide(b, b.nextElementSibling, b.getAttribute('aria-expanded') !== 'true'));
+    const all = scope.querySelector('#yb-ci-all'); if(all) all.onclick = screenCheckinsAll;
+    // change or remove a check-in (Justin 2026-10-29), the same as Settings > Change a recent check-in
+    const onAll = !!scope.querySelector('.yb-ci-all');
+    const find = t => Store.checkins().find(c=>c && c.t === t);
+    scope.querySelectorAll('[data-ybedit]').forEach(b=>b.onclick=()=>{ const rec = find(+b.dataset.ybedit); if(rec) screenCheckin(rec); });
+    scope.querySelectorAll('[data-ybdel]').forEach(b=>b.onclick=()=>{
+      const t = +b.dataset.ybdel;
+      if(confirm('Remove this check-in? This cannot be undone.')){ Store.deleteCheckin(t); haptic('save'); FromJustin.refresh(); _dpClose(); try{ const o = document.getElementById('lw-sheet'); if(o) o.remove(); }catch(e){} if(onAll) screenCheckinsAll(); else app('you'); }
+    });
+    // the See all page: a check-in opens in the panel (1120+) or as a slide-up, not in place (Justin, canon 2026-10-31)
+    if(onAll && scope === root){
+      const mark = row => scope.querySelectorAll('.yb-ci-all .yb-ci-row').forEach(r => r.classList.toggle('is-sel', r === row));
+      scope.querySelectorAll('.yb-ci-all [data-ybci]').forEach(b => b.onclick = () => {
+        const row = b.closest('.yb-ci-row'), more = b.nextElementSibling, day = (b.closest('.yb-ci-day') || {}).querySelector ? b.closest('.yb-ci-day').querySelector('.yb-ci-dh') : null;
+        const head = b.cloneNode(true); head.querySelectorAll('.yb-ci-pm').forEach(x => x.remove());
+        mark(row);
+        const box = _dpOpen((day ? day.textContent + ', ' : '') + ((b.querySelector('.yb-ci-time') || {}).textContent || ''), `<div class="dp-ci">${head.innerHTML}</div><div class="dp-ci-more">${more ? more.innerHTML : ''}</div>`, { onClose:() => mark(null) });
+        if(box){ box.querySelectorAll('[hidden]').forEach(x => x.hidden = false); _ybCiWire(box); }
+      });
+    }
+  }
+  // every check-in, behind "See all"
+  function screenCheckinsAll(){
+    const cs = Store.checkins().slice().sort((a,b)=>b.t-a.t);
+    _rdShell(`<h1 class="rd-title">Your check-ins.</h1><section class="yb-ci yb-ci-all">${_ybCiHTML(cs)}</section>`,
+      { back:'You', onBack:()=>app('you'), tab:'you', loc:{ k:'tab', tab:'you' } });
+    _ybCiWire(root);
+  }
+  // Your Journal as a writing surface: the newest reflection's next unanswered question, answered the way a reflection's
+  // journal is ('rj:{post}:{n}' = [answer, day, question]); without one, the card's usual words
+  function _ybJournalHTML(){
+    let n = 0; try{ n = _lrnJournal().reduce((a,g)=>a + g.items.length, 0); }catch(e){}
+    let post = null, qi = 0, saved = '';
+    try{ post = _rdPosts().filter(p=>(p.journal||[]).length).sort((a,b)=>(b.release||0) - (a.release||0))[0] || null; }catch(e){ post = null; }
+    if(post){ const m = _ctxLoad(); qi = post.journal.findIndex((q,i)=>!((m[_rdJrKey(post, i)] || [])[0])); if(qi < 0) qi = 0; saved = ((m[_rdJrKey(post, qi)] || [])[0]) || ''; }
+    return `<section class="yb-jr" aria-label="Your Journal"><h3 class="yr-h">Your Journal</h3>
+      <p class="yb-lede">${escapeHtml(n ? (n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.' : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.')}</p>
+      ${post ? `<div class="yb-jr-q"><label class="yb-jr-ql" for="yb-jr-in">${escapeHtml(post.journal[qi])}</label><textarea class="rd-refl-in yb-jr-in" id="yb-jr-in" rows="3" data-post="${escapeHtml(post.key)}" data-i="${qi}">${escapeHtml(saved)}</textarea><button class="yb-jr-save" type="button" id="yb-jr-save">${saved ? 'Saved' : 'Save'}</button></div>` : ''}
+      <a class="yb-go" id="you-journal" href="#"><span>Open your journal</span>${_YB_ARW}</a></section>`;
+  }
+  function _ybJournalWire(){
+    const ta = $('#yb-jr-in'), btn = $('#yb-jr-save'); if(!ta || !btn) return;
+    ta.oninput = ()=>{ btn.textContent = 'Save'; };
+    btn.onclick = ()=>{
+      const post = _rdPosts().find(p=>p.key === ta.dataset.post), i = +ta.dataset.i, q = post && (post.journal||[])[i]; if(q == null) return;
+      const txt = ta.value.trim(), key = _rdJrKey(post, i), val = txt ? [txt, new Date().toISOString().slice(0, 10), q] : [];
+      try{ if(Store.saveContexts) Store.saveContexts(key, q, val); else { const m = _ctxLoad(); m[key] = val; _ctxSave(m); } }catch(e){}
+      btn.textContent = txt ? 'Saved' : 'Save'; haptic && haptic('save');
+    };
+  }
+  // Your Reflection and Your Journal as pointers (Justin 2026-10-29: "Reflection does not need text. it's a pointer ...
+  // Journal should also be a pointer to the journal screen"): half the width each, under the four cards. Free: the
+  // Reflection tile beside the Self-Regulator card.
+  function _ybPtrsHTML(paid){
+    const nw = _rdHasNew();   // the tab's dot points here (tweak-a, 2026-11-01)
+    const refl = `<a class="yb-ptr${nw ? ' yb-new' : ''}" id="you-reader" href="#"${nw ? ' aria-label="Your Reflection: a new reflection is ready"' : ''}><span class="yb-ptr-ic" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yb-ptr-t">Your Reflection</span><span class="yb-go"><span>${nw ? 'Read your new reflection' : 'Read your reflections'}</span>${_YB_ARW}</span></a>`;
+    const jr = `<a class="yb-ptr" id="you-journal" href="#"><span class="yb-ptr-ic" aria-hidden="true">${_JR_PEN}</span><span class="yb-ptr-t">Your Journal</span><span class="yb-go"><span>Open your journal</span>${_YB_ARW}</span></a>`;
+    return `<div class="yb-ptrs${paid ? '' : ' yb-ptrs-free'}">${refl}${paid ? jr : _ybPlansHTML()}</div>`;
+  }
+  // free members: one Self-Regulator card in Journal's place (replaces the four locked rows)
+  function _ybPlansHTML(){
+    const it = [['Your patterns', 'Your times of day, your week, your numbers'], ['Practice impacts', 'How each practice shifts your states'], ['Ideal practice', 'Your best time, anchor and setup'], ['Your Journal', 'Your answers to the journal questions in Learn']];
+    return `<section class="yb-plans" aria-label="Self-Regulator"><h3 class="yr-h">Self-Regulator</h3>${it.map(([t, d])=>`<div class="yb-plans-i"><b>${escapeHtml(t)}</b><span>${escapeHtml(d)}</span></div>`).join('')}
+      <button class="btn yb-plans-go" type="button" id="yb-plans-go">${LOCK_SVG}See paid plans</button></section>`;
+  }
+  // "Your numbers" and "How you practice": two quiet rows that open on tap
+  function _ybDiscHTML(blocks){
+    return `<div class="yb-disc">${blocks.filter(b=>b[1]).map(([t, body], i)=>`<div class="yb-d"><button class="yb-d-hit" type="button" aria-expanded="false" data-ybd><span>${escapeHtml(t)}</span><span class="yb-ci-pm">${LW_PM(false)}</span></button><div class="deep-block yb-d-body" hidden>${body}</div></div>`).join('')}</div>`;
+  }
+  function _ybDiscWire(scope){
+    scope.querySelectorAll('[data-ybd]').forEach(b=>b.onclick=()=>_pmSlide(b, b.nextElementSibling, b.getAttribute('aria-expanded') !== 'true'));
+  }
+
   function tabHistoryFree(c, allCs){
     const cs = allCs.slice().sort((a,b)=>b.t-a.t);   // newest first
-    const byDay = {};
-    cs.forEach(x=>{ const k = new Date(x.t).toDateString(); (byDay[k] = byDay[k] || []).push(x); });
-    const dayHTML = Object.keys(byDay).map(k=>{
-      const d = new Date(k);
-      // no "today" on screen (Justin, 2026-09-05): the date names the day, every day
-      const label = d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }).toLowerCase();
-      const rows = byDay[k].map(x=>{
-        // derives (A4, 2026-08-22) — supersedes the free-history stored-name exception
-        // ("exactly as they recorded them"): its rationale no longer holds after B1
-        // (one naming rule for all history) + Ruling 2 (the stored category is gone).
-        const dom = _cDom(x);
-        const mirror = ciMirror(x.v, x.sym, x.dor);
-        return `<div class="deep-row hx-row">
-          <span class="deep-lbl hx-time">${fmtTime(x.t)}</span>
-          <span class="hx-body">
-            <span class="hx-name">${dom ? stateMarks(dom) + '<span class="hx-state">'+escapeHtml(STATE_LABEL(dom))+'</span>' : ''}</span>
-            ${mirror ? `<span class="hx-mirror">${escapeHtml(mirror)}</span>` : ''}
-          </span>
-        </div>`;
-      }).join('');
-      return `<div class="deep-block"><h3 class="deep-h">${escapeHtml(label)}</h3>${rows}</div>`;
-    }).join('');
-
-    c.innerHTML = `<div class="view play-view">
-      <div class="filter-bar" style="justify-content:flex-end">
-        <button class="set-gear ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
-        <button class="set-gear" id="set-btn" type="button" aria-label="Settings" title="Settings">${GEAR_SVG}</button>
+    const _r = (function(){ try{ return FromJustin.daily ? FromJustin.daily() : null; }catch(e){ return null; } })();
+    c.innerHTML = `<div class="view play-view yb">
+      ${_ybHead('')}
+      <div class="yb-grid">
+      ${_ybPtrsHTML(false)}
+      ${_ybCiSection(allCs)}
       </div>
-      <button class="tb-row p-locked" id="hx-patterns">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Your patterns</span>
-          <span class="tb-row-sub">Your times of day, your week, your numbers &middot; Self-Regulator</span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <button class="tb-row p-locked" id="hx-impacts" style="margin-top:10px">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Practice impacts</span>
-          <span class="tb-row-sub">How each practice shifts your states &middot; Self-Regulator</span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <button class="tb-row p-locked" id="hx-ideal" style="margin-top:10px">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Ideal practice</span>
-          <span class="tb-row-sub">Your best time, anchor and setup &middot; Self-Regulator</span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <button class="tb-row p-locked" id="hx-journal" style="margin-top:10px">
-        <span class="tb-row-text">
-          <span class="tb-row-title">Your Journal</span>
-          <span class="tb-row-sub">Your answers to the journal questions in Learn &middot; Self-Regulator</span>
-        </span><span class="wc-go">${CHEV}</span>
-      </button>
-      <a class="you-reader" id="you-reader" href="#" style="margin-top:14px">
-        <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
-        <p class="yr-lede">${(function(){ try{ const r=FromJustin.daily?FromJustin.daily():null; return (r&&r.text)?escapeHtml(r.text):'Your daily post and your Sunday reflection, from your own check-ins.'; }catch(e){ return 'Your daily post and your Sunday reflection, from your own check-ins.'; } })()}</p></span></span>
-        <span class="yr-go"><span class="yr-glyph">${triGlyph((cs[0]&&cs[0].dom)||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
-      </a>
-      <div class="scr-head" style="margin-top:24px"><h2 class="scr-h">Your check-ins.</h2></div>
-      <div class="deep">${dayHTML}</div>
     </div>`;
     const ad=$('#add-ci');  if(ad) ad.onclick = screenCheckin;
     const sb1=$('#set-btn'); if(sb1) sb1.onclick = screenSettings;
-    const hp=$('#hx-patterns'); if(hp) hp.onclick = ()=>gateSubscribe('patterns');
-    const hi=$('#hx-impacts');  if(hi) hi.onclick = ()=>gateSubscribe('impacts');
-    const hd=$('#hx-ideal');    if(hd) hd.onclick = ()=>gateSubscribe('ideal');
-    const hj=$('#hx-journal');  if(hj) hj.onclick = ()=>gateSubscribe('reader');
+    const pg=$('#yb-plans-go'); if(pg) pg.onclick = ()=>gateSubscribe('patterns');
     const yr=$('#you-reader'); if(yr) yr.onclick = (e)=>{ e.preventDefault(); app('reflect'); };
+    _ybCiWire(c);
   }
 
   // ── You-tab pattern cards, rebuilt on margin (2026-09-07, Justin: "margin number
@@ -9071,6 +11180,7 @@ function app(tab){
     if(bs.anchor && r.practiceKey!=='mindfulness') r.sense=bs.anchor;
     if(bs.silence) r.silence=bs.silence;
     r.reason='your ideal practice: what has worked best for you, in one practice.';
+    r.launchedFrom='best_time';
     return r;
   }
 
@@ -9292,7 +11402,7 @@ function app(tab){
         ${shareBtn('practice-'+pk)}<h2 class="panel-title">Practice impacts</h2>
         <p class="panel-sub">${name}</p>
         <div class="help-bars">${bars}</div>
-        <p class="cb-line" style="margin-top:16px">How much each state moves, on average, from just before a ${name.toLowerCase()} practice to just after it.</p>
+        <p class="cb-line" style="margin-top:16px">How much each state moves, on average, from just before ${(n=>/^(a|an) /.test(n) || / practice$/.test(n) ? n : 'a ' + n + ' practice')(name.toLowerCase())} to just after it.</p>
         ${_seeData([['Safety',_ySh(dv)],['Fight/flight',_ySh(ds)],['Shutdown',_ySh(dd)],['Practices with a before and after',ps.length]],'Each state is read 0 to 100 at a check-in. After minus before, averaged over these practices. The percentage is that average, in points.')}`,
         ps.length+':'+Math.round((dm||0)*100));
     });
@@ -9525,61 +11635,31 @@ function app(tab){
       const _r=(FromJustin&&(FromJustin.daily?FromJustin.daily():(FromJustin.today?FromJustin.today():null)))||null;
       const _reflText=(_r&&_r.text)?escapeHtml(_r.text):'';
       c.innerHTML=`
-        <div class="view play-view">
-          <div class="filter-bar">
-            ${visPer.length>1?`<div class="play-filter seg">${visPer.map(p=>`<button class="period-pill${activePeriod===p.key?' on':''}" data-period="${p.key}">${p.label}</button>`).join('')}</div>`:''}
-            <button class="set-gear ci-add" id="add-ci" type="button" aria-label="New check-in" title="New check-in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
-            <button class="set-gear" id="set-btn" type="button" aria-label="Settings" title="Settings">${GEAR_SVG}</button>
-          </div>
-
-          <div class="carousel" id="carousel" role="region" aria-roledescription="carousel" aria-label="Your patterns: swipe or use the dots below">${(function(){
-            // the pool is built on margin (youCards) and four are drawn per visit
-            // (youPick). when recent check-ins lean defensive, the cards that say
-            // "dips end" lead and the baseline hero steps back — same honest data,
-            // kinder sequence.
+        <div class="view play-view yb">
+          ${_ybHead(visPer.length>1 ? `<div class="yb-per" role="group" aria-label="Period">${visPer.map(p=>`<button type="button" class="period-pill${activePeriod===p.key?' on':''}" data-period="${p.key}" aria-pressed="${activePeriod===p.key}">${p.label}</button>`).join('')}</div>` : '')}
+          <div class="yb-grid">
+          <div class="carousel yb-cards" id="carousel" role="region" aria-roledescription="carousel" aria-label="Your patterns: swipe or use the dots below">${(function(){
+            // the pool is built on margin (youCards) and four are drawn per visit (youPick), exactly as before
             const _recent = allCs.slice(-6);
             const _defN = _recent.filter(x=>{ const m=_cMargin(x); return m!=null && m<0; }).length;
             const _tender = _recent.length>=3 && (_defN/_recent.length)>=0.5;
             const pk = youPick(youCards(cs, allCs, periodPhrase, activePeriod, days), activePeriod, _tender);
-            // desktop mirrors the phone (Justin, 2026-10-05: "only 4 cards should show at a time at most per time
-            // period, just like mobile"): the same daily hand everywhere; on a wide screen the CSS lays it out as a
-            // grid instead of a swipe carousel. (The 2026-07-19 one-at-a-time ledger that listed ALL cards is gone.)
             const picked = pk.picked;
             window._youSlides = picked.map(s=>s[1]);
             return picked.map((s,i)=>`<section class="panel" role="group" aria-roledescription="slide" aria-label="${CAP(s[1])}, card ${i+1} of ${picked.length}">${s[2]}</section>`).join('');
           })()}</div>
-
-          <div class="dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
-
-          <div class="you-readers">
-          <a class="you-reader" id="you-reader" href="#">
-            <span class="yr-top"><span class="yr-art" aria-hidden="true">${tabIcon('reflect', false)}</span><span class="yr-hd"><h3 class="yr-h">Your Reflection</h3>
-            <p class="yr-lede">${_reflText || 'The personal read of your patterns, in plain language.'}</p></span></span>
-            <span class="yr-go"><span class="yr-glyph">${triGlyph((_r&&_r.state)||topState||'safety')}</span><span class="yr-txt">Read your reflections</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
-          </a>
-          ${(function(){ let n = 0; try{ n = _lrnJournal().reduce((a,g)=>a + g.items.length, 0); }catch(e){}
-            const paid = paidNow();
-            return `<a class="you-reader you-journal" id="you-journal" href="#">
-            <span class="yr-top"><span class="yr-art yr-art-jr" aria-hidden="true">${_JR_PEN}</span><span class="yr-hd"><h3 class="yr-h">Your Journal</h3>
-            <p class="yr-lede">${paid && n ? escapeHtml((n === 1 ? '1 answer' : n + ' answers') + ' from Learn and your reflections.') : 'Your answers to the journal questions in Learn and in your reflections, kept in one place.'}</p></span></span>
-            <span class="yr-go">${paid ? '' : LOCK_SVG}<span class="yr-txt">${paid ? 'Open your journal' : 'Part of Self-Regulator'}</span><span class="yr-arw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span>
-          </a>`; })()}
-          </div>
-
-          <div class="deep">
-            <div class="deep-block">
-              <h3 class="deep-h">Your numbers</h3>
-              <div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'\u2014'}</span></div>
+          <div class="dots yb-dots" id="dots">${(window._youSlides||[]).map((lb,i)=>`<button type="button" class="dot-i${i===0?' on':''}" data-panel="${i}" aria-label="${CAP(lb)}"></button>`).join('')}</div>
+          ${_ybPtrsHTML(true)}
+          ${_ybCiSection(allCs)}
+          ${_ybDiscHTML([
+            ['Your numbers', `<div class="deep-row"><span class="deep-lbl">Days tracked</span><span class="deep-val">${Store.tenure?Store.tenure().days:'—'}</span></div>
               <div class="deep-row"><span class="deep-lbl">Check-ins</span><span class="deep-val">${allCs.length}</span></div>
               ${(function(){const n=Store.sessions().filter(s=>s&&s.completed).length;return n?`<div class="deep-row"><span class="deep-lbl">Practices completed</span><span class="deep-val">${n}</span></div>`:'';})()}
-              ${(function(){const r=_windowRecovery(cs);return r?`<div class="deep-row"><span class="deep-lbl">Comebacks made</span><span class="deep-val">${r.n}</span></div>`:'';})()}
-            </div>
-            <div class="deep-block">
-              <h3 class="deep-h">How you practice</h3>
-              ${(function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">You return to</span><span class="deep-val">${CAP(Store.practiceLabel(L.favPractice))}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">Anchored through</span><span class="deep-val">${CAP(L.favSense)}</span></div>`;return h;})()}
-              ${(function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">Time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()}
-              ${(function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'Late at night':CAP(segLabel(s))}</span></div>`;})()}
-            </div>
+              ${(function(){const r=_windowRecovery(cs);return r?`<div class="deep-row"><span class="deep-lbl">Comebacks made</span><span class="deep-val">${r.n}</span></div>`:'';})()}`],
+            ['How you practice', (function(){const L=Store.learned();let h='';if(L.favPractice)h+=`<div class="deep-row"><span class="deep-lbl">You return to</span><span class="deep-val">${CAP(Store.practiceLabel(L.favPractice))}</span></div>`;if(L.favSense)h+=`<div class="deep-row"><span class="deep-lbl">Anchored through</span><span class="deep-val">${CAP(L.favSense)}</span></div>`;return h;})()
+              + (function(){const ss=Store.sessions().filter(s=>s&&s.completed);if(!ss.length)return '';const mins=Math.round(ss.reduce((s,x)=>s+(x.minutes||0),0));return mins?`<div class="deep-row"><span class="deep-lbl">Time in practice</span><span class="deep-val">${mins>=90?Math.round(mins/60*10)/10+' hours':mins+' minutes'}</span></div>`:'';})()
+              + (function(){if(!Store.practiceInsights)return '';const a=Store.practiceInsights();if(!a||!a.length)return '';const s=a[0].seg;return `<div class="deep-row"><span class="deep-lbl">Best time for it</span><span class="deep-val">${s==='late'?'Late at night':CAP(segLabel(s))}</span></div>`;})()]
+          ])}
           </div>
         </div>`;
 
@@ -9591,6 +11671,7 @@ function app(tab){
       // reader-on-top entry → the full personal reflection (paid deep reader)
       const yrd=$('#you-reader'); if(yrd) yrd.onclick=(e)=>{ e.preventDefault(); screenReflectionDeep(); };
       const yjn=$('#you-journal'); if(yjn) yjn.onclick=(e)=>{ e.preventDefault(); screenJournal('you'); };
+      _ybJournalWire(); _ybCiWire(c); _ybDiscWire(c);
       // SHARE_TXT is GONE, and so is SHARE_VIZ (2026-08-01). Both were parallel decks that
       // had to be kept in step with the cards by hand, and both had drifted: SHARE_VIZ still
       // drew the 'times' card's RETIRED dot strip long after it became a bar chart, and
@@ -9604,6 +11685,27 @@ function app(tab){
       // "See the data" opens in place and never stays open: it is a <details> that
       // every re-render closes again. Its toggle is scoped so a swipe still swipes.
       c.querySelectorAll('.see-data').forEach(d=>d.addEventListener('click',e=>e.stopPropagation()));
+      // the cards grow down when "See the data" opens and shrink back when it closes (Justin 2026-10-29)
+      c.querySelectorAll('.yb-cards .see-data > summary').forEach(sm=>sm.addEventListener('click',e=>{
+        const d = sm.parentElement, body = sm.nextElementSibling;
+        const calm = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+        if(!body || !body.animate || calm) return;
+        e.preventDefault();
+        if(d._anim){ d._anim.cancel(); d._anim = null; }
+        const opening = !d.open || d.classList.contains('yb-closing');
+        const frame = (on, cs)=>on ? { height:body.offsetHeight + 'px', marginTop:cs.marginTop, paddingTop:cs.paddingTop, paddingBottom:cs.paddingBottom, opacity:1 }
+                                   : { height:'0px', marginTop:'0px', paddingTop:'0px', paddingBottom:'0px', opacity:0 };
+        if(opening){
+          d.classList.remove('yb-closing'); d.open = true;
+          const cs = getComputedStyle(body);
+          d._anim = body.animate([frame(false), frame(true, cs)], { duration:320, easing:'cubic-bezier(.2,.8,.2,1)' });
+          d._anim.onfinish = ()=>{ d._anim = null; };
+        } else {
+          const cs = getComputedStyle(body); d.classList.add('yb-closing');
+          d._anim = body.animate([frame(true, cs), frame(false)], { duration:220, easing:'cubic-bezier(.4,0,.6,1)', fill:'forwards' });
+          d._anim.onfinish = ()=>{ d.open = false; d.classList.remove('yb-closing'); if(d._anim){ d._anim.cancel(); d._anim = null; } };
+        }
+      }));
       c.querySelectorAll('.deep-tap').forEach(b=>b.addEventListener('click',()=>screenStateDetail(b.dataset.stateDetail)));
 
       const carousel=$('#carousel'); const dots=c.querySelectorAll('#dots .dot-i');
@@ -9662,7 +11764,52 @@ function app(tab){
     freeze:      { headline:'freeze',         color:'#B89AC4', about:"Freeze is a mixed state, flight/fight energy held down by shutdown. Gas and brake at once. It isn't a deeper shutdown, it's both pedals down, which is why it can feel panicked and paralyzed at the same time. A braced, protective state, not nothing.", whenDrops:"The smallest movement, plus a cue of safety. Let your eyes go where they want, then wiggle your toes or roll your wrists, slow. Don't force it, that adds gas to a slammed brake. Get smaller and safer.", practice:{practiceKey:'anchoring',sense:'touch',silence:10} },   // spectrum fix 2026-07-03: freeze starts at safety, never pendulation
   };
 
+  // ---- the detail panel (Justin, canon 2026-10-31: "no new page when a panel will do") ----
+  // 1120+: a house card on columns 9-12 of the frame (the page narrows to 1-8, as with Paid plans); below: the app's slide-up.
+  const _dpWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  let _dp = { key:null, onClose:null };
+  function _dpPlace(){
+    const p = document.getElementById('dp-panel'); if(!p) return;
+    const vw = innerWidth, padX = Math.min(40, Math.max(20, vw * .05)), gap = Math.min(32, Math.max(20, vw * .04));
+    const sc = root.querySelector('.scroll') || root, r = sc.getBoundingClientRect(), fw = Math.min(sc.clientWidth || r.width, 1120);
+    const col = (fw - 2 * padX - 11 * gap) / 12;
+    p.style.left = Math.round(r.left + padX + 8 * (col + gap)) + 'px';
+    p.style.width = Math.round(4 * col + 3 * gap) + 'px';
+    const top = Math.round(Math.max(r.top, 0) + 24);
+    p.style.top = top + 'px'; p.style.maxHeight = Math.max(240, innerHeight - top - 24) + 'px';
+    root.style.setProperty('--pp-cw', Math.round(2 * padX + 8 * col + 7 * gap) + 'px');
+  }
+  function _dpClose(){
+    const p = document.getElementById('dp-panel'); if(p) p.remove();
+    root.style.removeProperty('--pp-cw');
+    if(_dp.key){ document.removeEventListener('keydown', _dp.key); _dp.key = null; }
+    const f = _dp.onClose; _dp.onClose = null; if(typeof f === 'function') f();
+  }
+  // title + body; returns the element holding the body so the caller can wire it
+  function _dpOpen(title, body, opts){
+    opts = opts || {};
+    if(_dpWide()){
+      const old = document.getElementById('dp-panel'); const prevClose = _dp.onClose; _dp.onClose = null; if(typeof prevClose === 'function' && prevClose !== opts.onClose) prevClose();
+      let p = old; const fresh = !p;
+      if(fresh){ p = document.createElement('aside'); p.id = 'dp-panel'; p.className = 'pp-panel dp-panel pp-in'; root.appendChild(p); }
+      p.setAttribute('aria-labelledby', 'dp-h');
+      p.innerHTML = `<div class="pp-top"><h2 class="pp-h dp-h" id="dp-h">${escapeHtml(title)}</h2><button class="pp-x" id="dp-x" type="button" aria-label="Close">${_UP_X}</button></div><div class="dp-body">${body}</div>`;
+      _dpPlace(); _dp.onClose = opts.onClose || null;
+      p.querySelector('#dp-x').onclick = _dpClose;
+      if(!_dp.key){ _dp.key = e => { if(e.key === 'Escape') _dpClose(); }; document.addEventListener('keydown', _dp.key); }
+      if(!_dp.rs){ _dp.rs = true; addEventListener('resize', () => { if(!document.getElementById('dp-panel')) return; if(!_dpWide()) _dpClose(); else _dpPlace(); }); }
+      return p.querySelector('.dp-body');
+    }
+    const sh = _lwSheet(title, `<div class="dp-body">${body}</div>`, { onClose:opts.onClose });
+    return sh.el.querySelector('.dp-body');
+  }
+
   function screenStateDetail(key){
+    // no page (Justin 2026-10-31): the state's mark, name and paragraph in the panel, or as a slide-up on phone
+    const dd = STATE_DETAIL[key] || STATE_DETAIL.safety;
+    _dpOpen(CAP(dd.headline), `<span class="sd-marks dp-mk">${triGlyph(key)}</span>${dd.sub ? `<p class="dp-sub">${escapeHtml(dd.sub)}</p>` : ''}<p class="dp-p">${escapeHtml(dd.about)}</p>${dd.whenDrops ? `<p class="dp-lbl">When safety drops</p><p class="dp-p">${escapeHtml(dd.whenDrops)}</p>` : ''}`);
+  }
+  function _screenStateDetailPage(key){
     const d = STATE_DETAIL[key] || STATE_DETAIL.safety;
     clearFigures(); document.body.classList.remove('in-practice');
     root.innerHTML = `
@@ -9695,8 +11842,19 @@ function app(tab){
   // check-in that drove it can be stamped as that practice's 'before' read. The 'after'
   // and the ~3h 'followup' reads are then tagged automatically in Store.addCheckin.
   // Both shells (tabbar + guest) funnel through here — it is the one place a practice begins.
+  // Where a practice was started (Justin 2026-11-01: "track the efficacy of practices that are recommended
+  // vs the ones that people pick themselves"). Saved on the session as details.launched_from.
+  // _sheetFrom is set just before the practice sheet opens from somewhere other than a plain row tap.
+  let _sheetFrom = null;
+  function _launchOrigin(r){
+    if(!r) return 'other';
+    if(r.fromPath) return 'pathway';
+    if(r.surprise) return 'surprise';
+    return r.launchedFrom || 'other';
+  }
   function beginPractice(reco){
     const r = reco || _recommendSafe();
+    try{ if(r) r.launchedFrom = _launchOrigin(r); }catch(e){}
     try{
       if(r && Store.newSessionId){
         r.sessionId = Store.newSessionId();
@@ -9763,7 +11921,7 @@ function app(tab){
   }
   function practiceShell(src, reco){
     src = _playerSrc(src);
-    haptic('start');               // soft tap as the practice begins (Begin tap = user gesture)
+    haptic('begin');               // soft tap as the practice begins (Begin tap = user gesture); no sound, the voice starts
     currentTab = 'practice';
     setHTML(`
       <div class="weaver-wrap">
@@ -9874,6 +12032,18 @@ function app(tab){
     </div>`;
     document.body.appendChild(wrap);
     const list = wrap.querySelector('#mp-list');
+    // rows glide to their new place (Justin 2026-10-30: "the drag and re-order needs to animate")
+    const calmMp = ()=> document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const flip = (fn, skip)=>{
+      if(calmMp()) return fn();
+      const first = new Map(); list.querySelectorAll('.mp-row').forEach(r=>{ if(r !== skip) first.set(r.dataset.k, r.getBoundingClientRect().top); });
+      fn();
+      list.querySelectorAll('.mp-row').forEach(r=>{ if(r === skip || r.classList.contains('drag')) return; const f = first.get(r.dataset.k); if(f == null) return;
+        const d = f - r.getBoundingClientRect().top; if(Math.abs(d) < 1) return;
+        r.style.transition = 'none'; r.style.transform = `translateY(${d}px)`; void r.offsetWidth;
+        r.style.transition = 'transform .3s cubic-bezier(.2,.6,.2,1)'; r.style.transform = ''; });
+    };
+    let mpSw = null;   // the switch just tapped is drawn in its old state, then slides to the new one
     const paint = (focusKey)=>{
       order = on.concat(order.filter(k=>on.indexOf(k)<0));
       list.innerHTML = order.map(k=>{ const i = on.indexOf(k), inn = i>=0, d = MIND_PIECES.find(x=>x[0]===k);
@@ -9881,30 +12051,38 @@ function app(tab){
           ${inn?`<button class="mp-grip" type="button" aria-label="Move ${escapeHtml(d[1])}, number ${i+1} of ${on.length}. Use the arrow keys.">${_GRIP}</button>`:'<span class="mp-grip" aria-hidden="true"></span>'}
           <span class="mp-n" aria-hidden="true">${inn?i+1:''}</span>
           <span class="mp-main"><span class="mp-l">${escapeHtml(d[1])}</span><span class="mp-sub">${escapeHtml(d[2])}</span></span>
-          <button class="set-sw${inn?' on':''}" type="button" role="switch" aria-checked="${inn}" aria-label="${escapeHtml(d[1])}"><span class="set-sw-knob"></span></button>
+          <button class="set-sw${(mpSw && mpSw.k === k ? mpSw.was : inn)?' on':''}" type="button" role="switch" aria-checked="${inn}" aria-label="${escapeHtml(d[1])}"><span class="set-sw-knob"></span></button>
         </li>`; }).join('');
       wrap.querySelector('#mp-mins').textContent = `~${mindMinutes(sil, on)}min`;
       list.querySelectorAll('.set-sw').forEach(b=>b.onclick=()=>{ const k=b.closest('.mp-row').dataset.k, i=on.indexOf(k);
-        if(i>=0){ if(on.length===1){ const r=b.closest('.mp-row'); r.classList.remove('mp-no'); void r.offsetWidth; r.classList.add('mp-no'); haptic('start'); return; }
+        if(i>=0){ if(on.length===1){ const r=b.closest('.mp-row'); r.classList.remove('mp-no'); void r.offsetWidth; r.classList.add('mp-no'); return; }
           on.splice(i,1); order = [k].concat(order.filter(x=>x!==k)); }   // out: first of the ones not in
         else { on.push(k); }
-        haptic('start'); save(); paint(); const nb = list.querySelector(`[data-k="${k}"] .set-sw`); if(nb) nb.focus({ preventScroll:true }); });
+        save(); const was = i >= 0; mpSw = calmMp() ? null : { k, was }; flip(()=>paint()); mpSw = null;
+        const nb = list.querySelector(`[data-k="${k}"] .set-sw`);
+        if(nb){ void nb.offsetWidth; nb.classList.toggle('on', !was); nb.focus({ preventScroll:true }); } });
       list.querySelectorAll('button.mp-grip').forEach(g=>{
         const li = g.closest('.mp-row'), k = li.dataset.k;
         // the move and the release are heard on the window while a drag is on, so a finger that leaves the handle keeps dragging
+        // the dragged row rides under the finger; the others slide out of its way
+        let grabY = 0, curT = 0;
+        const follow = y=>{ const nat = li.getBoundingClientRect().top - curT; curT = y - grabY - nat; li.style.transform = `translateY(${curT}px)`; };
         const move = e=>{
           const rows = [...list.querySelectorAll('.mp-row:not(.off)')].filter(r=>r!==li);
           let before = null; for(const r of rows){ const b=r.getBoundingClientRect(); if(e.clientY < b.top + b.height/2){ before = r; break; } }
-          if(before){ if(li.nextSibling !== before) list.insertBefore(li, before); }
-          else { const lastOn = rows[rows.length-1]; if(lastOn && lastOn.nextSibling !== li) list.insertBefore(li, lastOn.nextSibling); } };
+          if(before){ if(li.nextSibling !== before) flip(()=>list.insertBefore(li, before), li); }
+          else { const lastOn = rows[rows.length-1]; if(lastOn && lastOn.nextSibling !== li) flip(()=>list.insertBefore(li, lastOn.nextSibling), li); }
+          follow(e.clientY); };
         const end = ()=>{ window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
-          li.classList.remove('drag');
           const now = [...list.querySelectorAll('.mp-row:not(.off)')].map(r=>r.dataset.k);
-          if(now.join() !== on.join()){ on = now; haptic('start'); save(); } paint(k); };
-        g.addEventListener('pointerdown', e=>{ if(e.button > 0) return; e.preventDefault(); li.classList.add('drag');
+          const done = ()=>{ li.classList.remove('drag'); li.style.transition = ''; li.style.transform = ''; curT = 0;
+            if(now.join() !== on.join()){ on = now; haptic('start'); save(); } paint(k); };
+          if(calmMp() || !curT) return done();
+          li.style.transition = 'transform .22s cubic-bezier(.2,.6,.2,1)'; li.style.transform = 'translateY(0)'; curT = 0; setTimeout(done, 230); };
+        g.addEventListener('pointerdown', e=>{ if(e.button > 0) return; e.preventDefault(); li.classList.add('drag'); li.style.transition = 'none'; grabY = e.clientY - li.getBoundingClientRect().top; curT = 0;
           window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end); });
         g.addEventListener('keydown', e=>{ const i = on.indexOf(k), j = e.key==='ArrowUp' ? i-1 : e.key==='ArrowDown' ? i+1 : -1;
-          if(j<0 || j>=on.length) return; e.preventDefault(); on.splice(i,1); on.splice(j,0,k); save(); paint(k); });
+          if(j<0 || j>=on.length) return; e.preventDefault(); on.splice(i,1); on.splice(j,0,k); save(); flip(()=>paint(k)); });
       });
       if(focusKey){ const f = list.querySelector(`[data-k="${focusKey}"] button.mp-grip`); if(f) f.focus({ preventScroll:true }); }
     };
@@ -9914,7 +12092,7 @@ function app(tab){
     const onKey=(e)=>{ if(e.key==='Escape') close(); };
     document.addEventListener('keydown',onKey);
     wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
-    wrap.querySelector('.p7-sheet-done').onclick=close;
+    wrap.querySelector('.p7-sheet-done').onclick=()=>{ try{ haptic('done'); }catch(e){} close(); };
   }
   // a few seconds of the sound when it is picked, so the person hears what they chose
   let _bedPreview=null, _bedPreviewT=null;
@@ -9928,7 +12106,56 @@ function app(tab){
   // Two parts in one sheet that stays open: the sound (Nothing + each sound, one row each, a tap plays a few seconds)
   // and, under it, how loud (Soft · Medium · Louder, three buttons in a row; hidden while Nothing is chosen). Done or a
   // tap outside closes it. Every tap is saved straight away (Store.setPrefBed), so there is nothing to confirm.
+
+  // Customize this practice: the pickers (Justin, canon 2026-10-30; §4 "Customize this practice: the pickers"; mockup
+  // L8pHbaouDaXcB5byLSgoFx). A choice opens INSIDE the practice sheet in place of the tiles (the 9-12 panel at 1120 and up, the one
+  // bottom sheet below): no second card, no sheet on a sheet, no scrim of its own. "← [practice name]" goes back; picking returns to
+  // the tiles with the new value (no Done), except Background sound, which stays open to hear a few. Short choices (Anchor, Silence,
+  // Voice) are outlined choices with a check; the longer ones are rows with their line under the name and a check on the chosen one.
+  let _psHost = null;
+  const _PS_CHECK = '<svg class="ps-ck" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
+  function _psPickOpen(host, title, note){
+    const el = host.el; _psPickEnd(el, true);
+    const pk = document.createElement('div'); pk.className = 'ps-pick'; pk.setAttribute('role', 'group'); pk.setAttribute('aria-label', title);
+    pk.innerHTML = `<button class="ps-pback" type="button">${BACK_SVG}<span>${escapeHtml(host.title)}</span></button><h3 class="ps-ph">${escapeHtml(title)}</h3>${note ? `<p class="ps-pnote">${escapeHtml(note)}</p>` : ''}<div class="ps-pbody"></div>`;
+    el.appendChild(pk); el.classList.add('ps-picking');
+    const sc = el.querySelector('.ps-pick'); if(sc) sc.scrollTop = 0;
+    pk.querySelector('.ps-pback').onclick = () => { _psPickEnd(el); if(host.onBack) host.onBack(); host.back(); };
+    return pk;
+  }
+  function _psPickEnd(el, quiet){ const pk = el && el.querySelector(':scope > .ps-pick'); if(pk) pk.remove(); if(el) el.classList.remove('ps-picking'); }
+  function _psPick(host, title, groups, current, onPick){
+    const pk = _psPickOpen(host, title, ''), body = pk.querySelector('.ps-pbody');
+    let html = '';
+    groups.forEach(g=>{
+      if(g.label) html += `<p class="ps-pgroup">${escapeHtml(g.label)}</p>`;
+      if(host.short) html += `<div class="st-choices ps-chs">${g.opts.map(o=>{ const sel = String(o.val) === String(current);
+          return `<button class="st-ch${sel ? ' on' : ''}" type="button" data-val="${escapeHtml(String(o.val))}" aria-pressed="${sel}">${escapeHtml(CAP(String(o.menu)))}${o.lock ? `<span class="st-lock">${LOCK_SVG}See paid plans</span>` : ''}</button>`; }).join('')}</div>`;
+      else html += g.opts.map(o=>{ const sel = String(o.val) === String(current), go = o.val === '__choose';
+          return `<button class="ps-opt${sel ? ' sel' : ''}" type="button" data-val="${escapeHtml(String(o.val))}" aria-pressed="${sel}"><span class="ps-opt-main"><span class="ps-opt-l">${escapeHtml(CAP(String(o.menu)))}</span>${o.lock ? `<span class="ps-opt-sub st-lock">${LOCK_SVG}See paid plans</span>` : o.sub ? `<span class="ps-opt-sub">${escapeHtml(CAP(String(o.sub)))}</span>` : ''}</span>${go ? `<span class="ps-go">${_ST_CHEV}</span>` : _PS_CHECK}</button>`; }).join('');
+    });
+    body.innerHTML = html;
+    body.querySelectorAll('[data-val]').forEach(b=>b.onclick=()=>{ _psPickEnd(host.el); onPick(b.dataset.val); haptic('start'); });
+    const f = body.querySelector('.on, .sel') || body.querySelector('[data-val]'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+  }
+  function _psBed(host, onChange){
+    const pk = _psPickOpen(Object.assign({}, host, { onBack:()=>bedPreview(null) }), 'Background sound', 'Tap one to hear it.'), body = pk.querySelector('.ps-pbody');
+    const paint = ()=>{
+      const cur = bedPref();
+      const rows = [['surprise','Surprise me','A different sound each practice'],['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
+        `<button class="ps-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}" aria-pressed="${cur.bed===k}"><span class="ps-opt-main"><span class="ps-opt-l">${escapeHtml(CAP(nm))}</span><span class="ps-opt-sub">${escapeHtml(sub)}</span></span>${_PS_CHECK}</button>`).join('');
+      const lv = cur.bed==='none' ? '' : `<p class="ps-pgroup">Volume</p>
+        <div class="p7-seg p7-seg-steps ps-steps" role="radiogroup" aria-label="Volume">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
+      body.innerHTML = rows + lv;
+      body.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
+        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('bed'); paint(); onChange&&onChange(); });
+      body.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
+        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('bed'); paint(); onChange&&onChange(); });
+    };
+    paint();
+  }
   function openBedSheet(trackCls, onChange){
+    { const host = _psHost; _psHost = null; if(host && document.contains(host.el)) return _psBed(host, onChange); }
     const old=document.getElementById('p7-sheet'); if(old) old.remove();
     const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
     const check='<svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>';
@@ -9937,13 +12164,13 @@ function app(tab){
       const rows=[['surprise','Surprise me','A different sound each practice'],['none','Nothing','Just the guidance']].concat(BED_SOUNDS.map(x=>[x[0],x[1],x[2]])).map(([k,nm,sub])=>
         `<button class="p7-opt${cur.bed===k?' sel':''}" type="button" data-bed="${k}"><span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(nm))}</span><span class="p7-opt-sub">${escapeHtml(sub)}</span></span>${check}</button>`).join('');
       // five steps, no words: each pill a little taller than the last, the chosen one filled (a name for screen readers only)
-      const lv=cur.bed==='none' ? '' : `<div class="p7-sheet-group">How loud</div>
-        <div class="p7-seg p7-seg-steps" role="radiogroup" aria-label="How loud">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
+      const lv=cur.bed==='none' ? '' : `<div class="p7-sheet-group">Volume</div>
+        <div class="p7-seg p7-seg-steps" role="radiogroup" aria-label="Volume">${BED_LEVELS.map(([k],i)=>`<button type="button" role="radio" aria-checked="${cur.level===k}" aria-label="Volume ${i+1} of ${BED_LEVELS.length}" class="p7-seg-b p7-step${cur.level===k?' sel':''}" data-lv="${k}" style="--step:${i+1}"></button>`).join('')}</div>`;
       wrap.querySelector('.p7-sheet-body').innerHTML=`<div class="p7-sheet-group">Sound</div>${rows}${lv}`;
       wrap.querySelectorAll('[data-bed]').forEach(b=>b.onclick=()=>{ const k=b.dataset.bed, lvl=bedPref().level||BED_LEVEL_DEFAULT;
-        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('start'); paint(); onChange&&onChange(); });
+        if(Store.setPrefBed) Store.setPrefBed(k, k==='none'?null:lvl); bedPreview((k==='none'||k==='surprise')?null:{bed:k,level:lvl}); haptic('bed'); paint(); onChange&&onChange(); });
       wrap.querySelectorAll('[data-lv]').forEach(b=>b.onclick=()=>{ const cur2=bedPref(); if(cur2.bed==='none') return;
-        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('start'); paint(); onChange&&onChange(); });
+        if(Store.setPrefBed) Store.setPrefBed(cur2.bed, b.dataset.lv); bedPreview({bed:cur2.bed,level:b.dataset.lv}); haptic('bed'); paint(); onChange&&onChange(); });
     };
     wrap.innerHTML=`<div class="p7-sheet-card ${trackCls||''}" role="dialog" aria-modal="true">
       <div class="p7-sheet-title">Background sound</div>
@@ -9957,7 +12184,7 @@ function app(tab){
     const onKey=(e)=>{ if(e.key==='Escape') close(); };
     document.addEventListener('keydown',onKey);
     wrap.addEventListener('click',e=>{ if(e.target===wrap) close(); });
-    wrap.querySelector('.p7-sheet-done').onclick=close;
+    wrap.querySelector('.p7-sheet-done').onclick=()=>{ try{ haptic('done'); }catch(e){} close(); };
   }
   const P_MEDS=[
     {id:'uye',                 title:'Use your ears',       est:'~10 min', sub:'Grounding through sound'},
@@ -10238,7 +12465,7 @@ function app(tab){
     _emoPlanWire(reco, from);
     root.querySelectorAll('.plan-book').forEach(a=>a.onclick=e=>{ e.preventDefault(); const pc = window.Learning && Learning.byId(a.dataset.piece); if(pc) screenLearnPiece(pc, null, null, { label:'Back', go:()=>renderPlan(reco, from), tab:'practice' }); });
     // the same sheet as the Practice tab, filled in with this practice (Justin, 2026-10-02: "Customize this practice")
-    $('#plan-change').onclick = ()=>{ _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
+    $('#plan-change').onclick = ()=>{ _pStateFromReco(reco); _sheetFrom = _launchOrigin(reco) + '_changed'; openPracticeSheet(pState.key || 'anchoring'); };
   }
 
   // caret shown on every dial — an obvious "opens a menu" chevron (replaces the old
@@ -10249,6 +12476,7 @@ function app(tab){
   // from the bottom, bone surface, hairline rows, the current choice checked in the
   // track color. groups: [{label, opts:[{val, menu}]}]. onPick(val) fires on choose.
   function openDialSheet(title, groups, current, trackCls, onPick){
+    { const host = _psHost; _psHost = null; if(host && document.contains(host.el)) return _psPick(host, title, groups, current, onPick); }
     const old=document.getElementById('p7-sheet'); if(old) old.remove();
     const wrap=document.createElement('div'); wrap.id='p7-sheet'; wrap.className='p7-sheet';
     let rows='';
@@ -10259,7 +12487,7 @@ function app(tab){
         const sel = String(o.val)===String(current);
         rows+=`<button class="p7-opt${o.ico?' rich':''}${sel?' sel':''}" type="button" data-val="${escapeHtml(String(o.val))}">
           ${o.ico?`<span class="p7-opt-ico" aria-hidden="true">${o.ico}</span>`:''}
-          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(String(o.menu)))}</span>${o.sub?`<span class="p7-opt-sub">${escapeHtml(CAP(String(o.sub)))}</span>`:''}</span>
+          <span class="p7-opt-main"><span class="p7-opt-l">${escapeHtml(CAP(String(o.menu)))}</span>${o.lock?`<span class="p7-opt-sub p7-opt-lk">${LOCK_SVG}See paid plans</span>`:o.sub?`<span class="p7-opt-sub">${escapeHtml(CAP(String(o.sub)))}</span>`:''}</span>
           <svg class="p7-opt-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 6"/></svg>
         </button>`;
       });
@@ -10304,6 +12532,9 @@ function app(tab){
   }
   const P8_LINE = { micro:'Practice connecting with the present moment.', mindfulness:'Practice connecting with the present moment.',
     anchoring:'Practice connecting with safety.', 'self-regulation':'Practice connecting with defense after anchoring into safety.' };
+  // each state and the two beside it on the Polyvagal Current (Justin 2026-10-30: "safety touches play and stillness; freeze
+  // touches shutdown and flight/fight")
+  const P8_NB = { safety:['play','stillness'], play:['safety','fightflight'], fightflight:['play','freeze'], freeze:['fightflight','shutdown'], shutdown:['freeze','stillness'], stillness:['shutdown','safety'] };
   const P8_ROWS = [
     { k:'micro', t:'A tiny practice', s:'the present moment' },
     { k:'mindfulness', t:'Simple mindfulness', s:'the present moment' },
@@ -10331,13 +12562,15 @@ function app(tab){
   }
   // a locked thing was tapped: the lock jiggles, then the paid plan screen opens
   function _p8Locked(el, what){
+    const pk = el && el.dataset && el.dataset.p8, pr = pk && pk !== 'surprise' ? (P8_ROWS.find(r=>r.k===pk) || P_MEDS.find(m=>m.id===pk)) : null;
+    const item = pr ? (pr.t || pr.title) : null;
     const lk = el && el.querySelector('.rd-lk');
     const reduce = document.body.classList.contains('reduce-motion') || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-    if(!lk || reduce) return gateSubscribe(what);
+    if(!lk || reduce) return gateSubscribe(what, item);
     if(el._jig) return; el._jig = true;
     lk.classList.remove('p8-jig'); void lk.getBoundingClientRect(); lk.classList.add('p8-jig');
     haptic('start');
-    setTimeout(()=>{ el._jig = false; lk.classList.remove('p8-jig'); gateSubscribe(what); }, 520);
+    setTimeout(()=>{ el._jig = false; lk.classList.remove('p8-jig'); gateSubscribe(what, item); }, 520);
   }
   // pState from a recommendation, for "Customize this practice"
   function _pStateFromReco(reco){
@@ -10661,6 +12894,7 @@ function app(tab){
     const day = new Date().toISOString().slice(0, 10);
     try{ if(Store.saveContexts) Store.saveContexts('ls:' + id, 'done', [day]); else { const m = _ctxLoad(); m['ls:' + id] = [day]; _ctxSave(m); } }catch(e){}
   }
+  let _plStage = null, _plJump = false, _plQ = '';   // the stage shown (one at a time); null = the stage the person is in
   function _plView(){ let v = null; try{ v = localStorage.getItem(PL_VIEW); }catch(e){} return v === 'lessons' || v === 'practices' ? v : 'both'; }
   function _plLen(sec){ if(!sec) return ''; const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   // a lesson's skill → the practice step it teaches
@@ -10700,54 +12934,135 @@ function app(tab){
     const back = () => app('practice');
     const M = _upModel();
     if(!M || !_plData){
-      _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="pl-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+      _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div><p class="up-lede" id="pl-wait">One moment…</p></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' }, wide:true, plainBack:true });
       Promise.all([_plLoad(), Promise.resolve(Store.sequenceReady ? Store.sequenceReady() : false)]).then(() => {
         const w = document.getElementById('pl-wait'); if(!w) return;
         if(_upModel() && _plData) screenPathway(); else w.textContent = "The pathway didn't load. Check your connection and try again.";
       }).catch(() => { const w = document.getElementById('pl-wait'); if(w) w.textContent = "The pathway didn't load. Check your connection and try again."; });
       return;
     }
+    // ── on the Swiss grid (Justin, canon 2026-10-30): Up next (1-7) + Your progress (8-12), stage pills (one stage at a time),
+    // Show as flat pills, then the stage's steps as one path in its real order, rows with thin dividers on 1-9; no floating Continue
     const view = _plView(), all = _plRows(_plData, M);
     const keep = x => view === 'both' || (view === 'lessons' ? x.type === 'lesson' : x.type === 'practice');
-    let total = 0, done = 0, firstOpen = null;
-    all.forEach(sec => sec.filter(keep).forEach(x => { total++; if(x.done) done++; else if(!firstOpen && !(x.type === 'practice' && (x.it.locked || x.it.st === 'paid'))) firstOpen = x; }));
-    const pct = total ? Math.round(done / total * 100) : 0;
-    const CK = '<span class="pl-ck" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
-    const PLAY = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M7 5v14l12-7z"/></svg>';
-    const rowHtml = (x, s) => {
+    let firstOpen = null, firstStage = -1, tot = 0, dn = 0;
+    const sp = all.map(sec => { let t = 0, d = 0; sec.forEach(x => { t++; if(x.done) d++; }); tot += t; dn += d; return t ? Math.round(d / t * 100) : 0; });
+    all.forEach((sec, s) => sec.filter(keep).forEach(x => { if(!firstOpen && !x.done && !(x.type === 'practice' && (x.it.locked || x.it.st === 'paid'))){ firstOpen = x; firstStage = s; } }));
+    const pct = tot ? Math.round(dn / tot * 100) : 0;
+    const here = firstStage >= 0 ? firstStage : Math.max(0, sp.findIndex(v => v < 100));
+    if(_plStage == null || !all[_plStage] || !all[_plStage].length) _plStage = here;
+    const cur = _plStage;
+    const stName = s => _plData.stages[s] || '', stShort = s => stName(s).split(':')[0];
+    const CK = '<span class="pl-ck" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>';
+    const NX = '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>';
+    const metaOf = x => x.type === 'lesson'
+      ? escapeHtml(PL_KIND[x.row.k] || 'Lesson') + (x.row.v ? ' · ' + _plLen(x.row.d) : x.row.q ? ' · ' + x.row.q.length + ' questions' : '')
+      : `<span class="pl-mk">${x.it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(x.it, def)}</span>Practice`;
+    const rowHtml = x => {
+      let title, st, attrs, isNext = false, pick = '';
       if(x.type === 'lesson'){
         const r = x.row, locked = !M.paid;
-        const meta = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>Self-Regulator</span>' : (firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : '');
-        return `<button class="pl-row" type="button" data-pl="${r.id}" style="--pl-tint:${PL_TINT[s]}">
-          <span class="pl-tile"><b>${escapeHtml(PL_KIND[r.k] || 'Lesson')}</b><span>${r.v ? PLAY + ' ' + _plLen(r.d) : r.q ? r.q.length + ' questions' : ''}</span></span>
-          <span class="pl-t"><b>${escapeHtml(r.t)}</b>${meta ? `<span class="pl-st">${meta}</span>` : ''}</span></button>`;
+        isNext = !x.done && !locked && firstOpen === x;
+        st = x.done ? CK + '<span>Completed</span>' : locked ? LOCK_SVG + '<span>See paid plans</span>' : isNext ? NX : '';
+        attrs = `data-pl="${r.id}"`; title = r.t;
+      } else {
+        const it = x.it, id = it.kind + '|' + it.key;
+        isNext = !x.done && it.st !== 'paid' && (it.st === 'now' || firstOpen === x);
+        st = it.st === 'paid' ? LOCK_SVG + '<span>See paid plans</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
+          : isNext ? NX : it.locked ? '<span>' + escapeHtml(it.locked) + '</span>' : '';
+        if(it.kind === 'anchorpick' && M.paid && (!M.anchorSet || _upPickOpen)){
+          const opts = [{ v:'auto', t:'Let the app find my best one' }].concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k) })));
+          pick = `<div class="pl-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button type="button" role="radio" aria-checked="${M.anchorMode === o.v ? 'true' : 'false'}" data-pick="${o.v}">${escapeHtml(o.t)}</button>`).join('')}</div>`;
+        }
+        attrs = `data-k="practice" data-up="${escapeHtml(id)}"${it.locked ? ' data-locked="1"' : ''}`; title = it.title;
       }
-      const it = x.it, id = it.kind + '|' + it.key;
-      const words = it.st === 'paid' ? LOCK_SVG + '<span>Self-Regulator</span>' : x.done ? CK + '<span>' + (it.kind === 'anchorpick' ? escapeHtml(M.anchorMode === 'auto' ? 'The app finds your best one' : CAP(M.anchorMode || '')) : 'Completed') + '</span>'
-        : it.st === 'now' || firstOpen === x ? '<span class="pl-nx" aria-hidden="true"></span><span>Up next</span>' : it.locked ? LOCK_SVG : '';
-      const mark = it.kind === 'anchorpick' ? _rdMk('safety') : _upMark(it, def);
-      let pick = '';
-      if(it.kind === 'anchorpick' && M.paid && (!M.anchorSet || _upPickOpen)){
-        const opts = [{ v:'auto', t:'Let the app find my best one' }].concat(UP_ANCHORS.map(k => ({ v:k, t:CAP(k) })));
-        pick = `<div class="pl-pick" role="radiogroup" aria-label="Your safety anchor">${opts.map(o => `<button type="button" role="radio" aria-checked="${M.anchorMode === o.v ? 'true' : 'false'}" data-pick="${o.v}">${escapeHtml(o.t)}</button>`).join('')}</div>`;
-      }
-      return `<button class="pl-row" type="button" data-k="practice" data-up="${escapeHtml(id)}"${it.locked ? ' data-locked="1"' : ''} style="--pl-tint:${PL_TINT[s]}">
-        <span class="pl-tile"><b>Practice</b><span class="pl-mk">${mark}</span></span>
-        <span class="pl-t"><b>${escapeHtml(it.title)}</b>${words ? `<span class="pl-st">${words}</span>` : ''}</span></button>${pick}`;
+      return `<li class="pl-li"><button class="pl-row${isNext ? ' is-next' : ''}" type="button" ${attrs}><span class="pl-t">${escapeHtml(title)}</span><span class="pl-m">${metaOf(x)}</span><span class="pl-st">${st}</span></button>${pick}</li>`;
     };
-    const secs = all.map((sec, s) => {
-      const rows = sec.filter(keep);
-      const body = rows.length ? rows.map(x => rowHtml(x, s)).join('') : (sec.length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
-      return body ? `<section class="pl-sec"><h2>${escapeHtml(_plData.stages[s])}</h2>${body}</section>` : '';
-    }).join('');
-    const tabs = [['both','Both'],['lessons','Lessons'],['practices','Practices']].map(([k, l]) => `<button type="button" data-view="${k}" aria-pressed="${view === k ? 'true' : 'false'}">${l}</button>`).join('');
-    _rdShell(`<div class="pl-view"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
-      <p class="pl-lede">Lessons and practices, one small step at a time.</p>${M.note ? `<p class="up-note">${escapeHtml(M.note)}</p>` : ''}
-      <div class="pl-prog"><div class="pl-prog-top"><b>Your progress</b><span>${pct}%</span></div><div class="pl-bar"><i style="width:${pct}%"></i></div></div>
-      <div class="pl-showwrap"><span class="rd-eyeb">Show</span><div class="pl-show" role="group" aria-label="Show on the Pathway">${tabs}</div></div>
-      ${secs}
-      ${firstOpen ? '<button class="pl-go" type="button" data-go="1">Continue</button>' : ''}</div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' } });
+    // the list: the chosen stage, or, while searching, every stage's matching steps (Show still applies)
+    const listHTML = () => {
+      const qq = _plQ.trim().toLowerCase();
+      if(!qq){
+        const rows = all[cur].filter(keep);
+        const body = rows.length ? `<ol class="pl-list" aria-label="${escapeHtml(stName(cur))}">${rows.map(rowHtml).join('')}</ol>` : (all[cur].length ? '<p class="pl-empty">This stage is lessons only. Choose Both or Lessons to see them.</p>' : '');
+        return `<section class="pl-sec"><h2>${escapeHtml(stName(cur))}</h2>${body}</section>`;
+      }
+      const hit = x => (x.type === 'lesson' ? x.row.t : x.it.title).toLowerCase().indexOf(qq) >= 0;
+      let n = 0;
+      const secs = all.map((sec, s) => { const rows = sec.filter(keep).filter(hit); n += rows.length; return rows.length ? `<section class="pl-sec"><h2>${escapeHtml(stName(s))}</h2><ol class="pl-list">${rows.map(rowHtml).join('')}</ol></section>` : ''; }).join('');
+      return `<p class="ll-res-n pl-res-n">${n ? (n === 1 ? '1 step' : n + ' steps') : 'No steps match “' + escapeHtml(_plQ.trim()) + '”.'}</p>${secs}`;
+    };
+    const upLocked = firstOpen && firstOpen.type === 'lesson' && !M.paid;
+    const up = firstOpen ? `<article class="pl-up" aria-label="Up next"><span class="rd-eyeb">Up next · ${escapeHtml(stShort(firstStage))}</span>
+        <h2 class="pl-up-t">${escapeHtml(firstOpen.type === 'lesson' ? firstOpen.row.t : firstOpen.it.title)}</h2><span class="pl-up-m">${metaOf(firstOpen)}</span>
+        <div class="pl-up-go"><button class="pl-cta" type="button" data-go="1">${upLocked ? LOCK_SVG + '<span>See paid plans</span>' : 'Continue'}</button></div></article>` : '';
+    const prog = `<section class="pl-pg" aria-labelledby="pl-pg-h"><div class="pl-pg-top"><h2 id="pl-pg-h">Your progress</h2><span>${pct}%</span></div>
+        ${all.map((sec, s) => sec.length ? `<button class="pl-pg-s${s === here ? ' is-here' : ''}" type="button" data-stage="${s}" data-jump="1"><span class="pl-pg-n"><span>${escapeHtml(stName(s))}</span><span>${sp[s]}%</span></span><span class="pl-pg-bar" aria-hidden="true"><i style="width:${sp[s]}%"></i></span></button>` : '').join('')}</section>`;
+    // search + Filter, the same as Learn's (Justin 2026-10-30), kept to the Pathway: Stage (one at a time) and Show
+    const VIEWS = [['both','Both'],['lessons','Lessons'],['practices','Practices']];
+    const chip = (attr, id, label, on) => `<button class="lm-chip${on ? ' on' : ''}" type="button" data-${attr}="${id}" aria-pressed="${on}"><span>${escapeHtml(label)}</span></button>`;
+    const fon = view !== 'both';
+    const search = `<div class="lb-search-row pl-search-row">
+        <div class="ll-sfloat open lb-search" id="pl-sf" role="search"><span class="ll-sf-btn" aria-hidden="true">${_LB_SEARCH}</span><input class="ll-sf-q" id="pl-q" type="search" placeholder="Search the Pathway" aria-label="Search the Pathway" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" value="${escapeHtml(_plQ)}"><button class="ll-sf-x" id="pl-q-x" type="button" aria-label="Clear search">×</button></div>
+        <div class="lb-filter"><button class="jr-fbtn lm-fbtn" id="pl-fbtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="pl-fsheet" aria-label="${fon ? 'Filter, 1 on' : 'Filter'}">${_JR_FILTER_SVG}<span>Filter</span>${fon ? '<span class="lm-fn" aria-hidden="true">1</span>' : ''}</button></div></div>
+      ${fon ? `<div class="lm-active" role="group" aria-label="Filters"><button class="lm-chip on" type="button" data-plx="1" aria-label="Take off ${escapeHtml((VIEWS.find(x => x[0] === view) || [])[1] || '')}"><span>${escapeHtml((VIEWS.find(x => x[0] === view) || [])[1] || '')}</span><span class="lm-x" aria-hidden="true">×</span></button></div>` : ''}
+      <div class="rd-jr-sheet lm-fsheet" id="pl-fsheet" hidden role="dialog" aria-label="Filter"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span>
+        <div class="rd-jr-sheet-top"><b class="rd-jr-ttl">Filter</b><button class="rd-jr-done lm-fx" type="button" aria-label="Close">${_FS_X}</button></div>
+        <div class="lm-fs-body"><span class="rd-eyeb">Stage</span><div class="lm-chips">${all.map((sec, s) => sec.length ? chip('pls', s, stShort(s), s === cur) : '').join('')}</div>
+          <span class="rd-eyeb">Show</span><div class="lm-chips">${VIEWS.map(([k, l]) => chip('plv', k, l, view === k)).join('')}</div></div>
+        <div class="lm-fs-foot"><button class="lm-clear" type="button" id="pl-fclear">Clear all</button><button class="lm-fshow" type="button" id="pl-fshow">Show</button></div></div></div>`;
+    _rdShell(`<div class="pl-view pl-grid"><div class="scr-head read-head"><h1 class="read-h1">${UP_TITLE}</h1></div>
+      <div class="pl-top${up ? '' : ' pl-top-solo'}">${up}${prog}</div>
+      ${search}
+      <div id="pl-res">${listHTML()}</div></div>`, { tab:'practice', onBack:back, loc:{ k:'pathway' }, wide:true, plainBack:true });
     const v = root.querySelector('.pl-view'); if(!v) return;
+    // search: the list redraws as you type, the field keeps its place
+    const qi = $('#pl-q'), qx = $('#pl-q-x'), res = $('#pl-res');
+    if(qi && res){ let tm = null; const draw = () => { res.innerHTML = listHTML(); };
+      qi.oninput = () => { _plQ = qi.value; clearTimeout(tm); tm = setTimeout(draw, 120); };
+      qi.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); qi.blur(); } if(e.key === 'Escape'){ e.preventDefault(); qx.click(); } };
+      qx.onmousedown = e => e.preventDefault();
+      qx.onclick = () => { _plQ = ''; qi.value = ''; draw(); qi.focus(); }; }
+    // Filter: the slide-up below 1120, a panel under the search row that pushes the page down at 1120 and up (as Learn's)
+    const fbtn = $('#pl-fbtn'), sh = $('#pl-fsheet');
+    if(fbtn && sh){
+      let ps = cur, pv = view, inline = false, tmr = null;
+      const box = sh.querySelector('.rd-jr-sheet-in'), show = $('#pl-fshow');
+      const calm = () => document.body.classList.contains('reduce-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const paint = () => {
+        sh.querySelectorAll('[data-pls]').forEach(b => { const on = +b.dataset.pls === ps; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        sh.querySelectorAll('[data-plv]').forEach(b => { const on = b.dataset.plv === pv; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        const n = all[ps].filter(x => pv === 'both' || (pv === 'lessons' ? x.type === 'lesson' : x.type === 'practice')).length;
+        show.textContent = 'Show ' + (n === 1 ? '1 step' : n + ' steps');
+      };
+      const apply = () => { if(ps === cur && pv === view){ try{ fbtn.focus({ preventScroll:true }); }catch(e){} return; } _plStage = ps; _plQ = ''; try{ localStorage.setItem(PL_VIEW, pv); }catch(e){} _upKeep(); screenPathway(); };
+      const esc = e => { if(e.key === 'Escape') close(); };
+      const open = () => {
+        if(inline) return close();
+        ps = cur; pv = view; paint();
+        if(matchMedia('(min-width:1120px)').matches){
+          const after = v.querySelector('.lm-active') || v.querySelector('.pl-search-row'); if(after.nextElementSibling !== sh) after.after(sh);
+          inline = true; sh.classList.add('is-inline'); sh.setAttribute('role', 'region'); _pmSlide(fbtn, sh, true); document.addEventListener('keydown', esc);
+          const f = sh.querySelector('.lm-chip.on'); if(f){ try{ f.focus({ preventScroll:true }); }catch(e){} }
+          return;
+        }
+        clearTimeout(tmr); sh.hidden = false; box.style.transform = ''; document.body.classList.add('jr-sheet-on'); void sh.offsetWidth; sh.classList.add('on'); fbtn.setAttribute('aria-expanded', 'true'); document.addEventListener('keydown', esc);
+      };
+      const close = () => {
+        document.removeEventListener('keydown', esc);
+        if(inline){ inline = false; return _pmSlide(fbtn, sh, false, () => { sh.classList.remove('is-inline'); sh.setAttribute('role', 'dialog'); apply(); }); }
+        sh.classList.remove('on'); box.style.transform = ''; document.body.classList.remove('jr-sheet-on'); fbtn.setAttribute('aria-expanded', 'false');
+        tmr = setTimeout(() => { sh.hidden = true; apply(); }, calm() ? 0 : 320);
+      };
+      fbtn.onclick = open; sh.querySelector('.rd-jr-done').onclick = close; show.onclick = close;
+      sh.addEventListener('click', e => { if(e.target === sh) close(); });
+      sh.querySelectorAll('[data-pls]').forEach(b => b.onclick = () => { ps = +b.dataset.pls; paint(); });
+      sh.querySelectorAll('[data-plv]').forEach(b => b.onclick = () => { pv = b.dataset.plv; paint(); });
+      $('#pl-fclear').onclick = () => { ps = here; pv = 'both'; paint(); };
+      let y0 = 0, dragging = false;
+      box.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; dragging = !!e.target.closest('.rd-jr-sheet-top, .rd-jr-grab'); }, { passive:true });
+      box.addEventListener('touchmove', e => { if(!dragging) return; box.style.transition = 'none'; box.style.transform = `translateY(${Math.max(0, e.touches[0].clientY - y0)}px)`; }, { passive:true });
+      box.addEventListener('touchend', e => { if(!dragging) return; dragging = false; box.style.transition = ''; if(e.changedTouches[0].clientY - y0 > 90) close(); else box.style.transform = ''; });
+    }
     const openPractice = it => {
       if(it.kind === 'anchorpick'){ if(!M.paid) return gateSubscribe('practice'); _upPickOpen = !_upPickOpen || !M.anchorSet; _upKeep(); return screenPathway(); }
       if(it.st === 'now' && M.paid && M.reco){ _upKeep(); return renderPlan(Object.assign({}, M.reco, { fromPath:true, pathTitle:it.title }), screenPathway); }
@@ -10757,9 +13072,14 @@ function app(tab){
     v.onclick = e => {
       const tv = e.target.closest('[data-view]');
       if(tv){ try{ localStorage.setItem(PL_VIEW, tv.dataset.view); }catch(err){} try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
+      if(e.target.closest('[data-plx]')){ try{ localStorage.setItem(PL_VIEW, 'both'); }catch(err){} _upKeep(); return screenPathway(); }
+      const sg = e.target.closest('[data-stage]');
+      if(sg){ _plStage = +sg.dataset.stage; _plQ = ''; _plJump = !!sg.dataset.jump; try{ haptic('tap'); }catch(err){} _upKeep(); return screenPathway(); }
       const pk = e.target.closest('[data-pick]');
       if(pk){ _upPickOpen = false; return _upSetAnchor(pk.dataset.pick === 'auto' ? null : pk.dataset.pick); }
       if(e.target.closest('[data-go]') && firstOpen){
+        if(upLocked) return gateSubscribe('practice');
+        _plStage = firstStage;
         if(firstOpen.type === 'lesson'){ _upKeep(); return screenPathLesson(firstOpen.row.id); }
         return openPractice(firstOpen.it);
       }
@@ -10771,12 +13091,44 @@ function app(tab){
     };
     const sc = root.querySelector('.scroll');
     if(sc && _upY != null){ const y = _upY; _upY = null; requestAnimationFrame(() => { sc.scrollTop = y; }); }
+    if(_plJump){ _plJump = false; requestAnimationFrame(() => { const st = root.querySelector('#pl-res'); if(st && st.getBoundingClientRect().top > innerHeight * .6) st.scrollIntoView({ block:'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }); }
   }
   // the order lessons are walked in: the same rows as the list, lessons only
   function _plNext(id){
     if(!_plData) return null;
     const i = _plData.rows.findIndex(r => r.id === id);
     return i >= 0 && i < _plData.rows.length - 1 ? _plData.rows[i + 1] : null;
+  }
+  // "This stage" (desktop 9-12, Justin canon 2026-10-30): the stage name (back to that stage), its %, a thin bar, and the steps
+  // around this one: done ones checked and muted, this one bold with an ink dot, the next few; each one opens
+  function _plStageCard(s, id){
+    let rows = null; try{ const M = _upModel(); if(M) rows = _plRows(_plData, M)[s]; }catch(e){ rows = null; }
+    if(!rows) rows = _plData.rows.filter(r => r.s === s).map(r => ({ type:'lesson', row:r, done:_plIsDone(r.id) }));
+    const t = rows.length, d = rows.filter(x => x.done).length, pct = t ? Math.round(d / t * 100) : 0;
+    const i = rows.findIndex(x => x.type === 'lesson' && x.row.id === id);
+    const from = Math.max(0, i - 2), to = Math.min(rows.length, Math.max(i, 0) + 5);
+    const CK = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    const items = rows.slice(from, to).map((x, j) => {
+      const me = from + j === i, les = x.type === 'lesson';
+      const tt = les ? x.row.t : x.it.title, mm = les ? escapeHtml(PL_KIND[x.row.k] || 'Lesson') + (x.row.v ? ' · ' + _plLen(x.row.d) : x.row.q ? ' · ' + x.row.q.length + ' questions' : '') : 'Practice';
+      return `<li><button class="pl-sc-r${me ? ' is-here' : x.done ? ' is-done' : ''}" type="button" ${les ? `data-sl="${x.row.id}"` : 'data-sp="1"'}${me ? ' aria-current="step"' : ''}><span class="pl-sc-i">${me ? '<span class="pl-sc-dot"></span>' : x.done ? CK : ''}</span><span class="pl-sc-t"><span>${escapeHtml(tt)}</span><span>${mm}</span></span></button></li>`;
+    }).join('');
+    return `<aside class="pl-sc" aria-label="This stage"><div class="pl-sc-top"><button class="pl-sc-h" type="button" data-sg="1">${escapeHtml(_plData.stages[s] || '')}</button><span>${pct}%</span></div><span class="pl-sc-bar" aria-hidden="true"><i style="width:${pct}%"></i></span><ol class="pl-sc-list">${items}</ol></aside>`;
+  }
+  // back / forward through the lessons, on either side of Complete
+  function _plPrev(id){ if(!_plData) return null; const i = _plData.rows.findIndex(r => r.id === id); return i > 0 ? _plData.rows[i - 1] : null; }
+  function _plArrow(row, dir){
+    const svg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${dir === 'prev' ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'}"/></svg>`;
+    const word = dir === 'prev' ? 'Previous' : 'Next';
+    return row ? `<button class="pl-arr" type="button" data-pln="${row.id}" aria-label="${word}: ${escapeHtml(row.t)}" title="${escapeHtml(row.t)}">${svg}</button>` : `<button class="pl-arr" type="button" disabled aria-label="${word}">${svg}</button>`;
+  }
+  function _plStageWire(s, id){
+    const el = root.querySelector('.pl-sc'); if(!el) return;
+    el.onclick = e => {
+      const b = e.target.closest('button'); if(!b || b.classList.contains('is-here')) return;
+      if(b.dataset.sl){ const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; return screenPathLesson(+b.dataset.sl); }
+      _plStage = s; screenPathway();
+    };
   }
   function screenPathLesson(id){
     if(!_plData){ _plLoad().then(() => screenPathLesson(id)); return; }
@@ -10788,12 +13140,18 @@ function app(tab){
     const hls = sid && _plHls() ? mp4.replace('/downloads/default.mp4', '/manifest/video.m3u8') : '';   // adaptive stream (quality follows the signal), captions ride inside it
     const trk = sid ? `<track kind="captions" srclang="en" label="English" src="pathway/captions/${sid}.vtt">` : '';
     const video = r.v ? `<div class="pl-vwrap"><video class="pl-video" controls playsinline preload="metadata"${sid ? ` poster="${escapeHtml(mp4.replace('/downloads/default.mp4', '/thumbnails/thumbnail.jpg?time=3s'))}"` : ''} src="${escapeHtml(hls || mp4)}">${hls ? '' : trk}</video></div><p class="pl-verr" hidden>Couldn't load the video. <button type="button" class="pl-vretry">Try again</button></p>` : '';
-    _rdShell(`<div class="pl-lesson">${video}
+    // Complete sits right under the title, "Next: ..." under it, then the reading (Justin, canon 2026-10-30: "the reading is optional,
+    // so don't make someone scroll"); desktop: the lesson on 1-8, "This stage" on 9-12
+    // round 2 (Justin 2026-10-30): the reading sits under the title, unencumbered; Complete with back / forward arrows lives under
+    // This stage on desktop, and is pinned to the bottom below 1120 (the reading scrolls above it). "Next: ..." is in the card.
+    const pv = _plPrev(id);
+    const nav = cls => `<div class="pl-nav ${cls}">${_plArrow(pv, 'prev')}<button class="pl-done" type="button" data-plc="1">Complete</button>${_plArrow(nx, 'next')}</div>`;
+    _rdShell(`<div class="pl-lgrid"><div class="pl-lesson">${video}
       <span class="rd-eyeb">${escapeHtml(PL_KIND[r.k] || 'Lesson')} · ${escapeHtml(_plData.stages[r.s])}</span>
       <h1 class="rd-title">${escapeHtml(r.t)}</h1>
-      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div>
-      <div class="pl-foot"><button class="pl-done" type="button" id="pl-done">Done</button>${nx ? `<p>Next: ${escapeHtml(nx.t)}</p>` : ''}</div></div>`,
-      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+      <div class="pl-body" id="pl-body">${r.c != null ? '<p class="pl-wait">One moment…</p>' : ''}</div>${nav('pl-pin')}</div><div class="pl-side">${_plStageCard(r.s, r.id)}${nav('pl-sidenav')}</div></div>`,
+      { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' }, wide:true, plainBack:true });
+    _plStageWire(r.s, r.id);
     const ve = root.querySelector('.pl-video'), ver = root.querySelector('.pl-verr');
     if(ve){   // stream fails -> fall back to the plain file (with its caption track); that fails too -> a calm "Try again"
       ve.addEventListener('error', () => {
@@ -10809,8 +13167,8 @@ function app(tab){
       b.querySelectorAll('a[href^="http"]').forEach(a => { a.target = '_blank'; a.rel = 'noopener'; });
       b.onclick = e => { const a = e.target.closest('a[data-ln]'); if(!a) return; e.preventDefault(); const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; screenPathLesson(+a.dataset.ln); };   // in-app links to other Pathway lessons
     });
-    const d = document.getElementById('pl-done');
-    if(d) d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); };
+    root.querySelectorAll('[data-plc]').forEach(d => d.onclick = () => { _plMarkDone(id); try{ haptic('save'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; nx ? screenPathLesson(nx.id) : screenPathway(); });
+    root.querySelectorAll('[data-pln]').forEach(b => b.onclick = () => { try{ haptic('tap'); }catch(e){} const sc = root.querySelector('.scroll'); if(sc) sc.scrollTop = 0; screenPathLesson(+b.dataset.pln); });
   }
   // a quiz: one question at a time, nothing scored or kept but "done". Justin (2026-10-25): no answer is revealed, a wrong
   // pick just fades so you can choose again; the right pick gets a small drawn check, no green, no "Yes, that one" line. The
@@ -10824,12 +13182,13 @@ function app(tab){
       <span class="rd-eyeb">${escapeHtml(r.t)}</span><h1 class="rd-title">${escapeHtml(Q.q)}</h1>
       <div class="pl-opts" role="group">${opts}</div>
       <p class="pl-sr" aria-live="polite"></p>
-      <button class="pl-done" type="button" id="pl-next" disabled>${last ? 'Done' : 'Next question'}</button>`;
+      <button class="pl-done" type="button" id="pl-next" disabled>${last ? 'Complete' : 'Next question'}</button>`;
   }
   function screenPathQuiz(r){
     let qi = 0, got = false;
     const nx = _plNext(r.id);
-    _rdShell(`<div class="pl-quiz">${_plQuizQ(r, 0)}</div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' } });
+    _rdShell(`<div class="pl-lgrid"><div class="pl-quiz">${_plQuizQ(r, 0)}</div><div class="pl-side">${_plStageCard(r.s, r.id)}</div></div>`, { tab:'practice', onBack:screenPathway, loc:{ k:'pathway' }, wide:true, plainBack:true });
+    _plStageWire(r.s, r.id);
     const v = root.querySelector('.pl-quiz'); if(!v) return;
     v.onclick = e => {
       const o = e.target.closest('[data-opt]');
@@ -10880,7 +13239,7 @@ function app(tab){
       const locked = pc.paid && !M.paid, read = _lrnIsRead(id), c = _upCols(it, def);
       // reading is optional (Justin, 2026-10-02: "The skills need to go in order but the reading lessons are optional")
       // (2026-10-02: "'Optional reading' is overused. Just take it out.")
-      const lead = locked ? LOCK_SVG + 'Self-Regulator' : read ? _lrnReadMk() + 'Read' : '';
+      const lead = locked ? LOCK_SVG + 'See paid plans' : read ? _lrnReadMk() + 'Read' : '';
       const first = it.st === 'now' && !read && !locked;
       return `<button class="up-l${first ? ' up-l-first' : ''}" type="button" data-up-ch="${escapeHtml(id)}" style="--line:${c.line}">
         <span class="up-l-node">${_UP_BOOK}</span><span class="up-l-t">${lead ? `<i>${lead}</i>` : ''}<b>${escapeHtml(pc.title)}</b></span></button>`;
@@ -10891,14 +13250,14 @@ function app(tab){
       // already. Same with 'Opens after...'"): a completed step is filled, the current one has its ring, a waiting one is dashed
       // with a small lock.
       // "Practiced with [result]" (Justin, 2026-10-02: instead of "Completed within your capacity")
-      let words = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
+      let words = it.st === 'paid' ? LOCK_SVG + 'See paid plans' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
       if(it.kind === 'emo' && it.st !== 'paid') words = escapeHtml(_emoCounts(it.emo));
       if(it.academy && !words) words = 'Completed in the Academy';
       // easy / medium / hard on each defense step, checked once a practice at that level has a successful result (Justin, 2026-10-02)
       const lv = M.paid && it.kind === 'def' && _emoLevelable(it.key) ? _upLevels(M.LP[it.key]) : '';
       const name = it.st === 'now' ? `<span class="up-name">${escapeHtml(it.title)}${_UP_LINE}</span>` : escapeHtml(it.title);
       return `<button class="up-n" type="button" data-up="${escapeHtml(it.kind + '|' + it.key)}" data-st="${it.st}"${it.gated ? ' data-gated="1"' : ''}${it.locked ? ' data-locked="1"' : ''} style="--band:${c.band};--line:${c.line}">
-        <span class="up-n-node">${_upMark(it, def)}${it.locked ? `<span class="up-n-lk">${LOCK_SVG}</span>` : ''}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}${lv}</span></button>`;
+        <span class="up-n-node">${_upMark(it, def)}</span><span class="up-n-t"><b>${name}</b>${words ? `<span>${words}</span>` : ''}${lv}</span></button>`;
     };
     // the safety anchor step: the choices right here, or (once chosen) what is chosen with a way to change it
     const pickHtml = () => {
@@ -11024,20 +13383,20 @@ function app(tab){
   const _upChRows = (list, paid) => list.length ? `<div class="up-sh-blk"><p class="up-sh-lbl">Learn more about these skills:</p><div class="p8-list">${list.map(pc => {
       const locked = pc.paid && !paid, read = _lrnIsRead(pc.id);
       return `<button class="rd-row p8-row" type="button" data-up-ch="${escapeHtml(pc.id)}"><span class="rd-thumb rd-thumb-mk p8-thumb">${_UP_BOOK}</span>
-        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'Self-Regulator · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
+        <span class="rd-row-t"><b>${escapeHtml(pc.title)}</b><span>${locked ? LOCK_SVG + 'See paid plans · ' : read ? _lrnReadMk() + 'Read · ' : ''}Book chapter</span></span><span class="wc-go">${CHEV}</span></button>`;
     }).join('')}</div></div>` : '';
   const _upGoBtn = (open, label) => open ? `<button class="btn block" id="up-go" type="button">${escapeHtml(label)}</button>`
-    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}Self-Regulator</button>`;
+    : `<button class="btn block up-go-lock" id="up-go" type="button" data-lock="1">${LOCK_SVG}See paid plans</button>`;
   function _upItemSheet(it, M, def){
     const W = _upWhat(it);
-    const st = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
+    const st = it.st === 'paid' ? LOCK_SVG + 'See paid plans' : (it.st === 'done' || it.st === 'tried') ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : escapeHtml(UP_ST[it.st] || '');
     let body = st ? `<p class="up-sh-st">${st}</p>` : '';
     // Academy progress (2026-10-03): open, named, and checked off here once a practice shows it
     if(it.academy) body = `<p class="up-sh-st">Completed in the Academy</p><div class="up-sh-blk"><p class="up-sh-p">It is checked off here once a practice shows it.</p></div>`;
     if(W.q && W.q.length) body += `<div class="up-sh-blk">${W.q.map(t => `<p class="up-sh-p">${escapeHtml(t)}</p>`).join('')}</div>`;
     if(W.line) body += `<div class="up-sh-blk"><p class="up-sh-p up-sh-line">${escapeHtml(W.line)}</p></div>`;
     if(it.locked){
-      body = `<p class="up-sh-st">${LOCK_SVG}${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
+      body = `<p class="up-sh-st">${escapeHtml(it.locked)}</p>` + body.replace(/^<p class="up-sh-st">[\s\S]*?<\/p>/, '') + _upChRows(_upChapters(it), M.paid);
       return _upSheet(_upMark(it, def), it.title, body, _upGoBtn(true, 'Practice it anyway'), () => _upPractice(it));
     }
     if(it.gated && it.need) body += `<div class="up-sh-blk"><p class="up-sh-lbl">When it opens</p><p class="up-sh-p">${escapeHtml(it.need)} The recommended practice offers it then. You can still choose it any time in Make your own.</p></div>`;
@@ -11218,17 +13577,20 @@ function app(tab){
         <button class="em-b" type="button" data-mv="up" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} up"${i === 0 && e.t === 1 ? ' disabled' : ''}>${_UP_UP}</button>
         <button class="em-b" type="button" data-mv="dn" data-i="${i}" aria-label="Move ${escapeHtml(e.w)} down"${i === L.length - 1 && e.t === 3 ? ' disabled' : ''}>${_UP_DN}</button>
         <button class="em-b em-x" type="button" data-rm="${i}" aria-label="Take out ${escapeHtml(e.w)}">${_UP_X}</button></div>`;
-      const tier = t => `<div class="em-tier" data-t="${t}"><p class="em-tier-h">${UP_TIER[t]}</p>${L.map((e, i) => e.t === t ? row(e, i) : '').join('') || '<p class="em-none">None yet</p>'}</div>`;
+      const tier = t => `<section class="em-tier em-hc" data-t="${t}" aria-label="${UP_TIER[t]}"><span class="em-hc-band" aria-hidden="true"></span><h4 class="em-tier-h">${UP_TIER[t]}</h4>${L.map((e, i) => e.t === t ? row(e, i) : '').join('') || '<p class="em-none">None yet</p>'}</section>`;
       // loose, in alphabetical order (Justin, 2026-10-02: "the unpicked emotions should not be grouped. just leave them loose. but
       // when they are selected, they can go into the three tiers"); each still goes to its suggested level when picked
-      const left = UP_EMO_ALL.filter(x => !has.has(x[0].toLowerCase())).sort((a, b) => a[0].localeCompare(b[0]));
-      const chips = left.length ? `<div class="em-chips">${left.map(x => `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${x[1]}"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`).join('')}</div>` : '';
+      // every emotion stays in the list as an outlined pill; the chosen ones carry the ink outline and a check, and a tap takes them out
+      const left = UP_EMO_ALL.slice().sort((a, b) => a[0].localeCompare(b[0]));
+      const chips = left.length ? `<div class="em-chips">${left.map(x => { const on = has.has(x[0].toLowerCase());
+        return on ? `<button class="em-chip on" type="button" data-rmw="${escapeHtml(x[0])}" aria-pressed="true">${_UP_CHECK}${escapeHtml(x[0])}</button>`
+          : `<button class="em-chip" type="button" data-add="${escapeHtml(x[0])}" data-t="${x[1]}" aria-pressed="false"${full ? ' disabled' : ''}>${escapeHtml(x[0])}</button>`; }).join('')}</div>` : '';
       _rdShell(`<div class="up-view em-view" style="--line:${c.line};--band:${c.band}"><div class="scr-head read-head"><h1 class="read-h1">Which defense?</h1></div>
         <p class="up-lede">${escapeHtml(UP_Q.which[0])}</p>
         <p class="em-how">Choose up to nine emotions to work with. They start sorted from easy to hard, and you can move any of them. Choosing one before a practice is optional.</p>
         <h3 class="p8-sec up-sec">Your emotions <span class="em-n">${L.length} of ${UP_EMO_MAX}</span></h3>
         <div class="em-list">${tier(1)}${tier(2)}${tier(3)}</div>
-        <h3 class="p8-sec up-sec">Add an emotion</h3>
+        <h3 class="p8-sec up-sec">Choose your emotions</h3>
         ${full ? '<p class="em-how">You have nine. Take one out to add another.</p>' : ''}
         ${chips}
         <form class="em-own" id="em-own" autocomplete="off"><label class="em-add-h" for="em-own-in">In your own words</label>
@@ -11243,8 +13605,9 @@ function app(tab){
           else { if(i < L.length - 1 && L[i+1].t === x.t){ L[i] = L[i+1]; L[i+1] = x; } else if(x.t < 3) x.t++; }
           msg = ''; save(); return keep(paint); }
         const rm = e.target.closest('[data-rm]'); if(rm){ L.splice(+rm.dataset.rm, 1); msg = ''; save(); return keep(paint); }
+        const rw = e.target.closest('[data-rmw]'); if(rw){ const w = rw.dataset.rmw.toLowerCase(), j = L.findIndex(x => x.w.toLowerCase() === w); if(j >= 0) L.splice(j, 1); msg = ''; save(); return keep(paint); }
         const ad = e.target.closest('[data-add]'); if(ad && L.length < UP_EMO_MAX){ L.push({ w:ad.dataset.add, t:+ad.dataset.t }); msg = ''; save(); return keep(paint); }
-        if(e.target.closest('#em-done')) return done();
+        if(e.target.closest('#em-done')){ try{ haptic('done'); }catch(err){} return done(); }
       };
       const f = view.querySelector('#em-own');
       if(f) f.onsubmit = ev => { ev.preventDefault(); const inp = view.querySelector('#em-own-in'); let w = (inp && inp.value || '').replace(/\s+/g, ' ').replace(/[|]/g, '').trim();
@@ -11278,7 +13641,7 @@ function app(tab){
         const stOf = (it, i) => it.st === 'paid' ? 'paid' : (from + i) === at ? 'now' : it.st === 'done' ? 'done' : it.locked ? 'locked' : 'ahead';
         rows = win.map((it, i) => {
           const c = _upCols(it, def), st = stOf(it, i);
-          const word = it.st === 'paid' ? LOCK_SVG + 'Self-Regulator' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
+          const word = it.st === 'paid' ? LOCK_SVG + 'See paid plans' : it.kind === 'emo' ? escapeHtml(_emoCounts(it.emo || []))
             : st === 'done' && it.key !== 'pick' ? escapeHtml(_upPracticed(it.kind === 'open' ? null : M.R[it.key])) : '';
           const solid = st === 'done' && win[i + 1] && stOf(win[i + 1], i + 1) === 'done';
           return `<span class="up-h-row" data-st="${st}"${solid ? ' data-seg="1"' : ''} style="--i:${i};--band:${c.band};--line:${c.line}"><span class="up-h-dot"></span>
@@ -11288,7 +13651,7 @@ function app(tab){
     }catch(e){ rows = []; }
     return `<button class="up-hero" type="button" id="up-entry" aria-label="${UP_TITLE}">
         <span class="up-hero-head"><span class="up-hero-ico">${_UP_ICO}</span><b>${UP_TITLE}</b><span class="wc-go">${CHEV}</span></span>
-        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : LOCK_SVG + 'Self-Regulator · Every practice, in order'}</span>`}
+        ${rows.length ? `<span class="up-hero-path">${rows.join('')}</span>` : `<span class="up-hero-sub">${paid ? 'Every skill, in order' : 'Every practice, in order · ' + LOCK_SVG + 'See paid plans'}</span>`}
       </button>`;
   }
 
@@ -11367,7 +13730,7 @@ function app(tab){
   function _chEntryHTML(paid){
     const S = _CH(); if(!S) return '';
     const a = paid ? _chActive() : null;
-    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}Self-Regulator</span>`
+    const body = !paid ? `<span class="ch-entry-sub">${LOCK_SVG}See paid plans</span>`
       : a ? `<span class="ch-entry-name">${escapeHtml(a.c.name)}</span>${_chBar(a)}<span class="ch-entry-sub">${escapeHtml(_chNextLine(a))}</span>`
       : `<span class="ch-entry-sub">${escapeHtml(S.T.intro)}</span>`;
     return `<button class="ch-entry" type="button" id="ch-entry"><span class="ch-entry-head"><span class="ch-entry-ico">${_CH_ICO}</span><b>Challenges</b><span class="wc-go">${CHEV}</span></span><span class="ch-entry-body">${body}</span></button>`;
@@ -11376,62 +13739,116 @@ function app(tab){
   function _chNowReady(){ try{ if(!paidNow()) return null; const a = _chActive(); return a && a.ready ? a : null; }catch(e){ return null; } }
   function _chNowHTML(a){ const p = a.c.prompts[a.done]; return `<span class="mh-bt-txt"><span class="mh-bt-eb">Your challenge</span><span class="mh-bt-what">${escapeHtml(a.c.name + ': ' + _chTopic(p.topic))}</span></span><span class="mh-bt-go" aria-hidden="true">${CHEV}</span>`; }
 
-  // ---- 1 · Challenges ----
+  // ---- 1 · Challenges: one page for all of them, laid out like Learn (Justin, canon 2026-10-30) ----
+  // One card style (Learn's: picture inset in the card), the challenge in progress (else the recommended one) as the big card
+  // with its description, the rest in the suggested order, finished ones at the end. The All challenges page is folded in.
+  const _chWideMQ = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  function _chStatus(s, x){
+    if(x.paid && x.a && s.id === x.a.id) return { t:'In progress', strong:true };
+    if(x.paid && s.started) return { t:'Paused · day ' + (s.done + 1) + ' of ' + s.c.days };
+    if(s.finished) return { t:'Finished', fin:true };
+    if(s.id === x.rec) return { t:x.T.badge, strong:true };
+    if(s.c.after && x.by[s.c.after] && !x.by[s.c.after].runs) return { t:'Best after ' + x.by[s.c.after].c.name };
+    return null;
+  }
+  // ch1 (Justin 2026-11-01): one real-moments photo per challenge in img/challenges/<id>-640/-1280.jpg; empty slot if missing.
+  const _CH_IMG = new Set(['sensory', 'sensory-out', 'micro', 'micro-long', 'digital', 'alarm', 'alarm-in', 'pse', 'connection', 'coreg', 'giving', 'steps', 'senses', 'music', 'states']);
+  const _chPic = (id, big) => _CH_IMG.has(id) ? `<img src="img/challenges/${id}-${big ? 1280 : 640}.jpg" alt="" loading="lazy" decoding="async">` : '';
+  function _chCardHTML(s, big, x){
+    const st = _chStatus(s, x), dot = '<span aria-hidden="true">·</span>';
+    const meta = (st && st.fin ? `<span class="ch-cfin">${_CH_CHECK}</span>` : '') + `<span>${escapeHtml(_chDaysWord(s.c))}</span>`
+      + (st ? dot + `<span${st.strong ? ' class="ch-cst"' : ''}>${escapeHtml(st.t)}</span>` : '')
+      + (x.paid ? '' : dot + `<span class="lb-lk">${LOCK_SVG}See paid plans</span>`);
+    const bar = big && x.paid && x.a && s.id === x.a.id ? `<span class="ch-cbar" aria-hidden="true"><i style="width:${Math.round(s.done / s.c.days * 100)}%"></i></span>` : '';
+    return `<button class="lb-card ch-card${big ? ' lb-big' : ''}${s.id === x.rec && !s.finished && !(x.paid && x.a) ? ' snb-reco' : ''}" type="button" data-ch="${s.id}" aria-pressed="false"><span class="lb-pic" aria-hidden="true">${_chPic(s.id, big)}</span><span class="lb-body"><span class="lb-t">${escapeHtml(s.c.name)}</span>${big ? `<span class="lb-d">${escapeHtml(s.c.desc)}</span>` : ''}${bar}<span class="lb-meta">${meta}</span></span></button>`;
+  }
   function screenChallenges(){
     const S = _CH(); if(!S) return app('practice');
     const paid = paidNow(), T = S.T;
-    const a = paid ? _chActive() : null;
-    const paused = paid ? _chAll().filter(s=>s.started && (!a || s.id !== a.id)) : [];
-    const sug = _chSuggested().slice(0, 4);
-    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
-    const cur = a ? `<button class="ch-cur" type="button" data-ch="${a.id}" data-go="${a.ready ? 'prompt' : 'sheet'}"><span class="ch-cur-top"><b>${escapeHtml(a.c.name)}</b><span>In progress</span></span>${_chBar(a)}<span class="ch-cur-sub">${escapeHtml(_chNextLine(a))}</span></button>` : '';
-    const pausedHTML = paused.map(s=>`<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>Paused · day ${s.done + 1} of ${s.c.days}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
-    const cards = sug.map((s, i)=> i === 0
-      ? `<button class="ch-rec" type="button" data-ch="${s.id}" aria-label="${escapeHtml(T.badge + ': ' + s.c.name + ', ' + _chDaysWord(s.c))}"><span class="ch-rec-t"><span class="ch-rec-eb">${_CH_STAR}${escapeHtml(T.badge)}</span><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))}</span></span><span class="ch-rec-go" aria-hidden="true">${CHEV}</span></button>`
-      : `<button class="ch-row" type="button" data-ch="${s.id}"><span class="ch-row-t ch-row-in"><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('');
-    _rdShell(`<div class="ch-view">
+    const all = _chAll(), by = {}; all.forEach(s=>by[s.id] = s);
+    const a = paid ? _chActive() : null, sug = _chSuggested(), rec = sug[0] ? sug[0].id : null;
+    const lead = a || (rec && by[rec]) || all.find(s=>!s.finished) || all[0];
+    const rest = all.filter(s=>s !== lead && !s.finished).concat(all.filter(s=>s !== lead && s.finished));
+    const x = { paid, a, rec, by, T };
+    _rdShell(`<div class="ch-view ch-home"><div class="ch-main">
         <h1 class="rd-title ch-h1">Challenges</h1>
         <p class="ch-intro">${escapeHtml(T.intro)}</p>
-        ${cur}${pausedHTML}
-        ${cards ? `<span class="ch-lbl">${escapeHtml(T.more)}</span><div class="ch-list">${cards}</div>` : ''}
-        <button class="ch-pill-o" type="button" id="ch-all">${escapeHtml(T.seeAll)}${CHEV}</button>
-      </div>`, { back:'Practice', onBack:()=>app('practice'), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+        <div class="lb-grid ch-grid">${lead ? [lead].concat(rest).map((s, i)=>_chCardHTML(s, i === 0, x)).join('') : ''}</div>
+      </div></div>`, { back:'Practice', onBack:()=>app('practice'), tab:'practice', loc:{ k:'tab', tab:'practice' }, wide:true, plainBack:true });
     _chWire(screenChallenges);
-    const al = $('#ch-all'); if(al) al.onclick = ()=>screenChallengesAll();
+    if(lead && _chWideMQ() && !screenChallenges._noDefault) openChSheet(lead.id, screenChallenges, true);
   }
-  // ---- 1a · All challenges: open first in the order, finished at the bottom ----
-  function screenChallengesAll(){
-    const S = _CH(), T = S.T, paid = paidNow();
-    const all = _chAll(), sug = _chSuggested(), rec = sug[0] ? sug[0].id : null, a = paid ? _chActive() : null, by = {};
-    all.forEach(s=>by[s.id] = s);
-    const lock = paid ? '' : LOCK_SVG + 'Self-Regulator · ';
-    const sub = s => {
-      const bits = [_chDaysWord(s.c)];
-      if(paid && a && s.id === a.id) bits.push('In progress');
-      else if(paid && s.started) bits.push('Paused');
-      else if(s.id === rec) bits.push(T.badge);
-      else if(s.c.after && by[s.c.after] && !by[s.c.after].runs) bits.push('Best after ' + by[s.c.after].c.name);
-      return lock + escapeHtml(bits.join(' · '));
-    };
-    const open = all.filter(s=>!s.finished), fin = all.filter(s=>s.finished);
-    _rdShell(`<div class="ch-view">
-        <h1 class="rd-title ch-h1">All challenges</h1>
-        <p class="ch-intro">In the suggested order. Start any of them, any time.</p>
-        <div class="ch-list">${open.map(s=>`<button class="ch-row ch-row-open" type="button" data-ch="${s.id}"><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>${sub(s)}</span></span><span class="ch-chev">${CHEV}</span></button>`).join('')}</div>
-        ${fin.length ? `<span class="ch-lbl">FINISHED</span><div class="ch-list">${fin.map(s=>`<button class="ch-row ch-row-done" type="button" data-ch="${s.id}"><span class="ch-check">${_CH_CHECK}</span><span class="ch-row-t"><b>${escapeHtml(s.c.name)}</b><span>${lock}${escapeHtml(_chDaysWord(s.c))} · your notes are in your journal</span></span><span class="ch-chev">${CHEV}</span></button>`).join('')}</div>` : ''}
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
-    _chWire(screenChallengesAll);
-  }
+  // the All challenges page is folded into Challenges (Justin, canon 2026-10-30)
+  function screenChallengesAll(){ return screenChallenges(); }
   function _chWire(back){
     root.querySelectorAll('[data-ch]').forEach(b=>b.onclick=()=>{
       const id = b.dataset.ch;
       if(b.dataset.go === 'prompt') return screenChPrompt(id);
+      const r = _chNowReady(); if(r && r.id === id) return screenChPrompt(id);   // ch2: the one you're in, prompt waiting: straight to it
       openChSheet(id, back);
     });
   }
 
-  // ---- 1b · the detail sheet ----
-  function openChSheet(id, back){
+  // ---- 1b · the detail: the 9-12 panel on desktop, the bottom sheet elsewhere ----
+  let _chKey = null, _chSel = null, _chMQ = null;
+  // the panel (1120+) or the slide-up: shows `inner`, marks the card `id`; returns { close, box }
+  function _chShow(inner, id, back, quiet){
+    const old = document.getElementById('ch-sheet'); if(old) old.remove();
+    if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; }
+    const home = root.querySelector('.ch-home');
+    let close, box;
+    if(home && _chWideMQ()){
+      let el = home.querySelector('#ch-panel'); const fresh = !el;
+      if(fresh){ el = document.createElement('aside'); el.id = 'ch-panel'; el.className = 'ch-panel ch-pin'; el.setAttribute('aria-labelledby', 'ch-sh-h'); home.appendChild(el); }
+      el.innerHTML = inner; box = el;
+      _flip([...home.querySelectorAll('.ch-card')], ()=>home.classList.add('ch-split'));
+      const mark = on => home.querySelectorAll('.ch-card').forEach(b=>{ const y = on && b.dataset.ch === id; b.classList.toggle('is-sel', y); b.setAttribute('aria-pressed', y ? 'true' : 'false'); });
+      mark(true); _chSel = id;
+      if(fresh) requestAnimationFrame(()=>el.classList.remove('ch-pin'));
+      close = (then)=>{ if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } mark(false); _chSel = null; _flip([...home.querySelectorAll('.ch-card')], ()=>{ try{ el.remove(); }catch(e){} home.classList.remove('ch-split'); }); if(typeof then === 'function') then(); };
+      if(!_chMQ){ try{ _chMQ = window.matchMedia('(min-width:1120px)'); _chMQ.addEventListener('change', ()=>{ const p = document.getElementById('ch-panel'); if(p && !_chMQ.matches && _chSel){ const k = _chSel; p.remove(); const h = root.querySelector('.ch-home'); if(h){ h.classList.remove('ch-split'); h.querySelectorAll('.ch-card.is-sel').forEach(b=>{ b.classList.remove('is-sel'); b.setAttribute('aria-pressed', 'false'); }); } _chSel = null; openChSheet(k, back); } }); }catch(e){} }
+      if(!quiet){ try{ el.querySelector('#ch-sh-x').focus({ preventScroll:true }); }catch(e){} }
+    } else {
+      const wrap = document.createElement('div'); wrap.id = 'ch-sheet'; wrap.className = 'p7-sheet ch-sheet';
+      wrap.innerHTML = `<div class="p7-sheet-card ch-sheet-card" role="dialog" aria-modal="true" aria-labelledby="ch-sh-h"><div class="p8-grab" aria-hidden="true"></div>${inner}</div>`;
+      document.body.appendChild(wrap); box = wrap.querySelector('.ch-sheet-card');
+      requestAnimationFrame(()=>wrap.classList.add('on'));
+      close = (then)=>{ wrap.classList.remove('on'); if(_chKey){ document.removeEventListener('keydown', _chKey); _chKey = null; } setTimeout(()=>{ try{ wrap.remove(); }catch(e){} if(typeof then === 'function') then(); }, 300); };
+      wrap.addEventListener('click', e=>{ if(e.target === wrap) close(); });
+    }
+    _chKey = e=>{ if(e.key === 'Escape') close(); };
+    document.addEventListener('keydown', _chKey);
+    const x = box.querySelector('#ch-sh-x'); if(x) x.onclick = ()=>close();
+    return { close, box };
+  }
+  // the reminder, the challenge's first step, in the same panel / slide-up (Justin, canon 2026-10-31: no reminder page)
+  function _chRemIn(id, shown){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
+    _chPut('chr:asked', 'challenge reminder asked', ['1']);
+    const st = pushState(), cant = (st === 'install' || st === 'blocked' || st === 'unsupported');
+    const hint = st === 'install' ? 'On iPhone, notifications only work from the installed app. Tap the share icon, then <b>Add to Home Screen</b>, and come back here.'
+      : st === 'blocked' ? 'Notifications are turned off for this app in your device settings. Turn them on there, then come back here.'
+      : 'This browser cannot show notifications from the app.';
+    const box = shown.box, body = box.querySelector('.ch-sh-body'), foot = box.querySelector('#ch-sh-foot'); if(!body || !foot) return;
+    body.innerHTML = `<span class="ch-lbl">${escapeHtml(T.remEb.toUpperCase())}</span><h3 class="ch-sh-h2">${escapeHtml(T.remH)}</h3><p class="ch-sh-p">${escapeHtml(T.remBody)}</p>
+      ${cant ? `<p class="ch-sh-note">${hint}</p>` : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`}`;
+    const goBtn = `<button class="ch-pill" type="button" id="ch-rem-go">${escapeHtml(T.remGo)}</button>`;
+    foot.innerHTML = cant ? goBtn : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`;
+    const go = ()=>shown.close(()=>screenChPrompt(id));
+    const wire = ()=>{ const g = box.querySelector('#ch-rem-go'); if(g) g.onclick = go; const no = box.querySelector('#ch-rem-no'); if(no) no.onclick = go; };
+    wire();
+    const yes = box.querySelector('#ch-rem-yes');
+    if(yes) yes.onclick = async ()=>{
+      yes.disabled = true;
+      const tm = (box.querySelector('#ch-rem-t') || {}).value || '09:00';
+      let ok = pushState() === 'on';
+      if(!ok){ const r = await pushRequest('challenge'); ok = r === 'on'; }
+      if(ok){ await _chRemindSet(tm); return go(); }
+      const row = box.querySelector('#ch-rem-row'); if(row) row.remove();
+      foot.innerHTML = `<p class="ch-sh-note">${escapeHtml(T.remFail)}</p>` + goBtn; wire();
+    };
+  }
+  function openChSheet(id, back, quiet){
     const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
     const paid = paidNow(), c = s.c, a = paid ? _chActive() : null, by = {}; _chAll().forEach(x=>by[x.id] = x);
     const isCur = !!(a && a.id === id);
@@ -11443,9 +13860,9 @@ function app(tab){
     if(c.ways) lines.push(`<p class="ch-sh-p">${escapeHtml(c.waysIntro)}</p><ul class="ch-ways">${c.ways.map(w=>`<li><b>${escapeHtml(w.k)}</b> · ${escapeHtml(w.line)}</li>`).join('')}</ul>`);
     if(c.needPse && !(by.pse && by.pse.runs)) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.needPse)}</p>`);
     if(c.bestAfter && c.after && !(by[c.after] || {}).runs) lines.push(`<p class="ch-sh-fine">${escapeHtml(c.bestAfter)}</p>`);
-    const len = `${paid ? '' : LOCK_SVG + 'Self-Regulator · '}${c.days} days · one prompt a day`;
+    const len = `${c.days} days · one prompt a day`;
     let foot = '';
-    if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(T.freeStart)}</button>`;
+    if(!paid) foot = `<button class="ch-pill" type="button" id="ch-sh-go">${LOCK_SVG}<span>See paid plans</span></button>`;   // the lock rule (replaces "Start with Self-Regulator")
     else if(isCur) foot = s.ready ? `<button class="ch-pill" type="button" id="ch-sh-go">Open the prompt</button>` : `<p class="ch-sh-note">You're on day ${s.done + 1} of ${c.days}. ${escapeHtml(T.tomorrow)}</p>`;
     else {
       const verb = s.started ? 'Pick up where you left off' : s.finished ? 'Start again' : T.start;
@@ -11453,28 +13870,18 @@ function app(tab){
         + (recFirst ? `<button class="ch-recfirst" type="button" id="ch-sh-rf" aria-label="${escapeHtml(T.recFirst + ': ' + recFirst.c.name)}"><span><span class="ch-lbl">${escapeHtml(T.recFirst.toUpperCase())}</span><b>${escapeHtml(recFirst.c.name)}</b></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : '')
         + `<button class="ch-pill" type="button" id="ch-sh-go">${escapeHtml(verb)}</button>`;
     }
-    const old = document.getElementById('ch-sheet'); if(old) old.remove();
-    const wrap = document.createElement('div'); wrap.id = 'ch-sheet'; wrap.className = 'p7-sheet ch-sheet';
-    wrap.innerHTML = `<div class="p7-sheet-card ch-sheet-card" role="dialog" aria-modal="true" aria-labelledby="ch-sh-h">
-      <div class="p8-grab" aria-hidden="true"></div>
-      <div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
+    const inner = `<div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
       <div class="ch-sh-body"><p class="ch-sh-p">${escapeHtml(c.desc)}</p>${lines.join('')}<p class="ch-sh-len">${len}</p></div>
-      <div class="ch-sh-foot" id="ch-sh-foot">${foot}</div>
-    </div>`;
-    document.body.appendChild(wrap);
-    requestAnimationFrame(()=>wrap.classList.add('on'));
-    const onKey = e=>{ if(e.key === 'Escape') close(); };
-    const close = (then)=>{ wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} if(typeof then === 'function') then(); }, 300); };
-    document.addEventListener('keydown', onKey);
-    wrap.addEventListener('click', e=>{ if(e.target === wrap) close(); });
-    $('#ch-sh-x').onclick = ()=>close();
-    const rf = $('#ch-sh-rf'); if(rf) rf.onclick = ()=>close(()=>openChSheet(recFirst.id, back));
-    const go = $('#ch-sh-go'); if(go) go.onclick = ()=>{
+      <div class="ch-sh-foot" id="ch-sh-foot">${foot}</div>`;
+    const shown = _chShow(inner, id, back, quiet), close = shown.close, box = shown.box;
+
+    const rf = box.querySelector('#ch-sh-rf'); if(rf) rf.onclick = ()=>close(()=>openChSheet(recFirst.id, back));
+    const go = box.querySelector('#ch-sh-go'); if(go) go.onclick = ()=>{
       if(!paid) return close(()=>gateSubscribe('challenges'));
       if(isCur) return close(()=>screenChPrompt(id));
       _chStart(id);
       let asked = false; try{ asked = !!((_ctxLoad()['chr:asked'] || [])[0]); }catch(e){}
-      if(!asked) return close(()=>screenChReminder(id));   // the reminder is the challenge's first step, on its own screen (Justin, 2026-10-18)
+      if(!asked) return _chRemIn(id, shown);   // the reminder is the challenge's first step, now in this panel (Justin, canon 2026-10-31)
       close(()=>screenChPrompt(id));
     };
   }
@@ -11504,7 +13911,7 @@ function app(tab){
         <p class="ch-intro">${escapeHtml(T.remBody)}</p>
         ${cant ? `<p class="ch-sh-note">${hint}</p>` : `<label class="ch-time" id="ch-rem-row"><span>Remind me at</span><input type="time" id="ch-rem-t" value="09:00"></label>`}
         <div class="ch-rem-foot" id="ch-rem-foot">${cant ? goBtn : `<button class="ch-pill" type="button" id="ch-rem-yes">Remind me</button><button class="ch-pill-o" type="button" id="ch-rem-no">No reminder</button>`}</div>
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
     const go = ()=>screenChPrompt(id);
     const foot = $('#ch-rem-foot');
     const wire = ()=>{ const g = $('#ch-rem-go'); if(g) g.onclick = go; const no = $('#ch-rem-no'); if(no) no.onclick = go; };
@@ -11538,6 +13945,7 @@ function app(tab){
   }
 
   // ---- 2 · one prompt ----
+  let _chPmq = null;
   function screenChPrompt(id){
     const S = _CH(), T = S.T, s = _chState(id);
     if(!s) return screenChallenges();
@@ -11561,22 +13969,32 @@ function app(tab){
     const field = ans === 'micro'
       ? `<textarea class="rd-refl-in" id="ch-ta" aria-label="Finish the sentence" rows="3" autocapitalize="sentences" spellcheck="true">${escapeHtml(stem)}</textarea>${stem2 ? `<textarea class="rd-refl-in" id="ch-ta2" rows="3" autocapitalize="sentences" spellcheck="true" aria-label="The longer sentence">${escapeHtml(stem2)}</textarea>` : ''}`
       : `<textarea class="rd-refl-in" id="ch-ta" rows="3" autocapitalize="sentences" spellcheck="true" placeholder="${escapeHtml(T.jPh)}"></textarea>${opt ? `<button class="ch-opt ch-opt-one" type="button" data-a="${escapeHtml(opt)}" aria-pressed="false">${escapeHtml(opt)}</button>` : ''}`;
-    const ansHTML = two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
+    // desktop (1120 and up): the journal sits open on 9-12, no tap needed; Like / Dislike prompts have no panel (Justin, canon 2026-10-30)
+    const side = !two && _chWideMQ();
+    const sideHTML = side ? `<aside class="ch-jside" aria-labelledby="ch-jside-h"><span class="ch-jside-h" id="ch-jside-h">${_JR_PEN}Journal</span><label class="ch-jside-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<p class="ch-jside-where">What you write is kept in Your Journal, in the You tab.</p><button class="ch-pill ch-complete" type="button" id="ch-done" disabled>Complete</button>${last ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}</aside>` : '';
+    const ansHTML = side ? '' : two ? `<div class="ch-ans" role="group" aria-label="Your answer">${S.ANS[ans].map(x=>`<button class="ch-opt" type="button" data-a="${escapeHtml(x)}" aria-pressed="false">${escapeHtml(x)}</button>`).join('')}</div>`
       : `<div class="rd-jr rd-jr-c ch-jr" id="ch-jr"><button class="rd-jr-pill" type="button">${_JR_PEN}<span>Journal</span></button><p class="rd-jr-sub" id="ch-jr-sub">${escapeHtml(T.jLabel)}</p>
-          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Done</button></div>
-            <div class="rd-jr-track"><div class="rd-jr-step" data-step="0"><div class="rd-refl-one"><label class="read-p rd-refl-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<button class="rd-refl-save" type="button" id="ch-save" disabled>Save</button></div></div></div>
+          <div class="rd-jr-sheet" hidden role="dialog" aria-label="Journal"><div class="rd-jr-sheet-in"><span class="rd-jr-grab" aria-hidden="true"></span><div class="rd-jr-sheet-top"><b class="rd-jr-ttl">${_JR_PEN}Journal</b><button class="rd-jr-done" type="button">Close</button></div>
+            <div class="rd-jr-track"><div class="rd-jr-step" data-step="0"><div class="rd-refl-one"><label class="read-p rd-refl-q" for="ch-ta">${escapeHtml(jq)}</label>${field}<button class="rd-refl-save" type="button" id="ch-done" disabled>Complete</button></div></div></div>
             <p class="rd-refl-where">What you write is kept in Your Journal, in the You tab.</p></div></div></div>`;
     const ways = c.kind === 'digital' ? `<p class="ch-wayq">${escapeHtml(c.wayQ)}</p><div class="ch-ans" role="group" aria-label="${escapeHtml(c.wayQ)}">${c.ways.map(w=>`<button class="ch-opt ch-way" type="button" data-w="${escapeHtml(w.k)}" aria-pressed="false">${escapeHtml(w.k)}</button>`).join('')}</div><div id="ch-dbox"></div>` : '';
-    _rdShell(`<div class="ch-view ch-prompt">
+    _rdShell(`<div class="ch-view ch-prompt${side ? ' ch-split' : ''}" data-ch-id="${escapeHtml(id)}"><div class="ch-pmain">
         <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
         <h1 class="rd-title ch-ph">${escapeHtml(heading)}</h1>
         ${intro ? `<p class="ch-intro">${escapeHtml(intro)}</p>` : ''}
         ${ways}${boxHTML(box)}
         ${closing ? `<p class="ch-fine">${escapeHtml(closing)}</p>` : ''}
         <div id="ch-ansbox"${c.kind === 'digital' ? ' hidden' : ''}>${ansHTML}</div>
-        <button class="ch-pill" type="button" id="ch-done" disabled>Done</button>
-        ${last ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+        ${two ? '<button class="ch-pill ch-complete" type="button" id="ch-done" disabled>Complete</button>' : ''}
+        ${last || side ? '' : `<p class="ch-fine">${escapeHtml(T.tomorrow)}</p>`}
+      </div>${sideHTML}</div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, wide:true, plainBack:true });
+    // crossing 1120 redraws the prompt (journal open beside it, or the Journal button + sheet), keeping what was written
+    if(_chPmq){ try{ _chPmq.mq.removeEventListener('change', _chPmq.fn); }catch(e){} _chPmq = null; }
+    if(!two){ try{ const mq = window.matchMedia('(min-width:1120px)'); const fn = ()=>{ try{ mq.removeEventListener('change', fn); }catch(e){} _chPmq = null;
+        if(!root.querySelector('.ch-prompt[data-ch-id="' + id + '"]')) return;
+        const w1 = ta ? ta.value : null, w2 = ta2 ? ta2.value : null; screenChPrompt(id);
+        const n1 = $('#ch-ta'), n2 = $('#ch-ta2'); if(n2 && w2 != null) n2.value = w2; if(n1 && w1 != null){ n1.value = w1; n1.dispatchEvent(new Event('input')); } };
+      mq.addEventListener('change', fn); _chPmq = { mq, fn }; }catch(e){} }
     let pick = '', way = '';
     const done = $('#ch-done'), ta = $('#ch-ta'), ta2 = $('#ch-ta2');
     const _q = c.kind === 'sense' || c.kind === 'digital' ? p.q : c.kind === 'micro' ? (p.stem || heading) : heading;
@@ -11640,7 +14058,34 @@ function app(tab){
   // ---- 2b · after Done: keep going ----
   function _chPracticeName(k){ const r = P8_ROWS.find(x=>x.k === k); if(r) return { t:r.t, sub:(estMinutes(k, k === 'micro' ? 2 : 8) ? `About ${estMinutes(k, k === 'micro' ? 2 : 8)} min · ` : '') + r.s };
     const m = P_MEDS.find(x=>x.id === k); return m ? { t:m.title, sub:`${m.est.replace('~', 'About ')} · ${m.sub.charAt(0).toLowerCase() + m.sub.slice(1)}` } : { t:k, sub:'' }; }
+  // the challenge's days as a row of circles; the one just done fills in and draws its check (Justin 2026-10-30: "after hitting
+  // complete, the app should do something ... a progress indicator")
+  function _chDaysHTML(c, doneN, justN){
+    let h = ''; for(let i = 1; i <= c.days; i++) h += `<li class="ch-d${i <= doneN ? ' on' : ''}${i === justN ? ' just' : ''}">${i <= doneN ? _CH_CHECK : ''}</li>`;
+    return `<ol class="ch-days" aria-label="Day ${doneN} of ${c.days} complete">${h}</ol>`;
+  }
   function screenChSaved(id, n){
+    const S0 = _CH(), s0 = _chState(id); if(!S0 || !s0) return screenChallenges();
+    screenChallenges._noDefault = true; screenChallenges(); screenChallenges._noDefault = false;
+    _chSavedIn(id, n);
+  }
+  function _chSavedIn(id, n){
+    const S = _CH(), T = S.T, s = _chState(id); if(!s) return;
+    const c = s.c, p = c.prompts[n - 1];
+    const k = Object.assign({}, c.keep || {}, ((c.keep || {}).byDay || {})[String(n)] || {}, ((c.keep || {}).bySense || {})[p.h] || {});
+    const pr = k.practice ? _chPracticeName(k.practice) : null;
+    const art = k.article && window.Learning ? window.Learning.byId(k.article) : null;
+    const inner = `<div class="ch-sh-head"><h2 class="ch-sh-h" id="ch-sh-h">${escapeHtml(c.name)}</h2><button class="p8-x" id="ch-sh-x" type="button" aria-label="Close">${_CH_X}</button></div>
+      <div class="ch-sh-body"><span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>${_chDaysHTML(c, n, n)}<h3 class="ch-sh-h2">${escapeHtml(T.saved)}</h3><p class="ch-sh-p">${escapeHtml(T.tomorrow)}</p>
+        ${pr || art ? `<span class="ch-lbl ch-lbl-gap">${escapeHtml(T.keep)}</span>` : ''}
+        ${pr ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-k-pr"><span class="ch-keep-t"><span>A practice</span><b>${escapeHtml(pr.t)}</b><span>${escapeHtml(pr.sub)}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : ''}
+        ${art ? `<button class="ch-keep" type="button" id="ch-k-art"><span class="ch-keep-t"><span>Learn more</span><b>${escapeHtml(art.title)}</b><span>An article</span></span><span class="ch-chev">${CHEV}</span></button>` : ''}</div>
+      <div class="ch-sh-foot" id="ch-sh-foot"></div>`;
+    const shown = _chShow(inner, id, screenChallenges);
+    const kp = shown.box.querySelector('#ch-k-pr'); if(kp) kp.onclick = ()=>shown.close(()=>{ app('practice'); setTimeout(()=>{ try{ _sheetFrom = 'challenge'; openPracticeSheet(k.practice); }catch(e){} }, 30); });
+    const ka = shown.box.querySelector('#ch-k-art'); if(ka) ka.onclick = ()=>shown.close(()=>screenLearnPiece(art, null, null, { label:'Challenges', go:()=>screenChallenges() }));
+  }
+  function _screenChSavedPage(id, n){
     const S = _CH(), T = S.T, s = _chState(id); if(!s) return screenChallenges();
     const c = s.c, p = c.prompts[n - 1];
     const k = Object.assign({}, c.keep || {}, ((c.keep || {}).byDay || {})[String(n)] || {}, ((c.keep || {}).bySense || {})[p.h] || {});
@@ -11648,13 +14093,14 @@ function app(tab){
     const art = k.article && window.Learning ? window.Learning.byId(k.article) : null;
     _rdShell(`<div class="ch-view">
         <span class="ch-lbl">${escapeHtml(_chEb(s, n))}</span>
-        <div class="ch-saved"><span class="ch-check ch-check-lg">${_CH_CHECK}</span><h1 class="rd-title ch-ph">${escapeHtml(T.saved)}</h1></div>
+        ${_chDaysHTML(c, n, n)}
+        <h1 class="rd-title ch-ph">${escapeHtml(T.saved)}</h1>
         <p class="ch-intro">${escapeHtml(T.tomorrow)}</p>
         ${pr || art ? `<span class="ch-lbl ch-lbl-gap">${escapeHtml(T.keep)}</span>` : ''}
         ${pr ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-k-pr"><span class="ch-keep-t"><span>A practice</span><b>${escapeHtml(pr.t)}</b><span>${escapeHtml(pr.sub)}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : ''}
         ${art ? `<button class="ch-keep" type="button" id="ch-k-art"><span class="ch-keep-t"><span>Learn more</span><b>${escapeHtml(art.title)}</b><span>An article</span></span><span class="ch-chev">${CHEV}</span></button>` : ''}
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
-    const kp = $('#ch-k-pr'); if(kp) kp.onclick = ()=>{ app('practice'); setTimeout(()=>{ try{ openPracticeSheet(k.practice); }catch(e){} }, 30); };
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
+    const kp = $('#ch-k-pr'); if(kp) kp.onclick = ()=>{ app('practice'); setTimeout(()=>{ try{ _sheetFrom = 'challenge'; openPracticeSheet(k.practice); }catch(e){} }, 30); };
     const ka = $('#ch-k-art'); if(ka) ka.onclick = ()=>screenLearnPiece(art, null, null, { label:'Challenges', go:()=>screenChallenges() });
   }
   // ---- 3 · finished ----
@@ -11680,17 +14126,16 @@ function app(tab){
     const next = _chFirstUnfinished(id);
     _rdShell(`<div class="ch-view">
         <span class="ch-lbl">${escapeHtml(s.c.name)}</span>
+        ${_chDaysHTML(s.c, s.c.days, s.c.days)}
         <h1 class="rd-title ch-h1">${escapeHtml(T.finH)}</h1>
         <p class="ch-intro">${escapeHtml(T.finLine.replace('{c}', s.c.name))}</p>
         ${notes.map(x=>`<div class="ch-note"><span class="ch-lbl">${escapeHtml(String(x.topic).toUpperCase())}</span><p>${escapeHtml(x.text).replace(/\n/g, '<br>')}</p></div>`).join('')}
         ${all.length ? `<button class="ch-link" type="button" id="ch-jr">${escapeHtml(T.finAll.replace('{n}', String(all.length)))}</button>` : ''}
         <div class="ch-take"><span class="ch-lbl">TAKEAWAY</span><p>${escapeHtml(s.c.takeaway)}</p></div>
-        ${next ? `<button class="ch-keep ch-keep-strong" type="button" id="ch-next"><span class="ch-keep-t"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><b>${escapeHtml(next.c.name)}</b><span>${escapeHtml(_chDaysWord(next.c))}</span></span><span class="ch-go" aria-hidden="true">${CHEV}</span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
-        <button class="ch-link ch-link-c" type="button" id="ch-all">${escapeHtml(T.seeAll)}</button>
-      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' } });
+        ${next ? `<button class="lb-card lb-big ch-card ch-nexthc" type="button" id="ch-next"><span class="lb-pic" aria-hidden="true">${_chPic(next.id, true)}</span><span class="lb-body"><span class="ch-lbl">YOUR NEXT CHALLENGE</span><span class="lb-t">${escapeHtml(next.c.name)}</span><span class="lb-meta">${escapeHtml(_chDaysWord(next.c))}</span></span></button>` : `<p class="ch-intro">${escapeHtml(T.everyDone)}</p>`}
+      </div>`, { back:'Back', onBack:()=>screenChallenges(), tab:'practice', loc:{ k:'tab', tab:'practice' }, plainBack:true });
     const jr = $('#ch-jr'); if(jr) jr.onclick = ()=>screenJournal('you');
     const nx = $('#ch-next'); if(nx) nx.onclick = ()=>{ screenChallenges(); setTimeout(()=>openChSheet(next.id, screenChallenges), 30); };
-    const al = $('#ch-all'); if(al) al.onclick = ()=>screenChallengesAll();
   }
   // Your Journal: a challenge note reads as an entry like the others, grouped under Challenges
   function _chJournalItems(){
@@ -11716,7 +14161,7 @@ function app(tab){
     // with an animated underline. That was plenty"): no eyebrow, no badge, and the card itself no longer slides in
     const _line = `<svg class="p8-line" viewBox="0 0 120 6" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C 30 1.5, 70 5.5, 118 2.5" pathLength="1"/></svg>`;
     const title = `<span class="p8-name">${nm ? `${escapeHtml(nm)}’s` : 'Your'}${_line}</span> custom practice`;
-    const lockMeta = LOCK_SVG + 'Self-Regulator';
+    const seePlans = `<span class="p8-see">${LOCK_SVG}See paid plans</span>`;
     let card, reco = null;
     if(paid){
       reco = _recommendSafe(true);
@@ -11724,45 +14169,56 @@ function app(tab){
       const meta = reco.openEnded ? `Open-ended · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}`
         : (est ? `About ${est} min · ${escapeHtml(Store.practiceLabel(reco.practiceKey))}` : escapeHtml(CAP(Store.practiceLabel(reco.practiceKey))));
       const lineCol = reco.practiceKey==='anchoring' ? 'var(--s-safety-tx)' : reco.practiceKey==='self-regulation' ? `var(--s-${({fightflight:'fight',shutdown:'shutdown',freeze:'freeze'})[def||'freeze']}-tx)` : 'var(--ink)';
-      card = `<div class="rd-lcard p8-reco${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" role="button" tabindex="0" style="--band:${_p8Band(reco.practiceKey, def)};--line:${lineCol}">
-        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="p8-meta">${meta}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
-        <span class="rd-lcard-body"><span class="rd-lcard-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
-          <span class="p8-reco-foot"><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button></span></span>
+      // the card's colours (Justin 2026-10-30): the practice's state, with the two states beside it on the Current
+      const _last = Store.lastCheckin(), _ld = _last ? _cDom(_last) : null;
+      const cs = reco.practiceKey==='anchoring' ? 'safety' : reco.practiceKey==='self-regulation' ? (def||'freeze') : (_ld && P8_NB[_ld] ? _ld : 'safety');
+      const cv = `--c1:${STATE_COLOR(cs)};--c2:${STATE_COLOR(P8_NB[cs][0])};--c3:${STATE_COLOR(P8_NB[cs][1])};--line:${lineCol}`;
+      card = `<div class="p8-reco p8-feat p8-paid snb-reco${animateIn?' p8-draw':''}" id="foryou" data-k="${escapeHtml(reco.practiceKey||'')}" data-state="${cs}" role="button" tabindex="0" style="${cv}">
+        <span class="p8-fh"><span class="p8-ft">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
+        <span class="p8-meta">${meta}</span>
+        <span class="p8-why">${escapeHtml(properCase(reco.reason || 'Built from your check-ins, and fitted to what your system can hold now.'))}</span>
+        <span class="p8-acts"><button class="btn p8-begin" id="p8-begin-now" type="button">Begin</button><button class="p8-cust" id="p8-cust" type="button">Customize this practice</button></span>
       </div>`;
     } else {
-      card = `<div class="rd-lcard p8-reco p8-locked" id="foryou-lock" role="button" tabindex="0" style="--band:var(--hairline)">
-        <span class="rd-lcard-band p8-band"><span class="rd-lcard-title">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
-        <span class="rd-lcard-body"><span class="rd-lcard-why">Built from your check-ins, and fitted to what your system can hold now.</span>
-          <span class="p8-reco-foot"><span class="p8-lockline">${lockMeta}</span></span></span>
+      card = `<div class="p8-reco p8-feat p8-locked" id="foryou-lock" role="button" tabindex="0">
+        <span class="p8-fh"><span class="p8-ft">${title}</span><span class="wc-go p8-go" aria-hidden="true">${CHEV}</span></span>
+        <span class="p8-why">Built from your check-ins, and fitted to what your system can hold now.</span>
+        <span class="p8-acts"><span class="btn p8-plans">${LOCK_SVG}See paid plans</span></span>
       </div>`;
     }
     const sil = (pState && pState.silence) || 8;
-    const row = (k, t, sub, locked) => `<button class="rd-row p8-row" type="button" data-p8="${escapeHtml(k)}"${locked?' data-p8lock="1"':''}>
-        <span class="rd-thumb rd-thumb-mk p8-thumb">${_p8Mark(k, def)}</span>
-        <span class="rd-row-t"><b>${escapeHtml(t)}</b><span>${locked ? lockMeta + ' · ' : ''}${escapeHtml(sub)}</span></span>
-        <span class="wc-go">${CHEV}</span></button>`;
+    // each practice is a row: name with what it's for, then length, then access (Justin 2026-10-29, the bento; locked items
+    // say "See paid plans", 2026-10-30). No icon boxes; a state mark only where the name is a state (Safety anchoring).
+    const row = (k, t, what, len, locked) => {
+      const acc = locked ? seePlans : paid ? '' : '<span class="p8-free">Free</span>';
+      const mk = k==='anchoring' ? `<span class="p8-mk" aria-hidden="true">${stateMarks('safety')}</span>` : '';
+      return `<button class="p8-r" type="button" data-p8="${escapeHtml(k)}"${locked?' data-p8lock="1"':''}>
+        <span class="p8-r-n"><b>${mk}${escapeHtml(t)}</b><span class="p8-r-w">${escapeHtml(what)}</span></span>
+        <span class="p8-r-l">${len ? escapeHtml(len) : ''}</span><span class="p8-r-a">${acc}</span>
+        <span class="p8-r-m">${[len, what].filter(Boolean).map(escapeHtml).join(' · ')}${acc ? ' · ' + acc : ''}</span></button>`;
+    };
     const mine = P8_ROWS.map(r=>{
       const est = r.k==='surprise' ? null : estMinutes(r.k, r.k==='micro' ? 2 : sil);
-      const sub = est ? `About ${est} min · ${r.s}` : r.s;
-      return row(r.k, r.t, sub, !paid && !practiceFree(r.k));
+      return row(r.k, r.t, r.s, est ? `About ${est} min` : '', !paid && !practiceFree(r.k));
     }).join('');
-    const guided = P_MEDS.map(m=>row(m.id, m.title, `${m.est.replace('~','About ')} · ${m.sub.charAt(0).toLowerCase()+m.sub.slice(1)}`, !paid)).join('');
+    const guided = P_MEDS.map(m=>row(m.id, m.title, m.sub.charAt(0).toLowerCase()+m.sub.slice(1), m.est.replace('~','About '), !paid)).join('');
     // the same page frame as Reflect and Learn (Justin, 2026-10-02: "Use Reflect's spacing across the board")
     _rdShell(`<div class="p8-view">
       <div class="scr-head read-head"><h1 class="read-h1">Practice</h1></div>
-      ${card}
-      ${_upEntry(paid)}
-      ${_chEntryHTML(paid)}
-      <h3 class="p8-sec">Make your own</h3>
-      <div class="p8-list">${mine}</div>
-      <h3 class="p8-sec">Guided practices</h3>
-      <div class="p8-list">${guided}</div>
-    </div>`, { tab:'practice', loc:{ k:'tab', tab:'practice' } });
+      <div class="p8-bento">
+        ${card}
+        ${_upEntry(paid)}
+        ${_chEntryHTML(paid)}
+        <section class="p8-box" aria-labelledby="p8-mine-h"><h2 class="p8-sec" id="p8-mine-h">Make your own</h2><div class="p8-list">${mine}</div></section>
+        <section class="p8-box" aria-labelledby="p8-guided-h"><h2 class="p8-sec" id="p8-guided-h">Guided practices</h2><div class="p8-list">${guided}</div></section>
+      </div>
+    </div>`, { tab:'practice', wide:true, loc:{ k:'tab', tab:'practice' } });
     const fy = $('#foryou');
     if(fy){
-      fy.onclick = (e)=>{ if(e.target.closest('#p8-cust')) return; renderPlan(reco); };
+      fy.onclick = (e)=>{ if(e.target.closest('#p8-cust, #p8-begin-now')) return; renderPlan(reco); };
       fy.onkeydown = (e)=>{ if(e.target===fy && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); renderPlan(reco); } };
-      const cu = $('#p8-cust'); if(cu) cu.onclick = (e)=>{ e.stopPropagation(); _pStateFromReco(reco); openPracticeSheet(pState.key || 'anchoring'); };
+      const cu = $('#p8-cust'); if(cu) cu.onclick = (e)=>{ e.stopPropagation(); _pStateFromReco(reco); _sheetFrom = _launchOrigin(reco) + '_changed'; openPracticeSheet(pState.key || 'anchoring'); };
+      const bn = $('#p8-begin-now'); if(bn) bn.onclick = (e)=>{ e.stopPropagation(); launchWeaver(reco); };
     }
     const fl = $('#foryou-lock');
     if(fl){ fl.onclick = ()=>_p8Locked(fl, 'matching'); fl.onkeydown = (e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); _p8Locked(fl, 'matching'); } }; }
@@ -11770,17 +14226,37 @@ function app(tab){
       const k = b.dataset.p8;
       if(b.dataset.p8lock) return _p8Locked(b, 'practice');
       if(k==='surprise') return _p8Surprise();
+      _sheetFrom = null;
       openPracticeSheet(k);
     });
-    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>screenPathway();
-    const chE = $('#ch-entry'); if(chE) chE.onclick = ()=>screenChallenges();
+    const upE = $('#up-entry'); if(upE) upE.onclick = ()=>{ _plStage = null; _plQ = ''; screenPathway(); };
+    const chE = $('#ch-entry'); if(chE) chE.onclick = ()=>{ const r = _chNowReady(); return r ? screenChPrompt(r.id) : screenChallenges(); };   // ch2: in a challenge with a prompt waiting: straight to it
     // a caller staged a shape to open straight into (older "change this practice" paths)
     if(pState && pState._openKey){ const k = pState._openKey; delete pState._openKey; openPracticeSheet(k); }
   }
 
-  // ── the practice sheet: one size, slides up, the practice's choices as labeled rows, then a line, the length and Begin ──
+  // ── the practice sheet on the Swiss grid (Justin, canon 2026-10-29; BRAND_DESIGN_SYSTEM §4 "Practice sheet") ──
+  // 1120 and up: a flat panel on columns 9-12 beside the Practice page (the page reflows to 1-8), the practice it shows
+  // marked in its list; choosing another practice swaps the panel. Below 1120: the bottom sheet, sized to its content.
+  // Top: mark (no icon box), title, X; what it's for and "About N min" under it, both live. Choices are bordered tiles that
+  // open the same pickers; Voice and Background sound are their own pair. Begin pinned at the bottom.
+  const _psWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  let _ps = null, _psMq = null;
+  // the present-moment mark for everything that doesn't name a state; a state's own mark where it does
+  function _psMark(k, def){
+    if(k==='anchoring') return _rdMk('safety');
+    if(k==='self-regulation') return _defMk(def);
+    return MK_TYPE_ICO[k==='micro' ? 'micro' : 'mindfulness'];
+  }
+  function _psRows(view, k){
+    if(!view) return;
+    view.querySelectorAll('[data-p8]').forEach(b=>{ const on = !!k && b.dataset.p8===k; b.classList.toggle('is-sel', on); if(on) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current'); });
+  }
   function openPracticeSheet(k){
     if(!pState) tabPractice();
+    // the panel lives beside the Practice page: from anywhere else (a plan's "Change"), land on the page first, choices kept
+    if(_psWide() && !document.querySelector('#screen .p8-view')){ _pendingPState = pState; app('practice'); }
+    if(!_psMq){ try{ _psMq = window.matchMedia('(min-width:1120px)'); _psMq.addEventListener('change', ()=>{ if(_ps){ const pk = _ps.k; _ps.close(true); if(currentTab==='practice') openPracticeSheet(pk); } }); }catch(e){} }
     const def = _domDefense();
     const isSession = mkIsSession(k);
     const med = isSession ? P_MEDS.find(m=>m.id===k) : null;
@@ -11793,16 +14269,38 @@ function app(tab){
     }
     const tc = _p8Tc(k, def);
     const title = med ? med.title : ((P8_ROWS.find(r=>r.k===k)||{}).t || CAP(Store.practiceLabel(k)));
-    const old = document.getElementById('p8-sheet'); if(old) old.remove();
-    const wrap = document.createElement('div'); wrap.id='p8-sheet'; wrap.className='p7-sheet p8-sheet';
-    wrap.innerHTML = `<div class="p7-sheet-card p8-card ${tc}" role="dialog" aria-modal="true" aria-labelledby="p8-h">
+    const view = _psWide() ? document.querySelector('#screen .p8-view') : null;
+    // where focus goes back to: the row (or button) that opened it; a swap keeps the first opener if focus was inside
+    const prev = _ps, ae = document.activeElement;
+    const inPrev = prev && prev.el && ae && prev.el.contains(ae);
+    let back = (ae && ae !== document.body && !inPrev) ? ae : (prev ? prev.back : null);
+    if(prev) prev.detach();
+    const oldSheet = document.getElementById('p8-sheet'); if(oldSheet) oldSheet.remove();
+    const inner = `<div class="ps-head"><span class="ps-mk" aria-hidden="true">${_psMark(k, def)}</span><h2 class="ps-h" id="p8-h">${escapeHtml(title)}</h2>
+        <button class="ps-x" id="p8-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <p class="ps-line" id="p8-sum"></p><p class="ps-len" id="p8-mins"></p>
+      <div class="ps-body" id="p8-body"></div>
+      <div class="ps-foot"><button class="btn block" id="p8-begin" type="button">Begin</button></div>`;
+    let wrap, el;
+    if(view){
+      el = view.querySelector('#ps-panel');
+      const fresh = !el;
+      if(fresh){ el = document.createElement('aside'); el.id = 'ps-panel'; view.appendChild(el); }
+      el.className = `ps-panel ps-card ${tc}${fresh ? ' ps-in' : ''}`;
+      el.setAttribute('aria-labelledby', 'p8-h');
+      el.innerHTML = inner;
+      _flip(_p8FlipEls(view), ()=>view.classList.add('ps-split'));
+      _psRows(view, k);
+    } else {
+      wrap = document.createElement('div'); wrap.id='p8-sheet'; wrap.className='p7-sheet p8-sheet ps-sheet';
+      wrap.innerHTML = `<div class="p7-sheet-card ps-card ${tc}" role="dialog" aria-modal="true" aria-labelledby="p8-h">
       <div class="p8-grab" aria-hidden="true"></div>
-      <div class="p8-head"><span class="rd-thumb rd-thumb-mk p8-thumb">${_p8Mark(k, def)}</span><h3 class="p8-h" id="p8-h">${escapeHtml(title)}</h3>
-        <button class="p8-x" id="p8-x" type="button" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
-      <div class="p8-body" id="p8-body"></div>
-      <div class="p8-foot"><p class="p8-sum" id="p8-sum"></p><p class="p8-mins" id="p8-mins"></p><button class="btn block" id="p8-begin" type="button">Begin</button></div>
+      ${inner}
     </div>`;
-    document.body.appendChild(wrap);
+      document.body.appendChild(wrap);
+      el = wrap.firstElementChild;
+    }
+    const q = s => el.querySelector(s);
     const bedName = ()=>{ const b = bedPref(); if(b.bed==='none') return 'Nothing'; if(b.bed==='surprise') return 'Surprise me'; const s = BED_SOUNDS.find(x=>x[0]===b.bed); return CAP(s ? s[1] : b.bed); };
     const rowsOf = ()=>{
       if(isSession) return [];
@@ -11823,23 +14321,32 @@ function app(tab){
       R.push(['bed','Background sound', bedName()]);
       return R;
     };
-    // the line, then the length under it, small: "~10min" (Justin, 2026-10-02)
+    // what it's for, then its length: "About 10 min" (Justin, canon 2026-10-29; was "~10min")
     const sumText = ()=>{
       if(isSession) return `${med.sub}.`;
       const open = (k==='self-regulation' && !!pState.open);
       return P8_LINE[k] + (open ? ' It keeps going until you choose to stop.' : '');
     };
     const minsText = ()=>{
-      if(isSession){ const n = (med.est.match(/\d+/)||[''])[0]; return n ? `~${n}min` : ''; }
+      if(isSession){ const n = (med.est.match(/\d+/)||[''])[0]; return n ? `About ${n} min` : ''; }
       if(k==='self-regulation' && pState.open) return '';
-      const est = estMinutes(k, k==='micro' ? 2 : pState.silence); return est ? `~${est}min` : '';
+      const est = estMinutes(k, k==='micro' ? 2 : pState.silence); return est ? `About ${est} min` : '';
     };
+    let lastKind = null;
+    const tile = ([kind, l, v]) => `<button class="ps-tile" type="button" data-dial="${kind}"><span class="ps-tile-k">${escapeHtml(l)}</span><span class="ps-tile-v">${escapeHtml(v)}</span></button>`;
     const paint = ()=>{
-      $('#p8-body').innerHTML = rowsOf().map(([kind, l, v])=>`<button class="p8-set" type="button" data-dial="${kind}"><span class="p8-set-k">${escapeHtml(l)}</span><span class="p8-set-v">${escapeHtml(v)}</span><span class="wc-go">${CHEV}</span></button>`).join('');
-      $('#p8-sum').textContent = sumText(); const mn = $('#p8-mins'); mn.textContent = minsText(); mn.hidden = !mn.textContent;
-      wrap.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
+      const R = rowsOf(), snd = R.filter(r=>r[0]==='voice'||r[0]==='bed'), own = R.filter(r=>r[0]!=='voice'&&r[0]!=='bed');
+      const body = q('#p8-body');
+      body.innerHTML = (own.length ? `<div class="ps-tiles">${own.map(tile).join('')}</div>` : '') + (snd.length ? `<div class="ps-tiles ps-snd">${snd.map(tile).join('')}</div>` : '');
+      body.hidden = !R.length;
+      q('#p8-sum').textContent = sumText(); const mn = q('#p8-mins'); mn.textContent = minsText(); mn.hidden = !mn.textContent;
+      el.querySelectorAll('[data-dial]').forEach(b=>b.onclick=()=>openDial(b.dataset.dial));
+      // after a picker closes, the keyboard lands back on the tile it came from
+      const ae2 = document.activeElement; if(lastKind && (!ae2 || ae2===document.body || !el.contains(ae2))){ const t = el.querySelector(`[data-dial="${lastKind}"]`); if(t){ try{ t.focus({ preventScroll:true }); }catch(e){} } }
     };
     function openDial(kind){
+      lastKind = kind;
+      _psHost = kind === 'pieces' ? null : { el, title, short: kind === 'sense' || kind === 'silence' || kind === 'voice', back: ()=>paint() };
       if(kind==='sense'){
         const senseList = k==='micro' ? ['touch','sound','sight'] : P_SENSES;
         openDialSheet('Anchor through', [{opts:senseList.map(s=>({val:s,menu:s}))}], pState.sense, tc, (v)=>{ pState.sense=v; paint(); });
@@ -11864,7 +14371,7 @@ function app(tab){
       } else if(kind==='length'){
         openDialSheet('How does it end?', [{opts:[{val:'false',menu:'A planned ending',sub:'The guidance closes the practice for you'},{val:'true',menu:'No set ending',sub:'It keeps going until you choose to stop'}]}], String(!!pState.open), tc, (v)=>{ pState.open=(v==='true'); paint(); });
       } else if(kind==='voice'){
-        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)) return gateSubscribe('voice'); if(Store.setPrefVoice) Store.setPrefVoice(v); haptic('start'); paint(); });
+        openDialSheet('Voice', [{opts:VOICES.map(([val,l])=>({val,menu:l,lock:!voiceOk(val)}))}], voicePref(), tc, (v)=>{ if(!voiceOk(v)){ if(_ps) _ps.close(true); return gateSubscribe('voice'); } if(Store.setPrefVoice) Store.setPrefVoice(v); paint(); });
       } else if(kind==='bed'){
         openBedSheet(tc, ()=>paint());
       } else if(kind==='pieces'){
@@ -11872,21 +14379,36 @@ function app(tab){
       }
     }
     paint();
-    requestAnimationFrame(()=>wrap.classList.add('on'));
-    const close = ()=>{ wrap.classList.remove('on'); document.removeEventListener('keydown', onKey); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 320); };
-    const onKey = (e)=>{ if(e.key==='Escape' && !document.getElementById('p7-sheet')) close(); };
+    if(wrap) requestAnimationFrame(()=>wrap.classList.add('on'));
+    const panel = !wrap;
+    const gone = () => !document.contains(el);
+    // a tap outside the panel closes it; a practice row swaps it, the pickers sit above it
+    const onDoc = (e)=>{ if(gone()) return detach(); const t = e.target; if(!t || !t.closest || el.contains(t) || !document.contains(t)) return;
+      if(t.closest('[data-p8], .p7-sheet, #p8-cust, #p8-begin-now')) return; close(); };
+    const onKey = (e)=>{ if(gone()) return detach(); if(e.key==='Escape' && el.classList.contains('ps-picking')){ e.preventDefault(); const pb = el.querySelector('.ps-pback'); if(pb) pb.click(); return; } if(e.key==='Escape' && !document.getElementById('p7-sheet')){ e.preventDefault(); close(); } };
+    let docT = 0;
+    function detach(){ document.removeEventListener('keydown', onKey); clearTimeout(docT); document.removeEventListener('click', onDoc); if(_ps && _ps.el===el) _ps = null; }
+    function close(quiet){
+      detach();
+      if(panel){ const v = el.parentNode; _flip(_p8FlipEls(v), ()=>{ try{ el.remove(); }catch(e){} if(v) v.classList.remove('ps-split'); }); if(v) _psRows(v, null); }
+      else { wrap.classList.remove('on'); setTimeout(()=>{ try{ wrap.remove(); }catch(e){} }, 320); }
+      if(!quiet && back && document.contains(back)){ try{ back.focus({ preventScroll:true }); }catch(e){} }
+    }
     document.addEventListener('keydown', onKey);
-    wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
-    $('#p8-x').onclick = close;
-    $('#p8-begin').onclick = ()=>{ close(); _p8Launch(k); };
-    try{ $('#p8-x').focus({ preventScroll:true }); }catch(e){}
+    if(panel) docT = setTimeout(()=>document.addEventListener('click', onDoc), 0);
+    else wrap.addEventListener('click', e=>{ if(e.target===wrap) close(); });
+    q('#p8-x').onclick = ()=>close();
+    q('#p8-begin').onclick = ()=>{ close(true); _p8Launch(k); };
+    _ps = { k, el, back, close, detach };
+    try{ q('#p8-x').focus({ preventScroll:true }); }catch(e){}
   }
 
   // start the practice the sheet shaped (the one launch path for every hand-made practice)
   function _p8Launch(k){
+    const _from = _sheetFrom || (mkIsSession(k) ? 'guided' : 'own'); _sheetFrom = null;
     if(mkIsSession(k)){
       if(!paidNow()) return gateSubscribe('practice');
-      return practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k});
+      return practiceShell('player.html?embed=1&autostart=1&more=1&med='+encodeURIComponent(k),{practiceKey:'more',meditationId:k,launchedFrom:_from});
     }
     if(!practiceFree(k) && !paidNow()) return gateSubscribe('practice');
     mkNormalize();
@@ -11904,7 +14426,7 @@ function app(tab){
       if(pState.open) ps.open='1';
       if(pState.emotion) ps.emotion=_emoWord(pState.emotion);   // the emotion they chose, named back in the practice (2026-10-04)
     }
-    practiceShell('player.html?'+new URLSearchParams(ps).toString(),{practiceKey:k,sense:pState.sense,skill:(launchSkill||pState.skill),prefix:(k==='self-regulation'?L.prefix:null),depth:(k==='self-regulation'?L.depth:null),silence:sil,descDefense:deep,holdWatch:hold,holdWatchTargetSeconds:(hold?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
+    practiceShell('player.html?'+new URLSearchParams(ps).toString(),{launchedFrom:_from,practiceKey:k,sense:pState.sense,skill:(launchSkill||pState.skill),prefix:(k==='self-regulation'?L.prefix:null),depth:(k==='self-regulation'?L.depth:null),silence:sil,descDefense:deep,holdWatch:hold,holdWatchTargetSeconds:(hold?(pState.holdSeconds||60):null),openEnded:(k==='self-regulation'?!!pState.open:false),emotionIntent:(k==='self-regulation'?(pState.emotion||null):null)});
   }
 
   // Today's "a practice for now" row → one-tap autostart of the recommended practice,
@@ -12055,7 +14577,7 @@ function app(tab){
       intensityReadings:(Array.isArray(reco.intensityReadings) ? reco.intensityReadings : null),
       handedOffTo:(reco.handedOffTo||null), handedOffFrom:(reco.handedOffFrom||null),
       offers:(Array.isArray(reco.offers) ? reco.offers : null),
-      details:(reco.details && typeof reco.details==='object' ? reco.details : null),   // every detail (2026-09-25)
+      details:Object.assign({}, (reco.details && typeof reco.details==='object' ? reco.details : {}), { launched_from:(reco.launchedFrom || 'other') }),   // every detail (2026-09-25) + where it was started (2026-11-01)
       timeline:(Array.isArray(reco.timeline) ? reco.timeline : null) });
     setTimeout(()=>{ window._sessionLogged=false; }, 1000);
   }
@@ -12312,22 +14834,26 @@ function app(tab){
   function screenSettings(){
     clearFigures(); document.body.classList.remove('in-practice');
     currentTab='you';
-    root.innerHTML = `
+    setHTML(`
       <header class="appbar"></header>
       <div class="scroll" id="content"></div>
+      <div class="fl-dock fl-plain" id="fl-dock"><button class="tab-back-float" id="tab-back" type="button">${BACK_SVG}<span>Back</span></button></div>
       <nav class="tabbar" id="tabs">
         ${TABS()}
-      </nav>`;
+      </nav>`);
     $('#tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>app(b.dataset.t));
+    { const tb=$('#tab-back'); if(tb) tb.onclick=()=>app('you'); }
     const u=Store.user();
     const ts = (localStorage.getItem('snb_textscale')||'1');
     const rm = reduceMotionOn();   // effective, not just the stored value (D157/D270)
     const th = (localStorage.getItem('snb_theme')||'');
+    const rf = (localStorage.getItem('snb_readfont')||'');
     const hp = (localStorage.getItem('snb_haptics')!=='0');   // on by default
+    const sdn = (localStorage.getItem('snb_sounds')!=='0');    // soft sounds (sounds1) — on by default
     const offOn = (localStorage.getItem('snb_offline_all')==='1');   // offline download — off by default
     const gl = (localStorage.getItem('snb_share_glyph')||'1');       // state glyph on share cards — on by default
     const lv = (localStorage.getItem('snb_live_nudge')||'1');        // "we're live" invitations — on by default
-    const psc = (localStorage.getItem('snb_practice_scene')||'');    // practice scene — '' = surprise me (random per session)
+    const psc = _scPref();   // the one scene (grid7): '' = Random, 'ring' = Breath circle
     const pvc = voicePref();                                          // the voice (2026-09-29, VOICES) — Justin's by default
     const segBtn=(group,val,lbl,on)=>`<button type="button" data-${group}="${val}"${on?' class="on"':''}>${lbl}</button>`;
     // on/off pairs render as switches in list rows (HIG: segmented controls pick
@@ -12344,157 +14870,118 @@ function app(tab){
     const _svgLight=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path></svg>`;
     const _svgDark=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>`;
     const TS_SIZES=[['0.92','12px'],['1','15px'],['1.12','18px'],['1.25','21px'],['1.6','26px']];
+    // Settings on the Swiss grid (Justin, canon 2026-10-30; BRAND_DESIGN_SYSTEM §4 "Settings"): no cards, each section under a thin
+    // rule, its name on 1-3 (sticky) and its settings on 4-9 at 1120 and up. One control per job: a switch for on / off, outlined
+    // choices (ink border + check on the chosen one), a row with a chevron for anything that opens a list or a screen.
+    const stSec = (name, body) => `<section class="st-sec"><h2 class="st-name">${name}</h2><div class="st-body">${body}</div></section>`;
+    const stSw = (id, label, on, cap) => `<div class="st-row st-row-sw"><span class="st-lbl">${label}</span><button class="set-sw${on?' on':''}" id="${id}" type="button" role="switch" aria-checked="${on?'true':'false'}" aria-label="${label}"><span class="set-sw-knob"></span></button></div>${cap ? `<p class="st-help" id="${cap}"></p>` : ''}`;
+    const stGo = (id, label, val, cls) => `<button class="st-row st-go${cls ? ' ' + cls : ''}" id="${id}" type="button"><span class="st-lbl">${label}</span>${val ? `<span class="st-val">${val}</span>` : ''}${_ST_CHEV}</button>`;
+    const stCh = (attr, val, label, on, extra) => `<button type="button" class="st-ch${on ? ' on' : ''}" data-${attr}="${val}" aria-pressed="${on}"${extra || ''}>${label}</button>`;
+    const emoVal = paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : '';
     $('#content').innerHTML = `
-      <div class="view settings-view">
-        <div class="scr-head">
-          <p class="eyebrow"></p>
-          <h2 class="scr-h">Settings</h2>
-        </div>
-        <div class="gs">
-
-          <div class="gs-card">
-            <div class="gs-row"><span class="gs-k">Name</span><input class="name-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="add your name"></div>
-            ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="gs-row"><span class="gs-k">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div><p class="gs-note gs-photo-note">Shows next to your messages in live event chat.</p>` : ''}
-            <div class="gs-row"><span class="gs-k">Account</span><span class="gs-v">${escapeHtml(u.email||'on this device')}</span></div>
-          </div>
-
-          <div class="gs-card">
-            <button class="rs-disc-btn" id="ci-method-btn" type="button" aria-expanded="true"><span class="gs-h" style="margin:0">Your check-in</span><span class="rs-disc-val"><span id="ci-method-val">${METHOD_LABEL[method]||'sliders'}</span> ${_svgChev}</span></button>
-            <div class="rs-disc-body" id="ci-method-body"><div class="disc-inner">
-              <p class="gs-lbl2">How you enter your state</p>
-              <div class="set-seg" id="seg-method">
-                <button type="button" data-method="sliders"${method==='sliders'?' class="on"':''}>Questions</button>
-                <button type="button" data-method="numbers"${method==='numbers'?' class="on"':''}>Numbers</button>
-                <button type="button" data-method="states"${method==='states'?' class="on"':''}>State</button>
-              </div>
-              <p class="rs-cap" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
-              <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div>
-            </div></div>
-          </div>
-
-          <div class="gs-card">
-            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Your emotions</span>
-              <button class="linkbtn" id="set-emotions" type="button">${paidNow() ? (_emoList().length ? escapeHtml(_emoCounts(_emoList())) : 'Choose') : 'Self-Regulator'}</button></div>
-            <p class="gs-note" style="margin:6px 0 0">The emotions you work with in practice, easy to hard. The same list as on the Unstucking Pathway and in articles.</p>
-          </div>
-
-          <div class="gs-card">
-            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">Orientation</span>
-              <button class="linkbtn" id="set-walkthrough" type="button">Walk me through the app</button></div>
-          </div>
-
-          <div class="gs-card">
-            <div class="gs-sw" style="padding:4px 0"><span class="gs-lbl">What’s New</span>
-              <button class="linkbtn" id="set-updates" type="button">Past updates</button></div>
-          </div>
-
-          <div class="gs-card">
-            <p class="gs-h">Appearance</p>
-            <p class="gs-lbl2">Text size</p>
-            <div class="set-seg ts-seg" id="seg-text">
-              ${TS_SIZES.map(([v,fs])=>`<button type="button" data-ts="${v}"${ts===v?' class="on"':''}><span class="ts-a" style="font-size:${fs}">A</span></button>`).join('')}
-            </div>
-            <p class="gs-lbl2" style="margin-top:18px">Theme</p>
-            <div class="icon-seg" id="seg-theme">
-              <button type="button" data-th=""${th===''?' class="on"':''}>${_svgAuto}<span class="lb">Auto</span></button>
-              <button type="button" data-th="light"${th==='light'?' class="on"':''}>${_svgLight}<span class="lb">Light</span></button>
-              <button type="button" data-th="dark"${th==='dark'?' class="on"':''}>${_svgDark}<span class="lb">Dark</span></button>
-            </div>
-            <div class="gs-sw" style="border-top:1px solid var(--hairline);margin-top:16px"><span class="gs-lbl">Animations</span><button class="set-sw${!rm?' on':''}" id="sw-motion" type="button" role="switch" aria-checked="${!rm?'true':'false'}" aria-label="animations"><span class="set-sw-knob"></span></button></div>
-            <p class="ch-cap" id="motion-cap"></p>
-            <button class="rs-disc-btn" id="scene-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Practice scene</span><span class="rs-disc-val"><span id="scene-val">${psc===''?'Surprise me':psc.charAt(0).toUpperCase()+psc.slice(1)}</span> ${_svgChev}</span></button>
-            <div class="rs-scene-body" id="scene-body"><div class="disc-inner">
-              <button class="ch-opt ch-auto scene-opt${psc===''?' on':''}" type="button" data-scene="">Surprise me</button>
-              <div class="scene-grid" style="margin-top:8px">
-                ${['circles','drift','pond','reeds','breeze','sunbeam','fireflies'].map(s=>`<button class="ch-opt scene-opt${psc===s?' on':''}" type="button" data-scene="${s}">${s.charAt(0).toUpperCase()+s.slice(1)}</button>`).join('')}
-              </div>
-              <p class="rs-cap" id="scene-cap"></p>
-            </div></div>
-            <button class="rs-disc-btn" id="voice-btn" type="button" style="margin-top:10px" aria-expanded="false"><span class="gs-lbl">Voice</span><span class="rs-disc-val"><span id="voice-val">${escapeHtml(voiceName(pvc))}</span> ${_svgChev}</span></button>
-            <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
-              <div class="scene-grid">
-                ${VOICES.map(([k,l])=>`<button class="ch-opt voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}">${escapeHtml(l)}${voiceOk(k)?'':'<span class="lk" aria-hidden="true"></span>'}</button>`).join('')}
-              </div>
-            </div></div>
-          </div>
-
-          <div class="gs-card">
-            <p class="gs-h">App</p>
-            ${gsSw('sw-live','Live practice invitations',lv!=='0')}
-            <p class="ch-cap" id="live-cap"></p>
-            ${gsSw('sw-tips','Tips about settings',tipsOn())}
-            <p class="ch-cap" id="tips-cap"></p>
-            ${gsSw('sw-haptics','Haptics',hp)}
-            ${gsSw('sw-offline','Save practices for offline',offOn)}
-            <p class="gs-fine" id="offline-status"></p>
-            <p class="gs-fine">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
-            ${_hapIsIOS()?'<p class="gs-fine">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
-            ${isStandalone()?'':`<div class="set-row-inline" id="install-row" style="margin-top:12px">${installRowInner()}</div>`}
-            ${pushRowInner()?`<div class="set-row-inline" id="push-row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--hairline)">${pushRowInner()}</div>`:''}
-            <div class="gs-actions" style="margin-top:14px"><button class="set-quiet" id="live-code" type="button">Join a live practice with a code</button></div>
-          </div>
-
-          <div class="gs-card">
-            <p class="gs-h">Your data</p>
-            ${gsSw('sw-glyph','Your state glyph on shared images and in live chat',gl!=='0')}
-            <p class="ch-cap" id="glyph-cap"></p>
-            <div class="gs-actions" style="margin-top:14px">
-              <button class="set-quiet" id="export">Export your check-ins and journal</button>
-              <button class="set-quiet" id="privacy">How your data is handled</button>
-              <button class="set-quiet" id="signout">Sign out</button>
-            </div>
-          </div>
-
+      <div class="view settings-view st-view">
+        <button class="pg-back" id="pg-back" type="button">${BACK_SVG}<span>Back</span></button>
+        <div class="scr-head"><h1 class="scr-h lw-h1">Settings</h1></div>
+        ${stSec('You', `
+          <div class="st-row"><label class="st-lbl" for="nm-val">Name</label><input class="name-input st-input" id="nm-val" type="text" value="${escapeHtml(Store.getName())}" placeholder="Add your name"></div>
+          ${(Store.cloud && Store.cloud() && _lwUid()) ? `<div class="st-row"><span class="st-lbl">Photo</span><span class="gs-photo"><button class="gs-photo-btn" id="ph-btn" type="button" aria-label="${_lwAvatar() ? 'Change your photo' : 'Add a photo'}">${_lwAvatar() ? `<img src="${escapeHtml(_lwAvatar())}" alt="">` : '<span>Add a photo</span>'}</button>${_lwAvatar() ? '<button class="set-quiet gs-photo-x" id="ph-x" type="button">Remove</button>' : ''}<input id="ph-file" type="file" accept="image/*" hidden></span></div>` : ''}
+          <div class="st-row"><span class="st-lbl">Account</span><span class="st-val st-val-wrap">${escapeHtml(u.email||'on this device')}</span></div>
           ${(function(){ var b=(Store.billing&&Store.billing())||null;
             // Subscribed: manage/cancel. Not subscribed: a quiet way in — never a wall, and
             // never worded as though the free account is deficient. 🖊 copy draft.
             var inStore = !!(Store.inStoreApp && Store.inStoreApp());
             var ent = (Store.entitlement && Store.entitlement()) || {};
             if(ent.store==='apple')
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator, through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note">You’re on Self-Regulator, through the App Store. Change between monthly and annual, or cancel, anytime.</p>${inStore?'<button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button>':`<p class="gs-note" style="margin:0">You can change or cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>`}</div>`;
             if(b && b.sub_status==='active' && inStore)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">You’re on Self-Regulator. You subscribed on the website, so you can change or cancel it there.</p></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">You’re on Self-Regulator. You subscribed on the website, so you can change or cancel it there.</p></div>`;
             if(b && b.sub_status==='active')
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
             // free Self-Regulator until a date (GMS 2026-10-28, the early move from Circle): say when it ends and what
             // happens after, before the Academy line (an Academy member on dated free time loses the Academy access first)
             if(ent.legacy && ent.until)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Self-Regulator is included free on your account until ${escapeHtml(_planDay(ent.until))}. After that it’s $12 a month, or $108 a year, and everything you’ve done stays with you.</p></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">Self-Regulator is included free on your account until ${escapeHtml(_planDay(ent.until))}. After that it’s $12 a month, or $108 a year, and everything you’ve done stays with you.</p></div>`;
             // legacy / Academy accounts have the whole paid plan without a subscription —
             // never call that "the free plan", and never show them a subscribe button.
             if(ent.circle)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Your account includes everything in Self-Regulator. You joined the Unstucking Academy before Self-Regulator was a separate purchase, so it stays included at no charge.</p></div>`;
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">Your account includes everything in Self-Regulator. You joined the Unstucking Academy before Self-Regulator was a separate purchase, so it stays included at no charge.</p></div>`;
             if(ent.legacy)
-              return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
-            return `<div class="gs-card"><p class="gs-h">Your plan</p><p class="gs-note">You’re on Free. It has no time limit.</p><button class="set-quiet" id="go-sub">Get Self-Regulator &middot; monthly or annual</button></div>`; })()}
-
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">Everything is included on your account.</p></div>`;
+            return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note">You’re on Free. It has no time limit.</p><button class="set-quiet" id="go-sub">See paid plans</button></div>`; })()}
           ${(function(){ const s=_acadStage(); if(s < 2 || !paidNow()) return '';
             const on = _acadOn() > 0;
-            return `<div class="gs-card"><p class="gs-h">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}
-
-          ${(Store.inStoreApp && Store.inStoreApp()) ? `<div class="gs-card">
-            <p class="gs-h">Apple Health</p>
+            return `<div class="st-item"><p class="st-lbl">Academy progress</p><p class="gs-note">You completed ${escapeHtml(_acadDone(s))} in the Unstucking Academy. ${on ? 'The Unstucking Pathway shows it as Completed in the Academy.' : 'The Unstucking Pathway is starting fresh.'}</p><button class="set-quiet" id="acad-toggle" type="button">${on ? 'Start the Pathway fresh' : 'Bring my Academy progress back'}</button></div>`; })()}`)}
+        ${stSec('Check-in', `
+          <div class="st-item" id="ci-method-btn"><p class="st-lbl">How you enter your state</p>
+            <div class="st-choices" id="seg-method" role="group" aria-label="How you enter your state">${stCh('method','sliders','Questions',method==='sliders')}${stCh('method','numbers','Numbers',method==='numbers')}${stCh('method','states','State',method==='states')}</div>
+            <p class="st-help" id="ci-method-cap">${METHOD_CAP[method]||''}</p>
+            <div class="rs-preview" id="ci-method-preview">${_methodPreview(method)}</div></div>
+          ${paidNow() ? stGo('set-emotions', 'Your emotions', emoVal) : `<button class="st-row st-go" id="set-emotions" type="button"><span class="st-lbl">Your emotions</span><span class="st-val st-lock">${LOCK_SVG}See paid plans</span>${_ST_CHEV}</button>`}
+          <p class="st-help">The emotions you work with in practice, easy to hard. The same list as on the Unstucking Pathway and in articles.</p>`)}
+        ${stSec('Reading and display', `
+          <div class="st-item"><p class="st-lbl">Text size</p>
+            <div class="st-choices" id="seg-text" role="group" aria-label="Text size">${TS_SIZES.map(([v,fs])=>stCh('ts', v, `<span class="ts-a" style="font-size:${fs}">A</span>`, ts===v, ` aria-label="Text size ${TS_SIZES.findIndex(x=>x[0]===v)+1} of 5"`)).join('')}</div></div>
+          <div class="st-item"><p class="st-lbl">Theme</p>
+            <div class="st-choices" id="seg-theme" role="group" aria-label="Theme">${stCh('th','',_svgAuto+'<span>Auto</span>',th==='')}${stCh('th','light',_svgLight+'<span>Light</span>',th==='light')}${stCh('th','dark',_svgDark+'<span>Dark</span>',th==='dark')}</div></div>
+          <div class="st-item"><p class="st-lbl">Reading type</p>
+            <div class="st-choices st-rf" id="seg-read" role="group" aria-label="Reading type">${[['','Recommended','<span class="st-aa st-aa-sans">Aa</span><span class="st-aa st-aa-serif">Aa</span>'],['serif','Serif','<span class="st-aa st-aa-serif">Aa</span>'],['sans','Sans','<span class="st-aa st-aa-sans">Aa</span>']].map(([v,l,aa])=>stCh('rf', v, `<span class="st-aas" aria-hidden="true">${aa}</span><span>${l}</span>`, rf===v)).join('')}</div>
+            <p class="st-help">Recommended sets long reading (articles, lessons, your journal) in a book typeface and the rest of the app in Inter.</p></div>
+          ${stSw('sw-motion', 'Animations', !rm, 'motion-cap')}`)}
+        ${stSec('Scene', `
+          <div class="st-item"><div class="st-tiles" id="scene-tiles" role="group" aria-label="Scene">${[['','Random'],['reeds','Reeds'],['pond','Pond'],['circles','Circles'],['fireflies','Fireflies']].map(([k,l])=>`<button class="st-tile scene-opt${psc===k?' on':''}" type="button" data-scene="${k}" aria-pressed="${psc===k}"><span class="st-tile-pic${k?'':' st-tile-mix'}" data-still="${k}" aria-hidden="true">${k?'':'<span></span><span></span><span></span><span></span>'}</span><span class="st-tile-n">${_ST_TICK}<span>${l}</span>${_SC_DARK[k] ? '<span class="st-tile-note">Dark mode</span>' : ''}</span></button>`).join('')}</div>
+            <p class="st-help" id="scene-cap"></p></div>
+          ${stSw('sw-nqwx', 'Match the weather', _nqWxOn(), 'nqwx-cap')}`)}
+        ${stSec('Practice', `
+          ${stGo('voice-btn', 'Voice', `<span id="voice-val">${escapeHtml(voiceName(pvc))}</span>`, 'rs-disc-btn').replace('type="button">', 'type="button" aria-expanded="false" aria-controls="voice-body">')}
+          <div class="rs-scene-body" id="voice-body"><div class="disc-inner">
+            <div class="st-choices">${VOICES.map(([k,l])=>`<button class="st-ch voice-opt${pvc===k?' on':''}${voiceOk(k)?'':' vo-locked'}" type="button" data-voice="${k}" aria-pressed="${pvc===k}">${escapeHtml(l)}${voiceOk(k)?'':`<span class="st-lock">${LOCK_SVG}See paid plans</span>`}</button>`).join('')}</div>
+          </div></div>
+          ${stSw('sw-sounds', 'Sounds', sdn)}
+          ${stSw('sw-haptics', 'Haptics', hp)}
+          ${stSw('sw-offline', 'Save practices for offline', offOn)}
+          <p class="st-help" id="offline-status"></p>
+          <p class="st-help">Your check-ins already work offline. They save on this device and sync to your account whenever you reconnect.</p>
+          ${_hapIsIOS()?'<p class="st-help">On iPhone, the system limits haptics and may clear the offline copy after a while. Just turn things back on if that happens.</p>':''}
+          ${(Store.inStoreApp && Store.inStoreApp()) ? `<div class="st-item">
+            <p class="st-lbl">Apple Health</p>
             <p class="gs-note">${healthOn() ? 'The minutes you practice are added to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.' : 'Add the minutes you practice to Mindful Minutes in Apple Health. Only the minutes, never your check-ins.'}</p>
             <button class="set-quiet" id="health-toggle" type="button">${healthOn() ? 'Stop adding minutes' : 'Add my practice minutes'}</button>
-          </div>` : ''}
-
-          <div class="gs-card">
-            <p class="gs-h">Your history</p>
-            <div class="gs-actions">
-              <button class="set-quiet" id="set-change-ci" type="button">Change a recent check-in</button>
-              ${Store.sessions().length ? '<button class="set-quiet" id="set-manage-pr" type="button">Manage your practices</button>' : ''}
-              <button class="set-quiet set-quiet-danger" id="reset">Reset my data</button>
-              <button class="set-quiet set-quiet-danger" id="delacct">Delete my account</button>
-            </div>
-          </div>
-
-          <p class="set-version" id="set-version" style="text-align:left;margin-top:2px"></p>
-        </div>
+          </div>` : ''}`)}
+        ${stSec('Notifications and live', `
+          ${pushRowInner()?`<div class="st-rowwrap" id="push-row">${pushRowInner()}</div>`:''}
+          ${isStandalone()?'':`<div class="st-rowwrap st-install">${installState()==='button'?'':'<p class="st-lbl st-lbl-top">Install the app</p>'}<div id="install-row">${installRowInner()}</div></div>`}
+          ${stSw('sw-live', 'Live practice invitations', lv!=='0', 'live-cap')}
+          ${stSw('sw-tips', 'Tips about settings', tipsOn(), 'tips-cap')}`)}
+        ${stSec('Help', `
+          ${stGo('set-walkthrough', 'Walk me through the app', '')}
+          ${stGo('set-updates', 'What’s New', 'Past updates')}`)}
+        ${stSec('Your data', `
+          ${stSw('sw-glyph', 'Your state glyph on shared images and in live chat', gl!=='0', 'glyph-cap')}
+          ${stGo('set-change-ci', 'Change a recent check-in', '')}
+          ${Store.sessions().length ? stGo('set-manage-pr', 'Manage your practices', '') : ''}
+          ${stGo('export', 'Export your check-ins and journal', '')}
+          ${stGo('privacy', 'How your data is handled', '')}`)}
+        ${stSec('Leave or reset', `
+          ${stGo('signout', 'Sign out', '')}
+          ${stGo('reset', 'Reset my data', '', 'st-danger')}
+          ${stGo('delacct', 'Delete my account', '', 'st-danger')}`)}
+        <p class="set-version" id="set-version"></p>
       </div>`;
     const phBtn = $('#ph-btn'), phFile = $('#ph-file'), phX = $('#ph-x');
     if(phBtn && phFile){ phBtn.onclick = () => phFile.click(); phFile.onchange = () => { const f = phFile.files && phFile.files[0]; if(f) _setPhoto(f).then(screenSettings); }; }
     if(phX) phX.onclick = () => _setPhoto(null).then(screenSettings);
+    { const pb=$('#pg-back'); if(pb) pb.onclick=()=>app('you'); }
+    // the Now scene follows the day (Justin 2026-10-30): the device clock, on by default; the weather, off until asked for
+    { const dc=$('#nqday-cap'), wc=$('#nqwx-cap');
+      const dayCap = on=>{ if(dc) dc.textContent = on ? 'The scene brightens and dims slowly through the day, from your device’s clock.' : 'The scene keeps the same light all day.'; };
+      const wxCap = (on, msg)=>{ if(wc) wc.textContent = msg || (on ? 'Rain, cloud and sun come into the scene. Your rough location (about 10 km) stays on this device, only to look up the weather.' : 'Uses your rough location, only if you turn this on.'); };
+      dayCap(_nqDayOn()); wxCap(_nqWxOn());
+      const sd=$('#sw-nqday'); if(sd) sd.onclick=()=>{ const on=!sd.classList.contains('on'); sd.classList.toggle('on',on); sd.setAttribute('aria-checked',on?'true':'false'); try{ localStorage.setItem('snb_nq_day', on?'1':'0'); }catch(e){} dayCap(on); };
+      const sw=$('#sw-nqwx'); if(sw) sw.onclick=()=>{ const on=!sw.classList.contains('on');
+        if(!on){ sw.classList.remove('on'); sw.setAttribute('aria-checked','false'); _nqWxSet(false); wxCap(false); return; }
+        sw.classList.add('on'); sw.setAttribute('aria-checked','true'); wxCap(true, 'Asking your device for your rough location…');
+        _nqWxAsk().then(ok=>{ if(!sw.isConnected) return; if(ok){ wxCap(true); } else { sw.classList.remove('on'); sw.setAttribute('aria-checked','false'); wxCap(false, 'Your device did not share a location, so the weather stays off.'); } }); }; }
     const nmVal = $('#nm-val'); if(nmVal) nmVal.addEventListener('change', e=>{ Store.setName(e.target.value.trim()); try{ if(typeof pushAnyOn==='function' && pushAnyOn(pushPrefsRead())) pushPrefsSave({}); }catch(x){} });   // notifications greet by name
     const sem=$('#set-emotions'); if(sem) sem.onclick=()=>{ if(!paidNow()) return gateSubscribe('pathway'); screenEmotions(()=>screenSettings()); };
     const swt=$('#set-walkthrough'); if(swt) swt.onclick=()=>{ app('now'); setTimeout(()=>startOnboarding('settings'), 80); };
@@ -12516,7 +15003,7 @@ function app(tab){
       seg.querySelectorAll('[data-method]').forEach(b=>b.onclick=()=>{
         const m=b.dataset.method;
         localStorage.setItem('snb_checkin_method', m);
-        seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+        seg.querySelectorAll('button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed', String(x===b)); });
         if(val) val.textContent = METHOD_LABEL[m]||m;
         if(cap) cap.textContent = METHOD_CAP[m]||'';
         if(prev){ prev.innerHTML = _methodPreview(m); _bindPrev(); }
@@ -12532,7 +15019,7 @@ function app(tab){
     document.querySelectorAll('.voice-opt').forEach(b=>b.onclick=()=>{
       if(!voiceOk(b.dataset.voice)) return gateSubscribe('voice');   // 2026-09-30: the AI voices are on the paid plan
       if(Store.setPrefVoice) Store.setPrefVoice(b.dataset.voice);
-      document.querySelectorAll('.voice-opt').forEach(x=>x.classList.toggle('on', x===b));
+      document.querySelectorAll('.voice-opt').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-pressed', String(x===b)); });
       const vv=$('#voice-val'); if(vv) vv.textContent=voiceName(b.dataset.voice);
     });
     const gsb=$('#go-sub'); if(gsb) gsb.onclick=()=>screenSubscribe();
@@ -12549,27 +15036,38 @@ function app(tab){
         .catch(e=>{ mgs.disabled=false; mgs.textContent=t; showToast(String((e&&e.message)||e)); }); };
     const segText=$('#seg-text'); if(segText) segText.querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_textscale', b.dataset.ts); applyPrefs();
-      segText.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      segText.querySelectorAll('button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed', String(x===b)); });
+    });
+    const segRd=$('#seg-read'); if(segRd) segRd.querySelectorAll('[data-rf]').forEach(b=>b.onclick=()=>{
+      try{ if(b.dataset.rf) localStorage.setItem('snb_readfont', b.dataset.rf); else localStorage.removeItem('snb_readfont'); }catch(e){} applyPrefs();
+      segRd.querySelectorAll('button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed', String(x===b)); });
     });
     const segTh=$('#seg-theme'); if(segTh) segTh.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{
       localStorage.setItem('snb_theme', b.dataset.th); applyPrefs();
-      segTh.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      segTh.querySelectorAll('button').forEach(x=>{ x.classList.toggle('on',x===b); x.setAttribute('aria-pressed', String(x===b)); });
     });
     // practice scene: the caption mirrors the choice, same as the switches. 🖊
     const SCENE_CAP={ '':'A different scene each time. The app chooses.',
-      circles:'The slow circles, as now.',
+      circles:'Three rings that breathe at the pace of your state.',
       drift:'Soft specks drifting upward, each at its own pace.',
-      pond:'Still water, a ripple now and then.',
+      pond:'A lily pad on still water, a ripple now and then.',
       reeds:'Reeds swaying in an uneven breeze.',
       breeze:'Strands carried sideways on a light wind, each at its own speed.',
       sunbeam:'A still beam of light, dust hanging in it. Appears in dark mode.',
-      fireflies:'Small lights arriving and leaving on their own time. Appears in dark mode.' };
+      fireflies:'Small lights arriving and leaving on their own time. Dark mode only: in light mode you’ll see the reeds.' };
     const scCap=$('#scene-cap'); const scVal=$('#scene-val');
     const _scSet=v=>{ if(scCap) scCap.textContent = SCENE_CAP[v]||''; if(scVal) scVal.textContent = v===''?'Surprise me':v.charAt(0).toUpperCase()+v.slice(1); };
     _scSet(psc);
+    document.querySelectorAll('.nowsc-opt').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('snb_now_scene', b.dataset.nowsc); }catch(e){}
+      document.querySelectorAll('.nowsc-opt').forEach(x=>{ const on = x===b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); });
+    // stills: each scene drawn by the engine, still (reduced motion), at midday; Random = the four in quarters
+    if(window.SNBScene) document.querySelectorAll('[data-still]').forEach(c=>{ try{ const o = { tod:'midday', dark:_scDark(), reduce:true };
+      const k1 = c.dataset.still, sc1 = k => Object.assign({}, o, { scene:k, dark: _SC_DARK[k] ? true : o.dark });
+      if(k1) SNBScene.mount(c, sc1(k1));
+      else [...c.children].forEach((q, i)=>SNBScene.mount(q, sc1(['reeds','pond','circles','fireflies'][i]))); }catch(e){} });
     document.querySelectorAll('.scene-opt').forEach(b=>b.onclick=()=>{
-      localStorage.setItem('snb_practice_scene', b.dataset.scene);
-      document.querySelectorAll('.scene-opt').forEach(x=>x.classList.toggle('on', x===b));
+      localStorage.setItem('snb_practice_scene', b.dataset.scene); _nqRand = null;
+      document.querySelectorAll('.scene-opt').forEach(x=>{ x.classList.toggle('on', x===b); x.setAttribute('aria-pressed', String(x===b)); });
       _scSet(b.dataset.scene);
     });
     const bindSw=(id,fn)=>{ const b=$('#'+id); if(b) b.onclick=()=>{
@@ -12585,7 +15083,8 @@ function app(tab){
     _motionCap(!rm);
     bindSw('sw-motion', on=>{ localStorage.setItem('snb_reduce_motion', on?'0':'1'); applyPrefs(); _motionCap(on); });
     // no caption on haptics (Justin 2026-09-09: the switch says it); the buzz on switch-on stays
-    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); if(on) haptic('save'); });
+    bindSw('sw-haptics', on=>{ localStorage.setItem('snb_haptics', on?'1':'0'); });
+    bindSw('sw-sounds', on=>{ localStorage.setItem('snb_sounds', on?'1':'0'); });
     // the restored share signature (original copy, 2026-07-05, sentence-cased).
     const _glyphCap = on=>{ const el=$('#glyph-cap'); if(el) el.textContent = on
       ? 'Your share cards and your live event chat messages carry a small signature: the state your body keeps coming back to, from your last three months of check-ins.'
@@ -12605,7 +15104,6 @@ function app(tab){
       : 'The app never offers these.'; };
     _tipsCap(tipsOn());
     bindSw('sw-tips',   on=>{ try{ localStorage.setItem(TIPS_ON_KEY, on?'1':'0'); }catch(e){} _tipsCap(on); });
-    { const _lc=$('#live-code'); if(_lc) _lc.onclick=()=>screenLiveCode(); }
     const irow = $('#install-row'); if(irow){ const ig = irow.querySelector('.in-go'); if(ig) ig.onclick = promptInstall; }
     pushBindRow();
     // offline: bulk download / clear, with an honest iOS-eviction check on render
@@ -12628,7 +15126,7 @@ function app(tab){
       const want = !segOff.classList.contains('on');
       segOff.classList.toggle('on', want); segOff.setAttribute('aria-checked', want?'true':'false');
       if(want){
-        offBusy = true; haptic('save'); setOff('preparing…');
+        offBusy = true; setOff('preparing…');
         const urls = await offlineManifest();
         if(!urls.length){ setOff("couldn't read the practice list. try again."); offBusy=false; return; }
         try{
@@ -12646,7 +15144,12 @@ function app(tab){
     };
     const privBtn = $('#privacy'); if(privBtn) privBtn.onclick = ()=>screenPolicy('privacy','settings');
     // version line: read the ?v= off the live script tag so it never drifts from a deploy
-    try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version'); if(ve) ve.textContent='Stuck Not Broken · app v'+(vm?vm[1]:'dev'); }catch(e){}
+    // which copy this is, at a glance (ver1, Justin 2026-11-02: "prod, beta, and testflight are confusing"): "Version 560" on the
+    // live app, "Beta · version 560" everywhere else (config.js: only app.stucknotbroken.com is live), plus "iPhone app" inside the store app
+    try{ const vs=document.querySelector('script[src^="app.js"]'); const vm=vs&&vs.src.match(/v=(\d+)/); const ve=$('#set-version');
+      const live = window.SNB_ENV === 'prod';
+      const ios = (()=>{ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(e){ return false; } })();
+      if(ve) ve.textContent = (live ? 'Version ' : 'Beta · version ') + (vm ? vm[1] : 'dev') + (ios ? ' · iPhone app' : ''); }catch(e){}
     // the member's own data, one file (Justin, 2026-10-15: "agreed to add journal answers"): every check-in, and every journal
     // answer with the article or reflection it was written under, the question, and the day
     $('#export').onclick = ()=>{
@@ -12668,18 +15171,17 @@ function app(tab){
   }
 
   function screenDeleteAccount(err, busy){
-    setHTML(`
-      <div class="view gate"><div class="gate-body">
-        <p class="eyebrow">Delete my account</p>
-        <h1 style="margin:12px 0 12px">Before you go, here's exactly what happens.</h1>
-        <p class="lede" style="margin-bottom:14px">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
-        <p class="lede" style="margin-bottom:14px">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
-        ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede" style="margin-bottom:14px"><strong>Your Self-Regulator plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
-        <p class="lede" style="margin-bottom:24px">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
-        ${err?`<p class="autherr">${escapeHtml(err)}</p>`:''}
-        <button class="btn block" id="del-keep" style="margin-top:8px"${busy?' disabled':''}>Keep my account</button>
-        <p class="fineprint" style="margin-top:12px;text-align:center"><button class="linkbtn" id="del-go" style="font-size:inherit;padding:2px"${busy?' disabled':''}>${busy?'Deleting…':'Delete my account and all of my data'}</button></p>
-      </div></div>`);
+    // staying is the easy choice: "Keep my account" is the filled button, delete is a plain link
+    setHTML(_siFrame(`
+          <p class="eyebrow">Delete my account</p>
+          <h1 class="si-h1">Before you go, here's exactly what happens.</h1>
+          <p class="lede si-p">Deleting your account erases everything that identifies you, immediately and for good: your account, your email, your check-ins, your written notes, your practice history, and your reflections. There is no undo.</p>
+          <p class="lede si-p">What stays: an anonymous copy of check-ins and practice data. No name, no email, no notes. Once your account is gone, it can never be connected to you, even by us. It helps us learn whether this app helps people.</p>
+          ${(Store.entitlement && (Store.entitlement()||{}).store==='apple') ? `<p class="lede si-p"><strong>Your Self-Regulator plan is billed by Apple.</strong> Deleting your account does not cancel it. To stop the charges, cancel it in your iPhone's Settings, under your name, then Subscriptions.</p>` : ''}
+          <p class="lede si-p">Your reasons are your own, and no explanation is needed. If it ever feels right to come back, you're welcome any time. A fresh start takes about a minute.</p>
+          ${err?`<p class="autherr si-err">${escapeHtml(err)}</p>`:''}
+          <div class="si-acts"><button class="btn" id="del-keep"${busy?' disabled':''}>Keep my account</button>
+          <button class="fr-link" id="del-go" type="button"${busy?' disabled':''}>${busy?'Deleting…':'Delete my account and all of my data'}</button></div>`)); _siWire();
     $('#del-keep').onclick = ()=>{ if(!busy) screenSettings(); };
     if(busy) return;
     $('#del-go').onclick = ()=>{
@@ -12692,13 +15194,11 @@ function app(tab){
   }
 
   function screenDeleted(){
-    setHTML(`
-      <div class="view gate"><div class="gate-body" style="text-align:center">
-        <p class="eyebrow">Done</p>
-        <h1 style="margin:12px 0 12px">Your account is gone.</h1>
-        <p class="lede" style="margin-bottom:24px">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
-        <button class="btn block" id="del-done">Okay</button>
-      </div></div>`);
+    setHTML(_siFrame(`
+          <p class="eyebrow">Done</p>
+          <h1 class="si-h1">Your account is gone.</h1>
+          <p class="lede si-p">Everything that identifies you was erased. Thank you for spending some time here. If you ever want to return, the door is open.</p>
+          <div class="si-acts"><button class="fr-pill" id="del-done" type="button">Okay</button></div>`)); _siWire();
     $('#del-done').onclick = ()=>{ authMode='in'; lastEmail=''; currentTab='now'; route(); };
   }
 
@@ -12755,6 +15255,8 @@ function app(tab){
       // three-state: '1' = user asked for reduced, '0' = user explicitly asked for
       // animations (an override that beats the OS), unset = follow the OS.
       document.body.classList.toggle('reduce-motion', reduceMotionOn());
+      // the reader's type (Justin 2026-10-30): '' = Recommended (Inter for the app, Literata for long reading), 'serif', 'sans'
+      const rfp = localStorage.getItem('snb_readfont') || ''; if(rfp) document.documentElement.dataset.readfont = rfp; else delete document.documentElement.dataset.readfont;
       const theme = localStorage.getItem('snb_theme') || '';            // '', 'light', 'dark' ('' follows the system)
       const de = document.documentElement;
       de.classList.toggle('theme-dark', theme==='dark');
