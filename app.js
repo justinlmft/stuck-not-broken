@@ -1097,14 +1097,9 @@
   // breathing with it, 4s in / 6s out, "The breath needs no account." under it). Columns 8-12: the words, centred top to
   // bottom. Phone: a short breath band on top, the words below. Reduced motion: nothing scales.
   function _siFrame(inner){
-    return `<div class="view si-view">
-        <section class="si-breath" aria-label="One breath">
-          <span class="si-mark" role="img" aria-label="Stuck Not Broken">${triGlyph('neutral')}</span>
-          <span class="si-ring si-ring-a" aria-hidden="true"></span><span class="si-ring si-ring-b" aria-hidden="true"></span>
-          <button class="gate-breath si-bbtn" id="gate-breath" type="button" aria-label="Take one breath first"><span class="gb-ring" id="gb-ring" aria-hidden="true"></span><span class="gb-txt" id="gb-txt" aria-live="polite">Take one breath first.</span></button>
-          <p class="si-note">The breath needs no account.</p>
-        </section>
-        <div class="si-side"><div class="si-body">${inner}</div></div>
+    // si2 (Justin 2026-11-02): the breath ring is gone ("it's clutter"); the mark, then the words, on the grid
+    return `<div class="view si-view si-nobreath">
+        <div class="si-side"><span class="si-mark" role="img" aria-label="Stuck Not Broken">${triGlyph('neutral')}</span><div class="si-body">${inner}</div></div>
       </div>`;
   }
   const _SI_TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
@@ -1127,8 +1122,8 @@
     const mode = (k, l) => `<button class="si-mode${(k==='up')===up?' on':''}" type="button" id="mode-${k}" aria-pressed="${(k==='up')===up}"${busy?' disabled':''}>${(k==='up')===up?_SI_TICK:''}${l}</button>`;
     setHTML(_siFrame(`
           <p class="eyebrow">Stuck Not Broken</p>${_liveJoin()?'<div class="live-gate-note si-box">You\u2019re joining a live practice. Sign in to check in.</div>':''}
-          <h1 class="si-h1">Your nervous system, over time.</h1>
-          <p class="lede si-lede">Check in about your nervous system, get practices based on what helps you, and watch your patterns become visible over time.</p>
+          <h1 class="si-h1">Build emotional regulation through guided practices.</h1>
+          <p class="lede si-lede">Short practices built just for you based on your check-ins and what your system can handle. Watch your capacity grow over time.</p>
           <div class="si-modes" role="group" aria-label="Sign in or create an account">${mode('in','Sign in')}${mode('up','Create account')}</div>
           ${up&&Store.cloud()?'<p class="si-box">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>':''}
           <div class="si-field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}"><p class="fineprint" id="em-hint" style="display:none;margin:2px 0 0" aria-live="polite"></p>${errHTML}</div>

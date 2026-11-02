@@ -6830,6 +6830,9 @@ button.fr-sm:hover{border-color:var(--ink-80)}
 }
 @media (prefers-reduced-motion:reduce){ .si-ring,.si-bbtn .gb-ring{animation:none} }
 body.reduce-motion .si-ring,body.reduce-motion .si-bbtn .gb-ring{animation:none}
+/* si2 (2026-11-02): no breath half; the mark sits above the words, the words on columns 4-9 from 1024 up */
+.si-nobreath .si-mark{position:static;display:inline-flex;margin:20px 0 24px;align-self:flex-start}
+@media (min-width:1024px){ .si-nobreath .si-side{grid-column:4 / 10} .si-nobreath .si-mark{margin-top:40px} }
 
 /* ============================================================
    THE CALENDAR IN HOUSE CARDS (Justin, canon 2026-10-31; BRAND_DESIGN_SYSTEM §4 "Dated lists and events")
