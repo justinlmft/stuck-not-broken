@@ -1745,7 +1745,7 @@
   function guestAccountForm(mode, err, busy){
     const paid = mode==='paid';
     setHTML(_siFrame(`
-          <p class="eyebrow">${paid ? (_planChoice==='annual' ? 'Subscribe · $108/yr' : 'Subscribe · $12/mo') : 'Keep going for free'}</p>
+          <p class="eyebrow">${paid ? (_planChoice==='annual' ? 'Subscribe · '+((_storePx && _storePx.annual) || '$108')+'/yr' : 'Subscribe · '+((_storePx && _storePx.monthly) || '$12')+'/mo') : 'Keep going for free'}</p>
           <h1 class="si-h1">Create your account.</h1>
           <p class="si-box">Your app account is separate from your stucknotbroken.com login. Use the same email you use there.</p>
           <div class="si-field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" value="${escapeHtml(lastEmail)}">${err?`<p class="autherr si-err">${escapeHtml(err)}</p>`:''}</div>
