@@ -6644,7 +6644,23 @@ function app(tab){
     '5bf2443c-92c6-41a5-a6ea-cf7fcf435ebe', '511499c3-aefb-42d5-ae6e-b5f4e47f15b8', '2e92b10a-cc3f-4077-ae35-46e3a1f2b04d', 'e1168be8-e9d5-434c-bf98-3ed2eb2feb04',
     '0a479e26-46ac-4b9a-adbb-9d65a4c0ee3e', 'ec0b597d-7570-4b9f-957e-1f27df91c4a3', '1ca7e080-882b-4eaf-b534-585254b6e49f', '4525b924-0b4d-4e54-b1be-294e7da81369',
     'cdbfabc2-7678-4946-8e68-ced545bb92c6', '71587a62-bd66-4111-9d25-a9819220071c', '045af81a-c657-42c6-8b04-bf87a3ed56fb', '0b7b426a-aac0-42c7-83e5-a9cc068f4351',
-    '7f04a5c5-0ec3-4d6e-8f07-0b85028eb87a', 'f91fc1fe-9705-4248-8e29-f7eeba264f9a', '775e97c0-6fe8-452a-9888-d17fa7c5d730']);
+    '7f04a5c5-0ec3-4d6e-8f07-0b85028eb87a', 'f91fc1fe-9705-4248-8e29-f7eeba264f9a', '775e97c0-6fe8-452a-9888-d17fa7c5d730',
+    // img-mj-20261101-1658
+    '811e9e5e-e6e7-414c-ab91-7b97f216afc9', 'b599ae77-87a2-4b56-b0f7-a2e165c2b6f5', '3faddc45-5a87-47d4-b44c-665d7a40e32f', '921aadb1-9f02-49a4-ba79-29b8abd658af',
+    '79bc0afb-c8be-4d1c-b38c-cc304f8359c1', '386f1f80-3c27-4c00-895e-36bb189eae1f', '86f0457b-4f37-4c8d-8277-c91891c373c1', '6d6eb63b-3451-40fc-b8dc-eaf7f2a646ec',
+    '3c83dd01-688b-4c34-ac1f-2e9cdc908649', 'eaf15ed1-4269-4261-b795-e3ccacd91e69', '39dcc981-b6f6-470b-aa41-fe2726868147', '6ffbdbf4-7980-4c69-a805-3455c6191523',
+    'd35bba6c-6109-47f6-adc6-f2bdde3e6a7b', 'b415ab79-0899-43cd-8e8f-e0b951094bbf', '3bbc3b4e-8364-4c5f-b746-c5aab24c9955', 'cca4c62d-8623-4675-99a4-6b343159e505',
+    '5604e123-0e60-4ca1-a455-0b65708c67fd', 'b64356e1-4d0d-4ece-8269-2daf33968747', '073bd7ad-2e1b-4cfd-b899-89164071cef8', 'ae90a952-836b-486c-872f-5d4c6cc886d3',
+    'dd3ea631-f0ae-4854-a7aa-ffbef9e101fb', '0afc0ea0-e11e-4da5-834d-21f31b98d4e4', 'ebe5bd4a-9e65-42c4-9ad8-dbfd011bb770', '493da16f-2662-4f7c-af2d-2d9e413e8cbc',
+    'ba62b68a-d45e-4603-9427-0f99a6a10926', 'c7fdc7cd-d129-4ce9-8ec2-404eb509ca49', '65d2dbb2-710d-4684-8db3-e3f3e6ccb415', '24f0446b-de9a-4726-b392-e8a7246bb711',
+    'dbfbcd07-5abf-4a8f-8bec-01f017c109f4', '3fba42ed-f411-4853-a8ad-561618b9d0e0', 'f63b1e0c-349d-460f-a964-2ba64c0a0df1', '4d39f943-3b5f-4fb2-bc1e-5ce56934e208',
+    '8b312ad6-aa6a-4cc7-9fe3-518d194c14b3', '7590babc-5c78-44b2-a055-fd309a70a975', 'c7e8e3fa-a89d-43db-ad8c-9ba965facbe2', '80840f1f-3c7b-43f4-b67c-05084bdfa59f',
+    '1ae41d5c-2f2e-44c6-a0bb-def630f4b646', 'b68aae6d-0d28-41ad-84c0-e6e349ce7286', '94decb02-d1cd-4d7b-a8aa-e1f93f57d98e', '6efc6cd5-67ba-49d2-9f99-0117794af83f',
+    'c21c5858-1bd1-4cd5-8d00-0f1b2e781b93', '4609eb66-03da-4864-b182-00dcc47ba7f2', 'bd42961c-21c2-413c-a546-93ff35494609', 'fb318e3e-57c6-433b-9896-828dcd4337a5',
+    '856ddb36-5f91-4b27-98b8-79fa51e8ef76', '89b6e3bb-2966-4bab-9841-9d1c40a346a4', '94b6ef17-5871-45fe-8654-f31bfa8fd161', 'af8b60f4-dfa8-474c-a250-f7b1fa4ac935',
+    'de9688b3-cf12-4e6d-b9df-7ffae6edf11f', '9f48a202-2bf3-4398-a281-68d1a5a962c3', '43d06b61-2e5a-45a7-b593-8cacb0ff000d', '5a907239-521b-46bb-9fd4-bb3103a337c0',
+    '78b8dd98-583d-4a63-81f1-f5be43883adf', '3bd45e02-81e7-47be-aece-3d379c7030a3', 'af410a03-f97a-4e0c-9f78-eb089af6f0ae', '48fcfcc3-4693-47c0-8166-455d4ea2c460',
+    '138d422d-3c98-479f-bbb5-13369d743987', '7f541bfb-b80e-4291-9b89-1811fc4fd01a', 'f955cfa8-7001-4a7d-947d-e01ed1853ccb', '4f030f27-b00f-4203-bd65-4226ae9c0ab7']);
   function _lbMeta(e, isArt){
     const k = isArt ? 'read' : (_lmIsListen(e) ? 'listen' : 'watch');
     const word = isArt ? (e.paid ? 'Book chapter' : 'Article') : _lmKind(e);
