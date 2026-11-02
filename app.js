@@ -3,6 +3,13 @@
    Screens: auth -> paywall -> [today | current | practice | you] + check-in.
    ========================================================================== */
 (function () {
+  // imgsteady (2026-11-02): a photo that has loaded once comes back with the redraw in the same frame (no flicker)
+  (function(){
+    const seen = new Set();
+    document.addEventListener('load', e => { const t = e.target; if(t && t.tagName === 'IMG'){ const s = t.getAttribute('src'); if(s) seen.add(s); } }, true);
+    const fix = img => { const s = img.getAttribute('src'); if(s && seen.has(s)){ if(img.loading !== 'eager') img.loading = 'eager'; img.decoding = 'sync'; } };
+    try{ new MutationObserver(ms => { for(const m of ms) for(const n of m.addedNodes){ if(n.nodeType !== 1) continue; if(n.tagName === 'IMG') fix(n); else if(n.getElementsByTagName){ const L = n.getElementsByTagName('img'); for(let i = 0; i < L.length; i++) fix(L[i]); } } }).observe(document.documentElement, { childList:true, subtree:true }); }catch(e){}
+  })();
   const $ = (s, r) => (r || document).querySelector(s);
   const root = $('#screen');
   let _toastT=null;
