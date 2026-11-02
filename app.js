@@ -2552,22 +2552,27 @@
            + '<div class="ob-chips" data-group="anchor">'+[['auto','Let the app find my best one']].concat(UP_ANCHORS.map(k=>[k,CAP(k)])).map(o=>obChip('anchor',o[0],escapeHtml(o[1]), paid?'':' aria-disabled="true"')).join('')+'</div>'
            + (paid ? '' : lockLine('Choosing your safety anchor is part of Self-Regulator.')) },
 
-      { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'Reflect',
-        h:'Reflect',
-        body: obP('Reflections on your check-ins and practices. Aside from daily, you’ll find weekly, monthly, seasonal, and annual Reflections.') },
+      // the Calendar, then Learn, then Reflect and the Journal under You: the tab order (wt2, Justin approved 2026-11-02)
+      { id:'calendar', tab:'community', kind:'spot', target:['.lw-hc','#lw-body'], pad:6, eb:lwTabName(),
+        h:'Live events',
+        body: obP('Practice live with Justin and others. Mindful Moment is free every Wednesday. RSVP to get a reminder.') },
 
       { id:'learn', tab:'learn', kind:'spot', target:['.rd-learn-top','.rd-learnhubs > *:first-child'], pad:6, eb:'Learn',
         h:'Learn',
-        body: obP('Hundreds of articles and book chapters about your nervous system and how to work with it.') },
+        body: obP('Hundreds of articles, podcast episodes and videos about your nervous system and how to work with it, with your check-ins woven in.') },
 
-      { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'Reflect',
+      { id:'reflect', tab:'reflect', kind:'spot', target:['.rd-today'], pad:6, eb:'You',
+        h:'Reflect',
+        body: obP('Reflections on your check-ins and practices. Aside from daily, you’ll find weekly, monthly, seasonal, and annual Reflections. Find them on the You tab.') },
+
+      { id:'journal', tab:'reflect', kind:'spot', target:['#rd-journal'], pad:6, eb:'You',
         h:'Your Journal',
-        body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal.')
+        body: obP('Journal prompts come from your Reflections and the articles you read. Your answers are kept here, in Your Journal. Find it on the You tab.')
            + (paid ? '' : lockLine('Your Journal is part of Self-Regulator.')) },
 
       { id:'you', tab:'you', kind:'spot', target:['#carousel','.map-rows','.you-view .card','#set-btn'], pad:6, eb:'You',
         h:'You',
-        body: obP('Your patterns over time: when you feel the most safety, which practices help, and your ideal practice. Settings is the gear at the top.') },
+        body: obP('Your patterns over time: when you feel the most safety, which practices help, and your ideal practice. Settings is the gear at the top. That’s also where you turn sounds and haptics on or off.') },
 
       // Justin's words (2026-10-03), on the Settings screen
       { id:'notif', screen:'settings', kind:'spot', target:['#push-row'], pad:6, eb:'Settings',
