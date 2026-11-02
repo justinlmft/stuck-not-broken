@@ -3086,10 +3086,19 @@ const WN_ICONS = {
   chart:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 15v-3"/><path d="M12 15V9"/><path d="M16 15v-5"/>',
   lines:'<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h6"/>',
   phone:'<rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/>',
-  cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>'
+  cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>',
+  image:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-9 9"/>',
+  hand:'<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11.5V4a1.5 1.5 0 0 1 3 0v7.5"/><path d="M14 11V5.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-.5a6 6 0 0 1-4.6-2.2L3.6 15a1.5 1.5 0 0 1 2.3-1.9L8 15"/>'
 };
 function wnIcon(k, cls){ return '<svg class="' + (cls||'wns-ic') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (WN_ICONS[k]||'') + '</svg>'; }
 const WN_UPDATES = [
+  { id:'2026-11-new-feel', when:'November 2026', title:'A new feel', cta:{ label:'See the Calendar', go:'calendar' }, items:[
+    /* Justin's copy, 2026-11-02. Ships to prod with the App Store release (the redesign, photos, sounds and haptics). */
+    { i:'cal',   t:'Live event every Wednesday', b:'Join me and others in a Mindful Moment every week for free!' },
+    { i:'lines', t:'A new look', b:'Cleaner layouts everywhere.' },
+    { i:'image', t:'Images', b:'Pretty much everywhere.' },
+    { i:'music', t:'Sounds', b:'Turn them on in the settings.' },
+    { i:'hand',  t:'Haptics', b:'Turn them on in settings.' } ] },
   { id:'2026-11-self-regulator', when:'November 2026', title:'Another Major Update', sub:'(still only $12/mo)',
     cta:{ label:'See the Calendar', go:'calendar' }, items:[
     /* Justin's copy, 2026-10-28 ("checkins" → "check-ins", "compliment" → "complement"). Ships to prod with the Self-Regulator launch. */
