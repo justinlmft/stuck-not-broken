@@ -155,6 +155,9 @@
       if(navigator.vibrate) navigator.vibrate(kind === 'complete' ? [16,80,16] : 12);   // Android / Chrome
     }catch(e){}
   }
+  // the tab bar gets the soft knock too (sounds2, Justin 2026-11-02: "Tabs and un-RSVP"). One listener for every screen's
+  // tab bar, since each screen wires its own buttons.
+  document.addEventListener('click', e => { try{ if(e.target && e.target.closest && e.target.closest('#tabs button[data-t]')) haptic('tap'); }catch(err){} }, true);
   const MARK = './assets/logo/snb-mark-ink.svg';
 
   /* ── the margin read, applied to stored check-ins ──────────────────────────
@@ -3758,7 +3761,7 @@ function app(tab){
   async function _lwRsvpToggle(s){
     if(!s) return; const uid = _lwUid(); if(!uid) return _lwNeedAccount();
     const was = _lw.rem[s.id];
-    if(was){ delete _lw.rem[s.id]; _lwBody(); const r = await window.sb.from('live_reminders').delete().eq('user_id', uid).eq('session_id', s.id); if(r && r.error){ _lw.rem[s.id] = was; showToast('That did not save. Try again in a moment.'); } }
+    if(was){ delete _lw.rem[s.id]; haptic('tap'); _lwBody(); const r = await window.sb.from('live_reminders').delete().eq('user_id', uid).eq('session_id', s.id); if(r && r.error){ _lw.rem[s.id] = was; showToast('That did not save. Try again in a moment.'); } }
     else { _lw.rem[s.id] = []; haptic('save'); _lwBody(); let tz = null; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone || null; }catch(e){}
       const r = await window.sb.from('live_reminders').upsert({ user_id:uid, session_id:s.id, channels:[], sent_at:null, tz }, { onConflict:'user_id,session_id' });
       if(r && r.error){ delete _lw.rem[s.id]; showToast('That did not save. Try again in a moment.'); } }
