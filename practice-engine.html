@@ -373,7 +373,8 @@ body.playing .brand{display:none}
 .skipslot .choicebtn{width:100%}
 #player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before,#player.voicing .pfoot::before{opacity:1}
 /* sheet1 (Justin 2026-11-02: "the pop up menu on the audio player should instead be a slide-up ... make this menu mirror the rest
-   of the app, including the customize sub menu"): the menu, Customize and its lists sit on the app's slide-up sheet (app.css
+   of the app, including the customize sub menu"; then "the pop-up dynamic questions should slide up also"): the menu, the questions
+   (0 to 10 lines, breath scales, choices), Customize and its lists sit on the app's slide-up sheet (app.css
    .p7-sheet / .p8-card): bone card, 20px top corners, the grab bar, a soft shadow, the scene dimmed behind it, and it slides up
    from the bottom instead of fading in. The folds inside still open and close as before. */
 .pfoot::before{top:14px;bottom:0;background:var(--bone);border-radius:20px 20px 0 0;opacity:1;
@@ -382,10 +383,10 @@ body.playing .brand{display:none}
   transition:transform .32s var(--ease),box-shadow .28s var(--ease)}
 .pfoot::after{content:'';position:absolute;top:24px;left:50%;width:36px;height:4px;margin-left:-18px;border-radius:2px;background:var(--hairline);
   opacity:0;transform:translateY(24px);transition:opacity .25s var(--ease),transform .32s var(--ease);pointer-events:none}
-#player.show-controls .pfoot::before,#player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before,#player.voicing .pfoot::before{
+#player.show-controls .pfoot::before,#player.choosing .pfoot::before,#player.picking .pfoot::before,#player.customizing .pfoot::before,#player.scening .pfoot::before,#player.voicing .pfoot::before{
   opacity:1;transform:none;box-shadow:0 100px 0 var(--bone),0 -10px 40px rgba(26,31,42,.18),0 0 0 100vmax rgba(40,38,32,.34)}
-#player.show-controls .pfoot::after,#player.picking .pfoot::after,#player.customizing .pfoot::after,#player.scening .pfoot::after,#player.voicing .pfoot::after{opacity:1;transform:none}
-:root.theme-dark #player.show-controls .pfoot::before,:root.theme-dark #player.picking .pfoot::before,:root.theme-dark #player.customizing .pfoot::before,:root.theme-dark #player.scening .pfoot::before,:root.theme-dark #player.voicing .pfoot::before{
+#player.show-controls .pfoot::after,#player.choosing .pfoot::after,#player.picking .pfoot::after,#player.customizing .pfoot::after,#player.scening .pfoot::after,#player.voicing .pfoot::after{opacity:1;transform:none}
+:root.theme-dark #player.show-controls .pfoot::before,:root.theme-dark #player.choosing .pfoot::before,:root.theme-dark #player.picking .pfoot::before,:root.theme-dark #player.customizing .pfoot::before,:root.theme-dark #player.scening .pfoot::before,:root.theme-dark #player.voicing .pfoot::before{
   box-shadow:0 100px 0 var(--bone),0 -10px 40px rgba(0,0,0,.4),0 0 0 100vmax rgba(0,0,0,.45)}
 /* the connection line keeps its room at the top of the panel; the card starts below it, and takes it in when it has something to say */
 #player.conn-trouble .pfoot::before{top:-26px}#player.conn-trouble .pfoot::after{top:-16px}
