@@ -3097,8 +3097,8 @@ const WN_UPDATES = [
     { i:'cal',   t:'Live event every Wednesday', b:'Join me and others in a Mindful Moment every week for free!' },
     { i:'lines', t:'A new look', b:'Cleaner layouts everywhere.' },
     { i:'image', t:'Images', b:'Pretty much everywhere.' },
-    { i:'music', t:'Sounds', b:'Turn them on in the settings.' },
-    { i:'hand',  t:'Haptics', b:'Turn them on in settings.' } ] },
+    { i:'music', t:'Sounds', b:'Turn them off in Settings anytime.' },
+    { i:'hand',  t:'Haptics', b:'Turn them off in Settings anytime.' } ] },
   { id:'2026-11-self-regulator', when:'November 2026', title:'Another Major Update', sub:'(still only $12/mo)',
     cta:{ label:'See the Calendar', go:'calendar' }, items:[
     /* Justin's copy, 2026-10-28 ("checkins" → "check-ins", "compliment" → "complement"). Ships to prod with the Self-Regulator launch. */
