@@ -137,10 +137,16 @@
   }
   document.addEventListener('pointerdown', _sndWake, true);
   document.addEventListener('visibilitychange', () => { try{ if(document.hidden && _sndCtx && _sndCtx.state === 'running') _sndCtx.suspend(); }catch(e){} });
+  // Inside the iPhone store app the web tricks below don't reach the Taptic Engine, so the shell does it natively
+  // (haptics1, Justin 2026-11-02: "Haptics are not working yet"; SNBNativePlugin.haptic, from the next TestFlight build).
+  const _hapNative = () => { try{ const C = window.Capacitor, N = C && C.isNativePlatform && C.isNativePlatform() && C.Plugins && C.Plugins.SNBNative;
+    return N && C.isPluginAvailable && C.isPluginAvailable('SNBNative') && typeof N.haptic === 'function' ? N : null; }catch(e){ return null; } };
   function haptic(kind){
     try{ sound(kind); }catch(e){}
     try{
       if(localStorage.getItem('snb_haptics') === '0') return;       // on by default; '0' mutes
+      const N = _hapNative();
+      if(N){ try{ const r = N.haptic({ kind: String(kind || 'tap') }); if(r && r.catch) r.catch(()=>{}); return; }catch(e){} }
       if(_hapIsIOS()){
         try{ if(navigator.vibrate) navigator.vibrate(12); }catch(e){}   // some iOS builds expose it
         _hapTap();                                                       // the <input switch> path
@@ -3516,9 +3522,9 @@ function app(tab){
   function _lwPicHTML(s, extra, wide){
     if(s && s.kind === 'mindful_moment'){
       const N = LW_MM_IMG.length, n = LW_MM_IMG[((Math.floor(_lwStart(s) / 6048e5) % N) + N) % N];
-      return `<span class="lw-hc-pic${extra}" aria-hidden="true"><img src="img/live/mm-${n}-${wide ? 1280 : 640}.jpg" alt="" loading="lazy" decoding="async"></span>`;
+      return `<span class="lw-hc-pic${extra}" data-lwpic="${n}-${wide ? 1280 : 640}" aria-hidden="true"><img src="img/live/mm-${n}-${wide ? 1280 : 640}.jpg" alt="" loading="lazy" decoding="async"></span>`;
     }
-    return `<span class="lw-hc-pic${extra}" data-lwstill="reeds" aria-hidden="true"></span>`;
+    return `<span class="lw-hc-pic${extra}" data-lwstill="reeds" data-lwpic="reeds" aria-hidden="true"></span>`;
   }
   function _lwPanel(s){
     if(!s) return '';
@@ -3635,10 +3641,14 @@ function app(tab){
     dated.forEach(s => { const m = new Date(_lwStart(s)).toLocaleDateString('en-US', { month:'long' }); let g = groups[groups.length - 1]; if(!g || g.name !== m){ g = { name:m, rows:[] }; groups.push(g); } g.rows.push(s); });
     if(rooms.length) groups.push({ name:'Open any time', rows:rooms });
     const first = (dated[0] || rooms[0] || {}).id;
+    // a repaint (RSVP, reminder) keeps the pictures already on screen, so they don't blank and reload (lwpic1, Justin 2026-11-02:
+    // "the thumbnails for events flicker after I press RSVP")
+    const keepPic = {}; el.querySelectorAll('.lw-hc-pic[data-lwpic]').forEach(p => { if(p.firstChild) (keepPic[p.dataset.lwpic] = keepPic[p.dataset.lwpic] || []).push(p); });
     const listHTML = groups.map(g => `<section class="lw-mon"><h3 class="lw-mon-h">${escapeHtml(g.name)}</h3><div class="lw-hc-grid">${g.rows.map(s => _lwCard(s, s.id === first)).join('')}</div></section>`).join('') + _lwTermsLink() + _lwPastLink();
     el.innerHTML = wide
       ? `<div class="lw-sch is-wide"><div class="lw-sch-list">${listHTML}</div><aside class="lw-sch-panel" id="lw-sch-panel" aria-label="Event details" aria-live="polite">${_lwPanel(list.find(s => s.id === _lw.sel))}</aside></div>`
       : `<div class="lw-sch"><div class="lw-sch-list">${listHTML}</div></div>`;
+    el.querySelectorAll('.lw-hc-pic[data-lwpic]').forEach(p => { const o = (keepPic[p.dataset.lwpic] || []).shift(); if(o){ o.className = p.className; p.replaceWith(o); } });
     el.querySelectorAll('[data-lw-open]').forEach(b => { b.onclick = () => { if(_lwWide()) _lwPick(b.dataset.lwOpen); else _lwCardSheet((_lw.sched || []).find(x => x.id === b.dataset.lwOpen)); }; });
     _lwStillsStop(); _lwStills(el);
     _lwWire(el);
