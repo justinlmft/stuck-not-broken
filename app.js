@@ -258,7 +258,7 @@
   let _deferredInstall = null;
   const isStandalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true
     || !!(Store.inStoreApp && Store.inStoreApp());   // the App Store app is already installed (2026-10-21)
-  const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+  const isiOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // acct1: iPadOS Safari reports a Mac
   // in-app browsers (instagram/facebook/gmail/etc.) and non-Safari iOS browsers
   // can't "add to home screen" — the #1 install snag for new members (Claudia hit
   // it). detect them so we say "open in your real browser first" instead of
@@ -1190,6 +1190,8 @@
       const nm = up ? (($('#nm')||{}).value||'').trim() : '';
       screenSignIn(null, true);
       Promise.resolve(up ? Store.signUp(email,pw) : Store.signIn(email,pw)).then(res=>{
+        // acct1: the email already has an app account: go to Sign in with it filled in, not a raw error
+        if(res && res.error && up && /already been registered|already registered|email_exists/i.test(res.error)){ authMode='in'; return screenSignIn('You already have an app account with this email. Sign in below. If you don\u2019t remember your password, tap "Forgot your password?"'); }
         if(res && res.error) return screenSignIn(res.error);
         if(res && res.needsConfirm){ markKnownDevice(); return screenConfirm(email); }
         if(nm) Store.setName(nm);
