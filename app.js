@@ -4420,6 +4420,7 @@ function app(tab){
         : r.status === 425 ? 'The room opens ' + LW_OPEN_EARLY_MIN + ' minutes before the start.'
         : r.status === 410 ? 'This live event has ended.'
         : r.status === 401 ? 'Sign in to join.'
+        : e.error === 'removed' ? 'The host removed you from this live event.'
         : 'The room did not open. Try again in a moment.';
       R.phase = 'joining'; return _lwRender();
     }
@@ -4442,7 +4443,7 @@ function app(tab){
     co.on('recording-error', () => { R.rec = 'off'; _lwPaintRec(); if(_lwIsHost()) showToast('The recording stopped. Tap Record to start it again.'); });
     co.on('app-message', ev => {
       const d = ev && ev.data; if(!d) return;
-      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:!!d.host, av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
+      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ uid:_lwUidOf(R, ev.fromId), sid:ev.fromId, who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:_lwSlOwner(R, ev.fromId), av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
       if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
       if(d.t === 'sl' && typeof d.d === 'string' && d.n > 0 && d.n < 60) _lwSlReceive(R, d, ev.fromId);
       if(d.t === 'sl-off' && _lwSlOwner(R, ev.fromId)) _lwSlOff(R, false);
@@ -4450,7 +4451,8 @@ function app(tab){
       if(d.t === 'sl-req' && _lwIsHost() && R.slide) _lwSlSend(R, R.slide, ev.fromId);
     });
     co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
-    co.on('error', () => { if(_lwRoom === R){ R.err = 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
+    co.on('error', ev => { if(_lwRoom === R){ const ej = ev && ((ev.error && ev.error.type === 'ejected') || /eject/i.test(String(ev.errorMsg || '')));
+      R.err = ej ? 'The host removed you from this live event.' : 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
     try{
       await co.join({ url:r.data.room_url, token:r.data.token, startVideoOff:!R.cam, startAudioOff:!R.mic });
     }catch(e){ R.err = 'The room did not open. Try again in a moment.'; R.phase = 'joining'; return _lwRender(); }
@@ -4499,20 +4501,63 @@ function app(tab){
     try{ R.co.sendAppMessage({ t:'chat', who, text:'', host:_lwIsHost(), av, st, card }, '*'); }catch(e){ return false; }
     R.chat.push({ who:'You', text:'', host:_lwIsHost(), av, st, card }); _lwPaintChat(); return true;
   }
-  function _lwMsgHTML(m, anim){
+  // ---- report, hide and remove (Apple guideline 1.2, 2026-11-02): members chat with each other, so each can report a
+  // message (it emails Justin), hide one person's messages for themselves, and the host can remove someone from the event.
+  const LW_ICO_MORE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>';
+  function _lwUidOf(R, sid){ try{ const p = R.co.participants()[sid]; return (p && p.user_id) || null; }catch(e){ return null; } }
+  function _lwHidden(){ try{ return new Set(JSON.parse(localStorage.getItem('snb_lw_hidden') || '[]')); }catch(e){ return new Set(); } }
+  function _lwHiddenSet(set){ try{ localStorage.setItem('snb_lw_hidden', JSON.stringify([...set].slice(-200))); }catch(e){} }
+  function _lwChatRedraw(){ ['lw-chat-list','lw-chat-sheet-list'].forEach(id => { const el = document.getElementById(id); if(el) el.dataset.n = -1; }); _lwPaintChat(); }
+  function _lwMsgSheet(m){
+    const R = _lwRoom; if(!R || !m) return;
+    const who = escapeHtml(m.who || 'this member');
+    const sh = _lwSheet('This message', `<div class="lw-sh-btns">
+        <button class="btn block quiet" type="button" id="lw-m-rep">Report this message</button>
+        ${m.uid ? `<button class="btn block quiet" type="button" id="lw-m-hide">Hide messages from ${who}</button>` : ''}
+        ${_lwIsHost() && m.uid ? `<button class="btn block quiet lw-danger" type="button" id="lw-m-rm">Remove ${who} from this event</button>` : ''}
+      </div><p class="lw-p lw-muted" style="margin-top:10px">A report goes to Justin with the message and who sent it. Hiding only changes what you see.</p>`, { host:document.getElementById('lw-room') });
+    sh.el.querySelector('#lw-m-rep').onclick = async () => {
+      sh.close();
+      const r = await _lwFn({ action:'report', session_id:R.s.id, reported_user:m.uid, reported_name:m.who, message:m.text || '' });
+      showToast(r.status === 200 ? 'Thanks. Justin got your report and will look at it.' : 'The report did not send. Check your connection and try again.');
+    };
+    const hb = sh.el.querySelector('#lw-m-hide'); if(hb) hb.onclick = () => { sh.close(); const h = _lwHidden(); h.add(m.uid); _lwHiddenSet(h); _lwChatRedraw();
+      showToast('You won’t see their messages. Live settings can show them again.'); };
+    const rb = sh.el.querySelector('#lw-m-rm'); if(rb) rb.onclick = () => { sh.close(); _lwRemoveAsk(m.uid, m.sid, m.who); };
+  }
+  function _lwRemoveAsk(uid, sid, name){
+    const R = _lwRoom; if(!R || !uid || !_lwIsHost()) return;
+    const who = escapeHtml(name || 'this member');
+    const sh = _lwSheet('Remove ' + (name || 'this member') + '?', `<p class="lw-p">They leave this live event now and can’t rejoin it.</p>
+      <div class="lw-sh-btns"><button class="btn block lw-danger" type="button" id="lw-rm-go">Remove ${who}</button><button class="btn block quiet" type="button" id="lw-rm-no">Cancel</button></div>`, { host:document.getElementById('lw-room') });
+    sh.el.querySelector('#lw-rm-no').onclick = sh.close;
+    sh.el.querySelector('#lw-rm-go').onclick = async () => {
+      sh.close();
+      try{ if(sid && R.co) R.co.updateParticipant(sid, { eject:true }); }catch(e){}
+      const r = await _lwFn({ action:'remove', session_id:R.s.id, user_id:uid });
+      showToast(r.status === 200 ? (name || 'They') + ' was removed from this event.' : 'That did not go through. Try again.');
+    };
+  }
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest && ev.target.closest('[data-lw-msg]'); if(!b || !_lwRoom) return;
+    ev.preventDefault(); _lwMsgSheet(_lwRoom.chat[+b.dataset.lwMsg]);
+  });
+  function _lwMsgHTML(m, anim, i){
+    const more = (m.sid && m.who !== 'You') ? `<button class="lw-msg-more" type="button" data-lw-msg="${i}" aria-label="Report or hide this message">${LW_ICO_MORE}</button>` : '';
     const av = m.av ? `<img src="${escapeHtml(m.av)}" alt="" loading="lazy">` : escapeHtml((m.who || '?').charAt(0));
-    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}</div></div>`;
+    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}</div>${more}</div>`;
   }
   // a list already on screen only gets the new messages (they animate in); a fresh list is drawn whole
   function _lwPaintChat(){
     const R = _lwRoom; if(!R) return;
     ['lw-chat-list','lw-chat-sheet-list'].forEach(id => {
       const el = document.getElementById(id); if(!el) return;
-      const n = +(el.dataset.n || -1);
-      if(!R.chat.length){ el.innerHTML = ''; el.dataset.n = 0; return; }
-      if(n <= 0 || n > R.chat.length) el.innerHTML = R.chat.map(m => _lwMsgHTML(m, n === 0)).join('');
-      else if(n < R.chat.length) el.insertAdjacentHTML('beforeend', R.chat.slice(n).map(m => _lwMsgHTML(m, true)).join(''));
-      el.dataset.n = R.chat.length; el.scrollTop = el.scrollHeight;
+      const n = +(el.dataset.n || -1), hid = _lwHidden();
+      const vis = R.chat.map((m, i) => [m, i]).filter(([m]) => !(m.uid && hid.has(m.uid)));
+      if(!vis.length){ el.innerHTML = ''; el.dataset.n = 0; return; }
+      if(n <= 0 || n > vis.length) el.innerHTML = vis.map(([m, i]) => _lwMsgHTML(m, n === 0, i)).join('');
+      else if(n < vis.length) el.insertAdjacentHTML('beforeend', vis.slice(n).map(([m, i]) => _lwMsgHTML(m, true, i)).join(''));
+      el.dataset.n = vis.length; el.scrollTop = el.scrollHeight;
     });
     const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? R.chat.length + (R.chat.length === 1 ? ' message' : ' messages') : '';
   }
@@ -4537,8 +4582,11 @@ function app(tab){
   function _lwSettingsSheet(){
     const tg = (k, label, on) => `<button class="lw-st-tg${on ? ' on' : ''}" type="button" role="switch" aria-checked="${on}" data-lw-pref="${k}"><span><span class="lw-st-t">${label}</span></span><span class="set-sw${on ? ' on' : ''}" aria-hidden="true"><span class="set-sw-knob"></span></span></button>`;
     const prefs = () => _lwIsHost() ? '' : tg('snb_lw_quiet', 'Quiet screen (no questions on the slides)', _lwQuiet()) + tg('snb_lw_tint', 'Background follows my check-in', _lwTintOn()) + tg('snb_lw_count', 'Count my check-in toward the room’s background (from 5 people)', _lwCount());
-    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}${prefs()}</div>`, { host:document.getElementById('lw-room') });
+    const nHid = _lwHidden().size;
+    const unhide = nHid ? `<button class="btn block quiet" type="button" id="lw-unhide" style="margin-top:12px">Show messages from ${nHid === 1 ? 'the person' : 'the ' + nHid + ' people'} you hid</button>` : '';
+    const sh = _lwSheet('Settings', `<div class="lw-set">${_lwStateTg()}${prefs()}</div>${unhide}`, { host:document.getElementById('lw-room') });
     _lwWireStateTg(sh.el);
+    { const ub = sh.el.querySelector('#lw-unhide'); if(ub) ub.onclick = () => { _lwHiddenSet(new Set()); ub.remove(); _lwChatRedraw(); showToast('Hidden messages show again.'); }; }
     sh.el.querySelectorAll('[data-lw-pref]').forEach(b => b.onclick = () => {
       const k = b.dataset.lwPref, on = b.getAttribute('aria-checked') !== 'true'; _lwPrefSet(k, on);
       b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); const sw = b.querySelector('.set-sw'); if(sw) sw.classList.toggle('on', on);
@@ -4636,7 +4684,9 @@ function app(tab){
       let ps = []; try{ ps = Object.values(R.co.participants()); }catch(e){}
       ps.sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || (a.local ? -1 : 0) || new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
       ul.innerHTML = ps.map(p => { const nm = String(p.user_name || 'Guest').trim() || 'Guest';
-        return `<li><span class="lw-ppl-av" aria-hidden="true">${escapeHtml(nm.charAt(0).toUpperCase())}</span><span class="lw-ppl-nm">${escapeHtml(nm)}${p.local ? ' (you)' : ''}</span>${p.owner ? '<span class="lw-ppl-tag">host</span>' : ''}</li>`; }).join('');
+        return `<li><span class="lw-ppl-av" aria-hidden="true">${escapeHtml(nm.charAt(0).toUpperCase())}</span><span class="lw-ppl-nm">${escapeHtml(nm)}${p.local ? ' (you)' : ''}</span>${p.owner ? '<span class="lw-ppl-tag">host</span>' : ''}${(!p.local && !p.owner && p.user_id) ? `<button class="lw-ppl-rm" type="button" data-lw-rm="${escapeHtml(p.session_id)}">Remove</button>` : ''}</li>`; }).join('');
+      ul.onclick = e => { const b = e.target.closest && e.target.closest('[data-lw-rm]'); if(!b) return; e.stopPropagation();
+        let p = null; try{ p = R.co.participants()[b.dataset.lwRm]; }catch(x){} if(p){ R.pplOpen = false; _lwPaintHead(); _lwRemoveAsk(p.user_id, p.session_id, p.user_name); } };
     }
   }
   // video / audio for every participant. Elements are kept by session id so a repaint never restarts a stream.
