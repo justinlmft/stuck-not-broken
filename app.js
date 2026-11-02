@@ -1681,6 +1681,8 @@
       ${_frTop(fromPick)}
       <div class="scroll" id="content"></div>`;
     _frWire(fromPick ? ()=>guestPracticePick() : null, 'offer');
+    const inStore = !!(Store.inStoreApp && Store.inStoreApp());
+    if(inStore && !_storePx && !opt._px) Promise.resolve(Store.storePrices()).then(px=>{ if(px){ _storePx = px; if(document.getElementById('g-of-sub')) guestOffer(Object.assign({}, opt, { _px:true })); } }).catch(()=>{});
     const annual = _planChoice==='annual';
     const pxM = (_storePx && _storePx.monthly) || '$12', pxA = (_storePx && _storePx.annual) || '$108';
     const subOf = a => a ? `Billed once a year${_storePx ? '' : ' · that’s $9 a month'}` : 'Billed monthly · cancel anytime';
@@ -1696,7 +1698,7 @@
           </div>
           <p class="pp-sub" id="fr-plan-sub">${subOf(annual)}</p>
           <button class="btn block" id="g-of-sub">Subscribe now</button>
-          <p class="pp-sub fr-renew">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>
+          ${inStore ? `<p class="pp-sub fr-renew">Paid through your Apple Account when you confirm. It renews automatically at the interval you pick unless you cancel at least 24 hours before it renews. You can cancel anytime in your iPhone's Settings. See the <a href="#" data-policy="terms">terms</a> and <a href="#" data-policy="privacy">privacy policy</a>.</p>` : '<p class="pp-sub fr-renew">Renews automatically at the interval you pick; cancel anytime from settings. No refunds or pauses.</p>'}
           <div class="pp-inc"><button class="pp-inc-t" type="button" id="fr-more-t" aria-expanded="false" aria-controls="fr-more-b"><span>What you get when you subscribe</span>${LW_PM(false)}</button>
             <div class="pp-inc-b fr-more-b" id="fr-more-b" hidden>
               <p><b>Practices:</b> get custom practices designed for your system based on your check-ins. The practice builder prioritizes safety and only offers more challenge when you've reported that you can handle it through your check-ins. You also get a deep custom practice builder and pre-recorded experiences as well.</p>
@@ -1730,6 +1732,7 @@
     // promised nothing is saved unless they decide to create an account; a quiet
     // bounce back into the flow would make that a lie.
     $('#g-of-leave').onclick = ()=>guestLeave();
+    root.querySelectorAll('.fr-renew a[data-policy]').forEach(a=>{ a.onclick = (e)=>{ e.preventDefault(); screenPolicy(a.getAttribute('data-policy')); }; });
   }
 
   // ---- the account form, after the choice ----
