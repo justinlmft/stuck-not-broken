@@ -3383,11 +3383,11 @@ function app(tab){
     return who + _lwIcons(s) + desc + act;
   }
   // Mindful Moment pictures (Justin 2026-11-01: "close ups on aspects of the present moment like a sunrise and a creek
-  // and a blanket on a couch"): three photos, one per week in turn so neighbouring cards differ. Other events keep the reeds.
-  const LW_MM_IMG = ['sunrise', 'creek', 'blanket'];
+  // and a blanket on a couch"): twelve photos (all four Midjourney results of each), one per week in turn so neighbouring cards differ. Other events keep the reeds.
+  const LW_MM_IMG = ['sunrise', 'creek', 'blanket', 'sunrise-b', 'creek-b', 'blanket-b', 'sunrise-c', 'creek-c', 'blanket-c', 'sunrise-d', 'creek-d', 'blanket-d'];
   function _lwPicHTML(s, extra, wide){
     if(s && s.kind === 'mindful_moment'){
-      const n = LW_MM_IMG[((Math.floor(_lwStart(s) / 6048e5) % 3) + 3) % 3];
+      const N = LW_MM_IMG.length, n = LW_MM_IMG[((Math.floor(_lwStart(s) / 6048e5) % N) + N) % N];
       return `<span class="lw-hc-pic${extra}" aria-hidden="true"><img src="img/live/mm-${n}-${wide ? 1280 : 640}.jpg" alt="" loading="lazy" decoding="async"></span>`;
     }
     return `<span class="lw-hc-pic${extra}" data-lwstill="reeds" aria-hidden="true"></span>`;
