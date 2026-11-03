@@ -5228,12 +5228,12 @@ function app(tab){
   // nothing to explain). "I don't want more of these" sets snb_tips=0 for good; the same
   // switch is Settings → App → "Tips about settings", exactly the snb_live_nudge pattern.
   // Events: tip_shown / tip_action / tip_dismissed / tip_off, each with the card id.
-  const TIPS_ON_KEY   = 'snb_tips';        // '0' = off for good; absent/'1' = on
+  const TIPS_ON_KEY   = 'snb_tips';        // '1' = on; absent/'0' = off (off by default since 2026-11-02, Justin: "I want to turn these off as default. They're intrusive. Leave them in the settings.")
   const TIPS_SEEN_KEY = 'snb_tips_seen';   // ids already shown on this device
   const TIPS_LAST_KEY = 'snb_tips_last';   // ms of the last card shown on this device
   const TIPS_EVERY_MS = 7 * 24 * 60 * 60 * 1000;
   const _tipLS = (k) => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
-  const tipsOn = () => _tipLS(TIPS_ON_KEY) !== '0';
+  const tipsOn = () => _tipLS(TIPS_ON_KEY) === '1';
   function tipsSeen(){ try{ const a=JSON.parse(_tipLS(TIPS_SEEN_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
   function tipsMarkShown(id){
     try{ const a=tipsSeen(); if(a.indexOf(id)<0) a.push(id);
