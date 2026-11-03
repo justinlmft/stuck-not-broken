@@ -2982,6 +2982,11 @@ function whatsNewLaunch(){
 // longer run. The main button starts the walkthrough at the name card; it also stays in Settings.
 const _WN_ONB_KEY='snb_whatsnew_launch_2026_10';
 function whatsNewOnboard(){
+  /* retired 2026-11-02 (Justin, on the new iPhone app: "Why is it showing me this update screen? We have a new one."): a
+     member on a new device or the store app has none of these keys, so October's card came up and held back the latest
+     update sheet. Mark it and the older cards seen so the latest sheet shows; the walkthrough stays in Settings. */
+  try{ [_WN_ONB_KEY, _WN_LAUNCH_KEY, _WN_PUSH_KEY].forEach(k=>localStorage.setItem(k,'1')); }catch(e){}
+  return;
   try{ if(localStorage.getItem(_WN_ONB_KEY)==='1') return; }catch(e){ return; }
   if(!_obMember() || !_obHydrated() || !oriented()) return;
   if(_ob.on || document.getElementById('wn-root') || document.getElementById('tip-root') || document.getElementById('ob-root') || document.querySelector('.lv-pop')) return;
