@@ -7260,3 +7260,22 @@ body.lw-sl-on.lw-sl-dark .lw-pin-dockslot .lw-pin{background:rgba(26,31,42,.62);
 .lw-rp-ic svg,.lw-lb-prev .lw-rp-ic svg{width:20px;height:20px}
 .lw-sp > .lw-rp-ic:first-child,.lw-sp > .lw-rp-ic.on:first-child{width:auto;padding:0 8px 0 14px}
 .lw-db-ic svg{width:22px;height:22px}
+/* live-tweaks-r4: desktop pop-over for a message's options; the unread dot; typing on the folded Chat header */
+.lw-pop{position:fixed;z-index:120;width:min(300px,calc(100vw - 24px));box-sizing:border-box;padding:10px;border:1px solid var(--hairline);border-radius:16px;background:var(--bone);color:var(--ink);box-shadow:0 14px 36px -18px rgba(0,0,0,.4);transform-origin:top right;animation:lwPopIn .18s cubic-bezier(.22,1,.36,1) both}
+.lw-pop.out{animation:lwPopOut .15s var(--ease) both}
+@keyframes lwPopIn{from{opacity:0;transform:translateY(-4px) scale(.97)}}
+@keyframes lwPopOut{to{opacity:0;transform:translateY(-4px) scale(.97)}}
+@media (prefers-reduced-motion:reduce){.lw-pop,.lw-pop.out{animation:none}}
+.lw-pop .lw-rx-pick{margin:0 0 8px;gap:6px}
+.lw-pop .lw-rx-opt{min-height:48px;border-radius:12px}
+.lw-pop .lw-rx-n{display:none}
+.lw-pop .lw-rx-opt .lw-rx-e{font-size:22px}
+.lw-pop .lw-rx-opt .lw-rx-heart{width:24px;height:21px}
+.lw-pop-items{display:flex;flex-direction:column}
+.lw-pop-items .btn{display:flex;align-items:center;justify-content:flex-start;width:100%;min-height:40px;padding:0 10px;border:0;border-radius:10px;background:none;color:var(--ink);font-size:calc(15px * var(--type-scale));font-weight:400;text-align:left;box-shadow:none;max-width:none;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lw-pop-items .btn:hover,.lw-pop-items .btn:focus-visible{background:var(--bone-deep)}
+.lw-pop-items .btn.lw-danger{color:var(--danger)}
+.lw-db.lw-new,.lw-chatc.lw-new .lw-rc-hd b{position:relative}
+.lw-db.lw-new::after{content:'';position:absolute;top:7px;left:calc(50% + 7px);width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 0 2px var(--bone);animation:lwFade .2s var(--ease) both}
+.lw-chatc.lw-new .lw-rc-hd b::after{content:'';display:inline-block;width:8px;height:8px;margin-left:8px;vertical-align:middle;border-radius:50%;background:currentColor;animation:lwFade .2s var(--ease) both}
+.lw-cn.lw-cn-typing{font-style:normal}

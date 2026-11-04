@@ -4234,7 +4234,7 @@ function app(tab){
     room.classList.remove('lw-tucked');
     room.querySelectorAll('.lw-fold, .lw-fd').forEach(b => b.onclick = e => { e.stopPropagation();
       const k = b.dataset.fold, cd = b.closest('[data-card]'), was = !!(cd && cd.classList.contains('lw-folded'));
-      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !was; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); });
+      _lwFoldMove(() => { const g = _lwFolds(); g[k] = !was; try{ localStorage.setItem('snb_lw_fold', JSON.stringify(g)); }catch(err){} _lwFoldWire(); }); if(k === 'chat') setTimeout(_lwPaintChat, 60); });
   }
   // folding and unfolding glide instead of jumping (Justin, 2026-10-28: "smooth and gentle is the standard"). Each card gets a
   // name only for the length of the move, so the browser can carry it from its old size and place to the new one; the slide
@@ -4412,7 +4412,7 @@ function app(tab){
     const dRow = [];
     if(!(mm && member)){ [['mic', R.mic, 'lw-c-mic'], ['cam', R.cam, 'lw-c-cam']].forEach(([k, on, px]) => { const lab = (k === 'mic' ? 'Mic' : 'Camera') + (on ? ' on' : ' off'); dRow.push(`<button type="button" class="lw-db lw-db-ic${on ? ' on' : ''}" data-proxy="${px}" aria-pressed="${on}" aria-label="${lab}" title="${lab}">${k === 'mic' ? (on ? LW_ICO.mic : LW_ICO.micOff) : (on ? LW_ICO.cam : LW_ICO.camOff)}</button>`); }); }
     if(host) dRow.push(dB('', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', !!R.slide, 'lw-c-slides'));
-    dRow.push(dB('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : ''), false));
+    dRow.push(dB('lw-c-chat', LW_ICO.chat, 'Chat', false));
     dRow.push(dB('', LW_ICO.gear, 'Settings', false, 'lw-c-set'));
     const dock = `<nav class="lw-rc lw-dock2" aria-label="Live event controls"><div class="lw-dk-row">${(member && slides) ? `<button type="button" class="lw-dk-pic" id="lw-dk-pic" aria-expanded="${!!R.dockCam}" aria-label="${R.dockCam ? 'Hide Justin’s camera' : 'Show Justin’s camera'}">J</button>` : ''}
         <div class="lw-evc-t"><b>${escapeHtml(K.name)}</b>${host ? `<button type="button" class="lw-here lw-here-b lw-here-dk" id="lw-here-dk">${LW_ICO.people}<span class="lw-here-n"></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>` : '<span class="lw-here"><span class="lw-here-n"></span></span>'}</div>
@@ -4475,7 +4475,7 @@ function app(tab){
     const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
     const tap = document.getElementById('lw-tap'); if(tap) tap.onclick = () => { R.needsTap = false; document.querySelectorAll('#lw-audio audio').forEach(a => { try{ a.play(); }catch(e){} }); _lwRender(); };
     const f = document.getElementById('lw-chat-form'); if(f){ f.onsubmit = e => { e.preventDefault(); const i = $('#lw-chat-in'); _lwSend(i.value); i.value = ''; }; _lwPaintChat(); }
-    _lwPaintPin(); _lwPaintTyping();
+    _lwPaintPin(); _lwPaintTyping(); _lwPaintUnread();
   }
   async function _lwJoin(){
     const R = _lwRoom; if(!R) return;
@@ -4511,7 +4511,7 @@ function app(tab){
     co.on('recording-error', () => { R.rec = 'off'; _lwPaintRec(); if(_lwIsHost()) showToast('The recording stopped. Tap Record to start it again.'); });
     co.on('app-message', ev => {
       const d = ev && ev.data; if(!d) return;
-      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; if(R.typing) delete R.typing[ev.fromId]; R.chat.push({ id:_lwSafeId(d.id), uid:_lwUidOf(R, ev.fromId), sid:ev.fromId, who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:_lwSlOwner(R, ev.fromId), av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
+      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; if(R.typing) delete R.typing[ev.fromId]; R.chat.push({ id:_lwSafeId(d.id), uid:_lwUidOf(R, ev.fromId), sid:ev.fromId, who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:_lwSlOwner(R, ev.fromId), av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!_lwChatSeen()) R.unread = (R.unread || 0) + 1; _lwPaintChat(); }
       if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
       if(d.t === 'sl' && typeof d.d === 'string' && d.n > 0 && d.n < 60) _lwSlReceive(R, d, ev.fromId);
       if(d.t === 'sl-off' && _lwSlOwner(R, ev.fromId)) _lwSlOff(R, false);
@@ -4584,25 +4584,30 @@ function app(tab){
   function _lwHidden(){ try{ return new Set(JSON.parse(localStorage.getItem('snb_lw_hidden') || '[]')); }catch(e){ return new Set(); } }
   function _lwHiddenSet(set){ try{ localStorage.setItem('snb_lw_hidden', JSON.stringify([...set].slice(-200))); }catch(e){} }
   function _lwChatRedraw(){ ['lw-chat-list','lw-chat-sheet-list'].forEach(id => { const el = document.getElementById(id); if(el) el.dataset.n = -1; }); _lwPaintChat(); }
-  function _lwMsgSheet(m){
+  function _lwMsgSheet(m, anchor){
     const R = _lwRoom; if(!R || !m) return;
+    const wide = !!(anchor && window.matchMedia && matchMedia('(min-width:1120px)').matches);
+    const fromChat = !wide && !!document.getElementById('lw-chat-sheet-list');
+    const back = () => { if(fromChat) setTimeout(() => { if(_lwRoom === R && R.phase === 'call') _lwChatSheet(); }, 340); };
     const who = escapeHtml(m.who || 'this member');
     const mine = m.who === 'You', i = R.chat.indexOf(m), pinned = !!(R.pin && m.id && R.pin.id === m.id);
     const rx = (!mine && m.id) ? `<div class="lw-rx-pick" role="group" aria-label="React">${LW_RX.map(x => { const on = _lwRxMine(R, m.id, x.k); return `<button type="button" class="lw-rx-opt${on ? ' on' : ''}" data-rx-pick="${x.k}" aria-pressed="${on}" aria-label="${x.label}"><span class="lw-rx-e" aria-hidden="true">${x.k === 'heart' ? _lwRxHeart() : x.e}</span><span class="lw-rx-n">${x.label}</span></button>`; }).join('')}</div>` : '';
     const pinB = (_lwIsHost() && m.id) ? `<button class="btn block quiet" type="button" id="lw-m-pin">${pinned ? 'Unpin this message' : 'Pin this message'}</button>` : '';
-    const sh = _lwSheet('This message', `${rx}<div class="lw-sh-btns">${pinB}
+    const items = `${pinB}
         ${mine ? '' : '<button class="btn block quiet" type="button" id="lw-m-rep">Report this message</button>'}
         ${m.uid ? `<button class="btn block quiet" type="button" id="lw-m-hide">Hide messages from ${who}</button>` : ''}
-        ${_lwIsHost() && m.uid ? `<button class="btn block quiet lw-danger" type="button" id="lw-m-rm">Remove ${who} from this event</button>` : ''}
+        ${_lwIsHost() && m.uid ? `<button class="btn block quiet lw-danger" type="button" id="lw-m-rm">Remove ${who} from this event</button>` : ''}`;
+    const sh = wide ? _lwPop(anchor, `${rx}<div class="lw-pop-items">${items}</div>`)
+      : _lwSheet('This message', `${rx}<div class="lw-sh-btns">${items}
       </div>`, { host:document.getElementById('lw-room') });
-    sh.el.querySelectorAll('[data-rx-pick]').forEach(b => b.onclick = () => { sh.close(); _lwReact(R, m.id, b.dataset.rxPick); });
-    { const pb = sh.el.querySelector('#lw-m-pin'); if(pb) pb.onclick = () => { sh.close(); _lwPinSend(R, pinned ? null : { id:m.id, who:m.who === 'You' ? 'Justin' : m.who, text:m.text || (m.card ? m.card.label : '') }); }; }
+    sh.el.querySelectorAll('[data-rx-pick]').forEach(b => b.onclick = () => { sh.close(); _lwReact(R, m.id, b.dataset.rxPick); back(); });
+    { const pb = sh.el.querySelector('#lw-m-pin'); if(pb) pb.onclick = () => { sh.close(); _lwPinSend(R, pinned ? null : { id:m.id, who:m.who === 'You' ? 'Justin' : m.who, text:m.text || (m.card ? m.card.label : '') }); back(); }; }
     { const rp = sh.el.querySelector('#lw-m-rep'); if(rp) rp.onclick = async () => {
-      sh.close();
+      sh.close(); back();
       const r = await _lwFn({ action:'report', session_id:R.s.id, reported_user:m.uid, reported_name:m.who, message:m.text || '' });
       showToast(r.status === 200 ? 'Thanks. Justin got your report and will look at it.' : 'The report did not send. Check your connection and try again.');
     }; }
-    const hb = sh.el.querySelector('#lw-m-hide'); if(hb) hb.onclick = () => { sh.close(); const h = _lwHidden(); h.add(m.uid); _lwHiddenSet(h); _lwChatRedraw();
+    const hb = sh.el.querySelector('#lw-m-hide'); if(hb) hb.onclick = () => { sh.close(); back(); const h = _lwHidden(); h.add(m.uid); _lwHiddenSet(h); _lwChatRedraw();
       showToast('You won’t see their messages. Live settings can show them again.'); };
     const rb = sh.el.querySelector('#lw-m-rm'); if(rb) rb.onclick = () => { sh.close(); _lwRemoveAsk(m.uid, m.sid, m.who); };
   }
@@ -4621,7 +4626,7 @@ function app(tab){
   }
   document.addEventListener('click', ev => {
     const b = ev.target.closest && ev.target.closest('[data-lw-msg]'); if(!b || !_lwRoom) return;
-    ev.preventDefault(); _lwMsgSheet(_lwRoom.chat[+b.dataset.lwMsg]);
+    ev.preventDefault(); _lwMsgSheet(_lwRoom.chat[+b.dataset.lwMsg], b);
   });
   function _lwMsgHTML(m, anim, i){
     const more = ((m.sid && m.who !== 'You') || (_lwIsHost() && m.id)) ? `<button class="lw-msg-more" type="button" data-lw-msg="${i}" aria-label="${m.who === 'You' ? 'Pin this message' : 'React, report or hide'}">${LW_ICO_MORE}</button>` : '';
@@ -4710,6 +4715,8 @@ function app(tab){
   function _lwPaintTyping(){
     const R = _lwRoom; if(!R) return;
     const line = _lwTypingLine(R);
+    const cn = document.getElementById('lw-chat-n');
+    if(cn){ cn.classList.toggle('lw-cn-typing', !!line); cn.textContent = line || (R.chat.length ? R.chat.length + (R.chat.length === 1 ? ' message' : ' messages') : ''); }
     document.querySelectorAll('.lw-typing').forEach(el => {
       if(!line){ el.classList.remove('on'); return; }
       el.querySelector('.lw-typing-t').textContent = line; el.classList.add('on');
@@ -4739,6 +4746,29 @@ function app(tab){
     });
     document.body.classList.toggle('lw-pinned', !!R.pin);
   }
+  // the chat is on screen: the chat sheet is open, or the rail's chat card is showing and unfolded
+  function _lwChatSeen(){ if(document.getElementById('lw-chat-sheet-list')) return true; const l = document.getElementById('lw-chat-list'); return !!(l && l.offsetParent && l.getClientRects().length); }
+  // a dot on Chat (the phone controls and the folded chat card) while there are messages not yet seen (Justin, 2026-11-04)
+  function _lwPaintUnread(){
+    const R = _lwRoom; if(!R) return; const on = (R.unread || 0) > 0;
+    const b = document.getElementById('lw-c-chat'); if(b){ b.classList.toggle('lw-new', on); b.setAttribute('aria-label', on ? 'Chat, new messages' : 'Chat'); }
+    document.querySelectorAll('#lw-room .lw-chatc').forEach(el => el.classList.toggle('lw-new', on));
+  }
+  // desktop: a message's options open in place beside the dots, not as a sheet from the bottom (Justin, 2026-11-04)
+  function _lwPop(anchor, html){
+    const old = document.getElementById('lw-pop'); if(old) old.remove();
+    const el = document.createElement('div'); el.id = 'lw-pop'; el.className = 'lw-pop'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Message options');
+    el.innerHTML = html; document.body.appendChild(el);
+    const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, vw = innerWidth, vh = innerHeight;
+    let top = r.bottom + 6; if(top + h > vh - 12) top = Math.max(12, r.top - h - 6);
+    el.style.top = top + 'px'; el.style.left = Math.max(12, Math.min(vw - w - 12, r.right - w)) + 'px';
+    const close = () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKey, true); el.classList.add('out'); setTimeout(() => { try{ el.remove(); }catch(e){} }, 160); try{ anchor.focus({ preventScroll:true }); }catch(e){} };
+    const onDown = e => { if(!el.contains(e.target)) close(); };
+    const onKey = e => { if(e.key === 'Escape'){ e.stopPropagation(); close(); } };
+    setTimeout(() => { document.addEventListener('pointerdown', onDown, true); document.addEventListener('keydown', onKey, true); }, 0);
+    const f = el.querySelector('button'); if(f) try{ f.focus({ preventScroll:true }); }catch(e){}
+    return { el, close };
+  }
   function _lwPinSet(R, pin){ R.pin = pin; _lwPaintPin(); }
   function _lwPinSend(R, pin){
     if(!R || !_lwIsHost()) return;
@@ -4762,7 +4792,8 @@ function app(tab){
       else if(n < vis.length) el.insertAdjacentHTML('beforeend', vis.slice(n).map(([m, i]) => _lwMsgHTML(m, true, i)).join(''));
       el.dataset.n = vis.length; el.scrollTop = el.scrollHeight;
     });
-    const cn = document.getElementById('lw-chat-n'); if(cn) cn.textContent = R.chat.length ? R.chat.length + (R.chat.length === 1 ? ' message' : ' messages') : '';
+    if(_lwChatSeen()) R.unread = 0;
+    _lwPaintUnread(); _lwPaintTyping();
   }
   // the member's state glyph beside their name: their DOMINANT state across their check-ins (the share signature),
   // one choice shared with Settings → "Your state glyph on shared images and in live chat" (Justin, 2026-10-27)
