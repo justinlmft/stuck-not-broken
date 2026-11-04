@@ -3476,6 +3476,8 @@ function app(tab){
   const LW_TIER = { co_regulator:'Co-Regulator' };
   const _lwTier = s => LW_TIER[s.access] || 'Self-Regulator';
   const _lwWide = () => { try{ return window.matchMedia('(min-width:1120px)').matches; }catch(e){ return false; } };
+  // the live room's own breakpoint: the side column from 900px (Justin, 2026-11-04)
+  const _lwRoomWide = () => { try{ return window.matchMedia('(min-width:900px)').matches; }catch(e){ return false; } };
   const _lwRoomOpen = s => (s.duration_min || 60) >= 1440;
   const LW_PM = on => `<svg class="pm${on ? ' on' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path class="pm-v" d="M12 5v14"/></svg>`;
   // open or close a + / - row's details in place: they grow down and shrink back (Justin 2026-10-29: "no jarring switches")
@@ -3965,7 +3967,7 @@ function app(tab){
         <p class="lw-muted lw-p">${K.video === false ? 'The livestream keeps playing while you check in.' : 'The call keeps going while you check in.'} Nobody else sees your answers.</p>
         <div class="lw-sh-btns"><button class="btn block" type="button" id="lw-ci-save">Save check-in</button><button class="btn block quiet" type="button" id="lw-ci-skip">Skip</button></div>
       </div>`;
-    const slot = (_lwWide() && R && R.phase === 'call') ? document.getElementById('lw-ci-slot') : null;
+    const slot = (_lwRoomWide() && R && R.phase === 'call') ? document.getElementById('lw-ci-slot') : null;
     const sh = _lwSheet('Check in', body, { sticky:!!opts.sticky, host:slot || document.getElementById('lw-room') || document.body, onClose:opts.onClose, inline:!!slot });
     const el = sh.el;
     function refresh(){
@@ -4593,7 +4595,7 @@ function app(tab){
   function _lwChatRedraw(){ ['lw-chat-list','lw-chat-sheet-list'].forEach(id => { const el = document.getElementById(id); if(el) el.dataset.n = -1; }); _lwPaintChat(); }
   function _lwMsgSheet(m, anchor){
     const R = _lwRoom; if(!R || !m) return;
-    const wide = !!(anchor && window.matchMedia && matchMedia('(min-width:1120px)').matches);
+    const wide = !!(anchor && _lwRoomWide());
     const fromChat = !wide && !!document.getElementById('lw-chat-sheet-list');
     const back = () => { if(fromChat) setTimeout(() => { if(_lwRoom === R && R.phase === 'call') _lwChatSheet(); }, 340); };
     const who = escapeHtml(m.who || 'this member');
