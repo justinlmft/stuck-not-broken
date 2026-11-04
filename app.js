@@ -3354,8 +3354,6 @@ function app(tab){
   const _lwUid = () => { try{ const u = Store.user && Store.user(); return u && !(Store.isAnonymous && Store.isAnonymous()) ? u.id : null; }catch(e){ return null; } };
   // a state glyph, lit at once (no ease-in), for the chat and the check-in result
   const _lwGlyph = k => triGlyph(k).replace(/data-col="([^"]+)"/g, 'data-col="$1" style="fill:$1"');
-  const _lwGlyphTint = k => { const g = _lwGlyph(k); if(!STATE_AXES[k]) return g; const col = STATE_COLOR(k);
-    return g.replace(/<path class="tg-m" data-m="([a-z]+)" d=/g, `<path class="tg-m" data-m="$1" style="fill:${col};fill-opacity:.4" d=`); };
   // the member's photo (Settings → Photo), else null
   function _lwAvatar(){ try{ const u = Store.user && Store.user(); const m = (u && u.user_metadata) || {}; return localStorage.getItem('snb_av_' + (u && u.id)) || m.avatar_url || null; }catch(e){ return null; } }
   function _lwRange(s){
@@ -4593,7 +4591,7 @@ function app(tab){
         ${mine ? '' : '<button class="btn block quiet" type="button" id="lw-m-rep">Report this message</button>'}
         ${m.uid ? `<button class="btn block quiet" type="button" id="lw-m-hide">Hide messages from ${who}</button>` : ''}
         ${_lwIsHost() && m.uid ? `<button class="btn block quiet lw-danger" type="button" id="lw-m-rm">Remove ${who} from this event</button>` : ''}
-      </div>${mine ? '' : '<p class="lw-p lw-muted" style="margin-top:10px">A report goes to Justin with the message and who sent it. Hiding only changes what you see.</p>'}`, { host:document.getElementById('lw-room') });
+      </div>`, { host:document.getElementById('lw-room') });
     sh.el.querySelectorAll('[data-rx-pick]').forEach(b => b.onclick = () => { sh.close(); _lwReact(R, m.id, b.dataset.rxPick); });
     { const pb = sh.el.querySelector('#lw-m-pin'); if(pb) pb.onclick = () => { sh.close(); _lwPinSend(R, pinned ? null : { id:m.id, who:m.who === 'You' ? 'Justin' : m.who, text:m.text || (m.card ? m.card.label : '') }); }; }
     { const rp = sh.el.querySelector('#lw-m-rep'); if(rp) rp.onclick = async () => {
@@ -4625,7 +4623,7 @@ function app(tab){
   function _lwMsgHTML(m, anim, i){
     const more = ((m.sid && m.who !== 'You') || (_lwIsHost() && m.id)) ? `<button class="lw-msg-more" type="button" data-lw-msg="${i}" aria-label="${m.who === 'You' ? 'Pin this message' : 'React, report or hide'}">${LW_ICO_MORE}</button>` : '';
     const av = m.av ? `<img src="${escapeHtml(m.av)}" alt="" loading="lazy">` : escapeHtml((m.who || '?').charAt(0));
-    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}" data-lw-i="${i}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${(m.st && !m.card) ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyphTint(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}${_lwRxRow(m, i)}</div>${more}</div>`;
+    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}" data-lw-i="${i}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${(m.st && !m.card) ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}${_lwRxRow(m, i)}</div>${more}</div>`;
   }
 
   // ---- typing, pinned messages and reactions (Justin, 2026-11-04) ---------------------------------------------------
@@ -4868,7 +4866,7 @@ function app(tab){
   function _lwChatSheet(){
     const R = _lwRoom; if(!R) return; R.unread = 0;
     const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat';
-    const sh = _lwSheet('Chat', `<p class="lw-p lw-muted">Everyone in this call sees the chat. It is gone when the call ends. To write to Justin alone, use Messages.</p>
+    const sh = _lwSheet('Chat', `
       <div class="lw-pin-slot" data-where="sheet"></div><div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>${LW_TYPING}
       <form class="lw-chat-form" id="lw-chat-sheet-form"><label class="vh" for="lw-chat-sheet-in">Write to the group</label><input id="lw-chat-sheet-in" type="text" maxlength="500" autocomplete="off" placeholder="Write to the group"><button class="btn" type="submit">Send</button></form>`, { host:document.getElementById('lw-room') });
     _lwWireStateTg(sh.el); _lwPaintChat(); _lwPaintPin(); _lwPaintTyping();
