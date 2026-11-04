@@ -3941,6 +3941,9 @@ function app(tab){
     opts = opts || {};
     const R = _lwRoom, s = R ? R.s : null, K = s ? _lwKind(s) : { name:'Live' };
     const ctx = (phase === 'before' ? 'Before ' : phase === 'after' ? 'After ' : 'During ') + K.name;
+    // the share card's tag: Pre / Post / Mid, the mids numbered at a Capacity Builder (two in one event) (Justin, 2026-11-04)
+    const midN = (phase !== 'before' && phase !== 'after' && R) ? (R.midN = (R.midN || 0) + 1) : 0;
+    const tag = phase === 'before' ? 'Pre' : phase === 'after' ? 'Post' : 'Mid' + ((s && s.kind === 'capacity_builder') ? ' ' + midN : '');
     let method = 'sliders'; try{ method = localStorage.getItem('snb_checkin_method') || 'sliders'; }catch(e){}
     const stM = method === 'states', numM = method === 'numbers';
     let v = 50, sy = 50, d = 50; const axTouched = {};
@@ -4012,7 +4015,7 @@ function app(tab){
         <div class="lw-sh-btns">${R && R.co && R.phase === 'call' ? '<button class="btn block quiet" type="button" id="lw-ci-share">Share in the chat</button>' : ''}<button class="btn block" type="button" id="lw-ci-back">${opts.thenLeave ? 'Leave' : phase === 'after' ? 'Done' : 'Back to the practice'}</button></div>`;
       box.querySelector('#lw-ci-back').onclick = () => { sh.close(); if(opts.thenLeave) _lwLeaveCall(); };
       const shareB = box.querySelector('#lw-ci-share');
-      if(shareB) shareB.onclick = () => { if(_lwShareCard({ k:dom.key, label:dom.label || '', ev:ctx })){ shareB.disabled = true; shareB.innerHTML = LW_ICO.check + 'Shared in the chat'; haptic('save'); } else showToast('That did not send. Try again in a moment.'); };
+      if(shareB) shareB.onclick = () => { if(_lwShareCard({ k:dom.key, label:dom.label || '', ev:tag })){ shareB.disabled = true; shareB.innerHTML = LW_ICO.check + 'Shared in the chat'; haptic('save'); } else showToast('That did not send. Try again in a moment.'); };
     };
     return sh;
   }
@@ -4569,7 +4572,7 @@ function app(tab){
   const _lwSafeCard = c => { if(!c || typeof c !== 'object') return null; const k = (typeof c.k === 'string' && (STATE_AXES[c.k] || c.k === 'neutral')) ? c.k : null; if(!k) return null;
     return { k, label:String(c.label || '').slice(0, 80), ev:String(c.ev || '').slice(0, 60) }; };
   // a shared check-in, drawn like the app's share cards: eyebrow, the state glyph, its name, the brand foot
-  const _lwCardHTML = (c, sig) => `<div class="lw-shcard" role="img" aria-label="${escapeHtml((c.ev ? c.ev + ': ' : '') + c.label)}"><div class="lw-shcard-g">${_lwGlyph(c.k)}</div><div class="lw-shcard-t"><p class="ww-eyeb">${escapeHtml(c.ev)}</p><p class="lw-shcard-l">${escapeHtml(c.label)}</p></div></div>`;
+  const _lwCardHTML = (c, sig) => `<div class="lw-shcard" role="img" aria-label="${escapeHtml((c.ev ? c.ev + ': ' : '') + c.label)}"><p class="lw-shcard-h">${c.ev ? `<span class="lw-shcard-tag">${escapeHtml(c.ev)}:</span> ` : ''}${escapeHtml(c.label)}</p><div class="lw-shcard-g">${_lwGlyph(c.k)}</div></div>`;
   function _lwShareCard(card){
     const R = _lwRoom; if(!R || !R.co || R.phase !== 'call') return false;
     const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member'), av = _lwAvatar(), st = _lwSig();
