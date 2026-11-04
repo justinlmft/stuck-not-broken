@@ -7255,3 +7255,8 @@ body.lw-sl-on.lw-sl-dark .lw-pin-dockslot .lw-pin{background:rgba(26,31,42,.62);
 .lw-rx-fly{position:absolute;left:8px;bottom:60%;pointer-events:none;font-size:16px;display:flex;animation:lwRxFly 1.2s cubic-bezier(.22,1,.36,1) forwards}
 .lw-rx-fly .lw-rx-heart{width:18px;height:16px}
 @keyframes lwRxFly{0%{opacity:0;transform:translateY(4px) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px) scale(1.15)}}
+/* live-tweaks-r3: Mic and Camera as icons only */
+.lw-rp.lw-rp-ic,.lw-rp.lw-rp-ic.on{width:44px;padding:0;justify-content:center}
+.lw-rp-ic svg,.lw-lb-prev .lw-rp-ic svg{width:20px;height:20px}
+.lw-sp > .lw-rp-ic:first-child,.lw-sp > .lw-rp-ic.on:first-child{width:auto;padding:0 8px 0 14px}
+.lw-db-ic svg{width:22px;height:22px}

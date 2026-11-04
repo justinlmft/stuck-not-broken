@@ -3312,6 +3312,9 @@ function app(tab){
     devices:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>'
   });
   LW_ICO.gear = GEAR_SVG.replace('<svg ', '<svg fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" ');   // the You tab's Settings gear
+  // Mic and Camera: the icon only, slashed when off; the words stay for screen readers and as the hover title (Justin, 2026-11-04)
+  const _lwIcB = (id, kind, on, attr) => { const mic = kind === 'mic', ico = mic ? (on ? LW_ICO.mic : LW_ICO.micOff) : (on ? LW_ICO.cam : LW_ICO.camOff), lab = (mic ? 'Mic' : 'Camera') + (on ? ' on' : ' off');
+    return `<button type="button" class="lw-rp lw-rp-ic${on ? ' on' : ''}"${id ? ` id="${id}"` : ''}${attr || ''} aria-pressed="${on}" aria-label="${lab}" title="${lab}">${ico}</button>`; };
   LW_ICO.caret = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 14l5-5 5 5"/></svg>';
   const LW_MARK_VB = { heart:'-4.0 36.4 478.2 386.7', bolt:'462.3 -9.4 434.4 459.8', x:'887.4 11.7 413.6 422.6' };
   const lwMark = (m, col) => { const I = window.SNB_ICONS||{}; return `<svg class="lw-mark" viewBox="${LW_MARK_VB[m]}" aria-hidden="true"><path fill="${col}" d="${(I[m]&&I[m].d)||''}"/></svg>`; };
@@ -4313,8 +4316,8 @@ function app(tab){
         <div class="lw-lb-grid">
           <section class="lw-rc lw-lb-prev" aria-label="Your camera">
             <div class="lw-preview2${R.cam ? ' on' : ''}"><video id="lw-prev" autoplay playsinline muted></video>${R.cam ? '' : '<span class="lw-av">You</span><span class="lw-prev-note">Your camera is off</span>'}</div>
-            <div class="lw-pills"><button type="button" class="lw-rp${R.cam ? ' on' : ''}" id="lw-tg-cam" aria-pressed="${R.cam}">${R.cam ? LW_ICO.cam : LW_ICO.camOff}<span>${R.cam ? 'Camera on' : 'Camera off'}</span></button>
-              <button type="button" class="lw-rp${R.mic ? ' on' : ''}" id="lw-tg-mic" aria-pressed="${R.mic}">${R.mic ? LW_ICO.mic : LW_ICO.micOff}<span>${R.mic ? 'Mic on' : 'Mic off'}</span></button></div>
+            <div class="lw-pills">${_lwIcB('lw-tg-cam', 'cam', R.cam)}
+              ${_lwIcB('lw-tg-mic', 'mic', R.mic)}</div>
           </section>
           <section class="lw-rc lw-lb-side" aria-label="Before you join">
             <ul class="lw-lb-list">${li(LW_ICO.cam, 'Camera on or off is up to you.')}${li(LW_ICO.chat, 'You do not have to speak or type.')}${li(s.recorded ? LW_ICO.rec : LW_ICO.recOff, s.recorded ? 'This one is recorded so others can watch it later.' : 'Not recorded. No replay.')}</ul>
@@ -4383,7 +4386,7 @@ function app(tab){
     const CHV = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     const fd = (k, what) => `<button type="button" class="lw-fd" data-fold="${k}" aria-label="Fold ${what}" aria-expanded="true">${CHV}</button>`;
     const pill = (id, label, on, extra) => `<button type="button" class="lw-rp${on ? ' on' : ''}" id="${id}"${extra || ''}>${on && /lw-c-slides/.test(id) ? LW_ICO.check : ''}<span>${label}</span></button>`;
-    const sp = (id, label, on, kind) => `<span class="lw-sp${on ? ' on' : ''}">${pill(id, label, on, ` aria-pressed="${on}"`)}<button type="button" class="lw-rp lw-sp-c" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></span>`;
+    const sp = (id, label, on, kind) => `<span class="lw-sp${on ? ' on' : ''}">${_lwIcB(id, kind === 'audioinput' ? 'mic' : 'cam', on)}<button type="button" class="lw-rp lw-sp-c" data-lw-dev="${kind}" aria-haspopup="menu" aria-label="${kind === 'audioinput' ? 'Choose a microphone' : 'Choose a camera'}">${LW_ICO.caret}</button></span>`;
     const leave = host ? `<button type="button" class="lw-ctl lw-end" id="lw-c-leave" aria-label="End or leave the event" title="End or leave">${LW_ICO.hangup}</button>`
       : `<button type="button" class="lw-rp" id="lw-c-leave">Leave</button>`;
     const here = host ? `<button type="button" class="lw-here lw-here-b" id="lw-here" aria-expanded="false" aria-controls="lw-ppl">${LW_ICO.people}<span class="lw-here-n"></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>`
@@ -4396,7 +4399,7 @@ function app(tab){
     const youCard = host ? `<section class="lw-rc lw-you" data-card="you" aria-label="You">${slides ? '<div class="lw-vid lw-you-vid" id="lw-you-vid" data-lw-spot="self"></div>' : ''}
         <div class="lw-pills">${sp('lw-c-mic', R.mic ? 'Mic on' : 'Mic off', R.mic, 'audioinput')}${sp('lw-c-cam', R.cam ? 'Camera on' : 'Camera off', R.cam, 'videoinput')}
         ${_lwCanShare() ? pill('lw-c-share', R.sharing ? 'Stop sharing' : 'Share screen', R.sharing) : ''}${pill('lw-c-slides', R.slide ? 'Slides on' : 'Slides', !!R.slide, ` aria-pressed="${!!R.slide}"`)}</div></section>`
-      : mm ? '' : `<section class="lw-rc lw-you lw-you-m" data-card="you" aria-label="You"><span class="lw-you-t">You</span><div class="lw-pills">${pill('lw-c-mic', R.mic ? 'Mic on' : 'Mic off', R.mic, ` aria-pressed="${R.mic}"`)}${pill('lw-c-cam', R.cam ? 'Camera on' : 'Camera off', R.cam, ` aria-pressed="${R.cam}"`)}</div></section>`;
+      : mm ? '' : `<section class="lw-rc lw-you lw-you-m" data-card="you" aria-label="You"><span class="lw-you-t">You</span><div class="lw-pills">${_lwIcB('lw-c-mic', 'mic', R.mic)}${_lwIcB('lw-c-cam', 'cam', R.cam)}</div></section>`;
     // Justin's camera in the rail while the slides are up (members): it folds to one line, the arrow on its header line
     const camCard = (member && slides) ? `<section class="lw-rc lw-camc" data-card="cam" aria-label="Justin’s camera"><div class="lw-rc-hd"><b>Justin</b>${fd('cam', 'the camera')}</div>
         <div class="lw-rc-fold"><div class="lw-vid lw-cam-vid" id="lw-stage-rail" data-lw-spot="owner"></div></div></section>` : '';
@@ -4407,7 +4410,7 @@ function app(tab){
     // the dock (tablet and phone): Justin's picture (members, slides up), the name and the count, then the controls
     const dB = (id, ico, label, on, proxy) => `<button type="button" class="lw-db${on ? ' on' : ''}"${id ? ` id="${id}"` : ''}${proxy ? ` data-proxy="${proxy}"` : ''}>${ico}<span>${label}</span></button>`;
     const dRow = [];
-    if(!(mm && member)){ dRow.push(dB('', R.mic ? LW_ICO.mic : LW_ICO.micOff, R.mic ? 'Mic on' : 'Mic off', R.mic, 'lw-c-mic')); dRow.push(dB('', R.cam ? LW_ICO.cam : LW_ICO.camOff, R.cam ? 'Camera on' : 'Camera off', R.cam, 'lw-c-cam')); }
+    if(!(mm && member)){ [['mic', R.mic, 'lw-c-mic'], ['cam', R.cam, 'lw-c-cam']].forEach(([k, on, px]) => { const lab = (k === 'mic' ? 'Mic' : 'Camera') + (on ? ' on' : ' off'); dRow.push(`<button type="button" class="lw-db lw-db-ic${on ? ' on' : ''}" data-proxy="${px}" aria-pressed="${on}" aria-label="${lab}" title="${lab}">${k === 'mic' ? (on ? LW_ICO.mic : LW_ICO.micOff) : (on ? LW_ICO.cam : LW_ICO.camOff)}</button>`); }); }
     if(host) dRow.push(dB('', LW_ICO.slides, R.slide ? 'Slides on' : 'Slides', !!R.slide, 'lw-c-slides'));
     dRow.push(dB('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : ''), false));
     dRow.push(dB('', LW_ICO.gear, 'Settings', false, 'lw-c-set'));
