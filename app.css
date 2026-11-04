@@ -7185,3 +7185,73 @@ body.reduce-motion .snb-reco::after{animation:none;--snb-a:200deg}
 .lw-msg-more:hover,.lw-msg-more:focus-visible{opacity:1;background:var(--hairline)}
 .lw-ppl-rm{margin-left:auto;border:1px solid var(--hairline);background:transparent;color:var(--ink);border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer}
 .lw-danger{color:var(--danger, #b3261e)}
+
+/* live-tweaks-r1 (2026-11-04) ----------------------------------------------------------------------------------- */
+/* glass cards over the slides set their own ink, so every line inside them (who is here, the chat) reads, in either app theme */
+body.lw-sl-on .lw-r2 .lw-rc{--ink:#1A1F2A;--ink-80:rgba(26,31,42,.86);--muted:rgba(26,31,42,.66);--hairline:rgba(26,31,42,.16);--bone:#FAF9F5;--bone-deep:rgba(26,31,42,.07);--field:transparent;--tg-dim:#C9C3B4}
+body.lw-sl-on.lw-sl-dark .lw-r2 .lw-rc{--ink:#FAF9F5;--ink-80:rgba(250,249,245,.9);--muted:rgba(250,249,245,.72);--hairline:rgba(250,249,245,.2);--bone:rgba(250,249,245,.08);--bone-deep:rgba(250,249,245,.14);--field:transparent;--tg-dim:rgba(250,249,245,.3)}
+.lw-ppl-av{color:var(--ink)}
+.lw-ppl-rm{color:var(--ink);border-color:var(--hairline)}
+.lw-ppl-tag{color:var(--muted)}
+.lw-r2 .lw-evc .lw-ppl li{gap:10px}
+.lw-r2 .lw-evc .lw-ppl .lw-ppl-av{width:26px;height:26px;font-size:12px}
+.lw-ppl-sheet{position:static;width:auto;max-height:none;padding:0;margin:0;border:0;background:none;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;animation:none}
+.lw-ppl-sheet li{min-height:44px;font-size:calc(17px * var(--type-scale));gap:12px}
+.lw-ppl-sheet .lw-ppl-av{width:30px;height:30px;font-size:13px}
+.lw-ppl-sheet .lw-ppl-rm{min-height:36px;padding:0 14px;font-size:14px}
+.lw-here-dk{align-self:flex-start;margin:0 0 0 -6px;padding:0 6px;min-height:32px;display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.lw-here-dk .lw-here-chev{transform:none}
+/* a shared check-in in the chat: one glyph, the eyebrow and the reading beside it, no brand foot */
+.lw-shcard{flex-direction:row;align-items:center;gap:12px;max-width:100%;padding:10px 14px;border-radius:14px}
+.lw-shcard-g .triglyph{height:28px;width:auto}
+.lw-shcard-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lw-shcard-l{font-size:calc(16px * var(--type-scale))}
+body.lw-sl-on .lw-r2 .lw-shcard{background:var(--bone-deep);border-color:var(--hairline)}
+/* typing: a name and three soft dots, under the messages */
+.lw-typing{flex:none;display:flex;align-items:center;gap:8px;min-height:0;height:0;overflow:hidden;opacity:0;font-size:calc(13px * var(--type-scale));color:var(--muted);transition:height .28s var(--ease),opacity .28s var(--ease)}
+.lw-typing.on{height:calc(22px * var(--type-scale));opacity:1}
+.lw-typing-t{line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lw-typing-d{display:inline-flex;gap:3px}
+.lw-typing-d i{width:5px;height:5px;border-radius:50%;background:currentColor;animation:lwType 1.4s ease-in-out infinite}
+.lw-typing-d i:nth-child(2){animation-delay:.18s}
+.lw-typing-d i:nth-child(3){animation-delay:.36s}
+@keyframes lwType{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-2px)}}
+body.reduce-motion .lw-typing-d i{animation:none;opacity:.6}
+@media (prefers-reduced-motion:reduce){.lw-typing-d i{animation:none;opacity:.6}.lw-typing{transition:none}}
+/* the pinned message */
+.lw-pin-slot:empty{display:none}
+.lw-sh-body .lw-pin-slot{margin:2px 0 12px}
+.lw-r2 .lw-chatc .lw-pin-slot{flex:none}
+.lw-pin{display:flex;align-items:flex-start;gap:10px;padding:10px 6px 10px 12px;border:1px solid var(--hairline);border-radius:14px;background:var(--bone-deep);color:var(--ink)}
+.lw-pin-in{animation:lwFade .28s var(--ease) both}
+.lw-pin-ic{flex:none;width:18px;height:18px;margin-top:1px;color:var(--muted)}
+.lw-pin-ic svg{width:18px;height:18px}
+.lw-pin-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lw-pin-h{font-size:12px;font-weight:600;color:var(--muted)}
+.lw-pin-t{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.4;color:var(--ink);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.lw-pin-t a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.lw-pin-x{flex:none;width:32px;height:32px;margin:-4px 0;display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--muted);border-radius:50%;cursor:pointer}
+.lw-pin-x svg{width:16px;height:16px}
+.lw-pin-x:hover,.lw-pin-x:focus-visible{background:var(--hairline)}
+.lw-pin-dockslot{flex:none}
+.lw-pin-dockslot .lw-pin{background:var(--bone);box-shadow:0 6px 20px -14px rgba(0,0,0,.35)}
+body.lw-sl-on .lw-pin-dockslot .lw-pin{background:rgba(250,249,245,.84);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);--ink:#1A1F2A;--muted:rgba(26,31,42,.66);--hairline:rgba(26,31,42,.16);color:#1A1F2A}
+body.lw-sl-on.lw-sl-dark .lw-pin-dockslot .lw-pin{background:rgba(26,31,42,.62);--ink:#FAF9F5;--muted:rgba(250,249,245,.72);--hairline:rgba(250,249,245,.2);color:#FAF9F5}
+@media (min-width:1120px){ .lw-pin-dockslot{display:none} }
+/* reactions: chips under a message; the picker sits at the top of the message's sheet */
+.lw-rxs{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.lw-rx{position:relative;display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:0 10px;border:1px solid var(--hairline);border-radius:999px;background:none;color:var(--ink);font:inherit;font-size:13px;cursor:pointer;transition:background-color .2s var(--ease),border-color .2s var(--ease)}
+.lw-rx.on{border-color:var(--ink);background:var(--bone-deep)}
+.lw-rx:disabled{cursor:default;opacity:1}
+.lw-rx-e{display:inline-flex;font-size:15px;line-height:1}
+.lw-rx-heart{width:16px;height:14px}
+.lw-rx-c{font-variant-numeric:tabular-nums}
+.lw-rx-pick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 14px}
+.lw-rx-opt{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:76px;border:1px solid var(--hairline);border-radius:16px;background:none;color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.lw-rx-opt .lw-rx-e{font-size:26px}
+.lw-rx-opt .lw-rx-heart{width:30px;height:26px}
+.lw-rx-opt.on{border-color:var(--ink);background:var(--bone-deep)}
+.lw-rx-opt:focus-visible,.lw-rx:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.lw-rx-fly{position:absolute;left:8px;bottom:60%;pointer-events:none;font-size:16px;display:flex;animation:lwRxFly 1.2s cubic-bezier(.22,1,.36,1) forwards}
+.lw-rx-fly .lw-rx-heart{width:18px;height:16px}
+@keyframes lwRxFly{0%{opacity:0;transform:translateY(4px) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translateY(-34px) scale(1.15)}}

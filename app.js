@@ -3258,6 +3258,7 @@ function app(tab){
   const LW_DAILY_SRC = 'https://cdn.jsdelivr.net/npm/@daily-co/daily-js@0.93.0/dist/daily.js';
   const LW_UPGRADE_URL = 'https://www.stucknotbroken.com/checkout/co-regulator';
   const LW_OPEN_EARLY_MIN = 10;
+  const LW_HOST_EARLY_MIN = 60;   // the host opens the room up to an hour early to set up (Justin, 2026-11-04)
   // ── THE TWO SWITCHES (Justin, 2026-10-26: "make the current community tab into a calendar tab that lists the mindful
   // moments? and hide the forum? then reveal it when the time comes"). Until the Co-Regulator tier launches, the tab is
   // "Calendar" and lists Mindful Moment only; the Feed is hidden. Justin (the host) still sees every session so the
@@ -3321,7 +3322,7 @@ function app(tab){
   const _lwKind = s => LW_KIND[s.kind] || { name:s.title || 'Live', line:'', video:true };
   const _lwStart = s => new Date(s.starts_at).getTime();
   const _lwEnd = s => _lwStart(s) + (s.duration_min||60)*60000;
-  const _lwDoorOpen = s => { const n = Date.now(); return n >= _lwStart(s) - LW_OPEN_EARLY_MIN*60000 && n <= _lwEnd(s); };
+  const _lwDoorOpen = s => { const n = Date.now(); return n >= _lwStart(s) - ((_lw.access && _lw.access.host) ? LW_HOST_EARLY_MIN : LW_OPEN_EARLY_MIN)*60000 && n <= _lwEnd(s); };
   const _lwAllowed = s => s.access === 'free' || !!(_lw.access && _lw.access.co_regulator);
   const _lwIsHost = () => !!(_lw.access && _lw.access.host);
   // what a session is: the session's own words, else its series' words, else the built-in line
@@ -3349,10 +3350,12 @@ function app(tab){
   const _lwRsvp = s => !!_lw.rem[s.id];
   const _lwRemOn = s => (_lw.rem[s.id] || []).some(c => c === 'app' || c === 'email');
   // Justin is in the room (a beat in the last 90 seconds) and the door is open for members
-  const _lwIsLive = s => !!_lw.live[s.id] && _lwDoorOpen(s);
+  const _lwIsLive = s => { const n = Date.now(); return !!_lw.live[s.id] && n >= _lwStart(s) - LW_OPEN_EARLY_MIN*60000 && n <= _lwEnd(s); };
   const _lwUid = () => { try{ const u = Store.user && Store.user(); return u && !(Store.isAnonymous && Store.isAnonymous()) ? u.id : null; }catch(e){ return null; } };
   // a state glyph, lit at once (no ease-in), for the chat and the check-in result
   const _lwGlyph = k => triGlyph(k).replace(/data-col="([^"]+)"/g, 'data-col="$1" style="fill:$1"');
+  const _lwGlyphTint = k => { const g = _lwGlyph(k); if(!STATE_AXES[k]) return g; const col = STATE_COLOR(k);
+    return g.replace(/<path class="tg-m" data-m="([a-z]+)" d=/g, `<path class="tg-m" data-m="$1" style="fill:${col};fill-opacity:.4" d=`); };
   // the member's photo (Settings → Photo), else null
   function _lwAvatar(){ try{ const u = Store.user && Store.user(); const m = (u && u.user_metadata) || {}; return localStorage.getItem('snb_av_' + (u && u.id)) || m.avatar_url || null; }catch(e){ return null; } }
   function _lwRange(s){
@@ -4401,7 +4404,7 @@ function app(tab){
         <div class="lw-rc-fold"><div class="lw-vid lw-cam-vid" id="lw-stage-rail" data-lw-spot="owner"></div></div></section>` : '';
     const ph = mm ? 'Share a present moment reflection' : 'Write to the group';
     const chatCard = `<section class="lw-rc lw-chatc" data-card="chat" aria-label="Chat"><div class="lw-rc-hd"><b>Chat</b><span class="lw-cn" id="lw-chat-n"></span>${fd('chat', 'the chat')}</div>
-        <div class="lw-rc-fold"><div class="lw-chat-list" id="lw-chat-list"></div>
+        <div class="lw-rc-fold"><div class="lw-pin-slot" data-where="chat"></div><div class="lw-chat-list" id="lw-chat-list"></div>${LW_TYPING}
         <form class="lw-chat-form lw-chatf" id="lw-chat-form"><label class="vh" for="lw-chat-in">${ph}</label><input id="lw-chat-in" type="text" maxlength="500" autocomplete="off" placeholder="${ph}"><button class="lw-rp on" type="submit">Send</button></form></div></section>`;
     // the dock (tablet and phone): Justin's picture (members, slides up), the name and the count, then the controls
     const dB = (id, ico, label, on, proxy) => `<button type="button" class="lw-db${on ? ' on' : ''}"${id ? ` id="${id}"` : ''}${proxy ? ` data-proxy="${proxy}"` : ''}>${ico}<span>${label}</span></button>`;
@@ -4411,7 +4414,7 @@ function app(tab){
     dRow.push(dB('lw-c-chat', LW_ICO.chat, 'Chat' + (R.unread ? ' (' + R.unread + ')' : ''), false));
     dRow.push(dB('', LW_ICO.gear, 'Settings', false, 'lw-c-set'));
     const dock = `<nav class="lw-rc lw-dock2" aria-label="Live event controls"><div class="lw-dk-row">${(member && slides) ? `<button type="button" class="lw-dk-pic" id="lw-dk-pic" aria-expanded="${!!R.dockCam}" aria-label="${R.dockCam ? 'Hide Justin’s camera' : 'Show Justin’s camera'}">J</button>` : ''}
-        <div class="lw-evc-t"><b>${escapeHtml(K.name)}</b><span class="lw-here"><span class="lw-here-n"></span></span></div>
+        <div class="lw-evc-t"><b>${escapeHtml(K.name)}</b>${host ? `<button type="button" class="lw-here lw-here-b lw-here-dk" id="lw-here-dk">${LW_ICO.people}<span class="lw-here-n"></span><svg class="lw-here-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>` : '<span class="lw-here"><span class="lw-here-n"></span></span>'}</div>
         ${host ? `<button type="button" class="lw-ctl lw-end" data-proxy="lw-c-leave" aria-label="End or leave the event">${LW_ICO.hangup}</button>` : '<button type="button" class="lw-rp" data-proxy="lw-c-leave">Leave</button>'}</div>
         <div class="lw-dk-btns" style="--n:${dRow.length}">${dRow.join('')}</div></nav>`;
     const enter = !R.entered || R.riseNext; R.entered = true; R.riseNext = false;
@@ -4420,6 +4423,7 @@ function app(tab){
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}</div>
       <aside class="lw-rail" id="lw-rail" aria-label="The live event">${evCard}${youCard}${camCard}<div class="lw-ci-slot" id="lw-ci-slot"></div>${chatCard}</aside>
       ${(member && slides) ? `<div class="lw-rc lw-dk-cam" id="lw-dk-cam"${R.dockCam ? '' : ' hidden'}><div class="lw-vid" id="lw-dk-vid" data-lw-spot="owner"></div></div>` : ''}
+      <div class="lw-pin-slot lw-pin-dockslot" data-where="dock"></div>
       ${dock}
       <div id="lw-audio" hidden></div></div>`);
     if(enter) setTimeout(() => { const r = document.getElementById('lw-room'); if(r) r.classList.remove('lw-enter'); }, 700);
@@ -4465,10 +4469,12 @@ function app(tab){
     { const pic = document.getElementById('lw-dk-pic'); if(pic) pic.onclick = () => { R.dockCam = !R.dockCam; const c = document.getElementById('lw-dk-cam'); if(c) c.hidden = !R.dockCam;
         pic.setAttribute('aria-expanded', String(R.dockCam)); pic.setAttribute('aria-label', R.dockCam ? 'Hide Justin’s camera' : 'Show Justin’s camera'); _lwPaint(); }; }
     const setB = document.getElementById('lw-c-set'); if(setB) setB.onclick = _lwSettingsSheet;
+    { const hd = document.getElementById('lw-here-dk'); if(hd) hd.onclick = _lwPplSheet; }
     _lwWireStateTg(document.getElementById('lw-room'));
     const ch = document.getElementById('lw-c-chat'); if(ch) ch.onclick = _lwChatSheet;
     const tap = document.getElementById('lw-tap'); if(tap) tap.onclick = () => { R.needsTap = false; document.querySelectorAll('#lw-audio audio').forEach(a => { try{ a.play(); }catch(e){} }); _lwRender(); };
     const f = document.getElementById('lw-chat-form'); if(f){ f.onsubmit = e => { e.preventDefault(); const i = $('#lw-chat-in'); _lwSend(i.value); i.value = ''; }; _lwPaintChat(); }
+    _lwPaintPin(); _lwPaintTyping();
   }
   async function _lwJoin(){
     const R = _lwRoom; if(!R) return;
@@ -4504,13 +4510,18 @@ function app(tab){
     co.on('recording-error', () => { R.rec = 'off'; _lwPaintRec(); if(_lwIsHost()) showToast('The recording stopped. Tap Record to start it again.'); });
     co.on('app-message', ev => {
       const d = ev && ev.data; if(!d) return;
-      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; R.chat.push({ uid:_lwUidOf(R, ev.fromId), sid:ev.fromId, who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:_lwSlOwner(R, ev.fromId), av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
+      if(d.t === 'chat' && (d.text || d.card)){ const card = _lwSafeCard(d.card); if(!d.text && !card) return; if(R.typing) delete R.typing[ev.fromId]; R.chat.push({ id:_lwSafeId(d.id), uid:_lwUidOf(R, ev.fromId), sid:ev.fromId, who:String(d.who||'Someone').slice(0,40), text:String(d.text||'').slice(0,500), host:_lwSlOwner(R, ev.fromId), av:_lwSafeAv(d.av), st:_lwSafeSt(d.st), card }); if(!document.getElementById('lw-chat-sheet-list') && !mm) R.unread++; _lwPaintChat(); if(!mm && R.phase === 'call' && !document.getElementById('lw-chat-sheet-list')){ const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat (' + R.unread + ')'; } }
       if(d.t === 'checkin' && !document.getElementById('lw-ci')) _lwCheckin('during', { sticky:true });
       if(d.t === 'sl' && typeof d.d === 'string' && d.n > 0 && d.n < 60) _lwSlReceive(R, d, ev.fromId);
       if(d.t === 'sl-off' && _lwSlOwner(R, ev.fromId)) _lwSlOff(R, false);
       if(d.t === 'end' && _lwSlOwner(R, ev.fromId) && !_lwIsHost()){ R.ended = true; _lwLeaveCall(); }
       if(d.t === 'sl-req' && _lwIsHost() && R.slide) _lwSlSend(R, R.slide, ev.fromId);
+      if(d.t === 'sl-req' && _lwIsHost() && R.pin){ try{ R.co.sendAppMessage({ t:'pin', pin:R.pin }, ev.fromId); }catch(e){} }
+      if(d.t === 'typing') _lwTypingIn(R, ev.fromId, d);
+      if(d.t === 'pin' && _lwSlOwner(R, ev.fromId)) _lwPinSet(R, _lwSafePin(d.pin));
+      if(d.t === 'react') _lwReactIn(R, ev.fromId, d);
     });
+    co.on('participant-left', ev => { const sid = ev && ev.participant && ev.participant.session_id; if(sid && R.typing && R.typing[sid]){ delete R.typing[sid]; _lwPaintTyping(); } });
     co.on('left-meeting', () => { if(_lwRoom === R && R.phase === 'call') { R.phase = 'left'; _lwRender(); } });
     co.on('error', ev => { if(_lwRoom === R){ const ej = ev && ((ev.error && ev.error.type === 'ejected') || /eject/i.test(String(ev.errorMsg || '')));
       R.err = ej ? 'The host removed you from this live event.' : 'The connection dropped. Try rejoining.'; R.phase = 'left'; _lwRender(); } });
@@ -4547,20 +4558,23 @@ function app(tab){
     const R = _lwRoom; text = String(text||'').trim(); if(!R || !R.co || !text) return;
     const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member');
     const av = _lwAvatar(), st = _lwSig();
-    try{ R.co.sendAppMessage({ t:'chat', who, text:text.slice(0,500), host:_lwIsHost(), av, st }, '*'); }catch(e){}
-    R.chat.push({ who:'You', text:text.slice(0,500), host:_lwIsHost(), av, st }); _lwPaintChat();
+    const id = _lwMid();
+    try{ R.co.sendAppMessage({ t:'chat', id, who, text:text.slice(0,500), host:_lwIsHost(), av, st }, '*'); R.co.sendAppMessage({ t:'typing', stop:true }, '*'); }catch(e){}
+    R.typeAt = 0;
+    R.chat.push({ id, who:'You', text:text.slice(0,500), host:_lwIsHost(), av, st }); _lwPaintChat();
   }
   const _lwSafeAv = u => (typeof u === 'string' && /^https:\/\/[a-z0-9]+\.supabase\.co\/storage\/v1\/object\/public\/avatars\/[0-9a-f-]+\.jpg(\?v=\d+)?$/.test(u)) ? u : null;
   const _lwSafeSt = k => (typeof k === 'string' && STATE_AXES[k]) ? k : null;
   const _lwSafeCard = c => { if(!c || typeof c !== 'object') return null; const k = (typeof c.k === 'string' && (STATE_AXES[c.k] || c.k === 'neutral')) ? c.k : null; if(!k) return null;
     return { k, label:String(c.label || '').slice(0, 80), ev:String(c.ev || '').slice(0, 60) }; };
   // a shared check-in, drawn like the app's share cards: eyebrow, the state glyph, its name, the brand foot
-  const _lwCardHTML = (c, sig) => `<div class="lw-shcard" role="img" aria-label="${escapeHtml((c.ev ? c.ev + ': ' : '') + c.label)}"><p class="ww-eyeb">${escapeHtml(c.ev)}</p><div class="lw-shcard-g">${_lwGlyph(c.k)}</div><p class="lw-shcard-l">${escapeHtml(c.label)}</p>${panelFoot(sig || null)}</div>`;
+  const _lwCardHTML = (c, sig) => `<div class="lw-shcard" role="img" aria-label="${escapeHtml((c.ev ? c.ev + ': ' : '') + c.label)}"><div class="lw-shcard-g">${_lwGlyph(c.k)}</div><div class="lw-shcard-t"><p class="ww-eyeb">${escapeHtml(c.ev)}</p><p class="lw-shcard-l">${escapeHtml(c.label)}</p></div></div>`;
   function _lwShareCard(card){
     const R = _lwRoom; if(!R || !R.co || R.phase !== 'call') return false;
     const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member'), av = _lwAvatar(), st = _lwSig();
-    try{ R.co.sendAppMessage({ t:'chat', who, text:'', host:_lwIsHost(), av, st, card }, '*'); }catch(e){ return false; }
-    R.chat.push({ who:'You', text:'', host:_lwIsHost(), av, st, card }); _lwPaintChat(); return true;
+    const id = _lwMid();
+    try{ R.co.sendAppMessage({ t:'chat', id, who, text:'', host:_lwIsHost(), av, st, card }, '*'); }catch(e){ return false; }
+    R.chat.push({ id, who:'You', text:'', host:_lwIsHost(), av, st, card }); _lwPaintChat(); return true;
   }
   // ---- report, hide and remove (Apple guideline 1.2, 2026-11-02): members chat with each other, so each can report a
   // message (it emails Justin), hide one person's messages for themselves, and the host can remove someone from the event.
@@ -4572,16 +4586,21 @@ function app(tab){
   function _lwMsgSheet(m){
     const R = _lwRoom; if(!R || !m) return;
     const who = escapeHtml(m.who || 'this member');
-    const sh = _lwSheet('This message', `<div class="lw-sh-btns">
-        <button class="btn block quiet" type="button" id="lw-m-rep">Report this message</button>
+    const mine = m.who === 'You', i = R.chat.indexOf(m), pinned = !!(R.pin && m.id && R.pin.id === m.id);
+    const rx = (!mine && m.id) ? `<div class="lw-rx-pick" role="group" aria-label="React">${LW_RX.map(x => { const on = _lwRxMine(R, m.id, x.k); return `<button type="button" class="lw-rx-opt${on ? ' on' : ''}" data-rx-pick="${x.k}" aria-pressed="${on}" aria-label="${x.label}"><span class="lw-rx-e" aria-hidden="true">${x.k === 'heart' ? _lwRxHeart() : x.e}</span><span class="lw-rx-n">${x.label}</span></button>`; }).join('')}</div>` : '';
+    const pinB = (_lwIsHost() && m.id) ? `<button class="btn block quiet" type="button" id="lw-m-pin">${pinned ? 'Unpin this message' : 'Pin this message'}</button>` : '';
+    const sh = _lwSheet('This message', `${rx}<div class="lw-sh-btns">${pinB}
+        ${mine ? '' : '<button class="btn block quiet" type="button" id="lw-m-rep">Report this message</button>'}
         ${m.uid ? `<button class="btn block quiet" type="button" id="lw-m-hide">Hide messages from ${who}</button>` : ''}
         ${_lwIsHost() && m.uid ? `<button class="btn block quiet lw-danger" type="button" id="lw-m-rm">Remove ${who} from this event</button>` : ''}
-      </div><p class="lw-p lw-muted" style="margin-top:10px">A report goes to Justin with the message and who sent it. Hiding only changes what you see.</p>`, { host:document.getElementById('lw-room') });
-    sh.el.querySelector('#lw-m-rep').onclick = async () => {
+      </div>${mine ? '' : '<p class="lw-p lw-muted" style="margin-top:10px">A report goes to Justin with the message and who sent it. Hiding only changes what you see.</p>'}`, { host:document.getElementById('lw-room') });
+    sh.el.querySelectorAll('[data-rx-pick]').forEach(b => b.onclick = () => { sh.close(); _lwReact(R, m.id, b.dataset.rxPick); });
+    { const pb = sh.el.querySelector('#lw-m-pin'); if(pb) pb.onclick = () => { sh.close(); _lwPinSend(R, pinned ? null : { id:m.id, who:m.who === 'You' ? 'Justin' : m.who, text:m.text || (m.card ? m.card.label : '') }); }; }
+    { const rp = sh.el.querySelector('#lw-m-rep'); if(rp) rp.onclick = async () => {
       sh.close();
       const r = await _lwFn({ action:'report', session_id:R.s.id, reported_user:m.uid, reported_name:m.who, message:m.text || '' });
       showToast(r.status === 200 ? 'Thanks. Justin got your report and will look at it.' : 'The report did not send. Check your connection and try again.');
-    };
+    }; }
     const hb = sh.el.querySelector('#lw-m-hide'); if(hb) hb.onclick = () => { sh.close(); const h = _lwHidden(); h.add(m.uid); _lwHiddenSet(h); _lwChatRedraw();
       showToast('You won’t see their messages. Live settings can show them again.'); };
     const rb = sh.el.querySelector('#lw-m-rm'); if(rb) rb.onclick = () => { sh.close(); _lwRemoveAsk(m.uid, m.sid, m.who); };
@@ -4604,10 +4623,132 @@ function app(tab){
     ev.preventDefault(); _lwMsgSheet(_lwRoom.chat[+b.dataset.lwMsg]);
   });
   function _lwMsgHTML(m, anim, i){
-    const more = (m.sid && m.who !== 'You') ? `<button class="lw-msg-more" type="button" data-lw-msg="${i}" aria-label="Report or hide this message">${LW_ICO_MORE}</button>` : '';
+    const more = ((m.sid && m.who !== 'You') || (_lwIsHost() && m.id)) ? `<button class="lw-msg-more" type="button" data-lw-msg="${i}" aria-label="${m.who === 'You' ? 'Pin this message' : 'React, report or hide'}">${LW_ICO_MORE}</button>` : '';
     const av = m.av ? `<img src="${escapeHtml(m.av)}" alt="" loading="lazy">` : escapeHtml((m.who || '?').charAt(0));
-    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${m.st ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyph(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}</div>${more}</div>`;
+    return `<div class="lw-msg${m.host ? ' lw-msg-host' : ''}${anim ? ' lw-msg-in' : ''}" data-lw-i="${i}"><span class="lw-msg-av" aria-hidden="true">${av}</span><div class="lw-msg-b"><b>${escapeHtml(m.who)}${(m.st && !m.card) ? `<span class="lw-msg-st" role="img" aria-label="${escapeHtml(typeof STATE_LABEL === 'function' ? STATE_LABEL(m.st) : m.st)}">${_lwGlyphTint(m.st)}</span>` : ''}</b>${m.card ? _lwCardHTML(m.card, m.st) : ''}${m.text ? `<span>${escapeHtml(m.text)}</span>` : ''}${_lwRxRow(m, i)}</div>${more}</div>`;
   }
+
+  // ---- typing, pinned messages and reactions (Justin, 2026-11-04) ---------------------------------------------------
+  const _lwMid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  const _lwSafeId = x => (typeof x === 'string' && /^[a-z0-9]{4,16}$/.test(x)) ? x : null;
+  // reactions: the safety heart ("With you") first, then three everyday ones
+  const _lwRxHeart = () => { const I = window.SNB_ICONS || {}; return `<svg class="lw-rx-heart" viewBox="${LW_MARK_VB.heart}" aria-hidden="true"><path fill="${STATE_COLOR('safety')}" d="${(I.heart && I.heart.d) || ''}"/></svg>`; };
+  const LW_RX = [ { k:'heart', label:'With you' }, { k:'pray', e:'\u{1F64F}', label:'Thank you' }, { k:'clap', e:'\u{1F44F}', label:'Yes' }, { k:'smile', e:'\u{1F60A}', label:'Smile' } ];
+  const LW_RX_K = new Set(LW_RX.map(x => x.k));
+  const _lwMySid = R => { try{ const p = R.co && R.co.participants().local; return (p && p.session_id) || 'me'; }catch(e){ return 'me'; } };
+  const _lwRxMine = (R, id, k) => !!(R.rx && R.rx[id] && R.rx[id][k] && R.rx[id][k][_lwMySid(R)]);
+  function _lwRxRow(m, i){
+    const R = _lwRoom; if(!R || !m.id || !R.rx || !R.rx[m.id]) return '';
+    const hid = _lwHidden(), me = _lwMySid(R);
+    const chips = LW_RX.map(x => {
+      const who = Object.entries(R.rx[m.id][x.k] || {}).filter(([sid, v]) => v && !(v.uid && hid.has(v.uid)));
+      if(!who.length) return '';
+      const mine = who.some(([sid]) => sid === me), names = who.map(([sid, v]) => sid === me ? 'you' : v.who).join(', ');
+      const label = `${x.label}: ${names}`;
+      return `<button type="button" class="lw-rx${mine ? ' on' : ''}" data-lw-rx="${i}:${x.k}" aria-pressed="${mine}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"${m.who === 'You' ? ' disabled' : ''}><span class="lw-rx-e" aria-hidden="true">${x.k === 'heart' ? _lwRxHeart() : x.e}</span><span class="lw-rx-c">${who.length}</span></button>`;
+    }).join('');
+    return chips ? `<span class="lw-rxs">${chips}</span>` : '';
+  }
+  // redraw one message in place (both lists), without the arrival animation
+  function _lwMsgRedraw(R, id, rise){
+    const i = R.chat.findIndex(m => m.id === id); if(i < 0) return;
+    document.querySelectorAll(`#lw-room [data-lw-i="${i}"], #lw-sheet [data-lw-i="${i}"]`).forEach(el => {
+      el.outerHTML = _lwMsgHTML(R.chat[i], false, i);
+    });
+    if(rise && !document.body.classList.contains('reduce-motion') && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)){
+      document.querySelectorAll(`[data-lw-i="${i}"] [data-lw-rx="${i}:${rise}"]`).forEach(b => {
+        const f = document.createElement('span'); f.className = 'lw-rx-fly'; f.setAttribute('aria-hidden', 'true');
+        const x = LW_RX.find(q => q.k === rise); f.innerHTML = rise === 'heart' ? _lwRxHeart() : (x ? x.e : '');
+        b.appendChild(f); setTimeout(() => { try{ f.remove(); }catch(e){} }, 1300);
+      });
+    }
+  }
+  function _lwRxApply(R, sid, d, who, uid){
+    const id = _lwSafeId(d.id), k = String(d.r || ''); if(!id || !LW_RX_K.has(k)) return false;
+    R.rx = R.rx || {}; const o = R.rx[id] = R.rx[id] || {}; const s = o[k] = o[k] || {};
+    if(d.on) s[sid] = { who:String(who || 'Someone').slice(0, 40), uid }; else delete s[sid];
+    return true;
+  }
+  function _lwReact(R, id, k){
+    if(!R || !R.co || !id || !LW_RX_K.has(k)) return;
+    const on = !_lwRxMine(R, id, k), me = _lwMySid(R);
+    _lwRxApply(R, me, { id, r:k, on }, 'you', null);
+    const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member');
+    try{ R.co.sendAppMessage({ t:'react', id, r:k, on, who }, '*'); }catch(e){}
+    _lwMsgRedraw(R, id, on ? k : null);
+  }
+  function _lwReactIn(R, sid, d){
+    if(!_lwRxApply(R, sid, d, d.who, _lwUidOf(R, sid))) return;
+    _lwMsgRedraw(R, d.id, d.on ? String(d.r) : null);
+  }
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest && ev.target.closest('[data-lw-rx]'); const R = _lwRoom; if(!b || !R) return;
+    ev.preventDefault(); const [i, k] = b.dataset.lwRx.split(':'); const m = R.chat[+i]; if(m && m.id && m.who !== 'You') _lwReact(R, m.id, k);
+  });
+  // typing: "Maria is typing" with three soft dots; it goes after 4 seconds without a new keystroke
+  function _lwTypingOut(){
+    const R = _lwRoom; if(!R || !R.co) return;
+    const now = Date.now(); if(now - (R.typeAt || 0) < 2500) return; R.typeAt = now;
+    const who = _lwIsHost() ? 'Justin' : ((Store.getName && Store.getName()) || 'Member');
+    try{ R.co.sendAppMessage({ t:'typing', who }, '*'); }catch(e){}
+  }
+  function _lwTypingIn(R, sid, d){
+    R.typing = R.typing || {};
+    if(d.stop) delete R.typing[sid];
+    else { const uid = _lwUidOf(R, sid); if(uid && _lwHidden().has(uid)) return; R.typing[sid] = { who:String(d.who || 'Someone').slice(0, 40), at:Date.now() }; }
+    _lwPaintTyping();
+    clearTimeout(R.typeT); R.typeT = setTimeout(_lwPaintTyping, 4100);
+  }
+  function _lwTypingLine(R){
+    const now = Date.now(), t = R.typing || {};
+    Object.keys(t).forEach(k => { if(now - t[k].at > 4000) delete t[k]; });
+    const n = Object.values(t).map(x => x.who);
+    if(!n.length) return '';
+    return n.length === 1 ? `${n[0]} is typing` : n.length === 2 ? `${n[0]} and ${n[1]} are typing` : `${n.length} people are typing`;
+  }
+  function _lwPaintTyping(){
+    const R = _lwRoom; if(!R) return;
+    const line = _lwTypingLine(R);
+    document.querySelectorAll('.lw-typing').forEach(el => {
+      if(!line){ el.classList.remove('on'); return; }
+      el.querySelector('.lw-typing-t').textContent = line; el.classList.add('on');
+    });
+    if(line){ clearTimeout(R.typeT); R.typeT = setTimeout(_lwPaintTyping, 1000); }
+  }
+  const LW_TYPING = '<div class="lw-typing" aria-live="polite"><span class="lw-typing-d" aria-hidden="true"><i></i><i></i><i></i></span><span class="lw-typing-t"></span></div>';
+  document.addEventListener('input', ev => { const t = ev.target; if(t && (t.id === 'lw-chat-in' || t.id === 'lw-chat-sheet-in') && t.value.trim()) _lwTypingOut(); });
+  // pinned message: the host pins one message at a time; it shows at the top of the chat (and above the controls on a phone)
+  const LW_ICO_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3.5h5a1 1 0 0 1 .9 1.4l-1 2.1 2.6 4.3c.4.7-.1 1.7-1 1.7H8c-.9 0-1.4-1-1-1.7L9.6 7l-1-2.1a1 1 0 0 1 .9-1.4z"/><path d="M12 13v7.5"/></svg>';
+  const _lwSafePin = p => { if(!p || typeof p !== 'object') return null; const text = String(p.text || '').slice(0, 500).trim(); if(!text) return null;
+    return { id:_lwSafeId(p.id), who:String(p.who || 'Justin').slice(0, 40), text }; };
+  // links in the pinned message (only the host can pin) open in a new tab
+  const _lwLinkify = t => escapeHtml(t).replace(/https:\/\/[^\s<>"']+[^\s<>"'.,;:!?)]/g, u => { const sh = u.replace(/^https:\/\//, ''), i = sh.indexOf('/'); return `<a href="${u}" target="_blank" rel="noopener">${i > 0 && sh.length > i + 1 ? sh.slice(0, i) + '/\u2026' : sh}</a>`; });
+  function _lwPinHTML(R, where){
+    const p = R && R.pin; if(!p) return '';
+    const un = _lwIsHost() ? `<button type="button" class="lw-pin-x" data-lw-unpin aria-label="Unpin">${_UP_X}</button>` : '';
+    return `<div class="lw-pin lw-pin-${where}" role="note" aria-label="Pinned message"><span class="lw-pin-ic">${LW_ICO_PIN}</span><div class="lw-pin-b"><span class="lw-pin-h">Pinned · ${escapeHtml(p.who === 'You' ? 'Justin' : p.who)}</span><p class="lw-pin-t">${_lwLinkify(p.text)}</p></div>${un}</div>`;
+  }
+  function _lwPaintPin(){
+    const R = _lwRoom; if(!R) return;
+    document.querySelectorAll('.lw-pin-slot').forEach(el => {
+      const html = _lwPinHTML(R, el.dataset.where || 'chat');
+      if(el.dataset.pid === String(R.pin ? R.pin.id + R.pin.text : '')) return;
+      el.dataset.pid = String(R.pin ? R.pin.id + R.pin.text : '');
+      el.innerHTML = html; if(html) el.firstElementChild.classList.add('lw-pin-in');
+    });
+    document.body.classList.toggle('lw-pinned', !!R.pin);
+  }
+  function _lwPinSet(R, pin){ R.pin = pin; _lwPaintPin(); }
+  function _lwPinSend(R, pin){
+    if(!R || !_lwIsHost()) return;
+    _lwPinSet(R, pin);
+    try{ R.co.sendAppMessage({ t:'pin', pin }, '*'); }catch(e){}
+    showToast(pin ? 'Pinned for everyone.' : 'Unpinned.');
+  }
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest && ev.target.closest('[data-lw-unpin]'); const R = _lwRoom; if(!b || !R) return;
+    ev.preventDefault(); _lwPinSend(R, null);
+  });
   // a list already on screen only gets the new messages (they animate in); a fresh list is drawn whole
   function _lwPaintChat(){
     const R = _lwRoom; if(!R) return;
@@ -4728,10 +4869,23 @@ function app(tab){
     const R = _lwRoom; if(!R) return; R.unread = 0;
     const b = document.querySelector('#lw-c-chat span'); if(b) b.textContent = 'Chat';
     const sh = _lwSheet('Chat', `<p class="lw-p lw-muted">Everyone in this call sees the chat. It is gone when the call ends. To write to Justin alone, use Messages.</p>
-      <div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>
+      <div class="lw-pin-slot" data-where="sheet"></div><div class="lw-chat-list lw-chat-sheet" id="lw-chat-sheet-list"></div>${LW_TYPING}
       <form class="lw-chat-form" id="lw-chat-sheet-form"><label class="vh" for="lw-chat-sheet-in">Write to the group</label><input id="lw-chat-sheet-in" type="text" maxlength="500" autocomplete="off" placeholder="Write to the group"><button class="btn" type="submit">Send</button></form>`, { host:document.getElementById('lw-room') });
-    _lwWireStateTg(sh.el); _lwPaintChat();
+    _lwWireStateTg(sh.el); _lwPaintChat(); _lwPaintPin(); _lwPaintTyping();
     sh.el.querySelector('#lw-chat-sheet-form').onsubmit = e => { e.preventDefault(); const i = sh.el.querySelector('#lw-chat-sheet-in'); _lwSend(i.value); i.value = ''; };
+  }
+  // the host's who-is-here as a sheet (phone and tablet, where the rail is not shown)
+  function _lwPplRows(R){
+    let ps = []; try{ ps = Object.values(R.co.participants()); }catch(e){}
+    ps.sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || (a.local ? -1 : 0) || new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
+    return ps.map(p => { const nm = String(p.user_name || 'Guest').trim() || 'Guest';
+      return `<li><span class="lw-ppl-av" aria-hidden="true">${escapeHtml(nm.charAt(0).toUpperCase())}</span><span class="lw-ppl-nm">${escapeHtml(nm)}${p.local ? ' (you)' : ''}</span>${p.owner ? '<span class="lw-ppl-tag">host</span>' : ''}${(!p.local && !p.owner && p.user_id) ? `<button class="lw-ppl-rm" type="button" data-lw-rm="${escapeHtml(p.session_id)}">Remove</button>` : ''}</li>`; }).join('');
+  }
+  function _lwPplSheet(){
+    const R = _lwRoom; if(!R || !R.co) return;
+    const sh = _lwSheet('Who is here', `<ul class="lw-ppl lw-ppl-sheet" aria-label="Who is here">${_lwPplRows(R)}</ul>`, { host:document.getElementById('lw-room') });
+    sh.el.querySelector('ul').onclick = e => { const b = e.target.closest && e.target.closest('[data-lw-rm]'); if(!b) return;
+      let p = null; try{ p = R.co.participants()[b.dataset.lwRm]; }catch(x){} if(p){ sh.close(); _lwRemoveAsk(p.user_id, p.session_id, p.user_name); } };
   }
   function _lwPaintHead(){
     const R = _lwRoom; if(!R || !R.co) return;
@@ -4742,10 +4896,7 @@ function app(tab){
     if(ul && hb){
       const open = !!R.pplOpen; ul.hidden = !open; hb.setAttribute('aria-expanded', String(open));
       hb.onclick = e => { e.stopPropagation(); R.pplOpen = !R.pplOpen; _lwPaintHead(); };
-      let ps = []; try{ ps = Object.values(R.co.participants()); }catch(e){}
-      ps.sort((a, b) => (b.owner ? 1 : 0) - (a.owner ? 1 : 0) || (a.local ? -1 : 0) || new Date(a.joined_at || 0) - new Date(b.joined_at || 0));
-      ul.innerHTML = ps.map(p => { const nm = String(p.user_name || 'Guest').trim() || 'Guest';
-        return `<li><span class="lw-ppl-av" aria-hidden="true">${escapeHtml(nm.charAt(0).toUpperCase())}</span><span class="lw-ppl-nm">${escapeHtml(nm)}${p.local ? ' (you)' : ''}</span>${p.owner ? '<span class="lw-ppl-tag">host</span>' : ''}${(!p.local && !p.owner && p.user_id) ? `<button class="lw-ppl-rm" type="button" data-lw-rm="${escapeHtml(p.session_id)}">Remove</button>` : ''}</li>`; }).join('');
+      ul.innerHTML = _lwPplRows(R);
       ul.onclick = e => { const b = e.target.closest && e.target.closest('[data-lw-rm]'); if(!b) return; e.stopPropagation();
         let p = null; try{ p = R.co.participants()[b.dataset.lwRm]; }catch(x){} if(p){ R.pplOpen = false; _lwPaintHead(); _lwRemoveAsk(p.user_id, p.session_id, p.user_name); } };
     }
