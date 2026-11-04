@@ -7015,7 +7015,7 @@ body.lw-sl-leaving .lw-r2 .lw-tile2{animation:lwRise .32s var(--ease) both}
   .lw-tile2{transition:opacity .2s}
 }
 /* desktop: the rail on 10-12, the area on 1-9, 40px top and bottom */
-@media (min-width:1120px){
+@media (min-width:900px){
   #lw-room.lw-r2{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:minmax(0,1fr);column-gap:var(--gap);padding:40px}
   .lw-r2 .lw-area{grid-column:1 / 10;grid-row:1}
   .lw-r2 .lw-rail{grid-column:10 / 13;grid-row:1;display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto}
@@ -7032,10 +7032,10 @@ body.lw-sl-on.lw-sl-dark .lw-r2 .lw-rc{background:rgba(26,31,42,.62);border-colo
 body.lw-sl-on.lw-sl-dark .lw-r2 .lw-here,body.lw-sl-on.lw-sl-dark .lw-r2 .lw-cn{color:rgba(250,249,245,.72)}
 body.lw-sl-on .lw-r2 .lw-here,body.lw-sl-on .lw-r2 .lw-cn{color:rgba(26,31,42,.66)}
 body.lw-sl-leaving #lw-room.lw-r2{background:transparent}
-@media (min-width:1120px){
+@media (min-width:900px){
   body.lw-sl-on #lw-room.lw-r2{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:minmax(0,1fr);column-gap:var(--gap);padding:40px}
 }
-@media (max-width:1119.98px){
+@media (max-width:899.98px){
   body.lw-sl-on #lw-room.lw-r2{display:flex;flex-direction:column;justify-content:flex-end;padding-inline:var(--pad-x)}
   body.lw-sl-on #lw-room.lw-r2 .lw-area{flex:0 0 0;height:0}
 }
@@ -7237,7 +7237,7 @@ body.reduce-motion .lw-typing-d i{animation:none;opacity:.6}
 .lw-pin-dockslot .lw-pin{background:var(--bone);box-shadow:0 6px 20px -14px rgba(0,0,0,.35)}
 body.lw-sl-on .lw-pin-dockslot .lw-pin{background:rgba(250,249,245,.84);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);--ink:#1A1F2A;--muted:rgba(26,31,42,.66);--hairline:rgba(26,31,42,.16);color:#1A1F2A}
 body.lw-sl-on.lw-sl-dark .lw-pin-dockslot .lw-pin{background:rgba(26,31,42,.62);--ink:#FAF9F5;--muted:rgba(250,249,245,.72);--hairline:rgba(250,249,245,.2);color:#FAF9F5}
-@media (min-width:1120px){ .lw-pin-dockslot{display:none} }
+@media (min-width:900px){ .lw-pin-dockslot{display:none} }
 /* reactions: chips under a message; the picker sits at the top of the message's sheet */
 .lw-rxs{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .lw-rx{position:relative;display:inline-flex;align-items:center;gap:5px;min-height:30px;padding:0 10px;border:1px solid var(--hairline);border-radius:999px;background:none;color:var(--ink);font:inherit;font-size:13px;cursor:pointer;transition:background-color .2s var(--ease),border-color .2s var(--ease)}
@@ -7284,3 +7284,9 @@ body.lw-sl-on.lw-sl-dark .lw-pin-dockslot .lw-pin{background:rgba(26,31,42,.62);
 .lw-shcard-h{margin:0;font-size:calc(15px * var(--type-scale));line-height:1.3;font-weight:500;color:var(--ink)}
 .lw-shcard-tag{font-size:.82em;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .lw-shcard-g .triglyph{height:44px;width:auto;display:block}
+/* live-tweaks-r7: 900-1119, a wider rail (columns 9-12) and less padding */
+@media (min-width:900px) and (max-width:1119.98px){
+  #lw-room.lw-r2,body.lw-sl-on #lw-room.lw-r2{padding:24px}
+  .lw-r2 .lw-area{grid-column:1 / 9}
+  .lw-r2 .lw-rail{grid-column:9 / 13}
+}
