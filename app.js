@@ -4422,6 +4422,9 @@ function app(tab){
         ${host ? `<button type="button" class="lw-ctl lw-end" data-proxy="lw-c-leave" aria-label="End or leave the event">${LW_ICO.hangup}</button>` : '<button type="button" class="lw-rp" data-proxy="lw-c-leave">Leave</button>'}</div>
         <div class="lw-dk-btns" style="--n:${dRow.length}">${dRow.join('')}</div></nav>`;
     const enter = !R.entered || R.riseNext; R.entered = true; R.riseNext = false;
+    // an open sheet (the chat, a message's options) is carried across the redraw, typing and cursor intact
+    const keepSh = document.getElementById('lw-sheet'), keepFocus = (keepSh && keepSh.contains(document.activeElement)) ? document.activeElement : null;
+    if(keepSh) keepSh.remove();
     setHTML(`<div class="lw-room lw-r2${mm ? ' lw-r2-mm' : ''}${host ? ' lw-r2-host' : ''}${enter ? ' lw-enter' : ''}" id="lw-room">
       <div class="lw-area" id="lw-area">${mm ? '<div class="lw-vid lw-big" id="lw-stage" data-lw-spot="owner"></div>' : '<div class="lw-bento" id="lw-grid"></div>'}
         ${R.needsTap ? `<button class="lw-tap" type="button" id="lw-tap">${LW_ICO.sound}Tap for sound</button>` : ''}</div>
@@ -4431,6 +4434,7 @@ function app(tab){
       ${dock}
       <div id="lw-audio" hidden></div></div>`);
     if(enter) setTimeout(() => { const r = document.getElementById('lw-room'); if(r) r.classList.remove('lw-enter'); }, 700);
+    if(keepSh){ const rm = document.getElementById('lw-room'); if(rm) rm.appendChild(keepSh); if(keepFocus) try{ keepFocus.focus({ preventScroll:true }); }catch(e){} }
     _lwPaint();
     const co = R.co;
     if(host) $('#lw-c-leave').onclick = () => { const sh = _lwSheet('End the event?', `<p class="lw-p">End it for everyone, or leave and keep the room open for the others.</p>
