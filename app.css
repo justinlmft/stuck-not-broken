@@ -7290,3 +7290,18 @@ body.lw-sl-on.lw-sl-dark .lw-pin-dockslot .lw-pin{background:rgba(26,31,42,.62);
   .lw-r2 .lw-area{grid-column:1 / 9}
   .lw-r2 .lw-rail{grid-column:9 / 13}
 }
+/* media page data pictures in the You tab's style (data-pictures-r5, 2026-11-04) */
+.lm-lead .panel.lm-pic{flex:none;min-height:0;margin:0}
+.lm-pic .rc-chart{justify-content:center}
+.lm-pic .rc-col{max-width:76px}
+.lm-pic .rc-lb{text-align:center;line-height:1.2;min-height:15px}
+.lm-pic .rc-lb .st-marks{transform:scale(.85)}
+.lm-pic .lm-pic-note{margin:-4px 0 0}
+.rc-chart.pc-2l{height:106px}
+.rc-chart.pc-2l .rc-lb{min-height:2.4em;align-items:flex-start}
+.pc-tiles{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 16px}
+.pc-tiles i{width:14px;height:14px;border-radius:4px;display:block}
+.pc-sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.pc-pair{display:flex;gap:2px;align-items:flex-end;width:100%}
+.pc-pair .rc-bar{flex:1;width:auto}
+.panel.panel-in .pc-pair .rc-bar{animation-delay:var(--sd,0ms)}
