@@ -505,9 +505,16 @@
       // Its own read, so a database without the column never breaks the reads above.
       try{ const xr = await sb.from('entitlements').select('legacy_expires_at').eq('user_id', auth.user.id).maybeSingle();
         if(xr && !xr.error) auth.ent.until = (xr.data && xr.data.legacy_expires_at) || null; }catch(e){}
+      // Unstucking Academy Lifetime Members keep the app for good (Justin, 2026-11-13). The tier is stamped 'lifetime'
+      // from Circle tag 159223 by circle-membership / membership-sweep; public.member_is_paid grants on it server-side.
+      // Not tied to the Academy carryover (circle_member) and never dated. Its own read, like the ones above.
+      try{ const tr = await sb.from('entitlements').select('tier').eq('user_id', auth.user.id).maybeSingle();
+        if(tr && !tr.error) auth.ent.lifetime = !!(tr.data && tr.data.tier === 'lifetime');
+        else { const c1 = _readBillingCache(); auth.ent.lifetime = !!(c1 && c1.lifetime); } }
+      catch(e){ const c1 = _readBillingCache(); auth.ent.lifetime = !!(c1 && c1.lifetime); }
       if(auth.ent.until && new Date(auth.ent.until).getTime() <= Date.now()) auth.ent.legacy = false;
       _writeBillingCache({ status: auth.billing ? auth.billing.sub_status : null,
-                           circle: auth.ent.circle, legacy: auth.ent.legacy, academy: auth.ent.academy, until: auth.ent.until || null,
+                           circle: auth.ent.circle, legacy: auth.ent.legacy, lifetime: !!auth.ent.lifetime, academy: auth.ent.academy, until: auth.ent.until || null,
                            store: auth.store || null, at: Date.now() });
       _storeSyncOnce();
       if(typeof notify === 'function') notify();
@@ -558,9 +565,9 @@
     if(isAnonymous()) return false;            // a guest has no account yet
     if(_billingActive()) return true;          // paying
     if(_storeActive()) return true;            // paying through the App Store / Google Play
-    if(typeof auth.ent === 'object' && auth.ent) return !!(auth.ent.circle || auth.ent.legacy);
+    if(typeof auth.ent === 'object' && auth.ent) return !!(auth.ent.lifetime || auth.ent.circle || auth.ent.legacy);
     const c = _readBillingCache();             // network hasn't answered yet
-    return !!(c && (c.circle || (c.legacy && !(c.until && new Date(c.until).getTime() <= Date.now()))));
+    return !!(c && (c.lifetime || c.circle || (c.legacy && !(c.until && new Date(c.until).getTime() <= Date.now()))));
   }
   // WHY this account has the base plan — display only (settings names the reason
   // instead of calling a grandfathered/Academy account "the free plan", 2026-07-14).
@@ -573,7 +580,7 @@
     const e = (typeof auth.ent === 'object' && auth.ent) ? auth.ent : (_readBillingCache() || {});
     const until = e.until || null, t = until ? new Date(until).getTime() : 0, live = !!e.legacy && !(t && t <= Date.now());
     // ended = dated free access that ran out in the last 60 days (older dated testers never see the prompt)
-    return { sub: _billingActive(), store: _storeActive(), circle: !!e.circle, legacy: live,
+    return { sub: _billingActive(), store: _storeActive(), lifetime: !!e.lifetime, circle: !!e.circle, legacy: live,
              until: (live && t) ? until : null, ended: (t && t <= Date.now() && Date.now() - t < 60*864e5) ? until : null };
   }
   async function _postFn(name, body){

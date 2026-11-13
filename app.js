@@ -15271,6 +15271,10 @@ function app(tab){
             if(b && b.sub_status==='active')
               return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note">You’re on Self-Regulator. Change between monthly and annual, or cancel, anytime.</p><button class="set-quiet" id="manage-sub">Manage, change, or cancel subscription</button></div>`;
             if(!Store.cloud()) return '';
+            // Unstucking Academy Lifetime Member (2026-11-13): included for good. Before the dated-free and Academy lines,
+            // so it is never worded as time-limited or as tied to Academy membership.
+            if(ent.lifetime)
+              return `<div class="st-item st-plan"><p class="st-lbl">Your plan</p><p class="gs-note" style="margin:0">Your account includes everything in Self-Regulator, for life. It comes with your Lifetime Membership in the Unstucking Academy.</p></div>`;
             // free Self-Regulator until a date (GMS 2026-10-28, the early move from Circle): say when it ends and what
             // happens after, before the Academy line (an Academy member on dated free time loses the Academy access first)
             if(ent.legacy && ent.until)
